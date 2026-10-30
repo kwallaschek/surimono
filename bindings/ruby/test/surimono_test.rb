@@ -19,6 +19,7 @@ class SurimonoTest < Minitest::Test
       if (spec.limit === "time") { for (;;) {} }
       if (spec.limit === "memory") { const a = []; for (;;) a.push(new Array(1e5).fill(1)); }
       if (spec.limit === "stack") { const f = (n) => f(n + 1) + 1; f(0); }
+      if (spec.label) return `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="20"><text x="0" y="15" font-family="sans-serif" font-size="12">${spec.label}</text></svg>`;
       if (spec.clock) return `<svg xmlns="http://www.w3.org/2000/svg" data-t="${Date.now()}" data-h="${new Date().getHours()}"></svg>`;
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}"></svg>`;
     }
@@ -167,6 +168,17 @@ class SurimonoTest < Minitest::Test
     only = Surimono::Renderer.new(bundles: { mine: "function entry(){}" }, renderers: [:mine])
     assert_equal ["mine"], only.renderers
     assert_raises(Surimono::RenderError) { only.render(island) }
+  end
+
+  def test_text_outlines_by_default_or_kept
+    font = font_bytes
+    outlined = Surimono::Renderer.new(fonts: [font], bundles: BUNDLES).render(island('{"label": "Sales"}'))
+    refute_includes outlined, "<text"
+    assert_includes outlined, "<path"
+    assert_includes outlined, "Sales" # kept as the label of the outlines
+    kept = Surimono::Renderer.new(fonts: [font], bundles: BUNDLES, text: :keep).render(island('{"label": "Sales"}'))
+    assert_includes kept, "<text"
+    assert_raises(ArgumentError) { Surimono::Renderer.new(text: :pixels) }
   end
 
   def test_clock_options

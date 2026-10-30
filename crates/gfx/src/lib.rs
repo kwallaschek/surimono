@@ -20,6 +20,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+#![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
+
 mod css_font;
 mod error;
 mod fonts;
@@ -30,7 +32,9 @@ pub use css_font::GenericFamily;
 pub use error::GfxError;
 pub use fonts::FontSet;
 pub use measure::{MAX_TEXT_BYTES, TextMeasurer, TextMetrics};
-pub use svg::{MAX_SVG_DEPTH, MAX_SVG_NODES, sanitize_svg};
+pub use svg::{
+    MAX_OUTLINE_CHARS, MAX_SVG_DEPTH, MAX_SVG_NODES, SvgOptions, TextMode, sanitize_svg,
+};
 
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

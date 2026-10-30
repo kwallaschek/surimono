@@ -7,7 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
-use surimono::{Options, Renderer};
+use surimono::{Options, Renderer, TextMode};
 
 const MARKER_TYPE: &str = "application/vnd.surimono+json";
 
@@ -91,10 +91,10 @@ fn echarts_bar_simple_latin_becomes_sanitised_svg() {
     for (i, _) in island.match_indices(" id=\"") {
         assert!(island[i + 5..].starts_with("sm0-"), "unprefixed id");
     }
-    assert!(
-        island.contains("Noto Sans"),
-        "text not set in the fixture font"
-    );
+    // Text is outlined in the fixture font by default (TextMode::Outlines):
+    // no <text> is left, and the words stay as labels for accessibility.
+    assert!(!lower.contains("<text"), "text left as <text>");
+    assert!(lower.contains("<path"));
     assert!(
         island.contains("Invoiced revenue (EUR)"),
         "chart title missing"
@@ -131,4 +131,20 @@ fn two_echarts_islands_share_no_ids() {
     for id in &ids {
         assert!(seen.insert(*id), "id {id:?} appears twice");
     }
+}
+
+/// With TextMode::Keep, text stays text, set in the registered family.
+#[test]
+fn keep_mode_keeps_text_in_the_registered_font() {
+    let input = String::from_utf8(read("fixtures/islands/echarts-bar-simple-latin/input.html"))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let options = Options::new()
+        .font(read("fixtures/fonts/NotoSans-Regular.ttf"))
+        .font(read("fixtures/fonts/NotoSans-Bold.ttf"))
+        .text_mode(TextMode::Keep);
+    let out = Renderer::new(options)
+        .and_then(|r| r.render_islands(&input))
+        .unwrap_or_else(|e| panic!("{e}"));
+    assert!(out.contains("<text"));
+    assert!(out.contains("Noto Sans"));
 }

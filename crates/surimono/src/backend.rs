@@ -30,8 +30,8 @@ pub(crate) fn font_set(fonts: Vec<Vec<u8>>) -> Result<FontSet, Error> {
     clippy::field_reassign_with_default,
     reason = "field by field keeps compiling if the type becomes #[non_exhaustive]"
 )]
-fn measurer(fonts: &FontSet) -> TextMeasurer {
-    let gfx = surimono_gfx::TextMeasurer::new(fonts.clone());
+fn measurer(gfx: &surimono_gfx::TextMeasurer) -> TextMeasurer {
+    let gfx = gfx.clone();
     TextMeasurer::new(move |text, css_font| {
         let m = gfx.measure(text, css_font).map_err(|e| e.to_string())?;
         let mut out = TextMetrics::default();
@@ -65,7 +65,10 @@ fn core_limits(l: Limits) -> surimono_core::Limits {
     clippy::field_reassign_with_default,
     reason = "field by field keeps compiling if the type becomes #[non_exhaustive]"
 )]
-pub(crate) fn runner(options: &Options, fonts: &FontSet) -> Result<IslandRunner, Error> {
+pub(crate) fn runner(
+    options: &Options,
+    gfx: &surimono_gfx::TextMeasurer,
+) -> Result<IslandRunner, Error> {
     let mut o = RunnerOptions::default();
     o.limits = core_limits(options.limits);
     // The facade decides the default; it rejects an explicit 0 before this.
@@ -75,7 +78,7 @@ pub(crate) fn runner(options: &Options, fonts: &FontSet) -> Result<IslandRunner,
     o.seed = options.seed;
     o.now_ms = options.now_ms.unwrap_or(crate::options::DEFAULT_NOW_MS);
     o.utc_offset_minutes = options.utc_offset_minutes;
-    o.text_measurer = measurer(fonts);
+    o.text_measurer = measurer(gfx);
     IslandRunner::new(o).map_err(|e| match e {
         IslandError::InvalidOptions { message } => Error::InvalidOptions(message),
         other => Error::InvalidOptions(other.to_string()),

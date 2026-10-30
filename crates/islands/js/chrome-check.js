@@ -21,8 +21,8 @@
 // structural differences: element counts by tag and the multiset of text
 // contents. Pixel comparison is the conformance suite's job (fixtures/).
 //
-// Needs Playwright with its Chromium (require('playwright')); it never
-// downloads browsers. Exit code 1 if a same-metrics render is not identical.
+// Needs Playwright 1.63.0 (pinned in package.json, as in fixtures/tools)
+// with its Chromium already installed; it never downloads browsers. Exit code 1 if a same-metrics render is not identical.
 'use strict';
 
 const fs = require('fs');
@@ -113,6 +113,7 @@ async function renderInPage({ renderer, mode, specJson, width, height }) {
     off(spec);
     off(spec.baseOption);
     if (Array.isArray(spec.options)) spec.options.forEach(off);
+    if (Array.isArray(spec.media)) spec.media.forEach((m) => m && off(m.option));
     if (mode === 'chrome-dom') {
       const div = document.createElement('div');
       div.style.width = width + 'px';

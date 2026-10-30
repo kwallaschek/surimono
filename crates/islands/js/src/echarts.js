@@ -61,10 +61,16 @@ function entry(specJson, ctx) {
   if (!isObject(option)) {
     throw new TypeError('echarts: the island spec must be an ECharts option object');
   }
-  // A timeline option keeps its parts under baseOption and options.
+  // A timeline option keeps its parts under baseOption and options, and a
+  // responsive one under media[].option.
   disableAnimation(option);
   disableAnimation(option.baseOption);
   if (Array.isArray(option.options)) option.options.forEach(disableAnimation);
+  if (Array.isArray(option.media)) {
+    for (const m of option.media) {
+      if (isObject(m)) disableAnimation(m.option);
+    }
+  }
 
   echarts.setPlatformAPI({
     measureText: (text, font) => ctx.measureText(text, font),

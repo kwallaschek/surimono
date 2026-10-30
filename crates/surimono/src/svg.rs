@@ -5,11 +5,13 @@
 //! thing the pre-pass will put into a document, and the only way to make one
 //! is [`SanitizedSvg::new`], which runs `surimono_gfx::sanitize_svg`: one well
 //! formed `<svg>` element, no scripts, event handlers, external references or
-//! HTML that could end the wrapper, ids prefixed per island, and font families
-//! mapped to the registered fonts.
+//! HTML that could end the wrapper, ids prefixed per island, font families
+//! mapped to the registered fonts, and (with [`TextMode::Outlines`]) text turned
+//! into outlines in those fonts.
 
-use surimono_gfx::FontSet;
+use surimono_gfx::{SvgOptions, TextMeasurer};
 
+use crate::TextMode;
 use crate::error::{Error, IslandRef};
 
 /// SVG that went through `surimono_gfx::sanitize_svg` and is safe to inline.
@@ -20,8 +22,17 @@ impl SanitizedSvg {
     /// Sanitises a renderer's output for the island `at`. SVG that can't be
     /// made safe (not XML, no `<svg>` root, too large or too deep) is an
     /// [`Error::Render`] for that island.
-    pub(crate) fn new(svg: &str, at: &IslandRef, fonts: &FontSet) -> Result<Self, Error> {
-        surimono_gfx::sanitize_svg(svg, at.index, fonts)
+    pub(crate) fn new(
+        svg: &str,
+        at: &IslandRef,
+        measurer: &TextMeasurer,
+        mode: TextMode,
+    ) -> Result<Self, Error> {
+        let text = match mode {
+            TextMode::Keep => surimono_gfx::TextMode::Keep,
+            _ => surimono_gfx::TextMode::Outlines,
+        };
+        surimono_gfx::sanitize_svg(svg, at.index, measurer, &SvgOptions::new().with_text(text))
             .map(Self)
             .map_err(|e| Error::Render {
                 island: at.clone(),
@@ -56,7 +67,8 @@ mod tests {
              <script>alert(2)</script><rect id=\"r\" width=\"1\" height=\"1\"/>\
              <use href=\"#r\"/></svg>",
             &at(),
-            &FontSet::new(),
+            &TextMeasurer::new(surimono_gfx::FontSet::new()),
+            TextMode::Keep,
         )
         .unwrap_or_else(|e| panic!("{e}"));
         let s = svg.as_str();
@@ -75,7 +87,12 @@ mod tests {
             "<p>not svg</p>",
             "",
         ] {
-            match SanitizedSvg::new(hostile, &at(), &FontSet::new()) {
+            match SanitizedSvg::new(
+                hostile,
+                &at(),
+                &TextMeasurer::new(surimono_gfx::FontSet::new()),
+                TextMode::Outlines,
+            ) {
                 Err(Error::Render { island, message }) => {
                     assert_eq!(island.index, 2);
                     assert!(message.contains("can't be used"), "{message}");

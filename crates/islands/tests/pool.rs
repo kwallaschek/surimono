@@ -221,11 +221,10 @@ fn an_idle_worker_preloads_the_last_bundle() {
 
 #[test]
 fn preloaded_and_cold_renders_give_the_same_output() {
-    // Top-level state, randomness and a microtask the bundle queues: a
-    // preloaded render must see exactly what a cold one sees.
+    // Top-level state and randomness: a preloaded render must see exactly
+    // what a cold one sees.
     const STATEFUL: &str = r#"
 var log = ['top ' + Math.random()];
-Promise.resolve().then(() => log.push('microtask ' + Math.random()));
 function entry(specJson, ctx) {
   log.push('entry ' + Math.random());
   return log.join('|');
@@ -236,7 +235,7 @@ function entry(specJson, ctx) {
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     let first = render(&r, "s").unwrap();
-    assert_eq!(first.matches('|').count(), 2, "{first}");
+    assert_eq!(first.matches('|').count(), 1, "{first}");
     for i in 0..6 {
         // Odd rounds switch renderer first, so the next "s" render is cold.
         if i % 2 == 1 {
@@ -248,6 +247,40 @@ function entry(specJson, ctx) {
     let stats = r.stats();
     assert!(stats.preloaded_renders >= 2, "{stats:?}");
     assert!(stats.preloaded_renders < stats.renders - 3, "{stats:?}");
+}
+
+#[test]
+fn a_bundle_that_queues_microtasks_is_never_preloaded() {
+    // The microtask must run after the entry's synchronous part, as in a
+    // cold render; a preload would have run it before. This also shows that
+    // a cold render loads the bundle and calls the entry in one sandbox
+    // call, which is what gives the island one deadline: a separate call
+    // for the bundle would have drained its microtask first.
+    const QUEUES: &str = r#"
+var log = ['top'];
+Promise.resolve().then(() => log.push('microtask'));
+function entry() { return log.join('|') }
+"#;
+    let r = IslandRunner::new(options(1)).unwrap();
+    r.register_bundle("q", QUEUES, "entry").unwrap();
+    for _ in 0..4 {
+        assert_eq!(render(&r, "q").unwrap(), "top");
+        idle();
+    }
+    assert_eq!(r.stats().preloaded_renders, 0);
+}
+
+#[test]
+fn idle_workers_are_counted() {
+    let r = IslandRunner::new(options(2)).unwrap();
+    r.register_bundle("x", "function entry() { return 'x' }", "entry")
+        .unwrap();
+    render(&r, "x").unwrap();
+    let start = std::time::Instant::now();
+    while r.stats().idle_workers != 2 {
+        assert!(start.elapsed() < Duration::from_secs(10), "{:?}", r.stats());
+        std::thread::sleep(Duration::from_millis(2));
+    }
 }
 
 #[test]

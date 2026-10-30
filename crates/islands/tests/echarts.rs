@@ -2,7 +2,7 @@
 //!
 //! The options live in `tests/echarts/*.json`. Set `SURIMONO_DUMP_DIR` to
 //! write each rendered SVG there (`<name>.svg`), e.g. for
-//! `js/chrome-check.mjs`, which renders the same options in Chromium.
+//! `js/chrome-check.js`, which renders the same options in Chromium.
 #![cfg(feature = "echarts")]
 
 use std::path::{Path, PathBuf};
@@ -220,6 +220,14 @@ fn bad_specs_are_typed_errors() {
 fn series_cannot_turn_animation_back_on() {
     let spec = r#"{"animation":true,"xAxis":{"type":"category","data":["a","b"]},"yAxis":{},
         "series":[{"type":"bar","animation":true,"animationDuration":5000,"data":[3,4]}]}"#;
+    let svg = render(&runner(), spec).unwrap();
+    check_svg(&svg);
+    assert!(!svg.contains("@keyframes"), "animation must be off: {svg}");
+    // Nor can a timeline or media (responsive) part.
+    let spec = r#"{"baseOption":{"xAxis":{"type":"category","data":["a","b"]},"yAxis":{},
+        "series":[{"type":"bar","data":[3,4]}]},
+        "media":[{"option":{"animation":true,"series":[{"animation":true}]}}],
+        "options":[{"animation":true,"series":[{"animation":true,"data":[5,6]}]}]}"#;
     let svg = render(&runner(), spec).unwrap();
     check_svg(&svg);
     assert!(!svg.contains("@keyframes"), "animation must be off: {svg}");
