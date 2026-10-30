@@ -49,6 +49,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-05 · CF · review · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
 - P1-CF-06 · CF · review · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
 - P1-CF-08 · CF · review · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
+- P1-CF-09 · CF · todo · Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
 - P1-CF-07 · CF · review · COMPAT.md generated from test results
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
