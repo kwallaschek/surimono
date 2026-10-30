@@ -23,23 +23,25 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.87"
 license = "MIT OR Apache-2.0"
 description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
 keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
 categories = ["rendering", "web-programming"]
-publish = false
+# The release PR sets this; crates that must never be published say
+# `publish = false` themselves (surimono-ruby).
+publish = true
 
 [workspace.dependencies]
 # Internal crates
-surimono-core = { path = "crates/core", version = "0.0.0" }
-surimono-webidl = { path = "crates/webidl", version = "0.0.0" }
-surimono-dom = { path = "crates/dom", version = "0.0.0" }
-surimono-gfx = { path = "crates/gfx", version = "0.0.0" }
-surimono-islands = { path = "crates/islands", version = "0.0.0" }
-surimono = { path = "crates/surimono", version = "0.0.0" }
+surimono-core = { path = "crates/core", version = "0.1.0" }
+surimono-webidl = { path = "crates/webidl", version = "0.1.0" }
+surimono-dom = { path = "crates/dom", version = "0.1.0" }
+surimono-gfx = { path = "crates/gfx", version = "0.1.0" }
+surimono-islands = { path = "crates/islands", version = "0.1.0" }
+surimono = { path = "crates/surimono", version = "0.1.0" }
 
 # JS engine: QuickJS-ng through rquickjs. Exact pin; upgrades are planned tasks.
 rquickjs = { version = "=0.14.0", default-features = false, features = ["std", "classes", "properties", "array-buffer"] }
