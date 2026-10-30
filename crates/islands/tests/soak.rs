@@ -136,14 +136,27 @@ struct Soak<'a> {
     /// The runner's heap limit per render.
     memory_bytes: usize,
     renders: usize,
-    /// Renders per round; memory is sampled between rounds, after `pause`,
-    /// with no render in flight and the workers done recycling.
+    /// Renders per round; memory is sampled between rounds, once every
+    /// worker is idle (reset and preloaded), with no render in flight.
     sample_every: usize,
     /// Live heap bytes are compared from this render on.
     warm_up: usize,
-    pause: Duration,
     spec: &'a (dyn Fn(usize) -> String + Sync),
     check: &'a (dyn Fn(usize, Result<String, IslandError>) + Sync),
+}
+
+/// Waits until every worker is idle: its runtime reset and preloaded, so
+/// nothing allocates until the next render.
+fn wait_until_idle(runner: &IslandRunner) {
+    let start = Instant::now();
+    while runner.stats().idle_workers < runner.pool_size() {
+        assert!(
+            start.elapsed() < Duration::from_secs(60),
+            "workers never went idle: {:?}",
+            runner.stats()
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
 }
 
 /// Soaks run one at a time: the live-byte counter is process-wide, and the
@@ -185,7 +198,7 @@ fn run_soak(soak: &Soak<'_>) {
                 });
             }
         });
-        std::thread::sleep(soak.pause);
+        wait_until_idle(soak.runner);
         samples.push(Sample {
             renders: base + soak.sample_every,
             live: live_bytes(),
@@ -195,10 +208,9 @@ fn run_soak(soak: &Soak<'_>) {
     let elapsed = started.elapsed();
 
     eprintln!(
-        "{name}: {} renders in {elapsed:?} ({:?} per render incl. {rounds} pauses of {:?}), {CALLERS} callers, {} workers, first SVG {} bytes",
+        "{name}: {} renders in {elapsed:?} ({:?} per render incl. {rounds} waits for idle workers), {CALLERS} callers, {} workers, first SVG {} bytes",
         soak.renders,
         elapsed / soak.renders as u32,
-        soak.pause,
         soak.runner.pool_size(),
         first_svg_len.load(Ordering::Relaxed)
     );
@@ -271,7 +283,6 @@ fn soak_10000_renders_flat_memory() {
         renders: RENDERS,
         sample_every: 500,
         warm_up: 2_000,
-        pause: Duration::from_millis(100),
         spec: &spec,
         check: &check,
     });
@@ -325,8 +336,6 @@ fn soak_echarts_2000_renders_flat_memory() {
         renders: RENDERS,
         sample_every: 250,
         warm_up: 500,
-        // Long enough for both workers to preload ECharts again.
-        pause: Duration::from_millis(500),
         spec: &spec,
         check: &check,
     });
@@ -373,8 +382,6 @@ fn soak_vega_lite_600_renders_flat_memory() {
         renders: RENDERS,
         sample_every: 150,
         warm_up: 300,
-        // Long enough for both workers to preload Vega again.
-        pause: Duration::from_millis(800),
         spec: &spec,
         check: &check,
     });

@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TryRecvError};
-use std::sync::{Arc, Mutex, PoisonError, RwLock};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, TryLockError};
 use std::thread::{self, JoinHandle};
 
 use surimono_core::rquickjs::function::Opt;
@@ -93,6 +93,10 @@ struct Bundle {
     name: String,
     entry: String,
     bytecode: Bytecode,
+    /// Cleared once the bundle's top level is seen to queue a microtask: a
+    /// render must then run that microtask in its own call, after the
+    /// bundle and before the entry, so it is never preloaded.
+    preloadable: AtomicBool,
 }
 
 struct RenderJob {
@@ -122,6 +126,7 @@ struct Shared {
     renders: AtomicU64,
     failed_renders: AtomicU64,
     preloaded_renders: AtomicU64,
+    idle_workers: AtomicUsize,
 }
 
 /// Counters for an [`IslandRunner`], for monitoring and tests.
@@ -135,6 +140,9 @@ pub struct RunnerStats {
     /// Renders whose bundle a worker had already loaded into its fresh
     /// runtime while it was idle, so the request skipped that step.
     pub preloaded_renders: u64,
+    /// Workers waiting for a job right now, with their runtime reset and
+    /// preloaded. Equal to the pool size when the runner is quiet.
+    pub idle_workers: usize,
 }
 
 /// Renders islands: JavaScript bundles that turn a JSON spec into an SVG
@@ -155,9 +163,15 @@ pub struct RunnerStats {
 /// same SVG. Each worker prepares the runtime for its next render right
 /// after sending a reply, off the caller's clock: it starts a fresh runtime
 /// and, if no request is waiting, evaluates the bundle it rendered last, so
-/// a repeated renderer skips that step. A render first evaluates its bundle
-/// (unless preloaded) and then calls the entry; the limits apply to each of
-/// the two steps, and the result is the same either way.
+/// a repeated renderer skips that step. (A bundle whose top level queues
+/// microtasks is never preloaded.) The limits apply to each island as a
+/// whole: one time budget covers loading the bundle, if it wasn't
+/// preloaded, the entry call and the microtasks it queues. The result is
+/// the same either way.
+///
+/// A custom [`TextMeasurer`] runs inside that budget, on the worker
+/// thread, and must return promptly: the time limit can only interrupt
+/// JavaScript, not a measurer that blocks.
 ///
 /// `IslandRunner` is `Send + Sync`: share it between threads (e.g. in an
 /// `Arc`); [`render`](Self::render) blocks the calling thread until a worker
@@ -207,6 +221,7 @@ impl IslandRunner {
             renders: AtomicU64::new(0),
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
+            idle_workers: AtomicUsize::new(0),
         });
         let (tx, rx) = mpsc::channel::<Job>();
         let rx = Arc::new(Mutex::new(rx));
@@ -342,6 +357,7 @@ impl IslandRunner {
             renders: self.shared.renders.load(Ordering::Relaxed),
             failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
             preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
+            idle_workers: self.shared.idle_workers.load(Ordering::SeqCst),
         }
     }
 
@@ -398,18 +414,26 @@ impl Worker {
         // Warm up before the first job arrives.
         let _ = self.sandbox();
         loop {
-            // A waiting job goes first; otherwise preload while idle.
-            let waiting = {
-                let rx = jobs.lock().unwrap_or_else(PoisonError::into_inner);
-                rx.try_recv()
+            // A waiting job goes first; otherwise preload while idle. If
+            // another worker holds the queue, it is waiting for the next job
+            // itself, so there is nothing for this one yet.
+            let waiting = match jobs.try_lock() {
+                Ok(rx) => rx.try_recv(),
+                Err(TryLockError::Poisoned(rx)) => rx.into_inner().try_recv(),
+                Err(TryLockError::WouldBlock) => Err(TryRecvError::Empty),
             };
             let job = match waiting {
                 Ok(job) => Ok(job),
                 Err(TryRecvError::Disconnected) => return,
                 Err(TryRecvError::Empty) => {
                     self.preload();
-                    let rx = jobs.lock().unwrap_or_else(PoisonError::into_inner);
-                    rx.recv()
+                    self.shared.idle_workers.fetch_add(1, Ordering::SeqCst);
+                    let job = {
+                        let rx = jobs.lock().unwrap_or_else(PoisonError::into_inner);
+                        rx.recv()
+                    };
+                    self.shared.idle_workers.fetch_sub(1, Ordering::SeqCst);
+                    job
                 }
             };
             let Ok(job) = job else {
@@ -487,17 +511,27 @@ impl Worker {
         let Some(bundle) = self.last_bundle.clone() else {
             return;
         };
-        if self.preloaded.is_some() {
+        if self.preloaded.is_some() || !bundle.preloadable.load(Ordering::Relaxed) {
             return;
         }
+        // Ok(true): loaded with nothing queued, so a render can start
+        // straight at the entry, exactly as if it had evaluated the bundle
+        // itself in the same call.
         let loaded = catch_unwind(AssertUnwindSafe(|| {
-            self.sandbox()
-                .and_then(|sb| Ok(sb.eval_bytecode(&bundle.bytecode)?))
-                .is_ok()
+            self.sandbox().and_then(|sb| {
+                Ok(sb.run(|ctx| {
+                    bundle.bytecode.eval(ctx)?;
+                    Ok(!ctx.execute_pending_job())
+                })?)
+            })
         }));
         match loaded {
-            Ok(true) => self.preloaded = Some(bundle),
-            Ok(false) => self.recycle(),
+            Ok(Ok(true)) => self.preloaded = Some(bundle),
+            Ok(Ok(false)) => {
+                bundle.preloadable.store(false, Ordering::Relaxed);
+                self.recycle();
+            }
+            Ok(Err(_)) => self.recycle(),
             // The runtime may be mid-call; never reuse it.
             Err(_) => self.sandbox = None,
         }
@@ -538,6 +572,7 @@ impl Worker {
             name: job.name.clone(),
             entry: job.entry.clone(),
             bytecode,
+            preloadable: AtomicBool::new(true),
         })
     }
 
@@ -553,14 +588,15 @@ impl Worker {
                 .fetch_add(1, Ordering::Relaxed);
         }
         let sb = self.sandbox()?;
-        // Evaluating the bundle is its own step whether or not it was
-        // preloaded, so both paths run the same script sequence (including
-        // any microtasks the bundle queues) and give the same output.
-        if !preloaded {
-            sb.eval_bytecode(&bundle.bytecode)?;
-        }
+        // One call, so one deadline covers loading the bundle and the
+        // render. A preloaded bundle was loaded off the caller's clock with
+        // nothing left queued, so starting at the entry is the same script
+        // sequence.
         let outcome = sb.run_await(
             |ctx| {
+                if !preloaded {
+                    bundle.bytecode.eval(ctx)?;
+                }
                 let entry = entry_function(ctx, &bundle.entry)?;
                 let island = Object::new(ctx.clone())?;
                 island.set("width", job.width)?;
