@@ -1,0 +1,9 @@
+# Bundler, build and packaging output (the gem is built with `rake gem:source`).
+/.bundle/
+/vendor/
+/Gemfile.lock
+/tmp/
+/pkg/
+/lib/surimono/*.so
+/lib/surimono/*.bundle
+/lib/surimono/[0-9]*/

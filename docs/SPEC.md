@@ -45,10 +45,10 @@ Answers to the brief's open questions (defaults, overturn any):
 | svg scripted geometry (getBBox and related) | 3 | 60% |
 | css/cssom-view | 3 | 50% |
 
-- **Memory:** at least 10× lower peak memory than Grover on the reference report; resident memory flat after warm-up over 10,000 renders in one process.
+- **Memory:** at least 10× lower peak memory than Grover on the reference report; flat memory over 10,000 renders in one process: live heap (Rust and QuickJS) grows less than 64 KiB after warm-up, and resident memory plateaus (reported, with a bound derived from the limits).
 - **Speed (new, the brief gave no number):** surimono + fulgur at least 2× faster than Grover per document on the reference report, both cold (new process) and warm (reused process), median of 20 runs. If QuickJS misses this on heavy charts, the number is reported as measured, not hidden.
 - **Determinism:** every fixture byte-identical across two renders in one process and one in a fresh process.
-- **Safety:** every hostile script (infinite loop, allocation bomb, deep recursion, microtask flood) ends in a typed error within its limit; none crashes or hangs. Default limits: 64 MB heap, 2 s per render, 512 KB JS stack.
+- **Safety:** every hostile script (infinite loop, allocation bomb, deep recursion, microtask flood) ends in a typed error within its limit; none crashes or hangs. Default limits: 64 MB heap, 2 s per island, 512 KB JS stack (a whole-document limit may come later).
 - **Visual:** the 10 checkpoint-2 fixtures match Chrome's render under a perceptual diff, with text in the same fonts.
 
 ## Session cadence
