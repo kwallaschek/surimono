@@ -26,8 +26,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-03 · RT · review · Island runner: load a JS bundle once, compile to bytecode, call its entry with JSON, return an SVG string; bring-your-own-bundle API (any `(json) => svg` function)
 - P1-RT-04 · RT · doing · Runtime pool: reuse runtimes and compiled bundles across renders, reset per render, bounded size; no state leaks between renders (test)
 - P1-RT-05 · RT · doing · Soak test: 10,000 island renders in one process, live heap flat after warm-up (< 64 KiB growth), resident memory reported with a derived bound (ignored test, run in full.yml and before releases)
-- P1-RT-06 · RT · doing · ECharts renderer (feature `echarts`): pinned bundle, SSR SVG mode, `setPlatformAPI({ measureText })` wired to gfx text metrics, licence file kept
-- P1-RT-07 · RT · todo · Vega and Vega-Lite renderer (feature `vega`): headless View to SVG, text measurement wired to gfx, licence files kept
+- P1-RT-06 · RT · review · ECharts renderer (feature `echarts`): pinned bundle, SSR SVG mode, `setPlatformAPI({ measureText })` wired to gfx text metrics, licence file kept
+- P1-RT-07 · RT · review · Vega and Vega-Lite renderer (feature `vega`): headless View to SVG, text measurement wired to gfx, licence files kept
 - P1-RT-08 · RT · cut · Mermaid renderer: cut from v0.1 (first in the cut order; its bundle carries elkjs under EPL-2.0)
 
 - P1-RT-09 · RT · doing · QuickJS patch (vendored rquickjs-sys, [patch]): sticky interrupt, interrupt polls in native array loops and typed-array sort; watchdog tests; upstream drafts (v0.1 release blocker)
@@ -35,20 +35,22 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-11 · RT · todo · Rust harness running fixtures/hostile/manifest.toml against the sandbox and the island runner
 
 ### Graphics engineer (crates/gfx)
-- P1-GFX-01 · GFX · doing · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
-- P1-GFX-02 · GFX · doing · `measureText` from the same shaping the renderer uses (Parley 0.6 as in fulgur): width, actual and font bounding-box ascent and descent; tests against reference widths from fixed fonts
-- P1-GFX-03 · GFX · doing · SVG output helpers: deterministic ids, font-family rewritten to registered families, safe inlining into HTML (no script, no external refs)
-- P1-GFX-05 · GFX · doing · Island text to vector outlines in the registered fonts (default; Keep opt-in), because fulgur 0.40 prints inline SVG text with system fonts
-- P1-GFX-04 · GFX · doing · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
+- P1-GFX-01 · GFX · review · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
+- P1-GFX-02 · GFX · review · `measureText` from the same shaping the renderer uses (Parley 0.6 as in fulgur): width, actual and font bounding-box ascent and descent; tests against reference widths from fixed fonts
+- P1-GFX-03 · GFX · review · SVG output helpers: deterministic ids, font-family rewritten to registered families, safe inlining into HTML (no script, no external refs)
+- P1-GFX-05 · GFX · review · (#27; merge order #3 → #12 → #27 → #16) Island text to vector outlines in the registered fonts (default; Keep opt-in), because fulgur 0.40 prints inline SVG text with system fonts
+- P1-GFX-04 · GFX · review · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
 
 ### Conformance researcher (fixtures, wpt, bench, docs/COMPAT.md)
 - P1-CF-01 · CF · done · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
 - P1-CF-02 · CF · done · Test fonts: pinned OFL fonts for Latin and Japanese (e.g. Noto Sans, Noto Sans JP) with licences, used by both Chrome and surimono
-- P1-CF-03 · CF · doing · The 10 checkpoint-2 fixtures: ECharts and Vega; simple and dense; Latin and Japanese labels
-- P1-CF-04 · CF · doing · Hostile-script suite: infinite loop, allocation bomb, deep recursion, microtask flood, huge strings, attempts at fs/network/eval-escape; each with its expected typed error
+- P1-CF-03 · CF · done · The checkpoint-2 fixtures (now 11 fixtures, 12 islands, incl. two charts on one page): ECharts and Vega; simple and dense; Latin and Japanese labels
+- P1-CF-04 · CF · done · Hostile-script suite: infinite loop, allocation bomb, deep recursion, microtask flood, huge strings, attempts at fs/network/eval-escape; each with its expected typed error
 - P1-CF-05 · CF · review · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
-- P1-CF-06 · CF · doing · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
-- P1-CF-07 · CF · doing · COMPAT.md generated from test results
+- P1-CF-06 · CF · review · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
+- P1-CF-08 · CF · review · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
+- P1-CF-09 · CF · todo · Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
+- P1-CF-07 · CF · review · COMPAT.md generated from test results
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
 - P1-PKG-01 · PKG · done · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
