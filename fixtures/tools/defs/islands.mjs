@@ -80,12 +80,12 @@ function vegaliteBarSimpleLatin() {
       {
         renderer: "vega-lite",
         width: 640,
-        height: 300,
+        height: 304,
         caption: "Figure 1. Open invoice total per customer (EUR).",
         spec: {
           $schema: "https://vega.github.io/schema/vega-lite/v6.json",
           width: 640,
-          height: 300,
+          height: 304,
           autosize: { type: "fit", contains: "padding" },
           padding: 4,
           config: { font: "Noto Sans", axis: { labelFontSize: 10, titleFontSize: 11 }, view: { stroke: null } },
@@ -142,7 +142,7 @@ function echartsLineDenseLatin() {
       {
         renderer: "echarts",
         width: 680,
-        height: 380,
+        height: 384,
         caption: "Figure 1. Orders per day and channel (5 series, 365 days each).",
         spec: {
           useUTC: true,
@@ -186,7 +186,7 @@ function echartsBarSimpleJa() {
       {
         renderer: "echarts",
         width: 640,
-        height: 340,
+        height: 344,
         caption: "図1　部門別の予算と実績（万円）",
         spec: {
           color: ["#9db7d5", "#2f6fb0"],
@@ -451,12 +451,12 @@ function vegaliteLayeredDenseJa() {
       {
         renderer: "vega-lite",
         width: 680,
-        height: 340,
+        height: 344,
         caption: "図1　日次受注件数（棒）、7日移動平均（線）、目標（破線）",
         spec: {
           $schema: "https://vega.github.io/schema/vega-lite/v6.json",
           width: 680,
-          height: 340,
+          height: 344,
           autosize: { type: "fit", contains: "padding" },
           padding: 4,
           config: { font: "Noto Sans, Noto Sans JP", axis: { labelFontSize: 10, titleFontSize: 11, gridColor: "#e5e8eb" }, view: { stroke: null } },
@@ -513,12 +513,12 @@ function vegaBarSimpleLatin() {
       {
         renderer: "vega",
         width: 640,
-        height: 300,
+        height: 304,
         caption: "Figure 1. Operating expenses per category, Q3 2026 (EUR).",
         spec: {
           $schema: "https://vega.github.io/schema/vega/v6.json",
           width: 640,
-          height: 300,
+          height: 304,
           padding: 4,
           autosize: { type: "fit", contains: "padding" },
           config: { axis: { labelFont: font, titleFont: font, labelFontSize: 10, titleFontSize: 11, gridColor: "#e5e8eb" }, text: { font } },

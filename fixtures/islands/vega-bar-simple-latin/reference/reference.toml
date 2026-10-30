@@ -14,12 +14,12 @@ pages = 1
 file = "chrome-1.png"
 width = 794
 height = 1123
-sha256 = "887e03823c107b401641f6dc033f6da4320c6157da4b39fa4997545b07f3c500"
+sha256 = "f01b42bcb06fa473315ccfe253f541e6f70493fd6eedd75665d7cccb18a64b59"
 
 [[island]]
 index = 0
 file = "island-0.png"
 width = 640
-height = 300
+height = 304
 renderer = "vega"
-sha256 = "863c39d6efc6b31c12bf6474bddfc200f05b43edb0f9b8fd1b4e627ea3681a4e"
+sha256 = "7ca27a25f572c316bf5b9ba08e49517824116dc06175d598b90c94de043fe55d"
