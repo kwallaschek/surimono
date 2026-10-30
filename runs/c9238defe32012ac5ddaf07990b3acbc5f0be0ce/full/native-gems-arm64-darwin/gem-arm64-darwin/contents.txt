@@ -1,0 +1,15 @@
+LICENSE-APACHE
+LICENSE-MIT
+THIRD_PARTY.md
+THIRD_PARTY_LICENSES.txt
+crates/islands/bundles/echarts/LICENSE
+crates/islands/bundles/echarts/LICENSE-d3
+crates/islands/bundles/echarts/LICENSE-tslib
+crates/islands/bundles/echarts/LICENSE-zrender
+crates/islands/bundles/echarts/NOTICE
+lib/surimono.rb
+lib/surimono/3.2/surimono.bundle
+lib/surimono/3.3/surimono.bundle
+lib/surimono/3.4/surimono.bundle
+lib/surimono/4.0/surimono.bundle
+lib/surimono/version.rb
