@@ -22,13 +22,31 @@ use crate::fonts::FontSet;
 /// not interruptible, so this bounds the time one call can take.
 pub const MAX_TEXT_BYTES: usize = 256 * 1024;
 
+/// Longest `css_font`, in bytes, that is parsed at all. A longer string is
+/// treated as invalid and means canvas's default, `10px sans-serif`: no real
+/// font shorthand comes close, and this bounds what a hostile script can make
+/// the host parse and keep.
+pub(crate) const MAX_CSS_FONT_BYTES: usize = 1024;
+/// Canvas's default font, used for a `css_font` that is too long or invalid.
+const CANVAS_DEFAULT_FONT: &str = "10px sans-serif";
+
+/// Longest text or font string, in bytes, that is cached. Chart labels and
+/// font strings are short; longer inputs are measured but never kept, so a
+/// hostile script cannot fill the host's memory through the caches.
+const MAX_CACHED_KEY_BYTES: usize = 256;
+/// Total key bytes the result and font caches of one workspace may hold
+/// before both are cleared.
+const MAX_CACHED_KEY_BYTES_TOTAL: usize = 256 * 1024;
 /// Cached measurements per workspace before the cache is cleared.
 const MAX_CACHED_RESULTS: usize = 8192;
 /// Cached parsed font strings per workspace before the cache is cleared.
 const MAX_CACHED_FONTS: usize = 256;
 /// Cached glyph bounds per workspace before the cache is cleared.
 const MAX_CACHED_GLYPHS: usize = 16_384;
-/// Idle workspaces kept for reuse.
+/// Idle workspaces kept for reuse. A workspace is per concurrent call, so this
+/// covers up to this many threads measuring at once; with more, the extra
+/// workspaces (and their caches) are dropped after each call, which costs
+/// speed, never memory.
 const MAX_IDLE_WORKSPACES: usize = 8;
 
 /// The result of measuring text, as canvas `TextMetrics` defines it.
@@ -99,8 +117,9 @@ impl TextMeasurer {
     /// `"bold 14px 'Noto Sans JP', sans-serif"`.
     ///
     /// As canvas does, ASCII whitespace in `text` counts as spaces, and a
-    /// `css_font` that does not parse means `10px sans-serif`. Characters the
-    /// listed families lack fall back to the other registered families.
+    /// `css_font` that does not parse means `10px sans-serif`, as does one
+    /// longer than 1 KiB. Characters the listed families lack fall back to the
+    /// other registered families.
     pub fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, GfxError> {
         if text.len() > MAX_TEXT_BYTES {
             return Err(GfxError::TextTooLong {
@@ -111,16 +130,45 @@ impl TextMeasurer {
         if self.shared.fonts.face_count() == 0 {
             return Err(GfxError::NoFonts);
         }
-        let mut ws = self
-            .idle()
-            .pop()
-            .unwrap_or_else(|| Workspace::new(&self.shared.fonts));
-        let metrics = ws.measure(&self.shared.fonts, text, css_font);
+        let css_font = if css_font.len() > MAX_CSS_FONT_BYTES {
+            CANVAS_DEFAULT_FONT
+        } else {
+            css_font
+        };
+        let metrics = self.with_workspace(|ws, fonts| ws.measure(fonts, text, css_font));
+        Ok(metrics)
+    }
+
+    /// Runs `f` with an idle workspace (or a new one), then returns the
+    /// workspace to the idle list. The workspace is built outside the lock.
+    pub(crate) fn with_workspace<R>(&self, f: impl FnOnce(&mut Workspace, &FontSet) -> R) -> R {
+        let idle = self.idle().pop();
+        let mut ws = idle.unwrap_or_else(|| Workspace::new(&self.shared.fonts));
+        let out = f(&mut ws, &self.shared.fonts);
         let mut idle = self.idle();
         if idle.len() < MAX_IDLE_WORKSPACES {
             idle.push(ws);
         }
-        Ok(metrics)
+        out
+    }
+
+    /// Key bytes actually held by the caches of every idle workspace, and the
+    /// largest count of any one workspace, for tests of the cache bounds.
+    #[cfg(test)]
+    fn cached_key_bytes(&self) -> Vec<usize> {
+        self.idle()
+            .iter()
+            .map(|ws| {
+                let fonts: usize = ws.fonts.keys().map(String::len).sum();
+                let results: usize = ws
+                    .results
+                    .iter()
+                    .map(|(k, r)| k.len() + r.keys().map(String::len).sum::<usize>())
+                    .sum();
+                assert_eq!(fonts + results, ws.key_bytes, "key byte count drifted");
+                fonts + results
+            })
+            .collect()
     }
 
     fn idle(&self) -> MutexGuard<'_, Vec<Workspace>> {
@@ -158,13 +206,19 @@ struct GlyphKey {
 type PixelBounds = [f64; 4];
 
 /// Per-thread scratch state: Parley contexts and caches.
-struct Workspace {
+///
+/// Every cache is bounded: keys longer than [`MAX_CACHED_KEY_BYTES`] are never
+/// stored, and the result and font caches are cleared once they hold
+/// [`MAX_CACHED_KEY_BYTES_TOTAL`] key bytes or their entry limit.
+pub(crate) struct Workspace {
     font_cx: FontContext,
     layout_cx: LayoutContext<()>,
     layout: Layout<()>,
     fonts: HashMap<String, Arc<ResolvedFont>>,
     results: HashMap<String, HashMap<String, TextMetrics>>,
     result_count: usize,
+    /// Bytes of every key in `fonts` and `results` (outer and inner).
+    key_bytes: usize,
     glyphs: HashMap<GlyphKey, Option<PixelBounds>>,
 }
 
@@ -180,8 +234,27 @@ impl Workspace {
             fonts: HashMap::new(),
             results: HashMap::new(),
             result_count: 0,
+            key_bytes: 0,
             glyphs: HashMap::new(),
         }
+    }
+
+    /// Empties the result and font caches.
+    fn clear_caches(&mut self) {
+        self.results.clear();
+        self.fonts.clear();
+        self.result_count = 0;
+        self.key_bytes = 0;
+    }
+
+    /// Key bytes that caching a result for this pair adds.
+    fn result_cost(&self, css_font: &str, text: &str) -> usize {
+        let outer = if self.results.contains_key(css_font) {
+            0
+        } else {
+            css_font.len()
+        };
+        text.len() + outer
     }
 
     fn measure(&mut self, fonts: &FontSet, text: &str, css_font: &str) -> TextMetrics {
@@ -190,10 +263,15 @@ impl Workspace {
         }
         let font = self.resolve(fonts, css_font);
         let metrics = self.measure_uncached(&font, text);
-        if self.result_count >= MAX_CACHED_RESULTS {
-            self.results.clear();
-            self.result_count = 0;
+        if text.len() > MAX_CACHED_KEY_BYTES || css_font.len() > MAX_CACHED_KEY_BYTES {
+            return metrics;
         }
+        if self.result_count >= MAX_CACHED_RESULTS
+            || self.key_bytes + self.result_cost(css_font, text) > MAX_CACHED_KEY_BYTES_TOTAL
+        {
+            self.clear_caches();
+        }
+        self.key_bytes += self.result_cost(css_font, text);
         self.results
             .entry(css_font.to_string())
             .or_default()
@@ -230,10 +308,15 @@ impl Workspace {
             font_ascent,
             font_descent,
         });
-        if self.fonts.len() >= MAX_CACHED_FONTS {
-            self.fonts.clear();
+        if css_font.len() <= MAX_CACHED_KEY_BYTES {
+            if self.fonts.len() >= MAX_CACHED_FONTS
+                || self.key_bytes + css_font.len() > MAX_CACHED_KEY_BYTES_TOTAL
+            {
+                self.clear_caches();
+            }
+            self.key_bytes += css_font.len();
+            self.fonts.insert(css_font.to_string(), resolved.clone());
         }
-        self.fonts.insert(css_font.to_string(), resolved.clone());
         resolved
     }
 
@@ -451,6 +534,67 @@ mod tests {
                 len: MAX_TEXT_BYTES + 1,
                 max: MAX_TEXT_BYTES
             })
+        );
+    }
+
+    fn noto_sans() -> TextMeasurer {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../fixtures/fonts/NotoSans-Regular.ttf"
+        );
+        let mut fonts = FontSet::new();
+        fonts
+            .add_font_bytes(std::fs::read(path).expect("fixtures/fonts/NotoSans-Regular.ttf"))
+            .unwrap();
+        TextMeasurer::new(fonts)
+    }
+
+    /// A hostile script measuring long, unique texts and font strings must not
+    /// grow the host: the caches stay under their byte budget.
+    #[test]
+    fn caches_stay_under_byte_budget_with_hostile_input() {
+        let m = noto_sans();
+        // Long unique texts (just under MAX_TEXT_BYTES): measured, never cached.
+        for i in 0..8 {
+            let text = format!("{i:08}{}", "x".repeat(MAX_TEXT_BYTES - 16));
+            m.measure(&text, "12px 'Noto Sans'").unwrap();
+        }
+        // Huge unique font strings: invalid, never parsed or cached.
+        for i in 0..50 {
+            let font = format!("12px f{i}{}", "y".repeat(1 << 20));
+            m.measure("label", &font).unwrap();
+        }
+        // Font strings just under the parse limit: parsed, never cached.
+        for i in 0..200 {
+            let font = format!("12px f{i:04}{}", "z".repeat(MAX_CSS_FONT_BYTES - 20));
+            m.measure("label", &font).unwrap();
+        }
+        // Many short, unique keys at the cache limit: cached, then cleared.
+        for i in 0..6000 {
+            let font = format!("{}px f{i}{}", 8 + i % 7, "w".repeat(200));
+            let text = format!("{i}{}", "v".repeat(240));
+            m.measure(&text, &font).unwrap();
+        }
+        let held = m.cached_key_bytes();
+        assert_eq!(held.len(), 1, "one thread uses one workspace");
+        for bytes in held {
+            assert!(
+                bytes <= MAX_CACHED_KEY_BYTES_TOTAL,
+                "{bytes} key bytes cached"
+            );
+        }
+    }
+
+    #[test]
+    fn overlong_font_string_means_canvas_default() {
+        let m = noto_sans();
+        let long = format!("bold 30px 'Noto Sans'{}", " ".repeat(MAX_CSS_FONT_BYTES));
+        let default = m.measure("Revenue", "10px sans-serif").unwrap();
+        assert_eq!(m.measure("Revenue", &long).unwrap(), default);
+        let parsed = m.measure("Revenue", long.trim_end()).unwrap();
+        assert_ne!(
+            parsed, default,
+            "the same font string, short enough, parses"
         );
     }
 
