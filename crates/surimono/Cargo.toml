@@ -12,6 +12,12 @@ surimono-core.workspace = true
 surimono-gfx.workspace = true
 surimono-islands.workspace = true
 thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# HTML pre-pass. BSD-3-Clause; shares cssparser 0.35 and selectors 0.32 (MPL-2.0,
+# fenced in deny.toml) with Stylo. 2.7.0 is the newest release that builds on our
+# MSRV 1.87 (2.7.1 and later use let chains). Exact pin; moves to the workspace root.
+lol_html = "=2.7.0"
 
 [lints]
 workspace = true
