@@ -26,6 +26,13 @@ if [ -z "${GITHUB_ACTIONS:-}" ] && [ -x scripts/fleet/touch-workspace.sh ]; then
   scripts/fleet/touch-workspace.sh
 fi
 
+# In CI (job.sh sets CI_JOB_OUT), the hostile-script suite writes its results
+# there, so they land in ci-results for COMPAT.md (fixtures/tools/compat.py).
+if [ -n "${CI_JOB_OUT:-}" ]; then
+  mkdir -p "$CI_JOB_OUT"
+  export SURIMONO_HOSTILE_RESULTS="${SURIMONO_HOSTILE_RESULTS:-$CI_JOB_OUT/hostile.json}"
+fi
+
 step "fmt";    cargo fmt --all -- --check
 scripts/ci/fixtures.sh
 if [ "$run_ruby" = 1 ]; then
