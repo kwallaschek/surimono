@@ -1718,6 +1718,10 @@ dependencies = [
 name = "surimono-gfx"
 version = "0.0.0"
 dependencies = [
+ "parley",
+ "serde",
+ "serde_json",
+ "skrifa 0.37.0",
  "thiserror",
 ]
 

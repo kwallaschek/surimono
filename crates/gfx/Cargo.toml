@@ -9,6 +9,16 @@ publish.workspace = true
 
 [dependencies]
 thiserror.workspace = true
+serde.workspace = true
+# Text layout: the exact Parley that blitz-dom 0.2.4 (and so fulgur 0.40.0)
+# shapes with, so measured advances equal printed ones. `std` only: no system
+# fonts are ever compiled in from this crate.
+parley = { version = "=0.6.0", default-features = false, features = ["std"] }
+# Outlines and font metrics, the same skrifa version Parley 0.6.0 uses.
+skrifa = { version = "=0.37.0", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

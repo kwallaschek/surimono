@@ -1,7 +1,30 @@
 //! Text metrics from the renderer's fonts, the Canvas2D recorder, and SVG output.
 //!
-//! Part of surimono, a library that runs a document's
-//! JavaScript without a browser. See `docs/BRIEF.md` for the design.
+//! Part of surimono, a library that runs a document's JavaScript without a
+//! browser. This crate answers canvas `measureText` with the same fonts and the
+//! same shaper (Parley 0.6, as in fulgur 0.40) that print the document, so
+//! chart labels measured in the sandbox fit when printed.
+//!
+//! ```no_run
+//! use surimono_gfx::{FontSet, TextMeasurer};
+//!
+//! let mut fonts = FontSet::new();
+//! fonts.add_font_bytes(std::fs::read("NotoSans-Regular.ttf")?)?;
+//! let measurer = TextMeasurer::new(fonts);
+//! let m = measurer.measure("Revenue", "bold 12px sans-serif")?;
+//! println!("{} px wide", m.width);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+
+mod css_font;
+mod error;
+mod fonts;
+mod measure;
+
+pub use css_font::GenericFamily;
+pub use error::GfxError;
+pub use fonts::FontSet;
+pub use measure::{MAX_TEXT_BYTES, TextMeasurer, TextMetrics};
 
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
