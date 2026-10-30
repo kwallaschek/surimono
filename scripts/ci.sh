@@ -19,6 +19,13 @@ for a in "$@"; do
   esac
 done
 
+# Locally every worktree shares one target dir, where another worktree's newer
+# build of a workspace crate can look fresh here; rebuild ours from our sources.
+# On GitHub each job has its own target dir.
+if [ -z "${GITHUB_ACTIONS:-}" ] && [ -x scripts/fleet/touch-workspace.sh ]; then
+  scripts/fleet/touch-workspace.sh
+fi
+
 step "fmt";    cargo fmt --all -- --check
 scripts/ci/fixtures.sh
 if [ "$run_ruby" = 1 ]; then
