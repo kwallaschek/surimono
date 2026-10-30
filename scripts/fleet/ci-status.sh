@@ -9,8 +9,19 @@ echo "== check runs"
 import sys,json
 x=json.load(sys.stdin)
 for r in x.get('check_runs',[]):
-    print(f\"{r['name']:40} {r['status']:12} {r.get('conclusion') or '-'}\")
+    print(f\"{r['name']:40} {r['status']:12} {r.get('conclusion') or '-'}  id={r['id']}\")
 print('total', x.get('total_count'))"
+echo "== annotations of failed runs (useful when a job failed before its script ran)"
+"$here/gh-api.sh" GET "/commits/$sha/check-runs?per_page=100&status=completed" | python3 -c "
+import sys,json
+x=json.load(sys.stdin)
+print(' '.join(str(r['id']) for r in x.get('check_runs',[]) if r.get('conclusion')=='failure'))" | tr ' ' '\n' | while read -r id; do
+  [ -n "$id" ] || continue
+  "$here/gh-api.sh" GET "/check-runs/$id/annotations" | python3 -c "
+import sys,json
+for a in json.load(sys.stdin):
+    if a.get('annotation_level')=='failure': print('  ', '$id', a.get('message','')[:300])"
+done
 echo "== commit statuses"
 "$here/gh-api.sh" GET "/commits/$sha/status" | python3 -c "
 import sys,json
