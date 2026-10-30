@@ -14,7 +14,7 @@ pages = 1
 file = "chrome-1.png"
 width = 794
 height = 1123
-sha256 = "f93fd71df0a1dbb7a5f374b25c2df528fac388171025fc9c5732aed574c9b486"
+sha256 = "585cbdaecfc29c75dc456739843c21e9347632abd8f826294761230052a29a98"
 
 [[island]]
 index = 0

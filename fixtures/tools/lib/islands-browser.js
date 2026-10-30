@@ -58,6 +58,21 @@
     }
   }
 
+  // Every font an island names must be one of the fixture fonts; a spec that
+  // falls back to a system font (e.g. ECharts' default sans-serif) is a broken
+  // fixture, because surimono and fulgur would pick a different face.
+  const ALLOWED_FAMILIES = new Set(["Noto Sans", "Noto Sans JP"]);
+  function foreignFonts(svg) {
+    const found = new Set();
+    for (const m of svg.matchAll(/font-family\s*(?:=\s*"([^"]*)"|:\s*([^;"]*))/g)) {
+      for (const fam of (m[1] ?? m[2]).replace(/&quot;/g, '"').split(",")) {
+        const name = fam.trim().replace(/^['"]|['"]$/g, "");
+        if (name && !ALLOWED_FAMILIES.has(name)) found.add(name);
+      }
+    }
+    return [...found];
+  }
+
   async function loadAllFonts() {
     const faces = [...document.fonts];
     await Promise.all(faces.map((f) => f.load()));
@@ -78,6 +93,8 @@
       if (!(width > 0 && height > 0)) throw new Error(`island ${index}: data-width and data-height must be positive numbers`);
       const spec = JSON.parse(el.textContent);
       const svg = await renderOne(renderer, spec, width, height);
+      const foreign = foreignFonts(svg);
+      if (foreign.length) throw new Error(`island ${index} (${renderer}): SVG uses fonts outside fixtures/fonts: ${foreign.join(", ")}`);
       const size = svgSize(svg);
       if (size.width !== width || size.height !== height) {
         throw new Error(`island ${index} (${renderer}): SVG is ${size.width}x${size.height}, marker says ${width}x${height}`);

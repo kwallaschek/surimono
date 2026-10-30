@@ -10,10 +10,10 @@ import { PIXEL_THRESHOLD, diff, readPng, sideBySide, writePng } from "./png.mjs"
  * its ink near-mismatched (lib/png.mjs). Chosen with calibrate.mjs; see
  * fixtures/README.md ("Diff metric").
  */
-export const PASS_WORST_WINDOW = 0.15;
+export const PASS_WORST_WINDOW = 0.1;
 
 export const METRIC =
-  "near-match (1 px radius, per-channel tolerance 96/255), worst 32x32 window's share of mismatched ink; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink";
+  "near-match (1 px radius, per-channel tolerance 128/255), worst 32x32 window's share of mismatched ink; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink";
 
 /** Committed Chrome references of a fixture: full pages and single islands. */
 export function referenceFiles(fixtureDir) {

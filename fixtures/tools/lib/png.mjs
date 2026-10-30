@@ -17,7 +17,7 @@ import pixelmatch from "pixelmatch";
 export const PIXEL_THRESHOLD = 0.1;
 /** Near-match: search radius in px and per-channel tolerance (0..255). */
 export const NEAR_RADIUS = 1;
-export const NEAR_TOLERANCE = 96;
+export const NEAR_TOLERANCE = 128;
 /** Near-match: window size in px (stride is half) and the least ink a window needs to count. */
 export const WINDOW = 32;
 const WINDOW_MIN_INK = 24;
@@ -66,21 +66,23 @@ function countInkUnion(a, b) {
  * Near-match diff of two same-sized images. Returns the mismatch map, the
  * global share of mismatched ink and the worst window's share.
  */
-export function nearMatch(a, b) {
+export function nearMatch(a, b, { radius = NEAR_RADIUS, tolerance = NEAR_TOLERANCE } = {}) {
+  const NEAR_RADIUS_ = radius;
+  const NEAR_TOLERANCE_ = tolerance;
   const { width: w, height: h } = a;
   const A = a.data;
   const B = b.data;
   const isInk = (d, i) => d[i] < INK_LEVEL || d[i + 1] < INK_LEVEL || d[i + 2] < INK_LEVEL;
   const near = (src, dst, x, y) => {
     const i = (y * w + x) * 4;
-    for (let dy = -NEAR_RADIUS; dy <= NEAR_RADIUS; dy++) {
+    for (let dy = -NEAR_RADIUS_; dy <= NEAR_RADIUS_; dy++) {
       const yy = y + dy;
       if (yy < 0 || yy >= h) continue;
-      for (let dx = -NEAR_RADIUS; dx <= NEAR_RADIUS; dx++) {
+      for (let dx = -NEAR_RADIUS_; dx <= NEAR_RADIUS_; dx++) {
         const xx = x + dx;
         if (xx < 0 || xx >= w) continue;
         const j = (yy * w + xx) * 4;
-        if (Math.abs(src[i] - dst[j]) <= NEAR_TOLERANCE && Math.abs(src[i + 1] - dst[j + 1]) <= NEAR_TOLERANCE && Math.abs(src[i + 2] - dst[j + 2]) <= NEAR_TOLERANCE) return true;
+        if (Math.abs(src[i] - dst[j]) <= NEAR_TOLERANCE_ && Math.abs(src[i + 1] - dst[j + 1]) <= NEAR_TOLERANCE_ && Math.abs(src[i + 2] - dst[j + 2]) <= NEAR_TOLERANCE_) return true;
       }
     }
     return false;

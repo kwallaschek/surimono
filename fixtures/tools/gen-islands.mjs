@@ -22,18 +22,29 @@ const FONT_FACES = `\n${fontFaceCss("../../fonts")
   .map((l) => `    ${l}`)
   .join("\n")}`;
 
+const round2 = (x) => Math.round(x * 100) / 100;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 /** JSON that cannot close the <script> element it sits in. */
-const scriptJson = (v) => JSON.stringify(v, null, 1).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+// Compact when large (dense data), indented otherwise.
+const scriptJson = (v) => {
+  const pretty = JSON.stringify(v, null, 1);
+  return (pretty.length > 30000 ? JSON.stringify(v) : pretty).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+};
 
 function marker(island) {
   return `<script type="application/vnd.surimono+json" data-renderer="${island.renderer}" data-width="${island.width}" data-height="${island.height}">${scriptJson(island.spec)}</script>`;
 }
 
 function table(t) {
-  const head = t.head.map((h, i) => `<th${t.numeric?.[i] ? ' class="num"' : ""}>${esc(h)}</th>`).join("");
-  const rows = t.rows.map((r) => `      <tr>${r.map((c, i) => `<td${t.numeric?.[i] ? ' class="num"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("\n");
-  return `<table>\n      <thead><tr>${head}</tr></thead>\n      <tbody>\n${rows}\n      </tbody>\n    </table>`;
+  // A summary "table" made of fixed-basis flex rows: first column 40%, the rest
+  // share 60%. fulgur 0.40.0 ignores <col> widths and sizes table columns and
+  // rows differently from Chrome, which would swamp the page diff.
+  const n = t.head.length;
+  const basis = (i) => (i === 0 ? 40 : round2(60 / (n - 1)));
+  const cell = (c, i, tag) => `<${tag} class="c${t.numeric?.[i] ? " num" : ""}" style="flex-basis: ${basis(i)}%">${esc(c)}</${tag}>`;
+  const head = `<div class="tr th">${t.head.map((h, i) => cell(h, i, "span")).join("")}</div>`;
+  const rows = t.rows.map((r) => `      <div class="tr">${r.map((c, i) => cell(c, i, "span")).join("")}</div>`).join("\n");
+  return `<div class="table">\n      ${head}\n${rows}\n    </div>`;
 }
 
 function html(f) {
@@ -52,24 +63,27 @@ function html(f) {
   <title>${esc(f.title)}</title>
   <style>${FONT_FACES}
     @page { size: 210mm 297mm; margin: 15mm; }
-    html { font-family: ${f.pageFont}; font-size: 10pt; line-height: 1.4; color: #1f2328; background: #ffffff; }
+    html { font-family: ${f.pageFont}; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
     body { margin: 0; }
-    /* The page avoids flex layout and single-side border colours, which fulgur
-       0.40.0 prints differently from Chrome (docs/COMPAT.md), so page diffs
-       reflect the islands, not the page chrome. */
-    header { margin-bottom: 4mm; }
-    header .org { font-weight: 700; font-size: 12pt; }
-    header .meta { font-size: 9pt; color: #57606a; }
-    .rule { height: 2px; background: #1f2328; margin: 2mm 0 5mm; }
-    h1 { font-size: 16pt; font-weight: 700; margin: 0 0 3mm; }
-    p { margin: 0 0 3mm; }
-    figure.island { margin: 4mm 0 1mm; padding: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
     figure.island > svg { display: block; }
-    .caption { font-size: 8.5pt; color: #57606a; margin-bottom: 5mm; }
-    table { border-collapse: collapse; width: 100%; font-size: 9pt; }
-    th, td { padding: 1.5mm 2mm; text-align: left; }
-    th { font-weight: 700; background: #e8ecf0; }
-    tbody tr:nth-child(even) td { background: #f6f8fa; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
     .num { text-align: right; }
   </style>
 </head>

@@ -25,7 +25,9 @@ fixtures/islands/<name>/
 `../../fonts/`, an explicit `@page { size: 210mm 297mm; margin: 15mm }`, and one
 or more island markers, each inside `<figure class="island">` with
 `figure.island > svg { display: block }` so the inlined SVG lays out the same
-way in every engine:
+way in every engine. The page is a realistic report (header, intro, figure,
+caption, summary rows) built only from layout that fulgur and Chrome agree on
+(see "Diff metric"):
 
 ```html
 <script type="application/vnd.surimono+json" data-renderer="echarts|vega-lite|vega"
@@ -47,7 +49,9 @@ never close its `<script>`.
 - Each marker is replaced by the SVG string; nothing else in the document changes.
 - Text is measured with the page's `@font-face` fonts, all loaded before any
   island renders. Every spec names its fonts (`textStyle.fontFamily`,
-  `config.font`). Nothing may fall back to a system font.
+  `config.font`, or per axis and mark in Vega). Nothing may fall back to a
+  system font: the harness fails a fixture whose SVG names any family other
+  than Noto Sans or Noto Sans JP.
 - Time zone UTC, locale en-US. Only inline data, with no network.
 
 ## Pipeline
@@ -92,53 +96,64 @@ pixel-identical.
 
 ## Diff metric
 
-**Score:** the near-match share in the worst 32×32 window. A pixel matches when
-the other image has a pixel within 1 px whose R, G and B are each within 96/255,
-checked in both directions. Only "ink" counts: pixels that are not white in
-either image. The score is the largest share of mismatched ink in any 32×32
-window (stride 16, windows with fewer than 24 ink pixels are skipped).
-**Pass: score ≤ 15%** and identical page sizes. pixelmatch 8.0.0 (threshold
-0.1, anti-aliasing ignored) is also reported as `diff_ratio_ink` and drawn in
-the diff image.
+**Score:** the share of near-mismatched ink in the worst 32×32 window. A pixel
+matches when the other image has a pixel within 1 px whose R, G and B are each
+within 128/255, checked in both directions. Only "ink" counts: pixels that are
+not white in either image. The score is the largest share of mismatched ink in
+any 32×32 window (stride 16; windows with fewer than 24 ink pixels are
+skipped). **Pass: score ≤ 10%** and identical page sizes. pixelmatch 8.0.0
+(threshold 0.1, anti-aliasing ignored) is also reported as `diff_ratio_ink` and
+drawn in the diff image.
 
 **Why not plain pixelmatch:** at 96 dpi most text pixels are anti-aliased
 edges, and pixelmatch skips them. It scored "one label in four missing" at
-0.5% but a harmless half-pixel text shift at 2 to 3%, so no threshold
-separates them. The 1 px tolerance absorbs the sub-pixel placement that
-differs between engines. The window turns a local fault into a large number
-instead of diluting it in a page of white space and bars.
+0.5% but a harmless half-pixel text shift at 2 to 4%, so no threshold
+separates the two. The 1 px / 128 tolerance absorbs sub-pixel glyph placement,
+which differs between any two engines. Thin CJK strokes need the 128: with 96,
+half-pixel shifts scored up to 16%. The window turns a local fault into a large
+number instead of diluting it in a page of white space and bars.
 
-Calibration (`calibrate.mjs`, Chrome printing a deliberately altered copy of
-Chrome's own island SVG, worst window):
+Calibration: `calibrate.mjs` has Chrome print deliberately altered copies of
+Chrome's own island SVG, then scores them (worst window). These numbers are for
+the two fixtures here; P1-CF-03 reruns it on all ten:
 
-| Fault | echarts-bar-simple-latin | vegalite-bar-simple-latin | Should |
-|---|---|---|---|
-| text shifted 0.5 px right | 0.0% | 9.1% | pass |
-| text shifted 0.5 px down | 0.0% | 0.0% | pass |
-| text shifted 1 px right | 0.0% | 0.0% | pass |
-| letter-spacing +0.2 px (about 2% wider labels) | 32.0% | 23.5% | fail (text metrics off) |
-| text shifted 3 px right | 30.8% | 40.0% | fail |
-| Latin text in Noto Sans JP instead of Noto Sans | 20.0% | **11.3%** | fail |
-| all text bold | **0.0%** | 28.6% | fail |
-| one label in four missing | 51.7% | 61.4% | fail |
-| whole chart scaled to 99% | 82.5% | 81.1% | fail |
+| Fault | Min | Max | Fails at 10% | Should |
+|---|---|---|---|---|
+| text shifted 0.5 px right | 0.0% | 0.0% | 0/2 | pass |
+| text shifted 0.5 px down | 0.0% | 0.0% | 0/2 | pass |
+| text shifted 1 px right | 0.0% | 0.0% | 0/2 | pass |
+| letter-spacing +0.2 px (labels about 2% wider) | 20.5% | 24.0% | 2/2 | borderline |
+| text shifted 3 px right | 21.2% | 31.2% | 2/2 | fail |
+| one label in four missing | 37.0% | 54.1% | 2/2 | fail |
+| whole chart scaled to 99% | 34.9% | 82.5% | 2/2 | fail |
+| all text bold | 0.0% | 23.8% | 1/2 | fail |
+| Latin text in Noto Sans JP instead of Noto Sans | 5.3% | 13.3% | 1/2 | fail |
 
-Two faults slip through. One is a wrong font that is close in design (11.3%).
-The other is bold at 12 px in ECharts, where the bolder strokes stay inside
-the 1 px tolerance. Both are typography faults with correct metrics; the
-metric is built to catch metric and layout faults (shifted, wider, missing or
-resized text and marks), which are what a measuring engine gets wrong. Font
-family and weight are better checked in the SVG itself: every `font-family`
-should name a registered font (P1-GFX-03).
+The metric catches what a measuring engine gets wrong: shifted, missing or
+resized text and marks. It does not reliably catch a wrong font face or weight
+when the metrics are close. Those are better checked in the SVG itself: every
+`font-family` should name a registered font (P1-GFX-03). The Chrome harness
+already fails any fixture whose SVG names a font outside `fixtures/fonts/`.
 
-**Baseline (fulgur 0.40.0 printing Chrome's own SVGs, `fulgur-baseline.sh`):**
+**Baseline (`fulgur-baseline.sh`): fulgur 0.40.0 printing Chrome's own SVGs**,
+worst window, pixelmatch in brackets:
 
 | Fixture | Page | Island 0 |
 |---|---|---|
-| echarts-bar-simple-latin | 10.7% (pixelmatch 3.75%) | 0.0% (pixelmatch 0.17%) |
-| vegalite-bar-simple-latin | 10.7% (pixelmatch 3.89%) | 0.0% (pixelmatch 0.09%) |
+| echarts-bar-simple-latin | 0.0% (3.86%) | 0.0% (0.17%) |
+| vegalite-bar-simple-latin | 0.0% (4.11%) | 0.0% (0.09%) |
 
-fulgur prints island SVGs as Chrome does. The page floor of 10.7% comes from
-fulgur placing HTML text (header, paragraphs, table) a pixel or so off
-Chrome's position. The page template avoids two fulgur 0.40.0 gaps that would
-otherwise dominate the page score (see `docs/COMPAT.md`).
+All pass, so a surimono + fulgur failure means surimono's SVG differs from
+Chrome's. Getting there took a page template that avoids five fulgur 0.40.0
+layout gaps (`docs/COMPAT.md`): auto-sized flex items, tables, single-side
+border colours, fractional line heights, and Chrome's default
+`text-spacing-trim`. The template uses whole-pixel sizes, fixed-basis flex rows
+instead of `<table>`, and `text-spacing-trim: space-all`.
+
+## Which comparison gates what
+
+| Comparison | Measures | Gate |
+|---|---|---|
+| `compare.sh --island I` (Chrome prints surimono's SVG) | surimono's island SVG alone | ≤ 10%: the checkpoint-2 criterion |
+| `compare.sh --island I --printer fulgur` | surimono's SVG plus fulgur's SVG printing | ≤ 10% (fulgur's own floor is 0.0% here) |
+| `compare.sh <fixture> <pdf>` (surimono + fulgur page) | the whole document | ≤ 10% (fulgur's own floor is 0.0% here) |

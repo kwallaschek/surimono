@@ -12,7 +12,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { launchChromium, listFixtures, printIslandInChrome, rasterise } from "./lib/fixtures.mjs";
 import { PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
-import { diff, readPng } from "./lib/png.mjs";
+import { diff, nearMatch, readPng } from "./lib/png.mjs";
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: { out: { type: "string" } } });
 const outRoot = path.resolve(values.out);
@@ -56,8 +56,9 @@ try {
         const actual = readPng(png);
         const { score } = diff(expected, actual);
         const verdict = score.worst_window <= PASS_WORST_WINDOW ? "pass" : "FAIL";
-        rows.push({ fixture: fixture.name, island: index, fault: name, worst_window: score.worst_window, near_ink_share: score.near_ink_share, pixelmatch_diff_ratio_ink: score.diff_ratio_ink, verdict });
-        console.log(`${verdict}  worst window ${(score.worst_window * 100).toFixed(1).padStart(5)}%  pixelmatch ${(score.diff_ratio_ink * 100).toFixed(2).padStart(5)}%  ${fixture.name}#${index}  ${name}`);
+        const alt = process.env.CALIBRATE_TOLERANCE ? nearMatch(expected, actual, { tolerance: Number(process.env.CALIBRATE_TOLERANCE) }).worst_window : undefined;
+        rows.push({ fixture: fixture.name, island: index, fault: name, worst_window: score.worst_window, near_ink_share: score.near_ink_share, pixelmatch_diff_ratio_ink: score.diff_ratio_ink, verdict, alt_tolerance_worst_window: alt });
+        console.log(`${verdict}  worst window ${(score.worst_window * 100).toFixed(1).padStart(5)}%${alt === undefined ? "" : ` (tolerance ${process.env.CALIBRATE_TOLERANCE}: ${(alt * 100).toFixed(1).padStart(5)}%)`}  pixelmatch ${(score.diff_ratio_ink * 100).toFixed(2).padStart(5)}%  ${fixture.name}#${index}  ${name}`);
       }
     }
   }
