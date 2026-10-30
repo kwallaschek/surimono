@@ -1,0 +1,1 @@
+{"workflow":"full","job":"ruby","matrix":"ruby-3.3","status":"success","sha":"c9238defe32012ac5ddaf07990b3acbc5f0be0ce","ref":"release/ci-check-p1-pkg-09","event":"push","run_id":"41135451984","attempt":"1","finished_at":"2026-10-30T22:06:56Z"}
