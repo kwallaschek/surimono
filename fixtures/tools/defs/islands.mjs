@@ -573,6 +573,85 @@ function vegaBarSimpleLatin() {
   };
 }
 
+function echartsTwoChartsLatin() {
+  // Two ECharts islands on one page, each with its own gradients and clip
+  // paths. Chrome renders every chart in one page, so ECharts gives them
+  // distinct ids (zr0-…, zr1-…); a renderer that gave both charts the same ids
+  // would make the second chart's url(#…) fills point at the first chart's
+  // gradients. The two charts use different gradient colours, so that shows
+  // up as wrong colours, not just as different markup.
+  const next = rng(1101);
+  const quarters = ["Q1", "Q2", "Q3", "Q4"];
+  const regions = ["North", "South", "East", "West", "Central"];
+  const margin = regions.map(() => Math.round(180 + next() * 220));
+  const days = 120;
+  const t0 = Date.UTC(2026, 6, 1);
+  const balance = walk(next, days, 42000, 60, 1800);
+  const gradient = (top, bottom) => ({ type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: top }, { offset: 1, color: bottom }] });
+  return {
+    name: "echarts-two-charts-latin",
+    lang: "en",
+    title: "Gross margin and cash balance, H2 2026",
+    org: "Northwind Trading GmbH",
+    headerMeta: ["Finance report", "Period: Jul to Oct 2026", "Currency: EUR"],
+    pageFont: PAGE_LATIN,
+    fonts: ["Noto Sans 400", "Noto Sans 700"],
+    intro: "Gross margin per region for the half year, and the daily cash balance over the same months. Both charts sit on one page.",
+    tests: "Two ECharts SVG islands on one page, each with linear gradients (bars; area under a line) and clip paths (the line series and its area are clipped to the grid); the two charts' gradients differ in colour, so ids shared between islands would show as wrong colours. Latin text.",
+    islands: [
+      {
+        renderer: "echarts",
+        width: 640,
+        height: 288,
+        caption: "Figure 1. Gross margin per region (thousand EUR), bars with a vertical gradient.",
+        spec: {
+          textStyle: { fontFamily: LATIN },
+          title: { text: "Gross margin by region (kEUR)", left: 0, top: 0, textStyle: { fontFamily: LATIN, fontSize: 13, fontWeight: "bold" } },
+          grid: { left: 56, right: 16, top: 40, bottom: 28 },
+          xAxis: { type: "category", data: regions, axisTick: { alignWithLabel: true } },
+          yAxis: { type: "value", splitLine: { lineStyle: { color: "#e5e8eb" } } },
+          series: [
+            {
+              type: "bar",
+              name: "Gross margin",
+              data: margin,
+              barWidth: "56%",
+              itemStyle: { color: gradient("#2f6fb0", "#9db7d5"), borderRadius: [3, 3, 0, 0] },
+              label: { show: true, position: "top", fontSize: 10, fontFamily: LATIN },
+            },
+          ],
+        },
+      },
+      {
+        renderer: "echarts",
+        width: 640,
+        height: 288,
+        caption: `Figure 2. Daily cash balance (EUR), ${quarters[2]} and the start of ${quarters[3]}, area with a vertical gradient.`,
+        spec: {
+          useUTC: true,
+          textStyle: { fontFamily: LATIN },
+          title: { text: "Cash balance (EUR)", left: 0, top: 0, textStyle: { fontFamily: LATIN, fontSize: 13, fontWeight: "bold" } },
+          grid: { left: 64, right: 16, top: 40, bottom: 28 },
+          xAxis: { type: "time", min: t0, max: t0 + (days - 1) * 86400000, splitNumber: 5, axisLabel: { fontSize: 10, formatter: "{d} {MMM}", hideOverlap: true } },
+          yAxis: { type: "value", min: 30000, splitLine: { lineStyle: { color: "#e5e8eb" } } },
+          series: [
+            {
+              type: "line",
+              name: "Balance",
+              data: balance.map((v, i) => [t0 + i * 86400000, v]),
+              showSymbol: false,
+              clip: true,
+              lineStyle: { width: 1.5, color: "#c2455a" },
+              itemStyle: { color: "#c2455a" },
+              areaStyle: { color: gradient("#e07b39", "#fbe3d3"), origin: "start" },
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
 export const fixtures = [
   echartsBarSimpleLatin(),
   echartsLineDenseLatin(),
@@ -584,4 +663,5 @@ export const fixtures = [
   vegaliteLineJa(),
   vegaliteLayeredDenseJa(),
   vegaBarSimpleLatin(),
+  echartsTwoChartsLatin(),
 ];
