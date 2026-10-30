@@ -51,7 +51,12 @@ export const COLOUR_TOLERANCE = 16;
 const COLOUR_MIN_SOLID = 64;
 /** Hue check: pixels inked at least this deep (max of 255 - channel) are checked; partners need half of it. */
 const HUE_MIN_DEPTH = 64;
-/** Largest angle between two ink directions that still counts as the same colour. */
+/**
+ * Largest angle between two ink directions that still counts as the same colour.
+ * The closest pairs of different hues in the fixture palette are 11.3 degrees
+ * apart (#2f6fb0/#4bb3c4, #e07b39/#d4a72c), and harmless shifts stay at or under
+ * 9.1% of a window at 8 (calibrate.mjs, fixtures/README.md).
+ */
 export const HUE_TOLERANCE_DEG = 8;
 /** A window counts for the hue score when it holds at least this many checked pixels. */
 const HUE_MIN_PIXELS = 24;
