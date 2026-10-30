@@ -7,5 +7,5 @@
   typeof globalThis.leak,
   typeof globalThis.ghost,
   Object.isFrozen(Object.prototype),
-  String(Math.random).includes("[native code]"),
+  typeof Math.random.polluted,
 ].join(",");

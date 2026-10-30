@@ -7,7 +7,7 @@ Array.prototype.map = function () {
 JSON.parse = () => "hijacked";
 String.prototype.trim = () => "hijacked";
 globalThis.leak = "leaked";
-Math.random = () => 0.5;
+Math.random = Object.assign(() => 0.5, { polluted: true });
 if (typeof FinalizationRegistry === "function") {
   new FinalizationRegistry(() => {
     globalThis.ghost = "boo";
