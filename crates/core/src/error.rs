@@ -34,10 +34,11 @@ pub enum SandboxError {
         /// What was expected and what was found.
         message: String,
     },
-    /// The [`Limits`](crate::Limits) are outside the range the engine can enforce.
-    #[error("invalid limits: {message}")]
-    InvalidLimits {
-        /// Which limit and the allowed range.
+    /// An option is outside the range the engine supports, e.g. a
+    /// [`Limits`](crate::Limits) value it can't enforce.
+    #[error("invalid sandbox options: {message}")]
+    InvalidOptions {
+        /// Which option and the allowed range.
         message: String,
     },
     /// The engine failed for a reason that is not the script's fault.

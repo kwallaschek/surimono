@@ -1048,7 +1048,7 @@ mod tests {
             assert!(
                 matches!(
                     Sandbox::new(bad).unwrap_err(),
-                    SandboxError::InvalidLimits { .. }
+                    SandboxError::InvalidOptions { .. }
                 ),
                 "{bad:?}"
             );

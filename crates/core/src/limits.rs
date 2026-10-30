@@ -41,7 +41,7 @@ impl Limits {
     /// Checks the limits are in the ranges the engine can enforce.
     pub fn validate(&self) -> Result<(), SandboxError> {
         if self.memory_bytes < Self::MIN_MEMORY_BYTES {
-            return Err(SandboxError::InvalidLimits {
+            return Err(SandboxError::InvalidOptions {
                 message: format!(
                     "memory_bytes is {}, the minimum is {}",
                     self.memory_bytes,
@@ -50,7 +50,7 @@ impl Limits {
             });
         }
         if !(Self::MIN_STACK_BYTES..=Self::MAX_STACK_BYTES).contains(&self.stack_bytes) {
-            return Err(SandboxError::InvalidLimits {
+            return Err(SandboxError::InvalidOptions {
                 message: format!(
                     "stack_bytes is {}, it must be between {} and {}",
                     self.stack_bytes,
