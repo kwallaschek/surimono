@@ -13,6 +13,14 @@ case "${CARGO_TARGET_DIR:-}" in
   *) export CARGO_TARGET_DIR="$REPO_ROOT/$CARGO_TARGET_DIR" ;;
 esac
 
+# job.sh sets CI_JOB_OUT relative to the repository root; scripts that cd
+# elsewhere need it absolute.
+case "${CI_JOB_OUT:-}" in
+  "") ;;
+  /*) ;;
+  *) export CI_JOB_OUT="$REPO_ROOT/$CI_JOB_OUT" ;;
+esac
+
 step() { printf '\n==> %s\n' "$*"; }
 
 # Executables of gems installed outside Bundler's bin dir (rbenv without shims,

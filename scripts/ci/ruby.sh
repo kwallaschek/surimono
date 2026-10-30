@@ -18,5 +18,6 @@ step "source gem: build, install, test"
 # Reuse the compiled dependencies from step 1 for the installed gem's build.
 export RB_SYS_CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target}"
 bundle exec rake gem:verify_source
-mkdir -p "${CI_JOB_OUT:-$REPO_ROOT/ci-out}"
-ls -la pkg/ | tee "${CI_JOB_OUT:-$REPO_ROOT/ci-out}/gems.txt"
+out="${CI_JOB_OUT:-$REPO_ROOT/ci-out}"
+mkdir -p "$out"
+ls -la pkg/ | tee "$out/gems.txt"
