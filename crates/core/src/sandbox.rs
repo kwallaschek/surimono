@@ -6,6 +6,7 @@ use std::sync::{Arc, OnceLock};
 use rquickjs::context::EvalOptions;
 use rquickjs::context::intrinsic;
 use rquickjs::function::{IntoArgs, Rest};
+use rquickjs::promise::PromiseState;
 use rquickjs::{Context, Ctx, FromJs, Function, Object, Runtime, Value};
 
 use crate::engine::{self, LimitAllocator, LimitState};
@@ -136,6 +137,29 @@ impl Default for SandboxOptions {
     }
 }
 
+/// See [`Sandbox::deadline`].
+#[derive(Clone)]
+pub struct Deadline {
+    state: Arc<LimitState>,
+}
+
+impl Deadline {
+    /// Whether the running call has passed its time limit. Once this is
+    /// true the call is over: it fails with [`SandboxError::TimeLimit`] as
+    /// soon as control returns to the engine. False when no call is running.
+    pub fn passed(&self) -> bool {
+        self.state.deadline_passed()
+    }
+}
+
+impl fmt::Debug for Deadline {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Deadline")
+            .field("passed", &self.passed())
+            .finish()
+    }
+}
+
 /// Script bytecode compiled once by [`Sandbox::compile`] and runnable in any
 /// sandbox of this process.
 ///
@@ -238,9 +262,8 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 pub struct Sandbox {
     options: SandboxOptions,
     state: Arc<LimitState>,
-    rt: Runtime,
-    /// Always `Some` outside `reset`; `None` only if a reset could not build a
-    /// context, in which case every call reports an engine error.
+    /// The context, which also keeps its runtime alive. Always `Some` except
+    /// if a rebuild failed, in which case every call reports an engine error.
     ctx: Option<Context>,
 }
 
@@ -286,7 +309,6 @@ impl Sandbox {
         Ok(Self {
             options,
             state,
-            rt,
             ctx: Some(ctx),
         })
     }
@@ -306,25 +328,33 @@ impl Sandbox {
         self.state.used()
     }
 
-    /// Discards all script state and starts a fresh context.
+    /// A handle that host functions (Rust functions the script calls) use
+    /// to check the running call's time limit.
     ///
-    /// Reuses the runtime when it is clean; if the previous script left
-    /// microtasks queued, the runtime is replaced too.
+    /// The engine checks the deadline only every few thousand JavaScript
+    /// operations, so a script that calls an expensive host function in a
+    /// loop could run long past its limit. A host function should check
+    /// [`Deadline::passed`] before expensive work and throw if it has: the
+    /// call then fails with [`SandboxError::TimeLimit`], however the script
+    /// handles the exception. The handle belongs to this sandbox's current
+    /// runtime; take a new one after a [`reset`](Self::reset).
+    pub fn deadline(&self) -> Deadline {
+        Deadline {
+            state: self.state.clone(),
+        }
+    }
+
+    /// Discards all script state: the next call runs in a fresh runtime and
+    /// context, with all of the old heap freed.
+    ///
+    /// The QuickJS runtime is replaced, not reused. rquickjs 0.14 caches the
+    /// prototypes of Rust-backed classes (including every `Function::new`)
+    /// per runtime, taken from the first context that needed them; reusing
+    /// the runtime would keep that context alive and give later contexts
+    /// functions inheriting from its `Function.prototype`. A fresh runtime
+    /// costs about the same as a fresh context (≈0.45 ms in release builds).
     pub fn reset(&mut self) -> Result<(), SandboxError> {
-        if self.rt.is_job_pending() {
-            return self.rebuild();
-        }
-        // Free the old context before building the new one, so its heap does
-        // not count against the new context's limit.
-        self.ctx = None;
-        self.rt.run_gc();
-        match new_context(&self.rt, &self.state, &self.options) {
-            Ok(ctx) => {
-                self.ctx = Some(ctx);
-                Ok(())
-            }
-            Err(_) => self.rebuild(),
-        }
+        self.rebuild()
     }
 
     /// Evaluates a classic script and converts its completion value to `T`.
@@ -400,6 +430,42 @@ impl Sandbox {
     where
         F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<R>,
     {
+        self.execute(|ctx, state| {
+            let v = f(ctx)?;
+            drain_jobs(ctx, state)?;
+            Ok(v)
+        })
+    }
+
+    /// Like [`run`](Self::run), for code that may produce a Promise.
+    ///
+    /// `f` returns a value; after the microtasks have run, a fulfilled
+    /// promise is replaced by its value and a rejected one fails like a thrown
+    /// exception. `then` converts the final value. One time budget covers
+    /// all of it. A promise still pending once nothing is left to run fails
+    /// with [`SandboxError::Type`] (the sandbox has no timers or I/O, so it
+    /// would never settle).
+    pub fn run_await<R, F, G>(&mut self, f: F, then: G) -> Result<R, SandboxError>
+    where
+        F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<Value<'js>>,
+        G: for<'js> FnOnce(&Ctx<'js>, Value<'js>) -> rquickjs::Result<R>,
+    {
+        self.execute(|ctx, state| {
+            let v = f(ctx)?;
+            drain_jobs(ctx, state)?;
+            let v = settle(v)?;
+            let r = then(ctx, v)?;
+            drain_jobs(ctx, state)?;
+            Ok(r)
+        })
+    }
+
+    /// Enters the context with the deadline armed, runs `body`, classifies
+    /// its error, and rebuilds the sandbox after a limit error.
+    fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
+    where
+        B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
+    {
         let Some(ctx) = self.ctx.clone() else {
             return Err(SandboxError::Engine {
                 message: "the sandbox has no context; a reset failed".into(),
@@ -410,8 +476,7 @@ impl Sandbox {
         state.arm(self.options.limits.time);
         let result = ctx.with(|ctx| {
             engine::update_stack_top(&ctx);
-            let out = f(&ctx).and_then(|v| drain_jobs(&ctx, state).map(|()| v));
-            out.map_err(|e| classify(&ctx, state, e))
+            body(&ctx, state).map_err(|e| classify(&ctx, state, e))
         });
         state.disarm();
         if let Err(e) = &result {
@@ -556,6 +621,26 @@ fn string_result(v: Value<'_>) -> rquickjs::Result<String> {
     }
 }
 
+/// Replaces a settled promise by its value; other values pass through.
+fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
+    let Some(promise) = v.as_promise() else {
+        return Ok(v);
+    };
+    match promise.state() {
+        PromiseState::Resolved | PromiseState::Rejected => promise
+            .result::<Value<'_>>()
+            .unwrap_or(Err(rquickjs::Error::Unknown)),
+        PromiseState::Pending => Err(rquickjs::Error::FromJs {
+            from: "pending promise",
+            to: "value",
+            message: Some(
+                "the promise never settled: nothing was left to run (the sandbox has no timers or I/O)"
+                    .into(),
+            ),
+        }),
+    }
+}
+
 /// Runs queued microtasks until none are left or a limit is hit.
 fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
     loop {
@@ -676,6 +761,39 @@ mod tests {
 
     fn sandbox() -> Sandbox {
         Sandbox::new(limits()).unwrap()
+    }
+
+    #[test]
+    fn host_functions_stop_at_the_deadline() {
+        // A host function that takes 20 ms per call, called in a loop that
+        // catches its errors: the engine alone would check the deadline only
+        // every few thousand calls, i.e. minutes later.
+        let mut sb = Sandbox::new(limits()).unwrap();
+        let deadline = sb.deadline();
+        assert!(!deadline.passed(), "no call is running");
+        let start = Instant::now();
+        let err = sb
+            .run(|ctx| {
+                let d = deadline.clone();
+                let slow = Function::new(ctx.clone(), move |ctx: Ctx<'_>| {
+                    if d.passed() {
+                        return Err(rquickjs::Exception::throw_internal(
+                            &ctx,
+                            "past the deadline",
+                        ));
+                    }
+                    std::thread::sleep(Duration::from_millis(20));
+                    Ok(())
+                })?;
+                ctx.globals().set("slow", slow)?;
+                ctx.eval::<(), _>("for (;;) { try { slow() } catch (e) {} }")
+            })
+            .unwrap_err();
+        let took = start.elapsed();
+        assert_eq!(err, SandboxError::TimeLimit);
+        assert!(took < Duration::from_secs(2), "took {took:?}");
+        // The handle tracks the call: no call, no deadline.
+        assert!(!sb.deadline().passed());
     }
 
     /// Runs a hostile script and checks it fails with `want`, well within a
@@ -860,6 +978,41 @@ mod tests {
                 .unwrap(),
             "undefined undefined"
         );
+    }
+
+    #[test]
+    fn reset_frees_contexts_that_used_rust_functions() {
+        // rquickjs caches Rust-function prototypes per runtime; a reused
+        // runtime would pin the first context and share its Function.prototype.
+        let mut sb = sandbox();
+        let base = sb.heap_bytes();
+        for _ in 0..3 {
+            sb.run(|ctx| {
+                let f = Function::new(ctx.clone(), |x: f64| x + 1.0)?;
+                ctx.globals().set("rustFn", f)?;
+                ctx.eval::<(), _>(
+                    "Function.prototype.planted = 1; globalThis.big = new Float64Array(1 << 20)",
+                )
+            })
+            .unwrap();
+            assert!(sb.heap_bytes() > base + 8_000_000);
+            sb.reset().unwrap();
+            assert!(
+                sb.heap_bytes() < base + 64 * 1024,
+                "heap {}",
+                sb.heap_bytes()
+            );
+            let fresh: String = sb
+                .run(|ctx| {
+                    let f = Function::new(ctx.clone(), |x: f64| x + 1.0)?;
+                    ctx.globals().set("rustFn", f)?;
+                    ctx.eval(
+                        "String(Object.getPrototypeOf(rustFn) === Function.prototype) + ' ' + typeof rustFn.planted",
+                    )
+                })
+                .unwrap();
+            assert_eq!(fresh, "true undefined");
+        }
     }
 
     #[test]
@@ -1203,6 +1356,53 @@ mod tests {
         assert_eq!(
             sb.eval::<()>("const a = []; for (;;) a.push({})"),
             Err(SandboxError::MemoryLimit)
+        );
+    }
+
+    #[test]
+    fn run_await_settles_promises() {
+        let mut sb = sandbox();
+        let to_string = |_: &Ctx<'_>, v: Value<'_>| string_result(v);
+        // A plain value passes through.
+        assert_eq!(
+            sb.run_await(|ctx| ctx.eval("'plain'"), to_string).unwrap(),
+            "plain"
+        );
+        // A promise resolved through several microtasks.
+        assert_eq!(
+            sb.run_await(
+                |ctx| ctx.eval("(async () => { await null; await 1; return 'later' })()"),
+                to_string
+            )
+            .unwrap(),
+            "later"
+        );
+        // A rejection is an exception.
+        match sb
+            .run_await(
+                |ctx| ctx.eval("Promise.reject(new RangeError('no'))"),
+                to_string,
+            )
+            .unwrap_err()
+        {
+            SandboxError::Exception { message, .. } => assert_eq!(message, "RangeError: no"),
+            other => panic!("{other:?}"),
+        }
+        // A promise nothing will ever settle.
+        match sb
+            .run_await(|ctx| ctx.eval("new Promise(() => {})"), to_string)
+            .unwrap_err()
+        {
+            SandboxError::Type { message } => assert!(message.contains("never settled")),
+            other => panic!("{other:?}"),
+        }
+        // Limits still apply, and the budget covers the awaiting.
+        assert_eq!(
+            sb.run_await(
+                |ctx| ctx.eval("(async () => { for (;;) await null })()"),
+                to_string
+            ),
+            Err(SandboxError::TimeLimit)
         );
     }
 

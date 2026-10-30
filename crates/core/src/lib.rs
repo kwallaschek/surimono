@@ -18,6 +18,9 @@
 //! # Ok::<(), SandboxError>(())
 //! ```
 
+// A library never writes to stdout or stderr; tests may.
+#![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
+
 #[allow(unsafe_code)]
 mod engine;
 mod error;
@@ -26,7 +29,7 @@ mod sandbox;
 
 pub use error::SandboxError;
 pub use limits::Limits;
-pub use sandbox::{Bytecode, Sandbox, SandboxOptions};
+pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
 
 /// The rquickjs version surimono-core is built against, re-exported so
 /// dependent crates use the same one for [`Sandbox::run`] closures.
