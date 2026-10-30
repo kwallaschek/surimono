@@ -396,6 +396,66 @@ fn parse_size(lower: &str) -> Option<f64> {
     (px >= 0.0).then_some(px)
 }
 
+/// Resolves an SVG `font-size` value (presentation attribute or `style`) to
+/// px: keywords, lengths (a bare number is px), and `em`, `%`, `larger`,
+/// `smaller` relative to the parent's size.
+pub(crate) fn svg_font_size(value: &str, parent_px: f64) -> Option<f64> {
+    let lower = trim_ws(value).to_ascii_lowercase();
+    let px = match lower.as_str() {
+        "larger" => parent_px * 1.2,
+        "smaller" => parent_px / 1.2,
+        // Absolute keywords (`medium`, `x-small`, ...).
+        k if k.bytes().all(|b| b.is_ascii_alphabetic() || b == b'-') => parse_size(k)?,
+        _ => match parse_plain_number(&lower) {
+            Some(n) => n,
+            None => length_px(&lower, parent_px)?,
+        },
+    };
+    (px >= 0.0 && px.is_finite()).then(|| px.min(MAX_FONT_SIZE_PX))
+}
+
+/// Resolves an SVG length (`x`, `dy`, `letter-spacing`, ...) to px: a bare
+/// number is px; `em` and `ex` refer to `em_px`. Percentages are not
+/// supported (they refer to the viewport) and give `None`.
+pub(crate) fn svg_length(value: &str, em_px: f64) -> Option<f64> {
+    let lower = trim_ws(value).to_ascii_lowercase();
+    if lower.ends_with('%') {
+        return None;
+    }
+    match parse_plain_number(&lower) {
+        Some(n) => Some(n),
+        None => length_px(&lower, em_px),
+    }
+}
+
+/// Serializes a family list so [`FontSpec::parse`] reads it back unchanged.
+pub(crate) fn serialize_families(families: &[FamilyEntry]) -> String {
+    let mut out = String::new();
+    for (n, entry) in families.iter().enumerate() {
+        if n > 0 {
+            out.push_str(", ");
+        }
+        match entry {
+            FamilyEntry::Generic(g) => out.push_str(g.keyword()),
+            FamilyEntry::Named(name) => {
+                out.push('"');
+                for c in name.chars() {
+                    match c {
+                        '"' | '\\' => {
+                            out.push('\\');
+                            out.push(c);
+                        }
+                        c if c.is_control() => out.push_str(&format!("\\{:x} ", c as u32)),
+                        c => out.push(c),
+                    }
+                }
+                out.push('"');
+            }
+        }
+    }
+    out
+}
+
 /// Converts a length or percentage token to px. `em` and `%` refer to `em_px`.
 fn length_px(lower: &str, em_px: f64) -> Option<f64> {
     let (v, unit) = split_number(lower)?;
