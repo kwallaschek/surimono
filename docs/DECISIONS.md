@@ -64,3 +64,10 @@ checkpoint and can overturn anything. Newest last.
 - 2026-10-31 · Stack overflow is catchable inside a render; only an uncaught one is StackOverflow · Browser parity.
 - 2026-10-31 · The DOM engineer (phase 2 scaffolding) starts after checkpoint 2 · The 2-core build machine is saturated by the phase-1 agents; phase 2 starts on 2 Nov anyway.
 - 2026-10-31 · Keep the shared target dir, but every agent runs scripts/fleet/touch-workspace.sh before building, and scripts/ci.sh does the same outside Actions; GitHub CI (fresh target dir) is authoritative · Cargo names workspace-crate artifacts by path relative to the workspace root, so worktrees overwrite each other's builds and a stale one can look fresh; per-agent target dirs would rebuild Stylo six times on a 2-core machine.
+- 2026-10-31 · Agents build with CARGO_INCREMENTAL=0 and no extra target dirs · The session's disk allowance ran down to 4.6 GB free (shared target 17 GB, 3.4 GB of it incremental caches).
+- 2026-10-31 · Script results must be strings or real Promises; the host never calls toString/then on a result; a promise that can't settle ends at once · Rust never re-enters hostile JS outside the limits.
+- 2026-10-31 · Island sizes are multiples of 8 px · Chrome rounds @page to 1/300 inch, so other sizes fail on size alone.
+- 2026-10-31 · The Chrome harness wraps SVGs in the facade's div.surimono-island and CSS targets .surimono-island > svg · Both sides styled identically; Chrome's render unchanged.
+- 2026-10-31 · Fixtures avoid fill-opacity on gradient fills · Chrome's print drops it while the spec, Chrome's screen and fulgur apply it.
+- 2026-10-31 · Hostile cases accept Ok only where ECMA-262 or Chromium 153 finish them · Outside truth.
+- 2026-10-31 · Sandbox result policies: MemoryLimit is sticky; stack overflow is catchable; a non-string result or a promise that can't settle is an Exception; an unhandled rejection is Ok · From the #9 review.
