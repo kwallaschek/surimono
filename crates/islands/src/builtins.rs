@@ -1,0 +1,78 @@
+//! Built-in renderers, each behind a Cargo feature.
+//!
+//! Each one is a committed, minified JavaScript bundle under `bundles/`,
+//! built by `js/build.sh` from pinned npm packages, with its licence files
+//! next to it. A runner compiles a built-in the first time a render asks for
+//! it, so unused renderers cost nothing.
+
+/// A renderer compiled into this build.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Builtin {
+    /// The renderer name islands ask for.
+    pub(crate) name: &'static str,
+    /// The bundle's JavaScript source.
+    pub(crate) source: &'static str,
+    /// The global function the bundle defines.
+    pub(crate) entry: &'static str,
+}
+
+#[cfg(feature = "echarts")]
+const ECHARTS: Builtin = Builtin {
+    name: "echarts",
+    source: include_str!("../bundles/echarts/echarts.min.js"),
+    entry: "entry",
+};
+
+/// Every built-in renderer in this build, sorted by name.
+const ALL: &[Builtin] = &[
+    #[cfg(feature = "echarts")]
+    ECHARTS,
+];
+
+/// The built-in renderer called `name`, if this build has it.
+pub(crate) fn find(name: &str) -> Option<Builtin> {
+    ALL.iter().find(|b| b.name == name).copied()
+}
+
+/// Names of the built-in renderers in this build, sorted.
+///
+/// Which ones are present depends on Cargo features: `echarts` (on by
+/// default) adds `"echarts"`. A bundle registered under the same name with
+/// [`IslandRunner::register_bundle`](crate::IslandRunner::register_bundle)
+/// takes precedence over the built-in.
+pub fn builtin_renderers() -> Vec<&'static str> {
+    ALL.iter().map(|b| b.name).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtins_are_sorted_and_unique() {
+        let names = builtin_renderers();
+        assert!(names.windows(2).all(|w| w[0] < w[1]), "{names:?}");
+    }
+
+    #[test]
+    fn every_listed_builtin_is_found() {
+        for name in builtin_renderers() {
+            let b = find(name).unwrap();
+            assert_eq!(b.name, name);
+            assert!(!b.source.is_empty());
+        }
+        assert!(find("no-such-renderer").is_none());
+    }
+
+    #[cfg(feature = "echarts")]
+    #[test]
+    fn echarts_is_built_in() {
+        assert!(builtin_renderers().contains(&"echarts"));
+        assert!(
+            find("echarts")
+                .unwrap()
+                .source
+                .contains("Apache ECharts 6.1.0")
+        );
+    }
+}
