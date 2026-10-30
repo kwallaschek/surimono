@@ -14,5 +14,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+# Counts live heap bytes in the soak test.
+stats_alloc = "=0.1.10"
+
 [lints]
 workspace = true
