@@ -10,16 +10,36 @@ bench/run.sh <outdir> [--runs 20] [--mem-runs 5] [--warmup 2] [--systems a,b,…
 ```
 
 It installs what it needs (pinned npm packages and gems, into `node_modules`
-and `bench/.cache`), then writes `<outdir>/summary.md` (the tables) and
+and `bench/.cache`), checks that `report/report.html` is what its generator
+writes, then writes `<outdir>/summary.md` (the tables) and
 `<outdir>/results.json` (every run, every sample summary, versions, machine).
-CI runs it from `bench.yml` through `scripts/ci/bench.sh`, nightly and on
-main; with `$CI` set it also installs Playwright's Chromium and poppler, builds
-the surimono gem from `bindings/ruby` when it has a `Surimono::Renderer`, and
-keeps PDFs out of the published results.
+Both are rewritten after every phase, so a run cut short still has what it
+measured. CI runs it from `bench.yml` through `scripts/ci/bench.sh`, nightly
+and on main; with `$CI` set it also installs Playwright's Chromium and its
+chrome-headless-shell, poppler and bench/rust's toolchain, builds the surimono
+gem from `bindings/ruby` when it has a `Surimono::Renderer`, and keeps PDFs out
+of the published results.
 
-A system that can't run yet (the gem isn't built, the facade has no
-`Renderer`, a renderer the report needs is missing) is listed as **not
-measured** with the reason. No number is ever estimated.
+A system that can't run yet (the gem isn't built, a renderer the report needs
+is missing) is listed as **not measured** with the reason. So is a system that
+didn't finish every run (a timeout, the job's time budget). No number is ever
+estimated, and no ratio or verdict uses a system that isn't fully measured: a
+ratio needs both sides measured, and "met" / "not met" also needs the runs the
+SPEC asks for (20 timed runs, and the requested memory runs); with fewer it
+says "indicative". A bench/rust build that fails is an error (the job goes
+red); one that doesn't fit its time budget is "not measured".
+
+### CI time
+
+`bench.yml` gives the job 60 minutes. With `$CI` set, `bench.py` stops
+starting new work `BENCH_TIME_BUDGET_MIN` (50) minutes after `run.sh` started.
+The bench/rust build gets at most `BENCH_RUST_BUILD_TIMEOUT` seconds (1800)
+and never the last 15 minutes, which stay for measuring. A build cut off by
+its budget is killed with every rustc it started; what it compiled stays in
+`$CARGO_TARGET_DIR/bench-rust`, inside the `target/` dir Swatinem/rust-cache
+saves, so the next run continues from there. rust-cache only keeps the
+artifacts of crates the main workspace also depends on, unless bench.yml lists
+`bench/rust -> target/bench-rust` in its `workspaces` (a YAML change for Kay).
 
 ## The reference report
 
@@ -34,14 +54,28 @@ template, so fulgur and Chrome print the same six pages.
 | System | What runs | Cold | Warm |
 |---|---|---|---|
 | `grover` | Grover 1.2.10 prints the report with `<script>` tags for the pinned ECharts 6.1.0, Vega 6.4.0 and Vega-Lite 6.5.0; the charts are drawn client-side in Chrome by `fixtures/tools/lib/islands-browser.js`, the same contract as the Chrome references | new Ruby process; Grover launches Chrome | one Ruby process, one Chrome kept running (`browser_ws_endpoint`) |
+| `grover-shell` | as `grover`, on chrome-headless-shell of the same build (Puppeteer's `headless: "shell"`), the leanest Chrome a Grover user can run | new Ruby process; Grover launches the shell | one Ruby process, one shell kept running |
 | `grover-launch` | as `grover` | — | one Ruby process, Grover's default of a new Chrome per document |
 | `surimono-ruby` | `Surimono::Renderer#render`, then the fulgur gem 0.40.0 | new Ruby process | one Ruby process, renderer and engine reused |
 | `surimono-rust` | `surimono::Renderer::render_islands`, then the fulgur crate 0.40.0 (`rust/`, release) | new process | one process |
 | `fulgur-prerendered` | the fulgur gem prints the report with Chrome's SVGs already inlined | new Ruby process | one Ruby process |
 
-`fulgur-prerendered` is **not a surimono result**. It does everything the
-surimono path does except running the chart libraries, so its ratios against
-Grover are an upper bound on what surimono + fulgur can reach.
+`fulgur-prerendered` is **not a surimono result**, and it is a reference
+point, not a bound. It does everything the surimono path does except running
+the chart libraries, but Chrome's SVGs keep `<text>`, which fulgur shapes
+itself, while surimono outlines text by default (`TextMode::Outlines`), so the
+PDF step prints different SVG. Its ratios against Grover are expected to bound
+what surimono + fulgur can reach; nobody should quote them as a proven bound.
+
+In the warm `grover` and `grover-shell` rows, the Node process that keeps
+Chrome open (`grover/browser.cjs`) is left out of the memory sum and reported
+on its own (`memory.excluded` in `results.json`): it only holds Chrome, and a
+lean deployment starts Chrome itself. Its Chrome processes are counted.
+
+The report is shaped around fulgur 0.40's layout gaps (flex rows instead of
+`<table>`, one chart per page; `docs/COMPAT.md`). That is right for comparing
+the same six pages in both engines, but it is not a typical Rails template;
+`summary.md` says so too.
 
 ## Method
 
@@ -59,8 +93,9 @@ Grover are an upper bound on what surimono + fulgur can reach.
   the run's peak; a spike shorter than the interval can be missed. Memory runs
   are separate from timed runs. PSS is the headline and judges the SPEC target,
   because summed RSS counts the pages Chrome's processes share once per
-  process. `results.json` also has the largest single process and the sum of
-  each process's own high-water mark (an upper bound).
+  process. `results.json` also has the largest single process. A process that
+  exists but can't be read (EACCES, EPERM) is never counted as zero: the run's
+  memory is marked incomplete and gets no verdict.
 - **Grover settings.** A file:// URL, `wait_until: "load"` and a wait for the
   islands' done flag. Grover's default for URLs is `networkidle2`, which waits
   500 ms after the last request on every document, so Grover is measured at its
@@ -77,7 +112,8 @@ Grover are an upper bound on what surimono + fulgur can reach.
 - **Rust toolchain.** `rust/` is its own Cargo workspace with its own
   `rust-toolchain.toml` (1.97.0), because the fulgur crate's PDF stack (krilla
   0.7) needs rustc 1.89 while the library is pinned to 1.87. It builds into
-  `bench/.cache/target` (or `$BENCH_RUST_TARGET_DIR`), never the shared target.
+  `bench/.cache/target` locally (or `$BENCH_RUST_TARGET_DIR`), never the
+  shared target, and into `$CARGO_TARGET_DIR/bench-rust` in CI.
 
 ## Files
 
@@ -86,6 +122,7 @@ Grover are an upper bound on what surimono + fulgur can reach.
 | `run.sh` | entry point: installs, then runs `tools/bench.py` |
 | `tools/bench.py` | harness: runs, process-tree sampler, statistics, `results.json` |
 | `tools/summary.py` | `summary.md` from the results |
+| `tools/test_bench.py` | unit tests for both (`python3 -I -m unittest discover -s bench/tools -p 'test_*.py'`) |
 | `tools/pages.mjs` | the Grover page (report plus library `<script>` tags) and the pre-rendered page (Chrome's SVGs inlined) |
 | `ruby/bench.rb` | one Ruby benchmark process (Grover, surimono, fulgur) |
 | `grover/` | pinned Puppeteer (`package-lock.json`) and the persistent-browser launcher |

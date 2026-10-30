@@ -8,7 +8,7 @@
 //                                   <html data-islands="done">.
 //   <work>/report-prerendered.html  the report with each island marker replaced by
 //                                   the SVG Chrome drew for it (the input of the
-//                                   "fulgur only" lower bound).
+//                                   "fulgur only" reference point).
 //
 //   node bench/tools/pages.mjs <work-dir>
 //
