@@ -89,6 +89,23 @@ fn renders_an_echarts_island_from_file_to_file() {
         "{out}"
     );
     assert!(out.ends_with("</svg></div><p>end</p>"));
+    assert!(!out.contains("<text"), "text is outlined by default");
+    let kept = run(
+        &[
+            "render",
+            &input.display().to_string(),
+            "--font",
+            &font(),
+            "--text",
+            "keep",
+        ],
+        "",
+    );
+    assert!(
+        text(&kept.stdout).contains("<text"),
+        "{}",
+        text(&kept.stderr)
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

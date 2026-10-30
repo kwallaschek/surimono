@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use surimono::{Error, ErrorPolicy, Limits, Options, Renderer};
+use surimono::{Error, ErrorPolicy, Limits, Options, Renderer, TextMode};
 
 const HELP: &str = "\
 surimono: run a document's JavaScript without a browser, so browserless
@@ -40,6 +40,10 @@ Options:
   --utc-offset-minutes <n> Local time for scripts, e.g. 540 for Japan (default 0)
   --error-policy <p>       fail (default): stop at the first failed island;
                            placeholder: leave an empty, sized div instead
+  --text <mode>            outlines (default): chart text becomes glyph outlines
+                           in your fonts, so any PDF engine prints what was
+                           measured; keep: leave <text> (needs an engine that
+                           sets inline SVG text in your fonts)
 
 Exit codes:
   0  success
@@ -109,6 +113,7 @@ struct RenderArgs {
     now_ms: Option<i64>,
     utc_offset_minutes: i32,
     policy: ErrorPolicy,
+    text: TextMode,
 }
 
 enum Command {
@@ -191,6 +196,17 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
                     }
                 }
             }
+            "--text" => {
+                r.text = match value()?.as_str() {
+                    "outlines" => TextMode::Outlines,
+                    "keep" => TextMode::Keep,
+                    other => {
+                        return Err(Failure::usage(format!(
+                            "--text must be outlines or keep, got {other:?}"
+                        )));
+                    }
+                }
+            }
             other => return Err(Failure::usage(format!("unknown option {other:?}"))),
         }
     }
@@ -218,7 +234,8 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
         .limits(args.limits)
         .seed(args.seed)
         .utc_offset_minutes(args.utc_offset_minutes)
-        .error_policy(args.policy);
+        .error_policy(args.policy)
+        .text_mode(args.text);
     if let Some(ms) = args.now_ms {
         options = options.now_ms(ms);
     }
@@ -312,6 +329,8 @@ mod tests {
             "540",
             "--error-policy",
             "placeholder",
+            "--text",
+            "keep",
         ]);
         assert_eq!(r.input.as_deref(), Some("in.html"));
         assert_eq!(r.output.as_deref(), Some("out.html"));
@@ -324,6 +343,7 @@ mod tests {
         assert_eq!(r.limits.stack_bytes, 256 * 1024);
         assert_eq!((r.seed, r.now_ms, r.utc_offset_minutes), (7, Some(-5), 540));
         assert_eq!(r.policy, ErrorPolicy::Placeholder);
+        assert_eq!(r.text, TextMode::Keep);
     }
 
     #[test]
@@ -350,6 +370,7 @@ mod tests {
             &["render", "a", "--memory-mb", "99999999999999999"],
             &["render", "a", "--error-policy", "ignore"],
             &["render", "a", "--colour"],
+            &["render", "a", "--text", "pixels"],
         ] {
             match parse(args(bad)) {
                 Err(f) => assert_eq!(f.exit, Exit::Usage, "{bad:?}"),
