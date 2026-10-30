@@ -12,7 +12,7 @@ Results: fixtures not run; hostile scripts not run; benchmark not run.
 
 Not run yet: no surimono output has been compared with the Chrome references.
 
-Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the whole page printed by surimono + fulgur, against the Chrome references (`fixtures/README.md`, "Which comparison gates what"). Worst-window score in brackets.
+Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the whole page printed by surimono + fulgur, against the Chrome references (`fixtures/README.md`, "Which comparison gates what"). A pass shows the shape score (worst window); a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, size).
 
 | Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) |
 |---|---|---|---|---|
@@ -30,7 +30,7 @@ Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the 
 
 ### Hostile scripts
 
-The hostile suite (`fixtures/hostile/`) is not in this checkout.
+Not run yet: 59 cases in `fixtures/hostile/manifest.toml`; the sandbox harness hasn't reported results.
 
 ### Real-world libraries
 
@@ -47,6 +47,8 @@ Not run yet (`bench/run.sh`).
 | Gap | Evidence | Effect |
 |---|---|---|
 | `toLocaleString`, `toLocaleDateString` and the other `toLocale*String` methods ignore the locale argument in the sandbox (QuickJS has no Intl data): `new Date(Date.UTC(2026, 0, 1)).toLocaleDateString("ja-JP")` gives `"1/1/2026"`; Chrome gives `"2026/1/1"` | Reported by the reviewer of the core sandbox (p1-rt-05); Chrome's output checked in Chromium 153.0.8010.12 (time zone UTC): `"2026/1/1"`, `"2026/1/1 0:00:00"` for `toLocaleString("ja-JP")`, and `"1.234.567,5"` for `(1234567.5).toLocaleString("de-DE")` | Japanese (or any non-US) chart labels that format dates or numbers through `toLocale*String` come out in US format. The checkpoint-2 fixtures format through ECharts and Vega format strings instead, so they don't hit it |
+| Vega and Vega-Lite islands load no images or links: an `image` mark or an `href` channel (http or `data:` URL, Vega or Vega-Lite) doesn't render. Today the island fails with the generic sandbox error "the promise never settled": vega-scenegraph's `ResourceLoader.ready()` polls with `setTimeout(…, 10)`, which never fires in an island. Once P1-RT-12 lands it fails with a clear refusal instead. There is no network by design, so data must be inline (`values`) | Review of #29 (P1-RT-07, `crates/islands/js/src/vega.js`): five probes (a Vega image mark with an http URL and with a `data:` URL, a Vega-Lite image mark, `href` on a Vega rect and on a Vega-Lite bar) all give that error; all five render in Chrome | A chart with images or clickable marks fails as a whole. Data loaded by `url` is refused as well; inline it with `values` |
+| A Vega-Lite `"width": "container"` (or `"height": "container"`) renders at 300×300, not at the island's `data-width` and `data-height` | Review of #29 (P1-RT-07). Vega-Lite 6.5.0 compiles `"container"` to `isFinite(containerSize()[0]) ? containerSize()[0] : <config.view.continuousWidth>` (`src/compile/layoutsize/assemble.ts`; the default is 300), and a headless View has no container element to measure | Responsive Vega-Lite specs come out at the default size; give the island spec fixed `width` and `height` (or set `config.view.continuousWidth` and `continuousHeight` to the island's size) |
 
 ## Printing gaps in fulgur 0.40.0 seen by the fixtures
 
