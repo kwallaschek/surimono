@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Open invoices by customer</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans", "Noto Sans JP"; font-size: 10pt; line-height: 1.4; color: #1f2328; background: #ffffff; }
+    body { margin: 0; }
+    /* The page avoids flex layout and single-side border colours, which fulgur
+       0.40.0 prints differently from Chrome (docs/COMPAT.md), so page diffs
+       reflect the islands, not the page chrome. */
+    header { margin-bottom: 4mm; }
+    header .org { font-weight: 700; font-size: 12pt; }
+    header .meta { font-size: 9pt; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 2mm 0 5mm; }
+    h1 { font-size: 16pt; font-weight: 700; margin: 0 0 3mm; }
+    p { margin: 0 0 3mm; }
+    figure.island { margin: 4mm 0 1mm; padding: 0; }
+    figure.island > svg { display: block; }
+    .caption { font-size: 8.5pt; color: #57606a; margin-bottom: 5mm; }
+    table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+    th, td { padding: 1.5mm 2mm; text-align: left; }
+    th { font-weight: 700; background: #e8ecf0; }
+    tbody tr:nth-child(even) td { background: #f6f8fa; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">Northwind Trading GmbH</div>
+    <div class="meta">Accounts receivable · As of 31 Oct 2026 · Currency: EUR</div>
+    <div class="rule"></div>
+  </header>
+  <h1>Open invoices by customer</h1>
+  <p>Total of unpaid invoices per customer, sorted by amount. Includes invoices not yet due.</p>
+  <figure class="island" style="width: 640px; height: 300px">
+    <script type="application/vnd.surimono+json" data-renderer="vega-lite" data-width="640" data-height="300">{
+ "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+ "width": 640,
+ "height": 300,
+ "autosize": {
+  "type": "fit",
+  "contains": "padding"
+ },
+ "padding": 4,
+ "config": {
+  "font": "Noto Sans",
+  "axis": {
+   "labelFontSize": 10,
+   "titleFontSize": 11
+  },
+  "view": {
+   "stroke": null
+  }
+ },
+ "data": {
+  "values": [
+   {
+    "customer": "Baltic Shipping",
+    "total": 58095
+   },
+   {
+    "customer": "Delta Pharma",
+    "total": 33733
+   },
+   {
+    "customer": "Granite Labs",
+    "total": 33342
+   },
+   {
+    "customer": "Elm Street Books",
+    "total": 26925
+   },
+   {
+    "customer": "Harbor Retail",
+    "total": 26790
+   },
+   {
+    "customer": "Fjord Energy",
+    "total": 23386
+   },
+   {
+    "customer": "Cobalt Systems",
+    "total": 19381
+   },
+   {
+    "customer": "Alpine Foods AG",
+    "total": 14695
+   }
+  ]
+ },
+ "encoding": {
+  "y": {
+   "field": "customer",
+   "type": "nominal",
+   "sort": null,
+   "title": null
+  },
+  "x": {
+   "field": "total",
+   "type": "quantitative",
+   "title": "Open amount (EUR)",
+   "axis": {
+    "format": ",d"
+   }
+  }
+ },
+ "layer": [
+  {
+   "mark": {
+    "type": "bar",
+    "color": "#2f6fb0"
+   }
+  },
+  {
+   "mark": {
+    "type": "text",
+    "align": "left",
+    "dx": 3,
+    "fontSize": 9
+   },
+   "encoding": {
+    "text": {
+     "field": "total",
+     "type": "quantitative",
+     "format": ",d"
+    }
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">Figure 1. Open invoice total per customer (EUR).</p>
+  <table>
+      <thead><tr><th>Customer</th><th class="num">Open amount (EUR)</th></tr></thead>
+      <tbody>
+      <tr><td>Baltic Shipping</td><td class="num">58,095</td></tr>
+      <tr><td>Delta Pharma</td><td class="num">33,733</td></tr>
+      <tr><td>Granite Labs</td><td class="num">33,342</td></tr>
+      <tr><td>Elm Street Books</td><td class="num">26,925</td></tr>
+      <tr><td>Harbor Retail</td><td class="num">26,790</td></tr>
+      <tr><td>Fjord Energy</td><td class="num">23,386</td></tr>
+      <tr><td>Cobalt Systems</td><td class="num">19,381</td></tr>
+      <tr><td>Alpine Foods AG</td><td class="num">14,695</td></tr>
+      </tbody>
+    </table>
+</body>
+</html>

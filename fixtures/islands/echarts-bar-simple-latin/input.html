@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Monthly invoiced revenue, FY2026</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans", "Noto Sans JP"; font-size: 10pt; line-height: 1.4; color: #1f2328; background: #ffffff; }
+    body { margin: 0; }
+    /* The page avoids flex layout and single-side border colours, which fulgur
+       0.40.0 prints differently from Chrome (docs/COMPAT.md), so page diffs
+       reflect the islands, not the page chrome. */
+    header { margin-bottom: 4mm; }
+    header .org { font-weight: 700; font-size: 12pt; }
+    header .meta { font-size: 9pt; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 2mm 0 5mm; }
+    h1 { font-size: 16pt; font-weight: 700; margin: 0 0 3mm; }
+    p { margin: 0 0 3mm; }
+    figure.island { margin: 4mm 0 1mm; padding: 0; }
+    figure.island > svg { display: block; }
+    .caption { font-size: 8.5pt; color: #57606a; margin-bottom: 5mm; }
+    table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+    th, td { padding: 1.5mm 2mm; text-align: left; }
+    th { font-weight: 700; background: #e8ecf0; }
+    tbody tr:nth-child(even) td { background: #f6f8fa; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">Northwind Trading GmbH</div>
+    <div class="meta">Revenue report · Period: Jan to Dec 2026 · Currency: EUR</div>
+    <div class="rule"></div>
+  </header>
+  <h1>Monthly invoiced revenue, FY2026</h1>
+  <p>Invoiced revenue per month, net of credit notes. Values are in euros and rounded to the nearest euro.</p>
+  <figure class="island" style="width: 640px; height: 320px">
+    <script type="application/vnd.surimono+json" data-renderer="echarts" data-width="640" data-height="320">{
+ "textStyle": {
+  "fontFamily": "'Noto Sans'"
+ },
+ "title": {
+  "text": "Invoiced revenue (EUR)",
+  "left": 0,
+  "top": 0,
+  "textStyle": {
+   "fontFamily": "'Noto Sans'",
+   "fontSize": 14,
+   "fontWeight": "bold"
+  }
+ },
+ "grid": {
+  "left": 64,
+  "right": 16,
+  "top": 48,
+  "bottom": 32
+ },
+ "xAxis": {
+  "type": "category",
+  "data": [
+   "Jan",
+   "Feb",
+   "Mar",
+   "Apr",
+   "May",
+   "Jun",
+   "Jul",
+   "Aug",
+   "Sep",
+   "Oct",
+   "Nov",
+   "Dec"
+  ],
+  "axisTick": {
+   "alignWithLabel": true
+  }
+ },
+ "yAxis": {
+  "type": "value",
+  "axisLabel": {
+   "formatter": "{value}"
+  }
+ },
+ "series": [
+  {
+   "type": "bar",
+   "name": "Revenue",
+   "data": [
+    43221,
+    50683,
+    50465,
+    53187,
+    52657,
+    57240,
+    58088,
+    63270,
+    58457,
+    58899,
+    63472,
+    68947
+   ],
+   "barWidth": "60%",
+   "itemStyle": {
+    "color": "#2f6fb0"
+   },
+   "label": {
+    "show": true,
+    "position": "top",
+    "fontSize": 9,
+    "fontFamily": "'Noto Sans'"
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">Figure 1. Invoiced revenue per month (EUR).</p>
+  <table>
+      <thead><tr><th>Quarter</th><th class="num">Revenue (EUR)</th></tr></thead>
+      <tbody>
+      <tr><td>Q1</td><td class="num">144,369</td></tr>
+      <tr><td>Q2</td><td class="num">163,084</td></tr>
+      <tr><td>Q3</td><td class="num">179,815</td></tr>
+      <tr><td>Q4</td><td class="num">191,318</td></tr>
+      </tbody>
+    </table>
+</body>
+</html>
