@@ -1,0 +1,107 @@
+rustc 1.87.0 (17067e9ac 2025-05-09)
+binary: rustc
+commit-hash: 17067e9ac6d7ecb70e50f92c1944e545188d2359
+commit-date: 2025-05-09
+host: aarch64-apple-darwin
+release: 1.87.0
+LLVM version: 20.1.1
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/Users/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/Users/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m surimono-webidl v0.0.0 (/Users/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/Users/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono-dom v0.0.0 (/Users/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono v0.0.0 (/Users/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-cli v0.0.0 (/Users/runner/work/surimono/surimono/crates/cli)
+[1m[32m   Compiling[0m surimono-ruby v0.0.0 (/Users/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 2.79s
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-47d8684b10291dec)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/main.rs (target/debug/deps/surimono-811052264097a24b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_core-727349dbf3f3b0df)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_dom-a14cddcd512748e3)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_gfx-3b623d022d5c337e)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_islands-3c255288b23b57cf)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-f648d24ead47efb2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_webidl-25d612c0c640afd1)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_dom
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_gfx
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_islands
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_webidl
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
