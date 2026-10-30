@@ -1,0 +1,6 @@
+# Pinned to the MSRV (workspace rust-version) so every build proves it.
+# Raise both together, with a line in docs/DECISIONS.md.
+[toolchain]
+channel = "1.87.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

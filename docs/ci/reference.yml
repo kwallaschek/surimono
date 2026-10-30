@@ -1,0 +1,28 @@
+# Chrome reference renders for the visual fixtures, with a pinned Playwright
+# Chromium. They are the outside truth for how a page looks and are never edited
+# by hand. The work is in scripts/ci/reference.sh and fixtures/tools/.
+name: reference
+
+on:
+  push:
+    branches: [main]
+    paths: ["fixtures/**", "scripts/ci/reference.sh"]
+  schedule:
+    - cron: "30 17 * * 0" # Mondays 02:30 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish renders to the ci-results branch
+
+jobs:
+  chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: scripts/ci/job.sh reference scripts/ci/reference.sh
+      - if: always()
+        run: scripts/ci/publish-results.sh "${{ job.status }}"

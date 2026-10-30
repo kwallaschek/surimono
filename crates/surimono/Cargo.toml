@@ -1,0 +1,17 @@
+[package]
+name = "surimono"
+description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+surimono-core.workspace = true
+surimono-gfx.workspace = true
+surimono-islands.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

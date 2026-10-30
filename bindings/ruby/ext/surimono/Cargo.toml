@@ -1,0 +1,20 @@
+[package]
+name = "surimono-ruby"
+description = "Ruby bindings for surimono (native extension)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "surimono"
+crate-type = ["cdylib"]
+
+[dependencies]
+magnus = "=0.9.3"
+rb-sys = { version = "=0.9.130", default-features = false, features = ["stable-api-compiled-fallback"] }
+surimono.workspace = true
+
+[lints]
+workspace = true

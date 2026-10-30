@@ -1,0 +1,79 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/core",
+    "crates/webidl",
+    "crates/dom",
+    "crates/gfx",
+    "crates/islands",
+    "crates/surimono",
+    "crates/cli",
+    "bindings/ruby/ext/surimono",
+]
+# The Ruby extension needs Ruby headers and libclang; keep plain `cargo build`
+# fast and toolchain-only. CI builds it explicitly with `--workspace`.
+default-members = [
+    "crates/core",
+    "crates/webidl",
+    "crates/dom",
+    "crates/gfx",
+    "crates/islands",
+    "crates/surimono",
+    "crates/cli",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.87"
+license = "MIT OR Apache-2.0"
+description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
+categories = ["rendering", "web-programming"]
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+surimono-core = { path = "crates/core", version = "0.0.0" }
+surimono-webidl = { path = "crates/webidl", version = "0.0.0" }
+surimono-dom = { path = "crates/dom", version = "0.0.0" }
+surimono-gfx = { path = "crates/gfx", version = "0.0.0" }
+surimono-islands = { path = "crates/islands", version = "0.0.0" }
+surimono = { path = "crates/surimono", version = "0.0.0" }
+
+# JS engine: QuickJS-ng through rquickjs. Exact pin; upgrades are planned tasks.
+rquickjs = { version = "=0.14.0", default-features = false, features = ["std", "classes", "properties", "array-buffer"] }
+
+# DOM and layout: exact versions from fulgur 0.40.0's Cargo.lock (fulgur-cli 0.40.0).
+# Bump only together with fulgur. See docs/DECISIONS.md.
+blitz-dom = { version = "=0.2.4", default-features = false }
+blitz-html = { version = "=0.2.0" }
+blitz-traits = { version = "=0.2.0" }
+
+# Common
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace.lints.rust]
+# unsafe is allowed only in engine-binding modules, each opted in with
+# #[allow(unsafe_code)], a SAFETY comment per block, and a test.
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+undocumented_unsafe_blocks = "warn"
+mem_forget = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.dev.package."*"]
+# Dependencies (QuickJS, Stylo) are slow unoptimised; tests run faster this way.
+opt-level = 1

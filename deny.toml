@@ -1,0 +1,60 @@
+# cargo-deny configuration. Permissive licences only; advisories on.
+# Run: cargo deny check
+
+[graph]
+all-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+unused-allowed-license = "allow"
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "BSL-1.0",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+]
+# MPL-2.0 is file-level copyleft, not permissive. It is allowed only for the
+# Servo style crates (Stylo, cssparser, selectors and their helpers) that Blitz
+# and fulgur cannot work without, used unmodified as dependencies. See docs/DECISIONS.md (2026-10-31).
+exceptions = [
+    { name = "app_units", allow = ["MPL-2.0"] },
+    { name = "cssparser", allow = ["MPL-2.0"] },
+    { name = "cssparser-macros", allow = ["MPL-2.0"] },
+    { name = "dtoa-short", allow = ["MPL-2.0"] },
+    { name = "selectors", allow = ["MPL-2.0"] },
+    { name = "stylo", allow = ["MPL-2.0"] },
+    { name = "stylo_atoms", allow = ["MPL-2.0"] },
+    { name = "stylo_config", allow = ["MPL-2.0"] },
+    { name = "stylo_derive", allow = ["MPL-2.0"] },
+    { name = "stylo_dom", allow = ["MPL-2.0"] },
+    { name = "stylo_static_prefs", allow = ["MPL-2.0"] },
+    { name = "stylo_traits", allow = ["MPL-2.0"] },
+    { name = "to_shmem", allow = ["MPL-2.0"] },
+    { name = "to_shmem_derive", allow = ["MPL-2.0"] },
+    { name = "uluru", allow = ["MPL-2.0"] },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

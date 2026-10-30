@@ -1,0 +1,17 @@
+[package]
+name = "surimono-dom"
+description = "Web API bindings from QuickJS to blitz-dom for surimono."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+surimono-core.workspace = true
+blitz-dom.workspace = true
+blitz-html.workspace = true
+blitz-traits.workspace = true
+
+[lints]
+workspace = true

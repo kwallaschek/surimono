@@ -1,0 +1,43 @@
+# Every pull request and push to main, Linux: fmt, clippy (warnings are errors),
+# tests, cargo-deny. The checks themselves live in scripts/ci.sh so they can change
+# without touching this file. Logs go to the ci-results branch.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # publish logs to the ci-results branch
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_TARGET_DIR: target
+  PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show active-toolchain || rustup toolchain install
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: checks
+        run: scripts/ci/job.sh linux scripts/ci.sh
+      - name: publish results
+        if: always()
+        run: scripts/ci/publish-results.sh "${{ job.status }}"

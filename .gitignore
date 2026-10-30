@@ -1,0 +1,22 @@
+/target/
+target/
+*.gem
+pkg/
+tmp/
+.env
+.env.*
+*.pem
+*.key
+credentials*
+.DS_Store
+/bindings/ruby/lib/surimono/*.so
+/bindings/ruby/lib/surimono/*.bundle
+/bindings/ruby/lib/surimono/[0-9]*/
+/bindings/ruby/Gemfile.lock
+/fixtures/**/out/
+/bench/results/raw/
+node_modules/
+
+# Private planning copies; the living brief is the Claude doc linked in CLAUDE.md
+/docs/BRIEF.md
+/docs/PROJECT_INSTRUCTIONS.md
