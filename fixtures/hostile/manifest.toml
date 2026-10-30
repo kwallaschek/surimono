@@ -110,6 +110,63 @@ expect = "Exception"
 about = "Atomics.wait would block in a futex that no interrupt reaches; the sandbox agent must not be able to suspend (TypeError), or SharedArrayBuffer must be absent (ReferenceError)"
 source = "ECMA-262, DoWait (Atomics.wait): an agent for which AgentCanSuspend() is false gets a TypeError: https://tc39.es/ecma262/#sec-dowait"
 
+# ---------------------------------------------------------------- native loops
+#
+# Built-ins that loop natively (in C) over an array-like never return to the
+# bytecode loop, so an interrupt handler that only polls between bytecodes can't
+# stop them: the hang the time limit doesn't reach. ECMA-262 lets these loops
+# run to the full length (up to 2**53 - 1), so any typed error within
+# max_wall_ms is safe; a hang or crash is not. Chromium 153 throws a
+# non-standard TypeError for some and hangs on others (noted per case).
+
+[[case]]
+id = "native-loop-join-arraylike"
+file = "native-loop-join-arraylike.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "Array.prototype.join over { length: 2**40 } (Chromium 153: TypeError, Invalid array length)"
+source = "ECMA-262, Array.prototype.join loops k from 0 to ToLength(length): https://tc39.es/ecma262/#sec-array.prototype.join"
+
+[[case]]
+id = "native-loop-join-holey"
+file = "native-loop-join-holey.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit", "Ok"]
+output = "finished"
+about = "join over new Array(2**32 - 1) with no elements; an engine with a fast path for holes may finish (Chromium 153 returns \"finished\" in milliseconds)"
+source = "ECMA-262, Array.prototype.join: https://tc39.es/ecma262/#sec-array.prototype.join"
+
+[[case]]
+id = "native-loop-join-getter-length"
+file = "native-loop-join-getter-length.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "join over an array-like whose 2**40 length comes from a getter (Chromium 153: TypeError, Invalid array length)"
+
+[[case]]
+id = "native-loop-join-proxy"
+file = "native-loop-join-proxy.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "join over a Proxy reporting length 2**40; every index read calls the get trap (Chromium 153: TypeError, Invalid array length)"
+
+[[case]]
+id = "native-loop-reverse"
+file = "native-loop-reverse.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "Array.prototype.reverse over { length: 2**40 } (Chromium 153: still running after 4 s)"
+source = "ECMA-262, Array.prototype.reverse: https://tc39.es/ecma262/#sec-array.prototype.reverse"
+
+[[case]]
+id = "native-loop-copywithin"
+file = "native-loop-copywithin.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "Array.prototype.copyWithin over { length: 2**40 } (Chromium 153: still running after 4 s)"
+source = "ECMA-262, Array.prototype.copyWithin: https://tc39.es/ecma262/#sec-array.prototype.copywithin"
+
+[[case]]
+id = "native-loop-string-raw"
+file = "native-loop-string-raw.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "String.raw over raw.length 2**40 (Chromium 153: still running after 4 s)"
+source = "ECMA-262, String.raw: https://tc39.es/ecma262/#sec-string.raw"
+
 # ---------------------------------------------------------------- memory
 
 [[case]]
@@ -128,13 +185,13 @@ about = "s += s forever; an engine with rope strings may reach the maximum strin
 id = "alloc-string-repeat"
 file = "alloc-string-repeat.js"
 expect = "MemoryLimit"
-about = "One 256 MiB string from String.prototype.repeat (below QuickJS's maximum string length, above the heap limit)"
+about = "Deliberately one over-limit allocation: a 256 MiB string from String.prototype.repeat, below QuickJS's maximum string length and above the 64 MiB heap limit, so the heap limit must refuse it (Chromium 153, with no such limit, returns 268435456)"
 
 [[case]]
 id = "alloc-typed-array"
 file = "alloc-typed-array.js"
 expect = "MemoryLimit"
-about = "One 1 GiB Uint8Array"
+about = "Deliberately one over-limit allocation: a 1 GiB Uint8Array against the 64 MiB heap limit, so array buffer memory must count against it (Chromium 153, with no such limit, returns 1073741824)"
 
 [[case]]
 id = "alloc-typed-arrays-many"
@@ -173,7 +230,7 @@ id = "recursion-caught"
 file = "recursion-caught.js"
 expect = "Ok"
 output = "caught:2,4,6"
-about = "Unbounded recursion caught by the script, which then keeps working; stack overflow is catchable, as in browsers"
+about = "Unbounded recursion caught by the script, which then keeps working; stack overflow is catchable, as in browsers (Chrome: catchable RangeError; Chromium 153 returns \"caught:2,4,6\")"
 
 [[case]]
 id = "recursion-getter"
@@ -196,8 +253,9 @@ about = "Recursion through a Proxy get trap that reads from its own receiver"
 [[case]]
 id = "recursion-json-stringify"
 file = "recursion-json-stringify.js"
-expect = "StackOverflow"
-about = "Engine-internal recursion: JSON.stringify of a 100,000-deep array (Chrome: RangeError, Maximum call stack size exceeded)"
+expect_any = ["StackOverflow", "Ok"]
+output = "stringified"
+about = "Engine-internal recursion: JSON.stringify of a 100,000-deep array; an engine may finish it (Chromium 153 returns \"stringified\") or stop at the stack limit, but must not crash"
 
 [[case]]
 id = "recursion-array-join"
@@ -257,7 +315,8 @@ id = "unhandled-rejection"
 file = "unhandled-rejection.js"
 expect = "Ok"
 output = "ok"
-about = "An unhandled rejection does not fail the render (browsers only log it)"
+about = "An unhandled rejection does not fail the render (browsers only report it)"
+source = "HTML Standard, unhandled promise rejections: https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections"
 
 [[case]]
 id = "control-sync"
