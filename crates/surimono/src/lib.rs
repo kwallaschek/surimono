@@ -1,7 +1,19 @@
-//! surimono: run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it.
+//! surimono: run a document's JavaScript without a browser, so browserless
+//! HTML-to-PDF engines can print it.
 //!
-//! Part of surimono, a library that runs a document's
-//! JavaScript without a browser. See `docs/BRIEF.md` for the design.
+//! Part of surimono, a library that runs a document's JavaScript without a
+//! browser. See `docs/BRIEF.md` for the design.
+
+mod error;
+// The pre-pass is wired into the public `Renderer` by P1-PKG-02.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "used by Renderer, which lands in P1-PKG-02")
+)]
+mod prepass;
+
+pub use error::{Error, IslandRef};
+pub use prepass::ErrorPolicy;
 
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
