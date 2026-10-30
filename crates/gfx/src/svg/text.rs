@@ -40,6 +40,15 @@ use crate::measure::{Shaped, TextMeasurer};
 /// output byte-identical.
 const PATH_DECIMALS: i32 = 2;
 
+/// Most characters one SVG may have outlined. A glyph outline is up to a few
+/// KB of path data (dense CJK glyphs), so this bounds the output at tens of
+/// MB and the shaping time at well under a second; dense charts have a few
+/// thousand characters of labels. More is a hostile or broken island.
+pub const MAX_OUTLINE_CHARS: usize = 20_000;
+
+/// Most bytes of outline path data one SVG may produce.
+const MAX_OUTLINE_BYTES: usize = 32 * 1024 * 1024;
+
 /// Attributes that position text; they mean nothing on the `<g>` that
 /// replaces a `<text>` or `<tspan>`.
 const POSITIONING: &[&str] = &["x", "y", "dx", "dy", "rotate", "textlength", "lengthadjust"];
@@ -63,6 +72,7 @@ pub(crate) fn outline_text(svg: &str, measurer: &TextMeasurer) -> Result<String,
     let root = doc.root_element();
     let mut edits: Vec<(Range<usize>, String)> = Vec::new();
     let mut inside_text_until = 0;
+    let mut budget = Budget::default();
     walk(root, svg, |visit| {
         if let Visit::Element { node, ns, .. } = visit {
             if node.range().start < inside_text_until || ns != Ns::Svg {
@@ -70,7 +80,10 @@ pub(crate) fn outline_text(svg: &str, measurer: &TextMeasurer) -> Result<String,
             }
             // An HTML parser lower-cases tag names, so <TEXT> is SVG text too.
             if node.tag_name().name().eq_ignore_ascii_case("text") {
-                edits.push((node.range(), convert_text(node, svg, measurer)?));
+                edits.push((
+                    node.range(),
+                    convert_text(node, svg, measurer, &mut budget)?,
+                ));
                 inside_text_until = node.range().end;
             }
         }
@@ -748,16 +761,43 @@ fn start_tag(
     (out, self_closing)
 }
 
+/// What one SVG has used of [`MAX_OUTLINE_CHARS`] and [`MAX_OUTLINE_BYTES`].
+#[derive(Default)]
+struct Budget {
+    chars: usize,
+    bytes: usize,
+}
+
 fn convert_text(
     text: Node<'_, '_>,
     input: &str,
     measurer: &TextMeasurer,
+    budget: &mut Budget,
 ) -> Result<String, GfxError> {
+    // Count before shaping, so a flood of text costs nothing.
+    budget.chars += text
+        .descendants()
+        .filter(|n| n.is_text())
+        .filter_map(|n| n.text())
+        .map(|t| t.chars().filter(|c| !c.is_whitespace()).count())
+        .sum::<usize>();
+    if budget.chars > MAX_OUTLINE_CHARS {
+        return Err(invalid(format!(
+            "more than {MAX_OUTLINE_CHARS} characters of text to outline"
+        )));
+    }
     let laid = layout(text, measurer)?;
     // Path data per text run.
     let mut paths = vec![String::new(); laid.runs.len()];
     for seg in &laid.segments {
         draw_segment(seg, &mut paths[seg.run]);
+    }
+    budget.bytes += paths.iter().map(String::len).sum::<usize>();
+    if budget.bytes > MAX_OUTLINE_BYTES {
+        return Err(invalid(format!(
+            "outlined text would exceed {} MiB",
+            MAX_OUTLINE_BYTES / (1024 * 1024)
+        )));
     }
     let in_clip_path = text.ancestors().any(|a| is_named(a, "clipPath"));
     if in_clip_path {
@@ -1019,6 +1059,24 @@ pub(crate) mod tests {
         assert!(p.has_tag_name("path") && p.attribute("d").unwrap().len() > 20);
         // An empty <text/> stays an (empty) labelled group.
         assert!(out.contains("<g role=\"img\" aria-label=\"\"/>"));
+    }
+
+    /// A flood of text is a typed error before anything is shaped.
+    #[test]
+    fn too_much_text_is_an_error_not_a_blowup() {
+        let m = test_measurer();
+        let svg = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\">{}</svg>",
+            "<text>鬱</text>".repeat(MAX_OUTLINE_CHARS + 1)
+        );
+        let err = outline_text(&svg, &m).unwrap_err();
+        assert!(matches!(err, GfxError::InvalidSvg { .. }), "{err}");
+        // Just under the limit is fine (and spaces don't count).
+        let svg = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>{}</text></svg>",
+            "a ".repeat(2000)
+        );
+        assert!(outline_text(&svg, &m).is_ok());
     }
 
     #[test]

@@ -4,6 +4,8 @@
 mod css;
 mod text;
 
+pub use text::MAX_OUTLINE_CHARS;
+
 use std::collections::HashSet;
 use std::ops::Range;
 
@@ -214,8 +216,9 @@ const URL_PRESENTATION: &[&str] = &[
 ///
 /// Everything else is copied byte for byte. Input that is not well-formed
 /// XML with an `<svg>` root, uses a DTD or has more than [`MAX_SVG_NODES`]
-/// nodes is rejected with [`GfxError::InvalidSvg`]. Outlining text with no
-/// registered fonts fails with [`GfxError::NoFonts`].
+/// nodes is rejected with [`GfxError::InvalidSvg`], as is SVG with more than
+/// [`MAX_OUTLINE_CHARS`] characters of text to outline. Outlining text with
+/// no registered fonts fails with [`GfxError::NoFonts`].
 pub fn sanitize_svg(
     svg: &str,
     island: usize,
