@@ -71,3 +71,5 @@ checkpoint and can overturn anything. Newest last.
 - 2026-10-31 · Fixtures avoid fill-opacity on gradient fills · Chrome's print drops it while the spec, Chrome's screen and fulgur apply it.
 - 2026-10-31 · Hostile cases accept Ok only where ECMA-262 or Chromium 153 finish them · Outside truth.
 - 2026-10-31 · Sandbox result policies: MemoryLimit is sticky; stack overflow is catchable; a non-string result or a promise that can't settle is an Exception; an unhandled rejection is Ok · From the #9 review.
+- 2026-10-31 · Unlicense counts as permissive (added to deny.toml's allow list) · OSI-approved public-domain dedication; robust-predicates 3.0.3 inside the Vega bundle uses it.
+- 2026-10-31 · Vega's 2,000-point scatter keeps the 2 s default time limit · Release-build median 325 to 678 ms, worst 1.05 s on the loaded 2-core fleet machine (≥1.9× margin); guides tell users with thousands of marks to raise the limit.
