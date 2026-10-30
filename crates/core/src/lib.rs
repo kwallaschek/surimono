@@ -13,7 +13,7 @@
 //! let mut sb = Sandbox::new(Limits::default())?;
 //! assert_eq!(sb.eval::<i32>("6 * 7")?, 42);
 //!
-//! let mut quick = Sandbox::new(Limits { time: std::time::Duration::from_millis(50), ..Limits::default() })?;
+//! let mut quick = Sandbox::new(Limits::default().with_time(std::time::Duration::from_millis(50)))?;
 //! assert_eq!(quick.eval::<()>("for (;;) {}"), Err(SandboxError::TimeLimit));
 //! # Ok::<(), SandboxError>(())
 //! ```

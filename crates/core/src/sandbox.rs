@@ -12,10 +12,128 @@ use crate::engine::{self, LimitAllocator, LimitState};
 use crate::{Limits, SandboxError};
 
 /// How a [`Sandbox`] is set up.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+///
+/// Besides the limits, these pin everything a script could otherwise read
+/// from the host, so the same input gives the same output whatever the
+/// host's clock and time zone: `Math.random` is seeded, `Date.now()` and
+/// `new Date()` return a fixed instant, local time (including how
+/// `Date.parse` reads strings without a zone) is a fixed offset from UTC,
+/// never the host's zone, and `performance.now()` is a virtual clock.
+///
+/// Floating-point maths is the exception: `Math.sin`, `Math.exp`,
+/// `Math.pow` and their kin come from the platform's C library, which can
+/// differ in the last bit between glibc, musl and macOS. Output is
+/// byte-identical across runs on one platform; across platforms, numbers
+/// computed with those functions can differ in their last digits.
+///
+/// Locale-sensitive methods (`toLocaleString` and friends) ignore their
+/// `locales` and `options` arguments and always format like Chrome's
+/// `en-US`.
+///
+/// Start from [`SandboxOptions::default`] and adjust it with the `with_*`
+/// setters; more options will be added in later versions:
+///
+/// ```
+/// use surimono_core::{Limits, SandboxOptions};
+///
+/// let tokyo = SandboxOptions::default()
+///     .with_utc_offset_minutes(9 * 60)
+///     .with_limits(Limits::default().with_memory_bytes(32 << 20));
+/// assert_eq!(tokyo.validate(), Ok(()));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SandboxOptions {
     /// Memory, time and stack limits for every call.
     pub limits: Limits,
+    /// Seed for `Math.random`. Every fresh context starts the same sequence.
+    pub random_seed: u64,
+    /// What `Date.now()` and `new Date()` return, in milliseconds since the
+    /// Unix epoch. Also `performance.timeOrigin`.
+    pub now_ms: i64,
+    /// Local time's offset from UTC in minutes, e.g. 540 for Japan. Affects
+    /// `getHours()`, `toString()`, `new Date(2026, 0, 1)` and the like.
+    pub utc_offset_minutes: i32,
+}
+
+impl SandboxOptions {
+    /// Default `Math.random` seed: "surimono" in ASCII.
+    pub const DEFAULT_RANDOM_SEED: u64 = 0x7375_7269_6d6f_6e6f;
+    /// Default clock: 2026-01-01T00:00:00Z.
+    pub const DEFAULT_NOW_MS: i64 = 1_767_225_600_000;
+    /// Largest `|now_ms|` a JavaScript Date can hold.
+    pub const MAX_ABS_NOW_MS: i64 = 8_640_000_000_000_000;
+    /// Earliest real-world UTC offset, in minutes (UTC-12:00).
+    pub const MIN_UTC_OFFSET_MINUTES: i32 = -12 * 60;
+    /// Latest real-world UTC offset, in minutes (UTC+14:00).
+    pub const MAX_UTC_OFFSET_MINUTES: i32 = 14 * 60;
+
+    /// These options with `limits` as the limits.
+    #[must_use]
+    pub fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// These options with `Math.random` seeded with `seed`.
+    #[must_use]
+    pub fn with_random_seed(mut self, seed: u64) -> Self {
+        self.random_seed = seed;
+        self
+    }
+
+    /// These options with the clock fixed at `now_ms` (ms since the epoch).
+    #[must_use]
+    pub fn with_now_ms(mut self, now_ms: i64) -> Self {
+        self.now_ms = now_ms;
+        self
+    }
+
+    /// These options with local time `minutes` ahead of UTC.
+    #[must_use]
+    pub fn with_utc_offset_minutes(mut self, minutes: i32) -> Self {
+        self.utc_offset_minutes = minutes;
+        self
+    }
+
+    /// Checks every option is in range.
+    pub fn validate(&self) -> Result<(), SandboxError> {
+        self.limits.validate()?;
+        if !(-Self::MAX_ABS_NOW_MS..=Self::MAX_ABS_NOW_MS).contains(&self.now_ms) {
+            return Err(SandboxError::InvalidOptions {
+                message: format!(
+                    "now_ms is {}, a Date holds at most ±{}",
+                    self.now_ms,
+                    Self::MAX_ABS_NOW_MS
+                ),
+            });
+        }
+        if !(Self::MIN_UTC_OFFSET_MINUTES..=Self::MAX_UTC_OFFSET_MINUTES)
+            .contains(&self.utc_offset_minutes)
+        {
+            return Err(SandboxError::InvalidOptions {
+                message: format!(
+                    "utc_offset_minutes is {}, it must be between {} and {}",
+                    self.utc_offset_minutes,
+                    Self::MIN_UTC_OFFSET_MINUTES,
+                    Self::MAX_UTC_OFFSET_MINUTES
+                ),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl Default for SandboxOptions {
+    /// Default limits, the default seed, 2026-01-01T00:00:00Z, and UTC.
+    fn default() -> Self {
+        Self {
+            limits: Limits::default(),
+            random_seed: Self::DEFAULT_RANDOM_SEED,
+            now_ms: Self::DEFAULT_NOW_MS,
+            utc_offset_minutes: 0,
+        }
+    }
 }
 
 /// Script bytecode compiled once by [`Sandbox::compile`] and runnable in any
@@ -122,12 +240,15 @@ impl fmt::Debug for Sandbox {
 impl Sandbox {
     /// Creates a sandbox with the given limits and default options.
     pub fn new(limits: Limits) -> Result<Self, SandboxError> {
-        Self::with_options(SandboxOptions { limits })
+        Self::with_options(SandboxOptions {
+            limits,
+            ..SandboxOptions::default()
+        })
     }
 
     /// Creates a sandbox from full options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
-        options.limits.validate()?;
+        options.validate()?;
         let state = LimitState::new(options.limits.memory_bytes);
         let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone()))
             .map_err(|e| setup_error(&state, e))?;
@@ -338,6 +459,11 @@ fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<
             })?;
     let config = Object::new(ctx.clone())?;
     config.set("maxLength", max_array_like_length(&options.limits))?;
+    // The seed travels as two 32-bit halves: JS numbers can't hold 64 bits.
+    config.set("seedLo", (options.random_seed & 0xffff_ffff) as f64)?;
+    config.set("seedHi", (options.random_seed >> 32) as f64)?;
+    config.set("nowMs", options.now_ms as f64)?;
+    config.set("utcOffsetMinutes", options.utc_offset_minutes)?;
     prelude.call::<_, ()>((config,))
 }
 
@@ -711,7 +837,7 @@ mod tests {
         let kinds: String = sb
             .eval(
                 "[typeof std, typeof os, typeof require, typeof process, typeof fetch,
-                  typeof XMLHttpRequest, typeof performance, typeof setTimeout,
+                  typeof XMLHttpRequest, typeof setTimeout, typeof setInterval,
                   typeof print, typeof scriptArgs].join(',')",
             )
             .unwrap();
