@@ -25,13 +25,16 @@
 //! # Ok::<(), surimono_islands::IslandError>(())
 //! ```
 
+// A library never writes to stdout or stderr; tests may.
+#![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
+
 mod error;
 mod measure;
 mod runner;
 
 pub use error::IslandError;
 pub use measure::{TextMeasurer, TextMetrics};
-pub use runner::{IslandRequest, IslandRunner, RunnerOptions};
+pub use runner::{IslandRequest, IslandRunner, RunnerOptions, RunnerStats};
 pub use surimono_core::{Limits, SandboxError};
 
 /// Version of this crate, for diagnostics.
