@@ -41,12 +41,11 @@ impl RunnerOptions {
     pub const DEFAULT_MAX_POOL_SIZE: usize = 4;
 
     fn sandbox_options(&self) -> SandboxOptions {
-        SandboxOptions {
-            limits: self.limits,
-            random_seed: self.seed,
-            now_ms: self.now_ms,
-            utc_offset_minutes: self.utc_offset_minutes,
-        }
+        SandboxOptions::default()
+            .with_limits(self.limits)
+            .with_random_seed(self.seed)
+            .with_now_ms(self.now_ms)
+            .with_utc_offset_minutes(self.utc_offset_minutes)
     }
 
     /// The pool size this runner will use.
