@@ -33,7 +33,9 @@ the orchestrator (write the request in your final report).
 A crate's own `Cargo.toml` belongs to the crate's owner. New workspace-level
 dependencies go in the root `Cargo.toml` via the orchestrator: ask in your report,
 and meanwhile add the dependency directly in your crate's `Cargo.toml` with an
-exact version.
+exact version. If another crate already uses the same dependency, use the root
+`[workspace.dependencies]` pin (`<dep>.workspace = true`) instead; two different
+exact pins of one crate can't resolve together.
 
 ## Fleet rules
 
@@ -83,7 +85,11 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
 2. **Shared build cache.** Always `export CARGO_TARGET_DIR=/home/claude/target`
    and `export CARGO_BUILD_JOBS=2` (the machine has 2 cores and 7 GB of RAM). Cargo
    serialises builds on that directory; waiting on its lock is normal. Build only
-   your crates (`-p surimono-core`) while iterating.
+   your crates (`-p surimono-core`) while iterating. **Run
+   `scripts/fleet/touch-workspace.sh` before every build or test**: worktrees share
+   artifact names for workspace crates, so without it cargo can silently use another
+   worktree's build of a crate (false red or false green). GitHub CI uses a fresh
+   target dir and is the authoritative result.
 3. **Checks before you report.** Run `scripts/ci.sh` from your worktree; it runs
    exactly what CI runs on Linux (fmt, clippy with warnings as errors, tests,
    cargo-deny). Your branch must pass it.
@@ -116,5 +122,6 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   `unwrap()`/`expect()` only in tests or with a comment proving it can't fail.
 - Public items carry doc comments. Keep the public API small; the facade crate
   `surimono` is the only API users should need.
+- When writing files, byte-check any `\uXXXX` escapes in string literals; file tools have saved them as the literal characters.
 - Tests live next to the code (`#[cfg(test)]`) or in the crate's `tests/`.
   Fixture-driven tests read from `fixtures/` and never rewrite expectations.
