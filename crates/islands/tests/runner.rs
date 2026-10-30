@@ -1,13 +1,15 @@
 //! The island runner end to end, with small hand-written bundles.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use surimono_islands::{
-    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError, TextMeasurer,
-    TextMetrics,
+    FontSet, IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError,
+    TextMeasurer,
 };
+
+mod common;
 
 /// A tiny "chart library": centres a measured label and stamps the output
 /// with Math.random and Date so determinism is visible.
@@ -33,7 +35,7 @@ fn options() -> RunnerOptions {
 }
 
 fn runner() -> IslandRunner {
-    let r = IslandRunner::new(options()).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options()).unwrap();
     r.register_bundle("label", LABEL, "entry").unwrap();
     r
 }
@@ -72,39 +74,36 @@ fn renders_svg_with_measured_text() {
 
 #[test]
 fn uses_the_configured_measurer() {
-    let calls = Arc::new(Mutex::new(Vec::new()));
-    let seen = calls.clone();
+    let measurer = common::fixture_measurer();
+    let expected = measurer
+        .measure("日本語", "bold 14px Noto Sans JP")
+        .unwrap();
     let r = IslandRunner::new(RunnerOptions {
-        text_measurer: TextMeasurer::new(move |text, font| {
-            seen.lock()
-                .unwrap()
-                .push((text.to_owned(), font.to_owned()));
-            Ok(TextMetrics {
-                width: 100.0,
-                actual_bounding_box_ascent: 7.0,
-                ..TextMetrics::default()
-            })
-        }),
+        text_measurer: Some(measurer),
         ..options()
     })
     .unwrap();
-    r.register_bundle("label", LABEL, "entry").unwrap();
-    let svg = r
-        .render(&req(
-            "label",
-            r#"{"label":"日本語","font":"bold 14px Noto Sans JP"}"#,
-        ))
-        .unwrap();
-    assert!(svg.contains(r#"<text x="50" y="7">日本語</text>"#), "{svg}");
+    r.register_bundle(
+        "m",
+        "function entry(s, ctx) { const m = ctx.measureText('日本語', 'bold 14px Noto Sans JP'); \
+         return [m.width, m.actualBoundingBoxAscent, m.fontBoundingBoxDescent].join() }",
+        "entry",
+    )
+    .unwrap();
     assert_eq!(
-        calls.lock().unwrap().as_slice(),
-        &[("日本語".to_owned(), "bold 14px Noto Sans JP".to_owned())]
+        r.render(&req("m", "{}")).unwrap(),
+        format!(
+            "{},{},{}",
+            expected.width, expected.actual_bounding_box_ascent, expected.font_bounding_box_descent
+        )
     );
+    // Real Japanese glyphs in Noto Sans JP are about 1 em wide.
+    assert!((expected.width - 42.0).abs() < 2.0, "{expected:?}");
 }
 
 #[test]
 fn measure_text_returns_all_canvas_fields() {
-    let r = IslandRunner::new(options()).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options()).unwrap();
     r.register_bundle(
         "fields",
         "function entry(s, ctx) { const m = ctx.measureText('ab'); return Object.keys(m).join() + '|' + m.width + '|' + ctx.measureText.name }",
@@ -120,42 +119,39 @@ fn measure_text_returns_all_canvas_fields() {
 }
 
 #[test]
-fn measurer_errors_become_type_errors() {
-    let r = IslandRunner::new(RunnerOptions {
-        text_measurer: TextMeasurer::new(|_, _| Err("no such font".into())),
-        ..options()
-    })
-    .unwrap();
-    r.register_bundle("label", LABEL, "entry").unwrap();
-    match r.render(&req("label", r#"{"label":"x"}"#)).unwrap_err() {
-        IslandError::Sandbox(SandboxError::Exception { message, .. }) => {
-            assert_eq!(message, "TypeError: measureText: no such font")
-        }
-        other => panic!("{other:?}"),
-    }
-}
-
-#[test]
-fn measurer_panics_do_not_kill_the_pool() {
-    let r = IslandRunner::new(RunnerOptions {
-        pool_size: 1,
-        text_measurer: TextMeasurer::new(|text, _| {
-            if text == "boom" {
-                panic!("measurer exploded");
+fn measuring_without_fonts_is_a_typed_error() {
+    // No measurer at all, and a measurer with no fonts in it.
+    for text_measurer in [None, Some(TextMeasurer::new(FontSet::new()))] {
+        let r = IslandRunner::new(RunnerOptions {
+            text_measurer,
+            ..options()
+        })
+        .unwrap();
+        r.register_bundle("label", LABEL, "entry").unwrap();
+        assert_eq!(
+            r.render(&req("label", r#"{"label":"x"}"#)).unwrap_err(),
+            IslandError::NoFonts {
+                renderer: "label".into()
             }
-            Ok(TextMetrics::default())
-        }),
-        ..options()
-    })
-    .unwrap();
-    r.register_bundle("label", LABEL, "entry").unwrap();
-    match r.render(&req("label", r#"{"label":"boom"}"#)).unwrap_err() {
-        IslandError::Worker { message } => {
-            assert!(message.contains("measurer exploded"), "{message}")
-        }
-        other => panic!("{other:?}"),
+        );
+        // Even when the script catches the TypeError and carries on.
+        r.register_bundle(
+            "catches",
+            "function entry(s, ctx) { try { ctx.measureText('x') } catch (e) { return String(e) } }",
+            "entry",
+        )
+        .unwrap();
+        assert_eq!(
+            r.render(&req("catches", "{}")).unwrap_err(),
+            IslandError::NoFonts {
+                renderer: "catches".into()
+            }
+        );
+        // A bundle that never measures doesn't need fonts.
+        r.register_bundle("plain", "function entry() { return '<svg/>' }", "entry")
+            .unwrap();
+        assert_eq!(r.render(&req("plain", "{}")).unwrap(), "<svg/>");
     }
-    assert!(r.render(&req("label", r#"{"label":"fine"}"#)).is_ok());
 }
 
 #[test]
@@ -171,7 +167,7 @@ fn same_request_same_svg() {
         a
     );
     // A different seed changes Math.random.
-    let other = IslandRunner::new(RunnerOptions {
+    let other = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         seed: 7,
         ..options()
     })
@@ -192,10 +188,48 @@ fn unknown_renderer() {
 
 #[test]
 fn bad_json_is_reported_with_position() {
-    match runner().render(&req("label", "{\"label\": }")).unwrap_err() {
-        IslandError::BadJson { message } => assert!(message.contains("column"), "{message}"),
+    let err = runner()
+        .render(&req("label", "{\n  \"label\": }"))
+        .unwrap_err();
+    match &err {
+        IslandError::BadJson {
+            message,
+            line,
+            column,
+        } => {
+            assert_eq!((*line, *column), (2, 12), "{message}");
+            assert!(!message.contains("line"), "{message}");
+        }
         other => panic!("{other:?}"),
     }
+    assert!(err.to_string().ends_with("at line 2 column 12"), "{err}");
+}
+
+#[test]
+fn lone_surrogates_become_replacement_characters() {
+    let r = runner();
+    r.register_bundle(
+        "surrogates",
+        r#"function entry() { return '<svg>' + '\uD800' + 'a' + '\uDC00' + '\uD83D\uDE00' + '</svg>' }"#,
+        "entry",
+    )
+    .unwrap();
+    assert_eq!(
+        r.render(&req("surrogates", "{}")).unwrap(),
+        "<svg>\u{FFFD}a\u{FFFD}\u{1F600}</svg>"
+    );
+    // A bundle that breaks toWellFormed gets a typed error, not a crash.
+    r.register_bundle(
+        "broken",
+        r#"String.prototype.toWellFormed = function () { return this };
+           function entry() { return '\uD800' }"#,
+        "entry",
+    )
+    .unwrap();
+    assert!(matches!(
+        r.render(&req("broken", "{}")).unwrap_err(),
+        IslandError::NotAString { .. }
+    ));
 }
 
 #[test]
@@ -397,7 +431,7 @@ fn invalid_options_are_rejected() {
         },
     ] {
         assert!(matches!(
-            IslandRunner::new(bad).unwrap_err(),
+            IslandRunner::with_estimated_text_metrics(bad).unwrap_err(),
             IslandError::InvalidOptions { .. }
         ));
     }
@@ -405,11 +439,11 @@ fn invalid_options_are_rejected() {
 
 #[test]
 fn pool_size_defaults_to_cpus_up_to_four() {
-    let r = IslandRunner::new(RunnerOptions::default()).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions::default()).unwrap();
     let cpus = std::thread::available_parallelism().map_or(1, |n| n.get());
     assert_eq!(r.pool_size(), cpus.min(4));
     assert_eq!(
-        IslandRunner::new(RunnerOptions {
+        IslandRunner::with_estimated_text_metrics(RunnerOptions {
             pool_size: 3,
             ..options()
         })

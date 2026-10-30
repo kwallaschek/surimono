@@ -8,10 +8,13 @@ license.workspace = true
 publish.workspace = true
 
 [features]
-default = ["echarts"]
+default = ["echarts", "vega"]
 ## The built-in `echarts` renderer: Apache ECharts 6.1.0 in its server-side
 ## SVG mode (about 1 MB of JavaScript in the binary). On by default.
 echarts = ["surimono-islands/echarts"]
+## The built-in `vega` and `vega-lite` renderers: Vega 6.4.0 and Vega-Lite
+## 6.5.0, headless view to SVG. On by default.
+vega = ["surimono-islands/vega"]
 
 [dependencies]
 surimono-core.workspace = true

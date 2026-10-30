@@ -21,16 +21,17 @@ surimono: run a document's JavaScript without a browser, so browserless
 HTML-to-PDF engines can print it. In this version: chart islands.
 
 Usage:
-  surimono render <in.html> -o <out.html> [--font <file>]... [options]
+  surimono render <in.html> -o <out.html> --font <file>... [options]
   surimono --help | --version
 
   <in.html> and <out.html> may be - for standard input and output.
   -o defaults to standard output.
 
 Options:
-  --font <file>            A font for measuring text (TTF, OTF or TTC). Repeat it;
-                           pass the fonts your PDF engine prints with. System
-                           fonts are never used.
+  --font <file>            Required, at least one: a font for measuring and
+                           outlining text (TTF, OTF or TTC). Repeat it; pass the
+                           fonts your PDF engine prints with. System fonts are
+                           never used.
   --memory-mb <n>          JavaScript heap per island (default 64)
   --time-ms <n>            Time per island (default 2000)
   --stack-kb <n>           JavaScript stack per island (default 512)
@@ -50,7 +51,7 @@ Exit codes:
   1  an island failed: invalid marker, unknown renderer, script error, unusable SVG
   2  usage error: unknown option or bad value
   3  a script hit a limit (memory, time or stack)
-  4  invalid configuration: a font that can't be used, limits out of range
+  4  invalid configuration: no font, a font that can't be used, limits out of range
   5  a file couldn't be read or written
 ";
 
@@ -398,7 +399,12 @@ mod tests {
 
     /// An IslandRef from a real failed render, since it can't be built outside the facade.
     fn placeholder_ref() -> surimono::IslandRef {
-        let r = Renderer::new(Options::new()).unwrap_or_else(|e| panic!("{e}"));
+        let font = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../fixtures/fonts/NotoSans-Regular.ttf"
+        ))
+        .unwrap_or_else(|e| panic!("{e}"));
+        let r = Renderer::new(Options::new().font(font)).unwrap_or_else(|e| panic!("{e}"));
         match r.render_islands(
             "<script type=\"application/vnd.surimono+json\" data-renderer=\"none\">{}</script>",
         ) {
