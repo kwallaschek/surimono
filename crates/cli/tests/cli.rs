@@ -58,7 +58,7 @@ fn help_and_version() {
 #[test]
 fn stdin_to_stdout_leaves_a_document_without_islands_alone() {
     let html = "<!doctype html>\r\n<p>a &amp; b</p>";
-    let o = run(&["render", "-"], html);
+    let o = run(&["render", "-", "--font", &font()], html);
     assert_eq!(code(&o), 0, "{}", text(&o.stderr));
     assert_eq!(text(&o.stdout), html);
 }
@@ -113,7 +113,7 @@ fn renders_an_echarts_island_from_file_to_file() {
 fn exit_codes_are_typed() {
     // 1: an island failed.
     let o = run(
-        &["render", "-"],
+        &["render", "-", "--font", &font()],
         "<script type=\"application/vnd.surimono+json\" data-renderer=\"plotly\">{}</script>",
     );
     assert_eq!(code(&o), 1);
@@ -124,13 +124,26 @@ fn exit_codes_are_typed() {
     );
     // ...unless failures become placeholders.
     let o = run(
-        &["render", "-", "--error-policy", "placeholder"],
+        &[
+            "render",
+            "-",
+            "--font",
+            &font(),
+            "--error-policy",
+            "placeholder",
+        ],
         "<script type=\"application/vnd.surimono+json\" data-renderer=\"plotly\">{}</script>",
     );
     assert_eq!(code(&o), 0);
     assert!(text(&o.stdout).contains("surimono-island-error"));
     // 2: usage.
-    assert_eq!(code(&run(&["render", "-", "--colour", "red"], "")), 2);
+    assert_eq!(
+        code(&run(
+            &["render", "-", "--colour", "red", "--font", &font()],
+            ""
+        )),
+        2
+    );
     assert_eq!(code(&run(&[], "")), 2);
     // 3: a limit. Loading ECharts takes far longer than 1 ms.
     let o = run(
@@ -142,9 +155,18 @@ fn exit_codes_are_typed() {
     // 4: configuration.
     let not_a_font = repo().join("fixtures/fonts/OFL.txt").display().to_string();
     assert_eq!(code(&run(&["render", "-", "--font", &not_a_font], "")), 4);
-    assert_eq!(code(&run(&["render", "-", "--stack-kb", "1"], "")), 4);
+    assert_eq!(
+        code(&run(
+            &["render", "-", "--stack-kb", "1", "--font", &font()],
+            ""
+        )),
+        4
+    );
+    let o = run(&["render", "-"], "<p>x</p>");
+    assert_eq!(code(&o), 4, "no font is a configuration error");
+    assert!(text(&o.stderr).contains("no fonts"), "{}", text(&o.stderr));
     // 5: I/O.
-    let o = run(&["render", "/no/such/in.html"], "");
+    let o = run(&["render", "/no/such/in.html", "--font", &font()], "");
     assert_eq!(code(&o), 5);
     assert!(text(&o.stderr).contains("/no/such/in.html"));
     assert_eq!(
@@ -157,7 +179,14 @@ fn exit_codes_are_typed() {
 fn a_failed_render_writes_no_output_file() {
     let out = std::env::temp_dir().join(format!("surimono-cli-none-{}.html", std::process::id()));
     let o = run(
-        &["render", "-", "-o", &out.display().to_string()],
+        &[
+            "render",
+            "-",
+            "-o",
+            &out.display().to_string(),
+            "--font",
+            &font(),
+        ],
         "<script type=\"application/vnd.surimono+json\" data-renderer=\"plotly\">{}</script>",
     );
     assert_eq!(code(&o), 1);
