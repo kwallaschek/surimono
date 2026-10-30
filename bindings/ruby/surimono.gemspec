@@ -22,7 +22,7 @@ Gem::Specification.new do |spec|
       "lib/**/*.rb",
       "ext/surimono/{extconf.rb,Cargo.toml}", "ext/surimono/src/**/*.rs",
       "Cargo.{toml,lock}", "crates/**/*", "vendor/**/*",
-      "LICENSE-*", "THIRD_PARTY.md", "README.md"
+      "LICENSE-*", "THIRD_PARTY.md", "THIRD_PARTY_LICENSES.txt", "README.md"
     ].select { |f| File.file?(f) }.sort
   end
   spec.require_paths = ["lib"]

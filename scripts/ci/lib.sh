@@ -54,3 +54,14 @@ ensure_toolchain() {
     rustup show active-toolchain >/dev/null 2>&1 || rustup toolchain install
   fi
 }
+
+# cargo-about, pinned, for THIRD_PARTY_LICENSES.txt. It needs rustc 1.88, newer
+# than the workspace's pinned toolchain, so it is built with stable; it's a
+# tool, not part of what we ship.
+CARGO_ABOUT_VERSION=0.9.3
+ensure_cargo_about() {
+  if cargo about --version 2>/dev/null | grep -qx "cargo-about $CARGO_ABOUT_VERSION"; then return 0; fi
+  step "installing cargo-about $CARGO_ABOUT_VERSION"
+  rustup toolchain list | grep -q '^stable' || rustup toolchain install stable --profile minimal
+  RUSTUP_TOOLCHAIN=stable cargo install --locked cargo-about --version "$CARGO_ABOUT_VERSION" --features cli
+}
