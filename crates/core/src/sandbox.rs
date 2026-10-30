@@ -137,6 +137,29 @@ impl Default for SandboxOptions {
     }
 }
 
+/// See [`Sandbox::deadline`].
+#[derive(Clone)]
+pub struct Deadline {
+    state: Arc<LimitState>,
+}
+
+impl Deadline {
+    /// Whether the running call has passed its time limit. Once this is
+    /// true the call is over: it fails with [`SandboxError::TimeLimit`] as
+    /// soon as control returns to the engine. False when no call is running.
+    pub fn passed(&self) -> bool {
+        self.state.deadline_passed()
+    }
+}
+
+impl fmt::Debug for Deadline {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Deadline")
+            .field("passed", &self.passed())
+            .finish()
+    }
+}
+
 /// Script bytecode compiled once by [`Sandbox::compile`] and runnable in any
 /// sandbox of this process.
 ///
@@ -276,6 +299,22 @@ impl Sandbox {
     /// Bytes the JavaScript heap holds right now.
     pub fn heap_bytes(&self) -> usize {
         self.state.used()
+    }
+
+    /// A handle that host functions (Rust functions the script calls) use
+    /// to check the running call's time limit.
+    ///
+    /// The engine checks the deadline only every few thousand JavaScript
+    /// operations, so a script that calls an expensive host function in a
+    /// loop could run long past its limit. A host function should check
+    /// [`Deadline::passed`] before expensive work and throw if it has: the
+    /// call then fails with [`SandboxError::TimeLimit`], however the script
+    /// handles the exception. The handle belongs to this sandbox's current
+    /// runtime; take a new one after a [`reset`](Self::reset).
+    pub fn deadline(&self) -> Deadline {
+        Deadline {
+            state: self.state.clone(),
+        }
     }
 
     /// Discards all script state: the next call runs in a fresh runtime and
@@ -674,6 +713,39 @@ mod tests {
 
     fn sandbox() -> Sandbox {
         Sandbox::new(limits()).unwrap()
+    }
+
+    #[test]
+    fn host_functions_stop_at_the_deadline() {
+        // A host function that takes 20 ms per call, called in a loop that
+        // catches its errors: the engine alone would check the deadline only
+        // every few thousand calls, i.e. minutes later.
+        let mut sb = Sandbox::new(limits()).unwrap();
+        let deadline = sb.deadline();
+        assert!(!deadline.passed(), "no call is running");
+        let start = Instant::now();
+        let err = sb
+            .run(|ctx| {
+                let d = deadline.clone();
+                let slow = Function::new(ctx.clone(), move |ctx: Ctx<'_>| {
+                    if d.passed() {
+                        return Err(rquickjs::Exception::throw_internal(
+                            &ctx,
+                            "past the deadline",
+                        ));
+                    }
+                    std::thread::sleep(Duration::from_millis(20));
+                    Ok(())
+                })?;
+                ctx.globals().set("slow", slow)?;
+                ctx.eval::<(), _>("for (;;) { try { slow() } catch (e) {} }")
+            })
+            .unwrap_err();
+        let took = start.elapsed();
+        assert_eq!(err, SandboxError::TimeLimit);
+        assert!(took < Duration::from_secs(2), "took {took:?}");
+        // The handle tracks the call: no call, no deadline.
+        assert!(!sb.deadline().passed());
     }
 
     /// Runs a hostile script and checks it fails with `want`, well within a

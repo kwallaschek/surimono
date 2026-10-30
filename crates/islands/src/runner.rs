@@ -10,7 +10,7 @@ use std::thread::{self, JoinHandle};
 
 use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
-use surimono_core::{Bytecode, Limits, Sandbox, SandboxOptions};
+use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxOptions};
 
 use crate::measure::{Measure, MeasureError};
 use crate::{IslandError, TextMeasurer, builtins};
@@ -608,6 +608,7 @@ impl Worker {
         let no_fonts = Arc::new(AtomicBool::new(false));
         let measure_text = (measurer, no_fonts.clone());
         let sb = self.sandbox()?;
+        let deadline = sb.deadline();
         // One call, so one deadline covers loading the bundle and the
         // render. A preloaded bundle was loaded off the caller's clock with
         // nothing left queued, so starting at the entry is the same script
@@ -622,7 +623,10 @@ impl Worker {
                 island.set("width", job.width)?;
                 island.set("height", job.height)?;
                 let (measurer, no_fonts) = measure_text;
-                island.set("measureText", measure_function(ctx, measurer, no_fonts)?)?;
+                island.set(
+                    "measureText",
+                    measure_function(ctx, measurer, no_fonts, deadline)?,
+                )?;
                 entry.call((job.spec_json.as_str(), island))
             },
             svg_string,
@@ -694,11 +698,15 @@ fn entry_function<'js>(ctx: &Ctx<'js>, name: &str) -> rquickjs::Result<Function<
 
 /// `ctx.measureText(text, cssFont)` for renderers.
 ///
-/// Sets `no_fonts` if it was called with no fonts to measure with.
+/// Sets `no_fonts` if it was called with no fonts to measure with. Refuses
+/// to measure once the render's time limit has passed: shaping is
+/// expensive, and the engine checks the deadline only every few thousand
+/// operations, so a loop of calls could otherwise run far past the limit.
 fn measure_function<'js>(
     ctx: &Ctx<'js>,
     measurer: Measure,
     no_fonts: Arc<AtomicBool>,
+    deadline: Deadline,
 ) -> rquickjs::Result<Function<'js>> {
     Function::new(
         ctx.clone(),
@@ -706,6 +714,13 @@ fn measure_function<'js>(
               text: Coerced<String>,
               font: Opt<Coerced<String>>|
               -> rquickjs::Result<Object<'js>> {
+            if deadline.passed() {
+                // The render now fails with TimeLimit, whatever the script does.
+                return Err(Exception::throw_internal(
+                    &ctx,
+                    "measureText: the time limit has passed",
+                ));
+            }
             let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
             let m = measurer.measure(&text.0, &font).map_err(|e| {
                 let msg = match e {
