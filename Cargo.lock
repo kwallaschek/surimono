@@ -1843,6 +1843,7 @@ dependencies = [
  "stats_alloc",
  "surimono-core",
  "surimono-gfx",
+ "surimono-islands",
  "thiserror",
 ]
 

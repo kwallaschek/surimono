@@ -222,12 +222,13 @@ impl IslandRunner {
         Self::start(opts, measure)
     }
 
-    /// **Not public API**: for surimono's own tests and tools. Like
-    /// [`new`](Self::new), but measures text with a deterministic
-    /// font-free estimate (0.6 em per character, 1 em for CJK) instead of
-    /// fonts, ignoring `opts.text_measurer`. Chart labels laid out with it
-    /// do not fit printed text.
-    #[doc(hidden)]
+    /// **Not public API**, behind the `test-estimate` feature: for
+    /// surimono's own tests and tools. Like [`new`](Self::new), but
+    /// measures text with a deterministic font-free estimate (0.6 em per
+    /// character, 1 em for CJK) instead of fonts, ignoring
+    /// `opts.text_measurer`. Chart labels laid out with it do not fit
+    /// printed text.
+    #[cfg(feature = "test-estimate")]
     pub fn with_estimated_text_metrics(mut opts: RunnerOptions) -> Result<Self, IslandError> {
         opts.text_measurer = None;
         Self::start(opts, Measure::Estimate)
