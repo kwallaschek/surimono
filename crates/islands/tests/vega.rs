@@ -70,7 +70,10 @@ fn check_svg(svg: &str) -> Vec<String> {
     let doc = roxmltree::Document::parse(svg).unwrap_or_else(|e| panic!("not XML: {e}\n{svg}"));
     let root = doc.root_element();
     assert_eq!(root.tag_name().name(), "svg");
-    assert_eq!(root.tag_name().namespace(), Some("http://www.w3.org/2000/svg"));
+    assert_eq!(
+        root.tag_name().namespace(),
+        Some("http://www.w3.org/2000/svg")
+    );
     for size in ["width", "height"] {
         let v: f64 = root.attribute(size).unwrap().parse().unwrap();
         assert!(v > 0.0, "{size} {v}");
@@ -110,7 +113,10 @@ fn vega_lite_bar_chart() {
     dump("vega-lite", "bar", &svg);
     let texts = check_svg(&svg);
     for label in ["Weekly sales", "Mon", "Sun", "day", "sales"] {
-        assert!(texts.iter().any(|t| t == label), "no {label:?} in {texts:?}");
+        assert!(
+            texts.iter().any(|t| t == label),
+            "no {label:?} in {texts:?}"
+        );
     }
     // Seven bars plus axis and frame paths.
     assert!(count(&svg, "path") >= 7, "{svg}");
@@ -122,7 +128,10 @@ fn vega_bar_chart() {
     dump("vega", "bar", &svg);
     let texts = check_svg(&svg);
     for label in ["A", "H", "91", "19"] {
-        assert!(texts.iter().any(|t| t == label), "no {label:?} in {texts:?}");
+        assert!(
+            texts.iter().any(|t| t == label),
+            "no {label:?} in {texts:?}"
+        );
     }
 }
 
@@ -130,8 +139,18 @@ fn vega_bar_chart() {
 fn japanese_labels_survive() {
     let svg = render(&runner(), "vega-lite", &spec("vega-lite", "japanese")).unwrap();
     let texts = check_svg(&svg);
-    for label in ["月別売上高（百万円）", "東京・大阪・名古屋", "1月", "4月", "名古屋", "売上"] {
-        assert!(texts.iter().any(|t| t == label), "no {label:?} in {texts:?}");
+    for label in [
+        "月別売上高（百万円）",
+        "東京・大阪・名古屋",
+        "1月",
+        "4月",
+        "名古屋",
+        "売上",
+    ] {
+        assert!(
+            texts.iter().any(|t| t == label),
+            "no {label:?} in {texts:?}"
+        );
     }
 }
 
@@ -147,7 +166,10 @@ fn every_spec_renders_and_is_deterministic() {
                 render(&r, renderer, &spec).unwrap_or_else(|e| panic!("{renderer}/{name}: {e}"));
             check_svg(&first);
             dump(renderer, name, &first);
-            assert!(render(&r, renderer, &spec).unwrap() == first, "{renderer}/{name}");
+            assert!(
+                render(&r, renderer, &spec).unwrap() == first,
+                "{renderer}/{name}"
+            );
             assert!(
                 render(&runner(), renderer, &spec).unwrap() == first,
                 "{renderer}/{name}: runners differ"
@@ -189,7 +211,10 @@ fn text_is_measured_by_the_host() {
     // Truncation with `limit` depends on measured widths.
     let spec = spec("vega", "truncated-labels");
     let wide_svg = render(&r, "vega", &spec).unwrap();
-    assert!(calls.load(Ordering::Relaxed) > 0, "measureText was never called");
+    assert!(
+        calls.load(Ordering::Relaxed) > 0,
+        "measureText was never called"
+    );
     let normal_svg = render(&runner(), "vega", &spec).unwrap();
     assert_ne!(wide_svg, normal_svg);
     let wide_texts = check_svg(&wide_svg);
@@ -213,21 +238,29 @@ fn data_urls_are_refused() {
     );
     let spec = r#"{"data":[{"name":"t","url":"data/cars.json"}]}"#;
     let err = render(&r, "vega", spec).unwrap_err();
-    assert!(
-        sandbox_message(&err).contains("data/cars.json"),
-        "{err:?}"
-    );
+    assert!(sandbox_message(&err).contains("data/cars.json"), "{err:?}");
 }
 
 #[test]
 fn bad_specs_are_typed_errors() {
     let r = runner();
     let err = render(&r, "vega-lite", "[]").unwrap_err();
-    assert!(sandbox_message(&err).contains("vega-lite spec object"), "{err:?}");
+    assert!(
+        sandbox_message(&err).contains("vega-lite spec object"),
+        "{err:?}"
+    );
     let err = render(&r, "vega", "42").unwrap_err();
-    assert!(sandbox_message(&err).contains("vega spec object"), "{err:?}");
+    assert!(
+        sandbox_message(&err).contains("vega spec object"),
+        "{err:?}"
+    );
     // An unknown mark type fails inside Vega-Lite's compiler.
-    let err = render(&r, "vega-lite", r#"{"mark":"nonsense","data":{"values":[]}}"#).unwrap_err();
+    let err = render(
+        &r,
+        "vega-lite",
+        r#"{"mark":"nonsense","data":{"values":[]}}"#,
+    )
+    .unwrap_err();
     sandbox_message(&err);
     // A bad expression is Vega's.
     let err = render(
@@ -236,7 +269,10 @@ fn bad_specs_are_typed_errors() {
         r#"{"signals":[{"name":"s","update":"this is not an expression"}]}"#,
     )
     .unwrap_err();
-    assert!(matches!(err, IslandError::Sandbox(SandboxError::Exception { .. })), "{err:?}");
+    assert!(
+        matches!(err, IslandError::Sandbox(SandboxError::Exception { .. })),
+        "{err:?}"
+    );
 }
 
 #[test]
@@ -279,7 +315,10 @@ fn timing_vega() {
     for renderer in ["vega", "vega-lite"] {
         let t = Instant::now();
         render(&r, renderer, &spec(renderer, "bar")).unwrap();
-        eprintln!("{renderer}: first render, including compiling the bundle: {:?}", t.elapsed());
+        eprintln!(
+            "{renderer}: first render, including compiling the bundle: {:?}",
+            t.elapsed()
+        );
     }
     let pause = || std::thread::sleep(Duration::from_millis(150));
     let median = |mut v: Vec<Duration>| {
