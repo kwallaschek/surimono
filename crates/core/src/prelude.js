@@ -4,6 +4,16 @@
 (function (config) {
   'use strict';
 
+  // First of all: switch off V8's stack-trace API, which quickjs-ng
+  // implements. Through `Error.prepareStackTrace`, `CallSite.getFunction()`
+  // hands a script the function of every frame on the stack, native ones
+  // included: the real `Date` and the unguarded built-ins this prelude hides.
+  // QuickJS reads the hook only through the accessor this replaces, so a
+  // plain data property makes assignments harmless and stacks stay strings.
+  Object.defineProperty(Error, 'prepareStackTrace', {
+    value: undefined, writable: true, enumerable: false, configurable: true,
+  });
+
   const apply = Reflect.apply;
   const defineProperty = Object.defineProperty;
   const isArray = Array.isArray;
@@ -157,7 +167,6 @@
 
   const imul = Math.imul;
   const construct = Reflect.construct;
-  const regexTest = RegExp.prototype.test;
   const TypeErrorCtor = TypeError;
   const symbolKeyFor = Symbol.keyFor;
   const nowMs = config.nowMs;
@@ -206,9 +215,7 @@
   const DP = RealDate.prototype;
   const nativeGetTime = DP.getTime;
   const nativeSetTime = DP.setTime;
-  const nativeParse = RealDate.parse;
   const nativeUTC = RealDate.UTC;
-  const nativeTimezoneOffset = DP.getTimezoneOffset;
   const utc = {};
   for (const name of ['FullYear', 'Month', 'Date', 'Day', 'Hours', 'Minutes',
                       'Seconds', 'Milliseconds']) {
@@ -343,20 +350,428 @@
   formatter('toLocaleDateString', localeDate);
   formatter('toLocaleTimeString', localeTime);
 
-  // Date.parse reads strings without a zone as local time, in the host's
-  // zone. Detect those and move them to ours.
-  const explicitZone =
-    /\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}(?::?\d{2})?)\b|\b(?:GMT|UTC|UT)\b/i;
-  const isoDateOnly = /^\s*[+-]?\d{4,6}(?:-\d{2}(?:-\d{2})?)?\s*$/;
-  function parse(input) {
-    const s = `${input}`;
-    const t = apply(nativeParse, RealDate, [s]);
-    if (t !== t || apply(regexTest, isoDateOnly, [s]) || apply(regexTest, explicitZone, [s])) {
-      return t;
+  // --- Date.parse ----------------------------------------------------------
+  //
+  // QuickJS's parser reads a string without a zone as local time in the
+  // host's zone, and no pattern can tell reliably from outside which strings
+  // it treats as zone-less. So this is a port of quickjs-ng's own parser
+  // (js_Date_parse and its helpers in quickjs.c, MIT licence, the same
+  // version we link), which reports the fields, the zone and whether the
+  // string was local. Local strings use the sandbox offset; the host's zone
+  // never enters. A test checks it against the native parser on a UTC host.
+  //
+  // It reads only the string and its own constants, through functions
+  // captured above, so nothing a script changes can reach into it.
+
+  const charCodeAt = String.prototype.charCodeAt;
+  const monthAbbrevs = 'JanFebMarAprMayJunJulAugSepOctNovDec';
+  // quickjs.c js_tzabbr, in its order (UTC before UT, WET before WEST).
+  const zoneNames = ['GMT', 'UTC', 'UT', 'Z', 'EDT', 'EST', 'CDT', 'CST', 'MDT', 'MST',
+                     'PDT', 'PST', 'WET', 'WEST', 'CET', 'CEST', 'EET', 'EEST'];
+  const zoneOffsets = [0, 0, 0, 0, -240, -300, -300, -360, -360, -420, -420, -480,
+                       0, 60, 60, 120, 120, 180];
+  // Days in 400 Gregorian years, in ms: shifts years 0-99 past Date.UTC's
+  // two-digit-year rule without changing the result.
+  const msPer400Years = 146097 * 86400000;
+
+  let src = '';    // the string being parsed
+  let srcLen = 0;  // where QuickJS's C string ends: first NUL, at most 127
+  let dv = 0;      // value read by the last successful digitsAt
+  const F = [0, 0, 0, 0, 0, 0, 0, 0, 0]; // year, month, day, h, m, s, ms, -, zone
+  let isLocal = false;
+
+  // The byte QuickJS sees at p: code units above 255 become 'x', except
+  // U+2212 MINUS SIGN, which becomes '-'.
+  function ch(p) {
+    if (p >= srcLen) return 0;
+    const c = apply(charCodeAt, src, [p]);
+    return c > 255 ? (c === 0x2212 ? 45 : 120) : c;
+  }
+  function upper(c) {
+    return c >= 97 && c <= 122 ? c - 32 : c;
+  }
+  function isDigit(c) {
+    return c >= 48 && c <= 57;
+  }
+  // string_get_digits: returns the new position and sets dv, or -1.
+  function digitsAt(p, minDigits, maxDigits) {
+    const start = p;
+    let v = 0;
+    let c;
+    while (isDigit(c = ch(p))) {
+      if (v >= 100000000) return -1;
+      v = v * 10 + c - 48;
+      p++;
+      if (p - start === maxDigits) break;
     }
-    apply(nativeSetTime, scratch, [t]);
-    const hostOffsetMs = apply(nativeTimezoneOffset, scratch, []) * 60000;
-    return t - hostOffsetMs - offsetMs;
+    if (p - start < minDigits) return -1;
+    dv = v;
+    return p;
+  }
+  // string_get_milliseconds: sets F[6] only if digits follow the separator.
+  function millisAt(p) {
+    let c = ch(p);
+    if (c === 46 || c === 44) {
+      p++;
+      const start = p;
+      let mul = 100;
+      let ms = 0;
+      while (isDigit(c = ch(p))) {
+        ms += (c - 48) * mul;
+        mul = (mul / 10) | 0;
+        p++;
+        if (p - start === 9) break;
+      }
+      if (p > start) {
+        F[6] = ms;
+        return p;
+      }
+      return p - 1;
+    }
+    return p;
+  }
+  // string_get_tzoffset: returns the new position and sets F[8], or -1.
+  function zoneOffsetAt(p, strict) {
+    const sgn = ch(p++);
+    let tz = 0;
+    if (sgn === 43 || sgn === 45) {
+      const start = p;
+      p = digitsAt(p, 1, 0);
+      if (p < 0) return -1;
+      let hh = dv;
+      let n = p - start;
+      if (strict && n !== 2 && n !== 4) return -1;
+      while (n > 4) {
+        n -= 2;
+        hh = (hh / 100) | 0;
+      }
+      let mm = 0;
+      if (n > 2) {
+        mm = hh % 100;
+        hh = (hh / 100) | 0;
+      } else if (ch(p) === 58) {
+        p = digitsAt(p + 1, 2, 2);
+        if (p < 0) return -1;
+        mm = dv;
+      }
+      if (hh > 23 || mm > 59) return -1;
+      tz = hh * 60 + mm;
+      if (sgn !== 43) tz = -tz;
+    } else if (sgn !== 90) {
+      return -1;
+    }
+    F[8] = tz;
+    return p;
+  }
+  // string_match, case-insensitive: returns the position after s, or -1.
+  function matchAt(p, s) {
+    const n = s.length;
+    for (let i = 0; i < n; i++) {
+      if (upper(ch(p + i)) !== upper(apply(charCodeAt, s, [i]))) return -1;
+    }
+    return p + n;
+  }
+  // string_get_month: returns the position after the abbreviation, or -1.
+  function monthAt(p) {
+    for (let m = 0; m < 12; m++) {
+      let i = 0;
+      while (upper(ch(p + i)) === upper(apply(charCodeAt, monthAbbrevs, [m * 3 + i]))) {
+        if (i === 2) {
+          F[1] = m + 1;
+          return p + 3;
+        }
+        i++;
+      }
+    }
+    return -1;
+  }
+  // string_skip_until: stops at NUL or any character of stop.
+  function skipUntil(p, stop) {
+    for (;;) {
+      const c = ch(p);
+      if (c === 0) return p;
+      for (let i = 0; i < stop.length; i++) {
+        if (apply(charCodeAt, stop, [i]) === c) return p;
+      }
+      p++;
+    }
+  }
+
+  // js_date_parse_isostring
+  function parseIso() {
+    for (let i = 0; i < 9; i++) F[i] = i === 2 ? 1 : 0;
+    isLocal = false;
+    let p = 0;
+    const sgn = ch(p);
+    if (sgn === 45 || sgn === 43) {
+      p = digitsAt(p + 1, 6, 6);
+      if (p < 0) return false;
+      F[0] = dv;
+      if (sgn === 45) {
+        if (dv === 0) return false;
+        F[0] = -dv;
+      }
+    } else {
+      p = digitsAt(p, 4, 4);
+      if (p < 0) return false;
+      F[0] = dv;
+    }
+    if (ch(p) === 45) {
+      p = digitsAt(p + 1, 2, 2);
+      if (p < 0 || dv < 1) return false;
+      F[1] = dv - 1;
+      if (ch(p) === 45) {
+        p = digitsAt(p + 1, 2, 2);
+        if (p < 0 || dv < 1) return false;
+        F[2] = dv;
+      }
+    }
+    if (ch(p) === 84) {
+      isLocal = true;
+      let q = digitsAt(p + 1, 2, 2);
+      if (q < 0 || ch(q) !== 58) {
+        F[3] = 100; // rejected by the range check, as in QuickJS
+        return true;
+      }
+      F[3] = dv;
+      q = digitsAt(q + 1, 2, 2);
+      if (q < 0) {
+        F[3] = 100;
+        return true;
+      }
+      F[4] = dv;
+      p = q;
+      if (ch(p) === 58) {
+        p = digitsAt(p + 1, 2, 2);
+        if (p < 0) return false;
+        F[5] = dv;
+        p = millisAt(p);
+      }
+    }
+    if (ch(p) !== 0) {
+      isLocal = false;
+      p = zoneOffsetAt(p, true);
+      if (p < 0) return false;
+    }
+    return ch(p) === 0;
+  }
+
+  function twoDigitYear(v) {
+    return v + (v < 100 ? 1900 : 0) + (v < 50 ? 100 : 0);
+  }
+
+  // js_date_parse_otherstring
+  function parseOther() {
+    F[0] = 2001;
+    F[1] = 1;
+    F[2] = 1;
+    for (let i = 3; i < 9; i++) F[i] = 0;
+    isLocal = true;
+    let hasYear = false;
+    let hasMon = false;
+    let hasTime = false;
+    let count = 0;
+    let n0 = 0;
+    let n1 = 0;
+    let n2 = 0;
+    let p = 0;
+    for (;;) {
+      while (ch(p) === 32) p++;
+      const c = ch(p);
+      if (c === 0) break;
+      const start = p;
+      let q;
+      if (c === 43 || c === 45) {
+        q = hasTime ? zoneOffsetAt(p, false) : -1;
+        if (q >= 0) {
+          p = q;
+          isLocal = false;
+        } else {
+          p++;
+          q = digitsAt(p, 1, 0);
+          if (q >= 0) {
+            p = q;
+            if (c === 45) {
+              if (dv === 0) return false;
+              F[0] = -dv;
+            } else {
+              F[0] = dv;
+            }
+            hasYear = true;
+          }
+        }
+      } else if ((q = digitsAt(p, 1, 0)) >= 0) {
+        p = q;
+        const val = dv;
+        if (ch(p) === 58) {
+          F[3] = val;
+          p = digitsAt(p + 1, 1, 2);
+          if (p < 0) return false;
+          F[4] = dv;
+          if (ch(p) === 58) {
+            p = digitsAt(p + 1, 1, 2);
+            if (p < 0) return false;
+            F[5] = dv;
+            p = millisAt(p);
+          } else if (ch(p) !== 0 && ch(p) !== 32) {
+            return false;
+          }
+          hasTime = true;
+        } else if (p - start > 2) {
+          F[0] = val;
+          hasYear = true;
+        } else if (val < 1 || val > 31) {
+          F[0] = twoDigitYear(val);
+          hasYear = true;
+        } else {
+          if (count === 3) return false;
+          if (count === 0) n0 = val;
+          else if (count === 1) n1 = val;
+          else n2 = val;
+          count++;
+        }
+      } else if ((q = monthAt(p)) >= 0) {
+        hasMon = true;
+        p = skipUntil(q, '0123456789 -/(');
+      } else if (hasTime && (q = matchAt(p, 'PM')) >= 0) {
+        p = q;
+        if (F[3] !== 12) F[3] += 12;
+        continue;
+      } else if (hasTime && (q = matchAt(p, 'AM')) >= 0) {
+        p = q;
+        if (F[3] > 12) return false;
+        if (F[3] === 12) F[3] -= 12;
+        continue;
+      } else {
+        let zone = -1;
+        for (let i = 0; i < zoneNames.length && zone < 0; i++) {
+          q = matchAt(p, zoneNames[i]);
+          if (q >= 0) zone = i;
+        }
+        if (zone >= 0) {
+          p = q;
+          F[8] = zoneOffsets[zone];
+          isLocal = false;
+          continue;
+        }
+        if (c === 40) {
+          let level = 0;
+          let cc;
+          while ((cc = ch(p)) !== 0) {
+            p++;
+            if (cc === 40) level++;
+            if (cc === 41) level--;
+            if (level === 0) break;
+          }
+          if (level > 0) return false;
+        } else if (c === 41) {
+          return false;
+        } else {
+          if (hasYear || hasMon || hasTime || count > 0) return false;
+          p = skipUntil(p, ' -/(');
+        }
+      }
+      // string_skip_separators
+      let s;
+      while ((s = ch(p)) === 45 || s === 47 || s === 46 || s === 44) p++;
+    }
+    if (count + hasYear + hasMon > 3) return false;
+    if (count === 0) {
+      if (!hasYear) return false;
+    } else if (count === 1) {
+      if (hasMon) F[2] = n0;
+      else F[1] = n0;
+    } else if (count === 2) {
+      if (hasYear) {
+        F[1] = n0;
+        F[2] = n1;
+      } else if (hasMon) {
+        F[0] = twoDigitYear(n1);
+        F[2] = n0;
+      } else {
+        F[1] = n0;
+        F[2] = n1;
+      }
+    } else {
+      F[0] = twoDigitYear(n2);
+      F[1] = n0;
+      F[2] = n1;
+    }
+    if (F[1] < 1 || F[2] < 1) return false;
+    F[1] -= 1;
+    return true;
+  }
+
+  // js_Date_parse, with local time at the sandbox's offset.
+  function parse(input) {
+    src = `${input}`;
+    const len = src.length < 127 ? src.length : 127;
+    srcLen = 0;
+    while (srcLen < len && apply(charCodeAt, src, [srcLen]) !== 0) srcLen++;
+    const ok = parseIso() || parseOther();
+    src = '';
+    if (!ok || F[1] > 11 || F[2] > 31 || F[3] > 24 || F[4] > 59 || F[5] > 59 ||
+        (F[3] === 24 && (F[4] | F[5] | F[6]) !== 0)) {
+      return NaN;
+    }
+    // set_date_fields(fields, is_local): MakeDay, MakeTime, MakeDate, TimeClip.
+    const y = F[0];
+    const shift = y >= 0 && y < 100;
+    let t = apply(nativeUTC, undefined, [shift ? y + 400 : y, F[1], F[2], F[3], F[4],
+                                         F[5], F[6]]);
+    if (shift) t -= msPer400Years;
+    if (isLocal) t -= offsetMs;
+    t = t >= -8.64e15 && t <= 8.64e15 ? t : NaN;
+    return t - F[8] * 60000;
+  }
+
+  // ECMA-262 §7.1.1 ToPrimitive with no hint, run here rather than in the
+  // native Date constructor so a string result goes through `parse`.
+  const toPrimitiveKey = Symbol.toPrimitive;
+  function isObject(v) {
+    return v !== null && (typeof v === 'object' || typeof v === 'function');
+  }
+  function toPrimitive(input) {
+    const exotic = input[toPrimitiveKey];
+    if (exotic !== undefined && exotic !== null) {
+      if (typeof exotic !== 'function') {
+        throw new TypeErrorCtor('Symbol.toPrimitive is not a function');
+      }
+      const r = apply(exotic, input, ['default']);
+      if (!isObject(r)) return r;
+      throw new TypeErrorCtor('cannot convert object to primitive value');
+    }
+    const valueOf = input.valueOf;
+    if (typeof valueOf === 'function') {
+      const r = apply(valueOf, input, []);
+      if (!isObject(r)) return r;
+    }
+    const toString = input.toString;
+    if (typeof toString === 'function') {
+      const r = apply(toString, input, []);
+      if (!isObject(r)) return r;
+    }
+    throw new TypeErrorCtor('cannot convert object to primitive value');
+  }
+
+  // §21.4.2.1 step 4: the time value for `new Date(value)`.
+  function timeValueOf(value) {
+    if (isObject(value)) {
+      // A Date (or subclass instance): copy its time value, running no
+      // script code. Anything else throws a TypeError here.
+      let isDate = true;
+      let t = 0;
+      try {
+        t = apply(nativeGetTime, value, []);
+      } catch (e) {
+        isDate = false;
+      }
+      if (isDate) return t;
+      value = toPrimitive(value);
+    }
+    // Numbers and the like go to the native constructor, which converts
+    // them without consulting the zone.
+    return typeof value === 'string' ? parse(value) : value;
   }
 
   const DateShim = function Date(year, month, date, hours, minutes, seconds, ms) {
@@ -366,8 +781,7 @@
     if (n === 0) {
       v = nowMs;
     } else if (n === 1) {
-      if (typeof year !== 'string') return construct(RealDate, [year], new.target);
-      v = parse(year);
+      v = timeValueOf(year);
     } else {
       v = apply(nativeUTC, undefined, arguments) - offsetMs;
     }
