@@ -25,8 +25,6 @@
 
 require "json"
 
-T0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
 def now_ms = Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000.0
 
 def emit(event, **fields)
@@ -115,6 +113,9 @@ def setup(system_name, input)
     rescue LoadError => e
       fail!("surimono gem not built (#{e.message}); build it with `bundle exec rake compile` in bindings/ruby", status: 4)
     end
+    unless defined?(Surimono::Renderer)
+      fail!("the surimono gem on this commit has no Surimono::Renderer yet (P1-PKG-04)", status: 4)
+    end
     html = File.read(input, encoding: "UTF-8")
     renderer = Surimono::Renderer.new(fonts: font_files)
     wanted = html.scan(/data-renderer="([^"]+)"/).flatten.uniq.sort
@@ -153,9 +154,9 @@ if mode == "cold"
   pdf, phases = render.call
   render_ms = now_ms - t
   File.binwrite(out_pdf, pdf)
-  emit("cold", boot_ms: t_setup - T0 * 1000.0, setup_ms: setup_ms, render_ms: render_ms, phases: phases, bytes: pdf.bytesize)
+  emit("cold", setup_ms: setup_ms, render_ms: render_ms, phases: phases, bytes: pdf.bytesize)
 else
-  emit("setup", boot_ms: t_setup - T0 * 1000.0, setup_ms: setup_ms)
+  emit("setup", setup_ms: setup_ms)
   warmup.times do |i|
     pdf, = render.call
     emit("warmup", i: i, bytes: pdf.bytesize)

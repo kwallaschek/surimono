@@ -17,6 +17,8 @@ Systems (one row each in summary.md):
   grover-launch       warm only: one Ruby process, Grover's default of a new Chrome
                       per document (what a Rails app gets without extra setup).
   surimono-ruby       Surimono::Renderer#render, then the fulgur gem, in Ruby.
+  surimono-rust       surimono::Renderer::render_islands, then the fulgur crate,
+                      in one Rust process (bench/rust, built in release first).
   fulgur-prerendered  the fulgur gem printing the report with Chrome's SVGs already
                       inlined: no JavaScript at all. A lower bound on the PDF step
                       of the surimono path, not a surimono result.
@@ -83,6 +85,13 @@ SYSTEMS = {
         "input": "report",
         "about": "Surimono::Renderer#render (islands in QuickJS), then the fulgur gem prints the HTML.",
     },
+    "surimono-rust": {
+        "label": "surimono + fulgur (Rust)",
+        "cold": "rust",
+        "warm": "rust",
+        "input": "report",
+        "about": "surimono::Renderer::render_islands, then the fulgur crate 0.40.0, in one Rust process (bench/rust, release build).",
+    },
     "fulgur-prerendered": {
         "label": "fulgur only, pre-rendered SVG (lower bound)",
         "cold": "fulgur-prerendered",
@@ -91,7 +100,7 @@ SYSTEMS = {
         "about": "The fulgur gem prints the report with Chrome's island SVGs already inlined. No JavaScript runs: a lower bound on the PDF step of the surimono path, NOT a surimono result.",
     },
 }
-DEFAULT_SYSTEMS = ["grover", "grover-launch", "surimono-ruby", "fulgur-prerendered"]
+DEFAULT_SYSTEMS = ["grover", "grover-launch", "surimono-ruby", "surimono-rust", "fulgur-prerendered"]
 
 
 # ---------------------------------------------------------------- process tree
@@ -279,8 +288,32 @@ class RunError(Exception):
         self.unavailable = unavailable
 
 
+RUST_BINARY: Path | None = None
+
+
 def ruby_cmd(system: str, mode: str, input_arg: str, out_pdf: Path, runs: int, warmup: int) -> list[str]:
+    if system == "rust":
+        return [str(RUST_BINARY), mode, input_arg, str(out_pdf), str(runs), str(warmup)]
     return ["ruby", "-rbundler/setup", str(BENCH / "ruby" / "bench.rb"), system, mode, input_arg, str(out_pdf), str(runs), str(warmup)]
+
+
+def build_rust(env: dict, work: Path) -> tuple[Path | None, str]:
+    """Builds bench/rust in release. Returns (binary, "") or (None, why not)."""
+    lib = (ROOT / "crates" / "surimono" / "src" / "lib.rs").read_text()
+    if "Renderer" not in lib:
+        return None, "the facade on this commit has no surimono::Renderer yet (P1-PKG-02), so bench/rust can't build"
+    target = Path(env.get("BENCH_RUST_TARGET_DIR", str(BENCH / ".cache" / "target")))
+    benv = dict(env)
+    benv["CARGO_TARGET_DIR"] = str(target)
+    log = work / "rust-build.log"
+    print(f"==> building bench/rust (release, target {target}; log {log})", flush=True)
+    with log.open("w") as f:
+        # cwd bench/rust so rustup uses bench/rust/rust-toolchain.toml (fulgur's krilla needs rustc 1.89).
+        r = subprocess.run(["cargo", "build", "--release"], cwd=BENCH / "rust", env=benv, stdout=f, stderr=subprocess.STDOUT, timeout=3600)
+    if r.returncode != 0:
+        tail = "\n".join(log.read_text().splitlines()[-25:])
+        return None, f"bench/rust did not build (exit {r.returncode}):\n{tail}"
+    return target / "release" / "surimono-bench", ""
 
 
 def run_process(cmd: list[str], env: dict, sample: bool, timeout: float) -> dict:
@@ -472,6 +505,17 @@ def main() -> int:
         }
     )
 
+    if "surimono-rust" in systems:
+        global RUST_BINARY
+        RUST_BINARY, why = build_rust(env, work)
+        if RUST_BINARY is None:
+            print(f"    surimono-rust: unavailable: {why.splitlines()[0]}", flush=True)
+            prebuilt_failure = why
+        else:
+            prebuilt_failure = None
+    else:
+        prebuilt_failure = None
+
     print("==> pages", flush=True)
     pages = json.loads(subprocess.run(["node", str(BENCH / "tools" / "pages.mjs"), str(work)], cwd=ROOT, check=True, capture_output=True, text=True).stdout)
     inputs = {
@@ -498,6 +542,8 @@ def main() -> int:
     results: dict[str, dict] = {s: {"label": SYSTEMS[s]["label"], "about": SYSTEMS[s]["about"]} for s in systems}
     pdf_dir = work / "pdf"
     pdf_dir.mkdir(exist_ok=True)
+    if "surimono-rust" in results and prebuilt_failure:
+        results["surimono-rust"].update({"status": "unavailable", "reason": prebuilt_failure, "failed_in": "build"})
 
     def fail(system: str, phase: str, e: RunError) -> None:
         r = results[system]

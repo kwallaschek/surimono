@@ -7,7 +7,7 @@
 name = "surimono-bench"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.89"
 publish = false
 license = "MIT OR Apache-2.0"
 

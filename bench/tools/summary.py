@@ -6,6 +6,8 @@ A system that couldn't run is listed with its reason instead of numbers.
 
 from __future__ import annotations
 
+import statistics
+
 
 def _ms(s: dict | None) -> str:
     return f"{s['median']:,.0f} ms" if s else "—"
@@ -99,7 +101,13 @@ def write_summary(info: dict) -> str:
     add("")
     add(f"`docs/SPEC.md`: surimono + fulgur at least {target_speed:.0f}× faster than Grover per document, cold and warm (median), and at least {target_mem:.0f}× lower peak memory. Ratios are Grover ÷ the other system.")
     add("")
-    add("| Comparison | Cold time | Warm time | Peak memory (PSS), cold | Peak memory (PSS), warm |")
+    add(
+        "Memory is judged on PSS, which counts each shared page once. Summed RSS (in brackets) counts the code Chrome's processes share once per "
+        "process, which inflates Grover's multi-process number; it is shown because it is the usual \"RSS of the process tree\" number, "
+        "not because it is the fair one."
+    )
+    add("")
+    add("| Comparison | Cold time | Warm time | Peak memory, cold: PSS (RSS) | Peak memory, warm: PSS (RSS) |")
     add("|---|---|---|---|---|")
     any_surimono = False
     for key in ("surimono-ruby", "surimono-rust", "fulgur-prerendered"):
@@ -116,12 +124,18 @@ def write_summary(info: dict) -> str:
             _ratio(_peak(g, "cold_peak_pss_mb"), _peak(s, "cold_peak_pss_mb")),
             _ratio(g.get("warm_peak_pss_mb"), s.get("warm_peak_pss_mb")),
         ]
+        rss = [
+            _ratio(_peak(g, "cold_peak_rss_mb"), _peak(s, "cold_peak_rss_mb")),
+            _ratio(g.get("warm_peak_rss_mb"), s.get("warm_peak_rss_mb")),
+        ]
         targets = [target_speed, target_speed, target_mem, target_mem]
         if key == "fulgur-prerendered":
             cells = [f"{_r(x)} (bound)" for x in ratios]
         else:
             any_surimono = True
             cells = [f"{_r(x)} {'**met**' if x is not None and x >= t else '**not met**'}" if x is not None else "—" for x, t in zip(ratios, targets)]
+        cells[2] += f" ({_r(rss[0])})"
+        cells[3] += f" ({_r(rss[1])})"
         add(f"| Grover ÷ {r['label']} | {' | '.join(cells)} |")
     add("")
     if not any_surimono:
@@ -145,8 +159,8 @@ def write_summary(info: dict) -> str:
             continue
         cold = r.get("cold") or []
         def med(xs: list[float]) -> str:
-            xs = sorted(x for x in xs if x is not None)
-            return f"{xs[len(xs) // 2]:,.0f} ms" if xs else "—"
+            xs = [x for x in xs if x is not None]
+            return f"{statistics.median(xs):,.0f} ms" if xs else "—"
         setup = med([c.get("setup_ms") for c in cold]) if cold else "—"
         render = med([c.get("render_ms") for c in cold]) if cold else "—"
         cpu = _ms(r["summary"].get("cold_cpu_ms"))

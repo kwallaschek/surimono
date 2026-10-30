@@ -107,7 +107,7 @@ fn main() -> ExitCode {
         let prepared = renderer.render_islands(html).map_err(|e| format!("surimono: {e}"))?;
         let islands_ms = ms(t);
         let t = Instant::now();
-        let pdf = engine.render_html(&prepared).map_err(|e| format!("fulgur: {e}"))?;
+        let pdf = engine.render(&prepared).map_err(|e| format!("fulgur: {e}"))?;
         Ok((pdf, islands_ms, ms(t)))
     };
 
