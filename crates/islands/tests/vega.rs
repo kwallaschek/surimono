@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use surimono_islands::{
-    IslandError, IslandRequest, IslandRunner, RunnerOptions, SandboxError, TextMeasurer,
+    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError, TextMeasurer,
     TextMetrics, builtin_renderers,
 };
 
@@ -40,9 +40,18 @@ fn spec_names(renderer: &str) -> Vec<String> {
     names
 }
 
+/// A generous time limit: these tests check output, not speed (see
+/// `timing_vega`), and debug builds on a busy machine are slow.
+const TEST_LIMITS: Limits = Limits {
+    memory_bytes: Limits::DEFAULT_MEMORY_BYTES,
+    time: Duration::from_secs(30),
+    stack_bytes: Limits::DEFAULT_STACK_BYTES,
+};
+
 fn runner() -> IslandRunner {
     IslandRunner::new(RunnerOptions {
         pool_size: 1,
+        limits: TEST_LIMITS,
         ..RunnerOptions::default()
     })
     .unwrap()
@@ -204,6 +213,7 @@ fn text_is_measured_by_the_host() {
     });
     let r = IslandRunner::new(RunnerOptions {
         pool_size: 1,
+        limits: TEST_LIMITS,
         text_measurer: wide,
         ..RunnerOptions::default()
     })
