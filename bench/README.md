@@ -52,12 +52,15 @@ Grover are an upper bound on what surimono + fulgur can reach.
   and p90 (nearest rank) of 20.
 - **Memory.** `tools/bench.py` makes itself a child subreaper, so every process
   a run starts stays in its tree (Chrome's crashpad handler detaches). A sampler
-  thread sums RSS and PSS from `/proc/<pid>/smaps_rollup` over the tree every
-  10 ms; the peak of each sum is the run's peak. Memory runs are separate from
-  timed runs. PSS is the headline and judges the SPEC target, because summed RSS
-  counts the pages Chrome's processes share once per process. `results.json`
-  also has the largest single process and the sum of each process's own
-  high-water mark (an upper bound).
+  thread sums RSS and PSS from `/proc/<pid>/smaps_rollup` over the tree, aiming
+  at every 10 ms; reading Chrome's dozen processes takes longer on a busy
+  machine, so `summary.md` states the interval actually achieved (12 to 73 ms
+  in the first local run, with a load average of 10). The peak of each sum is
+  the run's peak; a spike shorter than the interval can be missed. Memory runs
+  are separate from timed runs. PSS is the headline and judges the SPEC target,
+  because summed RSS counts the pages Chrome's processes share once per
+  process. `results.json` also has the largest single process and the sum of
+  each process's own high-water mark (an upper bound).
 - **Grover settings.** A file:// URL, `wait_until: "load"` and a wait for the
   islands' done flag. Grover's default for URLs is `networkidle2`, which waits
   500 ms after the last request on every document, so Grover is measured at its

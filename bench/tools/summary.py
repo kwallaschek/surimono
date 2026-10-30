@@ -214,9 +214,16 @@ def write_summary(info: dict) -> str:
         "Chrome runs with `--no-sandbox` (root and Ubuntu 24.04 runners need it). Charts are drawn client-side by the same ECharts, Vega and "
         "Vega-Lite builds and the same island contract as the Chrome references (`fixtures/tools/lib/islands-browser.js`)."
     )
+    intervals = [
+        m["memory"]["mean_sample_interval_ms"]
+        for r in res.values()
+        for m in (r.get("cold-memory") or []) + ([r["warm-memory"]] if r.get("warm-memory") else [])
+        if m.get("memory")
+    ]
+    achieved = f" (achieved: {min(intervals):.0f} to {max(intervals):.0f} ms on average per run; reading many processes takes longer)" if intervals else ""
     add(
-        "- **Memory** is sampled every "
-        f"{meth['sample_interval_ms']:.0f} ms from `/proc/<pid>/smaps_rollup` for every process in the tree; the harness is a child subreaper, "
+        "- **Memory** is sampled from `/proc/<pid>/smaps_rollup` for every process in the tree, aiming at one sample every "
+        f"{meth['sample_interval_ms']:.0f} ms{achieved}; the harness is a child subreaper, "
         "so detached helpers stay counted. A peak shorter than the interval can be missed; `results.json` also has each process's own high-water "
         "mark summed (an upper bound) and the largest single process."
     )
