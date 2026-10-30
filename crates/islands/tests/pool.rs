@@ -197,3 +197,68 @@ fn limit_errors_keep_the_pool_healthy() {
         assert_eq!(render(&r, "x").unwrap(), "x");
     }
 }
+
+/// Gives an idle worker time to reset and preload.
+fn idle() {
+    std::thread::sleep(Duration::from_millis(50));
+}
+
+#[test]
+fn an_idle_worker_preloads_the_last_bundle() {
+    let r = IslandRunner::new(options(1)).unwrap();
+    r.register_bundle("x", "function entry() { return 'x' }", "entry")
+        .unwrap();
+    for _ in 0..5 {
+        assert_eq!(render(&r, "x").unwrap(), "x");
+        idle();
+    }
+    // The first render loads the bundle itself; the worker preloads it for
+    // each of the others while idle.
+    let stats = r.stats();
+    assert_eq!(stats.renders, 5);
+    assert!(stats.preloaded_renders >= 3, "{stats:?}");
+}
+
+#[test]
+fn preloaded_and_cold_renders_give_the_same_output() {
+    // Top-level state, randomness and a microtask the bundle queues: a
+    // preloaded render must see exactly what a cold one sees.
+    const STATEFUL: &str = r#"
+var log = ['top ' + Math.random()];
+Promise.resolve().then(() => log.push('microtask ' + Math.random()));
+function entry(specJson, ctx) {
+  log.push('entry ' + Math.random());
+  return log.join('|');
+}
+"#;
+    let r = IslandRunner::new(options(1)).unwrap();
+    r.register_bundle("s", STATEFUL, "entry").unwrap();
+    r.register_bundle("x", "function entry() { return 'x' }", "entry")
+        .unwrap();
+    let first = render(&r, "s").unwrap();
+    assert_eq!(first.matches('|').count(), 2, "{first}");
+    for i in 0..6 {
+        // Odd rounds switch renderer first, so the next "s" render is cold.
+        if i % 2 == 1 {
+            render(&r, "x").unwrap();
+        }
+        idle();
+        assert_eq!(render(&r, "s").unwrap(), first, "round {i}");
+    }
+    let stats = r.stats();
+    assert!(stats.preloaded_renders >= 2, "{stats:?}");
+    assert!(stats.preloaded_renders < stats.renders - 3, "{stats:?}");
+}
+
+#[test]
+fn replacing_a_bundle_drops_its_preloaded_copy() {
+    let r = IslandRunner::new(options(1)).unwrap();
+    r.register_bundle("v", "function entry() { return 'old' }", "entry")
+        .unwrap();
+    assert_eq!(render(&r, "v").unwrap(), "old");
+    idle();
+    r.register_bundle("v", "function entry() { return 'new' }", "entry")
+        .unwrap();
+    idle();
+    assert_eq!(render(&r, "v").unwrap(), "new");
+}

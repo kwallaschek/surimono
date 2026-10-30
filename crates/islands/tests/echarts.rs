@@ -6,7 +6,7 @@
 #![cfg(feature = "echarts")]
 
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use surimono_islands::{
     IslandError, IslandRequest, IslandRunner, RunnerOptions, SandboxError, builtin_renderers,
@@ -55,7 +55,10 @@ fn check_svg(svg: &str) -> Vec<String> {
     let doc = roxmltree::Document::parse(svg).unwrap_or_else(|e| panic!("not XML: {e}\n{svg}"));
     let root = doc.root_element();
     assert_eq!(root.tag_name().name(), "svg");
-    assert_eq!(root.tag_name().namespace(), Some("http://www.w3.org/2000/svg"));
+    assert_eq!(
+        root.tag_name().namespace(),
+        Some("http://www.w3.org/2000/svg")
+    );
     assert_eq!(root.attribute("width"), Some(WIDTH.to_string().as_str()));
     assert_eq!(root.attribute("height"), Some(HEIGHT.to_string().as_str()));
     root.descendants()
@@ -89,7 +92,10 @@ fn bar_chart_is_valid_svg() {
     dump("bar", &svg);
     let texts = check_svg(&svg);
     for label in ["Weekly sales", "Sales", "Mon", "Sun", "120", "200"] {
-        assert!(texts.iter().any(|t| t == label), "no {label:?} in {texts:?}");
+        assert!(
+            texts.iter().any(|t| t == label),
+            "no {label:?} in {texts:?}"
+        );
     }
     // Seven bars (paths), with no animation styles.
     assert!(count(&svg, "path") >= 7);
@@ -101,23 +107,51 @@ fn japanese_labels_survive() {
     let svg = render(&runner(), &option("japanese")).unwrap();
     dump("japanese", &svg);
     let texts = check_svg(&svg);
-    for label in ["月別売上高（百万円）", "東京・大阪・名古屋", "1月", "6月", "名古屋", "売上"] {
-        assert!(texts.iter().any(|t| t == label), "no {label:?} in {texts:?}");
+    for label in [
+        "月別売上高（百万円）",
+        "東京・大阪・名古屋",
+        "1月",
+        "6月",
+        "名古屋",
+        "売上",
+    ] {
+        assert!(
+            texts.iter().any(|t| t == label),
+            "no {label:?} in {texts:?}"
+        );
     }
+}
+
+/// Names of the options in `tests/echarts/`, sorted.
+fn option_names() -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(data_dir())
+        .unwrap()
+        .filter_map(|e| {
+            let name = e.unwrap().file_name().into_string().unwrap();
+            name.strip_suffix(".json").map(str::to_owned)
+        })
+        .collect();
+    names.sort();
+    names
 }
 
 #[test]
 fn every_option_renders_and_is_deterministic() {
     let r = runner();
-    for name in ["bar", "japanese", "pie", "dense"] {
+    let names = option_names();
+    assert!(names.len() >= 6, "{names:?}");
+    for name in &names {
         let spec = option(name);
-        let first = render(&r, &spec).unwrap();
+        let first = render(&r, &spec).unwrap_or_else(|e| panic!("{name}: {e}"));
         check_svg(&first);
         dump(name, &first);
         let second = render(&r, &spec).unwrap();
         assert!(first == second, "{name}: two renders differ");
         // A different runner (fresh workers) gives the same bytes too.
-        assert!(render(&runner(), &spec).unwrap() == first, "{name}: runners differ");
+        assert!(
+            render(&runner(), &spec).unwrap() == first,
+            "{name}: runners differ"
+        );
     }
 }
 
@@ -146,7 +180,10 @@ fn text_is_measured_by_the_host() {
     .unwrap();
     let spec = option("bar");
     let wide_svg = render(&r, &spec).unwrap();
-    assert!(calls.load(Ordering::Relaxed) > 0, "measureText was never called");
+    assert!(
+        calls.load(Ordering::Relaxed) > 0,
+        "measureText was never called"
+    );
     let normal_svg = render(&runner(), &spec).unwrap();
     assert_ne!(wide_svg, normal_svg);
 }
@@ -188,31 +225,68 @@ fn series_cannot_turn_animation_back_on() {
     assert!(!svg.contains("@keyframes"), "animation must be off: {svg}");
 }
 
+#[test]
+fn a_preloaded_render_matches_a_cold_one() {
+    let r = runner();
+    let spec = option("japanese");
+    let cold = render(&r, &spec).unwrap();
+    assert_eq!(r.stats().preloaded_renders, 0);
+    // The idle worker loads ECharts into its fresh runtime.
+    std::thread::sleep(Duration::from_secs(2));
+    let warm = render(&r, &spec).unwrap();
+    assert_eq!(r.stats().preloaded_renders, 1);
+    assert!(cold == warm, "preloaded and cold renders differ");
+}
+
 /// Render times in this build, for the PR and the benchmark notes. Run with
 /// `cargo test --release -p surimono-islands --test echarts -- --ignored --nocapture timing`.
+///
+/// "cold" is a render whose request has to load ECharts into the fresh
+/// runtime itself; "preloaded" is one an idle worker had prepared for.
 #[test]
 #[ignore = "timing report; run explicitly in release mode"]
 fn timing_echarts() {
+    const RUNS: usize = 20;
     let r = runner();
+    r.register_bundle("other", "function entry() { return '<svg/>' }", "entry")
+        .unwrap();
     let t = Instant::now();
     render(&r, &option("bar")).unwrap();
-    eprintln!("echarts: first render incl. compile {:?}", t.elapsed());
-    for name in ["bar", "japanese", "pie", "dense"] {
-        let spec = option(name);
-        let runs = 20;
-        let mut times = Vec::with_capacity(runs);
+    eprintln!(
+        "echarts: first render, including compiling the bundle: {:?}",
+        t.elapsed()
+    );
+    let pause = || std::thread::sleep(Duration::from_millis(150));
+    let median = |mut v: Vec<Duration>| {
+        v.sort();
+        v[v.len() / 2]
+    };
+    for name in option_names() {
+        let spec = option(&name);
+        let (mut cold, mut warm) = (Vec::new(), Vec::new());
         let mut size = 0;
-        for _ in 0..runs {
+        for _ in 0..RUNS {
+            // Switch renderer so the worker preloads something else.
+            r.render(&IslandRequest {
+                renderer: "other",
+                spec_json: "{}",
+                width: 1,
+                height: 1,
+            })
+            .unwrap();
+            pause();
             let t = Instant::now();
             size = render(&r, &spec).unwrap().len();
-            times.push(t.elapsed());
+            cold.push(t.elapsed());
+            pause();
+            let t = Instant::now();
+            render(&r, &spec).unwrap();
+            warm.push(t.elapsed());
         }
-        times.sort();
         eprintln!(
-            "echarts {name:>8}: median {:?}, min {:?}, max {:?}, {size} bytes of SVG",
-            times[runs / 2],
-            times[0],
-            times[runs - 1]
+            "echarts {name:>8}: median cold {:>9.2?}, preloaded {:>9.2?}, {size} bytes of SVG",
+            median(cold),
+            median(warm)
         );
     }
 }
