@@ -1,0 +1,326 @@
+# Hostile-script suite. Owned by the conformance researcher; the runtime
+# engineer's harness (crates/core) runs every case and must match `expect`.
+# Expectations are never edited to match surimono's output: a case that fails
+# stays failing and is listed in docs/COMPAT.md.
+#
+# ## How the harness runs a case
+#
+# 1. A fresh sandbox with the default limits below, no filesystem, no network,
+#    no module loader and no host globals beyond what islands get.
+# 2. The file is evaluated as a classic global script (not a module).
+# 3. The job queue (microtasks) is always drained afterwards, under the same
+#    time limit as the script.
+# 4. The result is the script's completion value (the value of its last
+#    expression statement). If it is a real Promise, the harness waits for it
+#    while draining the job queue. If the queue is empty and the promise is
+#    still pending, it can never settle: that is an Exception, not a wait.
+# 5. The result must be a string (or a Promise resolving to one); anything else
+#    is an Exception. The host never calls back into JS to convert a result
+#    (no toString, valueOf or then on a non-Promise).
+#
+# ## Outcomes
+#
+# MemoryLimit    the heap limit was hit. Sticky: once a render hits the
+#                memory limit it fails with MemoryLimit, even if the script
+#                caught the out-of-memory error and carried on.
+# TimeLimit      the time limit was hit (script, microtasks or regex engine).
+#                The interrupt cannot be caught.
+# StackOverflow  the stack limit was hit and the error was not caught, including
+#                recursion inside the engine (JSON, parser, Array.join). Unlike
+#                memory, a stack overflow is catchable, as in browsers.
+# Exception      the script threw (or rejected) and nothing caught it; `error`
+#                names the JS error type when it is fixed by a spec.
+# Ok             the script finished; `output` is the exact result string.
+#
+# `expect` is one outcome. `expect_any` lists several acceptable outcomes for
+# cases whose only requirement is "a typed error, never a crash or a hang";
+# `output` then applies if the outcome is Ok.
+#
+# Every case must also end within `max_wall_ms` of wall-clock time (a hang
+# detector); a crash or abort of the test process fails the case outright.
+#
+# `steps` cases run several files one after another as consecutive renders in
+# the same pooled runtime (the runtime pool's reset must isolate them).
+
+[limits]
+memory_bytes = 67108864 # 64 MiB
+time_ms = 2000
+stack_bytes = 524288    # 512 KiB
+max_wall_ms = 4000      # time limit plus 2 s for teardown on a slow CI runner
+
+# ---------------------------------------------------------------- time
+
+[[case]]
+id = "infinite-loop"
+file = "infinite-loop.js"
+expect = "TimeLimit"
+about = "for (;;) {}"
+
+[[case]]
+id = "infinite-loop-try-catch"
+file = "infinite-loop-try-catch.js"
+expect = "TimeLimit"
+about = "Infinite loop that catches the interrupt and loops again; the interrupt must be uncatchable"
+
+[[case]]
+id = "infinite-loop-in-finally"
+file = "infinite-loop-in-finally.js"
+expect = "TimeLimit"
+about = "A finally block that loops forever while the interrupt unwinds"
+
+[[case]]
+id = "microtask-flood"
+file = "microtask-flood.js"
+expect = "TimeLimit"
+about = "Each microtask queues the next; the drain loop must enforce the time limit itself"
+
+[[case]]
+id = "microtask-flood-growing"
+file = "microtask-flood-growing.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "Each microtask queues two more; the queue grows exponentially"
+
+[[case]]
+id = "microtask-await-loop"
+file = "microtask-await-loop.js"
+expect = "TimeLimit"
+about = "async function awaiting forever; the result promise never settles but the queue never empties"
+
+[[case]]
+id = "regex-redos"
+file = "regex-redos.js"
+expect = "TimeLimit"
+about = "Catastrophic backtracking /^(a+)+$/ on 40 a's and a non-match; the regex engine must check the interrupt"
+source = "OWASP, Regular expression Denial of Service (ReDoS): https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS (evil regex (a+)+)"
+
+[[case]]
+id = "regex-redos-alternation"
+file = "regex-redos-alternation.js"
+expect = "TimeLimit"
+about = "Backtracking through overlapping alternatives /^(a|aa)+$/ on 60 a's and a non-match"
+source = "OWASP, Regular expression Denial of Service (ReDoS): https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS (evil regex (a|aa)+)"
+
+[[case]]
+id = "atomics-wait"
+file = "atomics-wait.js"
+expect = "Exception"
+about = "Atomics.wait would block in a futex that no interrupt reaches; the sandbox agent must not be able to suspend (TypeError), or SharedArrayBuffer must be absent (ReferenceError)"
+source = "ECMA-262, DoWait (Atomics.wait): an agent for which AgentCanSuspend() is false gets a TypeError: https://tc39.es/ecma262/#sec-dowait"
+
+# ---------------------------------------------------------------- memory
+
+[[case]]
+id = "alloc-arrays"
+file = "alloc-arrays.js"
+expect = "MemoryLimit"
+about = "Keeps 1 MiB arrays alive until the heap is full"
+
+[[case]]
+id = "alloc-string-doubling"
+file = "alloc-string-doubling.js"
+expect_any = ["MemoryLimit", "Exception"]
+about = "s += s forever; an engine with rope strings may reach the maximum string length first (RangeError) before running out of memory"
+
+[[case]]
+id = "alloc-string-repeat"
+file = "alloc-string-repeat.js"
+expect = "MemoryLimit"
+about = "One 256 MiB string from String.prototype.repeat (below QuickJS's maximum string length, above the heap limit)"
+
+[[case]]
+id = "alloc-typed-array"
+file = "alloc-typed-array.js"
+expect = "MemoryLimit"
+about = "One 1 GiB Uint8Array"
+
+[[case]]
+id = "alloc-typed-arrays-many"
+file = "alloc-typed-arrays-many.js"
+expect = "MemoryLimit"
+about = "1 MiB Float64Arrays kept alive until the heap is full (array buffer memory must count against the limit)"
+
+[[case]]
+id = "alloc-object-graph"
+file = "alloc-object-graph.js"
+expect = "MemoryLimit"
+about = "Millions of small live objects; no single large allocation, many GC passes"
+
+[[case]]
+id = "oom-caught-retry"
+file = "oom-caught-retry.js"
+expect = "MemoryLimit"
+about = "Catches the out-of-memory error and retries forever while holding its allocations; sticky MemoryLimit, not a TimeLimit"
+
+[[case]]
+id = "oom-caught-continue"
+file = "oom-caught-continue.js"
+expect = "MemoryLimit"
+about = "Catches the out-of-memory error, drops the garbage and returns normally; still MemoryLimit (sticky)"
+
+# ---------------------------------------------------------------- stack
+
+[[case]]
+id = "recursion-plain"
+file = "recursion-plain.js"
+expect = "StackOverflow"
+about = "Unbounded recursion, not caught"
+
+[[case]]
+id = "recursion-caught"
+file = "recursion-caught.js"
+expect = "Ok"
+output = "caught:2,4,6"
+about = "Unbounded recursion caught by the script, which then keeps working; stack overflow is catchable, as in browsers"
+
+[[case]]
+id = "recursion-getter"
+file = "recursion-getter.js"
+expect = "StackOverflow"
+about = "Recursion through a getter that reads itself"
+
+[[case]]
+id = "recursion-tostring"
+file = "recursion-tostring.js"
+expect = "StackOverflow"
+about = "Recursion through implicit string conversion in toString"
+
+[[case]]
+id = "recursion-proxy"
+file = "recursion-proxy.js"
+expect = "StackOverflow"
+about = "Recursion through a Proxy get trap that reads from its own receiver"
+
+[[case]]
+id = "recursion-json-stringify"
+file = "recursion-json-stringify.js"
+expect = "StackOverflow"
+about = "Engine-internal recursion: JSON.stringify of a 100,000-deep array (Chrome: RangeError, Maximum call stack size exceeded)"
+
+[[case]]
+id = "recursion-array-join"
+file = "recursion-array-join.js"
+expect = "StackOverflow"
+about = "Engine-internal recursion: String() of a 100,000-deep array via Array.prototype.join (Chrome: RangeError)"
+
+[[case]]
+id = "recursion-json-parse"
+file = "recursion-json-parse.js"
+expect_any = ["StackOverflow", "Ok"]
+output = "parsed"
+about = "Engine-internal recursion in the JSON parser, 100,000 levels; an iterative parser may finish (Chrome does)"
+
+[[case]]
+id = "recursion-parser"
+file = "recursion-parser.js"
+expect_any = ["StackOverflow", "Exception"]
+about = "Engine-internal recursion in the JavaScript parser via eval, 100,000 nested parentheses (Chrome: RangeError)"
+
+[[case]]
+id = "regex-deep-nesting"
+file = "regex-deep-nesting.js"
+expect_any = ["StackOverflow", "Exception", "Ok"]
+output = "true"
+about = "Regex compiler recursion, 100,000 nested groups; QuickJS reports its own stack overflow as a SyntaxError"
+
+[[case]]
+id = "deep-free-chain"
+file = "deep-free-chain.js"
+expect = "Ok"
+output = "freed"
+about = "Dropping a 200,000-long linked list must not recurse in the engine's free path"
+
+# ---------------------------------------------------------------- results
+
+[[case]]
+id = "result-not-a-string"
+file = "result-not-a-string.js"
+expect = "Exception"
+about = "Result is an object whose toString/valueOf loop forever; the host must reject it without calling JS"
+
+[[case]]
+id = "result-hostile-thenable"
+file = "result-hostile-thenable.js"
+expect_any = ["Exception", "TimeLimit"]
+about = "Result is a thenable whose then getter loops; only a real Promise may be awaited"
+
+[[case]]
+id = "promise-never-settles"
+file = "promise-never-settles.js"
+expect = "Exception"
+about = "Result promise can never settle (empty job queue); end at once instead of waiting for the time limit"
+
+[[case]]
+id = "unhandled-rejection"
+file = "unhandled-rejection.js"
+expect = "Ok"
+output = "ok"
+about = "An unhandled rejection does not fail the render (browsers only log it)"
+
+[[case]]
+id = "control-sync"
+file = "control-sync.js"
+expect = "Ok"
+output = "surimono:2:object"
+about = "Control: a well-behaved script"
+
+[[case]]
+id = "control-async"
+file = "control-async.js"
+expect = "Ok"
+output = "async:ok"
+about = "Control: a Promise result is awaited"
+
+# ---------------------------------------------------------------- escape
+
+[[case]]
+id = "escape-require"
+file = "escape-require.js"
+expect = "Ok"
+output = "none"
+about = "No Node, Deno, Bun or QuickJS-libc globals: require, module, exports, process, Buffer, global, Deno, Bun, std, os, scriptArgs, importScripts"
+
+[[case]]
+id = "escape-require-call"
+file = "escape-require-call.js"
+expect = "Exception"
+error = "ReferenceError"
+about = "require('fs') must throw"
+
+[[case]]
+id = "escape-dynamic-import"
+file = "escape-dynamic-import.js"
+expect_any = ["Ok", "Exception"]
+output = "denied"
+about = "import() of os, std, fs, node:fs, file paths, https and data: URLs must all reject (or import() must be a SyntaxError)"
+
+[[case]]
+id = "escape-network"
+file = "escape-network.js"
+expect = "Ok"
+output = "denied"
+about = "fetch, XMLHttpRequest, WebSocket, EventSource and workers are absent or refuse; never a response"
+
+[[case]]
+id = "escape-global-sniff"
+file = "escape-global-sniff.js"
+expect = "Ok"
+output = "clean"
+about = "Walks globalThis three levels deep for host globals and file, process or loader functions"
+
+[[case]]
+id = "escape-function-constructor"
+file = "escape-function-constructor.js"
+expect = "Ok"
+output = "undefined,undefined,undefined,undefined,undefined"
+about = "Function() and indirect eval see nothing more than the script"
+
+# ---------------------------------------------------------------- isolation
+
+[[case]]
+id = "pollution-across-renders"
+steps = [
+  { file = "pollution-1-pollute.js", expect = "Ok", output = "polluted" },
+  { file = "pollution-2-check.js", expect = "Ok", output = "undefined,2,object,x,undefined,undefined,false,true" },
+]
+about = "Render 1 pollutes Object.prototype, replaces Array.prototype.map, JSON.parse, String.prototype.trim and Math.random, sets a global, registers a finalizer and freezes Object.prototype; render 2 in the same pooled runtime sees none of it"
+source = "OWASP Prototype Pollution Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Prototype_Pollution_Prevention_Cheat_Sheet.html"
