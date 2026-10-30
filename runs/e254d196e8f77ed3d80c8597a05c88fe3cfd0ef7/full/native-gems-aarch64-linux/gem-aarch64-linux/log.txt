@@ -1,0 +1,337 @@
+
+==> stage the gem
+staged 4 crates (crates/core, crates/gfx, crates/islands, crates/surimono) in /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage
+
+==> rb-sys-dock: aarch64-linux, Ruby 3.2,3.3,3.4,4.0
+::info::🐳 Building for Ruby requested versions: 4.0.2:3.4.9:3.3.11:3.2.11
+::info::🐳 Downloading container "rbsys/aarch64-linux:0.9.130", this might take awhile...
+Fetching gem metadata from https://rubygems.org/...
+Resolving dependencies...
+Fetching rake 13.4.2
+Installing rake 13.4.2
+Fetching minitest 5.27.0
+Fetching rake-compiler 1.3.2
+Fetching rake-compiler-dock 1.12.0
+Installing minitest 5.27.0
+Installing rake-compiler 1.3.2
+Installing rake-compiler-dock 1.12.0
+Fetching rb_sys 0.9.130
+Installing rb_sys 0.9.130
+Bundle complete! 5 Gemfile dependencies, 7 gems now installed.
+Bundled gems are installed into `/tmp/rb-sys-dock/bundle`
+Post-install message from minitest:
+NOTE: minitest 5 will be the last in the minitest family to support
+      ruby 1.8 to 2.7. If you need to keep using these versions,
+      you need to pin your dependency to minitest with something
+      like "~> 5.0". See History.rdoc to locate compatible
+      versions.
+
+      Further, minitest 6 will be dropping the following:
+
+      + MiniTest (it's been Minitest for >10 years)
+      + MiniTest::Unit
+      + MiniTest::Unit::TestCase
+      + assert_send (unless you argue for it well)
+      + assert_equal nil, obj
+      + mocks and stubs: moving minitest/mock.rb to its own gem
+mkdir -p lib/surimono/4.0
+mkdir -p tmp/aarch64-linux/surimono/4.0.2
+cd tmp/aarch64-linux/surimono/4.0.2
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+checking for aarch64-linux-gnu-gcc... yes
+checking for aarch64-linux-gnu-g++... yes
+checking for aarch64-linux-gnu-gcc-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
+cd -
+cd tmp/aarch64-linux/surimono/4.0.2
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target/aarch64-unknown-linux-gnu/release/libsurimono.so (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target --lib --profile release -- -C linker=aarch64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/aarch64-linux-gnu/ruby-4.0.2/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling equivalent v1.0.3
+   Compiling allocator-api2 v0.2.21
+   Compiling memchr v2.8.3
+   Compiling libm v0.2.16
+   Compiling rand_core v0.6.4
+   Compiling glob v0.3.4
+   Compiling siphasher v1.0.4
+   Compiling phf_shared v0.11.3
+   Compiling rand v0.8.8
+   Compiling clang-sys v1.9.1
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling libc v0.2.191
+   Compiling phf_generator v0.11.3
+   Compiling aho-corasick v1.1.5
+   Compiling regex-syntax v0.8.11
+   Compiling smallvec v1.16.4
+   Compiling shlex v2.0.1
+   Compiling bytemuck_derive v1.12.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling minimal-lexical v0.2.1
+   Compiling cfg-if v1.0.5
+   Compiling libloading v0.8.9
+   Compiling nom v7.1.3
+   Compiling bytemuck v1.25.2
+   Compiling font-types v0.10.1
+   Compiling regex-automata v0.4.18
+   Compiling cc v1.10.0
+   Compiling core_maths v0.1.1
+   Compiling bindgen v0.72.1
+   Compiling either v1.19.0
+   Compiling foldhash v0.2.0
+   Compiling itertools v0.13.0
+   Compiling rquickjs-sys v0.14.0
+   Compiling regex v1.13.1
+   Compiling read-fonts v0.35.0
+   Compiling cexpr v0.6.0
+   Compiling font-types v0.12.7
+   Compiling displaydoc v0.2.7
+   Compiling rustc-hash v2.1.3
+   Compiling once_cell v1.21.4
+   Compiling bitflags v2.13.2
+   Compiling thiserror v2.0.21
+   Compiling shlex v1.3.0
+   Compiling serde_core v1.0.229
+   Compiling tinystr v0.8.5
+   Compiling read-fonts v0.41.0
+   Compiling thiserror-impl v2.0.21
+   Compiling litemap v0.8.3
+   Compiling lazy_static v1.5.1
+   Compiling shell-words v1.1.1
+   Compiling writeable v0.6.4
+   Compiling itoa v1.0.18
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling icu_locale_core v2.2.0
+   Compiling skrifa v0.44.0
+   Compiling rb-sys-build v0.9.130
+   Compiling memmap2 v0.9.12
+   Compiling hashbrown v0.17.1
+   Compiling phf_macros v0.11.3
+   Compiling phf_codegen v0.11.3
+   Compiling linebender_resource_handle v0.1.1
+   Compiling zmij v1.0.23
+   Compiling dtoa v1.0.11
+   Compiling rb-sys-env v0.2.3
+   Compiling serde v1.0.229
+   Compiling dtoa-short v0.3.5
+   Compiling phf v0.11.3
+   Compiling fontique v0.6.0
+   Compiling selectors v0.32.0
+   Compiling swash v0.2.10
+   Compiling rb-sys v0.9.130
+   Compiling skrifa v0.37.0
+   Compiling harfrust v0.3.2
+   Compiling derive_more-impl v2.1.1
+   Compiling cssparser-macros v0.6.1
+   Compiling serde_derive v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling stable_deref_trait v1.2.1
+   Compiling servo_arc v0.4.3
+   Compiling cssparser v0.35.0
+   Compiling parley v0.6.0
+   Compiling derive_more v2.1.1
+   Compiling precomputed-hash v0.1.1
+   Compiling new_debug_unreachable v1.0.6
+   Compiling log v0.4.34
+   Compiling encoding_rs v0.8.35
+   Compiling magnus v0.9.3
+   Compiling surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/gfx)
+   Compiling hashbrown v0.16.1
+   Compiling mime v0.3.17
+   Compiling lol_html v2.7.0
+   Compiling magnus-macros v0.9.1
+   Compiling seq-macro v0.3.6
+   Compiling rquickjs-core v0.14.0
+   Compiling rquickjs v0.14.0
+   Compiling surimono-core v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/core)
+   Compiling surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/islands)
+   Compiling surimono v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/surimono)
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+    Finished `release` profile [optimized] target(s) in 1m 05s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+cd -
+mkdir -p tmp/aarch64-linux/stage/lib/surimono/4.0
+cp Cargo.lock tmp/aarch64-linux/stage/Cargo.lock
+cp Cargo.toml tmp/aarch64-linux/stage/Cargo.toml
+cp LICENSE-APACHE tmp/aarch64-linux/stage/LICENSE-APACHE
+cp LICENSE-MIT tmp/aarch64-linux/stage/LICENSE-MIT
+cp THIRD_PARTY.md tmp/aarch64-linux/stage/THIRD_PARTY.md
+mkdir -p tmp/aarch64-linux/stage/crates/core
+cp crates/core/Cargo.toml tmp/aarch64-linux/stage/crates/core/Cargo.toml
+mkdir -p tmp/aarch64-linux/stage/crates/core/src
+cp crates/core/src/engine.rs tmp/aarch64-linux/stage/crates/core/src/engine.rs
+cp crates/core/src/error.rs tmp/aarch64-linux/stage/crates/core/src/error.rs
+cp crates/core/src/lib.rs tmp/aarch64-linux/stage/crates/core/src/lib.rs
+cp crates/core/src/limits.rs tmp/aarch64-linux/stage/crates/core/src/limits.rs
+cp crates/core/src/prelude.js tmp/aarch64-linux/stage/crates/core/src/prelude.js
+cp crates/core/src/sandbox.rs tmp/aarch64-linux/stage/crates/core/src/sandbox.rs
+mkdir -p tmp/aarch64-linux/stage/crates/core/tests
+cp crates/core/tests/determinism.rs tmp/aarch64-linux/stage/crates/core/tests/determinism.rs
+mkdir -p tmp/aarch64-linux/stage/crates/gfx
+cp crates/gfx/Cargo.toml tmp/aarch64-linux/stage/crates/gfx/Cargo.toml
+mkdir -p tmp/aarch64-linux/stage/crates/gfx/src
+cp crates/gfx/src/css_font.rs tmp/aarch64-linux/stage/crates/gfx/src/css_font.rs
+cp crates/gfx/src/error.rs tmp/aarch64-linux/stage/crates/gfx/src/error.rs
+cp crates/gfx/src/fonts.rs tmp/aarch64-linux/stage/crates/gfx/src/fonts.rs
+cp crates/gfx/src/lib.rs tmp/aarch64-linux/stage/crates/gfx/src/lib.rs
+cp crates/gfx/src/measure.rs tmp/aarch64-linux/stage/crates/gfx/src/measure.rs
+mkdir -p tmp/aarch64-linux/stage/crates/gfx/tests/chrome
+cp crates/gfx/tests/chrome/font_shorthand.mjs tmp/aarch64-linux/stage/crates/gfx/tests/chrome/font_shorthand.mjs
+cp crates/gfx/tests/chrome/measure_text.mjs tmp/aarch64-linux/stage/crates/gfx/tests/chrome/measure_text.mjs
+mkdir -p tmp/aarch64-linux/stage/crates/gfx/tests/common
+cp crates/gfx/tests/common/mod.rs tmp/aarch64-linux/stage/crates/gfx/tests/common/mod.rs
+mkdir -p tmp/aarch64-linux/stage/crates/gfx/tests/data
+cp crates/gfx/tests/data/chrome_font_shorthand.json tmp/aarch64-linux/stage/crates/gfx/tests/data/chrome_font_shorthand.json
+cp crates/gfx/tests/data/chrome_measure_text.json tmp/aarch64-linux/stage/crates/gfx/tests/data/chrome_measure_text.json
+cp crates/gfx/tests/measure_text.rs tmp/aarch64-linux/stage/crates/gfx/tests/measure_text.rs
+mkdir -p tmp/aarch64-linux/stage/crates/islands
+cp crates/islands/Cargo.toml tmp/aarch64-linux/stage/crates/islands/Cargo.toml
+mkdir -p tmp/aarch64-linux/stage/crates/islands/src
+cp crates/islands/src/error.rs tmp/aarch64-linux/stage/crates/islands/src/error.rs
+cp crates/islands/src/lib.rs tmp/aarch64-linux/stage/crates/islands/src/lib.rs
+cp crates/islands/src/measure.rs tmp/aarch64-linux/stage/crates/islands/src/measure.rs
+cp crates/islands/src/runner.rs tmp/aarch64-linux/stage/crates/islands/src/runner.rs
+mkdir -p tmp/aarch64-linux/stage/crates/islands/tests
+cp crates/islands/tests/pool.rs tmp/aarch64-linux/stage/crates/islands/tests/pool.rs
+cp crates/islands/tests/runner.rs tmp/aarch64-linux/stage/crates/islands/tests/runner.rs
+cp crates/islands/tests/soak.rs tmp/aarch64-linux/stage/crates/islands/tests/soak.rs
+mkdir -p tmp/aarch64-linux/stage/crates/surimono
+cp crates/surimono/Cargo.toml tmp/aarch64-linux/stage/crates/surimono/Cargo.toml
+mkdir -p tmp/aarch64-linux/stage/crates/surimono/src
+cp crates/surimono/src/backend.rs tmp/aarch64-linux/stage/crates/surimono/src/backend.rs
+cp crates/surimono/src/error.rs tmp/aarch64-linux/stage/crates/surimono/src/error.rs
+cp crates/surimono/src/lib.rs tmp/aarch64-linux/stage/crates/surimono/src/lib.rs
+cp crates/surimono/src/options.rs tmp/aarch64-linux/stage/crates/surimono/src/options.rs
+cp crates/surimono/src/prepass.rs tmp/aarch64-linux/stage/crates/surimono/src/prepass.rs
+cp crates/surimono/src/renderer.rs tmp/aarch64-linux/stage/crates/surimono/src/renderer.rs
+mkdir -p tmp/aarch64-linux/stage/ext/surimono
+cp ext/surimono/Cargo.toml tmp/aarch64-linux/stage/ext/surimono/Cargo.toml
+cp ext/surimono/extconf.rb tmp/aarch64-linux/stage/ext/surimono/extconf.rb
+mkdir -p tmp/aarch64-linux/stage/ext/surimono/src
+cp ext/surimono/src/lib.rs tmp/aarch64-linux/stage/ext/surimono/src/lib.rs
+cp lib/surimono.rb tmp/aarch64-linux/stage/lib/surimono.rb
+cp lib/surimono/version.rb tmp/aarch64-linux/stage/lib/surimono/version.rb
+cp tmp/aarch64-linux/surimono/4.0.2/surimono.so tmp/aarch64-linux/stage/lib/surimono/4.0/surimono.so
+mkdir -p lib/surimono/3.4
+mkdir -p tmp/aarch64-linux/surimono/3.4.9
+cd tmp/aarch64-linux/surimono/3.4.9
+checking for aarch64-linux-gnu-gcc... yes
+checking for aarch64-linux-gnu-g++... yes
+checking for aarch64-linux-gnu-gcc-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+cd -
+cd tmp/aarch64-linux/surimono/3.4.9
+/usr/bin/make
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target/aarch64-unknown-linux-gnu/release/libsurimono.so (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target --lib --profile release -- -C linker=aarch64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/aarch64-linux-gnu/ruby-3.4.9/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+    Finished `release` profile [optimized] target(s) in 8.30s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+cd -
+mkdir -p tmp/aarch64-linux/stage/lib/surimono/3.4
+cp tmp/aarch64-linux/surimono/3.4.9/surimono.so tmp/aarch64-linux/stage/lib/surimono/3.4/surimono.so
+mkdir -p lib/surimono/3.3
+mkdir -p tmp/aarch64-linux/surimono/3.3.11
+cd tmp/aarch64-linux/surimono/3.3.11
+checking for aarch64-linux-gnu-gcc... yes
+checking for aarch64-linux-gnu-g++... yes
+checking for aarch64-linux-gnu-gcc-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+cd -
+cd tmp/aarch64-linux/surimono/3.3.11
+/usr/bin/make
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target/aarch64-unknown-linux-gnu/release/libsurimono.so (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target --lib --profile release -- -C linker=aarch64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/aarch64-linux-gnu/ruby-3.3.11/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+    Finished `release` profile [optimized] target(s) in 8.30s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+cd -
+mkdir -p tmp/aarch64-linux/stage/lib/surimono/3.3
+cp tmp/aarch64-linux/surimono/3.3.11/surimono.so tmp/aarch64-linux/stage/lib/surimono/3.3/surimono.so
+mkdir -p lib/surimono/3.2
+mkdir -p tmp/aarch64-linux/surimono/3.2.11
+cd tmp/aarch64-linux/surimono/3.2.11
+checking for aarch64-linux-gnu-gcc... yes
+checking for aarch64-linux-gnu-g++... yes
+checking for aarch64-linux-gnu-gcc-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+cd -
+cd tmp/aarch64-linux/surimono/3.2.11
+/usr/bin/make
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target/aarch64-unknown-linux-gnu/release/libsurimono.so (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/aarch64-linux/target --lib --profile release -- -C linker=aarch64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/aarch64-linux-gnu/ruby-3.2.11/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+    Finished `release` profile [optimized] target(s) in 8.25s
+Removing unneeded dependencies from native gemspec
+Removing source files from native gemspec
+cd -
+mkdir -p tmp/aarch64-linux/stage/lib/surimono/3.2
+cp tmp/aarch64-linux/surimono/3.2.11/surimono.so tmp/aarch64-linux/stage/lib/surimono/3.2/surimono.so
+mkdir -p pkg
+mkdir -p pkg/surimono-0.0.0-aarch64-linux
+mkdir -p pkg
+rm -f pkg/surimono-0.0.0-aarch64-linux/LICENSE-APACHE
+ln tmp/aarch64-linux/stage/LICENSE-APACHE pkg/surimono-0.0.0-aarch64-linux/LICENSE-APACHE
+cp tmp/aarch64-linux/stage/LICENSE-APACHE pkg/surimono-0.0.0-aarch64-linux/LICENSE-APACHE
+rm -f pkg/surimono-0.0.0-aarch64-linux/LICENSE-MIT
+cp tmp/aarch64-linux/stage/LICENSE-MIT pkg/surimono-0.0.0-aarch64-linux/LICENSE-MIT
+rm -f pkg/surimono-0.0.0-aarch64-linux/THIRD_PARTY.md
+cp tmp/aarch64-linux/stage/THIRD_PARTY.md pkg/surimono-0.0.0-aarch64-linux/THIRD_PARTY.md
+mkdir -p pkg/surimono-0.0.0-aarch64-linux/lib
+rm -f pkg/surimono-0.0.0-aarch64-linux/lib/surimono.rb
+cp tmp/aarch64-linux/stage/lib/surimono.rb pkg/surimono-0.0.0-aarch64-linux/lib/surimono.rb
+mkdir -p pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.2
+rm -f pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.2/surimono.so
+cp tmp/aarch64-linux/stage/lib/surimono/3.2/surimono.so pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.2/surimono.so
+mkdir -p pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.3
+rm -f pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.3/surimono.so
+cp tmp/aarch64-linux/stage/lib/surimono/3.3/surimono.so pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.3/surimono.so
+mkdir -p pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.4
+rm -f pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.4/surimono.so
+cp tmp/aarch64-linux/stage/lib/surimono/3.4/surimono.so pkg/surimono-0.0.0-aarch64-linux/lib/surimono/3.4/surimono.so
+mkdir -p pkg/surimono-0.0.0-aarch64-linux/lib/surimono/4.0
+rm -f pkg/surimono-0.0.0-aarch64-linux/lib/surimono/4.0/surimono.so
+cp tmp/aarch64-linux/stage/lib/surimono/4.0/surimono.so pkg/surimono-0.0.0-aarch64-linux/lib/surimono/4.0/surimono.so
+rm -f pkg/surimono-0.0.0-aarch64-linux/lib/surimono/version.rb
+cp tmp/aarch64-linux/stage/lib/surimono/version.rb pkg/surimono-0.0.0-aarch64-linux/lib/surimono/version.rb
+cd pkg/surimono-0.0.0-aarch64-linux
+  Successfully built RubyGem
+  Name: surimono
+  Version: 0.0.0
+  File: surimono-0.0.0-aarch64-linux.gem
+cd -
+'/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/pkg/surimono-0.0.0-aarch64-linux.gem' -> 'pkg/surimono-0.0.0-aarch64-linux.gem'
+total 700
+drwxr-xr-x  2 runner runner   4096 Oct 30 22:51 .
+drwxr-xr-x 10 runner runner   4096 Oct 30 22:51 ..
+-rw-r--r--  1 runner runner 705536 Oct 30 22:51 surimono-0.0.0-aarch64-linux.gem
+
+==> check the gem's contents
+LICENSE-APACHE
+LICENSE-MIT
+THIRD_PARTY.md
+lib/surimono.rb
+lib/surimono/3.2/surimono.so
+lib/surimono/3.3/surimono.so
+lib/surimono/3.4/surimono.so
+lib/surimono/4.0/surimono.so
+lib/surimono/version.rb
+host platform x86_64-linux: install test skipped for aarch64-linux
