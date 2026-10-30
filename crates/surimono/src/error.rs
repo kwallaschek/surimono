@@ -107,6 +107,19 @@ pub enum Error {
         /// Why it couldn't be loaded.
         reason: String,
     },
+    /// A bundle passed in the options can't be used: a bad name or entry, a
+    /// name that's taken, or a script that doesn't compile.
+    #[error("bundle \"{name}\" can't be used: {message}")]
+    Bundle {
+        /// The bundle's renderer name.
+        name: String,
+        /// What is wrong with it.
+        message: String,
+    },
+    /// The options are invalid, for example a limit out of range or an enabled
+    /// renderer that doesn't exist.
+    #[error("invalid options: {0}")]
+    InvalidOptions(String),
     /// The document couldn't be rewritten, for example because its markup is
     /// ambiguous enough that the islands' context can't be known for sure.
     #[error("could not rewrite the document: {0}")]
@@ -124,7 +137,10 @@ impl Error {
             | Error::StackOverflow { island }
             | Error::JavaScript { island, .. }
             | Error::Render { island, .. } => Some(island),
-            Error::Font { .. } | Error::Html(_) => None,
+            Error::Font { .. }
+            | Error::Bundle { .. }
+            | Error::InvalidOptions(_)
+            | Error::Html(_) => None,
         }
     }
 
@@ -140,6 +156,8 @@ impl Error {
             Error::JavaScript { .. } => "javascript",
             Error::Render { .. } => "render",
             Error::Font { .. } => "font",
+            Error::Bundle { .. } => "bundle",
+            Error::InvalidOptions(_) => "invalid-options",
             Error::Html(_) => "html",
         }
     }
