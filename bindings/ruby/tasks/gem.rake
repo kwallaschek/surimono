@@ -5,8 +5,10 @@
 # The extension depends on workspace crates by path (crates/surimono and what it
 # pulls in), which live outside bindings/ruby. A gem can only carry files below
 # its own directory, so `gem:stage` assembles a self-contained copy of the gem in
-# tmp/stage: the gem's files, the crates the extension reaches by path, a
-# workspace Cargo.toml naming only those crates, and the repository's Cargo.lock
+# tmp/stage: the gem's files, the crates the extension reaches by path, the
+# vendored crates the workspace's [patch] sections point to (e.g. the patched
+# QuickJS in vendor/rquickjs-sys), a workspace Cargo.toml naming only those
+# crates and keeping its [patch] sections, and the repository's Cargo.lock
 # trimmed to them. The source gem is built from that tree, and so are the
 # precompiled native gems (scripts/ci/native-gem.sh runs rb-sys-dock in it), so
 # CI compiles exactly what users install.
@@ -68,13 +70,32 @@ module SurimonoGem
     (seen.map { |d| d.delete_prefix("#{REPO_ROOT}/") } - [EXT_REL]).sort
   end
 
+  # Repository-relative directories that the workspace manifest's [patch.*]
+  # sections point to with `path = "..."` (vendored, patched crates).
+  def patch_dirs
+    dirs = []
+    section = nil
+    File.foreach(File.join(REPO_ROOT, "Cargo.toml")) do |line|
+      if (m = line.match(/^\s*\[([^\]]+)\]/))
+        section = m[1].strip
+      elsif section&.start_with?("patch") && (m = line.match(/\bpath\s*=\s*"([^"]+)"/))
+        dirs << m[1]
+      end
+    end
+    dirs.each do |d|
+      raise "[patch] path #{d} is outside the repository" if d.start_with?("/") || d.split("/").include?("..")
+      raise "[patch] path #{d} doesn't exist" unless File.directory?(File.join(REPO_ROOT, d))
+    end
+    dirs.uniq
+  end
+
   # The repository's workspace manifest with the member list cut down to the
   # staged crates. Everything else (package defaults, workspace dependencies,
   # lints, profiles) stays as is; unused workspace dependencies are ignored by Cargo.
   def workspace_manifest(crates)
-    text = File.read(File.join(REPO_ROOT, "Cargo.toml"))
+    text = File.read(File.join(REPO_ROOT, "Cargo.toml")).dup
     members = (["ext/surimono"] + crates).map { |m| "    #{m.inspect}," }.join("\n")
-    text = text.sub(/^members\s*=\s*\[.*?\]/m, "members = [\n#{members}\n]") ||
+    text.sub!(/^members\s*=\s*\[.*?\]/m, "members = [\n#{members}\n]") ||
       raise("no members list in Cargo.toml")
     text = text.sub(/^default-members\s*=\s*\[.*?\]\n?/m, "")
     "# Generated from the surimono repository's Cargo.toml by bindings/ruby/tasks/gem.rake.\n" \
@@ -97,21 +118,28 @@ module SurimonoGem
       copy(f, rel) unless rel.match?(GEM_EXCLUDE)
     end
     crates.each { |dir| repo_files(dir).each { |f| copy(f, f) } }
+    patched = patch_dirs
+    patched.each { |dir| repo_files(dir).each { |f| copy(f, f) } }
     ROOT_FILES.each { |f| copy(f, f) if File.file?(File.join(REPO_ROOT, f)) }
+    # The licences and notices of everything the native library links, for
+    # the gem (MIT/Apache/BSD notices; MPL-2.0 source availability).
+    capture!(File.join(REPO_ROOT, "scripts/ci/third-party-licenses.sh"),
+      File.join(STAGE_DIR, "THIRD_PARTY_LICENSES.txt"))
     File.write(File.join(STAGE_DIR, "Cargo.toml"), workspace_manifest(crates))
     copy("Cargo.lock", "Cargo.lock")
     # Trim the lock file to the staged crates. Versions stay as locked; Cargo only
     # drops packages nothing in the staged workspace uses.
     capture!(cargo, "metadata", "--format-version", "1", "--manifest-path",
       File.join(STAGE_DIR, "Cargo.toml"), chdir: STAGE_DIR)
-    puts "staged #{crates.size} crates (#{crates.join(", ")}) in #{STAGE_DIR}"
+    puts "staged #{crates.size} crates (#{crates.join(", ")})" \
+         "#{patched.empty? ? "" : " and patched #{patched.join(", ")}"} in #{STAGE_DIR}"
     STAGE_DIR
   end
 
   def source_gem
     stage
     spec = Gem::Specification.load(File.join(STAGE_DIR, "surimono.gemspec"))
-    missing = %w[Cargo.toml Cargo.lock ext/surimono/Cargo.toml] - spec.files
+    missing = %w[Cargo.toml Cargo.lock ext/surimono/Cargo.toml THIRD_PARTY_LICENSES.txt] - spec.files
     raise "staged gemspec is missing #{missing.join(", ")}" unless missing.empty?
 
     FileUtils.mkdir_p(PKG_DIR)

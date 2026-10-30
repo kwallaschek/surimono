@@ -1,269 +1,130 @@
-//! What a [`Renderer`](crate::Renderer) runs islands with.
-//!
-//! STAND-IN until the island runner (P1-RT-03, `surimono_islands::IslandRunner`)
-//! and text metrics (P1-GFX-01, `surimono_gfx::{FontSet, TextMeasurer}`) are
-//! merged. The types and signatures here mirror those contracts, so swapping in
-//! the real ones touches this file only; everything public stays as it is.
-//!
-//! Until then the runner knows a single renderer, `surimono-stub`, which runs no
-//! JavaScript: it returns an empty SVG of the island's size. Its spec may hold
-//! `"busy_ms": n` (works for n milliseconds, or fails with the time limit when n is
-//! over it), `"throw": "message"` (fails like a script exception) and
-//! `"limit": "memory"` or `"stack"` (fails like a script over that limit), so the
-//! facade, the gem and the CLI can be tested end to end. It disappears with the
-//! stand-in. Bundles are accepted and checked but can't run yet.
+//! What a [`Renderer`](crate::Renderer) runs islands with: the island runner
+//! from `surimono-islands`, with text measured by `surimono-gfx` from the
+//! caller's fonts. This module converts between the facade's types and theirs,
+//! so neither crate's types appear in the public API.
 
-use std::time::Duration;
+use surimono_gfx::FontSet;
+use surimono_islands::{IslandError, IslandRunner, RunnerOptions, SandboxError};
 
 use crate::error::{Error, IslandRef};
-use crate::options::Limits;
+use crate::options::{Limits, Options};
 
-/// The temporary renderer the stand-in runner provides.
-pub(crate) const STUB_RENDERER: &str = "surimono-stub";
-
-const MIN_MEMORY_BYTES: usize = 1024 * 1024;
-const MIN_STACK_BYTES: usize = 64 * 1024;
-const MAX_STACK_BYTES: usize = 16 * 1024 * 1024;
-
-/// Font files for text measurement (mirrors `surimono_gfx::FontSet`).
-#[derive(Debug, Default)]
-pub(crate) struct FontSet {
-    files: Vec<Vec<u8>>,
-}
-
-impl FontSet {
-    pub(crate) fn new() -> Self {
-        Self::default()
+/// The fonts from the options, in order. A font that can't be read is
+/// [`Error::Font`] with its position.
+pub(crate) fn font_set(fonts: Vec<Vec<u8>>) -> Result<FontSet, Error> {
+    let mut set = FontSet::new();
+    for (index, bytes) in fonts.into_iter().enumerate() {
+        set.add_font_bytes(bytes).map_err(|e| Error::Font {
+            index,
+            reason: e.to_string(),
+        })?;
     }
+    Ok(set)
+}
 
-    /// Adds a font file; returns how many faces it holds.
-    pub(crate) fn add_font_bytes(&mut self, bytes: Vec<u8>) -> Result<usize, String> {
-        let magic = bytes.get(..4).unwrap_or_default();
-        let known: [&[u8]; 4] = [b"\x00\x01\x00\x00", b"OTTO", b"true", b"ttcf"];
-        if !known.contains(&magic) {
-            return Err("not a TrueType or OpenType font, nor a font collection".into());
-        }
-        self.files.push(bytes);
-        Ok(1)
+/// The sandbox's limits for the facade's.
+#[allow(
+    clippy::field_reassign_with_default,
+    reason = "field by field keeps compiling if the type becomes #[non_exhaustive]"
+)]
+fn core_limits(l: Limits) -> surimono_core::Limits {
+    let mut core = surimono_core::Limits::default();
+    core.memory_bytes = l.memory_bytes;
+    core.time = l.time;
+    core.stack_bytes = l.stack_bytes;
+    core
+}
+
+/// Starts the runner: worker pool, limits, seed, text measurement. Bundles are
+/// registered separately.
+#[allow(
+    clippy::field_reassign_with_default,
+    reason = "field by field keeps compiling if the type becomes #[non_exhaustive]"
+)]
+pub(crate) fn runner(
+    options: &Options,
+    gfx: &surimono_gfx::TextMeasurer,
+) -> Result<IslandRunner, Error> {
+    let mut o = RunnerOptions::default();
+    o.limits = core_limits(options.limits);
+    // The facade decides the default; it rejects an explicit 0 before this.
+    o.pool_size = options
+        .pool_size
+        .unwrap_or_else(crate::options::default_pool_size);
+    o.seed = options.seed;
+    o.now_ms = options.now_ms.unwrap_or(crate::options::DEFAULT_NOW_MS);
+    o.utc_offset_minutes = options.utc_offset_minutes;
+    // Always the caller's fonts: renderers never get an estimate.
+    o.text_measurer = Some(gfx.clone());
+    IslandRunner::new(o).map_err(|e| match e {
+        IslandError::InvalidOptions { message } => Error::InvalidOptions(message),
+        other => Error::InvalidOptions(other.to_string()),
+    })
+}
+
+/// Renderers compiled into this build, sorted (Cargo features `echarts`, …).
+pub(crate) fn builtin_renderers() -> Vec<String> {
+    surimono_islands::builtin_renderers()
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Checks a bundle's name and entry before it is compiled.
+pub(crate) fn check_bundle(name: &str, entry: &str, taken: &[String]) -> Result<(), String> {
+    let ident = |s: &str| {
+        s.chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_' || c == '$')
+            && s.chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
+    };
+    if name.trim().is_empty() || name != name.trim() {
+        return Err(format!(
+            "bundle name {name:?} must be non-empty without surrounding spaces"
+        ));
     }
-}
-
-/// Answers `measureText` from the fonts (mirrors `surimono_gfx::TextMeasurer`).
-#[derive(Debug)]
-pub(crate) struct TextMeasurer {
-    #[expect(dead_code, reason = "read by the real island runner")]
-    fonts: FontSet,
-}
-
-impl TextMeasurer {
-    pub(crate) fn new(fonts: FontSet) -> Self {
-        Self { fonts }
+    if taken.iter().any(|n| n == name) {
+        return Err(format!("a renderer named {name:?} already exists"));
     }
-}
-
-/// Mirrors `surimono_islands::RunnerOptions`.
-#[derive(Debug)]
-pub(crate) struct RunnerOptions {
-    pub(crate) limits: Limits,
-    pub(crate) pool_size: usize,
-    pub(crate) seed: u64,
-    pub(crate) measurer: TextMeasurer,
-}
-
-/// Mirrors `surimono_islands::IslandRequest`.
-#[derive(Debug)]
-pub(crate) struct IslandRequest<'a> {
-    pub(crate) renderer: &'a str,
-    pub(crate) spec_json: &'a str,
-    pub(crate) width: u32,
-    pub(crate) height: u32,
-}
-
-/// Mirrors `surimono_islands::IslandError`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum IslandError {
-    UnknownRenderer,
-    MemoryLimit,
-    TimeLimit,
-    StackOverflow,
-    Exception {
-        message: String,
-        stack: Option<String>,
-    },
-    /// The script returned something that isn't an SVG string.
-    BadOutput(String),
-    InvalidBundle(String),
-    InvalidOptions(String),
-}
-
-impl std::fmt::Display for IslandError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::UnknownRenderer => f.write_str("unknown renderer"),
-            Self::MemoryLimit => f.write_str("the script exceeded the memory limit"),
-            Self::TimeLimit => f.write_str("the script exceeded the time limit"),
-            Self::StackOverflow => f.write_str("the script exceeded the stack limit"),
-            Self::Exception { message, .. } => write!(f, "JavaScript error: {message}"),
-            Self::BadOutput(m) | Self::InvalidBundle(m) | Self::InvalidOptions(m) => f.write_str(m),
-        }
+    if !ident(entry) {
+        return Err(format!("entry {entry:?} is not a JavaScript function name"));
     }
-}
-
-#[derive(Debug)]
-struct Registered {
-    name: String,
-}
-
-/// Mirrors `surimono_islands::IslandRunner` (Send + Sync).
-#[derive(Debug)]
-pub(crate) struct IslandRunner {
-    limits: Limits,
-    bundles: Vec<Registered>,
-    _measurer: TextMeasurer,
-}
-
-impl IslandRunner {
-    pub(crate) fn new(options: RunnerOptions) -> Result<Self, IslandError> {
-        let l = options.limits;
-        if l.memory_bytes < MIN_MEMORY_BYTES {
-            return Err(IslandError::InvalidOptions(format!(
-                "limits.memory_bytes is {}, the minimum is {MIN_MEMORY_BYTES}",
-                l.memory_bytes
-            )));
-        }
-        if !(MIN_STACK_BYTES..=MAX_STACK_BYTES).contains(&l.stack_bytes) {
-            return Err(IslandError::InvalidOptions(format!(
-                "limits.stack_bytes is {}, it must be between {MIN_STACK_BYTES} and {MAX_STACK_BYTES}",
-                l.stack_bytes
-            )));
-        }
-        if options.pool_size == 0 {
-            return Err(IslandError::InvalidOptions(
-                "pool_size must be at least 1".into(),
-            ));
-        }
-        let _ = options.seed;
-        Ok(Self {
-            limits: l,
-            bundles: Vec::new(),
-            _measurer: options.measurer,
-        })
-    }
-
-    pub(crate) fn register_bundle(
-        &mut self,
-        name: &str,
-        js_source: &str,
-        entry: &str,
-    ) -> Result<(), IslandError> {
-        let ident = |s: &str| {
-            s.chars()
-                .next()
-                .is_some_and(|c| c.is_alphabetic() || c == '_' || c == '$')
-                && s.chars()
-                    .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
-        };
-        if name.trim().is_empty() || name != name.trim() {
-            return Err(IslandError::InvalidBundle(format!(
-                "bundle name {name:?} must be non-empty without surrounding spaces"
-            )));
-        }
-        if self.renderer_names().iter().any(|n| n == name) {
-            return Err(IslandError::InvalidBundle(format!(
-                "a renderer named {name:?} already exists"
-            )));
-        }
-        if !ident(entry) {
-            return Err(IslandError::InvalidBundle(format!(
-                "entry {entry:?} is not a JavaScript function name"
-            )));
-        }
-        if js_source.trim().is_empty() {
-            return Err(IslandError::InvalidBundle(format!(
-                "bundle {name:?} has no source"
-            )));
-        }
-        self.bundles.push(Registered {
-            name: name.to_owned(),
-        });
-        Ok(())
-    }
-
-    /// Every renderer islands can name: the built-ins, then bundles in the order added.
-    pub(crate) fn renderer_names(&self) -> Vec<String> {
-        std::iter::once(STUB_RENDERER.to_owned())
-            .chain(self.bundles.iter().map(|b| b.name.clone()))
-            .collect()
-    }
-
-    pub(crate) fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
-        if req.renderer != STUB_RENDERER {
-            return if self.bundles.iter().any(|b| b.name == req.renderer) {
-                Err(IslandError::BadOutput(
-                    "JavaScript bundles can't run yet: the island runner (P1-RT-03) isn't merged"
-                        .into(),
-                ))
-            } else {
-                Err(IslandError::UnknownRenderer)
-            };
-        }
-        let spec: serde_json::Value = serde_json::from_str(req.spec_json)
-            .map_err(|e| IslandError::BadOutput(format!("spec is not JSON: {e}")))?;
-        if let Some(message) = spec.get("throw").and_then(|v| v.as_str()) {
-            return Err(IslandError::Exception {
-                message: format!("Error: {message}"),
-                stack: Some("    at render (surimono-stub)".into()),
-            });
-        }
-        match spec.get("limit").and_then(|v| v.as_str()) {
-            Some("memory") => return Err(IslandError::MemoryLimit),
-            Some("stack") => return Err(IslandError::StackOverflow),
-            _ => {}
-        }
-        if let Some(ms) = spec.get("busy_ms").and_then(serde_json::Value::as_u64) {
-            let busy = Duration::from_millis(ms);
-            if busy > self.limits.time {
-                std::thread::sleep(self.limits.time);
-                return Err(IslandError::TimeLimit);
-            }
-            std::thread::sleep(busy);
-        }
-        Ok(format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" \
-             viewBox=\"0 0 {w} {h}\"></svg>",
-            w = req.width,
-            h = req.height
-        ))
-    }
+    Ok(())
 }
 
 /// The public error for an island the runner failed on.
 pub(crate) fn island_error(e: IslandError, island: IslandRef, enabled: &[String]) -> Error {
     match e {
-        IslandError::UnknownRenderer => Error::UnknownRenderer {
-            island,
-            enabled: enabled.to_vec(),
-        },
-        IslandError::MemoryLimit => Error::MemoryLimit { island },
-        IslandError::TimeLimit => Error::TimeLimit { island },
-        IslandError::StackOverflow => Error::StackOverflow { island },
-        IslandError::Exception { message, stack } => Error::JavaScript {
+        IslandError::Sandbox(SandboxError::MemoryLimit) => Error::MemoryLimit { island },
+        IslandError::Sandbox(SandboxError::TimeLimit) => Error::TimeLimit { island },
+        IslandError::Sandbox(SandboxError::StackOverflow) => Error::StackOverflow { island },
+        IslandError::Sandbox(SandboxError::Exception { message, stack }) => Error::JavaScript {
             island,
             message,
             stack,
         },
-        IslandError::BadOutput(message)
-        | IslandError::InvalidBundle(message)
-        | IslandError::InvalidOptions(message) => Error::Render { island, message },
+        IslandError::UnknownRenderer { .. } => Error::UnknownRenderer {
+            island,
+            enabled: enabled.to_vec(),
+        },
+        IslandError::BadJson {
+            message,
+            line,
+            column,
+        } => Error::InvalidIsland {
+            island,
+            reason: format!(
+                "the script's text is not valid JSON: {message} at line {line} column {column}"
+            ),
+        },
+        // A wrong return type, an engine or worker failure, and anything added
+        // later: the island can't be rendered, and the message says why.
+        other => Error::Render {
+            island,
+            message: other.to_string(),
+        },
     }
-}
-
-/// Default runtime pool size: the number of CPUs, from 1 to 8.
-pub(crate) fn default_pool_size() -> usize {
-    std::thread::available_parallelism()
-        .map(std::num::NonZeroUsize::get)
-        .unwrap_or(1)
-        .clamp(1, 8)
 }
 
 #[cfg(test)]
@@ -271,39 +132,58 @@ mod tests {
     use super::*;
 
     #[test]
-    fn runner_is_send_and_sync() {
-        fn check<T: Send + Sync>() {}
-        check::<IslandRunner>();
-    }
-
-    #[test]
-    fn fonts_must_look_like_fonts() {
-        let mut fonts = FontSet::new();
-        assert_eq!(
-            fonts.add_font_bytes(b"\x00\x01\x00\x00rest".to_vec()),
-            Ok(1)
-        );
-        assert_eq!(fonts.add_font_bytes(b"OTTOrest".to_vec()), Ok(1));
-        assert!(fonts.add_font_bytes(b"<html>".to_vec()).is_err());
-        assert!(fonts.add_font_bytes(Vec::new()).is_err());
-    }
-
-    #[test]
     fn every_island_error_maps_to_a_public_error() {
         let at = IslandRef::new(0, None, Some("r".into()));
         let cases = [
-            (IslandError::UnknownRenderer, "unknown-renderer"),
-            (IslandError::MemoryLimit, "memory-limit"),
-            (IslandError::TimeLimit, "time-limit"),
-            (IslandError::StackOverflow, "stack-overflow"),
+            (SandboxError::MemoryLimit.into(), "memory-limit"),
+            (SandboxError::TimeLimit.into(), "time-limit"),
+            (SandboxError::StackOverflow.into(), "stack-overflow"),
             (
-                IslandError::Exception {
+                SandboxError::Exception {
                     message: "m".into(),
                     stack: None,
-                },
+                }
+                .into(),
                 "javascript",
             ),
-            (IslandError::BadOutput("b".into()), "render"),
+            (
+                SandboxError::Engine {
+                    message: "e".into(),
+                }
+                .into(),
+                "render",
+            ),
+            (
+                IslandError::UnknownRenderer { name: "r".into() },
+                "unknown-renderer",
+            ),
+            (
+                IslandError::BadJson {
+                    message: "b".into(),
+                    line: 1,
+                    column: 2,
+                },
+                "invalid-island",
+            ),
+            (
+                IslandError::NoFonts {
+                    renderer: "r".into(),
+                },
+                "render",
+            ),
+            (
+                IslandError::NotAString {
+                    renderer: "r".into(),
+                    found: "number".into(),
+                },
+                "render",
+            ),
+            (
+                IslandError::Worker {
+                    message: "w".into(),
+                },
+                "render",
+            ),
         ];
         for (e, kind) in cases {
             assert_eq!(island_error(e, at.clone(), &[]).kind(), kind);
@@ -311,7 +191,31 @@ mod tests {
     }
 
     #[test]
-    fn default_pool_is_between_1_and_8() {
-        assert!((1..=8).contains(&default_pool_size()));
+    fn bundle_names_and_entries_are_checked() {
+        let taken = ["echarts".to_owned()];
+        assert_eq!(check_bundle("mine", "render", &taken), Ok(()));
+        assert_eq!(check_bundle("mine", "$draw_2", &taken), Ok(()));
+        for (name, entry) in [
+            ("", "f"),
+            (" x", "f"),
+            ("echarts", "f"),
+            ("x", "not a name"),
+            ("x", "1f"),
+            ("x", ""),
+        ] {
+            assert!(
+                check_bundle(name, entry, &taken).is_err(),
+                "{name:?}/{entry:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn fonts_must_be_fonts() {
+        assert!(matches!(
+            font_set(vec![b"not a font".to_vec()]),
+            Err(Error::Font { index: 0, .. })
+        ));
+        assert!(font_set(Vec::new()).is_ok());
     }
 }

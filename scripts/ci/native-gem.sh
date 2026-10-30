@@ -39,9 +39,12 @@ for v in ${rubies//,/ }; do
   grep -Eq "^lib/surimono/$v/surimono\.(so|bundle)$" "$out/contents.txt" \
     || { echo "missing the extension for Ruby $v in $gem_file" >&2; exit 1; }
 done
-if grep -Eq '\.rs$|Cargo\.(toml|lock)$' "$out/contents.txt"; then
-  echo "native gem carries Rust sources" >&2; exit 1
+if grep -Eq '\.rs$|Cargo\.(toml|lock)$|\.c$' "$out/contents.txt"; then
+  echo "native gem carries Rust or C sources" >&2; exit 1
 fi
+# The statically linked crates' and bundled libraries' licences and notices.
+grep -qx 'THIRD_PARTY_LICENSES.txt' "$out/contents.txt" \
+  || { echo "native gem has no THIRD_PARTY_LICENSES.txt" >&2; exit 1; }
 
 # A gem for this runner's own platform can be installed and tested right here.
 host="$(ruby -e 'print Gem::Platform.local.to_s')"
