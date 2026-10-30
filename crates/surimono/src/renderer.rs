@@ -49,12 +49,19 @@ struct Pool {
     runner: Option<Arc<IslandRunner>>,
 }
 
+/// Runners given up on in this process; see [`abandon`].
+static ABANDONED: Mutex<Vec<Arc<IslandRunner>>> = Mutex::new(Vec::new());
+
 /// Gives up on a runner whose threads belong to another process: dropping it
-/// would join threads that don't exist here, which never returns. Its memory
-/// is the parent's, copied on write; it is leaked once per fork.
+/// would join threads that don't exist here, which never returns. It is kept
+/// for the life of the process instead (its memory is the parent's, copied on
+/// write), one per renderer per fork, and stays reachable, so leak checkers
+/// don't report it.
 fn abandon(runner: Arc<IslandRunner>) {
-    #[allow(clippy::mem_forget, reason = "dropping it would hang; see above")]
-    std::mem::forget(runner);
+    ABANDONED
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .push(runner);
 }
 
 impl Drop for Renderer {
@@ -555,6 +562,17 @@ mod tests {
         // Dropping a renderer whose pool belongs to another process doesn't
         // join (and hang on) that pool's threads.
         r.pool.lock().unwrap_or_else(PoisonError::into_inner).pid = u32::MAX;
+        let abandoned = ABANDONED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .len();
         drop(r);
+        assert_eq!(
+            ABANDONED
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .len(),
+            abandoned + 1
+        );
     }
 }
