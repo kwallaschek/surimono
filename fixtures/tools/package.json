@@ -1,0 +1,18 @@
+{
+  "name": "surimono-fixture-tools",
+  "private": true,
+  "description": "Chrome reference renders and perceptual diffs for surimono's visual fixtures. Test tooling only; never bundled.",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "echarts": "6.1.0",
+    "pixelmatch": "8.0.0",
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0",
+    "vega": "6.4.0",
+    "vega-lite": "6.5.0"
+  }
+}

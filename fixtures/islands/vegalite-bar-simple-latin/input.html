@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Open invoices by customer</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans", "Noto Sans JP"; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
+    body { margin: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
+    figure.island > svg { display: block; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">Northwind Trading GmbH</div>
+    <div class="meta">Accounts receivable · As of 31 Oct 2026 · Currency: EUR</div>
+    <div class="rule"></div>
+  </header>
+  <h1>Open invoices by customer</h1>
+  <p>Total of unpaid invoices per customer, sorted by amount. Includes invoices not yet due.</p>
+  <figure class="island" style="width: 640px; height: 304px">
+    <script type="application/vnd.surimono+json" data-renderer="vega-lite" data-width="640" data-height="304">{
+ "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+ "width": 640,
+ "height": 304,
+ "autosize": {
+  "type": "fit",
+  "contains": "padding"
+ },
+ "padding": 4,
+ "config": {
+  "font": "Noto Sans",
+  "axis": {
+   "labelFontSize": 10,
+   "titleFontSize": 11
+  },
+  "view": {
+   "stroke": null
+  }
+ },
+ "data": {
+  "values": [
+   {
+    "customer": "Baltic Shipping",
+    "total": 58095
+   },
+   {
+    "customer": "Delta Pharma",
+    "total": 33733
+   },
+   {
+    "customer": "Granite Labs",
+    "total": 33342
+   },
+   {
+    "customer": "Elm Street Books",
+    "total": 26925
+   },
+   {
+    "customer": "Harbor Retail",
+    "total": 26790
+   },
+   {
+    "customer": "Fjord Energy",
+    "total": 23386
+   },
+   {
+    "customer": "Cobalt Systems",
+    "total": 19381
+   },
+   {
+    "customer": "Alpine Foods AG",
+    "total": 14695
+   }
+  ]
+ },
+ "encoding": {
+  "y": {
+   "field": "customer",
+   "type": "nominal",
+   "sort": null,
+   "title": null
+  },
+  "x": {
+   "field": "total",
+   "type": "quantitative",
+   "title": "Open amount (EUR)",
+   "axis": {
+    "format": ",d"
+   }
+  }
+ },
+ "layer": [
+  {
+   "mark": {
+    "type": "bar",
+    "color": "#2f6fb0"
+   }
+  },
+  {
+   "mark": {
+    "type": "text",
+    "align": "left",
+    "dx": 3,
+    "fontSize": 9
+   },
+   "encoding": {
+    "text": {
+     "field": "total",
+     "type": "quantitative",
+     "format": ",d"
+    }
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">Figure 1. Open invoice total per customer (EUR).</p>
+  <div class="table">
+      <div class="tr th"><span class="c" style="flex-basis: 40%">Customer</span><span class="c num" style="flex-basis: 60%">Open amount (EUR)</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Baltic Shipping</span><span class="c num" style="flex-basis: 60%">58,095</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Delta Pharma</span><span class="c num" style="flex-basis: 60%">33,733</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Granite Labs</span><span class="c num" style="flex-basis: 60%">33,342</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Elm Street Books</span><span class="c num" style="flex-basis: 60%">26,925</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Harbor Retail</span><span class="c num" style="flex-basis: 60%">26,790</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Fjord Energy</span><span class="c num" style="flex-basis: 60%">23,386</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Cobalt Systems</span><span class="c num" style="flex-basis: 60%">19,381</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Alpine Foods AG</span><span class="c num" style="flex-basis: 60%">14,695</span></div>
+    </div>
+</body>
+</html>
