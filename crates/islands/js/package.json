@@ -5,6 +5,7 @@
   "license": "MIT OR Apache-2.0",
   "devDependencies": {
     "echarts": "6.1.0",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0"
   }
 }
