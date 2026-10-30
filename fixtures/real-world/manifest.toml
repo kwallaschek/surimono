@@ -1,0 +1,91 @@
+# Real-world library suite: the pinned versions of libraries people actually
+# put in documents. Phase 1 covers the island renderers. Every entry is an npm
+# release, pinned by version, tarball URL and the registry's integrity hash
+# (sha512, Subresource Integrity format), with the exact bundle file the
+# runtime embeds and that file's sha256. `python3 fixtures/real-world/verify.py`
+# downloads each tarball and checks all of it.
+#
+# The same versions are pinned in fixtures/tools/package.json (Chrome harness)
+# and must match what crates/islands bundles.
+#
+# bundled_licenses lists the licences of third-party code compiled into the
+# bundle file itself (not the npm package's CLI-only dependencies).
+
+schema = 1
+phase = 1
+
+[[library]]
+name = "echarts"
+version = "6.1.0"
+status = "required"
+license = "Apache-2.0"
+license_files = ["LICENSE", "NOTICE", "licenses/LICENSE-d3"]
+bundled_licenses = ["BSD-3-Clause (zrender 6.1.0)", "0BSD (tslib 2.3.0)", "BSD-3-Clause (code derived from d3 by Mike Bostock, see licenses/LICENSE-d3)"]
+npm_tarball = "https://registry.npmjs.org/echarts/-/echarts-6.1.0.tgz"
+integrity = "sha512-q0yaFPggC9FUdsWH4blavRWFmxdrIodbkoKNAjJudAI6CA9gNPxHtV2RcZNEepZVlk4yvBYkOkbk6HIVpIyHZA=="
+tarball_sha256 = "681aff88cc1038c3fa941a3a53d1b177a52250b05335efc607d6105ae13be481"
+bundle_file = "dist/echarts.min.js"
+bundle_sha256 = "b66b25aeb4df84e33199dc21694014d336d222cbd9deb0e5a7c14bd6aa0d0fd0"
+bundle_bytes = 1121883
+bundle_format = "UMD, global `echarts`"
+source_repo = "https://github.com/apache/echarts"
+source_commit = "c5a48f5f97d23e5379720870b8444cd05b50ffb4"
+used_by = "P1-RT-06 ECharts renderer (SSR mode, SVG renderer)"
+
+[[library]]
+name = "vega"
+version = "6.4.0"
+status = "required"
+license = "BSD-3-Clause"
+license_files = ["LICENSE"]
+bundled_licenses = ["BSD-3-Clause (vega-* 5.x to 8.x, d3-ease)", "ISC (d3-array, d3-format, d3-time, d3-time-format, d3-dsv, d3-scale, d3-scale-chromatic, d3-interpolate, d3-color, d3-force, d3-dispatch, d3-quadtree, d3-timer, d3-geo, d3-geo-projection, d3-path, d3-shape, d3-hierarchy, d3-delaunay, delaunator, internmap, topojson-client)", "Unlicense (robust-predicates 3.0.3)"]
+npm_tarball = "https://registry.npmjs.org/vega/-/vega-6.4.0.tgz"
+integrity = "sha512-rHXCq2LpEWCLMjXBEj7hocY9G0/i5TGYRayGGSj06VTF4+l2IG2Z7oeZKCjWbUh/7hTE/mVhbaOPB72wCElh6g=="
+tarball_sha256 = "3521fb6ff68a94a40323954f0ba4484ba4014b157bfd37f89a3b063082320c42"
+bundle_file = "build/vega.min.js"
+bundle_sha256 = "8f6a3587cf8d4f42c7e08120e3eb05d067e746d554e39d2dcf52acc0bd5ba28f"
+bundle_bytes = 521123
+bundle_format = "UMD, global `vega`"
+source_repo = "https://github.com/vega/vega"
+source_commit = "adf0ae7cd5dbc5bd0d7b4fb5566a68adf14cac3f"
+used_by = "P1-RT-07 Vega renderer (headless View, toSVG)"
+
+[[library]]
+name = "vega-lite"
+version = "6.5.0"
+status = "required"
+license = "BSD-3-Clause"
+license_files = ["LICENSE"]
+bundled_licenses = ["BSD-3-Clause (Vega-Lite itself; vega-util, vega-expression and vega-event-selector are taken from the global `vega`, not bundled)"]
+npm_tarball = "https://registry.npmjs.org/vega-lite/-/vega-lite-6.5.0.tgz"
+integrity = "sha512-fMXF6s0MrIg0UTWnLIfeFtgSLzVhyzSKobzGrh5rhS+mL6FOYFG3m7ouJ4U23gj65EK+gl9FIIT5w7wLNaAzkA=="
+tarball_sha256 = "811230a6bfd2cdbfc359d0c38f624a90df86657b7f251b67be88bcc4eee32b7f"
+bundle_file = "build/vega-lite.min.js"
+bundle_sha256 = "83e215e84e308ee8688fa6503ba0f1cf8a3c05c0d61df2841a0b92bf86809e00"
+bundle_bytes = 257954
+bundle_format = "UMD, global `vegaLite`, requires global `vega`"
+source_repo = "https://github.com/vega/vega-lite"
+source_commit = "ca9888cb3835a6658886aab32006b4f67d6177f9"
+used_by = "P1-RT-07 Vega-Lite renderer (compile to Vega, then as vega)"
+
+[[library]]
+name = "mermaid"
+version = "12.2.0"
+status = "stretch"
+license = "MIT"
+license_files = ["LICENSE"]
+# Not inventoried yet. The bundle contains ELK layout code (elkjs, EPL-2.0, weak
+# copyleft and not on the permissive list) and DOMPurify 3.4.12 (MPL-2.0 OR
+# Apache-2.0), plus d3, dagre-d3-es, cytoscape, katex, marked, roughjs, khroma and
+# others. A full inventory, and a decision on EPL-2.0, is needed before Mermaid is bundled.
+bundled_licenses = ["MIT (mermaid)", "EPL-2.0 (elkjs, to be confirmed)", "MPL-2.0 OR Apache-2.0 (DOMPurify 3.4.12)", "others not inventoried"]
+npm_tarball = "https://registry.npmjs.org/mermaid/-/mermaid-12.2.0.tgz"
+integrity = "sha512-w7nr/SFrLO7BaVTs3dQTvYSV6nYSBj0Yy9DjBhsIJtAcHqRzXSq4Pg32ujHZ/AdWsAMNEvvhbm5dt9E2tOiHzw=="
+tarball_sha256 = "071914164d0f6d53e5c26a10a220230d4ae8d37ed0f2263fbf072266f0af3a0a"
+bundle_file = "dist/mermaid.min.js"
+bundle_sha256 = "a8a6a6f805b074a8261a2825c86f99c8054acb3b35f50bb7e24a4f9f2c3c3b9f"
+bundle_bytes = 5494801
+bundle_format = "IIFE, global `mermaid`"
+source_repo = "https://github.com/mermaid-js/mermaid"
+source_commit = "unknown (npm metadata has no gitHead); tag mermaid@12.2.0"
+used_by = "P1-RT-08 Mermaid renderer (stretch, first to cut)"
