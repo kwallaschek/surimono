@@ -31,7 +31,7 @@ mod runner;
 
 pub use error::IslandError;
 pub use measure::{TextMeasurer, TextMetrics};
-pub use runner::{IslandRequest, IslandRunner, RunnerOptions};
+pub use runner::{IslandRequest, IslandRunner, RunnerOptions, RunnerStats};
 pub use surimono_core::{Limits, SandboxError};
 
 /// Version of this crate, for diagnostics.

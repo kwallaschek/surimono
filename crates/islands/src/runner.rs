@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use std::thread::{self, JoinHandle};
@@ -118,6 +119,18 @@ enum Job {
 struct Shared {
     sandbox_options: SandboxOptions,
     measurer: TextMeasurer,
+    renders: AtomicU64,
+    failed_renders: AtomicU64,
+}
+
+/// Counters for an [`IslandRunner`], for monitoring and tests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub struct RunnerStats {
+    /// Renders finished, including failed ones.
+    pub renders: u64,
+    /// Renders that returned an error.
+    pub failed_renders: u64,
 }
 
 /// Renders islands: JavaScript bundles that turn a JSON spec into an SVG
@@ -130,15 +143,19 @@ struct Shared {
 /// (`width`, `actualBoundingBoxAscent`, …) from the runner's
 /// [`TextMeasurer`].
 ///
-/// Bundles are compiled to bytecode once, at registration. Each render runs
-/// on one of a fixed pool of worker threads, in a fresh JavaScript context
-/// under the runner's limits, so nothing leaks from one render to the next
-/// and the same request always gives the same SVG.
+/// Bundles are compiled to bytecode once, at registration, and loaded from
+/// bytecode for each render (no re-parsing). Each render runs on one of a
+/// fixed pool of worker threads, in a fresh JavaScript runtime under the
+/// runner's limits, so nothing leaks from one render to the next, the whole
+/// heap is freed after every render, and the same request always gives the
+/// same SVG. Each worker prepares the runtime for its next render right
+/// after sending a reply, off the caller's clock.
 ///
 /// `IslandRunner` is `Send + Sync`: share it between threads (e.g. in an
 /// `Arc`); [`render`](Self::render) blocks the calling thread until a worker
 /// is done.
 pub struct IslandRunner {
+    shared: Arc<Shared>,
     bundles: RwLock<HashMap<String, Arc<Bundle>>>,
     jobs: Option<Sender<Job>>,
     workers: Vec<JoinHandle<()>>,
@@ -177,6 +194,8 @@ impl IslandRunner {
         let shared = Arc::new(Shared {
             sandbox_options,
             measurer: opts.text_measurer,
+            renders: AtomicU64::new(0),
+            failed_renders: AtomicU64::new(0),
         });
         let (tx, rx) = mpsc::channel::<Job>();
         let rx = Arc::new(Mutex::new(rx));
@@ -194,6 +213,7 @@ impl IslandRunner {
             workers.push(handle);
         }
         Ok(Self {
+            shared,
             bundles: RwLock::new(HashMap::new()),
             jobs: Some(tx),
             workers,
@@ -276,6 +296,14 @@ impl IslandRunner {
         self.workers.len()
     }
 
+    /// Counters since the runner started.
+    pub fn stats(&self) -> RunnerStats {
+        RunnerStats {
+            renders: self.shared.renders.load(Ordering::Relaxed),
+            failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
+        }
+    }
+
     /// Sends a job to the pool and waits for its answer.
     fn dispatch<T>(
         &self,
@@ -304,14 +332,22 @@ impl Drop for IslandRunner {
 /// One worker thread's state.
 struct Worker {
     shared: Arc<Shared>,
+    /// The worker's sandbox, always fresh when a job starts: it is reset
+    /// after every job. `None` until first use or after a failure.
+    sandbox: Option<Sandbox>,
 }
 
 impl Worker {
     fn new(shared: Arc<Shared>) -> Self {
-        Self { shared }
+        Self {
+            shared,
+            sandbox: None,
+        }
     }
 
     fn run(mut self, jobs: &Mutex<Receiver<Job>>) {
+        // Warm up before the first job arrives.
+        let _ = self.sandbox();
         loop {
             let job = {
                 let rx = jobs.lock().unwrap_or_else(PoisonError::into_inner);
@@ -323,6 +359,10 @@ impl Worker {
             match job {
                 Job::Render(job) => {
                     let result = self.guard(|w| w.render(&job));
+                    self.shared.renders.fetch_add(1, Ordering::Relaxed);
+                    if result.is_err() {
+                        self.shared.failed_renders.fetch_add(1, Ordering::Relaxed);
+                    }
                     let _ = job.reply.send(result);
                 }
                 Job::Register(job) => {
@@ -330,6 +370,8 @@ impl Worker {
                     let _ = job.reply.send(result);
                 }
             }
+            // The caller has its answer; now clear the job's state.
+            self.recycle();
         }
     }
 
@@ -339,7 +381,10 @@ impl Worker {
         &mut self,
         f: impl FnOnce(&mut Self) -> Result<T, IslandError>,
     ) -> Result<T, IslandError> {
-        catch_unwind(AssertUnwindSafe(|| f(self))).unwrap_or_else(|panic| {
+        let result = catch_unwind(AssertUnwindSafe(|| f(self)));
+        result.unwrap_or_else(|panic| {
+            // The runtime may be mid-call; never reuse it.
+            self.sandbox = None;
             let message = panic
                 .downcast_ref::<&str>()
                 .map(|s| (*s).to_owned())
@@ -351,13 +396,30 @@ impl Worker {
         })
     }
 
-    /// A sandbox for one job.
-    fn sandbox(&mut self) -> Result<Sandbox, IslandError> {
-        Ok(Sandbox::with_options(self.shared.sandbox_options.clone())?)
+    /// The worker's sandbox, with a fresh context, created on first use.
+    fn sandbox(&mut self) -> Result<&mut Sandbox, IslandError> {
+        let sb = match self.sandbox.take() {
+            Some(sb) => sb,
+            None => Sandbox::with_options(self.shared.sandbox_options.clone())?,
+        };
+        Ok(self.sandbox.insert(sb))
+    }
+
+    /// Gives the sandbox a fresh context for the next job, freeing this
+    /// job's heap. A sandbox that can't reset is dropped and rebuilt later.
+    fn recycle(&mut self) {
+        if let Some(sb) = self.sandbox.as_mut() {
+            let before = sb.heap_bytes();
+            let r = sb.reset();
+            eprintln!("PROBE recycle heap {before} -> {} {:?}", sb.heap_bytes(), r);
+            if r.is_err() {
+                self.sandbox = None;
+            }
+        }
     }
 
     fn register(&mut self, job: &RegisterJob) -> Result<Bundle, IslandError> {
-        let mut sb = self.sandbox()?;
+        let sb = self.sandbox()?;
         let bytecode = sb.compile(&job.source, &format!("{}.js", job.name))?;
         sb.eval_bytecode(&bytecode)?;
         let entry = job.entry.clone();
@@ -379,8 +441,8 @@ impl Worker {
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
-        let mut sb = self.sandbox()?;
         let measurer = self.shared.measurer.clone();
+        let sb = self.sandbox()?;
         let bundle = &job.bundle;
         let outcome = sb.run_await(
             |ctx| {

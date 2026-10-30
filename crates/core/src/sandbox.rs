@@ -171,9 +171,8 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 pub struct Sandbox {
     options: SandboxOptions,
     state: Arc<LimitState>,
-    rt: Runtime,
-    /// Always `Some` outside `reset`; `None` only if a reset could not build a
-    /// context, in which case every call reports an engine error.
+    /// The context, which also keeps its runtime alive. Always `Some` except
+    /// if a rebuild failed, in which case every call reports an engine error.
     ctx: Option<Context>,
 }
 
@@ -208,7 +207,6 @@ impl Sandbox {
         Ok(Self {
             options,
             state,
-            rt,
             ctx: Some(ctx),
         })
     }
@@ -228,25 +226,17 @@ impl Sandbox {
         self.state.used()
     }
 
-    /// Discards all script state and starts a fresh context.
+    /// Discards all script state: the next call runs in a fresh runtime and
+    /// context, with all of the old heap freed.
     ///
-    /// Reuses the runtime when it is clean; if the previous script left
-    /// microtasks queued, the runtime is replaced too.
+    /// The QuickJS runtime is replaced, not reused. rquickjs 0.14 caches the
+    /// prototypes of Rust-backed classes (including every `Function::new`)
+    /// per runtime, taken from the first context that needed them; reusing
+    /// the runtime would keep that context alive and give later contexts
+    /// functions inheriting from its `Function.prototype`. A fresh runtime
+    /// costs about the same as a fresh context (≈0.45 ms in release builds).
     pub fn reset(&mut self) -> Result<(), SandboxError> {
-        if self.rt.is_job_pending() {
-            return self.rebuild();
-        }
-        // Free the old context before building the new one, so its heap does
-        // not count against the new context's limit.
-        self.ctx = None;
-        self.rt.run_gc();
-        match new_context(&self.rt, &self.state, &self.options) {
-            Ok(ctx) => {
-                self.ctx = Some(ctx);
-                Ok(())
-            }
-            Err(_) => self.rebuild(),
-        }
+        self.rebuild()
     }
 
     /// Evaluates a classic script and converts its completion value to `T`.
@@ -816,6 +806,41 @@ mod tests {
                 .unwrap(),
             "undefined undefined"
         );
+    }
+
+    #[test]
+    fn reset_frees_contexts_that_used_rust_functions() {
+        // rquickjs caches Rust-function prototypes per runtime; a reused
+        // runtime would pin the first context and share its Function.prototype.
+        let mut sb = sandbox();
+        let base = sb.heap_bytes();
+        for _ in 0..3 {
+            sb.run(|ctx| {
+                let f = Function::new(ctx.clone(), |x: f64| x + 1.0)?;
+                ctx.globals().set("rustFn", f)?;
+                ctx.eval::<(), _>(
+                    "Function.prototype.planted = 1; globalThis.big = new Float64Array(1 << 20)",
+                )
+            })
+            .unwrap();
+            assert!(sb.heap_bytes() > base + 8_000_000);
+            sb.reset().unwrap();
+            assert!(
+                sb.heap_bytes() < base + 64 * 1024,
+                "heap {}",
+                sb.heap_bytes()
+            );
+            let fresh: String = sb
+                .run(|ctx| {
+                    let f = Function::new(ctx.clone(), |x: f64| x + 1.0)?;
+                    ctx.globals().set("rustFn", f)?;
+                    ctx.eval(
+                        "String(Object.getPrototypeOf(rustFn) === Function.prototype) + ' ' + typeof rustFn.planted",
+                    )
+                })
+                .unwrap();
+            assert_eq!(fresh, "true undefined");
+        }
     }
 
     #[test]
