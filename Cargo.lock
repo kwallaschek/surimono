@@ -1784,7 +1784,7 @@ dependencies = [
 
 [[package]]
 name = "surimono"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "lol_html",
  "serde",
@@ -1798,14 +1798,14 @@ dependencies = [
 
 [[package]]
 name = "surimono-cli"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "surimono",
 ]
 
 [[package]]
 name = "surimono-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "rquickjs",
  "thiserror",
@@ -1813,7 +1813,7 @@ dependencies = [
 
 [[package]]
 name = "surimono-dom"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "blitz-dom",
  "blitz-html",
@@ -1823,7 +1823,7 @@ dependencies = [
 
 [[package]]
 name = "surimono-gfx"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "parley",
  "roxmltree",
@@ -1836,7 +1836,7 @@ dependencies = [
 
 [[package]]
 name = "surimono-islands"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "roxmltree",
  "serde",
@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "surimono-ruby"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "magnus",
  "rb-sys",
@@ -1859,7 +1859,7 @@ dependencies = [
 
 [[package]]
 name = "surimono-webidl"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "thiserror",
 ]
