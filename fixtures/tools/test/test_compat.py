@@ -62,10 +62,14 @@ license = "BSD-3-Clause"
 """
 
 
-def score(subject, passed, failed=(), text_pass=None, worst=0.0):
+def score(subject, passed, failed=(), text_pass=None, worst=0.0, colour=None, hue=None, text_missing=()):
     s = {"subject": subject, "pass": passed, "worst_window": worst, "pages": [{"pass": passed, "failed": list(failed)}]}
+    if colour is not None:
+        s["worst_colour_window"] = colour
+    if hue is not None:
+        s["worst_hue_window"] = hue
     if text_pass is not None:
-        s["text"] = {"pass": text_pass}
+        s["text"] = {"pass": text_pass, "missing": list(text_missing), "extra": []}
     return s
 
 
@@ -135,15 +139,86 @@ class CompatTest(unittest.TestCase):
             score("echarts-a island 0 (printed by chrome)", True),
             score("echarts-a island 0 (printed by fulgur)", True),
             score("echarts-a", True),
-            score("echarts-b island 0 (printed by chrome)", False, ["colour"], text_pass=False, worst=0.02),
+            score("echarts-b island 0 (printed by chrome)", False, ["colour"], text_pass=False, worst=0.02, colour=0.4, hue=0.1, text_missing=["1,200"]),
             score("vega-a island 0 (printed by chrome)", True),
         ]
         lines, status = compat.fixtures_section(scores, compat.fixture_meta())
         self.assertEqual(status, {"echarts-a": "pass", "echarts-b": "fail", "vega-a": "partial"})
-        self.assertIn("**FAIL** (colour, text; 2.0%)", "\n".join(lines))
+        # Each failed check with its own number, not the shape score.
+        self.assertIn("**FAIL** (colour 40.0%; text: 1 missing)", "\n".join(lines))
+        self.assertIn("| echarts-a | echarts | pass (shape 0.0%) | pass (shape 0.0%) | pass (shape 0.0%) |", "\n".join(lines))
         rw = "\n".join(compat.real_world_section(status, compat.fixture_meta()))
         self.assertIn("**1 failing**: echarts-b", rw)
         self.assertIn("| vega | 6.4.0 | BSD-3-Clause | required | 1 | partly run |", rw)
+
+    def test_duplicate_fixture_scores_are_an_error(self):
+        # The review's reproduction: a failing run next to a passing one.
+        for run, passed in (("run-a", False), ("run-b", True)):
+            d = self.root / "results" / run / "echarts-a"
+            d.mkdir(parents=True)
+            (d / "score.json").write_text(json.dumps(score("echarts-a island 0 (printed by chrome)", passed, [] if passed else ["shape"], worst=0.01 if passed else 0.5)))
+        scores = compat.load_scores(self.root / "results")
+        with self.assertRaises(compat.CompatError) as e:
+            compat.fixtures_section(scores, compat.fixture_meta())
+        self.assertIn("run-a", str(e.exception))
+        self.assertIn("run-b", str(e.exception))
+        # Either order.
+        with self.assertRaises(compat.CompatError):
+            compat.fixtures_section(list(reversed(scores)), compat.fixture_meta())
+
+    def test_render_error_is_a_failure_not_not_run(self):
+        failed = {"subject": "echarts-a island 0 (printed by chrome)", "pass": False, "error": "surimono: TimeLimit in island 0\nstack"}
+        lines, status = compat.fixtures_section([failed], compat.fixture_meta())
+        self.assertEqual(status["echarts-a"], "fail")
+        self.assertIn("**FAIL** (render error: surimono: TimeLimit in island 0)", "\n".join(lines))
+
+    def test_failed_checks_show_their_own_windows(self):
+        s = score("x island 0 (printed by chrome)", False, ["shape", "hue", "size"], worst=0.25, hue=0.5)
+        s["pages"][0].update({"size_match": False, "actual_size": "640x341", "expected_size": "640x340"})
+        self.assertEqual(compat.cell(s), "**FAIL** (shape 25.0%; hue 50.0%; size 640x341 vs Chrome 640x340)")
+        self.assertEqual(compat.cell(score("x", False, ["colour"])), "**FAIL** (colour ?)")
+
+    def test_hostile_duplicates_are_an_error(self):
+        results = self.write_json(
+            "hostile.json",
+            {"cases": [{"id": "loop", "step": None, "outcome": "Crash"}, {"id": "loop", "step": None, "outcome": "TimeLimit"}]},
+        )
+        with self.assertRaises(compat.CompatError) as e:
+            compat.hostile_section(results)
+        self.assertIn("'loop'", str(e.exception))
+
+    def test_hostile_results_not_in_the_manifest_fail_and_count(self):
+        # The review's reproduction: a typo'd id that crashed must not vanish.
+        results = self.write_json(
+            "hostile.json",
+            {
+                "commit": "abc",
+                "cases": [
+                    {"id": "loop", "step": None, "outcome": "TimeLimit", "wall_ms": 2001},
+                    {"id": "loop-typo", "step": None, "outcome": "Crash", "wall_ms": 3},
+                    {"id": "two", "step": 3, "outcome": "Ok", "output": "c", "wall_ms": 1},
+                ],
+            },
+        )
+        text = "\n".join(compat.hostile_section(results))
+        self.assertIn("1 of 7 cases end as the manifest expects (results from abc; 2 not in the manifest)", text)
+        self.assertIn("| loop-typo | — | Crash (3 ms) | **FAIL**: not in the manifest |", text)
+        self.assertIn("| two step 3 | — | Ok (1 ms) | **FAIL**: not in the manifest |", text)
+
+    def test_main_exits_1_on_duplicates_and_writes_nothing(self):
+        for run in ("a", "b"):
+            d = self.root / "res" / run
+            d.mkdir(parents=True)
+            (d / "score.json").write_text(json.dumps(score("echarts-a", True)))
+        out = self.root / "COMPAT.md"
+        import sys
+        argv = sys.argv
+        sys.argv = ["compat.py", "--fixtures", str(self.root / "res"), "--out", str(out)]
+        try:
+            self.assertEqual(compat.main(), 1)
+        finally:
+            sys.argv = argv
+        self.assertFalse(out.exists())
 
     def test_missing_inputs_say_not_run(self):
         out = compat.generate([], None, None, "c", None)

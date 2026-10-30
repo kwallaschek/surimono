@@ -18,20 +18,27 @@ Inputs (each optional; a missing one makes its section say "not run"):
 The real-world section comes from fixtures/real-world/manifest.toml plus the
 fixture results of each library's renderer.
 
+Who runs it: the conformance researcher, after merges that change results,
+from one CI run's published results (git show origin/ci-results:runs/<sha>/...),
+with --commit <that sha>, and commits docs/COMPAT.md in a PR.
+
 Hand-written sections survive regeneration: everything between the lines
 <!-- hand-written: begin --> and <!-- hand-written: end --> in the existing
 --out file is copied into the new one unchanged. --check exits 1 when the
 generated file differs from --out (nothing is written).
 
-Hostile results format (schema 1), one entry per case and step:
+A result can never hide another: two score.json files for the same fixture and
+comparison, or two hostile results for the same case and step, are an error
+that names both. A hostile result whose case or step isn't in the manifest is
+listed as failing and counted. A score.json with "error" (the render failed
+before anything could be compared) is a failure, never "not run".
+
+The hostile results format is fixtures/hostile/RESULTS_SCHEMA.md (schema 1),
+one entry per case and step:
 
     {"schema": 1, "commit": "<sha>",
      "cases": [{"id": "infinite-loop", "step": null, "outcome": "TimeLimit",
                 "output": null, "message": "...", "wall_ms": 2001}, ...]}
-
-outcome is one of MemoryLimit, TimeLimit, StackOverflow, Exception, Ok, or
-Crash and Hang (the harness saw the process die or exceed max_wall_ms). step
-is 1, 2, ... for `steps` cases, null otherwise.
 """
 
 from __future__ import annotations
@@ -44,6 +51,10 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+class CompatError(Exception):
+    """Results that can't be reported honestly (duplicates, bad files)."""
 BEGIN = "<!-- hand-written: begin -->"
 END = "<!-- hand-written: end -->"
 
@@ -64,7 +75,7 @@ def load_scores(directory: Path | None) -> list[dict]:
         try:
             data = json.loads(f.read_text())
         except (OSError, json.JSONDecodeError) as e:
-            raise SystemExit(f"{f}: {e}")
+            raise CompatError(f"{f}: {e}")
         data["_file"] = str(f)
         scores.append(data)
     return scores
@@ -92,6 +103,8 @@ def fixture_meta() -> dict[str, dict]:
 def failed_checks(score: dict) -> list[str]:
     """The checks a score failed, by name (from compare.mjs's per-page "failed" lists)."""
     names: list[str] = []
+    if score.get("error"):
+        names.append("render error")
     for p in score.get("pages", []):
         for n in p.get("failed") or ([] if p.get("pass") else ["page"]):
             if n not in names:
@@ -101,14 +114,42 @@ def failed_checks(score: dict) -> list[str]:
     return names
 
 
+def _pct(x) -> str:
+    return f"{x * 100:.1f}%" if isinstance(x, (int, float)) else "?"
+
+
+def check_detail(score: dict, check: str) -> str:
+    """One failed check with its own number: shape, colour and hue with their
+    worst windows, text with what is missing or extra, size with both sizes."""
+    pages = score.get("pages", [])
+    if check == "render error":
+        return f"render error: {str(score.get('error')).splitlines()[0][:120]}"
+    if check == "shape":
+        return f"shape {_pct(score.get('worst_window'))}"
+    if check in ("colour", "hue"):
+        top = score.get(f"worst_{check}_window")
+        per_page = [p[f"{check}_worst_window"] for p in pages if isinstance(p.get(f"{check}_worst_window"), (int, float))]
+        return f"{check} {_pct(top if top is not None else (max(per_page) if per_page else None))}"
+    if check == "text":
+        t = score.get("text", {})
+        parts = [f"{len(t[k])} {k}" for k in ("missing", "extra") if t.get(k)]
+        return f"text: {', '.join(parts) or 'differs'}"
+    if check == "size":
+        sizes = [f"{p.get('actual_size')} vs Chrome {p.get('expected_size')}" for p in pages if p.get("size_match") is False]
+        return f"size {sizes[0]}" if sizes else "size"
+    if check == "page":
+        missing = [p.get("detail") for p in pages if p.get("worst_window") is None and p.get("detail")]
+        return f"page: {missing[0]}" if missing else f"page (shape {_pct(score.get('worst_window'))})"
+    return check
+
+
 def cell(score: dict | None) -> str:
     if score is None:
         return "not run"
-    worst = score.get("worst_window")
-    pct = f"{worst * 100:.1f}%" if isinstance(worst, (int, float)) else "?"
-    if score.get("pass"):
-        return f"pass ({pct})"
-    return f"**FAIL** ({', '.join(failed_checks(score)) or 'score'}; {pct})"
+    if score.get("pass") and not score.get("error"):
+        return f"pass (shape {_pct(score.get('worst_window'))})"
+    checks = failed_checks(score) or ["shape"]
+    return f"**FAIL** ({'; '.join(check_detail(score, c) for c in checks)})"
 
 
 # ---------------------------------------------------------------- sections
@@ -119,13 +160,20 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
     by: dict[str, dict[str, dict]] = {}
     for s in scores:
         fixture, kind = classify(s)
+        if kind in by.get(fixture, {}):
+            first = by[fixture][kind].get("_file", "?")
+            raise CompatError(
+                f"two results for {fixture} {kind}: {first} and {s.get('_file', '?')}; "
+                "pass one run's directory, so one result can't hide the other"
+            )
         by.setdefault(fixture, {})[kind] = s
     lines = ["### Visual fixtures", ""]
     if not scores:
         lines += ["Not run yet: no surimono output has been compared with the Chrome references.", ""]
     lines += [
         "Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the whole page printed by surimono + fulgur, "
-        "against the Chrome references (`fixtures/README.md`, \"Which comparison gates what\"). Worst-window score in brackets.",
+        "against the Chrome references (`fixtures/README.md`, \"Which comparison gates what\"). A pass shows the shape score (worst window); "
+        "a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, size).",
         "",
         "| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) |",
         "|---|---|---|---|---|",
@@ -141,7 +189,7 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
         ran = [s for s in everything if s is not None]
         if not ran:
             status[name] = "not run"
-        elif all(s.get("pass") for s in ran):
+        elif all(s.get("pass") and not s.get("error") for s in ran):
             status[name] = "pass" if len(ran) == len(everything) else "partial"
         else:
             status[name] = "fail"
@@ -167,7 +215,17 @@ def hostile_section(results_file: Path | None) -> list[str]:
     if not results_file:
         return lines + [f"Not run yet: {len(manifest['case'])} cases in `fixtures/hostile/manifest.toml`; the sandbox harness hasn't reported results.", ""]
     results = json.loads(results_file.read_text())
-    got = {(r["id"], r.get("step")): r for r in results.get("cases", [])}
+    got: dict[tuple[str, int | None], dict] = {}
+    for r in results.get("cases", []):
+        key = (r.get("id"), r.get("step"))
+        if key in got:
+            raise CompatError(
+                f"{results_file}: two results for hostile case {key[0]!r} step {key[1]!r} "
+                f"({got[key].get('outcome')} and {r.get('outcome')}); one result can't hide another"
+            )
+        got[key] = r
+    known = {(cid, step) for cid, step, _ in expected}
+    unknown = [r for key, r in got.items() if key not in known]
     rows = []
     passed = 0
     for cid, step, spec in expected:
@@ -191,8 +249,13 @@ def hostile_section(results_file: Path | None) -> list[str]:
         else:
             passed += 1
             rows.append((name, " or ".join(want), f"{r['outcome']} ({r.get('wall_ms', '?')} ms)", "pass"))
+    for r in unknown:
+        name = r.get("id") if r.get("step") is None else f"{r.get('id')} step {r.get('step')}"
+        rows.append((name, "—", f"{r.get('outcome')} ({r.get('wall_ms', '?')} ms)", "**FAIL**: not in the manifest"))
     commit = results.get("commit", "unknown")
-    lines.append(f"{passed} of {len(expected)} cases end as the manifest expects (results from {commit}).")
+    total = len(expected) + len(unknown)
+    extra = f"; {len(unknown)} not in the manifest" if unknown else ""
+    lines.append(f"{passed} of {total} cases end as the manifest expects (results from {commit}{extra}).")
     lines.append("")
     failing = [r for r in rows if r[3] != "pass"]
     if failing:
@@ -252,7 +315,7 @@ def bench_section(bench_file: Path | None) -> list[str]:
         cold = s.get("cold_ms", {}).get("median")
         warm = s.get("warm_ms", {}).get("median")
         mem = s.get("cold_peak_pss_mb", {}).get("median") if isinstance(s.get("cold_peak_pss_mb"), dict) else None
-        note = "lower bound, not surimono" if key == "fulgur-prerendered" else "measured"
+        note = "reference point, not surimono" if key == "fulgur-prerendered" else "measured"
         fmt = lambda x, u: f"{x:,.0f} {u}" if isinstance(x, (int, float)) else "—"  # noqa: E731
         lines.append(f"| {r.get('label', key)} | {fmt(cold, 'ms')} | {fmt(warm, 'ms')} | {fmt(mem, 'MB')} | {note} |")
     lines.append("")
@@ -317,7 +380,11 @@ def main() -> int:
         if p and not p.exists():
             sys.exit(f"{p} does not exist")
     existing = args.out.read_text(encoding="utf-8") if args.out.exists() else None
-    text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing)
+    try:
+        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing)
+    except CompatError as e:
+        print(f"compat.py: {e}", file=sys.stderr)
+        return 1
     if args.check:
         if text != existing:
             print(f"{args.out} is not what compat.py generates from these results", file=sys.stderr)
