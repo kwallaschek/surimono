@@ -117,6 +117,15 @@ tests = ${q(f.tests)}
 `;
 }
 
+// Chrome rounds @page sizes to 1/300 inch, so an island page of, say, 340 px
+// prints 255.12 pt tall and rasterises one row taller than fulgur's exact 255 pt
+// (docs/COMPAT.md). Multiples of 8 px (1/12 inch) are exact in both.
+for (const f of fixtures) {
+  for (const isl of f.islands) {
+    if (isl.width % 8 || isl.height % 8) throw new Error(`${f.name}: island size ${isl.width}x${isl.height} must be a multiple of 8 px`);
+  }
+}
+
 let differ = 0;
 for (const f of fixtures) {
   const dir = path.join(FIXTURES_DIR, "islands", f.name);

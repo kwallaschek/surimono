@@ -5,5 +5,5 @@ library_version = "vega-lite 6.5.0"
 lang = "ja"
 fonts = ["Noto Sans 400", "Noto Sans JP 400", "Noto Sans JP 700"]
 page_size = "A4 (210mm x 297mm), 15mm margins"
-islands = [{ renderer = "vega-lite", width = 680, height = 340 }]
+islands = [{ renderer = "vega-lite", width = 680, height = 344 }]
 tests = "Vega-Lite SVG, dense: 4 layers over 365 days (bars, a window-transform 7-day moving average line, a rule and a text annotation), UTC temporal axis with Japanese month format, Japanese titles; font list 'Noto Sans', 'Noto Sans JP' with per-glyph fallback."
