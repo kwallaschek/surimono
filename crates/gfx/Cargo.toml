@@ -24,7 +24,7 @@ roxmltree.workspace = true
 [dev-dependencies]
 serde_json.workspace = true
 # Checks the reference fonts are byte-identical to the ones Chrome measured.
-sha2 = { version = "=0.10.9", default-features = false }
+sha2.workspace = true
 
 [lints]
 workspace = true
