@@ -3,7 +3,11 @@
 // options Grover's own processor.cjs uses (temporary profile, no sandbox), prints
 // {"ws": "<endpoint>"} on one line, and closes Chrome when stdin closes.
 //
-//   node bench/grover/browser.cjs <chrome-executable>
+//   node bench/grover/browser.cjs <chrome-executable> [new|shell]
+//
+// "shell" launches chrome-headless-shell (Puppeteer's headless: "shell").
+// This Node process is not part of Grover's cost: bench/tools/bench.py leaves
+// it out of the memory sum (its Chrome is counted) and reports it separately.
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -14,6 +18,7 @@ const puppeteer = require("puppeteer");
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "grover-bench-"));
   const browser = await puppeteer.launch({
     executablePath: process.argv[2],
+    headless: process.argv[3] === "shell" ? "shell" : true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
     userDataDir,
   });

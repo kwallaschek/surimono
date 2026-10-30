@@ -10,11 +10,21 @@
 # pinned gems (bench/Gemfile.lock: grover, fulgur) into bench/.cache.
 #
 # On a CI runner ($CI set) it also installs Playwright's Chromium (the build the
-# Chrome references use), poppler-utils for page counts, and builds the
-# surimono gem from bindings/ruby (release) when it has a Surimono::Renderer.
-# PDFs and pages go to a work directory outside <outdir> in CI, so only the
-# summary and the JSON are published.
+# Chrome references use) and its chrome-headless-shell, poppler-utils for page
+# counts, bench/rust's toolchain, and builds the surimono gem from bindings/ruby
+# (release) when it has a Surimono::Renderer. PDFs and pages go to a work
+# directory outside <outdir> in CI, so only the summary and the JSON are
+# published.
+#
+# CI time: bench.yml gives the job 60 minutes. bench.py stops starting new work
+# BENCH_TIME_BUDGET_MIN (default 50 in CI) after this script started, and
+# rewrites results.json and summary.md after every phase, so whatever was
+# measured is published even when a cold bench/rust build eats the time. The
+# build itself gets at most BENCH_RUST_BUILD_TIMEOUT seconds (default 1800) and
+# never the last 15 minutes. It builds into $CARGO_TARGET_DIR/bench-rust, inside
+# the target dir Swatinem/rust-cache saves.
 set -euo pipefail
+export BENCH_START_EPOCH="${BENCH_START_EPOCH:-$(date +%s)}"
 cd "$(dirname "$0")/.."
 root="$(pwd)"
 out="${1:?usage: bench/run.sh <outdir> [bench.py options]}"; shift
@@ -28,9 +38,21 @@ if [ -n "${CI:-}" ] || [ ! -d fixtures/tools/node_modules ]; then
   (cd fixtures/tools && npm ci --no-audit --no-fund)
 fi
 if [ -n "${CI:-}" ]; then
-  (cd fixtures/tools && npx --no-install playwright install --with-deps --no-shell chromium)
+  # Chromium and its chrome-headless-shell (the grover-shell row), same build.
+  (cd fixtures/tools && npx --no-install playwright install --with-deps chromium)
   if ! command -v pdfinfo >/dev/null; then sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils; fi
+  export BENCH_TIME_BUDGET_MIN="${BENCH_TIME_BUDGET_MIN:-50}"
+  # bench/rust builds inside the target dir rust-cache saves (bench.yml sets
+  # CARGO_TARGET_DIR=target, relative to the repo root).
+  ci_target="${CARGO_TARGET_DIR:-target}"
+  case "$ci_target" in /*) ;; *) ci_target="$root/$ci_target" ;; esac
+  export BENCH_RUST_TARGET_DIR="${BENCH_RUST_TARGET_DIR:-$ci_target/bench-rust}"
+  step "bench/rust toolchain (bench/rust/rust-toolchain.toml)"
+  (cd bench/rust && rustup toolchain install)
 fi
+
+step "reference report is what its generator writes"
+node bench/report/gen-report.mjs --check
 
 step "puppeteer for Grover (no browser download: Grover uses Playwright's Chromium)"
 if [ -n "${CI:-}" ] || [ ! -d bench/grover/node_modules ]; then

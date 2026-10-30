@@ -10,17 +10,22 @@
 #                     page with the chart libraries); Grover launches Chrome.
 #   grover-browser    as grover, but connected to one Chrome kept running by
 #                     bench/grover/browser.cjs (Grover's browser_ws_endpoint).
+#   grover-shell, grover-shell-browser
+#                     as grover and grover-browser on chrome-headless-shell
+#                     (BENCH_CHROME_SHELL), Puppeteer's headless: "shell".
 #   surimono          Surimono::Renderer#render on <input> (the report with
 #                     island markers), then the fulgur gem prints the result.
 #   fulgur-prerendered the fulgur gem prints <input>: the report with Chrome's
-#                     own island SVGs already inlined. Lower bound on the PDF
-#                     step of the surimono path; no JavaScript runs.
+#                     own island SVGs already inlined. A reference point for
+#                     the PDF step (Chrome's SVG text isn't outlined); no
+#                     JavaScript runs.
 # mode:
 #   cold   set up, render once, exit (the harness times the whole process).
 #   warm   set up once, render `warmup` times untimed, then `iterations` times,
 #          printing one JSON line per timed render.
 #
-# Environment: BENCH_CHROME (Chrome executable for Grover), BENCH_FONTS_DIR
+# Environment: BENCH_CHROME (Chrome executable for Grover), BENCH_CHROME_SHELL
+# (chrome-headless-shell, for the grover-shell systems), BENCH_FONTS_DIR
 # (fixtures/fonts), SURIMONO_RUBY_LIB (load path of the built surimono gem).
 
 require "json"
@@ -40,7 +45,7 @@ end
 
 system_name, mode, input, out_pdf, iterations, warmup = ARGV
 unless system_name && %w[cold warm].include?(mode) && input && out_pdf
-  warn("usage: bench.rb <grover|grover-browser|surimono|fulgur-prerendered> <cold|warm> <input> <out.pdf> [iterations] [warmup]")
+  warn("usage: bench.rb <grover|grover-browser|grover-shell|grover-shell-browser|surimono|fulgur-prerendered> <cold|warm> <input> <out.pdf> [iterations] [warmup]")
   exit(2)
 end
 iterations = Integer(iterations || 20)
@@ -67,15 +72,20 @@ end
 # document to PDF bytes and reports its phases.
 def setup(system_name, input)
   case system_name
-  when "grover", "grover-browser"
+  when "grover", "grover-browser", "grover-shell", "grover-shell-browser"
     require "grover"
+    shell = system_name.start_with?("grover-shell")
     Grover.configure do |c|
       c.allow_file_uris = true
       # Chrome can't use its sandbox as root or on Ubuntu 24.04 runners (AppArmor);
       # the Chrome references run without it too.
       c.node_env_vars = { "GROVER_NO_SANDBOX" => "true" }
     end
-    chrome = ENV["BENCH_CHROME"] or fail!("BENCH_CHROME is not set")
+    chrome = if shell
+      ENV["BENCH_CHROME_SHELL"] or fail!("BENCH_CHROME_SHELL is not set (chrome-headless-shell not installed)", status: 4)
+    else
+      ENV["BENCH_CHROME"] or fail!("BENCH_CHROME is not set")
+    end
     options = {
       root_path: File.join(ROOT, "bench", "grover"), # where node_modules/puppeteer is
       executable_path: chrome,
@@ -89,9 +99,14 @@ def setup(system_name, input)
       prefer_css_page_size: true,
       print_background: true,
     }
+    # Grover passes debug.headless to puppeteer.launch; "shell" is the old
+    # headless mode that chrome-headless-shell implements.
+    options[:debug] = { headless: "shell" } if shell
     browser = nil
-    if system_name == "grover-browser"
-      browser = IO.popen(["node", File.join(ROOT, "bench", "grover", "browser.cjs"), chrome], "r+")
+    if system_name.end_with?("-browser")
+      # The keeper only holds Chrome open; bench/tools/bench.py leaves its own
+      # process (not its Chrome) out of the memory sum.
+      browser = IO.popen(["node", File.join(ROOT, "bench", "grover", "browser.cjs"), chrome, shell ? "shell" : "new"], "r+")
       line = browser.gets or fail!("bench/grover/browser.cjs did not start Chrome")
       options[:browser_ws_endpoint] = JSON.parse(line).fetch("ws")
       at_exit do
