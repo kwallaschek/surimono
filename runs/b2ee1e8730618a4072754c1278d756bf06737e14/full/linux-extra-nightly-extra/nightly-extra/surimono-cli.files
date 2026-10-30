@@ -1,0 +1,6 @@
+.cargo_vcs_info.json
+Cargo.lock
+Cargo.toml
+Cargo.toml.orig
+src/main.rs
+tests/cli.rs

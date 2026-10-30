@@ -1,0 +1,13 @@
+.cargo_vcs_info.json
+Cargo.lock
+Cargo.toml
+Cargo.toml.orig
+src/backend.rs
+src/charref.rs
+src/error.rs
+src/lib.rs
+src/options.rs
+src/prepass.rs
+src/renderer.rs
+src/svg.rs
+tests/fixtures.rs

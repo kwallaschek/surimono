@@ -1,0 +1,7 @@
+staged 4 crates (crates/core, crates/gfx, crates/islands, crates/surimono) in /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage
++ gem build surimono.gemspec --output /home/runner/work/surimono/surimono/bindings/ruby/pkg/surimono-0.1.0.gem
+  Successfully built RubyGem
+  Name: surimono
+  Version: 0.1.0
+  File: surimono-0.1.0.gem
+/home/runner/work/surimono/surimono/bindings/ruby/pkg/surimono-0.1.0.gem
