@@ -242,6 +242,22 @@ JP"`), its per-glyph fallback prints normal-weight Japanese in Noto Sans JP
 echarts-mixed-dense-ja. vegalite-line-ja names Noto Sans JP directly and gets
 Regular; its 1.3% page score is sub-pixel glyph placement in the legend.
 
+## The checkpoint run
+
+`node fixtures/tools/checkpoint.mjs --out DIR --surimono <surimono CLI>`
+renders every island fixture with the surimono CLI (fixture fonts, default
+limits, text as outlines) twice in two processes, checks that both outputs are
+byte-identical, cuts each island's SVG out of the output and runs every
+comparison below: each island printed by Chrome (the gate) and by fulgur, and
+the whole page printed by fulgur. `DIR/index.md` has the table and links to
+each side-by-side image; every comparison's `score.json` feeds
+`compat.py --fixtures DIR`. A render that fails, an error placeholder in
+place of an island, or a comparison that dies writes a failing `score.json`
+with `"error"`, so nothing reads as "not run".
+`fixtures/tools/test/fake-surimono.mjs` stands in for the CLI with Chrome's own
+SVGs, to check the pipeline itself (every gate passes, fulgur's scores equal
+the baseline); it never produces a result.
+
 ## Which comparison gates what
 
 | Comparison | Measures | Gate |
