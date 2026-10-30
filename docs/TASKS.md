@@ -25,7 +25,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-02 · RT · doing · Determinism in the sandbox: seeded Math.random (per render seed), fixed Date.now/new Date(), no performance.now drift; test that two runs are byte-identical
 - P1-RT-03 · RT · review · Island runner: load a JS bundle once, compile to bytecode, call its entry with JSON, return an SVG string; bring-your-own-bundle API (any `(json) => svg` function)
 - P1-RT-04 · RT · doing · Runtime pool: reuse runtimes and compiled bundles across renders, reset per render, bounded size; no state leaks between renders (test)
-- P1-RT-05 · RT · doing · Soak test: 10,000 island renders in one process, resident memory flat after warm-up (ignored test, run explicitly in full.yml and before releases)
+- P1-RT-05 · RT · doing · Soak test: 10,000 island renders in one process, live heap flat after warm-up (< 64 KiB growth), resident memory reported with a derived bound (ignored test, run in full.yml and before releases)
 - P1-RT-06 · RT · doing · ECharts renderer (feature `echarts`): pinned bundle, SSR SVG mode, `setPlatformAPI({ measureText })` wired to gfx text metrics, licence file kept
 - P1-RT-07 · RT · todo · Vega and Vega-Lite renderer (feature `vega`): headless View to SVG, text measurement wired to gfx, licence files kept
 - P1-RT-08 · RT · cut · Mermaid renderer: cut from v0.1 (first in the cut order; its bundle carries elkjs under EPL-2.0)
