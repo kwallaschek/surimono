@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Runs exactly what .github/workflows/ci.yml runs on Linux: fmt, clippy (warnings
-# are errors), tests, the Ruby gem's tests and cargo-deny.
+# Runs exactly what .github/workflows/ci.yml runs on Linux: fmt, the offline
+# fixture verifiers, clippy (warnings are errors), tests, the Ruby gem's tests and
+# cargo-deny.
 # Usage: scripts/ci.sh [--no-deny] [--no-ruby]
 #   --no-ruby skips the Ruby extension (needs Ruby headers and libclang) and the gem tests.
 set -euo pipefail
@@ -18,7 +19,15 @@ for a in "$@"; do
   esac
 done
 
+# Locally every worktree shares one target dir, where another worktree's newer
+# build of a workspace crate can look fresh here; rebuild ours from our sources.
+# On GitHub each job has its own target dir.
+if [ -z "${GITHUB_ACTIONS:-}" ] && [ -x scripts/fleet/touch-workspace.sh ]; then
+  scripts/fleet/touch-workspace.sh
+fi
+
 step "fmt";    cargo fmt --all -- --check
+scripts/ci/fixtures.sh
 if [ "$run_ruby" = 1 ]; then
   ensure_libclang
   step "clippy (workspace incl. Ruby ext)"; cargo clippy --workspace --all-targets --locked -- -D warnings
