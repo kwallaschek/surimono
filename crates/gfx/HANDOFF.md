@@ -97,7 +97,10 @@ collapsing, `x`/`y`/`dx`/`dy` lists, chunks and `text-anchor`,
 `word-spacing`, `baseline-shift`, text decoration, synthetic bold, font
 properties set only by `<style>` rules, and fonts inherited from the page
 outside the SVG (an island's text with no font settings uses 16px and the
-`serif` mapping). ECharts and Vega use none of these.
+`serif` mapping). ECharts and Vega use none of these. An island with more
+than `MAX_OUTLINE_CHARS` (20,000) characters of text, or 32 MiB of outline
+data, is rejected with `GfxError::InvalidSvg`, so a hostile bundle can't make
+the host outline without bound.
 
 ## Rust
 
