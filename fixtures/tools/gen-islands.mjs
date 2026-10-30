@@ -77,7 +77,7 @@ function html(f) {
     h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
     p { margin: 0 0 12px; }
     figure.island { margin: 16px 0 4px; padding: 0; }
-    figure.island > svg { display: block; }
+    .surimono-island > svg { display: block; }
     .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
     .table { font-size: 12px; line-height: 17px; }
     .tr { display: flex; flex-wrap: nowrap; }
@@ -115,6 +115,15 @@ page_size = "A4 (210mm x 297mm), 15mm margins"
 islands = [${f.islands.map((i) => `{ renderer = ${q(i.renderer)}, width = ${i.width}, height = ${i.height} }`).join(", ")}]
 tests = ${q(f.tests)}
 `;
+}
+
+// Chrome rounds @page sizes to 1/300 inch, so an island page of, say, 340 px
+// prints 255.12 pt tall and rasterises one row taller than fulgur's exact 255 pt
+// (docs/COMPAT.md). Multiples of 8 px (1/12 inch) are exact in both.
+for (const f of fixtures) {
+  for (const isl of f.islands) {
+    if (isl.width % 8 || isl.height % 8) throw new Error(`${f.name}: island size ${isl.width}x${isl.height} must be a multiple of 8 px`);
+  }
 }
 
 let differ = 0;

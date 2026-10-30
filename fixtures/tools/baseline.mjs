@@ -67,14 +67,29 @@ for (const fixture of listFixtures(values.kind, positionals)) {
 }
 
 const pct = (r) => (r?.worst_window === undefined ? "error" : `${(r.worst_window * 100).toFixed(1)}% (pixelmatch ${(r.worst_diff_ratio_ink * 100).toFixed(2)}%)`);
+// The verdict is the tool's own: worst window at or below the threshold AND the
+// same page size and count as Chrome (lib/compare.mjs). A size mismatch is named.
+const verdict = (r) => {
+  if (!r || r.error) return "FAIL (error)";
+  if (r.pass) return "pass";
+  const sizes = (r.pages ?? []).filter((p) => p.size_match === false).map((p) => `size ${p.actual_size} vs Chrome ${p.expected_size}`);
+  const missing = (r.pages ?? []).filter((p) => p.worst_window === undefined).map((p) => p.detail);
+  return `FAIL (${[...sizes, ...missing].join("; ") || "score"})`;
+};
+const islandsCell = (r) => r.islands.map(pct).join(", ");
+const islandsVerdict = (r) => r.islands.map(verdict).join(", ");
+const all = rows.flatMap((r) => [r.page, ...r.islands]);
+const passed = all.filter((r) => r && !r.error && r.pass).length;
 const md = [
   `# fulgur baseline (fulgur ${version})`,
   "",
-  `fulgur printing Chrome's own island SVGs, compared with the Chrome references. Score: worst 32x32 window's share of near-mismatched ink (pass at or below ${(PASS_WORST_WINDOW * 100).toFixed(0)}%), with pixelmatch's share of differing ink in brackets.`,
+  `fulgur printing Chrome's own island SVGs, compared with the Chrome references. Score: worst 32x32 window's share of near-mismatched ink (pass at or below ${(PASS_WORST_WINDOW * 100).toFixed(0)}% and same page size and count as Chrome), with pixelmatch's share of differing ink in brackets.`,
   "",
-  "| Fixture | Page | Islands |",
-  "|---|---|---|",
-  ...rows.map((r) => `| ${r.fixture} | ${pct(r.page)} | ${r.islands.map(pct).join(", ")} |`),
+  "| Fixture | Page | Page verdict | Islands | Island verdict |",
+  "|---|---|---|---|---|",
+  ...rows.map((r) => `| ${r.fixture} | ${pct(r.page)} | ${verdict(r.page)} | ${islandsCell(r)} | ${islandsVerdict(r)} |`),
+  "",
+  `${passed} of ${all.length} comparisons pass.`,
   "",
 ].join("\n");
 fs.writeFileSync(path.join(outRoot, "baseline.json"), `${JSON.stringify({ fulgur: version, rows }, null, 2)}\n`);

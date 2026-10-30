@@ -15,7 +15,9 @@ the test that proves it. Expectations are never edited to match our output.
 
 ## Known gaps
 
-None recorded yet in surimono.
+| Gap | Evidence | Effect |
+|---|---|---|
+| `toLocaleString`, `toLocaleDateString` and the other `toLocale*String` methods ignore the locale argument in the sandbox (QuickJS has no Intl data): `new Date(Date.UTC(2026, 0, 1)).toLocaleDateString("ja-JP")` gives `"1/1/2026"`; Chrome gives `"2026/1/1"` | Reported by the reviewer of the core sandbox (p1-rt-05); Chrome's output checked in Chromium 153.0.8010.12 (time zone UTC): `"2026/1/1"`, `"2026/1/1 0:00:00"` for `toLocaleString("ja-JP")`, and `"1.234.567,5"` for `(1234567.5).toLocaleString("de-DE")` | Japanese (or any non-US) chart labels that format dates or numbers through `toLocale*String` come out in US format. The checkpoint-2 fixtures format through ECharts and Vega format strings instead, so they don't hit it |
 
 ## Printing gaps in fulgur 0.40.0 seen by the fixtures
 
@@ -31,3 +33,11 @@ them so page diffs measure the islands (fixtures/README.md). Repros were made wi
 | Fractional line heights accumulate differently | `font-size: 10pt; line-height: 1.4` plus mm margins above a chart: the chart lands about 1 px lower in fulgur | Thin chart lines (axes) fall on another pixel row |
 | Line boxes do not grow for fallback glyphs | Latin-first font list (`"Noto Sans", "Noto Sans JP"`) on a paragraph containing Japanese: Chrome's line box takes Noto Sans JP's taller metrics, fulgur's does not | Content below moves by a pixel or more |
 | No `text-spacing-trim` | Chrome (since 123) trims the spacing between adjacent full-width punctuation such as "）、" by default; fulgur prints full widths | Japanese captions and labels with that punctuation run longer in fulgur |
+| SVG text: per-glyph fallback picks the Bold face | An SVG `<text font-family="Noto Sans, Noto Sans JP">10月</text>` (normal weight) with both Noto Sans JP faces available: `pdffonts` on fulgur's PDF of vegalite-layered-dense-ja's island lists only NotoSans-Regular and **NotoSansJP-Bold**; Chrome's lists NotoSansJP-Regular for the same labels. Same in echarts-mixed-dense-ja. When the family list names Noto Sans JP first (vegalite-line-ja), fulgur picks Regular | Japanese glyphs reached through fallback print heavier. This is the remaining fulgur floor on the fixtures: 4.5% (page) and 3.9% (island) on vegalite-layered-dense-ja, 2.5% and 2.9% on echarts-mixed-dense-ja, all within the 10% gate |
+
+## Printing differences in Chrome seen by the fixtures
+
+| Difference | Repro | Effect |
+|---|---|---|
+| Chrome's PDF output drops `fill-opacity` on gradient fills | ECharts' area under a line (`areaStyle` with a linear gradient and its default opacity 0.7) is drawn as `<path fill="url(#zr1-g0)" fill-opacity="0.7">`. Chromium 153 applies the 0.7 on screen: a screenshot gives (240, 187, 153) at one point. Its printed PDF ignores it: (233, 159, 110) at the same point. fulgur prints (239, 187, 153), which agrees with the screen and with the SVG spec (`fill-opacity` applies to paint servers) | A semi-transparent gradient prints darker in Chrome's references than in fulgur or on screen. Spec and Chrome's own screen agree, so the fixtures avoid the case instead of taking a side: echarts-two-charts-latin sets the area's opacity to 1 |
+| Chrome rounds `@page` sizes to 1/300 inch | An island page with `@page { size: 640px 340px }`: `pdfinfo` on Chrome's PDF gives 255.12 pt tall instead of 255 pt (380 px gives 285.12 pt). pdftoppm at 96 dpi then rasterises 341 rows where fulgur's exact 255 pt gives 340 | Page sizes differ by one row and the comparison fails on size alone. The fixtures use island sizes in multiples of 8 px (1/12 inch), which are exact; `gen-islands.mjs` refuses others |
