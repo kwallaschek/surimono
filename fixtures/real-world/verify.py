@@ -2,9 +2,11 @@
 """Check the real-world suite manifest against the npm registry.
 
 For every library in manifest.toml: download the tarball, check its sha512
-integrity and sha256, and check that the bundle file and licence files exist
-in it with the pinned sha256 and size. Needs network access to
-registry.npmjs.org; nothing is written outside a temporary directory.
+integrity and sha256, and check that the dist file and licence files exist
+in it with the pinned sha256 and size. When an entry records what
+crates/islands embeds ([library.embedded]) and that file is in this checkout,
+check its sha256 and size too. Needs network access to registry.npmjs.org;
+nothing is written outside a temporary directory.
 
 Usage: python3 -I fixtures/real-world/verify.py [--cache DIR] [name ...]
 """
@@ -20,6 +22,7 @@ import tomllib
 import urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
 
 
 def fetch(url: str, cache: pathlib.Path | None) -> bytes:
@@ -57,18 +60,41 @@ def check(lib: dict, cache: pathlib.Path | None) -> list[str]:
         pkg = member("package.json")
         if pkg is None or f'"version": "{lib["version"]}"' not in pkg.decode():
             errors.append("package.json version differs")
-        bundle = member(lib["bundle_file"])
-        if bundle is None:
-            errors.append(f"bundle {lib['bundle_file']} missing")
+        dist = member(lib["dist_file"])
+        if dist is None:
+            errors.append(f"dist file {lib['dist_file']} missing")
         else:
-            if hashlib.sha256(bundle).hexdigest() != lib["bundle_sha256"]:
-                errors.append(f"bundle sha256 {hashlib.sha256(bundle).hexdigest()} differs")
-            if len(bundle) != lib["bundle_bytes"]:
-                errors.append(f"bundle is {len(bundle)} bytes")
+            if hashlib.sha256(dist).hexdigest() != lib["dist_sha256"]:
+                errors.append(f"dist file sha256 {hashlib.sha256(dist).hexdigest()} differs")
+            if len(dist) != lib["dist_bytes"]:
+                errors.append(f"dist file is {len(dist)} bytes")
         for lf in lib["license_files"]:
             if member(lf) is None:
                 errors.append(f"licence file {lf} missing")
     return errors
+
+
+def check_embedded(lib: dict) -> tuple[list[str], str]:
+    """Checks [library.embedded] against the file in this checkout, if both exist."""
+    emb = lib.get("embedded")
+    if not emb:
+        return [], "embedded build not recorded yet"
+    for key in ("file", "sha256", "bytes", "built_by", "built_from", "license_files", "recorded_from"):
+        if key not in emb:
+            return [f"embedded.{key} missing"], ""
+    path = ROOT / emb["file"]
+    if not path.is_file():
+        return [], f"embedded {emb['file']} not in this checkout (recorded from {emb['recorded_from']})"
+    data = path.read_bytes()
+    errors = []
+    if hashlib.sha256(data).hexdigest() != emb["sha256"]:
+        errors.append(f"embedded sha256 {hashlib.sha256(data).hexdigest()} differs from the manifest")
+    if len(data) != emb["bytes"]:
+        errors.append(f"embedded file is {len(data)} bytes")
+    for lf in emb["license_files"]:
+        if not (path.parent / lf).is_file():
+            errors.append(f"embedded licence file {lf} missing next to {emb['file']}")
+    return errors, f"embedded {emb['file']} checked"
 
 
 def main() -> int:
@@ -81,9 +107,11 @@ def main() -> int:
     failed = 0
     for lib in libs:
         errors = check(lib, args.cache)
+        emb_errors, note = check_embedded(lib)
+        errors += emb_errors
         failed += bool(errors)
         status = "ok  " if not errors else "FAIL"
-        print(f"{status} {lib['name']} {lib['version']} ({lib['status']}, {lib['license']})" + "".join(f"\n     {e}" for e in errors))
+        print(f"{status} {lib['name']} {lib['version']} ({lib['status']}, {lib['license']}){f'; {note}' if note else ''}" + "".join(f"\n     {e}" for e in errors))
     return 1 if failed else 0
 
 
