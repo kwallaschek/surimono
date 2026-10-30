@@ -2,15 +2,15 @@
 
 Updated after every task. Times are JST.
 
-## Now (Sat 31 Oct 2026, 03:00)
+## Now (Sat 31 Oct 2026, 06:30)
 
-**Phase 1: islands.** The batch-1 work of every specialist is in 18 PRs. The first
-review round is done; fixes are being made. **Merging is paused:** this session's
-safety check refused a PR merge as "merge without review" (it doesn't count the
-fleet reviewer's approval). Kay was asked at 02:40 to confirm the fleet may merge
-reviewed PRs; until he answers, work continues on stacked branches.
+**Phase 1: islands.** Kay authorised fleet merges at 06:17. Six reviewed PRs are
+merged (#1 fonts, #4 CI, #7 pre-pass, #10 facade, #6 fixture pipeline, #5 sandbox).
+All agents stopped 03:20 to 06:17 on the account's 5-hour usage limit and were
+resumed at 06:20.
 
 ### Done
+- 06:20 · Merged #1, #4, #7, #10, #6, #5 (merge commits, reviewed heads pinned).
 - 01:19 · Checkpoint 1 approved; workflows committed by Kay; CI publishes to ci-results; scheduled resume every 4 h at :16.
 - 02:10 to 02:20 · Batch 1 delivered by all four specialists (18 PRs, all green on Linux CI; #4 and #14 green on the full matrix).
 - 02:30 to 02:55 · Review round 1 (fresh reviewer per area).
@@ -45,10 +45,10 @@ reviewed PRs; until he answers, work continues on stacked branches.
 - Docs and DX: README, guides, examples.
 
 ### Blocked
-- Merging, on Kay's go (see above).
+- Nothing. Risk: the usage limit can pause the fleet again; agents resume where they stopped.
 
 ### Next
-1. On Kay's go: merge approved PRs in order (#1, #2, #4, #7, #10, #6, then #5 once #8 is fixed and approved, then #11), each with a merge commit; write their DECISIONS lines (from docs/fleet/PENDING_DECISIONS.md) and THIRD_PARTY rows.
+1. Merge each fixed PR as soon as a fresh reviewer approves its head: #8, then #11, #13, #15, #21; #3, #12, #16; #9, #17; #2 (pyc removed); #14. Move its DECISIONS lines from docs/fleet/PENDING_DECISIONS.md.
 2. Fresh reviewers for every fixed or new PR.
 3. Start the DOM engineer (phase 2 scaffolding) once the build machine is less busy.
 4. Checkpoint 2 package (Sun ~18:00): 10 side-by-side fixtures, Grover table, hostile results, v0.1 release PR with dry-run.

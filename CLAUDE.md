@@ -118,5 +118,6 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   `unwrap()`/`expect()` only in tests or with a comment proving it can't fail.
 - Public items carry doc comments. Keep the public API small; the facade crate
   `surimono` is the only API users should need.
+- When writing files, byte-check any `\uXXXX` escapes in string literals; file tools have saved them as the literal characters.
 - Tests live next to the code (`#[cfg(test)]`) or in the crate's `tests/`.
   Fixture-driven tests read from `fixtures/` and never rewrite expectations.
