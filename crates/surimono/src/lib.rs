@@ -3,10 +3,16 @@
 //!
 //! In this release it renders *islands*: chart specs embedded in the HTML as
 //! `<script type="application/vnd.surimono+json">` markers. A [`Renderer`] runs
-//! each island's renderer (ECharts, Vega, or a bundle of your own) in a
-//! sandboxed QuickJS runtime with memory, time and stack [`Limits`], measures
-//! text with the fonts you pass in, and swaps the marker for the SVG. Everything
-//! else in the document stays byte for byte as it was.
+//! each island's renderer (the built-in ECharts, or a bundle of your own; see
+//! [`Options::bundle`]) in a sandboxed QuickJS runtime with memory, time and
+//! stack [`Limits`] per island, measures text with the fonts you pass in,
+//! sanitises the SVG it returns, and swaps the marker for it. Everything else in
+//! the document stays byte for byte as it was.
+//!
+//! Cargo features: `echarts` (on by default) builds in the `echarts` renderer.
+//!
+//! A `Renderer` built before a `fork` (Puma's `preload_app!`, Unicorn) starts
+//! its runtime pool again in the child on first use.
 //!
 //! ```
 //! use surimono::{Error, Options, Renderer};
@@ -31,6 +37,8 @@
 //! network reach a render, so the same options and HTML always give the same bytes.
 
 #![warn(missing_docs)]
+// A library never writes to stdout or stderr; tests may.
+#![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
 
 mod backend;
 mod charref;
@@ -38,9 +46,10 @@ mod error;
 mod options;
 mod prepass;
 mod renderer;
+mod svg;
 
 pub use error::{Error, IslandRef};
-pub use options::{Limits, Options};
+pub use options::{DEFAULT_NOW_MS, Limits, Options};
 pub use prepass::ErrorPolicy;
 pub use renderer::Renderer;
 

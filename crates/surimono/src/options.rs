@@ -33,7 +33,9 @@ use crate::ErrorPolicy;
 pub struct Limits {
     /// Most bytes the JavaScript heap may use. At least 1 MiB.
     pub memory_bytes: usize,
-    /// Longest one island's script may run. Must be more than zero.
+    /// Longest one island's script may run. Must be more than zero. Loading
+    /// the renderer's bundle into a fresh runtime and drawing the island each
+    /// get this much.
     pub time: Duration,
     /// Most bytes of native stack the JavaScript engine may use, from 64 KiB to 16 MiB.
     pub stack_bytes: usize,
@@ -100,11 +102,29 @@ pub struct Options {
     pub(crate) renderers: Option<Vec<String>>,
     pub(crate) bundles: Vec<Bundle>,
     pub(crate) pool_size: Option<usize>,
+    pub(crate) now_ms: Option<i64>,
+    pub(crate) utc_offset_minutes: i32,
+}
+
+/// The clock every render sees when [`Options::now_ms`] isn't set:
+/// 2026-01-01T00:00:00Z.
+pub const DEFAULT_NOW_MS: i64 = 1_767_225_600_000;
+
+/// Most JavaScript runtimes a renderer keeps by default.
+pub(crate) const DEFAULT_MAX_POOL_SIZE: usize = 4;
+
+/// The default pool size: the number of CPUs, at most 4.
+pub(crate) fn default_pool_size() -> usize {
+    std::thread::available_parallelism()
+        .map(std::num::NonZeroUsize::get)
+        .unwrap_or(1)
+        .clamp(1, DEFAULT_MAX_POOL_SIZE)
 }
 
 impl Options {
     /// Default options: no fonts, default [`Limits`], seed 0,
-    /// [`ErrorPolicy::Fail`], every built-in renderer, a pool sized to the machine.
+    /// [`ErrorPolicy::Fail`], every built-in renderer, a pool sized to the
+    /// machine, the clock at [`DEFAULT_NOW_MS`] in UTC.
     pub fn new() -> Self {
         Self::default()
     }
@@ -151,11 +171,36 @@ impl Options {
 
     /// Adds a renderer from your own JavaScript bundle.
     ///
-    /// `source` is evaluated once and must define a global function `entry`
-    /// that takes the island's spec (parsed JSON) and an object with `width` and
-    /// `height`, and returns an SVG string. Islands use it with
-    /// `data-renderer="<name>"`. The bundle runs in the same sandbox and limits
-    /// as the built-in renderers.
+    /// `source` is a classic script that defines a global function named
+    /// `entry` (by convention `"entry"`; with a bundler, assign it to
+    /// `globalThis`). For each island it is called as `entry(specJson, ctx)`:
+    /// `specJson` is the island's spec as JSON **text** (call `JSON.parse`),
+    /// and `ctx` has `width` and `height` in CSS pixels and
+    /// `measureText(text, cssFont)`, which returns canvas-style metrics
+    /// measured with your fonts. It returns an SVG string (or a Promise of
+    /// one), which is sanitised before it goes into the document.
+    ///
+    /// Islands use it with `data-renderer="<name>"`. The bundle is compiled
+    /// once and runs in the same sandbox, with the same limits, as the
+    /// built-in renderers.
+    ///
+    /// ```
+    /// use surimono::{Options, Renderer};
+    ///
+    /// let renderer = Renderer::new(Options::new().bundle(
+    ///     "badge",
+    ///     "function entry(specJson, ctx) {
+    ///        const spec = JSON.parse(specJson);
+    ///        return `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${ctx.width}\" \
+    ///                height=\"${ctx.height}\"><rect width=\"${spec.w}\" height=\"4\"/></svg>`;
+    ///      }",
+    ///     "entry",
+    /// ))?;
+    /// let html = r#"<script type="application/vnd.surimono+json" data-renderer="badge"
+    ///   data-width="40" data-height="4">{"w": 30}</script>"#;
+    /// assert!(renderer.render_islands(html)?.contains("<rect width=\"30\""));
+    /// # Ok::<(), surimono::Error>(())
+    /// ```
     pub fn bundle(
         mut self,
         name: impl Into<String>,
@@ -170,10 +215,27 @@ impl Options {
         self
     }
 
-    /// Sets how many JavaScript runtimes the renderer keeps for concurrent
-    /// renders. Default: the number of CPUs, at most 8.
+    /// Sets how many JavaScript runtimes (each on its own thread) the renderer
+    /// keeps for concurrent renders. Default: the number of CPUs, at most 4.
+    /// At most 64.
     pub fn pool_size(mut self, size: usize) -> Self {
         self.pool_size = Some(size);
+        self
+    }
+
+    /// Sets what `Date.now()` and `new Date()` return in every render, in
+    /// milliseconds since the Unix epoch, for a fixed "today" in charts.
+    /// Default: [`DEFAULT_NOW_MS`]. The host's clock is never read.
+    pub fn now_ms(mut self, ms: i64) -> Self {
+        self.now_ms = Some(ms);
+        self
+    }
+
+    /// Sets local time's offset from UTC in minutes (540 for Japan), so dates
+    /// on time axes show in that zone. From -720 to 840. Default: 0 (UTC).
+    /// The host's time zone is never read.
+    pub fn utc_offset_minutes(mut self, minutes: i32) -> Self {
+        self.utc_offset_minutes = minutes;
         self
     }
 }
@@ -189,6 +251,8 @@ impl fmt::Debug for Options {
             .field("renderers", &self.renderers)
             .field("bundles", &self.bundles)
             .field("pool_size", &self.pool_size)
+            .field("now_ms", &self.now_ms)
+            .field("utc_offset_minutes", &self.utc_offset_minutes)
             .finish()
     }
 }
