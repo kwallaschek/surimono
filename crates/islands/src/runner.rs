@@ -8,7 +8,7 @@ use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex, PoisonError, RwLock, TryLockError};
 use std::thread::{self, JoinHandle};
 
-use surimono_core::rquickjs::function::Opt;
+use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
 use surimono_core::{Bytecode, Limits, Sandbox, SandboxOptions};
 
@@ -285,11 +285,7 @@ impl IslandRunner {
     /// its name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
         let bundle = self.bundle(req.renderer)?;
-        serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(|e| {
-            IslandError::BadJson {
-                message: e.to_string(),
-            }
-        })?;
+        serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(bad_json)?;
         self.dispatch(|reply| {
             Job::Render(RenderJob {
                 bundle,
@@ -604,15 +600,52 @@ impl Worker {
                 island.set("measureText", measure_function(ctx, measurer)?)?;
                 entry.call((job.spec_json.as_str(), island))
             },
-            |_, v| match v.as_string() {
-                Some(s) => Ok(Ok(s.to_string()?)),
-                None => Ok(Err(v.type_name().to_owned())),
-            },
+            |ctx, v| svg_string(ctx, v),
         )?;
         outcome.map_err(|found| IslandError::NotAString {
             renderer: bundle.name.clone(),
             found,
         })
+    }
+}
+
+/// A spec that isn't JSON, with the parser's position as numbers.
+fn bad_json(e: serde_json::Error) -> IslandError {
+    // serde_json's Display ends with " at line L column C"; keep only the
+    // message, the position goes in its own fields.
+    let text = e.to_string();
+    let suffix = format!(" at line {} column {}", e.line(), e.column());
+    let message = text.strip_suffix(&suffix).unwrap_or(&text).to_owned();
+    IslandError::BadJson {
+        message,
+        line: e.line(),
+        column: e.column(),
+    }
+}
+
+/// The entry's result as a Rust string, or the JavaScript type it was.
+///
+/// A JavaScript string can hold lone surrogates, which no UTF-8 string
+/// can. Each one becomes U+FFFD, as `String.prototype.toWellFormed` does
+/// and as encoding the page for print would.
+fn svg_string<'js>(ctx: &Ctx<'js>, v: Value<'js>) -> rquickjs::Result<Result<String, String>> {
+    let Some(s) = v.as_string() else {
+        return Ok(Err(v.type_name().to_owned()));
+    };
+    match s.to_string() {
+        Err(rquickjs::Error::Utf8(_)) => {}
+        other => return other.map(Ok),
+    }
+    let to_well_formed: Function<'js> = ctx
+        .globals()
+        .get::<_, Object<'js>>("String")?
+        .get::<_, Object<'js>>("prototype")?
+        .get("toWellFormed")?;
+    let fixed: Value<'js> = to_well_formed.call((This(v),))?;
+    match fixed.as_string().map(|s| s.to_string()) {
+        Some(Ok(s)) => Ok(Ok(s)),
+        // Only a bundle that replaced toWellFormed gets here.
+        _ => Ok(Err("a string that is not valid Unicode".to_owned())),
     }
 }
 

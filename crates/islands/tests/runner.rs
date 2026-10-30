@@ -194,10 +194,48 @@ fn unknown_renderer() {
 
 #[test]
 fn bad_json_is_reported_with_position() {
-    match runner().render(&req("label", "{\"label\": }")).unwrap_err() {
-        IslandError::BadJson { message } => assert!(message.contains("column"), "{message}"),
+    let err = runner()
+        .render(&req("label", "{\n  \"label\": }"))
+        .unwrap_err();
+    match &err {
+        IslandError::BadJson {
+            message,
+            line,
+            column,
+        } => {
+            assert_eq!((*line, *column), (2, 12), "{message}");
+            assert!(!message.contains("line"), "{message}");
+        }
         other => panic!("{other:?}"),
     }
+    assert!(err.to_string().ends_with("at line 2 column 12"), "{err}");
+}
+
+#[test]
+fn lone_surrogates_become_replacement_characters() {
+    let r = runner();
+    r.register_bundle(
+        "surrogates",
+        r#"function entry() { return '<svg>' + '\uD800' + 'a' + '\uDC00' + '\uD83D\uDE00' + '</svg>' }"#,
+        "entry",
+    )
+    .unwrap();
+    assert_eq!(
+        r.render(&req("surrogates", "{}")).unwrap(),
+        "<svg>\u{FFFD}a\u{FFFD}\u{1F600}</svg>"
+    );
+    // A bundle that breaks toWellFormed gets a typed error, not a crash.
+    r.register_bundle(
+        "broken",
+        r#"String.prototype.toWellFormed = function () { return this };
+           function entry() { return '\uD800' }"#,
+        "entry",
+    )
+    .unwrap();
+    assert!(matches!(
+        r.render(&req("broken", "{}")).unwrap_err(),
+        IslandError::NotAString { .. }
+    ));
 }
 
 #[test]

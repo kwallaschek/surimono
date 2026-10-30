@@ -16,10 +16,14 @@ pub enum IslandError {
         name: String,
     },
     /// The island's spec is not valid JSON.
-    #[error("island spec is not valid JSON: {message}")]
+    #[error("island spec is not valid JSON: {message} at line {line} column {column}")]
     BadJson {
-        /// The parser's message, with line and column.
+        /// What the parser found wrong.
         message: String,
+        /// The 1-based line of the error in the spec.
+        line: usize,
+        /// The 1-based column of the error in the spec.
+        column: usize,
     },
     /// The renderer's entry returned something other than a string.
     #[error("renderer {renderer:?} returned {found}, not an SVG string")]
