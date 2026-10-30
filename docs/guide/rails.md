@@ -263,6 +263,7 @@ Everything surimono raises is a `Surimono::Error`, a `StandardError`:
 | `Surimono::JavaScriptError` | An island's script threw; `#js_stack` has the JavaScript stack |
 | `Surimono::RenderError` | A malformed marker, an unknown renderer, unusable output, or markup too ambiguous to rewrite |
 | `Surimono::ConfigurationError` | From `Renderer.new`: a font that can't be loaded, a limit out of range, an unknown renderer name, a bundle that can't be used |
+| `Surimono::InternalError` | A bug in surimono itself, such as a panic during a render. The process keeps running; please report it with the message. |
 
 Island errors also have `kind` (a stable name such as `"time-limit"`),
 `island_index` (from 0), `island_id` and `renderer`, so a log line can say which
