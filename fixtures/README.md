@@ -130,8 +130,9 @@ number instead of diluting it in a page of white space and bars.
 ### Colour and text checks
 
 The 128 tolerance is colour-blind: a series drawn in the wrong colour scored
-0%, and 19 of the 28 pairs in the fixtures' palette are within 128 per
-channel. Three more checks run on every comparison, and all of them must pass:
+0%, and 19 of the 28 pairs in the fixtures' 8-colour palette
+(`defs/islands.mjs`) are within 128 per channel (25 of 36 with the ninth
+colour, #9db7d5, that `calibrate.mjs` also uses). Three more checks run on every comparison, and all of them must pass:
 
 | Check | What it compares | Pass |
 |---|---|---|
@@ -141,26 +142,42 @@ channel. Three more checks run on every comparison, and all of them must pass:
 
 In the diff image, magenta marks colour and hue mismatches.
 
+**Why 8°:** the closest pairs of different hues in the palette are #2f6fb0 and
+#4bb3c4 at 11.3° and #e07b39 and #d4a72c at 11.4° (ink directions), so 8°
+still separates the tightest real pair, while the harmless faults below
+(half-pixel and 1 px shifts, colours 3% darker) stay under 10% of a window.
+#2f6fb0 and #9db7d5 are 2.3° apart: the same hue at a different lightness,
+which this check can't see (see the list below; the colour check catches it on
+fills). **Why 16/255 for colour:** fulgur and Chrome print the same fill
+colours with no solid pixel off by more than 12, and the closest palette pair
+differs by 44.
+
 Calibration: `calibrate.mjs` has Chrome print deliberately altered copies of
-Chrome's own island SVG for the first 10 fixtures, then scores them (worst
-window for each check; a fault that doesn't apply to a fixture, such as
-swapping series colours in a one-series chart, is left out):
+Chrome's own island SVG for all 11 fixtures (12 islands), then scores them
+(worst window for each check; a fault that doesn't apply to an island, such as
+swapping series colours in a one-series chart, is left out). Series colours are
+the chromatic colours used at least twice, or as a gradient `stop-color`, so
+echarts-two-charts-latin's gradient series are calibrated too. Re-run on
+31 October with Chromium 153.0.8010.12:
 
 | Fault | Shape (near-match) | Colour (solid) | Hue (strokes) | Text differs | Fails | Should |
 |---|---|---|---|---|---|---|
-| text shifted 0.5 px right | 0.0% | 0.0% | 0.0 to 9.1% | 0/10 | 0/10 | pass |
-| text shifted 0.5 px down | 0.0% | 0.0% | 0.0% | 0/10 | 0/10 | pass |
-| text shifted 1 px right | 0.0% | 0.0% | 0.0 to 6.8% | 0/10 | 0/10 | pass |
-| colours 3% darker | 0.0% | 0.0% | 0.0% | 0/10 | 0/10 | pass |
-| letter-spacing +0.2 px (labels about 2% wider) | 0.0 to 24.0% | 0.0% | 0.0 to 3.2% | 0/10 | 4/10 | borderline |
-| text shifted 3 px right | 11.3 to 57.1% | 0.0% | 0.0 to 16.0% | 0/10 | 10/10 | fail |
-| one label in four missing | 30.7 to 67.9% | 0.0 to 13.2% | 0.0 to 12.1% | 10/10 | 10/10 | fail |
-| whole chart scaled to 99% | 42.9 to 100.0% | 0.0 to 100.0% | 1.8 to 86.6% | 0/10 | 10/10 | fail |
-| two most used series colours swapped | 0.0 to 100.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/7 | 7/7 | fail |
-| most used series colour replaced by its nearest palette colour | 0.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/10 | 10/10 | fail |
-| one number label changed by one digit | 0.0 to 13.7% | 0.0% | 0.0% | 10/10 | 10/10 | fail |
-| all text bold | 0.0 to 31.9% | 0.0% | 0.0 to 14.3% | 0/10 | 7/10 | fail |
-| Latin text in Noto Sans JP instead of Noto Sans | 0.0 to 13.3% | 0.0% | 0.0 to 1.6% | 0/10 | 1/10 | fail (a no-op on the 4 all-Japanese fixtures) |
+| text shifted 0.5 px right | 0.0% | 0.0% | 0.0 to 9.1% | 0/12 | 0/12 | pass |
+| text shifted 0.5 px down | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | pass |
+| text shifted 1 px right | 0.0% | 0.0% | 0.0 to 6.8% | 0/12 | 0/12 | pass |
+| colours 3% darker | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | pass |
+| letter-spacing +0.2 px (labels about 2% wider) | 0.0 to 41.9% | 0.0% | 0.0 to 3.2% | 0/12 | 6/12 | borderline |
+| text shifted 3 px right | 11.3 to 57.1% | 0.0% | 0.0 to 16.0% | 0/12 | 12/12 | fail |
+| one label in four missing | 30.7 to 67.9% | 0.0 to 13.2% | 0.0 to 12.1% | 12/12 | 12/12 | fail |
+| whole chart scaled to 99% | 42.9 to 100.0% | 0.0 to 100.0% | 1.8 to 100.0% | 0/12 | 12/12 | fail |
+| two most used series colours swapped | 0.0 to 100.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/9 | 9/9 | fail |
+| most used series colour replaced by its nearest palette colour | 0.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/12 | 12/12 | fail |
+| one number label changed by one digit | 0.0 to 13.7% | 0.0% | 0.0% | 12/12 | 12/12 | fail |
+| all text bold | 0.0 to 31.9% | 0.0% | 0.0 to 14.3% | 0/12 | 7/12 | fail |
+| Latin text in Noto Sans JP instead of Noto Sans | 0.0 to 17.0% | 0.0% | 0.0 to 1.6% | 0/12 | 2/12 | fail (a no-op on the 4 all-Japanese fixtures) |
+
+On echarts-two-charts-latin, both colour faults fail both islands at 100% on
+the colour check (the nearest-palette fault also at 100% on hue).
 
 On the fulgur baseline below (fulgur printing Chrome's own SVGs), the colour
 check scores 0.0% everywhere and the hue check at most 18.9%
@@ -177,6 +194,11 @@ catch:
   a font outside `fixtures/fonts/`;
 - a change in lightness alone on thin strokes (hue is direction only), for
   example a 1 px bar in `#9db7d5` instead of `#b5cde8`. Solid areas catch it.
+- a wrong glyph under a right string. The text check compares strings: with
+  text as outlines (surimono's default) it trusts that an outline's
+  `aria-label` is the string that was outlined, and shape alone misses a
+  one-digit change. P1-GFX-05's tests in `crates/gfx` are what tie each label
+  to its outline.
 
 Unit tests for the checks run on synthetic images, with no Chrome:
 `node --test fixtures/tools/test/*.test.mjs`.

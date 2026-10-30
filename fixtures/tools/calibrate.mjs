@@ -71,7 +71,11 @@ function mapColours(svg, f) {
     return out === c ? t : rgb2hex(out);
   });
 }
-/** Chromatic colours (not white, black or grey) used at least twice, most used first. */
+/**
+ * Chromatic colours (not white, black or grey) used at least twice, or used as
+ * a gradient stop (a gradient fill is one series drawn from one <stop> each),
+ * most used first.
+ */
 function seriesColours(svg) {
   const n = new Map();
   for (const t of svg.match(COLOUR_RE) ?? []) {
@@ -80,8 +84,10 @@ function seriesColours(svg) {
     const key = rgb2hex(c);
     n.set(key, (n.get(key) ?? 0) + 1);
   }
+  const stops = new Set();
+  for (const [, t] of svg.matchAll(/stop-color\s*[=:]\s*["']?\s*(#[0-9a-f]{3,6}\b|rgba?\([^)]*\))/gi)) stops.add(rgb2hex(parseColour(t)));
   return [...n.entries()]
-    .filter(([, count]) => count >= 2)
+    .filter(([key, count]) => count >= 2 || stops.has(key))
     .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     .map(([k]) => k);
 }
