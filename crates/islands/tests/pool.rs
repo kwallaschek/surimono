@@ -262,3 +262,41 @@ fn replacing_a_bundle_drops_its_preloaded_copy() {
     idle();
     assert_eq!(render(&r, "v").unwrap(), "new");
 }
+
+#[test]
+fn a_preloaded_bundle_never_leaks_into_another_renderer() {
+    let r = IslandRunner::new(options(1)).unwrap();
+    r.register_bundle(
+        "a",
+        "var fromA = 1; function entry() { return 'a' }",
+        "entry",
+    )
+    .unwrap();
+    r.register_bundle("b", "function entry() { return typeof fromA }", "entry")
+        .unwrap();
+    for _ in 0..3 {
+        render(&r, "a").unwrap();
+        // The idle worker preloads "a"; "b" must still start clean.
+        idle();
+        assert_eq!(render(&r, "b").unwrap(), "undefined");
+        idle();
+    }
+}
+
+#[test]
+fn registration_never_sees_a_preloaded_bundle() {
+    let r = IslandRunner::new(options(1)).unwrap();
+    r.register_bundle("a", "function entry() { return 'a' }", "entry")
+        .unwrap();
+    render(&r, "a").unwrap();
+    // The worker now holds "a", which defines `entry`; a bundle that
+    // doesn't define it must still be refused.
+    idle();
+    assert_eq!(
+        r.register_bundle("b", "var x = 1;", "entry").unwrap_err(),
+        IslandError::MissingEntry {
+            bundle: "b".into(),
+            entry: "entry".into()
+        }
+    );
+}

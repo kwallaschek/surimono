@@ -33,7 +33,9 @@ the orchestrator (write the request in your final report).
 A crate's own `Cargo.toml` belongs to the crate's owner. New workspace-level
 dependencies go in the root `Cargo.toml` via the orchestrator: ask in your report,
 and meanwhile add the dependency directly in your crate's `Cargo.toml` with an
-exact version.
+exact version. If another crate already uses the same dependency, use the root
+`[workspace.dependencies]` pin (`<dep>.workspace = true`) instead; two different
+exact pins of one crate can't resolve together.
 
 ## Fleet rules
 
