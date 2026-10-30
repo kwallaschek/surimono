@@ -10,11 +10,9 @@ use surimono_islands::{
 fn options(pool_size: usize) -> RunnerOptions {
     RunnerOptions {
         pool_size,
-        limits: Limits {
-            time: Duration::from_millis(300),
-            memory_bytes: 16 * 1024 * 1024,
-            ..Limits::default()
-        },
+        limits: Limits::default()
+            .with_time(Duration::from_millis(300))
+            .with_memory_bytes(16 * 1024 * 1024),
         ..RunnerOptions::default()
     }
 }
