@@ -141,9 +141,15 @@ impl FontSpec {
 
     /// Parses a CSS `font` shorthand; `None` if the canvas setter would ignore it.
     pub(crate) fn parse(input: &str) -> Option<FontSpec> {
+        Self::parse_with_family_offset(input).map(|(spec, _)| spec)
+    }
+
+    /// Like [`FontSpec::parse`], also returning the byte offset in `input`
+    /// where the family list starts (`None` for system font keywords).
+    pub(crate) fn parse_with_family_offset(input: &str) -> Option<(FontSpec, Option<usize>)> {
         let s = trim_ws(input);
         if let Some(spec) = system_font(s) {
-            return Some(spec);
+            return Some((spec, None));
         }
 
         let mut slant = None;
@@ -238,16 +244,20 @@ impl FontSpec {
             rest = after;
         }
 
+        let rest = trim_ws_start(rest);
         let families = parse_family_list(rest)?;
+        // `rest` is a subslice of `input`; its start is where the families begin.
+        let family_offset = rest.as_ptr() as usize - input.as_ptr() as usize;
         // `+ 0.0` turns -0 into +0, so equal sizes have equal bits.
         let size_px = (size.clamp(0.0, MAX_FONT_SIZE_PX) + 0.0) as f32;
-        Some(FontSpec {
+        let spec = FontSpec {
             slant: slant.unwrap_or(Slant::Normal),
             weight: weight.unwrap_or(400.0),
             width: width.unwrap_or(1.0),
             size_px,
             families,
-        })
+        };
+        Some((spec, Some(family_offset)))
     }
 }
 
@@ -428,7 +438,7 @@ fn reserved_family_word(lower: &str) -> bool {
 }
 
 /// Parses a comma-separated `font-family` list. Empty entries make it invalid.
-fn parse_family_list(s: &str) -> Option<Vec<FamilyEntry>> {
+pub(crate) fn parse_family_list(s: &str) -> Option<Vec<FamilyEntry>> {
     let mut out = Vec::new();
     let mut chars = s.chars().peekable();
     loop {
@@ -702,6 +712,23 @@ mod tests {
                 generic(GenericFamily::SystemUi),
                 generic(GenericFamily::Emoji)
             ]
+        );
+    }
+
+    #[test]
+    fn family_offset_points_at_the_list() {
+        for (input, list) in [
+            ("12px x", "x"),
+            ("  bold 14px/1.2 'A b', serif ", "'A b', serif "),
+            ("italic 600 13.5px/1.2 Arial", "Arial"),
+            ("12px\tx", "x"),
+        ] {
+            let (_, off) = FontSpec::parse_with_family_offset(input).expect("parses");
+            assert_eq!(&input[off.expect("offset")..], list, "{input:?}");
+        }
+        assert_eq!(
+            FontSpec::parse_with_family_offset("caption").map(|p| p.1),
+            Some(None)
         );
     }
 
