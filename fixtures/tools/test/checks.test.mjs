@@ -82,6 +82,19 @@ test("svgTexts reads <text> with tspans, entities, labels and titles", () => {
   assert.equal(decodeXml("&#x6708;&#26376;&lt;"), "月月<");
 });
 
+test("svgTexts: a self-closing <text/> doesn't swallow the next element", () => {
+  const svg = `<svg><text x="1"/><text>Jan</text><title/><g><title>tip</title></g></svg>`;
+  assert.deepEqual(svgTexts(svg), { text: ["Jan"], labels: ["tip"] });
+});
+
+test("svgTexts: a <title> inside <text> is a label, not printed text", () => {
+  // Same input as p1-gfx-05's outline test, whose aria-label is "Hi & bye".
+  const svg = `<svg><text>Hi &amp; <tspan>bye</tspan><title>tip</title></text><text>a<desc>d</desc>b</text></svg>`;
+  assert.deepEqual(svgTexts(svg), { text: ["Hi&bye", "ab"], labels: ["tip"] });
+  const outlined = `<svg><g role="img" aria-label="Hi &amp; bye"><path d="M0 0"/></g><g aria-label="ab"><path d="M0 0"/></g></svg>`;
+  assert.equal(compareTexts(svgTexts(svg), outlined).pass, true);
+});
+
 test("text check accepts outlines that keep the string in aria-label", () => {
   const chrome = `<svg><g aria-label="chart"><text>Jan</text><text>1,200</text></g></svg>`;
   const outlined = `<svg><g aria-label="chart"><g aria-label="Jan"><path d="M0 0"/></g><g><title>1,200</title><path d="M0 0"/></g></g></svg>`;

@@ -22,12 +22,20 @@ export function decodeXml(s) {
 /** Decoded, with every whitespace character removed. */
 export const normaliseText = (s) => decodeXml(s.replace(/<[^>]*>/g, "")).replace(/\s+/g, "");
 
+/** <title> and <desc> elements with their contents: tooltips, not printed text. */
+const NOT_PRINTED = /<(title|desc)\b[^>]*>[\s\S]*?<\/\1\s*>/g;
+
 /** { text: [<text> contents], labels: [aria-label values and <title> contents] }, each sorted, empty strings dropped. */
 export function svgTexts(svg) {
-  const text = [...svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text\s*>/g)].map((m) => normaliseText(m[1]));
+  // Self-closing elements have no content; dropped first so a lazy match can't
+  // run on from `<text/>` to the next element's closing tag.
+  const open = svg.replace(/<(text|title)\b[^>]*\/>/g, "");
+  // A <title> inside <text> is a tooltip, not printed: it counts as a label only
+  // (as in surimono's outline aria-label, which leaves it out).
+  const text = [...open.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text\s*>/g)].map((m) => normaliseText(m[1].replace(NOT_PRINTED, "")));
   const labels = [
-    ...[...svg.matchAll(/\saria-label\s*=\s*(?:"([^"]*)"|'([^']*)')/g)].map((m) => normaliseText(m[1] ?? m[2])),
-    ...[...svg.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/g)].map((m) => normaliseText(m[1])),
+    ...[...open.matchAll(/\saria-label\s*=\s*(?:"([^"]*)"|'([^']*)')/g)].map((m) => normaliseText(m[1] ?? m[2])),
+    ...[...open.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/g)].map((m) => normaliseText(m[1])),
   ];
   const clean = (list) => list.filter(Boolean).sort();
   return { text: clean(text), labels: clean(labels) };
