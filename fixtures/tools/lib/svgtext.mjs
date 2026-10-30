@@ -10,7 +10,7 @@
 // all whitespace, so tspan line breaks and spacing conventions don't matter;
 // changed, missing or extra characters do.
 
-const NAMED = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+const NAMED = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0" };
 
 export function decodeXml(s) {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
