@@ -20,11 +20,13 @@ mod css_font;
 mod error;
 mod fonts;
 mod measure;
+mod svg;
 
 pub use css_font::GenericFamily;
 pub use error::GfxError;
 pub use fonts::FontSet;
 pub use measure::{MAX_TEXT_BYTES, TextMeasurer, TextMetrics};
+pub use svg::{MAX_SVG_DEPTH, MAX_SVG_NODES, sanitize_svg};
 
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
