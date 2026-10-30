@@ -1,0 +1,843 @@
+
+==> fmt
+
+==> clippy (workspace incl. Ruby ext)
+[1m[32m    Updating[0m crates.io index
+[1m[32m    Checking[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m    Checking[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m    Checking[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m    Checking[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m    Checking[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Checking[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Checking[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m    Checking[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 1.67s
+
+==> test (workspace)
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m   Compiling[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 3.18s
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-50d58dd223d9c779)
+
+running 38 tests
+test backend::tests::every_island_error_maps_to_a_public_error ... ok
+test backend::tests::default_pool_is_between_1_and_8 ... ok
+test backend::tests::fonts_must_look_like_fonts ... ok
+test backend::tests::runner_is_send_and_sync ... ok
+test error::tests::error_is_send_sync_static ... ok
+test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
+test error::tests::island_errors_name_the_island ... ok
+test options::tests::builder_sets_everything ... ok
+test options::tests::defaults ... ok
+test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
+test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
+test prepass::tests::attributes_in_any_order_and_quoting ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
+test prepass::tests::keeps_id_and_class ... ok
+test prepass::tests::document_without_islands_is_unchanged ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
+test prepass::tests::other_scripts_are_left_alone ... ok
+test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
+test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::utf8_text_around_and_inside_islands ... ok
+test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
+test renderer::tests::invalid_options ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test tests::version_is_set ... ok
+test renderer::tests::unknown_and_disabled_renderers ... ok
+test renderer::tests::many_threads_share_one_renderer ... ok
+test renderer::tests::script_failures_become_typed_errors ... ok
+
+test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+[1m[32m     Running[0m unittests src/main.rs (target/debug/deps/surimono-a1352925a9585394)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_core-16d6a75db6013825)
+
+running 52 tests
+test engine::tests::allocator_tracks_and_limits ... ok
+test engine::tests::compile_does_not_run_the_script ... ok
+test engine::tests::bytecode_round_trip_across_runtimes ... ok
+test engine::tests::deadline_arms_and_disarms ... ok
+test engine::tests::compile_reports_syntax_errors ... ok
+test engine::tests::eval_bytecode_reports_exceptions ... ok
+test engine::tests::update_stack_top_is_harmless ... ok
+test engine::tests::pending_jobs_run_and_report_errors ... ok
+test error::tests::limit_errors_are_flagged ... ok
+test limits::tests::defaults_match_the_spec ... ok
+test sandbox::tests::call_json_parses_arguments ... ok
+test sandbox::tests::calls_global_functions ... ok
+test sandbox::tests::bytecode_compiles_once_and_runs_anywhere ... ok
+test sandbox::tests::allocation_bomb_hits_memory_limit ... ok
+test sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails ... ok
+test sandbox::tests::caught_stack_overflow_is_ordinary_js ... ok
+test sandbox::tests::compile_reports_syntax_errors ... ok
+test sandbox::tests::deep_recursion_hits_stack_limit ... ok
+test sandbox::tests::deep_recursion_in_native_code_hits_stack_limit ... ok
+test sandbox::tests::doubling_string_ends_with_a_typed_error ... ok
+test sandbox::tests::eval_and_function_constructor_stay_inside ... ok
+test sandbox::tests::evaluates_scripts ... ok
+test sandbox::tests::exceptions_carry_message_and_stack ... ok
+test sandbox::tests::exponential_microtask_flood_hits_a_limit ... ok
+test sandbox::tests::guarded_builtins_still_work ... ok
+test sandbox::tests::async_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::caught_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::huge_messages_are_truncated ... ok
+test sandbox::tests::huge_typed_array_hits_memory_limit ... ok
+test sandbox::tests::heap_returns_to_baseline_after_reset ... ok
+test sandbox::tests::huge_string_hits_memory_limit ... ok
+test sandbox::tests::interrupt_skips_finally ... ok
+test sandbox::tests::infinite_loop_hits_time_limit ... ok
+test sandbox::tests::long_native_loops_are_refused ... ok
+test sandbox::tests::limit_errors_discard_state ... ok
+test sandbox::tests::microtasks_run_before_the_call_returns ... ok
+test sandbox::tests::no_host_access ... ok
+test sandbox::tests::limits_out_of_range_are_rejected ... ok
+test sandbox::tests::reset_discards_globals ... ok
+test sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime ... ok
+test sandbox::tests::run_gives_direct_context_access ... ok
+test sandbox::tests::sandboxes_are_independent ... ok
+test sandbox::tests::scripts_are_sloppy_like_classic_scripts ... ok
+test sandbox::tests::syntax_errors_are_exceptions ... ok
+test sandbox::tests::thrown_primitives_are_described ... ok
+test sandbox::tests::time_limit_is_per_call ... ok
+test sandbox::tests::type_errors_on_conversion ... ok
+test sandbox::tests::works_from_a_deep_rust_stack ... ok
+test tests::version_is_set ... ok
+test sandbox::tests::microtask_flood_hits_a_limit ... ok
+test sandbox::tests::caught_out_of_memory_still_reports_memory_limit ... ok
+test sandbox::tests::regex_backtracking_hits_time_limit ... ok
+
+test result: ok. 52 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_dom-d59c544e124a1142)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_gfx-54982d65ecda2a02)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_islands-22bafb4dcd42f42f)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-b2c765318def5b00)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_webidl-5a3abcf7bcf0e473)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono
+
+running 4 tests
+test crates/surimono/src/options.rs - options::Limits (line 14) ... ok
+test crates/surimono/src/options.rs - options::Options (line 77) ... ok
+test crates/surimono/src/renderer.rs - renderer::Renderer (line 16) ... ok
+test crates/surimono/src/lib.rs - (line 11) ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_core
+
+running 1 test
+test crates/core/src/lib.rs - (line 10) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+[1m[32m   Doc-tests[0m surimono_dom
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_gfx
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_islands
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_webidl
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+==> ruby gem (compile, test)
+/opt/hostedtoolcache/Ruby/3.4.12/x64/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+mkdir -p tmp/x86_64-linux/surimono/3.4.12
+cd tmp/x86_64-linux/surimono/3.4.12
+checking for gcc... yes
+checking for g++... yes
+checking for gcc-ar... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/gmake
+cd -
+cd tmp/x86_64-linux/surimono/3.4.12
+generating /home/runner/work/surimono/surimono/target/debug/libsurimono.so (dev)
+cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/ext/surimono/Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile dev -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.4.12/x64/lib -C link-arg=-lm -l pthread
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 1.43s
+(cd tmp/x86_64-linux/surimono/3.4.12 && /usr/bin/gmake install sitearchdir=../../../../lib/surimono sitelibdir=../../../../lib/surimono target_prefix=)
+cd -
+mkdir -p tmp/x86_64-linux/stage/lib/surimono
+mkdir -p tmp/x86_64-linux/stage/ext/surimono
+cp ext/surimono/Cargo.toml tmp/x86_64-linux/stage/ext/surimono/Cargo.toml
+cp ext/surimono/extconf.rb tmp/x86_64-linux/stage/ext/surimono/extconf.rb
+mkdir -p tmp/x86_64-linux/stage/ext/surimono/src
+cp ext/surimono/src/lib.rs tmp/x86_64-linux/stage/ext/surimono/src/lib.rs
+cp lib/surimono.rb tmp/x86_64-linux/stage/lib/surimono.rb
+cp lib/surimono/version.rb tmp/x86_64-linux/stage/lib/surimono/version.rb
+generating /home/runner/work/surimono/surimono/target/debug/libsurimono.so (dev)
+cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/ext/surimono/Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile dev -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.4.12/x64/lib -C link-arg=-lm -l pthread
+[1m[32m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+installing surimono.so to ../../../../lib/surimono
+/usr/bin/install -c -m 0755 surimono.so ../../../../lib/surimono
+cp tmp/x86_64-linux/surimono/3.4.12/surimono.so tmp/x86_64-linux/stage/lib/surimono/surimono.so
+Run options: --seed 59125
+
+# Running:
+
+.
+
+Finished in 0.000676s, 1479.2965 runs/s, 1479.2965 assertions/s.
+
+1 runs, 1 assertions, 0 failures, 0 errors, 0 skips
+
+==> cargo-deny
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'foldhash'[0m
+   [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:45:1
+   [0m[36m│[0m  
+[0m[36m45[0m [0m[36m│[0m [0m[33m╭[0m [0m[33mfoldhash 0.1.5 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m46[0m [0m[36m│[0m [0m[33m│[0m [0m[33mfoldhash 0.2.0 registry+https://github.com/rust-lang/crates.io-index[0m
+   [0m[36m│[0m [0m[33m╰[0m[0m[33m────────────────────────────────────────────────────────────────────┘ lock entries[0m
+   [0m[36m│[0m  
+   [0m[36m├[0m foldhash v0.1.5
+     └── hashbrown v0.15.5
+         ├── fontique v0.6.0
+         │   └── parley v0.6.0
+         │       └── blitz-dom v0.2.4
+         │           ├── blitz-html v0.2.0
+         │           │   └── surimono-dom v0.0.0
+         │           └── surimono-dom v0.0.0 (*)
+         └── parley v0.6.0 (*)
+   [0m[36m├[0m foldhash v0.2.0
+     ├── hashbrown v0.16.1
+     │   └── lol_html v2.7.0
+     │       └── surimono v0.0.0
+     │           ├── surimono-cli v0.0.0
+     │           └── surimono-ruby v0.0.0
+     └── hashbrown v0.17.1
+         ├── indexmap v2.14.2
+         │   └── stylo v0.8.0
+         │       ├── blitz-dom v0.2.4
+         │       │   ├── blitz-html v0.2.0
+         │       │   │   └── surimono-dom v0.0.0
+         │       │   └── surimono-dom v0.0.0 (*)
+         │       └── stylo_taffy v0.2.0
+         │           └── blitz-dom v0.2.4 (*)
+         └── rquickjs-core v0.14.0
+             └── rquickjs v0.14.0
+                 └── surimono-core v0.0.0
+                     ├── surimono v0.0.0 (*)
+                     ├── surimono-dom v0.0.0 (*)
+                     └── surimono-islands v0.0.0
+                         └── surimono v0.0.0 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'font-types'[0m
+   [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:47:1
+   [0m[36m│[0m  
+[0m[36m47[0m [0m[36m│[0m [0m[33m╭[0m [0m[33mfont-types 0.10.1 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m48[0m [0m[36m│[0m [0m[33m│[0m [0m[33mfont-types 0.12.7 registry+https://github.com/rust-lang/crates.io-index[0m
+   [0m[36m│[0m [0m[33m╰[0m[0m[33m───────────────────────────────────────────────────────────────────────┘ lock entries[0m
+   [0m[36m│[0m  
+   [0m[36m├[0m font-types v0.10.1
+     └── read-fonts v0.35.0
+         ├── fontique v0.6.0
+         │   └── parley v0.6.0
+         │       └── blitz-dom v0.2.4
+         │           ├── blitz-html v0.2.0
+         │           │   └── surimono-dom v0.0.0
+         │           └── surimono-dom v0.0.0 (*)
+         ├── harfrust v0.3.2
+         │   └── parley v0.6.0 (*)
+         └── skrifa v0.37.0
+             ├── blitz-dom v0.2.4 (*)
+             └── parley v0.6.0 (*)
+   [0m[36m├[0m font-types v0.12.7
+     └── read-fonts v0.41.0
+         └── skrifa v0.44.0
+             └── swash v0.2.10
+                 └── parley v0.6.0
+                     └── blitz-dom v0.2.4
+                         ├── blitz-html v0.2.0
+                         │   └── surimono-dom v0.0.0
+                         └── surimono-dom v0.0.0 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 3 duplicate entries for crate 'hashbrown'[0m
+   [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:55:1
+   [0m[36m│[0m  
+[0m[36m55[0m [0m[36m│[0m [0m[33m╭[0m [0m[33mhashbrown 0.15.5 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m56[0m [0m[36m│[0m [0m[33m│[0m [0m[33mhashbrown 0.16.1 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m57[0m [0m[36m│[0m [0m[33m│[0m [0m[33mhashbrown 0.17.1 registry+https://github.com/rust-lang/crates.io-index[0m
+   [0m[36m│[0m [0m[33m╰[0m[0m[33m──────────────────────────────────────────────────────────────────────┘ lock entries[0m
+   [0m[36m│[0m  
+   [0m[36m├[0m hashbrown v0.15.5
+     ├── fontique v0.6.0
+     │   └── parley v0.6.0
+     │       └── blitz-dom v0.2.4
+     │           ├── blitz-html v0.2.0
+     │           │   └── surimono-dom v0.0.0
+     │           └── surimono-dom v0.0.0 (*)
+     └── parley v0.6.0 (*)
+   [0m[36m├[0m hashbrown v0.16.1
+     └── lol_html v2.7.0
+         └── surimono v0.0.0
+             ├── surimono-cli v0.0.0
+             └── surimono-ruby v0.0.0
+   [0m[36m├[0m hashbrown v0.17.1
+     ├── indexmap v2.14.2
+     │   └── stylo v0.8.0
+     │       ├── blitz-dom v0.2.4
+     │       │   ├── blitz-html v0.2.0
+     │       │   │   └── surimono-dom v0.0.0
+     │       │   └── surimono-dom v0.0.0 (*)
+     │       └── stylo_taffy v0.2.0
+     │           └── blitz-dom v0.2.4 (*)
+     └── rquickjs-core v0.14.0
+         └── rquickjs v0.14.0
+             └── surimono-core v0.0.0
+                 ├── surimono v0.0.0
+                 │   ├── surimono-cli v0.0.0
+                 │   └── surimono-ruby v0.0.0
+                 ├── surimono-dom v0.0.0 (*)
+                 └── surimono-islands v0.0.0
+                     └── surimono v0.0.0 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'itertools'[0m
+   [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:78:1
+   [0m[36m│[0m  
+[0m[36m78[0m [0m[36m│[0m [0m[33m╭[0m [0m[33mitertools 0.13.0 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m79[0m [0m[36m│[0m [0m[33m│[0m [0m[33mitertools 0.14.0 registry+https://github.com/rust-lang/crates.io-index[0m
+   [0m[36m│[0m [0m[33m╰[0m[0m[33m──────────────────────────────────────────────────────────────────────┘ lock entries[0m
+   [0m[36m│[0m  
+   [0m[36m├[0m itertools v0.13.0
+     └── bindgen v0.72.1
+         └── rb-sys-build v0.9.130
+             └── (build) rb-sys v0.9.130
+                 ├── magnus v0.9.3
+                 │   └── surimono-ruby v0.0.0
+                 └── surimono-ruby v0.0.0 (*)
+   [0m[36m├[0m itertools v0.14.0
+     └── stylo v0.8.0
+         ├── blitz-dom v0.2.4
+         │   ├── blitz-html v0.2.0
+         │   │   └── surimono-dom v0.0.0
+         │   └── surimono-dom v0.0.0 (*)
+         └── stylo_taffy v0.2.0
+             └── blitz-dom v0.2.4 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'read-fonts'[0m
+    [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:131:1
+    [0m[36m│[0m  
+[0m[36m131[0m [0m[36m│[0m [0m[33m╭[0m [0m[33mread-fonts 0.35.0 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m132[0m [0m[36m│[0m [0m[33m│[0m [0m[33mread-fonts 0.41.0 registry+https://github.com/rust-lang/crates.io-index[0m
+    [0m[36m│[0m [0m[33m╰[0m[0m[33m───────────────────────────────────────────────────────────────────────┘ lock entries[0m
+    [0m[36m│[0m  
+    [0m[36m├[0m read-fonts v0.35.0
+      ├── fontique v0.6.0
+      │   └── parley v0.6.0
+      │       └── blitz-dom v0.2.4
+      │           ├── blitz-html v0.2.0
+      │           │   └── surimono-dom v0.0.0
+      │           └── surimono-dom v0.0.0 (*)
+      ├── harfrust v0.3.2
+      │   └── parley v0.6.0 (*)
+      └── skrifa v0.37.0
+          ├── blitz-dom v0.2.4 (*)
+          └── parley v0.6.0 (*)
+    [0m[36m├[0m read-fonts v0.41.0
+      └── skrifa v0.44.0
+          └── swash v0.2.10
+              └── parley v0.6.0
+                  └── blitz-dom v0.2.4
+                      ├── blitz-html v0.2.0
+                      │   └── surimono-dom v0.0.0
+                      └── surimono-dom v0.0.0 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'shlex'[0m
+    [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:153:1
+    [0m[36m│[0m  
+[0m[36m153[0m [0m[36m│[0m [0m[33m╭[0m [0m[33mshlex 1.3.0 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m154[0m [0m[36m│[0m [0m[33m│[0m [0m[33mshlex 2.0.1 registry+https://github.com/rust-lang/crates.io-index[0m
+    [0m[36m│[0m [0m[33m╰[0m[0m[33m─────────────────────────────────────────────────────────────────┘ lock entries[0m
+    [0m[36m│[0m  
+    [0m[36m├[0m shlex v1.3.0
+      └── bindgen v0.72.1
+          └── rb-sys-build v0.9.130
+              └── (build) rb-sys v0.9.130
+                  ├── magnus v0.9.3
+                  │   └── surimono-ruby v0.0.0
+                  └── surimono-ruby v0.0.0 (*)
+    [0m[36m├[0m shlex v2.0.1
+      └── cc v1.10.0
+          └── (build) rquickjs-sys v0.14.0
+              └── rquickjs-core v0.14.0
+                  └── rquickjs v0.14.0
+                      └── surimono-core v0.0.0
+                          ├── surimono v0.0.0
+                          │   ├── surimono-cli v0.0.0
+                          │   └── surimono-ruby v0.0.0
+                          ├── surimono-dom v0.0.0
+                          └── surimono-islands v0.0.0
+                              └── surimono v0.0.0 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'skrifa'[0m
+    [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:156:1
+    [0m[36m│[0m  
+[0m[36m156[0m [0m[36m│[0m [0m[33m╭[0m [0m[33mskrifa 0.37.0 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m157[0m [0m[36m│[0m [0m[33m│[0m [0m[33mskrifa 0.44.0 registry+https://github.com/rust-lang/crates.io-index[0m
+    [0m[36m│[0m [0m[33m╰[0m[0m[33m───────────────────────────────────────────────────────────────────┘ lock entries[0m
+    [0m[36m│[0m  
+    [0m[36m├[0m skrifa v0.37.0
+      ├── blitz-dom v0.2.4
+      │   ├── blitz-html v0.2.0
+      │   │   └── surimono-dom v0.0.0
+      │   └── surimono-dom v0.0.0 (*)
+      └── parley v0.6.0
+          └── blitz-dom v0.2.4 (*)
+    [0m[36m├[0m skrifa v0.44.0
+      └── swash v0.2.10
+          └── parley v0.6.0
+              └── blitz-dom v0.2.4
+                  ├── blitz-html v0.2.0
+                  │   └── surimono-dom v0.0.0
+                  └── surimono-dom v0.0.0 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'syn'[0m
+    [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:184:1
+    [0m[36m│[0m  
+[0m[36m184[0m [0m[36m│[0m [0m[33m╭[0m [0m[33msyn 2.0.119 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m185[0m [0m[36m│[0m [0m[33m│[0m [0m[33msyn 3.0.9 registry+https://github.com/rust-lang/crates.io-index[0m
+    [0m[36m│[0m [0m[33m╰[0m[0m[33m───────────────────────────────────────────────────────────────┘ lock entries[0m
+    [0m[36m│[0m  
+    [0m[36m├[0m syn v2.0.119
+      ├── bindgen v0.72.1
+      │   └── rb-sys-build v0.9.130
+      │       └── (build) rb-sys v0.9.130
+      │           ├── magnus v0.9.3
+      │           │   └── surimono-ruby v0.0.0
+      │           └── surimono-ruby v0.0.0 (*)
+      ├── cssparser-macros v0.6.1
+      │   └── cssparser v0.35.0
+      │       ├── blitz-dom v0.2.4
+      │       │   ├── blitz-html v0.2.0
+      │       │   │   └── surimono-dom v0.0.0
+      │       │   └── surimono-dom v0.0.0 (*)
+      │       ├── lol_html v2.7.0
+      │       │   └── surimono v0.0.0
+      │       │       ├── surimono-cli v0.0.0
+      │       │       └── surimono-ruby v0.0.0 (*)
+      │       ├── selectors v0.32.0
+      │       │   ├── blitz-dom v0.2.4 (*)
+      │       │   ├── lol_html v2.7.0 (*)
+      │       │   ├── stylo v0.8.0
+      │       │   │   ├── blitz-dom v0.2.4 (*)
+      │       │   │   └── stylo_taffy v0.2.0
+      │       │   │       └── blitz-dom v0.2.4 (*)
+      │       │   ├── stylo_malloc_size_of v0.8.0
+      │       │   │   ├── stylo v0.8.0 (*)
+      │       │   │   ├── stylo_dom v0.8.0
+      │       │   │   │   ├── blitz-dom v0.2.4 (*)
+      │       │   │   │   └── stylo v0.8.0 (*)
+      │       │   │   └── stylo_traits v0.8.0
+      │       │   │       ├── blitz-dom v0.2.4 (*)
+      │       │   │       └── stylo v0.8.0 (*)
+      │       │   └── stylo_traits v0.8.0 (*)
+      │       ├── stylo v0.8.0 (*)
+      │       ├── stylo_malloc_size_of v0.8.0 (*)
+      │       ├── stylo_traits v0.8.0 (*)
+      │       └── to_shmem v0.2.0
+      │           ├── selectors v0.32.0 (*)
+      │           ├── stylo v0.8.0 (*)
+      │           └── stylo_traits v0.8.0 (*)
+      ├── darling_core v0.20.11
+      │   ├── darling v0.20.11
+      │   │   ├── stylo_derive v0.8.0
+      │   │   │   └── stylo v0.8.0 (*)
+      │   │   └── to_shmem_derive v0.1.0
+      │   │       ├── selectors v0.32.0 (*)
+      │   │       ├── stylo v0.8.0 (*)
+      │   │       └── stylo_traits v0.8.0 (*)
+      │   └── darling_macro v0.20.11
+      │       └── darling v0.20.11 (*)
+      ├── darling_macro v0.20.11 (*)
+      ├── derive_more-impl v2.1.1
+      │   └── derive_more v2.1.1
+      │       ├── selectors v0.32.0 (*)
+      │       └── stylo v0.8.0 (*)
+      ├── magnus-macros v0.9.1
+      │   └── magnus v0.9.3 (*)
+      ├── malloc_size_of_derive v0.1.3
+      │   ├── stylo v0.8.0 (*)
+      │   └── stylo_traits v0.8.0 (*)
+      ├── match_token v0.35.0
+      │   └── html5ever v0.35.0
+      │       └── blitz-html v0.2.0 (*)
+      ├── num-derive v0.4.2
+      │   └── stylo v0.8.0 (*)
+      ├── phf_macros v0.11.3
+      │   └── phf v0.11.3
+      │       ├── cssparser v0.35.0 (*)
+      │       ├── selectors v0.32.0 (*)
+      │       └── web_atoms v0.1.3
+      │           ├── markup5ever v0.35.0
+      │           │   ├── blitz-dom v0.2.4 (*)
+      │           │   ├── html5ever v0.35.0 (*)
+      │           │   └── xml5ever v0.35.0
+      │           │       └── blitz-html v0.2.0 (*)
+      │           └── stylo v0.8.0 (*)
+      ├── rb-sys-build v0.9.130 (*)
+      ├── stylo_derive v0.8.0 (*)
+      ├── synstructure v0.13.2
+      │   ├── malloc_size_of_derive v0.1.3 (*)
+      │   ├── stylo_derive v0.8.0 (*)
+      │   └── to_shmem_derive v0.1.0 (*)
+      └── to_shmem_derive v0.1.0 (*)
+    [0m[36m├[0m syn v3.0.9
+      ├── bytemuck_derive v1.12.1
+      │   └── bytemuck v1.25.2
+      │       ├── font-types v0.10.1
+      │       │   └── read-fonts v0.35.0
+      │       │       ├── fontique v0.6.0
+      │       │       │   └── parley v0.6.0
+      │       │       │       └── blitz-dom v0.2.4
+      │       │       │           ├── blitz-html v0.2.0
+      │       │       │           │   └── surimono-dom v0.0.0
+      │       │       │           └── surimono-dom v0.0.0 (*)
+      │       │       ├── harfrust v0.3.2
+      │       │       │   └── parley v0.6.0 (*)
+      │       │       └── skrifa v0.37.0
+      │       │           ├── blitz-dom v0.2.4 (*)
+      │       │           └── parley v0.6.0 (*)
+      │       ├── font-types v0.12.7
+      │       │   └── read-fonts v0.41.0
+      │       │       └── skrifa v0.44.0
+      │       │           └── swash v0.2.10
+      │       │               └── parley v0.6.0 (*)
+      │       ├── fontique v0.6.0 (*)
+      │       ├── harfrust v0.3.2 (*)
+      │       ├── image v0.25.6
+      │       │   └── blitz-dom v0.2.4 (*)
+      │       ├── read-fonts v0.35.0 (*)
+      │       ├── read-fonts v0.41.0 (*)
+      │       ├── skrifa v0.37.0 (*)
+      │       └── skrifa v0.44.0 (*)
+      ├── displaydoc v0.2.7
+      │   ├── icu_collections v2.2.0
+      │   │   ├── icu_locale v2.2.0
+      │   │   │   └── icu_segmenter v2.2.0
+      │   │   │       └── stylo v0.8.0
+      │   │   │           ├── blitz-dom v0.2.4 (*)
+      │   │   │           └── stylo_taffy v0.2.0
+      │   │   │               └── blitz-dom v0.2.4 (*)
+      │   │   ├── icu_normalizer v2.2.0
+      │   │   │   └── idna_adapter v1.2.2
+      │   │   │       └── idna v1.1.0
+      │   │   │           └── url v2.5.8
+      │   │   │               ├── blitz-dom v0.2.4 (*)
+      │   │   │               ├── blitz-traits v0.2.0
+      │   │   │               │   ├── blitz-dom v0.2.4 (*)
+      │   │   │               │   ├── blitz-html v0.2.0 (*)
+      │   │   │               │   └── surimono-dom v0.0.0 (*)
+      │   │   │               ├── stylo v0.8.0 (*)
+      │   │   │               └── stylo_traits v0.8.0
+      │   │   │                   ├── blitz-dom v0.2.4 (*)
+      │   │   │                   └── stylo v0.8.0 (*)
+      │   │   ├── icu_properties v2.2.0
+      │   │   │   └── idna_adapter v1.2.2 (*)
+      │   │   └── icu_segmenter v2.2.0 (*)
+      │   ├── icu_locale_core v2.2.0
+      │   │   ├── fontique v0.6.0 (*)
+      │   │   ├── icu_locale v2.2.0 (*)
+      │   │   ├── icu_properties v2.2.0 (*)
+      │   │   └── icu_provider v2.2.0
+      │   │       ├── icu_locale v2.2.0 (*)
+      │   │       ├── icu_normalizer v2.2.0 (*)
+      │   │       ├── icu_properties v2.2.0 (*)
+      │   │       └── icu_segmenter v2.2.0 (*)
+      │   ├── icu_provider v2.2.0 (*)
+      │   ├── tinystr v0.8.5
+      │   │   ├── icu_locale v2.2.0 (*)
+      │   │   └── icu_locale_core v2.2.0 (*)
+      │   └── zerotrie v0.2.5
+      │       ├── icu_properties v2.2.0 (*)
+      │       └── icu_provider v2.2.0 (*)
+      ├── serde_derive v1.0.229
+      │   ├── serde v1.0.229
+      │   │   ├── app_units v0.7.8
+      │   │   │   ├── blitz-dom v0.2.4 (*)
+      │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   ├── stylo_malloc_size_of v0.8.0
+      │   │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   │   ├── stylo_dom v0.8.0
+      │   │   │   │   │   ├── blitz-dom v0.2.4 (*)
+      │   │   │   │   │   └── stylo v0.8.0 (*)
+      │   │   │   │   └── stylo_traits v0.8.0 (*)
+      │   │   │   └── stylo_traits v0.8.0 (*)
+      │   │   ├── blitz-traits v0.2.0 (*)
+      │   │   ├── cssparser v0.35.0
+      │   │   │   ├── blitz-dom v0.2.4 (*)
+      │   │   │   ├── lol_html v2.7.0
+      │   │   │   │   └── surimono v0.0.0
+      │   │   │   │       ├── surimono-cli v0.0.0
+      │   │   │   │       └── surimono-ruby v0.0.0
+      │   │   │   ├── selectors v0.32.0
+      │   │   │   │   ├── blitz-dom v0.2.4 (*)
+      │   │   │   │   ├── lol_html v2.7.0 (*)
+      │   │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   │   ├── stylo_malloc_size_of v0.8.0 (*)
+      │   │   │   │   └── stylo_traits v0.8.0 (*)
+      │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   ├── stylo_malloc_size_of v0.8.0 (*)
+      │   │   │   ├── stylo_traits v0.8.0 (*)
+      │   │   │   └── to_shmem v0.2.0
+      │   │   │       ├── selectors v0.32.0 (*)
+      │   │   │       ├── stylo v0.8.0 (*)
+      │   │   │       └── stylo_traits v0.8.0 (*)
+      │   │   ├── euclid v0.22.14
+      │   │   │   ├── blitz-dom v0.2.4 (*)
+      │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   ├── stylo_malloc_size_of v0.8.0 (*)
+      │   │   │   └── stylo_traits v0.8.0 (*)
+      │   │   ├── keyboard-types v0.7.0
+      │   │   │   ├── blitz-dom v0.2.4 (*)
+      │   │   │   └── blitz-traits v0.2.0 (*)
+      │   │   ├── servo_arc v0.4.3
+      │   │   │   ├── selectors v0.32.0 (*)
+      │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   ├── stylo_malloc_size_of v0.8.0 (*)
+      │   │   │   ├── stylo_traits v0.8.0 (*)
+      │   │   │   └── to_shmem v0.2.0 (*)
+      │   │   ├── string_cache v0.8.9
+      │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   ├── stylo_atoms v0.8.0
+      │   │   │   │   ├── stylo v0.8.0 (*)
+      │   │   │   │   ├── stylo_taffy v0.2.0 (*)
+      │   │   │   │   └── stylo_traits v0.8.0 (*)
+      │   │   │   ├── stylo_malloc_size_of v0.8.0 (*)
+      │   │   │   ├── to_shmem v0.2.0 (*)
+      │   │   │   └── web_atoms v0.1.3
+      │   │   │       ├── markup5ever v0.35.0
+      │   │   │       │   ├── blitz-dom v0.2.4 (*)
+      │   │   │       │   ├── html5ever v0.35.0
+      │   │   │       │   │   └── blitz-html v0.2.0 (*)
+      │   │   │       │   └── xml5ever v0.35.0
+      │   │   │       │       └── blitz-html v0.2.0 (*)
+      │   │   │       └── stylo v0.8.0 (*)
+      │   │   ├── stylo v0.8.0 (*)
+      │   │   ├── stylo_traits v0.8.0 (*)
+      │   │   ├── surimono v0.0.0 (*)
+      │   │   └── url v2.5.8 (*)
+      │   └── url v2.5.8 (*)
+      ├── synstructure v0.14.0
+      │   ├── yoke-derive v0.8.4
+      │   │   └── yoke v0.8.4
+      │   │       ├── icu_collections v2.2.0 (*)
+      │   │       ├── icu_provider v2.2.0 (*)
+      │   │       ├── zerotrie v0.2.5 (*)
+      │   │       └── zerovec v0.11.9
+      │   │           ├── icu_collections v2.2.0 (*)
+      │   │           ├── icu_locale v2.2.0 (*)
+      │   │           ├── icu_locale_core v2.2.0 (*)
+      │   │           ├── icu_normalizer v2.2.0 (*)
+      │   │           ├── icu_properties v2.2.0 (*)
+      │   │           ├── icu_provider v2.2.0 (*)
+      │   │           ├── icu_segmenter v2.2.0 (*)
+      │   │           ├── potential_utf v0.1.6
+      │   │           │   ├── icu_collections v2.2.0 (*)
+      │   │           │   ├── icu_locale v2.2.0 (*)
+      │   │           │   └── icu_segmenter v2.2.0 (*)
+      │   │           └── tinystr v0.8.5 (*)
+      │   └── zerofrom-derive v0.1.8
+      │       └── zerofrom v0.1.8
+      │           ├── icu_collections v2.2.0 (*)
+      │           ├── icu_provider v2.2.0 (*)
+      │           ├── yoke v0.8.4 (*)
+      │           ├── zerotrie v0.2.5 (*)
+      │           └── zerovec v0.11.9 (*)
+      ├── thiserror-impl v2.0.21
+      │   └── thiserror v2.0.21
+      │       ├── lol_html v2.7.0 (*)
+      │       ├── surimono v0.0.0 (*)
+      │       ├── surimono-core v0.0.0
+      │       │   ├── surimono v0.0.0 (*)
+      │       │   ├── surimono-dom v0.0.0 (*)
+      │       │   └── surimono-islands v0.0.0
+      │       │       └── surimono v0.0.0 (*)
+      │       ├── surimono-gfx v0.0.0
+      │       │   ├── surimono v0.0.0 (*)
+      │       │   └── surimono-islands v0.0.0 (*)
+      │       ├── surimono-islands v0.0.0 (*)
+      │       └── surimono-webidl v0.0.0
+      ├── yoke-derive v0.8.4 (*)
+      ├── zerofrom-derive v0.1.8 (*)
+      └── zerovec-derive v0.11.7
+          └── zerovec v0.11.9 (*)
+
+[0m[1m[38;5;11mwarning[duplicate][0m[1m: found 2 duplicate entries for crate 'synstructure'[0m
+    [0m[36m┌─[0m /home/runner/work/surimono/surimono/Cargo.lock:186:1
+    [0m[36m│[0m  
+[0m[36m186[0m [0m[36m│[0m [0m[33m╭[0m [0m[33msynstructure 0.13.2 registry+https://github.com/rust-lang/crates.io-index[0m
+[0m[36m187[0m [0m[36m│[0m [0m[33m│[0m [0m[33msynstructure 0.14.0 registry+https://github.com/rust-lang/crates.io-index[0m
+    [0m[36m│[0m [0m[33m╰[0m[0m[33m─────────────────────────────────────────────────────────────────────────┘ lock entries[0m
+    [0m[36m│[0m  
+    [0m[36m├[0m synstructure v0.13.2
+      ├── malloc_size_of_derive v0.1.3
+      │   ├── stylo v0.8.0
+      │   │   ├── blitz-dom v0.2.4
+      │   │   │   ├── blitz-html v0.2.0
+      │   │   │   │   └── surimono-dom v0.0.0
+      │   │   │   └── surimono-dom v0.0.0 (*)
+      │   │   └── stylo_taffy v0.2.0
+      │   │       └── blitz-dom v0.2.4 (*)
+      │   └── stylo_traits v0.8.0
+      │       ├── blitz-dom v0.2.4 (*)
+      │       └── stylo v0.8.0 (*)
+      ├── stylo_derive v0.8.0
+      │   └── stylo v0.8.0 (*)
+      └── to_shmem_derive v0.1.0
+          ├── selectors v0.32.0
+          │   ├── blitz-dom v0.2.4 (*)
+          │   ├── lol_html v2.7.0
+          │   │   └── surimono v0.0.0
+          │   │       ├── surimono-cli v0.0.0
+          │   │       └── surimono-ruby v0.0.0
+          │   ├── stylo v0.8.0 (*)
+          │   ├── stylo_malloc_size_of v0.8.0
+          │   │   ├── stylo v0.8.0 (*)
+          │   │   ├── stylo_dom v0.8.0
+          │   │   │   ├── blitz-dom v0.2.4 (*)
+          │   │   │   └── stylo v0.8.0 (*)
+          │   │   └── stylo_traits v0.8.0 (*)
+          │   └── stylo_traits v0.8.0 (*)
+          ├── stylo v0.8.0 (*)
+          └── stylo_traits v0.8.0 (*)
+    [0m[36m├[0m synstructure v0.14.0
+      ├── yoke-derive v0.8.4
+      │   └── yoke v0.8.4
+      │       ├── icu_collections v2.2.0
+      │       │   ├── icu_locale v2.2.0
+      │       │   │   └── icu_segmenter v2.2.0
+      │       │   │       └── stylo v0.8.0
+      │       │   │           ├── blitz-dom v0.2.4
+      │       │   │           │   ├── blitz-html v0.2.0
+      │       │   │           │   │   └── surimono-dom v0.0.0
+      │       │   │           │   └── surimono-dom v0.0.0 (*)
+      │       │   │           └── stylo_taffy v0.2.0
+      │       │   │               └── blitz-dom v0.2.4 (*)
+      │       │   ├── icu_normalizer v2.2.0
+      │       │   │   └── idna_adapter v1.2.2
+      │       │   │       └── idna v1.1.0
+      │       │   │           └── url v2.5.8
+      │       │   │               ├── blitz-dom v0.2.4 (*)
+      │       │   │               ├── blitz-traits v0.2.0
+      │       │   │               │   ├── blitz-dom v0.2.4 (*)
+      │       │   │               │   ├── blitz-html v0.2.0 (*)
+      │       │   │               │   └── surimono-dom v0.0.0 (*)
+      │       │   │               ├── stylo v0.8.0 (*)
+      │       │   │               └── stylo_traits v0.8.0
+      │       │   │                   ├── blitz-dom v0.2.4 (*)
+      │       │   │                   └── stylo v0.8.0 (*)
+      │       │   ├── icu_properties v2.2.0
+      │       │   │   └── idna_adapter v1.2.2 (*)
+      │       │   └── icu_segmenter v2.2.0 (*)
+      │       ├── icu_provider v2.2.0
+      │       │   ├── icu_locale v2.2.0 (*)
+      │       │   ├── icu_normalizer v2.2.0 (*)
+      │       │   ├── icu_properties v2.2.0 (*)
+      │       │   └── icu_segmenter v2.2.0 (*)
+      │       ├── zerotrie v0.2.5
+      │       │   ├── icu_properties v2.2.0 (*)
+      │       │   └── icu_provider v2.2.0 (*)
+      │       └── zerovec v0.11.9
+      │           ├── icu_collections v2.2.0 (*)
+      │           ├── icu_locale v2.2.0 (*)
+      │           ├── icu_locale_core v2.2.0
+      │           │   ├── fontique v0.6.0
+      │           │   │   └── parley v0.6.0
+      │           │   │       └── blitz-dom v0.2.4 (*)
+      │           │   ├── icu_locale v2.2.0 (*)
+      │           │   ├── icu_properties v2.2.0 (*)
+      │           │   └── icu_provider v2.2.0 (*)
+      │           ├── icu_normalizer v2.2.0 (*)
+      │           ├── icu_properties v2.2.0 (*)
+      │           ├── icu_provider v2.2.0 (*)
+      │           ├── icu_segmenter v2.2.0 (*)
+      │           ├── potential_utf v0.1.6
+      │           │   ├── icu_collections v2.2.0 (*)
+      │           │   ├── icu_locale v2.2.0 (*)
+      │           │   └── icu_segmenter v2.2.0 (*)
+      │           └── tinystr v0.8.5
+      │               ├── icu_locale v2.2.0 (*)
+      │               └── icu_locale_core v2.2.0 (*)
+      └── zerofrom-derive v0.1.8
+          └── zerofrom v0.1.8
+              ├── icu_collections v2.2.0 (*)
+              ├── icu_provider v2.2.0 (*)
+              ├── yoke v0.8.4 (*)
+              ├── zerotrie v0.2.5 (*)
+              └── zerovec v0.11.9 (*)
+
+advisories [32mok[0m, bans [32mok[0m, licenses [32mok[0m, sources [32mok[0m
+
+==> ok
