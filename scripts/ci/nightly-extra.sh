@@ -33,4 +33,10 @@ if [ -f crates/gfx/tests/fulgur_print.rs ]; then
   fi
   SURIMONO_REQUIRE_FULGUR=1 cargo test -p surimono-gfx --test fulgur_print --locked; ran=$((ran + 1))
 fi
+# On a release branch (release/v*, the release PR): the release dry-run.
+# Packages every crate and the gem; never publishes or tags.
+case "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}" in
+  release/v*)
+    step "release dry-run"; scripts/ci/release-dry-run.sh; ran=$((ran + 1)) ;;
+esac
 echo "nightly extra checks run: $ran"
