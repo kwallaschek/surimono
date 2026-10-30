@@ -23,9 +23,10 @@ fixtures/islands/<name>/
 
 `input.html` is a complete document: `@font-face` rules pointing at
 `../../fonts/`, an explicit `@page { size: 210mm 297mm; margin: 15mm }`, and one
-or more island markers, each inside `<figure class="island">` with
-`figure.island > svg { display: block }` so the inlined SVG lays out the same
-way in every engine. The page is a realistic report (header, intro, figure,
+or more island markers, each inside `<figure class="island">`. The page styles
+the island through the element surimono's pre-pass puts in the marker's place,
+`.surimono-island > svg { display: block }`, so the inlined SVG lays out the
+same way in every engine. The page is a realistic report (header, intro, figure,
 caption, summary rows) built only from layout that fulgur and Chrome agree on
 (see "Diff metric"):
 
@@ -51,7 +52,12 @@ refuses other sizes.
   The spec is used as is. Fixtures set `width`, `height` and
   `autosize: { type: "fit", contains: "padding" }` so the SVG is exactly W×H; the
   harness fails if it isn't.
-- Each marker is replaced by the SVG string; nothing else in the document changes.
+- Each marker is replaced by `<div class="surimono-island[ marker classes]"[ id="…"]
+  data-renderer="…">SVG</div>`, exactly what surimono's pre-pass emits
+  (`crates/surimono/src/prepass.rs`), and nothing else in the document changes.
+  The Chrome harness builds the same wrapper (`lib/islands-browser.js`, and
+  `islandWrapper` in `lib/fixtures.mjs` for `prepass.html`), so page CSS matches
+  on both sides.
 - Text is measured with the page's `@font-face` fonts, all loaded before any
   island renders. Every spec names its fonts (`textStyle.fontFamily`,
   `config.font`, or per axis and mark in Vega). Nothing may fall back to a
