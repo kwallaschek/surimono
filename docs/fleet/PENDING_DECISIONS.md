@@ -6,7 +6,7 @@
 - 2026-10-31 · WeakRef and FinalizationRegistry are strong/no-op shims; performance.now() returns 0 in phase 1 · GC timing must not leak; the phase-2 virtual clock will drive performance.now().
 - 2026-10-31 · Island entry is `entry(specJson, ctx)` with the spec as JSON text, validated in Rust first; it may return SVG or a Promise of SVG that settles without timers · BadJson with line and column before any JS runs; Vega's toSVG is async.
 - 2026-10-31 · IslandRunner is a fixed pool of worker threads, each owning its sandbox, behind a job queue; a fresh QuickJS runtime per render, prepared after replying · Send + Sync without rquickjs `parallel`; rquickjs 0.14 caches class prototypes per runtime (pins the first context), and a fresh runtime costs the same as a fresh context.
-- 2026-10-31 · TextMeasurer::approximate() is the islands default until gfx is wired in · Deterministic and font-free; the facade always passes the gfx measurer.
+- (superseded by #30: islands uses surimono_gfx::TextMeasurer; no fonts → IslandError::NoFonts; the estimate is test-only)
 
 ## PKG batch 1 (#4 #7 #10 #14)
 - 2026-10-31 · Ruby: Surimono::Renderer.new(fonts:, limits: {memory_mb:, time_ms:, stack_kb:}, seed:, error_policy:, renderers:, bundles:, pool_size:), #render(html), Surimono.render(html, **opts) caching ≤16 renderers · Mirrors the Rust facade in Ruby units.
