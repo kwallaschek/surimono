@@ -1,5 +1,7 @@
-//! Measured text equals laid-out text: Blitz 0.2.4, set up exactly as fulgur
-//! 0.40.0 sets it up, gives a text box the width `TextMeasurer` measured.
+//! Measured text equals laid-out HTML text: Blitz 0.2.4, set up exactly as
+//! fulgur 0.40.0 sets it up, gives a text box the width `TextMeasurer`
+//! measured. (Inline SVG text takes another path in fulgur, usvg with system
+//! fonts; `tests/fulgur_print.rs` covers it.)
 //!
 //! fulgur 0.40.0 `src/blitz_adapter.rs:303-348` (`parse_inner`) builds a
 //! fontique collection with `system_fonts` as configured, registers every
@@ -103,8 +105,9 @@ fn measured_width_equals_blitz_layout_width() {
 }
 
 /// With system fonts off, fontique has no generic families, so Blitz finds no
-/// font for `sans-serif` and lays the text out with zero width. This is why
-/// sanitize_svg writes registered family names, never generics.
+/// font for `sans-serif` and lays HTML text out with zero width: page CSS
+/// must name a registered family. (Island SVG text is outlined, so it never
+/// reaches this lookup.)
 #[test]
 fn generic_families_find_no_font_in_blitz_without_system_fonts() {
     let fonts = common::test_fonts();
