@@ -32,7 +32,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 
 - P1-RT-09 · RT · doing · QuickJS patch (vendored rquickjs-sys, [patch]): sticky interrupt, interrupt polls in native array loops and typed-array sort; watchdog tests; upstream drafts (v0.1 release blocker)
 - P1-RT-10 · RT · todo · Use surimono-gfx's TextMeasurer/TextMetrics in islands (one type each across the API)
-- P1-RT-11 · RT · todo · Rust harness running fixtures/hostile/manifest.toml against the sandbox and the island runner
+- P1-RT-12 · RT · todo · Islands follow-ups from #21/#29 review: Vega image/href refused synchronously with tests; preload time vs deadline; built-in vs registered name race; entry check consistency; idle-wait in tests; docs
+- P1-RT-13 · RT · todo · Core test robustness (after #8/#32 merge): heap_returns_to_baseline_after_reset fails under nightly ASan (TimeLimit; give it a generous limit or relax under sanitizers); time_limit_is_per_call flaky under load; plus #8/#32 review follow-ups
+- P1-RT-11 · RT · doing · Rust harness running fixtures/hostile/manifest.toml against the sandbox and the island runner
 
 ### Graphics engineer (crates/gfx)
 - P1-GFX-01 · GFX · review · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
