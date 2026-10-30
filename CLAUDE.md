@@ -82,10 +82,15 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
 1. **Worktree.** Work in your own git worktree, never in the main checkout:
    `git -C /home/claude/surimono worktree add /home/claude/wt/<task-id> -b <task-id> main`
    Branch names are the task id from `docs/TASKS.md` in lower case, e.g. `p1-rt-01`.
-2. **Shared build cache.** Always `export CARGO_TARGET_DIR=/home/claude/target`
-   and `export CARGO_BUILD_JOBS=2` (the machine has 2 cores and 7 GB of RAM). Cargo
+2. **Shared build cache.** Always `export CARGO_TARGET_DIR=/home/claude/target`,
+   `export CARGO_BUILD_JOBS=2` and `export CARGO_INCREMENTAL=0` (disk is tight; never
+   create another target dir) (the machine has 2 cores and 7 GB of RAM). Cargo
    serialises builds on that directory; waiting on its lock is normal. Build only
-   your crates (`-p surimono-core`) while iterating.
+   your crates (`-p surimono-core`) while iterating. **Run
+   `scripts/fleet/touch-workspace.sh` before every build or test**: worktrees share
+   artifact names for workspace crates, so without it cargo can silently use another
+   worktree's build of a crate (false red or false green). GitHub CI uses a fresh
+   target dir and is the authoritative result.
 3. **Checks before you report.** Run `scripts/ci.sh` from your worktree; it runs
    exactly what CI runs on Linux (fmt, clippy with warnings as errors, tests,
    cargo-deny). Your branch must pass it.
