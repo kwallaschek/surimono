@@ -23,13 +23,8 @@ use surimono_islands::{
 #[global_allocator]
 static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
-const RENDERS: usize = 10_000;
-/// Renders per round; memory is sampled between rounds, with no render in
-/// flight.
-const SAMPLE_EVERY: usize = 500;
-/// Live heap bytes are compared from this render on.
-const WARM_UP: usize = 2_000;
-/// Largest growth of live heap bytes allowed from `WARM_UP` to the end.
+/// Largest growth of live heap bytes allowed from the end of warm-up to the
+/// end of a soak.
 const MAX_LIVE_GROWTH: i64 = 64 * 1024;
 /// Threads calling `render` at the same time.
 const CALLERS: usize = 3;
@@ -133,9 +128,129 @@ struct Sample {
     rss_kib: u64,
 }
 
+/// How a soak runs.
+struct Soak<'a> {
+    name: &'a str,
+    runner: &'a IslandRunner,
+    renderer: &'a str,
+    /// The runner's heap limit per render.
+    memory_bytes: usize,
+    renders: usize,
+    /// Renders per round; memory is sampled between rounds, after `pause`,
+    /// with no render in flight and the workers done recycling.
+    sample_every: usize,
+    /// Live heap bytes are compared from this render on.
+    warm_up: usize,
+    pause: Duration,
+    spec: &'a (dyn Fn(usize) -> String + Sync),
+    check: &'a (dyn Fn(usize, Result<String, IslandError>) + Sync),
+}
+
+/// Soaks run one at a time: the live-byte counter is process-wide, and the
+/// test harness runs tests in parallel.
+static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Runs a soak with `CALLERS` threads and asserts that live heap bytes stay
+/// flat after warm-up; prints the samples and resident memory.
+fn run_soak(soak: &Soak<'_>) {
+    let name = soak.name;
+    let start_rss = rss_kib();
+    let rounds = soak.renders / soak.sample_every;
+    let mut samples: Vec<Sample> = Vec::with_capacity(rounds + 1);
+    let first_svg_len = AtomicUsize::new(0);
+    let started = Instant::now();
+    for round in 0..rounds {
+        let base = round * soak.sample_every;
+        // CALLERS threads share the round's renders, so the workers render
+        // concurrently and callers queue.
+        std::thread::scope(|s| {
+            for caller in 0..CALLERS {
+                let first_svg_len = &first_svg_len;
+                s.spawn(move || {
+                    for i in (base + caller..base + soak.sample_every).step_by(CALLERS) {
+                        let spec = (soak.spec)(i);
+                        let result = soak.runner.render(&IslandRequest {
+                            renderer: soak.renderer,
+                            spec_json: &spec,
+                            width: 800,
+                            height: 400,
+                        });
+                        if i == 0 {
+                            if let Ok(svg) = &result {
+                                first_svg_len.store(svg.len(), Ordering::Relaxed);
+                            }
+                        }
+                        (soak.check)(i, result);
+                    }
+                });
+            }
+        });
+        std::thread::sleep(soak.pause);
+        samples.push(Sample {
+            renders: base + soak.sample_every,
+            live: live_bytes(),
+            rss_kib: rss_kib().unwrap_or(0),
+        });
+    }
+    let elapsed = started.elapsed();
+
+    eprintln!(
+        "{name}: {} renders in {elapsed:?} ({:?} per render incl. {rounds} pauses of {:?}), {CALLERS} callers, {} workers, first SVG {} bytes",
+        soak.renders,
+        elapsed / soak.renders as u32,
+        soak.pause,
+        soak.runner.pool_size(),
+        first_svg_len.load(Ordering::Relaxed)
+    );
+    eprintln!("{name}: resident memory before start {start_rss:?} KiB");
+    for s in &samples {
+        eprintln!(
+            "{name}: after {:>5} renders  live heap {:>10} bytes  resident {:>8} KiB",
+            s.renders, s.live, s.rss_kib
+        );
+    }
+    eprintln!("{name}: {:?}", soak.runner.stats());
+
+    // The signal: live heap bytes after warm-up.
+    let at = |n: usize| samples.iter().find(|s| s.renders == n).unwrap();
+    let warm = at(soak.warm_up).live;
+    let end = at(soak.renders).live;
+    let highest = samples
+        .iter()
+        .filter(|s| s.renders >= soak.warm_up)
+        .map(|s| s.live)
+        .max()
+        .unwrap();
+    eprintln!(
+        "{name}: live heap from render {} to {}: {warm} -> {end} bytes ({:+} bytes, highest {highest}), limit +{MAX_LIVE_GROWTH}",
+        soak.warm_up,
+        soak.renders,
+        end - warm
+    );
+    assert!(
+        end - warm < MAX_LIVE_GROWTH && highest - warm < MAX_LIVE_GROWTH,
+        "{name}: live heap grew from {warm} to {end} bytes (highest {highest}) after warm-up"
+    );
+
+    // A loose bound on resident memory, from the settings: every worker's
+    // heap at its limit, twice for allocator slack, plus 64 MiB.
+    if let Some(start) = start_rss {
+        let bound =
+            start + (2 * soak.runner.pool_size() * soak.memory_bytes) as u64 / 1024 + 64 * 1024;
+        let peak = samples.iter().map(|s| s.rss_kib).max().unwrap();
+        eprintln!("{name}: peak resident {peak} KiB, bound {bound} KiB");
+        assert!(
+            peak < bound,
+            "{name}: peak resident memory {peak} KiB is above {bound} KiB"
+        );
+    }
+}
+
 #[test]
 #[ignore = "soak: 10,000 renders; run in release with `--ignored soak`"]
 fn soak_10000_renders_flat_memory() {
+    const RENDERS: usize = 10_000;
+    let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let runner = IslandRunner::new(RunnerOptions {
         pool_size: POOL_SIZE,
         limits: Limits {
@@ -147,96 +262,75 @@ fn soak_10000_renders_flat_memory() {
     })
     .unwrap();
     runner.register_bundle("chart", BUNDLE, "entry").unwrap();
-
-    let start_rss = rss_kib();
-    let mut samples: Vec<Sample> = Vec::with_capacity(RENDERS / SAMPLE_EVERY + 1);
-    let first_svg_len = AtomicUsize::new(0);
     let started = Instant::now();
-    for round in 0..RENDERS / SAMPLE_EVERY {
-        let base = round * SAMPLE_EVERY;
-        // CALLERS threads share the round's renders, so the workers render
-        // concurrently and callers queue.
-        std::thread::scope(|s| {
-            for caller in 0..CALLERS {
-                let runner = &runner;
-                let first_svg_len = &first_svg_len;
-                s.spawn(move || {
-                    for i in (base + caller..base + SAMPLE_EVERY).step_by(CALLERS) {
-                        let spec = spec(i);
-                        let result = runner.render(&IslandRequest {
-                            renderer: "chart",
-                            spec_json: &spec,
-                            width: 800,
-                            height: 120,
-                        });
-                        if i == 0 {
-                            if let Ok(svg) = &result {
-                                first_svg_len.store(svg.len(), Ordering::Relaxed);
-                            }
-                        }
-                        check(i, result);
-                    }
-                });
-            }
-        });
-        // Workers reset their runtime right after replying; let them finish.
-        std::thread::sleep(Duration::from_millis(100));
-        samples.push(Sample {
-            renders: base + SAMPLE_EVERY,
-            live: live_bytes(),
-            rss_kib: rss_kib().unwrap_or(0),
-        });
-    }
-    let elapsed = started.elapsed();
-
-    eprintln!(
-        "soak: {RENDERS} renders in {elapsed:?} ({:?} per render incl. {} pauses), {CALLERS} callers, {POOL_SIZE} workers, first SVG {} bytes",
-        elapsed / RENDERS as u32,
-        RENDERS / SAMPLE_EVERY,
-        first_svg_len.load(Ordering::Relaxed)
-    );
-    eprintln!("soak: resident memory before start {start_rss:?} KiB");
-    for s in &samples {
-        eprintln!(
-            "soak: after {:>5} renders  live heap {:>10} bytes  resident {:>8} KiB",
-            s.renders, s.live, s.rss_kib
-        );
-    }
+    run_soak(&Soak {
+        name: "soak",
+        runner: &runner,
+        renderer: "chart",
+        memory_bytes: MEMORY_BYTES,
+        renders: RENDERS,
+        sample_every: 500,
+        warm_up: 2_000,
+        pause: Duration::from_millis(100),
+        spec: &spec,
+        check: &check,
+    });
     let stats = runner.stats();
-    eprintln!("soak: {stats:?}");
     let planned_failures = (0..RENDERS).filter(|&i| plan(i) != Plan::Ok).count();
     assert_eq!(stats.renders, RENDERS as u64);
     assert_eq!(stats.failed_renders, planned_failures as u64);
+    assert!(started.elapsed() < Duration::from_secs(600));
+}
 
-    // The signal: live heap bytes after warm-up.
-    let at = |n: usize| samples.iter().find(|s| s.renders == n).unwrap();
-    let warm = at(WARM_UP).live;
-    let end = at(RENDERS).live;
-    let max_after_warm_up = samples
-        .iter()
-        .filter(|s| s.renders >= WARM_UP)
-        .map(|s| s.live)
-        .max()
-        .unwrap();
-    eprintln!(
-        "soak: live heap from render {WARM_UP} to {RENDERS}: {warm} -> {end} bytes ({:+} bytes, highest {max_after_warm_up}), limit +{MAX_LIVE_GROWTH}",
-        end - warm
-    );
-    assert!(
-        end - warm < MAX_LIVE_GROWTH && max_after_warm_up - warm < MAX_LIVE_GROWTH,
-        "live heap grew from {warm} to {end} bytes (highest {max_after_warm_up}) after warm-up"
-    );
-
-    // A loose bound on resident memory, from the settings: every worker's
-    // heap at its limit, twice for allocator slack, plus 64 MiB.
-    if let Some(start) = start_rss {
-        let bound = start + (2 * POOL_SIZE * MEMORY_BYTES) as u64 / 1024 + 64 * 1024;
-        let peak = samples.iter().map(|s| s.rss_kib).max().unwrap();
-        eprintln!("soak: peak resident {peak} KiB, bound {bound} KiB");
-        assert!(
-            peak < bound,
-            "peak resident memory {peak} KiB is above {bound} KiB"
-        );
-    }
-    assert!(elapsed < Duration::from_secs(600));
+/// The product's allocation profile: real charts, rotating through the
+/// ECharts test options, with an exception every 100th render.
+#[cfg(feature = "echarts")]
+#[test]
+#[ignore = "soak: 2,000 ECharts renders; run in release with `--ignored soak`"]
+fn soak_echarts_2000_renders_flat_memory() {
+    const RENDERS: usize = 2_000;
+    let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/echarts");
+    let mut options: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .map(|p| std::fs::read_to_string(p).unwrap())
+        .collect();
+    options.sort();
+    assert!(options.len() >= 6);
+    let runner = IslandRunner::new(RunnerOptions {
+        pool_size: POOL_SIZE,
+        ..RunnerOptions::default()
+    })
+    .unwrap();
+    let spec = |i: usize| {
+        if i % 100 == 42 {
+            // Not an option object: the renderer throws.
+            "[]".to_owned()
+        } else {
+            options[i % options.len()].clone()
+        }
+    };
+    let check = |i: usize, result: Result<String, IslandError>| match result {
+        Err(IslandError::Sandbox(SandboxError::Exception { .. })) if i % 100 == 42 => {}
+        Ok(svg) if i % 100 != 42 => assert!(svg.starts_with("<svg"), "render {i}"),
+        other => panic!("render {i}: unexpected {other:?}"),
+    };
+    run_soak(&Soak {
+        name: "soak-echarts",
+        runner: &runner,
+        renderer: "echarts",
+        memory_bytes: Limits::DEFAULT_MEMORY_BYTES,
+        renders: RENDERS,
+        sample_every: 250,
+        warm_up: 500,
+        // Long enough for both workers to preload ECharts again.
+        pause: Duration::from_millis(500),
+        spec: &spec,
+        check: &check,
+    });
+    let stats = runner.stats();
+    assert_eq!(stats.renders, RENDERS as u64);
+    assert_eq!(stats.failed_renders, (RENDERS / 100) as u64);
 }
