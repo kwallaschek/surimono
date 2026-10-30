@@ -205,7 +205,9 @@ impl Options {
     /// ```
     /// use surimono::{Options, Renderer};
     ///
-    /// let renderer = Renderer::new(Options::new().bundle(
+    /// # let font = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/NotoSans-Regular.ttf"))
+    /// #     .unwrap_or_else(|e| panic!("{e}"));
+    /// let renderer = Renderer::new(Options::new().font(font).bundle(
     ///     "badge",
     ///     "function entry(specJson, ctx) {
     ///        const spec = JSON.parse(specJson);
