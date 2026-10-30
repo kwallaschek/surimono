@@ -12,7 +12,7 @@ use surimono_core::rquickjs::function::Opt;
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
 use surimono_core::{Bytecode, Limits, Sandbox, SandboxOptions};
 
-use crate::{IslandError, TextMeasurer};
+use crate::{IslandError, TextMeasurer, builtins};
 
 /// How an [`IslandRunner`] is set up.
 ///
@@ -157,6 +157,8 @@ pub struct RunnerStats {
 pub struct IslandRunner {
     shared: Arc<Shared>,
     bundles: RwLock<HashMap<String, Arc<Bundle>>>,
+    /// Held while a built-in renderer is compiled on first use.
+    builtin_lock: Mutex<()>,
     jobs: Option<Sender<Job>>,
     workers: Vec<JoinHandle<()>>,
 }
@@ -215,6 +217,7 @@ impl IslandRunner {
         Ok(Self {
             shared,
             bundles: RwLock::new(HashMap::new()),
+            builtin_lock: Mutex::new(()),
             jobs: Some(tx),
             workers,
         })
@@ -252,16 +255,12 @@ impl IslandRunner {
     }
 
     /// Renders one island and returns the renderer's SVG string.
+    ///
+    /// A built-in renderer (see [`builtin_renderers`](crate::builtin_renderers))
+    /// is compiled on its first use, unless a bundle was registered under
+    /// its name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
-        let bundle = self
-            .bundles
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(req.renderer)
-            .cloned()
-            .ok_or_else(|| IslandError::UnknownRenderer {
-                name: req.renderer.to_owned(),
-            })?;
+        let bundle = self.bundle(req.renderer)?;
         serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(|e| {
             IslandError::BadJson {
                 message: e.to_string(),
@@ -278,7 +277,39 @@ impl IslandRunner {
         })
     }
 
-    /// Names of the registered renderers, sorted.
+    /// The bundle for `name`: a registered one, or a built-in compiled now.
+    fn bundle(&self, name: &str) -> Result<Arc<Bundle>, IslandError> {
+        let registered = |bundles: &RwLock<HashMap<String, Arc<Bundle>>>| {
+            bundles
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get(name)
+                .cloned()
+        };
+        if let Some(bundle) = registered(&self.bundles) {
+            return Ok(bundle);
+        }
+        let Some(builtin) = builtins::find(name) else {
+            return Err(IslandError::UnknownRenderer {
+                name: name.to_owned(),
+            });
+        };
+        // One compile per built-in, even if many threads ask at once.
+        let _compiling = self
+            .builtin_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if let Some(bundle) = registered(&self.bundles) {
+            return Ok(bundle);
+        }
+        self.register_bundle(builtin.name, builtin.source, builtin.entry)?;
+        registered(&self.bundles).ok_or_else(|| IslandError::UnknownRenderer {
+            name: name.to_owned(),
+        })
+    }
+
+    /// Names of the registered renderers, sorted. Built-in renderers are
+    /// listed once they have been used.
     pub fn renderers(&self) -> Vec<String> {
         let mut names: Vec<String> = self
             .bundles
