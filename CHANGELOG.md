@@ -38,6 +38,11 @@ The first release: chart islands.
 - **SVG cleaning** before inlining: scripts, event handlers and external URLs
   removed, ids prefixed per island, font families rewritten to the registered
   fonts.
+- **Chart text as outlines** by default: island text is drawn as vector paths
+  from the registered fonts, so it prints exactly as measured whatever fonts
+  the PDF engine has (fulgur 0.40 prints SVG text with system fonts). The
+  original string is kept for accessibility. `text: :keep` (Ruby) or
+  `TextMode::Keep` (Rust) keeps real, selectable text instead.
 - **Rust API** in the `surimono` crate: `Renderer::new(Options)`,
   `Renderer::render_islands(&str)`, `Options` builder (fonts, limits, seed,
   error policy, renderers, bundles, pool size), `Limits`, `ErrorPolicy` and one

@@ -34,8 +34,8 @@ benchmark in `bench/` has results. Until then this README gives no numbers._
   [THIRD_PARTY.md](THIRD_PARTY.md).
 - **Bring your own bundle.** Any script that defines a function taking the
   island's JSON and returning an SVG string can be a renderer.
-- **Text measured with your fonts.** Chart labels are measured with the same
-  font files your PDF engine prints with, so they fit.
+- **Chart text in your fonts.** Chart labels are measured and drawn with the
+  font files you pass in, so they fit and look the same on any server.
 - **A sandbox.** Every script runs under memory, time and stack limits, with no
   filesystem or network access.
 - **Ruby and Rust.** The gem and the crate expose the same API.
@@ -88,7 +88,8 @@ The view puts the chart's spec into an island marker:
 ```
 
 The controller renders the view, draws the islands, and prints the result with
-fulgur, using the same font files for both:
+fulgur. Both get the same font files: surimono draws the chart text with them,
+and fulgur prints the page's own text with them.
 
 ```ruby
 class ReportsController < ApplicationController
@@ -119,8 +120,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (mut options, mut assets) = (Options::new(), fulgur::AssetBundle::new());
     for path in ["fonts/NotoSans-Regular.ttf", "fonts/NotoSansJP-Regular.otf"] {
         let bytes = std::fs::read(path)?;
-        options = options.font(bytes.clone()); // measured with these
-        assets.add_font_bytes(bytes)?;         // printed with these
+        options = options.font(bytes.clone()); // chart text
+        assets.add_font_bytes(bytes)?;         // page text
     }
     let renderer = Renderer::new(options)?; // build once, reuse: it is Send + Sync
     let html = renderer.render_islands(&std::fs::read_to_string("report.html")?)?;
@@ -182,7 +183,8 @@ hang your process. Scripts get the JavaScript language and nothing else: no
 filesystem, network, module imports, DOM, timers or `console`. The built-in
 renderers bring the few stubs their libraries need. The SVG that comes back is
 cleaned before it is inlined: no `<script>`, no event handlers, no external
-URLs, and every `id` prefixed per island so two charts can't collide.
+URLs, and every `id` prefixed per island so two charts can't collide. Its text
+is then drawn as outlines (see [Fonts](#fonts)).
 
 The same HTML and options give the same bytes on every run and every machine:
 
@@ -194,11 +196,23 @@ The same HTML and options give the same bytes on every run and every machine:
 
 ## Fonts
 
-Pass the same font files to surimono and to your PDF engine. surimono measures
-chart labels with them, and the engine prints with them, so the labels fit.
+Pass the same font files to surimono and to your PDF engine.
 
-- **Name your fonts in page CSS.** Island SVG is rewritten to use your
-  registered fonts, so charts are safe. Your own CSS is not rewritten. Write
+- **Chart text becomes outlines.** By default surimono draws every label in an
+  island as vector paths, using the font files you passed. fulgur 0.40 prints
+  `<svg>` text with the machine's system fonts rather than the fonts you
+  register, so labels would otherwise print in a different font from the one
+  they were measured with, and differ from server to server. As outlines they
+  look exactly as measured, everywhere. The cost: chart text can't be selected,
+  searched or copied in the PDF. The original string is kept in the SVG for
+  accessibility (`aria-label` / `<title>`).
+  <!-- confirm: exact attribute/element when the gfx outline change lands -->
+- **Keeping real text is an option** (`text: :keep` in Ruby,
+  `TextMode::Keep` in Rust). Do this only if your PDF engine prints SVG text
+  with your registered fonts. With fulgur 0.40 it doesn't, so labels print in
+  a system font and may overflow or clip.
+- **Name your fonts in page CSS.** surimono doesn't touch the rest of the page,
+  and your PDF engine prints its text. Write
   `font-family: "Noto Sans", "Noto Sans JP"` with the family names inside the
   font files, not `sans-serif` alone. In Rust with fulgur's system fonts off,
   text set in a generic family alone prints blank. With fulgur's Ruby gem 0.40.0,
@@ -221,6 +235,10 @@ chart labels with them, and the engine prints with them, so the labels fit.
   (`"formatter": "{value} 円"`), or write your own bundle.
 - **No network.** A Vega spec that loads data from a URL fails. Put the data in
   the spec (`"values": [...]`).
+- **Chart text isn't text.** By default, chart labels are vector outlines in
+  the PDF, so they can't be selected, searched or copied, and screen readers
+  get only what the PDF engine makes of the string kept in the SVG. Keeping
+  real text (`text: :keep`) prints it in a system font with fulgur 0.40.
 - **Static output.** Animations are off and the chart is drawn in its final
   state. Tooltips and hover states don't exist in a PDF.
 - **The time limit is per island.** A document with many islands can take that
