@@ -14,11 +14,35 @@ use crate::{Limits, SandboxError};
 /// How a [`Sandbox`] is set up.
 ///
 /// Besides the limits, these pin everything a script could otherwise read
-/// from the host, so the same input gives the same output on any machine:
-/// `Math.random` is seeded, `Date.now()` and `new Date()` return a fixed
-/// instant, local time is a fixed offset from UTC (never the host's zone),
-/// and `performance.now()` is a virtual clock.
+/// from the host, so the same input gives the same output whatever the
+/// host's clock and time zone: `Math.random` is seeded, `Date.now()` and
+/// `new Date()` return a fixed instant, local time (including how
+/// `Date.parse` reads strings without a zone) is a fixed offset from UTC,
+/// never the host's zone, and `performance.now()` is a virtual clock.
+///
+/// Floating-point maths is the exception: `Math.sin`, `Math.exp`,
+/// `Math.pow` and their kin come from the platform's C library, which can
+/// differ in the last bit between glibc, musl and macOS. Output is
+/// byte-identical across runs on one platform; across platforms, numbers
+/// computed with those functions can differ in their last digits.
+///
+/// Locale-sensitive methods (`toLocaleString` and friends) ignore their
+/// `locales` and `options` arguments and always format like Chrome's
+/// `en-US`.
+///
+/// Start from [`SandboxOptions::default`] and adjust it with the `with_*`
+/// setters; more options will be added in later versions:
+///
+/// ```
+/// use surimono_core::{Limits, SandboxOptions};
+///
+/// let tokyo = SandboxOptions::default()
+///     .with_utc_offset_minutes(9 * 60)
+///     .with_limits(Limits::default().with_memory_bytes(32 << 20));
+/// assert_eq!(tokyo.validate(), Ok(()));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SandboxOptions {
     /// Memory, time and stack limits for every call.
     pub limits: Limits,
@@ -43,6 +67,34 @@ impl SandboxOptions {
     pub const MIN_UTC_OFFSET_MINUTES: i32 = -12 * 60;
     /// Latest real-world UTC offset, in minutes (UTC+14:00).
     pub const MAX_UTC_OFFSET_MINUTES: i32 = 14 * 60;
+
+    /// These options with `limits` as the limits.
+    #[must_use]
+    pub fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// These options with `Math.random` seeded with `seed`.
+    #[must_use]
+    pub fn with_random_seed(mut self, seed: u64) -> Self {
+        self.random_seed = seed;
+        self
+    }
+
+    /// These options with the clock fixed at `now_ms` (ms since the epoch).
+    #[must_use]
+    pub fn with_now_ms(mut self, now_ms: i64) -> Self {
+        self.now_ms = now_ms;
+        self
+    }
+
+    /// These options with local time `minutes` ahead of UTC.
+    #[must_use]
+    pub fn with_utc_offset_minutes(mut self, minutes: i32) -> Self {
+        self.utc_offset_minutes = minutes;
+        self
+    }
 
     /// Checks every option is in range.
     pub fn validate(&self) -> Result<(), SandboxError> {

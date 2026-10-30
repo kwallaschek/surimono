@@ -2,6 +2,7 @@
 //! pinned by `SandboxOptions`.
 
 use std::process::Command;
+use std::time::Duration;
 
 use surimono_core::{Limits, Sandbox, SandboxError, SandboxOptions};
 
@@ -14,10 +15,7 @@ fn default_sandbox() -> Sandbox {
 }
 
 fn tokyo() -> SandboxOptions {
-    SandboxOptions {
-        utc_offset_minutes: 9 * 60,
-        ..SandboxOptions::default()
-    }
+    SandboxOptions::default().with_utc_offset_minutes(9 * 60)
 }
 
 /// A script that reads every source of non-determinism we know of.
@@ -48,10 +46,7 @@ JSON.stringify(out)
 #[test]
 fn math_random_is_seeded() {
     let seq = |seed| {
-        let mut sb = sandbox(SandboxOptions {
-            random_seed: seed,
-            ..SandboxOptions::default()
-        });
+        let mut sb = sandbox(SandboxOptions::default().with_random_seed(seed));
         sb.eval::<Vec<f64>>("Array.from({ length: 1000 }, Math.random)")
             .unwrap()
     };
@@ -96,10 +91,7 @@ fn clock_is_fixed_and_configurable() {
         0.0
     );
 
-    let mut later = sandbox(SandboxOptions {
-        now_ms: 1_000,
-        ..SandboxOptions::default()
-    });
+    let mut later = sandbox(SandboxOptions::default().with_now_ms(1_000));
     assert_eq!(
         later
             .eval::<String>("new Date().toISOString() + ' ' + performance.timeOrigin")
@@ -185,10 +177,7 @@ fn local_time_follows_the_configured_offset() {
     for (src, want) in checks {
         assert_eq!(sb.eval::<String>(src).unwrap(), want, "{src}");
     }
-    let mut west = sandbox(SandboxOptions {
-        utc_offset_minutes: -(5 * 60 + 30),
-        ..SandboxOptions::default()
-    });
+    let mut west = sandbox(SandboxOptions::default().with_utc_offset_minutes(-(5 * 60 + 30)));
     assert_eq!(
         west.eval::<String>("new Date().toTimeString()").unwrap(),
         "18:30:00 GMT-0530"
@@ -284,13 +273,10 @@ fn two_runs_are_byte_identical() {
     sb.reset().unwrap();
     assert_eq!(sb.eval::<String>(EVERYTHING).unwrap(), a);
     // And after a limit error rebuilt the runtime.
-    let mut limited = sandbox(SandboxOptions {
-        limits: Limits {
-            time: std::time::Duration::from_millis(50),
-            ..Limits::default()
-        },
-        ..SandboxOptions::default()
-    });
+    let mut limited = sandbox(
+        SandboxOptions::default()
+            .with_limits(Limits::default().with_time(std::time::Duration::from_millis(50))),
+    );
     assert_eq!(
         limited.eval::<()>("for (;;) {}"),
         Err(SandboxError::TimeLimit)
@@ -301,18 +287,11 @@ fn two_runs_are_byte_identical() {
 #[test]
 fn invalid_options_are_rejected() {
     for bad in [
-        SandboxOptions {
-            utc_offset_minutes: 15 * 60,
-            ..SandboxOptions::default()
-        },
-        SandboxOptions {
-            utc_offset_minutes: -13 * 60,
-            ..SandboxOptions::default()
-        },
-        SandboxOptions {
-            now_ms: i64::MAX,
-            ..SandboxOptions::default()
-        },
+        SandboxOptions::default().with_utc_offset_minutes(15 * 60),
+        SandboxOptions::default().with_utc_offset_minutes(-13 * 60),
+        SandboxOptions::default().with_now_ms(i64::MAX),
+        SandboxOptions::default().with_limits(Limits::default().with_time(Duration::ZERO)),
+        SandboxOptions::default().with_limits(Limits::default().with_memory_bytes(usize::MAX)),
     ] {
         assert!(matches!(
             Sandbox::with_options(bad).unwrap_err(),
