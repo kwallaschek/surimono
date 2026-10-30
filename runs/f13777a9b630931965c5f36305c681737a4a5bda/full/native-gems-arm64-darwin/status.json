@@ -1,0 +1,1 @@
+{"workflow":"full","job":"native-gems","matrix":"arm64-darwin","status":"success","sha":"f13777a9b630931965c5f36305c681737a4a5bda","ref":"release/ci-check-p1-pkg-10","event":"push","run_id":"41134490703","attempt":"1","finished_at":"2026-10-30T21:57:24Z"}
