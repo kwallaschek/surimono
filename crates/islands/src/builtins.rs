@@ -23,10 +23,32 @@ const ECHARTS: Builtin = Builtin {
     entry: "entry",
 };
 
+/// Vega and Vega-Lite share one bundle with an entry for each.
+#[cfg(feature = "vega")]
+const VEGA_SOURCE: &str = include_str!("../bundles/vega/vega.min.js");
+
+#[cfg(feature = "vega")]
+const VEGA: Builtin = Builtin {
+    name: "vega",
+    source: VEGA_SOURCE,
+    entry: "vegaEntry",
+};
+
+#[cfg(feature = "vega")]
+const VEGA_LITE: Builtin = Builtin {
+    name: "vega-lite",
+    source: VEGA_SOURCE,
+    entry: "vegaLiteEntry",
+};
+
 /// Every built-in renderer in this build, sorted by name.
 const ALL: &[Builtin] = &[
     #[cfg(feature = "echarts")]
     ECHARTS,
+    #[cfg(feature = "vega")]
+    VEGA,
+    #[cfg(feature = "vega")]
+    VEGA_LITE,
 ];
 
 /// The built-in renderer called `name`, if this build has it.
@@ -36,8 +58,8 @@ pub(crate) fn find(name: &str) -> Option<Builtin> {
 
 /// Names of the built-in renderers in this build, sorted.
 ///
-/// Which ones are present depends on Cargo features: `echarts` (on by
-/// default) adds `"echarts"`. A bundle registered under the same name with
+/// Which ones are present depends on Cargo features, both on by default:
+/// `echarts` adds `"echarts"`, and `vega` adds `"vega"` and `"vega-lite"`. A bundle registered under the same name with
 /// [`IslandRunner::register_bundle`](crate::IslandRunner::register_bundle)
 /// takes precedence over the built-in.
 pub fn builtin_renderers() -> Vec<&'static str> {
@@ -74,5 +96,17 @@ mod tests {
                 .source
                 .contains("Apache ECharts 6.1.0")
         );
+    }
+
+    #[cfg(feature = "vega")]
+    #[test]
+    fn vega_and_vega_lite_are_built_in() {
+        let names = builtin_renderers();
+        assert!(names.contains(&"vega") && names.contains(&"vega-lite"));
+        let vega = find("vega").unwrap();
+        let lite = find("vega-lite").unwrap();
+        assert!(vega.source == lite.source, "one shared bundle");
+        assert_ne!(vega.entry, lite.entry);
+        assert!(vega.source.contains("Vega 6.4.0 and Vega-Lite 6.5.0"));
     }
 }

@@ -17,8 +17,11 @@
 //! ```
 //! use surimono::{Error, Options, Renderer};
 //!
-//! // Build once, reuse for every document: a Renderer is Send + Sync.
-//! let renderer = Renderer::new(Options::new().seed(42))?;
+//! // Build once, reuse for every document: a Renderer is Send + Sync. Pass
+//! // the font files your PDF engine prints with (here, Noto Sans).
+//! # let font = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/NotoSans-Regular.ttf"))
+//! #     .unwrap_or_else(|e| panic!("{e}"));
+//! let renderer = Renderer::new(Options::new().font(font).seed(42))?;
 //!
 //! let html = r#"<h1>Sales</h1>
 //! <script type="application/vnd.surimono+json" data-renderer="no-such-chart">{}</script>"#;

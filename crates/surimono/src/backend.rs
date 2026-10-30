@@ -4,9 +4,7 @@
 //! so neither crate's types appear in the public API.
 
 use surimono_gfx::FontSet;
-use surimono_islands::{
-    IslandError, IslandRunner, RunnerOptions, SandboxError, TextMeasurer, TextMetrics,
-};
+use surimono_islands::{IslandError, IslandRunner, RunnerOptions, SandboxError};
 
 use crate::error::{Error, IslandRef};
 use crate::options::{Limits, Options};
@@ -22,28 +20,6 @@ pub(crate) fn font_set(fonts: Vec<Vec<u8>>) -> Result<FontSet, Error> {
         })?;
     }
     Ok(set)
-}
-
-/// `ctx.measureText` for renderers, answered by surimono-gfx from `fonts`
-/// with the shaper the PDF engine prints with.
-#[allow(
-    clippy::field_reassign_with_default,
-    reason = "field by field keeps compiling if the type becomes #[non_exhaustive]"
-)]
-fn measurer(gfx: &surimono_gfx::TextMeasurer) -> TextMeasurer {
-    let gfx = gfx.clone();
-    TextMeasurer::new(move |text, css_font| {
-        let m = gfx.measure(text, css_font).map_err(|e| e.to_string())?;
-        let mut out = TextMetrics::default();
-        out.width = m.width;
-        out.actual_bounding_box_left = m.actual_bounding_box_left;
-        out.actual_bounding_box_right = m.actual_bounding_box_right;
-        out.actual_bounding_box_ascent = m.actual_bounding_box_ascent;
-        out.actual_bounding_box_descent = m.actual_bounding_box_descent;
-        out.font_bounding_box_ascent = m.font_bounding_box_ascent;
-        out.font_bounding_box_descent = m.font_bounding_box_descent;
-        Ok(out)
-    })
 }
 
 /// The sandbox's limits for the facade's.
@@ -78,7 +54,8 @@ pub(crate) fn runner(
     o.seed = options.seed;
     o.now_ms = options.now_ms.unwrap_or(crate::options::DEFAULT_NOW_MS);
     o.utc_offset_minutes = options.utc_offset_minutes;
-    o.text_measurer = measurer(gfx);
+    // Always the caller's fonts: renderers never get an estimate.
+    o.text_measurer = Some(gfx.clone());
     IslandRunner::new(o).map_err(|e| match e {
         IslandError::InvalidOptions { message } => Error::InvalidOptions(message),
         other => Error::InvalidOptions(other.to_string()),
@@ -131,9 +108,15 @@ pub(crate) fn island_error(e: IslandError, island: IslandRef, enabled: &[String]
             island,
             enabled: enabled.to_vec(),
         },
-        IslandError::BadJson { message } => Error::InvalidIsland {
+        IslandError::BadJson {
+            message,
+            line,
+            column,
+        } => Error::InvalidIsland {
             island,
-            reason: format!("the script's text is not valid JSON: {message}"),
+            reason: format!(
+                "the script's text is not valid JSON: {message} at line {line} column {column}"
+            ),
         },
         // A wrong return type, an engine or worker failure, and anything added
         // later: the island can't be rendered, and the message says why.
@@ -177,8 +160,16 @@ mod tests {
             (
                 IslandError::BadJson {
                     message: "b".into(),
+                    line: 1,
+                    column: 2,
                 },
                 "invalid-island",
+            ),
+            (
+                IslandError::NoFonts {
+                    renderer: "r".into(),
+                },
+                "render",
             ),
             (
                 IslandError::NotAString {

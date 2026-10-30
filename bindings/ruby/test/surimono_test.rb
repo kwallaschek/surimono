@@ -36,13 +36,19 @@ class SurimonoTest < Minitest::Test
   end
 
   def font_bytes
-    skip "#{REPO_FONT} is not there" unless File.exist?(REPO_FONT)
     File.binread(REPO_FONT)
+  end
+
+  FONTS = [REPO_FONT].freeze
+
+  # Surimono::Renderer.new with the fixture font unless fonts: is given.
+  def new_renderer(**opts)
+    Surimono::Renderer.new(fonts: FONTS, **opts)
   end
 
   def renderer(**opts)
     @renderer ||= {}
-    @renderer[opts] ||= Surimono::Renderer.new(bundles: BUNDLES, pool_size: 2, **opts)
+    @renderer[opts] ||= new_renderer(bundles: BUNDLES, pool_size: 2, **opts)
   end
 
   def test_native_version_matches_gem_version
@@ -139,6 +145,12 @@ class SurimonoTest < Minitest::Test
     assert_match(/File\.binread/, e.message)
   end
 
+  def test_fonts_are_required
+    e = assert_raises(Surimono::ConfigurationError) { Surimono::Renderer.new(bundles: BUNDLES) }
+    assert_equal "invalid-options", e.kind
+    assert_match(/no fonts/, e.message)
+  end
+
   def test_option_checks
     [
       { limits: { time: 5 } }, { limits: { time_ms: 0 } }, { limits: { memory_mb: 1.5 } },
@@ -148,24 +160,24 @@ class SurimonoTest < Minitest::Test
       { bundles: { "mine" => { entry: "f" } } }, { now: "today" }, { utc_offset_minutes: 900 },
       { utc_offset_minutes: 1.5 }
     ].each do |opts|
-      assert_raises(ArgumentError, opts.inspect) { Surimono::Renderer.new(**opts) }
+      assert_raises(ArgumentError, opts.inspect) { new_renderer(**opts) }
     end
     assert_raises(ArgumentError) { renderer.render(nil) }
     assert_raises(ArgumentError) { renderer.render(42) }
-    e = assert_raises(Surimono::ConfigurationError) { Surimono::Renderer.new(renderers: ["nope"]) }
+    e = assert_raises(Surimono::ConfigurationError) { new_renderer(renderers: ["nope"]) }
     assert_equal "invalid-options", e.kind
     e = assert_raises(Surimono::ConfigurationError) do
-      Surimono::Renderer.new(bundles: { "mine" => { source: "function f(){}", entry: "not a name" } })
+      new_renderer(bundles: { "mine" => { source: "function f(){}", entry: "not a name" } })
     end
     assert_equal "bundle", e.kind
-    e = assert_raises(Surimono::ConfigurationError) { Surimono::Renderer.new(bundles: { "mine" => "var x;" }) }
+    e = assert_raises(Surimono::ConfigurationError) { new_renderer(bundles: { "mine" => "var x;" }) }
     assert_match(/globalThis\.entry/, e.message)
   end
 
   def test_renderers_and_bundles
     assert_equal "t", renderer.renderers.last
     assert_includes renderer.renderers, "echarts"
-    only = Surimono::Renderer.new(bundles: { mine: "function entry(){}" }, renderers: [:mine])
+    only = new_renderer(bundles: { mine: "function entry(){}" }, renderers: [:mine])
     assert_equal ["mine"], only.renderers
     assert_raises(Surimono::RenderError) { only.render(island) }
   end
@@ -178,11 +190,11 @@ class SurimonoTest < Minitest::Test
     assert_includes outlined, "Sales" # kept as the label of the outlines
     kept = Surimono::Renderer.new(fonts: [font], bundles: BUNDLES, text: :keep).render(island('{"label": "Sales"}'))
     assert_includes kept, "<text"
-    assert_raises(ArgumentError) { Surimono::Renderer.new(text: :pixels) }
+    assert_raises(ArgumentError) { new_renderer(text: :pixels) }
   end
 
   def test_clock_options
-    r = Surimono::Renderer.new(bundles: BUNDLES, now: Time.utc(2023, 11, 14, 22, 13, 20), utc_offset_minutes: 540)
+    r = new_renderer(bundles: BUNDLES, now: Time.utc(2023, 11, 14, 22, 13, 20), utc_offset_minutes: 540)
     out = r.render(island('{"clock": true}'))
     assert_includes out, 'data-t="1700000000000" data-h="7"'
     default = renderer.render(island('{"clock": true}'))
@@ -267,11 +279,11 @@ class SurimonoTest < Minitest::Test
 
     r = renderer
     assert_equal stub_svg, r.render(island) # the parent's runner is running
-    Surimono.render(island, bundles: BUNDLES) # and a cached one
+    Surimono.render(island, fonts: FONTS, bundles: BUNDLES) # and a cached one
     reader, writer = IO.pipe
     pid = fork do
       reader.close
-      out = [r.render(island), Surimono.render(island, bundles: BUNDLES)]
+      out = [r.render(island), Surimono.render(island, fonts: FONTS, bundles: BUNDLES)]
       writer.write(out.join("\n"))
       writer.close
       exit!(0)
@@ -312,7 +324,7 @@ class SurimonoTest < Minitest::Test
         ready << true
         x = 0
         x += 1 until go
-        Surimono::Renderer.new(seed: 3)
+        new_renderer(seed: 3)
       end
     end
     ready.pop
@@ -331,23 +343,23 @@ class SurimonoTest < Minitest::Test
   end
 
   def test_module_render_reuses_a_renderer_per_option_set
-    assert_equal stub_svg, Surimono.render(island, bundles: BUNDLES)
-    a = Surimono.send(:renderer_for, { seed: 1 })
-    b = Surimono.send(:renderer_for, { seed: 1 })
-    c = Surimono.send(:renderer_for, { seed: 2 })
+    assert_equal stub_svg, Surimono.render(island, fonts: FONTS, bundles: BUNDLES)
+    a = Surimono.send(:renderer_for, { fonts: FONTS, seed: 1 })
+    b = Surimono.send(:renderer_for, { fonts: FONTS, seed: 1 })
+    c = Surimono.send(:renderer_for, { fonts: FONTS, seed: 2 })
     assert_same a, b
     refute_same a, c
-    20.times { |i| Surimono.send(:renderer_for, { seed: 100 + i }) }
+    20.times { |i| Surimono.send(:renderer_for, { fonts: FONTS, seed: 100 + i }) }
     assert_operator Surimono.instance_variable_get(:@renderers).size, :<=, 4
     # Least recently used goes first: seed 1, used again after seed 200 was
     # added, outlives it.
-    a = Surimono.send(:renderer_for, { seed: 1 })
-    Surimono.send(:renderer_for, { seed: 200 })
-    assert_same a, Surimono.send(:renderer_for, { seed: 1 })
-    3.times { |i| Surimono.send(:renderer_for, { seed: 201 + i }) }
-    assert_same a, Surimono.send(:renderer_for, { seed: 1 })
+    a = Surimono.send(:renderer_for, { fonts: FONTS, seed: 1 })
+    Surimono.send(:renderer_for, { fonts: FONTS, seed: 200 })
+    assert_same a, Surimono.send(:renderer_for, { fonts: FONTS, seed: 1 })
+    3.times { |i| Surimono.send(:renderer_for, { fonts: FONTS, seed: 201 + i }) }
+    assert_same a, Surimono.send(:renderer_for, { fonts: FONTS, seed: 1 })
     e = assert_raises(Surimono::TimeLimitError) do
-      Surimono.render(island('{"limit": "time"}'), bundles: BUNDLES, limits: { time_ms: 10 })
+      Surimono.render(island('{"limit": "time"}'), fonts: FONTS, bundles: BUNDLES, limits: { time_ms: 10 })
     end
     assert_equal "time-limit", e.kind
   end

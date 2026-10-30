@@ -81,10 +81,10 @@ module Surimono
     MAX_OPTION = 2**31 - 1
     private_constant :LIMIT_KEYS, :ERROR_POLICIES, :MAX_OPTION
 
-    # fonts::        font files for measuring text: paths (String or Pathname),
-    #                or font data as binary Strings (e.g. from File.binread).
-    #                Use the fonts your PDF engine prints with. System fonts are
-    #                never used.
+    # fonts::        required, at least one: font files for measuring and
+    #                outlining text, as paths (String or Pathname) or font data
+    #                as binary Strings (e.g. from File.binread). Use the fonts
+    #                your PDF engine prints with. System fonts are never used.
     # limits::       limits for each island (not the whole document): memory_mb
     #                (1 or more, default 64), time_ms (default 2000; loading
     #                the renderer and drawing each get this much), stack_kb
