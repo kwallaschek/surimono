@@ -28,10 +28,12 @@
 // A library never writes to stdout or stderr; tests may.
 #![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
 
+mod builtins;
 mod error;
 mod measure;
 mod runner;
 
+pub use builtins::builtin_renderers;
 pub use error::IslandError;
 pub use measure::{TextMeasurer, TextMetrics};
 pub use runner::{IslandRequest, IslandRunner, RunnerOptions, RunnerStats};
