@@ -466,3 +466,44 @@ fn dropping_the_runner_stops_the_workers() {
     r.render(&req("label", r#"{"label":"x"}"#)).unwrap();
     drop(r); // joins the workers; must not hang
 }
+
+#[test]
+fn a_measure_text_loop_stops_at_the_time_limit() {
+    // Each call shapes 16 KiB of new text (no cache hits), and the script
+    // swallows errors: without measureText checking the deadline itself,
+    // the engine would notice the limit only thousands of calls later.
+    let limit = Duration::from_millis(300);
+    let measurer = common::fixture_measurer();
+    let text = "abc ".repeat(4096);
+    let t = Instant::now();
+    measurer
+        .measure(&format!("{text}0"), "12px Noto Sans")
+        .unwrap();
+    let one_call = t.elapsed();
+    let r = IslandRunner::new(RunnerOptions {
+        pool_size: 1,
+        limits: Limits::default().with_time(limit),
+        text_measurer: Some(measurer),
+        ..RunnerOptions::default()
+    })
+    .unwrap();
+    r.register_bundle(
+        "measure",
+        "function entry(s, ctx) { const t = 'abc '.repeat(4096); let i = 0; \
+         for (;;) { try { ctx.measureText(t + i++, '12px Noto Sans') } catch (e) {} } }",
+        "entry",
+    )
+    .unwrap();
+    let start = Instant::now();
+    assert_eq!(
+        r.render(&req("measure", "{}")).unwrap_err(),
+        IslandError::Sandbox(SandboxError::TimeLimit)
+    );
+    // The limit, plus the call in flight when it passed, plus slack.
+    let took = start.elapsed();
+    let bound = 2 * limit + 2 * one_call;
+    assert!(
+        took < bound,
+        "took {took:?}, bound {bound:?} (one call {one_call:?})"
+    );
+}

@@ -47,6 +47,8 @@ impl Measure {
     /// Measures `text` in the CSS `font` shorthand `css_font`.
     pub(crate) fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, MeasureError> {
         match self {
+            // No fonts comes first, whatever else is wrong with the text.
+            Self::Fonts(m) if m.fonts().face_count() == 0 => Err(MeasureError::NoFonts),
             Self::Fonts(m) => m.measure(text, css_font).map_err(|e| match e {
                 GfxError::NoFonts => MeasureError::NoFonts,
                 other => MeasureError::Other(other.to_string()),
@@ -164,6 +166,12 @@ mod tests {
         let empty = Measure::new(Some(TextMeasurer::new(surimono_gfx::FontSet::new())));
         assert_eq!(
             empty.measure("x", "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
+        // Even for text the measurer would refuse as too long.
+        let long = "x".repeat(surimono_gfx::MAX_TEXT_BYTES + 1);
+        assert_eq!(
+            empty.measure(&long, "10px sans-serif"),
             Err(MeasureError::NoFonts)
         );
         let none = Measure::new(None);
