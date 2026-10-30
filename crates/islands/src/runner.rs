@@ -600,7 +600,7 @@ impl Worker {
                 island.set("measureText", measure_function(ctx, measurer)?)?;
                 entry.call((job.spec_json.as_str(), island))
             },
-            |ctx, v| svg_string(ctx, v),
+            svg_string,
         )?;
         outcome.map_err(|found| IslandError::NotAString {
             renderer: bundle.name.clone(),
