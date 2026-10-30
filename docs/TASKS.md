@@ -12,8 +12,8 @@ engineer, GFX graphics engineer, PKG packaging engineer, DX docs and DX, REV rev
 - P0-01 · ORC · done · Cargo workspace, toolchain pin, exact rquickjs and Blitz pins, deny.toml, licences, .gitignore, CLAUDE.md
 - P0-02 · ORC · done · CI workflows ci.yml, full.yml, reference.yml, bench.yml (first cut; PKG owns them from here)
 - P0-03 · ORC · done · docs: SETUP, TASKS, STATUS, DECISIONS, COMPAT, SPEC, upstream/
-- P0-04 · ORC · doing · Checkpoint 1 message to Kay (auto-approves 2 hours after sending)
-- P0-05 · ORC · todo · Attach the GitHub repo and push the full history (blocked on Kay: repo URL and GitHub connection)
+- P0-04 · ORC · done · Checkpoint 1: Kay approved SPEC v1 (31 Oct 01:19)
+- P0-05 · ORC · done · GitHub repo attached, history pushed, workflows committed by Kay, CI publishing to ci-results
 
 ## Phase 1: islands (v0.1, checkpoint 2 on Sun 1 Nov ~18:00)
 
@@ -21,7 +21,7 @@ Never cut: sandbox limits, determinism, soak test, text measurement, the Ruby ge
 Cut order if late: Mermaid, then Vega, then the CLI.
 
 ### Runtime engineer (crates/core, crates/islands)
-- P1-RT-01 · RT · todo · QuickJS sandbox: one Runtime/Context wrapper with memory, time (interrupt handler) and stack limits; no modules, filesystem or network; typed `SandboxError` (MemoryLimit, TimeLimit, StackOverflow, Exception with message and stack); tests for each limit
+- P1-RT-01 · RT · doing · QuickJS sandbox: one Runtime/Context wrapper with memory, time (interrupt handler) and stack limits; no modules, filesystem or network; typed `SandboxError` (MemoryLimit, TimeLimit, StackOverflow, Exception with message and stack); tests for each limit
 - P1-RT-02 · RT · todo · Determinism in the sandbox: seeded Math.random (per render seed), fixed Date.now/new Date(), no performance.now drift; test that two runs are byte-identical
 - P1-RT-03 · RT · todo · Island runner: load a JS bundle once, compile to bytecode, call its entry with JSON, return an SVG string; bring-your-own-bundle API (any `(json) => svg` function)
 - P1-RT-04 · RT · todo · Runtime pool: reuse runtimes and compiled bundles across renders, reset per render, bounded size; no state leaks between renders (test)
@@ -31,14 +31,14 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-08 · RT · todo · Mermaid renderer (feature `mermaid`, stretch; first to cut): small SVG DOM shim
 
 ### Graphics engineer (crates/gfx)
-- P1-GFX-01 · GFX · todo · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
-- P1-GFX-02 · GFX · todo · `measureText` from the same shaping the renderer uses (Parley 0.6 as in fulgur): width, actual and font bounding-box ascent and descent; tests against reference widths from fixed fonts
+- P1-GFX-01 · GFX · doing · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
+- P1-GFX-02 · GFX · doing · `measureText` from the same shaping the renderer uses (Parley 0.6 as in fulgur): width, actual and font bounding-box ascent and descent; tests against reference widths from fixed fonts
 - P1-GFX-03 · GFX · todo · SVG output helpers: deterministic ids, font-family rewritten to registered families, safe inlining into HTML (no script, no external refs)
 - P1-GFX-04 · GFX · todo · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
 
 ### Conformance researcher (fixtures, wpt, bench, docs/COMPAT.md)
-- P1-CF-01 · CF · todo · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
-- P1-CF-02 · CF · todo · Test fonts: pinned OFL fonts for Latin and Japanese (e.g. Noto Sans, Noto Sans JP) with licences, used by both Chrome and surimono
+- P1-CF-01 · CF · doing · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
+- P1-CF-02 · CF · doing · Test fonts: pinned OFL fonts for Latin and Japanese (e.g. Noto Sans, Noto Sans JP) with licences, used by both Chrome and surimono
 - P1-CF-03 · CF · todo · The 10 checkpoint-2 fixtures: ECharts and Vega; simple and dense; Latin and Japanese labels
 - P1-CF-04 · CF · todo · Hostile-script suite: infinite loop, allocation bomb, deep recursion, microtask flood, huge strings, attempts at fs/network/eval-escape; each with its expected typed error
 - P1-CF-05 · CF · todo · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
@@ -46,7 +46,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-07 · CF · todo · COMPAT.md generated from test results
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
-- P1-PKG-01 · PKG · todo · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
+- P1-PKG-01 · PKG · doing · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
 - P1-PKG-02 · PKG · todo · Public facade: `Renderer`, `Options` (fonts, limits, renderers), `render_islands(html) -> Result<String>`; typed errors; docs
 - P1-PKG-03 · PKG · todo · HTML pre-pass: replace `<script type="application/vnd.surimono+json" data-renderer="…">` islands with their SVG; everything else byte-for-byte unchanged
 - P1-PKG-04 · PKG · todo · Ruby gem: `Surimono.render(html, fonts:, limits:)` mirroring the facade, GVL released while rendering, typed Ruby exceptions, tests on CRuby 3.2 to 4.0

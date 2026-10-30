@@ -1,8 +1,6 @@
 # surimono spec (checkpoint 1)
 
-Version 1 · 31 October 2026 · Proposed by the orchestrator for Kay's approval.
-Auto-approves as written 2 hours after the checkpoint message if there is no
-answer. Everything here follows the brief; changes from it are listed at the end.
+Version 1 · 31 October 2026 · **Approved by Kay at checkpoint 1, 31 Oct 01:19 JST.** Everything here follows the brief; changes from it are listed at the end.
 
 ## Name
 
