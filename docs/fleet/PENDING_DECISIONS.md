@@ -100,3 +100,13 @@ THIRD_PARTY row on #32 merge:
 | QuickJS-ng (patched, via rquickjs-sys) | 0.16.2 (rquickjs-sys 0.14.0) | MIT | https://github.com/quickjs-ng/quickjs, https://crates.io/crates/rquickjs-sys | vendor/rquickjs-sys/ (changes in PATCHES.md) |
 Open for Kay (release): [patch] doesn't reach crates.io users; publishing surimono-core needs the forked engine published under its own crate names until upstream ships the fixes (the gem is unaffected). Upstream drafts in docs/upstream/ for Kay to file.
 Known gap: allocation failure during runtime/context creation (real system OOM only) can still crash; not reachable through the memory limit.
+
+## GFX batch 2 (#3 #12 #27 #16) — replaces the GFX batch 1 lines above on merge
+- 2026-10-31 · surimono-gfx public API: FontSet (new, add_font_bytes, families, face_count, set_generic_family, font_files, resolve_families), TextMeasurer (new, measure, fonts; Clone + Send + Sync), TextMetrics, GenericFamily, GfxError (#[non_exhaustive]: InvalidFont, UnsupportedFontFormat, UnknownFamily, NoFonts, TextTooLong, InvalidSvg), MAX_TEXT_BYTES = 256 KiB · canvas measureText from the caller's fonts with Parley =0.6.0, matching Chrome to 0.0007 px.
+- 2026-10-31 · measureText caches are bounded by bytes: keys ≤ 256 B, ≤ 256 KiB per workspace; a css_font over 1 KiB means the canvas default · Hostile input grew the host by 67 to 101 MB in review.
+- 2026-10-31 · sanitize_svg(svg, island, &TextMeasurer, &SvgOptions), MAX_SVG_NODES 1,000,000, MAX_SVG_DEPTH 128 · One safe inlining step; the measurer carries fonts and shaping.
+- 2026-10-31 · Island <style> is written as plain decoded text, never with entities; dropped if it has child elements, needs escaping or ends open; @font-face dropped; namespaces follow the HTML parser · Review bypass of #12; local() reaches system fonts.
+- 2026-10-31 · The island prefix covers ids, ARIA and other id lists, SMIL begin/end and ECharts zrN- classes · Islands must not reference or style each other.
+- 2026-10-31 · SvgOptions { text: TextMode::Outlines | Keep }, default Outlines; <text> becomes <g role=img aria-label> shaped with the same Parley path as measure(), glyphs from skrifa, two fixed decimals · fulgur 0.40 prints inline SVG text with system fonts; outline advances are bit-identical to measure() and within 0.049 px of Chrome.
+- 2026-10-31 · MAX_OUTLINE_CHARS 20,000 and 32 MiB of path data per SVG → InvalidSvg; outlining with no fonts → NoFonts · Bounds host memory and time.
+- 2026-10-31 · tests/fulgur_print.rs runs only where fulgur CLI and poppler exist; SURIMONO_REQUIRE_FULGUR=1 enforces it in a CI job · Keeps PR CI green without fulgur.
