@@ -7,15 +7,16 @@ comparing rasters (surimono `fixtures/tools/compare.sh`). The repro pages and sc
 are in surimono's `docs/COMPAT.md` (section "fulgur 0.40.0") and
 `fixtures/islands/README.md`.
 
-1. **Single-side border colour is ignored.** `border-bottom: 1px solid #c00` on an
-   element that has a different `border-color` prints with the shorthand colour.
-2. **`flex-wrap: wrap` doesn't wrap** the way Chrome does for a row of fixed-width
-   children; items overflow instead.
-3. **Table column widths differ** from Chrome's auto layout for simple invoice tables.
-4. **Fractional line heights and fallback line boxes:** a line that falls back to a
-   second font gets a different line-box height than Chrome.
-5. **`text-spacing-trim`** default differs from Chrome for CJK punctuation; fixtures
-   set `text-spacing-trim: space-all` to match.
+Exact repro HTML, observed vs expected output and scores for items 1 to 5 are in
+`docs/COMPAT.md`; copy them into each issue rather than paraphrasing.
+
+1. **Single-side border colour** (e.g. `border-bottom-color` on one side) prints
+   differently from Chrome.
+2. **`flex-wrap`** rows lay out differently from Chrome.
+3. **Table column widths** differ from Chrome's auto table layout.
+4. **Fractional line heights and fallback line boxes** differ from Chrome.
+5. **`text-spacing-trim`** behaves differently from Chrome for CJK punctuation; the
+   fixtures set `text-spacing-trim: space-all` to avoid it.
 6. **Bold fallback for Japanese in inline SVG text:** normal-weight Japanese in an
    inline SVG prints in Noto Sans JP **Bold** when both weights are bundled
    (`pdffonts` shows the Bold face). Root cause is the usvg path using system fonts
