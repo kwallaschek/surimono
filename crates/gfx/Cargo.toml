@@ -22,6 +22,10 @@ roxmltree = { version = "=0.21.1", default-features = false, features = ["std", 
 
 [dev-dependencies]
 serde_json.workspace = true
+# Only to prove measured text equals what Blitz (and so fulgur) lays out.
+blitz-dom.workspace = true
+blitz-html.workspace = true
+blitz-traits.workspace = true
 
 [lints]
 workspace = true
