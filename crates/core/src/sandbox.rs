@@ -12,10 +12,128 @@ use crate::engine::{self, LimitAllocator, LimitState};
 use crate::{Limits, SandboxError};
 
 /// How a [`Sandbox`] is set up.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+///
+/// Besides the limits, these pin everything a script could otherwise read
+/// from the host, so the same input gives the same output whatever the
+/// host's clock and time zone: `Math.random` is seeded, `Date.now()` and
+/// `new Date()` return a fixed instant, local time (including how
+/// `Date.parse` reads strings without a zone) is a fixed offset from UTC,
+/// never the host's zone, and `performance.now()` is a virtual clock.
+///
+/// Floating-point maths is the exception: `Math.sin`, `Math.exp`,
+/// `Math.pow` and their kin come from the platform's C library, which can
+/// differ in the last bit between glibc, musl and macOS. Output is
+/// byte-identical across runs on one platform; across platforms, numbers
+/// computed with those functions can differ in their last digits.
+///
+/// Locale-sensitive methods (`toLocaleString` and friends) ignore their
+/// `locales` and `options` arguments and always format like Chrome's
+/// `en-US`.
+///
+/// Start from [`SandboxOptions::default`] and adjust it with the `with_*`
+/// setters; more options will be added in later versions:
+///
+/// ```
+/// use surimono_core::{Limits, SandboxOptions};
+///
+/// let tokyo = SandboxOptions::default()
+///     .with_utc_offset_minutes(9 * 60)
+///     .with_limits(Limits::default().with_memory_bytes(32 << 20));
+/// assert_eq!(tokyo.validate(), Ok(()));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SandboxOptions {
     /// Memory, time and stack limits for every call.
     pub limits: Limits,
+    /// Seed for `Math.random`. Every fresh context starts the same sequence.
+    pub random_seed: u64,
+    /// What `Date.now()` and `new Date()` return, in milliseconds since the
+    /// Unix epoch. Also `performance.timeOrigin`.
+    pub now_ms: i64,
+    /// Local time's offset from UTC in minutes, e.g. 540 for Japan. Affects
+    /// `getHours()`, `toString()`, `new Date(2026, 0, 1)` and the like.
+    pub utc_offset_minutes: i32,
+}
+
+impl SandboxOptions {
+    /// Default `Math.random` seed: "surimono" in ASCII.
+    pub const DEFAULT_RANDOM_SEED: u64 = 0x7375_7269_6d6f_6e6f;
+    /// Default clock: 2026-01-01T00:00:00Z.
+    pub const DEFAULT_NOW_MS: i64 = 1_767_225_600_000;
+    /// Largest `|now_ms|` a JavaScript Date can hold.
+    pub const MAX_ABS_NOW_MS: i64 = 8_640_000_000_000_000;
+    /// Earliest real-world UTC offset, in minutes (UTC-12:00).
+    pub const MIN_UTC_OFFSET_MINUTES: i32 = -12 * 60;
+    /// Latest real-world UTC offset, in minutes (UTC+14:00).
+    pub const MAX_UTC_OFFSET_MINUTES: i32 = 14 * 60;
+
+    /// These options with `limits` as the limits.
+    #[must_use]
+    pub fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// These options with `Math.random` seeded with `seed`.
+    #[must_use]
+    pub fn with_random_seed(mut self, seed: u64) -> Self {
+        self.random_seed = seed;
+        self
+    }
+
+    /// These options with the clock fixed at `now_ms` (ms since the epoch).
+    #[must_use]
+    pub fn with_now_ms(mut self, now_ms: i64) -> Self {
+        self.now_ms = now_ms;
+        self
+    }
+
+    /// These options with local time `minutes` ahead of UTC.
+    #[must_use]
+    pub fn with_utc_offset_minutes(mut self, minutes: i32) -> Self {
+        self.utc_offset_minutes = minutes;
+        self
+    }
+
+    /// Checks every option is in range.
+    pub fn validate(&self) -> Result<(), SandboxError> {
+        self.limits.validate()?;
+        if !(-Self::MAX_ABS_NOW_MS..=Self::MAX_ABS_NOW_MS).contains(&self.now_ms) {
+            return Err(SandboxError::InvalidOptions {
+                message: format!(
+                    "now_ms is {}, a Date holds at most ±{}",
+                    self.now_ms,
+                    Self::MAX_ABS_NOW_MS
+                ),
+            });
+        }
+        if !(Self::MIN_UTC_OFFSET_MINUTES..=Self::MAX_UTC_OFFSET_MINUTES)
+            .contains(&self.utc_offset_minutes)
+        {
+            return Err(SandboxError::InvalidOptions {
+                message: format!(
+                    "utc_offset_minutes is {}, it must be between {} and {}",
+                    self.utc_offset_minutes,
+                    Self::MIN_UTC_OFFSET_MINUTES,
+                    Self::MAX_UTC_OFFSET_MINUTES
+                ),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl Default for SandboxOptions {
+    /// Default limits, the default seed, 2026-01-01T00:00:00Z, and UTC.
+    fn default() -> Self {
+        Self {
+            limits: Limits::default(),
+            random_seed: Self::DEFAULT_RANDOM_SEED,
+            now_ms: Self::DEFAULT_NOW_MS,
+            utc_offset_minutes: 0,
+        }
+    }
 }
 
 /// Script bytecode compiled once by [`Sandbox::compile`] and runnable in any
@@ -90,7 +208,14 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// - **Time**: each top-level call ([`eval`](Self::eval), [`call`](Self::call),
 ///   [`run`](Self::run), …) gets [`Limits::time`], covering the call and the
 ///   microtasks it queues. The interrupt QuickJS raises is uncatchable, so
-///   `try`/`catch`/`finally` can't hold it off.
+///   `try`/`catch`/`finally` can't hold it off, and it is sticky: built-ins
+///   that turn exceptions into rejections or new errors (the `Promise`
+///   constructor, async generators, `DisposableStack`) can't swallow it
+///   either. The engine is patched to check for it inside native loops
+///   (`join`, `fill`, `sort`… over a huge array-like) as well; see
+///   `vendor/rquickjs-sys/PATCHES.md`. The hostile-script tests in
+///   `tests/hostile.rs` run every known way to hang the engine and check
+///   each ends with a limit error in about twice the time limit.
 /// - **Stack**: recursion deeper than [`Limits::stack_bytes`] fails with
 ///   [`SandboxError::StackOverflow`] unless the script catches the `RangeError`.
 ///
@@ -101,6 +226,15 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// Scripts get the ECMAScript built-ins only: no modules or loader, no
 /// filesystem, network, timers or host helpers. The sandbox is tied to the
 /// thread that created it.
+///
+/// That thread needs [`Limits::stack_bytes`] of stack free below the point
+/// where the sandbox is called, plus [`Sandbox::STACK_HEADROOM_BYTES`] for
+/// the engine's own frames. Where the platform can say how much stack is
+/// left (Linux and macOS), every call checks and fails with
+/// [`SandboxError::InvalidOptions`] instead of risking a crash; elsewhere
+/// it is the caller's job. Puma and Ruby threads have about 1 MiB of stack,
+/// so run sandboxes on threads you create with
+/// [`std::thread::Builder::stack_size`] set from `stack_bytes`.
 pub struct Sandbox {
     options: SandboxOptions,
     state: Arc<LimitState>,
@@ -120,14 +254,28 @@ impl fmt::Debug for Sandbox {
 }
 
 impl Sandbox {
+    /// Stack the engine may use beyond [`Limits::stack_bytes`] before its own
+    /// check catches it: C frames of built-ins between checks, the
+    /// allocator, the interrupt handler and the Rust glue. 256 KiB.
+    pub const STACK_HEADROOM_BYTES: usize = 256 * 1024;
+
     /// Creates a sandbox with the given limits and default options.
     pub fn new(limits: Limits) -> Result<Self, SandboxError> {
-        Self::with_options(SandboxOptions { limits })
+        Self::with_options(SandboxOptions {
+            limits,
+            ..SandboxOptions::default()
+        })
     }
 
     /// Creates a sandbox from full options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
-        options.limits.validate()?;
+        options.validate()?;
+        if engine::patch_level() < 1 {
+            return Err(SandboxError::Engine {
+                message: "QuickJS lacks surimono's sandbox patches".into(),
+            });
+        }
+        check_stack(&options.limits)?;
         let state = LimitState::new(options.limits.memory_bytes);
         let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone()))
             .map_err(|e| setup_error(&state, e))?;
@@ -257,6 +405,7 @@ impl Sandbox {
                 message: "the sandbox has no context; a reset failed".into(),
             });
         };
+        check_stack(&self.options.limits)?;
         let state = &*self.state;
         state.arm(self.options.limits.time);
         let result = ctx.with(|ctx| {
@@ -269,7 +418,7 @@ impl Sandbox {
             if e.is_limit() {
                 // A limit can stop a script anywhere, leaving its state half
                 // updated and microtasks queued. Start over; if even that fails,
-                // keep the old runtime, which is still sound.
+                // later calls report an engine error (see `rebuild`).
                 let _ = self.rebuild();
             }
         }
@@ -278,7 +427,11 @@ impl Sandbox {
 
     /// Replaces the runtime and context with fresh ones.
     fn rebuild(&mut self) -> Result<(), SandboxError> {
-        // Drop the old runtime first so its memory is gone before we allocate.
+        // Drop the old context first, which frees most of the old heap before
+        // the new runtime allocates. The old runtime itself (with anything its
+        // job queue still holds) lives until `*self = fresh`. If building
+        // fails, the sandbox is left without a context and every later call
+        // reports an engine error.
         self.ctx = None;
         let fresh = Self::with_options(self.options.clone())?;
         *self = fresh;
@@ -337,14 +490,35 @@ fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<
                 message: Some("the prelude must evaluate to a function".into()),
             })?;
     let config = Object::new(ctx.clone())?;
-    config.set("maxLength", max_array_like_length(&options.limits))?;
+    // The seed travels as two 32-bit halves: JS numbers can't hold 64 bits.
+    config.set("seedLo", (options.random_seed & 0xffff_ffff) as f64)?;
+    config.set("seedHi", (options.random_seed >> 32) as f64)?;
+    config.set("nowMs", options.now_ms as f64)?;
+    config.set("utcOffsetMinutes", options.utc_offset_minutes)?;
     prelude.call::<_, ()>((config,))
 }
 
-/// The longest array-like the array built-ins accept. Every stored element
-/// costs at least 8 bytes of heap, so nothing longer can be dense.
-fn max_array_like_length(limits: &Limits) -> f64 {
-    (limits.memory_bytes / 8) as f64
+/// Fails if this thread has less stack left than the engine may use, so deep
+/// recursion can't overrun the real stack and crash the process.
+fn check_stack(limits: &Limits) -> Result<(), SandboxError> {
+    let Some(available) = engine::stack_available() else {
+        return Ok(());
+    };
+    let needed = limits
+        .stack_bytes
+        .saturating_add(Sandbox::STACK_HEADROOM_BYTES);
+    if available < needed {
+        return Err(SandboxError::InvalidOptions {
+            message: format!(
+                "this thread has {available} bytes of stack left, but the sandbox needs \
+                 {needed} (stack_bytes {} plus {} of headroom); run it on a thread with a \
+                 larger stack or lower stack_bytes",
+                limits.stack_bytes,
+                Sandbox::STACK_HEADROOM_BYTES
+            ),
+        });
+    }
+    Ok(())
 }
 
 /// Maps an error from building a runtime or context.
@@ -711,7 +885,7 @@ mod tests {
         let kinds: String = sb
             .eval(
                 "[typeof std, typeof os, typeof require, typeof process, typeof fetch,
-                  typeof XMLHttpRequest, typeof performance, typeof setTimeout,
+                  typeof XMLHttpRequest, typeof setTimeout, typeof setInterval,
                   typeof print, typeof scriptArgs].join(',')",
             )
             .unwrap();
@@ -904,51 +1078,11 @@ mod tests {
         expect_limit("new Float64Array(1e8)", SandboxError::MemoryLimit);
     }
 
-    /// Built-ins that loop over an array-like's length in native code, where
-    /// the interrupt handler never runs. The prelude refuses lengths no real
-    /// array could have.
+    /// The array built-ins the engine patch touches behave as usual. (Huge
+    /// array-likes are in `tests/hostile.rs`, which runs them in a child
+    /// process so a regression fails instead of hanging.)
     #[test]
-    fn long_native_loops_are_refused() {
-        let vectors = [
-            "Array.prototype.join.call({ length: 2 ** 40 }, '')",
-            "new Array(2 ** 32 - 1).join('')",
-            "String(new Array(2 ** 32 - 1))",
-            "Array.prototype.toLocaleString.call({ length: 2 ** 40 })",
-            "Array.prototype.reverse.call({ length: 2 ** 40 })",
-            "Array.prototype.copyWithin.call({ length: 2 ** 40 }, 0, 1)",
-            "Array.prototype.sort.call({ length: 2 ** 32 - 1 })",
-            "Array.prototype.splice.call({ length: 2 ** 40 }, 0, 1)",
-            "Array.prototype.shift.call({ length: 2 ** 40 })",
-            "Array.prototype.unshift.call({ length: 2 ** 40 }, 1)",
-            "Array.prototype.slice.call({ length: 2 ** 40 }, 0, 2 ** 32 - 1)",
-            "[].concat.call({ length: 2 ** 40, [Symbol.isConcatSpreadable]: true })",
-            "[].concat(new Array(2 ** 32 - 2))",
-            "Array.prototype.flat.call({ length: 2 ** 40 })",
-            "[new Array(2 ** 32 - 1)].flat()",
-            "[[new Array(2 ** 32 - 1)]].flat(2)",
-            "[1].flatMap(() => new Array(2 ** 32 - 1))",
-            "JSON.stringify({}, new Array(2 ** 32 - 1))",
-            "String.raw({ raw: { length: 2 ** 40 } })",
-        ];
-        let mut sb = sandbox();
-        for src in vectors {
-            let start = Instant::now();
-            let err = sb.eval::<()>(src).unwrap_err();
-            assert!(start.elapsed() < Duration::from_secs(5), "{src}");
-            match err {
-                SandboxError::Exception { message, .. } => assert!(
-                    message.starts_with("RangeError") && message.contains("sandbox limit"),
-                    "{src}: {message}"
-                ),
-                e if e.is_limit() => {}
-                other => panic!("{src}: {other:?}"),
-            }
-        }
-    }
-
-    /// The guards in the prelude must not change ordinary behaviour.
-    #[test]
-    fn guarded_builtins_still_work() {
+    fn array_builtins_behave_normally() {
         let mut sb = sandbox();
         let checks = [
             ("[1, 2, 3].join('-')", "1-2-3"),
@@ -1115,5 +1249,203 @@ mod tests {
             })
             .unwrap();
         assert_eq!(handle.join().unwrap(), SandboxError::StackOverflow);
+    }
+
+    /// Review of #5, F2: `stack_bytes` of 8 MiB on a 1 MiB thread aborted the
+    /// process on deep recursion. Now the sandbox refuses to run there.
+    #[test]
+    fn too_little_thread_stack_is_refused() {
+        if engine::stack_available().is_none() {
+            return;
+        }
+        let big = Limits::default().with_stack_bytes(8 * 1024 * 1024);
+        let small_thread = std::thread::Builder::new().stack_size(1024 * 1024);
+        let err = small_thread
+            .spawn(move || Sandbox::new(big).unwrap_err())
+            .unwrap()
+            .join()
+            .unwrap();
+        match err {
+            SandboxError::InvalidOptions { message } => {
+                assert!(message.contains("stack"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+        // The default limits fit a 1 MiB thread, and recursion there is a
+        // typed error.
+        let err = std::thread::Builder::new()
+            .stack_size(1024 * 1024)
+            .spawn(|| {
+                let mut sb = Sandbox::new(Limits::default()).unwrap();
+                sb.eval::<()>("function f() { return f() + 1 } f()")
+                    .unwrap_err()
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+        assert_eq!(err, SandboxError::StackOverflow);
+        // A sandbox made high up and called from deep down is refused at the
+        // call, not run into the guard page. (glibc may hand a new thread a
+        // cached stack bigger than asked for, so recurse until the stack
+        // really is short rather than trusting the requested size.)
+        let err = std::thread::Builder::new()
+            .stack_size(1024 * 1024)
+            .spawn(|| {
+                fn deep(sb: &mut Sandbox, short: usize) -> Result<(), SandboxError> {
+                    let pad = std::hint::black_box([0u8; 4096]);
+                    let r = if engine::stack_available().unwrap() < short {
+                        sb.eval::<()>("function f() { return f() + 1 } f()")
+                    } else {
+                        deep(sb, short)
+                    };
+                    std::hint::black_box(&pad);
+                    r
+                }
+                let limits = Limits::default();
+                let mut sb = Sandbox::new(limits).unwrap();
+                let short = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES - 64 * 1024;
+                deep(&mut sb, short).unwrap_err()
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+        assert!(
+            matches!(err, SandboxError::InvalidOptions { .. }),
+            "{err:?}"
+        );
+    }
+
+    /// A script that allocates on many paths: the compiler (through `eval`
+    /// and `Function`), async functions and promise jobs, generators,
+    /// strings, arrays, Date parsing, sorting, JSON and regexps.
+    const ALLOCATING_SCRIPT: &str = r#"
+        async function f(n) { await null; return [n, { a: n }, 'x' + n]; }
+        const out = [];
+        for (let i = 0; i < 8; i++) out.push(f(i).then((v) => v.join()));
+        Promise.all(out).then((v) => { globalThis.r = JSON.stringify(v); });
+        const g = (function* () { yield* [1, 2, 3]; })();
+        [...g, ...new Set([4, 5]), ...new Map([[6, 7]]).keys()].sort().join()
+          + new Date('2026-01-01T00:00:00').toISOString()
+          + JSON.stringify(JSON.parse('{"a":[1,{"b":2}]}'))
+          + /(a+)(b)?/.exec('aaab')[0] + String(Math.random()).length
+          + [3, 1, 2].toSorted().join() + new Int32Array([3, 1, 2]).sort().join()
+          + Object.entries({ x: 1, y: [2] }).flat(2).join()
+          + (() => { try { null.x } catch (e) { return e.stack.length > 0 } })()
+          + eval('(function (a, b) { let c = a + b; return [c, ...arguments]; })(1, 2).join()')
+          + new Function('x', 'class K { #p = x; get p() { return this.#p * 2; } } return new K().p')(21)
+          + `${[1, 2].map((x) => x ** 2)}`.padStart(8, '-')
+    "#;
+
+    /// Compiles a large generated program through `eval`, so allocations in
+    /// the parser and bytecode emitter are refused too.
+    const COMPILING_SCRIPT: &str = r#"
+        const parts = [];
+        for (let i = 0; i < 200; i++) {
+          parts.push(`function f${i}(a, ...rest) {
+            let x = a + ${i}; const o = { k${i}: x, [\`c${i}\`]: [x, ...rest] };
+            for (let j = 0; j < 3; j++) { try { x += j; } finally { x--; } }
+            return async () => { await null; return o.k${i} + x; };
+          }`);
+        }
+        eval(parts.join('\n') + '; typeof f199') + new Function(parts[7] + '; return f7(1)')().constructor.name
+    "#;
+
+    /// Child side of `out_of_memory_never_aborts`. With SURIMONO_OOM_COUNT
+    /// set it prints how many allocations a clean run of the script makes;
+    /// otherwise, for each N in SURIMONO_OOM_NS, it refuses the script's Nth
+    /// allocation.
+    #[test]
+    #[ignore = "helper: run in a child process by out_of_memory_never_aborts"]
+    fn oom_sweep_child() {
+        let limits = limits().with_time(Duration::from_secs(10));
+        let script = match std::env::var("SURIMONO_OOM_SCRIPT").as_deref() {
+            Ok("compiling") => COMPILING_SCRIPT,
+            _ => ALLOCATING_SCRIPT,
+        };
+        if std::env::var_os("SURIMONO_OOM_COUNT").is_some() {
+            let mut sb = Sandbox::new(limits).unwrap();
+            engine::fault::refuse_nth(usize::MAX);
+            sb.eval::<String>(script).unwrap();
+            println!("OOM-COUNT {}", engine::fault::count());
+            return;
+        }
+        let ns = std::env::var("SURIMONO_OOM_NS").unwrap();
+        let (mut ok, mut refused) = (0, 0);
+        for n in ns.split(',').map(|n| n.parse::<usize>().unwrap()) {
+            let mut sb = Sandbox::new(limits).unwrap();
+            engine::fault::refuse_nth(n);
+            let result = sb.eval::<String>(script);
+            engine::fault::refuse_nth(0);
+            // Whatever happened, the sandbox works afterwards.
+            assert_eq!(
+                sb.eval::<i32>("6 * 7"),
+                Ok(42),
+                "after refusing allocation {n}"
+            );
+            match result {
+                Ok(_) => ok += 1,
+                Err(SandboxError::MemoryLimit) => refused += 1,
+                Err(other) => panic!("refusing allocation {n} gave {other:?}"),
+            }
+        }
+        println!("OOM-SWEEP ok={ok} memory_limit={refused}");
+    }
+
+    /// Review of #5, F7: refuse each single allocation of an allocation-heavy
+    /// script in turn. The memory limit can refuse any allocation a script
+    /// makes, so QuickJS must report every such failure, never crash or
+    /// `abort()`; each run must end as success or `MemoryLimit` and leave
+    /// the sandbox usable. (Building the runtime and context is not swept:
+    /// it needs about 200 KiB, under the 1 MiB minimum limit, so the limit
+    /// never refuses there.) Runs in child processes, so a crash fails the
+    /// test instead of killing the harness.
+    #[test]
+    fn out_of_memory_never_aborts() {
+        let exe = std::env::current_exe().unwrap();
+        let child = |script: &str, env: (&str, String)| {
+            let out = std::process::Command::new(&exe)
+                .args([
+                    "sandbox::tests::oom_sweep_child",
+                    "--exact",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("SURIMONO_OOM_SCRIPT", script)
+                .env(env.0, &env.1)
+                .output()
+                .unwrap();
+            let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+            assert!(
+                out.status.success(),
+                "the child died ({:?}) on the {script} script with {}={}:\n{stdout}\n{}",
+                out.status,
+                env.0,
+                env.1,
+                String::from_utf8_lossy(&out.stderr)
+            );
+            stdout
+        };
+        for script in ["allocating", "compiling"] {
+            let counted = child(script, ("SURIMONO_OOM_COUNT", "1".into()));
+            let total: usize = counted
+                .split("OOM-COUNT ")
+                .nth(1)
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(|| panic!("no count in: {counted}"));
+            // quickjs-ng carves small objects out of arena chunks, so these
+            // are the chunk and buffer allocations the limit can refuse.
+            assert!(total > 20, "{script}: only {total} allocations");
+            let ns: Vec<usize> = (1..=total).collect();
+            for chunk in ns.chunks(250) {
+                let list = chunk
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let out = child(script, ("SURIMONO_OOM_NS", list));
+                assert!(out.contains("OOM-SWEEP"), "{out}");
+            }
+        }
     }
 }
