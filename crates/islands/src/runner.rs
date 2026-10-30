@@ -100,6 +100,9 @@ struct Bundle {
     /// render must then run that microtask in its own call, after the
     /// bundle and before the entry, so it is never preloaded.
     preloadable: AtomicBool,
+    /// For a built-in: the address of its static source, so built-ins
+    /// sharing one bundle share its bytecode.
+    source_id: Option<usize>,
 }
 
 struct RenderJob {
@@ -112,9 +115,16 @@ struct RenderJob {
 
 struct RegisterJob {
     name: String,
-    source: String,
+    code: Code,
     entry: String,
     reply: SyncSender<Result<Bundle, IslandError>>,
+}
+
+/// What a registration compiles, or reuses.
+enum Code {
+    Source(String),
+    /// Bytecode another bundle already compiled from the same source.
+    Compiled(Bytecode),
 }
 
 enum Job {
@@ -168,10 +178,16 @@ pub struct RunnerStats {
 /// after sending a reply, off the caller's clock: it starts a fresh runtime
 /// and, if no request is waiting, evaluates the bundle it rendered last, so
 /// a repeated renderer skips that step. (A bundle whose top level queues
-/// microtasks is never preloaded.) The limits apply to each island as a
-/// whole: one time budget covers loading the bundle, if it wasn't
-/// preloaded, the entry call and the microtasks it queues. The result is
-/// the same either way.
+/// microtasks is never preloaded.) A request that arrives while its worker
+/// is preloading waits for the preload to finish. The limits apply to each
+/// island as a whole: one time budget covers loading the bundle, if it
+/// wasn't preloaded, the entry call and the microtasks it queues. The
+/// result is the same either way, but a cold render spends part of its
+/// budget loading the bundle (about 20 ms for ECharts, 70 ms for Vega in a
+/// release build), so set the time limit for the cold case: with a limit
+/// close to a chart's cost, a cold render can hit it where a preloaded one
+/// passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
+/// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
 /// Text measurement runs inside that budget, on the worker thread. The
 /// time limit can only interrupt JavaScript, so every `measureText` call
@@ -285,19 +301,24 @@ impl IslandRunner {
                 message: "bundle name and entry must not be empty".into(),
             });
         }
-        let bundle = self.dispatch(|reply| {
-            Job::Register(RegisterJob {
-                name: name.to_owned(),
-                source: js_source.to_owned(),
-                entry: entry.to_owned(),
-                reply,
-            })
-        })?;
+        let bundle = self.compile_bundle(name, Code::Source(js_source.to_owned()), entry)?;
         self.bundles
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(name.to_owned(), Arc::new(bundle));
         Ok(())
+    }
+
+    /// Compiles (or reuses) `code` on a worker and checks it defines `entry`.
+    fn compile_bundle(&self, name: &str, code: Code, entry: &str) -> Result<Bundle, IslandError> {
+        self.dispatch(|reply| {
+            Job::Register(RegisterJob {
+                name: name.to_owned(),
+                code,
+                entry: entry.to_owned(),
+                reply,
+            })
+        })
     }
 
     /// Renders one island and returns the renderer's SVG string.
@@ -344,10 +365,27 @@ impl IslandRunner {
         if let Some(bundle) = registered(&self.bundles) {
             return Ok(bundle);
         }
-        self.register_bundle(builtin.name, builtin.source, builtin.entry)?;
-        registered(&self.bundles).ok_or_else(|| IslandError::UnknownRenderer {
-            name: name.to_owned(),
-        })
+        // Built-ins that share a source (vega and vega-lite) share its
+        // bytecode: compile it once.
+        let shared = self
+            .bundles
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+            .find(|b| b.source_id == Some(builtin.source.as_ptr() as usize))
+            .map(|b| b.bytecode.clone());
+        let code = match shared {
+            Some(bytecode) => Code::Compiled(bytecode),
+            None => Code::Source(builtin.source.to_owned()),
+        };
+        let mut bundle = self.compile_bundle(builtin.name, code, builtin.entry)?;
+        bundle.source_id = Some(builtin.source.as_ptr() as usize);
+        // A bundle registered under this name while we compiled wins.
+        let mut bundles = self.bundles.write().unwrap_or_else(PoisonError::into_inner);
+        let bundle = bundles
+            .entry(name.to_owned())
+            .or_insert_with(|| Arc::new(bundle));
+        Ok(bundle.clone())
     }
 
     /// Names of the registered renderers, sorted. Built-in renderers are
@@ -573,10 +611,15 @@ impl Worker {
     fn register(&mut self, job: &RegisterJob) -> Result<Bundle, IslandError> {
         self.take_preloaded(None);
         let sb = self.sandbox()?;
-        let bytecode = sb.compile(&job.source, &format!("{}.js", job.name))?;
-        sb.eval_bytecode(&bytecode)?;
+        let bytecode = match &job.code {
+            Code::Source(source) => sb.compile(source, &format!("{}.js", job.name))?,
+            Code::Compiled(bytecode) => bytecode.clone(),
+        };
+        // The entry must exist right after the bundle runs, before any
+        // microtask: that is when a render looks it up.
         let entry = job.entry.clone();
-        let is_function = sb.run(move |ctx| {
+        let is_function = sb.run(|ctx| {
+            bytecode.eval(ctx)?;
             let v: Value<'_> = ctx.globals().get(entry.as_str())?;
             Ok(v.is_function())
         })?;
@@ -591,6 +634,7 @@ impl Worker {
             entry: job.entry.clone(),
             bytecode,
             preloadable: AtomicBool::new(true),
+            source_id: None,
         })
     }
 
