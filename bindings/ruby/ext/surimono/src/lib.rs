@@ -36,6 +36,7 @@ fn renderer_new(
     pool_size: Option<usize>,
     now_ms: Option<i64>,
     utc_offset_minutes: i32,
+    text: String,
 ) -> Result<Renderer, Error> {
     let mut options = surimono::Options::new()
         .limits(surimono::Limits {
@@ -71,6 +72,10 @@ fn renderer_new(
         options = options.now_ms(ms);
     }
     options = options.utc_offset_minutes(utc_offset_minutes);
+    options = options.text_mode(match text.as_str() {
+        "keep" => surimono::TextMode::Keep,
+        _ => surimono::TextMode::Outlines,
+    });
     // Building compiles bundles and starts runtimes: release the GVL for it too.
     let built = ffi::without_gvl(ruby, move || surimono::Renderer::new(options))?;
     built
@@ -167,7 +172,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     module.define_singleton_method("native_version", function!(native_version, 0))?;
     module.define_singleton_method("_internal_panic_check", function!(internal_panic_check, 0))?;
     let class = module.define_class("Renderer", ruby.class_object())?;
-    class.define_singleton_method("_native_new", function!(renderer_new, 11))?;
+    class.define_singleton_method("_native_new", function!(renderer_new, 12))?;
     class.define_method("_render", method!(Renderer::render, 1))?;
     class.define_method("renderers", method!(Renderer::renderers, 0))?;
     Ok(())

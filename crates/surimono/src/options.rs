@@ -104,6 +104,24 @@ pub struct Options {
     pub(crate) pool_size: Option<usize>,
     pub(crate) now_ms: Option<i64>,
     pub(crate) utc_offset_minutes: i32,
+    pub(crate) text_mode: TextMode,
+}
+
+/// What happens to text in the SVG a renderer returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum TextMode {
+    /// Every `<text>` becomes `<path>` outlines of its glyphs in your fonts,
+    /// shaped exactly as it was measured, so any PDF engine prints what was
+    /// measured whatever fonts it has. The text stays as an `aria-label`, but
+    /// can't be selected or searched in the PDF. The default.
+    #[default]
+    Outlines,
+    /// `<text>` stays text, with `font-family` mapped to your fonts. Only right
+    /// for a PDF engine that sets inline SVG text in the fonts you passed:
+    /// fulgur 0.40 uses system fonts there, so labels can differ from what was
+    /// measured, or go missing.
+    Keep,
 }
 
 /// The clock every render sees when [`Options::now_ms`] isn't set:
@@ -231,6 +249,13 @@ impl Options {
         self
     }
 
+    /// Sets what happens to text in renderers' SVG. Default:
+    /// [`TextMode::Outlines`]; outlining needs at least one font.
+    pub fn text_mode(mut self, mode: TextMode) -> Self {
+        self.text_mode = mode;
+        self
+    }
+
     /// Sets local time's offset from UTC in minutes (540 for Japan), so dates
     /// on time axes show in that zone. From -720 to 840. Default: 0 (UTC).
     /// The host's time zone is never read.
@@ -253,6 +278,7 @@ impl fmt::Debug for Options {
             .field("pool_size", &self.pool_size)
             .field("now_ms", &self.now_ms)
             .field("utc_offset_minutes", &self.utc_offset_minutes)
+            .field("text_mode", &self.text_mode)
             .finish()
     }
 }

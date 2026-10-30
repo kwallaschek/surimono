@@ -49,7 +49,7 @@ mod renderer;
 mod svg;
 
 pub use error::{Error, IslandRef};
-pub use options::{DEFAULT_NOW_MS, Limits, Options};
+pub use options::{DEFAULT_NOW_MS, Limits, Options, TextMode};
 pub use prepass::ErrorPolicy;
 pub use renderer::Renderer;
 

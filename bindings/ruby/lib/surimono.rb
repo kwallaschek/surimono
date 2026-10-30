@@ -108,6 +108,12 @@ module Surimono
     #                island: specJson is the spec as JSON text (JSON.parse it),
     #                ctx has width, height and measureText(text, cssFont). It
     #                returns an SVG string, which is sanitised before use.
+    # text::         :outlines (default) turns chart text into outlines of its
+    #                glyphs in your fonts, so any PDF engine prints exactly what
+    #                was measured (the words stay as aria-label, but can't be
+    #                selected in the PDF; needs at least one font). :keep leaves
+    #                <text>, for engines that set inline SVG text in your fonts
+    #                (fulgur 0.40 doesn't).
     # pool_size::    JavaScript runtimes (threads) kept for concurrent renders
     #                (default: CPU count, at most 4; at most 64).
     #
@@ -119,7 +125,7 @@ module Surimono
     # rejects (a limit out of range, an unknown renderer name, a font or
     # bundle that can't be used) raise ConfigurationError.
     def self.new(fonts: [], limits: {}, seed: 0, error_policy: :fail, renderers: nil, bundles: {}, pool_size: nil,
-                 now: nil, utc_offset_minutes: 0)
+                 now: nil, utc_offset_minutes: 0, text: :outlines)
       lim = normalize_limits(limits)
       _native_new(
         Array(fonts).map { |f| font_data(f) },
@@ -132,7 +138,8 @@ module Surimono
         normalize_bundles(bundles),
         pool_size && positive_integer(pool_size, "pool_size"),
         normalize_now(now),
-        normalize_offset(utc_offset_minutes)
+        normalize_offset(utc_offset_minutes),
+        normalize_text(text)
       )
     end
 
@@ -187,6 +194,12 @@ module Surimono
         raise ArgumentError, "now must be a Time, got #{now.class}" unless now.is_a?(Time)
 
         (now.to_r * 1000).floor
+      end
+
+      def normalize_text(text)
+        return text.to_s if %i[outlines keep].include?(text.to_s.to_sym)
+
+        raise ArgumentError, "text must be :outlines or :keep, got #{text.inspect}"
       end
 
       def normalize_offset(minutes)

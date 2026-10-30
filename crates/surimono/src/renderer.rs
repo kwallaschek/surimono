@@ -3,7 +3,7 @@
 use std::fmt;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use surimono_gfx::FontSet;
+use surimono_gfx::TextMeasurer;
 use surimono_islands::{IslandRequest, IslandRunner};
 
 use crate::Options;
@@ -31,7 +31,9 @@ pub struct Renderer {
     /// The options it was built with (fonts moved out), to start the pool
     /// again in a forked child.
     options: Options,
-    fonts: FontSet,
+    /// Measures text for renderers and outlines it in their SVG, with the
+    /// caller's fonts.
+    measurer: TextMeasurer,
     pool: Mutex<Pool>,
     policy: ErrorPolicy,
     enabled: Vec<String>,
@@ -95,7 +97,7 @@ impl Renderer {
         if options.pool_size == Some(0) {
             return Err(Error::InvalidOptions("pool_size must be at least 1".into()));
         }
-        let fonts = backend::font_set(std::mem::take(&mut options.fonts))?;
+        let measurer = TextMeasurer::new(backend::font_set(std::mem::take(&mut options.fonts))?);
         let mut available = backend::builtin_renderers();
         for b in &options.bundles {
             backend::check_bundle(&b.name, &b.entry, &available).map_err(|message| {
@@ -106,7 +108,7 @@ impl Renderer {
             })?;
             available.push(b.name.clone());
         }
-        let runner = start_runner(&options, &fonts)?;
+        let runner = start_runner(&options, &measurer)?;
         let enabled = match &options.renderers {
             None => available,
             Some(wanted) => {
@@ -128,7 +130,7 @@ impl Renderer {
         Ok(Self {
             policy: options.error_policy,
             options,
-            fonts,
+            measurer,
             pool: Mutex::new(Pool {
                 pid: std::process::id(),
                 runner: Some(Arc::new(runner)),
@@ -142,7 +144,7 @@ impl Renderer {
         let pid = std::process::id();
         let mut pool = self.pool.lock().unwrap_or_else(PoisonError::into_inner);
         if pool.pid != pid || pool.runner.is_none() {
-            let fresh = Arc::new(start_runner(&self.options, &self.fonts)?);
+            let fresh = Arc::new(start_runner(&self.options, &self.measurer)?);
             if let Some(old) = pool.runner.replace(fresh) {
                 abandon(old);
             }
@@ -213,7 +215,7 @@ impl Renderer {
                 .ok_or_else(|| Error::InvalidOptions("the renderer has no runner".into()))?
                 .render(&request)
                 .map_err(|e| backend::island_error(e, island.at.clone(), &self.enabled))?;
-            SanitizedSvg::new(&svg, &island.at, &self.fonts)
+            SanitizedSvg::new(&svg, &island.at, &self.measurer, self.options.text_mode)
         })
     }
 
@@ -235,8 +237,8 @@ impl fmt::Debug for Renderer {
 }
 
 /// Starts a runner and registers the bundles (names already checked).
-fn start_runner(options: &Options, fonts: &FontSet) -> Result<IslandRunner, Error> {
-    let runner = backend::runner(options, fonts)?;
+fn start_runner(options: &Options, measurer: &TextMeasurer) -> Result<IslandRunner, Error> {
+    let runner = backend::runner(options, measurer)?;
     for b in &options.bundles {
         runner
             .register_bundle(&b.name, &b.source, &b.entry)
