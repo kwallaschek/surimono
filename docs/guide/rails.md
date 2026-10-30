@@ -166,7 +166,7 @@ module SurimonoHelper
 end
 ```
 
-`json_escape` turns `<`, `>` and `&` into `<`-style escapes, so a `</script>`
+`json_escape` turns `<`, `>` and `&` into escapes such as `\u003c`, so a `</script>`
 inside your data can't end the marker early. `html_safe` stops ERB from turning
 `"` into `&quot;`, which would break the JSON: browsers and surimono read script
 text exactly as written.

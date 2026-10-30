@@ -41,7 +41,7 @@ Rules that follow from HTML itself:
   into `&quot;`.
 - **`</script>` ends the element**, even inside a JSON string. Write it as
   `<\/script>`, which JSON reads as the same string. Rails' `json_escape` and
-  most JSON encoders that target HTML escape `<` as `<`, which also works.
+  most JSON encoders that target HTML escape `<` as `\u003c`, which also works.
 - **Markers inside comments, `<textarea>`, `<title>` or `<svg>` are not
   islands.** They are text or SVG there, so they are left alone.
 - **Put markers where a `<div>` is allowed.** The marker becomes a `<div>`, and a
