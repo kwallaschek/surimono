@@ -503,7 +503,23 @@ impl Worker {
         }
     }
 
+    /// Takes the preloaded bundle, if any, leaving a sandbox that is either
+    /// pristine or holds exactly `wanted`. Returns whether `wanted` (if
+    /// given) is already loaded. A sandbox holding another bundle is reset,
+    /// so no job ever sees a bundle it did not ask for.
+    fn take_preloaded(&mut self, wanted: Option<&Arc<Bundle>>) -> bool {
+        let Some(loaded) = self.preloaded.take() else {
+            return false;
+        };
+        if wanted.is_some_and(|w| Arc::ptr_eq(w, &loaded)) {
+            return true;
+        }
+        self.recycle();
+        false
+    }
+
     fn register(&mut self, job: &RegisterJob) -> Result<Bundle, IslandError> {
+        self.take_preloaded(None);
         let sb = self.sandbox()?;
         let bytecode = sb.compile(&job.source, &format!("{}.js", job.name))?;
         sb.eval_bytecode(&bytecode)?;
@@ -529,10 +545,7 @@ impl Worker {
         let measurer = self.shared.measurer.clone();
         let bundle = &job.bundle;
         // The sandbox is used from here on, so it is no longer pristine.
-        let preloaded = self
-            .preloaded
-            .take()
-            .is_some_and(|p| Arc::ptr_eq(&p, bundle));
+        let preloaded = self.take_preloaded(Some(bundle));
         self.last_bundle = Some(bundle.clone());
         if preloaded {
             self.shared

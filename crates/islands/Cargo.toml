@@ -23,7 +23,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 # Parses rendered SVG in the renderer tests.
-roxmltree = "=0.21.2"
+roxmltree.workspace = true
 # Checks bundles/SHA256SUMS.
 sha2 = "=0.10.9"
 # Counts live heap bytes in the soak test.
