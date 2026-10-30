@@ -52,6 +52,7 @@ blitz-traits = { version = "=0.2.0" }
 
 # Shared by more than one crate: pin once here and use `<dep>.workspace = true`.
 roxmltree = "=0.21.2"
+sha2 = "=0.10.9"
 
 # Common
 thiserror = "2"

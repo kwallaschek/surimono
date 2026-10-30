@@ -1,12 +1,6 @@
 # Pending DECISIONS lines (moved into docs/DECISIONS.md when each PR merges)
 
 ## RT batch 1 (#5 #8 #11 #13 #15)
-- 2026-10-31 · The sandbox enforces the heap limit in its own counting allocator instead of QuickJS's JS_SetMemoryLimit · QuickJS's limit throws a catchable error and leaves no trace; ours records every refusal, so a caught OOM still reports MemoryLimit and stops the script.
-- 2026-10-31 · Any refused allocation fails the call with MemoryLimit, even if the script recovers · Failing clearly is safer than printing a half-rendered chart.
-- 2026-10-31 · A limit error rebuilds the sandbox's runtime; an ordinary exception keeps state · A limit can stop a script anywhere, leaving state half updated and jobs queued.
-- 2026-10-31 · Limits are validated: heap ≥ 1 MiB, stack 64 KiB to 16 MiB · QuickJS treats a 0 or >16 MiB stack limit as no limit and can't recover from failing to build a context.
-- 2026-10-31 · Sandbox contexts get ECMAScript built-ins only (no host performance, modules, std/os); classic scripts run sloppy · Untrusted by default; browser classic scripts are sloppy.
-- 2026-10-31 · A sandbox prelude refuses array-likes longer than memory_bytes/8 in Array built-ins, JSON.stringify replacers and String.raw · QuickJS walks them natively without interrupt checks; interim until the QuickJS patch (P1-RT-09).
 - 2026-10-31 · Sandbox local time is UTC plus a fixed utc_offset_minutes (default 0), never the host's zone · Output must not depend on where the server runs.
 - 2026-10-31 · Default Math.random seed 0x73757269_6d6f6e6f and clock 2026-01-01T00:00:00Z; every context restarts the sequence · Same input, same output across pooled workers.
 - 2026-10-31 · WeakRef and FinalizationRegistry are strong/no-op shims; performance.now() returns 0 in phase 1 · GC timing must not leak; the phase-2 virtual clock will drive performance.now().
@@ -15,22 +9,10 @@
 - 2026-10-31 · TextMeasurer::approximate() is the islands default until gfx is wired in · Deterministic and font-free; the facade always passes the gfx measurer.
 
 ## PKG batch 1 (#4 #7 #10 #14)
-- 2026-10-31 · Gems are built from a staged, self-contained tree (rake gem:stage); the source gem and the rb-sys-dock native gems both come from it · rb-sys-dock mounts only its working directory and a gem ships only files below its root.
-- 2026-10-31 · scripts/ci.sh runs the gem's tests on every PR; full.yml installs the source gem on Ruby 3.2 to 4.0 and the x86_64-linux native gem · PRs catch Ruby breakage, main catches packaging breakage.
-- 2026-10-31 · The ASan job runs on floating nightly with an ASAN_TOOLCHAIN override · Non-gating; a broken nightly can be pinned without a YAML change.
-- 2026-10-31 · HTML pre-pass uses lol_html =2.7.0 (BSD-3-Clause) · Spec tokenizer, verbatim pass-through; newest release that builds on 1.87; shares cssparser/selectors with Stylo.
-- 2026-10-31 · An island becomes `<div class="surimono-island <marker classes>" id="<marker id>" data-renderer="…">SVG</div>` · Block wrapper; markers go where a div is allowed.
-- 2026-10-31 · ErrorPolicy::Fail is the default; Placeholder leaves a div with class surimono-island-error and a comment · A document silently missing a chart is worse than a failed render.
-- 2026-10-31 · Island defaults 600×400 CSS px; data-width/height whole numbers 1 to 16384 · Usual chart sizes; cap stops absurd sizes.
-- 2026-10-31 · surimono::Error is one #[non_exhaustive] enum (InvalidIsland, UnknownRenderer, MemoryLimit, TimeLimit, StackOverflow, JavaScript, Render, Font, Bundle, InvalidOptions, Html) with IslandRef and stable kind() · One type to match; maps one-to-one to Ruby classes.
-- 2026-10-31 · Rust API: Renderer::new(Options) -> Result, render_islands(&str), renderers(); Options builder with private fields; Limits public fields mirroring core · Smallest API that covers the brief, can grow without breaking.
-- 2026-10-31 · Renderer::new validates fonts, limits, bundles and renderer names up front · Bad config fails at boot.
-- 2026-10-31 · Default pool size = CPU count capped at 8 · Enough for Puma/Sidekiq; output doesn't depend on it.
 - 2026-10-31 · Ruby: Surimono::Renderer.new(fonts:, limits: {memory_mb:, time_ms:, stack_kb:}, seed:, error_policy:, renderers:, bundles:, pool_size:), #render(html), Surimono.render(html, **opts) caching ≤16 renderers · Mirrors the Rust facade in Ruby units.
 - 2026-10-31 · Ruby errors: Surimono::Error < StandardError with MemoryLimitError, TimeLimitError, StackOverflowError, JavaScriptError, RenderError, ConfigurationError · ::ScriptError exists and isn't a StandardError.
 - 2026-10-31 · In fonts:, a binary-encoded String is font data, any other String or Pathname is a path · File.binread returns binary Strings.
 - 2026-10-31 · Renders run under rb_thread_call_without_gvl with no unblock function · Other threads run; interrupts wait and the time limit bounds the wait.
-- 2026-10-31 · PKG may push release/ci-check-<task> branches to run full.yml before merge; Kay deletes them (the fleet can't delete branches) · Only way to test macOS, ARM, gems before merge.
 
 ## GFX batch 1 (#3 #12 #16)
 - 2026-10-31 · surimono-gfx measures with parley =0.6.0 and skrifa =0.37.0 (no system feature) · Same shaper fulgur 0.40 prints with.
@@ -46,16 +28,7 @@
 - (RT will write quickjs-ng interrupt + rquickjs prototype cache drafts in P1-RT-09)
 
 ## CF batch 1 (#1 #2 #6 #9 #17)
-- 2026-10-31 · Test fonts: Noto Sans 2.015 (unhinted static TTF) and Noto Sans JP 2.004 (static subset OTF), pinned by commit SHA and sha256 in fixtures/fonts/fonts.toml · Static, OFL, Latin and Japanese; Chrome and surimono/fulgur load the same bytes.
 - 2026-10-31 · The real-world suite pins each library by npm tarball, sha512 integrity and sha256 of the exact bundle file · One manifest that the harness and crates/islands are checked against.
-- 2026-10-31 · Mermaid is cut from v0.1 (the first item in the cut order) and not bundled until its licences are inventoried · Its bundle contains elkjs (EPL-2.0), outside the permissive-only rule.
-- 2026-10-31 · Chrome references: Playwright 1.63.0's full Chromium 153.0.8010.12 in new headless mode, pdftoppm 96 dpi, UTC, en-US, offline · Same engine as desktop Chrome/Puppeteer, reproducible.
-- 2026-10-31 · Each island also gets its own reference (SVG alone on a W×H page) · Island scores measure surimono without page layout.
-- 2026-10-31 · Visual metric: near-match (1 px, 128/255), worst 32×32 window, pass ≤ 10%; pixelmatch secondary · pixelmatch can't separate missing labels from sub-pixel shifts at 96 dpi; calibrated on all 10 fixtures.
-- 2026-10-31 · Fixture pages use whole-pixel sizes, flex rows instead of tables, no single-side border colours, text-spacing-trim: space-all · Five fulgur 0.40.0 layout gaps (in COMPAT.md) would swamp page diffs.
-- 2026-10-31 · Checkpoint-2 fixtures come from seeded synthetic data; references change only via reference.sh --update in a PR that says why · Reproducible inputs; expectations stay Chrome's.
-- 2026-10-31 · Fixture renders run in UTC with en-US locale and surimono must match · Two fixtures use UTC time axes.
-- 2026-10-31 · Stack overflow is catchable inside a render; only an uncaught one is StackOverflow · Browser parity.
 - 2026-10-31 · Script results must be strings or real Promises; the host never calls toString/then on a result; a promise that can't settle ends at once · Rust never re-enters hostile JS outside the limits.
 THIRD_PARTY rows:
 | Noto Sans (test fixture font) | 2.015 | OFL-1.1 | https://github.com/notofonts/notofonts.github.io (412a7edb2c8c535d1066157e5b17e661fd5591fe) | fixtures/fonts/ |
@@ -80,3 +53,14 @@ TODO: upstream drafts for 5 fulgur 0.40 gaps from COMPAT.md (#17); RT task: Rust
 - Core review: #5 APPROVE (merge; v0.1 release blockers R1 sticky interrupt + native loop polls, R2 watchdog tests, R3 docs); #8 BLOCK (B1 prepareStackTrace leak of native Date, B2 new Date(obj) host zone, B3 Date.parse zone abbreviations). New agent "RT sandbox hardening" owns crates/core + vendor/rquickjs-sys + [patch] + docs/upstream quickjs/rquickjs drafts. RT renderer agent keeps crates/islands.
 - RULE 2026-10-31 · Never rebase or force-push a pushed branch; fix with new commits; downstream merges parent in · Force-push may be refused; merge commits keep stacks valid.
 - COMPAT: toLocale*String ignores locale ('ja-JP').
+
+## DX batch 1 (#18 #19 #23), add on merge
+- 2026-10-31 · Docs quote no speed or memory figures until bench/ has results · Every performance claim must cite a benchmark.
+- 2026-10-31 · Ruby examples write island JSON with `raw json_escape(spec.to_json)` · Plain ERB escapes quotes and breaks the JSON.
+- 2026-10-31 · The Rails guide builds renderers lazily per process (keyed by Process.pid) until the facade is fork-safe · Runner threads don't survive fork.
+- 2026-10-31 · Jobs discard Surimono::Error but retry TimeLimitError · Only time limits depend on machine load.
+- 2026-10-31 · Examples are a workspace crate plus a plain-Ruby snippet, driven by examples/run.sh · Examples that run in CI can't rot.
+- 2026-10-31 · Examples use ECharts plus a bring-your-own bundle, not Vega · Vega is second in the cut order.
+- ORC TODO after #10 merges: add examples/rust-islands to workspace members/default-members.
+
+## Orchestrator
