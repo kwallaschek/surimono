@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
     Dir[
       "lib/**/*.rb",
       "ext/surimono/{extconf.rb,Cargo.toml}", "ext/surimono/src/**/*.rs",
-      "Cargo.{toml,lock}", "crates/**/*",
+      "Cargo.{toml,lock}", "crates/**/*", "vendor/**/*",
       "LICENSE-*", "THIRD_PARTY.md", "README.md"
     ].select { |f| File.file?(f) }.sort
   end
