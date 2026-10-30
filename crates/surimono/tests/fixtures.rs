@@ -148,3 +148,53 @@ fn keep_mode_keeps_text_in_the_registered_font() {
     assert!(out.contains("<text"));
     assert!(out.contains("Noto Sans"));
 }
+
+/// Every island fixture (the ten for checkpoint 2, ECharts, Vega and Vega-Lite,
+/// simple and dense, Latin and Japanese, plus any added since) renders with
+/// all four fixture fonts: every marker becomes one sanitised, outlined SVG,
+/// and a second render gives the same bytes.
+#[test]
+#[cfg(all(feature = "echarts", feature = "vega"))]
+fn every_checkpoint_fixture_renders() {
+    let options = [
+        "NotoSans-Regular.ttf",
+        "NotoSans-Bold.ttf",
+        "NotoSansJP-Regular.otf",
+        "NotoSansJP-Bold.otf",
+    ]
+    .iter()
+    .fold(Options::new(), |o, f| {
+        o.font(read(&format!("fixtures/fonts/{f}")))
+    });
+    let r = Renderer::new(options).unwrap_or_else(|e| panic!("{e}"));
+    let dir = repo().join("fixtures/islands");
+    let mut names: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("{e}"))
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().join("input.html").is_file())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert!(names.len() >= 10, "{names:?}");
+    for name in names {
+        let input = String::from_utf8(read(&format!("fixtures/islands/{name}/input.html")))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let markers = input.matches(MARKER_TYPE).count();
+        let out = r
+            .render_islands(&input)
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
+        assert!(!out.contains(MARKER_TYPE), "{name}");
+        assert_eq!(
+            out.matches("<div class=\"surimono-island\"").count(),
+            markers,
+            "{name}"
+        );
+        let lower = out.to_ascii_lowercase();
+        assert!(!lower.contains("<text"), "{name}: text not outlined");
+        assert_eq!(
+            r.render_islands(&input).ok().as_deref(),
+            Some(out.as_str()),
+            "{name}"
+        );
+    }
+}

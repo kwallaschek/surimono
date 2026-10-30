@@ -22,7 +22,9 @@ use crate::svg::SanitizedSvg;
 /// ```
 /// use surimono::{Options, Renderer};
 ///
-/// let renderer = Renderer::new(Options::new())?;
+/// # let font = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/NotoSans-Regular.ttf"))
+/// #     .unwrap_or_else(|e| panic!("{e}"));
+/// let renderer = Renderer::new(Options::new().font(font))?;
 /// let html = "<h1>Q3 report</h1><p>No charts on this page.</p>";
 /// assert_eq!(renderer.render_islands(html)?, html);
 /// # Ok::<(), surimono::Error>(())
@@ -96,6 +98,14 @@ impl Renderer {
         }
         if options.pool_size == Some(0) {
             return Err(Error::InvalidOptions("pool_size must be at least 1".into()));
+        }
+        if options.fonts.is_empty() {
+            return Err(Error::InvalidOptions(
+                "no fonts were given: pass the font files your PDF engine prints with \
+                 (Options::font); surimono measures and outlines text only with them, never \
+                 with system fonts"
+                    .into(),
+            ));
         }
         let measurer = TextMeasurer::new(backend::font_set(std::mem::take(&mut options.fonts))?);
         let mut available = backend::builtin_renderers();
@@ -279,8 +289,17 @@ mod tests {
           return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}" data-w="${w.toFixed(2)}"></svg>`;
         }"#;
 
+    fn test_font() -> Vec<u8> {
+        let path = format!(
+            "{}/../../fixtures/fonts/NotoSans-Regular.ttf",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"))
+    }
+
     fn options() -> Options {
         Options::new()
+            .font(test_font())
             .bundle("t", TEST_BUNDLE, "entry")
             .pool_size(2)
     }
@@ -399,12 +418,11 @@ mod tests {
             .and_then(|s| s.parse().ok())
             .unwrap_or_else(|| panic!("{out}"));
         assert!(w > 40.0 && w < 80.0, "Revenue at 16px measured {w}");
-        // Without fonts, measuring is a JavaScript error, never a system font.
-        let none = renderer(options());
-        assert!(matches!(
-            none.render_islands(&island(r#"{"measure": "x"}"#)),
-            Err(Error::JavaScript { .. })
-        ));
+        // Without fonts there is no renderer at all, never a system font.
+        match Renderer::new(Options::new().bundle("t", TEST_BUNDLE, "entry")) {
+            Err(Error::InvalidOptions(m)) => assert!(m.contains("no fonts"), "{m}"),
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
@@ -452,7 +470,7 @@ mod tests {
     fn invalid_options() {
         let bad_font = Renderer::new(options().font(b"nope".to_vec()));
         assert!(
-            matches!(bad_font, Err(Error::Font { index: 0, .. })),
+            matches!(bad_font, Err(Error::Font { index: 1, .. })),
             "{bad_font:?}"
         );
 
@@ -500,7 +518,11 @@ mod tests {
                 "{name:?}/{source:?}: {b:?}"
             );
         }
-        match Renderer::new(Options::new().bundle("x", "var y;", "draw")) {
+        match Renderer::new(
+            Options::new()
+                .font(test_font())
+                .bundle("x", "var y;", "draw"),
+        ) {
             Err(Error::Bundle { message, .. }) => {
                 assert!(message.contains("globalThis.draw"), "{message}");
                 assert!(!message.contains("\"x\""), "{message}");
@@ -515,6 +537,7 @@ mod tests {
             return `<svg xmlns='http://www.w3.org/2000/svg' data-t='${Date.now()}' data-h='${d.getHours()}'/>`; }";
         let r = renderer(
             Options::new()
+                .font(test_font())
                 .bundle("clock", bundle, "entry")
                 .now_ms(1_700_000_000_000)
                 .utc_offset_minutes(540),

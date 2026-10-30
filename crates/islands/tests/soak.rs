@@ -263,7 +263,7 @@ fn run_soak(soak: &Soak<'_>) {
 fn soak_10000_renders_flat_memory() {
     const RENDERS: usize = 10_000;
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
-    let runner = IslandRunner::new(RunnerOptions {
+    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: POOL_SIZE,
         limits: Limits::default()
             .with_memory_bytes(MEMORY_BYTES)
@@ -308,7 +308,7 @@ fn soak_echarts_2000_renders_flat_memory() {
         .collect();
     options.sort();
     assert!(options.len() >= 6);
-    let runner = IslandRunner::new(RunnerOptions {
+    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: POOL_SIZE,
         ..RunnerOptions::default()
     })
@@ -334,6 +334,52 @@ fn soak_echarts_2000_renders_flat_memory() {
         renders: RENDERS,
         sample_every: 250,
         warm_up: 500,
+        spec: &spec,
+        check: &check,
+    });
+    let stats = runner.stats();
+    assert_eq!(stats.renders, RENDERS as u64);
+    assert_eq!(stats.failed_renders, (RENDERS / 100) as u64);
+}
+
+/// Vega-Lite (which runs Vega too), rotating through the small test specs,
+/// with an exception every 100th render.
+#[cfg(feature = "vega")]
+#[test]
+#[ignore = "soak: 600 Vega-Lite renders; run in release with `--ignored soak`"]
+fn soak_vega_lite_600_renders_flat_memory() {
+    const RENDERS: usize = 600;
+    let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/vega-lite");
+    let specs: Vec<String> = ["bar", "japanese", "line-temporal"]
+        .iter()
+        .map(|n| std::fs::read_to_string(dir.join(format!("{n}.json"))).unwrap())
+        .collect();
+    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        pool_size: POOL_SIZE,
+        ..RunnerOptions::default()
+    })
+    .unwrap();
+    let spec = |i: usize| {
+        if i % 100 == 42 {
+            "[]".to_owned()
+        } else {
+            specs[i % specs.len()].clone()
+        }
+    };
+    let check = |i: usize, result: Result<String, IslandError>| match result {
+        Err(IslandError::Sandbox(SandboxError::Exception { .. })) if i % 100 == 42 => {}
+        Ok(svg) if i % 100 != 42 => assert!(svg.starts_with("<svg"), "render {i}"),
+        other => panic!("render {i}: unexpected {other:?}"),
+    };
+    run_soak(&Soak {
+        name: "soak-vega-lite",
+        runner: &runner,
+        renderer: "vega-lite",
+        memory_bytes: Limits::DEFAULT_MEMORY_BYTES,
+        renders: RENDERS,
+        sample_every: 150,
+        warm_up: 300,
         spec: &spec,
         check: &check,
     });
