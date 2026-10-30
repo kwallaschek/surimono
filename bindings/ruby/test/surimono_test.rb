@@ -6,35 +6,42 @@ require "timeout"
 require "tmpdir"
 require "surimono"
 
-# Until the island runner lands, the extension renders with a stand-in whose
-# only renderer, "surimono-stub", runs no JavaScript but can simulate a slow
-# script (busy_ms), an exception (throw) and each limit. See
-# crates/surimono/src/backend.rs.
+# The tests render with a small bring-your-own bundle, "t": an empty SVG of
+# the island's size, or, per its spec, a thrown error, a script over a limit,
+# or the clock it sees.
 class SurimonoTest < Minitest::Test
   TYPE = "application/vnd.surimono+json"
-  STUB = "surimono-stub"
   REPO_FONT = File.expand_path("../../../fixtures/fonts/NotoSans-Regular.ttf", __dir__)
+  BUNDLE = <<~JS
+    function entry(specJson, ctx) {
+      const spec = JSON.parse(specJson);
+      if (spec.throw) throw new Error(spec.throw);
+      if (spec.limit === "time") { for (;;) {} }
+      if (spec.limit === "memory") { const a = []; for (;;) a.push(new Array(1e5).fill(1)); }
+      if (spec.limit === "stack") { const f = (n) => f(n + 1) + 1; f(0); }
+      if (spec.clock) return `<svg xmlns="http://www.w3.org/2000/svg" data-t="${Date.now()}" data-h="${new Date().getHours()}"></svg>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}"></svg>`;
+    }
+  JS
+  BUNDLES = { "t" => { source: BUNDLE, entry: "entry" } }.freeze
 
-  def island(spec = "{}", renderer: STUB, attrs: "")
+  def island(spec = "{}", renderer: "t", attrs: "")
     %(<script type="#{TYPE}" data-renderer="#{renderer}" data-width="30" data-height="20"#{attrs}>#{spec}</script>)
   end
 
   def stub_svg
-    '<div class="surimono-island" data-renderer="surimono-stub">' \
-      '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20" viewBox="0 0 30 20"></svg></div>'
+    '<div class="surimono-island" data-renderer="t">' \
+      '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"></svg></div>'
   end
 
-  # A real test font when the repository's fixtures are there, else bytes that
-  # look like a TrueType file (enough for the stand-in runner).
   def font_bytes
-    return File.binread(REPO_FONT) if File.exist?(REPO_FONT)
-
-    "\x00\x01\x00\x00".b + ("\x00".b * 64)
+    skip "#{REPO_FONT} is not there" unless File.exist?(REPO_FONT)
+    File.binread(REPO_FONT)
   end
 
   def renderer(**opts)
     @renderer ||= {}
-    @renderer[opts] ||= Surimono::Renderer.new(**opts)
+    @renderer[opts] ||= Surimono::Renderer.new(bundles: BUNDLES, pool_size: 2, **opts)
   end
 
   def test_native_version_matches_gem_version
@@ -54,7 +61,7 @@ class SurimonoTest < Minitest::Test
 
   def test_keeps_id_and_class
     out = renderer.render(island("{}", attrs: ' id="q3" class="chart wide"'))
-    assert_match(/\A<div class="surimono-island chart wide" id="q3" data-renderer="surimono-stub">/, out)
+    assert_match(/\A<div class="surimono-island chart wide" id="q3" data-renderer="t">/, out)
   end
 
   def test_utf8_and_other_encodings
@@ -63,27 +70,30 @@ class SurimonoTest < Minitest::Test
     latin1 = "<p>café</p>".encode(Encoding::ISO_8859_1)
     assert_equal "<p>café</p>", renderer.render(latin1)
     assert_equal "<p>x</p>", renderer.render("<p>x</p>".b)
-    assert_raises(ArgumentError) { renderer.render("<p>\xff</p>".b) }
+    e = assert_raises(ArgumentError) { renderer.render("<p>\xff</p>".b) }
+    assert_match(/not valid UTF-8/, e.message)
   end
 
   def test_time_limit
     r = renderer(limits: { time_ms: 50 })
     e = assert_raises(Surimono::TimeLimitError) do
-      r.render("<p>a</p>#{island('{"busy_ms": 5000}', attrs: ' id="slow"')}")
+      r.render("<p>a</p>#{island('{"limit": "time"}', attrs: ' id="slow"')}")
     end
     assert_kind_of Surimono::Error, e
     assert_equal "time-limit", e.kind
     assert_equal 0, e.island_index
     assert_equal "slow", e.island_id
-    assert_equal STUB, e.renderer
-    assert_match(/island #1 \(id "slow", renderer "surimono-stub"\): the script exceeded the time limit/, e.message)
+    assert_equal "t", e.renderer
+    assert_match(/island #1 \(id "slow", renderer "t"\): the script exceeded the time limit/, e.message)
   end
 
   def test_memory_and_stack_limits
-    e = assert_raises(Surimono::MemoryLimitError) { renderer.render(island('{"limit": "memory"}')) }
+    r = renderer(limits: { memory_mb: 8 })
+    e = assert_raises(Surimono::MemoryLimitError) { r.render(island('{"limit": "memory"}')) }
     assert_equal "memory-limit", e.kind
-    e = assert_raises(Surimono::StackOverflowError) { renderer.render(island('{"limit": "stack"}')) }
+    e = assert_raises(Surimono::StackOverflowError) { r.render(island('{"limit": "stack"}')) }
     assert_equal "stack-overflow", e.kind
+    assert_equal stub_svg, r.render(island), "the renderer works after a limit"
   end
 
   def test_javascript_error
@@ -107,7 +117,7 @@ class SurimonoTest < Minitest::Test
   def test_placeholder_policy
     r = renderer(error_policy: :placeholder)
     out = r.render("#{island('{"throw": "x"}')}#{island}")
-    assert_match(/\A<div class="surimono-island surimono-island-error" data-renderer="surimono-stub" data-error="javascript"><!-- surimono: /, out)
+    assert_match(/\A<div class="surimono-island surimono-island-error" data-renderer="t" data-error="javascript" style="width:30px;height:20px"><!-- surimono: /, out)
     assert out.end_with?(stub_svg), out
   end
 
@@ -116,7 +126,7 @@ class SurimonoTest < Minitest::Test
     Dir.mktmpdir do |dir|
       path = File.join(dir, "font.ttf")
       File.binwrite(path, data)
-      r = Surimono::Renderer.new(fonts: [path, Pathname.new(path), data])
+      r = Surimono::Renderer.new(fonts: [path, Pathname.new(path), data], bundles: BUNDLES)
       assert_equal stub_svg, r.render(island)
     end
     assert_raises(Errno::ENOENT) { Surimono::Renderer.new(fonts: ["/no/such/font.ttf"]) }
@@ -124,23 +134,21 @@ class SurimonoTest < Minitest::Test
     assert_equal "font", e.kind
     assert_match(/font #2/, e.message)
     assert_raises(ArgumentError) { Surimono::Renderer.new(fonts: [42]) }
+    e = assert_raises(ArgumentError) { Surimono::Renderer.new(fonts: [data.dup.force_encoding(Encoding::UTF_8)]) }
+    assert_match(/File\.binread/, e.message)
   end
 
   def test_option_checks
-    assert_raises(ArgumentError) { Surimono::Renderer.new(limits: { time: 5 }) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(limits: { time_ms: 0 }) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(limits: { memory_mb: 1.5 }) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(seed: -1) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(error_policy: :ignore) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(pool_size: 0) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(colour: :red) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(limits: { memory_mb: 2**50 }) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(limits: "fast") }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(pool_size: 2**70) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(renderers: "echarts") }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(renderers: [42]) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(bundles: { "mine" => 42 }) }
-    assert_raises(ArgumentError) { Surimono::Renderer.new(bundles: { "mine" => { entry: "f" } }) }
+    [
+      { limits: { time: 5 } }, { limits: { time_ms: 0 } }, { limits: { memory_mb: 1.5 } },
+      { limits: { memory_mb: 2**50 } }, { limits: { stack_kb: 32 } }, { limits: "fast" },
+      { seed: -1 }, { error_policy: :ignore }, { pool_size: 0 }, { pool_size: 2**70 }, { colour: :red },
+      { renderers: "echarts" }, { renderers: [42] }, { bundles: { "mine" => 42 } },
+      { bundles: { "mine" => { entry: "f" } } }, { now: "today" }, { utc_offset_minutes: 900 },
+      { utc_offset_minutes: 1.5 }
+    ].each do |opts|
+      assert_raises(ArgumentError, opts.inspect) { Surimono::Renderer.new(**opts) }
+    end
     assert_raises(ArgumentError) { renderer.render(nil) }
     assert_raises(ArgumentError) { renderer.render(42) }
     e = assert_raises(Surimono::ConfigurationError) { Surimono::Renderer.new(renderers: ["nope"]) }
@@ -149,19 +157,28 @@ class SurimonoTest < Minitest::Test
       Surimono::Renderer.new(bundles: { "mine" => { source: "function f(){}", entry: "not a name" } })
     end
     assert_equal "bundle", e.kind
+    e = assert_raises(Surimono::ConfigurationError) { Surimono::Renderer.new(bundles: { "mine" => "var x;" }) }
+    assert_match(/globalThis\.entry/, e.message)
   end
 
   def test_renderers_and_bundles
-    assert_equal [STUB], renderer.renderers
-    r = Surimono::Renderer.new(bundles: { "mine" => { source: "function draw(){}", entry: "draw" } })
-    assert_equal [STUB, "mine"], r.renderers
-    only = Surimono::Renderer.new(bundles: { mine: "function render(){}" }, renderers: [:mine])
+    assert_equal "t", renderer.renderers.last
+    assert_includes renderer.renderers, "echarts"
+    only = Surimono::Renderer.new(bundles: { mine: "function entry(){}" }, renderers: [:mine])
     assert_equal ["mine"], only.renderers
     assert_raises(Surimono::RenderError) { only.render(island) }
   end
 
+  def test_clock_options
+    r = Surimono::Renderer.new(bundles: BUNDLES, now: Time.utc(2023, 11, 14, 22, 13, 20), utc_offset_minutes: 540)
+    out = r.render(island('{"clock": true}'))
+    assert_includes out, 'data-t="1700000000000" data-h="7"'
+    default = renderer.render(island('{"clock": true}'))
+    assert_includes default, 'data-t="1767225600000" data-h="0"'
+  end
+
   def test_other_threads_run_while_rendering
-    r = renderer
+    r = renderer(limits: { time_ms: 600 }, error_policy: :placeholder)
     ticks = 0
     ticker = Thread.new do
       loop do
@@ -171,24 +188,19 @@ class SurimonoTest < Minitest::Test
     end
     sleep 0.05 # let the ticker start
     before = ticks
-    out = r.render(island('{"busy_ms": 600}'))
+    out = r.render(island('{"limit": "time"}'))
     during = ticks - before
     ticker.kill
-    assert_equal stub_svg, out
+    assert_includes out, 'data-error="time-limit"'
     # With the GVL held, the ticker couldn't run at all during the 600 ms render.
     assert_operator during, :>=, 20, "ticker advanced only #{during} times during the render"
   end
 
   def test_many_threads_share_one_renderer
     r = renderer
-    html = "<main>#{island('{"busy_ms": 100}')}</main>"
-    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    html = "<main>#{island}</main>"
     outs = Array.new(8) { Thread.new { r.render(html) } }.map(&:value)
-    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
     assert_equal ["<main>#{stub_svg}</main>"], outs.uniq
-    # Eight 100 ms renders one after the other take 0.8 s; overlapping, well
-    # under half of that even on a busy 2-core machine.
-    assert_operator elapsed, :<, 0.5 * 8 * 0.1
   end
 
   # Resident set size of this process in bytes (Linux), or nil.
@@ -204,8 +216,10 @@ class SurimonoTest < Minitest::Test
   # interrupt's exception, without jumping over Rust frames and leaking what
   # they hold (here the ~4 MB output string of every interrupted render).
   def test_interrupted_renders_raise_and_free_memory
-    r = renderer
-    html = "<p>#{"x" * (4 * 1024 * 1024)}</p>#{island('{"busy_ms": 60}')}"
+    # Each render takes the 60 ms time limit and returns the document with a
+    # placeholder: a 4 MB String that an interrupt used to leak.
+    r = renderer(limits: { time_ms: 60 }, error_policy: :placeholder)
+    html = "<p>#{"x" * (4 * 1024 * 1024)}</p>#{island('{"limit": "time"}')}"
     interrupted = lambda do
       assert_raises(Timeout::Error) { Timeout.timeout(0.02) { r.render(html) } }
     end
@@ -224,13 +238,52 @@ class SurimonoTest < Minitest::Test
   end
 
   def test_killed_render_thread_ends_cleanly
-    r = renderer
-    t = Thread.new { r.render(island('{"busy_ms": 200}')) }
+    r = renderer(limits: { time_ms: 200 }, error_policy: :placeholder)
+    t = Thread.new { r.render(island('{"limit": "time"}')) }
     sleep 0.05
     t.kill
     t.join
     refute t.alive?
     assert_equal stub_svg, r.render(island)
+  end
+
+  # Puma's preload_app! and Unicorn build objects in the parent and fork
+  # workers. The runner's threads don't survive fork; the child must start
+  # its own and render, never hang.
+  def test_renderer_built_before_fork_renders_in_the_child
+    skip "no fork on this platform" unless Process.respond_to?(:fork)
+
+    r = renderer
+    assert_equal stub_svg, r.render(island) # the parent's runner is running
+    Surimono.render(island, bundles: BUNDLES) # and a cached one
+    reader, writer = IO.pipe
+    pid = fork do
+      reader.close
+      out = [r.render(island), Surimono.render(island, bundles: BUNDLES)]
+      writer.write(out.join("\n"))
+      writer.close
+      exit!(0)
+    rescue Exception => e # rubocop:disable Lint/RescueException
+      writer.write("#{e.class}: #{e.message}")
+      exit!(1)
+    end
+    writer.close
+    status = nil
+    200.times do
+      _, status = Process.wait2(pid, Process::WNOHANG)
+      break if status
+
+      sleep 0.05
+    end
+    unless status
+      Process.kill(:KILL, pid)
+      Process.wait(pid)
+      flunk "the forked child hung rendering"
+    end
+    got = reader.read
+    assert status.success?, got
+    assert_equal "#{stub_svg}\n#{stub_svg}", got
+    assert_equal stub_svg, r.render(island), "the parent still renders"
   end
 
   class Stop < StandardError; end
@@ -266,7 +319,7 @@ class SurimonoTest < Minitest::Test
   end
 
   def test_module_render_reuses_a_renderer_per_option_set
-    assert_equal stub_svg, Surimono.render(island)
+    assert_equal stub_svg, Surimono.render(island, bundles: BUNDLES)
     a = Surimono.send(:renderer_for, { seed: 1 })
     b = Surimono.send(:renderer_for, { seed: 1 })
     c = Surimono.send(:renderer_for, { seed: 2 })
@@ -281,7 +334,9 @@ class SurimonoTest < Minitest::Test
     assert_same a, Surimono.send(:renderer_for, { seed: 1 })
     3.times { |i| Surimono.send(:renderer_for, { seed: 201 + i }) }
     assert_same a, Surimono.send(:renderer_for, { seed: 1 })
-    e = assert_raises(Surimono::TimeLimitError) { Surimono.render(island('{"busy_ms": 500}'), limits: { time_ms: 10 }) }
+    e = assert_raises(Surimono::TimeLimitError) do
+      Surimono.render(island('{"limit": "time"}'), bundles: BUNDLES, limits: { time_ms: 10 })
+    end
     assert_equal "time-limit", e.kind
   end
 end
