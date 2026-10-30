@@ -8,7 +8,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use magnus::{
-    Error, ExceptionClass, KwArgs, RArray, RModule, RString, Ruby, function, method, prelude::*,
+    Error, ExceptionClass, KwArgs, RArray, RHash, RModule, RString, Ruby, function, method,
+    prelude::*,
 };
 
 #[allow(unsafe_code)]
@@ -63,7 +64,7 @@ fn renderer_new(
         options = options.pool_size(size);
     }
     // Building compiles bundles and starts runtimes: release the GVL for it too.
-    let built = ffi::without_gvl(move || surimono::Renderer::new(options));
+    let built = ffi::without_gvl(ruby, move || surimono::Renderer::new(options))?;
     built
         .map(|r| Renderer(Arc::new(r)))
         .map_err(|e| to_ruby_error(ruby, &e))
@@ -75,7 +76,7 @@ impl Renderer {
         // owns plain Rust data only.
         let html = html.to_string()?;
         let renderer = Arc::clone(&rb_self.0);
-        let result = ffi::without_gvl(move || renderer.render_islands(&html));
+        let result = ffi::without_gvl(ruby, move || renderer.render_islands(&html))?;
         match result {
             Ok(out) => Ok(ruby.str_new(&out)),
             Err(e) => Err(to_ruby_error(ruby, &e)),
@@ -102,12 +103,7 @@ fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
         E::Font { .. } | E::Bundle { .. } | E::InvalidOptions(_) => "ConfigurationError",
         _ => "Error",
     };
-    let message = e.to_string();
-    let build = || -> Result<Error, Error> {
-        let module: RModule = ruby.class_object().const_get("Surimono")?;
-        let class: ExceptionClass = module.const_get(class_name)?;
-        let details = ruby.hash_new();
-        details.aset(ruby.to_symbol("kind"), e.kind())?;
+    surimono_error(ruby, class_name, &e.to_string(), e.kind(), |details| {
         if let Some(island) = e.island() {
             details.aset(ruby.to_symbol("island_index"), island.index)?;
             details.aset(ruby.to_symbol("island_id"), island.id.clone())?;
@@ -116,11 +112,39 @@ fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
         if let E::JavaScript { stack, .. } = e {
             details.aset(ruby.to_symbol("js_stack"), stack.clone())?;
         }
-        let exception = class.new_instance((message.as_str(), KwArgs(details)))?;
+        Ok(())
+    })
+}
+
+/// A `Surimono::<class_name>` exception with `message`, `kind` and the details
+/// `add` puts in. If lib/surimono.rb's classes are missing, still raises
+/// something useful (a RuntimeError with the message).
+pub(crate) fn surimono_error(
+    ruby: &Ruby,
+    class_name: &str,
+    message: &str,
+    kind: &str,
+    add: impl FnOnce(RHash) -> Result<(), Error>,
+) -> Error {
+    let build = || -> Result<Error, Error> {
+        let module: RModule = ruby.class_object().const_get("Surimono")?;
+        let class: ExceptionClass = module.const_get(class_name)?;
+        let details = ruby.hash_new();
+        details.aset(ruby.to_symbol("kind"), kind)?;
+        add(details)?;
+        let exception = class.new_instance((message, KwArgs(details)))?;
         Ok(Error::from(exception))
     };
-    // If lib/surimono.rb's classes are missing, still raise something useful.
-    build().unwrap_or_else(|_| Error::new(ruby.exception_runtime_error(), message.clone()))
+    build().unwrap_or_else(|_| Error::new(ruby.exception_runtime_error(), message.to_owned()))
+}
+
+/// Panics inside a GVL-free section, to test that a panic becomes
+/// `Surimono::InternalError` instead of ending the process. Private; used by
+/// the gem's tests only.
+fn internal_panic_check(ruby: &Ruby) -> Result<(), Error> {
+    ffi::without_gvl::<(), _>(ruby, || {
+        panic!("deliberate panic from Surimono._internal_panic_check")
+    })
 }
 
 fn native_version() -> String {
@@ -133,6 +157,7 @@ fn native_version() -> String {
 fn init(ruby: &Ruby) -> Result<(), Error> {
     let module = ruby.define_module("Surimono")?;
     module.define_singleton_method("native_version", function!(native_version, 0))?;
+    module.define_singleton_method("_internal_panic_check", function!(internal_panic_check, 0))?;
     let class = module.define_class("Renderer", ruby.class_object())?;
     class.define_singleton_method("_native_new", function!(renderer_new, 9))?;
     class.define_method("_render", method!(Renderer::render, 1))?;

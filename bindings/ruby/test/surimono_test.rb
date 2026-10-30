@@ -2,6 +2,7 @@
 
 require "minitest/autorun"
 require "pathname"
+require "timeout"
 require "tmpdir"
 require "surimono"
 
@@ -133,6 +134,15 @@ class SurimonoTest < Minitest::Test
     assert_raises(ArgumentError) { Surimono::Renderer.new(error_policy: :ignore) }
     assert_raises(ArgumentError) { Surimono::Renderer.new(pool_size: 0) }
     assert_raises(ArgumentError) { Surimono::Renderer.new(colour: :red) }
+    assert_raises(ArgumentError) { Surimono::Renderer.new(limits: { memory_mb: 2**50 }) }
+    assert_raises(ArgumentError) { Surimono::Renderer.new(limits: "fast") }
+    assert_raises(ArgumentError) { Surimono::Renderer.new(pool_size: 2**70) }
+    assert_raises(ArgumentError) { Surimono::Renderer.new(renderers: "echarts") }
+    assert_raises(ArgumentError) { Surimono::Renderer.new(renderers: [42]) }
+    assert_raises(ArgumentError) { Surimono::Renderer.new(bundles: { "mine" => 42 }) }
+    assert_raises(ArgumentError) { Surimono::Renderer.new(bundles: { "mine" => { entry: "f" } }) }
+    assert_raises(ArgumentError) { renderer.render(nil) }
+    assert_raises(ArgumentError) { renderer.render(42) }
     e = assert_raises(Surimono::ConfigurationError) { Surimono::Renderer.new(renderers: ["nope"]) }
     assert_equal "invalid-options", e.kind
     e = assert_raises(Surimono::ConfigurationError) do
@@ -171,13 +181,88 @@ class SurimonoTest < Minitest::Test
 
   def test_many_threads_share_one_renderer
     r = renderer
-    html = "<main>#{island('{"busy_ms": 20}')}</main>"
+    html = "<main>#{island('{"busy_ms": 100}')}</main>"
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     outs = Array.new(8) { Thread.new { r.render(html) } }.map(&:value)
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
     assert_equal ["<main>#{stub_svg}</main>"], outs.uniq
-    # Eight 20 ms renders that overlap finish well under 8 x 20 ms.
-    assert_operator elapsed, :<, 0.150
+    # Eight 100 ms renders one after the other take 0.8 s; overlapping, well
+    # under half of that even on a busy 2-core machine.
+    assert_operator elapsed, :<, 0.5 * 8 * 0.1
+  end
+
+  # Resident set size of this process in bytes (Linux), or nil.
+  def rss_bytes
+    status = File.read("/proc/self/status")
+    status[/^VmRSS:\s+(\d+) kB/, 1].to_i * 1024
+  rescue SystemCallError
+    nil
+  end
+
+  # Timeout (like Rack::Timeout and Ctrl-C) interrupts with Thread#raise. Ruby
+  # delivers it when the GVL-free render returns; it must come out as the
+  # interrupt's exception, without jumping over Rust frames and leaking what
+  # they hold (here the ~4 MB output string of every interrupted render).
+  def test_interrupted_renders_raise_and_free_memory
+    r = renderer
+    html = "<p>#{"x" * (4 * 1024 * 1024)}</p>#{island('{"busy_ms": 60}')}"
+    interrupted = lambda do
+      assert_raises(Timeout::Error) { Timeout.timeout(0.02) { r.render(html) } }
+    end
+    10.times { interrupted.call }
+    GC.start
+    before = rss_bytes
+    50.times { interrupted.call }
+    GC.start
+    after = rss_bytes
+    # The renderer still works afterwards.
+    assert_equal "<p>a</p>#{stub_svg}", r.render("<p>a</p>#{island}")
+    skip "no /proc/self/status to measure memory" unless before && after
+    # Leaking the output alone would add 50 x 4 MB.
+    assert_operator after - before, :<, 64 * 1024 * 1024,
+                    "RSS grew #{(after - before) / 1024 / 1024} MB over 50 interrupted renders"
+  end
+
+  def test_killed_render_thread_ends_cleanly
+    r = renderer
+    t = Thread.new { r.render(island('{"busy_ms": 200}')) }
+    sleep 0.05
+    t.kill
+    t.join
+    refute t.alive?
+    assert_equal stub_svg, r.render(island)
+  end
+
+  class Stop < StandardError; end
+
+  # Renderer.new also runs without the GVL. An interrupt deferred to the next
+  # blocking point arrives as building finishes; the built renderer is dropped
+  # and the interrupt raised.
+  def test_interrupt_around_renderer_new
+    ready = Queue.new
+    go = false
+    t = Thread.new do
+      Thread.current.report_on_exception = false
+      Thread.handle_interrupt(Stop => :on_blocking) do
+        ready << true
+        x = 0
+        x += 1 until go
+        Surimono::Renderer.new(seed: 3)
+      end
+    end
+    ready.pop
+    t.raise(Stop, "stop")
+    go = true
+    e = assert_raises(Stop) { t.join }
+    assert_equal "stop", e.message
+  end
+
+  def test_panic_becomes_internal_error
+    e = assert_raises(Surimono::InternalError) { Surimono.send(:_internal_panic_check) }
+    assert_kind_of Surimono::Error, e
+    assert_equal "internal", e.kind
+    assert_match(/deliberate panic/, e.message)
+    assert_raises(NoMethodError) { Surimono._internal_panic_check }
   end
 
   def test_module_render_reuses_a_renderer_per_option_set
@@ -188,7 +273,14 @@ class SurimonoTest < Minitest::Test
     assert_same a, b
     refute_same a, c
     20.times { |i| Surimono.send(:renderer_for, { seed: 100 + i }) }
-    assert_operator Surimono.instance_variable_get(:@renderers).size, :<=, 16
+    assert_operator Surimono.instance_variable_get(:@renderers).size, :<=, 4
+    # Least recently used goes first: seed 1, used again after seed 200 was
+    # added, outlives it.
+    a = Surimono.send(:renderer_for, { seed: 1 })
+    Surimono.send(:renderer_for, { seed: 200 })
+    assert_same a, Surimono.send(:renderer_for, { seed: 1 })
+    3.times { |i| Surimono.send(:renderer_for, { seed: 201 + i }) }
+    assert_same a, Surimono.send(:renderer_for, { seed: 1 })
     e = assert_raises(Surimono::TimeLimitError) { Surimono.render(island('{"busy_ms": 500}'), limits: { time_ms: 10 }) }
     assert_equal "time-limit", e.kind
   end
