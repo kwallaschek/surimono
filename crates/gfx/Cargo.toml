@@ -18,7 +18,8 @@ parley = { version = "=0.6.0", default-features = false, features = ["std"] }
 skrifa = { version = "=0.37.0", default-features = false, features = ["std"] }
 # SVG sanitizing: a strict XML parser that reports byte ranges, so everything
 # we don't rewrite is copied byte for byte. No dependencies of its own.
-roxmltree = { version = "=0.21.1", default-features = false, features = ["std", "positions"] }
+# Byte positions (the `positions` feature, on by default) are what sanitize_svg edits by.
+roxmltree.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
