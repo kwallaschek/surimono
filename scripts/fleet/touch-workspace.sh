@@ -6,5 +6,7 @@
 # Dependencies from crates.io are unaffected. Run before any local build or test.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-find crates bindings examples vendor -type f \( -name '*.rs' -o -name 'Cargo.toml' -o -name '*.js' -o -name '*.c' -o -name '*.h' \) \
+dirs=(); for d in crates bindings examples vendor; do [ -d "$d" ] && dirs+=("$d"); done
+[ ${#dirs[@]} -gt 0 ] || exit 0
+find "${dirs[@]}" -type f \( -name '*.rs' -o -name 'Cargo.toml' -o -name '*.js' -o -name '*.c' -o -name '*.h' \) \
   -not -path '*/node_modules/*' -not -path '*/target/*' -print0 2>/dev/null | xargs -0 -r touch
