@@ -118,7 +118,7 @@ ${fontFaces}
     section + section { break-before: page; }
     section.ja { font-family: "Noto Sans JP", "Noto Sans"; }
     figure.island { margin: 12px 0 4px; padding: 0; }
-    figure.island svg { display: block; }
+    .surimono-island > svg { display: block; }
     .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 12px; }
     .table { font-size: 12px; line-height: 17px; }
     .tr { display: flex; flex-wrap: nowrap; }

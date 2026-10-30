@@ -1,0 +1,22 @@
+# The Rust side of the Grover benchmark: surimono's facade, then the fulgur
+# crate, in one process. A standalone workspace (not a member of the repo's),
+# so its dependencies (fulgur and its PDF stack) never reach the library's
+# Cargo.lock or cargo-deny. bench/tools/bench.py builds it in release when the
+# surimono-rust system is asked for.
+[package]
+name = "surimono-bench"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.87"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[dependencies]
+surimono = { path = "../../crates/surimono" }
+fulgur = "=0.40.0"
+serde_json = "1"
+
+[profile.release]
+debug = false
