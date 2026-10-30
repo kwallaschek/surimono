@@ -1,0 +1,276 @@
+# surimono
+
+Run a document's JavaScript without a browser, so browserless HTML-to-PDF
+engines can print it.
+
+surimono is a Rust library and Ruby gem. It runs the scripts a document needs in
+a sandboxed QuickJS runtime and returns HTML that an engine such as
+[fulgur](https://github.com/fulgur-rs/fulgur) can print. Version 0.1 does this
+for charts: it finds chart *islands* in your HTML, draws them as SVG with
+ECharts or Vega, and inlines the SVG.
+
+> **Status:** v0.1 is in development and not yet on crates.io or RubyGems.
+
+## Why
+
+Browserless PDF engines (fulgur, ironpress, rustyprint) start fast and use
+little memory, but they don't run scripts. So one chart in an invoice or report
+sends you back to Chrome through Grover, Ferrum or a Gotenberg sidecar, with
+Chrome's memory use and start-up time. surimono runs only the JavaScript the
+document needs, without a browser, and then gets out of the way.
+
+<!-- bench: grover-vs-surimono -->
+_Time and peak memory against Grover, cold and warm, will be shown here once the
+benchmark in `bench/` has results. Until then this README gives no numbers._
+
+## What v0.1 does
+
+- **Islands.** It replaces each
+  `<script type="application/vnd.surimono+json" data-renderer="…">` marker in
+  your HTML with the SVG its renderer draws. Everything else in the document
+  stays byte for byte as it was.
+- **Built-in renderers.** `echarts` (Apache ECharts, server-side SVG) and
+  `vega-lite` / `vega`. Pinned versions are listed in
+  [THIRD_PARTY.md](THIRD_PARTY.md).
+- **Bring your own bundle.** Any script that defines a function taking the
+  island's JSON and returning an SVG string can be a renderer.
+- **Chart text in your fonts.** Chart labels are measured and drawn with the
+  font files you pass in, so they fit and look the same on any server.
+- **A sandbox.** Every script runs under memory, time and stack limits, with no
+  filesystem or network access.
+- **Ruby and Rust.** The gem and the crate expose the same API.
+
+## What it is not
+
+- **Not a browser.** v0.1 runs island renderers only. The page's own `<script>`
+  elements pass through untouched and are not run.
+- **Not for websites.** It doesn't fetch pages, styles, images or data, and it
+  has no network access.
+- **Not a PDF engine.** Pair it with fulgur or any engine that prints HTML with
+  inline SVG.
+
+## Install
+
+**Ruby** (CRuby 3.2 to 4.0):
+
+```ruby
+# Gemfile
+gem "surimono"
+gem "fulgur"   # or another browserless PDF engine
+```
+
+Precompiled gems cover x86_64 and aarch64 Linux (glibc) and x86_64 and arm64
+macOS. On other platforms the gem builds from source and needs a Rust
+toolchain. fulgur's gem 0.40.0 supports Ruby 3.1 to 3.4, so the pair runs on
+Ruby 3.2 to 3.4 today.
+
+**Rust** (1.87 or later):
+
+```sh
+cargo add surimono
+```
+
+<!-- confirm: facade feature names once P1-PKG-02 wires in the renderers -->
+ECharts and Vega are Cargo features (`echarts`, `vega`), both on by default.
+To leave one out, use
+`surimono = { version = "0.1", default-features = false, features = ["echarts"] }`.
+
+## Rails example
+
+The view puts the chart's spec into an island marker:
+
+```erb
+<%# app/views/reports/show.html.erb %>
+<h1>Sales by quarter</h1>
+<script type="application/vnd.surimono+json" data-renderer="echarts" data-width="640" data-height="320">
+  <%= raw json_escape(@chart.to_json) %>
+</script>
+```
+
+The controller renders the view, draws the islands, and prints the result with
+fulgur. Both get the same font files: surimono draws the chart text with them,
+and fulgur prints the page's own text with them.
+
+```ruby
+class ReportsController < ApplicationController
+  FONTS = %w[NotoSans-Regular.ttf NotoSansJP-Regular.otf].map { |f| Rails.root.join("app/fonts", f).to_s }
+
+  def show
+    @chart = { xAxis: { data: %w[Q1 Q2 Q3 Q4] }, yAxis: {}, series: [{ type: "bar", data: [120, 200, 150, 80] }] }
+    html = Surimono.render(render_to_string(:show, layout: "pdf"), fonts: FONTS)
+    assets = Fulgur::AssetBundle.new
+    FONTS.each { |path| assets.add_font_file(path) }
+    pdf = Fulgur::Engine.new(page_size: :a4, assets: assets).render_html(html)
+    send_data pdf.to_s, type: "application/pdf", disposition: "inline"
+  end
+end
+```
+
+Use `raw json_escape(…)`, not plain `<%= … %>`: ERB would turn `"` into `&quot;`
+and the island would no longer be JSON. In production, build the fulgur engine
+once per process and render in a background job. The
+[Rails guide](docs/guide/rails.md) shows how.
+
+## Rust example
+
+```rust
+use surimono::{Options, Renderer};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let (mut options, mut assets) = (Options::new(), fulgur::AssetBundle::new());
+    for path in ["fonts/NotoSans-Regular.ttf", "fonts/NotoSansJP-Regular.otf"] {
+        let bytes = std::fs::read(path)?;
+        options = options.font(bytes.clone()); // chart text
+        assets.add_font_bytes(bytes)?;         // page text
+    }
+    let renderer = Renderer::new(options)?; // build once, reuse: it is Send + Sync
+    let html = renderer.render_islands(&std::fs::read_to_string("report.html")?)?;
+    let engine = fulgur::Engine::builder().assets(assets).system_fonts(false).build();
+    std::fs::write("report.pdf", engine.render(&html)?)?;
+    Ok(())
+}
+```
+
+More in the [Rust guide](docs/guide/rust.md).
+
+## Island markers
+
+```html
+<script type="application/vnd.surimono+json" id="sales" class="chart"
+        data-renderer="echarts" data-width="640" data-height="320">
+  { "xAxis": { "data": ["Q1", "Q2"] }, "yAxis": {}, "series": [{ "type": "bar", "data": [3, 5] }] }
+</script>
+```
+
+| Attribute | Required | Meaning |
+|---|---|---|
+| `type` | yes | `application/vnd.surimono+json` |
+| `data-renderer` | yes | `echarts`, `vega-lite`, `vega`, or the name of your own bundle |
+| `data-width`, `data-height` | no | Size in CSS pixels, a whole number from 1 to 16384. Default 600 × 400. |
+| `id`, `class` | no | Kept on the output element |
+
+The element's text is the renderer's spec as JSON: an ECharts option object, a
+Vega-Lite spec or a Vega spec. The marker becomes:
+
+```html
+<div class="surimono-island chart" id="sales" data-renderer="echarts"><svg …>…</svg></div>
+```
+
+- Put markers where a `<div>` is allowed, not inside `<p>`, `<span>` or `<a>`.
+- Write `</script>` inside a JSON string as `<\/script>`. Rails'
+  `json_escape` does this for you.
+- If an island fails, the whole render fails with an error that names the
+  island. With `error_policy: :placeholder` (Ruby) or `ErrorPolicy::Placeholder`
+  (Rust), a failed island becomes an empty
+  `<div class="surimono-island surimono-island-error" data-error="…">` and the
+  rest of the document renders.
+
+The [islands guide](docs/guide/islands.md) covers sizing, the renderers, your
+own bundles and fonts.
+
+## Sandbox and determinism
+
+Every renderer runs in a fresh QuickJS context with these limits per island:
+
+| Limit | Default | Ruby option | Error when exceeded |
+|---|---|---|---|
+| JavaScript heap | 64 MB | `limits: { memory_mb: }` | `Surimono::MemoryLimitError` / `Error::MemoryLimit` |
+| Running time | 2 s | `limits: { time_ms: }` | `Surimono::TimeLimitError` / `Error::TimeLimit` |
+| Stack | 512 KB | `limits: { stack_kb: }` | `Surimono::StackOverflowError` / `Error::StackOverflow` |
+
+A script that hits a limit stops with that typed error. It doesn't crash or
+hang your process. Scripts get the JavaScript language and nothing else: no
+filesystem, network, module imports, DOM, timers or `console`. The built-in
+renderers bring the few stubs their libraries need. The SVG that comes back is
+cleaned before it is inlined: no `<script>`, no event handlers, no external
+URLs, and every `id` prefixed per island so two charts can't collide. Its text
+is then drawn as outlines (see [Fonts](#fonts)).
+
+The same HTML and options give the same bytes on every run and every machine:
+
+- `Math.random` is seeded (the `seed` option, default 0).
+- `Date` returns a fixed time in UTC, not the server's clock or time zone. Put
+  any dates a chart shows into its spec, already formatted if the time zone
+  matters.
+- Text is measured only with the fonts you pass in. System fonts are never read.
+
+## Fonts
+
+Pass the same font files to surimono and to your PDF engine.
+
+- **Chart text becomes outlines.** By default surimono draws every label in an
+  island as vector paths, using the font files you passed. fulgur 0.40 prints
+  `<svg>` text with the machine's system fonts rather than the fonts you
+  register, so labels would otherwise print in a different font from the one
+  they were measured with, and differ from server to server. As outlines they
+  look exactly as measured, everywhere. The cost: chart text can't be selected,
+  searched or copied in the PDF. The original string is kept in the SVG for
+  accessibility (`aria-label` / `<title>`).
+  <!-- confirm: exact attribute/element when the gfx outline change lands -->
+- **Keeping real text is an option** (`text: :keep` in Ruby,
+  `TextMode::Keep` in Rust). Do this only if your PDF engine prints SVG text
+  with your registered fonts. With fulgur 0.40 it doesn't, so labels print in
+  a system font and may overflow or clip.
+- **Name your fonts in page CSS.** surimono doesn't touch the rest of the page,
+  and your PDF engine prints its text. Write
+  `font-family: "Noto Sans", "Noto Sans JP"` with the family names inside the
+  font files, not `sans-serif` alone. In Rust with fulgur's system fonts off,
+  text set in a generic family alone prints blank. With fulgur's Ruby gem 0.40.0,
+  which can't turn system fonts off, it prints in whatever font the server has,
+  so it differs between machines.
+- **TrueType, OpenType and collections only.** WOFF and WOFF2 are rejected.
+  Convert them to TTF or OTF first.
+- **Order matters.** Characters a font lacks fall back to the next font in the
+  order you passed them, for example Japanese after a Latin font. List fonts
+  explicitly rather than with a glob.
+
+## Limits of v0.1
+
+- **Page scripts don't run.** Only islands do. Running the page's own scripts on
+  a real DOM is planned for v0.2.
+- **Scripts can't measure layout.** `getBoundingClientRect` and friends are
+  planned for v0.3. Documents that need them still need Chrome for now.
+- **Specs are JSON.** You can't pass JavaScript functions, such as an ECharts
+  `formatter` callback. Use the string templates the libraries offer
+  (`"formatter": "{value} 円"`), or write your own bundle.
+- **No network.** A Vega spec that loads data from a URL fails. Put the data in
+  the spec (`"values": [...]`).
+- **Chart text isn't text.** By default, chart labels are vector outlines in
+  the PDF, so they can't be selected, searched or copied, and screen readers
+  get only what the PDF engine makes of the string kept in the SVG. Keeping
+  real text (`text: :keep`) prints it in a system font with fulgur 0.40.
+- **Static output.** Animations are off and the chart is drawn in its final
+  state. Tooltips and hover states don't exist in a PDF.
+- **The time limit is per island.** A document with many islands can take that
+  many times as long.
+- **QuickJS is not V8.** Heavy charts run slower than in Chrome. The benchmark
+  will show by how much.
+- **Mermaid is not included in v0.1.**
+- **Platforms.** No Windows or musl gems yet.
+
+## Compatibility
+
+[docs/COMPAT.md](docs/COMPAT.md) lists what is known to work and what is known
+not to, generated from the test results. Every gap is listed there rather than
+hidden.
+
+## Roadmap
+
+| Version | Adds |
+|---|---|
+| 0.1 | Chart islands (this release) |
+| 0.2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock |
+| 0.3 | Layout queries answered from the same layout the PDF is printed from; Canvas2D as vectors |
+
+## Licence
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT licence](LICENSE-MIT), at your option. Bundled JavaScript libraries keep
+their own licences, listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 licence, shall be
+dual licensed as above, without any additional terms or conditions.
+
+The name comes from *surimono* (摺物), privately commissioned Japanese woodblock
+prints.
