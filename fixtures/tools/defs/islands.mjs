@@ -643,7 +643,9 @@ function echartsTwoChartsLatin() {
               clip: true,
               lineStyle: { width: 1.5, color: "#c2455a" },
               itemStyle: { color: "#c2455a" },
-              areaStyle: { color: gradient("#e07b39", "#fbe3d3"), origin: "start" },
+              // opacity 1: Chrome's PDF output drops fill-opacity on gradient
+              // fills (its screen rendering and fulgur apply it; docs/COMPAT.md).
+              areaStyle: { color: gradient("#e07b39", "#fbe3d3"), opacity: 1, origin: "start" },
             },
           ],
         },
