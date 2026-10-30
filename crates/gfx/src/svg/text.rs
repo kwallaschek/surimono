@@ -1024,11 +1024,11 @@ pub(crate) mod tests {
     #[test]
     fn numbers_are_fixed_precision() {
         let mut s = String::new();
-        for v in [0.0, -0.0001, 1.0, 1.5, -2.25, 3.14159, 12.005, 1e-9, -7.999] {
+        for v in [0.0, -0.0001, 1.0, 1.5, -2.25, 1.23456, 12.005, 1e-9, -7.999] {
             push_number(&mut s, v);
             s.push(' ');
         }
-        assert_eq!(s, "0 0 1 1.5 -2.25 3.14 12.01 0 -8 ");
+        assert_eq!(s, "0 0 1 1.5 -2.25 1.23 12.01 0 -8 ");
     }
 
     #[test]
