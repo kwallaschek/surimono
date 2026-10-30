@@ -63,3 +63,5 @@ checkpoint and can overturn anything. Newest last.
 - 2026-10-31 · Fixture renders run in UTC with en-US locale and surimono must match · Two fixtures use UTC time axes.
 - 2026-10-31 · Stack overflow is catchable inside a render; only an uncaught one is StackOverflow · Browser parity.
 - 2026-10-31 · The DOM engineer (phase 2 scaffolding) starts after checkpoint 2 · The 2-core build machine is saturated by the phase-1 agents; phase 2 starts on 2 Nov anyway.
+- 2026-10-31 · Keep the shared target dir, but every agent runs scripts/fleet/touch-workspace.sh before building, and scripts/ci.sh does the same outside Actions; GitHub CI (fresh target dir) is authoritative · Cargo names workspace-crate artifacts by path relative to the workspace root, so worktrees overwrite each other's builds and a stale one can look fresh; per-agent target dirs would rebuild Stylo six times on a 2-core machine.
+- 2026-10-31 · Agents build with CARGO_INCREMENTAL=0 and no extra target dirs · The session's disk allowance ran down to 4.6 GB free (shared target 17 GB, 3.4 GB of it incremental caches).
