@@ -1,0 +1,811 @@
+ruby 3.4.12 (2026-10-23 revision 366f5fdc00) +PRISM [x86_64-linux]
+
+==> compile and test (repository)
+/opt/hostedtoolcache/Ruby/3.4.12/x64/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+mkdir -p tmp/x86_64-linux/surimono/3.4.12
+cd tmp/x86_64-linux/surimono/3.4.12
+checking for gcc... yes
+checking for g++... yes
+checking for gcc-ar... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/gmake
+cd -
+cd tmp/x86_64-linux/surimono/3.4.12
+generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
+cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/ext/surimono/Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.4.12/x64/lib -C link-arg=-lm -l pthread
+[1m[32m    Updating[0m crates.io index
+[1m[32m Downloading[0m crates ...
+[1m[32m  Downloaded[0m roxmltree v0.21.2
+[1m[32m   Compiling[0m proc-macro2 v1.0.107
+[1m[32m   Compiling[0m unicode-ident v1.0.27
+[1m[32m   Compiling[0m quote v1.0.47
+[1m[32m   Compiling[0m rand_core v0.6.4
+[1m[32m   Compiling[0m siphasher v1.0.4
+[1m[32m   Compiling[0m rand v0.8.8
+[1m[32m   Compiling[0m phf_shared v0.11.3
+[1m[32m   Compiling[0m smallvec v1.16.4
+[1m[32m   Compiling[0m libc v0.2.191
+[1m[32m   Compiling[0m memchr v2.8.3
+[1m[32m   Compiling[0m phf_generator v0.11.3
+[1m[32m   Compiling[0m equivalent v1.0.3
+[1m[32m   Compiling[0m allocator-api2 v0.2.21
+[1m[32m   Compiling[0m syn v3.0.9
+[1m[32m   Compiling[0m syn v2.0.119
+[1m[32m   Compiling[0m libm v0.2.16
+[1m[32m   Compiling[0m glob v0.3.4
+[1m[32m   Compiling[0m clang-sys v1.9.1
+[1m[32m   Compiling[0m aho-corasick v1.1.5
+[1m[32m   Compiling[0m serde_core v1.0.229
+[1m[32m   Compiling[0m bytemuck_derive v1.12.1
+[1m[32m   Compiling[0m cfg-if v1.0.5
+[1m[32m   Compiling[0m regex-syntax v0.8.11
+[1m[32m   Compiling[0m shlex v2.0.1
+[1m[32m   Compiling[0m find-msvc-tools v0.1.15
+[1m[32m   Compiling[0m minimal-lexical v0.2.1
+[1m[32m   Compiling[0m nom v7.1.3
+[1m[32m   Compiling[0m bytemuck v1.25.2
+[1m[32m   Compiling[0m font-types v0.10.1
+[1m[32m   Compiling[0m cc v1.10.0
+[1m[32m   Compiling[0m regex-automata v0.4.18
+[1m[32m   Compiling[0m libloading v0.8.9
+[1m[32m   Compiling[0m core_maths v0.1.1
+[1m[32m   Compiling[0m phf_codegen v0.11.3
+[1m[32m   Compiling[0m bindgen v0.72.1
+[1m[32m   Compiling[0m either v1.19.0
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0
+[1m[32m   Compiling[0m itertools v0.13.0
+[1m[32m   Compiling[0m read-fonts v0.35.0
+[1m[32m   Compiling[0m regex v1.13.1
+[1m[32m   Compiling[0m cexpr v0.6.0
+[1m[32m   Compiling[0m font-types v0.12.7
+[1m[32m   Compiling[0m displaydoc v0.2.7
+[1m[32m   Compiling[0m once_cell v1.21.4
+[1m[32m   Compiling[0m rustc-hash v2.1.3
+[1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m serde v1.0.229
+[1m[32m   Compiling[0m thiserror v2.0.21
+[1m[32m   Compiling[0m shlex v1.3.0
+[1m[32m   Compiling[0m tinystr v0.8.5
+[1m[32m   Compiling[0m read-fonts v0.41.0
+[1m[32m   Compiling[0m phf_macros v0.11.3
+[1m[32m   Compiling[0m serde_derive v1.0.229
+[1m[32m   Compiling[0m thiserror-impl v2.0.21
+[1m[32m   Compiling[0m litemap v0.8.3
+[1m[32m   Compiling[0m shell-words v1.1.1
+[1m[32m   Compiling[0m itoa v1.0.18
+[1m[32m   Compiling[0m parking_lot_core v0.9.12
+[1m[32m   Compiling[0m foldhash v0.1.5
+[1m[32m   Compiling[0m lazy_static v1.5.1
+[1m[32m   Compiling[0m writeable v0.6.4
+[1m[32m   Compiling[0m icu_locale_core v2.2.0
+[1m[32m   Compiling[0m rb-sys-build v0.9.130
+[1m[32m   Compiling[0m hashbrown v0.15.5
+[1m[32m   Compiling[0m skrifa v0.44.0
+[1m[32m   Compiling[0m phf v0.11.3
+[1m[32m   Compiling[0m hashbrown v0.17.1
+[1m[32m   Compiling[0m memmap2 v0.9.12
+[1m[32m   Compiling[0m scopeguard v1.2.0
+[1m[32m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[32m   Compiling[0m rb-sys-env v0.2.3
+[1m[32m   Compiling[0m precomputed-hash v0.1.1
+[1m[32m   Compiling[0m dtoa v1.0.11
+[1m[32m   Compiling[0m zmij v1.0.23
+[1m[32m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[32m   Compiling[0m dtoa-short v0.3.5
+[1m[32m   Compiling[0m fontique v0.6.0
+[1m[32m   Compiling[0m lock_api v0.4.14
+[1m[32m   Compiling[0m rb-sys v0.9.130
+[1m[32m   Compiling[0m swash v0.2.10
+[1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m skrifa v0.37.0
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m derive_more-impl v2.1.1
+[1m[32m   Compiling[0m cssparser-macros v0.6.1
+[1m[32m   Compiling[0m string_cache_codegen v0.5.4
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m stable_deref_trait v1.2.1
+[1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m parley v0.6.0
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m derive_more v2.1.1
+[1m[32m   Compiling[0m parking_lot v0.12.5
+[1m[32m   Compiling[0m roxmltree v0.21.2
+[1m[32m   Compiling[0m log v0.4.34
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m magnus v0.9.3
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m encoding_rs v0.8.35
+[1m[32m   Compiling[0m hashbrown v0.16.1
+[1m[32m   Compiling[0m mime v0.3.17
+[1m[32m   Compiling[0m lol_html v2.7.0
+[1m[32m   Compiling[0m magnus-macros v0.9.1
+[1m[32m   Compiling[0m seq-macro v0.3.6
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 1m 03s
+cd -
+mkdir -p tmp/x86_64-linux/stage/lib/surimono
+mkdir -p tmp/x86_64-linux/stage/ext/surimono
+cp ext/surimono/Cargo.toml tmp/x86_64-linux/stage/ext/surimono/Cargo.toml
+cp ext/surimono/extconf.rb tmp/x86_64-linux/stage/ext/surimono/extconf.rb
+mkdir -p tmp/x86_64-linux/stage/ext/surimono/src
+cp ext/surimono/src/ffi.rs tmp/x86_64-linux/stage/ext/surimono/src/ffi.rs
+cp ext/surimono/src/lib.rs tmp/x86_64-linux/stage/ext/surimono/src/lib.rs
+cp lib/surimono.rb tmp/x86_64-linux/stage/lib/surimono.rb
+cp lib/surimono/version.rb tmp/x86_64-linux/stage/lib/surimono/version.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/bin
+cp vendor/bundle/ruby/3.4.0/bin/rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/bin/rake
+cp vendor/bundle/ruby/3.4.0/bin/rake-compiler tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/bin/rake-compiler
+cp vendor/bundle/ruby/3.4.0/bin/rake-compiler-dock tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/bin/rake-compiler-dock
+cp vendor/bundle/ruby/3.4.0/bin/rb-sys-dock tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/bin/rb-sys-dock
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/cache
+cp vendor/bundle/ruby/3.4.0/cache/minitest-5.27.0.gem tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/cache/minitest-5.27.0.gem
+cp vendor/bundle/ruby/3.4.0/cache/rake-13.4.2.gem tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/cache/rake-13.4.2.gem
+cp vendor/bundle/ruby/3.4.0/cache/rake-compiler-1.3.2.gem tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/cache/rake-compiler-1.3.2.gem
+cp vendor/bundle/ruby/3.4.0/cache/rake-compiler-dock-1.12.0.gem tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/cache/rake-compiler-dock-1.12.0.gem
+cp vendor/bundle/ruby/3.4.0/cache/rb_sys-0.9.130.gem tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/cache/rb_sys-0.9.130.gem
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/History.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/History.rdoc
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/Manifest.txt tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/Manifest.txt
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/README.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/README.rdoc
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/Rakefile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/Rakefile
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/design_rationale.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/design_rationale.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/hoe
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/hoe/minitest.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/hoe/minitest.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/assertions.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/assertions.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/autorun.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/autorun.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/benchmark.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/benchmark.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/compress.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/compress.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/error_on_warning.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/error_on_warning.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/expectations.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/expectations.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/hell.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/hell.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/manual_plugins.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/manual_plugins.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/mock.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/mock.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/parallel.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/parallel.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/pride.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/pride.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/pride_plugin.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/pride_plugin.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/spec.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/spec.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/test.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/test.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/test_task.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/test_task.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/unit.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/lib/minitest/unit.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/metametameta.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/metametameta.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_assertions.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_assertions.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_benchmark.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_benchmark.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_mock.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_mock.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_reporter.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_reporter.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_spec.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_spec.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_test.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_test.rb
+cp vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_test_task.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/minitest-5.27.0/test/minitest/test_minitest_test_task.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/History.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/History.rdoc
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/MIT-LICENSE tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/MIT-LICENSE
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/README.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/README.rdoc
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/command_line_usage.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/command_line_usage.rdoc
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/Rakefile1 tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/Rakefile1
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/Rakefile2 tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/Rakefile2
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/a.c tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/a.c
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/b.c tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/b.c
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/main.c tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/example/main.c
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/glossary.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/glossary.rdoc
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/jamis.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/jamis.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/proto_rake.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/proto_rake.rdoc
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/rake.1 tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/rake.1
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/rakefile.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/rakefile.rdoc
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/rational.rdoc tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/doc/rational.rdoc
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/exe
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/exe/rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/exe/rake
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/application.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/application.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/backtrace.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/backtrace.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/clean.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/clean.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/cloneable.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/cloneable.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/cpu_counter.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/cpu_counter.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/default_loader.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/default_loader.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/dsl_definition.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/dsl_definition.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/early_time.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/early_time.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/ext
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/ext/core.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/ext/core.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/ext/string.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/ext/string.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_creation_task.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_creation_task.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_list.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_list.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_task.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_task.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_utils.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_utils.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_utils_ext.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/file_utils_ext.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/invocation_chain.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/invocation_chain.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/invocation_exception_mixin.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/invocation_exception_mixin.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/late_time.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/late_time.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/linked_list.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/linked_list.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/loaders
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/loaders/makefile.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/loaders/makefile.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/multi_task.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/multi_task.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/name_space.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/name_space.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/options.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/options.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/packagetask.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/packagetask.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/phony.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/phony.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/private_reader.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/private_reader.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/promise.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/promise.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/pseudo_status.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/pseudo_status.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/rake_module.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/rake_module.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/rake_test_loader.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/rake_test_loader.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/rule_recursion_overflow_error.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/rule_recursion_overflow_error.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/scope.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/scope.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task_argument_error.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task_argument_error.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task_arguments.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task_arguments.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task_manager.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/task_manager.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/tasklib.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/tasklib.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/testtask.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/testtask.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/thread_history_display.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/thread_history_display.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/thread_pool.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/thread_pool.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/trace_output.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/trace_output.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/version.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/version.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/win32.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/lib/rake/win32.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/rake.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-13.4.2/rake.gemspec
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/Gemfile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/Gemfile
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/History.md tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/History.md
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/LICENSE.txt tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/LICENSE.txt
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/README.md tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/README.md
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/Rakefile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/Rakefile
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/appveyor.yml tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/appveyor.yml
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/bin
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/bin/rake-compiler tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/bin/rake-compiler
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/cucumber.yml tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/cucumber.yml
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/compile.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/compile.feature
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/cross-compile.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/cross-compile.feature
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/cross-package-multi.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/cross-package-multi.feature
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/cross-package.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/cross-package.feature
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/java-compile.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/java-compile.feature
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/java-no-native-compile.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/java-no-native-compile.feature
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/java-package.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/java-package.feature
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/package.feature tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/package.feature
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/compilation.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/compilation.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/cross_compilation.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/cross_compilation.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/execution.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/execution.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/folders.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/folders.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/gem.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/gem.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/java_compilation.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/step_definitions/java_compilation.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/env.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/env.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/file_template_helpers.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/file_template_helpers.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/generator_helpers.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/generator_helpers.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/platform_extension_helpers.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/features/support/platform_extension_helpers.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/baseextensiontask.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/baseextensiontask.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/compiler_config.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/compiler_config.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/extensioncompiler.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/extensioncompiler.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/extensiontask.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/extensiontask.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/javaextensiontask.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/lib/rake/javaextensiontask.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/bin
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/bin/cross-ruby.rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/bin/cross-ruby.rake
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/bootstrap.rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/bootstrap.rake
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/common.rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/common.rake
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/cucumber.rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/cucumber.rake
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/gem.rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/gem.rake
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/rspec.rake tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-1.3.2/tasks/rspec.rake
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/CHANGELOG.md tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/CHANGELOG.md
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/CONTRIBUTING.md tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/CONTRIBUTING.md
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Dockerfile.jruby tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Dockerfile.jruby
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Dockerfile.mri.erb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Dockerfile.mri.erb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Gemfile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Gemfile
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/LICENSE.txt tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/LICENSE.txt
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/README.md tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/README.md
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Rakefile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/Rakefile
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/bin
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/bin/rake-compiler-dock tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/bin/rake-compiler-dock
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/buildkitd.toml tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/buildkitd.toml
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/gem_helper.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/gem_helper.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_i686.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_i686.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_musl_cross.sh tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_musl_cross.sh
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_osxcross.sh tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_osxcross.sh
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_pkg_config.sh tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/mk_pkg_config.sh
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/parallel_docker_build.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/parallel_docker_build.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0004-Enable-build-of-static-libruby.patch tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0004-Enable-build-of-static-libruby.patch
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0005-build-miniruby-first.patch tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0005-build-miniruby-first.patch
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0006-ruby-4-rubyspec-capiext.patch tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0006-ruby-4-rubyspec-capiext.patch
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/rcd-env.sh tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/rcd-env.sh
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/runas tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/runas
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/sigfw.c tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/sigfw.c
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/strip_wrapper_codesign tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/strip_wrapper_codesign
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/strip_wrapper_vbox tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/strip_wrapper_vbox
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/sudoers tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/build/sudoers
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/colors.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/colors.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/docker_check.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/docker_check.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/predefined_user_group.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/predefined_user_group.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/starter.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/starter.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/version.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/version.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/Dockerfile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/Dockerfile
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/README.md tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/README.md
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/binutils-mingw-w64-ignore-check-errors.patch tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/binutils-mingw-w64-ignore-check-errors.patch
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/gcc-mingw-w64-only-c-c++.patch tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/gcc-mingw-w64-only-c-c++.patch
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/mingw-w64-enable-ucrt.patch tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/mingw-w64-enable-ucrt.patch
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/rake-compiler-dock.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/rake-compiler-dock.gemspec
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/env
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/env/Dockerfile.alpine tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/env/Dockerfile.alpine
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/env/Dockerfile.debian tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/env/Dockerfile.debian
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/fixtures
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/fixtures/mig_test_rpc.defs tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/fixtures/mig_test_rpc.defs
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/Gemfile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/Gemfile
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/Rakefile tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/Rakefile
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/java
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/java/RcdTestExtService.java tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/java/RcdTestExtService.java
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/java/RubyRcdTest.java tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/java/RubyRcdTest.java
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/extconf.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/extconf.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/rcd_test_ext.c tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/rcd_test_ext.c
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/rcd_test_ext.h tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/rcd_test_ext.h
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/lib
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/lib/rcd_test.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/lib/rcd_test.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/rcd_test.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/rcd_test.gemspec
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/test
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/test/test_basic.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/rcd_test/test/test_basic.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_environment_variables.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_environment_variables.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_mig.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_mig.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_parallel_docker_build.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_parallel_docker_build.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_rubygems_plugins.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_rubygems_plugins.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_starter.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_starter.rb
+cp vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_versions.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rake-compiler-dock-1.12.0/test/test_versions.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/LICENSE-APACHE tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/LICENSE-APACHE
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/LICENSE-MIT tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/LICENSE-MIT
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/README.md tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/README.md
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/certs
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/certs/ianks.pem tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/certs/ianks.pem
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/exe
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/exe/rb-sys-dock tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/exe/rb-sys-dock
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo/config.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo/config.rb
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo/metadata.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo/metadata.rb
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo_builder.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo_builder.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo_builder
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo_builder/link_flag_converter.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/cargo_builder/link_flag_converter.rb
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/error.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/error.rb
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/extensiontask.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/extensiontask.rb
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/mkmf.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/mkmf.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/mkmf
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/mkmf/config.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/mkmf/config.rb
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/toolchain_info.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/toolchain_info.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/toolchain_info
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/toolchain_info/data.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/toolchain_info/data.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/util
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/util/logger.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/util/logger.rb
+cp vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/version.rb tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/gems/rb_sys-0.9.130/lib/rb_sys/version.rb
+mkdir -p tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/specifications
+cp vendor/bundle/ruby/3.4.0/specifications/minitest-5.27.0.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/specifications/minitest-5.27.0.gemspec(cd tmp/x86_64-linux/surimono/3.4.12 && /usr/bin/gmake install sitearchdir=../../../../lib/surimono sitelibdir=../../../../lib/surimono target_prefix=)
+
+cp vendor/bundle/ruby/3.4.0/specifications/rake-13.4.2.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/specifications/rake-13.4.2.gemspec
+cp vendor/bundle/ruby/3.4.0/specifications/rake-compiler-1.3.2.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/specifications/rake-compiler-1.3.2.gemspec
+cp vendor/bundle/ruby/3.4.0/specifications/rake-compiler-dock-1.12.0.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/specifications/rake-compiler-dock-1.12.0.gemspec
+cp vendor/bundle/ruby/3.4.0/specifications/rb_sys-0.9.130.gemspec tmp/x86_64-linux/stage/vendor/bundle/ruby/3.4.0/specifications/rb_sys-0.9.130.gemspec
+generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
+cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/ext/surimono/Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.4.12/x64/lib -C link-arg=-lm -l pthread
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.06s
+installing surimono.so to ../../../../lib/surimono
+/usr/bin/install -c -m 0755 surimono.so ../../../../lib/surimono
+cp tmp/x86_64-linux/surimono/3.4.12/surimono.so tmp/x86_64-linux/stage/lib/surimono/surimono.so
+Run options: --seed 14091
+
+# Running:
+
+.......
+thread '<unnamed>' panicked at bindings/ruby/ext/surimono/src/lib.rs:159:9:
+deliberate panic from Surimono._internal_panic_check
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+................
+
+Finished in 5.376751s, 4.2777 runs/s, 34.2214 assertions/s.
+
+23 runs, 184 assertions, 0 failures, 0 errors, 0 skips
+
+==> source gem: build, install, test
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/lib/surimono/version.rb:4: warning: already initialized constant Surimono::VERSION
+/home/runner/work/surimono/surimono/bindings/ruby/lib/surimono/version.rb:4: warning: previous definition of VERSION was here
+staged 4 crates (crates/core, crates/gfx, crates/islands, crates/surimono) in /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage
++ gem build surimono.gemspec --output /home/runner/work/surimono/surimono/bindings/ruby/pkg/surimono-0.0.0.gem
+  Successfully built RubyGem
+  Name: surimono
+  Version: 0.0.0
+  File: surimono-0.0.0.gem
++ gem install --no-document minitest -v ~> 5.25
+NOTE: minitest 5 will be the last in the minitest family to support
+      ruby 1.8 to 2.7. If you need to keep using these versions,
+      you need to pin your dependency to minitest with something
+      like "~> 5.0". See History.rdoc to locate compatible
+      versions.
+
+      Further, minitest 6 will be dropping the following:
+
+      + MiniTest (it's been Minitest for >10 years)
+      + MiniTest::Unit
+      + MiniTest::Unit::TestCase
+      + assert_send (unless you argue for it well)
+      + assert_equal nil, obj
+      + mocks and stubs: moving minitest/mock.rb to its own gem
+Successfully installed minitest-5.27.0
+1 gem installed
++ gem install --no-document --verbose /home/runner/work/surimono/surimono/bindings/ruby/pkg/surimono-0.0.0.gem
+HEAD https://index.rubygems.org/versions
+200 OK
+GET https://index.rubygems.org/info/rb_sys
+200 OK
+GET https://index.rubygems.org/info/rake-compiler-dock
+200 OK
+GET https://index.rubygems.org/quick/Marshal.4.8/rake-compiler-dock-1.12.0.gemspec.rz
+200 OK
+GET https://index.rubygems.org/quick/Marshal.4.8/rb_sys-0.9.130.gemspec.rz
+200 OK
+Downloading gem rake-compiler-dock-1.12.0.gem
+Downloading gem rb_sys-0.9.130.gem
+GET https://index.rubygems.org/gems/rake-compiler-dock-1.12.0.gem
+200 OK
+GET https://index.rubygems.org/gems/rb_sys-0.9.130.gem
+200 OK
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.dockerignore
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.github/workflows/ci.yml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.github/workflows/publish-images.yml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.github/workflows/publish-images.yml.erb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.github/workflows/release-images.yml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.gitignore
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/CHANGELOG.md
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/CONTRIBUTING.md
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/Dockerfile.jruby
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/Dockerfile.mri.erb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/Gemfile
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/LICENSE.txt
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/README.md
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/Rakefile
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/bin/rake-compiler-dock
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/buildkitd.toml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/gem_helper.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/mk_i686.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/mk_musl_cross.sh
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/mk_osxcross.sh
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/mk_pkg_config.sh
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/parallel_docker_build.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0004-Enable-build-of-static-libruby.patch
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0005-build-miniruby-first.patch
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/patches/rake-compiler-1.3.1/0006-ruby-4-rubyspec-capiext.patch
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/rcd-env.sh
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/runas
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/sigfw.c
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/strip_wrapper_codesign
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/strip_wrapper_vbox
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/build/sudoers
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/colors.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/docker_check.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/predefined_user_group.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/starter.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/lib/rake_compiler_dock/version.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/Dockerfile
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/README.md
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/binutils-mingw-w64-ignore-check-errors.patch
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/gcc-mingw-w64-only-c-c++.patch
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/mingw64-ucrt/mingw-w64-enable-ucrt.patch
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/rake-compiler-dock.gemspec
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/env/Dockerfile.alpine
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/env/Dockerfile.debian
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/fixtures/mig_test_rpc.defs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/Gemfile
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/Rakefile
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/java/RcdTestExtService.java
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/java/RubyRcdTest.java
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/extconf.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/rcd_test_ext.c
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/ext/mri/rcd_test_ext.h
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/lib/rcd_test.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/rcd_test.gemspec
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/rcd_test/test/test_basic.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/test_environment_variables.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/test_mig.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/test_parallel_docker_build.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/test_rubygems_plugins.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/test_starter.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/test/test_versions.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/bin/rake-compiler-dock
+Successfully installed rake-compiler-dock-1.12.0
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/.yardopts
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/LICENSE-APACHE
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/LICENSE-MIT
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/README.md
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/certs/ianks.pem
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/exe/rb-sys-dock
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/cargo.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/cargo/config.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/cargo/metadata.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/cargo_builder.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/cargo_builder/link_flag_converter.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/error.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/extensiontask.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/mkmf.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/mkmf/config.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/toolchain_info.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/toolchain_info/data.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/util/logger.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rb_sys-0.9.130/lib/rb_sys/version.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/bin/rb-sys-dock
+Successfully installed rb_sys-0.9.130
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/Cargo.lock
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/Cargo.toml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/LICENSE-APACHE
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/LICENSE-MIT
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/THIRD_PARTY.md
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/THIRD_PARTY_LICENSES.txt
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/Cargo.toml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/src/engine.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/src/error.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/src/lib.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/src/limits.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/src/prelude.js
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/src/sandbox.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core/tests/determinism.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/Cargo.toml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/css_font.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/error.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/fonts.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/lib.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/measure.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/svg/css.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/svg/mod.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/src/svg/text.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/chrome/font_shorthand.mjs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/chrome/measure_text.mjs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/chrome/svg_inline.mjs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/chrome/svg_outline.mjs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/chrome/svg_text.mjs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/common/mod.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/data/chrome_font_shorthand.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/data/chrome_measure_text.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/data/chrome_svg_text.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/data/svg/echarts-5.6.0-bar-line.svg
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/data/svg/echarts-6.1.0-rich.svg
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/data/svg/generate.js
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/data/svg/vega-lite-5.23.0-bar.svg
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/fulgur_print.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/measure_text.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx/tests/svg.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/Cargo.toml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/bundles/SHA256SUMS
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/bundles/echarts/LICENSE
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/bundles/echarts/LICENSE-d3
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/bundles/echarts/LICENSE-tslib
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/bundles/echarts/LICENSE-zrender
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/bundles/echarts/NOTICE
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/bundles/echarts/echarts.min.js
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/js/build.sh
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/js/chrome-check.js
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/js/package-lock.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/js/package.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/js/src/echarts.js
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/js/src/timers.js
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/src/builtins.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/src/error.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/src/lib.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/src/measure.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/src/runner.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/bundles.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/echarts.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/echarts/bar.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/echarts/dense.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/echarts/japanese.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/echarts/pie.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/echarts/scatter.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/echarts/time.json
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/pool.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/runner.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands/tests/soak.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/Cargo.toml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/backend.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/charref.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/error.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/lib.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/options.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/prepass.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/renderer.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/src/svg.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono/tests/fixtures.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono/Cargo.toml
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono/extconf.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono/src/ffi.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono/src/lib.rs
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/lib/surimono.rb
+/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/lib/surimono/version.rb
+Building native extensions. This could take a while...
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+["/opt/hostedtoolcache/Ruby/3.4.12/x64/bin/ruby", "extconf.rb"]
+checking for gcc... yes
+checking for g++... yes
+checking for gcc-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+["make", "DESTDIR=", "sitearchdir=./.gem.20261030-6612-q3hzcn", "sitelibdir=./.gem.20261030-6612-q3hzcn", "clean"]
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+["make", "DESTDIR=", "sitearchdir=./.gem.20261030-6612-q3hzcn", "sitelibdir=./.gem.20261030-6612-q3hzcn"]
+generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
+cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.4.12/x64/lib -C link-arg=-lm -l pthread
+[1m[32m   Compiling[0m proc-macro2 v1.0.107
+[1m[32m   Compiling[0m unicode-ident v1.0.27
+[1m[32m   Compiling[0m quote v1.0.47
+[1m[32m   Compiling[0m rand_core v0.6.4
+[1m[32m   Compiling[0m siphasher v1.0.4
+[1m[32m   Compiling[0m rand v0.8.8
+[1m[32m   Compiling[0m phf_shared v0.11.3
+[1m[32m   Compiling[0m smallvec v1.16.4
+[1m[32m   Compiling[0m memchr v2.8.3
+[1m[32m   Compiling[0m allocator-api2 v0.2.21
+[1m[32m   Compiling[0m phf_generator v0.11.3
+[1m[32m   Compiling[0m equivalent v1.0.3
+[1m[32m   Compiling[0m libc v0.2.191
+[1m[32m   Compiling[0m glob v0.3.4
+[1m[32m   Compiling[0m libm v0.2.16
+[1m[32m   Compiling[0m syn v3.0.9
+[1m[32m   Compiling[0m syn v2.0.119
+[1m[32m   Compiling[0m clang-sys v1.9.1
+[1m[32m   Compiling[0m aho-corasick v1.1.5
+[1m[32m   Compiling[0m serde_core v1.0.229
+[1m[32m   Compiling[0m shlex v2.0.1
+[1m[32m   Compiling[0m bytemuck_derive v1.12.1
+[1m[32m   Compiling[0m find-msvc-tools v0.1.15
+[1m[32m   Compiling[0m cfg-if v1.0.5
+[1m[32m   Compiling[0m minimal-lexical v0.2.1
+[1m[32m   Compiling[0m regex-syntax v0.8.11
+[1m[32m   Compiling[0m nom v7.1.3
+[1m[32m   Compiling[0m bytemuck v1.25.2
+[1m[32m   Compiling[0m font-types v0.10.1
+[1m[32m   Compiling[0m libloading v0.8.9
+[1m[32m   Compiling[0m cc v1.10.0
+[1m[32m   Compiling[0m core_maths v0.1.1
+[1m[32m   Compiling[0m regex-automata v0.4.18
+[1m[32m   Compiling[0m phf_codegen v0.11.3
+[1m[32m   Compiling[0m either v1.19.0
+[1m[32m   Compiling[0m bindgen v0.72.1
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0
+[1m[32m   Compiling[0m itertools v0.13.0
+[1m[32m   Compiling[0m read-fonts v0.35.0
+[1m[32m   Compiling[0m regex v1.13.1
+[1m[32m   Compiling[0m cexpr v0.6.0
+[1m[32m   Compiling[0m font-types v0.12.7
+[1m[32m   Compiling[0m displaydoc v0.2.7
+[1m[32m   Compiling[0m shlex v1.3.0
+[1m[32m   Compiling[0m once_cell v1.21.4
+[1m[32m   Compiling[0m thiserror v2.0.21
+[1m[32m   Compiling[0m rustc-hash v2.1.3
+[1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m serde v1.0.229
+[1m[32m   Compiling[0m read-fonts v0.41.0
+[1m[32m   Compiling[0m tinystr v0.8.5
+[1m[32m   Compiling[0m phf_macros v0.11.3
+[1m[32m   Compiling[0m serde_derive v1.0.229
+[1m[32m   Compiling[0m thiserror-impl v2.0.21
+[1m[32m   Compiling[0m parking_lot_core v0.9.12
+[1m[32m   Compiling[0m litemap v0.8.3
+[1m[32m   Compiling[0m foldhash v0.1.5
+[1m[32m   Compiling[0m itoa v1.0.18
+[1m[32m   Compiling[0m shell-words v1.1.1
+[1m[32m   Compiling[0m writeable v0.6.4
+[1m[32m   Compiling[0m lazy_static v1.5.1
+[1m[32m   Compiling[0m rb-sys-build v0.9.130
+[1m[32m   Compiling[0m icu_locale_core v2.2.0
+[1m[32m   Compiling[0m hashbrown v0.15.5
+[1m[32m   Compiling[0m skrifa v0.44.0
+[1m[32m   Compiling[0m phf v0.11.3
+[1m[32m   Compiling[0m hashbrown v0.17.1
+[1m[32m   Compiling[0m memmap2 v0.9.12
+[1m[32m   Compiling[0m rb-sys-env v0.2.3
+[1m[32m   Compiling[0m precomputed-hash v0.1.1
+[1m[32m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[32m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[32m   Compiling[0m zmij v1.0.23
+[1m[32m   Compiling[0m dtoa v1.0.11
+[1m[32m   Compiling[0m scopeguard v1.2.0
+[1m[32m   Compiling[0m lock_api v0.4.14
+[1m[32m   Compiling[0m dtoa-short v0.3.5
+[1m[32m   Compiling[0m swash v0.2.10
+[1m[32m   Compiling[0m fontique v0.6.0
+[1m[32m   Compiling[0m rb-sys v0.9.130
+[1m[32m   Compiling[0m skrifa v0.37.0
+[1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m derive_more-impl v2.1.1
+[1m[32m   Compiling[0m cssparser-macros v0.6.1
+[1m[32m   Compiling[0m string_cache_codegen v0.5.4
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m stable_deref_trait v1.2.1
+[1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m parley v0.6.0
+[1m[32m   Compiling[0m derive_more v2.1.1
+[1m[32m   Compiling[0m parking_lot v0.12.5
+[1m[32m   Compiling[0m roxmltree v0.21.2
+[1m[32m   Compiling[0m log v0.4.34
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/gfx)
+[1m[32m   Compiling[0m magnus v0.9.3
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m encoding_rs v0.8.35
+[1m[32m   Compiling[0m hashbrown v0.16.1
+[1m[32m   Compiling[0m mime v0.3.17
+[1m[32m   Compiling[0m lol_html v2.7.0
+[1m[32m   Compiling[0m magnus-macros v0.9.1
+[1m[32m   Compiling[0m seq-macro v0.3.6
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/core)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/crates/surimono)
+[1m[32m   Compiling[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 1m 02s
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+["make", "DESTDIR=", "sitearchdir=./.gem.20261030-6612-q3hzcn", "sitelibdir=./.gem.20261030-6612-q3hzcn", "install"]
+generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
+cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.4.12/x64/lib -C link-arg=-lm -l pthread
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.05s
+installing surimono.so to ./.gem.20261030-6612-q3hzcn/surimono
+/usr/bin/install -c -m 0755 surimono.so ./.gem.20261030-6612-q3hzcn/surimono
+Cleaning gem artifacts
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+["make", "DESTDIR=", "sitearchdir=./.gem.20261030-6612-q3hzcn", "sitelibdir=./.gem.20261030-6612-q3hzcn", "clean"]
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+/opt/hostedtoolcache/Ruby/3.4.12/x64/bin/ruby extconf.rb
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+make DESTDIR\= sitearchdir\=./.gem.20261030-6612-q3hzcn sitelibdir\=./.gem.20261030-6612-q3hzcn clean
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+make DESTDIR\= sitearchdir\=./.gem.20261030-6612-q3hzcn sitelibdir\=./.gem.20261030-6612-q3hzcn
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+make DESTDIR\= sitearchdir\=./.gem.20261030-6612-q3hzcn sitelibdir\=./.gem.20261030-6612-q3hzcn install
+current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/ext/surimono
+make DESTDIR\= sitearchdir\=./.gem.20261030-6612-q3hzcn sitelibdir\=./.gem.20261030-6612-q3hzcn clean
+Successfully installed surimono-0.0.0
+3 gems installed
++ /opt/hostedtoolcache/Ruby/3.4.12/x64/bin/ruby -e require "surimono"; f = $LOADED_FEATURES.grep(%r{/surimono\.(so|bundle)\z}).first; abort("surimono loaded from #{f.inspect}, not the installed gem") unless f&.start_with?(ENV["GEM_HOME"]); puts "native extension: #{f}"
+native extension: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.0.0/lib/surimono/surimono.so
++ /opt/hostedtoolcache/Ruby/3.4.12/x64/bin/ruby -I /home/runner/work/surimono/surimono/bindings/ruby/test -e ARGV.each { |f| require f } /home/runner/work/surimono/surimono/bindings/ruby/test/surimono_test.rb
+Run options: --seed 46853
+
+# Running:
+
+....................
+thread '<unnamed>' panicked at ext/surimono/src/lib.rs:159:9:
+deliberate panic from Surimono._internal_panic_check
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+...
+
+Finished in 5.094288s, 4.5149 runs/s, 36.1189 assertions/s.
+
+23 runs, 184 assertions, 0 failures, 0 errors, 0 skips
+total 596
+drwxr-xr-x  2 runner runner   4096 Oct 30 22:06 .
+drwxr-xr-x 10 runner runner   4096 Oct 30 22:06 ..
+-rw-r--r--  1 runner runner 601600 Oct 30 22:06 surimono-0.0.0.gem
