@@ -44,8 +44,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 ### Conformance researcher (fixtures, wpt, bench, docs/COMPAT.md)
 - P1-CF-01 · CF · done · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
 - P1-CF-02 · CF · done · Test fonts: pinned OFL fonts for Latin and Japanese (e.g. Noto Sans, Noto Sans JP) with licences, used by both Chrome and surimono
-- P1-CF-03 · CF · review · The 10 checkpoint-2 fixtures: ECharts and Vega; simple and dense; Latin and Japanese labels
-- P1-CF-04 · CF · review · Hostile-script suite: infinite loop, allocation bomb, deep recursion, microtask flood, huge strings, attempts at fs/network/eval-escape; each with its expected typed error
+- P1-CF-03 · CF · done · The checkpoint-2 fixtures (now 11 fixtures, 12 islands, incl. two charts on one page): ECharts and Vega; simple and dense; Latin and Japanese labels
+- P1-CF-04 · CF · done · Hostile-script suite: infinite loop, allocation bomb, deep recursion, microtask flood, huge strings, attempts at fs/network/eval-escape; each with its expected typed error
 - P1-CF-05 · CF · review · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
 - P1-CF-06 · CF · review · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
 - P1-CF-08 · CF · review · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
