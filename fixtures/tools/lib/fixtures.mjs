@@ -216,15 +216,36 @@ export async function renderFixtureInChrome(browser, fixture, pdfPath) {
   }
 }
 
+/** An attribute's value as written in a start tag (double, single or no quotes), or undefined. */
+function rawAttribute(startTag, name) {
+  const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>"']+))`, "i").exec(startTag);
+  return m ? (m[1] ?? m[2] ?? m[3]) : undefined;
+}
+
 /**
- * The page with each island marker replaced by its SVG, everything else byte
- * for byte unchanged: what a perfect surimono pre-pass would output.
+ * What surimono's pre-pass puts where a marker was (crates/surimono/src/prepass.rs):
+ * <div class="surimono-island[ marker classes]"[ id="…"] data-renderer="…">SVG</div>,
+ * attribute values copied as written.
+ */
+export function islandWrapper(markerHtml, svg) {
+  const start = /^<script\b[^>]*>/i.exec(markerHtml)[0];
+  const q = (v) => v.replace(/"/g, "&quot;");
+  const cls = rawAttribute(start, "class")?.trim();
+  const id = rawAttribute(start, "id");
+  const renderer = rawAttribute(start, "data-renderer")?.trim();
+  return `<div class="surimono-island${cls ? ` ${q(cls)}` : ""}"${id ? ` id="${q(id)}"` : ""}${renderer ? ` data-renderer="${q(renderer)}"` : ""}>${svg}</div>`;
+}
+
+/**
+ * The page with each island marker replaced by its SVG in surimono's wrapper
+ * (islandWrapper), everything else byte for byte unchanged: what a perfect
+ * surimono pre-pass would output.
  */
 export function prepassHtml(sourceHtml, svgs) {
   let i = 0;
   const html = sourceHtml.replace(MARKER_RE, (m) => {
     if (i >= svgs.length) throw new Error("more markers in the source than islands rendered");
-    return svgs[i++];
+    return islandWrapper(m, svgs[i++]);
   });
   if (i !== svgs.length) throw new Error(`source has ${i} markers, Chrome rendered ${svgs.length} islands`);
   return html;

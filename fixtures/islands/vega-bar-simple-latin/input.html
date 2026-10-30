@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Operating expenses by category, Q3 2026</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans", "Noto Sans JP"; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
+    body { margin: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
+    .surimono-island > svg { display: block; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">Northwind Trading GmbH</div>
+    <div class="meta">Expense report · Period: Jul to Sep 2026 · Currency: EUR</div>
+    <div class="rule"></div>
+  </header>
+  <h1>Operating expenses by category, Q3 2026</h1>
+  <p>Booked operating expenses for the third quarter, by cost category. The figure is a hand-written Vega spec (not Vega-Lite).</p>
+  <figure class="island" style="width: 640px; height: 304px">
+    <script type="application/vnd.surimono+json" data-renderer="vega" data-width="640" data-height="304">{
+ "$schema": "https://vega.github.io/schema/vega/v6.json",
+ "width": 640,
+ "height": 304,
+ "padding": 4,
+ "autosize": {
+  "type": "fit",
+  "contains": "padding"
+ },
+ "config": {
+  "axis": {
+   "labelFont": "Noto Sans",
+   "titleFont": "Noto Sans",
+   "labelFontSize": 10,
+   "titleFontSize": 11,
+   "gridColor": "#e5e8eb"
+  },
+  "text": {
+   "font": "Noto Sans"
+  }
+ },
+ "data": [
+  {
+   "name": "table",
+   "values": [
+    {
+     "category": "Rent",
+     "amount": 18437
+    },
+    {
+     "category": "Salaries",
+     "amount": 32465
+    },
+    {
+     "category": "Software",
+     "amount": 35744
+    },
+    {
+     "category": "Travel",
+     "amount": 15184
+    },
+    {
+     "category": "Marketing",
+     "amount": 10196
+    },
+    {
+     "category": "Utilities",
+     "amount": 14301
+    },
+    {
+     "category": "Insurance",
+     "amount": 4642
+    }
+   ]
+  }
+ ],
+ "scales": [
+  {
+   "name": "x",
+   "type": "band",
+   "domain": {
+    "data": "table",
+    "field": "category"
+   },
+   "range": "width",
+   "padding": 0.2,
+   "round": true
+  },
+  {
+   "name": "y",
+   "type": "linear",
+   "domain": {
+    "data": "table",
+    "field": "amount"
+   },
+   "nice": true,
+   "zero": true,
+   "range": "height"
+  }
+ ],
+ "axes": [
+  {
+   "orient": "bottom",
+   "scale": "x",
+   "title": "Cost category"
+  },
+  {
+   "orient": "left",
+   "scale": "y",
+   "title": "Amount (EUR)",
+   "format": ",d",
+   "grid": true,
+   "tickCount": 6
+  }
+ ],
+ "marks": [
+  {
+   "type": "rect",
+   "from": {
+    "data": "table"
+   },
+   "encode": {
+    "enter": {
+     "x": {
+      "scale": "x",
+      "field": "category"
+     },
+     "width": {
+      "scale": "x",
+      "band": 1
+     },
+     "y": {
+      "scale": "y",
+      "field": "amount"
+     },
+     "y2": {
+      "scale": "y",
+      "value": 0
+     },
+     "fill": {
+      "value": "#2f6fb0"
+     }
+    }
+   }
+  },
+  {
+   "type": "text",
+   "from": {
+    "data": "table"
+   },
+   "encode": {
+    "enter": {
+     "x": {
+      "scale": "x",
+      "field": "category",
+      "band": 0.5
+     },
+     "y": {
+      "scale": "y",
+      "field": "amount",
+      "offset": -4
+     },
+     "text": {
+      "signal": "format(datum.amount, ',d')"
+     },
+     "align": {
+      "value": "center"
+     },
+     "baseline": {
+      "value": "bottom"
+     },
+     "font": {
+      "value": "Noto Sans"
+     },
+     "fontSize": {
+      "value": 10
+     },
+     "fill": {
+      "value": "#1f2328"
+     }
+    }
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">Figure 1. Operating expenses per category, Q3 2026 (EUR).</p>
+  <div class="table">
+      <div class="tr th"><span class="c" style="flex-basis: 40%">Category</span><span class="c num" style="flex-basis: 60%">Amount (EUR)</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Rent</span><span class="c num" style="flex-basis: 60%">18,437</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Salaries</span><span class="c num" style="flex-basis: 60%">32,465</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Software</span><span class="c num" style="flex-basis: 60%">35,744</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Travel</span><span class="c num" style="flex-basis: 60%">15,184</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Marketing</span><span class="c num" style="flex-basis: 60%">10,196</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Utilities</span><span class="c num" style="flex-basis: 60%">14,301</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Insurance</span><span class="c num" style="flex-basis: 60%">4,642</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Total</span><span class="c num" style="flex-basis: 60%">130,969</span></div>
+    </div>
+</body>
+</html>
