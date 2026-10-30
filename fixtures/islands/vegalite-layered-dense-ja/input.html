@@ -1,0 +1,1665 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>日次受注件数と7日移動平均（2025年）</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans JP", "Noto Sans"; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
+    body { margin: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
+    figure.island > svg { display: block; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">株式会社みなと商事</div>
+    <div class="meta">受注管理レポート · 対象期間：2025年1月1日〜12月31日 · 単位：件</div>
+    <div class="rule"></div>
+  </header>
+  <h1>日次受注件数と7日移動平均（2025年）</h1>
+  <p>日次の受注件数（棒）と7日移動平均（線）です。破線は目標の1日110件を示します。</p>
+  <figure class="island" style="width: 680px; height: 340px">
+    <script type="application/vnd.surimono+json" data-renderer="vega-lite" data-width="680" data-height="340">{
+ "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+ "width": 680,
+ "height": 340,
+ "autosize": {
+  "type": "fit",
+  "contains": "padding"
+ },
+ "padding": 4,
+ "config": {
+  "font": "Noto Sans, Noto Sans JP",
+  "axis": {
+   "labelFontSize": 10,
+   "titleFontSize": 11,
+   "gridColor": "#e5e8eb"
+  },
+  "view": {
+   "stroke": null
+  }
+ },
+ "data": {
+  "values": [
+   {
+    "date": "2025-01-01",
+    "orders": 122
+   },
+   {
+    "date": "2025-01-02",
+    "orders": 126
+   },
+   {
+    "date": "2025-01-03",
+    "orders": 50
+   },
+   {
+    "date": "2025-01-04",
+    "orders": 73
+   },
+   {
+    "date": "2025-01-05",
+    "orders": 124
+   },
+   {
+    "date": "2025-01-06",
+    "orders": 111
+   },
+   {
+    "date": "2025-01-07",
+    "orders": 103
+   },
+   {
+    "date": "2025-01-08",
+    "orders": 122
+   },
+   {
+    "date": "2025-01-09",
+    "orders": 117
+   },
+   {
+    "date": "2025-01-10",
+    "orders": 56
+   },
+   {
+    "date": "2025-01-11",
+    "orders": 60
+   },
+   {
+    "date": "2025-01-12",
+    "orders": 110
+   },
+   {
+    "date": "2025-01-13",
+    "orders": 101
+   },
+   {
+    "date": "2025-01-14",
+    "orders": 121
+   },
+   {
+    "date": "2025-01-15",
+    "orders": 100
+   },
+   {
+    "date": "2025-01-16",
+    "orders": 107
+   },
+   {
+    "date": "2025-01-17",
+    "orders": 69
+   },
+   {
+    "date": "2025-01-18",
+    "orders": 59
+   },
+   {
+    "date": "2025-01-19",
+    "orders": 105
+   },
+   {
+    "date": "2025-01-20",
+    "orders": 106
+   },
+   {
+    "date": "2025-01-21",
+    "orders": 105
+   },
+   {
+    "date": "2025-01-22",
+    "orders": 127
+   },
+   {
+    "date": "2025-01-23",
+    "orders": 121
+   },
+   {
+    "date": "2025-01-24",
+    "orders": 71
+   },
+   {
+    "date": "2025-01-25",
+    "orders": 80
+   },
+   {
+    "date": "2025-01-26",
+    "orders": 123
+   },
+   {
+    "date": "2025-01-27",
+    "orders": 135
+   },
+   {
+    "date": "2025-01-28",
+    "orders": 114
+   },
+   {
+    "date": "2025-01-29",
+    "orders": 144
+   },
+   {
+    "date": "2025-01-30",
+    "orders": 142
+   },
+   {
+    "date": "2025-01-31",
+    "orders": 83
+   },
+   {
+    "date": "2025-02-01",
+    "orders": 84
+   },
+   {
+    "date": "2025-02-02",
+    "orders": 126
+   },
+   {
+    "date": "2025-02-03",
+    "orders": 119
+   },
+   {
+    "date": "2025-02-04",
+    "orders": 110
+   },
+   {
+    "date": "2025-02-05",
+    "orders": 147
+   },
+   {
+    "date": "2025-02-06",
+    "orders": 145
+   },
+   {
+    "date": "2025-02-07",
+    "orders": 77
+   },
+   {
+    "date": "2025-02-08",
+    "orders": 83
+   },
+   {
+    "date": "2025-02-09",
+    "orders": 127
+   },
+   {
+    "date": "2025-02-10",
+    "orders": 151
+   },
+   {
+    "date": "2025-02-11",
+    "orders": 140
+   },
+   {
+    "date": "2025-02-12",
+    "orders": 147
+   },
+   {
+    "date": "2025-02-13",
+    "orders": 135
+   },
+   {
+    "date": "2025-02-14",
+    "orders": 86
+   },
+   {
+    "date": "2025-02-15",
+    "orders": 83
+   },
+   {
+    "date": "2025-02-16",
+    "orders": 126
+   },
+   {
+    "date": "2025-02-17",
+    "orders": 145
+   },
+   {
+    "date": "2025-02-18",
+    "orders": 138
+   },
+   {
+    "date": "2025-02-19",
+    "orders": 114
+   },
+   {
+    "date": "2025-02-20",
+    "orders": 114
+   },
+   {
+    "date": "2025-02-21",
+    "orders": 73
+   },
+   {
+    "date": "2025-02-22",
+    "orders": 71
+   },
+   {
+    "date": "2025-02-23",
+    "orders": 139
+   },
+   {
+    "date": "2025-02-24",
+    "orders": 131
+   },
+   {
+    "date": "2025-02-25",
+    "orders": 138
+   },
+   {
+    "date": "2025-02-26",
+    "orders": 132
+   },
+   {
+    "date": "2025-02-27",
+    "orders": 122
+   },
+   {
+    "date": "2025-02-28",
+    "orders": 75
+   },
+   {
+    "date": "2025-03-01",
+    "orders": 62
+   },
+   {
+    "date": "2025-03-02",
+    "orders": 130
+   },
+   {
+    "date": "2025-03-03",
+    "orders": 142
+   },
+   {
+    "date": "2025-03-04",
+    "orders": 120
+   },
+   {
+    "date": "2025-03-05",
+    "orders": 124
+   },
+   {
+    "date": "2025-03-06",
+    "orders": 111
+   },
+   {
+    "date": "2025-03-07",
+    "orders": 83
+   },
+   {
+    "date": "2025-03-08",
+    "orders": 71
+   },
+   {
+    "date": "2025-03-09",
+    "orders": 113
+   },
+   {
+    "date": "2025-03-10",
+    "orders": 127
+   },
+   {
+    "date": "2025-03-11",
+    "orders": 110
+   },
+   {
+    "date": "2025-03-12",
+    "orders": 105
+   },
+   {
+    "date": "2025-03-13",
+    "orders": 143
+   },
+   {
+    "date": "2025-03-14",
+    "orders": 63
+   },
+   {
+    "date": "2025-03-15",
+    "orders": 62
+   },
+   {
+    "date": "2025-03-16",
+    "orders": 112
+   },
+   {
+    "date": "2025-03-17",
+    "orders": 102
+   },
+   {
+    "date": "2025-03-18",
+    "orders": 99
+   },
+   {
+    "date": "2025-03-19",
+    "orders": 99
+   },
+   {
+    "date": "2025-03-20",
+    "orders": 134
+   },
+   {
+    "date": "2025-03-21",
+    "orders": 77
+   },
+   {
+    "date": "2025-03-22",
+    "orders": 71
+   },
+   {
+    "date": "2025-03-23",
+    "orders": 117
+   },
+   {
+    "date": "2025-03-24",
+    "orders": 97
+   },
+   {
+    "date": "2025-03-25",
+    "orders": 99
+   },
+   {
+    "date": "2025-03-26",
+    "orders": 121
+   },
+   {
+    "date": "2025-03-27",
+    "orders": 124
+   },
+   {
+    "date": "2025-03-28",
+    "orders": 55
+   },
+   {
+    "date": "2025-03-29",
+    "orders": 58
+   },
+   {
+    "date": "2025-03-30",
+    "orders": 112
+   },
+   {
+    "date": "2025-03-31",
+    "orders": 88
+   },
+   {
+    "date": "2025-04-01",
+    "orders": 125
+   },
+   {
+    "date": "2025-04-02",
+    "orders": 113
+   },
+   {
+    "date": "2025-04-03",
+    "orders": 115
+   },
+   {
+    "date": "2025-04-04",
+    "orders": 61
+   },
+   {
+    "date": "2025-04-05",
+    "orders": 64
+   },
+   {
+    "date": "2025-04-06",
+    "orders": 121
+   },
+   {
+    "date": "2025-04-07",
+    "orders": 82
+   },
+   {
+    "date": "2025-04-08",
+    "orders": 94
+   },
+   {
+    "date": "2025-04-09",
+    "orders": 119
+   },
+   {
+    "date": "2025-04-10",
+    "orders": 106
+   },
+   {
+    "date": "2025-04-11",
+    "orders": 65
+   },
+   {
+    "date": "2025-04-12",
+    "orders": 54
+   },
+   {
+    "date": "2025-04-13",
+    "orders": 81
+   },
+   {
+    "date": "2025-04-14",
+    "orders": 81
+   },
+   {
+    "date": "2025-04-15",
+    "orders": 110
+   },
+   {
+    "date": "2025-04-16",
+    "orders": 110
+   },
+   {
+    "date": "2025-04-17",
+    "orders": 109
+   },
+   {
+    "date": "2025-04-18",
+    "orders": 53
+   },
+   {
+    "date": "2025-04-19",
+    "orders": 48
+   },
+   {
+    "date": "2025-04-20",
+    "orders": 100
+   },
+   {
+    "date": "2025-04-21",
+    "orders": 98
+   },
+   {
+    "date": "2025-04-22",
+    "orders": 96
+   },
+   {
+    "date": "2025-04-23",
+    "orders": 80
+   },
+   {
+    "date": "2025-04-24",
+    "orders": 70
+   },
+   {
+    "date": "2025-04-25",
+    "orders": 58
+   },
+   {
+    "date": "2025-04-26",
+    "orders": 53
+   },
+   {
+    "date": "2025-04-27",
+    "orders": 77
+   },
+   {
+    "date": "2025-04-28",
+    "orders": 103
+   },
+   {
+    "date": "2025-04-29",
+    "orders": 105
+   },
+   {
+    "date": "2025-04-30",
+    "orders": 90
+   },
+   {
+    "date": "2025-05-01",
+    "orders": 79
+   },
+   {
+    "date": "2025-05-02",
+    "orders": 45
+   },
+   {
+    "date": "2025-05-03",
+    "orders": 56
+   },
+   {
+    "date": "2025-05-04",
+    "orders": 75
+   },
+   {
+    "date": "2025-05-05",
+    "orders": 70
+   },
+   {
+    "date": "2025-05-06",
+    "orders": 91
+   },
+   {
+    "date": "2025-05-07",
+    "orders": 62
+   },
+   {
+    "date": "2025-05-08",
+    "orders": 78
+   },
+   {
+    "date": "2025-05-09",
+    "orders": 56
+   },
+   {
+    "date": "2025-05-10",
+    "orders": 54
+   },
+   {
+    "date": "2025-05-11",
+    "orders": 59
+   },
+   {
+    "date": "2025-05-12",
+    "orders": 86
+   },
+   {
+    "date": "2025-05-13",
+    "orders": 66
+   },
+   {
+    "date": "2025-05-14",
+    "orders": 76
+   },
+   {
+    "date": "2025-05-15",
+    "orders": 69
+   },
+   {
+    "date": "2025-05-16",
+    "orders": 43
+   },
+   {
+    "date": "2025-05-17",
+    "orders": 39
+   },
+   {
+    "date": "2025-05-18",
+    "orders": 61
+   },
+   {
+    "date": "2025-05-19",
+    "orders": 77
+   },
+   {
+    "date": "2025-05-20",
+    "orders": 71
+   },
+   {
+    "date": "2025-05-21",
+    "orders": 70
+   },
+   {
+    "date": "2025-05-22",
+    "orders": 88
+   },
+   {
+    "date": "2025-05-23",
+    "orders": 40
+   },
+   {
+    "date": "2025-05-24",
+    "orders": 53
+   },
+   {
+    "date": "2025-05-25",
+    "orders": 71
+   },
+   {
+    "date": "2025-05-26",
+    "orders": 70
+   },
+   {
+    "date": "2025-05-27",
+    "orders": 83
+   },
+   {
+    "date": "2025-05-28",
+    "orders": 101
+   },
+   {
+    "date": "2025-05-29",
+    "orders": 74
+   },
+   {
+    "date": "2025-05-30",
+    "orders": 57
+   },
+   {
+    "date": "2025-05-31",
+    "orders": 55
+   },
+   {
+    "date": "2025-06-01",
+    "orders": 72
+   },
+   {
+    "date": "2025-06-02",
+    "orders": 74
+   },
+   {
+    "date": "2025-06-03",
+    "orders": 88
+   },
+   {
+    "date": "2025-06-04",
+    "orders": 70
+   },
+   {
+    "date": "2025-06-05",
+    "orders": 101
+   },
+   {
+    "date": "2025-06-06",
+    "orders": 57
+   },
+   {
+    "date": "2025-06-07",
+    "orders": 58
+   },
+   {
+    "date": "2025-06-08",
+    "orders": 71
+   },
+   {
+    "date": "2025-06-09",
+    "orders": 71
+   },
+   {
+    "date": "2025-06-10",
+    "orders": 80
+   },
+   {
+    "date": "2025-06-11",
+    "orders": 100
+   },
+   {
+    "date": "2025-06-12",
+    "orders": 99
+   },
+   {
+    "date": "2025-06-13",
+    "orders": 51
+   },
+   {
+    "date": "2025-06-14",
+    "orders": 47
+   },
+   {
+    "date": "2025-06-15",
+    "orders": 82
+   },
+   {
+    "date": "2025-06-16",
+    "orders": 91
+   },
+   {
+    "date": "2025-06-17",
+    "orders": 77
+   },
+   {
+    "date": "2025-06-18",
+    "orders": 80
+   },
+   {
+    "date": "2025-06-19",
+    "orders": 100
+   },
+   {
+    "date": "2025-06-20",
+    "orders": 47
+   },
+   {
+    "date": "2025-06-21",
+    "orders": 45
+   },
+   {
+    "date": "2025-06-22",
+    "orders": 86
+   },
+   {
+    "date": "2025-06-23",
+    "orders": 110
+   },
+   {
+    "date": "2025-06-24",
+    "orders": 82
+   },
+   {
+    "date": "2025-06-25",
+    "orders": 89
+   },
+   {
+    "date": "2025-06-26",
+    "orders": 83
+   },
+   {
+    "date": "2025-06-27",
+    "orders": 56
+   },
+   {
+    "date": "2025-06-28",
+    "orders": 46
+   },
+   {
+    "date": "2025-06-29",
+    "orders": 91
+   },
+   {
+    "date": "2025-06-30",
+    "orders": 109
+   },
+   {
+    "date": "2025-07-01",
+    "orders": 105
+   },
+   {
+    "date": "2025-07-02",
+    "orders": 121
+   },
+   {
+    "date": "2025-07-03",
+    "orders": 107
+   },
+   {
+    "date": "2025-07-04",
+    "orders": 61
+   },
+   {
+    "date": "2025-07-05",
+    "orders": 55
+   },
+   {
+    "date": "2025-07-06",
+    "orders": 109
+   },
+   {
+    "date": "2025-07-07",
+    "orders": 102
+   },
+   {
+    "date": "2025-07-08",
+    "orders": 119
+   },
+   {
+    "date": "2025-07-09",
+    "orders": 97
+   },
+   {
+    "date": "2025-07-10",
+    "orders": 128
+   },
+   {
+    "date": "2025-07-11",
+    "orders": 57
+   },
+   {
+    "date": "2025-07-12",
+    "orders": 70
+   },
+   {
+    "date": "2025-07-13",
+    "orders": 123
+   },
+   {
+    "date": "2025-07-14",
+    "orders": 131
+   },
+   {
+    "date": "2025-07-15",
+    "orders": 100
+   },
+   {
+    "date": "2025-07-16",
+    "orders": 123
+   },
+   {
+    "date": "2025-07-17",
+    "orders": 116
+   },
+   {
+    "date": "2025-07-18",
+    "orders": 76
+   },
+   {
+    "date": "2025-07-19",
+    "orders": 60
+   },
+   {
+    "date": "2025-07-20",
+    "orders": 124
+   },
+   {
+    "date": "2025-07-21",
+    "orders": 130
+   },
+   {
+    "date": "2025-07-22",
+    "orders": 128
+   },
+   {
+    "date": "2025-07-23",
+    "orders": 128
+   },
+   {
+    "date": "2025-07-24",
+    "orders": 109
+   },
+   {
+    "date": "2025-07-25",
+    "orders": 67
+   },
+   {
+    "date": "2025-07-26",
+    "orders": 82
+   },
+   {
+    "date": "2025-07-27",
+    "orders": 121
+   },
+   {
+    "date": "2025-07-28",
+    "orders": 136
+   },
+   {
+    "date": "2025-07-29",
+    "orders": 127
+   },
+   {
+    "date": "2025-07-30",
+    "orders": 126
+   },
+   {
+    "date": "2025-07-31",
+    "orders": 120
+   },
+   {
+    "date": "2025-08-01",
+    "orders": 68
+   },
+   {
+    "date": "2025-08-02",
+    "orders": 82
+   },
+   {
+    "date": "2025-08-03",
+    "orders": 138
+   },
+   {
+    "date": "2025-08-04",
+    "orders": 147
+   },
+   {
+    "date": "2025-08-05",
+    "orders": 124
+   },
+   {
+    "date": "2025-08-06",
+    "orders": 126
+   },
+   {
+    "date": "2025-08-07",
+    "orders": 144
+   },
+   {
+    "date": "2025-08-08",
+    "orders": 68
+   },
+   {
+    "date": "2025-08-09",
+    "orders": 80
+   },
+   {
+    "date": "2025-08-10",
+    "orders": 129
+   },
+   {
+    "date": "2025-08-11",
+    "orders": 118
+   },
+   {
+    "date": "2025-08-12",
+    "orders": 118
+   },
+   {
+    "date": "2025-08-13",
+    "orders": 130
+   },
+   {
+    "date": "2025-08-14",
+    "orders": 136
+   },
+   {
+    "date": "2025-08-15",
+    "orders": 70
+   },
+   {
+    "date": "2025-08-16",
+    "orders": 78
+   },
+   {
+    "date": "2025-08-17",
+    "orders": 140
+   },
+   {
+    "date": "2025-08-18",
+    "orders": 123
+   },
+   {
+    "date": "2025-08-19",
+    "orders": 142
+   },
+   {
+    "date": "2025-08-20",
+    "orders": 138
+   },
+   {
+    "date": "2025-08-21",
+    "orders": 145
+   },
+   {
+    "date": "2025-08-22",
+    "orders": 68
+   },
+   {
+    "date": "2025-08-23",
+    "orders": 69
+   },
+   {
+    "date": "2025-08-24",
+    "orders": 119
+   },
+   {
+    "date": "2025-08-25",
+    "orders": 110
+   },
+   {
+    "date": "2025-08-26",
+    "orders": 138
+   },
+   {
+    "date": "2025-08-27",
+    "orders": 131
+   },
+   {
+    "date": "2025-08-28",
+    "orders": 123
+   },
+   {
+    "date": "2025-08-29",
+    "orders": 76
+   },
+   {
+    "date": "2025-08-30",
+    "orders": 73
+   },
+   {
+    "date": "2025-08-31",
+    "orders": 128
+   },
+   {
+    "date": "2025-09-01",
+    "orders": 136
+   },
+   {
+    "date": "2025-09-02",
+    "orders": 118
+   },
+   {
+    "date": "2025-09-03",
+    "orders": 145
+   },
+   {
+    "date": "2025-09-04",
+    "orders": 143
+   },
+   {
+    "date": "2025-09-05",
+    "orders": 73
+   },
+   {
+    "date": "2025-09-06",
+    "orders": 76
+   },
+   {
+    "date": "2025-09-07",
+    "orders": 146
+   },
+   {
+    "date": "2025-09-08",
+    "orders": 141
+   },
+   {
+    "date": "2025-09-09",
+    "orders": 128
+   },
+   {
+    "date": "2025-09-10",
+    "orders": 111
+   },
+   {
+    "date": "2025-09-11",
+    "orders": 122
+   },
+   {
+    "date": "2025-09-12",
+    "orders": 73
+   },
+   {
+    "date": "2025-09-13",
+    "orders": 75
+   },
+   {
+    "date": "2025-09-14",
+    "orders": 124
+   },
+   {
+    "date": "2025-09-15",
+    "orders": 130
+   },
+   {
+    "date": "2025-09-16",
+    "orders": 113
+   },
+   {
+    "date": "2025-09-17",
+    "orders": 138
+   },
+   {
+    "date": "2025-09-18",
+    "orders": 124
+   },
+   {
+    "date": "2025-09-19",
+    "orders": 55
+   },
+   {
+    "date": "2025-09-20",
+    "orders": 59
+   },
+   {
+    "date": "2025-09-21",
+    "orders": 105
+   },
+   {
+    "date": "2025-09-22",
+    "orders": 97
+   },
+   {
+    "date": "2025-09-23",
+    "orders": 133
+   },
+   {
+    "date": "2025-09-24",
+    "orders": 128
+   },
+   {
+    "date": "2025-09-25",
+    "orders": 132
+   },
+   {
+    "date": "2025-09-26",
+    "orders": 52
+   },
+   {
+    "date": "2025-09-27",
+    "orders": 69
+   },
+   {
+    "date": "2025-09-28",
+    "orders": 91
+   },
+   {
+    "date": "2025-09-29",
+    "orders": 96
+   },
+   {
+    "date": "2025-09-30",
+    "orders": 123
+   },
+   {
+    "date": "2025-10-01",
+    "orders": 113
+   },
+   {
+    "date": "2025-10-02",
+    "orders": 117
+   },
+   {
+    "date": "2025-10-03",
+    "orders": 52
+   },
+   {
+    "date": "2025-10-04",
+    "orders": 53
+   },
+   {
+    "date": "2025-10-05",
+    "orders": 98
+   },
+   {
+    "date": "2025-10-06",
+    "orders": 83
+   },
+   {
+    "date": "2025-10-07",
+    "orders": 86
+   },
+   {
+    "date": "2025-10-08",
+    "orders": 99
+   },
+   {
+    "date": "2025-10-09",
+    "orders": 108
+   },
+   {
+    "date": "2025-10-10",
+    "orders": 51
+   },
+   {
+    "date": "2025-10-11",
+    "orders": 62
+   },
+   {
+    "date": "2025-10-12",
+    "orders": 106
+   },
+   {
+    "date": "2025-10-13",
+    "orders": 84
+   },
+   {
+    "date": "2025-10-14",
+    "orders": 77
+   },
+   {
+    "date": "2025-10-15",
+    "orders": 86
+   },
+   {
+    "date": "2025-10-16",
+    "orders": 79
+   },
+   {
+    "date": "2025-10-17",
+    "orders": 45
+   },
+   {
+    "date": "2025-10-18",
+    "orders": 53
+   },
+   {
+    "date": "2025-10-19",
+    "orders": 76
+   },
+   {
+    "date": "2025-10-20",
+    "orders": 85
+   },
+   {
+    "date": "2025-10-21",
+    "orders": 94
+   },
+   {
+    "date": "2025-10-22",
+    "orders": 85
+   },
+   {
+    "date": "2025-10-23",
+    "orders": 108
+   },
+   {
+    "date": "2025-10-24",
+    "orders": 46
+   },
+   {
+    "date": "2025-10-25",
+    "orders": 61
+   },
+   {
+    "date": "2025-10-26",
+    "orders": 81
+   },
+   {
+    "date": "2025-10-27",
+    "orders": 91
+   },
+   {
+    "date": "2025-10-28",
+    "orders": 86
+   },
+   {
+    "date": "2025-10-29",
+    "orders": 95
+   },
+   {
+    "date": "2025-10-30",
+    "orders": 101
+   },
+   {
+    "date": "2025-10-31",
+    "orders": 37
+   },
+   {
+    "date": "2025-11-01",
+    "orders": 51
+   },
+   {
+    "date": "2025-11-02",
+    "orders": 73
+   },
+   {
+    "date": "2025-11-03",
+    "orders": 96
+   },
+   {
+    "date": "2025-11-04",
+    "orders": 86
+   },
+   {
+    "date": "2025-11-05",
+    "orders": 79
+   },
+   {
+    "date": "2025-11-06",
+    "orders": 82
+   },
+   {
+    "date": "2025-11-07",
+    "orders": 55
+   },
+   {
+    "date": "2025-11-08",
+    "orders": 57
+   },
+   {
+    "date": "2025-11-09",
+    "orders": 78
+   },
+   {
+    "date": "2025-11-10",
+    "orders": 64
+   },
+   {
+    "date": "2025-11-11",
+    "orders": 70
+   },
+   {
+    "date": "2025-11-12",
+    "orders": 76
+   },
+   {
+    "date": "2025-11-13",
+    "orders": 93
+   },
+   {
+    "date": "2025-11-14",
+    "orders": 40
+   },
+   {
+    "date": "2025-11-15",
+    "orders": 45
+   },
+   {
+    "date": "2025-11-16",
+    "orders": 64
+   },
+   {
+    "date": "2025-11-17",
+    "orders": 86
+   },
+   {
+    "date": "2025-11-18",
+    "orders": 66
+   },
+   {
+    "date": "2025-11-19",
+    "orders": 87
+   },
+   {
+    "date": "2025-11-20",
+    "orders": 83
+   },
+   {
+    "date": "2025-11-21",
+    "orders": 45
+   },
+   {
+    "date": "2025-11-22",
+    "orders": 35
+   },
+   {
+    "date": "2025-11-23",
+    "orders": 94
+   },
+   {
+    "date": "2025-11-24",
+    "orders": 86
+   },
+   {
+    "date": "2025-11-25",
+    "orders": 67
+   },
+   {
+    "date": "2025-11-26",
+    "orders": 65
+   },
+   {
+    "date": "2025-11-27",
+    "orders": 91
+   },
+   {
+    "date": "2025-11-28",
+    "orders": 40
+   },
+   {
+    "date": "2025-11-29",
+    "orders": 47
+   },
+   {
+    "date": "2025-11-30",
+    "orders": 81
+   },
+   {
+    "date": "2025-12-01",
+    "orders": 61
+   },
+   {
+    "date": "2025-12-02",
+    "orders": 82
+   },
+   {
+    "date": "2025-12-03",
+    "orders": 76
+   },
+   {
+    "date": "2025-12-04",
+    "orders": 89
+   },
+   {
+    "date": "2025-12-05",
+    "orders": 36
+   },
+   {
+    "date": "2025-12-06",
+    "orders": 60
+   },
+   {
+    "date": "2025-12-07",
+    "orders": 72
+   },
+   {
+    "date": "2025-12-08",
+    "orders": 80
+   },
+   {
+    "date": "2025-12-09",
+    "orders": 100
+   },
+   {
+    "date": "2025-12-10",
+    "orders": 77
+   },
+   {
+    "date": "2025-12-11",
+    "orders": 101
+   },
+   {
+    "date": "2025-12-12",
+    "orders": 57
+   },
+   {
+    "date": "2025-12-13",
+    "orders": 44
+   },
+   {
+    "date": "2025-12-14",
+    "orders": 101
+   },
+   {
+    "date": "2025-12-15",
+    "orders": 90
+   },
+   {
+    "date": "2025-12-16",
+    "orders": 78
+   },
+   {
+    "date": "2025-12-17",
+    "orders": 84
+   },
+   {
+    "date": "2025-12-18",
+    "orders": 94
+   },
+   {
+    "date": "2025-12-19",
+    "orders": 46
+   },
+   {
+    "date": "2025-12-20",
+    "orders": 60
+   },
+   {
+    "date": "2025-12-21",
+    "orders": 97
+   },
+   {
+    "date": "2025-12-22",
+    "orders": 83
+   },
+   {
+    "date": "2025-12-23",
+    "orders": 83
+   },
+   {
+    "date": "2025-12-24",
+    "orders": 85
+   },
+   {
+    "date": "2025-12-25",
+    "orders": 118
+   },
+   {
+    "date": "2025-12-26",
+    "orders": 63
+   },
+   {
+    "date": "2025-12-27",
+    "orders": 61
+   },
+   {
+    "date": "2025-12-28",
+    "orders": 101
+   },
+   {
+    "date": "2025-12-29",
+    "orders": 121
+   },
+   {
+    "date": "2025-12-30",
+    "orders": 119
+   },
+   {
+    "date": "2025-12-31",
+    "orders": 111
+   }
+  ]
+ },
+ "encoding": {
+  "x": {
+   "field": "date",
+   "type": "temporal",
+   "title": "日付",
+   "axis": {
+    "format": "%-m月",
+    "tickCount": 12,
+    "labelAngle": 0
+   },
+   "scale": {
+    "type": "utc"
+   }
+  }
+ },
+ "layer": [
+  {
+   "mark": {
+    "type": "bar",
+    "color": "#b5cde8",
+    "width": 1.4
+   },
+   "encoding": {
+    "y": {
+     "field": "orders",
+     "type": "quantitative",
+     "title": "受注件数（件）",
+     "scale": {
+      "domain": [
+       0,
+       180
+      ]
+     }
+    }
+   }
+  },
+  {
+   "transform": [
+    {
+     "window": [
+      {
+       "op": "mean",
+       "field": "orders",
+       "as": "avg7"
+      }
+     ],
+     "frame": [
+      -6,
+      0
+     ],
+     "sort": [
+      {
+       "field": "date"
+      }
+     ]
+    }
+   ],
+   "mark": {
+    "type": "line",
+    "color": "#2f6fb0",
+    "strokeWidth": 1.8
+   },
+   "encoding": {
+    "y": {
+     "field": "avg7",
+     "type": "quantitative"
+    }
+   }
+  },
+  {
+   "data": {
+    "values": [
+     {
+      "target": 110
+     }
+    ]
+   },
+   "mark": {
+    "type": "rule",
+    "color": "#c2455a",
+    "strokeDash": [
+     6,
+     4
+    ],
+    "strokeWidth": 1.2
+   },
+   "encoding": {
+    "x": null,
+    "y": {
+     "field": "target",
+     "type": "quantitative"
+    }
+   }
+  },
+  {
+   "data": {
+    "values": [
+     {
+      "target": 110,
+      "label": "目標 110件"
+     }
+    ]
+   },
+   "mark": {
+    "type": "text",
+    "align": "right",
+    "dx": -4,
+    "dy": -7,
+    "fontSize": 11,
+    "color": "#c2455a"
+   },
+   "encoding": {
+    "x": {
+     "value": "width"
+    },
+    "y": {
+     "field": "target",
+     "type": "quantitative"
+    },
+    "text": {
+     "field": "label"
+    }
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">図1　日次受注件数（棒）、7日移動平均（線）、目標（破線）</p>
+  <div class="table">
+      <div class="tr th"><span class="c" style="flex-basis: 40%">指標</span><span class="c num" style="flex-basis: 60%">値</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">年間受注件数</span><span class="c num" style="flex-basis: 60%">33,728件</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">1日平均</span><span class="c num" style="flex-basis: 60%">92.4件</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">最多日</span><span class="c num" style="flex-basis: 60%">151件</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">目標達成日数</span><span class="c num" style="flex-basis: 60%">119日</span></div>
+    </div>
+</body>
+</html>

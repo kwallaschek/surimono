@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>部門別 予算と実績（2026年度上期）</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans JP", "Noto Sans"; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
+    body { margin: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
+    figure.island > svg { display: block; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">株式会社みなと商事</div>
+    <div class="meta">経営管理レポート · 対象期間：2026年4月〜9月 · 単位：万円</div>
+    <div class="rule"></div>
+  </header>
+  <h1>部門別 予算と実績（2026年度上期）</h1>
+  <p>各部門の上期予算と実績を比較しています。実績は9月末時点の確定値です。</p>
+  <figure class="island" style="width: 640px; height: 340px">
+    <script type="application/vnd.surimono+json" data-renderer="echarts" data-width="640" data-height="340">{
+ "color": [
+  "#9db7d5",
+  "#2f6fb0"
+ ],
+ "textStyle": {
+  "fontFamily": "'Noto Sans JP'"
+ },
+ "title": {
+  "text": "予算と実績",
+  "left": 0,
+  "top": 0,
+  "textStyle": {
+   "fontFamily": "'Noto Sans JP'",
+   "fontSize": 14,
+   "fontWeight": "bold"
+  }
+ },
+ "legend": {
+  "top": 2,
+  "right": 0,
+  "data": [
+   "予算",
+   "実績"
+  ],
+  "textStyle": {
+   "fontFamily": "'Noto Sans JP'",
+   "fontSize": 11
+  }
+ },
+ "grid": {
+  "left": 56,
+  "right": 8,
+  "top": 48,
+  "bottom": 52
+ },
+ "xAxis": {
+  "type": "category",
+  "data": [
+   "営業部",
+   "開発部",
+   "マーケティング部",
+   "カスタマーサクセス部",
+   "経理部",
+   "人事部"
+  ],
+  "axisLabel": {
+   "fontSize": 11,
+   "interval": 0,
+   "width": 84,
+   "overflow": "break",
+   "lineHeight": 15
+  }
+ },
+ "yAxis": {
+  "type": "value",
+  "name": "万円",
+  "nameTextStyle": {
+   "fontSize": 11
+  }
+ },
+ "series": [
+  {
+   "type": "bar",
+   "name": "予算",
+   "data": [
+    1648,
+    2953,
+    1152,
+    1165,
+    1981,
+    2290
+   ],
+   "barGap": "10%"
+  },
+  {
+   "type": "bar",
+   "name": "実績",
+   "data": [
+    1710,
+    2730,
+    1034,
+    1055,
+    2196,
+    1891
+   ],
+   "label": {
+    "show": true,
+    "position": "top",
+    "fontSize": 9,
+    "fontFamily": "'Noto Sans JP'"
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">図1　部門別の予算と実績（万円）</p>
+  <div class="table">
+      <div class="tr th"><span class="c" style="flex-basis: 40%">部門</span><span class="c num" style="flex-basis: 20%">予算（万円）</span><span class="c num" style="flex-basis: 20%">実績（万円）</span><span class="c num" style="flex-basis: 20%">達成率</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">営業部</span><span class="c num" style="flex-basis: 20%">1,648</span><span class="c num" style="flex-basis: 20%">1,710</span><span class="c num" style="flex-basis: 20%">103.8%</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">開発部</span><span class="c num" style="flex-basis: 20%">2,953</span><span class="c num" style="flex-basis: 20%">2,730</span><span class="c num" style="flex-basis: 20%">92.4%</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">マーケティング部</span><span class="c num" style="flex-basis: 20%">1,152</span><span class="c num" style="flex-basis: 20%">1,034</span><span class="c num" style="flex-basis: 20%">89.8%</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">カスタマーサクセス部</span><span class="c num" style="flex-basis: 20%">1,165</span><span class="c num" style="flex-basis: 20%">1,055</span><span class="c num" style="flex-basis: 20%">90.6%</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">経理部</span><span class="c num" style="flex-basis: 20%">1,981</span><span class="c num" style="flex-basis: 20%">2,196</span><span class="c num" style="flex-basis: 20%">110.9%</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">人事部</span><span class="c num" style="flex-basis: 20%">2,290</span><span class="c num" style="flex-basis: 20%">1,891</span><span class="c num" style="flex-basis: 20%">82.6%</span></div>
+    </div>
+</body>
+</html>

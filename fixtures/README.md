@@ -114,20 +114,19 @@ half-pixel shifts scored up to 16%. The window turns a local fault into a large
 number instead of diluting it in a page of white space and bars.
 
 Calibration: `calibrate.mjs` has Chrome print deliberately altered copies of
-Chrome's own island SVG, then scores them (worst window). These numbers are for
-the two fixtures here; P1-CF-03 reruns it on all ten:
+Chrome's own island SVG for all 10 fixtures, then scores them (worst window):
 
 | Fault | Min | Max | Fails at 10% | Should |
 |---|---|---|---|---|
-| text shifted 0.5 px right | 0.0% | 0.0% | 0/2 | pass |
-| text shifted 0.5 px down | 0.0% | 0.0% | 0/2 | pass |
-| text shifted 1 px right | 0.0% | 0.0% | 0/2 | pass |
-| letter-spacing +0.2 px (labels about 2% wider) | 20.5% | 24.0% | 2/2 | borderline |
-| text shifted 3 px right | 21.2% | 31.2% | 2/2 | fail |
-| one label in four missing | 37.0% | 54.1% | 2/2 | fail |
-| whole chart scaled to 99% | 34.9% | 82.5% | 2/2 | fail |
-| all text bold | 0.0% | 23.8% | 1/2 | fail |
-| Latin text in Noto Sans JP instead of Noto Sans | 5.3% | 13.3% | 1/2 | fail |
+| text shifted 0.5 px right | 0.0% | 0.0% | 0/10 | pass |
+| text shifted 0.5 px down | 0.0% | 0.0% | 0/10 | pass |
+| text shifted 1 px right | 0.0% | 0.0% | 0/10 | pass |
+| letter-spacing +0.2 px (labels about 2% wider) | 0.0% | 24.0% | 4/10 | borderline |
+| text shifted 3 px right | 18.5% | 57.1% | 10/10 | fail |
+| one label in four missing | 31.1% | 67.9% | 10/10 | fail |
+| whole chart scaled to 99% | 34.9% | 100.0% | 10/10 | fail |
+| all text bold | 0.0% | 31.9% | 7/10 | fail |
+| Latin text in Noto Sans JP instead of Noto Sans | 0.0% | 13.3% | 1/10 | fail (a no-op on the 4 all-Japanese fixtures) |
 
 The metric catches what a measuring engine gets wrong: shifted, missing or
 resized text and marks. It does not reliably catch a wrong font face or weight
@@ -140,10 +139,18 @@ worst window, pixelmatch in brackets:
 
 | Fixture | Page | Island 0 |
 |---|---|---|
+| echarts-bar-simple-ja | 0.0% (4.30%) | 0.0% (2.51%) |
 | echarts-bar-simple-latin | 0.0% (3.86%) | 0.0% (0.17%) |
+| echarts-line-dense-latin | 0.0% (12.18%) | 0.0% (0.28%) |
+| echarts-mixed-dense-ja | 2.5% (5.82%) | 2.9% (3.99%) |
+| echarts-pie-ja | 0.0% (5.19%) | 0.0% (5.38%) |
+| vega-bar-simple-latin | 0.0% (2.99%) | 0.0% (0.19%) |
 | vegalite-bar-simple-latin | 0.0% (4.11%) | 0.0% (0.09%) |
+| vegalite-layered-dense-ja | 5.7% (20.45%) | 1.9% (1.09%) |
+| vegalite-line-ja | 1.3% (6.73%) | 0.0% (9.79%) |
+| vegalite-scatter-dense-latin | 0.1% (8.90%) | 0.0% (9.54%) |
 
-All pass, so a surimono + fulgur failure means surimono's SVG differs from
+All 20 pass, so a surimono + fulgur failure means surimono's SVG differs from
 Chrome's. Getting there took a page template that avoids five fulgur 0.40.0
 layout gaps (`docs/COMPAT.md`): auto-sized flex items, tables, single-side
 border colours, fractional line heights, and Chrome's default
@@ -155,5 +162,5 @@ instead of `<table>`, and `text-spacing-trim: space-all`.
 | Comparison | Measures | Gate |
 |---|---|---|
 | `compare.sh --island I` (Chrome prints surimono's SVG) | surimono's island SVG alone | ≤ 10%: the checkpoint-2 criterion |
-| `compare.sh --island I --printer fulgur` | surimono's SVG plus fulgur's SVG printing | ≤ 10% (fulgur's own floor is 0.0% here) |
-| `compare.sh <fixture> <pdf>` (surimono + fulgur page) | the whole document | ≤ 10% (fulgur's own floor is 0.0% here) |
+| `compare.sh --island I --printer fulgur` | surimono's SVG plus fulgur's SVG printing | ≤ 10% (fulgur's own floor is ≤ 2.9%) |
+| `compare.sh <fixture> <pdf>` (surimono + fulgur page) | the whole document | ≤ 10% (fulgur's own floor is ≤ 5.7%) |
