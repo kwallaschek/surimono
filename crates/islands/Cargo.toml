@@ -10,6 +10,7 @@ publish.workspace = true
 [dependencies]
 surimono-core.workspace = true
 surimono-gfx.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 

@@ -1725,6 +1725,7 @@ dependencies = [
 name = "surimono-islands"
 version = "0.0.0"
 dependencies = [
+ "serde",
  "serde_json",
  "surimono-core",
  "surimono-gfx",
