@@ -25,11 +25,9 @@ function entry(specJson, ctx) {
 fn options() -> RunnerOptions {
     RunnerOptions {
         pool_size: 2,
-        limits: Limits {
-            time: Duration::from_millis(300),
-            memory_bytes: 16 * 1024 * 1024,
-            ..Limits::default()
-        },
+        limits: Limits::default()
+            .with_time(Duration::from_millis(300))
+            .with_memory_bytes(16 * 1024 * 1024),
         ..RunnerOptions::default()
     }
 }
@@ -428,10 +426,7 @@ fn invalid_options_are_rejected() {
             ..options()
         },
         RunnerOptions {
-            limits: Limits {
-                memory_bytes: 1,
-                ..Limits::default()
-            },
+            limits: Limits::default().with_memory_bytes(1),
             ..options()
         },
         RunnerOptions {

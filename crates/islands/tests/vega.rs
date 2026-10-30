@@ -42,11 +42,11 @@ fn spec_names(renderer: &str) -> Vec<String> {
 
 /// A generous time limit: these tests check output, not speed (see
 /// `timing_vega`), and debug builds on a busy machine are slow.
-const TEST_LIMITS: Limits = Limits {
-    memory_bytes: Limits::DEFAULT_MEMORY_BYTES,
-    time: Duration::from_secs(30),
-    stack_bytes: Limits::DEFAULT_STACK_BYTES,
-};
+const TEST_LIMITS: Limits = Limits::new(
+    Limits::DEFAULT_MEMORY_BYTES,
+    Duration::from_secs(30),
+    Limits::DEFAULT_STACK_BYTES,
+);
 
 fn runner() -> IslandRunner {
     IslandRunner::new(RunnerOptions {
