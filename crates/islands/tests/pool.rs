@@ -43,6 +43,10 @@ function entry(specJson, ctx) {
     JSON.parse('[1]').length,
     String(globalThis.counter),
     typeof ctx.extra,
+    typeof (function () {}).planted,
+    typeof ctx.measureText.planted,
+    Object.getPrototypeOf(ctx.measureText) === Function.prototype,
+    typeof Object.getPrototypeOf(ctx.measureText).planted2,
   ].join(',');
   globalThis.leaked = 1;
   Array.prototype.polluted = 1;
@@ -52,12 +56,16 @@ function entry(specJson, ctx) {
   JSON.parse = () => 'evil';
   globalThis.counter = (globalThis.counter || 0) + 1;
   ctx.extra = 1;
+  // rquickjs caches the prototype of Rust functions such as measureText per
+  // runtime; a reused runtime would carry these into the next render.
+  Function.prototype.planted = 1;
+  Object.getPrototypeOf(ctx.measureText).planted2 = 1;
   Promise.resolve().then(() => { globalThis.lateWrite = 1 });
   return seen;
 }
 "#;
 
-const CLEAN: &str = "1,undefined,undefined,undefined,true,function,1,undefined,undefined";
+const CLEAN: &str = "1,undefined,undefined,undefined,true,function,1,undefined,undefined,undefined,undefined,true,undefined";
 
 #[test]
 fn no_state_leaks_between_renders() {
@@ -111,7 +119,7 @@ fn no_state_leaks_after_errors() {
 }
 
 #[test]
-fn bytecode_and_workers_are_reused() {
+fn many_renders_on_a_small_pool_are_counted() {
     let r = IslandRunner::new(options(2)).unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();

@@ -409,10 +409,7 @@ impl Worker {
     /// job's heap. A sandbox that can't reset is dropped and rebuilt later.
     fn recycle(&mut self) {
         if let Some(sb) = self.sandbox.as_mut() {
-            let before = sb.heap_bytes();
-            let r = sb.reset();
-            eprintln!("PROBE recycle heap {before} -> {} {:?}", sb.heap_bytes(), r);
-            if r.is_err() {
+            if sb.reset().is_err() {
                 self.sandbox = None;
             }
         }

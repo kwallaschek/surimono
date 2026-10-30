@@ -25,6 +25,9 @@
 //! # Ok::<(), surimono_islands::IslandError>(())
 //! ```
 
+// A library never writes to stdout or stderr; tests may.
+#![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
+
 mod error;
 mod measure;
 mod runner;
