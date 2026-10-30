@@ -1,9 +1,13 @@
 //! Text metrics from the renderer's fonts, the Canvas2D recorder, and SVG output.
 //!
 //! Part of surimono, a library that runs a document's JavaScript without a
-//! browser. This crate answers canvas `measureText` with the same fonts and the
-//! same shaper (Parley 0.6, as in fulgur 0.40) that print the document, so
-//! chart labels measured in the sandbox fit when printed.
+//! browser. This crate answers canvas `measureText` with the caller's fonts and
+//! the shaper fulgur 0.40 lays out HTML text with (Parley 0.6), so chart labels
+//! measured in the sandbox fit when printed.
+//!
+//! fulgur 0.40 prints HTML text with these fonts, but inline SVG text goes
+//! through usvg with system fonts; see `HANDOFF.md` for how island text still
+//! prints exactly as measured.
 //!
 //! ```no_run
 //! use surimono_gfx::{FontSet, TextMeasurer};

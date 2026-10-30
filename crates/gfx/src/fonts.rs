@@ -15,7 +15,12 @@ use crate::css_font::{FamilyEntry, GenericFamily};
 /// System fonts are never consulted. Generic families (`sans-serif`, `serif`,
 /// `monospace`, ...) map to the first registered family unless set with
 /// [`FontSet::set_generic_family`]. Give fulgur the same font files (see
-/// [`FontSet::font_files`]) so measured text matches printed text.
+/// [`FontSet::font_files`]) so measured HTML text matches printed text.
+///
+/// Characters the requested families lack fall back to the other registered
+/// families in registration order. The fallback is not script- or
+/// `lang`-aware: if a Chinese font is registered before a Japanese one, kanji
+/// come from the Chinese font. Register the font you want for a script first.
 #[derive(Clone)]
 pub struct FontSet {
     pub(crate) collection: Collection,
