@@ -51,23 +51,30 @@ sys.exit(1 if errors else 0)
 PY
 
 step "cargo package (all released crates at once, so they resolve each other)"
-# Cargo packages interdependent workspace crates together against a local
-# overlay of the not-yet-published ones; --no-verify skips rebuilding each
-# from its .crate (the workspace build and tests already cover the code).
+# Packaging crates that depend on not-yet-published workspace crates needs
+# Cargo 1.90 or later (it resolves them against a local overlay); the pinned
+# MSRV toolchain's Cargo can't, so this one step uses stable Cargo. Nothing is
+# compiled here (--no-verify): the workspace build and tests on the MSRV cover
+# the code, and surimono-core gets a verified dry-run below.
+rustup toolchain list | grep -q '^stable' || rustup toolchain install stable --profile minimal
 pkgs=(); for c in "${PUBLISHED[@]}"; do pkgs+=(-p "$c"); done
-cargo package --locked --no-verify --allow-dirty "${pkgs[@]}" 2>&1 | tee "$out/package.log"
+RUSTUP_TOOLCHAIN=stable cargo package --locked --no-verify --allow-dirty "${pkgs[@]}" 2>&1 | tee "$out/package.log"
 for c in "${PUBLISHED[@]}"; do
-  cargo package --locked --list --allow-dirty -p "$c" > "$out/$c.files"
-  f="$(ls "${CARGO_TARGET_DIR:-target}/package/$c-"*.crate | tail -n1)"
+  RUSTUP_TOOLCHAIN=stable cargo package --locked --list --allow-dirty -p "$c" > "$out/$c.files"
+  f="$(ls "${CARGO_TARGET_DIR:-target}/package/$c-"[0-9]*.crate | tail -n1)"
   size=$(wc -c < "$f")
   echo "$c: $(wc -l < "$out/$c.files") files, $size bytes ($f)"
   [ "$size" -lt $((10 * 1024 * 1024)) ] || { echo "$c is over crates.io's 10 MB limit" >&2; exit 1; }
 done
 
 step "cargo publish --dry-run (first crate; the others need it on crates.io first)"
+# Verified: built from its .crate alone, as crates.io users get it. This is
+# where a dependency that only works through the workspace's [patch] (the
+# vendored QuickJS) shows up: [patch] doesn't travel with a published crate.
 cargo publish --dry-run --locked --allow-dirty -p "${PUBLISHED[0]}" 2>&1 | tee "$out/publish-dry-run.log"
 
 step "source gem"
+ruby_path
 (cd bindings/ruby && bundle install --quiet && bundle exec rake gem:source) | tee "$out/gem.log"
 gem_file="$(ls bindings/ruby/pkg/surimono-*.gem | grep -v -- '-x86\|-arm\|-aarch' | tail -n1)"
 tar -xOf "$gem_file" data.tar.gz | tar -tzf - | sort > "$out/gem-contents.txt"
