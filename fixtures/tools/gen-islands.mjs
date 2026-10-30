@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+// Generates fixtures/islands/<name>/input.html and meta.toml from the
+// definitions in defs/islands.mjs. The data is synthetic invoice/report data from a
+// seeded PRNG, so regenerating is byte-identical. The generated files are
+// inputs, not expectations: expectations come only from Chrome (reference.sh).
+//
+//   node gen-islands.mjs            # write every fixture
+//   node gen-islands.mjs --check    # exit 1 if a committed file differs
+
+import fs from "node:fs";
+import path from "node:path";
+import { parseArgs } from "node:util";
+import { FIXTURES_DIR, fontFaceCss, pinnedVersions } from "./lib/fixtures.mjs";
+import { fixtures } from "./defs/islands.mjs";
+
+const { values } = parseArgs({ options: { check: { type: "boolean", default: false } } });
+const versions = pinnedVersions();
+const LIB_VERSION = { echarts: versions.echarts, "vega-lite": versions["vega-lite"], vega: versions.vega };
+
+const FONT_FACES = `\n${fontFaceCss("../../fonts")
+  .split("\n")
+  .map((l) => `    ${l}`)
+  .join("\n")}`;
+
+const round2 = (x) => Math.round(x * 100) / 100;
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** JSON that cannot close the <script> element it sits in. */
+// Compact when large (dense data), indented otherwise.
+const scriptJson = (v) => {
+  const pretty = JSON.stringify(v, null, 1);
+  return (pretty.length > 30000 ? JSON.stringify(v) : pretty).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+};
+
+function marker(island) {
+  return `<script type="application/vnd.surimono+json" data-renderer="${island.renderer}" data-width="${island.width}" data-height="${island.height}">${scriptJson(island.spec)}</script>`;
+}
+
+function table(t) {
+  // A summary "table" made of fixed-basis flex rows: first column 40%, the rest
+  // share 60%. fulgur 0.40.0 ignores <col> widths and sizes table columns and
+  // rows differently from Chrome, which would swamp the page diff.
+  const n = t.head.length;
+  const basis = (i) => (i === 0 ? 40 : round2(60 / (n - 1)));
+  const cell = (c, i, tag) => `<${tag} class="c${t.numeric?.[i] ? " num" : ""}" style="flex-basis: ${basis(i)}%">${esc(c)}</${tag}>`;
+  const head = `<div class="tr th">${t.head.map((h, i) => cell(h, i, "span")).join("")}</div>`;
+  const rows = t.rows.map((r) => `      <div class="tr">${r.map((c, i) => cell(c, i, "span")).join("")}</div>`).join("\n");
+  return `<div class="table">\n      ${head}\n${rows}\n    </div>`;
+}
+
+function html(f) {
+  const figures = f.islands
+    .map(
+      (isl) => `  <figure class="island" style="width: ${isl.width}px; height: ${isl.height}px">
+    ${marker(isl)}
+  </figure>
+  <p class="caption">${esc(isl.caption)}</p>`,
+    )
+    .join("\n");
+  return `<!doctype html>
+<html lang="${f.lang}">
+<head>
+  <meta charset="utf-8">
+  <title>${esc(f.title)}</title>
+  <style>${FONT_FACES}
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: ${f.pageFont}; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
+    body { margin: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
+    figure.island > svg { display: block; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">${esc(f.org)}</div>
+    <div class="meta">${f.headerMeta.map(esc).join(" · ")}</div>
+    <div class="rule"></div>
+  </header>
+  <h1>${esc(f.title)}</h1>
+  <p>${esc(f.intro)}</p>
+${figures}
+  ${f.table ? table(f.table) : ""}
+</body>
+</html>
+`;
+}
+
+function metaToml(f) {
+  const q = (s) => JSON.stringify(String(s));
+  const renderers = [...new Set(f.islands.map((i) => i.renderer))];
+  return `# Fixture metadata. Generated by fixtures/tools/gen-islands.mjs; edit the definition there.
+title = ${q(f.title)}
+renderer = ${q(renderers.join(", "))}
+library_version = ${q(renderers.map((r) => `${r} ${LIB_VERSION[r]}`).join(", "))}
+lang = ${q(f.lang)}
+fonts = [${f.fonts.map(q).join(", ")}]
+page_size = "A4 (210mm x 297mm), 15mm margins"
+islands = [${f.islands.map((i) => `{ renderer = ${q(i.renderer)}, width = ${i.width}, height = ${i.height} }`).join(", ")}]
+tests = ${q(f.tests)}
+`;
+}
+
+let differ = 0;
+for (const f of fixtures) {
+  const dir = path.join(FIXTURES_DIR, "islands", f.name);
+  const files = { "input.html": html(f), "meta.toml": metaToml(f) };
+  for (const [file, content] of Object.entries(files)) {
+    const target = path.join(dir, file);
+    if (values.check) {
+      if (!fs.existsSync(target) || fs.readFileSync(target, "utf8") !== content) {
+        console.log(`differs: ${path.relative(FIXTURES_DIR, target)}`);
+        differ++;
+      }
+    } else {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(target, content);
+    }
+  }
+  if (!values.check) console.log(`wrote ${f.name}`);
+}
+process.exit(differ ? 1 : 0);
