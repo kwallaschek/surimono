@@ -149,14 +149,23 @@ const URL_PRESENTATION: &[&str] = &[
 ///   (`href`, `src`, `url()`, `@import`); `#fragment` and `data:image/` URLs
 ///   stay, and `<a>` keeps `http`, `https` and `mailto` links.
 /// - Prefixes every `id` with `sm{island}-` and rewrites `url(#id)`,
-///   `href="#id"` and `#id` selectors in `<style>` to match, so several
-///   islands can share one page.
+///   `href="#id"`, `#id` selectors in `<style>`, id lists (`aria-labelledby`,
+///   `aria-describedby`, `for`, ...) and SMIL `begin`/`end` references to
+///   match, so several islands can share one page. ECharts' per-chart class
+///   names (`zr0-cls-1`) get the same prefix in `class` and in `<style>`.
 /// - Rewrites `font-family` (attribute, `style` and `<style>`, including the
-///   `font` shorthand) to the registered families measurement used, so the
-///   PDF renderer shapes text with the same fonts.
-/// - Drops the XML declaration, DOCTYPE, comments and processing
-///   instructions, turns CDATA into escaped text, and removes elements whose
-///   names would end SVG parsing in an HTML parser.
+///   `font` shorthand) to the registered families measurement used, so a
+///   browser rendering the inlined SVG (the Chrome references) shapes text
+///   with the same fonts. fulgur 0.40 does not: it prints inline SVG text
+///   with system fonts, which is why island text is outlined (see `HANDOFF.md`).
+/// - Drops `@font-face` rules (`src: local()` would reach system fonts), the
+///   XML declaration, DOCTYPE, comments and processing instructions, turns
+///   CDATA into escaped text, and removes elements whose names would end SVG
+///   parsing in an HTML parser.
+///
+/// Rules in a kept `<style>` apply to the whole page once the SVG is inlined
+/// (a `text {...}` rule styles every SVG text on the page). Ids and ECharts
+/// classes are prefixed, but other selectors are left as written.
 ///
 /// Everything else is copied byte for byte. Input that is not well-formed
 /// XML with an `<svg>` root, uses a DTD or has more than [`MAX_SVG_NODES`]
@@ -208,12 +217,15 @@ pub fn sanitize_svg(svg: &str, island: usize, fonts: &FontSet) -> Result<String,
             } => edits.push((node.range(), String::new())),
             Visit::Element { node, .. } => {
                 attribute_edits(node, svg, &prefix, &ids, fonts, &mut edits)?;
+                if node.tag_name().name().eq_ignore_ascii_case("style") {
+                    style_edit(node, svg, &prefix, &ids, fonts, &mut edits)?;
+                }
             }
             Visit::Other { node } => {
                 if node.is_comment() || node.is_pi() {
                     edits.push((node.range(), String::new()));
                 } else if node.is_text() {
-                    text_edit(node, svg, &prefix, &ids, fonts, &mut edits)?;
+                    text_edit(node, svg, &mut edits)?;
                 }
             }
         }
@@ -294,6 +306,16 @@ fn invalid(reason: String) -> GfxError {
     GfxError::InvalidSvg { reason }
 }
 
+/// The namespace an HTML parser gives an element when the SVG is inlined into
+/// an HTML body. It decides how the HTML parser reads the element's content,
+/// which is what the sanitiser must agree with.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Ns {
+    Html,
+    Svg,
+    MathMl,
+}
+
 enum Visit<'a, 'input> {
     Element {
         node: Node<'a, 'input>,
@@ -305,37 +327,69 @@ enum Visit<'a, 'input> {
 }
 
 /// Visits `root` and its descendants in document order without recursion.
-/// Removed elements are visited, their contents are not.
+/// Removed elements are visited, their contents are not; neither are the
+/// contents of `<style>`, which [`style_edit`] handles as a whole.
 fn walk<'a, 'input: 'a>(
     root: Node<'a, 'input>,
     input: &str,
     mut f: impl FnMut(Visit<'a, 'input>) -> Result<(), GfxError>,
 ) -> Result<(), GfxError> {
-    // (node, inside an HTML integration point such as <foreignObject>)
-    let mut stack = vec![(root, false)];
-    while let Some((node, in_html)) = stack.pop() {
+    // (node, the namespace an HTML parser inserts it in: what the HTML
+    // spec's tree construction dispatcher decides from its parent)
+    let mut stack = vec![(root, Ns::Html)];
+    while let Some((node, context)) = stack.pop() {
         if !node.is_element() {
             f(Visit::Other { node })?;
             continue;
         }
-        let removed = is_removed(node, in_html, input);
+        let local = node.tag_name().name().to_ascii_lowercase();
+        let ns = match context {
+            Ns::Html if local == "svg" => Ns::Svg,
+            Ns::Html if local == "math" => Ns::MathMl,
+            other => other,
+        };
+        let removed = is_removed(node, ns, input);
         f(Visit::Element { node, removed })?;
-        if removed {
+        if removed || local == "style" {
             continue;
         }
-        let local = node.tag_name().name().to_ascii_lowercase();
-        let child_html = if in_html {
-            !matches!(local.as_str(), "svg" | "math")
-        } else {
-            local == "foreignobject"
-        };
+        let child_context = children_context(node, ns, &local);
         let mut child = node.last_child();
         while let Some(c) = child {
-            stack.push((c, child_html));
+            stack.push((c, child_context));
             child = c.prev_sibling();
         }
     }
     Ok(())
+}
+
+/// How an HTML parser reads an element's children: HTML integration points
+/// (SVG `foreignObject`, `desc`, `title`; MathML `annotation-xml` with an
+/// HTML encoding) and MathML text integration points (`mi`, `mo`, `mn`,
+/// `ms`, `mtext`) switch back to HTML; other foreign elements keep their
+/// namespace.
+fn children_context(node: Node<'_, '_>, ns: Ns, local: &str) -> Ns {
+    match ns {
+        Ns::Html => Ns::Html,
+        Ns::Svg if matches!(local, "foreignobject" | "desc" | "title") => Ns::Html,
+        Ns::Svg => Ns::Svg,
+        Ns::MathMl if matches!(local, "mi" | "mo" | "mn" | "ms" | "mtext") => Ns::Html,
+        Ns::MathMl if local == "annotation-xml" => {
+            let encoding = node
+                .attributes()
+                .find(|a| a.name().eq_ignore_ascii_case("encoding"))
+                .map(|a| a.value().trim().to_ascii_lowercase());
+            if matches!(
+                encoding.as_deref(),
+                Some("text/html" | "application/xhtml+xml")
+            ) {
+                Ns::Html
+            } else {
+                Ns::MathMl
+            }
+        }
+        Ns::MathMl => Ns::MathMl,
+    }
 }
 
 /// The element's qualified name as written, in lower case (as an HTML
@@ -349,12 +403,12 @@ fn qname_lower(node: Node<'_, '_>, input: &str) -> String {
     rest[..end].to_ascii_lowercase()
 }
 
-fn is_removed(node: Node<'_, '_>, in_html: bool, input: &str) -> bool {
+fn is_removed(node: Node<'_, '_>, ns: Ns, input: &str) -> bool {
     let local = node.tag_name().name().to_ascii_lowercase();
     if REMOVED_ELEMENTS.contains(&local.as_str()) {
         return true;
     }
-    if !in_html && HTML_BREAKOUT.contains(&qname_lower(node, input).as_str()) {
+    if ns != Ns::Html && HTML_BREAKOUT.contains(&qname_lower(node, input).as_str()) {
         return true;
     }
     if ANIMATIONS.contains(&local.as_str()) {
@@ -415,6 +469,21 @@ fn attribute_edits(
             AttrAction::Remove
         } else if local == "id" && plain {
             AttrAction::Replace(format!("{prefix}{value}"))
+        } else if ID_LIST_ATTRIBUTES.contains(&local.as_str()) && plain {
+            match rewrite_id_list(value, prefix, ids) {
+                Some(new) => AttrAction::Replace(new),
+                None => AttrAction::Keep,
+            }
+        } else if (local == "begin" || local == "end") && plain {
+            match rewrite_smil_times(value, prefix, ids) {
+                Some(new) => AttrAction::Replace(new),
+                None => AttrAction::Keep,
+            }
+        } else if local == "class" && plain {
+            match rewrite_classes(value, prefix) {
+                Some(new) => AttrAction::Replace(new),
+                None => AttrAction::Keep,
+            }
         } else if URL_ATTRIBUTES.contains(&local.as_str()) {
             let t = value.trim();
             if let Some(rest) = t.strip_prefix('#') {
@@ -470,6 +539,107 @@ fn attribute_edits(
     Ok(())
 }
 
+/// Attributes holding a space-separated list of ids (ARIA relations, HTML
+/// `for`, `headers`, `list`, `form` inside `<foreignObject>`).
+const ID_LIST_ATTRIBUTES: &[&str] = &[
+    "aria-activedescendant",
+    "aria-controls",
+    "aria-describedby",
+    "aria-details",
+    "aria-errormessage",
+    "aria-flowto",
+    "aria-labelledby",
+    "aria-owns",
+    "for",
+    "form",
+    "headers",
+    "list",
+];
+
+/// Prefixes the tokens of a space-separated id list that name ids defined in
+/// this SVG. `None`: nothing to change.
+fn rewrite_id_list(value: &str, prefix: &str, ids: &HashSet<String>) -> Option<String> {
+    let mut out = String::with_capacity(value.len() + 16);
+    let mut changed = false;
+    let mut rest = value;
+    while !rest.is_empty() {
+        let token_len = rest
+            .find(|c: char| c.is_ascii_whitespace())
+            .unwrap_or(rest.len());
+        let (token, after) = rest.split_at(token_len);
+        if !token.is_empty() && ids.contains(token) {
+            out.push_str(prefix);
+            changed = true;
+        }
+        out.push_str(token);
+        let ws_len = after
+            .find(|c: char| !c.is_ascii_whitespace())
+            .unwrap_or(after.len());
+        out.push_str(&after[..ws_len]);
+        rest = &after[ws_len..];
+    }
+    changed.then_some(out)
+}
+
+/// Prefixes the element ids in a SMIL `begin`/`end` list (`a.click+1s;
+/// b.end`) that name ids defined in this SVG. `None`: nothing to change.
+fn rewrite_smil_times(value: &str, prefix: &str, ids: &HashSet<String>) -> Option<String> {
+    let mut out = String::with_capacity(value.len() + 16);
+    let mut changed = false;
+    for (n, part) in value.split(';').enumerate() {
+        if n > 0 {
+            out.push(';');
+        }
+        let trimmed = part.trim_start();
+        let lead = part.len() - trimmed.len();
+        let id_len = trimmed.find('.').unwrap_or(0);
+        if id_len > 0 && ids.contains(&trimmed[..id_len]) {
+            out.push_str(&part[..lead]);
+            out.push_str(prefix);
+            out.push_str(trimmed);
+            changed = true;
+        } else {
+            out.push_str(part);
+        }
+    }
+    changed.then_some(out)
+}
+
+/// True for ECharts' per-chart class names (`zr0-cls-1`): `zr`, digits, `-`.
+/// Every ECharts island names its classes from `zr0`, so without a prefix
+/// one island's `<style>` would style another's elements.
+pub(crate) fn is_echarts_class(name: &str) -> bool {
+    let Some(rest) = name.strip_prefix("zr") else {
+        return false;
+    };
+    let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
+    digits > 0 && rest.as_bytes().get(digits) == Some(&b'-')
+}
+
+/// Prefixes ECharts' class names in a `class` value. `None`: nothing to change.
+fn rewrite_classes(value: &str, prefix: &str) -> Option<String> {
+    let mut out = String::with_capacity(value.len() + 16);
+    let mut changed = false;
+    let mut rest = value;
+    while !rest.is_empty() {
+        let token_len = rest
+            .find(|c: char| c.is_ascii_whitespace())
+            .unwrap_or(rest.len());
+        let (token, after) = rest.split_at(token_len);
+        if is_echarts_class(token) {
+            out.push_str(prefix);
+            changed = true;
+        }
+        out.push_str(token);
+        let ws_len = after
+            .find(|c: char| !c.is_ascii_whitespace())
+            .unwrap_or(after.len());
+        out.push_str(&after[..ws_len]);
+        rest = &after[ws_len..];
+    }
+    changed.then_some(out)
+}
+
 /// Navigation links that load nothing by themselves.
 fn is_link(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
@@ -502,13 +672,67 @@ fn value_range(
     Ok((r.clone(), b[r.start - 1] as char))
 }
 
-/// Rewrites a text node inside `<style>` (CSS) or holding CDATA (escaped).
-fn text_edit(
+/// Rewrites a `<style>` element as one unit.
+///
+/// The style sheet is the concatenation of the element's text children (a
+/// browser joins them; scanning them one by one would let a string opened in
+/// one hide a `url()` in the next). Comments go. An element child makes the
+/// whole `<style>` go: in HTML (inside `<foreignObject>`, `<desc>`, ...) a
+/// style's content is raw text, so a child element's markup would be CSS.
+///
+/// The rewritten CSS is written as plain text, never with entities: inside an
+/// HTML integration point an HTML parser does not decode entities in
+/// `<style>`, so `&#34;` would hide a quote from this scanner while the browser
+/// sees none, and an added `&amp;` would add a `;` the scanner never saw.
+/// CSS that would need escaping in XML (`&`, `<` or `]]>`), or that ends
+/// inside a string or comment, is dropped.
+fn style_edit(
     node: Node<'_, '_>,
     input: &str,
     prefix: &str,
     ids: &HashSet<String>,
     fonts: &FontSet,
+    edits: &mut Vec<(Range<usize>, String)>,
+) -> Result<(), GfxError> {
+    let Some(first) = node.first_child() else {
+        return Ok(());
+    };
+    if node.children().any(|c| c.is_element()) {
+        edits.push((node.range(), String::new()));
+        return Ok(());
+    }
+    let css: String = node
+        .children()
+        .filter(|c| c.is_text())
+        .filter_map(|c| c.text())
+        .collect();
+    let start = first.range().start;
+    let end = input[..node.range().end]
+        .rfind("</")
+        .filter(|&e| e >= start)
+        .ok_or_else(|| invalid("style element range (internal error)".into()))?;
+    let raw = &input[start..end];
+    let cx = css::CssContext {
+        fonts,
+        id_prefix: prefix,
+        ids,
+        quote: '"',
+    };
+    let rewritten = css::rewrite_stylesheet(&css, &cx).map_err(invalid)?;
+    let out = rewritten.as_deref().unwrap_or(&css);
+    if out.contains(['&', '<']) || out.contains("]]>") || !css::strings_and_comments_closed(out) {
+        edits.push((start..end, String::new()));
+    } else if out != raw {
+        edits.push((start..end, out.to_string()));
+    }
+    Ok(())
+}
+
+/// Turns a text node holding CDATA into escaped text. (Text in `<style>` is
+/// handled by [`style_edit`] and never reaches here.)
+fn text_edit(
+    node: Node<'_, '_>,
+    input: &str,
     edits: &mut Vec<(Range<usize>, String)>,
 ) -> Result<(), GfxError> {
     // roxmltree merges text and CDATA into one node but reports only the
@@ -526,25 +750,8 @@ fn text_edit(
         return Err(invalid("text node range (internal error)".into()));
     }
     let raw = &input[start..end];
-    let text = node.text().unwrap_or("");
-    let in_style = node
-        .parent()
-        .is_some_and(|p| p.tag_name().name().eq_ignore_ascii_case("style"));
-    let has_cdata = raw.contains("<![CDATA[");
-    if in_style {
-        let cx = css::CssContext {
-            fonts,
-            id_prefix: prefix,
-            ids,
-            quote: '"',
-        };
-        let new = css::rewrite_stylesheet(text, &cx).map_err(invalid)?;
-        if new.is_some() || has_cdata {
-            let css = new.as_deref().unwrap_or(text);
-            edits.push((start..end, escape_text(css)));
-        }
-    } else if has_cdata {
-        edits.push((start..end, escape_text(text)));
+    if raw.contains("<![CDATA[") {
+        edits.push((start..end, escape_text(node.text().unwrap_or(""))));
     }
     Ok(())
 }
@@ -648,7 +855,7 @@ mod tests {
         );
         assert_eq!(
             clean(&s),
-            svg("<text>a&lt;b&amp;cd</text><style>.a&gt;.b{}\n</style>")
+            svg("<text>a&lt;b&amp;cd</text><style>.a>.b{}\n</style>")
         );
     }
 
@@ -720,6 +927,106 @@ mod tests {
         // Self-closing tags don't nest.
         let flat = format!("<svg>{}</svg>", "<g/>".repeat(10_000));
         assert_eq!(clean(&flat), flat);
+    }
+
+    /// In an HTML integration point a `<style>` is raw text: entities are not
+    /// decoded there, so the sanitiser never writes them (review of #12).
+    #[test]
+    fn styles_never_hide_css_behind_entities() {
+        let evil = "*{background:url(https://evil.example/x.png)}";
+        for wrap in [
+            "<desc>{}</desc>",
+            "<title>{}</title>",
+            "<foreignObject>{}</foreignObject>",
+            "<foreignObject><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi>{}</mi></math></foreignObject>",
+            "<g>{}</g>",
+        ] {
+            for quote in ["&#34;", "&#39;", "&#47;&#42;", "&quot;"] {
+                let style = format!("<style>.x{{a:{quote}}}{evil}</style>");
+                let s = svg(&wrap.replace("{}", &style));
+                let out = clean(&s);
+                // The browser must see exactly the text the scanner saw: no
+                // entity is written into a <style>, and a sheet left inside
+                // an open string or comment is dropped.
+                assert!(!out.contains('&'), "{s}\n -> {out}");
+                assert!(!out.contains("evil.example"), "{s}\n -> {out}");
+            }
+        }
+    }
+
+    #[test]
+    fn style_text_is_scanned_as_one_sheet() {
+        // A string opened in one text node and closed in the next, around a
+        // comment or a child element, must not hide a url().
+        let s = svg(
+            "<style>.x{a:\"<!-- -->\"}*{background:url(https://evil.example/1)}</style>\
+             <foreignObject><style>.y{a:'<i b=\"'background:url(https://evil.example/2);'\"/>}</style></foreignObject>",
+        );
+        let out = clean(&s);
+        assert_eq!(
+            out,
+            svg("<style>.x{a:\"\"}*{background:none}</style><foreignObject></foreignObject>")
+        );
+    }
+
+    #[test]
+    fn style_text_needing_escapes_is_dropped() {
+        let s = svg(
+            "<style>a&lt;b{fill:red} .c{fill:blue}</style><style>.d{}</style><style>x&amp;y{}</style>",
+        );
+        assert_eq!(
+            clean(&s),
+            svg("<style></style><style>.d{}</style><style></style>")
+        );
+        let s = svg("<style>a > b {fill:red}</style><style>a&gt;b{}</style>");
+        assert_eq!(
+            clean(&s),
+            svg("<style>a > b {fill:red}</style><style>a>b{}</style>"),
+            "a literal > is fine in XML and HTML"
+        );
+    }
+
+    #[test]
+    fn integration_points_follow_the_html_parser() {
+        // desc and title hold HTML: a <p> there doesn't leave SVG, so it stays.
+        let s = svg("<desc><p>x</p></desc><title><b>t</b></title>");
+        assert_eq!(clean(&s), s);
+        // MathML text integration points only count inside MathML: in SVG,
+        // <math><mi> is an SVG element and a <p> under it breaks out.
+        let s = svg("<math><mi><p>x</p></mi></math>");
+        assert_eq!(clean(&s), svg("<math><mi></mi></math>"));
+        let s = svg(
+            "<foreignObject><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi><p>x</p></mi><mrow><p>y</p></mrow></math></foreignObject>",
+        );
+        assert_eq!(
+            clean(&s),
+            svg(
+                "<foreignObject><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi><p>x</p></mi><mrow></mrow></math></foreignObject>"
+            )
+        );
+    }
+
+    #[test]
+    fn id_lists_smil_times_and_echarts_classes_are_prefixed() {
+        let s = svg(
+            "<text id=\"t\" aria-labelledby=\"t  other\" aria-describedby=\"d\">x</text><desc id=\"d\"/>\
+             <rect id=\"r\"><animate attributeName=\"opacity\" begin=\"r.click+1s; 2s;r.end\" end=\"other.end\"/></rect>\
+             <foreignObject><label xmlns=\"http://www.w3.org/1999/xhtml\" for=\"t\">l</label></foreignObject>\
+             <path class=\"zr0-cls-1 keep zr1-x\"/>",
+        );
+        assert_eq!(
+            sanitize_svg(&s, 4, &FontSet::new()).unwrap(),
+            svg(
+                "<text id=\"sm4-t\" aria-labelledby=\"sm4-t  other\" aria-describedby=\"sm4-d\">x</text><desc id=\"sm4-d\"/>\
+                 <rect id=\"sm4-r\"><animate attributeName=\"opacity\" begin=\"sm4-r.click+1s; 2s;sm4-r.end\" end=\"other.end\"/></rect>\
+                 <foreignObject><label xmlns=\"http://www.w3.org/1999/xhtml\" for=\"sm4-t\">l</label></foreignObject>\
+                 <path class=\"sm4-zr0-cls-1 keep sm4-zr1-x\"/>"
+            )
+        );
+        assert!(is_echarts_class("zr0-cls-1"));
+        assert!(
+            !is_echarts_class("zr-1") && !is_echarts_class("zrx-1") && !is_echarts_class("zr0")
+        );
     }
 
     #[test]

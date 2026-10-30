@@ -36,7 +36,7 @@ pub(crate) fn rewrite_declarations(
     let mut i = 0;
     while i < css.len() {
         // A stray `}` in a style attribute ends nothing; step over it.
-        i = sc.declarations(i, false, 0)? + 1;
+        i = sc.declarations(i, 0)? + 1;
     }
     Ok(sc.finish())
 }
@@ -49,6 +49,37 @@ pub(crate) fn rewrite_stylesheet(css: &str, cx: &CssContext<'_>) -> Result<Optio
         i = sc.rules(i, 0)? + 1;
     }
     Ok(sc.finish())
+}
+
+/// True if every string and comment in `css` is closed. A style sheet that
+/// ends inside one is not something a chart library writes, and whatever
+/// follows the opening quote is text no rule can use: such a sheet is dropped.
+pub(crate) fn strings_and_comments_closed(css: &str) -> bool {
+    let b = css.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        match b[i] {
+            b'\\' => i += 2,
+            q @ (b'"' | b'\'') => {
+                i += 1;
+                loop {
+                    match b.get(i) {
+                        None | Some(b'\n' | b'\r' | b'\x0c') => return false,
+                        Some(b'\\') => i += 2,
+                        Some(&c) if c == q => break,
+                        Some(_) => i += 1,
+                    }
+                }
+                i += 1;
+            }
+            b'/' if b.get(i + 1) == Some(&b'*') => match css[i + 2..].find("*/") {
+                Some(k) => i += 2 + k + 2,
+                None => return false,
+            },
+            _ => i += 1,
+        }
+    }
+    true
 }
 
 /// Rewrites only the `url(...)` tokens in a presentation attribute value
@@ -231,12 +262,7 @@ impl<'a> Scanner<'a> {
 
     /// Scans a block of declarations from `i` to the `}` that closes it (its
     /// index is returned) or the end.
-    fn declarations(
-        &mut self,
-        mut i: usize,
-        in_font_face: bool,
-        depth: usize,
-    ) -> Result<usize, String> {
+    fn declarations(&mut self, mut i: usize, depth: usize) -> Result<usize, String> {
         if depth > MAX_DEPTH {
             return Err("CSS nests too deeply".into());
         }
@@ -256,11 +282,11 @@ impl<'a> Scanner<'a> {
             if stop == Some(b'{') {
                 // A nested rule (CSS nesting): selector, then a block.
                 self.selector(start..end);
-                let close = self.declarations(end + 1, in_font_face, depth + 1)?;
+                let close = self.declarations(end + 1, depth + 1)?;
                 i = close + 1;
                 continue;
             }
-            self.declaration(start..end, in_font_face);
+            self.declaration(start..end);
             i = end;
             if stop == Some(b'}') {
                 return Ok(end);
@@ -268,7 +294,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn declaration(&mut self, r: Range<usize>, in_font_face: bool) {
+    fn declaration(&mut self, r: Range<usize>) {
         // Anything that could load a resource without a plain `url(` token
         // loses the whole declaration.
         let lower = self.s[r.clone()].to_ascii_lowercase();
@@ -288,7 +314,7 @@ impl<'a> Scanner<'a> {
         };
         let name = self.s[r.start..colon].trim().to_ascii_lowercase();
         let value = colon + 1..r.end;
-        if !in_font_face && (name == "font-family" || name == "font") {
+        if name == "font-family" || name == "font" {
             let core = value_core(self.s, value.clone());
             let core_str = &self.s[core.clone()];
             let family = if name == "font-family" {
@@ -308,7 +334,8 @@ impl<'a> Scanner<'a> {
         self.urls(value);
     }
 
-    /// Prefixes `#id` selectors that name ids defined in this SVG.
+    /// Prefixes `#id` selectors that name ids defined in this SVG, and
+    /// ECharts' `.zr0-cls-1` class selectors.
     fn selector(&mut self, r: Range<usize>) {
         let mut i = r.start;
         while i < r.end {
@@ -325,13 +352,19 @@ impl<'a> Scanner<'a> {
                     i += 2;
                     continue;
                 }
-                b'#' => {
+                b'#' | b'.' => {
                     let start = i + 1;
                     let mut j = start;
                     while j < r.end && is_ident_byte(self.b[j]) {
                         j += 1;
                     }
-                    if j > start && self.cx.ids.contains(&self.s[start..j]) {
+                    let name = &self.s[start..j];
+                    let prefixed = if self.b[i] == b'#' {
+                        self.cx.ids.contains(name)
+                    } else {
+                        super::is_echarts_class(name)
+                    };
+                    if j > start && prefixed {
                         self.edits
                             .push((start..start, self.cx.id_prefix.to_string()));
                     }
@@ -382,11 +415,18 @@ impl<'a> Scanner<'a> {
                             | "-moz-document" | "scope" | "starting-style" | "keyframes"
                             | "-webkit-keyframes" | "-moz-keyframes",
                         ) => self.rules(end + 1, depth + 1)?,
-                        Some("font-face") => self.declarations(end + 1, true, depth + 1)?,
-                        Some(_) => self.declarations(end + 1, false, depth + 1)?,
+                        Some("font-face") => {
+                            // Fonts come from the registry only: `src: local()`
+                            // would reach system fonts. Drop the rule.
+                            let close = self.skip_block(end + 1);
+                            self.edits
+                                .push((start..(close + 1).min(self.b.len()), String::new()));
+                            close
+                        }
+                        Some(_) => self.declarations(end + 1, depth + 1)?,
                         None => {
                             self.selector(start..end);
-                            self.declarations(end + 1, false, depth + 1)?
+                            self.declarations(end + 1, depth + 1)?
                         }
                     };
                     i = close + 1;
@@ -668,8 +708,18 @@ mod tests {
             "@media print{#sm0-a{fill:none}}"
         );
         assert_eq!(
-            sheet("@font-face{font-family:X;src:url(http://x/f.woff2)}"),
-            "@font-face{font-family:X;src:none}"
+            sheet("@font-face{font-family:X;src:url(http://x/f.woff2)}.a{}"),
+            ".a{}",
+            "@font-face goes: fonts come from the registry"
+        );
+        assert_eq!(
+            sheet("@media print{@FONT-FACE{font-family:Y;src:local(Arial)}}"),
+            "@media print{}"
+        );
+        assert_eq!(
+            sheet(".zr0-cls-1:hover{fill:red} .zr12-x .zrx-y .zr-1 #a.zr3-z{}"),
+            ".sm0-zr0-cls-1:hover{fill:red} .sm0-zr12-x .zrx-y .zr-1 #sm0-a.sm0-zr3-z{}",
+            "ECharts classes get the island prefix"
         );
         assert_eq!(
             sheet("@\\66ont-face{src:url(http://x)}.b{}"),
@@ -680,6 +730,23 @@ mod tests {
             sheet(".a{fill:red}}.b{fill:url(x)}"),
             ".a{fill:red}}.b{fill:none}"
         );
+    }
+
+    #[test]
+    fn open_strings_and_comments() {
+        for ok in [
+            "",
+            "a{b:\"c\"}",
+            "a{b:'c\\'d'}",
+            "/* x */a{}",
+            "a{b:\"/*\"}",
+            "a\\\"b",
+        ] {
+            assert!(strings_and_comments_closed(ok), "{ok}");
+        }
+        for open in ["a{b:\"}", "a{b:'c\nd'}", "/* x", "a{b:\"c\\\"}", "x'"] {
+            assert!(!strings_and_comments_closed(open), "{open}");
+        }
     }
 
     #[test]
