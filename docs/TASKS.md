@@ -21,7 +21,7 @@ Never cut: sandbox limits, determinism, soak test, text measurement, the Ruby ge
 Cut order if late: Mermaid, then Vega, then the CLI.
 
 ### Runtime engineer (crates/core, crates/islands)
-- P1-RT-01 · RT · review · QuickJS sandbox: one Runtime/Context wrapper with memory, time (interrupt handler) and stack limits; no modules, filesystem or network; typed `SandboxError` (MemoryLimit, TimeLimit, StackOverflow, Exception with message and stack); tests for each limit
+- P1-RT-01 · RT · done · QuickJS sandbox: one Runtime/Context wrapper with memory, time (interrupt handler) and stack limits; no modules, filesystem or network; typed `SandboxError` (MemoryLimit, TimeLimit, StackOverflow, Exception with message and stack); tests for each limit
 - P1-RT-02 · RT · doing · Determinism in the sandbox: seeded Math.random (per render seed), fixed Date.now/new Date(), no performance.now drift; test that two runs are byte-identical
 - P1-RT-03 · RT · review · Island runner: load a JS bundle once, compile to bytecode, call its entry with JSON, return an SVG string; bring-your-own-bundle API (any `(json) => svg` function)
 - P1-RT-04 · RT · doing · Runtime pool: reuse runtimes and compiled bundles across renders, reset per render, bounded size; no state leaks between renders (test)
@@ -42,8 +42,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-GFX-04 · GFX · doing · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
 
 ### Conformance researcher (fixtures, wpt, bench, docs/COMPAT.md)
-- P1-CF-01 · CF · review · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
-- P1-CF-02 · CF · review · Test fonts: pinned OFL fonts for Latin and Japanese (e.g. Noto Sans, Noto Sans JP) with licences, used by both Chrome and surimono
+- P1-CF-01 · CF · done · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
+- P1-CF-02 · CF · done · Test fonts: pinned OFL fonts for Latin and Japanese (e.g. Noto Sans, Noto Sans JP) with licences, used by both Chrome and surimono
 - P1-CF-03 · CF · doing · The 10 checkpoint-2 fixtures: ECharts and Vega; simple and dense; Latin and Japanese labels
 - P1-CF-04 · CF · doing · Hostile-script suite: infinite loop, allocation bomb, deep recursion, microtask flood, huge strings, attempts at fs/network/eval-escape; each with its expected typed error
 - P1-CF-05 · CF · review · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
@@ -51,9 +51,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-07 · CF · doing · COMPAT.md generated from test results
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
-- P1-PKG-01 · PKG · review · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
-- P1-PKG-02 · PKG · review · Public facade: `Renderer`, `Options` (fonts, limits, renderers), `render_islands(html) -> Result<String>`; typed errors; docs
-- P1-PKG-03 · PKG · review · HTML pre-pass: replace `<script type="application/vnd.surimono+json" data-renderer="…">` islands with their SVG; everything else byte-for-byte unchanged
+- P1-PKG-01 · PKG · done · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
+- P1-PKG-02 · PKG · done · Public facade: `Renderer`, `Options` (fonts, limits, renderers), `render_islands(html) -> Result<String>`; typed errors; docs
+- P1-PKG-03 · PKG · done · HTML pre-pass: replace `<script type="application/vnd.surimono+json" data-renderer="…">` islands with their SVG; everything else byte-for-byte unchanged
 - P1-PKG-04 · PKG · doing · Ruby gem: `Surimono.render(html, fonts:, limits:)` mirroring the facade, GVL released while rendering, typed Ruby exceptions, tests on CRuby 3.2 to 4.0
 - P1-PKG-05 · PKG · doing · Precompiled native gems (x86_64/aarch64 Linux gnu, x86_64/arm64 macOS) via rb-sys cross builds in full.yml
 - P1-PKG-06 · PKG · todo · CLI: `surimono render in.html -o out.html --font …` (third to cut)
