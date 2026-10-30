@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Gross margin and cash balance, H2 2026</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans", "Noto Sans JP"; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
+    body { margin: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
+    .surimono-island > svg { display: block; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">Northwind Trading GmbH</div>
+    <div class="meta">Finance report · Period: Jul to Oct 2026 · Currency: EUR</div>
+    <div class="rule"></div>
+  </header>
+  <h1>Gross margin and cash balance, H2 2026</h1>
+  <p>Gross margin per region for the half year, and the daily cash balance over the same months. Both charts sit on one page.</p>
+  <figure class="island" style="width: 640px; height: 288px">
+    <script type="application/vnd.surimono+json" data-renderer="echarts" data-width="640" data-height="288">{
+ "textStyle": {
+  "fontFamily": "'Noto Sans'"
+ },
+ "title": {
+  "text": "Gross margin by region (kEUR)",
+  "left": 0,
+  "top": 0,
+  "textStyle": {
+   "fontFamily": "'Noto Sans'",
+   "fontSize": 13,
+   "fontWeight": "bold"
+  }
+ },
+ "grid": {
+  "left": 56,
+  "right": 16,
+  "top": 40,
+  "bottom": 28
+ },
+ "xAxis": {
+  "type": "category",
+  "data": [
+   "North",
+   "South",
+   "East",
+   "West",
+   "Central"
+  ],
+  "axisTick": {
+   "alignWithLabel": true
+  }
+ },
+ "yAxis": {
+  "type": "value",
+  "splitLine": {
+   "lineStyle": {
+    "color": "#e5e8eb"
+   }
+  }
+ },
+ "series": [
+  {
+   "type": "bar",
+   "name": "Gross margin",
+   "data": [
+    245,
+    348,
+    350,
+    400,
+    335
+   ],
+   "barWidth": "56%",
+   "itemStyle": {
+    "color": {
+     "type": "linear",
+     "x": 0,
+     "y": 0,
+     "x2": 0,
+     "y2": 1,
+     "colorStops": [
+      {
+       "offset": 0,
+       "color": "#2f6fb0"
+      },
+      {
+       "offset": 1,
+       "color": "#9db7d5"
+      }
+     ]
+    },
+    "borderRadius": [
+     3,
+     3,
+     0,
+     0
+    ]
+   },
+   "label": {
+    "show": true,
+    "position": "top",
+    "fontSize": 10,
+    "fontFamily": "'Noto Sans'"
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">Figure 1. Gross margin per region (thousand EUR), bars with a vertical gradient.</p>
+  <figure class="island" style="width: 640px; height: 288px">
+    <script type="application/vnd.surimono+json" data-renderer="echarts" data-width="640" data-height="288">{
+ "useUTC": true,
+ "textStyle": {
+  "fontFamily": "'Noto Sans'"
+ },
+ "title": {
+  "text": "Cash balance (EUR)",
+  "left": 0,
+  "top": 0,
+  "textStyle": {
+   "fontFamily": "'Noto Sans'",
+   "fontSize": 13,
+   "fontWeight": "bold"
+  }
+ },
+ "grid": {
+  "left": 64,
+  "right": 16,
+  "top": 40,
+  "bottom": 28
+ },
+ "xAxis": {
+  "type": "time",
+  "min": 1782864000000,
+  "max": 1793145600000,
+  "splitNumber": 5,
+  "axisLabel": {
+   "fontSize": 10,
+   "formatter": "{d} {MMM}",
+   "hideOverlap": true
+  }
+ },
+ "yAxis": {
+  "type": "value",
+  "min": 30000,
+  "splitLine": {
+   "lineStyle": {
+    "color": "#e5e8eb"
+   }
+  }
+ },
+ "series": [
+  {
+   "type": "line",
+   "name": "Balance",
+   "data": [
+    [
+     1782864000000,
+     43766
+    ],
+    [
+     1782950400000,
+     43502
+    ],
+    [
+     1783036800000,
+     43792
+    ],
+    [
+     1783123200000,
+     44474
+    ],
+    [
+     1783209600000,
+     46179
+    ],
+    [
+     1783296000000,
+     46271
+    ],
+    [
+     1783382400000,
+     44602
+    ],
+    [
+     1783468800000,
+     46039
+    ],
+    [
+     1783555200000,
+     45626
+    ],
+    [
+     1783641600000,
+     45612
+    ],
+    [
+     1783728000000,
+     46452
+    ],
+    [
+     1783814400000,
+     46692
+    ],
+    [
+     1783900800000,
+     47563
+    ],
+    [
+     1783987200000,
+     48263
+    ],
+    [
+     1784073600000,
+     48735
+    ],
+    [
+     1784160000000,
+     48343
+    ],
+    [
+     1784246400000,
+     47816
+    ],
+    [
+     1784332800000,
+     46825
+    ],
+    [
+     1784419200000,
+     45864
+    ],
+    [
+     1784505600000,
+     44554
+    ],
+    [
+     1784592000000,
+     44682
+    ],
+    [
+     1784678400000,
+     45837
+    ],
+    [
+     1784764800000,
+     44538
+    ],
+    [
+     1784851200000,
+     45460
+    ],
+    [
+     1784937600000,
+     45204
+    ],
+    [
+     1785024000000,
+     43947
+    ],
+    [
+     1785110400000,
+     43316
+    ],
+    [
+     1785196800000,
+     44911
+    ],
+    [
+     1785283200000,
+     44254
+    ],
+    [
+     1785369600000,
+     43208
+    ],
+    [
+     1785456000000,
+     43329
+    ],
+    [
+     1785542400000,
+     43886
+    ],
+    [
+     1785628800000,
+     43964
+    ],
+    [
+     1785715200000,
+     45046
+    ],
+    [
+     1785801600000,
+     46569
+    ],
+    [
+     1785888000000,
+     48390
+    ],
+    [
+     1785974400000,
+     48800
+    ],
+    [
+     1786060800000,
+     49159
+    ],
+    [
+     1786147200000,
+     49927
+    ],
+    [
+     1786233600000,
+     49062
+    ],
+    [
+     1786320000000,
+     50817
+    ],
+    [
+     1786406400000,
+     49430
+    ],
+    [
+     1786492800000,
+     50000
+    ],
+    [
+     1786579200000,
+     49620
+    ],
+    [
+     1786665600000,
+     48541
+    ],
+    [
+     1786752000000,
+     47167
+    ],
+    [
+     1786838400000,
+     46479
+    ],
+    [
+     1786924800000,
+     47149
+    ],
+    [
+     1787011200000,
+     46226
+    ],
+    [
+     1787097600000,
+     47368
+    ],
+    [
+     1787184000000,
+     46851
+    ],
+    [
+     1787270400000,
+     48576
+    ],
+    [
+     1787356800000,
+     47129
+    ],
+    [
+     1787443200000,
+     45812
+    ],
+    [
+     1787529600000,
+     45715
+    ],
+    [
+     1787616000000,
+     46161
+    ],
+    [
+     1787702400000,
+     47380
+    ],
+    [
+     1787788800000,
+     46295
+    ],
+    [
+     1787875200000,
+     44891
+    ],
+    [
+     1787961600000,
+     45628
+    ],
+    [
+     1788048000000,
+     45615
+    ],
+    [
+     1788134400000,
+     44991
+    ],
+    [
+     1788220800000,
+     43876
+    ],
+    [
+     1788307200000,
+     44327
+    ],
+    [
+     1788393600000,
+     43931
+    ],
+    [
+     1788480000000,
+     42248
+    ],
+    [
+     1788566400000,
+     41402
+    ],
+    [
+     1788652800000,
+     42668
+    ],
+    [
+     1788739200000,
+     42855
+    ],
+    [
+     1788825600000,
+     43296
+    ],
+    [
+     1788912000000,
+     42724
+    ],
+    [
+     1788998400000,
+     41965
+    ],
+    [
+     1789084800000,
+     43296
+    ],
+    [
+     1789171200000,
+     41892
+    ],
+    [
+     1789257600000,
+     40974
+    ],
+    [
+     1789344000000,
+     42681
+    ],
+    [
+     1789430400000,
+     41536
+    ],
+    [
+     1789516800000,
+     40303
+    ],
+    [
+     1789603200000,
+     40911
+    ],
+    [
+     1789689600000,
+     41084
+    ],
+    [
+     1789776000000,
+     39608
+    ],
+    [
+     1789862400000,
+     40763
+    ],
+    [
+     1789948800000,
+     42308
+    ],
+    [
+     1790035200000,
+     43068
+    ],
+    [
+     1790121600000,
+     44358
+    ],
+    [
+     1790208000000,
+     45017
+    ],
+    [
+     1790294400000,
+     46020
+    ],
+    [
+     1790380800000,
+     46191
+    ],
+    [
+     1790467200000,
+     46304
+    ],
+    [
+     1790553600000,
+     45169
+    ],
+    [
+     1790640000000,
+     45669
+    ],
+    [
+     1790726400000,
+     45745
+    ],
+    [
+     1790812800000,
+     45968
+    ],
+    [
+     1790899200000,
+     45971
+    ],
+    [
+     1790985600000,
+     46592
+    ],
+    [
+     1791072000000,
+     46707
+    ],
+    [
+     1791158400000,
+     46156
+    ],
+    [
+     1791244800000,
+     44944
+    ],
+    [
+     1791331200000,
+     45686
+    ],
+    [
+     1791417600000,
+     46499
+    ],
+    [
+     1791504000000,
+     46806
+    ],
+    [
+     1791590400000,
+     45721
+    ],
+    [
+     1791676800000,
+     44906
+    ],
+    [
+     1791763200000,
+     43180
+    ],
+    [
+     1791849600000,
+     44847
+    ],
+    [
+     1791936000000,
+     45241
+    ],
+    [
+     1792022400000,
+     45403
+    ],
+    [
+     1792108800000,
+     46432
+    ],
+    [
+     1792195200000,
+     47516
+    ],
+    [
+     1792281600000,
+     46380
+    ],
+    [
+     1792368000000,
+     45771
+    ],
+    [
+     1792454400000,
+     44588
+    ],
+    [
+     1792540800000,
+     44252
+    ],
+    [
+     1792627200000,
+     43764
+    ],
+    [
+     1792713600000,
+     42442
+    ],
+    [
+     1792800000000,
+     44203
+    ],
+    [
+     1792886400000,
+     44098
+    ],
+    [
+     1792972800000,
+     44996
+    ],
+    [
+     1793059200000,
+     44503
+    ],
+    [
+     1793145600000,
+     46293
+    ]
+   ],
+   "showSymbol": false,
+   "clip": true,
+   "lineStyle": {
+    "width": 1.5,
+    "color": "#c2455a"
+   },
+   "itemStyle": {
+    "color": "#c2455a"
+   },
+   "areaStyle": {
+    "color": {
+     "type": "linear",
+     "x": 0,
+     "y": 0,
+     "x2": 0,
+     "y2": 1,
+     "colorStops": [
+      {
+       "offset": 0,
+       "color": "#e07b39"
+      },
+      {
+       "offset": 1,
+       "color": "#fbe3d3"
+      }
+     ]
+    },
+    "opacity": 1,
+    "origin": "start"
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">Figure 2. Daily cash balance (EUR), Q3 and the start of Q4, area with a vertical gradient.</p>
+  
+</body>
+</html>
