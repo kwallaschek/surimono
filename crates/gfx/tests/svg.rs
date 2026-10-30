@@ -166,6 +166,20 @@ const HOSTILE: &[&str] = &[
     r#"<svg><!-- --!><img src=x onerror=alert(1)> --></svg>"#,
     r#"<svg><svg onload="alert(1)"/></svg>"#,
     r#"<svg><foreignObject><svg xmlns="http://www.w3.org/2000/svg"><p>x</p></svg></foreignObject></svg>"#,
+    // Review of #12: in an HTML integration point <style> is raw text, so an
+    // entity hid a quote from the scanner while the browser saw none.
+    r#"<svg xmlns="http://www.w3.org/2000/svg"><desc><style>.x{a:&#34;}*{background:url(https://evil.example/desc.png)}</style></desc><rect width="10" height="10"/></svg>"#,
+    r#"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="100" height="100"><style xmlns="http://www.w3.org/1999/xhtml">.x{a:&#34;}*{background:url(https://evil.example/fo.png)}</style><div xmlns="http://www.w3.org/1999/xhtml">x</div></foreignObject></svg>"#,
+    r#"<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="100" height="100"><math xmlns="http://www.w3.org/1998/Math/MathML"><mi><style xmlns="http://www.w3.org/1999/xhtml">.x{a:&#34;}*{background:url(https://evil.example/mi.png)}</style></mi></math></foreignObject></svg>"#,
+    r#"<svg><title><style>.x{a:&#39;}*{background:url(https://evil.example/t.png)}</style></title></svg>"#,
+    r#"<svg><desc><style>.x{a:&#47;&#42;}*{background:url(https://evil.example/c.png)}</style></desc></svg>"#,
+    // A string split across text nodes by a (removed) comment or by a child
+    // element whose markup is CSS text to an HTML parser.
+    r#"<svg><style>.x{a:"<!-- -->"}*{background:url(https://evil.example/split.png)}</style><rect/></svg>"#,
+    r#"<svg><foreignObject><style xmlns="http://www.w3.org/1999/xhtml">.y{a:'<i b="'}*{background:url(https://evil.example/elem.png)}'"/>}</style></foreignObject></svg>"#,
+    r#"<svg><desc><style>.z{}]]&gt;*{background:url(https://evil.example/cd.png)}</style></desc></svg>"#,
+    // @font-face reaches system fonts through local().
+    r#"<svg><style>@font-face{font-family:x;src:local(Arial)}text{font-family:x}</style><text>a</text></svg>"#,
 ];
 
 #[test]
@@ -190,7 +204,15 @@ fn hostile_svg_is_neutralised() {
         // Attribute names are checked structurally above (escaped text such
         // as `&lt;img onerror=...&gt;` is inert); these must not appear at all.
         let lower = out.to_ascii_lowercase();
-        for bad in ["<script", "javascript:", "@import", "evil.example", "cdata"] {
+        for bad in [
+            "<script",
+            "javascript:",
+            "@import",
+            "evil.example",
+            "cdata",
+            "font-face",
+            "local(",
+        ] {
             assert!(!lower.contains(bad), "{input}\n -> {out}\n contains {bad}");
         }
     }
@@ -230,10 +252,15 @@ fn check_safe(node: Node<'_, '_>, in_html: bool, input: &str, out: &str) {
             );
         }
     }
+    // As an HTML parser decides it: SVG and MathML start foreign content;
+    // foreignObject, desc and title (and MathML's mi, mo, mn, ms, mtext
+    // inside <math>) hold HTML again.
     let child_html = if in_html {
-        name != "svg"
+        name != "svg" && name != "math"
     } else {
-        name == "foreignobject"
+        ["foreignobject", "desc", "title"].contains(&name.as_str())
+            || (node.tag_name().namespace() == Some("http://www.w3.org/1998/Math/MathML")
+                && ["mi", "mo", "mn", "ms", "mtext"].contains(&name.as_str()))
     };
     for c in node.children().filter(|c| c.is_element()) {
         check_safe(c, child_html, input, out);
