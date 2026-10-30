@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Runs exactly what .github/workflows/ci.yml runs on Linux: fmt, clippy (warnings
-# are errors), tests, the Ruby gem's tests and cargo-deny.
+# Runs exactly what .github/workflows/ci.yml runs on Linux: fmt, the offline
+# fixture verifiers, clippy (warnings are errors), tests, the Ruby gem's tests and
+# cargo-deny.
 # Usage: scripts/ci.sh [--no-deny] [--no-ruby]
 #   --no-ruby skips the Ruby extension (needs Ruby headers and libclang) and the gem tests.
 set -euo pipefail
@@ -19,6 +20,7 @@ for a in "$@"; do
 done
 
 step "fmt";    cargo fmt --all -- --check
+scripts/ci/fixtures.sh
 if [ "$run_ruby" = 1 ]; then
   ensure_libclang
   step "clippy (workspace incl. Ruby ext)"; cargo clippy --workspace --all-targets --locked -- -D warnings
