@@ -13,6 +13,8 @@
 #
 # `python3 -I fixtures/real-world/verify.py` downloads each tarball and checks
 # the npm side, and checks the embedded file's sha256 when it is in the checkout.
+# `--embedded-only` skips the downloads (offline, for PR CI), so a rebuilt
+# bundle that doesn't match this manifest fails the build.
 #
 # bundled_licenses lists the licences of third-party code compiled into the
 # bundle (not the npm package's CLI-only dependencies).
@@ -40,14 +42,14 @@ used_by = "Chrome references (dist_file); P1-RT-06 ECharts renderer (SSR mode, S
 
 [library.embedded]
 file = "crates/islands/bundles/echarts/echarts.min.js"
-sha256 = "f4c9098ccf2634c6cf4cc4eba12f351b4e9d64ffb81d7f92917836fa69ef102e"
-bytes = 1102208
+sha256 = "501cfde8f393c85cb83a5adbccbfbd2f68543b9a6e93f0149c406a47a3c7b797"
+bytes = 1102275
 format = "IIFE that defines the global entry(specJson, ctx); ES2020, minified, ASCII"
 built_by = "crates/islands/js/build.sh: esbuild 0.28.2 bundling crates/islands/js/src/echarts.js; reproducible with build.sh --check"
 built_from = ["echarts 6.1.0", "zrender 6.1.0", "tslib 2.3.0"]
 contents = "echarts/core with the SVG renderer, every chart and component, and the LabelLayout, AxisBreak, LegacyGridContainLabel and ScatterJitter features; not the canvas renderer or the universal-transition feature"
 license_files = ["LICENSE", "NOTICE", "LICENSE-d3", "LICENSE-zrender", "LICENSE-tslib"]
-recorded_from = "branch p1-rt-06 at f4f3f7f (crates/islands/bundles/SHA256SUMS)"
+recorded_from = "branch p1-rt-06 at bc5c34c (crates/islands/bundles/SHA256SUMS)"
 
 [[library]]
 name = "vega"

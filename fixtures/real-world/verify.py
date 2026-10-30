@@ -8,7 +8,11 @@ crates/islands embeds ([library.embedded]) and that file is in this checkout,
 check its sha256 and size too. Needs network access to registry.npmjs.org;
 nothing is written outside a temporary directory.
 
-Usage: python3 -I fixtures/real-world/verify.py [--cache DIR] [name ...]
+--embedded-only checks only the embedded files, offline: what PR CI runs, so a
+rebuilt bundle that no longer matches the manifest fails there. --root checks
+the embedded files of another checkout (a worktree of the renderer's branch).
+
+Usage: python3 -I fixtures/real-world/verify.py [--cache DIR] [--embedded-only] [--root DIR] [name ...]
 """
 
 import argparse
@@ -74,15 +78,15 @@ def check(lib: dict, cache: pathlib.Path | None) -> list[str]:
     return errors
 
 
-def check_embedded(lib: dict) -> tuple[list[str], str]:
-    """Checks [library.embedded] against the file in this checkout, if both exist."""
+def check_embedded(lib: dict, root: pathlib.Path = ROOT) -> tuple[list[str], str]:
+    """Checks [library.embedded] against the file under root, if both exist."""
     emb = lib.get("embedded")
     if not emb:
         return [], "embedded build not recorded yet"
     for key in ("file", "sha256", "bytes", "built_by", "built_from", "license_files", "recorded_from"):
         if key not in emb:
             return [f"embedded.{key} missing"], ""
-    path = ROOT / emb["file"]
+    path = root / emb["file"]
     if not path.is_file():
         return [], f"embedded {emb['file']} not in this checkout (recorded from {emb['recorded_from']})"
     data = path.read_bytes()
@@ -97,17 +101,24 @@ def check_embedded(lib: dict) -> tuple[list[str], str]:
     return errors, f"embedded {emb['file']} checked"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", type=pathlib.Path, help="keep downloaded tarballs here")
+    ap.add_argument("--embedded-only", action="store_true", help="check only the embedded files (offline)")
+    ap.add_argument("--root", type=pathlib.Path, default=ROOT, help="checkout whose embedded files are checked (default: this one)")
+    ap.add_argument("--manifest", type=pathlib.Path, default=HERE / "manifest.toml", help=argparse.SUPPRESS)
     ap.add_argument("names", nargs="*")
-    args = ap.parse_args()
-    manifest = tomllib.loads((HERE / "manifest.toml").read_text(encoding="utf-8"))
+    args = ap.parse_args(argv)
+    manifest = tomllib.loads(args.manifest.read_text(encoding="utf-8"))
     libs = [lib for lib in manifest["library"] if not args.names or lib["name"] in args.names]
+    unknown = set(args.names) - {lib["name"] for lib in manifest["library"]}
+    if unknown:
+        print(f"FAIL unknown libraries: {', '.join(sorted(unknown))}")
+        return 1
     failed = 0
     for lib in libs:
-        errors = check(lib, args.cache)
-        emb_errors, note = check_embedded(lib)
+        errors = [] if args.embedded_only else check(lib, args.cache)
+        emb_errors, note = check_embedded(lib, args.root.resolve())
         errors += emb_errors
         failed += bool(errors)
         status = "ok  " if not errors else "FAIL"
