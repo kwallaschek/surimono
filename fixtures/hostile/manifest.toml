@@ -167,6 +167,87 @@ expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
 about = "String.raw over raw.length 2**40 (Chromium 153: still running after 4 s)"
 source = "ECMA-262, String.raw: https://tc39.es/ecma262/#sec-string.raw"
 
+[[case]]
+id = "native-loop-join-length-toctou"
+file = "native-loop-join-length-toctou.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit", "Ok"]
+output = "finished"
+about = "A length getter that answers 1 on its first read and 2**40 afterwards; ECMA-262 reads length once, so a conforming join finishes at once (Chromium 153 returns \"finished\"), but a guard that reads length before the native join lets the loop see 2**40"
+source = "ECMA-262, LengthOfArrayLike is called once by Array.prototype.join: https://tc39.es/ecma262/#sec-array.prototype.join"
+
+[[case]]
+id = "native-loop-join-length-valueof"
+file = "native-loop-join-length-valueof.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "join over { length: { valueOf: () => 2**40 } }; ToLength converts the object, so a guard on numeric lengths only is bypassed (Chromium 153: TypeError, Invalid array length)"
+
+[[case]]
+id = "native-loop-typedarray-own-length"
+file = "native-loop-typedarray-own-length.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "join over a Uint8Array with its own length property of 2**40, shadowing the prototype getter (Chromium 153: TypeError, Invalid array length)"
+
+[[case]]
+id = "native-loop-dataview-length"
+file = "native-loop-dataview-length.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "join over a DataView given a length of 2**40 (Chromium 153: TypeError, Invalid array length)"
+
+[[case]]
+id = "native-loop-fill-typedarray-proto"
+file = "native-loop-fill-typedarray-proto.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "Array.prototype.fill over an ordinary object that inherits from Uint8Array.prototype with its own length of 2**40 (Chromium 153: still running after 4 s)"
+
+[[case]]
+id = "native-sort-typed-array"
+file = "native-sort-typed-array.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit", "Ok"]
+output = "sorted"
+about = "Sorting a 12,000,000-element Uint32Array (48 MB) in one native call; an engine may finish within the limit (Chromium 153 returns \"sorted\" in about 350 ms), but must not run past max_wall_ms"
+
+# ---------------------------------------------------------------- interrupt re-entry
+#
+# Places where the engine itself catches what a callback throws (a promise
+# executor, Promise.try, an async generator body, Error.prepareStackTrace,
+# DisposableStack#dispose). If the time-limit interrupt is caught there like an
+# ordinary exception, it is swallowed and the outer loop starts the next
+# infinite loop. The interrupt must stay pending until the render ends.
+# Chromium 153 has no time limit, so all of these run forever there.
+
+[[case]]
+id = "reentry-promise-executor"
+file = "reentry-promise-executor.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "An infinite loop in a Promise executor, inside an outer infinite loop"
+source = "ECMA-262, the Promise constructor rejects with whatever the executor throws: https://tc39.es/ecma262/#sec-promise-executor"
+
+[[case]]
+id = "reentry-promise-try"
+file = "reentry-promise-try.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "An infinite loop in a Promise.try callback, inside an outer infinite loop (an engine without Promise.try ends with a TypeError)"
+source = "ECMA-262, Promise.try: https://tc39.es/ecma262/#sec-promise.try"
+
+[[case]]
+id = "reentry-async-generator"
+file = "reentry-async-generator.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "An infinite loop in an async generator body started by next(), inside an outer infinite loop"
+
+[[case]]
+id = "reentry-prepare-stack-trace"
+file = "reentry-prepare-stack-trace.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "An infinite loop in Error.prepareStackTrace, which the engine may call while building any error's stack, including the interrupt error; the outer loop catches and repeats"
+
+[[case]]
+id = "reentry-disposable-stack"
+file = "reentry-disposable-stack.js"
+expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
+about = "An infinite loop in a DisposableStack#defer callback; dispose collects callback errors, and the outer loop catches and repeats"
+source = "ECMA-262 explicit resource management, DisposableStack.prototype.dispose: https://tc39.es/proposal-explicit-resource-management/#sec-disposablestack.prototype.dispose"
+
 # ---------------------------------------------------------------- memory
 
 [[case]]
