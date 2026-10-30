@@ -10,12 +10,15 @@
 //! (`<script type="application/vnd.surimono+json" data-renderer=… data-width=…
 //! data-height=…>`), and reports, per island, the median of a cold render
 //! (the request loads the bundle) and a preloaded one (an idle worker
-//! loaded it). Text is measured by the runner's measurer.
+//! loaded it). Text is measured with the fixture fonts (Noto Sans and Noto
+//! Sans JP), as in a real document.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use surimono_islands::{IslandRequest, IslandRunner, RunnerOptions};
+
+mod common;
 
 struct Island {
     fixture: String,
@@ -89,6 +92,7 @@ fn timing_fixture_islands() {
 
     let runner = IslandRunner::new(RunnerOptions {
         pool_size: 1,
+        text_measurer: Some(common::fixture_measurer()),
         ..RunnerOptions::default()
     })
     .unwrap();

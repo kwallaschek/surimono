@@ -3,8 +3,7 @@
 use std::time::Duration;
 
 use surimono_islands::{
-    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError, TextMeasurer,
-    TextMetrics,
+    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError,
 };
 
 fn options(pool_size: usize) -> RunnerOptions {
@@ -148,19 +147,11 @@ fn heap_is_freed_after_every_render() {
 
 #[test]
 fn stats_count_failures() {
-    let r = IslandRunner::new(RunnerOptions {
-        text_measurer: TextMeasurer::new(|text, _| {
-            if text == "panic" {
-                panic!("boom");
-            }
-            Ok(TextMetrics::default())
-        }),
-        ..options(1)
-    })
-    .unwrap();
+    // (Panics in a measurer are counted too; see the runner's unit tests.)
+    let r = IslandRunner::new(options(1)).unwrap();
     r.register_bundle(
         "m",
-        "function entry(s) { ctx = arguments[1]; ctx.measureText(JSON.parse(s).t); return 'ok' }",
+        "function entry(s) { if (JSON.parse(s).t === 'fail') throw new Error('x'); return 'ok' }",
         "entry",
     )
     .unwrap();
@@ -173,7 +164,7 @@ fn stats_count_failures() {
         })
     };
     go("fine").unwrap();
-    assert!(matches!(go("panic"), Err(IslandError::Worker { .. })));
+    assert!(go("fail").is_err());
     go("fine").unwrap();
     let stats = r.stats();
     assert_eq!(stats.renders, 3);

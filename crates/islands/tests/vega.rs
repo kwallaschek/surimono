@@ -9,9 +9,11 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use surimono_islands::{
-    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError, TextMeasurer,
-    TextMetrics, builtin_renderers,
+    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError,
+    builtin_renderers,
 };
+
+mod common;
 
 /// The island box. Vega ignores it: a spec sets its own size.
 const WIDTH: u32 = 600;
@@ -198,41 +200,28 @@ fn dense_scatter_has_every_point() {
 
 #[test]
 fn text_is_measured_by_the_host() {
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    let calls = Arc::new(AtomicUsize::new(0));
-    let seen = calls.clone();
-    let wide = TextMeasurer::new(move |text, font| {
-        seen.fetch_add(1, Ordering::Relaxed);
-        let m = TextMeasurer::approximate().measure(text, font)?;
-        Ok(TextMetrics {
-            width: m.width * 2.0,
-            ..m
-        })
-    });
+    // Noto Sans is narrower than the estimate's 0.6 em per Latin character,
+    // so `limit` truncation keeps more of the label.
     let r = IslandRunner::new(RunnerOptions {
         pool_size: 1,
         limits: TEST_LIMITS,
-        text_measurer: wide,
+        text_measurer: Some(common::fixture_measurer()),
         ..RunnerOptions::default()
     })
     .unwrap();
-    // Truncation with `limit` depends on measured widths.
     let spec = spec("vega", "truncated-labels");
-    let wide_svg = render(&r, "vega", &spec).unwrap();
-    assert!(
-        calls.load(Ordering::Relaxed) > 0,
-        "measureText was never called"
-    );
-    let normal_svg = render(&runner(), "vega", &spec).unwrap();
-    assert_ne!(wide_svg, normal_svg);
-    let wide_texts = check_svg(&wide_svg);
-    let normal_texts = check_svg(&normal_svg);
-    let long = |texts: &[String]| texts.iter().find(|t| t.starts_with("A r")).cloned();
-    let (w, n) = (long(&wide_texts).unwrap(), long(&normal_texts).unwrap());
-    assert!(w.ends_with('…') && n.ends_with('…'), "{w:?} {n:?}");
-    assert!(w.chars().count() < n.chars().count(), "{w:?} {n:?}");
+    let with_fonts = render(&r, "vega", &spec).unwrap();
+    let estimated = render(&runner(), "vega", &spec).unwrap();
+    assert_ne!(with_fonts, estimated);
+    let long = |svg: &str| {
+        check_svg(svg)
+            .into_iter()
+            .find(|t| t.starts_with("A r"))
+            .unwrap()
+    };
+    let (f, e) = (long(&with_fonts), long(&estimated));
+    assert!(f.ends_with('…') && e.ends_with('…'), "{f:?} {e:?}");
+    assert!(f.chars().count() > e.chars().count(), "{f:?} {e:?}");
 }
 
 #[test]

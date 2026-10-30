@@ -12,6 +12,7 @@ use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
 use surimono_core::{Bytecode, Limits, Sandbox, SandboxOptions};
 
+use crate::measure::Measure;
 use crate::{IslandError, TextMeasurer, builtins};
 
 /// How an [`IslandRunner`] is set up.
@@ -26,8 +27,12 @@ pub struct RunnerOptions {
     pub pool_size: usize,
     /// Seed for `Math.random`; every render starts the same sequence.
     pub seed: u64,
-    /// Answers `ctx.measureText` for renderers.
-    pub text_measurer: TextMeasurer,
+    /// Answers `ctx.measureText` for renderers: build it from the fonts
+    /// the PDF engine prints with, `TextMeasurer::new(fonts)`. `None`
+    /// measures with a deterministic font-free estimate (0.6 em per
+    /// character, 1 em for CJK), which is only good for tests: chart labels
+    /// would not fit the printed text.
+    pub text_measurer: Option<TextMeasurer>,
     /// What `Date.now()` returns in renderers, in ms since the Unix epoch.
     pub now_ms: i64,
     /// Local time's offset from UTC in minutes, for date formatting.
@@ -67,7 +72,7 @@ impl Default for RunnerOptions {
             limits: sandbox.limits,
             pool_size: 0,
             seed: sandbox.random_seed,
-            text_measurer: TextMeasurer::default(),
+            text_measurer: None,
             now_ms: sandbox.now_ms,
             utc_offset_minutes: sandbox.utc_offset_minutes,
         }
@@ -121,7 +126,7 @@ enum Job {
 /// What every worker needs.
 struct Shared {
     sandbox_options: SandboxOptions,
-    measurer: TextMeasurer,
+    measure: Measure,
     renders: AtomicU64,
     failed_renders: AtomicU64,
     preloaded_renders: AtomicU64,
@@ -168,9 +173,10 @@ pub struct RunnerStats {
 /// preloaded, the entry call and the microtasks it queues. The result is
 /// the same either way.
 ///
-/// A custom [`TextMeasurer`] runs inside that budget, on the worker
-/// thread, and must return promptly: the time limit can only interrupt
-/// JavaScript, not a measurer that blocks.
+/// Text measurement runs inside that budget, on the worker thread. The
+/// time limit can only interrupt JavaScript, so every `measureText` call
+/// is bounded instead: [`TextMeasurer`] refuses text over
+/// [`surimono_gfx::MAX_TEXT_BYTES`].
 ///
 /// `IslandRunner` is `Send + Sync`: share it between threads (e.g. in an
 /// `Arc`); [`render`](Self::render) blocks the calling thread until a worker
@@ -195,7 +201,13 @@ impl fmt::Debug for IslandRunner {
 
 impl IslandRunner {
     /// Starts the worker pool. No bundles are registered yet.
-    pub fn new(opts: RunnerOptions) -> Result<Self, IslandError> {
+    pub fn new(mut opts: RunnerOptions) -> Result<Self, IslandError> {
+        let measure = Measure::new(opts.text_measurer.take());
+        Self::start(opts, measure)
+    }
+
+    /// Starts the worker pool with `measure` answering `ctx.measureText`.
+    fn start(opts: RunnerOptions, measure: Measure) -> Result<Self, IslandError> {
         let sandbox_options = opts.sandbox_options();
         sandbox_options
             .validate()
@@ -216,7 +228,7 @@ impl IslandRunner {
         let stack_size = sandbox_options.limits.stack_bytes + 8 * 1024 * 1024;
         let shared = Arc::new(Shared {
             sandbox_options,
-            measurer: opts.text_measurer,
+            measure,
             renders: AtomicU64::new(0),
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
@@ -572,7 +584,7 @@ impl Worker {
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
-        let measurer = self.shared.measurer.clone();
+        let measurer = self.shared.measure.clone();
         let bundle = &job.bundle;
         // The sandbox is used from here on, so it is no longer pristine.
         let preloaded = self.take_preloaded(Some(bundle));
@@ -660,10 +672,7 @@ fn entry_function<'js>(ctx: &Ctx<'js>, name: &str) -> rquickjs::Result<Function<
 }
 
 /// `ctx.measureText(text, cssFont)` for renderers.
-fn measure_function<'js>(
-    ctx: &Ctx<'js>,
-    measurer: TextMeasurer,
-) -> rquickjs::Result<Function<'js>> {
+fn measure_function<'js>(ctx: &Ctx<'js>, measurer: Measure) -> rquickjs::Result<Function<'js>> {
     Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>,
@@ -686,4 +695,75 @@ fn measure_function<'js>(
         },
     )?
     .with_name("measureText")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::TextMetrics;
+
+    /// A runner whose measurer panics on "boom", fails on "fail" and
+    /// otherwise reports width 1 per byte.
+    fn runner_with_odd_measurer() -> IslandRunner {
+        let measure = Measure::Custom(Arc::new(|text: &str, _: &str| match text {
+            "boom" => panic!("measurer exploded"),
+            "fail" => Err("no such font".to_owned()),
+            _ => Ok(TextMetrics {
+                width: text.len() as f64,
+                ..TextMetrics::default()
+            }),
+        }));
+        let r = IslandRunner::start(
+            RunnerOptions {
+                pool_size: 1,
+                ..RunnerOptions::default()
+            },
+            measure,
+        )
+        .unwrap();
+        r.register_bundle(
+            "m",
+            "function entry(s, ctx) { return String(ctx.measureText(JSON.parse(s).t).width) }",
+            "entry",
+        )
+        .unwrap();
+        r
+    }
+
+    fn measure(r: &IslandRunner, text: &str) -> Result<String, IslandError> {
+        r.render(&IslandRequest {
+            renderer: "m",
+            spec_json: &format!(r#"{{"t":"{text}"}}"#),
+            width: 1,
+            height: 1,
+        })
+    }
+
+    #[test]
+    fn measurer_errors_become_type_errors() {
+        let r = runner_with_odd_measurer();
+        match measure(&r, "fail").unwrap_err() {
+            IslandError::Sandbox(surimono_core::SandboxError::Exception { message, .. }) => {
+                assert_eq!(message, "TypeError: measureText: no such font")
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn measurer_panics_do_not_kill_the_pool() {
+        let r = runner_with_odd_measurer();
+        assert_eq!(measure(&r, "abc").unwrap(), "3");
+        match measure(&r, "boom").unwrap_err() {
+            IslandError::Worker { message } => {
+                assert!(message.contains("measurer exploded"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(measure(&r, "abcd").unwrap(), "4");
+        let stats = r.stats();
+        assert_eq!((stats.renders, stats.failed_renders), (3, 1));
+    }
 }
