@@ -142,9 +142,9 @@ channel. Three more checks run on every comparison, and all of them must pass:
 In the diff image, magenta marks colour and hue mismatches.
 
 Calibration: `calibrate.mjs` has Chrome print deliberately altered copies of
-Chrome's own island SVG for all 10 fixtures, then scores them (worst window for
-each check; a fault that doesn't apply to a fixture, such as swapping series
-colours in a one-series chart, is left out):
+Chrome's own island SVG for the first 10 fixtures, then scores them (worst
+window for each check; a fault that doesn't apply to a fixture, such as
+swapping series colours in a one-series chart, is left out):
 
 | Fault | Shape (near-match) | Colour (solid) | Hue (strokes) | Text differs | Fails | Should |
 |---|---|---|---|---|---|---|
@@ -184,7 +184,7 @@ Unit tests for the checks run on synthetic images, with no Chrome:
 **Baseline (`fulgur-baseline.sh`): fulgur 0.40.0 printing Chrome's own SVGs**,
 worst window, pixelmatch in brackets:
 
-| Fixture | Page | Verdict | Island 0 | Verdict |
+| Fixture | Page | Verdict | Islands | Verdict |
 |---|---|---|---|---|
 | echarts-bar-simple-ja | 0.0% (4.21%) | pass | 0.0% (2.51%) | pass |
 | echarts-bar-simple-latin | 0.0% (3.86%) | pass | 0.0% (0.17%) | pass |
@@ -196,8 +196,9 @@ worst window, pixelmatch in brackets:
 | vegalite-layered-dense-ja | 4.5% (20.61%) | pass | 3.9% (1.05%) | pass |
 | vegalite-line-ja | 1.3% (6.73%) | pass | 0.0% (9.79%) | pass |
 | vegalite-scatter-dense-latin | 0.1% (8.90%) | pass | 0.0% (9.54%) | pass |
+| echarts-two-charts-latin | 0.0% (12.09%) | pass | 0.0% (0.02%), 0.0% (17.01%) | pass, pass |
 
-All 20 pass by the tool's own rule (score at or below 10% and the same page
+All 23 pass by the tool's own rule (score at or below 10% and the same page
 size and count as Chrome; `baseline.md` prints the verdict), so a surimono +
 fulgur failure means surimono's SVG differs from Chrome's. Getting there took
 six workarounds for fulgur 0.40.0 gaps and one for Chrome (`docs/COMPAT.md`):
