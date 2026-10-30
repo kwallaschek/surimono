@@ -36,7 +36,13 @@ impl SanitizedSvg {
             .map(Self)
             .map_err(|e| Error::Render {
                 island: at.clone(),
-                message: format!("the renderer's SVG can't be used: {e}"),
+                message: match e {
+                    surimono_gfx::GfxError::NoFonts => "the SVG has text, and turning it into \
+                        outlines (TextMode::Outlines, the default) needs at least one font; \
+                        pass the fonts your PDF engine prints with"
+                        .to_owned(),
+                    other => format!("the renderer's SVG can't be used: {other}"),
+                },
             })
     }
 
@@ -77,6 +83,22 @@ mod tests {
             s.contains("id=\"sm2-r\"") && s.contains("href=\"#sm2-r\""),
             "{s}"
         );
+    }
+
+    #[test]
+    fn outlining_text_without_fonts_says_what_to_do() {
+        let r = SanitizedSvg::new(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>Q3</text></svg>",
+            &at(),
+            &TextMeasurer::new(surimono_gfx::FontSet::new()),
+            TextMode::Outlines,
+        );
+        match r {
+            Err(Error::Render { message, .. }) => {
+                assert!(message.contains("needs at least one font"), "{message}");
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

@@ -265,11 +265,9 @@ fn soak_10000_renders_flat_memory() {
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let runner = IslandRunner::new(RunnerOptions {
         pool_size: POOL_SIZE,
-        limits: Limits {
-            memory_bytes: MEMORY_BYTES,
-            time: Duration::from_millis(250),
-            ..Limits::default()
-        },
+        limits: Limits::default()
+            .with_memory_bytes(MEMORY_BYTES)
+            .with_time(Duration::from_millis(250)),
         ..RunnerOptions::default()
     })
     .unwrap();

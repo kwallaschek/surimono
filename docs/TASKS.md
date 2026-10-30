@@ -35,11 +35,11 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-11 · RT · todo · Rust harness running fixtures/hostile/manifest.toml against the sandbox and the island runner
 
 ### Graphics engineer (crates/gfx)
-- P1-GFX-01 · GFX · doing · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
-- P1-GFX-02 · GFX · doing · `measureText` from the same shaping the renderer uses (Parley 0.6 as in fulgur): width, actual and font bounding-box ascent and descent; tests against reference widths from fixed fonts
-- P1-GFX-03 · GFX · doing · SVG output helpers: deterministic ids, font-family rewritten to registered families, safe inlining into HTML (no script, no external refs)
-- P1-GFX-05 · GFX · doing · Island text to vector outlines in the registered fonts (default; Keep opt-in), because fulgur 0.40 prints inline SVG text with system fonts
-- P1-GFX-04 · GFX · doing · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
+- P1-GFX-01 · GFX · review · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
+- P1-GFX-02 · GFX · review · `measureText` from the same shaping the renderer uses (Parley 0.6 as in fulgur): width, actual and font bounding-box ascent and descent; tests against reference widths from fixed fonts
+- P1-GFX-03 · GFX · review · SVG output helpers: deterministic ids, font-family rewritten to registered families, safe inlining into HTML (no script, no external refs)
+- P1-GFX-05 · GFX · review · (#27; merge order #3 → #12 → #27 → #16) Island text to vector outlines in the registered fonts (default; Keep opt-in), because fulgur 0.40 prints inline SVG text with system fonts
+- P1-GFX-04 · GFX · review · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
 
 ### Conformance researcher (fixtures, wpt, bench, docs/COMPAT.md)
 - P1-CF-01 · CF · done · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
@@ -49,6 +49,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-05 · CF · review · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
 - P1-CF-06 · CF · review · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
 - P1-CF-08 · CF · review · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
+- P1-CF-09 · CF · todo · Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
 - P1-CF-07 · CF · review · COMPAT.md generated from test results
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
