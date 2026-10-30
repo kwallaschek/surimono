@@ -28,7 +28,7 @@ fn option(name: &str) -> String {
 }
 
 fn runner() -> IslandRunner {
-    IslandRunner::new(RunnerOptions {
+    IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: 1,
         ..RunnerOptions::default()
     })

@@ -263,7 +263,7 @@ fn run_soak(soak: &Soak<'_>) {
 fn soak_10000_renders_flat_memory() {
     const RENDERS: usize = 10_000;
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
-    let runner = IslandRunner::new(RunnerOptions {
+    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: POOL_SIZE,
         limits: Limits::default()
             .with_memory_bytes(MEMORY_BYTES)
@@ -308,7 +308,7 @@ fn soak_echarts_2000_renders_flat_memory() {
         .collect();
     options.sort();
     assert!(options.len() >= 6);
-    let runner = IslandRunner::new(RunnerOptions {
+    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: POOL_SIZE,
         ..RunnerOptions::default()
     })
@@ -355,7 +355,7 @@ fn soak_vega_lite_600_renders_flat_memory() {
         .iter()
         .map(|n| std::fs::read_to_string(dir.join(format!("{n}.json"))).unwrap())
         .collect();
-    let runner = IslandRunner::new(RunnerOptions {
+    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: POOL_SIZE,
         ..RunnerOptions::default()
     })

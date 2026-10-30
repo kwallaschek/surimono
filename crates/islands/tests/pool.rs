@@ -67,7 +67,7 @@ const CLEAN: &str = "1,undefined,undefined,undefined,true,function,1,undefined,u
 #[test]
 fn no_state_leaks_between_renders() {
     // One worker, so every render reuses the same runtime.
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("polluter", POLLUTER, "entry").unwrap();
     for i in 0..5 {
         assert_eq!(render(&r, "polluter").unwrap(), CLEAN, "render {i}");
@@ -76,7 +76,7 @@ fn no_state_leaks_between_renders() {
 
 #[test]
 fn no_state_leaks_across_renderers() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("polluter", POLLUTER, "entry").unwrap();
     r.register_bundle(
         "observer",
@@ -93,7 +93,7 @@ fn no_state_leaks_across_renderers() {
 
 #[test]
 fn no_state_leaks_after_errors() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("polluter", POLLUTER, "entry").unwrap();
     for (name, src) in [
         (
@@ -117,7 +117,7 @@ fn no_state_leaks_after_errors() {
 
 #[test]
 fn many_renders_on_a_small_pool_are_counted() {
-    let r = IslandRunner::new(options(2)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(2)).unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     for _ in 0..50 {
@@ -133,7 +133,7 @@ fn many_renders_on_a_small_pool_are_counted() {
 fn heap_is_freed_after_every_render() {
     // Each render holds about 8 MiB of a 16 MiB heap. If any of it survived
     // into the next render on the same runtime, the second would fail.
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle(
         "big",
         "function entry() { globalThis.keep = new Float64Array(1024 * 1024); return 'ok' }",
@@ -148,7 +148,7 @@ fn heap_is_freed_after_every_render() {
 #[test]
 fn stats_count_failures() {
     // (Panics in a measurer are counted too; see the runner's unit tests.)
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle(
         "m",
         "function entry(s) { if (JSON.parse(s).t === 'fail') throw new Error('x'); return 'ok' }",
@@ -173,7 +173,7 @@ fn stats_count_failures() {
 
 #[test]
 fn limit_errors_keep_the_pool_healthy() {
-    let r = IslandRunner::new(options(2)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(2)).unwrap();
     r.register_bundle("loop", "function entry() { for (;;) {} }", "entry")
         .unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
@@ -194,7 +194,7 @@ fn idle() {
 
 #[test]
 fn an_idle_worker_preloads_the_last_bundle() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     for _ in 0..5 {
@@ -219,7 +219,7 @@ function entry(specJson, ctx) {
   return log.join('|');
 }
 "#;
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("s", STATEFUL, "entry").unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
@@ -250,7 +250,7 @@ var log = ['top'];
 Promise.resolve().then(() => log.push('microtask'));
 function entry() { return log.join('|') }
 "#;
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("q", QUEUES, "entry").unwrap();
     for _ in 0..4 {
         assert_eq!(render(&r, "q").unwrap(), "top");
@@ -261,7 +261,7 @@ function entry() { return log.join('|') }
 
 #[test]
 fn idle_workers_are_counted() {
-    let r = IslandRunner::new(options(2)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(2)).unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     render(&r, "x").unwrap();
@@ -274,7 +274,7 @@ fn idle_workers_are_counted() {
 
 #[test]
 fn replacing_a_bundle_drops_its_preloaded_copy() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("v", "function entry() { return 'old' }", "entry")
         .unwrap();
     assert_eq!(render(&r, "v").unwrap(), "old");
@@ -287,7 +287,7 @@ fn replacing_a_bundle_drops_its_preloaded_copy() {
 
 #[test]
 fn a_preloaded_bundle_never_leaks_into_another_renderer() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle(
         "a",
         "var fromA = 1; function entry() { return 'a' }",
@@ -307,7 +307,7 @@ fn a_preloaded_bundle_never_leaks_into_another_renderer() {
 
 #[test]
 fn registration_never_sees_a_preloaded_bundle() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("a", "function entry() { return 'a' }", "entry")
         .unwrap();
     render(&r, "a").unwrap();

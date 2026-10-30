@@ -1,23 +1,25 @@
 //! Text measurement for renderers, behind `ctx.measureText(text, cssFont)`.
 //!
-//! Real documents measure with [`surimono_gfx::TextMeasurer`]: the caller's
-//! fonts, shaped as fulgur prints them. Without one, a runner measures with a
-//! deterministic, font-free estimate, which is only good for tests and
-//! tooling.
+//! Documents measure with [`surimono_gfx::TextMeasurer`]: the caller's
+//! fonts, shaped as fulgur prints them. A runner without fonts fails any
+//! island that measures text with [`IslandError::NoFonts`](crate::IslandError::NoFonts).
+//! The font-free estimate here is for surimono's own tests and tools only.
 
 use std::fmt;
 #[cfg(test)]
 use std::sync::Arc;
 
-use surimono_gfx::{TextMeasurer, TextMetrics};
+use surimono_gfx::{GfxError, TextMeasurer, TextMetrics};
 
 /// How a runner's workers answer `ctx.measureText`.
 #[derive(Clone)]
 pub(crate) enum Measure {
     /// The caller's fonts.
     Fonts(TextMeasurer),
+    /// No fonts were given: measuring fails with `NoFonts`.
+    NoFonts,
     /// The font-free estimate: 0.6 em per character, 1 em for wide (CJK)
-    /// characters, ascent 0.8 em, descent 0.2 em.
+    /// characters, ascent 0.8 em, descent 0.2 em. Tests and tools only.
     Estimate,
     /// Any function, for the runner's own tests (errors, panics).
     #[cfg(test)]
@@ -28,19 +30,31 @@ pub(crate) enum Measure {
 #[cfg(test)]
 pub(crate) type CustomMeasure = dyn Fn(&str, &str) -> Result<TextMetrics, String> + Send + Sync;
 
+/// Why `measureText` failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum MeasureError {
+    /// There are no fonts to measure with.
+    NoFonts,
+    /// Anything else, e.g. text over the measurer's size limit.
+    Other(String),
+}
+
 impl Measure {
     pub(crate) fn new(measurer: Option<TextMeasurer>) -> Self {
-        measurer.map_or(Self::Estimate, Self::Fonts)
+        measurer.map_or(Self::NoFonts, Self::Fonts)
     }
 
-    /// Measures `text` in the CSS `font` shorthand `css_font`; an error
-    /// becomes a `TypeError` in JavaScript.
-    pub(crate) fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, String> {
+    /// Measures `text` in the CSS `font` shorthand `css_font`.
+    pub(crate) fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, MeasureError> {
         match self {
-            Self::Fonts(m) => m.measure(text, css_font).map_err(|e| e.to_string()),
+            Self::Fonts(m) => m.measure(text, css_font).map_err(|e| match e {
+                GfxError::NoFonts => MeasureError::NoFonts,
+                other => MeasureError::Other(other.to_string()),
+            }),
+            Self::NoFonts => Err(MeasureError::NoFonts),
             Self::Estimate => Ok(estimate(text, css_font)),
             #[cfg(test)]
-            Self::Custom(f) => f(text, css_font),
+            Self::Custom(f) => f(text, css_font).map_err(MeasureError::Other),
         }
     }
 }
@@ -49,6 +63,7 @@ impl fmt::Debug for Measure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Fonts(m) => f.debug_tuple("Fonts").field(m).finish(),
+            Self::NoFonts => f.write_str("NoFonts"),
             Self::Estimate => f.write_str("Estimate"),
             #[cfg(test)]
             Self::Custom(_) => f.write_str("Custom"),
@@ -134,7 +149,7 @@ mod tests {
 
     #[test]
     fn estimates_latin_and_cjk() {
-        let m = Measure::new(None);
+        let m = Measure::Estimate;
         let latin = m.measure("abcde", "10px x").unwrap();
         assert!((latin.width - 30.0).abs() < 1e-9);
         let cjk = m.measure("日本語", "10px x").unwrap();
@@ -145,10 +160,17 @@ mod tests {
     }
 
     #[test]
-    fn font_errors_are_messages() {
-        // A measurer with no fonts can't measure anything.
-        let m = Measure::new(Some(TextMeasurer::new(surimono_gfx::FontSet::new())));
-        let err = m.measure("x", "10px sans-serif").unwrap_err();
-        assert!(!err.is_empty());
+    fn no_fonts_is_its_own_error() {
+        let empty = Measure::new(Some(TextMeasurer::new(surimono_gfx::FontSet::new())));
+        assert_eq!(
+            empty.measure("x", "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
+        let none = Measure::new(None);
+        assert_eq!(
+            none.measure("x", "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
+        assert_eq!(format!("{none:?}"), "NoFonts");
     }
 }

@@ -12,7 +12,7 @@ use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
 use surimono_core::{Bytecode, Limits, Sandbox, SandboxOptions};
 
-use crate::measure::Measure;
+use crate::measure::{Measure, MeasureError};
 use crate::{IslandError, TextMeasurer, builtins};
 
 /// How an [`IslandRunner`] is set up.
@@ -27,11 +27,10 @@ pub struct RunnerOptions {
     pub pool_size: usize,
     /// Seed for `Math.random`; every render starts the same sequence.
     pub seed: u64,
-    /// Answers `ctx.measureText` for renderers: build it from the fonts
-    /// the PDF engine prints with, `TextMeasurer::new(fonts)`. `None`
-    /// measures with a deterministic font-free estimate (0.6 em per
-    /// character, 1 em for CJK), which is only good for tests: chart labels
-    /// would not fit the printed text.
+    /// Answers `ctx.measureText` for renderers: `TextMeasurer::new(fonts)`
+    /// with the fonts the PDF engine prints with. Without it (or with no
+    /// fonts in it), a render that measures text fails with
+    /// [`IslandError::NoFonts`]; the built-in renderers always measure.
     pub text_measurer: Option<TextMeasurer>,
     /// What `Date.now()` returns in renderers, in ms since the Unix epoch.
     pub now_ms: i64,
@@ -157,7 +156,8 @@ pub struct RunnerStats {
 /// `specJson` is the island's spec as JSON text; `ctx` has `width`, `height`
 /// and `measureText(text, cssFont)`, which returns canvas-style metrics
 /// (`width`, `actualBoundingBoxAscent`, …) from the runner's
-/// [`TextMeasurer`].
+/// [`TextMeasurer`]. If the runner has no fonts, `measureText` throws a
+/// `TypeError` and the render fails with [`IslandError::NoFonts`].
 ///
 /// Bundles are compiled to bytecode once, at registration, and loaded from
 /// bytecode for each render (no re-parsing). Each render runs on one of a
@@ -204,6 +204,17 @@ impl IslandRunner {
     pub fn new(mut opts: RunnerOptions) -> Result<Self, IslandError> {
         let measure = Measure::new(opts.text_measurer.take());
         Self::start(opts, measure)
+    }
+
+    /// **Not public API**: for surimono's own tests and tools. Like
+    /// [`new`](Self::new), but measures text with a deterministic
+    /// font-free estimate (0.6 em per character, 1 em for CJK) instead of
+    /// fonts, ignoring `opts.text_measurer`. Chart labels laid out with it
+    /// do not fit printed text.
+    #[doc(hidden)]
+    pub fn with_estimated_text_metrics(mut opts: RunnerOptions) -> Result<Self, IslandError> {
+        opts.text_measurer = None;
+        Self::start(opts, Measure::Estimate)
     }
 
     /// Starts the worker pool with `measure` answering `ctx.measureText`.
@@ -594,6 +605,8 @@ impl Worker {
                 .preloaded_renders
                 .fetch_add(1, Ordering::Relaxed);
         }
+        let no_fonts = Arc::new(AtomicBool::new(false));
+        let measure_text = (measurer, no_fonts.clone());
         let sb = self.sandbox()?;
         // One call, so one deadline covers loading the bundle and the
         // render. A preloaded bundle was loaded off the caller's clock with
@@ -608,12 +621,20 @@ impl Worker {
                 let island = Object::new(ctx.clone())?;
                 island.set("width", job.width)?;
                 island.set("height", job.height)?;
-                island.set("measureText", measure_function(ctx, measurer)?)?;
+                let (measurer, no_fonts) = measure_text;
+                island.set("measureText", measure_function(ctx, measurer, no_fonts)?)?;
                 entry.call((job.spec_json.as_str(), island))
             },
             svg_string,
-        )?;
-        outcome.map_err(|found| IslandError::NotAString {
+        );
+        // Measured without fonts: whatever the script made of the
+        // TypeError (even if it caught it), the layout is wrong.
+        if no_fonts.load(Ordering::Relaxed) {
+            return Err(IslandError::NoFonts {
+                renderer: bundle.name.clone(),
+            });
+        }
+        outcome?.map_err(|found| IslandError::NotAString {
             renderer: bundle.name.clone(),
             found,
         })
@@ -672,7 +693,13 @@ fn entry_function<'js>(ctx: &Ctx<'js>, name: &str) -> rquickjs::Result<Function<
 }
 
 /// `ctx.measureText(text, cssFont)` for renderers.
-fn measure_function<'js>(ctx: &Ctx<'js>, measurer: Measure) -> rquickjs::Result<Function<'js>> {
+///
+/// Sets `no_fonts` if it was called with no fonts to measure with.
+fn measure_function<'js>(
+    ctx: &Ctx<'js>,
+    measurer: Measure,
+    no_fonts: Arc<AtomicBool>,
+) -> rquickjs::Result<Function<'js>> {
     Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>,
@@ -680,9 +707,16 @@ fn measure_function<'js>(ctx: &Ctx<'js>, measurer: Measure) -> rquickjs::Result<
               font: Opt<Coerced<String>>|
               -> rquickjs::Result<Object<'js>> {
             let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
-            let m = measurer
-                .measure(&text.0, &font)
-                .map_err(|msg| Exception::throw_type(&ctx, &format!("measureText: {msg}")))?;
+            let m = measurer.measure(&text.0, &font).map_err(|e| {
+                let msg = match e {
+                    MeasureError::NoFonts => {
+                        no_fonts.store(true, Ordering::Relaxed);
+                        "no fonts were given to measure text with".to_owned()
+                    }
+                    MeasureError::Other(msg) => msg,
+                };
+                Exception::throw_type(&ctx, &format!("measureText: {msg}"))
+            })?;
             let o = Object::new(ctx)?;
             o.set("width", m.width)?;
             o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;

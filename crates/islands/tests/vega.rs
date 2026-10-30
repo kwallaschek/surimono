@@ -51,7 +51,7 @@ const TEST_LIMITS: Limits = Limits::new(
 );
 
 fn runner() -> IslandRunner {
-    IslandRunner::new(RunnerOptions {
+    IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: 1,
         limits: TEST_LIMITS,
         ..RunnerOptions::default()

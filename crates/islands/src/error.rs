@@ -41,6 +41,15 @@ pub enum IslandError {
         /// The entry function it should define.
         entry: String,
     },
+    /// The renderer measured text, but the runner has no fonts:
+    /// [`RunnerOptions::text_measurer`](crate::RunnerOptions::text_measurer)
+    /// is `None` or holds no fonts. Reported even if the script caught the
+    /// `TypeError` that `measureText` threw.
+    #[error("renderer {renderer:?} measures text, but no fonts were given")]
+    NoFonts {
+        /// The renderer name.
+        renderer: String,
+    },
     /// The runner options or the request are out of range.
     #[error("invalid island options: {message}")]
     InvalidOptions {

@@ -35,7 +35,7 @@ fn options() -> RunnerOptions {
 }
 
 fn runner() -> IslandRunner {
-    let r = IslandRunner::new(options()).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options()).unwrap();
     r.register_bundle("label", LABEL, "entry").unwrap();
     r
 }
@@ -103,7 +103,7 @@ fn uses_the_configured_measurer() {
 
 #[test]
 fn measure_text_returns_all_canvas_fields() {
-    let r = IslandRunner::new(options()).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options()).unwrap();
     r.register_bundle(
         "fields",
         "function entry(s, ctx) { const m = ctx.measureText('ab'); return Object.keys(m).join() + '|' + m.width + '|' + ctx.measureText.name }",
@@ -119,22 +119,38 @@ fn measure_text_returns_all_canvas_fields() {
 }
 
 #[test]
-fn measurer_errors_become_type_errors() {
-    // A measurer with no fonts can't measure; the script gets a TypeError.
-    let r = IslandRunner::new(RunnerOptions {
-        text_measurer: Some(TextMeasurer::new(FontSet::new())),
-        ..options()
-    })
-    .unwrap();
-    r.register_bundle("label", LABEL, "entry").unwrap();
-    match r.render(&req("label", r#"{"label":"x"}"#)).unwrap_err() {
-        IslandError::Sandbox(SandboxError::Exception { message, .. }) => {
-            assert!(
-                message.starts_with("TypeError: measureText: no fonts"),
-                "{message}"
-            )
-        }
-        other => panic!("{other:?}"),
+fn measuring_without_fonts_is_a_typed_error() {
+    // No measurer at all, and a measurer with no fonts in it.
+    for text_measurer in [None, Some(TextMeasurer::new(FontSet::new()))] {
+        let r = IslandRunner::new(RunnerOptions {
+            text_measurer,
+            ..options()
+        })
+        .unwrap();
+        r.register_bundle("label", LABEL, "entry").unwrap();
+        assert_eq!(
+            r.render(&req("label", r#"{"label":"x"}"#)).unwrap_err(),
+            IslandError::NoFonts {
+                renderer: "label".into()
+            }
+        );
+        // Even when the script catches the TypeError and carries on.
+        r.register_bundle(
+            "catches",
+            "function entry(s, ctx) { try { ctx.measureText('x') } catch (e) { return String(e) } }",
+            "entry",
+        )
+        .unwrap();
+        assert_eq!(
+            r.render(&req("catches", "{}")).unwrap_err(),
+            IslandError::NoFonts {
+                renderer: "catches".into()
+            }
+        );
+        // A bundle that never measures doesn't need fonts.
+        r.register_bundle("plain", "function entry() { return '<svg/>' }", "entry")
+            .unwrap();
+        assert_eq!(r.render(&req("plain", "{}")).unwrap(), "<svg/>");
     }
 }
 
@@ -151,7 +167,7 @@ fn same_request_same_svg() {
         a
     );
     // A different seed changes Math.random.
-    let other = IslandRunner::new(RunnerOptions {
+    let other = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         seed: 7,
         ..options()
     })
@@ -415,7 +431,7 @@ fn invalid_options_are_rejected() {
         },
     ] {
         assert!(matches!(
-            IslandRunner::new(bad).unwrap_err(),
+            IslandRunner::with_estimated_text_metrics(bad).unwrap_err(),
             IslandError::InvalidOptions { .. }
         ));
     }
@@ -423,11 +439,11 @@ fn invalid_options_are_rejected() {
 
 #[test]
 fn pool_size_defaults_to_cpus_up_to_four() {
-    let r = IslandRunner::new(RunnerOptions::default()).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions::default()).unwrap();
     let cpus = std::thread::available_parallelism().map_or(1, |n| n.get());
     assert_eq!(r.pool_size(), cpus.min(4));
     assert_eq!(
-        IslandRunner::new(RunnerOptions {
+        IslandRunner::with_estimated_text_metrics(RunnerOptions {
             pool_size: 3,
             ..options()
         })
