@@ -58,12 +58,15 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-01 · PKG · done · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
 - P1-PKG-02 · PKG · done · Public facade: `Renderer`, `Options` (fonts, limits, renderers), `render_islands(html) -> Result<String>`; typed errors; docs
 - P1-PKG-03 · PKG · done · HTML pre-pass: replace `<script type="application/vnd.surimono+json" data-renderer="…">` islands with their SVG; everything else byte-for-byte unchanged
-- P1-PKG-04 · PKG · doing · Ruby gem: `Surimono.render(html, fonts:, limits:)` mirroring the facade, GVL released while rendering, typed Ruby exceptions, tests on CRuby 3.2 to 4.0
-- P1-PKG-05 · PKG · doing · Precompiled native gems (x86_64/aarch64 Linux gnu, x86_64/arm64 macOS) via rb-sys cross builds in full.yml
-- P1-PKG-06 · PKG · todo · CLI: `surimono render in.html -o out.html --font …` (third to cut)
-- P1-PKG-08 · PKG · doing · Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
-- P1-PKG-09 · PKG · doing · THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
-- P1-PKG-07 · PKG · todo · v0.1 release PR with a passing dry-run (cargo publish --dry-run in order, gem build, CHANGELOG), no tag, no publish
+- P1-PKG-04 · PKG · review · Ruby gem: `Surimono.render(html, fonts:, limits:)` mirroring the facade, GVL released while rendering, typed Ruby exceptions, tests on CRuby 3.2 to 4.0
+- P1-PKG-05 · PKG · done · Precompiled native gems (x86_64/aarch64 Linux gnu, x86_64/arm64 macOS) via rb-sys cross builds in full.yml
+- P1-PKG-06 · PKG · review · CLI: `surimono render in.html -o out.html --font …` (third to cut)
+- P1-PKG-01b · PKG · review · (#20) CI scripts: offline fixture checks in the PR gate, nightly fulgur/npm checks, bench cache, hostile results; workflow YAML proposal for Kay (SHA-pinned actions, persist-credentials false)
+- P1-PKG-03b · PKG · review · (#22) Pre-pass and facade follow-ups
+- P1-PKG-10 · PKG · review · (#33) Gem build carries the vendored QuickJS
+- P1-PKG-08 · PKG · review · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
+- P1-PKG-09 · PKG · review · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
+- P1-PKG-07 · PKG · review · v0.1 release PR with a passing dry-run (cargo publish --dry-run in order, gem build, CHANGELOG), no tag, no publish
 
 ### Docs and DX (README.md, docs/guide, examples, CHANGELOG.md)
 - P1-DX-01 · DX · doing · README for v0.1: what it is, what it is not, install, a 10-line Rails example, a 10-line Rust example, honest limits
