@@ -1,0 +1,373 @@
+{
+  "generator": "crates/gfx/tests/chrome/font_shorthand.mjs",
+  "chromium": "153.0.8010.12",
+  "playwright": "1.63.0",
+  "cases": [
+    {
+      "input": "1rem x",
+      "valid": true,
+      "serialized": "16px x",
+      "size_px": 16
+    },
+    {
+      "input": "larger x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "smaller x",
+      "valid": true,
+      "serialized": "8.33333px x",
+      "size_px": 8.33333
+    },
+    {
+      "input": "medium x",
+      "valid": true,
+      "serialized": "16px x",
+      "size_px": 16
+    },
+    {
+      "input": "xx-small x",
+      "valid": true,
+      "serialized": "9px x",
+      "size_px": 9
+    },
+    {
+      "input": "xxx-large x",
+      "valid": true,
+      "serialized": "48px x",
+      "size_px": 48
+    },
+    {
+      "input": "0 x",
+      "valid": true,
+      "serialized": "0px x",
+      "size_px": 0
+    },
+    {
+      "input": "0px x",
+      "valid": true,
+      "serialized": "0px x",
+      "size_px": 0
+    },
+    {
+      "input": "oblique 10deg 12px x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "oblique 12px x",
+      "valid": true,
+      "serialized": "italic 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "bolder 12px x",
+      "valid": true,
+      "serialized": "bold 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "lighter 12px x",
+      "valid": true,
+      "serialized": "100 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "small-caps 12px x",
+      "valid": true,
+      "serialized": "small-caps 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "normal normal normal normal 12px x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "normal normal normal normal normal 12px x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "bold bold 12px x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "600 12px x",
+      "valid": true,
+      "serialized": "600 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "1000 12px x",
+      "valid": true,
+      "serialized": "1000 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "1001 12px x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "0.5 12px x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "condensed 12px x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "ultra-expanded 12px x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "12px",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12px inherit",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "inherit",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12px/normal x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "12px / 1.5 x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "12px/-1 x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "-12px x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12px 3D",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12px foo bar",
+      "valid": true,
+      "serialized": "12px \"foo bar\"",
+      "size_px": 12
+    },
+    {
+      "input": "12px \"a b\", c",
+      "valid": true,
+      "serialized": "12px \"a b\", c",
+      "size_px": 12
+    },
+    {
+      "input": "12px \"unterminated",
+      "valid": true,
+      "serialized": "12px unterminated",
+      "size_px": 12
+    },
+    {
+      "input": "12px a,,b",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12px a,",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12px default",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12PX SANS-SERIF",
+      "valid": true,
+      "serialized": "12px sans-serif",
+      "size_px": 12
+    },
+    {
+      "input": "BOLD 12px x",
+      "valid": true,
+      "serialized": "bold 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "bold italic 12px x",
+      "valid": true,
+      "serialized": "italic bold 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "12.5e1px x",
+      "valid": true,
+      "serialized": "125px x",
+      "size_px": 125
+    },
+    {
+      "input": "1e1px x",
+      "valid": true,
+      "serialized": "10px x",
+      "size_px": 10
+    },
+    {
+      "input": ".5em x",
+      "valid": true,
+      "serialized": "5px x",
+      "size_px": 5
+    },
+    {
+      "input": "+12px x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "12px\tx",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "12px\nx",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "caption",
+      "valid": true,
+      "serialized": "16px Arial",
+      "size_px": 16
+    },
+    {
+      "input": "12px \\66oo",
+      "valid": true,
+      "serialized": "12px foo",
+      "size_px": 12
+    },
+    {
+      "input": "12px math",
+      "valid": true,
+      "serialized": "12px math",
+      "size_px": 12
+    },
+    {
+      "input": "12px initial",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "100% x",
+      "valid": true,
+      "serialized": "10px x",
+      "size_px": 10
+    },
+    {
+      "input": "12px/1.2px x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "12px/50% x",
+      "valid": true,
+      "serialized": "12px x",
+      "size_px": 12
+    },
+    {
+      "input": "semi-condensed bold italic small-caps 12px x",
+      "valid": true,
+      "serialized": "italic bold small-caps 12px x",
+      "size_px": 12
+    },
+    {
+      "input": "italic italic 12px x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "1e6px x",
+      "valid": true,
+      "serialized": "10000px x",
+      "size_px": 10000
+    },
+    {
+      "input": "12px x !important",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12 px x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "12pxx x",
+      "valid": false,
+      "serialized": null,
+      "size_px": null
+    },
+    {
+      "input": "9pt 'Noto Sans'",
+      "valid": true,
+      "serialized": "12px \"Noto Sans\"",
+      "size_px": 12
+    },
+    {
+      "input": "1.4em 'Noto Sans'",
+      "valid": true,
+      "serialized": "14px \"Noto Sans\"",
+      "size_px": 14
+    },
+    {
+      "input": "150% 'Noto Sans'",
+      "valid": true,
+      "serialized": "15px \"Noto Sans\"",
+      "size_px": 15
+    }
+  ]
+}
