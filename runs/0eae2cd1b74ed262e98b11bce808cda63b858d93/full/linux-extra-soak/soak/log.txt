@@ -1,0 +1,206 @@
+[1m[32m    Updating[0m crates.io index
+[1m[32m Downloading[0m crates ...
+[1m[32m  Downloaded[0m cpufeatures v0.2.17
+[1m[32m  Downloaded[0m stats_alloc v0.1.10
+[1m[32m  Downloaded[0m block-buffer v0.10.4
+[1m[32m  Downloaded[0m sha2 v0.10.9
+[1m[32m  Downloaded[0m roxmltree v0.21.2
+[1m[32m  Downloaded[0m crypto-common v0.1.7
+[1m[32m  Downloaded[0m lol_html v2.7.0
+[1m[32m  Downloaded[0m typenum v1.20.1
+[1m[32m  Downloaded[0m hashbrown v0.16.1
+[1m[32m  Downloaded[0m digest v0.10.7
+[1m[32m  Downloaded[0m generic-array v0.14.7
+[1m[32m   Compiling[0m syn v2.0.119
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m memchr v2.8.3
+[1m[32m   Compiling[0m version_check v0.9.5
+[1m[32m   Compiling[0m generic-array v0.14.7
+[1m[32m   Compiling[0m typenum v1.20.1
+[1m[32m   Compiling[0m roxmltree v0.21.2
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m cpufeatures v0.2.17
+[1m[32m   Compiling[0m stats_alloc v0.1.10
+[1m[32m   Compiling[0m hashbrown v0.16.1
+[1m[32m   Compiling[0m darling_core v0.20.11
+[1m[32m   Compiling[0m synstructure v0.13.2
+[1m[32m   Compiling[0m block-buffer v0.10.4
+[1m[32m   Compiling[0m crypto-common v0.1.7
+[1m[32m   Compiling[0m digest v0.10.7
+[1m[32m   Compiling[0m sha2 v0.10.9
+[1m[32m   Compiling[0m phf_macros v0.11.3
+[1m[32m   Compiling[0m cssparser-macros v0.6.1
+[1m[32m   Compiling[0m phf v0.11.3
+[1m[32m   Compiling[0m derive_more-impl v2.1.1
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m darling_macro v0.20.11
+[1m[32m   Compiling[0m darling v0.20.11
+[1m[32m   Compiling[0m to_shmem_derive v0.1.0
+[1m[32m   Compiling[0m to_shmem v0.2.0
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m malloc_size_of_derive v0.1.3
+[1m[32m   Compiling[0m derive_more v2.1.1
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m markup5ever v0.35.0
+[1m[32m   Compiling[0m stylo_derive v0.8.0
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m stylo_dom v0.8.0
+[1m[32m   Compiling[0m stylo_traits v0.8.0
+[1m[32m   Compiling[0m num-derive v0.4.2
+[1m[32m   Compiling[0m lol_html v2.7.0
+[1m[32m   Compiling[0m match_token v0.35.0
+[1m[32m   Compiling[0m xml5ever v0.35.0
+[1m[32m   Compiling[0m html5ever v0.35.0
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m   Compiling[0m stylo_taffy v0.2.0
+[1m[32m   Compiling[0m blitz-dom v0.2.4
+[1m[32m   Compiling[0m blitz-html v0.2.0
+[1m[32m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 2m 15s
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono-f4b62fb19ede92e9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fixtures.rs (target/release/deps/fixtures-a6ddc7cfae33a843)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/main.rs (target/release/deps/surimono-0aae91e96518b75d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_core-1b30cdff1d30aee1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 54 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/determinism.rs (target/release/deps/determinism-c5d3fdfc92fc749b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_dom-bfb944c16f00aed8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_gfx-f09d8911ec812783)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/measure_text.rs (target/release/deps/measure_text-d61e8d4e0e367c29)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/svg.rs (target/release/deps/svg-6433e62d83c78378)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_islands-5af8221920d08d9d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/bundles.rs (target/release/deps/bundles-83f5a4f3a6afbeb5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/echarts.rs (target/release/deps/echarts-a5274779893cd88b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/pool.rs (target/release/deps/pool-2e579bb9952a802e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/runner.rs (target/release/deps/runner-55de69b0f543e866)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-8ce87a94d3f32f91)
+
+running 2 tests
+soak: 10000 renders in 17.80491752s (1.780491ms per render incl. 20 pauses of 100ms), 3 callers, 2 workers, first SVG 13706 bytes
+soak: resident memory before start Some(5292) KiB
+soak: after   500 renders  live heap     527806 bytes  resident     6260 KiB
+soak: after  1000 renders  live heap     527806 bytes  resident     6268 KiB
+soak: after  1500 renders  live heap     527806 bytes  resident     6280 KiB
+soak: after  2000 renders  live heap     527806 bytes  resident     6284 KiB
+soak: after  2500 renders  live heap     527806 bytes  resident     6296 KiB
+soak: after  3000 renders  live heap     527806 bytes  resident     6292 KiB
+soak: after  3500 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  4000 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  4500 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  5000 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  5500 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  6000 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  6500 renders  live heap     527806 bytes  resident     6308 KiB
+soak: after  7000 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  7500 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  8000 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  8500 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  9000 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after  9500 renders  live heap     527806 bytes  resident     6304 KiB
+soak: after 10000 renders  live heap     527806 bytes  resident     6308 KiB
+soak: RunnerStats { renders: 10000, failed_renders: 250, preloaded_renders: 371 }
+soak: live heap from render 2000 to 10000: 527806 -> 527806 bytes (+0 bytes, highest 527806), limit +65536
+soak: peak resident 6308 KiB, bound 201900 KiB
+test soak_10000_renders_flat_memory ... ok
+test soak_echarts_2000_renders_flat_memory has been running for over 60 seconds
+soak-echarts: 2000 renders in 49.552080042s (24.77604ms per render incl. 8 pauses of 500ms), 3 callers, 2 workers, first SVG 25001 bytes
+soak-echarts: resident memory before start Some(6348) KiB
+soak-echarts: after   250 renders  live heap   17928483 bytes  resident    33348 KiB
+soak-echarts: after   500 renders  live heap   11386067 bytes  resident    33348 KiB
+soak-echarts: after   750 renders  live heap   11386067 bytes  resident    33348 KiB
+soak-echarts: after  1000 renders  live heap   11386067 bytes  resident    33352 KiB
+soak-echarts: after  1250 renders  live heap   11386067 bytes  resident    33352 KiB
+soak-echarts: after  1500 renders  live heap   11386067 bytes  resident    33352 KiB
+soak-echarts: after  1750 renders  live heap   17928483 bytes  resident    33352 KiB
+soak-echarts: after  2000 renders  live heap   11386067 bytes  resident    33352 KiB
+soak-echarts: RunnerStats { renders: 2000, failed_renders: 20, preloaded_renders: 41 }
+soak-echarts: live heap from render 500 to 2000: 11386067 -> 11386067 bytes (+0 bytes, highest 17928483), limit +65536
+
+thread 'soak_echarts_2000_renders_flat_memory' panicked at crates/islands/tests/soak.rs:230:5:
+soak-echarts: live heap grew from 11386067 to 11386067 bytes (highest 17928483) after warm-up
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test soak_echarts_2000_renders_flat_memory ... FAILED
+
+failures:
+
+failures:
+    soak_echarts_2000_renders_flat_memory
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 67.37s
+
+[1m[31merror[0m[1m:[0m test failed, to rerun pass `-p surimono-islands --test soak`
