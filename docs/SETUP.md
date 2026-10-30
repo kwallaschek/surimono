@@ -22,3 +22,8 @@
 | `bench.yml` | main, nightly 03:15 JST | Grover benchmark: time and peak memory |
 
 Standard runners are free on public repos, so no spending limit is needed.
+
+## Sessions
+
+- A scheduled task resumes the orchestrator every 4 hours (at :16 JST). It stops at once if `scripts/fleet/heartbeat.sh --age` shows a heartbeat under 3 hours old, so two orchestrators never run together.
+- Role cards for every agent: `docs/fleet/ROLES.md`.

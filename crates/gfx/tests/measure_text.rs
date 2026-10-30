@@ -7,6 +7,7 @@
 mod common;
 
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use surimono_gfx::{FontSet, GenericFamily, GfxError, TextMeasurer, TextMetrics};
 
 /// Advance widths: Chrome and Parley shape with the same rules (harfrust is a
@@ -45,6 +46,15 @@ fn reference_fonts_are_the_ones_chrome_used() {
         assert_eq!(
             bytes.len() as u64,
             font["bytes"].as_u64().expect("bytes"),
+            "{file} differs from the font Chrome measured with"
+        );
+        let digest: String = Sha256::digest(&bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(
+            digest,
+            font["sha256"].as_str().expect("sha256"),
             "{file} differs from the font Chrome measured with"
         );
     }

@@ -1,0 +1,1102 @@
+//! Island text to vector outlines (P1-GFX-05).
+//!
+//! fulgur 0.40 prints inline SVG through usvg with a font database of system
+//! fonts only, so a `<text>` would print in whatever fonts the machine has.
+//! This pass replaces every SVG `<text>` with `<path>` outlines of the glyphs
+//! the registered fonts give, shaped by the same Parley code as
+//! `TextMeasurer::measure`, so any engine prints exactly what was measured.
+//!
+//! The layout follows Chrome, checked against `tests/data/chrome_svg_text.json`
+//! (`tests/chrome/svg_text.mjs`): white space collapses across the whole
+//! `<text>` (leading and trailing spaces go), `x`/`y`/`dx`/`dy` lists apply
+//! per character with descendants overriding ancestors, every absolute `x` or
+//! `y` starts an anchored chunk, `letter-spacing` follows every character
+//! (the last too), and `dominant-baseline`/`alignment-baseline` shift the
+//! baseline by the primary font's rounded metrics, to 1/64 px as Chrome does.
+//!
+//! Not supported (the text keeps its position on a straight baseline):
+//! `rotate`, `textLength`, `<textPath>` (its content is dropped), vertical
+//! writing modes, `word-spacing`, `baseline-shift`, text decoration, synthetic
+//! bold, font properties set only by `<style>` rules, and fonts inherited
+//! from the page outside the SVG (the defaults are 16px and `serif`).
+
+use std::fmt::Write as _;
+use std::ops::Range;
+
+use roxmltree::{Document, Node, ParsingOptions};
+use skrifa::instance::{LocationRef, NormalizedCoord, Size};
+use skrifa::outline::{DrawSettings, OutlinePen};
+use skrifa::{GlyphId, MetadataProvider};
+
+use super::{MAX_SVG_NODES, Ns, Visit, escape_attribute, invalid, walk};
+use crate::GfxError;
+use crate::css_font::{
+    FamilyEntry, FontSpec, Slant, parse_family_list, serialize_families, svg_font_size, svg_length,
+};
+use crate::measure::{Shaped, TextMeasurer};
+
+/// Decimal places in outline path data. A hundredth of a CSS px is far below
+/// what a printer or rasteriser resolves, and fixed precision keeps the
+/// output byte-identical.
+const PATH_DECIMALS: i32 = 2;
+
+/// Most characters one SVG may have outlined. A glyph outline is up to a few
+/// KB of path data (dense CJK glyphs), so this bounds the output at tens of
+/// MB and the shaping time at well under a second; dense charts have a few
+/// thousand characters of labels. More is a hostile or broken island.
+pub const MAX_OUTLINE_CHARS: usize = 20_000;
+
+/// Most bytes of outline path data one SVG may produce.
+const MAX_OUTLINE_BYTES: usize = 32 * 1024 * 1024;
+
+/// Attributes that position text; they mean nothing on the `<g>` that
+/// replaces a `<text>` or `<tspan>`.
+const POSITIONING: &[&str] = &["x", "y", "dx", "dy", "rotate", "textlength", "lengthadjust"];
+
+/// Attributes a `<tspan>` ignores but a `<g>` would apply.
+const TSPAN_IGNORED: &[&str] = &["transform", "clip-path", "mask", "filter", "opacity"];
+
+/// Replaces every SVG `<text>` in `svg` (already sanitized, well-formed) by
+/// outlines. Text inside HTML (`<foreignObject>`) is left alone: fulgur prints
+/// HTML text with the registered fonts.
+pub(crate) fn outline_text(svg: &str, measurer: &TextMeasurer) -> Result<String, GfxError> {
+    let doc = Document::parse_with_options(
+        svg,
+        ParsingOptions {
+            allow_dtd: false,
+            nodes_limit: MAX_SVG_NODES,
+            ..ParsingOptions::default()
+        },
+    )
+    .map_err(|e| invalid(e.to_string()))?;
+    let root = doc.root_element();
+    let mut edits: Vec<(Range<usize>, String)> = Vec::new();
+    let mut inside_text_until = 0;
+    let mut budget = Budget::default();
+    walk(root, svg, |visit| {
+        if let Visit::Element { node, ns, .. } = visit {
+            if node.range().start < inside_text_until || ns != Ns::Svg {
+                return Ok(());
+            }
+            // An HTML parser lower-cases tag names, so <TEXT> is SVG text too.
+            if node.tag_name().name().eq_ignore_ascii_case("text") {
+                edits.push((
+                    node.range(),
+                    convert_text(node, svg, measurer, &mut budget)?,
+                ));
+                inside_text_until = node.range().end;
+            }
+        }
+        Ok(())
+    })?;
+    let whole = root.range();
+    let mut out = String::with_capacity(whole.len() + edits.len() * 512);
+    let mut pos = whole.start;
+    for (r, new) in &edits {
+        out.push_str(&svg[pos..r.start]);
+        out.push_str(new);
+        pos = r.end;
+    }
+    out.push_str(&svg[pos..whole.end]);
+    Ok(out)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Anchor {
+    Start,
+    Middle,
+    End,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Baseline {
+    Auto,
+    Central,
+    Middle,
+    Hanging,
+    TextBeforeEdge,
+    TextAfterEdge,
+    Mathematical,
+}
+
+impl Baseline {
+    /// A `dominant-baseline` or `alignment-baseline` keyword. Chrome ignores
+    /// `text-top` and `text-bottom` there, so they are `None` too.
+    fn parse(value: &str) -> Option<Baseline> {
+        Some(match value.trim().to_ascii_lowercase().as_str() {
+            "auto" | "baseline" | "alphabetic" => Baseline::Auto,
+            "central" => Baseline::Central,
+            "middle" => Baseline::Middle,
+            "hanging" => Baseline::Hanging,
+            "text-before-edge" | "before-edge" => Baseline::TextBeforeEdge,
+            "text-after-edge" | "after-edge" | "ideographic" => Baseline::TextAfterEdge,
+            "mathematical" => Baseline::Mathematical,
+            _ => return None,
+        })
+    }
+
+    /// How far down the glyphs' alphabetic baseline moves, from the primary
+    /// font's rounded ascent and descent and its x-height, rounded to 1/64 px
+    /// as Chrome's layout units are.
+    fn shift(self, shaped: &Shaped) -> f64 {
+        let (a, d) = (shaped.ascent, shaped.descent);
+        let v = match self {
+            Baseline::Auto => 0.0,
+            Baseline::Central => (a - d) / 2.0,
+            Baseline::Middle => shaped.x_height / 2.0,
+            Baseline::Hanging => a * 0.8,
+            Baseline::TextBeforeEdge => a,
+            Baseline::TextAfterEdge => -d,
+            Baseline::Mathematical => a / 2.0,
+        };
+        (v * 64.0).round() / 64.0
+    }
+}
+
+/// The text properties that matter for layout, as computed for one element.
+#[derive(Clone, Debug)]
+struct Style {
+    families: Vec<FamilyEntry>,
+    size: f64,
+    weight: f32,
+    slant: Slant,
+    anchor: Anchor,
+    /// `dominant-baseline` (inherited).
+    dominant: Baseline,
+    /// `alignment-baseline` (not inherited).
+    alignment: Option<Baseline>,
+    letter_spacing: f64,
+    /// `xml:space="preserve"` or a preserving `white-space`.
+    preserve: bool,
+    /// `fill-rule: evenodd` is in effect; glyph outlines need nonzero.
+    evenodd: bool,
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Style {
+            families: vec![FamilyEntry::Generic(crate::GenericFamily::Serif)],
+            size: 16.0,
+            weight: 400.0,
+            slant: Slant::Normal,
+            anchor: Anchor::Start,
+            dominant: Baseline::Auto,
+            alignment: None,
+            letter_spacing: 0.0,
+            preserve: false,
+            evenodd: false,
+        }
+    }
+}
+
+impl Style {
+    /// The style a child element starts from.
+    fn inherited(&self) -> Style {
+        Style {
+            alignment: None,
+            ..self.clone()
+        }
+    }
+
+    /// The CSS `font` shorthand for this style, for the measurer.
+    fn css_font(&self) -> String {
+        let slant = match self.slant {
+            Slant::Normal => String::new(),
+            Slant::Italic => "italic ".into(),
+            Slant::Oblique(None) => "oblique ".into(),
+            Slant::Oblique(Some(deg)) => format!("oblique {deg}deg "),
+        };
+        format!(
+            "{slant}{} {}px {}",
+            self.weight,
+            self.size,
+            serialize_families(&self.families)
+        )
+    }
+
+    /// Applies an element's presentation attributes, then its `style`
+    /// declarations (which win), to the style it inherited.
+    fn apply(&mut self, node: Node<'_, '_>, parent: &Style) {
+        let mut decls: Vec<(String, String)> = Vec::new();
+        for a in node.attributes() {
+            let name = if a.namespace() == Some("http://www.w3.org/XML/1998/namespace")
+                && a.name() == "space"
+            {
+                "xml:space".to_string()
+            } else if a.namespace().is_none() {
+                a.name().to_ascii_lowercase()
+            } else {
+                continue;
+            };
+            if name != "style" {
+                decls.push((name, a.value().to_string()));
+            }
+        }
+        if let Some(style) = node.attribute("style") {
+            decls.extend(declarations(style));
+        }
+        // Font size first: `em` in the other properties refers to it.
+        for (name, value) in &decls {
+            if name == "font-size" || name == "font" {
+                self.property(name, value, parent);
+            }
+        }
+        for (name, value) in &decls {
+            if name != "font-size" && name != "font" {
+                self.property(name, value, parent);
+            }
+        }
+    }
+
+    fn property(&mut self, name: &str, value: &str, parent: &Style) {
+        let value = value.trim();
+        let lower = value.to_ascii_lowercase();
+        if lower == "inherit" {
+            match name {
+                "font-family" => self.families = parent.families.clone(),
+                "font-size" => self.size = parent.size,
+                "font-weight" => self.weight = parent.weight,
+                "font-style" => self.slant = parent.slant,
+                "text-anchor" => self.anchor = parent.anchor,
+                "dominant-baseline" => self.dominant = parent.dominant,
+                "letter-spacing" => self.letter_spacing = parent.letter_spacing,
+                _ => {}
+            }
+            return;
+        }
+        match name {
+            "font" => {
+                if let Some(spec) = FontSpec::parse(value) {
+                    self.families = spec.families;
+                    self.size = spec.size_px as f64;
+                    self.weight = spec.weight;
+                    self.slant = spec.slant;
+                }
+            }
+            "font-family" => {
+                if let Some(families) = parse_family_list(value).filter(|f| !f.is_empty()) {
+                    self.families = families;
+                }
+            }
+            "font-size" => {
+                if let Some(px) = svg_font_size(value, parent.size) {
+                    self.size = px;
+                }
+            }
+            "font-weight" => {
+                self.weight = match lower.as_str() {
+                    "normal" => 400.0,
+                    "bold" => 700.0,
+                    // CSS Fonts 4, relative weights.
+                    "bolder" => match parent.weight {
+                        w if w < 350.0 => 400.0,
+                        w if w < 550.0 => 700.0,
+                        w if w < 900.0 => 900.0,
+                        w => w,
+                    },
+                    "lighter" => match parent.weight {
+                        w if w < 100.0 => w,
+                        w if w < 550.0 => 100.0,
+                        w if w < 750.0 => 400.0,
+                        _ => 700.0,
+                    },
+                    _ => match lower.parse::<f32>() {
+                        Ok(w) if (1.0..=1000.0).contains(&w) => w,
+                        _ => self.weight,
+                    },
+                }
+            }
+            "font-style" => {
+                self.slant = match lower.as_str() {
+                    "normal" => Slant::Normal,
+                    "italic" => Slant::Italic,
+                    s if s.starts_with("oblique") => Slant::Oblique(None),
+                    _ => self.slant,
+                }
+            }
+            "text-anchor" => {
+                self.anchor = match lower.as_str() {
+                    "start" => Anchor::Start,
+                    "middle" => Anchor::Middle,
+                    "end" => Anchor::End,
+                    _ => self.anchor,
+                }
+            }
+            "dominant-baseline" => {
+                if let Some(b) = Baseline::parse(&lower) {
+                    self.dominant = b;
+                }
+            }
+            "alignment-baseline" => self.alignment = Baseline::parse(&lower),
+            "letter-spacing" => {
+                if lower == "normal" {
+                    self.letter_spacing = 0.0;
+                } else if let Some(px) = svg_length(&lower, self.size) {
+                    self.letter_spacing = px;
+                }
+            }
+            "xml:space" => self.preserve = lower == "preserve",
+            "white-space" => {
+                self.preserve = matches!(lower.as_str(), "pre" | "pre-wrap" | "break-spaces");
+            }
+            "fill-rule" => self.evenodd = lower == "evenodd",
+            _ => {}
+        }
+    }
+}
+
+/// `name: value` pairs of a declaration list, names lower-cased, `!important`
+/// dropped. Semicolons inside strings or parentheses don't split.
+fn declarations(css: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    let mut quote = None;
+    let mut parens = 0usize;
+    let b = css.as_bytes();
+    let mut i = 0;
+    while i <= b.len() {
+        let c = b.get(i).copied();
+        match (quote, c) {
+            (Some(q), Some(c)) if c == q => quote = None,
+            (Some(_), Some(b'\\')) => i += 1,
+            (Some(_), _) => {}
+            (None, Some(b'"' | b'\'')) => quote = c,
+            (None, Some(b'(')) => parens += 1,
+            (None, Some(b')')) => parens = parens.saturating_sub(1),
+            (None, Some(b';')) | (None, None) if parens == 0 || c.is_none() => {
+                let decl = &css[start..i.min(css.len())];
+                if let Some((name, value)) = decl.split_once(':') {
+                    let value = value.trim();
+                    let value = value
+                        .strip_suffix("!important")
+                        .map_or(value, str::trim_end);
+                    out.push((name.trim().to_ascii_lowercase(), value.to_string()));
+                }
+                start = i + 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    out
+}
+
+/// The style a `<text>` inherits from its ancestors.
+fn inherited_style(text: Node<'_, '_>) -> Style {
+    let mut chain: Vec<Node<'_, '_>> = text
+        .ancestors()
+        .skip(1)
+        .filter(|n| n.is_element())
+        .collect();
+    chain.reverse();
+    let mut style = Style::default();
+    for node in chain {
+        let parent = style.inherited();
+        let mut own = parent.clone();
+        own.apply(node, &parent);
+        style = own;
+    }
+    style.inherited()
+}
+
+/// One element of the text subtree with its character range and lists.
+struct Positioned {
+    chars: Range<usize>,
+    x: Vec<f64>,
+    y: Vec<f64>,
+    dx: Vec<f64>,
+    dy: Vec<f64>,
+}
+
+/// A text node's characters and computed style.
+struct TextRun {
+    chars: Range<usize>,
+    style: Style,
+}
+
+/// Everything collected from one `<text>` before layout.
+#[derive(Default)]
+struct Collected {
+    chars: Vec<char>,
+    /// Per character: may it collapse away (not preserved white space)?
+    collapsible: Vec<bool>,
+    /// Per character: index into `runs`.
+    run_of: Vec<usize>,
+    runs: Vec<TextRun>,
+    elements: Vec<Positioned>,
+    /// The last character is a collapsible space (leading spaces go too).
+    after_space: bool,
+}
+
+fn is_named(node: Node<'_, '_>, name: &str) -> bool {
+    node.is_element() && node.tag_name().name().eq_ignore_ascii_case(name)
+}
+
+/// A length list (`x="10 20,30"`); all of it is ignored if any item is invalid.
+fn length_list(value: Option<&str>, em: f64) -> Vec<f64> {
+    let Some(value) = value else {
+        return Vec::new();
+    };
+    let items: Option<Vec<f64>> = value
+        .split(|c: char| c.is_ascii_whitespace() || c == ',')
+        .filter(|t| !t.is_empty())
+        .map(|t| svg_length(t, em))
+        .collect();
+    items.unwrap_or_default()
+}
+
+fn collect(node: Node<'_, '_>, style: &Style, out: &mut Collected) {
+    let slot = out.elements.len();
+    let start = out.chars.len();
+    out.elements.push(Positioned {
+        chars: start..start,
+        x: length_list(node.attribute("x"), style.size),
+        y: length_list(node.attribute("y"), style.size),
+        dx: length_list(node.attribute("dx"), style.size),
+        dy: length_list(node.attribute("dy"), style.size),
+    });
+    for child in node.children() {
+        if child.is_text() {
+            let run = out.runs.len();
+            let first = out.chars.len();
+            for c in child.text().unwrap_or("").chars() {
+                let c = if matches!(c, '\n' | '\t' | '\r') {
+                    ' '
+                } else {
+                    c
+                };
+                if !style.preserve && c == ' ' && out.after_space {
+                    continue;
+                }
+                out.after_space = !style.preserve && c == ' ';
+                out.chars.push(c);
+                out.collapsible.push(!style.preserve);
+                out.run_of.push(run);
+            }
+            out.runs.push(TextRun {
+                chars: first..out.chars.len(),
+                style: style.clone(),
+            });
+        } else if is_named(child, "tspan") || is_named(child, "a") {
+            let parent = style.inherited();
+            let mut own = parent.clone();
+            own.apply(child, &parent);
+            collect(child, &own, out);
+        }
+        // <textPath>, <title>, <desc> and anything else: no rendered characters here.
+    }
+    out.elements[slot].chars.end = out.chars.len();
+}
+
+/// A shaped piece of text placed in the `<text>`'s user space.
+struct Segment {
+    /// Index of the text run (text node) it comes from.
+    run: usize,
+    /// Characters of the `<text>` this segment holds (read by the Chrome
+    /// position test).
+    #[cfg_attr(not(test), allow(dead_code))]
+    chars: Range<usize>,
+    x: f64,
+    y: f64,
+    shaped: Shaped,
+    /// Baseline shift (down) from `dominant-baseline`/`alignment-baseline`.
+    shift: f64,
+}
+
+/// The laid-out `<text>`: its segments and the string it shows.
+struct Laid {
+    segments: Vec<Segment>,
+    label: String,
+    runs: Vec<TextRun>,
+}
+
+fn layout(text: Node<'_, '_>, measurer: &TextMeasurer) -> Result<Laid, GfxError> {
+    let parent = inherited_style(text);
+    let mut style = parent.clone();
+    style.apply(text, &parent);
+    // Leading spaces are dropped as if a space came before.
+    let mut c = Collected {
+        after_space: true,
+        ..Collected::default()
+    };
+    collect(text, &style, &mut c);
+    // A trailing collapsible space goes.
+    if c.chars.last() == Some(&' ') && c.collapsible.last() == Some(&true) {
+        let n = c.chars.len() - 1;
+        c.chars.truncate(n);
+        c.run_of.truncate(n);
+        for r in &mut c.runs {
+            r.chars.end = r.chars.end.min(n);
+            r.chars.start = r.chars.start.min(n);
+        }
+        for e in &mut c.elements {
+            e.chars.end = e.chars.end.min(n);
+            e.chars.start = e.chars.start.min(n);
+        }
+    }
+    let n = c.chars.len();
+    // Positions per character; elements come in document order, so a
+    // descendant's list overrides its ancestors'.
+    let mut abs_x = vec![None; n];
+    let mut abs_y = vec![None; n];
+    let mut rel_x = vec![None; n];
+    let mut rel_y = vec![None; n];
+    for e in &c.elements {
+        for (list, target) in [
+            (&e.x, &mut abs_x),
+            (&e.y, &mut abs_y),
+            (&e.dx, &mut rel_x),
+            (&e.dy, &mut rel_y),
+        ] {
+            for (k, v) in list.iter().enumerate() {
+                match target.get_mut(e.chars.start + k) {
+                    Some(slot) if e.chars.start + k < e.chars.end => *slot = Some(*v),
+                    _ => break,
+                }
+            }
+        }
+    }
+
+    let mut segments: Vec<Segment> = Vec::new();
+    // (first segment, anchor) of each chunk.
+    let mut chunks: Vec<(usize, Anchor)> = Vec::new();
+    let (mut x, mut y) = (0.0f64, 0.0f64);
+    let mut i = 0;
+    while i < n {
+        let run = c.run_of[i];
+        let mut end = i + 1;
+        while end < n
+            && c.run_of[end] == run
+            && abs_x[end].is_none()
+            && abs_y[end].is_none()
+            && rel_x[end].is_none()
+            && rel_y[end].is_none()
+        {
+            end += 1;
+        }
+        if i == 0 || abs_x[i].is_some() || abs_y[i].is_some() {
+            chunks.push((segments.len(), c.runs[run].style.anchor));
+        }
+        x = abs_x[i].unwrap_or(x) + rel_x[i].unwrap_or(0.0);
+        y = abs_y[i].unwrap_or(y) + rel_y[i].unwrap_or(0.0);
+        let st = &c.runs[run].style;
+        let s: String = c.chars[i..end].iter().collect();
+        let shaped = measurer.shape(&s, &st.css_font(), st.letter_spacing as f32)?;
+        let shift = st.alignment.unwrap_or(st.dominant).shift(&shaped);
+        let advance = shaped.advance;
+        segments.push(Segment {
+            run,
+            chars: i..end,
+            x,
+            y,
+            shaped,
+            shift,
+        });
+        x += advance;
+        i = end;
+    }
+    // Anchor each chunk by its extent.
+    for (k, &(first, anchor)) in chunks.iter().enumerate() {
+        let last = chunks.get(k + 1).map_or(segments.len(), |c| c.0);
+        let Some(start) = segments.get(first).map(|s| s.x) else {
+            continue;
+        };
+        let end = segments[first..last]
+            .iter()
+            .map(|s| s.x + s.shaped.advance)
+            .fold(start, f64::max);
+        let dx = match anchor {
+            Anchor::Start => 0.0,
+            Anchor::Middle => -(end - start) / 2.0,
+            Anchor::End => -(end - start),
+        };
+        for s in &mut segments[first..last] {
+            s.x += dx;
+        }
+    }
+    Ok(Laid {
+        segments,
+        label: c.chars.iter().collect(),
+        runs: c.runs,
+    })
+}
+
+/// Outline path data for a run's glyphs, placed at `(x, y)` on the baseline.
+fn draw_segment(seg: &Segment, out: &mut String) {
+    let (ox, oy) = (seg.x, seg.y + seg.shift);
+    for run in &seg.shaped.runs {
+        let Ok(font) = skrifa::FontRef::from_index(run.font.data.as_ref(), run.font.index) else {
+            continue;
+        };
+        let outlines = font.outline_glyphs();
+        let coords: Vec<NormalizedCoord> = run
+            .coords
+            .iter()
+            .map(|&c| NormalizedCoord::from_bits(c))
+            .collect();
+        let location = LocationRef::new(&coords);
+        for &(id, gx, gy) in &run.glyphs {
+            let Some(glyph) = outlines.get(GlyphId::new(id)) else {
+                continue;
+            };
+            let mut pen = PathPen {
+                out,
+                x: ox + gx,
+                y: oy + gy,
+                skew: run.skew,
+            };
+            // Unhinted outlines at the font size: exact, and the same at any scale.
+            let _ = glyph.draw(
+                DrawSettings::unhinted(Size::new(run.size), location),
+                &mut pen,
+            );
+        }
+    }
+}
+
+/// Writes SVG path commands, y flipped (fonts are y up) and offset.
+struct PathPen<'a> {
+    out: &'a mut String,
+    x: f64,
+    y: f64,
+    skew: f64,
+}
+
+impl PathPen<'_> {
+    fn point(&mut self, x: f32, y: f32) {
+        let (x, y) = (x as f64, y as f64);
+        push_number(self.out, self.x + x + self.skew * y);
+        self.out.push(' ');
+        push_number(self.out, self.y - y);
+    }
+}
+
+impl OutlinePen for PathPen<'_> {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.out.push('M');
+        self.point(x, y);
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.out.push('L');
+        self.point(x, y);
+    }
+    fn quad_to(&mut self, cx0: f32, cy0: f32, x: f32, y: f32) {
+        self.out.push('Q');
+        self.point(cx0, cy0);
+        self.out.push(' ');
+        self.point(x, y);
+    }
+    fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) {
+        self.out.push('C');
+        self.point(cx0, cy0);
+        self.out.push(' ');
+        self.point(cx1, cy1);
+        self.out.push(' ');
+        self.point(x, y);
+    }
+    fn close(&mut self) {
+        self.out.push('Z');
+    }
+}
+
+/// A number with at most [`PATH_DECIMALS`] decimals, no trailing zeros and
+/// never `-0`.
+fn push_number(out: &mut String, v: f64) {
+    let scale = 10f64.powi(PATH_DECIMALS);
+    let r = (v * scale).round() / scale;
+    if r == 0.0 || !r.is_finite() {
+        out.push('0');
+        return;
+    }
+    let start = out.len();
+    let _ = write!(out, "{:.*}", PATH_DECIMALS as usize, r);
+    while out.ends_with('0') {
+        out.pop();
+    }
+    if out.ends_with('.') {
+        out.pop();
+    }
+    debug_assert!(out.len() > start);
+}
+
+/// The start tag of `node` renamed to `name` (keeping a namespace prefix),
+/// without the `drop` attributes, with `extra` appended; and whether the
+/// original was self-closing.
+fn start_tag(
+    node: Node<'_, '_>,
+    input: &str,
+    name: &str,
+    drop: &[&str],
+    extra: &str,
+) -> (String, bool) {
+    let start = node.range().start;
+    let qname_len = input[start + 1..]
+        .find(|c: char| c.is_ascii_whitespace() || c == '/' || c == '>')
+        .unwrap_or(0);
+    let qname = &input[start + 1..start + 1 + qname_len];
+    let prefix = qname.rfind(':').map_or("", |k| &qname[..=k]);
+    let mut pos = start + 1 + qname_len;
+    let attrs_end = node
+        .attributes()
+        .map(|a| a.range().end)
+        .fold(pos, usize::max);
+    let mut out = format!("<{prefix}{name}");
+    for a in node.attributes() {
+        let r = a.range();
+        let drop_it =
+            a.namespace().is_none() && drop.contains(&a.name().to_ascii_lowercase().as_str());
+        if drop_it {
+            out.push_str(input[pos..r.start].trim_end());
+        } else {
+            out.push_str(&input[pos..r.end]);
+        }
+        pos = r.end;
+    }
+    let tag_end = input[attrs_end..]
+        .find('>')
+        .map_or(input.len(), |k| attrs_end + k);
+    let self_closing = input[attrs_end..tag_end].trim_end().ends_with('/');
+    out.push_str(extra);
+    out.push_str(if self_closing { "/>" } else { ">" });
+    (out, self_closing)
+}
+
+/// What one SVG has used of [`MAX_OUTLINE_CHARS`] and [`MAX_OUTLINE_BYTES`].
+#[derive(Default)]
+struct Budget {
+    chars: usize,
+    bytes: usize,
+}
+
+fn convert_text(
+    text: Node<'_, '_>,
+    input: &str,
+    measurer: &TextMeasurer,
+    budget: &mut Budget,
+) -> Result<String, GfxError> {
+    // Count before shaping, so a flood of text costs nothing.
+    budget.chars += text
+        .descendants()
+        .filter(|n| n.is_text())
+        .filter_map(|n| n.text())
+        .map(|t| t.chars().filter(|c| !c.is_whitespace()).count())
+        .sum::<usize>();
+    if budget.chars > MAX_OUTLINE_CHARS {
+        return Err(invalid(format!(
+            "more than {MAX_OUTLINE_CHARS} characters of text to outline"
+        )));
+    }
+    let laid = layout(text, measurer)?;
+    // Path data per text run.
+    let mut paths = vec![String::new(); laid.runs.len()];
+    for seg in &laid.segments {
+        draw_segment(seg, &mut paths[seg.run]);
+    }
+    budget.bytes += paths.iter().map(String::len).sum::<usize>();
+    if budget.bytes > MAX_OUTLINE_BYTES {
+        return Err(invalid(format!(
+            "outlined text would exceed {} MiB",
+            MAX_OUTLINE_BYTES / (1024 * 1024)
+        )));
+    }
+    let in_clip_path = text.ancestors().any(|a| is_named(a, "clipPath"));
+    if in_clip_path {
+        // A clipPath may hold shapes but no <g>: one path for all the text.
+        let d: String = paths.concat();
+        let mut drop: Vec<&str> = POSITIONING.to_vec();
+        drop.push("aria-label");
+        let (mut tag, self_closing) = start_tag(text, input, "path", &drop, &format!(" d=\"{d}\""));
+        if !self_closing {
+            tag.truncate(tag.len() - 1);
+            tag.push_str("/>");
+        }
+        return Ok(tag);
+    }
+    let extra = if text.attribute("aria-label").is_some() {
+        String::new()
+    } else {
+        format!(
+            " role=\"img\" aria-label=\"{}\"",
+            escape_attribute(&laid.label, '"')
+        )
+    };
+    let (mut out, self_closing) = start_tag(text, input, "g", POSITIONING, &extra);
+    if self_closing {
+        return Ok(out);
+    }
+    let mut run = 0;
+    emit_children(text, input, &laid, &paths, &mut run, &mut out);
+    out.push_str(&format!("</{}>", end_qname(text, input, "g")));
+    Ok(out)
+}
+
+/// `g` (or `prefix:g`) for an element written with a namespace prefix.
+fn end_qname(node: Node<'_, '_>, input: &str, name: &str) -> String {
+    let start = node.range().start + 1;
+    let qname_len = input[start..]
+        .find(|c: char| c.is_ascii_whitespace() || c == '/' || c == '>')
+        .unwrap_or(0);
+    let qname = &input[start..start + qname_len];
+    match qname.rfind(':') {
+        Some(k) => format!("{}{name}", &qname[..=k]),
+        None => name.to_string(),
+    }
+}
+
+fn emit_children(
+    node: Node<'_, '_>,
+    input: &str,
+    laid: &Laid,
+    paths: &[String],
+    run: &mut usize,
+    out: &mut String,
+) {
+    for child in node.children() {
+        if child.is_text() {
+            let d = paths.get(*run).map_or("", String::as_str);
+            let evenodd = laid.runs.get(*run).is_some_and(|r| r.style.evenodd);
+            *run += 1;
+            if !d.is_empty() {
+                out.push_str("<path");
+                if evenodd {
+                    out.push_str(" fill-rule=\"nonzero\"");
+                }
+                out.push_str(" d=\"");
+                out.push_str(d);
+                out.push_str("\"/>");
+            }
+        } else if is_named(child, "tspan") {
+            let mut drop: Vec<&str> = POSITIONING.to_vec();
+            drop.extend_from_slice(TSPAN_IGNORED);
+            let (tag, self_closing) = start_tag(child, input, "g", &drop, "");
+            out.push_str(&tag);
+            if !self_closing {
+                emit_children(child, input, laid, paths, run, out);
+                out.push_str(&format!("</{}>", end_qname(child, input, "g")));
+            }
+        } else if is_named(child, "a") {
+            let (tag, self_closing) = start_tag(child, input, "a", &[], "");
+            out.push_str(&tag);
+            if !self_closing {
+                emit_children(child, input, laid, paths, run, out);
+                out.push_str(&format!("</{}>", end_qname(child, input, "a")));
+            }
+        } else if is_named(child, "title") || is_named(child, "desc") {
+            // Already sanitized; keeps the text's accessible description.
+            out.push_str(&input[child.range()]);
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use crate::FontSet;
+
+    pub(crate) fn test_measurer() -> TextMeasurer {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/");
+        let mut fonts = FontSet::new();
+        for f in [
+            "NotoSans-Regular.ttf",
+            "NotoSans-Bold.ttf",
+            "NotoSansJP-Regular.otf",
+            "NotoSansJP-Bold.otf",
+        ] {
+            fonts
+                .add_font_bytes(std::fs::read(format!("{dir}{f}")).unwrap())
+                .unwrap();
+        }
+        TextMeasurer::new(fonts)
+    }
+
+    /// Chrome positions SVG text in 1/64 px layout units and rounds each
+    /// advance to them, so its positions drift from the exact (Parley, float)
+    /// ones by up to 1/128 px per character before. Parley's own advances
+    /// equal measureText's to 0.0007 px (tests/measure_text.rs).
+    const X_TOLERANCE_PER_CHAR: f64 = 1.0 / 64.0;
+    /// Baselines: both sides round the same metrics; Chrome to 1/64 px.
+    const BASELINE_TOLERANCE: f64 = 1.0 / 64.0;
+
+    /// Every character of every `<text>` in `tests/data/chrome_svg_text.json`
+    /// (Chromium 153, `tests/chrome/svg_text.mjs`) lands where Chrome puts it.
+    #[test]
+    fn layout_matches_chrome() {
+        let reference: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/data/chrome_svg_text.json")).unwrap();
+        let m = test_measurer();
+        let (mut worst_x, mut worst_base, mut count) = (0.0f64, 0.0f64, 0);
+        let mut failures = Vec::new();
+        for case in reference["cases"].as_array().unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let svg = format!(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\">{}</svg>",
+                case["svg"].as_str().unwrap()
+            );
+            let doc = Document::parse(&svg).unwrap();
+            let texts: Vec<_> = doc.descendants().filter(|n| is_named(*n, "text")).collect();
+            let expected = case["texts"].as_array().unwrap();
+            assert_eq!(texts.len(), expected.len(), "{name}");
+            for (node, want) in texts.into_iter().zip(expected) {
+                let laid = layout(node, &m).unwrap();
+                let chars = want["chars"].as_array().unwrap();
+                assert_eq!(
+                    laid.label.chars().count(),
+                    chars.len(),
+                    "{name}: {:?} vs Chrome's {} characters",
+                    laid.label,
+                    chars.len()
+                );
+                for seg in &laid.segments {
+                    for (k, i) in seg.chars.clone().enumerate() {
+                        let c = &seg.shaped.chars[k];
+                        let w = &chars[i];
+                        let f = |v: &serde_json::Value, j: usize| {
+                            v.as_array().unwrap()[j].as_f64().unwrap()
+                        };
+                        let (sx, ex) = (f(&w["start"], 0), f(&w["end"], 0));
+                        let (ey, eh) = (f(&w["extent"], 1), f(&w["extent"], 3));
+                        let start = seg.x + c.x;
+                        let end = start + c.advance;
+                        let baseline = seg.y + seg.shift;
+                        let tol_x = X_TOLERANCE_PER_CHAR * (i + 1) as f64;
+                        let dx = (start - sx).abs().max((end - ex).abs());
+                        // Chrome's extent is the primary font's box, for
+                        // fallback glyphs too.
+                        let (a, d) = (seg.shaped.ascent, seg.shaped.descent);
+                        let db = (baseline - a - ey).abs();
+                        let dh = (a + d - eh).abs();
+                        worst_x = worst_x.max(dx);
+                        worst_base = worst_base.max(db);
+                        count += 1;
+                        if dx > tol_x || db > BASELINE_TOLERANCE || dh > 0.0 {
+                            failures.push(format!(
+                                "{name} {:?}[{i}]: start {start:.4} end {end:.4} baseline {baseline:.4} box {} vs Chrome start {sx} end {ex} extent y {ey} h {eh}",
+                                laid.label,
+                                a + d
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        println!(
+            "{count} characters: max x deviation {worst_x:.4} px, max baseline deviation {worst_base:.4} px"
+        );
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// Outlines advance exactly as measureText measures: same shaping code,
+    /// same bits, for Latin, Japanese and mixed text.
+    #[test]
+    fn outline_advance_equals_measure() {
+        let m = test_measurer();
+        for (text, font) in [
+            ("Revenue 2026", "12px 'Noto Sans'"),
+            ("AVATAR office", "bold 13.5px 'Noto Sans'"),
+            ("売上高（百万円）", "14px 'Noto Sans JP'"),
+            ("Sales 売上 2026年", "12px 'Noto Sans', 'Noto Sans JP'"),
+            ("Italic 日本", "italic 16px 'Noto Sans'"),
+        ] {
+            let measured = m.measure(text, font).unwrap().width;
+            let shaped = m.shape(text, font, 0.0).unwrap().advance;
+            assert_eq!(shaped.to_bits(), measured.to_bits(), "{text} in {font}");
+            // Through the SVG path: a <text> anchored at its end starts
+            // exactly one measured width to the left.
+            let svg = format!(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\"><text x=\"100\" text-anchor=\"end\" style=\"font:{}\">{text}</text></svg>",
+                font.replace('\'', "&apos;")
+            );
+            let doc = Document::parse(&svg).unwrap();
+            let node = doc.descendants().find(|n| is_named(*n, "text")).unwrap();
+            let laid = layout(node, &m).unwrap();
+            assert_eq!(laid.segments.len(), 1);
+            assert_eq!(laid.segments[0].x, 100.0 - measured, "{text}");
+        }
+    }
+
+    #[test]
+    fn output_keeps_structure_paint_and_meaning() {
+        let m = test_measurer();
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><g fill-rule=\"evenodd\">\
+            <text id=\"t\" class=\"c\" x=\"10\" y=\"20\" fill=\"red\" transform=\"rotate(5)\" font-family=\"'Noto Sans'\" font-size=\"12\">Hi &amp; <tspan font-weight=\"bold\" fill=\"blue\" dx=\"3\" opacity=\"0.5\">bye</tspan><title>tip</title></text>\
+            <clipPath id=\"k\"><text x=\"1\" y=\"9\" font-size=\"8\">clip</text></clipPath><text/></g></svg>";
+        let out = outline_text(svg, &m).unwrap();
+        let doc = Document::parse(&out).unwrap();
+        assert!(
+            !doc.descendants()
+                .any(|n| is_named(n, "text") || is_named(n, "tspan"))
+        );
+        let g = doc
+            .descendants()
+            .find(|n| n.attribute("id") == Some("t"))
+            .unwrap();
+        assert!(g.has_tag_name("g"));
+        assert_eq!(g.attribute("class"), Some("c"));
+        assert_eq!(g.attribute("fill"), Some("red"));
+        assert_eq!(g.attribute("transform"), Some("rotate(5)"));
+        assert_eq!(g.attribute("role"), Some("img"));
+        assert_eq!(g.attribute("aria-label"), Some("Hi & bye"));
+        assert_eq!(g.attribute("x"), None);
+        let kids: Vec<_> = g.children().filter(|n| n.is_element()).collect();
+        assert_eq!(kids.len(), 3, "path, tspan group, title");
+        assert!(kids[0].has_tag_name("path"));
+        assert_eq!(kids[0].attribute("fill-rule"), Some("nonzero"));
+        assert!(kids[1].has_tag_name("g"));
+        assert_eq!(kids[1].attribute("fill"), Some("blue"));
+        assert_eq!(kids[1].attribute("dx"), None);
+        assert_eq!(
+            kids[1].attribute("opacity"),
+            None,
+            "opacity does not apply to tspan"
+        );
+        assert!(kids[2].has_tag_name("title"));
+        // In a clipPath, one bare path.
+        let clip = doc
+            .descendants()
+            .find(|n| n.attribute("id") == Some("k"))
+            .unwrap();
+        let p = clip.first_element_child().unwrap();
+        assert!(p.has_tag_name("path") && p.attribute("d").unwrap().len() > 20);
+        // An empty <text/> stays an (empty) labelled group.
+        assert!(out.contains("<g role=\"img\" aria-label=\"\"/>"));
+    }
+
+    /// A flood of text is a typed error before anything is shaped.
+    #[test]
+    fn too_much_text_is_an_error_not_a_blowup() {
+        let m = test_measurer();
+        let svg = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\">{}</svg>",
+            "<text>鬱</text>".repeat(MAX_OUTLINE_CHARS + 1)
+        );
+        let err = outline_text(&svg, &m).unwrap_err();
+        assert!(matches!(err, GfxError::InvalidSvg { .. }), "{err}");
+        // Just under the limit is fine (and spaces don't count).
+        let svg = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>{}</text></svg>",
+            "a ".repeat(2000)
+        );
+        assert!(outline_text(&svg, &m).is_ok());
+    }
+
+    #[test]
+    fn numbers_are_fixed_precision() {
+        let mut s = String::new();
+        for v in [0.0, -0.0001, 1.0, 1.5, -2.25, 1.23456, 12.005, 1e-9, -7.999] {
+            push_number(&mut s, v);
+            s.push(' ');
+        }
+        assert_eq!(s, "0 0 1 1.5 -2.25 1.23 12.01 0 -8 ");
+    }
+
+    #[test]
+    fn declarations_split_like_css() {
+        assert_eq!(
+            declarations("font-size:12px; font-family: 'a;b', c !important;;x"),
+            vec![
+                ("font-size".to_string(), "12px".to_string()),
+                ("font-family".to_string(), "'a;b', c".to_string()),
+            ]
+        );
+    }
+}

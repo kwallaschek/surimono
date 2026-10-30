@@ -1,0 +1,37 @@
+# The Grover benchmark: time and peak memory, Grover (Chrome) against surimono and
+# fulgur, on the reference report. Every speed or memory claim in the README comes
+# from here. The work is in scripts/ci/bench.sh and bench/.
+name: bench
+
+on:
+  push:
+    branches: [main, "release/**"]
+    paths: ["crates/**", "bench/**", "Cargo.lock", "scripts/ci/bench.sh"]
+  schedule:
+    - cron: "15 18 * * *" # 03:15 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish results to the ci-results branch
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_TARGET_DIR: target
+
+jobs:
+  grover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      - run: scripts/ci/job.sh bench scripts/ci/bench.sh
+      - if: always()
+        run: scripts/ci/publish-results.sh "${{ job.status }}"
