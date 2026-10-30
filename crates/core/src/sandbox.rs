@@ -6,6 +6,7 @@ use std::sync::{Arc, OnceLock};
 use rquickjs::context::EvalOptions;
 use rquickjs::context::intrinsic;
 use rquickjs::function::{IntoArgs, Rest};
+use rquickjs::promise::PromiseState;
 use rquickjs::{Context, Ctx, FromJs, Function, Object, Runtime, Value};
 
 use crate::engine::{self, LimitAllocator, LimitState};
@@ -373,6 +374,42 @@ impl Sandbox {
     where
         F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<R>,
     {
+        self.execute(|ctx, state| {
+            let v = f(ctx)?;
+            drain_jobs(ctx, state)?;
+            Ok(v)
+        })
+    }
+
+    /// Like [`run`](Self::run), for code that may produce a Promise.
+    ///
+    /// `f` returns a value; after the microtasks have run, a fulfilled
+    /// promise is replaced by its value and a rejected one fails like a thrown
+    /// exception. `then` converts the final value. One time budget covers
+    /// all of it. A promise still pending once nothing is left to run fails
+    /// with [`SandboxError::Type`] (the sandbox has no timers or I/O, so it
+    /// would never settle).
+    pub fn run_await<R, F, G>(&mut self, f: F, then: G) -> Result<R, SandboxError>
+    where
+        F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<Value<'js>>,
+        G: for<'js> FnOnce(&Ctx<'js>, Value<'js>) -> rquickjs::Result<R>,
+    {
+        self.execute(|ctx, state| {
+            let v = f(ctx)?;
+            drain_jobs(ctx, state)?;
+            let v = settle(v)?;
+            let r = then(ctx, v)?;
+            drain_jobs(ctx, state)?;
+            Ok(r)
+        })
+    }
+
+    /// Enters the context with the deadline armed, runs `body`, classifies
+    /// its error, and rebuilds the sandbox after a limit error.
+    fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
+    where
+        B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
+    {
         let Some(ctx) = self.ctx.clone() else {
             return Err(SandboxError::Engine {
                 message: "the sandbox has no context; a reset failed".into(),
@@ -382,8 +419,7 @@ impl Sandbox {
         state.arm(self.options.limits.time);
         let result = ctx.with(|ctx| {
             engine::update_stack_top(&ctx);
-            let out = f(&ctx).and_then(|v| drain_jobs(&ctx, state).map(|()| v));
-            out.map_err(|e| classify(&ctx, state, e))
+            body(&ctx, state).map_err(|e| classify(&ctx, state, e))
         });
         state.disarm();
         if let Err(e) = &result {
@@ -504,6 +540,26 @@ fn string_result(v: Value<'_>) -> rquickjs::Result<String> {
             from: found,
             to: "string",
             message: Some(format!("expected a string result, got {found}")),
+        }),
+    }
+}
+
+/// Replaces a settled promise by its value; other values pass through.
+fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
+    let Some(promise) = v.as_promise() else {
+        return Ok(v);
+    };
+    match promise.state() {
+        PromiseState::Resolved | PromiseState::Rejected => promise
+            .result::<Value<'_>>()
+            .unwrap_or(Err(rquickjs::Error::Unknown)),
+        PromiseState::Pending => Err(rquickjs::Error::FromJs {
+            from: "pending promise",
+            to: "value",
+            message: Some(
+                "the promise never settled: nothing was left to run (the sandbox has no timers or I/O)"
+                    .into(),
+            ),
         }),
     }
 }
@@ -1195,6 +1251,53 @@ mod tests {
         assert_eq!(
             sb.eval::<()>("const a = []; for (;;) a.push({})"),
             Err(SandboxError::MemoryLimit)
+        );
+    }
+
+    #[test]
+    fn run_await_settles_promises() {
+        let mut sb = sandbox();
+        let to_string = |_: &Ctx<'_>, v: Value<'_>| string_result(v);
+        // A plain value passes through.
+        assert_eq!(
+            sb.run_await(|ctx| ctx.eval("'plain'"), to_string).unwrap(),
+            "plain"
+        );
+        // A promise resolved through several microtasks.
+        assert_eq!(
+            sb.run_await(
+                |ctx| ctx.eval("(async () => { await null; await 1; return 'later' })()"),
+                to_string
+            )
+            .unwrap(),
+            "later"
+        );
+        // A rejection is an exception.
+        match sb
+            .run_await(
+                |ctx| ctx.eval("Promise.reject(new RangeError('no'))"),
+                to_string,
+            )
+            .unwrap_err()
+        {
+            SandboxError::Exception { message, .. } => assert_eq!(message, "RangeError: no"),
+            other => panic!("{other:?}"),
+        }
+        // A promise nothing will ever settle.
+        match sb
+            .run_await(|ctx| ctx.eval("new Promise(() => {})"), to_string)
+            .unwrap_err()
+        {
+            SandboxError::Type { message } => assert!(message.contains("never settled")),
+            other => panic!("{other:?}"),
+        }
+        // Limits still apply, and the budget covers the awaiting.
+        assert_eq!(
+            sb.run_await(
+                |ctx| ctx.eval("(async () => { for (;;) await null })()"),
+                to_string
+            ),
+            Err(SandboxError::TimeLimit)
         );
     }
 
