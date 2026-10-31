@@ -1,0 +1,12 @@
+{
+  "title": { "text": "月別売上高（百万円）", "subtext": "東京・大阪・名古屋" },
+  "legend": { "data": ["東京", "大阪", "名古屋"], "top": "bottom" },
+  "tooltip": { "trigger": "axis" },
+  "xAxis": { "type": "category", "data": ["1月", "2月", "3月", "4月", "5月", "6月"] },
+  "yAxis": { "type": "value", "name": "売上" },
+  "series": [
+    { "name": "東京", "type": "bar", "data": [320, 302, 341, 374, 390, 450] },
+    { "name": "大阪", "type": "bar", "data": [220, 182, 191, 234, 290, 330] },
+    { "name": "名古屋", "type": "line", "data": [150, 232, 201, 154, 190, 330], "label": { "show": true } }
+  ]
+}
