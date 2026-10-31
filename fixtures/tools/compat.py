@@ -159,6 +159,8 @@ def failed_checks(score: dict) -> list[str]:
                 names.append(n)
     if score.get("text") and not score["text"].get("pass", True):
         names.append("text")
+    if score.get("font") and not score["font"].get("pass", True):
+        names.append("font")
     return names
 
 
@@ -182,6 +184,10 @@ def check_detail(score: dict, check: str) -> str:
         t = score.get("text", {})
         parts = [f"{len(t[k])} {k}" for k in ("missing", "extra") if t.get(k)]
         return f"text: {', '.join(parts) or 'differs'}"
+    if check == "font":
+        mm = score.get("font", {}).get("mismatches", [])
+        first = f" ({mm[0].get('key')}: Chrome {mm[0].get('chrome')}, surimono {mm[0].get('surimono')})" if mm else ""
+        return f"font: {len(mm)} differ{first}"
     if check == "size":
         sizes = [f"{p.get('actual_size')} vs Chrome {p.get('expected_size')}" for p in pages if p.get("size_match") is False]
         return f"size {sizes[0]}" if sizes else "size"
@@ -221,7 +227,7 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict], determinism: dic
     lines += [
         "Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the whole page printed by surimono + fulgur, "
         "against the Chrome references (`fixtures/README.md`, \"Which comparison gates what\"). A pass shows the shape score (worst window); "
-        "a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, size).",
+        "a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, font weight or style, size).",
         "",
         "| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) | Byte-identical (two processes) |",
         "|---|---|---|---|---|---|",
