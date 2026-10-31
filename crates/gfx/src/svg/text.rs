@@ -17,8 +17,22 @@
 //! Not supported (the text keeps its position on a straight baseline):
 //! `rotate`, `textLength`, `<textPath>` (its content is dropped), vertical
 //! writing modes, `word-spacing`, `baseline-shift`, text decoration, synthetic
-//! bold, font properties set only by `<style>` rules, and fonts inherited
-//! from the page outside the SVG (the defaults are 16px and `serif`).
+//! bold, and fonts inherited from the page outside the SVG (the defaults are
+//! 16px and `serif`). A `<text>` inside `<symbol>` or `<defs>` takes its
+//! inherited font from where it is defined, not from the `<use>` that shows
+//! it. (`<style>` is removed by the sanitiser, so only presentation
+//! attributes and `style` attributes set fonts.)
+//!
+//! Bounded against hostile islands, which run on the host after the
+//! island's script limits: at most [`MAX_OUTLINE_CHARS`] shaped characters
+//! (every character that is shaped counts, spaces that survive collapsing
+//! too) and [`MAX_OUTLINE_TEXTS`] `<text>` elements per SVG, at most
+//! [`MAX_OUTLINE_BYTES`] of path data (checked as it is written, so memory
+//! peaks at the budget plus one path command), each element's style parsed
+//! once (styles over 64 KiB are not read; the sanitiser drops them), and
+//! only glyphs within [`MAX_TEXT_COORD`] px of the origin drawn (beyond that
+//! no page shows them, and path numbers stay short). Going over
+//! a limit is [`GfxError::InvalidSvg`].
 
 use std::fmt::Write as _;
 use std::ops::Range;
@@ -26,14 +40,15 @@ use std::ops::Range;
 use roxmltree::{Document, Node, ParsingOptions};
 use skrifa::instance::{LocationRef, NormalizedCoord, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
+use skrifa::string::StringId;
 use skrifa::{GlyphId, MetadataProvider};
 
-use super::{MAX_SVG_NODES, Ns, Visit, escape_attribute, invalid, walk};
+use super::{MAX_SVG_NODES, Ns, Visit, css, escape_attribute, invalid, walk};
 use crate::GfxError;
 use crate::css_font::{
     FamilyEntry, FontSpec, Slant, parse_family_list, serialize_families, svg_font_size, svg_length,
 };
-use crate::measure::{Shaped, TextMeasurer};
+use crate::measure::{Shaped, ShapedRun, TextMeasurer};
 
 /// Decimal places in outline path data. A hundredth of a CSS px is far below
 /// what a printer or rasteriser resolves, and fixed precision keeps the
@@ -48,6 +63,33 @@ pub const MAX_OUTLINE_CHARS: usize = 20_000;
 
 /// Most bytes of outline path data one SVG may produce.
 const MAX_OUTLINE_BYTES: usize = 32 * 1024 * 1024;
+
+/// Most `<text>` elements (empty ones too) one SVG may have outlined. Dense
+/// charts have a few hundred labels.
+const MAX_OUTLINE_TEXTS: usize = 20_000;
+
+/// Text placed farther than this from its user-space origin (px) is not
+/// drawn: no page shows it, and it keeps every path number under 12 bytes.
+const MAX_TEXT_COORD: f64 = 1e7;
+
+/// Lengths (`x`, `dy`, `letter-spacing`, ...) are clamped to this, far
+/// outside [`MAX_TEXT_COORD`], so arithmetic on them stays finite.
+const MAX_TEXT_LENGTH: f64 = 1e9;
+
+/// The properties (attribute or `style`) that outlining reads.
+const TEXT_PROPERTIES: &[&str] = &[
+    "font",
+    "font-family",
+    "font-size",
+    "font-weight",
+    "font-style",
+    "text-anchor",
+    "dominant-baseline",
+    "alignment-baseline",
+    "letter-spacing",
+    "xml:space",
+    "white-space",
+];
 
 /// Attributes that position text; they mean nothing on the `<g>` that
 /// replaces a `<text>` or `<tspan>`.
@@ -73,18 +115,38 @@ pub(crate) fn outline_text(svg: &str, measurer: &TextMeasurer) -> Result<String,
     let mut edits: Vec<(Range<usize>, String)> = Vec::new();
     let mut inside_text_until = 0;
     let mut budget = Budget::default();
+    // Computed styles of the open ancestors (end of element, style), top
+    // down: each element's attributes are parsed once.
+    let mut styles: Vec<(usize, Style)> = Vec::new();
     walk(root, svg, |visit| {
         if let Visit::Element { node, ns, .. } = visit {
-            if node.range().start < inside_text_until || ns != Ns::Svg {
+            let r = node.range();
+            if r.start < inside_text_until || ns != Ns::Svg {
                 return Ok(());
             }
+            while styles.last().is_some_and(|(end, _)| *end <= r.start) {
+                styles.pop();
+            }
+            let parent = styles
+                .last()
+                .map_or_else(Style::default, |(_, s)| s.inherited());
             // An HTML parser lower-cases tag names, so <TEXT> is SVG text too.
             if node.tag_name().name().eq_ignore_ascii_case("text") {
+                budget.texts += 1;
+                if budget.texts > MAX_OUTLINE_TEXTS {
+                    return Err(invalid(format!(
+                        "more than {MAX_OUTLINE_TEXTS} text elements to outline"
+                    )));
+                }
                 edits.push((
-                    node.range(),
-                    convert_text(node, svg, measurer, &mut budget)?,
+                    r.clone(),
+                    convert_text(node, &parent, svg, measurer, &mut budget)?,
                 ));
-                inside_text_until = node.range().end;
+                inside_text_until = r.end;
+            } else {
+                let mut own = parent.clone();
+                own.apply(node, &parent);
+                styles.push((r.end, own));
             }
         }
         Ok(())
@@ -168,8 +230,6 @@ struct Style {
     letter_spacing: f64,
     /// `xml:space="preserve"` or a preserving `white-space`.
     preserve: bool,
-    /// `fill-rule: evenodd` is in effect; glyph outlines need nonzero.
-    evenodd: bool,
 }
 
 impl Default for Style {
@@ -184,7 +244,6 @@ impl Default for Style {
             alignment: None,
             letter_spacing: 0.0,
             preserve: false,
-            evenodd: false,
         }
     }
 }
@@ -228,12 +287,14 @@ impl Style {
             } else {
                 continue;
             };
-            if name != "style" {
+            if TEXT_PROPERTIES.contains(&name.as_str()) {
                 decls.push((name, a.value().to_string()));
             }
         }
         if let Some(style) = node.attribute("style") {
-            decls.extend(declarations(style));
+            decls.extend(css::declaration_pairs(style, |n| {
+                TEXT_PROPERTIES.contains(&n)
+            }));
         }
         // Font size first: `em` in the other properties refers to it.
         for (name, value) in &decls {
@@ -331,57 +392,22 @@ impl Style {
             "letter-spacing" => {
                 if lower == "normal" {
                     self.letter_spacing = 0.0;
-                } else if let Some(px) = svg_length(&lower, self.size) {
-                    self.letter_spacing = px;
+                } else if let Some(px) = svg_length(&lower, self.size).filter(|v| v.is_finite()) {
+                    self.letter_spacing = px.clamp(-MAX_TEXT_LENGTH, MAX_TEXT_LENGTH);
                 }
             }
             "xml:space" => self.preserve = lower == "preserve",
             "white-space" => {
                 self.preserve = matches!(lower.as_str(), "pre" | "pre-wrap" | "break-spaces");
             }
-            "fill-rule" => self.evenodd = lower == "evenodd",
             _ => {}
         }
     }
 }
 
-/// `name: value` pairs of a declaration list, names lower-cased, `!important`
-/// dropped. Semicolons inside strings or parentheses don't split.
-fn declarations(css: &str) -> Vec<(String, String)> {
-    let mut out = Vec::new();
-    let mut start = 0;
-    let mut quote = None;
-    let mut parens = 0usize;
-    let b = css.as_bytes();
-    let mut i = 0;
-    while i <= b.len() {
-        let c = b.get(i).copied();
-        match (quote, c) {
-            (Some(q), Some(c)) if c == q => quote = None,
-            (Some(_), Some(b'\\')) => i += 1,
-            (Some(_), _) => {}
-            (None, Some(b'"' | b'\'')) => quote = c,
-            (None, Some(b'(')) => parens += 1,
-            (None, Some(b')')) => parens = parens.saturating_sub(1),
-            (None, Some(b';')) | (None, None) if parens == 0 || c.is_none() => {
-                let decl = &css[start..i.min(css.len())];
-                if let Some((name, value)) = decl.split_once(':') {
-                    let value = value.trim();
-                    let value = value
-                        .strip_suffix("!important")
-                        .map_or(value, str::trim_end);
-                    out.push((name.trim().to_ascii_lowercase(), value.to_string()));
-                }
-                start = i + 1;
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    out
-}
-
-/// The style a `<text>` inherits from its ancestors.
+/// The style a `<text>` inherits from its ancestors (for tests; outlining
+/// computes styles top down instead).
+#[cfg(test)]
 fn inherited_style(text: Node<'_, '_>) -> Style {
     let mut chain: Vec<Node<'_, '_>> = text
         .ancestors()
@@ -432,34 +458,57 @@ fn is_named(node: Node<'_, '_>, name: &str) -> bool {
     node.is_element() && node.tag_name().name().eq_ignore_ascii_case(name)
 }
 
-/// A length list (`x="10 20,30"`); all of it is ignored if any item is invalid.
-fn length_list(value: Option<&str>, em: f64) -> Vec<f64> {
+/// A length list (`x="10 20,30"`); all of it is ignored if any item is
+/// invalid. Values are clamped to [`MAX_TEXT_LENGTH`]. Only as many items as
+/// the element has characters matter: the rest are not kept.
+fn length_list(value: Option<&str>, em: f64, max_items: usize) -> Vec<f64> {
     let Some(value) = value else {
         return Vec::new();
     };
-    let items: Option<Vec<f64>> = value
+    let mut out = Vec::new();
+    for t in value
         .split(|c: char| c.is_ascii_whitespace() || c == ',')
         .filter(|t| !t.is_empty())
-        .map(|t| svg_length(t, em))
-        .collect();
-    items.unwrap_or_default()
+    {
+        match svg_length(t, em).filter(|v| v.is_finite()) {
+            Some(v) if out.len() < max_items => {
+                out.push(v.clamp(-MAX_TEXT_LENGTH, MAX_TEXT_LENGTH))
+            }
+            Some(_) => {}
+            None => return Vec::new(),
+        }
+    }
+    out
 }
 
-fn collect(node: Node<'_, '_>, style: &Style, out: &mut Collected) {
+/// Collects the characters of `node` and its `<tspan>`s. Fails once more
+/// than `limit` characters would be shaped.
+fn collect(
+    node: Node<'_, '_>,
+    style: &Style,
+    out: &mut Collected,
+    limit: usize,
+) -> Result<(), GfxError> {
     let slot = out.elements.len();
     let start = out.chars.len();
+    let max_items = limit + 1;
     out.elements.push(Positioned {
         chars: start..start,
-        x: length_list(node.attribute("x"), style.size),
-        y: length_list(node.attribute("y"), style.size),
-        dx: length_list(node.attribute("dx"), style.size),
-        dy: length_list(node.attribute("dy"), style.size),
+        x: length_list(node.attribute("x"), style.size, max_items),
+        y: length_list(node.attribute("y"), style.size, max_items),
+        dx: length_list(node.attribute("dx"), style.size, max_items),
+        dy: length_list(node.attribute("dy"), style.size, max_items),
     });
     for child in node.children() {
         if child.is_text() {
             let run = out.runs.len();
             let first = out.chars.len();
             for c in child.text().unwrap_or("").chars() {
+                // Every character that will be shaped counts, white space
+                // too (one more for a trailing space that may still go).
+                if out.chars.len() > limit {
+                    return Err(too_many_chars());
+                }
                 let c = if matches!(c, '\n' | '\t' | '\r') {
                     ' '
                 } else {
@@ -481,11 +530,18 @@ fn collect(node: Node<'_, '_>, style: &Style, out: &mut Collected) {
             let parent = style.inherited();
             let mut own = parent.clone();
             own.apply(child, &parent);
-            collect(child, &own, out);
+            collect(child, &own, out, limit)?;
         }
         // <textPath>, <title>, <desc> and anything else: no rendered characters here.
     }
     out.elements[slot].chars.end = out.chars.len();
+    Ok(())
+}
+
+fn too_many_chars() -> GfxError {
+    invalid(format!(
+        "more than {MAX_OUTLINE_CHARS} characters of text to outline"
+    ))
 }
 
 /// A shaped piece of text placed in the `<text>`'s user space.
@@ -510,16 +566,22 @@ struct Laid {
     runs: Vec<TextRun>,
 }
 
-fn layout(text: Node<'_, '_>, measurer: &TextMeasurer) -> Result<Laid, GfxError> {
-    let parent = inherited_style(text);
+/// Lays out a `<text>` whose ancestors give it `parent`, shaping at most
+/// `limit` characters.
+fn layout(
+    text: Node<'_, '_>,
+    parent: &Style,
+    measurer: &TextMeasurer,
+    limit: usize,
+) -> Result<Laid, GfxError> {
     let mut style = parent.clone();
-    style.apply(text, &parent);
+    style.apply(text, parent);
     // Leading spaces are dropped as if a space came before.
     let mut c = Collected {
         after_space: true,
         ..Collected::default()
     };
-    collect(text, &style, &mut c);
+    collect(text, &style, &mut c, limit)?;
     // A trailing collapsible space goes.
     if c.chars.last() == Some(&' ') && c.collapsible.last() == Some(&true) {
         let n = c.chars.len() - 1;
@@ -535,6 +597,9 @@ fn layout(text: Node<'_, '_>, measurer: &TextMeasurer) -> Result<Laid, GfxError>
         }
     }
     let n = c.chars.len();
+    if n > limit {
+        return Err(too_many_chars());
+    }
     // Positions per character; elements come in document order, so a
     // descendant's list overrides its ancestors'.
     let mut abs_x = vec![None; n];
@@ -581,7 +646,13 @@ fn layout(text: Node<'_, '_>, measurer: &TextMeasurer) -> Result<Laid, GfxError>
         y = abs_y[i].unwrap_or(y) + rel_y[i].unwrap_or(0.0);
         let st = &c.runs[run].style;
         let s: String = c.chars[i..end].iter().collect();
-        let shaped = measurer.shape(&s, &st.css_font(), st.letter_spacing as f32)?;
+        // At most MAX_OUTLINE_CHARS characters: never over MAX_TEXT_BYTES.
+        let shaped = measurer
+            .shape(&s, &st.css_font(), st.letter_spacing as f32)
+            .map_err(|e| match e {
+                GfxError::TextTooLong { .. } => too_many_chars(),
+                e => e,
+            })?;
         let shift = st.alignment.unwrap_or(st.dominant).shift(&shaped);
         let advance = shaped.advance;
         segments.push(Segment {
@@ -621,8 +692,62 @@ fn layout(text: Node<'_, '_>, measurer: &TextMeasurer) -> Result<Laid, GfxError>
     })
 }
 
+/// The face a run was shaped with, as its name table names it: family and
+/// style (typographic names first, e.g. `Noto Sans JP Bold`), with
+/// ` (synthetic oblique)` when the face was slanted to fake an italic, and
+/// the normalized variation coordinates (`[wght 0.5]`) of a variable face.
+fn face_name(run: &ShapedRun) -> String {
+    let Ok(font) = skrifa::FontRef::from_index(run.font.data.as_ref(), run.font.index) else {
+        return String::from("(unreadable face)");
+    };
+    let name = |ids: [StringId; 2]| {
+        ids.iter()
+            .find_map(|&id| font.localized_strings(id).english_or_first())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
+    };
+    let family = name([StringId::TYPOGRAPHIC_FAMILY_NAME, StringId::FAMILY_NAME]);
+    let style = name([
+        StringId::TYPOGRAPHIC_SUBFAMILY_NAME,
+        StringId::SUBFAMILY_NAME,
+    ]);
+    let mut out = format!("{family} {style}").trim().to_string();
+    if run.coords.iter().any(|&c| c != 0) {
+        let axes: Vec<String> = font
+            .axes()
+            .iter()
+            .zip(&run.coords)
+            .map(|(axis, &c)| format!("{} {}", axis.tag(), f64::from(c) / 16384.0))
+            .collect();
+        out.push_str(&format!(" [{}]", axes.join(", ")));
+    }
+    if run.skew != 0.0 {
+        out.push_str(" (synthetic oblique)");
+    }
+    out
+}
+
+/// The faces a laid-out `<text>` was shaped with, in order of first use.
+fn faces(laid: &Laid) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for run in laid.segments.iter().flat_map(|s| &s.shaped.runs) {
+        let name = face_name(run);
+        if !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    out
+}
+
+/// True if a glyph origin lies within [`MAX_TEXT_COORD`] of the origin.
+fn near(v: f64) -> bool {
+    v.is_finite() && v.abs() <= MAX_TEXT_COORD
+}
+
 /// Outline path data for a run's glyphs, placed at `(x, y)` on the baseline.
-fn draw_segment(seg: &Segment, out: &mut String) {
+/// Glyphs placed beyond [`MAX_TEXT_COORD`] are not drawn. Stops writing once
+/// `budget` is spent.
+fn draw_segment(seg: &Segment, out: &mut String, budget: &mut ByteBudget) {
     let (ox, oy) = (seg.x, seg.y + seg.shift);
     for run in &seg.shaped.runs {
         let Ok(font) = skrifa::FontRef::from_index(run.font.data.as_ref(), run.font.index) else {
@@ -636,6 +761,12 @@ fn draw_segment(seg: &Segment, out: &mut String) {
             .collect();
         let location = LocationRef::new(&coords);
         for &(id, gx, gy) in &run.glyphs {
+            if budget.over {
+                return;
+            }
+            if !(near(ox + gx) && near(oy + gy)) {
+                continue;
+            }
             let Some(glyph) = outlines.get(GlyphId::new(id)) else {
                 continue;
             };
@@ -644,6 +775,7 @@ fn draw_segment(seg: &Segment, out: &mut String) {
                 x: ox + gx,
                 y: oy + gy,
                 skew: run.skew,
+                budget,
             };
             // Unhinted outlines at the font size: exact, and the same at any scale.
             let _ = glyph.draw(
@@ -654,12 +786,21 @@ fn draw_segment(seg: &Segment, out: &mut String) {
     }
 }
 
-/// Writes SVG path commands, y flipped (fonts are y up) and offset.
+/// Bytes of path data one SVG may still write.
+struct ByteBudget {
+    left: usize,
+    over: bool,
+}
+
+/// Writes SVG path commands, y flipped (fonts are y up) and offset, and
+/// stops once the budget is spent: memory peaks at the budget plus one
+/// command (under 100 bytes, as every number is under 12).
 struct PathPen<'a> {
     out: &'a mut String,
     x: f64,
     y: f64,
     skew: f64,
+    budget: &'a mut ByteBudget,
 }
 
 impl PathPen<'_> {
@@ -669,33 +810,44 @@ impl PathPen<'_> {
         self.out.push(' ');
         push_number(self.out, self.y - y);
     }
+
+    /// Writes one command with `points`, if the budget allows.
+    fn command(&mut self, letter: char, points: &[(f32, f32)]) {
+        if self.budget.over {
+            return;
+        }
+        let before = self.out.len();
+        self.out.push(letter);
+        for (k, &(x, y)) in points.iter().enumerate() {
+            if k > 0 {
+                self.out.push(' ');
+            }
+            self.point(x, y);
+        }
+        let used = self.out.len() - before;
+        if used > self.budget.left {
+            self.budget.over = true;
+        } else {
+            self.budget.left -= used;
+        }
+    }
 }
 
 impl OutlinePen for PathPen<'_> {
     fn move_to(&mut self, x: f32, y: f32) {
-        self.out.push('M');
-        self.point(x, y);
+        self.command('M', &[(x, y)]);
     }
     fn line_to(&mut self, x: f32, y: f32) {
-        self.out.push('L');
-        self.point(x, y);
+        self.command('L', &[(x, y)]);
     }
     fn quad_to(&mut self, cx0: f32, cy0: f32, x: f32, y: f32) {
-        self.out.push('Q');
-        self.point(cx0, cy0);
-        self.out.push(' ');
-        self.point(x, y);
+        self.command('Q', &[(cx0, cy0), (x, y)]);
     }
     fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) {
-        self.out.push('C');
-        self.point(cx0, cy0);
-        self.out.push(' ');
-        self.point(cx1, cy1);
-        self.out.push(' ');
-        self.point(x, y);
+        self.command('C', &[(cx0, cy0), (cx1, cy1), (x, y)]);
     }
     fn close(&mut self) {
-        self.out.push('Z');
+        self.command('Z', &[]);
     }
 }
 
@@ -761,39 +913,48 @@ fn start_tag(
     (out, self_closing)
 }
 
-/// What one SVG has used of [`MAX_OUTLINE_CHARS`] and [`MAX_OUTLINE_BYTES`].
-#[derive(Default)]
+/// What one SVG has used of [`MAX_OUTLINE_CHARS`], [`MAX_OUTLINE_TEXTS`]
+/// and [`MAX_OUTLINE_BYTES`].
 struct Budget {
     chars: usize,
-    bytes: usize,
+    texts: usize,
+    bytes: ByteBudget,
 }
+
+impl Default for Budget {
+    fn default() -> Self {
+        Budget {
+            chars: 0,
+            texts: 0,
+            bytes: ByteBudget {
+                left: MAX_OUTLINE_BYTES,
+                over: false,
+            },
+        }
+    }
+}
+
+/// Outline paths keep the nonzero rule glyphs need, whatever the island or
+/// the page sets (`!important` in `style` beats any author rule).
+const NONZERO_FILL: &str = "fill-rule:nonzero!important";
+const NONZERO_CLIP: &str = "clip-rule:nonzero!important";
 
 fn convert_text(
     text: Node<'_, '_>,
+    parent: &Style,
     input: &str,
     measurer: &TextMeasurer,
     budget: &mut Budget,
 ) -> Result<String, GfxError> {
-    // Count before shaping, so a flood of text costs nothing.
-    budget.chars += text
-        .descendants()
-        .filter(|n| n.is_text())
-        .filter_map(|n| n.text())
-        .map(|t| t.chars().filter(|c| !c.is_whitespace()).count())
-        .sum::<usize>();
-    if budget.chars > MAX_OUTLINE_CHARS {
-        return Err(invalid(format!(
-            "more than {MAX_OUTLINE_CHARS} characters of text to outline"
-        )));
-    }
-    let laid = layout(text, measurer)?;
+    let limit = MAX_OUTLINE_CHARS - budget.chars.min(MAX_OUTLINE_CHARS);
+    let laid = layout(text, parent, measurer, limit)?;
+    budget.chars += laid.label.chars().count();
     // Path data per text run.
     let mut paths = vec![String::new(); laid.runs.len()];
     for seg in &laid.segments {
-        draw_segment(seg, &mut paths[seg.run]);
+        draw_segment(seg, &mut paths[seg.run], &mut budget.bytes);
     }
-    budget.bytes += paths.iter().map(String::len).sum::<usize>();
-    if budget.bytes > MAX_OUTLINE_BYTES {
+    if budget.bytes.over {
         return Err(invalid(format!(
             "outlined text would exceed {} MiB",
             MAX_OUTLINE_BYTES / (1024 * 1024)
@@ -802,30 +963,53 @@ fn convert_text(
     let in_clip_path = text.ancestors().any(|a| is_named(a, "clipPath"));
     if in_clip_path {
         // A clipPath may hold shapes but no <g>: one path for all the text.
+        // Its own rule comes first, so no unclosed block in the text's style
+        // can swallow it.
         let d: String = paths.concat();
         let mut drop: Vec<&str> = POSITIONING.to_vec();
-        drop.push("aria-label");
-        let (mut tag, self_closing) = start_tag(text, input, "path", &drop, &format!(" d=\"{d}\""));
+        drop.extend([
+            "aria-label",
+            "style",
+            "data-surimono-text",
+            "data-surimono-face",
+        ]);
+        let style = match text.attribute("style") {
+            Some(s) if !s.trim().is_empty() => format!("{NONZERO_CLIP};{s}"),
+            _ => NONZERO_CLIP.to_string(),
+        };
+        let extra = format!(" style=\"{}\" d=\"{d}\"", escape_attribute(&style, '"'));
+        let (mut tag, self_closing) = start_tag(text, input, "path", &drop, &extra);
         if !self_closing {
             tag.truncate(tag.len() - 1);
             tag.push_str("/>");
         }
         return Ok(tag);
     }
-    let extra = if text.attribute("aria-label").is_some() {
-        String::new()
-    } else {
-        format!(
-            " role=\"img\" aria-label=\"{}\"",
+    // The outlined string and the faces that drew it are always recorded
+    // (the conformance checks read them); the author's own label and role,
+    // if any, stay.
+    let mut extra = format!(
+        " data-surimono-text=\"{}\" data-surimono-face=\"{}\"",
+        escape_attribute(&laid.label, '"'),
+        escape_attribute(&faces(&laid).join(", "), '"')
+    );
+    if text.attribute("aria-label").is_none() {
+        if text.attribute("role").is_none() {
+            extra.push_str(" role=\"img\"");
+        }
+        extra.push_str(&format!(
+            " aria-label=\"{}\"",
             escape_attribute(&laid.label, '"')
-        )
-    };
-    let (mut out, self_closing) = start_tag(text, input, "g", POSITIONING, &extra);
+        ));
+    }
+    let mut drop: Vec<&str> = POSITIONING.to_vec();
+    drop.extend(["data-surimono-text", "data-surimono-face"]);
+    let (mut out, self_closing) = start_tag(text, input, "g", &drop, &extra);
     if self_closing {
         return Ok(out);
     }
     let mut run = 0;
-    emit_children(text, input, &laid, &paths, &mut run, &mut out);
+    emit_children(text, input, &paths, &mut run, &mut out);
     out.push_str(&format!("</{}>", end_qname(text, input, "g")));
     Ok(out)
 }
@@ -846,7 +1030,6 @@ fn end_qname(node: Node<'_, '_>, input: &str, name: &str) -> String {
 fn emit_children(
     node: Node<'_, '_>,
     input: &str,
-    laid: &Laid,
     paths: &[String],
     run: &mut usize,
     out: &mut String,
@@ -854,31 +1037,42 @@ fn emit_children(
     for child in node.children() {
         if child.is_text() {
             let d = paths.get(*run).map_or("", String::as_str);
-            let evenodd = laid.runs.get(*run).is_some_and(|r| r.style.evenodd);
             *run += 1;
             if !d.is_empty() {
-                out.push_str("<path");
-                if evenodd {
-                    out.push_str(" fill-rule=\"nonzero\"");
-                }
-                out.push_str(" d=\"");
+                out.push_str("<path style=\"");
+                out.push_str(NONZERO_FILL);
+                out.push_str("\" d=\"");
                 out.push_str(d);
                 out.push_str("\"/>");
             }
         } else if is_named(child, "tspan") {
+            // What a tspan ignores but a <g> would apply goes, from its
+            // attributes and from its style.
             let mut drop: Vec<&str> = POSITIONING.to_vec();
             drop.extend_from_slice(TSPAN_IGNORED);
-            let (tag, self_closing) = start_tag(child, input, "g", &drop, "");
+            drop.push("style");
+            let extra = match child.attribute("style") {
+                Some(s) => {
+                    let kept = css::remove_properties(s, TSPAN_IGNORED);
+                    if kept.trim().is_empty() {
+                        String::new()
+                    } else {
+                        format!(" style=\"{}\"", escape_attribute(&kept, '"'))
+                    }
+                }
+                None => String::new(),
+            };
+            let (tag, self_closing) = start_tag(child, input, "g", &drop, &extra);
             out.push_str(&tag);
             if !self_closing {
-                emit_children(child, input, laid, paths, run, out);
+                emit_children(child, input, paths, run, out);
                 out.push_str(&format!("</{}>", end_qname(child, input, "g")));
             }
         } else if is_named(child, "a") {
             let (tag, self_closing) = start_tag(child, input, "a", &[], "");
             out.push_str(&tag);
             if !self_closing {
-                emit_children(child, input, laid, paths, run, out);
+                emit_children(child, input, paths, run, out);
                 out.push_str(&format!("</{}>", end_qname(child, input, "a")));
             }
         } else if is_named(child, "title") || is_named(child, "desc") {
@@ -937,7 +1131,7 @@ pub(crate) mod tests {
             let expected = case["texts"].as_array().unwrap();
             assert_eq!(texts.len(), expected.len(), "{name}");
             for (node, want) in texts.into_iter().zip(expected) {
-                let laid = layout(node, &m).unwrap();
+                let laid = layout(node, &inherited_style(node), &m, MAX_OUTLINE_CHARS).unwrap();
                 let chars = want["chars"].as_array().unwrap();
                 assert_eq!(
                     laid.label.chars().count(),
@@ -1008,7 +1202,7 @@ pub(crate) mod tests {
             );
             let doc = Document::parse(&svg).unwrap();
             let node = doc.descendants().find(|n| is_named(*n, "text")).unwrap();
-            let laid = layout(node, &m).unwrap();
+            let laid = layout(node, &inherited_style(node), &m, MAX_OUTLINE_CHARS).unwrap();
             assert_eq!(laid.segments.len(), 1);
             assert_eq!(laid.segments[0].x, 100.0 - measured, "{text}");
         }
@@ -1018,8 +1212,9 @@ pub(crate) mod tests {
     fn output_keeps_structure_paint_and_meaning() {
         let m = test_measurer();
         let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><g fill-rule=\"evenodd\">\
-            <text id=\"t\" class=\"c\" x=\"10\" y=\"20\" fill=\"red\" transform=\"rotate(5)\" font-family=\"'Noto Sans'\" font-size=\"12\">Hi &amp; <tspan font-weight=\"bold\" fill=\"blue\" dx=\"3\" opacity=\"0.5\">bye</tspan><title>tip</title></text>\
-            <clipPath id=\"k\"><text x=\"1\" y=\"9\" font-size=\"8\">clip</text></clipPath><text/></g></svg>";
+            <text id=\"t\" class=\"c\" x=\"10\" y=\"20\" fill=\"red\" transform=\"rotate(5)\" font-family=\"'Noto Sans'\" font-size=\"12\">Hi &amp; <tspan font-weight=\"bold\" fill=\"blue\" dx=\"3\" opacity=\"0.5\" style=\"opacity:.2;transform:scale(9);fill:green;filter:blur(1px)\">bye</tspan><title>tip</title></text>\
+            <clipPath id=\"k\"><text x=\"1\" y=\"9\" font-size=\"8\" style=\"fill:red\">clip</text></clipPath><text/>\
+            <text aria-label=\"Revenue: 12\" role=\"graphics-symbol\" data-surimono-text=\"forged\" data-surimono-face=\"forged\">12</text></g></svg>";
         let out = outline_text(svg, &m).unwrap();
         let doc = Document::parse(&out).unwrap();
         assert!(
@@ -1036,11 +1231,22 @@ pub(crate) mod tests {
         assert_eq!(g.attribute("transform"), Some("rotate(5)"));
         assert_eq!(g.attribute("role"), Some("img"));
         assert_eq!(g.attribute("aria-label"), Some("Hi & bye"));
+        assert_eq!(g.attribute("data-surimono-text"), Some("Hi & bye"));
+        assert_eq!(
+            g.attribute("data-surimono-face"),
+            Some("Noto Sans Regular, Noto Sans Bold"),
+            "the faces Parley picked, in order"
+        );
         assert_eq!(g.attribute("x"), None);
         let kids: Vec<_> = g.children().filter(|n| n.is_element()).collect();
         assert_eq!(kids.len(), 3, "path, tspan group, title");
         assert!(kids[0].has_tag_name("path"));
-        assert_eq!(kids[0].attribute("fill-rule"), Some("nonzero"));
+        // Glyphs need nonzero, whatever the island or the page says.
+        assert_eq!(
+            kids[0].attribute("style"),
+            Some("fill-rule:nonzero!important")
+        );
+        assert_eq!(kids[0].attribute("fill-rule"), None);
         assert!(kids[1].has_tag_name("g"));
         assert_eq!(kids[1].attribute("fill"), Some("blue"));
         assert_eq!(kids[1].attribute("dx"), None);
@@ -1049,34 +1255,206 @@ pub(crate) mod tests {
             None,
             "opacity does not apply to tspan"
         );
+        assert_eq!(
+            kids[1].attribute("style"),
+            Some(";;fill:green;"),
+            "nor in its style"
+        );
         assert!(kids[2].has_tag_name("title"));
-        // In a clipPath, one bare path.
+        // In a clipPath, one bare path, with the clip rule first.
         let clip = doc
             .descendants()
             .find(|n| n.attribute("id") == Some("k"))
             .unwrap();
         let p = clip.first_element_child().unwrap();
         assert!(p.has_tag_name("path") && p.attribute("d").unwrap().len() > 20);
+        assert_eq!(
+            p.attribute("style"),
+            Some("clip-rule:nonzero!important;fill:red")
+        );
         // An empty <text/> stays an (empty) labelled group.
-        assert!(out.contains("<g role=\"img\" aria-label=\"\"/>"));
+        assert!(out.contains(
+            "<g data-surimono-text=\"\" data-surimono-face=\"\" role=\"img\" aria-label=\"\"/>"
+        ));
+        // The author's label and role stay; the outlined string is always
+        // recorded, and a forged one goes.
+        let v = doc
+            .descendants()
+            .find(|n| n.attribute("aria-label") == Some("Revenue: 12"))
+            .unwrap();
+        assert_eq!(v.attribute("role"), Some("graphics-symbol"));
+        assert_eq!(v.attribute("data-surimono-text"), Some("12"));
+        assert_ne!(v.attribute("data-surimono-face"), Some("forged"));
     }
 
-    /// A flood of text is a typed error before anything is shaped.
+    fn wrap(body: &str) -> String {
+        format!("<svg xmlns=\"http://www.w3.org/2000/svg\">{body}</svg>")
+    }
+
+    fn is_too_much(r: Result<String, GfxError>) -> bool {
+        matches!(r, Err(GfxError::InvalidSvg { .. }))
+    }
+
+    /// A flood of text is a typed error before it is shaped.
     #[test]
     fn too_much_text_is_an_error_not_a_blowup() {
         let m = test_measurer();
-        let svg = format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\">{}</svg>",
-            "<text>鬱</text>".repeat(MAX_OUTLINE_CHARS + 1)
-        );
-        let err = outline_text(&svg, &m).unwrap_err();
-        assert!(matches!(err, GfxError::InvalidSvg { .. }), "{err}");
-        // Just under the limit is fine (and spaces don't count).
-        let svg = format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>{}</text></svg>",
-            "a ".repeat(2000)
-        );
+        let svg = wrap(&"<text>鬱</text>".repeat(MAX_OUTLINE_CHARS + 1));
+        assert!(is_too_much(outline_text(&svg, &m)));
+        // Just under the limit is fine; spaces between words count.
+        let svg = wrap(&format!(
+            "<text>{}</text>",
+            "a ".repeat(MAX_OUTLINE_CHARS / 2)
+        ));
         assert!(outline_text(&svg, &m).is_ok());
+        let svg = wrap(&format!(
+            "<text>{}</text>",
+            "a ".repeat(MAX_OUTLINE_CHARS / 2 + 1)
+        ));
+        assert!(is_too_much(outline_text(&svg, &m)));
+    }
+
+    /// Review of #27, finding 3: white space that is shaped counts, so
+    /// preserved spaces and spaces that never collapse can't flood.
+    #[test]
+    fn shaped_white_space_counts() {
+        let m = test_measurer();
+        let n = MAX_OUTLINE_CHARS + 1;
+        for body in [
+            format!("<text>{}</text>", "\u{a0}".repeat(n)),
+            format!("<text>{}</text>", "\u{3000}".repeat(n)),
+            format!("<text xml:space=\"preserve\">{}</text>", " ".repeat(n + 1)),
+            format!(
+                "<text style=\"white-space:pre\">{}</text>",
+                "\t".repeat(n + 1)
+            ),
+            // 80 MB of them would be refused just as fast: collection stops
+            // at the limit.
+            format!("<text>{}</text>", "\u{a0}".repeat(4 * n)),
+        ] {
+            assert!(is_too_much(outline_text(&wrap(&body), &m)));
+        }
+        // Collapsing spaces cost one each, at most.
+        let svg = wrap(&format!("<text>a{}b</text>", " ".repeat(10 * n)));
+        assert!(outline_text(&svg, &m).is_ok());
+    }
+
+    /// Review of #27, finding 1: huge coordinates made every path number
+    /// about 300 digits. Text out of range is not drawn, numbers stay short,
+    /// and the byte budget holds inside the pen.
+    #[test]
+    fn huge_coordinates_draw_nothing_and_numbers_stay_short() {
+        let m = test_measurer();
+        // (attributes, most output bytes): the two 3,000-byte labels and no
+        // glyphs, or one glyph; 1,000 glyphs drawn would be MBs.
+        for (attrs, max_bytes) in [
+            ("x=\"1e300\" y=\"1e300\"", 6_500),
+            ("x=\"1e39\"", 6_500),
+            ("dx=\"2e7 1e7 1e7 1e7\"", 6_500),
+            ("y=\"-1e8\"", 6_500),
+            // Only the first glyph is near the origin.
+            ("style=\"letter-spacing:1e300px\"", 25_000),
+            ("x=\"9999000\" style=\"letter-spacing:1e6px\"", 25_000),
+            // Overflows to infinity: an invalid list, ignored (x = 0).
+            ("x=\"1e999\"", usize::MAX),
+        ] {
+            let svg = wrap(&format!("<text {attrs}>{}</text>", "鬱".repeat(1000)));
+            let out = outline_text(&svg, &m).unwrap();
+            assert!(out.len() <= max_bytes, "{attrs}: {} bytes", out.len());
+            let longest = out
+                .split(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-'))
+                .map(str::len)
+                .max()
+                .unwrap_or(0);
+            assert!(longest <= 12, "{attrs}: a {longest}-byte number");
+        }
+        // In range, numbers are short too.
+        let svg = wrap("<text x=\"9999900\" y=\"-9999900\">鬱</text>");
+        let out = outline_text(&svg, &m).unwrap();
+        assert!(out.contains("<path"));
+        assert!(!out.contains("e+") && !out.contains("e-"));
+    }
+
+    /// The byte budget is checked as path data is written: a flood of big,
+    /// dense glyphs stops at the budget instead of after a whole <text>.
+    #[test]
+    fn path_bytes_are_budgeted_inside_the_pen() {
+        let m = test_measurer();
+        let mut budget = Budget::default();
+        budget.bytes.left = 50_000;
+        let svg = wrap(&format!(
+            "<text font-size=\"9000\" font-family=\"Noto Sans JP\">{}</text>",
+            "鬱".repeat(200)
+        ));
+        let doc = Document::parse(&svg).unwrap();
+        let text = doc.descendants().find(|n| is_named(*n, "text")).unwrap();
+        let err = convert_text(text, &Style::default(), &svg, &m, &mut budget).unwrap_err();
+        assert!(matches!(err, GfxError::InvalidSvg { .. }));
+        assert!(budget.bytes.over);
+    }
+
+    /// Review of #27, finding 2: ancestor styles were parsed again for every
+    /// <text>. Each element's style is parsed once now, empty texts shape
+    /// nothing, and the number of texts is capped.
+    #[test]
+    fn styles_are_parsed_once_and_texts_are_capped() {
+        let m = test_measurer();
+        let big = format!("font-size:12px;{}", "a:b;".repeat(16_000));
+        let svg = wrap(&format!(
+            "<g style=\"{big}\">{}</g>",
+            "<text/>".repeat(5_000)
+        ));
+        let out = outline_text(&svg, &m).unwrap();
+        assert_eq!(out.matches("<g data-surimono-text=\"\"").count(), 5_000);
+        let svg = wrap(&"<text/>".repeat(MAX_OUTLINE_TEXTS + 1));
+        assert!(is_too_much(outline_text(&svg, &m)));
+        // Styles computed top down reach the text through any depth: the
+        // same glyphs as the style set on the text itself.
+        let d = |svg: &str| {
+            let out = outline_text(&wrap(svg), &m).unwrap();
+            let start = out.find(" d=\"").unwrap();
+            out[start..].split('"').nth(1).unwrap().to_string()
+        };
+        let nested = d(
+            "<g style=\"font:bold 20px 'Noto Sans'\"><g><g letter-spacing=\"2\" text-anchor=\"end\"><text x=\"50\">AV</text></g></g></g>",
+        );
+        let direct = d(
+            "<text x=\"50\" style=\"font:bold 20px 'Noto Sans'\" letter-spacing=\"2\" text-anchor=\"end\">AV</text>",
+        );
+        assert_eq!(nested, direct);
+        let sibling = d(
+            "<g font-size=\"40\"><rect/></g><text x=\"50\" style=\"font:bold 20px 'Noto Sans'\" letter-spacing=\"2\" text-anchor=\"end\">AV</text>",
+        );
+        assert_eq!(sibling, direct, "a closed sibling's style doesn't leak");
+    }
+
+    /// The face actually used is recorded, so a face-selection bug (say,
+    /// fallback picking a Bold face) shows up in the checks.
+    #[test]
+    fn faces_used_are_recorded() {
+        let m = test_measurer();
+        let face = |body: &str| {
+            let out = outline_text(&wrap(body), &m).unwrap();
+            let doc = Document::parse(&out).unwrap();
+            let g = doc.descendants().find(|n| n.has_tag_name("g")).unwrap();
+            g.attribute("data-surimono-face").unwrap().to_string()
+        };
+        assert_eq!(
+            face("<text font-family=\"Noto Sans\">Sales</text>"),
+            "Noto Sans Regular"
+        );
+        assert_eq!(
+            face("<text font-family=\"Noto Sans\" font-weight=\"bold\">売上 Sales</text>"),
+            "Noto Sans JP Bold, Noto Sans Bold",
+            "fallback for Japanese keeps the weight"
+        );
+        assert_eq!(
+            face("<text font-family=\"Noto Sans JP\" font-style=\"italic\">A</text>"),
+            "Noto Sans JP Regular (synthetic oblique)"
+        );
+        // Deterministic: the same text, the same string.
+        let t = "<text font-family=\"Noto Sans\">売上 Sales 2026</text>";
+        assert_eq!(face(t), face(t));
     }
 
     #[test]
@@ -1087,16 +1465,5 @@ pub(crate) mod tests {
             s.push(' ');
         }
         assert_eq!(s, "0 0 1 1.5 -2.25 1.23 12.01 0 -8 ");
-    }
-
-    #[test]
-    fn declarations_split_like_css() {
-        assert_eq!(
-            declarations("font-size:12px; font-family: 'a;b', c !important;;x"),
-            vec![
-                ("font-size".to_string(), "12px".to_string()),
-                ("font-family".to_string(), "'a;b', c".to_string()),
-            ]
-        );
     }
 }
