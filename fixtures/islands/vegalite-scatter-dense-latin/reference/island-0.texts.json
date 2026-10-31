@@ -2030,5 +2030,132 @@
   "Symbollegendtitled'Segment'forfillcolorwith2values:Enterprise,SMB",
   "X-axistitled'Invoiceamount(EUR,logscale)'foralogscalewithvaluesfrom100to100,000",
   "Y-axistitled'Daystopayment'foralinearscalewithvaluesfrom0to90"
+ ],
+ "styles": [
+  {
+   "key": "0",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "10",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "10,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "100",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "100,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "2,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "20",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "20,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "200",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "3,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "30",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "30,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "300",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "40",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "50",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "60",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "70",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "80",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "90",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Daystopayment",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "Enterprise",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Invoiceamount(EUR,logscale)",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "SMB",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Segment",
+   "weight": 700,
+   "style": "normal"
+  }
  ]
 }
