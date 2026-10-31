@@ -45,7 +45,7 @@ import os from "node:os";
 import { FIXTURES_DIR, TOOLS_DIR, islandsOf, listFixtures } from "./lib/fixtures.mjs";
 import { fulgurPrint, fulgurVersion } from "./lib/fulgur.mjs";
 import { PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
-import { passes, pct, verdict } from "./lib/report.mjs";
+import { passes, pct, scoresCell, verdict } from "./lib/report.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -265,7 +265,6 @@ const floor = (fixture, key, i) => {
   const b = baseline.rows[fixture];
   return b ? pct(key === "page" ? b.page : b.islands[i]) : "not in the baseline";
 };
-const scoresCell = (s) => (s && !s.error ? `${pct(s.worst_window)} / ${pct(s.worst_colour_window)} / ${pct(s.worst_hue_window)}${s.text ? ` / text ${s.text.pass ? "ok" : "differs"}` : ""}${s.font ? ` / font ${s.font.pass ? "ok" : "differs"}` : ""}` : "—");
 const image = (dirName, label) => {
   const f = path.join(outRoot, dirName, "side-by-side-1.png");
   return fs.existsSync(f) ? `[${label}](${rel(f)})` : "—";

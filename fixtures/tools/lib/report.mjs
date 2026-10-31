@@ -57,6 +57,17 @@ function detail(s, c) {
   }
 }
 
+/**
+ * The numbers next to a verdict: shape / colour / hue, then "text ok" or
+ * "font ok" only when that check's `pass` is exactly true ("differs"
+ * otherwise); "—" for a render error.
+ */
+export function scoresCell(s) {
+  if (!s || s.error) return "—";
+  const check = (name) => (s[name] === undefined || s[name] === null ? "" : ` / ${name} ${passedCheck(s[name]) ? "ok" : "differs"}`);
+  return `${pct(s.worst_window)} / ${pct(s.worst_colour_window)} / ${pct(s.worst_hue_window)}${check("text")}${check("font")}`;
+}
+
 /** "pass", or "**FAIL** (…)" with each failed check and its own number (the format compat.py uses). */
 export function verdict(s) {
   if (!s) return "not run";

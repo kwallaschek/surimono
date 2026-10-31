@@ -119,11 +119,15 @@ def check_producers(records: list[dict]) -> dict | None:
     (fixtures/tools/test/fake-surimono.mjs prints Chrome's own SVGs) is an
     error, and so is a mix of CLIs. A result without a stamp (compare.mjs run
     by hand, on any SVG) counts as one more, unknown CLI, so it can't be
-    credited to a stamped one. Returns NOT_RECORDED when nothing is stamped,
-    None when there are no results."""
+    credited to a stamped one; an absent, null or empty producer is that
+    unknown CLI, and any other value that isn't an object is an error.
+    Returns NOT_RECORDED when nothing is stamped, None when there are no
+    results."""
     seen: dict[tuple, dict] = {}
     for r in records:
-        p = r.get("producer") or NOT_RECORDED
+        p = r.get("producer")
+        if p is None or p == {}:
+            p = NOT_RECORDED
         if not isinstance(p, dict):
             raise CompatError(f"{r.get('_file', '?')}: producer {p!r} is not an object with cli, version, sha256 and commit")
         if "fake-surimono" in str(p.get("version", "")) or "fake-surimono" in str(p.get("cli", "")):
