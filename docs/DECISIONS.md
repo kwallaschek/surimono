@@ -208,3 +208,8 @@ checkpoint and can overturn anything. Newest last.
 - 2026-10-31 · Jobs discard Surimono::Error but retry TimeLimitError · Only time limits depend on machine load.
 - 2026-10-31 · Examples are a workspace crate plus a plain-Ruby snippet, driven by examples/run.sh · Examples that run in CI can't rot.
 - 2026-10-31 · Examples use ECharts plus a bring-your-own bundle, not Vega · Vega is second in the cut order.
+- 2026-11-01 · surimono_islands::precompiled_builtins() (public) counts the built-in renderers that will load precompiled bytecode in this process (#64) · Native gem jobs and smoke tests can prove a shipped binary carries usable bytecode.
+- 2026-11-01 · The engine-sources hash covers vendor/rquickjs-sys/quickjs recursively plus the engine's build.rs and Cargo.toml (#64) · A file in a subdirectory or a feature/pin change can't leave old bytecode accepted.
+- 2026-11-01 · Bundles that tell classes by source text (ECharts' isESClass) must contain no native class syntax; a test enforces it (#64) · Stripped bytecode makes such checks misjudge every native class.
+- 2026-11-01 · Checkpoint-2 evidence keeps fulgur's floor from CI's reference renders, not local ones; the local Chromium 153 differs from CI by up to 65 px (worst window 0) on two ECharts fixtures (fixtures/checkpoint-2/NOTES.md, #65) · The committed references are CI's.
+- 2026-11-01 · reference.sh fails, instead of skipping, the gfx Chrome checks when cargo is missing on a CI runner (#65) · A silent skip would hide the checks in CI.
