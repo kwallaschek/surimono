@@ -56,7 +56,11 @@ pub enum IslandError {
         /// What is wrong.
         message: String,
     },
-    /// A worker thread failed; the runner replaced its sandbox.
+    /// A worker thread failed: a Rust callback panicked (the worker
+    /// replaces its sandbox), the worker thread stopped (the runner starts
+    /// another for later requests; requests waiting with no worker left
+    /// fail with this too, instead of waiting), a thread couldn't start, or
+    /// the runner is a forked child's copy.
     #[error("island worker failed: {message}")]
     Worker {
         /// What happened.
