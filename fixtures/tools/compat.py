@@ -70,15 +70,26 @@ None recorded yet.
 # ---------------------------------------------------------------- inputs
 
 
+def _reject_constant(name: str):
+    raise ValueError(f"{name} is not valid JSON")
+
+
+def read_json(path: Path):
+    """A results file as JSON.parse reads it: Python's extensions NaN,
+    Infinity and -Infinity are refused (no producer writes them, and
+    lib/report.mjs couldn't read the file), so they can't reach a verdict."""
+    try:
+        return json.loads(path.read_text(), parse_constant=_reject_constant)
+    except (OSError, ValueError) as e:
+        raise CompatError(f"{path}: {e}")
+
+
 def load_scores(directory: Path | None) -> list[dict]:
     if not directory:
         return []
     scores = []
     for f in sorted(directory.rglob("score.json")):
-        try:
-            data = json.loads(f.read_text())
-        except (OSError, json.JSONDecodeError) as e:
-            raise CompatError(f"{f}: {e}")
+        data = read_json(f)
         data["_file"] = str(f)
         scores.append(data)
     return scores
@@ -115,12 +126,13 @@ def fixture_meta() -> dict[str, dict]:
 
 def _set(value) -> bool:
     """Whether a JSON value is set, as JavaScript reads it (and lib/report.mjs
-    with it): anything but absent, null, false, 0, NaN and "". An empty object
-    or list is set, so `"error": {}` is an error."""
+    with it): anything but absent, null, false, 0 and "". An empty object or
+    list is set, so `"error": {}` is an error. (NaN, which JSON can't hold and
+    read_json refuses, would count as set.)"""
     if value is None or value is False or value == "":
         return False
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return value == value and value != 0
+        return value != 0
     return True
 
 
@@ -298,7 +310,7 @@ def hostile_section(results_file: Path | None) -> list[str]:
             expected.append((case["id"], None, case))
     if not results_file:
         return lines + [f"Not run yet: {len(manifest['case'])} cases in `fixtures/hostile/manifest.toml`; the sandbox harness hasn't reported results.", ""]
-    results = json.loads(results_file.read_text())
+    results = read_json(results_file)
     got: dict[tuple[str, int | None], dict] = {}
     for r in results.get("cases", []):
         key = (r.get("id"), r.get("step"))
@@ -386,7 +398,7 @@ def bench_section(bench_file: Path | None) -> list[str]:
     lines = ["### Speed and memory against Grover", ""]
     if not bench_file:
         return lines + ["Not run yet (`bench/run.sh`).", ""]
-    data = json.loads(bench_file.read_text())
+    data = read_json(bench_file)
     res = data.get("results", {})
     v = data.get("versions", {})
     m = data.get("machine", {})
