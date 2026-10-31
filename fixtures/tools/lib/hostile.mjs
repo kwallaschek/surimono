@@ -26,3 +26,34 @@ export function hostileCases(text = fs.readFileSync(path.join(HOSTILE_DIR, "mani
   }
   return out;
 }
+
+/**
+ * A page of the pinned Chromium (channel "chromium", as the references use)
+ * from which nothing reaches the network, Workers included:
+ * - Chromium sends every connection through a proxy that doesn't exist
+ *   (127.0.0.1:1), loopback too (`<-loopback>` removes the implicit bypass).
+ *   This is what holds for dedicated Workers: Playwright's routeWebSocket
+ *   doesn't see their WebSockets (a review probe made a real TCP connection);
+ * - Playwright's routes refuse every request but the page itself and close
+ *   every WebSocket they do see.
+ * Returns { browser, page }; close the browser when done.
+ */
+export async function launchOffline() {
+  const { createRequire } = await import("node:module");
+  const require = createRequire(import.meta.url);
+  const { chromium } = require("playwright");
+  const browser = await chromium.launch({
+    channel: "chromium",
+    proxy: { server: "http://127.0.0.1:1" },
+    args: ["--proxy-bypass-list=<-loopback>"],
+  });
+  const context = await browser.newContext();
+  const ORIGIN = "https://hostile.surimono.test/";
+  await context.route("**/*", (route) =>
+    route.request().url() === ORIGIN ? route.fulfill({ contentType: "text/html", body: "<!doctype html><title>hostile</title>" }) : route.abort(),
+  );
+  await context.routeWebSocket(/.*/, (ws) => ws.close({ code: 1008, reason: "no network in the hostile suite" }));
+  const page = await context.newPage();
+  await page.goto(ORIGIN);
+  return { browser, page };
+}

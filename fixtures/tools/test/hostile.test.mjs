@@ -32,3 +32,52 @@ test("hostileCases: steps become numbered entries; a case without file or steps 
   ]);
   assert.throws(() => hostileCases(`[[case]]\nid = "c"\nexpect = "Ok"\n`), /neither file nor steps/);
 });
+
+test("launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback", async (t) => {
+  let launchOffline;
+  try {
+    ({ launchOffline } = await import("../lib/hostile.mjs"));
+    const { createRequire } = await import("node:module");
+    const require = createRequire(import.meta.url);
+    const fs = await import("node:fs");
+    if (!fs.existsSync(require("playwright").chromium.executablePath())) return t.skip("Playwright's Chromium is not installed");
+  } catch (e) {
+    return t.skip(`playwright not available: ${e.message}`);
+  }
+  const net = await import("node:net");
+  const connections = [];
+  const server = net.createServer((socket) => {
+    connections.push(socket.remoteAddress);
+    socket.destroy();
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+  const { browser, page } = await launchOffline();
+  try {
+    const result = await page.evaluate(async (port) => {
+      const src = `(async () => {
+        const ws = await new Promise((res) => {
+          try {
+            const w = new WebSocket("ws://127.0.0.1:${port}/worker");
+            w.onclose = (e) => res("closed " + e.code);
+            w.onerror = () => {};
+            setTimeout(() => res("open after 3 s: " + w.readyState), 3000);
+          } catch (e) { res("threw " + e.name); }
+        });
+        let f;
+        try { await fetch("http://127.0.0.1:${port}/worker"); f = "fetched"; } catch (e) { f = "fetch " + e.name; }
+        postMessage(ws + "; " + f);
+      })();`;
+      const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+      return await new Promise((res) => {
+        w.onmessage = (e) => res(e.data);
+        setTimeout(() => res("worker timeout"), 8000);
+      });
+    }, port);
+    assert.doesNotMatch(result, /fetched|open after/, result);
+  } finally {
+    await browser.close();
+    await new Promise((resolve) => server.close(resolve));
+  }
+  assert.deepEqual(connections, [], "no TCP connection reached the listener");
+});
