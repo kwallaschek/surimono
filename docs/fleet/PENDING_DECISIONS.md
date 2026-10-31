@@ -104,3 +104,11 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-10-31 · On musl's main thread the stack check uses RLIMIT_STACK · musl reports only the mapped stack.
 - 2026-10-31 · The sandbox requires engine patch level 2 · It must not run without the allocation-failure fixes.
 Private: the maintainer report draft is in the Claude project (claude/private-quickjs-ng-security-report.md); Kay sends it.
+
+## PKG batch 3 (#25 #26 #34 #33 #44), add on merge
+- 2026-10-31 · A forked child finds its state through pid-claimed slots (atomic loads, CAS) and builds its own TextMeasurer over a lock-free FontSet clone along with its pool; nothing a parent thread may hold is touched · 18 of 200 children hung on the measurer's lock.
+- 2026-10-31 · Options::max_islands (default 1,000) → Error::TooManyIslands before any island runs; Renderer::render_islands_cancellable(&AtomicBool) → Error::Cancelled between islands; Ruby max_islands: · Per-island deadlines don't bound a document.
+- 2026-10-31 · Ruby renders with an unblock function that sets the cancel flag (not RB_NOGVL_UBF_ASYNC_SAFE); a wake-up with no exception re-renders · Timeout/SIGTERM stop between islands; the async-safe path calls the unblock function without Ruby's lock.
+- 2026-10-31 · The CLI takes the facade's options (--bundle name[:fn]=file, --renderers, --max-islands, --pool-size) and writes output via temp file + rename · Gem and CLI share one API; no truncated output files.
+- 2026-10-31 · THIRD_PARTY_LICENSES.txt generation fails on an MPL-2.0-only crate not unmodified from crates.io or not named in about.toml/deny.toml, and on a non-licence, non-JS file in a bundle directory; cargo-about runs --frozen --fail · Notices must be complete and true.
+- 2026-10-31 · CI logs are published by a separate publish job, the only one with contents: write, running the default branch's script on artifacts (YAML for Kay) · Build steps never see the write token.

@@ -50,5 +50,157 @@
   "Openamount(EUR):58,095;customer:BalticShipping;total:58,095",
   "X-axistitled'Openamount(EUR)'foralinearscalewithvaluesfrom0to60,000",
   "Y-axisforadiscretescalewith8values:BalticShipping,DeltaPharma,GraniteLabs,ElmStreetBooks,HarborRetail,endingwithAlpineFoodsAG"
+ ],
+ "styles": [
+  {
+   "key": "0",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "10,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "15,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "20,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "25,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "30,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "35,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "40,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "45,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "5,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "50,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "55,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "60,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "AlpineFoodsAG",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "BalticShipping",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "CobaltSystems",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "DeltaPharma",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "ElmStreetBooks",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "FjordEnergy",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "GraniteLabs",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "HarborRetail",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR)",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):14,695;customer:AlpineFoodsAG;total:14,695",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):19,381;customer:CobaltSystems;total:19,381",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):23,386;customer:FjordEnergy;total:23,386",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):26,790;customer:HarborRetail;total:26,790",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):26,925;customer:ElmStreetBooks;total:26,925",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):33,342;customer:GraniteLabs;total:33,342",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):33,733;customer:DeltaPharma;total:33,733",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Openamount(EUR):58,095;customer:BalticShipping;total:58,095",
+   "weight": 400,
+   "style": "normal"
+  }
  ]
 }
