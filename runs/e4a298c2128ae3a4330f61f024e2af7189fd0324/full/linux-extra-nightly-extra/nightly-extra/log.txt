@@ -1,0 +1,141 @@
+
+==> fixtures: tool tests (node, after npm ci)
+
+added 86 packages in 3s
+TAP version 13
+# Subtest: solid pixels are flat interiors, never edges or thin lines
+ok 1 - solid pixels are flat interiors, never edges or thin lines
+  ---
+  duration_ms: 5.080089
+  type: 'test'
+  ...
+# Subtest: near-match is colour-blind; the colour check is not
+ok 2 - near-match is colour-blind; the colour check is not
+  ---
+  duration_ms: 31.735021
+  type: 'test'
+  ...
+# Subtest: the same picture passes every check
+ok 3 - the same picture passes every check
+  ---
+  duration_ms: 5.42377
+  type: 'test'
+  ...
+# Subtest: a bar shifted by 1 px keeps its colour score at 0
+ok 4 - a bar shifted by 1 px keeps its colour score at 0
+  ---
+  duration_ms: 8.133454
+  type: 'test'
+  ...
+# Subtest: hue ignores anti-aliasing coverage but sees a different colour
+ok 5 - hue ignores anti-aliasing coverage but sees a different colour
+  ---
+  duration_ms: 4.012421
+  type: 'test'
+  ...
+# Subtest: hue does not judge position: a line with no ink near it in the other image is near-match's job
+ok 6 - hue does not judge position: a line with no ink near it in the other image is near-match's job
+  ---
+  duration_ms: 4.852165
+  type: 'test'
+  ...
+# Subtest: svgTexts reads <text> with tspans, entities, labels and titles
+ok 7 - svgTexts reads <text> with tspans, entities, labels and titles
+  ---
+  duration_ms: 4.216952
+  type: 'test'
+  ...
+# Subtest: svgTexts: a self-closing <text/> doesn't swallow the next element
+ok 8 - svgTexts: a self-closing <text/> doesn't swallow the next element
+  ---
+  duration_ms: 0.417898
+  type: 'test'
+  ...
+# Subtest: svgTexts: a <title> inside <text> is a label, not printed text
+ok 9 - svgTexts: a <title> inside <text> is a label, not printed text
+  ---
+  duration_ms: 0.810609
+  type: 'test'
+  ...
+# Subtest: text check accepts outlines that keep the string in aria-label
+ok 10 - text check accepts outlines that keep the string in aria-label
+  ---
+  duration_ms: 0.733335
+  type: 'test'
+  ...
+# Subtest: text check fails on a changed, missing or extra string
+ok 11 - text check fails on a changed, missing or extra string
+  ---
+  duration_ms: 0.432184
+  type: 'test'
+  ...
+# Subtest: multisetMinus counts duplicates
+ok 12 - multisetMinus counts duplicates
+  ---
+  duration_ms: 0.172942
+  type: 'test'
+  ...
+# Subtest: svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+ok 13 - svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+  ---
+  duration_ms: 2.444021
+  type: 'test'
+  ...
+# Subtest: font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's
+ok 14 - font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's
+  ---
+  duration_ms: 1.403403
+  type: 'test'
+  ...
+# Subtest: font check matches same-key texts one to one
+ok 15 - font check matches same-key texts one to one
+  ---
+  duration_ms: 0.347798
+  type: 'test'
+  ...
+# Subtest: font check candidates are <text> and outline groups, never chart marks
+ok 16 - font check candidates are <text> and outline groups, never chart marks
+  ---
+  duration_ms: 0.223887
+  type: 'test'
+  ...
+# Subtest: computedTextStyles is Chrome's view, and catches what svgTextStyles can't read
+ok 17 - computedTextStyles is Chrome's view, and catches what svgTextStyles can't read # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 321.191146
+  type: 'test'
+  ...
+# Subtest: hostileCases reads manifest.toml exactly as tomllib does
+ok 18 - hostileCases reads manifest.toml exactly as tomllib does
+  ---
+  duration_ms: 46.914193
+  type: 'test'
+  ...
+# Subtest: hostileCases: steps become numbered entries; a case without file or steps is an error
+ok 19 - hostileCases: steps become numbered entries; a case without file or steps is an error
+  ---
+  duration_ms: 0.92375
+  type: 'test'
+  ...
+# Subtest: launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback
+ok 20 - launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 340.371993
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 2
+# todo 0
+# duration_ms 510.680965
+
+==> fixtures: real-world suite (needs registry.npmjs.org)
+ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
+ok   vega 6.4.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   vega-lite 6.5.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   mermaid 12.2.0 (stretch, MIT); embedded build not recorded yet
+nightly extra checks run: 2
