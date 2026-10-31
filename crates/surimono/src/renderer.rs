@@ -34,9 +34,15 @@ impl Renderer {
     /// # Errors
     ///
     /// [`Error::Font`] for a font file that can't be read,
-    /// [`Error::InvalidOptions`] for limits out of range or an unknown name in
+    /// [`Error::InvalidOptions`] for limits out of range (including a zero time
+    /// limit) or an unknown name in
     /// [`Options::renderers`], and [`Error::Bundle`] for a bundle that can't be used.
     pub fn new(options: Options) -> Result<Self, Error> {
+        if options.limits.time.is_zero() {
+            return Err(Error::InvalidOptions(
+                "limits.time is zero; every island would fail".into(),
+            ));
+        }
         let mut fonts = FontSet::new();
         for (index, bytes) in options.fonts.into_iter().enumerate() {
             fonts
@@ -263,6 +269,15 @@ mod tests {
             ..Limits::default()
         }));
         assert!(matches!(tiny, Err(Error::InvalidOptions(_))), "{tiny:?}");
+
+        let no_time = Renderer::new(Options::new().limits(Limits {
+            time: Duration::ZERO,
+            ..Limits::default()
+        }));
+        match no_time {
+            Err(Error::InvalidOptions(m)) => assert!(m.contains("limits.time"), "{m}"),
+            other => panic!("{other:?}"),
+        }
 
         let unknown = Renderer::new(Options::new().renderers(["nope"]));
         match unknown {

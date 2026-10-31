@@ -220,6 +220,32 @@ class CompatTest(unittest.TestCase):
             sys.argv = argv
         self.assertFalse(out.exists())
 
+    def test_a_score_for_an_island_the_fixture_lacks_is_an_error(self):
+        # Review of #28: "island 2" of a two-island fixture, failing, must not vanish.
+        s = score("echarts-a island 2 (printed by chrome)", False, ["shape"], worst=0.5)
+        s["_file"] = "run/echarts-a/island-2-chrome/score.json"
+        with self.assertRaises(compat.CompatError) as e:
+            compat.fixtures_section([s], compat.fixture_meta())
+        self.assertIn("island-2", str(e.exception))
+        self.assertIn("1 island", str(e.exception))
+
+    def test_baseline_scores_never_land_in_surimonos_columns(self):
+        for subject in ("echarts-a island 0", "echarts-a page", "echarts-a island 0 (printed by firefox)"):
+            s = score(subject, True)
+            s["_file"] = "baseline/echarts-a/fulgur/score.json"
+            with self.assertRaises(compat.CompatError, msg=subject):
+                compat.fixtures_section([s], compat.fixture_meta())
+
+    def test_hostile_result_without_wall_ms_or_outcome_fails(self):
+        results = self.write_json(
+            "hostile.json",
+            {"commit": "abc", "cases": [{"id": "loop", "step": None, "outcome": "TimeLimit"}, {"id": "req", "step": None, "wall_ms": 3}]},
+        )
+        text = "\n".join(compat.hostile_section(results))
+        self.assertIn("| loop | TimeLimit | TimeLimit (? ms) | **FAIL**: no wall_ms, so the max_wall_ms check can't be made |", text)
+        self.assertIn("| req | Exception | — (3 ms) | **FAIL**: no outcome in the results file |", text)
+        self.assertIn("0 of 5 cases", text)
+
     def test_missing_inputs_say_not_run(self):
         out = compat.generate([], None, None, "c", None)
         self.assertIn("Not run yet: no surimono output", out)

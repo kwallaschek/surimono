@@ -82,15 +82,24 @@ def load_scores(directory: Path | None) -> list[dict]:
 
 
 def classify(score: dict) -> tuple[str, str]:
-    """(fixture, comparison) where comparison is page, island-N or island-N-fulgur."""
+    """(fixture, comparison) where comparison is page, island-N or island-N-fulgur.
+
+    Only compare.mjs's own subjects are accepted: "<fixture>" for a page and
+    "<fixture> island N (printed by chrome|fulgur)" for an island. Anything
+    else, such as baseline.mjs's "<fixture> island N" or "<fixture> page"
+    (fulgur printing Chrome's SVGs, not surimono's), is an error rather than a
+    result in surimono's columns."""
     subject = score.get("subject", "")
-    fixture = subject.split(" ", 1)[0]
-    m = re.search(r"island (\d+)(?: \(printed by (\w+)\))?", subject)
+    where = score.get("_file", "?")
+    m = re.fullmatch(r"(\S+) island (\d+) \(printed by (chrome|fulgur)\)", subject)
     if m:
-        kind = f"island-{m.group(1)}" + ("-fulgur" if m.group(2) == "fulgur" else "")
-    else:
-        kind = "page"
-    return fixture, kind
+        return m.group(1), f"island-{m.group(2)}" + ("-fulgur" if m.group(3) == "fulgur" else "")
+    if re.fullmatch(r"\S+", subject):
+        return subject, "page"
+    raise CompatError(
+        f"{where}: subject {subject!r} is not a surimono comparison from compare.mjs or checkpoint.mjs "
+        "(a baseline.mjs score is fulgur printing Chrome's SVGs); pass a directory with surimono's results only"
+    )
 
 
 def fixture_meta() -> dict[str, dict]:
@@ -182,6 +191,12 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
     for name in sorted(set(meta) | set(by)):
         got = by.get(name, {})
         n = len(meta.get(name, {}).get("islands", [])) or max([int(k.split("-")[1]) + 1 for k in got if k.startswith("island-")] or [1])
+        beyond = [k for k in got if k.startswith("island-") and int(k.split("-")[1]) >= n]
+        if beyond:
+            raise CompatError(
+                f"{got[beyond[0]].get('_file', '?')}: a result for {name} {beyond[0]}, but the fixture has {n} island"
+                f"{'' if n == 1 else 's'} (meta.toml); one result can't hide another"
+            )
         chrome = [got.get(f"island-{i}") for i in range(n)]
         fulgur = [got.get(f"island-{i}-fulgur") for i in range(n)]
         page = got.get("page")
@@ -236,16 +251,22 @@ def hostile_section(results_file: Path | None) -> list[str]:
             rows.append((name, " or ".join(want), "not run", "not run"))
             continue
         problems = []
-        if r["outcome"] not in want:
+        if not r.get("outcome"):
+            problems.append("no outcome in the results file")
+        elif r["outcome"] not in want:
             problems.append(f"expected {' or '.join(want)}")
-        if r["outcome"] == "Ok" and spec.get("output") is not None and r.get("output") != spec["output"]:
+        if r.get("outcome") == "Ok" and spec.get("output") is not None and r.get("output") != spec["output"]:
             problems.append(f"output {r.get('output')!r}, expected {spec['output']!r}")
-        if "error" in spec and r["outcome"] == "Exception" and not str(r.get("message", "")).startswith(spec["error"]):
+        if "error" in spec and r.get("outcome") == "Exception" and not str(r.get("message", "")).startswith(spec["error"]):
             problems.append(f"error {str(r.get('message', ''))[:60]!r}, expected {spec['error']}")
-        if isinstance(r.get("wall_ms"), (int, float)) and r["wall_ms"] > max_wall:
-            problems.append(f"{r['wall_ms']:.0f} ms, over max_wall_ms {max_wall}")
+        wall = r.get("wall_ms")
+        if not isinstance(wall, (int, float)) or isinstance(wall, bool):
+            # Required by RESULTS_SCHEMA.md: without it the hang check can't be made.
+            problems.append("no wall_ms, so the max_wall_ms check can't be made")
+        elif wall > max_wall:
+            problems.append(f"{wall:.0f} ms, over max_wall_ms {max_wall}")
         if problems:
-            rows.append((name, " or ".join(want), f"{r['outcome']} ({r.get('wall_ms', '?')} ms)", "**FAIL**: " + "; ".join(problems)))
+            rows.append((name, " or ".join(want), f"{r.get('outcome') or '—'} ({r.get('wall_ms', '?')} ms)", "**FAIL**: " + "; ".join(problems)))
         else:
             passed += 1
             rows.append((name, " or ".join(want), f"{r['outcome']} ({r.get('wall_ms', '?')} ms)", "pass"))
