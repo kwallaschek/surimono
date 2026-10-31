@@ -61,7 +61,8 @@ module Surimono
   end
 
   # An island couldn't be rendered for another reason: a malformed marker, an
-  # unknown renderer, unusable renderer output, or markup too ambiguous to rewrite.
+  # unknown renderer, unusable renderer output, more islands than max_islands
+  # (kind "too-many-islands"), or markup too ambiguous to rewrite.
   class RenderError < Error; end
   # The renderer's options are invalid: a font that can't be read, a limit out
   # of range, an unknown renderer name or a bundle that can't be used.
@@ -81,28 +82,60 @@ module Surimono
     MAX_OPTION = 2**31 - 1
     private_constant :LIMIT_KEYS, :ERROR_POLICIES, :MAX_OPTION
 
-    # fonts::        font files for measuring text: paths (String or Pathname),
-    #                or font data as binary Strings (e.g. from File.binread).
-    #                Use the fonts your PDF engine prints with. System fonts are
-    #                never used.
-    # limits::       per-island limits: memory_mb (default 64), time_ms
-    #                (default 2000), stack_kb (default 512).
+    # fonts::        required, at least one: font files for measuring and
+    #                outlining text, as paths (String or Pathname) or font data
+    #                as binary Strings (e.g. from File.binread). Use the fonts
+    #                your PDF engine prints with. System fonts are never used.
+    # limits::       limits for each island (not the whole document): memory_mb
+    #                (1 or more, default 64), time_ms (default 2000; one
+    #                deadline per island covering loading the renderer and
+    #                drawing), stack_kb (64 to 16384, default 512). A document
+    #                with N islands can take up to N times time_ms.
+    # max_islands::  most islands one document may have (default 1000); a
+    #                document with more raises RenderError (kind
+    #                "too-many-islands") before any island runs. Together with
+    #                time_ms it bounds how long one document can take.
     # seed::         seed for Math.random; same seed and input, same output.
+    # now::          the Time every script sees as "now" (Date.now(), new
+    #                Date()). Default: 2026-01-01 00:00:00 UTC. The host's
+    #                clock is never read.
+    # utc_offset_minutes:: local time's offset from UTC for scripts, e.g. 540
+    #                for Japan, so time axes show local time. -720 to 840.
+    #                Default: 0 (UTC). The host's time zone is never read.
     # error_policy:: :fail (default) raises on the first failed island;
     #                :placeholder leaves an empty
     #                <div class="surimono-island surimono-island-error"> instead.
     # renderers::    enable only these renderer names (default: all).
-    # bundles::      your own renderers: { "name" => { source: js, entry: "fn" } }.
-    #                The function gets the island's spec and { width, height }
-    #                and returns an SVG string.
-    # pool_size::    JavaScript runtimes kept for concurrent renders
-    #                (default: CPU count, at most 8).
+    # bundles::      your own renderers: { "name" => { source: js, entry: "entry" } }
+    #                (or { "name" => js }). The script defines a global function
+    #                (default name "entry"; with a bundler, assign it to
+    #                globalThis.entry) called as entry(specJson, ctx) for each
+    #                island: specJson is the spec as JSON text (JSON.parse it),
+    #                ctx has width, height and measureText(text, cssFont). It
+    #                returns an SVG string, which is sanitised before use.
+    # text::         :outlines (default) turns chart text into outlines of its
+    #                glyphs in your fonts, so any PDF engine prints exactly what
+    #                was measured (the words stay as aria-label, but can't be
+    #                selected in the PDF; needs at least one font). :keep leaves
+    #                <text>, for engines that set inline SVG text in your fonts
+    #                (fulgur 0.40 doesn't).
+    # pool_size::    JavaScript runtimes (threads) kept for concurrent renders
+    #                (default: CPU count, at most 4; at most 64).
+    #
+    # A Renderer survives fork: built before Puma's preload_app! (or
+    # fork_worker), Unicorn or Resque forks, it starts its runtimes and text
+    # measurer again in each child on first use.
+    #
+    # Interrupts (Timeout.timeout, Rack::Timeout, Thread#raise, Thread#kill,
+    # SIGTERM) stop a render before its next island and raise as usual; the
+    # island already running ends within its own time_ms.
     #
     # Bad argument types or values raise ArgumentError; a font path that
     # can't be read raises the usual Errno error; options the native side
     # rejects (a limit out of range, an unknown renderer name, a font or
     # bundle that can't be used) raise ConfigurationError.
-    def self.new(fonts: [], limits: {}, seed: 0, error_policy: :fail, renderers: nil, bundles: {}, pool_size: nil)
+    def self.new(fonts: [], limits: {}, seed: 0, error_policy: :fail, renderers: nil, bundles: {}, pool_size: nil,
+                 now: nil, utc_offset_minutes: 0, text: :outlines, max_islands: nil)
       lim = normalize_limits(limits)
       _native_new(
         Array(fonts).map { |f| font_data(f) },
@@ -113,13 +146,20 @@ module Surimono
         normalize_policy(error_policy),
         normalize_renderers(renderers),
         normalize_bundles(bundles),
-        pool_size && positive_integer(pool_size, "pool_size")
+        pool_size && positive_integer(pool_size, "pool_size"),
+        normalize_now(now),
+        normalize_offset(utc_offset_minutes),
+        normalize_text(text),
+        max_islands && positive_integer(max_islands, "max_islands")
       )
     end
 
-    # Replaces every island marker in html with its SVG and returns the new
-    # HTML (UTF-8). Everything else is left byte for byte as it was. Raises a
-    # Surimono::Error subclass when an island fails (with error_policy: :fail).
+    # Runs what this version of surimono runs on a document, as enabled by the
+    # options, and returns the new HTML (UTF-8). In 0.1 that is the islands:
+    # every island marker is replaced with its SVG, and everything else is
+    # left byte for byte as it was. (Page scripts come in a later version, off
+    # until you turn them on.) Raises a Surimono::Error subclass when an island
+    # fails (with error_policy: :fail).
     #
     # html in another encoding is transcoded to UTF-8 first; a
     # <meta charset> in it is left as written, so declare UTF-8 (or drop the
@@ -138,8 +178,13 @@ module Surimono
       def font_data(font)
         return File.binread(font.to_path) if font.respond_to?(:to_path)
         raise ArgumentError, "fonts must be paths or binary Strings of font data, got #{font.class}" unless font.is_a?(String)
+        return font if font.encoding == Encoding::BINARY
 
-        font.encoding == Encoding::BINARY ? font : File.binread(font)
+        if font.include?("\0") || font.bytesize > 4096
+          raise ArgumentError, "a font String in #{font.encoding} looks like font data read with File.read; " \
+                               "read it with File.binread (binary Strings are font data, others are paths)"
+        end
+        File.binread(font)
       end
 
       def normalize_limits(limits)
@@ -149,7 +194,29 @@ module Surimono
         raise ArgumentError, "unknown limits: #{unknown.join(", ")} (known: #{LIMIT_KEYS.join(", ")})" unless unknown.empty?
 
         given = limits.to_h { |k, v| [k.to_sym, positive_integer(v, "limits[:#{k}]")] }
+        if given.key?(:stack_kb) && !(64..16_384).cover?(given[:stack_kb])
+          raise ArgumentError, "limits[:stack_kb] must be from 64 to 16384, got #{given[:stack_kb]}"
+        end
         { memory_mb: 64, time_ms: 2000, stack_kb: 512 }.merge(given)
+      end
+
+      def normalize_now(now)
+        return nil if now.nil?
+        raise ArgumentError, "now must be a Time, got #{now.class}" unless now.is_a?(Time)
+
+        (now.to_r * 1000).floor
+      end
+
+      def normalize_text(text)
+        return text.to_s if %i[outlines keep].include?(text.to_s.to_sym)
+
+        raise ArgumentError, "text must be :outlines or :keep, got #{text.inspect}"
+      end
+
+      def normalize_offset(minutes)
+        return minutes if minutes.is_a?(Integer) && (-720..840).cover?(minutes)
+
+        raise ArgumentError, "utc_offset_minutes must be an Integer from -720 to 840, got #{minutes.inspect}"
       end
 
       def normalize_policy(policy)
@@ -180,7 +247,7 @@ module Surimono
           raise ArgumentError, "bundle #{name.inspect} must be a Hash or a String of source, got #{spec.class}" unless spec.is_a?(Hash)
 
           source = spec[:source] || spec["source"]
-          entry = spec[:entry] || spec["entry"] || "render"
+          entry = spec[:entry] || spec["entry"] || "entry"
           raise ArgumentError, "bundle #{name.inspect} needs a :source" unless source.is_a?(String)
 
           [name.to_s, utf8(source), entry.to_s]
@@ -200,18 +267,19 @@ module Surimono
       end
 
       def utf8(str)
-        str = str.to_str
         return str if str.encoding == Encoding::UTF_8 && str.valid_encoding?
 
-        converted =
-          if [Encoding::BINARY, Encoding::UTF_8].include?(str.encoding)
-            str.dup.force_encoding(Encoding::UTF_8)
-          else
-            str.encode(Encoding::UTF_8)
-          end
-        raise ArgumentError, "HTML is not valid UTF-8" unless converted.valid_encoding?
+        if [Encoding::BINARY, Encoding::UTF_8].include?(str.encoding)
+          converted = str.dup.force_encoding(Encoding::UTF_8)
+          return converted if converted.valid_encoding?
 
-        converted
+          raise ArgumentError, "HTML (#{str.encoding}) is not valid UTF-8; pass it in its real encoding or as UTF-8"
+        end
+        begin
+          str.encode(Encoding::UTF_8)
+        rescue EncodingError => e
+          raise ArgumentError, "HTML in #{str.encoding} can't be converted to UTF-8: #{e.message}"
+        end
       end
     end
   end

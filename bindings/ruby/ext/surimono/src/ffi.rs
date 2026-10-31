@@ -1,16 +1,20 @@
-//! The extension's only unsafe code: releasing the GVL around a render, and
-//! copying a Ruby string's bytes.
+//! The extension's only unsafe code: releasing the GVL around a render (with
+//! an unblock function that sets a cancel flag), and copying a Ruby string's
+//! bytes.
 //!
 //! Covered by bindings/ruby/test: `test_other_threads_run_while_rendering`
 //! (the GVL really is released), `test_interrupted_renders_raise_and_free_memory`
-//! and `test_timeout_around_renderer_new` (an interrupt never jumps over Rust
-//! frames), `test_fonts_from_paths_and_data` (byte copies), and the error tests
-//! (errors come back through the GVL boundary). `test_panic_becomes_internal_error`
-//! covers the panic path.
+//! and `test_interrupt_around_renderer_new` (an interrupt never jumps over Rust
+//! frames), `test_timeout_cancels_the_rest_of_the_document`,
+//! `test_signal_cancels_the_rest_of_the_document` and
+//! `test_wakeup_renders_again` (the unblock function), `test_fonts_from_paths_and_data`
+//! (byte copies), and the error tests (errors come back through the GVL
+//! boundary). `test_panic_becomes_internal_error` covers the panic path.
 
 use std::ffi::c_void;
 use std::panic::{self, AssertUnwindSafe};
 use std::ptr;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use magnus::{Error, RString, Ruby};
 
@@ -33,8 +37,55 @@ use magnus::{Error, RString, Ruby};
 ///   can't end the process the way magnus' `fatal` for panics would.
 ///
 /// No unblock function is passed, so an interrupt that arrives while `work` runs
-/// waits until it returns; the sandbox's time limit bounds that wait.
+/// waits until it returns; the sandbox's time limit bounds that wait. Use
+/// [`without_gvl_cancellable`] for work that can stop early.
 pub(crate) fn without_gvl<T, F>(ruby: &Ruby, work: F) -> Result<T, Error>
+where
+    F: FnOnce() -> T,
+{
+    nogvl(ruby, work, None)
+}
+
+/// [`without_gvl`], plus an unblock function that sets `cancel` when Ruby
+/// interrupts this thread while `work` runs (`Thread#raise`, `Timeout`,
+/// `Thread#kill`, a signal, also `Thread#wakeup`). `work` should check the
+/// flag and return early. Afterwards Ruby raises a pending interrupt as
+/// usual (returned as `Err` here); if there is none, `work`'s result comes
+/// back, so the caller decides what an early return without an exception
+/// means.
+pub(crate) fn without_gvl_cancellable<T, F>(
+    ruby: &Ruby,
+    cancel: &AtomicBool,
+    work: F,
+) -> Result<T, Error>
+where
+    F: FnOnce() -> T,
+{
+    nogvl(ruby, work, Some(cancel))
+}
+
+/// The unblock function: raises the cancel flag `data` points to. It runs on
+/// another thread, so it does one atomic store and nothing else: no
+/// allocation, no Ruby call, no panic.
+///
+/// `RB_NOGVL_UBF_ASYNC_SAFE` is deliberately not used: with it, Ruby's signal
+/// handler calls the main thread's unblock function without the interrupt
+/// lock, on whichever thread took the signal (possibly one of the runner's
+/// workers), which could race with the call returning and the flag going
+/// away. Without it Ruby only calls it from `rb_threadptr_interrupt`, under
+/// that lock (signals reach it through the timer thread, or on Ruby 3.2 a
+/// helper thread for a single-threaded main thread).
+unsafe extern "C" fn unblock(data: *mut c_void) {
+    // SAFETY: `data` is the `&AtomicBool` given to `nogvl`, which outlives
+    // the rb_thread_call_without_gvl call. Ruby calls the unblock function
+    // only under this thread's interrupt lock while the thread is in the
+    // blocking region, and blocking_region_end clears the function under the
+    // same lock before rb_thread_call_without_gvl returns.
+    let flag = unsafe { &*data.cast::<AtomicBool>() };
+    flag.store(true, Ordering::Release);
+}
+
+fn nogvl<T, F>(ruby: &Ruby, work: F, cancel: Option<&AtomicBool>) -> Result<T, Error>
 where
     F: FnOnce() -> T,
 {
@@ -65,24 +116,28 @@ where
         result: None,
     };
     let data = (&mut call as *mut Call<F, T>).cast::<c_void>();
-    // The closure captures only the raw pointer, so if Ruby jumps out of it
-    // there is nothing in its frame to drop.
+    let (ubf, ubf_data): (rb_sys::rb_unblock_function_t, *mut c_void) = match cancel {
+        Some(flag) => (
+            Some(unblock),
+            ptr::from_ref(flag).cast_mut().cast::<c_void>(),
+        ),
+        None => (None, ptr::null_mut()),
+    };
+    // The closure captures only raw pointers and plain values, so if Ruby
+    // jumps out of it there is nothing in its frame to drop.
     let protected = magnus::rb_sys::protect(|| {
         // SAFETY: we are on a Ruby thread holding the GVL (every method Ruby
         // dispatches to us is). rb_thread_call_without_gvl calls `trampoline`
         // at most once, on this thread, with `data`, and returns only after
-        // it has finished. It may also raise (longjmp) before or after that
-        // call to deliver a pending interrupt; rb_protect, which `protect` runs
-        // this closure under, catches the jump in a C frame between here and
-        // `without_gvl`, so it skips no Rust frame that has anything to drop.
-        // `trampoline` runs only `work`, which by contract doesn't touch the VM.
+        // it has finished. It may also raise (longjmp) before or
+        // after that call to deliver a pending interrupt; rb_protect, which
+        // `protect` runs this closure under, catches the jump in a C frame
+        // between here and `nogvl`, so it skips no Rust frame that has
+        // anything to drop. `trampoline` runs only `work`, which by contract
+        // doesn't touch the VM. `ubf_data` is null or the cancel flag, which
+        // outlives this call (see `unblock`).
         unsafe {
-            rb_sys::rb_thread_call_without_gvl(
-                Some(trampoline::<F, T>),
-                data,
-                None,
-                ptr::null_mut(),
-            );
+            rb_sys::rb_thread_call_without_gvl(Some(trampoline::<F, T>), data, ubf, ubf_data);
         }
         rb_sys::Qnil as rb_sys::VALUE
     });
@@ -94,9 +149,10 @@ where
     match result {
         Some(Ok(value)) => Ok(value),
         Some(Err(payload)) => Err(internal_error(ruby, &panic_message(&*payload))),
-        // rb_thread_call_without_gvl returned normally without calling us;
-        // without an unblock function that doesn't happen, but if it ever did
-        // it is an error, not undefined behaviour or a panic.
+        // rb_thread_call_without_gvl returned normally without calling us. It
+        // only skips `func` by raising a pending interrupt (caught above), so
+        // that doesn't happen, but if it ever did it is an error, not
+        // undefined behaviour or a panic.
         None => Err(internal_error(
             ruby,
             "the render did not run (rb_thread_call_without_gvl skipped it)",
