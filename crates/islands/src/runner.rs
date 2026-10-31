@@ -3,16 +3,16 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
-use std::sync::{Arc, Mutex, PoisonError, RwLock};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TryRecvError};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, TryLockError};
 use std::thread::{self, JoinHandle};
 
 use surimono_core::rquickjs::function::Opt;
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
 use surimono_core::{Bytecode, Limits, Sandbox, SandboxOptions};
 
-use crate::{IslandError, TextMeasurer};
+use crate::{IslandError, TextMeasurer, builtins};
 
 /// How an [`IslandRunner`] is set up.
 ///
@@ -92,6 +92,10 @@ struct Bundle {
     name: String,
     entry: String,
     bytecode: Bytecode,
+    /// Cleared once the bundle's top level is seen to queue a microtask: a
+    /// render must then run that microtask in its own call, after the
+    /// bundle and before the entry, so it is never preloaded.
+    preloadable: AtomicBool,
 }
 
 struct RenderJob {
@@ -120,6 +124,8 @@ struct Shared {
     measurer: TextMeasurer,
     renders: AtomicU64,
     failed_renders: AtomicU64,
+    preloaded_renders: AtomicU64,
+    idle_workers: AtomicUsize,
 }
 
 /// Counters for an [`IslandRunner`], for monitoring and tests.
@@ -130,6 +136,12 @@ pub struct RunnerStats {
     pub renders: u64,
     /// Renders that returned an error.
     pub failed_renders: u64,
+    /// Renders whose bundle a worker had already loaded into its fresh
+    /// runtime while it was idle, so the request skipped that step.
+    pub preloaded_renders: u64,
+    /// Workers waiting for a job right now, with their runtime reset and
+    /// preloaded. Equal to the pool size when the runner is quiet.
+    pub idle_workers: usize,
 }
 
 /// Renders islands: JavaScript bundles that turn a JSON spec into an SVG
@@ -148,7 +160,17 @@ pub struct RunnerStats {
 /// runner's limits, so nothing leaks from one render to the next, the whole
 /// heap is freed after every render, and the same request always gives the
 /// same SVG. Each worker prepares the runtime for its next render right
-/// after sending a reply, off the caller's clock.
+/// after sending a reply, off the caller's clock: it starts a fresh runtime
+/// and, if no request is waiting, evaluates the bundle it rendered last, so
+/// a repeated renderer skips that step. (A bundle whose top level queues
+/// microtasks is never preloaded.) The limits apply to each island as a
+/// whole: one time budget covers loading the bundle, if it wasn't
+/// preloaded, the entry call and the microtasks it queues. The result is
+/// the same either way.
+///
+/// A custom [`TextMeasurer`] runs inside that budget, on the worker
+/// thread, and must return promptly: the time limit can only interrupt
+/// JavaScript, not a measurer that blocks.
 ///
 /// `IslandRunner` is `Send + Sync`: share it between threads (e.g. in an
 /// `Arc`); [`render`](Self::render) blocks the calling thread until a worker
@@ -156,6 +178,8 @@ pub struct RunnerStats {
 pub struct IslandRunner {
     shared: Arc<Shared>,
     bundles: RwLock<HashMap<String, Arc<Bundle>>>,
+    /// Held while a built-in renderer is compiled on first use.
+    builtin_lock: Mutex<()>,
     jobs: Option<Sender<Job>>,
     workers: Vec<JoinHandle<()>>,
 }
@@ -195,6 +219,8 @@ impl IslandRunner {
             measurer: opts.text_measurer,
             renders: AtomicU64::new(0),
             failed_renders: AtomicU64::new(0),
+            preloaded_renders: AtomicU64::new(0),
+            idle_workers: AtomicUsize::new(0),
         });
         let (tx, rx) = mpsc::channel::<Job>();
         let rx = Arc::new(Mutex::new(rx));
@@ -214,6 +240,7 @@ impl IslandRunner {
         Ok(Self {
             shared,
             bundles: RwLock::new(HashMap::new()),
+            builtin_lock: Mutex::new(()),
             jobs: Some(tx),
             workers,
         })
@@ -251,16 +278,12 @@ impl IslandRunner {
     }
 
     /// Renders one island and returns the renderer's SVG string.
+    ///
+    /// A built-in renderer (see [`builtin_renderers`](crate::builtin_renderers))
+    /// is compiled on its first use, unless a bundle was registered under
+    /// its name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
-        let bundle = self
-            .bundles
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(req.renderer)
-            .cloned()
-            .ok_or_else(|| IslandError::UnknownRenderer {
-                name: req.renderer.to_owned(),
-            })?;
+        let bundle = self.bundle(req.renderer)?;
         serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(|e| {
             IslandError::BadJson {
                 message: e.to_string(),
@@ -277,7 +300,39 @@ impl IslandRunner {
         })
     }
 
-    /// Names of the registered renderers, sorted.
+    /// The bundle for `name`: a registered one, or a built-in compiled now.
+    fn bundle(&self, name: &str) -> Result<Arc<Bundle>, IslandError> {
+        let registered = |bundles: &RwLock<HashMap<String, Arc<Bundle>>>| {
+            bundles
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get(name)
+                .cloned()
+        };
+        if let Some(bundle) = registered(&self.bundles) {
+            return Ok(bundle);
+        }
+        let Some(builtin) = builtins::find(name) else {
+            return Err(IslandError::UnknownRenderer {
+                name: name.to_owned(),
+            });
+        };
+        // One compile per built-in, even if many threads ask at once.
+        let _compiling = self
+            .builtin_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if let Some(bundle) = registered(&self.bundles) {
+            return Ok(bundle);
+        }
+        self.register_bundle(builtin.name, builtin.source, builtin.entry)?;
+        registered(&self.bundles).ok_or_else(|| IslandError::UnknownRenderer {
+            name: name.to_owned(),
+        })
+    }
+
+    /// Names of the registered renderers, sorted. Built-in renderers are
+    /// listed once they have been used.
     pub fn renderers(&self) -> Vec<String> {
         let mut names: Vec<String> = self
             .bundles
@@ -300,6 +355,8 @@ impl IslandRunner {
         RunnerStats {
             renders: self.shared.renders.load(Ordering::Relaxed),
             failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
+            preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
+            idle_workers: self.shared.idle_workers.load(Ordering::SeqCst),
         }
     }
 
@@ -334,6 +391,12 @@ struct Worker {
     /// The worker's sandbox, always fresh when a job starts: it is reset
     /// after every job. `None` until first use or after a failure.
     sandbox: Option<Sandbox>,
+    /// The bundle evaluated in the sandbox since its last reset, and nothing
+    /// else: no script has run in it since. `None` whenever the sandbox is
+    /// replaced or used.
+    preloaded: Option<Arc<Bundle>>,
+    /// The bundle of the last render, the one to preload.
+    last_bundle: Option<Arc<Bundle>>,
 }
 
 impl Worker {
@@ -341,6 +404,8 @@ impl Worker {
         Self {
             shared,
             sandbox: None,
+            preloaded: None,
+            last_bundle: None,
         }
     }
 
@@ -348,9 +413,27 @@ impl Worker {
         // Warm up before the first job arrives.
         let _ = self.sandbox();
         loop {
-            let job = {
-                let rx = jobs.lock().unwrap_or_else(PoisonError::into_inner);
-                rx.recv()
+            // A waiting job goes first; otherwise preload while idle. If
+            // another worker holds the queue, it is waiting for the next job
+            // itself, so there is nothing for this one yet.
+            let waiting = match jobs.try_lock() {
+                Ok(rx) => rx.try_recv(),
+                Err(TryLockError::Poisoned(rx)) => rx.into_inner().try_recv(),
+                Err(TryLockError::WouldBlock) => Err(TryRecvError::Empty),
+            };
+            let job = match waiting {
+                Ok(job) => Ok(job),
+                Err(TryRecvError::Disconnected) => return,
+                Err(TryRecvError::Empty) => {
+                    self.preload();
+                    self.shared.idle_workers.fetch_add(1, Ordering::SeqCst);
+                    let job = {
+                        let rx = jobs.lock().unwrap_or_else(PoisonError::into_inner);
+                        rx.recv()
+                    };
+                    self.shared.idle_workers.fetch_sub(1, Ordering::SeqCst);
+                    job
+                }
             };
             let Ok(job) = job else {
                 return;
@@ -384,6 +467,7 @@ impl Worker {
         result.unwrap_or_else(|panic| {
             // The runtime may be mid-call; never reuse it.
             self.sandbox = None;
+            self.preloaded = None;
             let message = panic
                 .downcast_ref::<&str>()
                 .map(|s| (*s).to_owned())
@@ -399,7 +483,10 @@ impl Worker {
     fn sandbox(&mut self) -> Result<&mut Sandbox, IslandError> {
         let sb = match self.sandbox.take() {
             Some(sb) => sb,
-            None => Sandbox::with_options(self.shared.sandbox_options.clone())?,
+            None => {
+                self.preloaded = None;
+                Sandbox::with_options(self.shared.sandbox_options.clone())?
+            }
         };
         Ok(self.sandbox.insert(sb))
     }
@@ -407,6 +494,7 @@ impl Worker {
     /// Gives the sandbox a fresh context for the next job, freeing this
     /// job's heap. A sandbox that can't reset is dropped and rebuilt later.
     fn recycle(&mut self) {
+        self.preloaded = None;
         if let Some(sb) = self.sandbox.as_mut() {
             if sb.reset().is_err() {
                 self.sandbox = None;
@@ -414,7 +502,57 @@ impl Worker {
         }
     }
 
+    /// Evaluates the last render's bundle in the fresh sandbox, so the next
+    /// render of the same renderer can skip that step. Runs under the
+    /// sandbox's limits; if it fails, the sandbox is reset again and the
+    /// next render evaluates the bundle itself.
+    fn preload(&mut self) {
+        let Some(bundle) = self.last_bundle.clone() else {
+            return;
+        };
+        if self.preloaded.is_some() || !bundle.preloadable.load(Ordering::Relaxed) {
+            return;
+        }
+        // Ok(true): loaded with nothing queued, so a render can start
+        // straight at the entry, exactly as if it had evaluated the bundle
+        // itself in the same call.
+        let loaded = catch_unwind(AssertUnwindSafe(|| {
+            self.sandbox().and_then(|sb| {
+                Ok(sb.run(|ctx| {
+                    bundle.bytecode.eval(ctx)?;
+                    Ok(!ctx.execute_pending_job())
+                })?)
+            })
+        }));
+        match loaded {
+            Ok(Ok(true)) => self.preloaded = Some(bundle),
+            Ok(Ok(false)) => {
+                bundle.preloadable.store(false, Ordering::Relaxed);
+                self.recycle();
+            }
+            Ok(Err(_)) => self.recycle(),
+            // The runtime may be mid-call; never reuse it.
+            Err(_) => self.sandbox = None,
+        }
+    }
+
+    /// Takes the preloaded bundle, if any, leaving a sandbox that is either
+    /// pristine or holds exactly `wanted`. Returns whether `wanted` (if
+    /// given) is already loaded. A sandbox holding another bundle is reset,
+    /// so no job ever sees a bundle it did not ask for.
+    fn take_preloaded(&mut self, wanted: Option<&Arc<Bundle>>) -> bool {
+        let Some(loaded) = self.preloaded.take() else {
+            return false;
+        };
+        if wanted.is_some_and(|w| Arc::ptr_eq(w, &loaded)) {
+            return true;
+        }
+        self.recycle();
+        false
+    }
+
     fn register(&mut self, job: &RegisterJob) -> Result<Bundle, IslandError> {
+        self.take_preloaded(None);
         let sb = self.sandbox()?;
         let bytecode = sb.compile(&job.source, &format!("{}.js", job.name))?;
         sb.eval_bytecode(&bytecode)?;
@@ -433,16 +571,31 @@ impl Worker {
             name: job.name.clone(),
             entry: job.entry.clone(),
             bytecode,
+            preloadable: AtomicBool::new(true),
         })
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
         let measurer = self.shared.measurer.clone();
-        let sb = self.sandbox()?;
         let bundle = &job.bundle;
+        // The sandbox is used from here on, so it is no longer pristine.
+        let preloaded = self.take_preloaded(Some(bundle));
+        self.last_bundle = Some(bundle.clone());
+        if preloaded {
+            self.shared
+                .preloaded_renders
+                .fetch_add(1, Ordering::Relaxed);
+        }
+        let sb = self.sandbox()?;
+        // One call, so one deadline covers loading the bundle and the
+        // render. A preloaded bundle was loaded off the caller's clock with
+        // nothing left queued, so starting at the entry is the same script
+        // sequence.
         let outcome = sb.run_await(
             |ctx| {
-                bundle.bytecode.eval(ctx)?;
+                if !preloaded {
+                    bundle.bytecode.eval(ctx)?;
+                }
                 let entry = entry_function(ctx, &bundle.entry)?;
                 let island = Object::new(ctx.clone())?;
                 island.set("width", job.width)?;

@@ -1,0 +1,14 @@
+{
+  "title": { "text": "Traffic sources", "left": "center" },
+  "legend": { "orient": "vertical", "left": "left" },
+  "series": [{
+    "name": "Source", "type": "pie", "radius": "55%",
+    "data": [
+      { "value": 1048, "name": "Search engine" },
+      { "value": 735, "name": "Direct" },
+      { "value": 580, "name": "Email" },
+      { "value": 484, "name": "Union ads" },
+      { "value": 300, "name": "Video ads" }
+    ]
+  }]
+}
