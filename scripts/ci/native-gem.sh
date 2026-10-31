@@ -9,6 +9,9 @@
 # The gems land in bindings/ruby/pkg/, where full.yml uploads them from.
 set -euo pipefail
 platform="$1"
+if [ "${SURIMONO_PRECOMPILE:-}" = 0 ]; then
+  echo "SURIMONO_PRECOMPILE=0: native gems must ship precompiled built-ins" >&2; exit 1
+fi
 rubies="${RUBY_VERSIONS:-3.2,3.3,3.4,4.0}"
 cd "$(dirname "$0")/../.."
 . scripts/ci/lib.sh
@@ -47,6 +50,9 @@ grep -qx 'THIRD_PARTY_LICENSES.txt' "$out/contents.txt" \
   || { echo "native gem has no THIRD_PARTY_LICENSES.txt" >&2; exit 1; }
 
 # A gem for this runner's own platform can be installed and tested right here.
+# gem:verify also fails unless Surimono.precompiled_builtins equals the number
+# of built-in renderers: the cross-built library carries bytecode its own
+# engine accepts (SURIMONO_PRECOMPILE stays unset in this job).
 host="$(ruby -e 'print Gem::Platform.local.to_s')"
 case "$host" in
   "$platform"|"$platform"-gnu)
