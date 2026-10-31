@@ -1,0 +1,15 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "title": "Weekly sales",
+  "width": 400, "height": 250,
+  "data": { "values": [
+    {"day": "Mon", "sales": 120}, {"day": "Tue", "sales": 200}, {"day": "Wed", "sales": 150},
+    {"day": "Thu", "sales": 80}, {"day": "Fri", "sales": 70}, {"day": "Sat", "sales": 110},
+    {"day": "Sun", "sales": 130}
+  ] },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "day", "type": "nominal", "sort": null, "axis": { "labelAngle": 0 } },
+    "y": { "field": "sales", "type": "quantitative" }
+  }
+}

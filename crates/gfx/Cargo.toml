@@ -25,7 +25,9 @@ roxmltree.workspace = true
 serde_json.workspace = true
 # Checks the reference fonts are byte-identical to the ones Chrome measured.
 sha2.workspace = true
-# Only to prove measured text equals what Blitz (and so fulgur) lays out.
+# Blitz, set up as fulgur sets it up: measured text equals laid-out text
+# (fulgur_layout.rs), and sanitized islands parse inside a page with
+# html5ever (svg.rs).
 blitz-dom.workspace = true
 blitz-html.workspace = true
 blitz-traits.workspace = true

@@ -48,10 +48,27 @@ the space measured for them.
 So `sanitize_svg` replaces every SVG `<text>` with `<path>` outlines of its
 glyphs, shaped by the same Parley code as `TextMeasurer::measure` from the
 registered fonts. Any PDF engine then prints exactly what was measured, with
-no font lookup at all. A `<text>` becomes a `<g role="img" aria-label="…">`
-that keeps its id, class, paint and transform, so the PDF keeps the label's
-meaning for assistive technology, but the label can no longer be selected,
-searched or copied in the PDF.
+no font lookup at all. A `<text>` becomes a `<g>` that keeps its id, class,
+paint and transform, so the PDF keeps the label's meaning for assistive
+technology, but the label can no longer be selected, searched or copied in
+the PDF. The group carries:
+
+- `data-surimono-text`: the string that was outlined, always (after white
+  space collapsing). The conformance text checks read it first; Chrome's
+  rendering of the original `<text>` stays the expectation.
+- `data-surimono-face`: the faces Parley shaped it with, in order of first
+  use, by their name-table family and style, e.g. `Noto Sans JP Bold, Noto
+  Sans Bold` for bold mixed Japanese and Latin. `(synthetic oblique)` marks
+  a slanted face standing in for an italic, and a variable face adds its
+  normalized coordinates (`[wght 0.5]`). The checks can verify the face
+  really used, not only the declared weight. Same input, same string.
+- The author's `aria-label` and `role` if it had them (Vega's text marks
+  do), otherwise `role="img"` and `aria-label` set to the outlined string.
+
+Any `data-surimono-*` attribute in the input is dropped first, so an island
+can't forge them. Each glyph path carries `style="fill-rule:nonzero!important"`
+(in a `<clipPath>`, `clip-rule`), so neither the island nor the page can make
+overlapping glyphs cancel out.
 
 Evidence (all in `crates/gfx/tests/`):
 
@@ -94,13 +111,56 @@ collapsing, `x`/`y`/`dx`/`dy` lists, chunks and `text-anchor`,
 `font-family`, `font-size`, `font-weight` and `font-style` from attributes and
 `style`, `<tspan>` and `<a>`. Not supported: `rotate`, `textLength`,
 `<textPath>` (its content is dropped), vertical writing modes,
-`word-spacing`, `baseline-shift`, text decoration, synthetic bold, font
-properties set only by `<style>` rules, and fonts inherited from the page
-outside the SVG (an island's text with no font settings uses 16px and the
-`serif` mapping). ECharts and Vega use none of these. An island with more
-than `MAX_OUTLINE_CHARS` (20,000) characters of text, or 32 MiB of outline
-data, is rejected with `GfxError::InvalidSvg`, so a hostile bundle can't make
-the host outline without bound.
+`word-spacing`, `baseline-shift`, text decoration, synthetic bold, and fonts
+inherited from the page outside the SVG (an island's text with no font
+settings uses 16px and the `serif` mapping). A `<text>` inside `<symbol>` or
+`<defs>` takes its inherited font from where it is defined, not from the
+`<use>` that shows it. ECharts and Vega use none of these. (`<style>` never
+reaches outlining: the sanitiser removes it, see below.)
+
+Outlining runs on the host after the island's script limits have ended, so
+it has bounds of its own. Going over one is `GfxError::InvalidSvg`:
+
+- at most `MAX_OUTLINE_CHARS` (20,000) shaped characters per SVG; every
+  character that is shaped counts, including preserved spaces, U+00A0 and
+  U+3000, and collection stops at the limit;
+- at most 20,000 `<text>` elements per SVG, empty ones included;
+- at most 32 MiB of path data, checked as each path command is written, so
+  memory peaks at the budget plus one command;
+- each element's style parsed once, top down, and CSS over 64 KiB in one
+  attribute isn't read (the sanitiser drops it);
+- glyphs whose origin is more than 10,000,000 px from the text's origin are
+  not drawn (no page shows them), and lengths are clamped to 1e9, so every
+  path number is at most 12 bytes.
+
+The review's hostile cases now take milliseconds, release build: 1,000
+characters at `x=1e300` took 31 s and 208 MB before and take 1 ms and 15 MB
+now; a 1 MB ancestor style around 1,000 empty texts took 72.5 s and takes
+38 ms now; 6.4 MB of U+00A0 took 4.2 s and is refused in 52 ms.
+`GfxError::TextTooLong` can't come out of `sanitize_svg`.
+
+### What the sanitiser removes so an island stays in its box
+
+An inlined island can't run or load anything, and can't affect anything
+outside its own box. Beyond scripts, handlers and external URLs:
+
+- every `<style>` (its rules would apply to the whole page), all of
+  `<foreignObject>`, and all SMIL animation;
+- every element inside `<desc>` and `<title>` (an HTML parser reads them as
+  HTML, where `<textarea/>` swallows the rest of the page and `<body>`
+  restyles the page's own body); their text stays;
+- on the root `<svg>`, everything but size, `viewBox`,
+  `preserveAspectRatio`, `version`, `baseProfile`, `class`, `id`, `role`,
+  ARIA, language and inherited paint and font settings, in attributes and
+  in `style` (no `position`, `transform`, `overflow`, `filter`, `display`);
+  and a prefixed root (`<svg:svg>`) is rejected.
+
+All CSS that stays (`style` attributes, `fill`, `mask`, ...) is read with a
+CSS Syntax Level 3 tokenizer and checked again after rewriting; anything
+that could load (`image-set()`, `src()`, ...) goes. `tests/svg.rs`
+(`islands_stay_in_their_box`) parses the page around each sanitized island
+with html5ever, as fulgur does, and `chrome/svg_inline.mjs` checks the same
+in Chrome.
 
 ## Rust
 
@@ -180,7 +240,8 @@ font has fall back to a system font.
   with zero width (`tests/fulgur_layout.rs` shows it). In the page's own CSS,
   name a registered family. Island SVG is not affected (it is outlined).
 - **Island text is not selectable.** Outlined labels are paths: a PDF reader
-  can't search or copy them. The string stays in `aria-label`.
+  can't search or copy them. The string stays in `data-surimono-text` (and
+  in `aria-label` unless the chart set its own).
 - **WOFF and WOFF2.** fulgur decodes WOFF2; surimono-gfx rejects both. Give
   both the TTF or OTF.
 - **Boxes around text.** Blitz rounds a shrink-to-fit inline box up to whole

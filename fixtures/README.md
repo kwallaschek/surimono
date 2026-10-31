@@ -23,9 +23,10 @@ fixtures/islands/<name>/
 
 `input.html` is a complete document: `@font-face` rules pointing at
 `../../fonts/`, an explicit `@page { size: 210mm 297mm; margin: 15mm }`, and one
-or more island markers, each inside `<figure class="island">` with
-`figure.island > svg { display: block }` so the inlined SVG lays out the same
-way in every engine. The page is a realistic report (header, intro, figure,
+or more island markers, each inside `<figure class="island">`. The page styles
+the island through the element surimono's pre-pass puts in the marker's place,
+`.surimono-island > svg { display: block }`, so the inlined SVG lays out the
+same way in every engine. The page is a realistic report (header, intro, figure,
 caption, summary rows) built only from layout that fulgur and Chrome agree on
 (see "Diff metric"):
 
@@ -34,8 +35,13 @@ caption, summary rows) built only from layout that fulgur and Chrome agree on
         data-width="W" data-height="H">{spec JSON}</script>
 ```
 
-The JSON escapes `<`, `>` and `&` as `<`, `>`, `&`, so it can
+The JSON escapes `<`, `>` and `&` as `\u003c`, `\u003e`, `\u0026`, so it can
 never close its `<script>`.
+
+W and H are multiples of 8 px. Chrome rounds `@page` sizes to 1/300 inch, so
+the page an island reference is printed on (exactly W×H) is only exact in both
+Chrome and fulgur when W and H are multiples of 1/12 inch. `gen-islands.mjs`
+refuses other sizes.
 
 ### Island contract (what Chrome does, so what surimono must match)
 
@@ -46,7 +52,12 @@ never close its `<script>`.
   The spec is used as is. Fixtures set `width`, `height` and
   `autosize: { type: "fit", contains: "padding" }` so the SVG is exactly W×H; the
   harness fails if it isn't.
-- Each marker is replaced by the SVG string; nothing else in the document changes.
+- Each marker is replaced by `<div class="surimono-island[ marker classes]"[ id="…"]
+  data-renderer="…">SVG</div>`, exactly what surimono's pre-pass emits
+  (`crates/surimono/src/prepass.rs`), and nothing else in the document changes.
+  The Chrome harness builds the same wrapper (`lib/islands-browser.js`, and
+  `islandWrapper` in `lib/fixtures.mjs` for `prepass.html`), so page CSS matches
+  on both sides.
 - Text is measured with the page's `@font-face` fonts, all loaded before any
   island renders. Every spec names its fonts (`textStyle.fontFamily`,
   `config.font`, or per axis and mark in Vega). Nothing may fall back to a
@@ -114,20 +125,19 @@ half-pixel shifts scored up to 16%. The window turns a local fault into a large
 number instead of diluting it in a page of white space and bars.
 
 Calibration: `calibrate.mjs` has Chrome print deliberately altered copies of
-Chrome's own island SVG, then scores them (worst window). These numbers are for
-the two fixtures here; P1-CF-03 reruns it on all ten:
+Chrome's own island SVG for the first 10 fixtures, then scores them (worst window):
 
 | Fault | Min | Max | Fails at 10% | Should |
 |---|---|---|---|---|
-| text shifted 0.5 px right | 0.0% | 0.0% | 0/2 | pass |
-| text shifted 0.5 px down | 0.0% | 0.0% | 0/2 | pass |
-| text shifted 1 px right | 0.0% | 0.0% | 0/2 | pass |
-| letter-spacing +0.2 px (labels about 2% wider) | 20.5% | 24.0% | 2/2 | borderline |
-| text shifted 3 px right | 21.2% | 31.2% | 2/2 | fail |
-| one label in four missing | 37.0% | 54.1% | 2/2 | fail |
-| whole chart scaled to 99% | 34.9% | 82.5% | 2/2 | fail |
-| all text bold | 0.0% | 23.8% | 1/2 | fail |
-| Latin text in Noto Sans JP instead of Noto Sans | 5.3% | 13.3% | 1/2 | fail |
+| text shifted 0.5 px right | 0.0% | 0.0% | 0/10 | pass |
+| text shifted 0.5 px down | 0.0% | 0.0% | 0/10 | pass |
+| text shifted 1 px right | 0.0% | 0.0% | 0/10 | pass |
+| letter-spacing +0.2 px (labels about 2% wider) | 0.0% | 24.0% | 4/10 | borderline |
+| text shifted 3 px right | 18.5% | 57.1% | 10/10 | fail |
+| one label in four missing | 31.1% | 67.9% | 10/10 | fail |
+| whole chart scaled to 99% | 34.9% | 100.0% | 10/10 | fail |
+| all text bold | 0.0% | 31.9% | 7/10 | fail |
+| Latin text in Noto Sans JP instead of Noto Sans | 0.0% | 13.3% | 1/10 | fail (a no-op on the 4 all-Japanese fixtures) |
 
 The metric catches what a measuring engine gets wrong: shifted, missing or
 resized text and marks. It does not reliably catch a wrong font face or weight
@@ -138,22 +148,46 @@ already fails any fixture whose SVG names a font outside `fixtures/fonts/`.
 **Baseline (`fulgur-baseline.sh`): fulgur 0.40.0 printing Chrome's own SVGs**,
 worst window, pixelmatch in brackets:
 
-| Fixture | Page | Island 0 |
-|---|---|---|
-| echarts-bar-simple-latin | 0.0% (3.86%) | 0.0% (0.17%) |
-| vegalite-bar-simple-latin | 0.0% (4.11%) | 0.0% (0.09%) |
+| Fixture | Page | Verdict | Islands | Verdict |
+|---|---|---|---|---|
+| echarts-bar-simple-ja | 0.0% (4.21%) | pass | 0.0% (2.51%) | pass |
+| echarts-bar-simple-latin | 0.0% (3.86%) | pass | 0.0% (0.17%) | pass |
+| echarts-line-dense-latin | 0.0% (12.19%) | pass | 0.0% (0.28%) | pass |
+| echarts-mixed-dense-ja | 2.5% (5.82%) | pass | 2.9% (3.99%) | pass |
+| echarts-pie-ja | 0.0% (5.19%) | pass | 0.0% (5.38%) | pass |
+| vega-bar-simple-latin | 0.0% (2.99%) | pass | 0.0% (0.19%) | pass |
+| vegalite-bar-simple-latin | 0.0% (4.28%) | pass | 0.0% (0.09%) | pass |
+| vegalite-layered-dense-ja | 4.5% (20.61%) | pass | 3.9% (1.05%) | pass |
+| vegalite-line-ja | 1.3% (6.73%) | pass | 0.0% (9.79%) | pass |
+| vegalite-scatter-dense-latin | 0.1% (8.90%) | pass | 0.0% (9.54%) | pass |
+| echarts-two-charts-latin | 0.0% (2.60%) | pass | 0.0% (0.02%), 0.0% (0.00%) | pass, pass |
 
-All pass, so a surimono + fulgur failure means surimono's SVG differs from
-Chrome's. Getting there took a page template that avoids five fulgur 0.40.0
-layout gaps (`docs/COMPAT.md`): auto-sized flex items, tables, single-side
-border colours, fractional line heights, and Chrome's default
-`text-spacing-trim`. The template uses whole-pixel sizes, fixed-basis flex rows
-instead of `<table>`, and `text-spacing-trim: space-all`.
+All 23 pass by the tool's own rule (score at or below 10% and the same page
+size and count as Chrome; `baseline.md` prints the verdict), so a surimono +
+fulgur failure means surimono's SVG differs from Chrome's. Getting there took
+six workarounds for fulgur 0.40.0 gaps and one for Chrome (`docs/COMPAT.md`):
+
+1. no auto-sized flex items (the header uses fixed sizes);
+2. fixed-basis flex rows instead of `<table>`;
+3. no single-side border colours (rules are 2 px high blocks with a background);
+4. whole-pixel font sizes and line heights;
+5. `text-spacing-trim: space-all`, because fulgur doesn't trim full-width punctuation;
+6. a Japanese-first page font list (`"Noto Sans JP", "Noto Sans"`) on Japanese
+   pages, because fulgur's line boxes don't grow for fallback glyphs;
+7. island sizes in multiples of 8 px, because Chrome rounds `@page` sizes to
+   1/300 inch (`gen-islands.mjs` refuses anything else).
+
+The remaining floors (up to 4.5% on a page and 3.9% on an island) are almost all
+one fulgur gap: in SVG text with a Latin-first font list (`"Noto Sans, Noto Sans
+JP"`), its per-glyph fallback prints normal-weight Japanese in Noto Sans JP
+**Bold** (`docs/COMPAT.md`). It affects vegalite-layered-dense-ja and
+echarts-mixed-dense-ja. vegalite-line-ja names Noto Sans JP directly and gets
+Regular; its 1.3% page score is sub-pixel glyph placement in the legend.
 
 ## Which comparison gates what
 
 | Comparison | Measures | Gate |
 |---|---|---|
 | `compare.sh --island I` (Chrome prints surimono's SVG) | surimono's island SVG alone | ≤ 10%: the checkpoint-2 criterion |
-| `compare.sh --island I --printer fulgur` | surimono's SVG plus fulgur's SVG printing | ≤ 10% (fulgur's own floor is 0.0% here) |
-| `compare.sh <fixture> <pdf>` (surimono + fulgur page) | the whole document | ≤ 10% (fulgur's own floor is 0.0% here) |
+| `compare.sh --island I --printer fulgur` | surimono's SVG plus fulgur's SVG printing | ≤ 10% (fulgur's own floor is ≤ 3.9%) |
+| `compare.sh <fixture> <pdf>` (surimono + fulgur page) | the whole document | ≤ 10% (fulgur's own floor is ≤ 4.5%) |
