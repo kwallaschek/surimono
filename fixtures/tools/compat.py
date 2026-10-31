@@ -10,6 +10,8 @@ Inputs (each optional; a missing one makes its section say "not run"):
                   fixtures/tools/compare.sh (page mode and island mode, either
                   printer). The fixture is the first word of each file's
                   "subject"; fixtures/islands/*/meta.toml names their renderers.
+                  A subject that names no fixture there (another case, a
+                  hidden character, a renamed fixture) is an error.
   --hostile FILE  the hostile-suite results (format below). Pass or fail is
                   decided here, against fixtures/hostile/manifest.toml, not
                   taken from the file.
@@ -44,6 +46,7 @@ one entry per case and step:
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
 import sys
@@ -110,19 +113,38 @@ def fixture_meta() -> dict[str, dict]:
     return meta
 
 
+def _check_failed(check) -> bool:
+    """A check that is present failed unless it is an object whose `pass` is
+    exactly true: a missing `pass`, the string "false" or anything else fails."""
+    return not (isinstance(check, dict) and check.get("pass") is True)
+
+
 def failed_checks(score: dict) -> list[str]:
-    """The checks a score failed, by name (from compare.mjs's per-page "failed" lists)."""
+    """The checks a score failed, by name (from compare.mjs's per-page "failed"
+    lists). A score that compared no page at all fails with "no pages"."""
     names: list[str] = []
+
+    def add(name: str) -> None:
+        if name not in names:
+            names.append(name)
+
     if score.get("error"):
-        names.append("render error")
-    for p in score.get("pages", []):
-        for n in p.get("failed") or ([] if p.get("pass") else ["page"]):
-            if n not in names:
-                names.append(n)
-    if score.get("text") and not score["text"].get("pass", True):
-        names.append("text")
-    if score.get("font") and not score["font"].get("pass", True):
-        names.append("font")
+        add("render error")
+    pages = score.get("pages")
+    if not isinstance(pages, list):
+        pages = []
+    if not pages and not score.get("error"):
+        add("no pages")
+    for p in pages:
+        listed = p.get("failed") if isinstance(p, dict) else None
+        if isinstance(listed, list) and listed:
+            for n in listed:
+                add(str(n))
+        elif listed or _check_failed(p):
+            add("page")
+    for check in ("text", "font"):
+        if score.get(check) is not None and _check_failed(score[check]):
+            add(check)
     return names
 
 
@@ -133,7 +155,7 @@ def _pct(x) -> str:
 def check_detail(score: dict, check: str) -> str:
     """One failed check with its own number: shape, colour and hue with their
     worst windows, text with what is missing or extra, size with both sizes."""
-    pages = score.get("pages", [])
+    pages = [p for p in (score.get("pages") if isinstance(score.get("pages"), list) else []) if isinstance(p, dict)]
     if check == "render error":
         return f"render error: {str(score.get('error')).splitlines()[0][:120]}"
     if check == "shape":
@@ -142,14 +164,20 @@ def check_detail(score: dict, check: str) -> str:
         top = score.get(f"worst_{check}_window")
         per_page = [p[f"{check}_worst_window"] for p in pages if isinstance(p.get(f"{check}_worst_window"), (int, float))]
         return f"{check} {_pct(top if top is not None else (max(per_page) if per_page else None))}"
+    if check == "no pages":
+        return "no pages compared"
     if check == "text":
-        t = score.get("text", {})
-        parts = [f"{len(t[k])} {k}" for k in ("missing", "extra") if t.get(k)]
+        t = score.get("text") if isinstance(score.get("text"), dict) else {}
+        parts = [f"{len(t[k])} {k}" for k in ("missing", "extra") if isinstance(t.get(k), list) and t[k]]
         return f"text: {', '.join(parts) or 'differs'}"
     if check == "font":
-        mm = score.get("font", {}).get("mismatches", [])
+        f = score.get("font") if isinstance(score.get("font"), dict) else {}
+        lists = {k: f[k] if isinstance(f.get(k), list) else [] for k in ("mismatches", "missing", "extra")}
+        mm = [m for m in lists["mismatches"] if isinstance(m, dict)]
+        parts = [f"{len(lists['mismatches'])} differ"] if lists["mismatches"] else []
+        parts += [f"{len(lists[k])} {k}" for k in ("missing", "extra") if lists[k]]
         first = f" ({mm[0].get('key')}: Chrome {mm[0].get('chrome')}, surimono {mm[0].get('surimono')})" if mm else ""
-        return f"font: {len(mm)} differ{first}"
+        return f"font: {', '.join(parts) or 'differs'}{first}"
     if check == "size":
         sizes = [f"{p.get('actual_size')} vs Chrome {p.get('expected_size')}" for p in pages if p.get("size_match") is False]
         return f"size {sizes[0]}" if sizes else "size"
@@ -160,9 +188,10 @@ def check_detail(score: dict, check: str) -> str:
 
 
 def passed(score: dict) -> bool:
-    """A pass is derived, never taken on trust: `pass` must be the boolean true
-    and no check inside the score may have failed, so a producer that forgets
-    to fold a new check into `pass` can't turn it into a pass."""
+    """A pass is derived, never taken on trust: `pass` must be the boolean true,
+    at least one page must have been compared and no check inside the score may
+    have failed, so a producer that forgets to fold a new check into `pass`
+    can't turn it into a pass."""
     return score.get("pass") is True and not score.get("error") and not failed_checks(score)
 
 
@@ -183,6 +212,15 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
     by: dict[str, dict[str, dict]] = {}
     for s in scores:
         fixture, kind = classify(s)
+        if fixture not in meta:
+            # Its own row would show renderer "?", and the real-world table,
+            # which groups by meta.toml's renderer, would never count it.
+            near = [n for n in meta if n.casefold() == fixture.casefold()] or difflib.get_close_matches(fixture, list(meta), n=1)
+            raise CompatError(
+                f"{s.get('_file', '?')}: a result for {fixture!r}, which is not a fixture in fixtures/islands/ (no meta.toml)"
+                + (f"; did you mean {near[0]!r}?" if near else "")
+                + "; pass results for this checkout's fixtures only"
+            )
         if kind in by.get(fixture, {}):
             first = by[fixture][kind].get("_file", "?")
             raise CompatError(
