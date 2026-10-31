@@ -3,8 +3,7 @@
 use std::time::Duration;
 
 use surimono_islands::{
-    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError, TextMeasurer,
-    TextMetrics,
+    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError,
 };
 
 fn options(pool_size: usize) -> RunnerOptions {
@@ -68,7 +67,7 @@ const CLEAN: &str = "1,undefined,undefined,undefined,true,function,1,undefined,u
 #[test]
 fn no_state_leaks_between_renders() {
     // One worker, so every render reuses the same runtime.
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("polluter", POLLUTER, "entry").unwrap();
     for i in 0..5 {
         assert_eq!(render(&r, "polluter").unwrap(), CLEAN, "render {i}");
@@ -77,7 +76,7 @@ fn no_state_leaks_between_renders() {
 
 #[test]
 fn no_state_leaks_across_renderers() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("polluter", POLLUTER, "entry").unwrap();
     r.register_bundle(
         "observer",
@@ -90,11 +89,18 @@ fn no_state_leaks_across_renderers() {
         render(&r, "observer").unwrap(),
         "undefined,undefined,undefined,undefined"
     );
+    // The same with an idle gap, so the worker has preloaded the polluter.
+    render(&r, "polluter").unwrap();
+    idle(&r);
+    assert_eq!(
+        render(&r, "observer").unwrap(),
+        "undefined,undefined,undefined,undefined"
+    );
 }
 
 #[test]
 fn no_state_leaks_after_errors() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("polluter", POLLUTER, "entry").unwrap();
     for (name, src) in [
         (
@@ -118,7 +124,7 @@ fn no_state_leaks_after_errors() {
 
 #[test]
 fn many_renders_on_a_small_pool_are_counted() {
-    let r = IslandRunner::new(options(2)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(2)).unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     for _ in 0..50 {
@@ -134,7 +140,7 @@ fn many_renders_on_a_small_pool_are_counted() {
 fn heap_is_freed_after_every_render() {
     // Each render holds about 8 MiB of a 16 MiB heap. If any of it survived
     // into the next render on the same runtime, the second would fail.
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle(
         "big",
         "function entry() { globalThis.keep = new Float64Array(1024 * 1024); return 'ok' }",
@@ -148,19 +154,11 @@ fn heap_is_freed_after_every_render() {
 
 #[test]
 fn stats_count_failures() {
-    let r = IslandRunner::new(RunnerOptions {
-        text_measurer: TextMeasurer::new(|text, _| {
-            if text == "panic" {
-                panic!("boom");
-            }
-            Ok(TextMetrics::default())
-        }),
-        ..options(1)
-    })
-    .unwrap();
+    // (Panics in a measurer are counted too; see the runner's unit tests.)
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle(
         "m",
-        "function entry(s) { ctx = arguments[1]; ctx.measureText(JSON.parse(s).t); return 'ok' }",
+        "function entry(s) { if (JSON.parse(s).t === 'fail') throw new Error('x'); return 'ok' }",
         "entry",
     )
     .unwrap();
@@ -173,7 +171,7 @@ fn stats_count_failures() {
         })
     };
     go("fine").unwrap();
-    assert!(matches!(go("panic"), Err(IslandError::Worker { .. })));
+    assert!(go("fail").is_err());
     go("fine").unwrap();
     let stats = r.stats();
     assert_eq!(stats.renders, 3);
@@ -182,7 +180,7 @@ fn stats_count_failures() {
 
 #[test]
 fn limit_errors_keep_the_pool_healthy() {
-    let r = IslandRunner::new(options(2)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(2)).unwrap();
     r.register_bundle("loop", "function entry() { for (;;) {} }", "entry")
         .unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
@@ -197,18 +195,27 @@ fn limit_errors_keep_the_pool_healthy() {
 }
 
 /// Gives an idle worker time to reset and preload.
-fn idle() {
-    std::thread::sleep(Duration::from_millis(50));
+/// Waits until every worker of `r` is idle: reset and preloaded.
+fn idle(r: &IslandRunner) {
+    let start = std::time::Instant::now();
+    while r.stats().idle_workers < r.pool_size() {
+        assert!(
+            start.elapsed() < Duration::from_secs(30),
+            "workers never went idle: {:?}",
+            r.stats()
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
 }
 
 #[test]
 fn an_idle_worker_preloads_the_last_bundle() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     for _ in 0..5 {
         assert_eq!(render(&r, "x").unwrap(), "x");
-        idle();
+        idle(&r);
     }
     // The first render loads the bundle itself; the worker preloads it for
     // each of the others while idle.
@@ -228,7 +235,7 @@ function entry(specJson, ctx) {
   return log.join('|');
 }
 "#;
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("s", STATEFUL, "entry").unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
@@ -239,7 +246,7 @@ function entry(specJson, ctx) {
         if i % 2 == 1 {
             render(&r, "x").unwrap();
         }
-        idle();
+        idle(&r);
         assert_eq!(render(&r, "s").unwrap(), first, "round {i}");
     }
     let stats = r.stats();
@@ -259,18 +266,18 @@ var log = ['top'];
 Promise.resolve().then(() => log.push('microtask'));
 function entry() { return log.join('|') }
 "#;
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("q", QUEUES, "entry").unwrap();
     for _ in 0..4 {
         assert_eq!(render(&r, "q").unwrap(), "top");
-        idle();
+        idle(&r);
     }
     assert_eq!(r.stats().preloaded_renders, 0);
 }
 
 #[test]
 fn idle_workers_are_counted() {
-    let r = IslandRunner::new(options(2)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(2)).unwrap();
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     render(&r, "x").unwrap();
@@ -283,20 +290,20 @@ fn idle_workers_are_counted() {
 
 #[test]
 fn replacing_a_bundle_drops_its_preloaded_copy() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("v", "function entry() { return 'old' }", "entry")
         .unwrap();
     assert_eq!(render(&r, "v").unwrap(), "old");
-    idle();
+    idle(&r);
     r.register_bundle("v", "function entry() { return 'new' }", "entry")
         .unwrap();
-    idle();
+    idle(&r);
     assert_eq!(render(&r, "v").unwrap(), "new");
 }
 
 #[test]
 fn a_preloaded_bundle_never_leaks_into_another_renderer() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle(
         "a",
         "var fromA = 1; function entry() { return 'a' }",
@@ -308,25 +315,44 @@ fn a_preloaded_bundle_never_leaks_into_another_renderer() {
     for _ in 0..3 {
         render(&r, "a").unwrap();
         // The idle worker preloads "a"; "b" must still start clean.
-        idle();
+        idle(&r);
         assert_eq!(render(&r, "b").unwrap(), "undefined");
-        idle();
+        idle(&r);
     }
 }
 
 #[test]
 fn registration_never_sees_a_preloaded_bundle() {
-    let r = IslandRunner::new(options(1)).unwrap();
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
     r.register_bundle("a", "function entry() { return 'a' }", "entry")
         .unwrap();
     render(&r, "a").unwrap();
     // The worker now holds "a", which defines `entry`; a bundle that
     // doesn't define it must still be refused.
-    idle();
+    idle(&r);
     assert_eq!(
         r.register_bundle("b", "var x = 1;", "entry").unwrap_err(),
         IslandError::MissingEntry {
             bundle: "b".into(),
+            entry: "entry".into()
+        }
+    );
+}
+
+#[test]
+fn an_entry_defined_in_a_microtask_is_refused_at_registration() {
+    // A render looks the entry up right after the bundle runs, before any
+    // microtask, so registration must refuse it too.
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
+    assert_eq!(
+        r.register_bundle(
+            "late",
+            "Promise.resolve().then(() => { globalThis.entry = () => 'x' })",
+            "entry",
+        )
+        .unwrap_err(),
+        IslandError::MissingEntry {
+            bundle: "late".into(),
             entry: "entry".into()
         }
     );

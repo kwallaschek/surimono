@@ -12,6 +12,8 @@ use surimono_islands::{
     IslandError, IslandRequest, IslandRunner, RunnerOptions, SandboxError, builtin_renderers,
 };
 
+mod common;
+
 /// Width and height every test chart is rendered at.
 const WIDTH: u32 = 600;
 const HEIGHT: u32 = 400;
@@ -26,7 +28,7 @@ fn option(name: &str) -> String {
 }
 
 fn runner() -> IslandRunner {
-    IslandRunner::new(RunnerOptions {
+    IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: 1,
         ..RunnerOptions::default()
     })
@@ -157,35 +159,28 @@ fn every_option_renders_and_is_deterministic() {
 
 #[test]
 fn text_is_measured_by_the_host() {
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use surimono_islands::{TextMeasurer, TextMetrics};
-
-    let calls = Arc::new(AtomicUsize::new(0));
-    let seen = calls.clone();
-    // Twice the stand-in's widths: wider labels must move the layout.
-    let wide = TextMeasurer::new(move |text, font| {
-        seen.fetch_add(1, Ordering::Relaxed);
-        let m = TextMeasurer::approximate().measure(text, font)?;
-        Ok(TextMetrics {
-            width: m.width * 2.0,
-            ..m
-        })
-    });
+    // Real fonts instead of the estimate: labels have other widths, so the
+    // layout moves.
     let r = IslandRunner::new(RunnerOptions {
         pool_size: 1,
-        text_measurer: wide,
+        text_measurer: Some(common::fixture_measurer()),
         ..RunnerOptions::default()
     })
     .unwrap();
-    let spec = option("bar");
-    let wide_svg = render(&r, &spec).unwrap();
-    assert!(
-        calls.load(Ordering::Relaxed) > 0,
-        "measureText was never called"
-    );
-    let normal_svg = render(&runner(), &spec).unwrap();
-    assert_ne!(wide_svg, normal_svg);
+    // (The Japanese chart lays out the same either way: its CJK labels are
+    // 1 em wide in Noto Sans JP and in the estimate.)
+    for name in ["bar", "japanese"] {
+        let spec = option(name);
+        let with_fonts = render(&r, &spec).unwrap();
+        check_svg(&with_fonts);
+        if name == "bar" {
+            assert_ne!(with_fonts, render(&runner(), &spec).unwrap(), "{name}");
+        }
+        assert!(
+            with_fonts == render(&r, &spec).unwrap(),
+            "{name}: not deterministic"
+        );
+    }
 }
 
 #[test]

@@ -10,7 +10,12 @@
 //! - [`run_pending_job`], which runs one microtask and leaves its exception on
 //!   the context instead of swallowing it;
 //! - [`update_stack_top`], so the stack limit is measured from where we enter
-//!   the engine rather than from where the runtime was created.
+//!   the engine rather than from where the runtime was created, and
+//!   [`stack_available`], which asks the OS how much of this thread's stack
+//!   is left;
+//! - [`patch_level`], which links against a symbol only the patched QuickJS
+//!   in `vendor/rquickjs-sys` defines, so a build against an unpatched
+//!   engine fails to link instead of shipping a sandbox that can hang.
 //!
 //! Every `unsafe` block carries a `SAFETY:` comment and is covered by the tests
 //! at the bottom of this file and in `sandbox.rs`. The module is opted in to
@@ -41,6 +46,9 @@ pub(crate) struct LimitState {
     timed_out: AtomicBool,
     /// Deadline in nanoseconds since `origin`; `u64::MAX` means disarmed.
     deadline: AtomicU64,
+    /// Set when the sandbox replaces or drops this state's runtime; a
+    /// [`Deadline`](crate::Deadline) still holding it then reports passed.
+    retired: AtomicBool,
     /// Monotonic origin for the deadline. Only decides whether to abort; it
     /// never reaches script-visible output.
     origin: Instant,
@@ -56,6 +64,7 @@ impl LimitState {
             oom: AtomicBool::new(false),
             timed_out: AtomicBool::new(false),
             deadline: AtomicU64::new(DISARMED),
+            retired: AtomicBool::new(false),
             origin: Instant::now(),
         })
     }
@@ -91,6 +100,22 @@ impl LimitState {
         self.used.load(Ordering::Relaxed)
     }
 
+    /// Marks this state's runtime as gone (replaced or dropped).
+    pub(crate) fn retire(&self) {
+        self.retired.store(true, Ordering::Relaxed);
+    }
+
+    /// Whether this state's runtime is gone.
+    pub(crate) fn retired(&self) -> bool {
+        self.retired.load(Ordering::Relaxed)
+    }
+
+    /// Whether the deadline has passed, without recording a timeout.
+    pub(crate) fn deadline_passed_quietly(&self) -> bool {
+        let deadline = self.deadline.load(Ordering::Relaxed);
+        deadline != DISARMED && self.elapsed_nanos() >= deadline
+    }
+
     /// Checks the deadline and records a timeout. Called by the interrupt
     /// handler and between microtasks.
     pub(crate) fn deadline_passed(&self) -> bool {
@@ -118,6 +143,11 @@ impl LimitState {
 
     /// Reserves room for `extra` more bytes, or records an out-of-memory error.
     fn admit(&self, extra: usize) -> bool {
+        #[cfg(test)]
+        if fault::refuse_this_allocation() {
+            self.oom.store(true, Ordering::Relaxed);
+            return false;
+        }
         let used = self.used.load(Ordering::Relaxed);
         let limit = self.limit.load(Ordering::Relaxed);
         if used.saturating_add(extra) > limit {
@@ -241,6 +271,96 @@ pub(crate) fn update_stack_top(ctx: &Ctx<'_>) {
     }
 }
 
+unsafe extern "C" {
+    /// Defined only by the patched QuickJS in `vendor/rquickjs-sys`.
+    fn surimono_quickjs_patch_level() -> std::ffi::c_int;
+}
+
+/// The level of surimono's QuickJS patches in the linked engine (see
+/// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse
+/// to link against an unpatched rquickjs-sys.
+pub(crate) fn patch_level() -> i32 {
+    // SAFETY: a C function with no arguments that returns a constant.
+    unsafe { surimono_quickjs_patch_level() }
+}
+
+/// Bytes of stack left on this thread below the current frame, if the
+/// platform can tell (Linux and macOS); `None` elsewhere.
+pub(crate) fn stack_available() -> Option<usize> {
+    let here = std::hint::black_box(0u8);
+    let sp = std::ptr::addr_of!(here) as usize;
+    STACK_LOW.with(|low| low.map(|low| sp.saturating_sub(low)))
+}
+
+thread_local! {
+    /// Lowest address of this thread's stack, looked up once per thread.
+    static STACK_LOW: Option<usize> = stack_low();
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn stack_low() -> Option<usize> {
+    let mut attr = std::mem::MaybeUninit::<libc::pthread_attr_t>::uninit();
+    // SAFETY: pthread_getattr_np initialises `attr` for the calling thread
+    // (glibc and musl both support it, the main thread included); we read it
+    // only after it reports success and destroy it exactly once.
+    unsafe {
+        if libc::pthread_getattr_np(libc::pthread_self(), attr.as_mut_ptr()) != 0 {
+            return None;
+        }
+        let mut addr: *mut libc::c_void = ptr::null_mut();
+        let mut size: libc::size_t = 0;
+        let ok = libc::pthread_attr_getstack(attr.as_ptr(), &mut addr, &mut size) == 0;
+        libc::pthread_attr_destroy(attr.as_mut_ptr());
+        // `addr` is the lowest address of the stack mapping.
+        (ok && !addr.is_null()).then_some(addr as usize)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn stack_low() -> Option<usize> {
+    // SAFETY: both functions only read the calling thread's descriptor;
+    // pthread_get_stackaddr_np returns the stack's highest address.
+    unsafe {
+        let me = libc::pthread_self();
+        let top = libc::pthread_get_stackaddr_np(me) as usize;
+        let size = libc::pthread_get_stacksize_np(me);
+        top.checked_sub(size)
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
+fn stack_low() -> Option<usize> {
+    None
+}
+
+/// Test-only fault injection: refuse exactly the Nth allocation, to show no
+/// out-of-memory path in QuickJS aborts the process.
+#[cfg(test)]
+pub(crate) mod fault {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static REFUSE_AT: AtomicUsize = AtomicUsize::new(0);
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    /// Refuse the `n`th allocation from now on (1-based); 0 switches it off.
+    /// Process-wide: use it only in a child process running one test.
+    pub(crate) fn refuse_nth(n: usize) {
+        COUNT.store(0, Ordering::SeqCst);
+        REFUSE_AT.store(n, Ordering::SeqCst);
+    }
+
+    /// Allocations counted since the last `refuse_nth`.
+    pub(crate) fn count() -> usize {
+        COUNT.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn refuse_this_allocation() -> bool {
+        let n = REFUSE_AT.load(Ordering::Relaxed);
+        let i = COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+        n != 0 && i == n
+    }
+}
+
 /// Compiles a classic (non-module) script to QuickJS bytecode without running it.
 ///
 /// On a syntax error, returns `Err(Exception)` with the error pending on `ctx`.
@@ -355,17 +475,15 @@ pub(crate) fn run_pending_job(ctx: &Ctx<'_>) -> rquickjs::Result<bool> {
     if res >= 0 {
         return Ok(res > 0);
     }
-    if !job_ctx.is_null() && job_ctx != raw {
-        // The job belonged to another context of this runtime. The sandbox
-        // never keeps two contexts alive, so this is defensive: clear the
-        // exception there so it can't surface later.
-        // SAFETY: `job_ctx` is the live context the job ran in (the job held a
-        // reference to it); JS_GetException transfers ownership of the pending
-        // exception, which JS_FreeValue releases.
-        unsafe {
-            let exc = qjs::JS_GetException(job_ctx);
-            qjs::JS_FreeValue(job_ctx, exc);
-        }
+    // The job threw, and its exception is pending on the context it was
+    // queued from. QuickJS's job entries keep a raw context pointer without
+    // a reference, so `job_ctx` is only compared, never dereferenced. The
+    // sandbox keeps one context per runtime, so it is always `ctx`.
+    debug_assert!(
+        job_ctx == raw,
+        "a job ran in a context the sandbox doesn't own"
+    );
+    if job_ctx != raw {
         return Err(rquickjs::Error::Unknown);
     }
     Err(rquickjs::Error::Exception)
@@ -491,6 +609,41 @@ mod tests {
             assert!(!run_pending_job(&ctx).unwrap());
             assert_eq!(ctx.globals().get::<_, i32>("n").unwrap(), 1);
         });
+    }
+
+    #[test]
+    fn the_engine_is_patched() {
+        assert!(patch_level() >= 1);
+    }
+
+    #[test]
+    fn stack_available_is_plausible() {
+        if !cfg!(any(target_os = "linux", target_os = "macos")) {
+            return;
+        }
+        // A thread we size ourselves reports at least what we asked for.
+        let avail = std::thread::Builder::new()
+            .stack_size(4 * 1024 * 1024)
+            .spawn(stack_available)
+            .unwrap()
+            .join()
+            .unwrap()
+            .unwrap();
+        // glibc may reuse a cached stack up to 4x the requested size.
+        assert!(
+            (3 * 1024 * 1024..=17 * 1024 * 1024).contains(&avail),
+            "{avail}"
+        );
+        // Deeper frames see less.
+        fn deeper(n: usize) -> usize {
+            let pad = std::hint::black_box([0u8; 4096]);
+            if n == 0 {
+                stack_available().unwrap() + usize::from(pad[0])
+            } else {
+                deeper(n - 1)
+            }
+        }
+        assert!(deeper(16) + 16 * 4096 <= stack_available().unwrap());
     }
 
     #[test]
