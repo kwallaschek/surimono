@@ -141,12 +141,12 @@ test("svgTextStyles resolves weight and style from attributes, style, the font s
   ]);
 });
 
-test("font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's", () => {
+test("font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails", () => {
   const chrome = `<svg><text style="font-size:12px;font-weight:bold">Title</text><text>Jan</text><text aria-label="Value: 3">3</text></svg>`;
   const ref = svgTextStyles(chrome);
   const outlined = `<svg><g style="font-size:12px;font-weight:bold" role="img" aria-label="Title"><path d="M0 0"/></g>
     <g role="img" aria-label="Jan"><path d="M0 0"/></g><g aria-label="Value: 3" role="graphics-symbol"><path d="M0 0"/></g></svg>`;
-  assert.deepEqual(compareStyles(ref, outlined), { pass: true, compared: 3, mismatches: [], missing: [] });
+  assert.deepEqual(compareStyles(ref, outlined), { pass: true, compared: 3, mismatches: [], missing: [], extra: [] });
   const bold = outlined.replace('aria-label="Jan"', 'aria-label="Jan" font-weight="bold"');
   const r = compareStyles(ref, bold);
   assert.equal(r.pass, false);
@@ -174,8 +174,10 @@ test("font check matches same-key texts one to one", () => {
     { key: "East", chrome: "400 normal", surimono: "700 normal" },
     { key: "West", chrome: "400 normal", surimono: "700 normal" },
   ]);
-  // Two candidates for one reference text: the right one is taken, the extra is ignored.
-  assert.equal(compareStyles(svgTextStyles("<svg><text>East</text></svg>"), `<svg>${outline("East", true)}${outline("East")}</svg>`).pass, true);
+  // Two candidates for one reference text: the right one is taken, and the other is extra (P1-CF-11).
+  const two = compareStyles(svgTextStyles("<svg><text>East</text></svg>"), `<svg>${outline("East", true)}${outline("East")}</svg>`);
+  assert.equal(two.pass, false);
+  assert.deepEqual(two.extra, [{ key: "East", surimono: "700 normal" }]);
 });
 
 test("font check candidates are <text> and outline groups, never chart marks", () => {
@@ -217,4 +219,51 @@ test("computedTextStyles is Chrome's view, and catches what svgTextStyles can't 
   } finally {
     await browser.close();
   }
+});
+
+test("text check: every copy counts, however it is drawn", () => {
+  // Review of #43: a second copy of a label, or a string drawn both as an
+  // outline and as a <text>, passed because copies cancelled out.
+  const ref = svgTexts(`<svg><text>East</text><text>West</text></svg>`);
+  const outline = (key, bold) => `<g role="img" aria-label="${key}"${bold ? ' font-weight="bold"' : ""}><path d="M0 0"/></g>`;
+  assert.equal(compareTexts(ref, `<svg>${outline("East")}${outline("West")}</svg>`).pass, true);
+  const twice = compareTexts(ref, `<svg>${outline("East")}${outline("West")}${outline("East", true)}</svg>`);
+  assert.equal(twice.pass, false);
+  assert.deepEqual(twice.extra, ["East"]);
+  const both = compareTexts(ref, `<svg>${outline("East")}${outline("West")}<text>East</text></svg>`);
+  assert.equal(both.pass, false);
+  assert.deepEqual(both.extra, ["East"]);
+  // A label Chrome draws twice (echarts-pie-ja: legend entry and slice label) needs two copies, no more.
+  const pie = svgTexts(`<svg><text>East</text><text>East</text></svg>`);
+  assert.equal(compareTexts(pie, `<svg>${outline("East")}${outline("East")}</svg>`).pass, true);
+  assert.deepEqual(compareTexts(pie, `<svg>${outline("East")}</svg>`).missing, ["East"]);
+  assert.deepEqual(compareTexts(pie, `<svg>${outline("East")}${outline("East")}${outline("East")}</svg>`).extra, ["East"]);
+  // Labels Chrome's SVG has too are the chart library's own, not drawn strings.
+  assert.equal(compareTexts(svgTexts(`<svg aria-label="chart"><text>East</text></svg>`), `<svg aria-label="chart">${outline("East")}</svg>`).pass, true);
+});
+
+test("font check: an extra copy of a label, or a key Chrome has no text for, fails", () => {
+  const ref = svgTextStyles(`<svg><text>East</text><text>West</text></svg>`);
+  const outline = (key, bold) => `<g role="img" aria-label="${key}"${bold ? ' font-weight="bold"' : ""}><path d="M0 0"/></g>`;
+  const r = compareStyles(ref, `<svg>${outline("East")}${outline("West")}${outline("East", true)}</svg>`);
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.mismatches, []);
+  assert.deepEqual(r.missing, []);
+  assert.deepEqual(r.extra, [{ key: "East", surimono: "700 normal" }]);
+  const other = compareStyles(ref, `<svg>${outline("East")}${outline("West")}<text>North</text></svg>`);
+  assert.equal(other.pass, false);
+  assert.deepEqual(other.extra, [{ key: "North", surimono: "400 normal" }]);
+});
+
+test("outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does", () => {
+  // gfx keeps the role of the <text> it outlines (Vega's text marks carry
+  // role="graphics-symbol"), so a labelled group of plain paths counts whatever its role.
+  const keys = (svg) => svgTextStyles(svg, { outlines: true }).map((x) => x.key);
+  assert.deepEqual(keys(`<svg><g role="graphics-symbol" aria-label="Value: 3"><path d="M0 0"/></g></svg>`), ["Value:3"]);
+  assert.deepEqual(keys(`<svg><g role="img" aria-label="Jan"><g><path d="M0 0"/></g></g></svg>`), ["Jan"]);
+  assert.deepEqual(keys(`<svg><g aria-label="Jan"><g role="graphics-object"><path d="M0 0"/></g></g></svg>`), []);
+  assert.deepEqual(keys(`<svg><g aria-label="Jan"><path role="graphics-symbol" d="M0 0"/></g></svg>`), []);
+  assert.deepEqual(keys(`<svg><g aria-label="Jan"><path aria-label="bar" d="M0 0"/></g></svg>`), []);
+  // Without `outlines`, only <text> counts.
+  assert.deepEqual(svgTextStyles(`<svg><g role="img" aria-label="Jan"><path d="M0 0"/></g></svg>`), []);
 });

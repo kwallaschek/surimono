@@ -28,26 +28,52 @@ export function hostileCases(text = fs.readFileSync(path.join(HOSTILE_DIR, "mani
 }
 
 /**
+ * Chromium's launch options for the hostile suite: every connection goes
+ * through a proxy that doesn't exist (127.0.0.1:1), loopback too
+ * (`<-loopback>` removes the implicit bypass).
+ */
+export const OFFLINE_LAUNCH = Object.freeze({
+  channel: "chromium",
+  proxy: { server: "http://127.0.0.1:1" },
+  args: ["--proxy-bypass-list=<-loopback>"],
+});
+
+/**
+ * An init script that deletes WebRTC (RTCPeerConnection and every other
+ * RTC* interface, with the webkit aliases) from a frame before any of its
+ * scripts runs. WebRTC sends STUN over UDP, which bypasses the proxy.
+ */
+export function removeWebRtc() {
+  for (const name of Object.getOwnPropertyNames(globalThis)) {
+    if (/^(webkit)?RTC/.test(name)) delete globalThis[name];
+  }
+}
+
+/**
  * A page of the pinned Chromium (channel "chromium", as the references use)
- * from which nothing reaches the network, Workers included:
+ * from which nothing reaches the network, from the page itself or its Workers:
  * - Chromium sends every connection through a proxy that doesn't exist
- *   (127.0.0.1:1), loopback too (`<-loopback>` removes the implicit bypass).
- *   This is what holds for dedicated Workers: Playwright's routeWebSocket
- *   doesn't see their WebSockets (a review probe made a real TCP connection);
+ *   (OFFLINE_LAUNCH). That covers dedicated Workers too: Playwright's
+ *   routeWebSocket doesn't see their WebSockets, and a review probe made a
+ *   real TCP connection without the proxy;
+ * - WebRTC, whose STUN packets go over UDP past the proxy, is deleted from
+ *   every frame of the page before any script runs (removeWebRtc; it also
+ *   applies to iframes and window.open). Dedicated Workers don't have it;
  * - Playwright's routes refuse every request but the page itself and close
  *   every WebSocket they do see.
+ * test/hostile.test.mjs checks the TCP path from a Worker and the UDP path
+ * from the page and its frames against local listeners. Each check has a
+ * positive control that sees traffic when the proxy or the init script is
+ * left out.
  * Returns { browser, page }; close the browser when done.
  */
 export async function launchOffline() {
   const { createRequire } = await import("node:module");
   const require = createRequire(import.meta.url);
   const { chromium } = require("playwright");
-  const browser = await chromium.launch({
-    channel: "chromium",
-    proxy: { server: "http://127.0.0.1:1" },
-    args: ["--proxy-bypass-list=<-loopback>"],
-  });
+  const browser = await chromium.launch(OFFLINE_LAUNCH);
   const context = await browser.newContext();
+  await context.addInitScript(removeWebRtc);
   const ORIGIN = "https://hostile.surimono.test/";
   await context.route("**/*", (route) =>
     route.request().url() === ORIGIN ? route.fulfill({ contentType: "text/html", body: "<!doctype html><title>hostile</title>" }) : route.abort(),
