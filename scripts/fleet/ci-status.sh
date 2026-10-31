@@ -28,5 +28,15 @@ import sys,json
 x=json.load(sys.stdin)
 for s in x.get('statuses',[]): print(f\"{s['context']:40} {s['state']:10} {s.get('description') or ''}\")
 print('combined', x.get('state'))"
-echo "== ci-results"
-git fetch --quiet origin ci-results 2>/dev/null && git ls-tree -r --name-only origin/ci-results "runs/$sha" 2>/dev/null | grep status.json | while read -r f; do git show "origin/ci-results:$f"; done
+echo "== ci-results (each job's own status; the check runs above are authoritative)"
+git fetch --quiet origin ci-results 2>/dev/null && git ls-tree -r --name-only origin/ci-results "runs/$sha" 2>/dev/null | grep status.json | while read -r f; do
+  git show "origin/ci-results:$f" | python3 -c "
+import sys, json
+f = sys.argv[1]
+try:
+    x = json.load(sys.stdin)
+except ValueError:
+    print(f'{f}: not JSON'); sys.exit(0)
+needs = x.get('needs_result') or '-'
+print(f\"{f}: status={x.get('status')} needs_result={needs} job={x.get('job')} matrix={x.get('matrix') or '-'}\")" "$f"
+done

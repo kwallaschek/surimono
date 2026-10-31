@@ -94,6 +94,8 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    build and test, because touch-workspace.sh doesn't separate the engine's build
    output; delete those artifacts when done. GitHub CI uses a fresh target dir and
    is the authoritative result.
+   Scratch files: the session scratchpad is shared by every agent, so prefix your
+   file names there with your task id (`p1-rt-14-clippy.log`, not `clippy.log`).
 3. **Checks before you report.** Run `scripts/ci.sh` from your worktree; it runs
    exactly what CI runs on Linux (fmt, clippy with warnings as errors, tests,
    cargo-deny). Your branch must pass it.
@@ -117,16 +119,18 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   results to the `ci-results` branch under `runs/<head sha>/<workflow>/<job>/`
   (`status.json`, `<name>/log.txt`, `<name>/exit.json`, plus anything written to
   `$CI_JOB_OUT`). Read them with
-  `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`.
+  `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`, or run
+  `scripts/fleet/ci-status.sh <sha>`. A job's own `status.json` is written by code under
+  test; GitHub's check runs (and `needs_result`, once the publish-job YAML is live) are
+  the authoritative result.
 
-## Unreported security findings
+## Security findings in other projects
 
-The repo is public. A bug in a third-party project (for example the QuickJS engine)
-that hasn't been reported to its maintainers yet stays out of every tracked file,
-commit message, PR body and PR comment. Describe what our change does, never how
-the old code failed: no crash sites, signals, out-of-bounds or use-after-free
-wording, and no triggering scripts. Details go only in `.private-tmp/`
-(git-excluded) and your report to the orchestrator.
+Follow the upstream project's own security policy. Where it asks for a private
+report, keep an unreported bug out of every tracked file, commit message, PR body
+and PR comment until Kay has reported it (details only in `.private-tmp/`, which
+is git-excluded, and your report). quickjs-ng's policy treats AI-found bugs as
+public: write those up as public issue drafts in `docs/upstream/` for Kay to file.
 
 ## Code conventions
 
