@@ -4,6 +4,9 @@
   "description": "Chrome reference renders and perceptual diffs for surimono's visual fixtures. Test tooling only; never bundled.",
   "license": "MIT OR Apache-2.0",
   "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
   "engines": {
     "node": ">=22"
   },

@@ -24,6 +24,7 @@ import { parseArgs } from "node:util";
 import { FIXTURES_DIR, islandPageHtml, launchChromium, listFixtures, printIslandInChrome } from "./lib/fixtures.mjs";
 import { comparePdf, printResult, referenceFiles } from "./lib/compare.mjs";
 import { fulgurPrint } from "./lib/fulgur.mjs";
+import { compareTexts } from "./lib/svgtext.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -93,6 +94,15 @@ if (values.island === undefined) {
     fulgurPrint(html, pdf, out);
   }
   result = comparePdf({ expectedPngs: [expected], pdf, outDir: out, label: values.label, subject: `${fixture.name} island ${index} (printed by ${values.printer})` });
+  // What the chart says: the SVG's strings (as <text> or outline labels) against Chrome's.
+  const textsFile = refs.texts.find((f) => path.basename(f) === `island-${index}.texts.json`);
+  if (textsFile) {
+    result.text = compareTexts(JSON.parse(fs.readFileSync(textsFile, "utf8")), svg);
+    result.pass = result.pass && result.text.pass;
+    fs.writeFileSync(path.join(out, "score.json"), `${JSON.stringify(result, null, 2)}\n`);
+  } else {
+    console.log(`note: no reference/island-${index}.texts.json; text not compared`);
+  }
 }
 printResult(result);
 process.exit(result.pass || values["report-only"] ? 0 : 1);

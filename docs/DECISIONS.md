@@ -99,3 +99,14 @@ checkpoint and can overturn anything. Newest last.
 - 2026-10-31 · The pre-pass skips documents that don't contain `vnd.surimono+json`, so the marker's type must be written without character references; marker attributes are read decoded per the HTML standard and written back raw; the wrapper keeps style, title, lang, dir, role and aria-* · Documents without islands can't fail; accessible PDFs.
 - 2026-10-31 · Facade Limits is a plain struct owned by the facade (per-island limits, zero time limit rejected); rquickjs is not reachable from the public API · The facade controls its own semver.
 - 2026-10-31 · The PR gate runs the offline fixture verifiers; npm/network checks and the fulgur print test run nightly · Fast PR feedback without network flakiness.
+- 2026-10-31 · Grover is measured with wait_until: load plus the islands' done flag · Its default networkidle2 adds 500 ms per document.
+- 2026-10-31 · Grover uses Playwright's Chromium 153 with puppeteer 25.11.0 pinned (download skipped) · One browser build everywhere.
+- 2026-10-31 · Warm Grover = persistent Chrome without the Node keeper process in the memory sum; new-Chrome-per-document is its own row · Both are real deployment modes; the keeper (~81 MB PSS) isn't Grover's cost.
+- 2026-10-31 · Peak memory is summed PSS over the process tree, judged from the CI run (idle machine); summed RSS shown for context · Summed RSS counts Chrome's shared pages once per process and would double its footprint; PSS adds up to real RAM. Never switch metrics to make a target pass; the result goes to Kay at checkpoint 2.
+- 2026-10-31 · Benchmark ratios and 'met' are shown only when both sides are fully measured (n = requested runs) · A failed Grover run once produced a '5.0× met'.
+- 2026-10-31 · bench/rust is a standalone workspace on toolchain 1.97.0 · fulgur 0.40's krilla needs rustc 1.89 > MSRV 1.87.
+- 2026-10-31 · Grover on chrome-headless-shell is a second benchmark baseline; the bench/rust build gets a 30-minute budget inside a 50-minute job and a timed-out build is 'not measured' while a failed build is an error · Any claim must hold against the leanest Chrome; Grover numbers must survive a slow build.
+- 2026-10-31 · The real-world suite pins each library by npm tarball, sha512 integrity and sha256 of the exact bundle file · One manifest that the harness and crates/islands are checked against.
+- 2026-10-31 · Comparisons also need colour (16/255 on solid areas), hue (8° on strokes) and text checks to pass · Near-match alone is colour-blind; calibrated.
+- 2026-10-31 · The real-world manifest records both the npm dist file (Chrome) and the build crates/islands embeds · They are different files of the same package.
+- 2026-10-31 · A recorded embedded bundle that's missing or changed fails fixtures/real-world/verify.py; a PR that rebuilds a bundle merges together with the manifest hash update · Drift between the manifest and what ships must never pass silently.
