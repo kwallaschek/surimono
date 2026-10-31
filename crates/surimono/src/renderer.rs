@@ -718,6 +718,13 @@ mod tests {
             .store(u32::MAX - last as u32, Ordering::Release);
     }
 
+    /// Tests that give up on another process's state push to the shared
+    /// ABANDONED list; they run one at a time so counts stay exact.
+    fn serial() -> std::sync::MutexGuard<'static, ()> {
+        static SERIAL: Mutex<()> = Mutex::new(());
+        SERIAL.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     fn abandoned() -> usize {
         ABANDONED
             .lock()
@@ -727,6 +734,7 @@ mod tests {
 
     #[test]
     fn a_forked_child_starts_its_own_runner_and_measurer() {
+        let _serial = serial();
         let r = renderer(options());
         let measured = island(r#"{"measure": "Revenue"}"#);
         let before = r
@@ -756,6 +764,7 @@ mod tests {
 
     #[test]
     fn many_threads_after_a_fork_share_one_new_slot() {
+        let _serial = serial();
         let r = Arc::new(renderer(options()));
         let html = format!("<main>{}</main>", island(r#"{"measure": "Q3"}"#));
         let expected = r.render_islands(&html).unwrap_or_else(|e| panic!("{e}"));
@@ -800,6 +809,7 @@ mod tests {
 
     #[test]
     fn a_reused_pid_of_an_ancestor_is_not_this_process() {
+        let _serial = serial();
         let r = renderer(options());
         // Slot 0 has our pid but slot 1 was claimed after it by another
         // process: slot 0 belonged to an ancestor whose pid came back.
@@ -814,6 +824,7 @@ mod tests {
 
     #[test]
     fn too_many_fork_generations_is_an_error_not_a_hang() {
+        let _serial = serial();
         let r = renderer(options());
         for slot in r.slots.iter() {
             slot.pid.store(u32::MAX, Ordering::Release);
@@ -831,6 +842,7 @@ mod tests {
 
     #[test]
     fn dropping_a_renderer_from_another_process_does_not_join_its_threads() {
+        let _serial = serial();
         let r = renderer(options());
         assert!(r.render_islands(&island("{}")).is_ok());
         pretend_forked(&r);
