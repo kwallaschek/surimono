@@ -1,0 +1,28 @@
+{
+  "subject": "vegalite-layered-dense-ja",
+  "deterministic": true,
+  "note": null,
+  "sha256": "2b021b4d7007a7b8cba79b94831877abe26656383987b622bbbf5be3f1151f21",
+  "runs": [
+    {
+      "TZ": "UTC",
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8",
+      "cwd": "/home/claude/wt/p1-cf-09",
+      "locale_installed": true
+    },
+    {
+      "TZ": "Asia/Tokyo",
+      "LANG": "de_DE.UTF-8",
+      "LC_ALL": "de_DE.UTF-8",
+      "cwd": "a fresh temporary directory",
+      "locale_installed": true
+    }
+  ],
+  "producer": {
+    "cli": "target/release/surimono",
+    "version": "surimono 0.0.0",
+    "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
+    "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+  }
+}

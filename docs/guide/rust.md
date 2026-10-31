@@ -9,15 +9,32 @@ For the marker format and the renderers, see the [islands guide](islands.md).
 
 ## Add the crates
 
+surimono's crates aren't on crates.io yet. surimono needs a patched QuickJS,
+and a crates.io release can't carry the patch until the fixes are upstream or
+published under crate names of our own. Until then, depend on the repository
+and patch `rquickjs-sys` in your own `Cargo.toml`, because a dependency's
+`[patch]` never reaches your build:
+
 ```toml
 [dependencies]
-surimono = "0.1"
-fulgur = "0.40"   # surimono 0.1 is tested with fulgur 0.40.0
+surimono = { git = "https://github.com/kwallaschek/surimono", branch = "main" }
+fulgur = "0.40"   # surimono is tested with fulgur 0.40.0
+
+[patch.crates-io]
+rquickjs-sys = { git = "https://github.com/kwallaschek/surimono", branch = "main" }
 ```
+
+Without the `[patch.crates-io]` entry the build fails at link time with
+`undefined reference to surimono_quickjs_patch_level`. Cargo finds
+`rquickjs-sys` in the repository's `vendor/` folder. Keep both entries on the
+same branch or `rev` so they come from one commit.
 
 surimono needs Rust 1.87 or later. fulgur 0.40 depends on krilla 0.7, which
 needs Rust 1.89, so the pair needs 1.89. surimono builds QuickJS from C
-sources, so a C compiler must be installed (as for most `-sys` crates).
+sources, so a C compiler must be installed (as for most `-sys` crates). On a
+toolchain older than 1.88, put `edition = "2024"` and a `rust-version` in your
+package so that Cargo picks dependency versions your toolchain can build; some
+current releases need 1.88.
 
 ECharts and Vega are Cargo features, both on by default: `echarts` adds the
 `echarts` renderer, `vega` adds `vega` and `vega-lite`. Each adds its library,
@@ -25,7 +42,7 @@ as precompiled QuickJS bytecode, to your binary. Leave out the one you don't
 use:
 
 ```toml
-surimono = { version = "0.1", default-features = false, features = ["echarts"] }
+surimono = { git = "https://github.com/kwallaschek/surimono", branch = "main", default-features = false, features = ["echarts"] }
 ```
 
 ## A pipeline
@@ -88,7 +105,8 @@ impl PdfPipeline {
 - A renderer survives `fork`. Its runtimes live on threads, which don't, so
   the first render in a forked child starts the child's own pool and text
   measurer, sharing the font data with the parent and taking no lock a parent
-  thread could have held.
+  thread could have held. fulgur makes no such promise, so build its engine
+  in the child, after the fork.
 
 ## Fonts
 
