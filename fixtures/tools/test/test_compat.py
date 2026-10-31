@@ -340,6 +340,120 @@ class CompatTest(unittest.TestCase):
         self.assertIn("| Grover | 2,000 ms | 900 ms | 500 MB | measured |", text)
         self.assertIn("not measured: gem not built |", text)
 
+    def test_a_result_for_a_fixture_not_in_the_checkout_is_an_error(self):
+        # Review of #28: a failing result under another spelling of a fixture
+        # got its own row (renderer "?") that the real-world table never counted.
+        good = score("echarts-a island 0 (printed by chrome)", True)
+        for name, hint in (("ECHARTS-A", "did you mean 'echarts-a'?"), ("echarts-a\u200b", "did you mean 'echarts-a'?"), ("echarts-renamed", None)):
+            s = score(f"{name} island 0 (printed by chrome)", False, ["shape"], worst=0.5)
+            s["_file"] = f"run/{name}/score.json"
+            with self.assertRaises(compat.CompatError, msg=repr(name)) as e:
+                compat.fixtures_section([good, s], compat.fixture_meta())
+            self.assertIn(repr(name), str(e.exception))
+            self.assertIn("not a fixture in fixtures/islands/", str(e.exception))
+            if hint:
+                self.assertIn(hint, str(e.exception))
+        # A page subject too, and through main: exit 1, nothing written.
+        d = self.root / "res" / "old-name"
+        d.mkdir(parents=True)
+        (d / "score.json").write_text(json.dumps(score("old-name", False, ["shape"], worst=0.5)))
+        out = self.root / "COMPAT.md"
+        import sys
+        argv = sys.argv
+        sys.argv = ["compat.py", "--fixtures", str(self.root / "res"), "--out", str(out)]
+        try:
+            self.assertEqual(compat.main(), 1)
+        finally:
+            sys.argv = argv
+        self.assertFalse(out.exists())
+
+    def test_a_score_that_compared_no_page_never_passes(self):
+        # Review of #28: "pass": true with no pages read "pass (shape ?)".
+        for pages in ([], None, "page 1", {"pass": True}):
+            s = score("echarts-a island 0 (printed by chrome)", True)
+            if pages is None:
+                del s["pages"]
+            else:
+                s["pages"] = pages
+            self.assertEqual(compat.cell(s), "**FAIL** (no pages compared)", repr(pages))
+            self.assertEqual(compat.fixtures_section([s], compat.fixture_meta())[1]["echarts-a"], "fail", repr(pages))
+        # A render error has no pages either; it reads as the render error alone.
+        failed = {"subject": "echarts-a", "pass": False, "error": "surimono exited 3", "pages": []}
+        self.assertEqual(compat.cell(failed), "**FAIL** (render error: surimono exited 3)")
+
+    def test_nested_checks_pass_only_when_pass_is_exactly_true(self):
+        # Review of #28: inside a check that is present, "false", a missing
+        # pass or a value that isn't an object must fail, never pass.
+        def cell_with(**changes):
+            s = score("echarts-a island 0 (printed by chrome)", True)
+            page = changes.pop("page", None)
+            if page is not None:
+                s["pages"] = [page]
+            s.update(changes)
+            return compat.cell(s)
+
+        self.assertEqual(cell_with(page={"pass": "false", "failed": []}), "**FAIL** (page (shape 0.0%))")
+        self.assertEqual(cell_with(page={"failed": []}), "**FAIL** (page (shape 0.0%))")
+        self.assertEqual(cell_with(page="pass"), "**FAIL** (page (shape 0.0%))")
+        self.assertEqual(cell_with(page={"pass": True, "failed": "shape"}), "**FAIL** (page (shape 0.0%))")
+        self.assertEqual(cell_with(text={"pass": "false", "missing": [], "extra": []}), "**FAIL** (text: differs)")
+        self.assertEqual(cell_with(text={}), "**FAIL** (text: differs)")
+        self.assertEqual(cell_with(text="ok"), "**FAIL** (text: differs)")
+        self.assertEqual(cell_with(font={"pass": 1}), "**FAIL** (font: differs)")
+        self.assertEqual(cell_with(font=["pass"]), "**FAIL** (font: differs)")
+        # Exactly true passes; an absent (or null) check isn't run, so it can't fail.
+        self.assertEqual(cell_with(text={"pass": True, "missing": [], "extra": []}, font={"pass": True}), "pass (shape 0.0%)")
+        self.assertEqual(cell_with(text=None), "pass (shape 0.0%)")
+
+    def test_error_and_failed_are_set_as_javascript_reads_them(self):
+        # Review of #50: "failed": {} and "error": {} or [] passed, while
+        # lib/report.mjs (JavaScript truthiness) fails them.
+        s = score("echarts-a island 0 (printed by chrome)", True)
+        s["pages"] = [{"pass": True, "failed": {}}]
+        self.assertEqual(compat.cell(s), "**FAIL** (page (shape 0.0%))")
+        for error in ({}, [], "0", "false", 1):
+            e = {**score("echarts-a island 0 (printed by chrome)", True), "error": error}
+            self.assertFalse(compat.passed(e), repr(error))
+            self.assertTrue(compat.cell(e).startswith("**FAIL** (render error: "), compat.cell(e))
+        # Unset values aren't an error: absent, null, false, 0 and "".
+        for error in (None, False, 0, 0.0, ""):
+            e = {**score("echarts-a island 0 (printed by chrome)", True), "error": error}
+            self.assertEqual(compat.cell(e), "pass (shape 0.0%)", repr(error))
+
+    def test_nan_and_infinity_are_refused_on_read(self):
+        # Review of #50: json.loads accepts NaN, and a NaN error read as unset
+        # passed. JSON.parse (lib/report.mjs) refuses such a file outright.
+        clean = '{"subject": "echarts-a", "pass": true, "worst_window": 0, "pages": [{"pass": true, "failed": []}]'
+        for i, bad in enumerate(('"error": NaN', '"error": Infinity', '"error": -Infinity', '"pages": [{"pass": true, "failed": NaN}]', '"worst_window": NaN')):
+            d = self.root / f"nan{i}" / "echarts-a"
+            d.mkdir(parents=True)
+            (d / "score.json").write_text(clean + ", " + bad + "}")
+            with self.assertRaises(compat.CompatError, msg=bad) as e:
+                compat.load_scores(self.root / f"nan{i}")
+            self.assertIn("is not valid JSON", str(e.exception))
+        # The hostile results and the bench file too.
+        hostile = self.root / "hostile-nan.json"
+        hostile.write_text('{"cases": [{"id": "loop", "step": null, "outcome": "TimeLimit", "wall_ms": NaN}]}')
+        with self.assertRaises(compat.CompatError):
+            compat.hostile_section(hostile)
+        bench = self.root / "bench-nan.json"
+        bench.write_text('{"results": {"grover": {"status": "measured", "summary": {"cold_ms": {"median": Infinity}}}}}')
+        with self.assertRaises(compat.CompatError):
+            compat.bench_section(bench)
+        # A NaN that reaches failed_checks some other way counts as set, never as a pass.
+        self.assertFalse(compat.passed({**score("echarts-a", True), "error": float("nan")}))
+        self.assertFalse(compat.passed({**score("echarts-a", True), "pages": [{"pass": True, "failed": float("nan")}]}))
+
+    def test_font_cell_counts_missing_and_extra_texts(self):
+        # Reviews of #28 and #43: a font failure that is only missing (or
+        # extra) texts read "font: 0 differ".
+        s = score("x island 0 (printed by chrome)", True)
+        s["pass"] = False
+        s["font"] = {"pass": False, "compared": 2, "mismatches": [], "missing": [{"key": "East", "chrome": "400 normal"}], "extra": [{"key": "North", "surimono": "400 normal"}]}
+        self.assertEqual(compat.cell(s), "**FAIL** (font: 1 missing, 1 extra)")
+        s["font"]["mismatches"] = [{"key": "Jan", "chrome": "400 normal", "surimono": "700 normal"}]
+        self.assertEqual(compat.cell(s), "**FAIL** (font: 1 differ, 1 missing, 1 extra (Jan: Chrome 400 normal, surimono 700 normal))")
+
 
 if __name__ == "__main__":
     unittest.main()
