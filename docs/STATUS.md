@@ -26,7 +26,7 @@ Usage-limit pauses on Sat 31 Oct: 03:20–06:17, ~09:40–11:10, ~14:00–16:35,
 | #55 | P1-CF-12 stamp-aware text/font checks | fix pushed (f411fe2); delta review running; needed before the real run |
 | #47 | P1-RT-14 time-accurate deadlines (R4, R5) | BLOCK (BigInt pow leak); RT fixing, P1-RT-22 fork-safe registry folded in; merges main (patch level 3) |
 | #56 | P1-RT-17b precompiled bytecode (cold start 2.0 → 1.5 s, PSS 41 → 27–29 MB) | in review; merge before the benchmark run |
-| (next) | P1-RT-24 ASan stack probe | RT working |
+| #57 | P1-RT-24 ASan stack probe (read SP, not a local's address) | in review; ASan stays red until P1-RT-27's time scale |
 | #18 → #19 → #23 | README, guides, examples | waiting for #25, then DX batch 2 and review |
 | #38 | v0.1 release PR | last; only with Kay's OK at checkpoint 2 |
 

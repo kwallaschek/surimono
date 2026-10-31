@@ -38,9 +38,10 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-15b · RT · done (#45) · #45 review blockers: sweep covers bind and Promise.any; nits
 - P1-RT-20 · RT · todo · quickjs-ng public issue drafts in docs/upstream/quickjs-ng/, one per finding, each with a reproducer on current master and a repro.sh Kay runs to verify (per quickjs-ng's security policy)
 - P1-RT-19 · RT · done (#52) · macOS: the determinism test's own TZ probe read 1970, where macOS libc ignores POSIX-rule transitions; probe 2001 and run IANA zones
-- P1-RT-24 · RT · doing · ASan: stack_available() reads a local on ASan's fake stack, so main's linux-extra-asan fails every sandbox test with "0 bytes of stack left" (since ccb6025)
+- P1-RT-24 · RT · review · (#57) ASan: stack_available() reads a local on ASan's fake stack, so main's linux-extra-asan fails every sandbox test with "0 bytes of stack left" (since ccb6025)
 - P1-RT-25 · RT · todo · Measure gem RSS/PSS after a concurrent burst and idle release (does CRuby's malloc_trim reclaim it?); decide on malloc_trim FFI in the engine-binding module; add the idle-release path to a soak; alternate OOM shapes in the 10k soak
 - P1-RT-26 · RT · todo · (v0.1) A worker that dies outside guard hangs callers since #54 (one worker): live-worker count via a drop guard, replace a dead worker or fail callers with IslandError::Worker
+- P1-RT-27 · RT+PKG · todo · Test time-scale factor (env var set by scripts/ci/asan.sh) that multiplies wall-clock limits and bounds in core/islands tests; ASan runs determinism and hostile groups B/C past their bounds
 - P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
 - P1-RT-22 · RT · doing · Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
 - P1-RT-23 · RT · todo · Regex deadline gaps: js_regexp_Symbol_replace never polls ('a'.repeat(1<<25).replace(/(?:)/g,'') stops at 1,174 ms vs 250 ms); back-references checked in #47 review and fine
