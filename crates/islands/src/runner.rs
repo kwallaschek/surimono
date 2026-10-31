@@ -13,7 +13,7 @@ use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, V
 use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxOptions};
 
 use crate::measure::{Measure, MeasureError};
-use crate::{IslandError, TextMeasurer, builtins};
+use crate::{IslandError, TextMeasurer, builtins, precompiled};
 
 /// How an [`IslandRunner`] is set up.
 ///
@@ -123,6 +123,12 @@ struct RegisterJob {
 /// What a registration compiles, or reuses.
 enum Code {
     Source(String),
+    /// A built-in's static source, compiled under its bundle file name (so
+    /// vega and vega-lite name the same file in stack traces).
+    Builtin {
+        source: &'static str,
+        file: &'static str,
+    },
     /// Bytecode another bundle already compiled from the same source.
     Compiled(Bytecode),
 }
@@ -370,7 +376,8 @@ impl IslandRunner {
             return Ok(bundle);
         }
         // Built-ins that share a source (vega and vega-lite) share its
-        // bytecode: compile it once.
+        // bytecode: compile it once. A fresh process loads the bytecode
+        // precompiled at build time, if it matches this engine and source.
         let shared = self
             .bundles
             .read()
@@ -380,7 +387,13 @@ impl IslandRunner {
             .map(|b| b.bytecode.clone());
         let code = match shared {
             Some(bytecode) => Code::Compiled(bytecode),
-            None => Code::Source(builtin.source.to_owned()),
+            None => match precompiled::bytecode(&builtin) {
+                Some(bytecode) => Code::Compiled(bytecode),
+                None => Code::Builtin {
+                    source: builtin.source,
+                    file: builtin.file,
+                },
+            },
         };
         let mut bundle = self.compile_bundle(builtin.name, code, builtin.entry)?;
         bundle.source_id = Some(builtin.source.as_ptr() as usize);
@@ -620,6 +633,7 @@ impl Worker {
         let sb = self.sandbox()?;
         let bytecode = match &job.code {
             Code::Source(source) => sb.compile(source, &format!("{}.js", job.name))?,
+            Code::Builtin { source, file } => sb.compile(source, file)?,
             Code::Compiled(bytecode) => bytecode.clone(),
         };
         // The entry must exist right after the bundle runs, before any

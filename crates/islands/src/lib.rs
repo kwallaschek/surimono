@@ -31,6 +31,9 @@
 mod builtins;
 mod error;
 mod measure;
+// Loads the build script's bytecode through the one `unsafe` call it needs.
+#[allow(unsafe_code)]
+mod precompiled;
 mod runner;
 
 pub use builtins::builtin_renderers;

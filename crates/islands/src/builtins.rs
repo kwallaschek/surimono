@@ -2,8 +2,10 @@
 //!
 //! Each one is a committed, minified JavaScript bundle under `bundles/`,
 //! built by `js/build.sh` from pinned npm packages, with its licence files
-//! next to it. A runner compiles a built-in the first time a render asks for
-//! it, so unused renderers cost nothing.
+//! next to it. `build.rs` precompiles each to QuickJS bytecode; a runner
+//! loads that (or, if it doesn't match the running engine, compiles the
+//! source) the first time a render asks for a built-in, so unused renderers
+//! cost nothing.
 
 /// A renderer compiled into this build.
 #[derive(Debug, Clone, Copy)]
@@ -12,6 +14,9 @@ pub(crate) struct Builtin {
     pub(crate) name: &'static str,
     /// The bundle's JavaScript source.
     pub(crate) source: &'static str,
+    /// The bundle's file name in stack traces, shared by built-ins with one
+    /// source; also names its precompiled bytecode (see `precompiled.rs`).
+    pub(crate) file: &'static str,
     /// The global function the bundle defines.
     pub(crate) entry: &'static str,
 }
@@ -20,6 +25,7 @@ pub(crate) struct Builtin {
 const ECHARTS: Builtin = Builtin {
     name: "echarts",
     source: include_str!("../bundles/echarts/echarts.min.js"),
+    file: "echarts.js",
     entry: "entry",
 };
 
@@ -31,6 +37,7 @@ const VEGA_SOURCE: &str = include_str!("../bundles/vega/vega.min.js");
 const VEGA: Builtin = Builtin {
     name: "vega",
     source: VEGA_SOURCE,
+    file: "vega.js",
     entry: "vegaEntry",
 };
 
@@ -38,6 +45,7 @@ const VEGA: Builtin = Builtin {
 const VEGA_LITE: Builtin = Builtin {
     name: "vega-lite",
     source: VEGA_SOURCE,
+    file: "vega.js",
     entry: "vegaLiteEntry",
 };
 
