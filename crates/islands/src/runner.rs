@@ -331,10 +331,10 @@ pub struct RunnerStats {
 /// The limits apply to each island as a whole: one time budget covers
 /// loading the bundle, if it wasn't preloaded, the entry call and the
 /// microtasks it queues. The result is the same either way, but a cold
-/// render spends part of its budget loading the bundle (about 20 ms for ECharts, 70 ms for Vega in a
-/// release build), so set the time limit for the cold case: with a limit
-/// close to a chart's cost, a cold render can hit it where a preloaded one
-/// passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
+/// render spends part of its budget loading the bundle (about 20 ms for
+/// ECharts, 70 ms for Vega in a release build), so set the time limit for
+/// the cold case: with a limit close to a chart's cost, a cold render can
+/// hit it where a preloaded one passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
 /// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
 /// Text measurement runs inside that budget, on the worker thread, with
