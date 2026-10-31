@@ -10,7 +10,8 @@
 // the rest of the page. Everything lands in DIR/<fixture>/:
 //   chrome.pdf, chrome-<page>.png       the full page
 //   island-<i>.svg, island-<i>.png      each island alone (Chrome's own SVG)
-//   island-<i>.texts.json               the strings in that SVG (lib/svgtext.mjs)
+//   island-<i>.texts.json               the strings in that SVG, and each <text>'s font
+//                                       weight and style (lib/svgtext.mjs)
 //   prepass.html                        the source with markers replaced by Chrome's SVG
 //   render.json                         versions, fonts, island sizes, console output
 //
@@ -39,7 +40,7 @@ import {
 } from "./lib/fixtures.mjs";
 import { referenceFiles } from "./lib/compare.mjs";
 import { diff, pixelsIdentical, readPng, sideBySide, writePng } from "./lib/png.mjs";
-import { svgTexts } from "./lib/svgtext.mjs";
+import { svgTextStyles, svgTexts } from "./lib/svgtext.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -186,7 +187,7 @@ try {
     for (const isl of rendered.islands) {
       const base = path.join(out, `island-${isl.index}`);
       fs.writeFileSync(`${base}.svg`, isl.svg);
-      fs.writeFileSync(`${base}.texts.json`, `${JSON.stringify(svgTexts(isl.svg), null, 1)}\n`);
+      fs.writeFileSync(`${base}.texts.json`, `${JSON.stringify({ ...svgTexts(isl.svg), styles: svgTextStyles(isl.svg) }, null, 1)}\n`);
       await printIslandInChrome(browser, fixture, isl.index, isl.svg, isl.width, isl.height, `${base}.pdf`);
       const [png, ...extra] = rasterise(`${base}.pdf`, out, `.island-${isl.index}`);
       if (extra.length) throw new Error(`${fixture.name}: island ${isl.index} printed on ${extra.length + 1} pages`);

@@ -139,6 +139,7 @@ colour, #9db7d5, that `calibrate.mjs` also uses). Three more checks run on every
 | **Colour** (solid areas) | Pixels whose 5×5 neighbourhood is one flat colour (bar, slice and legend-swatch interiors, table backgrounds; never thin lines or text at 96 dpi) need a pixel within 1 px whose R, G and B are each within 16/255. The closest pair of palette colours differs by 44. | worst 32×32 window ≤ 10% of its solid pixels (windows with at least 64) |
 | **Hue** (strokes) | Pixels inked at least 64 deep (max of 255 − channel). On white, an anti-aliased pixel is coverage × colour + (1 − coverage) × white, so the direction of (255 − R, 255 − G, 255 − B) is the stroke's colour whatever the coverage. Where the other image has ink within 1 px, one of those pixels must have a direction within 8°. No ink nearby is a position difference, which near-match judges. | worst window ≤ 30% (windows with at least 24 checked pixels) |
 | **Text** (island mode) | The island SVG's strings against Chrome's own, committed by `reference.sh --update` as `reference/island-<i>.texts.json`. A candidate string counts as a `<text>` element or, when surimono prints text as outlines, as the outline's `aria-label` or `<title>`. Labels Chrome's SVG also has (Vega's axis descriptions, for example) cancel out. Strings are compared as a multiset, with entities decoded and whitespace removed. | no Chrome string missing, no extra `<text>` string |
+| **Font** (island mode) | The declared font weight and style of each of Chrome's `<text>` elements, committed in the same `texts.json` (`styles`), against surimono's element with the same key: the text's own `aria-label`, else its string. surimono's outline groups keep the text's attributes, so they resolve the same way. Both sides are read from the markup alone: attribute, `style` (including the `font` shorthand), inherited from ancestors; `<style>` sheets aren't read (outline mode doesn't apply them either). A text the candidate lacks is left to the text check | every text found has the same weight and style |
 
 In the diff image, magenta marks colour and hue mismatches.
 
@@ -160,21 +161,21 @@ the chromatic colours used at least twice, or as a gradient `stop-color`, so
 echarts-two-charts-latin's gradient series are calibrated too. Re-run on
 31 October with Chromium 153.0.8010.12:
 
-| Fault | Shape (near-match) | Colour (solid) | Hue (strokes) | Text differs | Fails | Should |
-|---|---|---|---|---|---|---|
-| text shifted 0.5 px right | 0.0% | 0.0% | 0.0 to 9.1% | 0/12 | 0/12 | pass |
-| text shifted 0.5 px down | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | pass |
-| text shifted 1 px right | 0.0% | 0.0% | 0.0 to 6.8% | 0/12 | 0/12 | pass |
-| colours 3% darker | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | pass |
-| letter-spacing +0.2 px (labels about 2% wider) | 0.0 to 41.9% | 0.0% | 0.0 to 3.2% | 0/12 | 6/12 | borderline |
-| text shifted 3 px right | 11.3 to 57.1% | 0.0% | 0.0 to 16.0% | 0/12 | 12/12 | fail |
-| one label in four missing | 30.7 to 67.9% | 0.0 to 13.2% | 0.0 to 12.1% | 12/12 | 12/12 | fail |
-| whole chart scaled to 99% | 42.9 to 100.0% | 0.0 to 100.0% | 1.8 to 100.0% | 0/12 | 12/12 | fail |
-| two most used series colours swapped | 0.0 to 100.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/9 | 9/9 | fail |
-| most used series colour replaced by its nearest palette colour | 0.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/12 | 12/12 | fail |
-| one number label changed by one digit | 0.0 to 13.7% | 0.0% | 0.0% | 12/12 | 12/12 | fail |
-| all text bold | 0.0 to 31.9% | 0.0% | 0.0 to 14.3% | 0/12 | 7/12 | fail |
-| Latin text in Noto Sans JP instead of Noto Sans | 0.0 to 17.0% | 0.0% | 0.0 to 1.6% | 0/12 | 2/12 | fail (a no-op on the 4 all-Japanese fixtures) |
+| Fault | Shape (near-match) | Colour (solid) | Hue (strokes) | Text differs | Font differs | Fails | Should |
+|---|---|---|---|---|---|---|---|
+| text shifted 0.5 px right | 0.0% | 0.0% | 0.0 to 9.1% | 0/12 | 0/12 | 0/12 | pass |
+| text shifted 0.5 px down | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | 0/12 | pass |
+| text shifted 1 px right | 0.0% | 0.0% | 0.0 to 6.8% | 0/12 | 0/12 | 0/12 | pass |
+| colours 3% darker | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | 0/12 | pass |
+| letter-spacing +0.2 px (labels about 2% wider) | 0.0 to 41.9% | 0.0% | 0.0 to 3.2% | 0/12 | 0/12 | 6/12 | borderline |
+| text shifted 3 px right | 11.3 to 57.1% | 0.0% | 0.0 to 16.0% | 0/12 | 0/12 | 12/12 | fail |
+| one label in four missing | 30.7 to 67.9% | 0.0 to 13.2% | 0.0 to 12.1% | 12/12 | 0/12 | 12/12 | fail |
+| whole chart scaled to 99% | 42.9 to 100.0% | 0.0 to 100.0% | 1.8 to 100.0% | 0/12 | 0/12 | 12/12 | fail |
+| two most used series colours swapped | 0.0 to 100.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/9 | 0/9 | 9/9 | fail |
+| most used series colour replaced by its nearest palette colour | 0.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/12 | 0/12 | 12/12 | fail |
+| one number label changed by one digit | 0.0 to 13.7% | 0.0% | 0.0% | 12/12 | 0/12 | 12/12 | fail |
+| all text bold | 0.0 to 31.9% | 0.0% | 0.0 to 14.3% | 0/12 | 12/12 | 12/12 | fail (the font check; the images alone caught 7/12) |
+| Latin text in Noto Sans JP instead of Noto Sans | 0.0 to 17.0% | 0.0% | 0.0 to 1.6% | 0/12 | 0/12 | 2/12 | fail (a no-op on the 4 all-Japanese fixtures) |
 
 On echarts-two-charts-latin, both colour faults fail both islands at 100% on
 the colour check (the nearest-palette fault also at 100% on hue).
@@ -188,8 +189,9 @@ that applies. Even at a 12/255 solid tolerance, no baseline pixel differed.
 The checks catch what a measuring engine gets wrong: shifted, missing or
 resized text and marks, wrong colours and wrong strings. They do not reliably
 catch:
-- a wrong font face or weight when the metrics are close. Those are better
-  checked in the SVG itself: every `font-family` should name a registered font
+- a wrong font face when the metrics are close (a wrong weight or style is
+  caught by the font check). Faces are better checked in the SVG itself:
+  every `font-family` should name a registered font
   (P1-GFX-03), and the Chrome harness already fails any fixture whose SVG names
   a font outside `fixtures/fonts/`;
 - a change in lightness alone on thin strokes (hue is direction only), for

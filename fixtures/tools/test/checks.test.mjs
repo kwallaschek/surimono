@@ -6,7 +6,7 @@ import test from "node:test";
 import { PNG } from "pngjs";
 import { verdictOf } from "../lib/compare.mjs";
 import { colourMatch, diff, hueMatch, nearMatch, solidMask } from "../lib/png.mjs";
-import { compareTexts, decodeXml, multisetMinus, svgTexts } from "../lib/svgtext.mjs";
+import { compareStyles, compareTexts, decodeXml, multisetMinus, svgTextStyles, svgTexts } from "../lib/svgtext.mjs";
 
 const W = 96;
 const H = 64;
@@ -112,4 +112,35 @@ test("text check fails on a changed, missing or extra string", () => {
 
 test("multisetMinus counts duplicates", () => {
   assert.deepEqual(multisetMinus(["a", "a", "b"], ["a"]), ["a", "b"]);
+});
+
+test("svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors", () => {
+  const svg = `<svg font-weight="bold"><g style="font-style:italic"><text>A</text></g>
+    <text font-weight="normal">B</text><text style="font: 600 12px 'Noto Sans'">C</text>
+    <text style="font: 12px sans-serif">D</text><g font-weight="300"><text font-weight="bolder">E</text></g>
+    <text aria-label="label F" style="font-weight:700;">F</text><text/></svg>`;
+  assert.deepEqual(svgTextStyles(svg), [
+    { key: "A", weight: 700, style: "italic" },
+    { key: "B", weight: 400, style: "normal" },
+    { key: "C", weight: 600, style: "normal" },
+    { key: "D", weight: 400, style: "normal" },
+    { key: "E", weight: 400, style: "normal" },
+    { key: "labelF", weight: 700, style: "normal" },
+  ]);
+});
+
+test("font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's", () => {
+  const chrome = `<svg><text style="font-size:12px;font-weight:bold">Title</text><text>Jan</text><text aria-label="Value: 3">3</text></svg>`;
+  const ref = svgTextStyles(chrome);
+  const outlined = `<svg><g style="font-size:12px;font-weight:bold" role="img" aria-label="Title"><path d="M0 0"/></g>
+    <g role="img" aria-label="Jan"><path d="M0 0"/></g><g aria-label="Value: 3" role="graphics-symbol"><path d="M0 0"/></g></svg>`;
+  assert.deepEqual(compareStyles(ref, outlined), { pass: true, compared: 3, mismatches: [] });
+  const bold = outlined.replace('aria-label="Jan"', 'aria-label="Jan" font-weight="bold"');
+  const r = compareStyles(ref, bold);
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.mismatches, [{ key: "Jan", chrome: "400 normal", surimono: "700 normal" }]);
+  // The calibration fault: every <text> wrapped in <g font-weight="bold">.
+  const fault = chrome.replace(/<text\b[\s\S]*?<\/text>/g, (t) => `<g font-weight="bold">${t}</g>`);
+  assert.equal(compareStyles(ref, fault).pass, false);
+  assert.equal(compareStyles(ref, "<svg><text>Other</text></svg>").compared, 0);
 });

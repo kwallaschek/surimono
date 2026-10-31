@@ -398,5 +398,137 @@
   "日付:9月;受注件数（件）:91",
   "日付:9月;受注件数（件）:96",
   "日付:9月;受注件数（件）:97"
+ ],
+ "styles": [
+  {
+   "key": "0",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "100",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "10月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "11月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "120",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "12月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "140",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "160",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "180",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "20",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "2月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "3月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "40",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "4月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "5月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "60",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "6月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "7月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "80",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "8月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "9月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "target:110;label:目標110件",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "受注件数（件）",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "日付",
+   "weight": 700,
+   "style": "normal"
+  }
  ]
 }
