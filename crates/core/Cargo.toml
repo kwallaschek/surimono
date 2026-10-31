@@ -11,5 +11,9 @@ publish.workspace = true
 rquickjs = { workspace = true, features = ["allocator"] }
 thiserror.workspace = true
 
+# Thread stack bounds, for the stack-size check (engine.rs).
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+
 [lints]
 workspace = true

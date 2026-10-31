@@ -18,6 +18,7 @@ fixtures/islands/<name>/
   reference/
     chrome-<page>.png   the whole page printed by Chrome, 96 dpi
     island-<i>.png      island i alone, printed by Chrome on a page of exactly its size, 96 dpi
+    island-<i>.texts.json  the strings in Chrome's SVG of island i (<text> contents, and its own labels)
     reference.toml      Chromium, Playwright, poppler and library versions; size and sha256 of each PNG
 ```
 
@@ -82,8 +83,10 @@ automatically the first time.
 
 Comparison output: `score.json`, and `side-by-side-N.png` with Chrome on the
 left, the candidate in the middle, and the diff on the right. In the diff,
-red marks near-mismatched pixels (they count), orange marks pixelmatch
-differences, and yellow marks anti-aliasing only.
+red marks near-mismatched pixels, magenta marks pixels in the wrong colour or
+hue (both count), orange marks pixelmatch differences, and yellow marks
+anti-aliasing only. In island mode the result also lists any string that is
+missing or extra against Chrome's.
 
 The Chrome side runs fully offline. Playwright serves `fixtures/` from a
 made-up origin (`http://fixtures.surimono.test`) and aborts every other
@@ -124,26 +127,85 @@ which differs between any two engines. Thin CJK strokes need the 128: with 96,
 half-pixel shifts scored up to 16%. The window turns a local fault into a large
 number instead of diluting it in a page of white space and bars.
 
+### Colour and text checks
+
+The 128 tolerance is colour-blind: a series drawn in the wrong colour scored
+0%, and 19 of the 28 pairs in the fixtures' 8-colour palette
+(`defs/islands.mjs`) are within 128 per channel (25 of 36 with the ninth
+colour, #9db7d5, that `calibrate.mjs` also uses). Three more checks run on every comparison, and all of them must pass:
+
+| Check | What it compares | Pass |
+|---|---|---|
+| **Colour** (solid areas) | Pixels whose 5×5 neighbourhood is one flat colour (bar, slice and legend-swatch interiors, table backgrounds; never thin lines or text at 96 dpi) need a pixel within 1 px whose R, G and B are each within 16/255. The closest pair of palette colours differs by 44. | worst 32×32 window ≤ 10% of its solid pixels (windows with at least 64) |
+| **Hue** (strokes) | Pixels inked at least 64 deep (max of 255 − channel). On white, an anti-aliased pixel is coverage × colour + (1 − coverage) × white, so the direction of (255 − R, 255 − G, 255 − B) is the stroke's colour whatever the coverage. Where the other image has ink within 1 px, one of those pixels must have a direction within 8°. No ink nearby is a position difference, which near-match judges. | worst window ≤ 30% (windows with at least 24 checked pixels) |
+| **Text** (island mode) | The island SVG's strings against Chrome's own, committed by `reference.sh --update` as `reference/island-<i>.texts.json`. A candidate string counts as a `<text>` element or, when surimono prints text as outlines, as the outline's `aria-label` or `<title>`. Labels Chrome's SVG also has (Vega's axis descriptions, for example) cancel out. Strings are compared as a multiset, with entities decoded and whitespace removed. | no Chrome string missing, no extra `<text>` string |
+| **Font** (island mode) | The **declared** font weight and style of each of Chrome's `<text>` elements, committed in the same `texts.json` (`styles`; `reference.mjs` checks them against Chrome's `getComputedStyle` on every run), against surimono's `<text>` elements and outline groups with the same key: the text's own `aria-label`, else its string. Same-key texts are matched one to one. On surimono's side the check reads the attributes gfx copies from each `<text>` onto its outline group; those don't change the drawn paths, so it proves that the chart library declared the same weight and style as in Chrome and that gfx kept them, not that the glyphs were outlined from the right face. Both sides are read from the markup: attribute, `style` (including the `font` shorthand), inherited from ancestors; `<style>` sheets aren't read (outline mode doesn't apply them either). An outline group is a `<g>` with an `aria-label` whose descendants are only unlabelled `<path>` and `<g>` elements, so chart marks never stand in for text | every Chrome text has a candidate with the same weight and style, none missing |
+
+In the diff image, magenta marks colour and hue mismatches.
+
+**Why 8°:** the closest pairs of different hues in the palette are #2f6fb0 and
+#4bb3c4 at 11.3° and #e07b39 and #d4a72c at 11.4° (ink directions), so 8°
+still separates the tightest real pair, while the harmless faults below
+(half-pixel and 1 px shifts, colours 3% darker) stay under 10% of a window.
+#2f6fb0 and #9db7d5 are 2.3° apart: the same hue at a different lightness,
+which this check can't see (see the list below; the colour check catches it on
+fills). **Why 16/255 for colour:** fulgur and Chrome print the same fill
+colours with no solid pixel off by more than 12, and the closest palette pair
+differs by 44.
+
 Calibration: `calibrate.mjs` has Chrome print deliberately altered copies of
-Chrome's own island SVG for the first 10 fixtures, then scores them (worst window):
+Chrome's own island SVG for all 11 fixtures (12 islands), then scores them
+(worst window for each check; a fault that doesn't apply to an island, such as
+swapping series colours in a one-series chart, is left out). Series colours are
+the chromatic colours used at least twice, or as a gradient `stop-color`, so
+echarts-two-charts-latin's gradient series are calibrated too. Re-run on
+31 October with Chromium 153.0.8010.12:
 
-| Fault | Min | Max | Fails at 10% | Should |
-|---|---|---|---|---|
-| text shifted 0.5 px right | 0.0% | 0.0% | 0/10 | pass |
-| text shifted 0.5 px down | 0.0% | 0.0% | 0/10 | pass |
-| text shifted 1 px right | 0.0% | 0.0% | 0/10 | pass |
-| letter-spacing +0.2 px (labels about 2% wider) | 0.0% | 24.0% | 4/10 | borderline |
-| text shifted 3 px right | 18.5% | 57.1% | 10/10 | fail |
-| one label in four missing | 31.1% | 67.9% | 10/10 | fail |
-| whole chart scaled to 99% | 34.9% | 100.0% | 10/10 | fail |
-| all text bold | 0.0% | 31.9% | 7/10 | fail |
-| Latin text in Noto Sans JP instead of Noto Sans | 0.0% | 13.3% | 1/10 | fail (a no-op on the 4 all-Japanese fixtures) |
+| Fault | Shape (near-match) | Colour (solid) | Hue (strokes) | Text differs | Font differs | Fails | Should |
+|---|---|---|---|---|---|---|---|
+| text shifted 0.5 px right | 0.0% | 0.0% | 0.0 to 9.1% | 0/12 | 0/12 | 0/12 | pass |
+| text shifted 0.5 px down | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | 0/12 | pass |
+| text shifted 1 px right | 0.0% | 0.0% | 0.0 to 6.8% | 0/12 | 0/12 | 0/12 | pass |
+| colours 3% darker | 0.0% | 0.0% | 0.0% | 0/12 | 0/12 | 0/12 | pass |
+| letter-spacing +0.2 px (labels about 2% wider) | 0.0 to 41.9% | 0.0% | 0.0 to 3.2% | 0/12 | 0/12 | 6/12 | borderline |
+| text shifted 3 px right | 11.3 to 57.1% | 0.0% | 0.0 to 16.0% | 0/12 | 0/12 | 12/12 | fail |
+| one label in four missing | 30.7 to 67.9% | 0.0 to 13.2% | 0.0 to 12.1% | 12/12 | 12/12 (missing) | 12/12 | fail |
+| whole chart scaled to 99% | 42.9 to 100.0% | 0.0 to 100.0% | 1.8 to 100.0% | 0/12 | 0/12 | 12/12 | fail |
+| two most used series colours swapped | 0.0 to 100.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/9 | 0/9 | 9/9 | fail |
+| most used series colour replaced by its nearest palette colour | 0.0% | 0.0 to 100.0% | 0.0 to 100.0% | 0/12 | 0/12 | 12/12 | fail |
+| one number label changed by one digit | 0.0 to 13.7% | 0.0% | 0.0% | 12/12 | 12/12 (missing) | 12/12 | fail |
+| all text bold | 0.0 to 31.9% | 0.0% | 0.0 to 14.3% | 0/12 | 12/12 | 12/12 | fail (the font check; the images alone caught 7/12) |
+| Latin text in Noto Sans JP instead of Noto Sans | 0.0 to 17.0% | 0.0% | 0.0 to 1.6% | 0/12 | 0/12 | 2/12 | fail (a no-op on the 4 all-Japanese fixtures) |
 
-The metric catches what a measuring engine gets wrong: shifted, missing or
-resized text and marks. It does not reliably catch a wrong font face or weight
-when the metrics are close. Those are better checked in the SVG itself: every
-`font-family` should name a registered font (P1-GFX-03). The Chrome harness
-already fails any fixture whose SVG names a font outside `fixtures/fonts/`.
+On echarts-two-charts-latin, both colour faults fail both islands at 100% on
+the colour check (the nearest-palette fault also at 100% on hue).
+
+On the fulgur baseline below (fulgur printing Chrome's own SVGs), the colour
+check scores 0.0% everywhere and the hue check at most 18.9%
+(echarts-line-dense-latin's page, where five line series cross and their
+blended pixels land differently), against 94 to 100% for every colour fault
+that applies. Even at a 12/255 solid tolerance, no baseline pixel differed.
+
+The checks catch what a measuring engine gets wrong: shifted, missing or
+resized text and marks, wrong colours and wrong strings. They do not reliably
+catch:
+- a face or weight drawn wrongly when the metrics are close (the font check
+  catches a wrong *declared* weight or style, not the face gfx outlined with:
+  a gfx bug that ignores `font-weight`, or a per-glyph fallback to a Bold
+  face, passes it). Faces are better checked in the SVG itself:
+  every `font-family` should name a registered font
+  (P1-GFX-03), and the Chrome harness already fails any fixture whose SVG names
+  a font outside `fixtures/fonts/`;
+- a change in lightness alone on thin strokes (hue is direction only), for
+  example a 1 px bar in `#9db7d5` instead of `#b5cde8`. Solid areas catch it.
+- a wrong glyph under a right string. The text check compares strings: with
+  text as outlines (surimono's default) it trusts that an outline's
+  `aria-label` is the string that was outlined, and shape alone misses a
+  one-digit change. P1-GFX-05's tests in `crates/gfx` are what tie each label
+  to its outline.
+
+Unit tests for the checks run on synthetic images, with no Chrome:
+`node --test fixtures/tools/test/*.test.mjs`.
 
 **Baseline (`fulgur-baseline.sh`): fulgur 0.40.0 printing Chrome's own SVGs**,
 worst window, pixelmatch in brackets:
@@ -188,6 +250,6 @@ Regular; its 1.3% page score is sub-pixel glyph placement in the legend.
 
 | Comparison | Measures | Gate |
 |---|---|---|
-| `compare.sh --island I` (Chrome prints surimono's SVG) | surimono's island SVG alone | ≤ 10%: the checkpoint-2 criterion |
+| `compare.sh --island I` (Chrome prints surimono's SVG) | surimono's island SVG alone, plus its strings against Chrome's | shape ≤ 10%, colour ≤ 10%, hue ≤ 30%, text equal: the checkpoint-2 criterion |
 | `compare.sh --island I --printer fulgur` | surimono's SVG plus fulgur's SVG printing | ≤ 10% (fulgur's own floor is ≤ 3.9%) |
 | `compare.sh <fixture> <pdf>` (surimono + fulgur page) | the whole document | ≤ 10% (fulgur's own floor is ≤ 4.5%) |

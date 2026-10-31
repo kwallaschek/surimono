@@ -9,9 +9,11 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use surimono_islands::{
-    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError, TextMeasurer,
-    TextMetrics, builtin_renderers,
+    IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError,
+    builtin_renderers,
 };
+
+mod common;
 
 /// The island box. Vega ignores it: a spec sets its own size.
 const WIDTH: u32 = 600;
@@ -49,7 +51,7 @@ const TEST_LIMITS: Limits = Limits::new(
 );
 
 fn runner() -> IslandRunner {
-    IslandRunner::new(RunnerOptions {
+    IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: 1,
         limits: TEST_LIMITS,
         ..RunnerOptions::default()
@@ -198,41 +200,28 @@ fn dense_scatter_has_every_point() {
 
 #[test]
 fn text_is_measured_by_the_host() {
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    let calls = Arc::new(AtomicUsize::new(0));
-    let seen = calls.clone();
-    let wide = TextMeasurer::new(move |text, font| {
-        seen.fetch_add(1, Ordering::Relaxed);
-        let m = TextMeasurer::approximate().measure(text, font)?;
-        Ok(TextMetrics {
-            width: m.width * 2.0,
-            ..m
-        })
-    });
+    // Noto Sans is narrower than the estimate's 0.6 em per Latin character,
+    // so `limit` truncation keeps more of the label.
     let r = IslandRunner::new(RunnerOptions {
         pool_size: 1,
         limits: TEST_LIMITS,
-        text_measurer: wide,
+        text_measurer: Some(common::fixture_measurer()),
         ..RunnerOptions::default()
     })
     .unwrap();
-    // Truncation with `limit` depends on measured widths.
     let spec = spec("vega", "truncated-labels");
-    let wide_svg = render(&r, "vega", &spec).unwrap();
-    assert!(
-        calls.load(Ordering::Relaxed) > 0,
-        "measureText was never called"
-    );
-    let normal_svg = render(&runner(), "vega", &spec).unwrap();
-    assert_ne!(wide_svg, normal_svg);
-    let wide_texts = check_svg(&wide_svg);
-    let normal_texts = check_svg(&normal_svg);
-    let long = |texts: &[String]| texts.iter().find(|t| t.starts_with("A r")).cloned();
-    let (w, n) = (long(&wide_texts).unwrap(), long(&normal_texts).unwrap());
-    assert!(w.ends_with('…') && n.ends_with('…'), "{w:?} {n:?}");
-    assert!(w.chars().count() < n.chars().count(), "{w:?} {n:?}");
+    let with_fonts = render(&r, "vega", &spec).unwrap();
+    let estimated = render(&runner(), "vega", &spec).unwrap();
+    assert_ne!(with_fonts, estimated);
+    let long = |svg: &str| {
+        check_svg(svg)
+            .into_iter()
+            .find(|t| t.starts_with("A r"))
+            .unwrap()
+    };
+    let (f, e) = (long(&with_fonts), long(&estimated));
+    assert!(f.ends_with('…') && e.ends_with('…'), "{f:?} {e:?}");
+    assert!(f.chars().count() > e.chars().count(), "{f:?} {e:?}");
 }
 
 #[test]
@@ -364,4 +353,126 @@ fn timing_vega() {
             );
         }
     }
+}
+
+#[test]
+fn every_kind_of_load_is_refused_with_its_reason() {
+    // (renderer, spec, words the error must contain)
+    let cases: &[(&str, &str, &[&str])] = &[
+        (
+            "vega",
+            r#"{"data":[{"name":"t","url":"data:text/csv,a%0A1","format":{"type":"csv"}}]}"#,
+            &["must be inline", "data:text/csv"],
+        ),
+        (
+            "vega",
+            r#"{"signals":[{"name":"u","value":"https://example.com/a.json"}],
+                "data":[{"name":"t","url":{"signal":"u"}}]}"#,
+            &["must be inline", "https://example.com/a.json"],
+        ),
+        (
+            "vega",
+            r#"{"width":50,"height":50,"marks":[{"type":"image","encode":{"enter":{
+                "url":{"value":"https://example.com/x.png"},"width":{"value":10},"height":{"value":10}}}}]}"#,
+            &["image marks", "https://example.com/x.png"],
+        ),
+        (
+            "vega",
+            r#"{"width":50,"height":50,"marks":[{"type":"image","encode":{"enter":{
+                "url":{"value":"data:image/png;base64,iVBORw0KGgo="},"width":{"value":10},"height":{"value":10}}}}]}"#,
+            &["image marks", "data:image/png"],
+        ),
+        (
+            "vega-lite",
+            r#"{"data":{"values":[{"u":"https://example.com/i.png","x":1}]},
+                "mark":{"type":"image","width":10,"height":10},
+                "encoding":{"x":{"field":"x","type":"quantitative"},"url":{"field":"u","type":"nominal"}}}"#,
+            &["image marks", "https://example.com/i.png"],
+        ),
+        (
+            "vega",
+            r#"{"width":50,"height":50,"marks":[{"type":"rect","encode":{"enter":{"x":{"value":0},
+                "y":{"value":0},"width":{"value":10},"height":{"value":10},
+                "href":{"value":"https://example.com/"}}}}]}"#,
+            &["links (href)", "https://example.com/"],
+        ),
+        (
+            "vega-lite",
+            r#"{"data":{"values":[{"a":"x","b":1}]},"mark":"bar","encoding":{
+                "x":{"field":"a","type":"nominal"},"y":{"field":"b","type":"quantitative"},
+                "href":{"value":"https://example.com/"}}}"#,
+            &["links (href)", "https://example.com/"],
+        ),
+    ];
+    let r = runner();
+    for (renderer, spec, words) in cases {
+        let err = render(&r, renderer, spec).unwrap_err();
+        let message = sandbox_message(&err);
+        for w in *words {
+            assert!(message.contains(w), "{renderer} {spec}: {message}");
+        }
+    }
+}
+
+#[test]
+fn vega_lite_container_size_is_the_island() {
+    let r = runner();
+    let spec = r#"{"width":"container","height":"container",
+        "data":{"values":[{"a":"x","b":1},{"a":"y","b":2}]},"mark":"bar",
+        "encoding":{"x":{"field":"a","type":"nominal"},"y":{"field":"b","type":"quantitative"}}}"#;
+    let svg = render(&r, "vega-lite", spec).unwrap();
+    let doc = roxmltree::Document::parse(&svg).unwrap();
+    let root = doc.root_element();
+    assert_eq!(root.attribute("width"), Some(WIDTH.to_string().as_str()));
+    assert_eq!(root.attribute("height"), Some(HEIGHT.to_string().as_str()));
+    // Only the width: the height stays the spec's.
+    let spec = r#"{"width":"container","height":120,
+        "data":{"values":[{"a":"x","b":1}]},"mark":"bar",
+        "encoding":{"x":{"field":"a","type":"nominal"},"y":{"field":"b","type":"quantitative"}}}"#;
+    let svg = render(&r, "vega-lite", spec).unwrap();
+    let doc = roxmltree::Document::parse(&svg).unwrap();
+    assert_eq!(
+        doc.root_element().attribute("width"),
+        Some(WIDTH.to_string().as_str())
+    );
+}
+
+#[test]
+fn a_bundle_registered_during_a_builtin_compile_wins() {
+    for _ in 0..3 {
+        let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+            pool_size: 2,
+            limits: TEST_LIMITS,
+            ..RunnerOptions::default()
+        })
+        .unwrap();
+        std::thread::scope(|s| {
+            let r1 = &r;
+            // First use of the built-in compiles it on one worker...
+            s.spawn(move || {
+                let _ = render(r1, "vega", r#"{"width":10,"height":10}"#);
+            });
+            // ...while the caller registers its own "vega" on the other.
+            std::thread::sleep(Duration::from_millis(30));
+            r.register_bundle(
+                "vega",
+                "function vegaEntry() { return 'custom' }",
+                "vegaEntry",
+            )
+            .unwrap();
+        });
+        assert_eq!(render(&r, "vega", "{}").unwrap(), "custom");
+    }
+}
+
+#[test]
+fn vega_and_vega_lite_share_a_compile_and_render_alike() {
+    // vega-lite first (compiles the shared bundle), then vega reuses it:
+    // the output is the same as from a runner that only ever used vega.
+    let vega_bar = spec("vega", "bar");
+    let r = runner();
+    render(&r, "vega-lite", &spec("vega-lite", "bar")).unwrap();
+    assert!(
+        render(&r, "vega", &vega_bar).unwrap() == render(&runner(), "vega", &vega_bar).unwrap()
+    );
 }

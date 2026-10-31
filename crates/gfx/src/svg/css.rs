@@ -251,17 +251,33 @@ fn is_loading_function(lower: &str) -> bool {
 
 /// A URL that loads nothing: a fragment or an inline image.
 fn is_safe_url(url: &str) -> bool {
-    url.trim().starts_with('#') || is_inline_image(url)
+    url_parser_input(url).is_some_and(|u| u.starts_with('#') || is_inline_image(&u))
 }
 
-/// `data:image/...` URLs are self-contained and safe to keep.
+/// A URL as the URL Standard's parser starts on it: leading and trailing C0
+/// controls and spaces stripped, and tab, LF and CR removed, nothing else.
+/// `None` if it holds a C1 control (U+0080 to U+009F): an HTML parser reads
+/// `&#x80;`-`&#x9F;` as other characters (windows-1252) than XML does.
+/// Every URL decision is made on this, so `d ata:image/..` stays relative
+/// and `\u{3000}https://` is not a link.
+pub(crate) fn url_parser_input(url: &str) -> Option<String> {
+    if url.chars().any(|c| (0x80..=0x9f).contains(&(c as u32))) {
+        return None;
+    }
+    let trimmed = url.trim_matches(|c: char| c <= ' ');
+    Some(
+        trimmed
+            .chars()
+            .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+            .collect(),
+    )
+}
+
+/// `data:image/...` URLs (as [`url_parser_input`] gives them) are
+/// self-contained and safe to keep.
 pub(crate) fn is_inline_image(url: &str) -> bool {
-    let compact: String = url
-        .chars()
-        .filter(|c| !c.is_ascii_whitespace() && !c.is_control())
-        .take(11)
-        .collect();
-    compact.eq_ignore_ascii_case("data:image/")
+    url.get(..11)
+        .is_some_and(|p| p.eq_ignore_ascii_case("data:image/"))
 }
 
 /// The final, structure-free check of CSS about to be written: tokenized on
@@ -567,7 +583,9 @@ fn value_core(s: &str, r: Range<usize>) -> Range<usize> {
 
 /// What to do with a URL inside `url()`: `None` keeps it as written.
 fn classify_url(url: &str, prefix: &str) -> Option<String> {
-    let trimmed = url.trim();
+    let Some(trimmed) = url_parser_input(url) else {
+        return Some("none".to_string());
+    };
     if let Some(id) = trimmed.strip_prefix('#') {
         let new_id = format!("{prefix}{id}");
         if new_id.bytes().all(|b| {
@@ -583,7 +601,7 @@ fn classify_url(url: &str, prefix: &str) -> Option<String> {
                 .replace('\n', "\\a ")
         ));
     }
-    if is_inline_image(trimmed) {
+    if is_inline_image(&trimmed) {
         return None;
     }
     Some("none".to_string())
@@ -864,9 +882,41 @@ mod tests {
 
     #[test]
     fn inline_images() {
-        assert!(is_inline_image("data:image/png;base64,AAAA"));
-        assert!(is_inline_image(" DATA:Image/svg+xml,<svg/>"));
-        assert!(!is_inline_image("data:text/html,<script>"));
-        assert!(!is_inline_image("data:"));
+        let inline = |u: &str| url_parser_input(u).is_some_and(|u| is_inline_image(&u));
+        assert!(inline("data:image/png;base64,AAAA"));
+        assert!(inline(" DATA:Image/svg+xml,<svg/>"));
+        assert!(
+            inline("\u{1}\tdata:im\nage/png,x \u{1f}"),
+            "C0 and space at the ends, tab/LF/CR anywhere"
+        );
+        assert!(!inline("data:text/html,<script>"));
+        assert!(!inline("data:"));
+        // Review of #12 (second round): what a URL parser keeps, the check
+        // keeps; these are relative URLs to a browser.
+        for relative in [
+            "d ata:image/../../r1.png",
+            "data :image/png,x",
+            "da\u{80}ta:image/../../r3.png",
+            "da\u{85}ta:image/../../r4.png",
+            "d\u{1}ata:image/x.png",
+            "\u{3000}data:image/x.png",
+            "d\u{a0}ata:image/x.png",
+        ] {
+            assert!(!inline(relative), "{relative:?}");
+        }
+        assert_eq!(
+            url_parser_input("\u{3000}#a").as_deref(),
+            Some("\u{3000}#a")
+        );
+        assert_eq!(url_parser_input(" #a\n").as_deref(), Some("#a"));
+    }
+
+    #[test]
+    fn urls_follow_the_url_parser() {
+        assert_eq!(decl("fill:url('d ata:image/../r.svg#p')"), "fill:none");
+        assert_eq!(decl("fill:url('d\\80 ata:image/x.svg#p')"), "fill:none");
+        assert_eq!(decl("cursor:url('\\3000 #a'),auto"), "cursor:none,auto");
+        assert_eq!(decl("fill:url(' #a ')"), "fill:url(#sm0-a)");
+        assert_eq!(value("url('d ata:image/../r8.svg#m')"), "none");
     }
 }

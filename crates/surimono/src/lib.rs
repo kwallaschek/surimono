@@ -30,7 +30,10 @@
 //! Same input, same output: no wall-clock time, real randomness, system fonts or
 //! network reach a render, so the same options and HTML always give the same bytes.
 
+#![warn(missing_docs)]
+
 mod backend;
+mod charref;
 mod error;
 mod options;
 mod prepass;

@@ -10,6 +10,8 @@
 // the rest of the page. Everything lands in DIR/<fixture>/:
 //   chrome.pdf, chrome-<page>.png       the full page
 //   island-<i>.svg, island-<i>.png      each island alone (Chrome's own SVG)
+//   island-<i>.texts.json               the strings in that SVG, and each <text>'s font
+//                                       weight and style (lib/svgtext.mjs)
 //   prepass.html                        the source with markers replaced by Chrome's SVG
 //   render.json                         versions, fonts, island sizes, console output
 //
@@ -32,12 +34,14 @@ import {
   listFixtures,
   popplerVersion,
   prepassHtml,
+  computedTextStyles,
   printIslandInChrome,
   rasterise,
   renderFixtureInChrome,
 } from "./lib/fixtures.mjs";
 import { referenceFiles } from "./lib/compare.mjs";
 import { diff, pixelsIdentical, readPng, sideBySide, writePng } from "./lib/png.mjs";
+import { svgTextStyles, svgTexts } from "./lib/svgtext.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -120,7 +124,22 @@ function compareSet(name, expectedFiles, freshFiles, results) {
   return status;
 }
 
-function checkFixture(fixture, freshPages, freshIslands, env) {
+/** Fresh island strings against the committed island-<i>.texts.json. */
+function compareTextSets(expectedFiles, freshFiles, results) {
+  let status = "identical";
+  if (expectedFiles.length !== freshFiles.length) {
+    results.push({ name: "texts", result: "changed", detail: `${freshFiles.length} files, reference has ${expectedFiles.length}` });
+    return "changed";
+  }
+  for (const [i, fresh] of freshFiles.entries()) {
+    const same = fs.readFileSync(expectedFiles[i], "utf8") === fs.readFileSync(fresh, "utf8");
+    results.push({ name: `texts-${i}`, result: same ? "identical" : "changed" });
+    if (!same) status = "changed";
+  }
+  return status;
+}
+
+function checkFixture(fixture, freshPages, freshIslands, freshTexts, env) {
   const metaFile = path.join(fixture.dir, "reference", "reference.toml");
   if (!fs.existsSync(metaFile)) return { status: "missing", detail: "no committed reference; run reference.sh --update" };
   const meta = readReferenceMeta(metaFile);
@@ -129,7 +148,7 @@ function checkFixture(fixture, freshPages, freshIslands, env) {
   if (meta.poppler !== env.poppler) notes.push(`reference rasterised with poppler ${meta.poppler}, this run uses ${env.poppler}`);
   const refs = referenceFiles(fixture.dir);
   const results = [];
-  const statuses = [compareSet("page", refs.pages, freshPages, results), compareSet("island", refs.islands, freshIslands, results)];
+  const statuses = [compareSet("page", refs.pages, freshPages, results), compareSet("island", refs.islands, freshIslands, results), compareTextSets(refs.texts, freshTexts, results)];
   const status = statuses.includes("changed") ? "changed" : statuses.includes("reproduced") ? "reproduced" : "identical";
   const changed = results.filter((r) => r.result === "changed").map((r) => r.name);
   return { status, detail: changed.length ? `changed: ${changed.join(", ")}` : undefined, results, notes };
@@ -169,11 +188,22 @@ try {
     for (const isl of rendered.islands) {
       const base = path.join(out, `island-${isl.index}`);
       fs.writeFileSync(`${base}.svg`, isl.svg);
+      // The resolver must agree with Chrome's own computed style, or a library
+      // update that moves weights somewhere it doesn't read would commit a
+      // wrong expectation.
+      const styles = svgTextStyles(isl.svg);
+      const chrome = await computedTextStyles(browser, isl.svg);
+      const ms = (xs) => xs.map((x) => `${x.key}|${x.weight}|${x.style}`).sort();
+      if (JSON.stringify(ms(styles)) !== JSON.stringify(ms(chrome))) {
+        const only = (a, b) => ms(a).filter((x) => !ms(b).includes(x)).slice(0, 5);
+        throw new Error(`${fixture.name} island ${isl.index}: svgTextStyles disagrees with Chrome's computed style (only ours: ${JSON.stringify(only(styles, chrome))}; only Chrome's: ${JSON.stringify(only(chrome, styles))})`);
+      }
+      fs.writeFileSync(`${base}.texts.json`, `${JSON.stringify({ ...svgTexts(isl.svg), styles }, null, 1)}\n`);
       await printIslandInChrome(browser, fixture, isl.index, isl.svg, isl.width, isl.height, `${base}.pdf`);
       const [png, ...extra] = rasterise(`${base}.pdf`, out, `.island-${isl.index}`);
       if (extra.length) throw new Error(`${fixture.name}: island ${isl.index} printed on ${extra.length + 1} pages`);
       fs.renameSync(png, `${base}.png`);
-      islands.push({ ...isl, png: `${base}.png` });
+      islands.push({ ...isl, png: `${base}.png`, texts: `${base}.texts.json` });
     }
     fs.writeFileSync(
       path.join(out, "render.json"),
@@ -196,7 +226,7 @@ try {
       const refDir = path.join(fixture.dir, "reference");
       fs.rmSync(refDir, { recursive: true, force: true });
       fs.mkdirSync(refDir, { recursive: true });
-      for (const p of [...pages, ...islands.map((i) => i.png)]) fs.copyFileSync(p, path.join(refDir, path.basename(p)));
+      for (const p of [...pages, ...islands.flatMap((i) => [i.png, i.texts])]) fs.copyFileSync(p, path.join(refDir, path.basename(p)));
       fs.writeFileSync(
         path.join(refDir, "reference.toml"),
         referenceToml(
@@ -208,7 +238,13 @@ try {
       report.fixtures[fixture.name] = { status: "updated", pages: pages.length, islands: islands.length };
       console.log(`updated  ${fixture.name} (${pages.length} page${pages.length > 1 ? "s" : ""}, ${islands.length} island${islands.length === 1 ? "" : "s"})`);
     } else {
-      const result = checkFixture(fixture, pages, islands.map((i) => i.png), env);
+      const result = checkFixture(
+        fixture,
+        pages,
+        islands.map((i) => i.png),
+        islands.map((i) => i.texts),
+        env,
+      );
       report.fixtures[fixture.name] = result;
       if (result.status === "changed" || result.status === "missing") failed++;
       console.log(`${result.status.padEnd(8)} ${fixture.name}${result.detail ? `: ${result.detail}` : ""}`);
