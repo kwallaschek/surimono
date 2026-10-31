@@ -57,6 +57,10 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-08 · CF · done · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
 - P1-CF-09 · CF · review · (#35) Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
 - P1-CF-04b · CF · done · (#36) Hostile follow-ups: real dynamic-import target, narrowed re-entry cases, hostile-chrome.mjs
+- P1-CF-10 · CF · done · (#40) Benchmark follow-ups: gem version probe, gem build failure is an error, warm verdict needs full n, pool size recorded
+- P1-CF-05b · CF · done · (#41) A missing embedded bundle fails verify.py
+- P1-CF-04c · CF · review · (#42) Hostile follow-ups; blocked: Worker WebSockets escape routeWebSocket
+- P1-CF-08b · CF · review · (#43) Exact font weight and style check
 - P1-CF-07 · CF · review · COMPAT.md generated from test results
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
