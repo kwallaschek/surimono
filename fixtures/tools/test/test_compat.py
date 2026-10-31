@@ -178,6 +178,11 @@ class CompatTest(unittest.TestCase):
         self.assertEqual(compat.cell(s), "**FAIL** (shape 25.0%; hue 50.0%; size 640x341 vs Chrome 640x340)")
         self.assertEqual(compat.cell(score("x", False, ["colour"])), "**FAIL** (colour ?)")
 
+    def test_font_check_is_named_with_its_mismatch(self):
+        s = score("x island 0 (printed by chrome)", False)
+        s["font"] = {"pass": False, "compared": 3, "mismatches": [{"key": "Jan", "chrome": "400 normal", "surimono": "700 normal"}]}
+        self.assertEqual(compat.cell(s), "**FAIL** (font: 1 differ (Jan: Chrome 400 normal, surimono 700 normal))")
+
     def test_hostile_duplicates_are_an_error(self):
         results = self.write_json(
             "hostile.json",

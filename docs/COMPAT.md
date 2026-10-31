@@ -12,7 +12,7 @@ Results: fixtures not run; hostile scripts not run; benchmark not run.
 
 Not run yet: no surimono output has been compared with the Chrome references.
 
-Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the whole page printed by surimono + fulgur, against the Chrome references (`fixtures/README.md`, "Which comparison gates what"). A pass shows the shape score (worst window); a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, size).
+Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the whole page printed by surimono + fulgur, against the Chrome references (`fixtures/README.md`, "Which comparison gates what"). A pass shows the shape score (worst window); a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, font weight or style, size).
 
 | Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) |
 |---|---|---|---|---|
