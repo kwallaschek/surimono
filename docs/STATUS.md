@@ -2,59 +2,45 @@
 
 Updated after every task. Times are JST.
 
-## Now (Sat 31 Oct 2026, 06:30)
+## Now (Sat 31 Oct 2026, 11:20)
 
-**Phase 1: islands.** Kay authorised fleet merges at 06:17. Six reviewed PRs are
-merged (#1 fonts, #4 CI, #7 pre-pass, #10 facade, #6 fixture pipeline, #5 sandbox).
-All agents stopped 03:20 to 06:17 on the account's 5-hour usage limit and were
-resumed at 06:20.
+**Phase 1: islands.** Merged into main so far: fonts, CI, pre-pass, facade
+(stand-in backend), fixture pipeline, sandbox with determinism fixes, island
+runner, pool, soak, ECharts, Vega, gfx text measurement, hostile suite and the 11
+fixtures. The fleet stopped twice on the account's 5-hour usage limit (03:20 to
+06:17 and about 09:40 to 11:10) and resumed where it stopped.
 
-### Done
-- 06:20 · Merged #1, #4, #7, #10, #6, #5 (merge commits, reviewed heads pinned).
-- 01:19 · Checkpoint 1 approved; workflows committed by Kay; CI publishes to ci-results; scheduled resume every 4 h at :16.
-- 02:10 to 02:20 · Batch 1 delivered by all four specialists (18 PRs, all green on Linux CI; #4 and #14 green on the full matrix).
-- 02:30 to 02:55 · Review round 1 (fresh reviewer per area).
-
-### Review state (merge order in brackets)
-| PR | Task | Verdict |
+### Open PRs (merge order)
+| PR | Task | State |
 |---|---|---|
-| #1 | P1-CF-02 fonts | approved [1] |
-| #2 | P1-CF-05 real-world manifest | approved |
-| #6 | P1-CF-01 fixture pipeline | approved [after #1] |
-| #9 | P1-CF-04 hostile suite | blocked: one Chrome expectation wrong; adding hang cases |
-| #17 | P1-CF-03 10 fixtures | blocked: page heights that Chrome rounds (1/300 in) |
-| #3 | P1-GFX-01/02 measureText | blocked: caches bounded by count, not bytes |
-| #12 | P1-GFX-03 sanitize_svg | blocked: style escape inside integration points (security) |
-| #16 | P1-GFX-04 hand-off | blocked: fulgur prints inline SVG text with system fonts |
-| #5 | P1-RT-01 sandbox | approved to merge; v0.1 release blocked on the QuickJS patch (P1-RT-09) |
-| #8 | P1-RT-02 determinism | blocked: three Date / prepareStackTrace host leaks |
-| #11 | P1-RT-03 island runner | approved [after #5, #8] |
-| #13 | P1-RT-04 pool | blocked: leftover debug print |
-| #15 | P1-RT-05 soak | blocked: RSS metric unreliable; switch to live heap bytes |
-| #4 | P1-PKG-01 CI | approved |
-| #7 | P1-PKG-03 pre-pass | approved |
-| #10 | P1-PKG-02 facade | approved [after #7] |
-| #14 | P1-PKG-04 gem | blocked: Thread#raise longjmps over Rust frames |
+| #30 | P1-RT-10 gfx measurer in islands, deadline hook | blockers fixed, delta review running |
+| #32 + #33 | P1-RT-09 vendored QuickJS patch + gem staging of vendor/ | #32 approved (release blockers R4 to R8 open); #33 in review; merge together |
+| #37 | P1-RT-11 hostile harness (all 59 cases) | in review; carries the #11 test fix needed once #32 lands, so merge right after #32 |
+| #39 | P1-RT-12 islands follow-ups | in review |
+| #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | #12 and #27 blocked (sanitizer bypasses, outline bounds), being fixed; #16 approved |
+| #14, #20, #22 | gem fix, CI scripts + YAML proposal, pre-pass follow-ups | in review |
+| #25 → #26 → #34 | facade on the real backend, CLI, licences | in review |
+| #2, #24, #28, #31 | manifest, colour checks, COMPAT generator, Grover bench | blocked, being fixed |
+| #18 → #19 → #23 | README, guides, examples | waiting for the facade to settle, then review |
+| #38 | v0.1 release PR | last; only with Kay's OK at checkpoint 2 |
 
 ### In progress
-- Runtime (islands): fixes for #13 and #15, then ECharts (P1-RT-06) and Vega (P1-RT-07).
-- Runtime (sandbox hardening): #8 fixes, then the QuickJS patch (P1-RT-09).
-- Graphics: #3, #12 and #16 fixes, then island text as outlines (P1-GFX-05).
-- Conformance: #9 and #17 fixes, a colour-aware diff, then the Grover benchmark (P1-CF-06) and the COMPAT generator (P1-CF-07).
-- Packaging: #14 fix, pre-pass follow-ups, real backend with sanitised SVG (P1-PKG-08), CLI, licence file, then the v0.1 release PR.
-- Docs and DX: README, guides, examples.
+- Runtime p1-rt-14: deadline enforcement (watchdog flag on every poll, polls in expensive natives) — v0.1 blockers R4, R5.
+- Runtime p1-rt-15: allocation-failure crash fixes in the vendored engine — v0.1 blockers R6, R7, R8 (details private).
+- Graphics batch 3: CSS tokenizer for the sanitizer, SMIL dropped, outline bounds.
+- Conformance batch 3: #31, #28, #2, #24 fixes, then P1-CF-09 (checkpoint-2 run of all fixtures through the real pipeline).
+- Reviews: #14/#20/#22/#33, #25/#26/#34, #30/#37/#39.
 
-### Blocked
-- Nothing. Risk: the usage limit can pause the fleet again; agents resume where they stopped.
+### Blocked / waiting on Kay
+- Delete one public PR comment with unreported QuickJS security details (asked 09:10): https://github.com/kwallaschek/surimono/pull/32#issuecomment-6535086647
 
 ### Next
-1. Merge each fixed PR as soon as a fresh reviewer approves its head: #8, then #11, #13, #15, #21; #3, #12, #16; #9, #17; #2 (pyc removed); #14. Move its DECISIONS lines from docs/fleet/PENDING_DECISIONS.md.
-2. Fresh reviewers for every fixed or new PR.
-3. Start the DOM engineer (phase 2 scaffolding) once the build machine is less busy.
-4. Checkpoint 2 package (Sun ~18:00): 10 side-by-side fixtures, Grover table, hostile results, v0.1 release PR with dry-run.
+1. Merge each PR when a fresh reviewer approves its exact head and CI is green; move its DECISIONS lines from docs/fleet/PENDING_DECISIONS.md.
+2. When #25 merges: start Docs and DX batch 2 (resolve `confirm` markers, CHANGELOG 0.1.0, Ferrum/WickedPDF notes), then review #18/#19/#23.
+3. Checkpoint 2 package (Sun ~18:00): fixtures side by side with Chrome, Grover table (PSS, from CI), hostile results, the v0.1 release PR with a passing dry-run, and the open questions in docs/fleet/PENDING_DECISIONS.md ("Open for checkpoint 2").
 
 ### Disk
-The session's disk allowance is small. When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh` (freed 15 GB at 08:00).
+When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh`.
 
 ### Branch rule
-Never rebase or force-push a pushed branch; fix with new commits; downstream branches merge their parent in. PRs merge with merge commits.
+Never rebase or force-push a pushed branch; fix with new commits; downstream branches merge their parent in. PRs merge with merge commits. The orchestrator may merge main into an approved branch when the result is exactly the mechanical merge (see DECISIONS).
