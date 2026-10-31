@@ -20,8 +20,10 @@
 # .git/config. Symbolic links on ci-results check out as plain files
 # (core.symlinks=false), and results are copied as regular files only, never
 # symlinks or .git* entries, so publishing writes nowhere but runs/<sha>/.
-# In --from mode a job's status is GitHub's (needs.json) whenever that isn't
-# success: a build job runs code under test and could rewrite its job.json.
+# In --from mode the job is taken from the artifact's name (the workflow sets
+# it), never from the build job's job.json, and a status is success only when
+# GitHub's result for that job (needs.json) is success: a build job runs code
+# under test and could rewrite its job.json.
 set -uo pipefail
 if [ -z "${GITHUB_ACTIONS:-}" ]; then echo "not in GitHub Actions; skipping"; exit 0; fi
 
@@ -89,15 +91,35 @@ copy_tree() {
 }
 
 # GitHub's result for a job from $NEEDS (toJSON(needs)), or "".
-needs_result() {
-  NEEDS_JOB="$1" python3 -I -c '
+# For artifact ci-out-<name> and the build job's own status <reported>, prints
+# "<job> <matrix> <status> <needs-result>". The job is the longest key of
+# $NEEDS (toJSON(needs)) that <name> is or starts with followed by "-", so
+# hyphenated jobs (native-gems, linux-extra) match; <matrix> is the rest. The
+# status is GitHub's result unless that is success, then the reported one; an
+# artifact with no needs entry is never success.
+resolve() {
+  ARTIFACT="$1" REPORTED="$2" python3 -I -c '
 import json, os
+name, reported = os.environ["ARTIFACT"], os.environ["REPORTED"]
 try:
     needs = json.loads(os.environ.get("NEEDS") or "{}")
-    print((needs.get(os.environ["NEEDS_JOB"]) or {}).get("result", ""))
+    if not isinstance(needs, dict):
+        needs = {}
 except Exception:
-    print("")
-' 2>/dev/null | tr -cd 'a-z'
+    needs = {}
+keys = sorted((k for k in needs if isinstance(k, str) and (name == k or name.startswith(k + "-"))), key=len)
+if keys:
+    job = keys[-1]
+    matrix = name[len(job) + 1:]
+    entry = needs.get(job)
+    result = entry.get("result", "") if isinstance(entry, dict) else ""
+    result = result if result in ("success", "failure", "cancelled", "skipped") else "unknown"
+    status = reported if result == "success" else result
+else:
+    job, matrix, result = name, "", ""
+    status = reported if reported in ("failure", "cancelled") else "unknown"
+print(job, matrix or "-", status, result or "-")
+' 2>/dev/null
 }
 
 # A field of a job.json written by job-status.sh, or "" (no jq needed).
@@ -120,20 +142,20 @@ stage() {
     [ -d "$dir" ] || continue
     name="${dir%/}"; name="${name##*/ci-out-}"
     # Artifact names come from the workflow; refuse anything that isn't a
-    # plain path segment.
-    if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]] || [ "$name" = . ] || [ "$name" = .. ]; then
+    # plain path segment or starts with a dot (ci-out-.git would make the
+    # whole runs/<sha>/<workflow> a gitlink).
+    if [[ ! "$name" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]*$ ]]; then
       echo "skipping artifact with an unexpected name: $name" >&2
       continue
     fi
-    job="$(field "$dir/job.json" job)"; job="${job:-${name%%-*}}"
-    matrix="$(field "$dir/job.json" matrix)"
     reported="$(field "$dir/job.json" status)"
     case "$reported" in success | failure | cancelled) ;; *) reported=unknown ;; esac
-    # GitHub's result is per job (all matrix legs together). When it isn't
-    # success, no leg is published as success on the build job's word.
-    needed="$(needs_result "$job")"
-    st="$reported"
-    if [ -n "$needed" ] && [ "$needed" != success ]; then st="$needed"; fi
+    # GitHub's result is per job (all matrix legs together); the job comes
+    # from the artifact name, so job.json can't pick whose result counts.
+    read -r job matrix st needed <<< "$(resolve "$name" "$reported")"
+    [ "$matrix" = - ] && matrix=""
+    [ "$needed" = - ] && needed=""
+    [ -n "$st" ] || st=unknown
     copy_tree "$dir" "$work/$base/$name"
     write_status "$work/$base/$name" "$job" "$matrix" "$st" "$reported" "$needed"
     n=$((n + 1))
@@ -144,6 +166,8 @@ stage() {
 }
 
 work="$(mktemp -d)"
+# The temporary worktree goes on every exit path.
+trap 'git_safe worktree remove --force "$work" >/dev/null 2>&1; rm -rf "$work"' EXIT
 msg=""
 for attempt in 1 2 3 4 5 6; do
   git_safe worktree remove --force "$work" >/dev/null 2>&1 || true
@@ -154,10 +178,11 @@ for attempt in 1 2 3 4 5 6; do
     git_safe worktree add --quiet --detach "$work" HEAD
     (cd "$work" && git_safe checkout --quiet --orphan ci-results-new && git_safe rm -rfq --ignore-unmatch . && rm -rf ./*)
   fi
-  # With core.symlinks=false nothing checks out as a link; refuse to write
-  # into a tree that has one anyway.
-  if [ -n "$(find "$work" -path "$work/.git" -prune -o -type l -print -quit)" ]; then
-    echo "the ci-results worktree contains a symbolic link; not publishing" >&2
+  # With core.symlinks=false a link checks out as a plain file, so look at
+  # what git records: refuse a ci-results tree with a symbolic link (120000)
+  # or a gitlink (160000) anywhere.
+  if (cd "$work" && git_safe ls-files -s) | awk '$1 == "120000" || $1 == "160000" { found = 1 } END { exit !found }'; then
+    echo "ci-results contains a symbolic link or gitlink; not publishing" >&2
     exit 0
   fi
   stage "$work"

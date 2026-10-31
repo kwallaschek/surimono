@@ -63,6 +63,9 @@ class Publish(unittest.TestCase):
                 f"exec {REAL_GIT} \"$@\"\n"
             )
         os.chmod(os.path.join(self.bin, "git"), 0o755)
+        # The scripts' temporary directories go here, to check none is left.
+        self.scratch = os.path.join(self.tmp, "scratch")
+        os.makedirs(self.scratch)
         # Something outside the repository a symlink could point at.
         self.outside = os.path.join(self.tmp, "outside.txt")
         with open(self.outside, "w") as f:
@@ -90,6 +93,7 @@ class Publish(unittest.TestCase):
         return env
 
     def run_script(self, script, *args, **env):
+        env.setdefault("TMPDIR", self.scratch)
         return subprocess.run(
             ["bash", script, *args], cwd=self.repo, env=self.env(**env), capture_output=True, text=True
         )
@@ -112,14 +116,19 @@ class Publish(unittest.TestCase):
         with open(os.path.join(self.repo, ".git", "config")) as f:
             self.assertNotIn(TOKEN, f.read())
 
-    def seed_results(self, path, link_to):
-        """Puts a symbolic link at <path> on origin's ci-results branch."""
+    def seed_results(self, path, link_to=None, gitlink=False):
+        """Puts a symbolic link (or a gitlink) at <path> on origin's
+        ci-results branch."""
         seed = os.path.join(self.tmp, "seed")
         git(self.tmp, "clone", "-q", self.origin, seed)
         git(seed, "checkout", "-q", "--orphan", "ci-results")
-        os.makedirs(os.path.join(seed, os.path.dirname(path)))
-        os.symlink(link_to, os.path.join(seed, path))
-        git(seed, "add", "-A")
+        os.makedirs(os.path.join(seed, os.path.dirname(path)), exist_ok=True)
+        if gitlink:
+            sub = git(seed, "rev-parse", "origin/main").strip()
+            git(seed, "update-index", "--add", "--cacheinfo", f"160000,{sub},{path}")
+        else:
+            os.symlink(link_to, os.path.join(seed, path))
+            git(seed, "add", "-A")
         git(seed, "-c", "user.name=t", "-c", "user.email=t@e", "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "seed")
         git(seed, "push", "-q", "origin", "ci-results")
 
@@ -144,9 +153,13 @@ class Publish(unittest.TestCase):
         self.assertFalse(os.path.exists(self.marker), "a planted hook ran")
         self.assert_token_only_in_fetch_and_push_env()
 
+    def ci_results_tip(self):
+        return git(self.origin, "rev-parse", "refs/heads/ci-results").strip()
+
     def test_never_writes_through_a_symlink_on_ci_results(self):
         base = f"runs/{SHA}/ci/linux"
         self.seed_results(f"{base}/linux/log.txt", self.outside)
+        before = self.ci_results_tip()
         os.makedirs(os.path.join(self.repo, "ci-out", "linux"))
         with open(os.path.join(self.repo, "ci-out", "linux", "log.txt"), "w") as f:
             f.write("overwritten?\n")
@@ -154,6 +167,68 @@ class Publish(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         with open(self.outside) as f:
             self.assertEqual(f.read(), "untouched\n")
+        # The link is in git's index even though it checks out as a file:
+        # nothing is published into that tree.
+        self.assertIn("symbolic link or gitlink", r.stderr)
+        self.assertEqual(self.ci_results_tip(), before)
+
+    def test_refuses_a_ci_results_tree_with_a_gitlink(self):
+        self.seed_results(f"runs/{SHA}/full", gitlink=True)
+        before = self.ci_results_tip()
+        os.makedirs(os.path.join(self.repo, "ci-out", "linux"))
+        r = self.run_script(PUBLISH, "success")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("symbolic link or gitlink", r.stderr)
+        self.assertEqual(self.ci_results_tip(), before)
+
+    def test_leaves_no_temporary_directory(self):
+        os.makedirs(os.path.join(self.repo, "ci-out", "linux"))
+        r = self.run_script(PUBLISH, "success")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(os.listdir(self.scratch), [])
+        self.assertEqual(len(git(self.repo, "worktree", "list").splitlines()), 1)
+
+    def test_job_comes_from_the_artifact_name_not_job_json(self):
+        results = os.path.join(self.tmp, "results")
+
+        def artifact(name, job_json):
+            out = os.path.join(results, f"ci-out-{name}")
+            os.makedirs(out)
+            with open(os.path.join(out, "job.json"), "w") as f:
+                f.write(job_json)
+
+        # A failed native-gems leg names a job that passed.
+        artifact("native-gems-x86_64-linux", '{"job":"test","matrix":"x","status":"success"}')
+        # A failed linux-extra leg names a job that isn't in needs.
+        artifact("linux-extra-asan", '{"job":"nope","matrix":"","status":"success"}')
+        # A passing leg of a hyphenated job.
+        artifact("linux-extra-soak", '{"job":"linux-extra","matrix":"soak","status":"success"}')
+        # An artifact with no needs entry at all is never success.
+        artifact("stray", '{"job":"test","matrix":"","status":"success"}')
+        # A dot name is rejected (ci-out-.git would become a gitlink).
+        os.makedirs(os.path.join(results, "ci-out-.git", "objects"))
+        r = self.run_script(
+            PUBLISH, "--from", results, GITHUB_WORKFLOW="full", GITHUB_JOB="publish",
+            NEEDS='{"test":{"result":"success"},"native-gems":{"result":"failure"},"linux-extra":{"result":"failure"}}',
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        base = f"runs/{SHA}/full"
+
+        def status(name):
+            return json.loads(self.published(f"{base}/{name}/status.json"))
+
+        s = status("native-gems-x86_64-linux")
+        self.assertEqual((s["job"], s["matrix"], s["status"], s["needs_result"]), ("native-gems", "x86_64-linux", "failure", "failure"))
+        s = status("linux-extra-asan")
+        self.assertEqual((s["job"], s["matrix"], s["status"]), ("linux-extra", "asan", "failure"))
+        s = status("linux-extra-soak")
+        self.assertEqual((s["job"], s["status"]), ("linux-extra", "failure"))
+        s = status("stray")
+        self.assertEqual((s["status"], s["needs_result"]), ("unknown", ""))
+        ls = git(self.repo, "ls-tree", "--name-only", "FETCH_HEAD", f"{base}/")
+        self.assertNotIn(".git", ls)
+        modes = git(self.repo, "ls-tree", "-r", "FETCH_HEAD")
+        self.assertNotIn("160000", modes)
 
     def test_results_are_copied_as_plain_files_only(self):
         out = os.path.join(self.repo, "ci-out", "linux")
