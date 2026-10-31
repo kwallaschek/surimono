@@ -32,12 +32,17 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 
 - P1-RT-09 · RT · doing · QuickJS patch (vendored rquickjs-sys, [patch]): sticky interrupt, interrupt polls in native array loops and typed-array sort; watchdog tests; upstream drafts (v0.1 release blocker)
 - P1-RT-10 · RT · done (#30) · Use surimono-gfx's TextMeasurer/TextMetrics in islands (one type each across the API)
-- P1-RT-12 · RT · review · Islands follow-ups from #21/#29 review: Vega image/href refused synchronously with tests; preload time vs deadline; built-in vs registered name race; entry check consistency; idle-wait in tests; docs
+- P1-RT-12 · RT · done (#39) · Islands follow-ups from #21/#29 review: Vega image/href refused synchronously with tests; preload time vs deadline; built-in vs registered name race; entry check consistency; idle-wait in tests; docs
 - P1-RT-14 · RT · review · (#47) Deadline enforcement: watchdog flag checked on every poll; expensive natives poll (indexOf, BigInt cap); flaky core tests; F2/F3 (v0.1 release blockers R4, R5)
 - P1-RT-15 · RT · review · (#45) Allocation-failure crash fixes in the vendored engine; full-coverage OOM sweep; docs stop over-claiming (v0.1 release blockers R6, R7, R8; details private)
-- P1-RT-15b · RT · doing · Neutral wording of engine notes on #32 and #45; sweep covers bind and Promise.any (#45 review blockers)
+- P1-RT-15b · RT · doing · #45 review blockers: sweep covers bind and Promise.any; nits
+- P1-RT-20 · RT · todo · quickjs-ng public issue drafts in docs/upstream/quickjs-ng/, one per finding, each with a reproducer on current master and a repro.sh Kay runs to verify (per quickjs-ng's security policy)
+- P1-RT-19 · RT · review · (#52) macOS: the determinism test's own TZ probe read 1970, where macOS libc ignores POSIX-rule transitions; probe 2001 and run IANA zones
+- P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
+- P1-RT-22 · RT · todo · Lock-free ForkSafeCell for PRELUDE and the watchdog registry (fork during first use or arm), stacked on #47
+- P1-RT-23 · RT · todo · Investigate whether regex back-references overrun the deadline (one step compares a whole capture; checks every 10,000 steps)
 - P1-RT-18 · RT · todo · Follow-ups from the #45 review: Date.parse with an explicit zone at the range end gives an out-of-range value where Chrome gives NaN (fix or COMPAT); memory left by leaked objects at teardown isn't counted (debug counter for the soak); musl fallback only compile-checked
-- P1-RT-13 · RT · todo · (folded into P1-RT-14) Core (after #8/#32 merge): lower QuickJS's interrupt-check interval in the vendored engine so expensive built-ins in a loop (e.g. indexOf on a 4 MiB string: TimeLimit after 155 s at a 300 ms limit) end near the limit, with an upstream draft and a hostile case; test robustness: heap_returns_to_baseline_after_reset fails under nightly ASan (TimeLimit; give it a generous limit or relax under sanitizers); time_limit_is_per_call flaky under load; plus #8/#32 review follow-ups
+- P1-RT-13 · RT · review · (#53 for the ASan/flaky tests; interval work folded into P1-RT-14) Core (after #8/#32 merge): lower QuickJS's interrupt-check interval in the vendored engine so expensive built-ins in a loop (e.g. indexOf on a 4 MiB string: TimeLimit after 155 s at a 300 ms limit) end near the limit, with an upstream draft and a hostile case; test robustness: heap_returns_to_baseline_after_reset fails under nightly ASan (TimeLimit; give it a generous limit or relax under sanitizers); time_limit_is_per_call flaky under load; plus #8/#32 review follow-ups
 - P1-RT-16 · RT · doing · Memory: measure and cut surimono's PSS overhead over fulgur (pool growth on demand, idle runtime release, shared bytecode, stacks)
 - P1-RT-17 · RT · doing · Cold start: built-in bundles shipped as precompiled, version-checked QuickJS bytecode
 - P1-RT-11 · RT · review · Rust harness running fixtures/hostile/manifest.toml against the sandbox and the island runner
@@ -64,6 +69,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-04c · CF · done (#42) · (#42) Hostile follow-ups; blocked: Worker WebSockets escape routeWebSocket
 - P1-CF-08b · CF · done (#43) · (#43) Exact font weight and style check
 - P1-CF-07 · CF · done (#28) · COMPAT.md generated from test results
+- P1-CF-05c · CF · done (#46) · Record #39's Vega bundle hash in the real-world manifest
+- P1-CF-12 · CF · todo · Text and font checks read data-surimono-text / data-surimono-face on outline groups (Vega-Lite labels with their own aria-label are false failures otherwise); needed for checkpoint 2
+- P1-CF-11 · CF · review · (#50 from main, #51 on #35+#50) Review follow-ups from #28/#35/#42/#43 (unknown fixture names, page-level WebRTC, duplicated labels, positive controls); #35 merges main
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
 - P1-PKG-01 · PKG · done · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
@@ -74,6 +82,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-06 · PKG · review · CLI: `surimono render in.html -o out.html --font …` (third to cut)
 - P1-PKG-01b · PKG · done · (#20) CI scripts: offline fixture checks in the PR gate, nightly fulgur/npm checks, bench cache, hostile results; workflow YAML proposal for Kay (SHA-pinned actions, persist-credentials false)
 - P1-PKG-03b · PKG · done · (#22) Pre-pass and facade follow-ups
+- P1-PKG-01c · PKG · done (#44) · CI hardening: separate publish job holds the write token, safe status publishing, YAML proposals in docs/ci/ (macos-15)
+- P1-PKG-01d · PKG · todo · #44 review follow-ups: take the job from the artifact name and never publish success without a matching needs entry; check the index for link/gitlink entries; reject artifact names starting with a dot; --no-fail-fast in scripts/ci.sh; exit trap that removes the temp worktree
 - P1-PKG-10 · PKG · done (#33) · (#33) Gem build carries the vendored QuickJS
 - P1-PKG-08 · PKG · review · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
 - P1-PKG-09 · PKG · review · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
