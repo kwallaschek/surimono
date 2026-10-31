@@ -331,14 +331,16 @@ pub struct RunnerStats {
 /// last, so a repeated renderer skips that step. (A bundle whose top level
 /// queues microtasks is never preloaded.) A request that arrives while its
 /// worker is preloading waits for the preload to finish. A worker idle for
-/// [`RunnerOptions::release_idle_after`] frees its runtime. The limits
-/// apply to each island as a whole: one time budget covers loading the bundle, if it
-/// wasn't preloaded, the entry call and the microtasks it queues. The
-/// result is the same either way, but a cold render spends part of its
-/// budget loading the bundle (about 20 to 40 ms for the built-in ECharts or
-/// Vega in a release build), so set the time limit for the cold case: with
-/// a limit close to a chart's cost, a cold render can hit it where a preloaded one
-/// passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
+/// [`RunnerOptions::release_idle_after`] frees its runtime.
+///
+/// The limits apply to each island as a whole: one time budget covers
+/// loading the bundle, if it wasn't preloaded, the entry call and the
+/// microtasks it queues. The result is the same either way, but a cold
+/// render spends part of its budget loading the bundle (about 20 to 40 ms
+/// for the built-in ECharts or Vega in a release build), so set the time
+/// limit for the cold case: with a limit close to a chart's cost, a cold
+/// render can hit it where a preloaded one passes. Charts with thousands
+/// of marks (a 2,000-point Vega-Lite scatter
 /// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
 /// Text measurement runs inside that budget, on the worker thread, with
