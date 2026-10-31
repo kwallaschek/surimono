@@ -39,11 +39,22 @@
 # cases whose only requirement is "a typed error, never a crash or a hang";
 # `output` then applies if the outcome is Ok.
 #
+# Every "Chromium 153: …" claim in an about text can be rechecked with
+# `node fixtures/tools/hostile-chrome.mjs` (each case alone in a Worker of the
+# pinned Chromium, 4 s each).
+#
 # Every case must also end within `max_wall_ms` of wall-clock time (a hang
 # detector); a crash or abort of the test process fails the case outright.
 #
 # `steps` cases run several files one after another as consecutive renders in
 # the same pooled runtime (the runtime pool's reset must isolate them).
+#
+# The harness names each script by its path from the repository root (for
+# example fixtures/hostile/escape-dynamic-import.js) wherever the engine takes
+# a script name, and runs from the repository root or a crate directory
+# (cargo test's working directory). escape-dynamic-import.js relies on this:
+# it asks for the real module fixtures/hostile/modules/escape-target.mjs by
+# every name such a loader could resolve.
 
 [limits]
 memory_bytes = 67108864 # 64 MiB
@@ -218,8 +229,8 @@ about = "Sorting a 12,000,000-element Uint32Array (48 MB) in one native call; an
 [[case]]
 id = "reentry-promise-executor"
 file = "reentry-promise-executor.js"
-expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
-about = "An infinite loop in a Promise executor, inside an outer infinite loop"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "An infinite loop in a Promise executor, inside an outer infinite loop; Promise always exists (ES2023), so Exception here would mean the time-limit interrupt surfaced as a catchable exception (Chromium 153: still running after 4 s)"
 source = "ECMA-262, the Promise constructor rejects with whatever the executor throws: https://tc39.es/ecma262/#sec-promise-executor"
 
 [[case]]
@@ -232,8 +243,8 @@ source = "ECMA-262, Promise.try: https://tc39.es/ecma262/#sec-promise.try"
 [[case]]
 id = "reentry-async-generator"
 file = "reentry-async-generator.js"
-expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
-about = "An infinite loop in an async generator body started by next(), inside an outer infinite loop"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "An infinite loop in an async generator body started by next(), inside an outer infinite loop; async generators always exist (ES2023), so Exception here would mean the time-limit interrupt surfaced as a catchable exception (Chromium 153: still running after 4 s)"
 
 [[case]]
 id = "reentry-prepare-stack-trace"
@@ -434,7 +445,7 @@ id = "escape-dynamic-import"
 file = "escape-dynamic-import.js"
 expect_any = ["Ok", "Exception"]
 output = "denied"
-about = "import() of os, std, fs, node:fs, file paths, https and data: URLs must all reject (or import() must be a SyntaxError)"
+about = "import() of os, std, fs, node:fs, file paths, https and data: URLs, and of a real module (modules/escape-target.mjs) by every name a file-reading loader could resolve, must all reject (or import() must be a SyntaxError); a SyntaxError for /etc/passwd means the file was read and counts as an escape"
 
 [[case]]
 id = "escape-network"

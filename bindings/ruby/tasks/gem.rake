@@ -72,9 +72,9 @@ module SurimonoGem
   # staged crates. Everything else (package defaults, workspace dependencies,
   # lints, profiles) stays as is; unused workspace dependencies are ignored by Cargo.
   def workspace_manifest(crates)
-    text = File.read(File.join(REPO_ROOT, "Cargo.toml"))
+    text = File.read(File.join(REPO_ROOT, "Cargo.toml")).dup
     members = (["ext/surimono"] + crates).map { |m| "    #{m.inspect}," }.join("\n")
-    text = text.sub(/^members\s*=\s*\[.*?\]/m, "members = [\n#{members}\n]") ||
+    text.sub!(/^members\s*=\s*\[.*?\]/m, "members = [\n#{members}\n]") ||
       raise("no members list in Cargo.toml")
     text = text.sub(/^default-members\s*=\s*\[.*?\]\n?/m, "")
     "# Generated from the surimono repository's Cargo.toml by bindings/ruby/tasks/gem.rake.\n" \

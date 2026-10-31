@@ -60,6 +60,8 @@ def main() -> int:
         else:
             errors += check_expectation(cid, case)
             used.add(case.get("file"))
+    if not (HERE / "modules" / "escape-target.mjs").is_file():
+        errors.append("modules/escape-target.mjs (escape-dynamic-import's target) is missing")
     for js in sorted(HERE.glob("*.js")):
         if js.name not in used:
             errors.append(f"{js.name}: not listed in manifest.toml")
