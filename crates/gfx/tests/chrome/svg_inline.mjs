@@ -1,6 +1,8 @@
 // Checks that sanitize_svg output is inert when inlined into HTML, using
-// Chrome's own HTML parser: no script runs, nothing is fetched, and the parsed
-// DOM has no script elements or event-handler attributes.
+// Chrome's own HTML parser: no script runs, nothing is fetched, the parsed
+// DOM has no script elements or event-handler attributes, and the island
+// stays in its box (wrapped like the facade does, the page around it keeps
+// its shape and attributes, and no <style> or HTML element is inside).
 //
 // Usage: cargo test -p surimono-gfx --test svg hostile -- --nocapture
 //        node crates/gfx/tests/chrome/svg_inline.mjs <path printed by the test>
@@ -45,16 +47,37 @@ async function check(markup) {
     for (const el of document.querySelectorAll('*')) {
       for (const a of el.attributes) if (/^on/i.test(a.name)) handlers.push(`${el.localName} ${a.name}`);
     }
-    return { scripts, handlers, pwned: window.__pwned ?? 0 };
+    // Containment: the page keeps its shape, and islands hold SVG only.
+    const breakouts = [];
+    const attrs = (el) => [...el.attributes].map((a) => `${a.name}=${a.value}`).join(' ');
+    if (attrs(document.documentElement) !== 'lang=en') breakouts.push(`html ${attrs(document.documentElement)}`);
+    if (attrs(document.body) !== 'class=page') breakouts.push(`body ${attrs(document.body)}`);
+    const after = document.getElementById('after');
+    if (!after || after.parentNode !== document.body || document.body.lastElementChild !== after) breakouts.push('page after the islands moved');
+    if (document.querySelectorAll('style').length !== 0) breakouts.push('style element');
+    for (const island of document.querySelectorAll('div.surimono-island')) {
+      if (island.parentNode !== document.body) breakouts.push('island moved');
+      for (const el of island.querySelectorAll('*')) {
+        if (el.namespaceURI !== 'http://www.w3.org/2000/svg') breakouts.push(`<${el.localName}> in ${el.namespaceURI}`);
+      }
+      const root = island.firstElementChild;
+      if (root) {
+        const cs = getComputedStyle(root);
+        if (cs.position !== 'static' || cs.transform !== 'none' || cs.float !== 'none' || cs.overflow !== 'hidden') {
+          breakouts.push(`root ${cs.position} ${cs.transform} ${cs.float} ${cs.overflow}`);
+        }
+      }
+    }
+    return { scripts, handlers, breakouts, pwned: window.__pwned ?? 0 };
   });
   await page.close();
   return { requests, dialogs, ...dom };
 }
 
-const wrap = (svgs) => `<!doctype html><meta charset="utf-8"><script>window.__pwned=0;window.alert=()=>{window.__pwned++}</script><body>${svgs.join('\n')}</body>`;
-const report = (r) => `alerts ${r.pwned + r.dialogs.length}, requests ${r.requests.length}, script elements ${r.scripts - 1}, handler attributes ${r.handlers.length}`;
+const wrap = (svgs) => `<!doctype html><html lang="en"><meta charset="utf-8"><script>window.__pwned=0;window.alert=()=>{window.__pwned++}</script><body class="page">${svgs.map((s) => `<div class="surimono-island">${s}</div>`).join('\n')}<p id="after">after</p></body></html>`;
+const report = (r) => `alerts ${r.pwned + r.dialogs.length}, requests ${r.requests.length}, script elements ${r.scripts - 1}, handler attributes ${r.handlers.length}, breakouts ${r.breakouts.length}${r.breakouts.length ? ` (${r.breakouts.slice(0, 3).join('; ')})` : ''}`;
 
-const isClean = (r) => r.pwned + r.dialogs.length === 0 && r.requests.length === 0 && r.scripts === 1 && r.handlers.length === 0;
+const isClean = (r) => r.pwned + r.dialogs.length === 0 && r.requests.length === 0 && r.scripts === 1 && r.handlers.length === 0 && r.breakouts.length === 0;
 
 // All together, then each on its own page (so no case can hide another).
 const together = await check(wrap(cases.map((c) => c.output)));
