@@ -126,7 +126,8 @@ it has bounds of its own. Going over one is `GfxError::InvalidSvg`:
   U+3000, and collection stops at the limit;
 - at most 20,000 `<text>` elements per SVG, empty ones included;
 - at most 32 MiB of path data, checked as each path command is written, so
-  memory peaks at the budget plus one command;
+  memory peaks at the budget plus one command (on dense CJK text this is
+  usually the first limit: a 16 px CJK glyph is about 1.7 KB of path);
 - each element's style parsed once, top down, and CSS over 64 KiB in one
   attribute isn't read (the sanitiser drops it);
 - glyphs whose origin is more than 10,000,000 px from the text's origin are
@@ -150,10 +151,25 @@ outside its own box. Beyond scripts, handlers and external URLs:
   HTML, where `<textarea/>` swallows the rest of the page and `<body>`
   restyles the page's own body); their text stays;
 - on the root `<svg>`, everything but size, `viewBox`,
-  `preserveAspectRatio`, `version`, `baseProfile`, `class`, `id`, `role`,
-  ARIA, language and inherited paint and font settings, in attributes and
-  in `style` (no `position`, `transform`, `overflow`, `filter`, `display`);
-  and a prefixed root (`<svg:svg>`) is rejected.
+  `preserveAspectRatio`, `version`, `baseProfile`, `id`, a chart `role`,
+  label ARIA attributes, language and inherited paint and font settings, in
+  attributes and in `style` (no `position`, `transform`, `overflow`,
+  `filter`, `display`). It keeps no `class`: the page's own CSS (Tailwind's
+  `fixed inset-0`, Bootstrap's `fixed-top`) could match it. A prefixed root
+  (`<svg:svg>`) is rejected;
+- a `<use>` whose target is or holds a `<use>` (chains fan out
+  exponentially in the printer), id-list tokens that name no id of the SVG,
+  and every `data-surimono-*` attribute (only outlining writes those).
+
+Every URL is decided as the URL Standard's parser reads it: only leading
+and trailing C0 controls and spaces are stripped and only tab, LF and CR
+removed, so `d ata:image/..` is a relative URL and goes; a C1 control
+refuses the URL (HTML reads `&#x80;` as `€`, XML as U+0080); kept URLs are
+written as the XML parser read them.
+
+The size the root declares (`width`, `height`) is kept: `sanitize_svg`
+doesn't know the box the island's marker asked for, so clipping the island
+to it belongs to the page that places it (the facade).
 
 All CSS that stays (`style` attributes, `fill`, `mask`, ...) is read with a
 CSS Syntax Level 3 tokenizer and checked again after rewriting; anything
