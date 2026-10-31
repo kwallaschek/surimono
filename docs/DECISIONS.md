@@ -201,7 +201,7 @@ checkpoint and can overturn anything. Newest last.
 - 2026-11-01 · Error::TooManyIslands reads "… islands (max_islands)", without the Rust path (#63) · The same message reaches Ruby and CLI users.
 - 2026-11-01 · CI runs examples/run.sh (full in the Linux and Ruby jobs, --no-ruby with scripts/ci.sh --no-ruby) and skips with a message while it's missing (#63) · Lets #23 and #63 merge in either order.
 - 2026-11-01 · Until the engine-distribution decision, docs tell Rust users to use a git dependency plus their own [patch.crates-io] rquickjs-sys, and to build the CLI from a clone (cargo install --path crates/cli) · A dependency's [patch] doesn't reach the consumer; cargo install --git ignores [patch] (verified).
-- 2026-11-01 · Guides and examples build one shared Surimono::Renderer (and fulgur engine), safe to build before fork; the per-pid rebuild is gone · The facade restarts its pool in a forked child (#25); a fulgur 0.40 engine built before fork rendered in 20/20 children.
+- 2026-11-01 · Guides and examples build one shared Surimono::Renderer, safe to build before fork, and the fulgur engine per worker after fork; the per-pid rebuild is gone · The facade restarts its pool in a forked child (#25, #62, #63); fulgur makes no fork-safety promise (#19 review).
 - 2026-11-01 · Docs state Rust 1.89 for projects that also use the fulgur crate · fulgur 0.40 depends on krilla 0.7 (rust-version 1.89); surimono itself stays at 1.87.
 - 2026-10-31 · Docs quote no speed or memory figures until bench/ has results · Every performance claim must cite a benchmark.
 - 2026-10-31 · Ruby examples write island JSON with `raw json_escape(spec.to_json)` · Plain ERB escapes quotes and breaks the JSON.
