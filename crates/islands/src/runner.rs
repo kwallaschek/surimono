@@ -1,4 +1,4 @@
-//! The island runner: bundles compiled once, rendered on worker threads.
+//! The island runner: bundles compiled once (built-ins at build time), rendered on worker threads.
 
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
@@ -14,7 +14,7 @@ use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, V
 use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxOptions};
 
 use crate::measure::{Measure, MeasureError};
-use crate::{IslandError, TextMeasurer, builtins};
+use crate::{IslandError, TextMeasurer, builtins, embedded};
 
 /// How an [`IslandRunner`] is set up.
 ///
@@ -312,10 +312,18 @@ pub struct RunnerStats {
 /// `TypeError` and the render fails with [`IslandError::NoFonts`].
 ///
 /// Bundles are compiled to bytecode once, at registration, and loaded from
-/// bytecode for each render (no re-parsing). Each render runs on a worker
-/// thread, in a fresh JavaScript runtime under the runner's limits, so
-/// nothing leaks from one render to the next, the whole heap is freed after
-/// every render, and the same request always gives the same SVG.
+/// bytecode for each render (no re-parsing). The built-in renderers were
+/// compiled when this crate was built: their bytecode is loaded in place on
+/// first use, so the first render in a new process skips parsing and
+/// compiling. If the running engine can't read that bytecode, or it wasn't
+/// compiled from exactly the bundle source in this binary, the built-in is
+/// compiled from source instead, with the same output; setting the
+/// environment variable `SURIMONO_PRECOMPILE=0` when building or running
+/// does the same, as a debugging escape hatch. Each render runs
+/// on a worker thread, in a fresh JavaScript runtime under the runner's
+/// limits, so nothing leaks from one render to the next, the whole heap is
+/// freed after every render, and the same request always gives the same
+/// SVG.
 ///
 /// The pool starts with one worker and adds one (up to
 /// [`RunnerOptions::pool_size`]) only when a request finds every worker
@@ -331,10 +339,11 @@ pub struct RunnerStats {
 /// The limits apply to each island as a whole: one time budget covers
 /// loading the bundle, if it wasn't preloaded, the entry call and the
 /// microtasks it queues. The result is the same either way, but a cold
-/// render spends part of its budget loading the bundle (about 20 ms for
-/// ECharts, 70 ms for Vega in a release build), so set the time limit for
-/// the cold case: with a limit close to a chart's cost, a cold render can
-/// hit it where a preloaded one passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
+/// render spends part of its budget loading the bundle (about 20 to 40 ms
+/// for the built-in ECharts or Vega in a release build), so set the time
+/// limit for the cold case: with a limit close to a chart's cost, a cold
+/// render can hit it where a preloaded one passes. Charts with thousands
+/// of marks (a 2,000-point Vega-Lite scatter
 /// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
 /// Text measurement runs inside that budget, on the worker thread, with
@@ -351,8 +360,11 @@ pub struct RunnerStats {
 pub struct IslandRunner {
     shared: Arc<Shared>,
     bundles: RwLock<HashMap<String, Arc<Bundle>>>,
-    /// Held while a built-in renderer is compiled on first use.
+    /// Held while a built-in renderer is loaded or compiled on first use.
     builtin_lock: Mutex<()>,
+    /// The fingerprint the built-ins' bytecode was written with (see
+    /// `embedded.rs`); replaced only by tests of the fallback.
+    embedded_fingerprint: &'static [u8],
     /// Most worker threads.
     pool_size: usize,
     /// Stack size of each worker thread.
@@ -426,6 +438,7 @@ impl IslandRunner {
             shared,
             bundles: RwLock::new(HashMap::new()),
             builtin_lock: Mutex::new(()),
+            embedded_fingerprint: builtins::ENGINE_FINGERPRINT,
             pool_size,
             stack_size,
             workers: Mutex::new(Vec::with_capacity(pool_size)),
@@ -507,8 +520,8 @@ impl IslandRunner {
     /// Renders one island and returns the renderer's SVG string.
     ///
     /// A built-in renderer (see [`builtin_renderers`](crate::builtin_renderers))
-    /// is compiled on its first use, unless a bundle was registered under
-    /// its name.
+    /// is loaded on its first use, unless a bundle was registered under its
+    /// name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
         let bundle = self.bundle(req.renderer)?;
         serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(bad_json)?;
@@ -523,7 +536,8 @@ impl IslandRunner {
         })
     }
 
-    /// The bundle for `name`: a registered one, or a built-in compiled now.
+    /// The bundle for `name`: a registered one, or a built-in loaded (or
+    /// compiled) now.
     fn bundle(&self, name: &str) -> Result<Arc<Bundle>, IslandError> {
         let registered = |bundles: &RwLock<HashMap<String, Arc<Bundle>>>| {
             bundles
@@ -540,7 +554,7 @@ impl IslandRunner {
                 name: name.to_owned(),
             });
         };
-        // One compile per built-in, even if many threads ask at once.
+        // One load or compile per built-in, even if many threads ask at once.
         let _compiling = self
             .builtin_lock
             .lock()
@@ -548,21 +562,38 @@ impl IslandRunner {
         if let Some(bundle) = registered(&self.bundles) {
             return Ok(bundle);
         }
-        // Built-ins that share a source (vega and vega-lite) share its
-        // bytecode: compile it once.
-        let shared = self
-            .bundles
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .values()
-            .find(|b| b.source_id == Some(builtin.source.as_ptr() as usize))
-            .map(|b| b.bytecode.clone());
-        let code = match shared {
-            Some(bytecode) => Code::Compiled(bytecode),
-            None => Code::Source(builtin.source.to_owned()),
+        let source_id = Some(builtin.source.as_ptr() as usize);
+        let bundle = match embedded::bytecode(&builtin, self.embedded_fingerprint) {
+            // Bytecode built into the binary from our own bundle: loaded in
+            // place, no compile. This crate's tests check that it defines
+            // its entry, so it skips the registration run.
+            Some(bytecode) => Bundle {
+                name: builtin.name.to_owned(),
+                entry: builtin.entry.to_owned(),
+                bytecode,
+                preloadable: AtomicBool::new(true),
+                source_id,
+            },
+            // This engine can't read it: compile the source, like any
+            // registered bundle. Built-ins that share a source (vega and
+            // vega-lite) share its bytecode: compile it once.
+            None => {
+                let shared = self
+                    .bundles
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .values()
+                    .find(|b| b.source_id == source_id)
+                    .map(|b| b.bytecode.clone());
+                let code = match shared {
+                    Some(bytecode) => Code::Compiled(bytecode),
+                    None => Code::Source(builtin.source.to_owned()),
+                };
+                let mut bundle = self.compile_bundle(builtin.name, code, builtin.entry)?;
+                bundle.source_id = source_id;
+                bundle
+            }
         };
-        let mut bundle = self.compile_bundle(builtin.name, code, builtin.entry)?;
-        bundle.source_id = Some(builtin.source.as_ptr() as usize);
         // A bundle registered under this name while we compiled wins.
         let mut bundles = self.bundles.write().unwrap_or_else(PoisonError::into_inner);
         let bundle = bundles
@@ -592,6 +623,10 @@ impl IslandRunner {
     }
 
     /// Counters since the runner started.
+    ///
+    /// Takes the runner's internal locks (as does its `Debug` output), so
+    /// don't call it in a child process forked while another thread may
+    /// hold them.
     pub fn stats(&self) -> RunnerStats {
         let workers = self.worker_count();
         RunnerStats {
@@ -1071,5 +1106,57 @@ mod tests {
         assert_eq!(measure(&r, "abcd").unwrap(), "4");
         let stats = r.stats();
         assert_eq!((stats.renders, stats.failed_renders), (3, 1));
+    }
+
+    /// The built-ins' test specs, by renderer.
+    fn builtin_specs() -> Vec<(&'static str, String)> {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
+        let read = |p: &str| std::fs::read_to_string(dir.join(p)).unwrap();
+        let mut specs = Vec::new();
+        if cfg!(feature = "echarts") {
+            specs.push(("echarts", read("echarts/bar.json")));
+            specs.push(("echarts", read("echarts/japanese.json")));
+        }
+        if cfg!(feature = "vega") {
+            specs.push(("vega", read("vega/bar.json")));
+            specs.push(("vega-lite", read("vega-lite/line-temporal.json")));
+        }
+        specs
+    }
+
+    #[test]
+    fn builtins_fall_back_to_source_for_another_engine() {
+        let options = || RunnerOptions {
+            pool_size: 1,
+            limits: Limits::default().with_time(std::time::Duration::from_secs(30)),
+            ..RunnerOptions::default()
+        };
+        let embedded = IslandRunner::start(options(), Measure::Estimate).unwrap();
+        // Bytecode recorded with another engine's fingerprint: refused, so
+        // this runner compiles every built-in from source.
+        let mut other = IslandRunner::start(options(), Measure::Estimate).unwrap();
+        let mut fingerprint = builtins::ENGINE_FINGERPRINT.to_vec();
+        let last = fingerprint.len() - 1;
+        fingerprint[last] ^= 1;
+        other.embedded_fingerprint = Box::leak(fingerprint.into_boxed_slice());
+        for (renderer, spec) in builtin_specs() {
+            let req = IslandRequest {
+                renderer,
+                spec_json: &spec,
+                width: 600,
+                height: 400,
+            };
+            let precompiled = embedded.render(&req).unwrap();
+            let from_source = other.render(&req).unwrap();
+            assert!(precompiled == from_source, "{renderer}: outputs differ");
+            // Unless SURIMONO_PRECOMPILE=0 turned precompiled bytecode off.
+            let switched_off = option_env!("SURIMONO_PRECOMPILE") == Some("0")
+                || std::env::var_os("SURIMONO_PRECOMPILE").is_some_and(|v| v == "0");
+            assert_eq!(
+                embedded.bundle(renderer).unwrap().bytecode.is_embedded(),
+                !switched_off
+            );
+            assert!(!other.bundle(renderer).unwrap().bytecode.is_embedded());
+        }
     }
 }

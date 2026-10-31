@@ -11,6 +11,10 @@ publish.workspace = true
 rquickjs = { workspace = true, features = ["allocator"] }
 thiserror.workspace = true
 
+[build-dependencies]
+# build.rs hashes the vendored engine sources for the bytecode fingerprint.
+sha2.workspace = true
+
 # Thread stack bounds, for the stack-size check (engine.rs).
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"

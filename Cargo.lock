@@ -1816,6 +1816,7 @@ version = "0.0.0"
 dependencies = [
  "libc",
  "rquickjs",
+ "sha2",
  "thiserror",
 ]
 

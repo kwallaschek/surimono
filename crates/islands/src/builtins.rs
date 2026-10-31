@@ -2,8 +2,10 @@
 //!
 //! Each one is a committed, minified JavaScript bundle under `bundles/`,
 //! built by `js/build.sh` from pinned npm packages, with its licence files
-//! next to it. A runner compiles a built-in the first time a render asks for
-//! it, so unused renderers cost nothing.
+//! next to it. `build.rs` also compiles each bundle to QuickJS bytecode,
+//! which a runner loads the first time a render asks for the renderer (see
+//! `embedded.rs`; if the running engine can't read it, the runner compiles
+//! the source instead), so unused renderers cost nothing.
 
 /// A renderer compiled into this build.
 #[derive(Debug, Clone, Copy)]
@@ -12,25 +14,43 @@ pub(crate) struct Builtin {
     pub(crate) name: &'static str,
     /// The bundle's JavaScript source.
     pub(crate) source: &'static str,
+    /// The bundle's bytecode, written by `build.rs` with
+    /// `surimono_core::compile_for_embedding`; empty if it couldn't be.
+    pub(crate) embedded: &'static [u8],
+    /// SHA-256 of the source `build.rs` compiled `embedded` from.
+    pub(crate) source_sha256: &'static [u8],
     /// The global function the bundle defines.
     pub(crate) entry: &'static str,
 }
+
+/// The fingerprint of the engine that wrote every `Builtin::embedded`
+/// (`surimono_core::engine_fingerprint` in `build.rs`).
+pub(crate) const ENGINE_FINGERPRINT: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/engine.fingerprint"));
 
 #[cfg(feature = "echarts")]
 const ECHARTS: Builtin = Builtin {
     name: "echarts",
     source: include_str!("../bundles/echarts/echarts.min.js"),
+    embedded: include_bytes!(concat!(env!("OUT_DIR"), "/echarts.qjsbc")),
+    source_sha256: include_bytes!(concat!(env!("OUT_DIR"), "/echarts.sha256")),
     entry: "entry",
 };
 
 /// Vega and Vega-Lite share one bundle with an entry for each.
 #[cfg(feature = "vega")]
 const VEGA_SOURCE: &str = include_str!("../bundles/vega/vega.min.js");
+#[cfg(feature = "vega")]
+const VEGA_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vega.qjsbc"));
+#[cfg(feature = "vega")]
+const VEGA_SOURCE_SHA256: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vega.sha256"));
 
 #[cfg(feature = "vega")]
 const VEGA: Builtin = Builtin {
     name: "vega",
     source: VEGA_SOURCE,
+    embedded: VEGA_EMBEDDED,
+    source_sha256: VEGA_SOURCE_SHA256,
     entry: "vegaEntry",
 };
 
@@ -38,11 +58,13 @@ const VEGA: Builtin = Builtin {
 const VEGA_LITE: Builtin = Builtin {
     name: "vega-lite",
     source: VEGA_SOURCE,
+    embedded: VEGA_EMBEDDED,
+    source_sha256: VEGA_SOURCE_SHA256,
     entry: "vegaLiteEntry",
 };
 
 /// Every built-in renderer in this build, sorted by name.
-const ALL: &[Builtin] = &[
+pub(crate) const ALL: &[Builtin] = &[
     #[cfg(feature = "echarts")]
     ECHARTS,
     #[cfg(feature = "vega")]
