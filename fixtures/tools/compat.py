@@ -10,6 +10,8 @@ Inputs (each optional; a missing one makes its section say "not run"):
                   fixtures/tools/compare.sh (page mode and island mode, either
                   printer). The fixture is the first word of each file's
                   "subject"; fixtures/islands/*/meta.toml names their renderers.
+                  A subject that names no fixture there (another case, a
+                  hidden character, a renamed fixture) is an error.
   --hostile FILE  the hostile-suite results (format below). Pass or fail is
                   decided here, against fixtures/hostile/manifest.toml, not
                   taken from the file.
@@ -31,7 +33,10 @@ A result can never hide another: two score.json files for the same fixture and
 comparison, or two hostile results for the same case and step, are an error
 that names both. A hostile result whose case or step isn't in the manifest is
 listed as failing and counted. A score.json with "error" (the render failed
-before anything could be compared) is a failure, never "not run".
+before anything could be compared) is a failure, never "not run". A
+determinism.json (checkpoint.mjs: two renders in two processes) that says the
+renders differ fails its fixture. Results stamped by the stand-in CLI
+(fake-surimono.mjs) or by two different CLIs are an error.
 
 The hostile results format is fixtures/hostile/RESULTS_SCHEMA.md (schema 1),
 one entry per case and step:
@@ -44,6 +49,8 @@ one entry per case and step:
 from __future__ import annotations
 
 import argparse
+import decimal
+import difflib
 import json
 import re
 import sys
@@ -67,18 +74,83 @@ None recorded yet.
 # ---------------------------------------------------------------- inputs
 
 
+def _reject_constant(name: str):
+    raise ValueError(f"{name} is not valid JSON")
+
+
+def read_json(path: Path):
+    """A results file as JSON.parse reads it: Python's extensions NaN,
+    Infinity and -Infinity are refused (no producer writes them, and
+    lib/report.mjs couldn't read the file), so they can't reach a verdict."""
+    try:
+        return json.loads(path.read_text(), parse_constant=_reject_constant)
+    except (OSError, ValueError) as e:
+        raise CompatError(f"{path}: {e}")
+
+
 def load_scores(directory: Path | None) -> list[dict]:
     if not directory:
         return []
     scores = []
     for f in sorted(directory.rglob("score.json")):
-        try:
-            data = json.loads(f.read_text())
-        except (OSError, json.JSONDecodeError) as e:
-            raise CompatError(f"{f}: {e}")
+        data = read_json(f)
+        if not isinstance(data, dict):
+            raise CompatError(f"{f}: not a JSON object")
         data["_file"] = str(f)
         scores.append(data)
     return scores
+
+
+def load_determinism(directory: Path | None) -> dict[str, dict]:
+    """checkpoint.mjs's determinism.json files, by fixture; a duplicate is an error."""
+    if not directory:
+        return {}
+    out: dict[str, dict] = {}
+    for f in sorted(directory.rglob("determinism.json")):
+        data = read_json(f)
+        if not isinstance(data, dict):
+            raise CompatError(f"{f}: not a JSON object")
+        data["_file"] = str(f)
+        name = data.get("subject")
+        if not isinstance(name, str) or not name:
+            raise CompatError(f"{f}: no \"subject\" naming the fixture")
+        if name in out:
+            raise CompatError(f"two determinism results for {name}: {out[name]['_file']} and {f}")
+        out[name] = data
+    return out
+
+
+NOT_RECORDED = {"cli": None, "version": "producer not recorded", "sha256": None, "commit": None}
+
+
+def check_producers(records: list[dict]) -> dict | None:
+    """The one surimono CLI that produced these results. A stand-in
+    (fixtures/tools/test/fake-surimono.mjs prints Chrome's own SVGs) is an
+    error, and so is a mix of CLIs. A result without a stamp (compare.mjs run
+    by hand, on any SVG) counts as one more, unknown CLI, so it can't be
+    credited to a stamped one; an absent, null or empty producer is that
+    unknown CLI, and any other value that isn't an object is an error.
+    Returns NOT_RECORDED when nothing is stamped, None when there are no
+    results."""
+    seen: dict[tuple, dict] = {}
+    for r in records:
+        p = r.get("producer")
+        if p is None or p == {}:
+            p = NOT_RECORDED
+        if not isinstance(p, dict):
+            raise CompatError(f"{r.get('_file', '?')}: producer {p!r} is not an object with cli, version, sha256 and commit")
+        if "fake-surimono" in str(p.get("version", "")) or "fake-surimono" in str(p.get("cli", "")):
+            raise CompatError(f"{r.get('_file', '?')}: produced by the stand-in {p.get('cli')} ({p.get('version')}), not by surimono")
+        # Compared as JSON text, so any value (a list, an object) can be a key.
+        key = tuple(json.dumps(p.get(k), sort_keys=True) for k in ("cli", "version", "sha256", "commit"))
+        seen.setdefault(key, {**p, "_file": r.get("_file", "?")})
+    if len(seen) > 1:
+        a, b = list(seen.values())[:2]
+        raise CompatError(
+            f"results from two different surimono CLIs ({a['_file']}: {a.get('version')}; {b['_file']}: {b.get('version')}); "
+            "a result without a producer stamp counts as its own; pass one run's directory"
+        )
+    return next(iter(seen.values()), None)
 
 
 def classify(score: dict) -> tuple[str, str]:
@@ -110,19 +182,87 @@ def fixture_meta() -> dict[str, dict]:
     return meta
 
 
+def _set(value) -> bool:
+    """Whether a JSON value is set, as JavaScript reads it (and lib/report.mjs
+    with it): anything but absent, null, false, 0 and "". An empty object or
+    list is set, so `"error": {}` is an error. (NaN, which JSON can't hold and
+    read_json refuses, would count as set.)"""
+    if value is None or value is False or value == "":
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value != 0
+    return True
+
+
+def _js_string(value) -> str:
+    """A JSON value as JavaScript's String() spells it, so a check named in a
+    page's "failed" list reads the same here as in lib/report.mjs: null,
+    true, false, 1 (not 1.0), 1e-7, "a,b" for a list, [object Object]."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if value != value:
+            return "NaN"
+        if value in (float("inf"), float("-inf")):
+            return "Infinity" if value > 0 else "-Infinity"
+        if value == 0:
+            return "0"
+        # repr has the shortest round-trip digits, as JavaScript does; only the
+        # layout differs: JavaScript is positional for exponents -7 < e < 21.
+        exact = decimal.Decimal(repr(value))
+        mantissa, exponent = f"{exact:e}".split("e")
+        if -7 < int(exponent) < 21:
+            text = format(exact, "f")
+            return text[:-2] if text.endswith(".0") else text
+        if "." in mantissa:
+            mantissa = mantissa.rstrip("0").rstrip(".")
+        return f"{mantissa}e{'+' if int(exponent) > 0 else '-'}{abs(int(exponent))}"
+    if isinstance(value, list):
+        return ",".join("" if x is None else _js_string(x) for x in value)
+    return "[object Object]"
+
+
+def _check_failed(check) -> bool:
+    """A check that is present failed unless it is an object whose `pass` is
+    exactly true: a missing `pass`, the string "false" or anything else fails."""
+    return not (isinstance(check, dict) and check.get("pass") is True)
+
+
 def failed_checks(score: dict) -> list[str]:
-    """The checks a score failed, by name (from compare.mjs's per-page "failed" lists)."""
+    """The checks a score failed, by name (from compare.mjs's per-page "failed"
+    lists). A score that compared no page at all fails with "no pages"."""
     names: list[str] = []
-    if score.get("error"):
-        names.append("render error")
-    for p in score.get("pages", []):
-        for n in p.get("failed") or ([] if p.get("pass") else ["page"]):
-            if n not in names:
-                names.append(n)
-    if score.get("text") and not score["text"].get("pass", True):
-        names.append("text")
-    if score.get("font") and not score["font"].get("pass", True):
-        names.append("font")
+
+    def add(name: str) -> None:
+        if name not in names:
+            names.append(name)
+
+    if _set(score.get("error")):
+        add("render error")
+    pages = score.get("pages")
+    if not isinstance(pages, list):
+        pages = []
+    if not pages and not _set(score.get("error")):
+        add("no pages")
+    for p in pages:
+        listed = p.get("failed") if isinstance(p, dict) else None
+        if isinstance(listed, list):
+            for n in listed:
+                add(_js_string(n))
+            if not listed and _check_failed(p):
+                add("page")
+        elif _set(listed) or _check_failed(p):
+            # A "failed" that isn't a list (an object, a string) fails the page.
+            add("page")
+    for check in ("text", "font"):
+        if score.get(check) is not None and _check_failed(score[check]):
+            add(check)
     return names
 
 
@@ -133,7 +273,7 @@ def _pct(x) -> str:
 def check_detail(score: dict, check: str) -> str:
     """One failed check with its own number: shape, colour and hue with their
     worst windows, text with what is missing or extra, size with both sizes."""
-    pages = score.get("pages", [])
+    pages = [p for p in (score.get("pages") if isinstance(score.get("pages"), list) else []) if isinstance(p, dict)]
     if check == "render error":
         return f"render error: {str(score.get('error')).splitlines()[0][:120]}"
     if check == "shape":
@@ -142,14 +282,20 @@ def check_detail(score: dict, check: str) -> str:
         top = score.get(f"worst_{check}_window")
         per_page = [p[f"{check}_worst_window"] for p in pages if isinstance(p.get(f"{check}_worst_window"), (int, float))]
         return f"{check} {_pct(top if top is not None else (max(per_page) if per_page else None))}"
+    if check == "no pages":
+        return "no pages compared"
     if check == "text":
-        t = score.get("text", {})
-        parts = [f"{len(t[k])} {k}" for k in ("missing", "extra") if t.get(k)]
+        t = score.get("text") if isinstance(score.get("text"), dict) else {}
+        parts = [f"{len(t[k])} {k}" for k in ("missing", "extra") if isinstance(t.get(k), list) and t[k]]
         return f"text: {', '.join(parts) or 'differs'}"
     if check == "font":
-        mm = score.get("font", {}).get("mismatches", [])
+        f = score.get("font") if isinstance(score.get("font"), dict) else {}
+        lists = {k: f[k] if isinstance(f.get(k), list) else [] for k in ("mismatches", "missing", "extra")}
+        mm = [m for m in lists["mismatches"] if isinstance(m, dict)]
+        parts = [f"{len(lists['mismatches'])} differ"] if lists["mismatches"] else []
+        parts += [f"{len(lists[k])} {k}" for k in ("missing", "extra") if lists[k]]
         first = f" ({mm[0].get('key')}: Chrome {mm[0].get('chrome')}, surimono {mm[0].get('surimono')})" if mm else ""
-        return f"font: {len(mm)} differ{first}"
+        return f"font: {', '.join(parts) or 'differs'}{first}"
     if check == "size":
         sizes = [f"{p.get('actual_size')} vs Chrome {p.get('expected_size')}" for p in pages if p.get("size_match") is False]
         return f"size {sizes[0]}" if sizes else "size"
@@ -160,10 +306,11 @@ def check_detail(score: dict, check: str) -> str:
 
 
 def passed(score: dict) -> bool:
-    """A pass is derived, never taken on trust: `pass` must be the boolean true
-    and no check inside the score may have failed, so a producer that forgets
-    to fold a new check into `pass` can't turn it into a pass."""
-    return score.get("pass") is True and not score.get("error") and not failed_checks(score)
+    """A pass is derived, never taken on trust: `pass` must be the boolean true,
+    at least one page must have been compared and no check inside the score may
+    have failed, so a producer that forgets to fold a new check into `pass`
+    can't turn it into a pass."""
+    return score.get("pass") is True and not _set(score.get("error")) and not failed_checks(score)
 
 
 def cell(score: dict | None) -> str:
@@ -178,11 +325,25 @@ def cell(score: dict | None) -> str:
 # ---------------------------------------------------------------- sections
 
 
-def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[str], dict[str, str]]:
+def unknown_fixture(record: dict, what: str, name: str, meta: dict[str, dict]) -> CompatError:
+    """The error for a result whose fixture isn't in fixtures/islands/: its own
+    row would show renderer "?", and the real-world table, which groups by
+    meta.toml's renderer, would never count it."""
+    near = [n for n in meta if n.casefold() == name.casefold()] or difflib.get_close_matches(name, list(meta), n=1)
+    return CompatError(
+        f"{record.get('_file', '?')}: {what} for {name!r}, which is not a fixture in fixtures/islands/ (no meta.toml)"
+        + (f"; did you mean {near[0]!r}?" if near else "")
+        + "; pass results for this checkout's fixtures only"
+    )
+
+
+def fixtures_section(scores: list[dict], meta: dict[str, dict], determinism: dict[str, dict] | None = None) -> tuple[list[str], dict[str, str]]:
     """Returns the lines and a status per fixture (pass, fail, partial, not run)."""
     by: dict[str, dict[str, dict]] = {}
     for s in scores:
         fixture, kind = classify(s)
+        if fixture not in meta:
+            raise unknown_fixture(s, "a result", fixture, meta)
         if kind in by.get(fixture, {}):
             first = by[fixture][kind].get("_file", "?")
             raise CompatError(
@@ -198,11 +359,14 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
         "against the Chrome references (`fixtures/README.md`, \"Which comparison gates what\"). A pass shows the shape score (worst window); "
         "a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, font weight or style, size).",
         "",
-        "| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) |",
-        "|---|---|---|---|---|",
+        "| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) | Byte-identical (two processes) |",
+        "|---|---|---|---|---|---|",
     ]
+    for name, det in (determinism or {}).items():
+        if name not in meta:
+            raise unknown_fixture(det, "a determinism result", name, meta)
     status: dict[str, str] = {}
-    for name in sorted(set(meta) | set(by)):
+    for name in sorted(set(meta) | set(by) | set(determinism or {})):
         got = by.get(name, {})
         n = len(meta.get(name, {}).get("islands", [])) or max([int(k.split("-")[1]) + 1 for k in got if k.startswith("island-")] or [1])
         # Every result must land in a column the table shows; anything else
@@ -219,14 +383,21 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
         page = got.get("page")
         everything = chrome + fulgur + [page]
         ran = [s for s in everything if s is not None]
+        det = (determinism or {}).get(name)
+        if det is None:
+            det_cell = "not run"
+        elif det.get("deterministic") is True:
+            det_cell = "yes"
+        else:
+            det_cell = f"**FAIL** ({det.get('note') or 'the two renders differ'})"
         if not ran:
             status[name] = "not run"
-        elif all(passed(s) for s in ran):
-            status[name] = "pass" if len(ran) == len(everything) else "partial"
+        elif all(passed(s) for s in ran) and (det is None or det.get("deterministic") is True):
+            status[name] = "pass" if len(ran) == len(everything) and det is not None else "partial"
         else:
             status[name] = "fail"
         renderers = meta.get(name, {}).get("renderer", "?")
-        lines.append(f"| {name} | {renderers} | {'; '.join(cell(s) for s in chrome)} | {'; '.join(cell(s) for s in fulgur)} | {cell(page)} |")
+        lines.append(f"| {name} | {renderers} | {'; '.join(cell(s) for s in chrome)} | {'; '.join(cell(s) for s in fulgur)} | {cell(page)} | {det_cell} |")
     lines.append("")
     return lines, status
 
@@ -246,7 +417,7 @@ def hostile_section(results_file: Path | None) -> list[str]:
             expected.append((case["id"], None, case))
     if not results_file:
         return lines + [f"Not run yet: {len(manifest['case'])} cases in `fixtures/hostile/manifest.toml`; the sandbox harness hasn't reported results.", ""]
-    results = json.loads(results_file.read_text())
+    results = read_json(results_file)
     got: dict[tuple[str, int | None], dict] = {}
     for r in results.get("cases", []):
         key = (r.get("id"), r.get("step"))
@@ -334,7 +505,7 @@ def bench_section(bench_file: Path | None) -> list[str]:
     lines = ["### Speed and memory against Grover", ""]
     if not bench_file:
         return lines + ["Not run yet (`bench/run.sh`).", ""]
-    data = json.loads(bench_file.read_text())
+    data = read_json(bench_file)
     res = data.get("results", {})
     v = data.get("versions", {})
     m = data.get("machine", {})
@@ -375,9 +546,15 @@ def hand_written(existing: str | None) -> str:
     return DEFAULT_HAND_WRITTEN
 
 
-def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None) -> str:
+def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None) -> str:
     meta = fixture_meta()
-    fx_lines, fx_status = fixtures_section(scores, meta)
+    producer = check_producers(scores + list((determinism or {}).values()))
+    fx_lines, fx_status = fixtures_section(scores, meta, determinism)
+    made_by = ""
+    if producer and producer.get("cli") is None:
+        made_by = " (producer not recorded)"
+    elif producer:
+        made_by = f" (surimono CLI {producer.get('version')}, sha256 {str(producer.get('sha256'))[:12]}{', commit ' + producer['commit'] if producer.get('commit') else ''})"
     out = [
         "# Compatibility",
         "",
@@ -386,7 +563,7 @@ def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commi
         "What surimono does and doesn't do yet, from test results. Every known failure is listed with the test that proves it. "
         "Expectations come from Chrome, specs and WPT, and are never edited to match surimono's output.",
         "",
-        f"Results: fixtures {'from ' + commit if scores else 'not run'}; hostile scripts {'from their results file' if hostile else 'not run'}; "
+        f"Results: fixtures {'from ' + commit + made_by if scores else 'not run'}; hostile scripts {'from their results file' if hostile else 'not run'}; "
         f"benchmark {'from bench/run.sh' if bench else 'not run'}.",
         "",
         "## Phase 1: islands",
@@ -419,7 +596,7 @@ def main() -> int:
             sys.exit(f"{p} does not exist")
     existing = args.out.read_text(encoding="utf-8") if args.out.exists() else None
     try:
-        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing)
+        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures))
     except CompatError as e:
         print(f"compat.py: {e}", file=sys.stderr)
         return 1

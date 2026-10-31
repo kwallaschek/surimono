@@ -2756,8 +2756,10 @@ void JS_FreeRuntime(JSRuntime *rt)
     /* surimono: objects still listed here leaked a reference on some
        error path (typically out-of-memory). Nothing below touches them,
        and their arena blocks are released with the arenas, so leave them
-       rather than abort the process; surimono's tests check that a
-       runtime gives back every byte it allocated. */
+       rather than abort the process. Large blocks they own (from the
+       backing allocator) stay allocated until the process exits.
+       surimono's tests check that a runtime gives back every byte it
+       allocated. */
     if (!list_empty(&rt->gc_obj_list))
         init_list_head(&rt->gc_obj_list);
 
@@ -29439,10 +29441,10 @@ static __exception int js_parse_for_in_of(JSParseState *s, int label_name,
         int chunk_size = pos_expr - pos_next;
         int offset = bc->size - pos_next;
         int i;
-        /* surimono: see js_check_bytecode_oom; a failed claim flags the
-           buffer too. */
-        dbuf_claim(bc, chunk_size);
-        if (js_check_bytecode_oom(s->ctx, s->cur_func))
+        /* surimono: check the claim and the buffer before moving code;
+           see js_check_bytecode_oom. */
+        if (dbuf_claim(bc, chunk_size) ||
+            js_check_bytecode_oom(s->ctx, s->cur_func))
             return -1;
         dbuf_put(bc, bc->buf + pos_next, chunk_size);
         memset(bc->buf + pos_next, OP_nop, chunk_size);
@@ -29961,10 +29963,10 @@ static __exception int js_parse_statement_or_decl(JSParseState *s,
                 int chunk_size = pos_body - pos_cont;
                 int offset = bc->size - pos_cont;
                 int i;
-                /* surimono: see js_check_bytecode_oom; a failed claim
-                   flags the buffer too. */
-                dbuf_claim(bc, chunk_size);
-                if (js_check_bytecode_oom(ctx, s->cur_func))
+                /* surimono: check the claim and the buffer before moving
+                   code; see js_check_bytecode_oom. */
+                if (dbuf_claim(bc, chunk_size) ||
+                    js_check_bytecode_oom(ctx, s->cur_func))
                     goto fail;
                 dbuf_put(bc, bc->buf + pos_cont, chunk_size);
                 memset(bc->buf + pos_cont, OP_nop, chunk_size);

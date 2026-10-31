@@ -1741,7 +1741,10 @@ mod tests {
     /// static members, destructuring, labels, switch, try/finally, generators,
     /// async iteration, tagged templates, named groups, BigInt, direct eval),
     /// so the parser and both code-generation passes meet refused
-    /// allocations everywhere.
+    /// allocations everywhere. It also calls `Function.prototype.bind` (with
+    /// no, a few and a long spread of bound arguments, and on a constructor)
+    /// and `Promise.allSettled`/`Promise.any`, so the sweep refuses each of
+    /// their allocations too.
     const SYNTAX_SCRIPT: &str = r#"
 'use strict';
 class Base {
@@ -1791,15 +1794,24 @@ const label = `${tag`a${1}b${2}c`}:${dates}:${fns.map((f) => f())}`;
 const big = 1_000_000n * 3n;
 const ev = eval('(function inner(p) { var q = p + 1; return eval("q * 2"); })(20)');
 const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
+function sum3(a, b, c) { return this.k + a + b + c; }
+const bound0 = sum3.bind({ k: 1 });
+const bound2 = sum3.bind({ k: 2 }, 3, 4);
+const bargs = new Array(300).fill(1);
+const boundMany = sum3.bind({ k: 3 }, ...bargs);
+function Pt(x) { this.x = x; }
+const BoundPt = Pt.bind(null, 7);
 (async () => {
   const out = [];
   for await (const v of Derived.gen(3)) out.push(v);
   try { await Promise.reject(new Error('x')); } catch (e) { out.push(e.message); }
   const r = await Promise.allSettled([o.am(), Promise.resolve(2)]);
+  out.push(await Promise.any([Promise.reject(new Error('y')), Promise.resolve(4), 5]));
   globalThis.asyncResult = out.join() + r.length;
 })();
 [d.secret, d.reveal(), Base.count(), [...d].join(), d.extra, d.computed1, sloppy.call(1), String(acc), n,
  c, Object.keys(rest).length, o.m(), o.g, x1 + x2 + x3, label, String(big), ev, fn(3), [...o.gm()].length,
+ bound0(1, 2, 3), bound2(5), boundMany(), boundMany.length, new BoundPt().x, BoundPt.name,
  typeof Base.ready, (function () { return arguments.length; })(1, 2, 3),
  JSON.stringify({ k: [1, 'two', { three: 3 }] }, null, 2).length,
  new Map([[1, { deep: [new Set([1])] }]]).size,
@@ -1979,7 +1991,7 @@ const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
     /// allocations. With it off every allocation does, and since any small
     /// allocation can be the one that needs a refill, that covers every
     /// failure the limit can cause. The compile-heavy script makes about
-    /// 28,000 allocations per mode, so this test takes every 13th;
+    /// 21,500 allocations per mode, so this test takes every 13th;
     /// `out_of_memory_full_sweep` takes them all.
     ///
     /// Not swept: building the runtime and context, which needs about

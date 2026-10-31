@@ -49,6 +49,12 @@ const MAX_CACHED_GLYPHS: usize = 16_384;
 /// speed, never memory.
 const MAX_IDLE_WORKSPACES: usize = 8;
 
+/// After laying out more than this many bytes of text, a workspace gets
+/// fresh Parley layout buffers before it goes back to the idle list: they
+/// keep the capacity of the largest text they held (about 17 MB after one
+/// 256 KiB text), and idle workspaces live as long as the measurer.
+const LARGE_TEXT_BYTES: usize = 4 * 1024;
+
 /// The result of measuring text, as canvas `TextMetrics` defines it.
 ///
 /// All values are CSS px, for `textAlign = "start"`, `textBaseline =
@@ -145,11 +151,39 @@ impl TextMeasurer {
         let idle = self.idle().pop();
         let mut ws = idle.unwrap_or_else(|| Workspace::new(&self.shared.fonts));
         let out = f(&mut ws, &self.shared.fonts);
+        ws.release_large_buffers();
         let mut idle = self.idle();
         if idle.len() < MAX_IDLE_WORKSPACES {
             idle.push(ws);
         }
         out
+    }
+
+    /// Shapes `text` (already whitespace-processed) in `css_font` with extra
+    /// `letter_spacing` px after every character, for outlining. Uses the
+    /// same layout code as [`TextMeasurer::measure`], so with no letter
+    /// spacing the advance equals the measured width bit for bit.
+    pub(crate) fn shape(
+        &self,
+        text: &str,
+        css_font: &str,
+        letter_spacing: f32,
+    ) -> Result<Shaped, GfxError> {
+        if text.len() > MAX_TEXT_BYTES {
+            return Err(GfxError::TextTooLong {
+                len: text.len(),
+                max: MAX_TEXT_BYTES,
+            });
+        }
+        if self.shared.fonts.face_count() == 0 {
+            return Err(GfxError::NoFonts);
+        }
+        let css_font = if css_font.len() > MAX_CSS_FONT_BYTES {
+            CANVAS_DEFAULT_FONT
+        } else {
+            css_font
+        };
+        Ok(self.with_workspace(|ws, fonts| ws.shape(fonts, text, css_font, letter_spacing)))
     }
 
     /// Key bytes actually held by the caches of every idle workspace, and the
@@ -181,6 +215,41 @@ impl TextMeasurer {
     }
 }
 
+/// Text shaped for outlining (crate-internal).
+#[derive(Debug)]
+pub(crate) struct Shaped {
+    /// Total advance, letter spacing included.
+    pub(crate) advance: f64,
+    /// Rounded ascent and descent, and x-height, of the primary font.
+    pub(crate) ascent: f64,
+    pub(crate) descent: f64,
+    pub(crate) x_height: f64,
+    pub(crate) runs: Vec<ShapedRun>,
+    /// Per character of the text, in logical order.
+    pub(crate) chars: Vec<ShapedChar>,
+}
+
+/// One run of glyphs in one font face.
+#[derive(Debug)]
+pub(crate) struct ShapedRun {
+    pub(crate) font: parley::FontData,
+    pub(crate) size: f32,
+    /// Synthetic italic: x += skew * y (y up).
+    pub(crate) skew: f64,
+    pub(crate) coords: Vec<i16>,
+    /// Glyph id, x from the text's start and y offset (down) from the baseline.
+    pub(crate) glyphs: Vec<(u32, f64, f64)>,
+}
+
+/// Where one character starts and how far it advances (read by the Chrome
+/// position test of the outline layout).
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ShapedChar {
+    pub(crate) x: f64,
+    pub(crate) advance: f64,
+}
+
 /// A font string resolved against the font set.
 struct ResolvedFont {
     size: f32,
@@ -191,6 +260,8 @@ struct ResolvedFont {
     /// Rounded ascent and descent of the primary font.
     font_ascent: f64,
     font_descent: f64,
+    /// x-height of the primary font in px (not rounded).
+    x_height: f64,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -220,6 +291,9 @@ pub(crate) struct Workspace {
     /// Bytes of every key in `fonts` and `results` (outer and inner).
     key_bytes: usize,
     glyphs: HashMap<GlyphKey, Option<PixelBounds>>,
+    /// How often the buffers were replaced (for tests).
+    #[cfg(test)]
+    buffer_resets: usize,
 }
 
 impl Workspace {
@@ -236,6 +310,28 @@ impl Workspace {
             result_count: 0,
             key_bytes: 0,
             glyphs: HashMap::new(),
+            #[cfg(test)]
+            buffer_resets: 0,
+        }
+    }
+
+    /// Replaces the layout buffers if the text the layout holds (the last
+    /// one laid out) is large, so an idle workspace keeps only label-sized
+    /// buffers. Every call lays out at most one text, whatever it measures
+    /// or shapes, so this needs no bookkeeping in the callers.
+    fn release_large_buffers(&mut self) {
+        let laid_out = self
+            .layout
+            .lines()
+            .last()
+            .map_or(0, |line| line.text_range().end);
+        if laid_out > LARGE_TEXT_BYTES {
+            self.layout = Layout::new();
+            self.layout_cx = LayoutContext::new();
+            #[cfg(test)]
+            {
+                self.buffer_resets += 1;
+            }
         }
     }
 
@@ -297,7 +393,7 @@ impl Workspace {
             Slant::Oblique(angle) => FontStyle::Oblique(angle),
         };
         let width = FontWidth::from_ratio(spec.width);
-        let (font_ascent, font_descent) =
+        let (font_ascent, font_descent, x_height) =
             self.primary_metrics(&stack, Attributes::new(width, style, weight), spec.size_px);
         let resolved = Arc::new(ResolvedFont {
             size: spec.size_px,
@@ -307,6 +403,7 @@ impl Workspace {
             stack,
             font_ascent,
             font_descent,
+            x_height,
         });
         if css_font.len() <= MAX_CACHED_KEY_BYTES {
             if self.fonts.len() >= MAX_CACHED_FONTS
@@ -321,15 +418,16 @@ impl Workspace {
     }
 
     /// Ascent and descent of the first family's best face, rounded to whole
-    /// px as Chrome (and Parley's quantized line layout) does.
+    /// px as Chrome (and Parley's quantized line layout) does, and its
+    /// x-height in px.
     fn primary_metrics(
         &mut self,
         stack: &[FontFamily<'static>],
         attrs: Attributes,
         size: f32,
-    ) -> (f64, f64) {
+    ) -> (f64, f64, f64) {
         let Some(FontFamily::Named(first)) = stack.first() else {
-            return (0.0, 0.0);
+            return (0.0, 0.0, 0.0);
         };
         let mut found = None;
         {
@@ -345,13 +443,119 @@ impl Workspace {
             });
         }
         let Some((blob, index)) = found else {
-            return (0.0, 0.0);
+            return (0.0, 0.0, 0.0);
         };
         let Ok(font) = skrifa::FontRef::from_index(blob.as_ref(), index) else {
-            return (0.0, 0.0);
+            return (0.0, 0.0, 0.0);
         };
         let m = font.metrics(Size::new(size), LocationRef::default());
-        (round_px(m.ascent as f64), round_px(-m.descent as f64))
+        // Without an OS/2 x-height, Chrome guesses 0.56 of the ascent.
+        let x_height = m.x_height.map_or(m.ascent as f64 * 0.56, f64::from);
+        (
+            round_px(m.ascent as f64),
+            round_px(-m.descent as f64),
+            x_height,
+        )
+    }
+
+    /// Lays `text` (already whitespace-processed) out on one line in `font`
+    /// into `self.layout`. Measurement and outlining both shape through
+    /// here, so outlined text advances exactly as measured text does.
+    fn layout_text(&mut self, font: &ResolvedFont, text: &str, letter_spacing: f32) {
+        let mut builder = self
+            .layout_cx
+            .ranged_builder(&mut self.font_cx, text, 1.0, false);
+        builder.push_default(StyleProperty::FontStack(FontStack::List(Cow::Borrowed(
+            &font.stack,
+        ))));
+        builder.push_default(StyleProperty::FontSize(font.size));
+        builder.push_default(StyleProperty::FontWeight(font.weight));
+        builder.push_default(StyleProperty::FontStyle(font.style));
+        builder.push_default(StyleProperty::FontWidth(font.width));
+        if letter_spacing != 0.0 {
+            builder.push_default(StyleProperty::LetterSpacing(letter_spacing));
+        }
+        builder.build_into(&mut self.layout, text);
+        self.layout.break_all_lines(None);
+    }
+
+    /// Shapes `text` for outlining: glyph runs with positions, per-character
+    /// positions and the primary font's metrics.
+    fn shape(
+        &mut self,
+        fonts: &FontSet,
+        text: &str,
+        css_font: &str,
+        letter_spacing: f32,
+    ) -> Shaped {
+        let font = self.resolve(fonts, css_font);
+        let mut out = Shaped {
+            advance: 0.0,
+            ascent: font.font_ascent,
+            descent: font.font_descent,
+            x_height: font.x_height,
+            runs: Vec::new(),
+            chars: Vec::new(),
+        };
+        if text.is_empty() {
+            return out;
+        }
+        self.layout_text(&font, text, letter_spacing);
+        // Character index of every byte offset that starts a character.
+        let mut char_at = vec![0usize; text.len() + 1];
+        for (n, (b, _)) in text.char_indices().enumerate() {
+            char_at[b] = n;
+        }
+        let total_chars = text.chars().count();
+        out.chars = vec![ShapedChar::default(); total_chars];
+        let mut x = 0.0f64;
+        for line in self.layout.lines() {
+            for item in line.items() {
+                let PositionedLayoutItem::GlyphRun(run) = item else {
+                    continue;
+                };
+                let r = run.run();
+                let size = r.font_size();
+                let skew = r
+                    .synthesis()
+                    .skew()
+                    .map(|deg| (deg as f64).to_radians().tan())
+                    .unwrap_or(0.0);
+                let baseline = run.baseline() as f64;
+                // One line from x = 0: line positions are text positions.
+                let glyphs = run
+                    .positioned_glyphs()
+                    .map(|g| (g.id, g.x as f64, g.y as f64 - baseline))
+                    .collect();
+                // Characters: each cluster's advance is shared evenly by its
+                // characters (a ligature's components), as Chrome reports them.
+                let mut cx = run.offset() as f64;
+                for cluster in r.visual_clusters() {
+                    let range = cluster.text_range();
+                    let n = text[range.clone()].chars().count().max(1);
+                    let adv = cluster.advance() as f64;
+                    for k in 0..n {
+                        if let Some(c) = out.chars.get_mut(char_at[range.start] + k) {
+                            *c = ShapedChar {
+                                x: cx + adv * k as f64 / n as f64,
+                                advance: adv / n as f64,
+                            };
+                        }
+                    }
+                    cx += adv;
+                }
+                out.runs.push(ShapedRun {
+                    font: r.font().clone(),
+                    size,
+                    skew,
+                    coords: r.normalized_coords().to_vec(),
+                    glyphs,
+                });
+                x += run.advance() as f64;
+            }
+        }
+        out.advance = x;
+        out
     }
 
     fn measure_uncached(&mut self, font: &ResolvedFont, text: &str) -> TextMetrics {
@@ -370,18 +574,7 @@ impl Workspace {
             return out;
         }
 
-        let mut builder = self
-            .layout_cx
-            .ranged_builder(&mut self.font_cx, &text, 1.0, false);
-        builder.push_default(StyleProperty::FontStack(FontStack::List(Cow::Borrowed(
-            &font.stack,
-        ))));
-        builder.push_default(StyleProperty::FontSize(font.size));
-        builder.push_default(StyleProperty::FontWeight(font.weight));
-        builder.push_default(StyleProperty::FontStyle(font.style));
-        builder.push_default(StyleProperty::FontWidth(font.width));
-        builder.build_into(&mut self.layout, &text);
-        self.layout.break_all_lines(None);
+        self.layout_text(font, &text, 0.0);
 
         // Ink bounds: per glyph, whole-pixel bounds placed at the glyph's
         // (fractional) position, as Chrome computes actualBoundingBox*.
@@ -516,6 +709,36 @@ mod tests {
         assert_eq!(round_px(2.5), 3.0);
         assert_eq!(round_px(0.293), 0.0);
         assert_eq!(round_px(-0.2).to_bits(), 0.0f64.to_bits());
+    }
+
+    /// Review of #3: after one large measure, the idle workspace holds fresh
+    /// layout buffers; label-sized measures keep theirs.
+    #[test]
+    fn large_texts_leave_no_large_buffers_behind() {
+        let mut fonts = FontSet::new();
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/");
+        fonts
+            .add_font_bytes(std::fs::read(format!("{dir}NotoSans-Regular.ttf")).unwrap())
+            .unwrap();
+        let m = TextMeasurer::new(fonts);
+        let resets = |m: &TextMeasurer| m.idle().iter().map(|w| w.buffer_resets).sum::<usize>();
+        m.measure("Revenue 2026", "12px sans-serif").unwrap();
+        m.measure(&"x".repeat(LARGE_TEXT_BYTES), "12px sans-serif")
+            .unwrap();
+        assert_eq!(resets(&m), 0, "label-sized texts keep the buffers");
+        let big = "Sales 2026 ".repeat(MAX_TEXT_BYTES / 11);
+        let a = m.measure(&big, "12px sans-serif").unwrap();
+        assert_eq!(resets(&m), 1);
+        let ws = m.idle();
+        assert_eq!(ws.len(), 1);
+        assert_eq!(ws[0].layout.len(), 0, "a fresh layout");
+        drop(ws);
+        // Measuring again in the fresh buffers gives the same result.
+        assert_eq!(m.measure(&big, "12px sans-serif").unwrap(), a);
+        assert_eq!(
+            m.measure("Revenue 2026", "12px sans-serif").unwrap(),
+            m.measure("Revenue 2026", "12px sans-serif").unwrap()
+        );
     }
 
     #[test]

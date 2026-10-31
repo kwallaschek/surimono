@@ -297,7 +297,8 @@ Each is marked `surimono:` in the source.
     fails.
 11. **`JS_FreeRuntime`** no longer asserts that the object list is empty:
     objects a failure path leaked are left alone (their arena blocks go with
-    the arenas) instead of aborting the process. The sweep checks that each
+    the arenas) instead of aborting the process. Large blocks those objects
+    own stay allocated until the process exits. The sweep checks that each
     runtime gives back every byte, so a leak still fails the tests.
 12. **libregexp** (`re_parse_term`, `lre_compile`): parsing stops at the
     first failed write to the group-name table, and compiling checks it
@@ -482,7 +483,7 @@ in data the memory limit bounds (a `JSON.stringify` or
  void JS_SetCanBlock(JSRuntime *rt, bool can_block)
  {
      rt->can_block = can_block;
-@@ -2878,6 +2925,7 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
+@@ -2880,6 +2927,7 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
          return NULL;
      }
      ctx->rt = rt;
@@ -490,7 +491,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      list_add_tail(&ctx->link, &rt->context_list);
      for(i = 0; i < rt->class_count; i++)
          ctx->class_proto[i] = JS_NULL;
-@@ -8684,10 +8732,12 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
+@@ -8686,10 +8734,12 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
      return 0;
  }
  
@@ -505,7 +506,7 @@ in data the memory limit bounds (a `JSON.stringify` or
  }
  
  /* surimono: with enabled = 0, every later allocation of this runtime goes
-@@ -8702,7 +8752,11 @@ void surimono_quickjs_set_arena(JSRuntime *rt, int enabled)
+@@ -8704,7 +8754,11 @@ void surimono_quickjs_set_arena(JSRuntime *rt, int enabled)
  
  static inline __exception int js_poll_interrupts(JSContext *ctx)
  {
@@ -518,7 +519,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          return __js_poll_interrupts(ctx);
      } else {
          return 0;
-@@ -12516,7 +12570,9 @@ static js_limb_t js_mp_add_mul1(js_limb_t *tabr, const js_limb_t *taba, js_limb_
+@@ -12518,7 +12572,9 @@ static js_limb_t js_mp_add_mul1(js_limb_t *tabr, const js_limb_t *taba, js_limb_
  }
  
  /* size of the result : op1_size + op2_size. */
@@ -529,7 +530,7 @@ in data the memory limit bounds (a `JSON.stringify` or
                              const js_limb_t *op1, js_limb_t op1_size,
                              const js_limb_t *op2, js_limb_t op2_size)
  {
-@@ -12525,9 +12581,12 @@ static void js_mp_mul_basecase(js_limb_t *result,
+@@ -12527,9 +12583,12 @@ static void js_mp_mul_basecase(js_limb_t *result,
  
      result[op1_size] = js_mp_mul1(result, op1, op1_size, op2[0], 0);
      for(i=1;i<op2_size;i++) {
@@ -542,7 +543,7 @@ in data the memory limit bounds (a `JSON.stringify` or
  }
  
  /* tabr[] -= taba[] * b. Return the value to substract to the high
-@@ -12607,7 +12666,10 @@ static js_limb_t js_mp_div1norm(js_limb_t *tabr, const js_limb_t *taba, js_limb_
+@@ -12609,7 +12668,10 @@ static js_limb_t js_mp_div1norm(js_limb_t *tabr, const js_limb_t *taba, js_limb_
     - 1] must be >= 1 << (JS_LIMB_BITS - 1). na - nb must be >= 0. 'taba'
     is modified and contains the remainder (nb limbs). tabq[0..na-nb]
     contains the quotient with tabq[na - nb] <= 1. */
@@ -554,7 +555,7 @@ in data the memory limit bounds (a `JSON.stringify` or
                         const js_limb_t *tabb, js_limb_t nb)
  {
      js_limb_t r, a, c, q, v, b1, b1_inv, n, dummy_r;
-@@ -12616,7 +12678,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
+@@ -12618,7 +12680,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
      b1 = tabb[nb - 1];
      if (nb == 1) {
          taba[0] = js_mp_div1norm(tabq, taba, na, b1, 0);
@@ -563,7 +564,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      }
      n = na - nb;
  
-@@ -12640,6 +12702,8 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
+@@ -12642,6 +12704,8 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
      }
  
      for(i = n - 1; i >= 0; i--) {
@@ -572,7 +573,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          if (unlikely(taba[i + nb] >= b1)) {
              q = -1;
          } else if (b1_inv) {
-@@ -12672,6 +12736,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
+@@ -12674,6 +12738,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
          }
          tabq[i] = q;
      }
@@ -580,7 +581,7 @@ in data the memory limit bounds (a `JSON.stringify` or
  }
  
  /* 1 <= shift <= JS_LIMB_BITS - 1 */
-@@ -12962,7 +13027,13 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
+@@ -12964,7 +13029,13 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
      r = js_bigint_new(ctx, a->len + b->len);
      if (!r)
          return NULL;
@@ -595,7 +596,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      /* correct the result if negative operands (no overflow is
         possible) */
      if (js_bigint_sign(a))
-@@ -13052,7 +13123,13 @@ static JSBigInt *js_bigint_divrem(JSContext *ctx, const JSBigInt *a,
+@@ -13054,7 +13125,13 @@ static JSBigInt *js_bigint_divrem(JSContext *ctx, const JSBigInt *a,
  
      //    js_bigint_dump1(ctx, "a", r->tab, na);
      //    js_bigint_dump1(ctx, "b", tabb, nb);
@@ -610,7 +611,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      js_free(ctx, tabb);
  
      if (is_rem) {
-@@ -13264,13 +13341,17 @@ static JSBigInt *js_bigint_pow(JSContext *ctx, const JSBigInt *a, JSBigInt *b)
+@@ -13266,13 +13343,17 @@ static JSBigInt *js_bigint_pow(JSContext *ctx, const JSBigInt *a, JSBigInt *b)
      memcpy(r->tab, a->tab, a->len * sizeof(a->tab[0]));
      for(i = n_bits - 2; i >= 0; i--) {
          r1 = js_bigint_mul(ctx, r, r);
@@ -630,7 +631,7 @@ in data the memory limit bounds (a `JSON.stringify` or
 +            }
              js_free(ctx, r);
              r = r1;
-@@ -13565,6 +13646,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
+@@ -13567,6 +13648,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
          len = 1;
          r->tab[0] = 0;
          for(;;) {
@@ -643,7 +644,7 @@ in data the memory limit bounds (a `JSON.stringify` or
              /* XXX: slow */
              v = 0;
              for(i = 0; i < digits_per_limb; i++) {
-@@ -13746,6 +13833,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
+@@ -13748,6 +13835,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
              radix_base = js_radix_base_table[radix - 2];
              len = r->len;
              for(;;) {
@@ -657,7 +658,7 @@ in data the memory limit bounds (a `JSON.stringify` or
                  /* remove leading zero limbs */
                  while (len > 1 && r->tab[len - 1] == 0)
                      len--;
-@@ -47408,10 +47502,29 @@ static int string_indexof_char(JSString *p, int c, int from)
+@@ -47410,10 +47504,29 @@ static int string_indexof_char(JSString *p, int c, int from)
      return -1;
  }
  
@@ -688,7 +689,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      if (len2 == 0)
          return from;
      for (i = from, c = string_get(p2, 0); i + len2 <= len1; i = j + 1) {
-@@ -47420,6 +47533,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
+@@ -47422,6 +47535,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
              break;
          if (!string_cmp(p1, p2, j + 1, 1, len2 - 1))
              return j;
@@ -697,7 +698,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      }
      return -1;
  }
-@@ -47557,6 +47672,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47559,6 +47674,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
      }
      ret = -1;
      if (len >= v_len && inc * (stop - start) >= 0) {
@@ -705,7 +706,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          for (i = start;; i += inc) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = i;
-@@ -47564,6 +47680,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47566,6 +47682,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -714,7 +715,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          }
      }
      JS_FreeValue(ctx, str);
-@@ -47623,6 +47741,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47625,6 +47743,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
          start = stop = pos;
      }
      if (start >= 0 && start <= stop) {
@@ -722,7 +723,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          for (i = start;; i++) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = 1;
-@@ -47630,6 +47749,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47632,6 +47751,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -731,7 +732,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          }
      }
   done:
-@@ -47885,6 +48006,10 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47887,6 +48008,10 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
      endOfLastMatch = 0;
      is_first = true;
      for(;;) {
@@ -742,7 +743,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          if (unlikely(searchp->len == 0)) {
              if (is_first)
                  pos = 0;
-@@ -47893,7 +48018,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47895,7 +48020,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
              else
                  pos = endOfLastMatch + 1;
          } else {
@@ -753,7 +754,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          }
          if (pos < 0) {
              if (is_first) {
-@@ -48004,7 +48131,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
+@@ -48006,7 +48133,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
      }
      q = p;
      for (q = p; (q += !r) <= s - r - !r; q = p = e + r) {
@@ -767,7 +768,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          if (e < 0)
              break;
          T = js_sub_string(ctx, sp, p, e);
-@@ -61548,27 +61680,89 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
+@@ -61550,27 +61682,89 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
      return cmp;
  }
  
@@ -868,7 +869,7 @@ in data the memory limit bounds (a `JSON.stringify` or
  static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
  {
-@@ -61711,9 +61905,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
+@@ -61713,9 +61907,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
          done:
              js_free(ctx, array_idx);
          } else {
