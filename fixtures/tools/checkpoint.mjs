@@ -239,9 +239,10 @@ function verdict(s) {
   if (s.error) return `**FAIL** (render error: ${s.error.split("\n")[0].slice(0, 100)})`;
   const failed = [...new Set((s.pages ?? []).flatMap((p) => p.failed ?? []))];
   if (s.text && !s.text.pass) failed.push("text");
+  if (s.font && !s.font.pass) failed.push("font");
   if (s.pass) return "pass";
   const detail = failed.map((c) =>
-    c === "shape" ? `shape ${pct(s.worst_window)}` : c === "colour" ? `colour ${pct(s.worst_colour_window)}` : c === "hue" ? `hue ${pct(s.worst_hue_window)}` : c === "text" ? `text: ${(s.text.missing ?? []).length} missing, ${(s.text.extra ?? []).length} extra` : c,
+    c === "shape" ? `shape ${pct(s.worst_window)}` : c === "colour" ? `colour ${pct(s.worst_colour_window)}` : c === "hue" ? `hue ${pct(s.worst_hue_window)}` : c === "text" ? `text: ${(s.text.missing ?? []).length} missing, ${(s.text.extra ?? []).length} extra` : c === "font" ? `font: ${s.font.mismatches.length} differ` : c,
   );
   return `**FAIL** (${detail.join("; ") || "page count"})`;
 }
@@ -250,7 +251,7 @@ const floor = (fixture, key, i) => {
   const b = baseline.rows[fixture];
   return b ? pct(key === "page" ? b.page : b.islands[i]) : "not in the baseline";
 };
-const scoresCell = (s) => (s && !s.error ? `${pct(s.worst_window)} / ${pct(s.worst_colour_window)} / ${pct(s.worst_hue_window)}${s.text ? ` / text ${s.text.pass ? "ok" : "differs"}` : ""}` : "—");
+const scoresCell = (s) => (s && !s.error ? `${pct(s.worst_window)} / ${pct(s.worst_colour_window)} / ${pct(s.worst_hue_window)}${s.text ? ` / text ${s.text.pass ? "ok" : "differs"}` : ""}${s.font ? ` / font ${s.font.pass ? "ok" : "differs"}` : ""}` : "—");
 const image = (dirName, label) => {
   const f = path.join(outRoot, dirName, "side-by-side-1.png");
   return fs.existsSync(f) ? `[${label}](${rel(f)})` : "—";
