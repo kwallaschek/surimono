@@ -31,6 +31,8 @@ surimono-islands = { path = ".", default-features = false, features = ["test-est
 roxmltree.workspace = true
 # Checks bundles/SHA256SUMS.
 sha2.workspace = true
+# Reads fixtures/hostile/manifest.toml in the hostile-suite harness.
+toml = "=1.1.8"
 # Counts live heap bytes in the soak test.
 stats_alloc = "=0.1.10"
 
