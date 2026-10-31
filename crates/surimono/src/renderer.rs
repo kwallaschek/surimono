@@ -2,7 +2,7 @@
 
 use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Mutex, OnceLock, PoisonError, TryLockError};
+use std::sync::{Mutex, OnceLock, TryLockError};
 
 use surimono_gfx::{FontSet, TextMeasurer};
 use surimono_islands::{IslandRequest, IslandRunner};
@@ -73,10 +73,12 @@ struct Slot {
 }
 
 impl Slot {
-    const FREE: Slot = Slot {
-        pid: AtomicU32::new(0),
-        state: OnceLock::new(),
-    };
+    fn free() -> Self {
+        Slot {
+            pid: AtomicU32::new(0),
+            state: OnceLock::new(),
+        }
+    }
 }
 
 /// One process's runner and measurer.
@@ -198,7 +200,7 @@ impl Renderer {
                 enabled
             }
         };
-        let slots = Box::new([Slot::FREE; MAX_FORK_DEPTH]);
+        let slots: Box<[Slot; MAX_FORK_DEPTH]> = Box::new(std::array::from_fn(|_| Slot::free()));
         slots[0].pid.store(std::process::id(), Ordering::Release);
         if slots[0].state.set(local).is_err() {
             // A fresh OnceLock is empty; this can't happen.
@@ -406,7 +408,7 @@ fn start_local(options: &Options, fonts: &FontSet) -> Result<Local, Error> {
 mod tests {
     use super::*;
     use crate::Limits;
-    use std::sync::Arc;
+    use std::sync::{Arc, PoisonError};
     use std::time::Duration;
 
     const T: &str = "application/vnd.surimono+json";
