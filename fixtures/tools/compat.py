@@ -31,7 +31,10 @@ A result can never hide another: two score.json files for the same fixture and
 comparison, or two hostile results for the same case and step, are an error
 that names both. A hostile result whose case or step isn't in the manifest is
 listed as failing and counted. A score.json with "error" (the render failed
-before anything could be compared) is a failure, never "not run".
+before anything could be compared) is a failure, never "not run". A
+determinism.json (checkpoint.mjs: two renders in two processes) that says the
+renders differ fails its fixture. Results stamped by the stand-in CLI
+(fake-surimono.mjs) or by two different CLIs are an error.
 
 The hostile results format is fixtures/hostile/RESULTS_SCHEMA.md (schema 1),
 one entry per case and step:
@@ -79,6 +82,42 @@ def load_scores(directory: Path | None) -> list[dict]:
         data["_file"] = str(f)
         scores.append(data)
     return scores
+
+
+def load_determinism(directory: Path | None) -> dict[str, dict]:
+    """checkpoint.mjs's determinism.json files, by fixture; a duplicate is an error."""
+    if not directory:
+        return {}
+    out: dict[str, dict] = {}
+    for f in sorted(directory.rglob("determinism.json")):
+        try:
+            data = json.loads(f.read_text())
+        except (OSError, json.JSONDecodeError) as e:
+            raise CompatError(f"{f}: {e}")
+        data["_file"] = str(f)
+        name = data.get("subject")
+        if name in out:
+            raise CompatError(f"two determinism results for {name}: {out[name]['_file']} and {f}")
+        out[name] = data
+    return out
+
+
+def check_producers(records: list[dict]) -> dict | None:
+    """The one surimono CLI that produced these results, if they say. A stand-in
+    (fixtures/tools/test/fake-surimono.mjs prints Chrome's own SVGs) or a mix of
+    CLIs is an error: results must come from one real run."""
+    seen: dict[tuple, dict] = {}
+    for r in records:
+        p = r.get("producer")
+        if not p:
+            continue
+        if "fake-surimono" in str(p.get("version", "")) or "fake-surimono" in str(p.get("cli", "")):
+            raise CompatError(f"{r.get('_file', '?')}: produced by the stand-in {p.get('cli')} ({p.get('version')}), not by surimono")
+        seen.setdefault((p.get("cli"), p.get("version"), p.get("sha256"), p.get("commit")), {**p, "_file": r.get("_file", "?")})
+    if len(seen) > 1:
+        a, b = list(seen.values())[:2]
+        raise CompatError(f"results from two different surimono CLIs ({a['_file']} and {b['_file']}); pass one run's directory")
+    return next(iter(seen.values()), None)
 
 
 def classify(score: dict) -> tuple[str, str]:
@@ -164,7 +203,7 @@ def cell(score: dict | None) -> str:
 # ---------------------------------------------------------------- sections
 
 
-def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[str], dict[str, str]]:
+def fixtures_section(scores: list[dict], meta: dict[str, dict], determinism: dict[str, dict] | None = None) -> tuple[list[str], dict[str, str]]:
     """Returns the lines and a status per fixture (pass, fail, partial, not run)."""
     by: dict[str, dict[str, dict]] = {}
     for s in scores:
@@ -184,11 +223,11 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
         "against the Chrome references (`fixtures/README.md`, \"Which comparison gates what\"). A pass shows the shape score (worst window); "
         "a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, size).",
         "",
-        "| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) |",
-        "|---|---|---|---|---|",
+        "| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) | Byte-identical (two processes) |",
+        "|---|---|---|---|---|---|",
     ]
     status: dict[str, str] = {}
-    for name in sorted(set(meta) | set(by)):
+    for name in sorted(set(meta) | set(by) | set(determinism or {})):
         got = by.get(name, {})
         n = len(meta.get(name, {}).get("islands", [])) or max([int(k.split("-")[1]) + 1 for k in got if k.startswith("island-")] or [1])
         beyond = [k for k in got if k.startswith("island-") and int(k.split("-")[1]) >= n]
@@ -202,14 +241,21 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict]) -> tuple[list[st
         page = got.get("page")
         everything = chrome + fulgur + [page]
         ran = [s for s in everything if s is not None]
+        det = (determinism or {}).get(name)
+        if det is None:
+            det_cell = "not run"
+        elif det.get("deterministic") is True:
+            det_cell = "yes"
+        else:
+            det_cell = f"**FAIL** ({det.get('note') or 'the two renders differ'})"
         if not ran:
             status[name] = "not run"
-        elif all(s.get("pass") and not s.get("error") for s in ran):
-            status[name] = "pass" if len(ran) == len(everything) else "partial"
+        elif all(s.get("pass") and not s.get("error") for s in ran) and (det is None or det.get("deterministic") is True):
+            status[name] = "pass" if len(ran) == len(everything) and det is not None else "partial"
         else:
             status[name] = "fail"
         renderers = meta.get(name, {}).get("renderer", "?")
-        lines.append(f"| {name} | {renderers} | {'; '.join(cell(s) for s in chrome)} | {'; '.join(cell(s) for s in fulgur)} | {cell(page)} |")
+        lines.append(f"| {name} | {renderers} | {'; '.join(cell(s) for s in chrome)} | {'; '.join(cell(s) for s in fulgur)} | {cell(page)} | {det_cell} |")
     lines.append("")
     return lines, status
 
@@ -358,9 +404,13 @@ def hand_written(existing: str | None) -> str:
     return DEFAULT_HAND_WRITTEN
 
 
-def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None) -> str:
+def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None) -> str:
     meta = fixture_meta()
-    fx_lines, fx_status = fixtures_section(scores, meta)
+    producer = check_producers(scores + list((determinism or {}).values()))
+    fx_lines, fx_status = fixtures_section(scores, meta, determinism)
+    made_by = ""
+    if producer:
+        made_by = f" (surimono CLI {producer.get('version')}, sha256 {str(producer.get('sha256'))[:12]}{', commit ' + producer['commit'] if producer.get('commit') else ''})"
     out = [
         "# Compatibility",
         "",
@@ -369,7 +419,7 @@ def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commi
         "What surimono does and doesn't do yet, from test results. Every known failure is listed with the test that proves it. "
         "Expectations come from Chrome, specs and WPT, and are never edited to match surimono's output.",
         "",
-        f"Results: fixtures {'from ' + commit if scores else 'not run'}; hostile scripts {'from their results file' if hostile else 'not run'}; "
+        f"Results: fixtures {'from ' + commit + made_by if scores else 'not run'}; hostile scripts {'from their results file' if hostile else 'not run'}; "
         f"benchmark {'from bench/run.sh' if bench else 'not run'}.",
         "",
         "## Phase 1: islands",
@@ -402,7 +452,7 @@ def main() -> int:
             sys.exit(f"{p} does not exist")
     existing = args.out.read_text(encoding="utf-8") if args.out.exists() else None
     try:
-        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing)
+        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures))
     except CompatError as e:
         print(f"compat.py: {e}", file=sys.stderr)
         return 1

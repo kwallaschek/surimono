@@ -244,19 +244,30 @@ Regular; its 1.3% page score is sub-pixel glyph placement in the legend.
 
 ## The checkpoint run
 
-`node fixtures/tools/checkpoint.mjs --out DIR --surimono <surimono CLI>`
+`node fixtures/tools/checkpoint.mjs --out DIR --surimono <CLI> [--commit SHA] [--baseline BDIR]`
 renders every island fixture with the surimono CLI (fixture fonts, default
-limits, text as outlines) twice in two processes, checks that both outputs are
-byte-identical, cuts each island's SVG out of the output and runs every
-comparison below: each island printed by Chrome (the gate) and by fulgur, and
-the whole page printed by fulgur. `DIR/index.md` has the table and links to
-each side-by-side image; every comparison's `score.json` feeds
-`compat.py --fixtures DIR`. A render that fails, an error placeholder in
-place of an island, or a comparison that dies writes a failing `score.json`
-with `"error"`, so nothing reads as "not run".
+limits, text as outlines) twice: once with TZ=UTC, the C locale and the
+repository as working directory, once with TZ=Asia/Tokyo, ja_JP.UTF-8 and a
+fresh temporary directory. Both outputs must be byte-identical
+(`DIR/<fixture>/determinism.json`); if any differ the run exits 1. It cuts each
+island's SVG out of the output and runs every comparison below: each island
+printed by Chrome (the gate) and by fulgur, and the whole page printed by
+fulgur. `DIR` must be outside `fixtures/`.
+
+`DIR/index.md` has the table and links to each side-by-side image. Every
+`score.json` is stamped with the CLI that produced it (path, `--version`,
+sha256, commit), and `compat.py --fixtures DIR` reads the scores and the
+determinism results; it refuses results from the stand-in or from two
+different CLIs. A render that fails, an error placeholder in place of an
+island, or a comparison that dies writes a failing `score.json` with
+`"error"`, so nothing reads as "not run". With `--baseline BDIR` (a
+`reference.mjs --out BDIR` plus `baseline.mjs --out BDIR` directory) the table
+shows fulgur's own floor next to each fulgur-printed score.
+
 `fixtures/tools/test/fake-surimono.mjs` stands in for the CLI with Chrome's own
 SVGs, to check the pipeline itself (every gate passes, fulgur's scores equal
-the baseline); it never produces a result.
+the baseline); `test/checkpoint.test.mjs` uses it for the failure paths. It
+never produces a result.
 
 ## Which comparison gates what
 

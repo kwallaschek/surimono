@@ -14,19 +14,19 @@ Not run yet: no surimono output has been compared with the Chrome references.
 
 Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the whole page printed by surimono + fulgur, against the Chrome references (`fixtures/README.md`, "Which comparison gates what"). A pass shows the shape score (worst window); a failure names each failed check with its own number (shape, colour and hue windows, text strings missing or extra, size).
 
-| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) |
-|---|---|---|---|---|
-| echarts-bar-simple-ja | echarts | not run | not run | not run |
-| echarts-bar-simple-latin | echarts | not run | not run | not run |
-| echarts-line-dense-latin | echarts | not run | not run | not run |
-| echarts-mixed-dense-ja | echarts | not run | not run | not run |
-| echarts-pie-ja | echarts | not run | not run | not run |
-| echarts-two-charts-latin | echarts | not run; not run | not run; not run | not run |
-| vega-bar-simple-latin | vega | not run | not run | not run |
-| vegalite-bar-simple-latin | vega-lite | not run | not run | not run |
-| vegalite-layered-dense-ja | vega-lite | not run | not run | not run |
-| vegalite-line-ja | vega-lite | not run | not run | not run |
-| vegalite-scatter-dense-latin | vega-lite | not run | not run | not run |
+| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) | Byte-identical (two processes) |
+|---|---|---|---|---|---|
+| echarts-bar-simple-ja | echarts | not run | not run | not run | not run |
+| echarts-bar-simple-latin | echarts | not run | not run | not run | not run |
+| echarts-line-dense-latin | echarts | not run | not run | not run | not run |
+| echarts-mixed-dense-ja | echarts | not run | not run | not run | not run |
+| echarts-pie-ja | echarts | not run | not run | not run | not run |
+| echarts-two-charts-latin | echarts | not run; not run | not run; not run | not run | not run |
+| vega-bar-simple-latin | vega | not run | not run | not run | not run |
+| vegalite-bar-simple-latin | vega-lite | not run | not run | not run | not run |
+| vegalite-layered-dense-ja | vega-lite | not run | not run | not run | not run |
+| vegalite-line-ja | vega-lite | not run | not run | not run | not run |
+| vegalite-scatter-dense-latin | vega-lite | not run | not run | not run | not run |
 
 ### Hostile scripts
 
