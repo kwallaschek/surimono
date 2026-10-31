@@ -1,0 +1,67 @@
+{
+  "subject": "vegalite-bar-simple-latin",
+  "pdf": "checkpoint-out/vegalite-bar-simple-latin/page/surimono-fulgur.pdf",
+  "label": "surimono",
+  "metric": "shape: near-match (1 px radius, per-channel tolerance 128/255), worst 32x32 window's share of mismatched ink, pass <= 10%; colour: solid pixels (flat 5x5) within 16/255 per channel at 1 px, worst window <= 10%; hue: ink direction of strongly inked pixels within 8 degrees at 1 px, worst window <= 30%; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink",
+  "pixel_threshold": 0.1,
+  "pass_worst_window": 0.1,
+  "pass_colour_window": 0.1,
+  "pass_hue_window": 0.3,
+  "poppler": "24.02.0",
+  "dpi": 96,
+  "page_count": {
+    "chrome": 1,
+    "surimono": 1
+  },
+  "pass": true,
+  "worst_window": 0.013513513513513514,
+  "worst_diff_ratio_ink": 0.044294451453756455,
+  "worst_colour_window": 0,
+  "worst_hue_window": 0,
+  "pages": [
+    {
+      "page": 1,
+      "pass": true,
+      "failed": [],
+      "worst_window": 0.013513513513513514,
+      "worst_window_at": [
+        64,
+        352
+      ],
+      "near_mismatch_pixels": 2,
+      "near_ink_share": 0.00001131548127570736,
+      "colour_worst_window": 0,
+      "colour_worst_window_at": null,
+      "colour_mismatch_pixels": 0,
+      "solid_pixels": 123027,
+      "hue_worst_window": 0,
+      "hue_worst_window_at": null,
+      "hue_mismatch_pixels": 0,
+      "hue_pixels": 81301,
+      "width": 794,
+      "height": 1123,
+      "size_match": true,
+      "expected_size": [
+        794,
+        1123
+      ],
+      "actual_size": [
+        794,
+        1123
+      ],
+      "diff_pixels": 7829,
+      "ink_pixels": 176749,
+      "expected_ink_pixels": 172785,
+      "actual_ink_pixels": 174919,
+      "diff_ratio_ink": 0.044294451453756455,
+      "diff_ratio_page": 0.00878023286850847,
+      "side_by_side": "side-by-side-1.png"
+    }
+  ],
+  "producer": {
+    "cli": "target/release/surimono",
+    "version": "surimono 0.0.0",
+    "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
+    "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+  }
+}

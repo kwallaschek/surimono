@@ -33,7 +33,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-09 · RT · done (#32, landed via #39) · QuickJS patch (vendored rquickjs-sys, [patch]): sticky interrupt, interrupt polls in native array loops and typed-array sort; watchdog tests; upstream drafts (v0.1 release blocker)
 - P1-RT-10 · RT · done (#30) · Use surimono-gfx's TextMeasurer/TextMetrics in islands (one type each across the API)
 - P1-RT-12 · RT · done (#39) · Islands follow-ups from #21/#29 review: Vega image/href refused synchronously with tests; preload time vs deadline; built-in vs registered name race; entry check consistency; idle-wait in tests; docs
-- P1-RT-14 · RT · review · (#47) Deadline enforcement: watchdog flag checked on every poll; expensive natives poll (indexOf, BigInt cap); flaky core tests; F2/F3 (v0.1 release blockers R4, R5)
+- P1-RT-14 · RT · done (#47) · (#47) Deadline enforcement: watchdog flag checked on every poll; expensive natives poll (indexOf, BigInt cap); flaky core tests; F2/F3 (v0.1 release blockers R4, R5)
 - P1-RT-15 · RT · done (#45) · (#45) Allocation-failure crash fixes in the vendored engine; full-coverage OOM sweep; docs stop over-claiming (v0.1 release blockers R6, R7, R8; details private)
 - P1-RT-15b · RT · done (#45) · #45 review blockers: sweep covers bind and Promise.any; nits
 - P1-RT-20 · RT · todo · quickjs-ng public issue drafts in docs/upstream/quickjs-ng/, one per finding, each with a reproducer on current master and a repro.sh Kay runs to verify (per quickjs-ng's security policy)
@@ -42,11 +42,13 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-25 · RT · todo · Measure gem RSS/PSS after a concurrent burst and idle release (does CRuby's malloc_trim reclaim it?); decide on malloc_trim FFI in the engine-binding module; add the idle-release path to a soak; alternate OOM shapes in the 10k soak
 - P1-RT-26 · RT · todo · (v0.1) A worker that dies outside guard hangs callers since #54 (one worker): live-worker count via a drop guard, replace a dead worker or fail callers with IslandError::Worker
 - P1-RT-27 · RT+PKG · todo · Test time-scale factor (env var set by scripts/ci/asan.sh) that multiplies wall-clock limits and bounds in core/islands tests; ASan runs determinism and hostile groups B/C past their bounds
-- P1-PKG-11 · PKG · todo · #25/#26/#34 review follow-ups: drop the stale placeholder_style doc (prepass.rs:411-413); fixtures.rs asserts the island count; CLI docs say an existing read-only output is replaced; about.toml MPL list limited to normal deps (or commented) so real warnings show; root surimono-islands workspace entry default-features=false (ORC) and drop the web_atoms exact pin
+- P1-PKG-11 · PKG · review · (#58) #25/#26/#34 review follow-ups: drop the stale placeholder_style doc (prepass.rs:411-413); fixtures.rs asserts the island count; CLI docs say an existing read-only output is replaced; about.toml MPL list limited to normal deps (or commented) so real warnings show; root surimono-islands workspace entry default-features=false (ORC) and drop the web_atoms exact pin
 - P1-RT-28 · RT · todo · #56 review follow-ups: native-gem jobs and the gem smoke test assert built-ins are precompiled (expose a count); measure the extra source-gem install time; guard test for native `class` in bundles (isESClass under stripping); core build.rs hashes quickjs/ recursively; #57 nit: assert SP vs local agree outside sanitizers
 - P1-RT-29 · RT · todo · #47 review follow-ups: hostile.rs times the stop apart from the cleanup (test-only hook); poll per match in js_regexp_Symbol_replace (with P1-RT-23)
+- P1-RT-30 · RT · todo · (v0.1) Verify/fix that a forked child never touches the parent's IslandRunner locks (queue Mutex, bundles RwLock, workers Mutex in crates/islands/src/runner.rs) via the facade's pid-claimed slots; fork stress test through the facade; plus #47 review follow-ups: ForkSafeCell checks slot exhaustion before init (no thread leak), doc fix; pid reuse → fork-generation counter (pthread_atfork child handler); expire vs arm/disarm stress test
+- P1-RT-31 · RT+GFX · todo · (v0.1 release blocker) LICENSE-MIT/LICENSE-APACHE symlinks and repository/homepage/keywords/categories .workspace in crates/core, crates/islands, crates/gfx
 - P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
-- P1-RT-22 · RT · review · (#47) Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
+- P1-RT-22 · RT · done (#47) · (#47) Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
 - P1-RT-23 · RT · todo · Regex deadline gaps: js_regexp_Symbol_replace never polls ('a'.repeat(1<<25).replace(/(?:)/g,'') stops at 1,174 ms vs 250 ms); back-references checked in #47 review and fine
 - P1-RT-18 · RT · todo · Follow-ups from the #45 review: the sweep drops a successful run's result (compare it with the clean run's value); Date.parse with an explicit zone at the range end gives an out-of-range value where Chrome gives NaN (fix or COMPAT); memory left by leaked objects at teardown isn't counted (debug counter for the soak); musl fallback only compile-checked
 - P1-RT-13 · RT · done (#53) · (#53 for the ASan/flaky tests; interval work folded into P1-RT-14) Core (after #8/#32 merge): lower QuickJS's interrupt-check interval in the vendored engine so expensive built-ins in a loop (e.g. indexOf on a 4 MiB string: TimeLimit after 155 s at a 300 ms limit) end near the limit, with an upstream draft and a hostile case; test robustness: heap_returns_to_baseline_after_reset fails under nightly ASan (TimeLimit; give it a generous limit or relax under sanitizers); time_limit_is_per_call flaky under load; plus #8/#32 review follow-ups
@@ -69,7 +71,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-05 · CF · done · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
 - P1-CF-06 · CF · done · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
 - P1-CF-08 · CF · done · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
-- P1-CF-09 · CF · doing · (#35 merged: the run script) the real run itself, once #25/#26 are on main — Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
+- P1-CF-09 · CF · review · (#59) (#35 merged: the run script) the real run itself, once #25/#26 are on main — Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
 - P1-CF-04b · CF · done · (#36) Hostile follow-ups: real dynamic-import target, narrowed re-entry cases, hostile-chrome.mjs
 - P1-CF-10 · CF · done · (#40) Benchmark follow-ups: gem version probe, gem build failure is an error, warm verdict needs full n, pool size recorded
 - P1-CF-05b · CF · done · (#41) A missing embedded bundle fails verify.py
@@ -97,9 +99,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-07 · PKG · review · v0.1 release PR with a passing dry-run (cargo publish --dry-run in order, gem build, CHANGELOG), no tag, no publish
 
 ### Docs and DX (README.md, docs/guide, examples, CHANGELOG.md)
-- P1-DX-01 · DX · doing · README for v0.1: what it is, what it is not, install, a 10-line Rails example, a 10-line Rust example, honest limits
-- P1-DX-02 · DX · doing · Guides: Rails with fulgur, Rust; migration notes from Grover for chart-only documents
-- P1-DX-03 · DX · doing · Examples that run in CI; wording of error messages reviewed
+- P1-DX-01 · DX · review · README for v0.1: what it is, what it is not, install, a 10-line Rails example, a 10-line Rust example, honest limits
+- P1-DX-02 · DX · review · Guides: Rails with fulgur, Rust; migration notes from Grover for chart-only documents
+- P1-DX-03 · DX · review · Examples that run in CI; wording of error messages reviewed
 
 ### DOM engineer (early phase 2 scaffolding; no public API merged before checkpoint 2)
 - P1-DOM-01 · DOM · todo · WebIDL fetch and parse from w3c/webref (pinned commit) and a code-generation skeleton producing binding stubs for a handful of interfaces

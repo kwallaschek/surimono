@@ -19,9 +19,9 @@ vega = ["surimono-islands/vega"]
 [dependencies]
 surimono-core.workspace = true
 surimono-gfx.workspace = true
-# Not through the workspace entry: the facade picks the islands crate's
-# features itself (see [features]).
-surimono-islands = { path = "../islands", version = "0.0.0", default-features = false }
+# The workspace entry has default features off; the facade picks the islands
+# crate's features itself (see [features]).
+surimono-islands.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true

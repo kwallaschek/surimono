@@ -71,21 +71,43 @@ Ruby 3.2 to 3.4 today.
 
 **Rust** (1.87 or later; a C compiler builds QuickJS):
 
-```sh
-cargo add surimono
+The Rust crates aren't on crates.io yet. surimono needs a patched QuickJS, and
+a crates.io release can't carry the patch until the fixes are upstream or
+published under crate names of our own. Until then, use the crates from this
+repository. A git dependency works if your own `Cargo.toml` also patches
+`rquickjs-sys`, because a dependency's `[patch]` never reaches your build:
+
+```toml
+[dependencies]
+surimono = { git = "https://github.com/kwallaschek/surimono", branch = "main" }
+
+[patch.crates-io]
+rquickjs-sys = { git = "https://github.com/kwallaschek/surimono", branch = "main" }
 ```
 
+Without the `[patch.crates-io]` entry the build fails at link time with
+`undefined reference to surimono_quickjs_patch_level`. Cargo finds
+`rquickjs-sys` in the repository's `vendor/` folder. Keep both entries on the
+same branch or `rev` so they come from one commit. On Rust 1.87, put `edition = "2024"` and
+`rust-version = "1.87"` in your package so that Cargo picks dependency
+versions that build on 1.87; some current releases need 1.88.
+
 ECharts and Vega are Cargo features, both on by default: `echarts` adds the
-`echarts` renderer, `vega` adds `vega` and `vega-lite`. To leave Vega out, use
-`surimono = { version = "0.1", default-features = false, features = ["echarts"] }`.
+`echarts` renderer, `vega` adds `vega` and `vega-lite`. To leave Vega out, add
+`default-features = false, features = ["echarts"]` to the `surimono` line.
 fulgur 0.40 depends on krilla 0.7, which needs Rust 1.89, so a project that
 uses both needs 1.89.
 
-**Command line:**
+**Command line:** build it from a clone of the repository.
 
 ```sh
-cargo install surimono-cli   # installs the `surimono` command
+git clone https://github.com/kwallaschek/surimono
+cd surimono
+cargo install --locked --path crates/cli   # installs the `surimono` command
 ```
+
+`cargo install --git …` doesn't work: it ignores the repository's `[patch]`,
+so the build fails at link time.
 
 ## Rails example
 
@@ -307,6 +329,8 @@ Pass the same font files to surimono and to your PDF engine.
   will show by how much.
 - **Mermaid is not included in v0.1.**
 - **Platforms.** No Windows or musl gems yet.
+- **Rust crates come from the repository.** They aren't on crates.io yet; see
+  [Install](#install).
 
 ## Compatibility
 
