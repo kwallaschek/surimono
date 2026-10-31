@@ -13,12 +13,33 @@
 //! output is the same either way, only the first render is slower).
 
 use std::ffi::OsStr;
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use sha2::{Digest, Sha256};
 use surimono_core::Bytecode;
 
-use crate::builtins::Builtin;
+use crate::builtins::{ALL, Builtin};
+
+/// A yes-or-no answer worked out once per process: [`UNKNOWN`] until a
+/// thread has it. Atomics, not a `OnceLock` or `Mutex`: a process forked
+/// while another thread was working one out would wait on that thread
+/// forever. Threads that race just work it out twice.
+const UNKNOWN: u8 = 0;
+const NO: u8 = 1;
+const YES: u8 = 2;
+
+/// The cached answer in `cell`, or `compute`'s, stored for next time.
+fn cached(cell: &AtomicU8, compute: impl FnOnce() -> bool) -> bool {
+    match cell.load(Ordering::Acquire) {
+        NO => false,
+        YES => true,
+        _ => {
+            let answer = compute();
+            cell.store(if answer { YES } else { NO }, Ordering::Release);
+            answer
+        }
+    }
+}
 
 /// The built-in's precompiled bytecode if it may and can be used, `None` to
 /// compile its source instead. `fingerprint` is the writing engine's:
@@ -34,8 +55,10 @@ pub(crate) fn bytecode(builtin: &Builtin, fingerprint: &[u8]) -> Option<Bytecode
 /// Whether `SURIMONO_PRECOMPILE` turns precompiled bytecode off: read once
 /// per process.
 fn disabled_at_run_time() -> bool {
-    static DISABLED: OnceLock<bool> = OnceLock::new();
-    *DISABLED.get_or_init(|| switched_off(std::env::var_os("SURIMONO_PRECOMPILE").as_deref()))
+    static DISABLED: AtomicU8 = AtomicU8::new(UNKNOWN);
+    cached(&DISABLED, || {
+        switched_off(std::env::var_os("SURIMONO_PRECOMPILE").as_deref())
+    })
 }
 
 /// `SURIMONO_PRECOMPILE=0` means off; unset or anything else means on.
@@ -44,19 +67,18 @@ fn switched_off(value: Option<&OsStr>) -> bool {
 }
 
 /// Whether `builtin.source` is the source `build.rs` compiled its bytecode
-/// from. Each bundle is hashed once per process.
+/// from. Each built-in in [`ALL`] is hashed once per process (another
+/// `Builtin`, a test's altered copy, every time).
 fn source_matches(builtin: &Builtin) -> bool {
-    static CHECKED: Mutex<Vec<(usize, bool)>> = Mutex::new(Vec::new());
-    let key = builtin.source.as_ptr() as usize;
-    // A panic can't happen while the lock is held (hashing doesn't panic),
-    // and the list stays valid either way.
-    let mut checked = CHECKED.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(&(_, matches)) = checked.iter().find(|(k, _)| *k == key) {
-        return matches;
+    static CHECKED: [AtomicU8; ALL.len()] = [const { AtomicU8::new(UNKNOWN) }; ALL.len()];
+    let hash = || Sha256::digest(builtin.source.as_bytes()).as_slice() == builtin.source_sha256;
+    let known = ALL.iter().position(|b| {
+        std::ptr::eq(b.source, builtin.source) && b.source_sha256 == builtin.source_sha256
+    });
+    match known.and_then(|i| CHECKED.get(i)) {
+        Some(cell) => cached(cell, hash),
+        None => hash(),
     }
-    let matches = Sha256::digest(builtin.source.as_bytes()).as_slice() == builtin.source_sha256;
-    checked.push((key, matches));
-    matches
 }
 
 /// The bytecode, if it was compiled from this source by a compatible engine.

@@ -17,7 +17,9 @@
 //!   in `vendor/rquickjs-sys` defines, so a build against an unpatched
 //!   engine fails to link instead of shipping a sandbox that can hang;
 //! - [`install_stop_flag`], which points the patched engine at the
-//!   [`LimitState`]'s stop flag, read on every interrupt poll.
+//!   [`LimitState`]'s stop flag, read on every interrupt poll;
+//! - [`fork_generation`], which registers a `pthread_atfork` child handler
+//!   so a forked process can tell its own state from its ancestors'.
 //!
 //! Every `unsafe` block carries a `SAFETY:` comment and is covered by the tests
 //! at the bottom of this file and in `sandbox.rs`. The module is opted in to
@@ -65,10 +67,11 @@ pub(crate) struct LimitState {
     /// clear, so a late timer can't stop the next call; no lock is shared
     /// with the watchdog, so a fork can't leave one held.
     call: AtomicU64,
-    /// Id of the process whose watchdog holds the running call's timer. In
-    /// a forked child a call never waits on an [`EXPIRING`] bit that its
-    /// parent's watchdog set: that thread doesn't exist here.
-    armed_pid: AtomicU32,
+    /// Fork generation ([`fork_generation`]) of the process whose watchdog
+    /// holds the running call's timer. In a forked child a call never waits
+    /// on an [`EXPIRING`] bit that its parent's watchdog set: that thread
+    /// doesn't exist here.
+    armed_gen: AtomicU64,
 }
 
 /// [`LimitState::call`] bit: the stop flag is being raised for this call.
@@ -90,7 +93,7 @@ impl LimitState {
             retired: AtomicBool::new(false),
             origin: Instant::now(),
             call: AtomicU64::new(0),
-            armed_pid: AtomicU32::new(0),
+            armed_gen: AtomicU64::new(0),
         })
     }
 
@@ -111,7 +114,8 @@ impl LimitState {
             .min(DISARMED - 1);
         self.stop.store(0, Ordering::Relaxed);
         self.deadline.store(deadline, Ordering::Relaxed);
-        self.armed_pid.store(registry.pid(), Ordering::Relaxed);
+        self.armed_gen
+            .store(registry.generation(), Ordering::Relaxed);
         // Publishes the deadline with the call: whoever sees `seq` sees it.
         self.call.store(seq, Ordering::Release);
         // A budget too large for an Instant never fires; the handler's own
@@ -136,7 +140,8 @@ impl LimitState {
             if call == 0 {
                 break 0;
             }
-            if call & EXPIRING != 0 && self.armed_pid.load(Ordering::Relaxed) == std::process::id()
+            if call & EXPIRING != 0
+                && self.armed_gen.load(Ordering::Relaxed) == fork_generation_now()
             {
                 // A live thread is raising the flag for this call; it takes
                 // two atomic operations.
@@ -152,8 +157,8 @@ impl LimitState {
             }
         };
         if ended != 0 {
-            let armed_in = self.armed_pid.load(Ordering::Relaxed);
-            let registry = watchdog::current().filter(|r| r.pid() == armed_in);
+            let armed_in = self.armed_gen.load(Ordering::Relaxed);
+            let registry = watchdog::current().filter(|r| r.generation() == armed_in);
             if let (Some(registry), Some(key)) = (registry, self.timer_key(deadline, ended)) {
                 registry.remove(key);
             }
@@ -412,6 +417,68 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
 pub(crate) fn patch_level() -> i32 {
     // SAFETY: a C function with no arguments that returns a constant.
     unsafe { surimono_quickjs_patch_level() }
+}
+
+/// This process's fork generation; see [`fork_generation`]. Starts at 1, so
+/// 0 can mean "no process".
+static FORK_GENERATION: AtomicU64 = AtomicU64::new(1);
+
+/// Set once a thread of this process (or of an ancestor, whose handlers a
+/// fork keeps) has registered [`bump_fork_generation`].
+static FORK_HANDLER: AtomicBool = AtomicBool::new(false);
+
+/// `pthread_atfork` child handler: runs in the child, on the forking
+/// thread, right after the fork and before `fork` returns there. It only
+/// increments an atomic, which is async-signal-safe.
+#[cfg(unix)]
+extern "C" fn bump_fork_generation() {
+    FORK_GENERATION.fetch_add(1, Ordering::AcqRel);
+}
+
+/// Identifies this process among the ones that share its memory image: a
+/// process forked from this one after this returned gets a strictly
+/// greater value, and so do its own children. State tagged with a
+/// generation is this process's own when the tags are equal; otherwise it
+/// was inherited from an ancestor whose threads don't exist here. A pid
+/// can't tell those apart: a child can be given the pid of a long-gone
+/// ancestor whose state is still in its memory.
+///
+/// The first call registers a `pthread_atfork` child handler that bumps
+/// the counter. Threads racing on the first call may each register one;
+/// a fork then bumps it more than once, which keeps every comparison right.
+/// Processes made with a raw `clone` system call (rather than `fork`,
+/// which runs the handlers, or `vfork` and `posix_spawn`, which exec at
+/// once) aren't counted.
+///
+/// Fails only if the handler can't be registered (out of memory). Off Unix
+/// there is no `fork`, and it is always 1.
+pub fn fork_generation() -> Result<u64, SandboxError> {
+    #[cfg(unix)]
+    if !FORK_HANDLER.load(Ordering::Acquire) {
+        // SAFETY: pthread_atfork only stores the three function pointers
+        // (two null, which it allows) in libc's handler list, under libc's
+        // own lock, which libc also holds across `fork`, so a fork never
+        // sees a half-registered handler. The handler is a plain
+        // `extern "C"` function with no arguments that lives as long as
+        // this library (glibc ties it to the calling object and drops it if
+        // that is unloaded), and it is async-signal-safe.
+        let err = unsafe { libc::pthread_atfork(None, None, Some(bump_fork_generation)) };
+        if err != 0 {
+            return Err(SandboxError::Engine {
+                message: format!("could not register the sandbox's fork handler (error {err})"),
+            });
+        }
+        // Every value read after this point is bumped in a child forked
+        // after it.
+        FORK_HANDLER.store(true, Ordering::Release);
+    }
+    Ok(FORK_GENERATION.load(Ordering::Acquire))
+}
+
+/// [`fork_generation`] for a caller that knows it was called before in
+/// this process or an ancestor (so the handler is registered): one load.
+pub(crate) fn fork_generation_now() -> u64 {
+    FORK_GENERATION.load(Ordering::Acquire)
 }
 
 /// Bytes of stack left on this thread below the current frame, if the
@@ -868,10 +935,113 @@ mod tests {
         let seq = state.call.load(Ordering::Acquire);
         state.call.store(seq | EXPIRING, Ordering::Release);
         state
-            .armed_pid
-            .store(std::process::id().wrapping_add(1).max(1), Ordering::Relaxed);
+            .armed_gen
+            .store(fork_generation_now() - 1, Ordering::Relaxed);
         state.disarm();
         assert_eq!(state.call.load(Ordering::Acquire), 0);
+    }
+
+    /// Review of #47: the watchdog's `expire` racing a call's `arm` and
+    /// `disarm` on another thread. While it only expires calls that have
+    /// ended, no call is ever stopped; while it also expires the running
+    /// call, every call still ends with a clear flag, and ending one never
+    /// hangs on a raise in progress.
+    #[test]
+    fn expire_races_arm_and_disarm() {
+        const ROUNDS: usize = 20_000;
+        let state = LimitState::new(usize::MAX);
+        // 0: expire the last ended call; 1: also the running one; 2: stop.
+        let mode = AtomicU32::new(0);
+        let last_ended = AtomicU64::new(0);
+        let hits = AtomicUsize::new(0);
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                let mut i = 0u64;
+                loop {
+                    let m = mode.load(Ordering::Acquire);
+                    if m == 2 {
+                        break;
+                    }
+                    i += 1;
+                    let seq = if m == 1 && i % 2 == 0 {
+                        state.call.load(Ordering::Acquire) & !EXPIRING
+                    } else {
+                        last_ended.load(Ordering::Acquire)
+                    };
+                    if seq != 0 {
+                        state.expire(seq);
+                    }
+                }
+            });
+            for phase in 0..2u32 {
+                mode.store(phase, Ordering::Release);
+                for _ in 0..ROUNDS {
+                    state.arm(Duration::from_secs(60)).unwrap();
+                    let seq = state.call.load(Ordering::Acquire);
+                    for _ in 0..8 {
+                        std::hint::spin_loop();
+                    }
+                    if phase == 0 {
+                        assert!(!state.timed_out(), "a stale expiry stopped call {seq}");
+                    } else if state.timed_out() {
+                        hits.fetch_add(1, Ordering::Relaxed);
+                    }
+                    state.disarm();
+                    assert_eq!(state.call.load(Ordering::Acquire), 0);
+                    assert_eq!(state.stop.load(Ordering::Acquire), 0);
+                    last_ended.store(seq, Ordering::Release);
+                }
+            }
+            mode.store(2, Ordering::Release);
+        });
+        // The expirer reached running calls, so the second phase tested
+        // something (on one core it may rarely get the chance).
+        println!("expired {} of {ROUNDS} running calls", hits.into_inner());
+    }
+
+    /// The `pthread_atfork` handler gives a forked child, and its own child,
+    /// a newer generation than every ancestor; the parent's stays.
+    #[cfg(unix)]
+    #[test]
+    fn a_forked_child_has_a_newer_generation() {
+        fn wait_ok(pid: libc::pid_t) -> bool {
+            let mut status: libc::c_int = 0;
+            // SAFETY: `pid` is our own unreaped child; `status` is a valid
+            // place to write its status.
+            let r = unsafe { libc::waitpid(pid, &mut status, 0) };
+            r == pid && libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0
+        }
+        let parent = fork_generation().unwrap();
+        // SAFETY: fork has no preconditions. The child only reads atomics,
+        // forks and waits once more, and leaves through `_exit`, so no
+        // destructor or test-harness code of the parent runs twice and no
+        // lock another thread might hold is touched.
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            let child = fork_generation_now();
+            let mut code = if child > parent && fork_generation().ok() == Some(child) {
+                0
+            } else {
+                1
+            };
+            if code == 0 {
+                // SAFETY: as above.
+                let grandchild = unsafe { libc::fork() };
+                if grandchild == 0 {
+                    let ok = fork_generation_now() > child;
+                    // SAFETY: ends the grandchild at once; see above.
+                    unsafe { libc::_exit(if ok { 0 } else { 1 }) };
+                }
+                if grandchild < 0 || !wait_ok(grandchild) || fork_generation_now() != child {
+                    code = 2;
+                }
+            }
+            // SAFETY: ends the child at once; see above.
+            unsafe { libc::_exit(code) };
+        }
+        assert!(pid > 0, "fork failed");
+        assert!(wait_ok(pid), "the child saw an old generation");
+        assert_eq!(fork_generation_now(), parent);
     }
 
     /// Child side of `forks_never_hang`: one thread makes calls and new

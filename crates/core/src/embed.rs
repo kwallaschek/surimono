@@ -41,7 +41,9 @@
 
 use std::ffi::{CStr, CString};
 use std::ops::Deref;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
+
+use crate::fork_safe::ForkSafeCell;
 use std::time::Duration;
 
 use rquickjs::{Ctx, Value, qjs};
@@ -140,28 +142,33 @@ fn compile_stripped(source: &str, filename: &str, limits: Limits) -> Result<Vec<
 /// for what it covers. `None` if the canary could not be compiled (only if
 /// memory ran out), in which case no embedded bytecode is loaded.
 ///
-/// Computed once per process (compiling the canary takes about a
-/// millisecond).
+/// Computed once (compiling the canary takes about a millisecond) and kept
+/// by forked children. A fork while another thread computes it can't leave
+/// it locked in the child.
 pub fn engine_fingerprint() -> Option<&'static [u8]> {
-    static FINGERPRINT: OnceLock<Option<Vec<u8>>> = OnceLock::new();
+    static FINGERPRINT: ForkSafeCell<Option<Vec<u8>>> = ForkSafeCell::shared();
     FINGERPRINT
-        .get_or_init(|| {
-            let canary = compile_stripped(CANARY, "surimono:canary", Limits::default()).ok()?;
-            let mut fp = FINGERPRINT_HEADER.to_vec();
-            fp.extend_from_slice(engine_version().to_bytes_with_nul());
-            fp.extend_from_slice(&crate::engine::patch_level().to_le_bytes());
-            fp.extend_from_slice(ENGINE_SOURCES_SHA256.as_bytes());
-            fp.push(0);
-            fp.push(std::mem::size_of::<usize>() as u8);
-            fp.push(if cfg!(target_endian = "little") {
-                b'l'
-            } else {
-                b'b'
-            });
-            fp.extend_from_slice(&canary);
-            Some(fp)
-        })
+        .get_or_try_init(|| Ok::<_, ()>(fingerprint_now()), |_| ())
+        .ok()?
         .as_deref()
+}
+
+/// Computes [`engine_fingerprint`].
+fn fingerprint_now() -> Option<Vec<u8>> {
+    let canary = compile_stripped(CANARY, "surimono:canary", Limits::default()).ok()?;
+    let mut fp = FINGERPRINT_HEADER.to_vec();
+    fp.extend_from_slice(engine_version().to_bytes_with_nul());
+    fp.extend_from_slice(&crate::engine::patch_level().to_le_bytes());
+    fp.extend_from_slice(ENGINE_SOURCES_SHA256.as_bytes());
+    fp.push(0);
+    fp.push(std::mem::size_of::<usize>() as u8);
+    fp.push(if cfg!(target_endian = "little") {
+        b'l'
+    } else {
+        b'b'
+    });
+    fp.extend_from_slice(&canary);
+    Some(fp)
 }
 
 /// QuickJS's version string, e.g. `0.16.2`.

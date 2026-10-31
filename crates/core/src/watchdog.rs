@@ -15,9 +15,9 @@
 //!
 //! A forked child inherits no threads, and possibly a lock some thread
 //! held at the fork. So the registry lives in a lock-free
-//! [`ForkSafeCell`]: a process whose id differs from the registry's starts
-//! a fresh registry and thread, and never touches its parent's registry or
-//! that registry's lock. No lock is shared between a call's thread and the
+//! [`ForkSafeCell`]: a process whose fork generation differs from the
+//! registry's starts a fresh registry and thread, and never touches its
+//! parent's registry or that registry's lock. No lock is shared between a call's thread and the
 //! watchdog except the registry's own map lock, which belongs to one
 //! process (see [`LimitState`] for how a call and the watchdog agree
 //! without one).
@@ -39,7 +39,8 @@ pub(crate) type TimerKey = (Instant, u64);
 /// The timers of one process and the thread that fires them.
 #[derive(Debug)]
 pub(crate) struct Registry {
-    pid: u32,
+    /// Fork generation of the process this registry's thread runs in.
+    generation: u64,
     /// The next call's sequence number; never 0, and stays below 2^63.
     next_seq: AtomicU64,
     inner: Mutex<BTreeMap<TimerKey, Weak<LimitState>>>,
@@ -59,8 +60,8 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 /// again in a forked child). Lock-free once started.
 pub(crate) fn registry() -> Result<&'static Registry, SandboxError> {
     CURRENT
-        .get_or_try_init(start, || SandboxError::Engine {
-            message: "could not start the sandbox's watchdog thread: too many nested forks".into(),
+        .get_or_try_init(start, |why| SandboxError::Engine {
+            message: format!("could not start the sandbox's watchdog thread: {why}"),
         })
         .map(|r| &**r)
 }
@@ -72,7 +73,7 @@ pub(crate) fn current() -> Option<&'static Registry> {
 
 fn start() -> Result<Arc<Registry>, SandboxError> {
     let r = Arc::new(Registry {
-        pid: std::process::id(),
+        generation: crate::engine::fork_generation()?,
         next_seq: AtomicU64::new(1),
         inner: Mutex::new(BTreeMap::new()),
         wake: Condvar::new(),
@@ -89,9 +90,10 @@ fn start() -> Result<Arc<Registry>, SandboxError> {
 }
 
 impl Registry {
-    /// The id of the process this registry (and its thread) belongs to.
-    pub(crate) fn pid(&self) -> u32 {
-        self.pid
+    /// The fork generation of the process this registry (and its thread)
+    /// belongs to.
+    pub(crate) fn generation(&self) -> u64 {
+        self.generation
     }
 
     /// A sequence number for a new call, unique in this process.

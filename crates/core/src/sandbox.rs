@@ -621,10 +621,10 @@ fn new_context(
 fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<()> {
     let bytes = PRELUDE.get_or_try_init(
         || engine::compile_script(ctx, PRELUDE_SOURCE, "surimono:prelude"),
-        || rquickjs::Error::FromJs {
+        |why| rquickjs::Error::FromJs {
             from: "prelude",
             to: "bytecode",
-            message: Some("no slot left to cache the prelude".into()),
+            message: Some(format!("could not cache the prelude: {why}")),
         },
     )?;
     let prelude: Function<'_> =
