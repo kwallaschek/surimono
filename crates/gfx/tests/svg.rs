@@ -5,6 +5,9 @@
 
 mod common;
 
+use blitz_dom::{BaseDocument, DocumentConfig, FontContext};
+use blitz_html::HtmlDocument;
+use parley::fontique::{Collection, CollectionOptions, SourceCache};
 use roxmltree::{Document, Node};
 use surimono_gfx::{FontSet, GenericFamily, GfxError, TextMeasurer, sanitize_svg};
 
@@ -13,7 +16,7 @@ const VEGA: &str = include_str!("data/svg/vega-lite-5.23.0-bar.svg");
 const STACK: &str = "'Noto Sans', 'Noto Sans JP'";
 
 #[test]
-fn echarts_output_changes_only_ids_fonts_and_cdata() {
+fn echarts_output_changes_only_ids_fonts_and_style() {
     let fonts = common::test_fonts();
     let out = sanitize_svg(ECHARTS, 2, &fonts).unwrap();
     Document::parse(&out).expect("output is well-formed XML");
@@ -23,16 +26,14 @@ fn echarts_output_changes_only_ids_fonts_and_cdata() {
     assert!(out.contains(r#"clip-path="url(#sm2-zr0-c0)""#));
     assert!(out.contains(&format!("font-family:{STACK};")));
     assert!(!out.contains("sans-serif"));
-    assert!(!out.contains("CDATA"));
+    assert!(!out.contains("<style"));
 
     // Undo exactly those rewrites: what is left must equal the input byte
-    // for byte (ECharts's input has no XML prolog to drop).
+    // for byte without its <style> (hover rules only; no XML prolog).
     let undone = out.replace("sm2-", "").replace(STACK, "sans-serif");
-    let expected = ECHARTS
-        .trim_end()
-        .replace("<![CDATA[", "")
-        .replace("]]>", "");
-    assert_eq!(undone, expected);
+    let style = ECHARTS.find("<style").unwrap()..ECHARTS.find("</style>").unwrap() + 8;
+    let expected = format!("{}{}", &ECHARTS[..style.start], &ECHARTS[style.end..]);
+    assert_eq!(undone, expected.trim_end());
 }
 
 #[test]
@@ -96,13 +97,13 @@ fn rewritten_families_measure_like_the_original() {
 }
 
 #[test]
-fn font_shorthand_and_style_sheets() {
+fn font_shorthand_in_style_attributes() {
     let fonts = common::test_fonts();
-    let svg = r#"<svg xmlns="http://www.w3.org/2000/svg"><style>text{font:bold 12px/1.2 Arial !important} .t{font-family:monospace}</style><text style='font: italic 10px serif; fill: red'>a</text></svg>"#;
+    let svg = r#"<svg xmlns="http://www.w3.org/2000/svg"><text style='font: italic 10px serif; fill: red'>a</text><text style="font:bold 12px/1.2 Arial !important;font-family:monospace">b</text></svg>"#;
     let out = sanitize_svg(svg, 0, &fonts).unwrap();
     assert_eq!(
         out,
-        r#"<svg xmlns="http://www.w3.org/2000/svg"><style>text{font:bold 12px/1.2 "Noto Sans", "Noto Sans JP" !important} .t{font-family:"Noto Sans", "Noto Sans JP"}</style><text style='font: italic 10px "Noto Sans", "Noto Sans JP"; fill: red'>a</text></svg>"#
+        r#"<svg xmlns="http://www.w3.org/2000/svg"><text style='font: italic 10px "Noto Sans", "Noto Sans JP"; fill: red'>a</text><text style="font:bold 12px/1.2 'Noto Sans', 'Noto Sans JP' !important;font-family:'Noto Sans', 'Noto Sans JP'">b</text></svg>"#
     );
 }
 
@@ -180,6 +181,47 @@ const HOSTILE: &[&str] = &[
     r#"<svg><desc><style>.z{}]]&gt;*{background:url(https://evil.example/cd.png)}</style></desc></svg>"#,
     // @font-face reaches system fonts through local().
     r#"<svg><style>@font-face{font-family:x;src:local(Arial)}text{font-family:x}</style><text>a</text></svg>"#,
+    // Second review of #12 (19 cases, Chromium 153). A: CR from `&#13;` is a
+    // newline to CSS and ends a string.
+    r#"<svg width="100" height="100"><foreignObject width="100" height="100"><div xmlns="http://www.w3.org/1999/xhtml" style="x:'&#13;;background:url(https://evil.example/a1.png);y:'">a</div></foreignObject></svg>"#,
+    r#"<svg width="10" height="10" style="x:'&#13;;background:url(https://evil.example/a2.png);y:'"><rect width="10" height="10"/></svg>"#,
+    r#"<svg width="10" height="10" style="x:&quot;&#xD;;background-image:url(https://evil.example/a3.png);y:&quot;"><rect width="10" height="10"/></svg>"#,
+    // G: an unquoted url( is one token; `(` or `/*` inside it neither nests
+    // nor opens a comment.
+    r#"<svg width="10" height="10"><style>@x url(a(b);@import "https://evil.example/g1.css";</style><rect width="10" height="10"/></svg>"#,
+    r#"<svg width="10" height="10"><style>@x url(a(b);svg{background:image-set("https://evil.example/g2.png" 1x)}</style><rect width="10" height="10"/></svg>"#,
+    r#"<svg width="10" height="10"><style>@x url(a(b);@font-face{font-family:Q;src:local(Arial)}</style><text font-family="Q">a</text></svg>"#,
+    r#"<svg width="10" height="10"><style>@x url(/*);@import "https://evil.example/g4.css";/**/</style><rect width="10" height="10"/></svg>"#,
+    r#"<svg width="100" height="100"><foreignObject width="100" height="100"><style xmlns="http://www.w3.org/1999/xhtml">@x url(a(b);@import "https://evil.example/g5.css";</style><div xmlns="http://www.w3.org/1999/xhtml">x</div></foreignObject></svg>"#,
+    // D: presentation attributes load through image-set().
+    r#"<svg width="10" height="10"><rect width="10" height="10" mask="image-set('https://evil.example/d1.png' 1x)"/></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10" mask="-webkit-image-set('https://evil.example/d2.png' 1x)"/></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10" cursor="image-set('https://evil.example/d3.png' 1x), auto"/></svg>"#,
+    // B: a namespaced x:attributeName hid the real one from the sanitiser.
+    r#"<svg xmlns:x="urn:x" width="10" height="10"><image width="10" height="10"><set x:attributeName="opacity" attributeName="href" to="https://evil.example/b1.png"/></image></svg>"#,
+    r#"<svg xmlns:x="urn:x" xmlns:xlink="http://www.w3.org/1999/xlink" width="10" height="10"><image width="10" height="10" xlink:href="data:image/png;base64,AA"><set x:attributeName="opacity" attributeName="xlink:href" to="https://evil.example/b2.png"/></image></svg>"#,
+    r##"<svg xmlns:x="urn:x" width="10" height="10"><filter id="f"><feImage width="10" height="10"><set x:attributeName="opacity" attributeName="href" to="https://evil.example/b3.png"/></feImage></filter><rect width="10" height="10" filter="url(#f)"/></svg>"##,
+    // C: SMIL values with escapes or image-set().
+    r#"<svg width="10" height="10"><rect width="10" height="10"><set attributeName="filter" to="u\72l(https://evil.example/c1.svg#f)"/></rect></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10"><set attributeName="mask" to="u\72l(https://evil.example/c2.svg#m)"/></rect></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10"><set attributeName="fill" to="u\72l(https://evil.example/c3.svg#p)"/></rect></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10"><set attributeName="mask" to="image-set('https://evil.example/c4.png' 1x)"/></rect></svg>"#,
+    // Control: nothing to remove but the id prefix.
+    r##"<svg width="10" height="10"><linearGradient id="g"/><rect width="10" height="10" fill="url(#g)"/></svg>"##,
+    // Other at-rules and loading functions.
+    r#"<svg><style>@namespace x url(https://evil.example/ns);@page{size:1mm}@media print{@import "https://evil.example/m.css";}a{b:src("https://evil.example/s")}</style></svg>"#,
+    r#"<svg><style>a{--x:url(https://evil.example/v.png);background:var(--x)}</style><rect style="--y:url('https://evil.example/w.png')"/></svg>"#,
+];
+
+/// Cases where the attacker's URL may stay in the output, but only as text
+/// inside a CSS string, where it loads nothing (checked in Chrome by
+/// `tests/chrome/svg_inline.mjs`).
+const HOSTILE_INERT_TEXT: &[&str] = &[
+    // XML reads a literal newline in an attribute as a space, HTML keeps it
+    // and CSS ends the string there. The value is written again as XML read
+    // it (one string), so the browser reads it the same way.
+    "<svg width=\"10\" height=\"10\" style=\"x:'\n;background-image:url(https://evil.example/l1.png);y:'\"><rect width=\"10\" height=\"10\"/></svg>",
+    "<svg width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\" style=\"x:&quot;\n;background-image:url(https://evil.example/l2.png);y:&quot;\"/></svg>",
 ];
 
 #[test]
@@ -187,7 +229,19 @@ fn hostile_svg_is_neutralised() {
     let fonts = common::test_fonts();
     let mut rejected = 0;
     let mut cleaned = Vec::new();
-    for input in HOSTILE {
+    for input in HOSTILE_INERT_TEXT {
+        let out = sanitize_svg(input, 0, &fonts).unwrap_or_else(|e| panic!("{input}: {e}"));
+        let doc = Document::parse(&out).unwrap_or_else(|e| panic!("{input} -> {out}: {e}"));
+        check_safe(doc.root_element(), false, input, &out);
+        // What the browser sees in the style attribute is one CSS string.
+        let style = doc
+            .descendants()
+            .find_map(|n| n.attribute("style"))
+            .unwrap_or_else(|| panic!("{input} -> {out}: style kept"));
+        assert!(!style.contains('\n'), "{input} -> {out}");
+        cleaned.push(serde_json::json!({ "input": input, "output": out }));
+    }
+    for input in HOSTILE.iter().chain(BREAKOUTS) {
         let out = match sanitize_svg(input, 0, &fonts) {
             Ok(out) => {
                 cleaned.push(serde_json::json!({ "input": input, "output": out }));
@@ -216,8 +270,9 @@ fn hostile_svg_is_neutralised() {
             assert!(!lower.contains(bad), "{input}\n -> {out}\n contains {bad}");
         }
     }
-    // Only the malformed comment is rejected; everything else is cleaned.
-    assert_eq!(rejected, 1);
+    // Only the malformed comment and the prefixed root are rejected;
+    // everything else is cleaned.
+    assert_eq!(rejected, 2);
     // For tests/chrome/svg_inline.mjs, which inlines these into a page in Chrome.
     let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("hostile-svg.json");
     std::fs::write(&path, serde_json::to_string_pretty(&cleaned).unwrap()).unwrap();
@@ -275,4 +330,197 @@ fn errors_are_typed() {
         err.to_string(),
         "invalid SVG: the root element is <html>, not <svg>"
     );
+}
+
+/// The page `surimono` builds around an island (one `div.surimono-island`
+/// per island), parsed by html5ever through blitz-html, the HTML parser
+/// fulgur uses.
+fn parse_page(svg: &str) -> HtmlDocument {
+    let html = format!(
+        "<!doctype html><html lang=\"en\"><head><title>p</title></head><body class=\"page\">\
+         <p id=\"before\">a</p><div class=\"surimono-island\" id=\"island\">{svg}</div>\
+         <p id=\"after\">b</p><p id=\"total\">c</p></body></html>"
+    );
+    let font_ctx = FontContext {
+        collection: Collection::new(CollectionOptions {
+            system_fonts: false,
+            ..Default::default()
+        }),
+        source_cache: SourceCache::new(Default::default()),
+    };
+    HtmlDocument::from_html(
+        &html,
+        DocumentConfig {
+            font_ctx: Some(font_ctx),
+            ..DocumentConfig::default()
+        },
+    )
+}
+
+fn elements<'a>(doc: &'a BaseDocument, node: &blitz_dom::Node) -> Vec<&'a blitz_dom::Node> {
+    node.children
+        .iter()
+        .filter_map(|&id| doc.get_node(id))
+        .filter(|n| n.is_element())
+        .collect()
+}
+
+fn name(node: &blitz_dom::Node) -> (String, String) {
+    node.element_data()
+        .map(|e| (e.name.ns.to_string(), e.name.local.to_string()))
+        .unwrap_or_default()
+}
+
+fn attrs(node: &blitz_dom::Node) -> Vec<(String, String)> {
+    node.element_data()
+        .map(|e| {
+            e.attrs()
+                .iter()
+                .map(|a| (a.name.local.to_string(), a.value.clone()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Whether an island stays in its own box once inlined: the page around it
+/// keeps its shape and attributes, no `<style>` is anywhere, everything in
+/// the island is SVG, and the root `<svg>` has no box-moving style.
+fn contained(svg: &str) -> Result<(), String> {
+    const HTML_NS: &str = "http://www.w3.org/1999/xhtml";
+    const SVG_NS: &str = "http://www.w3.org/2000/svg";
+    let doc = parse_page(svg);
+    let html = doc.root_element();
+    if attrs(html) != [("lang".to_string(), "en".to_string())] {
+        return Err(format!("html attributes {:?}", attrs(html)));
+    }
+    let body = elements(&doc, html)
+        .into_iter()
+        .find(|n| name(n).1 == "body")
+        .ok_or("no body")?;
+    if attrs(body) != [("class".to_string(), "page".to_string())] {
+        return Err(format!("body attributes {:?}", attrs(body)));
+    }
+    let kids: Vec<(String, String)> = elements(&doc, body)
+        .iter()
+        .map(|n| {
+            let id = attrs(n)
+                .into_iter()
+                .find(|(k, _)| k == "id")
+                .map(|(_, v)| v);
+            (name(n).1, id.unwrap_or_default())
+        })
+        .collect();
+    let expected = [
+        ("p", "before"),
+        ("div", "island"),
+        ("p", "after"),
+        ("p", "total"),
+    ];
+    if kids.len() != 4
+        || kids
+            .iter()
+            .zip(expected)
+            .any(|((n, i), (en, ei))| n != en || i != ei)
+    {
+        return Err(format!("body children {kids:?}"));
+    }
+    // Nothing anywhere is a <style>.
+    let mut stack = vec![html];
+    while let Some(n) = stack.pop() {
+        if name(n).1.eq_ignore_ascii_case("style") {
+            return Err("a style element".into());
+        }
+        stack.extend(elements(&doc, n));
+    }
+    // Inside the wrapper: one <svg>, and only SVG elements below it.
+    let island = elements(&doc, body)[1];
+    let roots = elements(&doc, island);
+    if roots.len() != 1 || name(roots[0]) != (SVG_NS.into(), "svg".into()) {
+        return Err(format!(
+            "island holds {:?}",
+            roots.iter().map(|n| name(n)).collect::<Vec<_>>()
+        ));
+    }
+    let style = attrs(roots[0])
+        .into_iter()
+        .find(|(k, _)| k == "style")
+        .map(|(_, v)| v.to_ascii_lowercase())
+        .unwrap_or_default();
+    for bad in [
+        "position",
+        "transform",
+        "z-index",
+        "float",
+        "display",
+        "visibility",
+        "overflow",
+        "margin",
+    ] {
+        if style.contains(bad) {
+            return Err(format!("root style has {bad}: {style}"));
+        }
+    }
+    let mut stack = roots;
+    while let Some(n) = stack.pop() {
+        let (ns, local) = name(n);
+        if ns != SVG_NS {
+            return Err(format!(
+                "<{local}> in {ns}{}",
+                if ns == HTML_NS { " (HTML)" } else { "" }
+            ));
+        }
+        stack.extend(elements(&doc, n));
+    }
+    Ok(())
+}
+
+/// Islands that reached the page around them (review of #25, with a
+/// spec-following HTML5 parser). Each breaks containment raw, none does
+/// sanitized.
+const BREAKOUTS: &[&str] = &[
+    // Page-wide CSS from a hostile ECharts value (an emphasis colour).
+    "<svg width=\"10\" height=\"10\"><rect class=\"zr0-cls-1\"/><style><![CDATA[.zr0-cls-1:hover{fill:red;}body{display:none} #total{visibility:hidden}]]></style></svg>",
+    // desc and title read their children as HTML: these swallow the page.
+    "<svg width=\"10\" height=\"10\"><desc><textarea/></desc><rect/></svg>",
+    "<svg width=\"10\" height=\"10\"><title><select/></title><rect/></svg>",
+    "<svg width=\"10\" height=\"10\"><desc><plaintext/></desc></svg>",
+    // A self-closing XHTML div moves the page after the island into it.
+    "<svg width=\"10\" height=\"10\"><foreignObject width=\"10\" height=\"10\"><div xmlns=\"http://www.w3.org/1999/xhtml\"/></foreignObject></svg>",
+    // <body>/<html> add their attributes to the page's own.
+    "<svg width=\"10\" height=\"10\"><foreignObject><body xmlns=\"http://www.w3.org/1999/xhtml\" dir=\"rtl\" style=\"display:none\"/></foreignObject></svg>",
+    "<svg width=\"10\" height=\"10\"><desc><html dir=\"rtl\"><body style=\"display:none\"/></html></desc></svg>",
+    // The root svg over every printed page.
+    "<svg width=\"10\" height=\"10\" style=\"position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999\"><rect/></svg>",
+    // Links and forms in foreignObject.
+    "<svg width=\"10\" height=\"10\"><foreignObject width=\"10\" height=\"10\"><form xmlns=\"http://www.w3.org/1999/xhtml\" action=\"https://evil.example/\"><input name=\"q\"/></form><a xmlns=\"http://www.w3.org/1999/xhtml\" href=\"https://evil.example/\">x</a></foreignObject></svg>",
+    // A prefixed root is an unknown HTML element: its children are HTML.
+    "<svg:svg xmlns:svg=\"http://www.w3.org/2000/svg\" xmlns=\"http://www.w3.org/2000/svg\"><textarea/></svg:svg>",
+];
+
+#[test]
+fn islands_stay_in_their_box() {
+    let fonts = common::test_fonts();
+    // Control: the parser and the check see each raw breakout.
+    for input in BREAKOUTS {
+        assert!(
+            contained(input).is_err(),
+            "raw input stays contained: {input}"
+        );
+    }
+    let all = BREAKOUTS
+        .iter()
+        .chain(HOSTILE)
+        .chain(HOSTILE_INERT_TEXT)
+        .chain([&ECHARTS, &VEGA]);
+    for input in all {
+        match sanitize_svg(input, 0, &fonts) {
+            Ok(out) => {
+                if let Err(e) = contained(&out) {
+                    panic!("{input}\n -> {out}\n breaks out: {e}");
+                }
+            }
+            Err(GfxError::InvalidSvg { .. }) => {}
+            Err(e) => panic!("{input}: unexpected {e}"),
+        }
+    }
 }
