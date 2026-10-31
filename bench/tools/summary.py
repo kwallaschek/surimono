@@ -94,7 +94,9 @@ def comparison_cells(g: dict, s: dict, meth: dict, reference_point: bool) -> lis
         verdict(cold_t, target_speed, [_n(g, "cold_ms"), _n(s, "cold_ms")], time_wanted),
         verdict(warm_t, target_speed, [_n(g, "warm_ms"), _n(s, "warm_ms")], time_wanted),
         verdict(cold_m, target_mem, [_n(g, "cold_peak_pss_mb"), _n(s, "cold_peak_pss_mb")], mem_runs, cold_complete, cold_m_rss),
-        verdict(warm_m, target_mem, [], 1, warm_complete, warm_m_rss),
+        # Warm memory is one process's peak: it needs the same number of timed
+        # renders as the timed runs, or a short run's lower peak would count.
+        verdict(warm_m, target_mem, [g.get("warm_memory_renders"), s.get("warm_memory_renders")], time_wanted, warm_complete, warm_m_rss),
     ]
     return cells
 
@@ -192,7 +194,7 @@ def write_summary(info: dict, final: bool = True) -> str:
     add(
         "Memory is judged on PSS, which counts each shared page once. Summed RSS (in brackets) counts the code Chrome's processes share once per "
         "process, which inflates Grover's multi-process number; it is shown because it is the usual \"RSS of the process tree\" number, "
-        "not because it is the fair one. Grover (chrome-headless-shell) is the leanest Chrome a Grover user can run; a memory claim should hold "
+        "not because it is the fair one. Grover (chrome-headless-shell) is the leanest and fastest Chrome a Grover user can run; a speed or memory claim should hold "
         "against it too, or say that it doesn't."
     )
     add("")
@@ -336,5 +338,8 @@ def write_summary(info: dict, final: bool = True) -> str:
         "marks the run's memory incomplete instead of counting as zero. `results.json` also has the largest single process."
     )
     add("- **Fonts**: every process gets a fontconfig file that only knows `fixtures/fonts`, so both engines see the same fonts and no system font.")
+    pool = meth.get("surimono_pool_size")
+    if pool:
+        add(f"- **surimono's runtime pool**: {pool['size']} runtime{'s' if pool['size'] != 1 else ''} ({pool['setting']}{', ' + str(pool['cpus']) + ' CPUs here' if 'cpus' in pool else ''}). Each pooled runtime keeps its own QuickJS heap, so the pool size shows in peak memory.")
     add("")
     return "\n".join(lines) + "\n"

@@ -1786,6 +1786,8 @@ dependencies = [
 name = "surimono"
 version = "0.0.0"
 dependencies = [
+ "blitz-dom",
+ "blitz-html",
  "lol_html",
  "serde",
  "serde_json",
@@ -1825,6 +1827,8 @@ dependencies = [
 name = "surimono-gfx"
 version = "0.0.0"
 dependencies = [
+ "blitz-dom",
+ "blitz-html",
  "parley",
  "roxmltree",
  "serde",

@@ -109,3 +109,4 @@ checkpoint and can overturn anything. Newest last.
 - 2026-10-31 · The real-world suite pins each library by npm tarball, sha512 integrity and sha256 of the exact bundle file · One manifest that the harness and crates/islands are checked against.
 - 2026-10-31 · Comparisons also need colour (16/255 on solid areas), hue (8° on strokes) and text checks to pass · Near-match alone is colour-blind; calibrated.
 - 2026-10-31 · The real-world manifest records both the npm dist file (Chrome) and the build crates/islands embeds · They are different files of the same package.
+- 2026-10-31 · A recorded embedded bundle that's missing or changed fails fixtures/real-world/verify.py; a PR that rebuilds a bundle merges together with the manifest hash update · Drift between the manifest and what ships must never pass silently.

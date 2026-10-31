@@ -10,7 +10,7 @@
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -45,13 +45,29 @@ Options:
                            in your fonts, so any PDF engine prints what was
                            measured; keep: leave <text> (needs an engine that
                            sets inline SVG text in your fonts)
+  --bundle <name>=<file>   Add a renderer from your own JavaScript bundle: a
+                           script defining a global function entry(specJson,
+                           ctx) that returns SVG. Islands use it with
+                           data-renderer=\"<name>\". Repeat it for more.
+  --bundle <name>:<fn>=<file>
+                           The same, calling the global function <fn>
+  --renderers <a,b,...>    Enable only these renderers (built-in or bundles;
+                           default: all)
+  --max-islands <n>        Most islands one document may have (default 1000)
+  --pool-size <n>          JavaScript runtimes kept (default: CPUs, at most 4)
+
+  The output file is written only after the render succeeded, through a
+  temporary file renamed into place, so it is either complete or untouched.
 
 Exit codes:
   0  success
-  1  an island failed: invalid marker, unknown renderer, script error, unusable SVG
+  1  an island failed (invalid marker, unknown renderer, script error, unusable
+     SVG), the document has more islands than --max-islands, or the document
+     couldn't be rewritten
   2  usage error: unknown option or bad value
   3  a script hit a limit (memory, time or stack)
-  4  invalid configuration: no font, a font that can't be used, limits out of range
+  4  invalid configuration: no font, a font or bundle that can't be used, limits
+     out of range
   5  a file couldn't be read or written
 ";
 
@@ -103,6 +119,14 @@ impl Failure {
     }
 }
 
+/// A `--bundle` argument: renderer name, entry function, script file.
+#[derive(Debug, PartialEq, Eq)]
+struct BundleArg {
+    name: String,
+    entry: String,
+    path: PathBuf,
+}
+
 /// The parsed `render` command.
 #[derive(Debug, Default)]
 struct RenderArgs {
@@ -115,6 +139,10 @@ struct RenderArgs {
     utc_offset_minutes: i32,
     policy: ErrorPolicy,
     text: TextMode,
+    bundles: Vec<BundleArg>,
+    renderers: Option<Vec<String>>,
+    max_islands: Option<usize>,
+    pool_size: Option<usize>,
 }
 
 enum Command {
@@ -208,6 +236,24 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
                     }
                 }
             }
+            "--bundle" => r.bundles.push(bundle_arg(&value()?)?),
+            "--renderers" => {
+                let list = value()?;
+                let names: Vec<String> = list
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|n| !n.is_empty())
+                    .map(str::to_owned)
+                    .collect();
+                if names.is_empty() {
+                    return Err(Failure::usage(
+                        "--renderers needs at least one name, e.g. --renderers echarts,mine",
+                    ));
+                }
+                r.renderers = Some(names);
+            }
+            "--max-islands" => r.max_islands = Some(number(&flag, &value()?)?),
+            "--pool-size" => r.pool_size = Some(number(&flag, &value()?)?),
             other => return Err(Failure::usage(format!("unknown option {other:?}"))),
         }
     }
@@ -217,6 +263,26 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
         ));
     }
     Ok(Command::Render(Box::new(r)))
+}
+
+/// `<name>=<file>` or `<name>:<entry>=<file>`.
+fn bundle_arg(value: &str) -> Result<BundleArg, Failure> {
+    let Some((head, path)) = value.split_once('=') else {
+        return Err(Failure::usage(format!(
+            "--bundle needs <name>=<file> or <name>:<function>=<file>, got {value:?}"
+        )));
+    };
+    let (name, entry) = head.split_once(':').unwrap_or((head, "entry"));
+    if name.is_empty() || entry.is_empty() || path.is_empty() {
+        return Err(Failure::usage(format!(
+            "--bundle needs <name>=<file> or <name>:<function>=<file>, got {value:?}"
+        )));
+    }
+    Ok(BundleArg {
+        name: name.to_owned(),
+        entry: entry.to_owned(),
+        path: PathBuf::from(path),
+    })
 }
 
 fn number<T: std::str::FromStr>(flag: &str, value: &str) -> Result<T, Failure> {
@@ -244,6 +310,20 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
         let bytes = fs::read(path).map_err(|e| Failure::io(&path.display().to_string(), &e))?;
         options = options.font(bytes);
     }
+    for b in &args.bundles {
+        let source = fs::read_to_string(&b.path)
+            .map_err(|e| Failure::io(&b.path.display().to_string(), &e))?;
+        options = options.bundle(&b.name, source, &b.entry);
+    }
+    if let Some(names) = &args.renderers {
+        options = options.renderers(names);
+    }
+    if let Some(max) = args.max_islands {
+        options = options.max_islands(max);
+    }
+    if let Some(size) = args.pool_size {
+        options = options.pool_size(size);
+    }
     let input = match args.input.as_deref() {
         None | Some("-") => {
             let mut s = String::new();
@@ -266,8 +346,47 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
                 .and_then(|()| out.flush())
                 .map_err(|e| Failure::io("standard output", &e))
         }
-        Some(path) => fs::write(path, output).map_err(|e| Failure::io(path, &e)),
+        Some(path) => {
+            write_atomically(Path::new(path), output.as_bytes()).map_err(|e| Failure::io(path, &e))
+        }
     }
+}
+
+/// Writes `bytes` to `path` through a temporary file in the same directory,
+/// synced and then renamed over `path`, so `path` ends up either complete or
+/// as it was (a full disk or a quota leaves no truncated file). The
+/// temporary file is removed on any failure.
+fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let dir = match path.parent() {
+        Some(d) if !d.as_os_str().is_empty() => d,
+        _ => Path::new("."),
+    };
+    let name = path
+        .file_name()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "not a file name"))?;
+    let mut attempt = 0u32;
+    let (tmp, mut file) = loop {
+        let mut tmp_name = OsString::from(".");
+        tmp_name.push(name);
+        tmp_name.push(format!(".surimono-{}-{attempt}.tmp", std::process::id()));
+        let tmp = dir.join(tmp_name);
+        match fs::File::create_new(&tmp) {
+            Ok(f) => break (tmp, f),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists && attempt < 100 => attempt += 1,
+            Err(e) => return Err(e),
+        }
+    };
+    let written = file
+        .write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .and_then(|()| {
+            drop(file);
+            fs::rename(&tmp, path)
+        });
+    if written.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    written
 }
 
 fn main() -> ExitCode {
@@ -332,6 +451,14 @@ mod tests {
             "placeholder",
             "--text",
             "keep",
+            "--bundle",
+            "mine=a.js",
+            "--bundle=other:draw=b/c.js",
+            "--renderers",
+            "echarts, mine",
+            "--max-islands",
+            "20",
+            "--pool-size=2",
         ]);
         assert_eq!(r.input.as_deref(), Some("in.html"));
         assert_eq!(r.output.as_deref(), Some("out.html"));
@@ -345,6 +472,26 @@ mod tests {
         assert_eq!((r.seed, r.now_ms, r.utc_offset_minutes), (7, Some(-5), 540));
         assert_eq!(r.policy, ErrorPolicy::Placeholder);
         assert_eq!(r.text, TextMode::Keep);
+        assert_eq!(
+            r.bundles,
+            vec![
+                BundleArg {
+                    name: "mine".into(),
+                    entry: "entry".into(),
+                    path: PathBuf::from("a.js")
+                },
+                BundleArg {
+                    name: "other".into(),
+                    entry: "draw".into(),
+                    path: PathBuf::from("b/c.js")
+                },
+            ]
+        );
+        assert_eq!(
+            r.renderers,
+            Some(vec!["echarts".to_owned(), "mine".to_owned()])
+        );
+        assert_eq!((r.max_islands, r.pool_size), (Some(20), Some(2)));
     }
 
     #[test]
@@ -372,6 +519,13 @@ mod tests {
             &["render", "a", "--error-policy", "ignore"],
             &["render", "a", "--colour"],
             &["render", "a", "--text", "pixels"],
+            &["render", "a", "--bundle", "mine"],
+            &["render", "a", "--bundle", "=a.js"],
+            &["render", "a", "--bundle", "mine:=a.js"],
+            &["render", "a", "--bundle", "mine="],
+            &["render", "a", "--renderers", ","],
+            &["render", "a", "--max-islands", "many"],
+            &["render", "a", "--pool-size", "-2"],
         ] {
             match parse(args(bad)) {
                 Err(f) => assert_eq!(f.exit, Exit::Usage, "{bad:?}"),
@@ -391,10 +545,42 @@ mod tests {
             (Error::MemoryLimit { island: island() }, Exit::Limit),
             (Error::InvalidOptions("x".into()), Exit::Config),
             (Error::Html("x".into()), Exit::Island),
+            (Error::TooManyIslands { max: 3 }, Exit::Island),
+            (
+                Error::Bundle {
+                    name: "b".into(),
+                    message: "x".into(),
+                },
+                Exit::Config,
+            ),
         ];
         for (e, exit) in cases {
             assert_eq!(Failure::from_error(&e).exit, exit, "{e}");
         }
+    }
+
+    #[test]
+    fn atomic_write_replaces_or_leaves_alone() {
+        let dir = std::env::temp_dir().join(format!("surimono-cli-unit-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("{e}"));
+        let out = dir.join("out.html");
+        fs::write(&out, "old").unwrap_or_else(|e| panic!("{e}"));
+        write_atomically(&out, b"new").unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(fs::read_to_string(&out).ok().as_deref(), Some("new"));
+        // A target that can't be replaced (a directory) fails, leaves it as it
+        // was and leaves no temporary file behind.
+        let blocked = dir.join("blocked");
+        fs::create_dir_all(blocked.join("inside")).unwrap_or_else(|e| panic!("{e}"));
+        assert!(write_atomically(&blocked, b"x").is_err());
+        assert!(blocked.join("inside").is_dir());
+        let left: Vec<_> = fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("{e}"))
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".tmp"))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     /// An IslandRef from a real failed render, since it can't be built outside the facade.
