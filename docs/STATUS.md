@@ -7,7 +7,7 @@ Updated after every task. Times are JST.
 > resume and `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat is under
 > 3 hours old: change nothing more, stop your subagents, end the session.
 
-## Now (Sat 31 Oct 2026, 17:05)
+## Now (Sat 31 Oct 2026, 23:05)
 
 **Phase 1: islands.** On main: fonts, CI, pre-pass, facade (stand-in backend),
 fixture pipeline, sandbox with determinism fixes, island runner, pool, soak, ECharts,
@@ -16,7 +16,7 @@ measurer in islands (#30), the COMPAT generator (#28), hostile follow-ups (#42),
 font weight/style check (#43), gem staging of the vendored engine (#33), islands follow-ups (#39), the Vega bundle hash (#46) and CI hardening with the final YAML proposal for Kay (#44).
 
 The fleet stopped three times on the account's 5-hour usage limit (03:20 to 06:17,
-about 09:40 to 11:10, about 14:00 to 16:35). At 16:16 a scheduled resume started a
+about 09:40 to 11:10, about 14:00 to 16:35, about 18:00 to 23:03). At 16:16 a scheduled resume started a
 second orchestrator while this one was paused; both ran reviewers. One session at a
 time is now enforced by `scripts/fleet/owner-check.sh`.
 
