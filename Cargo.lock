@@ -1793,6 +1793,8 @@ dependencies = [
 name = "surimono"
 version = "0.0.0"
 dependencies = [
+ "blitz-dom",
+ "blitz-html",
  "lol_html",
  "serde",
  "serde_json",
