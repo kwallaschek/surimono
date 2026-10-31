@@ -36,6 +36,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-14 · RT · doing · Deadline enforcement: watchdog flag checked on every poll; expensive natives poll (indexOf, BigInt cap); flaky core tests; F2/F3 (v0.1 release blockers R4, R5)
 - P1-RT-15 · RT · doing · Allocation-failure crash fixes in the vendored engine; full-coverage OOM sweep; docs stop over-claiming (v0.1 release blockers R6, R7, R8; details private)
 - P1-RT-13 · RT · todo · (folded into P1-RT-14) Core (after #8/#32 merge): lower QuickJS's interrupt-check interval in the vendored engine so expensive built-ins in a loop (e.g. indexOf on a 4 MiB string: TimeLimit after 155 s at a 300 ms limit) end near the limit, with an upstream draft and a hostile case; test robustness: heap_returns_to_baseline_after_reset fails under nightly ASan (TimeLimit; give it a generous limit or relax under sanitizers); time_limit_is_per_call flaky under load; plus #8/#32 review follow-ups
+- P1-RT-16 · RT · doing · Memory: measure and cut surimono's PSS overhead over fulgur (pool growth on demand, idle runtime release, shared bytecode, stacks)
+- P1-RT-17 · RT · doing · Cold start: built-in bundles shipped as precompiled, version-checked QuickJS bytecode
 - P1-RT-11 · RT · review · Rust harness running fixtures/hostile/manifest.toml against the sandbox and the island runner
 
 ### Graphics engineer (crates/gfx)
@@ -53,7 +55,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-05 · CF · review · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
 - P1-CF-06 · CF · review · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
 - P1-CF-08 · CF · review · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
-- P1-CF-09 · CF · todo · Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
+- P1-CF-09 · CF · review · (#35) Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
+- P1-CF-04b · CF · review · (#36) Hostile follow-ups: real dynamic-import target, narrowed re-entry cases, hostile-chrome.mjs
 - P1-CF-07 · CF · review · COMPAT.md generated from test results
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)

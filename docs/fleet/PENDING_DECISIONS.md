@@ -67,6 +67,7 @@ TODO: upstream drafts for 5 fulgur 0.40 gaps from COMPAT.md (#17); RT task: Rust
 - 2026-10-31 · The real-world manifest records both the npm dist file (Chrome) and the build crates/islands embeds · They are different files of the same package.
 
 ## Open for checkpoint 2 (Kay)
+- First real benchmark (CI, before #25 merged, branch release/ci-check-p1-cf-06-pkg08): surimono+fulgur Ruby cold 1,352 ms / warm 686 ms vs Grover 2,153 / 1,581 → 1.6× cold (not met), 2.3× warm (met); PSS 154/179 MB vs 582/704 → 3.8×/3.9× (10× not met; fulgur alone is only 9.4×/8.6×). Grover on chrome-headless-shell is a second baseline (376/496 MB). P1-RT-16 (memory) and P1-RT-17 (precompiled bytecode for cold start) are trying to close the gap.
 - 10× memory target: fulgur alone already ~85 MB PSS vs Grover 580 MB (6.8×); on summed RSS 13.7×. Which measure does SPEC mean? Report honestly.
 - MSRV: fulgur 0.40 needs rustc 1.89 (krilla 0.7); Rust users pairing surimono with the fulgur crate can't use 1.87 anyway. Plan: raise MSRV to 1.89 at the start of phase 2 (one planned task, full rebuild), not mid-checkpoint.
 - Vega speed: scatter 2,000 pts ~1.2 s under load vs 2 s default limit.
