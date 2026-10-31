@@ -236,6 +236,26 @@ class CompatTest(unittest.TestCase):
         self.assertIn("island-2", str(e.exception))
         self.assertIn("1 island", str(e.exception))
 
+    def test_island_numbers_have_one_spelling(self):
+        # Review of #28: a failing "island 01" next to a passing "island 1"
+        # must not vanish. Leading zeros and non-ASCII digits are refused.
+        for subject in ("echarts-a island 01 (printed by chrome)", "echarts-a island \u0660 (printed by chrome)", "echarts-a island +0 (printed by chrome)"):
+            s = score(subject, False, ["shape"], worst=0.5)
+            s["_file"] = "run-a/score.json"
+            with self.assertRaises(compat.CompatError, msg=subject):
+                compat.fixtures_section([s, score("echarts-a island 0 (printed by chrome)", True)], compat.fixture_meta())
+
+    def test_pass_is_derived_not_trusted(self):
+        s = score("x island 0 (printed by chrome)", True)
+        s["text"] = {"pass": False, "missing": ["Jan"], "extra": []}
+        self.assertEqual(compat.cell(s), "**FAIL** (text: 1 missing)")
+        t = score("x island 0 (printed by chrome)", True)
+        t["pass"] = "false"
+        self.assertTrue(compat.cell(t).startswith("**FAIL**"), compat.cell(t))
+        u = score("x island 0 (printed by chrome)", True)
+        u["pages"][0]["pass"] = False
+        self.assertTrue(compat.cell(u).startswith("**FAIL**"), compat.cell(u))
+
     def test_baseline_scores_never_land_in_surimonos_columns(self):
         for subject in ("echarts-a island 0", "echarts-a page", "echarts-a island 0 (printed by firefox)"):
             s = score(subject, True)
