@@ -8,10 +8,11 @@ use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex, PoisonError, RwLock, TryLockError};
 use std::thread::{self, JoinHandle};
 
-use surimono_core::rquickjs::function::Opt;
+use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
-use surimono_core::{Bytecode, Limits, Sandbox, SandboxOptions};
+use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxOptions};
 
+use crate::measure::{Measure, MeasureError};
 use crate::{IslandError, TextMeasurer, builtins};
 
 /// How an [`IslandRunner`] is set up.
@@ -26,8 +27,11 @@ pub struct RunnerOptions {
     pub pool_size: usize,
     /// Seed for `Math.random`; every render starts the same sequence.
     pub seed: u64,
-    /// Answers `ctx.measureText` for renderers.
-    pub text_measurer: TextMeasurer,
+    /// Answers `ctx.measureText` for renderers: `TextMeasurer::new(fonts)`
+    /// with the fonts the PDF engine prints with. Without it (or with no
+    /// fonts in it), a render that measures text fails with
+    /// [`IslandError::NoFonts`]; the built-in renderers always measure.
+    pub text_measurer: Option<TextMeasurer>,
     /// What `Date.now()` returns in renderers, in ms since the Unix epoch.
     pub now_ms: i64,
     /// Local time's offset from UTC in minutes, for date formatting.
@@ -67,7 +71,7 @@ impl Default for RunnerOptions {
             limits: sandbox.limits,
             pool_size: 0,
             seed: sandbox.random_seed,
-            text_measurer: TextMeasurer::default(),
+            text_measurer: None,
             now_ms: sandbox.now_ms,
             utc_offset_minutes: sandbox.utc_offset_minutes,
         }
@@ -96,6 +100,9 @@ struct Bundle {
     /// render must then run that microtask in its own call, after the
     /// bundle and before the entry, so it is never preloaded.
     preloadable: AtomicBool,
+    /// For a built-in: the address of its static source, so built-ins
+    /// sharing one bundle share its bytecode.
+    source_id: Option<usize>,
 }
 
 struct RenderJob {
@@ -108,9 +115,16 @@ struct RenderJob {
 
 struct RegisterJob {
     name: String,
-    source: String,
+    code: Code,
     entry: String,
     reply: SyncSender<Result<Bundle, IslandError>>,
+}
+
+/// What a registration compiles, or reuses.
+enum Code {
+    Source(String),
+    /// Bytecode another bundle already compiled from the same source.
+    Compiled(Bytecode),
 }
 
 enum Job {
@@ -121,7 +135,7 @@ enum Job {
 /// What every worker needs.
 struct Shared {
     sandbox_options: SandboxOptions,
-    measurer: TextMeasurer,
+    measure: Measure,
     renders: AtomicU64,
     failed_renders: AtomicU64,
     preloaded_renders: AtomicU64,
@@ -152,7 +166,8 @@ pub struct RunnerStats {
 /// `specJson` is the island's spec as JSON text; `ctx` has `width`, `height`
 /// and `measureText(text, cssFont)`, which returns canvas-style metrics
 /// (`width`, `actualBoundingBoxAscent`, …) from the runner's
-/// [`TextMeasurer`].
+/// [`TextMeasurer`]. If the runner has no fonts, `measureText` throws a
+/// `TypeError` and the render fails with [`IslandError::NoFonts`].
 ///
 /// Bundles are compiled to bytecode once, at registration, and loaded from
 /// bytecode for each render (no re-parsing). Each render runs on one of a
@@ -163,14 +178,21 @@ pub struct RunnerStats {
 /// after sending a reply, off the caller's clock: it starts a fresh runtime
 /// and, if no request is waiting, evaluates the bundle it rendered last, so
 /// a repeated renderer skips that step. (A bundle whose top level queues
-/// microtasks is never preloaded.) The limits apply to each island as a
-/// whole: one time budget covers loading the bundle, if it wasn't
-/// preloaded, the entry call and the microtasks it queues. The result is
-/// the same either way.
+/// microtasks is never preloaded.) A request that arrives while its worker
+/// is preloading waits for the preload to finish. The limits apply to each
+/// island as a whole: one time budget covers loading the bundle, if it
+/// wasn't preloaded, the entry call and the microtasks it queues. The
+/// result is the same either way, but a cold render spends part of its
+/// budget loading the bundle (about 20 ms for ECharts, 70 ms for Vega in a
+/// release build), so set the time limit for the cold case: with a limit
+/// close to a chart's cost, a cold render can hit it where a preloaded one
+/// passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
+/// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
-/// A custom [`TextMeasurer`] runs inside that budget, on the worker
-/// thread, and must return promptly: the time limit can only interrupt
-/// JavaScript, not a measurer that blocks.
+/// Text measurement runs inside that budget, on the worker thread. The
+/// time limit can only interrupt JavaScript, so every `measureText` call
+/// is bounded instead: [`TextMeasurer`] refuses text over
+/// [`surimono_gfx::MAX_TEXT_BYTES`].
 ///
 /// `IslandRunner` is `Send + Sync`: share it between threads (e.g. in an
 /// `Arc`); [`render`](Self::render) blocks the calling thread until a worker
@@ -195,7 +217,25 @@ impl fmt::Debug for IslandRunner {
 
 impl IslandRunner {
     /// Starts the worker pool. No bundles are registered yet.
-    pub fn new(opts: RunnerOptions) -> Result<Self, IslandError> {
+    pub fn new(mut opts: RunnerOptions) -> Result<Self, IslandError> {
+        let measure = Measure::new(opts.text_measurer.take());
+        Self::start(opts, measure)
+    }
+
+    /// **Not public API**, behind the `test-estimate` feature: for
+    /// surimono's own tests and tools. Like [`new`](Self::new), but
+    /// measures text with a deterministic font-free estimate (0.6 em per
+    /// character, 1 em for CJK) instead of fonts, ignoring
+    /// `opts.text_measurer`. Chart labels laid out with it do not fit
+    /// printed text.
+    #[cfg(feature = "test-estimate")]
+    pub fn with_estimated_text_metrics(mut opts: RunnerOptions) -> Result<Self, IslandError> {
+        opts.text_measurer = None;
+        Self::start(opts, Measure::Estimate)
+    }
+
+    /// Starts the worker pool with `measure` answering `ctx.measureText`.
+    fn start(opts: RunnerOptions, measure: Measure) -> Result<Self, IslandError> {
         let sandbox_options = opts.sandbox_options();
         sandbox_options
             .validate()
@@ -216,7 +256,7 @@ impl IslandRunner {
         let stack_size = sandbox_options.limits.stack_bytes + 8 * 1024 * 1024;
         let shared = Arc::new(Shared {
             sandbox_options,
-            measurer: opts.text_measurer,
+            measure,
             renders: AtomicU64::new(0),
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
@@ -262,19 +302,24 @@ impl IslandRunner {
                 message: "bundle name and entry must not be empty".into(),
             });
         }
-        let bundle = self.dispatch(|reply| {
-            Job::Register(RegisterJob {
-                name: name.to_owned(),
-                source: js_source.to_owned(),
-                entry: entry.to_owned(),
-                reply,
-            })
-        })?;
+        let bundle = self.compile_bundle(name, Code::Source(js_source.to_owned()), entry)?;
         self.bundles
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .insert(name.to_owned(), Arc::new(bundle));
         Ok(())
+    }
+
+    /// Compiles (or reuses) `code` on a worker and checks it defines `entry`.
+    fn compile_bundle(&self, name: &str, code: Code, entry: &str) -> Result<Bundle, IslandError> {
+        self.dispatch(|reply| {
+            Job::Register(RegisterJob {
+                name: name.to_owned(),
+                code,
+                entry: entry.to_owned(),
+                reply,
+            })
+        })
     }
 
     /// Renders one island and returns the renderer's SVG string.
@@ -284,11 +329,7 @@ impl IslandRunner {
     /// its name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
         let bundle = self.bundle(req.renderer)?;
-        serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(|e| {
-            IslandError::BadJson {
-                message: e.to_string(),
-            }
-        })?;
+        serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(bad_json)?;
         self.dispatch(|reply| {
             Job::Render(RenderJob {
                 bundle,
@@ -325,10 +366,27 @@ impl IslandRunner {
         if let Some(bundle) = registered(&self.bundles) {
             return Ok(bundle);
         }
-        self.register_bundle(builtin.name, builtin.source, builtin.entry)?;
-        registered(&self.bundles).ok_or_else(|| IslandError::UnknownRenderer {
-            name: name.to_owned(),
-        })
+        // Built-ins that share a source (vega and vega-lite) share its
+        // bytecode: compile it once.
+        let shared = self
+            .bundles
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+            .find(|b| b.source_id == Some(builtin.source.as_ptr() as usize))
+            .map(|b| b.bytecode.clone());
+        let code = match shared {
+            Some(bytecode) => Code::Compiled(bytecode),
+            None => Code::Source(builtin.source.to_owned()),
+        };
+        let mut bundle = self.compile_bundle(builtin.name, code, builtin.entry)?;
+        bundle.source_id = Some(builtin.source.as_ptr() as usize);
+        // A bundle registered under this name while we compiled wins.
+        let mut bundles = self.bundles.write().unwrap_or_else(PoisonError::into_inner);
+        let bundle = bundles
+            .entry(name.to_owned())
+            .or_insert_with(|| Arc::new(bundle));
+        Ok(bundle.clone())
     }
 
     /// Names of the registered renderers, sorted. Built-in renderers are
@@ -554,10 +612,15 @@ impl Worker {
     fn register(&mut self, job: &RegisterJob) -> Result<Bundle, IslandError> {
         self.take_preloaded(None);
         let sb = self.sandbox()?;
-        let bytecode = sb.compile(&job.source, &format!("{}.js", job.name))?;
-        sb.eval_bytecode(&bytecode)?;
+        let bytecode = match &job.code {
+            Code::Source(source) => sb.compile(source, &format!("{}.js", job.name))?,
+            Code::Compiled(bytecode) => bytecode.clone(),
+        };
+        // The entry must exist right after the bundle runs, before any
+        // microtask: that is when a render looks it up.
         let entry = job.entry.clone();
-        let is_function = sb.run(move |ctx| {
+        let is_function = sb.run(|ctx| {
+            bytecode.eval(ctx)?;
             let v: Value<'_> = ctx.globals().get(entry.as_str())?;
             Ok(v.is_function())
         })?;
@@ -572,11 +635,12 @@ impl Worker {
             entry: job.entry.clone(),
             bytecode,
             preloadable: AtomicBool::new(true),
+            source_id: None,
         })
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
-        let measurer = self.shared.measurer.clone();
+        let measurer = self.shared.measure.clone();
         let bundle = &job.bundle;
         // The sandbox is used from here on, so it is no longer pristine.
         let preloaded = self.take_preloaded(Some(bundle));
@@ -586,7 +650,10 @@ impl Worker {
                 .preloaded_renders
                 .fetch_add(1, Ordering::Relaxed);
         }
+        let no_fonts = Arc::new(AtomicBool::new(false));
+        let measure_text = (measurer, no_fonts.clone());
         let sb = self.sandbox()?;
+        let deadline = sb.deadline();
         // One call, so one deadline covers loading the bundle and the
         // render. A preloaded bundle was loaded off the caller's clock with
         // nothing left queued, so starting at the entry is the same script
@@ -600,18 +667,66 @@ impl Worker {
                 let island = Object::new(ctx.clone())?;
                 island.set("width", job.width)?;
                 island.set("height", job.height)?;
-                island.set("measureText", measure_function(ctx, measurer)?)?;
+                let (measurer, no_fonts) = measure_text;
+                island.set(
+                    "measureText",
+                    measure_function(ctx, measurer, no_fonts, deadline)?,
+                )?;
                 entry.call((job.spec_json.as_str(), island))
             },
-            |_, v| match v.as_string() {
-                Some(s) => Ok(Ok(s.to_string()?)),
-                None => Ok(Err(v.type_name().to_owned())),
-            },
-        )?;
-        outcome.map_err(|found| IslandError::NotAString {
+            svg_string,
+        );
+        // Measured without fonts: whatever the script made of the
+        // TypeError (even if it caught it), the layout is wrong.
+        if no_fonts.load(Ordering::Relaxed) {
+            return Err(IslandError::NoFonts {
+                renderer: bundle.name.clone(),
+            });
+        }
+        outcome?.map_err(|found| IslandError::NotAString {
             renderer: bundle.name.clone(),
             found,
         })
+    }
+}
+
+/// A spec that isn't JSON, with the parser's position as numbers.
+fn bad_json(e: serde_json::Error) -> IslandError {
+    // serde_json's Display ends with " at line L column C"; keep only the
+    // message, the position goes in its own fields.
+    let text = e.to_string();
+    let suffix = format!(" at line {} column {}", e.line(), e.column());
+    let message = text.strip_suffix(&suffix).unwrap_or(&text).to_owned();
+    IslandError::BadJson {
+        message,
+        line: e.line(),
+        column: e.column(),
+    }
+}
+
+/// The entry's result as a Rust string, or the JavaScript type it was.
+///
+/// A JavaScript string can hold lone surrogates, which no UTF-8 string
+/// can. Each one becomes U+FFFD, as `String.prototype.toWellFormed` does
+/// and as encoding the page for print would.
+fn svg_string<'js>(ctx: &Ctx<'js>, v: Value<'js>) -> rquickjs::Result<Result<String, String>> {
+    let Some(s) = v.as_string() else {
+        return Ok(Err(v.type_name().to_owned()));
+    };
+    match s.to_string() {
+        Err(rquickjs::Error::Utf8(_)) => {}
+        other => return other.map(Ok),
+    }
+    let to_well_formed: Function<'js> = ctx
+        .globals()
+        .get::<_, Object<'js>>("String")?
+        .get::<_, Object<'js>>("prototype")?
+        .get("toWellFormed")?;
+    let fixed: Value<'js> = to_well_formed.call((This(v),))?;
+    match fixed.as_string().map(|s| s.to_string()) {
+        Some(Ok(s)) => Ok(Ok(s)),
+        // Only a bundle that replaced toWellFormed gets here.
+        _ => Ok(Err("a string that is not valid Unicode".to_owned())),
     }
 }
 
@@ -627,9 +742,16 @@ fn entry_function<'js>(ctx: &Ctx<'js>, name: &str) -> rquickjs::Result<Function<
 }
 
 /// `ctx.measureText(text, cssFont)` for renderers.
+///
+/// Sets `no_fonts` if it was called with no fonts to measure with. Refuses
+/// to measure once the render's time limit has passed: shaping is
+/// expensive, and the engine checks the deadline only every few thousand
+/// operations, so a loop of calls could otherwise run far past the limit.
 fn measure_function<'js>(
     ctx: &Ctx<'js>,
-    measurer: TextMeasurer,
+    measurer: Measure,
+    no_fonts: Arc<AtomicBool>,
+    deadline: Deadline,
 ) -> rquickjs::Result<Function<'js>> {
     Function::new(
         ctx.clone(),
@@ -637,10 +759,24 @@ fn measure_function<'js>(
               text: Coerced<String>,
               font: Opt<Coerced<String>>|
               -> rquickjs::Result<Object<'js>> {
+            if deadline.passed() {
+                // The render now fails with TimeLimit, whatever the script does.
+                return Err(Exception::throw_internal(
+                    &ctx,
+                    "measureText: the time limit has passed",
+                ));
+            }
             let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
-            let m = measurer
-                .measure(&text.0, &font)
-                .map_err(|msg| Exception::throw_type(&ctx, &format!("measureText: {msg}")))?;
+            let m = measurer.measure(&text.0, &font).map_err(|e| {
+                let msg = match e {
+                    MeasureError::NoFonts => {
+                        no_fonts.store(true, Ordering::Relaxed);
+                        "no fonts were given to measure text with".to_owned()
+                    }
+                    MeasureError::Other(msg) => msg,
+                };
+                Exception::throw_type(&ctx, &format!("measureText: {msg}"))
+            })?;
             let o = Object::new(ctx)?;
             o.set("width", m.width)?;
             o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;
@@ -653,4 +789,75 @@ fn measure_function<'js>(
         },
     )?
     .with_name("measureText")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::TextMetrics;
+
+    /// A runner whose measurer panics on "boom", fails on "fail" and
+    /// otherwise reports width 1 per byte.
+    fn runner_with_odd_measurer() -> IslandRunner {
+        let measure = Measure::Custom(Arc::new(|text: &str, _: &str| match text {
+            "boom" => panic!("measurer exploded"),
+            "fail" => Err("no such font".to_owned()),
+            _ => Ok(TextMetrics {
+                width: text.len() as f64,
+                ..TextMetrics::default()
+            }),
+        }));
+        let r = IslandRunner::start(
+            RunnerOptions {
+                pool_size: 1,
+                ..RunnerOptions::default()
+            },
+            measure,
+        )
+        .unwrap();
+        r.register_bundle(
+            "m",
+            "function entry(s, ctx) { return String(ctx.measureText(JSON.parse(s).t).width) }",
+            "entry",
+        )
+        .unwrap();
+        r
+    }
+
+    fn measure(r: &IslandRunner, text: &str) -> Result<String, IslandError> {
+        r.render(&IslandRequest {
+            renderer: "m",
+            spec_json: &format!(r#"{{"t":"{text}"}}"#),
+            width: 1,
+            height: 1,
+        })
+    }
+
+    #[test]
+    fn measurer_errors_become_type_errors() {
+        let r = runner_with_odd_measurer();
+        match measure(&r, "fail").unwrap_err() {
+            IslandError::Sandbox(surimono_core::SandboxError::Exception { message, .. }) => {
+                assert_eq!(message, "TypeError: measureText: no such font")
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn measurer_panics_do_not_kill_the_pool() {
+        let r = runner_with_odd_measurer();
+        assert_eq!(measure(&r, "abc").unwrap(), "3");
+        match measure(&r, "boom").unwrap_err() {
+            IslandError::Worker { message } => {
+                assert!(message.contains("measurer exploded"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(measure(&r, "abcd").unwrap(), "4");
+        let stats = r.stats();
+        assert_eq!((stats.renders, stats.failed_renders), (3, 1));
+    }
 }

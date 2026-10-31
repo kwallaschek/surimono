@@ -1,88 +1,86 @@
 //! Text measurement for renderers, behind `ctx.measureText(text, cssFont)`.
 //!
-//! The real measurer comes from surimono-gfx (the same fonts the PDF engine
-//! prints with). This module defines the shape islands needs and a crude,
-//! deterministic stand-in so the runner works without fonts.
+//! Documents measure with [`surimono_gfx::TextMeasurer`]: the caller's
+//! fonts, shaped as fulgur prints them. A runner without fonts fails any
+//! island that measures text with [`IslandError::NoFonts`](crate::IslandError::NoFonts).
+//! The font-free estimate here is for surimono's own tests and tools only.
 
 use std::fmt;
+#[cfg(test)]
 use std::sync::Arc;
 
-/// Canvas-style text metrics in CSS pixels, as returned to JavaScript by
-/// `ctx.measureText`.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct TextMetrics {
-    /// Advance width.
-    pub width: f64,
-    /// Distance from the alignment point to the left of the ink.
-    pub actual_bounding_box_left: f64,
-    /// Distance from the alignment point to the right of the ink.
-    pub actual_bounding_box_right: f64,
-    /// Distance from the baseline to the top of the ink.
-    pub actual_bounding_box_ascent: f64,
-    /// Distance from the baseline to the bottom of the ink.
-    pub actual_bounding_box_descent: f64,
-    /// The font's ascent.
-    pub font_bounding_box_ascent: f64,
-    /// The font's descent.
-    pub font_bounding_box_descent: f64,
-}
+use surimono_gfx::{GfxError, TextMeasurer, TextMetrics};
 
-type MeasureFn = dyn Fn(&str, &str) -> Result<TextMetrics, String> + Send + Sync;
-
-/// Measures text for renderers: `measure(text, css_font)`.
-///
-/// Cheap to clone. [`TextMeasurer::default`] is [`TextMeasurer::approximate`].
+/// How a runner's workers answer `ctx.measureText`.
 #[derive(Clone)]
-pub struct TextMeasurer {
-    f: Arc<MeasureFn>,
-    name: &'static str,
+pub(crate) enum Measure {
+    /// The caller's fonts.
+    Fonts(TextMeasurer),
+    /// No fonts were given: measuring fails with `NoFonts`.
+    NoFonts,
+    /// The font-free estimate: 0.6 em per character, 1 em for wide (CJK)
+    /// characters, ascent 0.8 em, descent 0.2 em. Tests and tools only.
+    #[cfg(any(test, feature = "test-estimate"))]
+    Estimate,
+    /// Any function, for the runner's own tests (errors, panics).
+    #[cfg(test)]
+    Custom(Arc<CustomMeasure>),
 }
 
-impl TextMeasurer {
-    /// Wraps a measuring function. It gets the text and a CSS `font`
-    /// shorthand such as `"bold 12px Noto Sans"`; an `Err` becomes a
-    /// `TypeError` in JavaScript.
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&str, &str) -> Result<TextMetrics, String> + Send + Sync + 'static,
-    {
-        Self {
-            f: Arc::new(f),
-            name: "custom",
+/// A measuring function for tests.
+#[cfg(test)]
+pub(crate) type CustomMeasure = dyn Fn(&str, &str) -> Result<TextMetrics, String> + Send + Sync;
+
+/// Why `measureText` failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum MeasureError {
+    /// There are no fonts to measure with.
+    NoFonts,
+    /// Anything else, e.g. text over the measurer's size limit.
+    Other(String),
+}
+
+impl Measure {
+    pub(crate) fn new(measurer: Option<TextMeasurer>) -> Self {
+        measurer.map_or(Self::NoFonts, Self::Fonts)
+    }
+
+    /// Measures `text` in the CSS `font` shorthand `css_font`.
+    pub(crate) fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, MeasureError> {
+        match self {
+            // No fonts comes first, whatever else is wrong with the text.
+            Self::Fonts(m) if m.fonts().face_count() == 0 => Err(MeasureError::NoFonts),
+            Self::Fonts(m) => m.measure(text, css_font).map_err(|e| match e {
+                GfxError::NoFonts => MeasureError::NoFonts,
+                other => MeasureError::Other(other.to_string()),
+            }),
+            Self::NoFonts => Err(MeasureError::NoFonts),
+            #[cfg(any(test, feature = "test-estimate"))]
+            Self::Estimate => Ok(estimate(text, css_font)),
+            #[cfg(test)]
+            Self::Custom(f) => f(text, css_font).map_err(MeasureError::Other),
         }
     }
-
-    /// A deterministic stand-in that needs no fonts: 0.6 em per character
-    /// (1 em for CJK and other wide characters), ascent 0.8 em, descent
-    /// 0.2 em. Good enough for tests; real documents use the gfx measurer.
-    pub fn approximate() -> Self {
-        Self {
-            f: Arc::new(|text, font| Ok(approximate(text, font))),
-            name: "approximate",
-        }
-    }
-
-    /// Measures `text` in `css_font`.
-    pub fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, String> {
-        (self.f)(text, css_font)
-    }
 }
 
-impl Default for TextMeasurer {
-    fn default() -> Self {
-        Self::approximate()
-    }
-}
-
-impl fmt::Debug for TextMeasurer {
+impl fmt::Debug for Measure {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("TextMeasurer").field(&self.name).finish()
+        match self {
+            Self::Fonts(m) => f.debug_tuple("Fonts").field(m).finish(),
+            Self::NoFonts => f.write_str("NoFonts"),
+            #[cfg(any(test, feature = "test-estimate"))]
+            Self::Estimate => f.write_str("Estimate"),
+            #[cfg(test)]
+            Self::Custom(_) => f.write_str("Custom"),
+        }
     }
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 /// Canvas's default font size.
 const DEFAULT_FONT_PX: f64 = 10.0;
 
+#[cfg(any(test, feature = "test-estimate"))]
 /// The font size in px from a CSS `font` shorthand, or the canvas default.
 fn font_size_px(css_font: &str) -> f64 {
     for token in css_font.split_whitespace() {
@@ -110,6 +108,7 @@ fn font_size_px(css_font: &str) -> f64 {
     DEFAULT_FONT_PX
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 fn is_wide(c: char) -> bool {
     matches!(c as u32,
         0x1100..=0x115F
@@ -123,7 +122,8 @@ fn is_wide(c: char) -> bool {
         | 0x20000..=0x3FFFD)
 }
 
-fn approximate(text: &str, css_font: &str) -> TextMetrics {
+#[cfg(any(test, feature = "test-estimate"))]
+fn estimate(text: &str, css_font: &str) -> TextMetrics {
     let em = font_size_px(css_font);
     let (wide, narrow) = text.chars().fold((0u32, 0u32), |(w, n), c| {
         if is_wide(c) { (w + 1, n) } else { (w, n + 1) }
@@ -157,29 +157,35 @@ mod tests {
     }
 
     #[test]
-    fn approximates_latin_and_cjk() {
-        let m = TextMeasurer::approximate();
+    fn estimates_latin_and_cjk() {
+        let m = Measure::Estimate;
         let latin = m.measure("abcde", "10px x").unwrap();
         assert!((latin.width - 30.0).abs() < 1e-9);
         let cjk = m.measure("日本語", "10px x").unwrap();
         assert!((cjk.width - 30.0).abs() < 1e-9);
         assert_eq!(cjk.actual_bounding_box_ascent, 8.0);
         assert_eq!(m.measure("", "10px x").unwrap().width, 0.0);
+        assert_eq!(format!("{m:?}"), "Estimate");
     }
 
     #[test]
-    fn custom_measurers_are_called() {
-        let m = TextMeasurer::new(|text, font| {
-            if font.is_empty() {
-                return Err("no font".into());
-            }
-            Ok(TextMetrics {
-                width: text.len() as f64,
-                ..TextMetrics::default()
-            })
-        });
-        assert_eq!(m.measure("abc", "x").unwrap().width, 3.0);
-        assert_eq!(m.measure("abc", "").unwrap_err(), "no font");
-        assert_eq!(format!("{m:?}"), "TextMeasurer(\"custom\")");
+    fn no_fonts_is_its_own_error() {
+        let empty = Measure::new(Some(TextMeasurer::new(surimono_gfx::FontSet::new())));
+        assert_eq!(
+            empty.measure("x", "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
+        // Even for text the measurer would refuse as too long.
+        let long = "x".repeat(surimono_gfx::MAX_TEXT_BYTES + 1);
+        assert_eq!(
+            empty.measure(&long, "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
+        let none = Measure::new(None);
+        assert_eq!(
+            none.measure("x", "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
+        assert_eq!(format!("{none:?}"), "NoFonts");
     }
 }
