@@ -34,6 +34,11 @@ use crate::fonts::FontSet;
 /// Nesting deeper than this is rejected rather than walked.
 const MAX_DEPTH: usize = 64;
 
+/// Longest CSS (one attribute value) that is read; longer is dropped. A
+/// chart's `style` attributes are about 100 bytes, and this keeps the
+/// tokens of any one value to a few MB while it is checked.
+pub(crate) const MAX_CSS_BYTES: usize = 64 * 1024;
+
 /// What the rewriter needs from the SVG around the CSS.
 pub(crate) struct CssContext<'a> {
     pub(crate) fonts: &'a FontSet,
@@ -62,6 +67,9 @@ pub(crate) fn rewrite_declarations(
     cx: &CssContext<'_>,
     allowed: Option<&[&str]>,
 ) -> Result<Rewrite, String> {
+    if css.len() > MAX_CSS_BYTES {
+        return Ok(Rewrite::Drop);
+    }
     let pre = preprocess(css);
     let mut w = Walker::new(&pre, cx);
     w.declarations(allowed)?;
@@ -71,6 +79,9 @@ pub(crate) fn rewrite_declarations(
 /// Rewrites a presentation attribute's value (`fill="url(#g)"`, `mask`,
 /// `cursor`, ...), which the browser parses as a CSS property value.
 pub(crate) fn rewrite_value(css: &str, cx: &CssContext<'_>) -> Rewrite {
+    if css.len() > MAX_CSS_BYTES {
+        return Rewrite::Drop;
+    }
     let pre = preprocess(css);
     let mut w = Walker::new(&pre, cx);
     let end = w.t.len();
@@ -658,6 +669,22 @@ mod tests {
         ] {
             assert_eq!(is_safe(css), ok, "{css:?}");
         }
+    }
+
+    /// Tokens cost memory: CSS over the size bound is not read at all.
+    #[test]
+    fn oversized_css_is_dropped() {
+        let big = format!("fill:red;{}", "a:b;".repeat(MAX_CSS_BYTES / 4));
+        assert_eq!(
+            with_cx(|cx| rewrite_declarations(&big, cx, None)),
+            Ok(Rewrite::Drop)
+        );
+        assert_eq!(with_cx(|cx| rewrite_value(&big, cx)), Rewrite::Drop);
+        let ok = format!("fill:red;{}", "a:b;".repeat(MAX_CSS_BYTES / 8));
+        assert_eq!(
+            with_cx(|cx| rewrite_declarations(&ok, cx, None)),
+            Ok(Rewrite::Unchanged)
+        );
     }
 
     #[test]
