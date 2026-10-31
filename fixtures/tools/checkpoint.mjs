@@ -188,6 +188,15 @@ const RUNS = [
   { TZ: "Asia/Tokyo", LANG: second.locale, LC_ALL: second.locale, cwd: null, locale_installed: second.installed },
 ];
 
+/**
+ * A run as determinism.json records it: where it ran in words, not as a path, so
+ * the committed results don't name the checkout or temporary directory they came from.
+ */
+function describeRun(run) {
+  // RUNS has two working directories: the repository, or (null) a fresh temporary one.
+  return { ...run, cwd: run.cwd === REPO ? "the repository" : "a fresh temporary directory" };
+}
+
 /** Blocks until the next whole second plus 100 ms, so two renders never share a second of the wall clock. */
 function nextSecond() {
   const wait = 1100 - (Date.now() % 1000);
@@ -231,7 +240,7 @@ for (const fixture of listFixtures(values.kind, positionals)) {
     row.sha256 = sha256(html);
     fs.writeFileSync(
       path.join(dir, "determinism.json"),
-      `${JSON.stringify({ subject: fixture.name, deterministic: row.deterministic, note: row.determinism_note ?? null, sha256: row.sha256, runs: RUNS.map((r) => ({ ...r, cwd: r.cwd ?? "a fresh temporary directory" })), producer }, null, 2)}\n`,
+      `${JSON.stringify({ subject: fixture.name, deterministic: row.deterministic, note: row.determinism_note ?? null, sha256: row.sha256, runs: RUNS.map(describeRun), producer }, null, 2)}\n`,
     );
     islands = islandsOf(fs.readFileSync(html, "utf8"));
     if (islands.length !== n) failure = `surimono's output has ${islands.length} islands, the fixture has ${n}`;

@@ -6,8 +6,8 @@
   "producer": {
     "cli": "target/release/surimono",
     "version": "surimono 0.0.0",
-    "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-    "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+    "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+    "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
   },
   "rows": [
     {
@@ -91,8 +91,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -172,8 +172,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -238,11 +238,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 815,
+      "render_ms": 72,
       "deterministic": true,
       "sha256": "fb652ca1b1428da1ca08deb4b383b8c8514c4c205f7f87de4445be7138c3deb5"
     },
@@ -327,8 +327,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -408,8 +408,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -474,11 +474,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 105,
+      "render_ms": 101,
       "deterministic": true,
       "sha256": "3197736c61d52cf052962fb27e066d4db126c0c834834eb408a41adc3786286d"
     },
@@ -563,8 +563,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -647,8 +647,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -716,11 +716,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 140,
+      "render_ms": 146,
       "deterministic": true,
       "sha256": "514544564bc78d0b066c736bf358eaff0a5f4b96f49ca40ef164010f277c148b"
     },
@@ -811,8 +811,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -898,8 +898,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -967,11 +967,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 238,
+      "render_ms": 313,
       "deterministic": true,
       "sha256": "96c13271ed39460250107f89597c557e7db907cad963473a1600a0bce8a78770"
     },
@@ -1059,8 +1059,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -1143,8 +1143,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -1212,11 +1212,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 110,
+      "render_ms": 74,
       "deterministic": true,
       "sha256": "9e5e458fcbc9afd2cf7488e7ce1b83d761d8a8159cd5e3225978300026750968"
     },
@@ -1301,8 +1301,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -1382,8 +1382,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         },
@@ -1465,8 +1465,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -1546,8 +1546,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -1612,11 +1612,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 209,
+      "render_ms": 140,
       "deterministic": true,
       "sha256": "f0fc52d3ede06d52770b1dd8594d0ab99023beec70d03e4a5ec41e752626e7fd"
     },
@@ -1704,8 +1704,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -1788,8 +1788,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -1857,11 +1857,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 131,
+      "render_ms": 112,
       "deterministic": true,
       "sha256": "43eac6c195413091ccdb609550c55a9f63eca10cd4ff3d34a56b1f9262b06d10"
     },
@@ -1949,8 +1949,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -2033,8 +2033,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -2102,11 +2102,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 100,
+      "render_ms": 109,
       "deterministic": true,
       "sha256": "6b0df9418d7b50a4532d0969e0fd01a2b4a3660d45441880c221f0ab36301044"
     },
@@ -2197,8 +2197,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -2284,8 +2284,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -2353,11 +2353,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 248,
+      "render_ms": 168,
       "deterministic": true,
       "sha256": "2b021b4d7007a7b8cba79b94831877abe26656383987b622bbbf5be3f1151f21"
     },
@@ -2445,8 +2445,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -2534,8 +2534,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -2606,11 +2606,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 126,
+      "render_ms": 132,
       "deterministic": true,
       "sha256": "a3fafb50c43fd1b1703f9d0ac953108c9ef3eb4000e4247dc632824eab1a8059"
     },
@@ -2695,8 +2695,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           },
           "fulgur": {
@@ -2779,8 +2779,8 @@
             "producer": {
               "cli": "target/release/surimono",
               "version": "surimono 0.0.0",
-              "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-              "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+              "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+              "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
             }
           }
         }
@@ -2851,11 +2851,11 @@
         "producer": {
           "cli": "target/release/surimono",
           "version": "surimono 0.0.0",
-          "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-          "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+          "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+          "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
         }
       },
-      "render_ms": 937,
+      "render_ms": 413,
       "deterministic": true,
       "sha256": "739e71efc384a995864a4037fafca933a5142305e98daa1491971386d34195c9"
     }

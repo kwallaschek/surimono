@@ -4,7 +4,7 @@
 
 What surimono does and doesn't do yet, from test results. Every known failure is listed with the test that proves it. Expectations come from Chrome, specs and WPT, and are never edited to match surimono's output.
 
-Results: fixtures from 6eb38139bb5894a5b235fb84fb24256969752305 (surimono CLI surimono 0.0.0, sha256 d93c398c8ff5, commit 6eb38139bb5894a5b235fb84fb24256969752305); hostile scripts from their results file; benchmark not run.
+Results: fixtures from 99c363cd359c281c34bf99e6de0337f3bf569ac8 (surimono CLI surimono 0.0.0, sha256 7c8d26582fbe, commit 99c363cd359c281c34bf99e6de0337f3bf569ac8); hostile scripts from their results file; benchmark not run.
 
 ## Phase 1: islands
 
@@ -28,69 +28,69 @@ Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the 
 
 ### Hostile scripts
 
-60 of 60 cases end as the manifest expects (results from 6eb38139bb5894a5b235fb84fb24256969752305).
+59 cases, 60 results: 60 of 60 end as the manifest expects (results from 52d76a392aa32a89067b62ae8be0ea0ad5e162e1).
 
 <details><summary>All cases</summary>
 
 | Case | Expected | Got | Verdict |
 |---|---|---|---|
-| infinite-loop | TimeLimit | TimeLimit (2003 ms) | pass |
+| infinite-loop | TimeLimit | TimeLimit (2001 ms) | pass |
 | infinite-loop-try-catch | TimeLimit | TimeLimit (2002 ms) | pass |
 | infinite-loop-in-finally | TimeLimit | TimeLimit (2001 ms) | pass |
-| microtask-flood | TimeLimit | TimeLimit (2000 ms) | pass |
-| microtask-flood-growing | TimeLimit or MemoryLimit | MemoryLimit (810 ms) | pass |
-| microtask-await-loop | TimeLimit | TimeLimit (2004 ms) | pass |
+| microtask-flood | TimeLimit | TimeLimit (2001 ms) | pass |
+| microtask-flood-growing | TimeLimit or MemoryLimit | MemoryLimit (415 ms) | pass |
+| microtask-await-loop | TimeLimit | TimeLimit (2001 ms) | pass |
 | regex-redos | TimeLimit | TimeLimit (2001 ms) | pass |
-| regex-redos-alternation | TimeLimit | TimeLimit (2022 ms) | pass |
+| regex-redos-alternation | TimeLimit | TimeLimit (2000 ms) | pass |
 | atomics-wait | Exception | Exception (0 ms) | pass |
-| native-loop-join-arraylike | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
-| native-loop-join-holey | TimeLimit or Exception or MemoryLimit or Ok | TimeLimit (2004 ms) | pass |
-| native-loop-join-getter-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2019 ms) | pass |
-| native-loop-join-proxy | TimeLimit or Exception or MemoryLimit | TimeLimit (2017 ms) | pass |
-| native-loop-reverse | TimeLimit or Exception or MemoryLimit | TimeLimit (2013 ms) | pass |
-| native-loop-copywithin | TimeLimit or Exception or MemoryLimit | TimeLimit (2010 ms) | pass |
-| native-loop-string-raw | TimeLimit or Exception or MemoryLimit | MemoryLimit (618 ms) | pass |
-| native-loop-join-length-toctou | TimeLimit or Exception or MemoryLimit or Ok | Ok (1 ms) | pass |
-| native-loop-join-length-valueof | TimeLimit or Exception or MemoryLimit | TimeLimit (2008 ms) | pass |
-| native-loop-typedarray-own-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2004 ms) | pass |
-| native-loop-dataview-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2012 ms) | pass |
-| native-loop-fill-typedarray-proto | TimeLimit or Exception or MemoryLimit | MemoryLimit (858 ms) | pass |
-| native-sort-typed-array | TimeLimit or Exception or MemoryLimit or Ok | TimeLimit (2083 ms) | pass |
-| reentry-promise-executor | TimeLimit or MemoryLimit | TimeLimit (2008 ms) | pass |
-| reentry-promise-try | TimeLimit or Exception or MemoryLimit | TimeLimit (2002 ms) | pass |
-| reentry-async-generator | TimeLimit or MemoryLimit | TimeLimit (2002 ms) | pass |
-| reentry-prepare-stack-trace | TimeLimit or Exception or MemoryLimit | TimeLimit (2019 ms) | pass |
-| reentry-disposable-stack | TimeLimit | TimeLimit (2004 ms) | pass |
-| alloc-arrays | MemoryLimit | MemoryLimit (268 ms) | pass |
+| native-loop-join-arraylike | TimeLimit or Exception or MemoryLimit | TimeLimit (2000 ms) | pass |
+| native-loop-join-holey | TimeLimit or Exception or MemoryLimit or Ok | TimeLimit (2001 ms) | pass |
+| native-loop-join-getter-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2000 ms) | pass |
+| native-loop-join-proxy | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| native-loop-reverse | TimeLimit or Exception or MemoryLimit | TimeLimit (2002 ms) | pass |
+| native-loop-copywithin | TimeLimit or Exception or MemoryLimit | TimeLimit (2002 ms) | pass |
+| native-loop-string-raw | TimeLimit or Exception or MemoryLimit | MemoryLimit (216 ms) | pass |
+| native-loop-join-length-toctou | TimeLimit or Exception or MemoryLimit or Ok | Ok (0 ms) | pass |
+| native-loop-join-length-valueof | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| native-loop-typedarray-own-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| native-loop-dataview-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| native-loop-fill-typedarray-proto | TimeLimit or Exception or MemoryLimit | MemoryLimit (295 ms) | pass |
+| native-sort-typed-array | TimeLimit or Exception or MemoryLimit or Ok | Ok (1031 ms) | pass |
+| reentry-promise-executor | TimeLimit or MemoryLimit | TimeLimit (2000 ms) | pass |
+| reentry-promise-try | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| reentry-async-generator | TimeLimit or MemoryLimit | TimeLimit (2001 ms) | pass |
+| reentry-prepare-stack-trace | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| reentry-disposable-stack | TimeLimit | TimeLimit (2001 ms) | pass |
+| alloc-arrays | MemoryLimit | MemoryLimit (95 ms) | pass |
 | alloc-string-doubling | MemoryLimit or Exception | Exception (0 ms) | pass |
-| alloc-string-repeat | MemoryLimit | MemoryLimit (1 ms) | pass |
-| alloc-typed-array | MemoryLimit | MemoryLimit (1 ms) | pass |
-| alloc-typed-arrays-many | MemoryLimit | MemoryLimit (2 ms) | pass |
-| alloc-object-graph | MemoryLimit | MemoryLimit (1124 ms) | pass |
-| oom-caught-retry | MemoryLimit | MemoryLimit (248 ms) | pass |
-| oom-caught-continue | MemoryLimit | MemoryLimit (433 ms) | pass |
-| recursion-plain | StackOverflow | StackOverflow (4 ms) | pass |
-| recursion-caught | Ok | Ok (3 ms) | pass |
-| recursion-getter | StackOverflow | StackOverflow (2 ms) | pass |
-| recursion-tostring | StackOverflow | StackOverflow (8 ms) | pass |
-| recursion-proxy | StackOverflow | StackOverflow (5 ms) | pass |
-| recursion-json-stringify | StackOverflow or Ok | StackOverflow (235 ms) | pass |
-| recursion-array-join | StackOverflow | StackOverflow (94 ms) | pass |
-| recursion-json-parse | StackOverflow or Ok | StackOverflow (3 ms) | pass |
+| alloc-string-repeat | MemoryLimit | MemoryLimit (3 ms) | pass |
+| alloc-typed-array | MemoryLimit | MemoryLimit (0 ms) | pass |
+| alloc-typed-arrays-many | MemoryLimit | MemoryLimit (1 ms) | pass |
+| alloc-object-graph | MemoryLimit | MemoryLimit (414 ms) | pass |
+| oom-caught-retry | MemoryLimit | MemoryLimit (101 ms) | pass |
+| oom-caught-continue | MemoryLimit | MemoryLimit (96 ms) | pass |
+| recursion-plain | StackOverflow | StackOverflow (1 ms) | pass |
+| recursion-caught | Ok | Ok (0 ms) | pass |
+| recursion-getter | StackOverflow | StackOverflow (0 ms) | pass |
+| recursion-tostring | StackOverflow | StackOverflow (1 ms) | pass |
+| recursion-proxy | StackOverflow | StackOverflow (1 ms) | pass |
+| recursion-json-stringify | StackOverflow or Ok | StackOverflow (36 ms) | pass |
+| recursion-array-join | StackOverflow | StackOverflow (47 ms) | pass |
+| recursion-json-parse | StackOverflow or Ok | StackOverflow (4 ms) | pass |
 | recursion-parser | StackOverflow or Exception | StackOverflow (3 ms) | pass |
-| regex-deep-nesting | StackOverflow or Exception or Ok | Exception (2 ms) | pass |
-| deep-free-chain | Ok | Ok (136 ms) | pass |
+| regex-deep-nesting | StackOverflow or Exception or Ok | Exception (1 ms) | pass |
+| deep-free-chain | Ok | Ok (88 ms) | pass |
 | result-not-a-string | Exception | Exception (0 ms) | pass |
 | result-hostile-thenable | Exception or TimeLimit | Exception (0 ms) | pass |
-| promise-never-settles | Exception | Exception (5 ms) | pass |
-| unhandled-rejection | Ok | Ok (27 ms) | pass |
+| promise-never-settles | Exception | Exception (0 ms) | pass |
+| unhandled-rejection | Ok | Ok (0 ms) | pass |
 | control-sync | Ok | Ok (0 ms) | pass |
 | control-async | Ok | Ok (0 ms) | pass |
 | escape-require | Ok | Ok (0 ms) | pass |
 | escape-require-call | Exception | Exception (0 ms) | pass |
-| escape-dynamic-import | Ok or Exception | Ok (2 ms) | pass |
+| escape-dynamic-import | Ok or Exception | Ok (1 ms) | pass |
 | escape-network | Ok | Ok (0 ms) | pass |
-| escape-global-sniff | Ok | Ok (2 ms) | pass |
+| escape-global-sniff | Ok | Ok (9 ms) | pass |
 | escape-function-constructor | Ok | Ok (0 ms) | pass |
 | pollution-across-renders step 1 | Ok | Ok (0 ms) | pass |
 | pollution-across-renders step 2 | Ok | Ok (0 ms) | pass |
@@ -123,7 +123,7 @@ Not run yet (`bench/run.sh`).
 | `Math.sin`, `Math.exp`, `Math.pow` and their kin come from the platform's C library, which can differ in the last bit between glibc, musl and macOS | `crates/core/src/sandbox.rs` docs (P1-RT-02) | Output is byte-identical across runs on one platform (the determinism rule); across platforms, SVG coordinates computed with those functions can differ in their last digits |
 | `Number.prototype.toLocaleString` has no digit grouping in the sandbox: `(1234567.891).toLocaleString()` gives `"1234567.891"`; Chrome gives `"1,234,567.891"` (and the same for `"ja-JP"`) | quickjs-ng 0.16.2 (rquickjs-sys 0.14.0, `quickjs/quickjs.c`) defines `Number.prototype.toLocaleString` as `JS_CFUNC_MAGIC_DEF("toLocaleString", 0, js_number_toString, 1)`: `toString` in base 10, no grouping; the sandbox prelude (`crates/core/src/prelude.js`) replaces only `Date`'s `toLocale*` methods. A sandbox test asserting `"1234567.891"` is requested from the runtime engineer. Chrome's checked in Chromium 153.0.8010.12 (locale en-US, time zone UTC): `"1,234,567.891"` for both calls, `"0.5"` for `(0.5).toLocaleString()` | Axis labels and tooltips that format numbers through `toLocaleString` lose their thousands separators. ECharts 6.1.0 never calls it (its bundle has no `toLocaleString`); Vega 6.4.0's d3-format calls `toLocaleString("en")` only for `d` formats of 1e21 or more, and strips the commas |
 | `TextMode::Keep` (island text left as `<text>`) is an expected failure with fulgur 0.40: fulgur prints that text in system fonts, or not at all, never in the fonts registered with it (see "Inline SVG text prints in system fonts" under the fulgur gaps below) | `crates/gfx/tests/fulgur_print.rs` (P1-GFX-05) asserts the failure still happens, so a fixed fulgur or Blitz shows up there | That is why `TextMode::Outlines` is the default. Use Keep only with a PDF engine that sets inline SVG text in the registered fonts |
-| vegalite-line-ja's island, printed by fulgur, fails the shape check by 0.2 points: 10.2% (limit 10%) in the 32×32 window at 240,288, which holds the 10 px x-axis label "6月". The same SVG printed by Chrome passes (4.8%), and fulgur printing Chrome's SVG with real text scores 0.0% there. The glyphs are in place; their anti-aliasing differs: outlined text is a filled PDF path, Chrome's reference is font text | Checkpoint-2 run from 6eb38139 (`fixtures/checkpoint-2/vegalite-line-ja/island-0-fulgur/`, side by side with `island-0-chrome/`; P1-CF-09) | Small CJK labels print a little differently from Chrome at 96 dpi; the page comparison of the same fixture passes (7.3%, fulgur's floor 1.3%). Not a checkpoint-2 gate failure (the gate is the Chrome-printed island) |
+| vegalite-line-ja's island, printed by fulgur, fails the shape check by 0.2 points: 10.2% (limit 10%) in the 32×32 window at 240,288, which holds the 10 px x-axis label "6月". The same SVG printed by Chrome passes (4.8%), and fulgur printing Chrome's SVG with real text scores 0.0% there. The glyphs are in place; their anti-aliasing differs: outlined text is a filled PDF path, Chrome's reference is font text | Checkpoint-2 runs from 6eb38139 (P1-CF-09) and 99c363cd (P1-CF-13), with the same scores (`fixtures/checkpoint-2/vegalite-line-ja/island-0-fulgur/`, side by side with `island-0-chrome/`) | Small CJK labels print a little differently from Chrome at 96 dpi; the page comparison of the same fixture passes (7.3%, fulgur's floor 1.3%). Not a checkpoint-2 gate failure (the gate is the Chrome-printed island) |
 
 ## Printing gaps in fulgur 0.40.0 seen by the fixtures
 
@@ -140,7 +140,7 @@ them so page diffs measure the islands (fixtures/README.md). Repros were made wi
 | Line boxes do not grow for fallback glyphs | Latin-first font list (`"Noto Sans", "Noto Sans JP"`) on a paragraph containing Japanese: Chrome's line box takes Noto Sans JP's taller metrics, fulgur's does not | Content below moves by a pixel or more |
 | No `text-spacing-trim` | Chrome (since 123) trims the spacing between adjacent full-width punctuation such as "）、" by default; fulgur prints full widths | Japanese captions and labels with that punctuation run longer in fulgur |
 | SVG text: per-glyph fallback picks the Bold face | An SVG `<text font-family="Noto Sans, Noto Sans JP">10月</text>` (normal weight) with both Noto Sans JP faces available: `pdffonts` on fulgur's PDF of vegalite-layered-dense-ja's island lists only NotoSans-Regular and **NotoSansJP-Bold**; Chrome's lists NotoSansJP-Regular for the same labels. Same in echarts-mixed-dense-ja. When the family list names Noto Sans JP first (vegalite-line-ja), fulgur picks Regular | Japanese glyphs reached through fallback print heavier. This is the remaining fulgur floor on the fixtures: 4.5% (page) and 3.9% (island) on vegalite-layered-dense-ja, 2.5% and 2.9% on echarts-mixed-dense-ja, all within the 10% gate |
-| Inline SVG text prints in system fonts: fulgur 0.40 draws inline `<svg>` through blitz-dom 0.2.4's usvg with a font database of system fonts only (`util.rs`), so `<text>` ignores the fonts registered with fulgur | `crates/gfx/tests/fulgur_print.rs` (P1-GFX-05): with `TextMode::Keep`, `pdffonts` on fulgur's PDF lists a system font, or no font, for the island's text, while the HTML text next to it uses the registered fonts; the test asserts this still happens so a fixed fulgur or Blitz shows up | surimono converts island text to vector outlines in the registered fonts by default (`TextMode::Outlines`), so the PDF prints what was measured. The cost: chart labels aren't selectable or searchable text in the PDF (the outline keeps the string as `aria-label`). The fixtures' fulgur baseline prints Chrome's SVGs with only `fixtures/fonts` visible to fontconfig, so it doesn't show this. In the checkpoint-2 run from 6eb38139 (`fixtures/checkpoint-2/`, P1-CF-09), `pdffonts` lists no font at all in any of the 12 fulgur-printed island PDFs (all island text is outlines), and only the registered Noto Sans and Noto Sans JP faces in the 11 page PDFs |
+| Inline SVG text prints in system fonts: fulgur 0.40 draws inline `<svg>` through blitz-dom 0.2.4's usvg with a font database of system fonts only (`util.rs`), so `<text>` ignores the fonts registered with fulgur | `crates/gfx/tests/fulgur_print.rs` (P1-GFX-05): with `TextMode::Keep`, `pdffonts` on fulgur's PDF lists a system font, or no font, for the island's text, while the HTML text next to it uses the registered fonts; the test asserts this still happens so a fixed fulgur or Blitz shows up | surimono converts island text to vector outlines in the registered fonts by default (`TextMode::Outlines`), so the PDF prints what was measured. The cost: chart labels aren't selectable or searchable text in the PDF (the outline keeps the string as `aria-label`). The fixtures' fulgur baseline prints Chrome's SVGs with only `fixtures/fonts` visible to fontconfig, so it doesn't show this. In the checkpoint-2 runs from 6eb38139 (P1-CF-09) and 99c363cd (`fixtures/checkpoint-2/`, P1-CF-13), `pdffonts` lists no font at all in any of the 12 fulgur-printed island PDFs (all island text is outlines), and only the registered Noto Sans and Noto Sans JP faces in the 11 page PDFs |
 
 ## Printing differences in Chrome seen by the fixtures
 
