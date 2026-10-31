@@ -252,6 +252,22 @@ export function prepassHtml(sourceHtml, svgs) {
 }
 
 /**
+ * The inverse of prepassHtml for surimono's real output: the island SVGs in
+ * document order, cut out of each div.surimono-island. An island surimono
+ * replaced with its error placeholder (class surimono-island-error, a
+ * <!-- surimono: … --> comment) comes back as { error } instead of { svg }.
+ */
+export function islandsOf(html) {
+  return [...html.matchAll(/<div class="surimono-island(?: ([^"]*))?"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => {
+    if ((m[1] ?? "").split(/\s+/).includes("surimono-island-error")) {
+      const note = /<!--\s*surimono:\s*([\s\S]*?)\s*-->/.exec(m[2]);
+      return { error: `surimono left an error placeholder: ${note ? note[1] : "no detail"}` };
+    }
+    return { svg: m[2] };
+  });
+}
+
+/**
  * Chrome's computed font-weight and font-style of every <text> in `svg` (not
  * nested in another <text>), as [{ key, weight, style }] keyed like
  * svgTextStyles: the aria-label, else the content without <title>/<desc>,

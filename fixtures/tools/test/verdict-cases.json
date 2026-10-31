@@ -1,0 +1,1037 @@
+{
+ "about": "Verdicts that fixtures/tools/compat.py (failed_checks, passed) and fixtures/tools/lib/report.mjs (failedChecks, passes) must agree on. test_compat.py and report.test.mjs both read `cases`; test_compat.py also runs report.mjs under node on every combination of `dimensions` and compares it with compat.py. {\"$absent\": true} means the key is left out.",
+ "cases": [
+  {
+   "name": "a clean score",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ]
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "a render error",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [],
+    "error": "surimono exited 3"
+   },
+   "pass": false,
+   "failed": [
+    "render error"
+   ]
+  },
+  {
+   "name": "error {} is set",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": {}
+   },
+   "pass": false,
+   "failed": [
+    "render error"
+   ]
+  },
+  {
+   "name": "error [] is set",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": []
+   },
+   "pass": false,
+   "failed": [
+    "render error"
+   ]
+  },
+  {
+   "name": "error \"\" is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": ""
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "error 0 is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": 0
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "error false is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": false
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "error null is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": null
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "a render error with pages that failed",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": false,
+      "failed": [
+       "shape"
+      ]
+     }
+    ],
+    "error": "x"
+   },
+   "pass": false,
+   "failed": [
+    "render error",
+    "shape"
+   ]
+  },
+  {
+   "name": "no pages",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": []
+   },
+   "pass": false,
+   "failed": [
+    "no pages"
+   ]
+  },
+  {
+   "name": "pages absent",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0
+   },
+   "pass": false,
+   "failed": [
+    "no pages"
+   ]
+  },
+  {
+   "name": "pages not a list",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": "page 1"
+   },
+   "pass": false,
+   "failed": [
+    "no pages"
+   ]
+  },
+  {
+   "name": "pages an object",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": {
+     "pass": true
+    }
+   },
+   "pass": false,
+   "failed": [
+    "no pages"
+   ]
+  },
+  {
+   "name": "failed checks by name, in order",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": false,
+      "failed": [
+       "shape",
+       "colour"
+      ]
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "shape",
+    "colour"
+   ]
+  },
+  {
+   "name": "names from two pages, once each",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": false,
+      "failed": [
+       "shape",
+       "hue"
+      ]
+     },
+     {
+      "pass": false,
+      "failed": [
+       "shape"
+      ]
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "shape",
+    "hue"
+   ]
+  },
+  {
+   "name": "a page pass \"false\"",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": "false",
+      "failed": []
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "a page without pass",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "failed": []
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "a page failed {}",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": {}
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "a page failed \"shape\" (not a list)",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": "shape"
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "a page that isn't an object",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     "page"
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "a null page",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     null
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "a missing page (pass false, no failed)",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     },
+     {
+      "page": 2,
+      "pass": false,
+      "detail": "page missing, Chrome has it"
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "a page that passes but lists a failure",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": [
+       "size"
+      ]
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "size"
+   ]
+  },
+  {
+   "name": "text failed",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "text": {
+     "pass": false,
+     "missing": [
+      "Jan"
+     ],
+     "extra": []
+    }
+   },
+   "pass": false,
+   "failed": [
+    "text"
+   ]
+  },
+  {
+   "name": "text inside a passing score",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "text": {
+     "pass": false,
+     "missing": [
+      "Jan"
+     ],
+     "extra": []
+    }
+   },
+   "pass": false,
+   "failed": [
+    "text"
+   ]
+  },
+  {
+   "name": "text pass \"false\"",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "text": {
+     "pass": "false"
+    }
+   },
+   "pass": false,
+   "failed": [
+    "text"
+   ]
+  },
+  {
+   "name": "text {}",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "text": {}
+   },
+   "pass": false,
+   "failed": [
+    "text"
+   ]
+  },
+  {
+   "name": "text not an object",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "text": "ok"
+   },
+   "pass": false,
+   "failed": [
+    "text"
+   ]
+  },
+  {
+   "name": "text null is not run",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "text": null
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "text and font pass exactly",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "text": {
+     "pass": true,
+     "missing": [],
+     "extra": []
+    },
+    "font": {
+     "pass": true
+    }
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "font pass 1",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "font": {
+     "pass": 1
+    }
+   },
+   "pass": false,
+   "failed": [
+    "font"
+   ]
+  },
+  {
+   "name": "font a list",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "font": [
+     "pass"
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "font"
+   ]
+  },
+  {
+   "name": "shape, text and font, in that order",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": false,
+      "failed": [
+       "shape"
+      ]
+     }
+    ],
+    "text": {
+     "pass": false
+    },
+    "font": {
+     "pass": false
+    }
+   },
+   "pass": false,
+   "failed": [
+    "shape",
+    "text",
+    "font"
+   ]
+  },
+  {
+   "name": "top-level pass \"true\"",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": "true",
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ]
+   },
+   "pass": false,
+   "failed": []
+  },
+  {
+   "name": "top-level pass false, nothing failed inside",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ]
+   },
+   "pass": false,
+   "failed": []
+  },
+  {
+   "name": "top-level pass absent",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ]
+   },
+   "pass": false,
+   "failed": []
+  },
+  {
+   "name": "a listed null is named null",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": false,
+      "failed": [
+       null
+      ]
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "null"
+   ]
+  },
+  {
+   "name": "listed false and 1.5 are named as String() does",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": false,
+      "failed": [
+       false,
+       1.5,
+       1.0
+      ]
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "false",
+    "1.5",
+    "1"
+   ]
+  },
+  {
+   "name": "failed null on a passing page is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": null
+     }
+    ]
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "failed 0 on a passing page is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": 0
+     }
+    ]
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "failed \"\" on a passing page is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": ""
+     }
+    ]
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "failed false on a passing page is unset",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": false
+     }
+    ]
+   },
+   "pass": true,
+   "failed": []
+  },
+  {
+   "name": "failed null on a failing page",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": false,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": false,
+      "failed": null
+     }
+    ]
+   },
+   "pass": false,
+   "failed": [
+    "page"
+   ]
+  },
+  {
+   "name": "error \"0\" is set",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": "0"
+   },
+   "pass": false,
+   "failed": [
+    "render error"
+   ]
+  },
+  {
+   "name": "error \"false\" is set",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": "false"
+   },
+   "pass": false,
+   "failed": [
+    "render error"
+   ]
+  },
+  {
+   "name": "error 1 is set",
+   "score": {
+    "subject": "echarts-a island 0 (printed by chrome)",
+    "pass": true,
+    "worst_window": 0,
+    "pages": [
+     {
+      "pass": true,
+      "failed": []
+     }
+    ],
+    "error": 1
+   },
+   "pass": false,
+   "failed": [
+    "render error"
+   ]
+  }
+ ],
+ "dimensions": {
+  "pass": [
+   {
+    "$absent": true
+   },
+   true,
+   false,
+   "true",
+   1,
+   null
+  ],
+  "error": [
+   {
+    "$absent": true
+   },
+   null,
+   "",
+   "boom",
+   {},
+   [],
+   0,
+   false,
+   "0",
+   "false",
+   1
+  ],
+  "pages": [
+   {
+    "$absent": true
+   },
+   [],
+   "x",
+   [
+    {
+     "pass": true,
+     "failed": []
+    }
+   ],
+   [
+    {
+     "pass": false,
+     "failed": [
+      "shape"
+     ]
+    }
+   ],
+   [
+    {
+     "pass": "false",
+     "failed": []
+    }
+   ],
+   [
+    {
+     "failed": []
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": {}
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": "shape"
+    }
+   ],
+   [
+    "page"
+   ],
+   [
+    null
+   ],
+   [
+    {
+     "pass": false
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": []
+    },
+    {
+     "pass": true,
+     "failed": [
+      "hue"
+     ]
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": null
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": 0
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": ""
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": false
+    }
+   ],
+   [
+    {
+     "pass": true,
+     "failed": [
+      null
+     ]
+    }
+   ],
+   [
+    {
+     "pass": false,
+     "failed": [
+      false,
+      1.5
+     ]
+    }
+   ]
+  ],
+  "text": [
+   {
+    "$absent": true
+   },
+   null,
+   {
+    "pass": true
+   },
+   {
+    "pass": false
+   },
+   {
+    "pass": "false"
+   },
+   {},
+   "ok",
+   [],
+   {
+    "pass": 1
+   }
+  ],
+  "font": [
+   {
+    "$absent": true
+   },
+   null,
+   {
+    "pass": true
+   },
+   {
+    "pass": false
+   },
+   {
+    "pass": "false"
+   },
+   {},
+   "ok",
+   [],
+   {
+    "pass": 1
+   }
+  ]
+ }
+}

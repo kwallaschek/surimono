@@ -138,8 +138,8 @@ colour, #9db7d5, that `calibrate.mjs` also uses). Three more checks run on every
 |---|---|---|
 | **Colour** (solid areas) | Pixels whose 5×5 neighbourhood is one flat colour (bar, slice and legend-swatch interiors, table backgrounds; never thin lines or text at 96 dpi) need a pixel within 1 px whose R, G and B are each within 16/255. The closest pair of palette colours differs by 44. | worst 32×32 window ≤ 10% of its solid pixels (windows with at least 64) |
 | **Hue** (strokes) | Pixels inked at least 64 deep (max of 255 − channel). On white, an anti-aliased pixel is coverage × colour + (1 − coverage) × white, so the direction of (255 − R, 255 − G, 255 − B) is the stroke's colour whatever the coverage. Where the other image has ink within 1 px, one of those pixels must have a direction within 8°. No ink nearby is a position difference, which near-match judges. | worst window ≤ 30% (windows with at least 24 checked pixels) |
-| **Text** (island mode) | The island SVG's strings against Chrome's own, committed by `reference.sh --update` as `reference/island-<i>.texts.json`. A candidate string counts as a `<text>` element or, when surimono prints text as outlines, as the outline's `aria-label` or `<title>`. Labels Chrome's SVG also has (Vega's axis descriptions, for example) cancel out. Strings are compared as a multiset, with entities decoded and whitespace removed. | no Chrome string missing, no extra `<text>` string |
-| **Font** (island mode) | The **declared** font weight and style of each of Chrome's `<text>` elements, committed in the same `texts.json` (`styles`; `reference.mjs` checks them against Chrome's `getComputedStyle` on every run), against surimono's `<text>` elements and outline groups with the same key: the text's own `aria-label`, else its string. Same-key texts are matched one to one. On surimono's side the check reads the attributes gfx copies from each `<text>` onto its outline group; those don't change the drawn paths, so it proves that the chart library declared the same weight and style as in Chrome and that gfx kept them, not that the glyphs were outlined from the right face. Both sides are read from the markup: attribute, `style` (including the `font` shorthand), inherited from ancestors; `<style>` sheets aren't read (outline mode doesn't apply them either). An outline group is a `<g>` with an `aria-label` whose descendants are only unlabelled `<path>` and `<g>` elements, so chart marks never stand in for text | every Chrome text has a candidate with the same weight and style, none missing |
+| **Text** (island mode) | The island SVG's strings against Chrome's own, committed by `reference.sh --update` as `reference/island-<i>.texts.json`. A candidate string counts as a `<text>` element or, when surimono prints text as outlines, as the outline's `aria-label` or `<title>`. Labels Chrome's SVG also has (Vega's axis descriptions, for example) cancel out. Strings are compared as a multiset, with entities decoded and whitespace removed, and every copy counts: a string drawn twice (two outlines, or an outline and a `<text>`) where Chrome draws it once is extra. | no Chrome string missing, none extra |
+| **Font** (island mode) | The **declared** font weight and style of each of Chrome's `<text>` elements, committed in the same `texts.json` (`styles`; `reference.mjs` checks them against Chrome's `getComputedStyle` on every run), against surimono's `<text>` elements and outline groups with the same key: the text's own `aria-label`, else its string. Same-key texts are matched one to one; a candidate left over (a second copy of a label, or a key Chrome has no text for) is extra. On surimono's side the check reads the attributes gfx copies from each `<text>` onto its outline group; those don't change the drawn paths, so it proves that the chart library declared the same weight and style as in Chrome and that gfx kept them, not that the glyphs were outlined from the right face. Both sides are read from the markup: attribute, `style` (including the `font` shorthand), inherited from ancestors; `<style>` sheets aren't read (outline mode doesn't apply them either). An outline group is a `<g>` with an `aria-label` whose descendants are only `<path>` and `<g>` elements with neither an `aria-label` nor a `role`, so chart marks never stand in for text; the group's own role doesn't matter, because gfx keeps the role of the `<text>` it outlines | every Chrome text has a candidate with the same weight and style, none missing, none extra |
 
 In the diff image, magenta marks colour and hue mismatches.
 
@@ -245,6 +245,35 @@ JP"`), its per-glyph fallback prints normal-weight Japanese in Noto Sans JP
 **Bold** (`docs/COMPAT.md`). It affects vegalite-layered-dense-ja and
 echarts-mixed-dense-ja. vegalite-line-ja names Noto Sans JP directly and gets
 Regular; its 1.3% page score is sub-pixel glyph placement in the legend.
+
+## The checkpoint run
+
+`node fixtures/tools/checkpoint.mjs --out DIR --surimono <CLI> [--commit SHA] [--baseline BDIR]`
+renders every island fixture with the surimono CLI (fixture fonts, default
+limits, text as outlines) twice: once with TZ=UTC, the C locale and the
+repository as working directory, once with TZ=Asia/Tokyo, the first
+installed of de_DE, fr_FR, ja_JP and en_US UTF-8 (decimal-comma locales first;
+de_DE.UTF-8 is set anyway when none is installed, and the report says so) and a
+fresh temporary directory. Both outputs must be byte-identical
+(`DIR/<fixture>/determinism.json`); if any differ the run exits 1. It cuts each
+island's SVG out of the output and runs every comparison below: each island
+printed by Chrome (the gate) and by fulgur, and the whole page printed by
+fulgur. `DIR` must be outside `fixtures/`.
+
+`DIR/index.md` has the table and links to each side-by-side image. Every
+`score.json` is stamped with the CLI that produced it (path, `--version`,
+sha256, commit), and `compat.py --fixtures DIR` reads the scores and the
+determinism results; it refuses results from the stand-in or from two
+different CLIs. A render that fails, an error placeholder in place of an
+island, or a comparison that dies writes a failing `score.json` with
+`"error"`, so nothing reads as "not run". With `--baseline BDIR` (a
+`reference.mjs --out BDIR` plus `baseline.mjs --out BDIR` directory) the table
+shows fulgur's own floor next to each fulgur-printed score.
+
+`fixtures/tools/test/fake-surimono.mjs` stands in for the CLI with Chrome's own
+SVGs, to check the pipeline itself (every gate passes, fulgur's scores equal
+the baseline); `test/checkpoint.test.mjs` uses it for the failure paths. It
+never produces a result.
 
 ## Which comparison gates what
 
