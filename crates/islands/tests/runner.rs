@@ -373,8 +373,15 @@ fn hostile_renderers_hit_limits_and_the_pool_recovers() {
         let err = r.render(&req(name, "{}")).unwrap_err();
         assert!(start.elapsed() < Duration::from_secs(5), "{name}");
         match (&err, &want) {
+            // A native loop over a huge array-like: any typed end will do,
+            // as fixtures/hostile/manifest.toml allows (the patched engine
+            // stops it with the time limit; the old prelude guard threw).
             (
-                IslandError::Sandbox(SandboxError::Exception { .. }),
+                IslandError::Sandbox(
+                    SandboxError::Exception { .. }
+                    | SandboxError::TimeLimit
+                    | SandboxError::MemoryLimit,
+                ),
                 SandboxError::Exception { .. },
             ) => {}
             (IslandError::Sandbox(got), want) => assert_eq!(got, want, "{name}"),

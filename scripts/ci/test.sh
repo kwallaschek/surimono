@@ -6,4 +6,5 @@ cd "$(dirname "$0")/../.."
 ensure_toolchain
 ensure_libclang
 rustc -Vv
-cargo test --workspace --locked
+# --no-fail-fast: every crate reports, not only those before the first failure.
+cargo test --workspace --locked --no-fail-fast
