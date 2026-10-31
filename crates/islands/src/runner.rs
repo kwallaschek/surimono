@@ -315,8 +315,11 @@ pub struct RunnerStats {
 /// bytecode for each render (no re-parsing). The built-in renderers were
 /// compiled when this crate was built: their bytecode is loaded in place on
 /// first use, so the first render in a new process skips parsing and
-/// compiling (if the running engine can't read that bytecode, the built-in
-/// is compiled from source instead, with the same output). Each render runs
+/// compiling. If the running engine can't read that bytecode, or it wasn't
+/// compiled from exactly the bundle source in this binary, the built-in is
+/// compiled from source instead, with the same output; setting the
+/// environment variable `SURIMONO_PRECOMPILE=0` when building or running
+/// does the same, as a debugging escape hatch. Each render runs
 /// on a worker thread, in a fresh JavaScript runtime under the runner's
 /// limits, so nothing leaks from one render to the next, the whole heap is
 /// freed after every render, and the same request always gives the same
@@ -1142,7 +1145,13 @@ mod tests {
             let precompiled = embedded.render(&req).unwrap();
             let from_source = other.render(&req).unwrap();
             assert!(precompiled == from_source, "{renderer}: outputs differ");
-            assert!(embedded.bundle(renderer).unwrap().bytecode.is_embedded());
+            // Unless SURIMONO_PRECOMPILE=0 turned precompiled bytecode off.
+            let switched_off = option_env!("SURIMONO_PRECOMPILE") == Some("0")
+                || std::env::var_os("SURIMONO_PRECOMPILE").is_some_and(|v| v == "0");
+            assert_eq!(
+                embedded.bundle(renderer).unwrap().bytecode.is_embedded(),
+                !switched_off
+            );
             assert!(!other.bundle(renderer).unwrap().bytecode.is_embedded());
         }
     }

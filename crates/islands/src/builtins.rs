@@ -17,6 +17,8 @@ pub(crate) struct Builtin {
     /// The bundle's bytecode, written by `build.rs` with
     /// `surimono_core::compile_for_embedding`; empty if it couldn't be.
     pub(crate) embedded: &'static [u8],
+    /// SHA-256 of the source `build.rs` compiled `embedded` from.
+    pub(crate) source_sha256: &'static [u8],
     /// The global function the bundle defines.
     pub(crate) entry: &'static str,
 }
@@ -31,6 +33,7 @@ const ECHARTS: Builtin = Builtin {
     name: "echarts",
     source: include_str!("../bundles/echarts/echarts.min.js"),
     embedded: include_bytes!(concat!(env!("OUT_DIR"), "/echarts.qjsbc")),
+    source_sha256: include_bytes!(concat!(env!("OUT_DIR"), "/echarts.sha256")),
     entry: "entry",
 };
 
@@ -39,12 +42,15 @@ const ECHARTS: Builtin = Builtin {
 const VEGA_SOURCE: &str = include_str!("../bundles/vega/vega.min.js");
 #[cfg(feature = "vega")]
 const VEGA_EMBEDDED: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vega.qjsbc"));
+#[cfg(feature = "vega")]
+const VEGA_SOURCE_SHA256: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vega.sha256"));
 
 #[cfg(feature = "vega")]
 const VEGA: Builtin = Builtin {
     name: "vega",
     source: VEGA_SOURCE,
     embedded: VEGA_EMBEDDED,
+    source_sha256: VEGA_SOURCE_SHA256,
     entry: "vegaEntry",
 };
 
@@ -53,6 +59,7 @@ const VEGA_LITE: Builtin = Builtin {
     name: "vega-lite",
     source: VEGA_SOURCE,
     embedded: VEGA_EMBEDDED,
+    source_sha256: VEGA_SOURCE_SHA256,
     entry: "vegaLiteEntry",
 };
 
