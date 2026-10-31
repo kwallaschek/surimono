@@ -1,0 +1,45 @@
+// A small hand-written IDL file for the generator's golden test. It covers
+// every member kind the generator handles; it is not from any spec.
+
+typedef (DOMString or long) StringOrLong;
+typedef unsigned long Count;
+enum Mode { "fast", "slow" };
+dictionary WidgetInit { Count size = 1; };
+callback Visitor = undefined (Base item);
+
+[Exposed=Window]
+interface Base {
+  readonly attribute DOMString name;
+};
+
+[Exposed=Window]
+interface Widget : Base {
+  constructor();
+  constructor(optional WidgetInit init = {});
+  const unsigned short KIND_A = 1;
+  const unsigned short KIND_B = 0x2;
+  attribute Mode mode;
+  attribute Base? partner;
+  readonly attribute FrozenArray<DOMString> tags;
+  static readonly attribute Count instances;
+  getter Base? (unsigned long index);
+  getter StringOrLong (DOMString key);
+  setter undefined (DOMString key, StringOrLong value);
+  stringifier;
+  Base? find(DOMString name, optional boolean deep = false, optional Visitor visitor);
+  undefined add(Base item);
+  undefined add(sequence<Base> items, long... positions);
+  static Widget create(record<DOMString, double> options);
+  Promise<undefined> settle(optional Count? limit);
+  iterable<Base>;
+  undefined _type(boolean async);
+};
+
+interface mixin Shiny {
+  attribute double shine;
+};
+Widget includes Shiny;
+
+partial interface Widget {
+  readonly attribute unsigned long long bigSize;
+};
