@@ -67,12 +67,7 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 
 ## RT-15 (#45): merged 00:2x Sun; lines moved.
 
-## PKG batch 3 (#25 #26 #34 #33 #44), add on merge
-- 2026-10-31 · A forked child finds its state through pid-claimed slots (atomic loads, CAS) and builds its own TextMeasurer over a lock-free FontSet clone along with its pool; nothing a parent thread may hold is touched · 18 of 200 children hung on the measurer's lock.
-- 2026-10-31 · Options::max_islands (default 1,000) → Error::TooManyIslands before any island runs; Renderer::render_islands_cancellable(&AtomicBool) → Error::Cancelled between islands; Ruby max_islands: · Per-island deadlines don't bound a document.
-- 2026-10-31 · Ruby renders with an unblock function that sets the cancel flag (not RB_NOGVL_UBF_ASYNC_SAFE); a wake-up with no exception re-renders · Timeout/SIGTERM stop between islands; the async-safe path calls the unblock function without Ruby's lock.
-- 2026-10-31 · The CLI takes the facade's options (--bundle name[:fn]=file, --renderers, --max-islands, --pool-size) and writes output via temp file + rename · Gem and CLI share one API; no truncated output files.
-- 2026-10-31 · THIRD_PARTY_LICENSES.txt generation fails on an MPL-2.0-only crate not unmodified from crates.io or not named in about.toml/deny.toml, and on a non-licence, non-JS file in a bundle directory; cargo-about runs --frozen --fail · Notices must be complete and true.
+## PKG batch 3: #25 #26 #34 merged 05:15 Sun; lines moved
 
 ## CF batch 4: #50 #51 #55 merged; lines moved
 
@@ -82,4 +77,4 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-10-31 · String searches stay naive (exact semantics) but poll every 65,536 comparisons and once per match · Bounds time without changing results.
 - 2026-10-31 · Typed-array default sort checks only the interrupt flag through per-type wrappers · 8–11% overhead instead of 15–26%.
 - 2026-10-31 · Engine patch level 3 = #45's allocation-failure patches + #47's interrupt patches; build.rs refuses wasm32-unknown-unknown · One level for both sets.
-- 2026-10-31 · The sandbox starts one watchdog thread per process (a fresh one in a forked child) that raises a per-runtime stop flag at each call's deadline; Sandbox::new/with_options and calls return SandboxError::Engine if it can't start; its registry is a lock-free fork-safe cell, no global lock on the per-call path (P1-RT-22 folded in) · Time-accurate limits without a thread per render; a Renderer must survive fork (21 of 29,300 forks hung with a lock).
+- 2026-10-31 · The sandbox starts one watchdog thread per process (a fresh one in a forked child) that raises a per-runtime stop flag at each call's deadline; Sandbox::new/with_options and calls return SandboxError::Engine if it can't start; the registry and the prelude bytecode live in a lock-free ForkSafeCell (pid-tagged election, fresh slot per value), and a call and the watchdog agree through a sequence number with an EXPIRING bit, so no lock on the per-call path is shared with the watchdog or crosses a fork (P1-RT-22 folded in) · Time-accurate limits without a thread per render; a Renderer must survive fork (old code: 21 of 29,300 and 18 of 15,000 forks hung).

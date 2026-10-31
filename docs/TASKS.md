@@ -38,17 +38,20 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-15b · RT · done (#45) · #45 review blockers: sweep covers bind and Promise.any; nits
 - P1-RT-20 · RT · todo · quickjs-ng public issue drafts in docs/upstream/quickjs-ng/, one per finding, each with a reproducer on current master and a repro.sh Kay runs to verify (per quickjs-ng's security policy)
 - P1-RT-19 · RT · done (#52) · macOS: the determinism test's own TZ probe read 1970, where macOS libc ignores POSIX-rule transitions; probe 2001 and run IANA zones
-- P1-RT-24 · RT · review · (#57) ASan: stack_available() reads a local on ASan's fake stack, so main's linux-extra-asan fails every sandbox test with "0 bytes of stack left" (since ccb6025)
+- P1-RT-24 · RT · done (#57) · (#57) ASan: stack_available() reads a local on ASan's fake stack, so main's linux-extra-asan fails every sandbox test with "0 bytes of stack left" (since ccb6025)
 - P1-RT-25 · RT · todo · Measure gem RSS/PSS after a concurrent burst and idle release (does CRuby's malloc_trim reclaim it?); decide on malloc_trim FFI in the engine-binding module; add the idle-release path to a soak; alternate OOM shapes in the 10k soak
 - P1-RT-26 · RT · todo · (v0.1) A worker that dies outside guard hangs callers since #54 (one worker): live-worker count via a drop guard, replace a dead worker or fail callers with IslandError::Worker
 - P1-RT-27 · RT+PKG · todo · Test time-scale factor (env var set by scripts/ci/asan.sh) that multiplies wall-clock limits and bounds in core/islands tests; ASan runs determinism and hostile groups B/C past their bounds
+- P1-PKG-11 · PKG · todo · #25/#26/#34 review follow-ups: drop the stale placeholder_style doc (prepass.rs:411-413); fixtures.rs asserts the island count; CLI docs say an existing read-only output is replaced; about.toml MPL list limited to normal deps (or commented) so real warnings show; root surimono-islands workspace entry default-features=false (ORC) and drop the web_atoms exact pin
+- P1-RT-28 · RT · todo · #56 review follow-ups: native-gem jobs and the gem smoke test assert built-ins are precompiled (expose a count); measure the extra source-gem install time; guard test for native `class` in bundles (isESClass under stripping); core build.rs hashes quickjs/ recursively; #57 nit: assert SP vs local agree outside sanitizers
+- P1-RT-29 · RT · todo · #47 review follow-ups: hostile.rs times the stop apart from the cleanup (test-only hook); poll per match in js_regexp_Symbol_replace (with P1-RT-23)
 - P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
-- P1-RT-22 · RT · doing · Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
+- P1-RT-22 · RT · review · (#47) Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
 - P1-RT-23 · RT · todo · Regex deadline gaps: js_regexp_Symbol_replace never polls ('a'.repeat(1<<25).replace(/(?:)/g,'') stops at 1,174 ms vs 250 ms); back-references checked in #47 review and fine
 - P1-RT-18 · RT · todo · Follow-ups from the #45 review: the sweep drops a successful run's result (compare it with the clean run's value); Date.parse with an explicit zone at the range end gives an out-of-range value where Chrome gives NaN (fix or COMPAT); memory left by leaked objects at teardown isn't counted (debug counter for the soak); musl fallback only compile-checked
 - P1-RT-13 · RT · done (#53) · (#53 for the ASan/flaky tests; interval work folded into P1-RT-14) Core (after #8/#32 merge): lower QuickJS's interrupt-check interval in the vendored engine so expensive built-ins in a loop (e.g. indexOf on a 4 MiB string: TimeLimit after 155 s at a 300 ms limit) end near the limit, with an upstream draft and a hostile case; test robustness: heap_returns_to_baseline_after_reset fails under nightly ASan (TimeLimit; give it a generous limit or relax under sanitizers); time_limit_is_per_call flaky under load; plus #8/#32 review follow-ups
 - P1-RT-16 · RT · done (#54) · Memory: measure and cut surimono's PSS overhead over fulgur (pool growth on demand, idle runtime release, shared bytecode, stacks)
-- P1-RT-17 · RT · doing · Cold start: built-in bundles shipped as precompiled, version-checked QuickJS bytecode
+- P1-RT-17 · RT · done (#56) · Cold start: built-in bundles shipped as precompiled, version-checked QuickJS bytecode
 - P1-RT-11 · RT · done (#37, landed via #39) · Rust harness running fixtures/hostile/manifest.toml against the sandbox and the island runner
 
 ### Graphics engineer (crates/gfx)
@@ -83,14 +86,14 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-03 · PKG · done · HTML pre-pass: replace `<script type="application/vnd.surimono+json" data-renderer="…">` islands with their SVG; everything else byte-for-byte unchanged
 - P1-PKG-04 · PKG · done · Ruby gem: `Surimono.render(html, fonts:, limits:)` mirroring the facade, GVL released while rendering, typed Ruby exceptions, tests on CRuby 3.2 to 4.0
 - P1-PKG-05 · PKG · done · Precompiled native gems (x86_64/aarch64 Linux gnu, x86_64/arm64 macOS) via rb-sys cross builds in full.yml
-- P1-PKG-06 · PKG · review · CLI: `surimono render in.html -o out.html --font …` (third to cut)
+- P1-PKG-06 · PKG · done (#26) · CLI: `surimono render in.html -o out.html --font …` (third to cut)
 - P1-PKG-01b · PKG · done · (#20) CI scripts: offline fixture checks in the PR gate, nightly fulgur/npm checks, bench cache, hostile results; workflow YAML proposal for Kay (SHA-pinned actions, persist-credentials false)
 - P1-PKG-03b · PKG · done · (#22) Pre-pass and facade follow-ups
 - P1-PKG-01c · PKG · done (#44) · CI hardening: separate publish job holds the write token, safe status publishing, YAML proposals in docs/ci/ (macos-15)
 - P1-PKG-01d · PKG · todo · #44 review follow-ups: take the job from the artifact name and never publish success without a matching needs entry; check the index for link/gitlink entries; reject artifact names starting with a dot; --no-fail-fast in scripts/ci.sh; exit trap that removes the temp worktree
 - P1-PKG-10 · PKG · done (#33) · (#33) Gem build carries the vendored QuickJS
-- P1-PKG-08 · PKG · review · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
-- P1-PKG-09 · PKG · review · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
+- P1-PKG-08 · PKG · done (#25) · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
+- P1-PKG-09 · PKG · done (#34) · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
 - P1-PKG-07 · PKG · review · v0.1 release PR with a passing dry-run (cargo publish --dry-run in order, gem build, CHANGELOG), no tag, no publish
 
 ### Docs and DX (README.md, docs/guide, examples, CHANGELOG.md)
