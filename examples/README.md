@@ -1,8 +1,16 @@
 # Examples
 
-The Rust example's tests run in CI with the workspace tests.
-[`run.sh`](run.sh) runs both examples and the cross-binding check below; run it
-locally for now. CI will call it once it is wired into the CI scripts.
+[`run.sh`](run.sh) runs both examples and the cross-binding check below, and
+CI runs it:
+
+- on every pull request and push to `main`, the Linux job (Ruby 3.4) runs all
+  of it as part of [`scripts/ci.sh`](../scripts/ci.sh);
+- on `main`, nightly and release branches, the Ruby jobs (Ruby 3.2 to 4.0) run
+  all of it again against the release build of the extension
+  ([`scripts/ci/ruby.sh`](../scripts/ci/ruby.sh)).
+
+Locally, `scripts/ci.sh --no-ruby` runs only the Rust example
+(`examples/run.sh --no-ruby`).
 
 | Example | What it shows |
 |---|---|
