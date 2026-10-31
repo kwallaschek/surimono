@@ -1,18 +1,9 @@
 # Pending DECISIONS lines (moved into docs/DECISIONS.md when each PR merges)
 
 ## RT batch 1 (#5 #8 #11 #13 #15)
-- 2026-10-31 · Sandbox local time is UTC plus a fixed utc_offset_minutes (default 0), never the host's zone · Output must not depend on where the server runs.
-- 2026-10-31 · Default Math.random seed 0x73757269_6d6f6e6f and clock 2026-01-01T00:00:00Z; every context restarts the sequence · Same input, same output across pooled workers.
-- 2026-10-31 · WeakRef and FinalizationRegistry are strong/no-op shims; performance.now() returns 0 in phase 1 · GC timing must not leak; the phase-2 virtual clock will drive performance.now().
-- 2026-10-31 · Island entry is `entry(specJson, ctx)` with the spec as JSON text, validated in Rust first; it may return SVG or a Promise of SVG that settles without timers · BadJson with line and column before any JS runs; Vega's toSVG is async.
-- 2026-10-31 · IslandRunner is a fixed pool of worker threads, each owning its sandbox, behind a job queue; a fresh QuickJS runtime per render, prepared after replying · Send + Sync without rquickjs `parallel`; rquickjs 0.14 caches class prototypes per runtime (pins the first context), and a fresh runtime costs the same as a fresh context.
-- 2026-10-31 · TextMeasurer::approximate() is the islands default until gfx is wired in · Deterministic and font-free; the facade always passes the gfx measurer.
+- (superseded by #30: islands uses surimono_gfx::TextMeasurer; no fonts → IslandError::NoFonts; the estimate is test-only)
 
 ## PKG batch 1 (#4 #7 #10 #14)
-- 2026-10-31 · Ruby: Surimono::Renderer.new(fonts:, limits: {memory_mb:, time_ms:, stack_kb:}, seed:, error_policy:, renderers:, bundles:, pool_size:), #render(html), Surimono.render(html, **opts) caching ≤16 renderers · Mirrors the Rust facade in Ruby units.
-- 2026-10-31 · Ruby errors: Surimono::Error < StandardError with MemoryLimitError, TimeLimitError, StackOverflowError, JavaScriptError, RenderError, ConfigurationError · ::ScriptError exists and isn't a StandardError.
-- 2026-10-31 · In fonts:, a binary-encoded String is font data, any other String or Pathname is a path · File.binread returns binary Strings.
-- 2026-10-31 · Renders run under rb_thread_call_without_gvl with no unblock function · Other threads run; interrupts wait and the time limit bounds the wait.
 
 ## GFX batch 1 (#3 #12 #16)
 - 2026-10-31 · surimono-gfx measures with parley =0.6.0 and skrifa =0.37.0 (no system feature) · Same shaper fulgur 0.40 prints with.
@@ -28,8 +19,6 @@
 - (RT will write quickjs-ng interrupt + rquickjs prototype cache drafts in P1-RT-09)
 
 ## CF batch 1 (#1 #2 #6 #9 #17)
-- 2026-10-31 · The real-world suite pins each library by npm tarball, sha512 integrity and sha256 of the exact bundle file · One manifest that the harness and crates/islands are checked against.
-- 2026-10-31 · Script results must be strings or real Promises; the host never calls toString/then on a result; a promise that can't settle ends at once · Rust never re-enters hostile JS outside the limits.
 THIRD_PARTY rows:
 | Noto Sans (test fixture font) | 2.015 | OFL-1.1 | https://github.com/notofonts/notofonts.github.io (412a7edb2c8c535d1066157e5b17e661fd5591fe) | fixtures/fonts/ |
 | Noto Sans JP (test fixture font) | 2.004 | OFL-1.1 | https://github.com/notofonts/noto-cjk (f8d157532fbfaeda587e826d4cd5b21a49186f7c) | fixtures/fonts/ |
@@ -66,31 +55,15 @@ TODO: upstream drafts for 5 fulgur 0.40 gaps from COMPAT.md (#17); RT task: Rust
 ## Orchestrator
 
 ## CF batch 2 (#2 #9 #17 #24 #28 #31), add on merge
-- 2026-10-31 · Island sizes are multiples of 8 px · Chrome rounds @page to 1/300 inch, so other sizes fail on size alone.
-- 2026-10-31 · The Chrome harness wraps SVGs in the facade's div.surimono-island and CSS targets .surimono-island > svg · Both sides styled identically; Chrome's render unchanged.
-- 2026-10-31 · Comparisons also need colour (16/255 on solid areas), hue (8° on strokes) and text checks to pass · Near-match alone is colour-blind; calibrated.
-- 2026-10-31 · Fixtures avoid fill-opacity on gradient fills · Chrome's print drops it while the spec, Chrome's screen and fulgur apply it.
-- 2026-10-31 · Grover is measured with wait_until: load plus the islands' done flag · Its default networkidle2 adds 500 ms per document.
-- 2026-10-31 · Grover uses Playwright's Chromium 153 with puppeteer 25.11.0 pinned (download skipped) · One browser build everywhere.
-- 2026-10-31 · Warm Grover = persistent Chrome without the Node keeper process in the memory sum; new-Chrome-per-document is its own row · Both are real deployment modes; the keeper (~81 MB PSS) isn't Grover's cost.
-- 2026-10-31 · Peak memory is summed PSS over the process tree, judged from the CI run (idle machine); summed RSS shown for context · Summed RSS counts Chrome's shared pages once per process and would double its footprint; PSS adds up to real RAM. Never switch metrics to make a target pass; the result goes to Kay at checkpoint 2.
-- 2026-10-31 · Benchmark ratios and 'met' are shown only when both sides are fully measured (n = requested runs) · A failed Grover run once produced a '5.0× met'.
-- 2026-10-31 · bench/rust is a standalone workspace on toolchain 1.97.0 · fulgur 0.40's krilla needs rustc 1.89 > MSRV 1.87.
-- 2026-10-31 · Hostile cases accept Ok only where ECMA-262 or Chromium 153 finish them · Outside truth.
 - 2026-10-31 · docs/COMPAT.md is generated by fixtures/tools/compat.py; hand-written sections kept between markers · No hand-edited results.
-- 2026-10-31 · The real-world manifest records both the npm dist file (Chrome) and the build crates/islands embeds · They are different files of the same package.
-- 2026-10-31 · Sandbox result policies: MemoryLimit is sticky; stack overflow is catchable; a non-string result or a promise that can't settle is an Exception; an unhandled rejection is Ok · From the #9 review.
 
 ## Open for checkpoint 2 (Kay)
+- First real benchmark (CI, before #25 merged, branch release/ci-check-p1-cf-06-pkg08): surimono+fulgur Ruby cold 1,352 ms / warm 686 ms vs Grover 2,153 / 1,581 → 1.6× cold (not met), 2.3× warm (met); PSS 154/179 MB vs 582/704 → 3.8×/3.9× (10× not met; fulgur alone is only 9.4×/8.6×). Grover on chrome-headless-shell is a second baseline (376/496 MB). P1-RT-16 (memory) and P1-RT-17 (precompiled bytecode for cold start) are trying to close the gap.
 - 10× memory target: fulgur alone already ~85 MB PSS vs Grover 580 MB (6.8×); on summed RSS 13.7×. Which measure does SPEC mean? Report honestly.
 - MSRV: fulgur 0.40 needs rustc 1.89 (krilla 0.7); Rust users pairing surimono with the fulgur crate can't use 1.87 anyway. Plan: raise MSRV to 1.89 at the start of phase 2 (one planned task, full rebuild), not mid-checkpoint.
 - Vega speed: scatter 2,000 pts ~1.2 s under load vs 2 s default limit.
 
 ## RT sandbox hardening (#8 fixes, #32), add on merge
-- 2026-10-31 · Limits and SandboxOptions are #[non_exhaustive] with Default, Limits::new and with_* setters · Later phases can add options without breaking callers.
-- 2026-10-31 · Limits::validate rejects time == 0 and memory_bytes > isize::MAX/2 · A zero budget fails every call; bigger limits could overflow allocator size arithmetic.
-- 2026-10-31 · Error.prepareStackTrace is switched off (a plain data property) · CallSite exposed native functions, including the real Date.
-- 2026-10-31 · Date.parse is a JS port of quickjs-ng's parser using the sandbox offset; new Date(x) copies Date values and converts others in JS · The host zone is never read; a 30,000-string differential test pins the port to the native parser.
 - 2026-10-31 · QuickJS (quickjs-ng 0.16.2 via rquickjs-sys 0.14.0) is vendored in vendor/rquickjs-sys with [patch.crates-io]: sticky interrupt, polls in generic element access and sorts, two compiler OOM crash fixes, link marker · The only way to make "never a hang or crash" true; drop when upstream ships the fixes.
 - 2026-10-31 · The prelude's array-like length guards are removed · The patched engine covers those loops and the guards had holes.
 - 2026-10-31 · surimono-core links only against the patched engine (marker symbol) · An unpatched build fails loudly instead of shipping a sandbox that can hang.
@@ -111,3 +84,9 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-10-31 · SvgOptions { text: TextMode::Outlines | Keep }, default Outlines; <text> becomes <g role=img aria-label> shaped with the same Parley path as measure(), glyphs from skrifa, two fixed decimals · fulgur 0.40 prints inline SVG text with system fonts; outline advances are bit-identical to measure() and within 0.049 px of Chrome.
 - 2026-10-31 · MAX_OUTLINE_CHARS 20,000 and 32 MiB of path data per SVG → InvalidSvg; outlining with no fonts → NoFonts · Bounds host memory and time.
 - 2026-10-31 · tests/fulgur_print.rs runs only where fulgur CLI and poppler exist; SURIMONO_REQUIRE_FULGUR=1 enforces it in a CI job · Keeps PR CI green without fulgur.
+
+## 11:40 · #25 review outcomes
+- DECISION 2026-10-31 · Island output can't affect anything outside its own box: sanitize_svg drops every <style>, foreignObject and HTML-namespace content and SMIL; desc/title become text-only; the root <svg> style is allowlisted · An ECharts emphasis colour injected page-wide CSS (body{display:none}); custom bundles could swallow the rest of the document or set page <body> attributes.
+- DECISION 2026-10-31 · A forked child rebuilds its FontSet/TextMeasurer from font bytes along with the pool · A parent thread can hold the measurer's lock at fork time (18 of 200 children hung).
+- DECISION 2026-10-31 · Optional max_islands per document (default 1,000) and a cancel path: the Ruby unblock function sets a flag the facade checks between islands · Per-island deadlines don't bound a whole document; Timeout/SIGTERM waited for all islands.
+- Open: macos-14 runner image retired 2 Nov; full.yml needs macos-15 (YAML for Kay at checkpoint 2).
