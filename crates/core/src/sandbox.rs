@@ -27,6 +27,17 @@ use crate::{Limits, SandboxError};
 /// byte-identical across runs on one platform; across platforms, numbers
 /// computed with those functions can differ in their last digits.
 ///
+/// So can how deep recursion gets before a caught stack overflow: the limit
+/// is in bytes, and frame sizes differ between debug and release builds,
+/// compilers and platforms. A script that catches the `RangeError` and
+/// prints how deep it got gives different output across builds; one that
+/// lets it escape fails with [`SandboxError::StackOverflow`] everywhere.
+///
+/// Local time near the ends of the Date range (within the UTC offset of
+/// ±8.64e15 ms) is a known gap: the constructor and `Date.parse` handle it,
+/// but the local-time getters, setters and string methods report an
+/// invalid date there.
+///
 /// Locale-sensitive methods (`toLocaleString` and friends) ignore their
 /// `locales` and `options` arguments and always format like Chrome's
 /// `en-US`.
@@ -205,7 +216,11 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// - **Memory**: the runtime's allocator refuses to go past
 ///   [`Limits::memory_bytes`]. Any refused allocation makes the call fail with
 ///   [`SandboxError::MemoryLimit`], even if the script catches the error; the
-///   script is stopped at its next interrupt check.
+///   script is stopped at its next interrupt check. The engine is patched so
+///   that refused allocations are reported rather than crash it; the tests
+///   refuse every single allocation of three scripts in turn (compiling from
+///   source and running bytecode), so failure paths those scripts never
+///   reach are not covered.
 /// - **Time**: each top-level call ([`eval`](Self::eval), [`call`](Self::call),
 ///   [`run`](Self::run), …) gets [`Limits::time`], covering the call and the
 ///   microtasks it queues. The interrupt QuickJS raises is uncatchable, so
@@ -215,8 +230,11 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 ///   either. The engine is patched to check for it inside native loops
 ///   (`join`, `fill`, `sort`… over a huge array-like) as well; see
 ///   `vendor/rquickjs-sys/PATCHES.md`. The hostile-script tests in
-///   `tests/hostile.rs` run every known way to hang the engine and check
-///   each ends with a limit error in about twice the time limit.
+///   `tests/hostile.rs` run the hang vectors found so far and check each
+///   ends with a limit error in about twice the time limit. Known gap: the
+///   engine looks at the deadline only every few thousand interrupt checks,
+///   and some expensive built-ins don't check at all while they run, so a
+///   loop around such a call can overshoot the limit by far more.
 /// - **Stack**: recursion deeper than [`Limits::stack_bytes`] fails with
 ///   [`SandboxError::StackOverflow`] unless the script catches the `RangeError`.
 ///
@@ -1221,6 +1239,32 @@ mod tests {
         }
     }
 
+    /// `Function.prototype.bind` after the engine change that builds the
+    /// bound-function record first (PATCHES.md, patch 6).
+    #[test]
+    fn bound_functions_behave_normally() {
+        let mut sb = sandbox();
+        let checks = [
+            (
+                "function f(a, b, c) { return [this.k, a, b, c].join() } f.bind({ k: 1 }, 2)(3, 4)",
+                "1,2,3,4",
+            ),
+            (
+                "function g(a, b, c) {} const h = g.bind(null, 1); h.name + ':' + h.length",
+                "bound g:2",
+            ),
+            (
+                "function P(x) { this.x = x } const Q = P.bind(null, 7); const q = new Q(); \
+                 q.x + ':' + (q instanceof P) + ':' + (q instanceof Q)",
+                "7:true:true",
+            ),
+            ("(() => 5).bind().bind().bind()() + ''", "5"),
+        ];
+        for (src, want) in checks {
+            assert_eq!(sb.eval::<String>(src).unwrap(), want, "{src}");
+        }
+    }
+
     #[test]
     fn limit_errors_discard_state() {
         let mut sb = sandbox();
@@ -1666,7 +1710,8 @@ const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
     /// Review of #5, F7, and of #32, R7: refuse each single allocation of a
     /// script in turn. The memory limit can refuse any allocation a script
     /// makes, so every such failure must end as success or `MemoryLimit`,
-    /// leave the sandbox usable and leak nothing, never crash or `abort()`.
+    /// leave the sandbox usable and leak nothing; a crash or `abort()` fails
+    /// the test.
     ///
     /// With the arena on (as in production) only arena refills and large
     /// blocks reach the sandbox's allocator, a few percent of all
