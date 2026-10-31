@@ -34,5 +34,11 @@ lol_html = "=2.7.0"
 # Exact pin; moves to the workspace root.
 web_atoms = "=0.1.3"
 
+[dev-dependencies]
+# tests/breakout.rs parses the facade's output with html5ever, through
+# blitz-html as fulgur does, to check islands stay in their box.
+blitz-dom.workspace = true
+blitz-html.workspace = true
+
 [lints]
 workspace = true

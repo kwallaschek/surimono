@@ -25,6 +25,9 @@ roxmltree.workspace = true
 serde_json.workspace = true
 # Checks the reference fonts are byte-identical to the ones Chrome measured.
 sha2.workspace = true
+# Parses sanitized islands inside a page with html5ever, as fulgur does.
+blitz-dom.workspace = true
+blitz-html.workspace = true
 
 [lints]
 workspace = true

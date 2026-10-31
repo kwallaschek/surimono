@@ -20,11 +20,11 @@ class SurimonoTest < Minitest::Test
       if (spec.limit === "memory") { const a = []; for (;;) a.push(new Array(1e5).fill(1)); }
       if (spec.limit === "stack") { const f = (n) => f(n + 1) + 1; f(0); }
       if (spec.label) return `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="20"><text x="0" y="15" font-family="sans-serif" font-size="12">${spec.label}</text></svg>`;
-      if (spec.clock) return `<svg xmlns="http://www.w3.org/2000/svg" data-t="${Date.now()}" data-h="${new Date().getHours()}"></svg>`;
+      if (spec.clock) return `<svg xmlns="http://www.w3.org/2000/svg"><title>t=${Date.now()} h=${new Date().getHours()}</title></svg>`;
       if (spec.measure) {
         let w = 0;
         for (let i = 0; i < spec.measure; i++) w += ctx.measureText("ab" + (i % 7), "12px Noto Sans").width;
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" data-w="${w.toFixed(1)}"></svg>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><title>w=${w.toFixed(1)}</title></svg>`;
       }
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}"></svg>`;
     }
@@ -201,9 +201,9 @@ class SurimonoTest < Minitest::Test
   def test_clock_options
     r = new_renderer(bundles: BUNDLES, now: Time.utc(2023, 11, 14, 22, 13, 20), utc_offset_minutes: 540)
     out = r.render(island('{"clock": true}'))
-    assert_includes out, 'data-t="1700000000000" data-h="7"'
+    assert_includes out, "t=1700000000000 h=7"
     default = renderer.render(island('{"clock": true}'))
-    assert_includes default, 'data-t="1767225600000" data-h="0"'
+    assert_includes default, "t=1767225600000 h=0"
   end
 
   def test_other_threads_run_while_rendering
