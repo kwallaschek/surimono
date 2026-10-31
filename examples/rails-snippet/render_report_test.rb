@@ -72,14 +72,20 @@ class RenderReportTest < Minitest::Test
       exit!(0)
     end
     writer.close
+    # Read before waiting: a child whose output is bigger than the pipe buffer
+    # blocks on write until the parent reads.
     begin
-      Timeout.timeout(60) { Process.wait(pid) }
+      out = Timeout.timeout(60) do
+        r = reader.read
+        Process.wait(pid)
+        r
+      end
     rescue Timeout::Error
       Process.kill(:KILL, pid)
       flunk "the forked child hung while rendering"
     end
     # The pipe reads in the default external encoding (US-ASCII in a C locale).
-    assert_equal expected, reader.read.force_encoding(Encoding::UTF_8)
+    assert_equal expected, out.force_encoding(Encoding::UTF_8)
   end
 
   def test_a_broken_island_names_itself

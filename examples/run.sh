@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the examples as CI does. From the repository root:
+# Runs the examples and checks them. From the repository root:
 #
 #   examples/run.sh            # Rust and Ruby examples, and the cross-binding check
 #   examples/run.sh --no-ruby  # the Rust example only

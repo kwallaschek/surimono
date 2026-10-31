@@ -1,6 +1,8 @@
 # Examples
 
-Each example runs in CI through [`run.sh`](run.sh), so what you read here works.
+The Rust example's tests run in CI with the workspace tests.
+[`run.sh`](run.sh) runs both examples and the cross-binding check below; run it
+locally for now. CI will call it once it is wired into the CI scripts.
 
 | Example | What it shows |
 |---|---|
@@ -13,8 +15,8 @@ From the repository root:
 ```sh
 cargo run -p surimono-example-rust-islands               # HTML with inline SVG to stdout
 (cd bindings/ruby && bundle exec rake compile:dev)
-ruby -Ibindings/ruby/lib examples/rails-snippet/render_report.rb out.pdf   # needs the fulgur gem
-examples/run.sh                                          # everything CI checks
+ruby -Ibindings/ruby/lib examples/rails-snippet/render_report.rb out.pdf   # needs the fulgur gem (Ruby 3.4 or older)
+examples/run.sh                                          # both examples and the cross-binding check
 ```
 
 Both examples use the test fonts in `fixtures/fonts/` (Noto Sans and Noto Sans
