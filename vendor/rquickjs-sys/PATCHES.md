@@ -355,7 +355,10 @@ patch level 3.
    per limb it multiplies in. Near the 1 Mbit size cap these took 0.4 s,
    1.1 s, 11 s and 0.3 s per operation at -O2, and straight-line code never
    polls between operations. The size cap is unchanged; power goes through
-   multiply. Results are unchanged.
+   multiply, and `js_bigint_pow` now frees its running product when a
+   multiply fails (review of #47, finding 1: it leaked that block, up to
+   about 60 KB per stopped `**`, on every interrupt; upstream leaks it the
+   same way on out of memory). Results are unchanged.
 17. **Typed-array sort checks the flag, not the counter** (amends patch 3;
    review of #32, F2). Patch 3's wrapper polled on every comparison through
    one generic wrapper that called the comparator through a pointer; that
@@ -378,7 +381,9 @@ patch level 3.
 Tests: groups D and E in `crates/core/tests/hostile.rs`;
 `watchdog_raises_the_flag_at_the_deadline`,
 `one_watchdog_serves_every_sandbox` and `a_refused_allocation_raises_the_flag`
-in `crates/core/src/engine.rs`. Known limit: a native call without polls
+in `crates/core/src/engine.rs`; `interrupted_natives_leak_nothing` in
+`crates/core/src/sandbox.rs` (every group E vector, stopped by the limit,
+leaves its old runtime at zero bytes). Known limit: a native call without polls
 of its own still runs to its end once started; the ones left are linear
 in data the memory limit bounds (a `JSON.stringify` or
 `TypedArray#includes` of the whole heap).
@@ -605,7 +610,27 @@ in data the memory limit bounds (a `JSON.stringify` or
      js_free(ctx, tabb);
  
      if (is_rem) {
-@@ -13565,6 +13642,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
+@@ -13264,13 +13341,17 @@ static JSBigInt *js_bigint_pow(JSContext *ctx, const JSBigInt *a, JSBigInt *b)
+     memcpy(r->tab, a->tab, a->len * sizeof(a->tab[0]));
+     for(i = n_bits - 2; i >= 0; i--) {
+         r1 = js_bigint_mul(ctx, r, r);
+-        if (!r1)
++        if (!r1) {
++            js_free(ctx, r);
+             return NULL;
++        }
+         js_free(ctx, r);
+         r = r1;
+         if ((e >> i) & 1) {
+             r1 = js_bigint_mul(ctx, r, a);
+-            if (!r1)
++            if (!r1) {
++                js_free(ctx, r);
+                 return NULL;
++            }
+             js_free(ctx, r);
+             r = r1;
+@@ -13565,6 +13646,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
          len = 1;
          r->tab[0] = 0;
          for(;;) {
@@ -618,7 +643,7 @@ in data the memory limit bounds (a `JSON.stringify` or
              /* XXX: slow */
              v = 0;
              for(i = 0; i < digits_per_limb; i++) {
-@@ -13746,6 +13829,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
+@@ -13746,6 +13833,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
              radix_base = js_radix_base_table[radix - 2];
              len = r->len;
              for(;;) {
@@ -632,7 +657,7 @@ in data the memory limit bounds (a `JSON.stringify` or
                  /* remove leading zero limbs */
                  while (len > 1 && r->tab[len - 1] == 0)
                      len--;
-@@ -47408,10 +47498,29 @@ static int string_indexof_char(JSString *p, int c, int from)
+@@ -47408,10 +47502,29 @@ static int string_indexof_char(JSString *p, int c, int from)
      return -1;
  }
  
@@ -663,7 +688,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      if (len2 == 0)
          return from;
      for (i = from, c = string_get(p2, 0); i + len2 <= len1; i = j + 1) {
-@@ -47420,6 +47529,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
+@@ -47420,6 +47533,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
              break;
          if (!string_cmp(p1, p2, j + 1, 1, len2 - 1))
              return j;
@@ -672,7 +697,7 @@ in data the memory limit bounds (a `JSON.stringify` or
      }
      return -1;
  }
-@@ -47557,6 +47668,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47557,6 +47672,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
      }
      ret = -1;
      if (len >= v_len && inc * (stop - start) >= 0) {
@@ -680,7 +705,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          for (i = start;; i += inc) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = i;
-@@ -47564,6 +47676,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47564,6 +47680,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -689,7 +714,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          }
      }
      JS_FreeValue(ctx, str);
-@@ -47623,6 +47737,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47623,6 +47741,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
          start = stop = pos;
      }
      if (start >= 0 && start <= stop) {
@@ -697,7 +722,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          for (i = start;; i++) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = 1;
-@@ -47630,6 +47745,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47630,6 +47749,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -706,7 +731,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          }
      }
   done:
-@@ -47885,6 +48002,10 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47885,6 +48006,10 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
      endOfLastMatch = 0;
      is_first = true;
      for(;;) {
@@ -717,7 +742,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          if (unlikely(searchp->len == 0)) {
              if (is_first)
                  pos = 0;
-@@ -47893,7 +48014,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47893,7 +48018,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
              else
                  pos = endOfLastMatch + 1;
          } else {
@@ -728,7 +753,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          }
          if (pos < 0) {
              if (is_first) {
-@@ -48004,7 +48127,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
+@@ -48004,7 +48131,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
      }
      q = p;
      for (q = p; (q += !r) <= s - r - !r; q = p = e + r) {
@@ -742,7 +767,7 @@ in data the memory limit bounds (a `JSON.stringify` or
          if (e < 0)
              break;
          T = js_sub_string(ctx, sp, p, e);
-@@ -61548,27 +61676,89 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
+@@ -61548,27 +61680,89 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
      return cmp;
  }
  
@@ -843,7 +868,7 @@ in data the memory limit bounds (a `JSON.stringify` or
  static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
  {
-@@ -61711,9 +61901,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
+@@ -61711,9 +61905,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
          done:
              js_free(ctx, array_idx);
          } else {

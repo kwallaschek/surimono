@@ -13341,14 +13341,18 @@ static JSBigInt *js_bigint_pow(JSContext *ctx, const JSBigInt *a, JSBigInt *b)
     memcpy(r->tab, a->tab, a->len * sizeof(a->tab[0]));
     for(i = n_bits - 2; i >= 0; i--) {
         r1 = js_bigint_mul(ctx, r, r);
-        if (!r1)
+        if (!r1) {
+            js_free(ctx, r);
             return NULL;
+        }
         js_free(ctx, r);
         r = r1;
         if ((e >> i) & 1) {
             r1 = js_bigint_mul(ctx, r, a);
-            if (!r1)
+            if (!r1) {
+                js_free(ctx, r);
                 return NULL;
+            }
             js_free(ctx, r);
             r = r1;
         }

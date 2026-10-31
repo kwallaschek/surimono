@@ -3,7 +3,7 @@
 Draft for Kay to file at https://github.com/quickjs-ng/quickjs (issue first,
 then a PR if the maintainers like the shape). Against quickjs-ng 0.16.2 as
 bundled in rquickjs-sys 0.14.0. surimono carries the patch in
-`vendor/rquickjs-sys` (patches 6 to 10 in its `PATCHES.md`, with the exact
+`vendor/rquickjs-sys` (patches 14 to 18 in its `PATCHES.md`, with the exact
 diff) until upstream has an equivalent. It builds on the earlier draft,
 `quickjs-ng-sticky-interrupt-and-native-loop-polls.md`.
 
@@ -92,7 +92,22 @@ another: whatever the interval, some body is expensive enough.
      quotient limb (both take `ctx` and return -1 after an interrupt;
      `js_bigint_mul` and `js_bigint_divrem` free their buffers and fail);
      decimal `toString` polls once per limb divided out, decimal parsing
-     once per limb multiplied in.
+     once per limb multiplied in;
+   - `js_bigint_pow` frees its running product `r` when `js_bigint_mul`
+     returns NULL, at both call sites in its square-and-multiply loop.
+     Today it returns without freeing `r`, which already leaks that block
+     on out of memory; with polls in the multiply it would leak on every
+     interrupted `**` too (up to about 60 KB per `3n ** 600000n`, measured
+     with LeakSanitizer). The fix is independent of the rest and could
+     land on its own:
+
+     ```c
+     r1 = js_bigint_mul(ctx, r, r);
+     if (!r1) {
+         js_free(ctx, r);
+         return NULL;
+     }
+     ```
 
    Results are unchanged. Without the flag these polls still help: the
    handler is asked every 10,000 of them, a few milliseconds of work.
