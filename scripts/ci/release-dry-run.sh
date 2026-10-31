@@ -67,11 +67,66 @@ for c in "${PUBLISHED[@]}"; do
   [ "$size" -lt $((10 * 1024 * 1024)) ] || { echo "$c is over crates.io's 10 MB limit" >&2; exit 1; }
 done
 
+# Release blockers found below; reported together at the end, so one run
+# shows all of them and still builds the gem.
+blockers=()
+
+step "licence texts in every crate"
+# MIT and Apache-2.0 both want their text shipped with the code; crates.io
+# packages only files inside the crate directory (symlinks are followed).
+for c in "${PUBLISHED[@]}"; do
+  for f in LICENSE-MIT LICENSE-APACHE; do
+    grep -qx "$f" "$out/$c.files" || blockers+=("$c: the .crate has no $f (add a symlink to ../../$f)")
+  done
+done
+printf '%s\n' "${blockers[@]:-all crates carry LICENSE-MIT and LICENSE-APACHE}"
+
 step "cargo publish --dry-run (first crate; the others need it on crates.io first)"
-# Verified: built from its .crate alone, as crates.io users get it. This is
-# where a dependency that only works through the workspace's [patch] (the
-# vendored QuickJS) shows up: [patch] doesn't travel with a published crate.
+# Verified: built from its .crate alone, as crates.io users get it. It only
+# builds the library (an rlib, never linked), so it can't see that the engine
+# from crates.io is the unpatched one: the next step links a program.
 cargo publish --dry-run --locked --allow-dirty -p "${PUBLISHED[0]}" 2>&1 | tee "$out/publish-dry-run.log"
+
+step "a crates.io user's program links against ${PUBLISHED[0]}"
+# [patch] doesn't travel with a published crate: a user gets rquickjs-sys
+# from crates.io, not vendor/rquickjs-sys. surimono-core refuses to link
+# without the patched engine's marker symbol (docs/DECISIONS.md, #32), so a
+# program using the packaged crate shows whether crates.io users can build it.
+consumer="$(mktemp -d)"
+trap 'rm -rf "$consumer"' EXIT
+mkdir -p "$consumer/src"
+core_pkg="$(ls -d "${CARGO_TARGET_DIR:-target}/package/${PUBLISHED[0]}-"[0-9]* | grep -v '\.crate$' | tail -n1)"
+cat > "$consumer/Cargo.toml" <<TOML
+[package]
+name = "release-consumer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+${PUBLISHED[0]} = { path = "$(realpath "$core_pkg")" }
+
+[workspace]
+TOML
+cat > "$consumer/src/main.rs" <<'RS'
+fn main() {
+    let mut sandbox = surimono_core::Sandbox::new(surimono_core::Limits::default()).expect("sandbox");
+    let answer: i32 = sandbox.eval("6 * 7").expect("eval");
+    assert_eq!(answer, 42);
+}
+RS
+cp Cargo.lock "$consumer/Cargo.lock"
+toolchain="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+if (cd "$consumer" && RUSTUP_TOOLCHAIN="$toolchain" cargo run --quiet) > "$out/consumer.log" 2>&1; then
+  echo "a program using the packaged ${PUBLISHED[0]} builds and runs"
+else
+  grep -E 'undefined reference|error(\[|:)' "$out/consumer.log" | head -n 5
+  if grep -q surimono_quickjs_patch_level "$out/consumer.log"; then
+    blockers+=("${PUBLISHED[0]}: a crates.io user gets the unpatched rquickjs-sys 0.14.0 ([patch] doesn't travel); linking fails on surimono_quickjs_patch_level (see consumer.log)")
+  else
+    blockers+=("${PUBLISHED[0]}: a program using the packaged crate doesn't build (see consumer.log)")
+  fi
+fi
 
 step "source gem"
 ruby_path
@@ -80,4 +135,10 @@ gem_file="$(ls bindings/ruby/pkg/surimono-*.gem | grep -v -- '-x86\|-arm\|-aarch
 tar -xOf "$gem_file" data.tar.gz | tar -tzf - | sort > "$out/gem-contents.txt"
 grep -qx THIRD_PARTY_LICENSES.txt "$out/gem-contents.txt" || { echo "the gem has no THIRD_PARTY_LICENSES.txt" >&2; exit 1; }
 echo "built $gem_file ($(wc -l < "$out/gem-contents.txt") files)"
+
+if [ ${#blockers[@]} -gt 0 ]; then
+  step "release blockers (nothing was published)"
+  printf 'error: %s\n' "${blockers[@]}" >&2
+  exit 1
+fi
 step "ok: nothing was published"
