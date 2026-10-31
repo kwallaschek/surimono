@@ -107,3 +107,21 @@ test("the second render starts in a later second of the wall clock", () => {
   assert.equal(r.status, 1, "a render that prints the second differs");
   assert.equal(readJson(path.join(out, FIXTURE, "determinism.json")).deterministic, false);
 });
+
+test("the second render tries a decimal-comma locale first", () => {
+  // Review of #35: ja_JP and en_US share C's "." decimal separator. A stand-in
+  // `locale` on PATH says which locales are installed.
+  const lang = (installed) => {
+    const bin = tmp();
+    fs.writeFileSync(path.join(bin, "locale"), `#!/bin/sh\nprintf '%s\\n' ${["C.utf8", ...installed].map((l) => `'${l}'`).join(" ")}\n`, { mode: 0o755 });
+    const out = tmp();
+    const r = run({ PATH: `${bin}${path.delimiter}${process.env.PATH}` }, out);
+    assert.equal(r.status, 0, r.stderr);
+    const second = readJson(path.join(out, FIXTURE, "determinism.json")).runs[1];
+    return `${second.LANG} ${second.LC_ALL} ${second.locale_installed}`;
+  };
+  assert.equal(lang(["ja_JP.utf8", "en_US.utf8", "fr_FR.utf8", "de_DE.utf8"]), "de_DE.UTF-8 de_DE.UTF-8 true");
+  assert.equal(lang(["ja_JP.UTF-8", "fr_FR.UTF-8"]), "fr_FR.UTF-8 fr_FR.UTF-8 true");
+  assert.equal(lang(["en_US.utf8", "ja_JP.utf8"]), "ja_JP.UTF-8 ja_JP.UTF-8 true");
+  assert.equal(lang([]), "de_DE.UTF-8 de_DE.UTF-8 false");
+});
