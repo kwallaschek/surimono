@@ -72,14 +72,14 @@ used_by = "Chrome references (dist_file); P1-RT-07 Vega renderer (headless View,
 
 [library.embedded]
 file = "crates/islands/bundles/vega/vega.min.js"
-sha256 = "28a99a4829f483dbc6d4955218235c340ac438608cc04b696f483395c603ff3f"
-bytes = 780158
+sha256 = "1af00b09dadff0576c5b6923b750405e26ca7ff45f3e8bc66342585e47c832db"
+bytes = 780693
 format = "IIFE that defines the globals vegaEntry(specJson, ctx) and vegaLiteEntry(specJson, ctx); minified"
 built_by = "crates/islands/js/build.sh: esbuild 0.28.2 bundling crates/islands/js/src/vega.js (vega-canvas aliased to src/vega-canvas.js, which measures text through the host); reproducible with build.sh --check"
 built_from = ["vega 6.4.0", "vega-lite 6.5.0", "their d3 and other dependencies (THIRD_PARTY_LICENSES.txt)"]
-contents = "Vega's parser and headless View with the SVG string renderer, and Vega-Lite's compile(); one bundle for both renderers. A loader that loads nothing: data urls are refused; images and links load nothing (docs/COMPAT.md)"
+contents = "Vega's parser and headless View with the SVG string renderer, and Vega-Lite's compile(); one bundle for both renderers. A loader that loads nothing: data urls, images and links are refused with a clear error (#39)"
 license_files = ["LICENSE", "THIRD_PARTY_LICENSES.txt"]
-recorded_from = "main at e3b14be (crates/islands/bundles/SHA256SUMS; #29 merged)"
+recorded_from = "p1-rt-12 (#39) at abfdce6 (crates/islands/bundles/SHA256SUMS): images and links refused"
 
 [[library]]
 name = "vega-lite"
@@ -101,14 +101,14 @@ used_by = "Chrome references (dist_file); P1-RT-07 Vega-Lite renderer (compile t
 
 [library.embedded]
 file = "crates/islands/bundles/vega/vega.min.js"
-sha256 = "28a99a4829f483dbc6d4955218235c340ac438608cc04b696f483395c603ff3f"
-bytes = 780158
+sha256 = "1af00b09dadff0576c5b6923b750405e26ca7ff45f3e8bc66342585e47c832db"
+bytes = 780693
 format = "IIFE that defines the globals vegaEntry(specJson, ctx) and vegaLiteEntry(specJson, ctx); minified"
 built_by = "crates/islands/js/build.sh: esbuild 0.28.2 bundling crates/islands/js/src/vega.js (vega-canvas aliased to src/vega-canvas.js, which measures text through the host); reproducible with build.sh --check"
 built_from = ["vega 6.4.0", "vega-lite 6.5.0", "their d3 and other dependencies (THIRD_PARTY_LICENSES.txt)"]
-contents = "Vega's parser and headless View with the SVG string renderer, and Vega-Lite's compile(); one bundle for both renderers. A loader that loads nothing: data urls are refused; images and links load nothing (docs/COMPAT.md)"
+contents = "Vega's parser and headless View with the SVG string renderer, and Vega-Lite's compile(); one bundle for both renderers. A loader that loads nothing: data urls, images and links are refused with a clear error (#39)"
 license_files = ["LICENSE", "THIRD_PARTY_LICENSES.txt"]
-recorded_from = "main at e3b14be (crates/islands/bundles/SHA256SUMS; #29 merged); the same file as vega's"
+recorded_from = "p1-rt-12 (#39) at abfdce6 (crates/islands/bundles/SHA256SUMS); the same file as vega's"
 
 [[library]]
 name = "mermaid"
