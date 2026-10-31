@@ -46,5 +46,10 @@ toml = "=1.1.8"
 # Counts live heap bytes in the soak test.
 stats_alloc = "=0.1.10"
 
+# fork, waitpid and _exit in the fork stress test (tests/fork.rs); the same
+# pin as surimono-core's.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "=0.2.191"
+
 [lints]
 workspace = true

@@ -357,7 +357,20 @@ pub struct RunnerStats {
 /// `IslandRunner` is `Send + Sync`: share it between threads (e.g. in an
 /// `Arc`); [`render`](Self::render) blocks the calling thread until a worker
 /// is done.
+///
+/// A runner belongs to the process that started it. Its worker threads
+/// don't survive `fork`, and a thread that didn't may have held one of its
+/// locks, so in a forked child a runner from the parent never touches its
+/// locks or workers: [`render`](Self::render) and
+/// [`register_bundle`](Self::register_bundle) fail at once with
+/// [`IslandError::Worker`], [`stats`](Self::stats) counts no workers,
+/// [`renderers`](Self::renderers) is empty, and dropping it leaks it (its
+/// memory is the parent's, copied on write) instead of joining threads that
+/// don't exist. Start a new runner in the child.
 pub struct IslandRunner {
+    /// Fork generation of the process that started the runner (see
+    /// [`surimono_core::fork_generation`]).
+    generation: u64,
     shared: Arc<Shared>,
     bundles: RwLock<HashMap<String, Arc<Bundle>>>,
     /// Held while a built-in renderer is loaded or compiled on first use.
@@ -375,6 +388,13 @@ pub struct IslandRunner {
 
 impl fmt::Debug for IslandRunner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.in_this_process() {
+            return f
+                .debug_struct("IslandRunner")
+                .field("pool_size", &self.pool_size)
+                .field("forked", &true)
+                .finish_non_exhaustive();
+        }
         f.debug_struct("IslandRunner")
             .field("pool_size", &self.pool_size)
             .field("workers", &self.worker_count())
@@ -434,7 +454,9 @@ impl IslandRunner {
             preloaded_renders: AtomicU64::new(0),
             runtimes: AtomicUsize::new(0),
         });
+        let generation = surimono_core::fork_generation().map_err(IslandError::Sandbox)?;
         let runner = Self {
+            generation,
             shared,
             bundles: RwLock::new(HashMap::new()),
             builtin_lock: Mutex::new(()),
@@ -447,6 +469,25 @@ impl IslandRunner {
         let first = runner.spawn_worker(0)?;
         runner.workers_lock().push(first);
         Ok(runner)
+    }
+
+    /// Whether this process started the runner (it isn't a forked child's
+    /// copy of a parent's). Two atomic loads, no lock.
+    fn in_this_process(&self) -> bool {
+        surimono_core::fork_generation().is_ok_and(|g| g == self.generation)
+    }
+
+    /// An error if the runner belongs to another process (see the type's
+    /// docs on `fork`).
+    fn check_process(&self) -> Result<(), IslandError> {
+        if self.in_this_process() {
+            return Ok(());
+        }
+        Err(IslandError::Worker {
+            message: "this runner was started in another process (before a fork) and its \
+                      worker threads don't exist here; start a new IslandRunner in this process"
+                .into(),
+        })
     }
 
     fn workers_lock(&self) -> MutexGuard<'_, Vec<JoinHandle<()>>> {
@@ -492,6 +533,7 @@ impl IslandRunner {
         js_source: &str,
         entry: &str,
     ) -> Result<(), IslandError> {
+        self.check_process()?;
         if name.is_empty() || entry.is_empty() {
             return Err(IslandError::InvalidOptions {
                 message: "bundle name and entry must not be empty".into(),
@@ -523,6 +565,7 @@ impl IslandRunner {
     /// is loaded on its first use, unless a bundle was registered under its
     /// name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
+        self.check_process()?;
         let bundle = self.bundle(req.renderer)?;
         serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(bad_json)?;
         self.dispatch(|reply| {
@@ -603,8 +646,12 @@ impl IslandRunner {
     }
 
     /// Names of the registered renderers, sorted. Built-in renderers are
-    /// listed once they have been used.
+    /// listed once they have been used. Empty in a forked child (see the
+    /// type's docs on `fork`).
     pub fn renderers(&self) -> Vec<String> {
+        if !self.in_this_process() {
+            return Vec::new();
+        }
         let mut names: Vec<String> = self
             .bundles
             .read()
@@ -622,12 +669,18 @@ impl IslandRunner {
         self.pool_size
     }
 
-    /// Counters since the runner started.
-    ///
-    /// Takes the runner's internal locks (as does its `Debug` output), so
-    /// don't call it in a child process forked while another thread may
-    /// hold them.
+    /// Counters since the runner started. In a forked child (see the
+    /// type's docs on `fork`), the counters as they were at the fork, with
+    /// no workers, idle workers or runtimes: none exist in that process.
     pub fn stats(&self) -> RunnerStats {
+        if !self.in_this_process() {
+            return RunnerStats {
+                renders: self.shared.renders.load(Ordering::Relaxed),
+                failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
+                preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
+                ..RunnerStats::default()
+            };
+        }
         let workers = self.worker_count();
         RunnerStats {
             renders: self.shared.renders.load(Ordering::Relaxed),
@@ -659,6 +712,26 @@ impl IslandRunner {
 
 impl Drop for IslandRunner {
     fn drop(&mut self) {
+        if !self.in_this_process() {
+            // A forked child's copy: its workers don't exist here, and a
+            // thread that didn't survive the fork may have held a lock or
+            // been changing the data behind one. Leak all of it, touching
+            // nothing: `get_mut` takes no lock, and moving a value out
+            // reads none of it. The leaked extra reference keeps `Shared`
+            // (the queue and its lock) from ever being dropped here.
+            Box::leak(Box::new(Arc::clone(&self.shared)));
+            let workers = self
+                .workers
+                .get_mut()
+                .unwrap_or_else(PoisonError::into_inner);
+            Box::leak(Box::new(std::mem::take(workers)));
+            let bundles = self
+                .bundles
+                .get_mut()
+                .unwrap_or_else(PoisonError::into_inner);
+            Box::leak(Box::new(std::mem::take(bundles)));
+            return;
+        }
         // Closing the queue ends the workers once they finish their job.
         self.shared.queue.close();
         for w in self.workers_lock().drain(..) {

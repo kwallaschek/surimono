@@ -9,9 +9,11 @@
 //! [`ForkSafeCell`] never waits on such a thread. Reading a set value is a
 //! load and an atomic check, with no lock. To set one, the threads of a
 //! process elect one of them with a compare-and-swap on a word that holds
-//! the electing process's id; the others yield until it is done. A child
-//! sees its parent's id in that word, so it holds its own election instead
-//! of waiting on a parent's thread. Each value goes into a slot nobody has
+//! the electing process's fork generation
+//! ([`fork_generation`](crate::fork_generation), bumped in every forked
+//! child, so unlike a pid it never matches an ancestor's); the others yield
+//! until it is done. A child sees an ancestor's generation in that word, so
+//! it holds its own election instead of waiting on a parent's thread. Each value goes into a slot nobody has
 //! touched yet, never into one that a parent's thread might have been
 //! filling at the fork.
 //!
@@ -20,29 +22,53 @@
 //! (a running thread). A shared cell ([`ForkSafeCell::shared`]) keeps them
 //! (plain data, like compiled bytecode).
 
+use std::fmt;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-/// Values a cell can hold over its lifetime: one per process along a chain
-/// of nested forks (a per-process cell), plus one per failed election. 32
-/// nested forks that each set the cell is far beyond any server's process
-/// tree; past that, setting the cell fails.
+use crate::engine::fork_generation;
+
+/// Values a cell can hold over its lifetime: one per process, along a
+/// chain of nested forks, that sets it (a per-process cell sets it again
+/// in every process that uses it; a shared one only once). A failed or
+/// panicking `init` takes no slot. 32 nested forks that each set the cell
+/// is far beyond any server's process tree; past that, setting the cell
+/// fails without running `init`.
 const SLOTS: usize = 32;
+
+/// Why a cell can't be set in this process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Unavailable {
+    /// Every slot was used along this process's chain of forks.
+    Full,
+    /// The fork handler that tells processes apart couldn't be registered.
+    NoForkHandler,
+}
+
+impl fmt::Display for Unavailable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Full => "too many nested forks",
+            Self::NoForkHandler => "the fork handler could not be registered",
+        })
+    }
+}
 
 /// See the module docs.
 pub(crate) struct ForkSafeCell<T> {
     /// Whether a value set in an ancestor process is ignored.
     per_process: bool,
-    /// Values with the id of the process that set them. Each is set at most
-    /// once, by the elected thread, and never changes after.
-    slots: [OnceLock<(u32, T)>; SLOTS],
+    /// Values with the fork generation of the process that set them. Each
+    /// is set at most once, by the elected thread, and never changes after.
+    slots: [OnceLock<(u64, T)>; SLOTS],
     /// The slot that holds the newest value.
     current: AtomicUsize,
     /// The first slot never handed out (in this process or its ancestors).
     next: AtomicUsize,
-    /// Id of the process whose elected thread is setting the cell or has set
-    /// it; 0 if none. A value in another process's id is stale in a child.
-    owner: AtomicU32,
+    /// Fork generation of the process whose elected thread is setting the
+    /// cell or has set it; 0 if none. Another process's generation is stale
+    /// in a child.
+    owner: AtomicU64,
 }
 
 impl<T> ForkSafeCell<T> {
@@ -62,51 +88,53 @@ impl<T> ForkSafeCell<T> {
             slots: [const { OnceLock::new() }; SLOTS],
             current: AtomicUsize::new(0),
             next: AtomicUsize::new(0),
-            owner: AtomicU32::new(0),
+            owner: AtomicU64::new(0),
         }
     }
 
     /// The value, if this process (or, for a shared cell, an ancestor) set
     /// it. Lock-free: one atomic load, `OnceLock::get`, and for a
-    /// per-process cell a `getpid`.
+    /// per-process cell two more for the fork generation.
     pub(crate) fn get(&self) -> Option<&T> {
-        let (pid, value) = self
+        let (generation, value) = self
             .slots
             .get(self.current.load(Ordering::Acquire))?
             .get()?;
-        (!self.per_process || *pid == std::process::id()).then_some(value)
+        (!self.per_process || fork_generation().is_ok_and(|g| g == *generation)).then_some(value)
     }
 
     /// The value, set by `init` if [`get`](Self::get) has none. Only one
     /// thread of a process runs `init` at a time; the others yield until it
     /// returns. If `init` fails (or panics) the error goes to its caller,
-    /// and the next caller tries again. `full` makes the error for a cell
-    /// out of slots.
+    /// and the next caller tries again. `unavailable` makes the error for a
+    /// cell that can't be set in this process; `init` doesn't run then.
     pub(crate) fn get_or_try_init<E>(
         &self,
         init: impl FnOnce() -> Result<T, E>,
-        full: impl FnOnce() -> E,
+        unavailable: impl FnOnce(Unavailable) -> E,
     ) -> Result<&T, E> {
         if let Some(value) = self.get() {
             return Ok(value);
         }
-        let pid = std::process::id();
+        let Ok(generation) = fork_generation() else {
+            return Err(unavailable(Unavailable::NoForkHandler));
+        };
         // Elect one thread of this process.
         loop {
             if let Some(value) = self.get() {
                 return Ok(value);
             }
             let owner = self.owner.load(Ordering::Acquire);
-            if owner == pid {
+            if owner == generation {
                 // Another thread of this process is setting it. It is alive
-                // (a thread of another process would have its own id here),
-                // so this ends.
+                // (a thread of an ancestor would have left an older
+                // generation here), so this ends.
                 std::thread::yield_now();
                 continue;
             }
             if self
                 .owner
-                .compare_exchange(owner, pid, Ordering::AcqRel, Ordering::Acquire)
+                .compare_exchange(owner, generation, Ordering::AcqRel, Ordering::Acquire)
                 .is_ok()
             {
                 break;
@@ -123,15 +151,22 @@ impl<T> ForkSafeCell<T> {
             election.keep = true;
             return Ok(value);
         }
+        // Only the elected thread of this process moves `next` (an
+        // ancestor's moves happened before the fork), so a slot free now is
+        // still free after `init`. Checking first means a full cell never
+        // runs `init` (which may start a thread) only to throw it away.
+        if self.next.load(Ordering::Acquire) >= SLOTS {
+            return Err(unavailable(Unavailable::Full));
+        }
         let value = init()?;
         // A slot no thread has touched: one a parent's thread was filling at
         // a fork was already counted in `next` before the fork.
         let i = self.next.fetch_add(1, Ordering::AcqRel);
         let Some(slot) = self.slots.get(i) else {
-            return Err(full());
+            return Err(unavailable(Unavailable::Full));
         };
         // An untouched slot, so this doesn't wait.
-        let (_, value) = slot.get_or_init(|| (pid, value));
+        let (_, value) = slot.get_or_init(|| (generation, value));
         self.current.store(i, Ordering::Release);
         // The process keeps the election: the cell is set for it.
         election.keep = true;
@@ -141,7 +176,7 @@ impl<T> ForkSafeCell<T> {
 
 /// Hands an election back when the elected thread fails or panics.
 struct Election<'a> {
-    owner: &'a AtomicU32,
+    owner: &'a AtomicU64,
     /// Set once the cell holds this process's value.
     keep: bool,
 }
@@ -175,7 +210,7 @@ mod tests {
                                 std::thread::sleep(std::time::Duration::from_millis(20));
                                 Ok::<_, ()>(RUNS.fetch_add(1, Ordering::SeqCst) + 7)
                             },
-                            || (),
+                            |_| (),
                         )
                         .copied();
                     assert_eq!(v, Ok(7));
@@ -189,20 +224,20 @@ mod tests {
     #[test]
     fn a_failed_init_is_retried() {
         let cell = ForkSafeCell::<u8>::shared();
-        assert_eq!(cell.get_or_try_init(|| Err("no"), || "full"), Err("no"));
+        assert_eq!(cell.get_or_try_init(|| Err("no"), |_| "full"), Err("no"));
         assert_eq!(cell.get(), None);
-        assert_eq!(cell.get_or_try_init(|| Ok(3), || "full"), Ok(&3));
-        assert_eq!(cell.get_or_try_init(|| Ok(4), || "full"), Ok(&3));
+        assert_eq!(cell.get_or_try_init(|| Ok(3), |_| "full"), Ok(&3));
+        assert_eq!(cell.get_or_try_init(|| Ok(4), |_| "full"), Ok(&3));
     }
 
     #[test]
     fn a_panicking_init_is_retried() {
         let cell = ForkSafeCell::<u8>::shared();
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            cell.get_or_try_init(|| -> Result<u8, ()> { panic!("init") }, || ())
+            cell.get_or_try_init(|| -> Result<u8, ()> { panic!("init") }, |_| ())
         }));
         assert!(r.is_err());
-        assert_eq!(cell.get_or_try_init(|| Ok(5), || ()), Ok(&5));
+        assert_eq!(cell.get_or_try_init(|| Ok(5), |_| ()), Ok(&5));
     }
 
     /// A process that inherited a cell set (or being set) by another
@@ -210,7 +245,9 @@ mod tests {
     /// its own value in a fresh slot, a shared one keeps the old.
     #[test]
     fn a_child_holds_its_own_election() {
-        let other = std::process::id().wrapping_add(1).max(1);
+        // Another process's generation (an ancestor's is lower; any other
+        // nonzero value is handled the same way).
+        let other = fork_generation().unwrap().wrapping_add(1000);
         for per_process in [true, false] {
             let cell = ForkSafeCell::<u8>::new(per_process);
             cell.slots[0].get_or_init(|| (other, 1));
@@ -220,19 +257,48 @@ mod tests {
             // And had claimed slot 1 without filling it.
             cell.next.store(2, Ordering::SeqCst);
             let want = if per_process { 2 } else { 1 };
-            assert_eq!(cell.get_or_try_init(|| Ok(2), || ()), Ok(&want));
+            assert_eq!(cell.get_or_try_init(|| Ok(2), |_| ()), Ok(&want));
             if per_process {
                 assert_eq!(cell.current.load(Ordering::SeqCst), 2);
             }
         }
     }
 
+    /// Review of #47: a cell out of slots must fail before `init` runs, or
+    /// every call would start (and leak) another watchdog thread.
     #[test]
-    fn out_of_slots_fails_without_hanging() {
+    fn out_of_slots_fails_without_running_init() {
         let cell = ForkSafeCell::<u8>::per_process();
         cell.next.store(SLOTS, Ordering::SeqCst);
-        assert_eq!(cell.get_or_try_init(|| Ok(1), || "full"), Err("full"));
+        let runs = AtomicUsize::new(0);
+        let init = || {
+            runs.fetch_add(1, Ordering::SeqCst);
+            Ok(1)
+        };
+        let full = |why| match why {
+            Unavailable::Full => "full",
+            Unavailable::NoForkHandler => "no handler",
+        };
+        assert_eq!(cell.get_or_try_init(init, full), Err("full"));
         // The election was handed back: the next caller fails the same way.
-        assert_eq!(cell.get_or_try_init(|| Ok(1), || "full"), Err("full"));
+        assert_eq!(cell.get_or_try_init(init, full), Err("full"));
+        assert_eq!(runs.load(Ordering::SeqCst), 0, "init ran");
+        // The last free slot is still used.
+        let cell = ForkSafeCell::<u8>::per_process();
+        cell.next.store(SLOTS - 1, Ordering::SeqCst);
+        assert_eq!(cell.get_or_try_init(init, full), Ok(&1));
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+    }
+
+    /// A failed `init` takes no slot: the cell can fail many more times
+    /// than it has slots and still be set.
+    #[test]
+    fn failures_take_no_slot() {
+        let cell = ForkSafeCell::<u8>::per_process();
+        for _ in 0..SLOTS * 2 {
+            assert_eq!(cell.get_or_try_init(|| Err("no"), |_| "full"), Err("no"));
+        }
+        assert_eq!(cell.next.load(Ordering::SeqCst), 0);
+        assert_eq!(cell.get_or_try_init(|| Ok(9), |_| "full"), Ok(&9));
     }
 }
