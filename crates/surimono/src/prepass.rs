@@ -10,11 +10,20 @@
 //! </script>
 //! ```
 //!
-//! It becomes a `div` that keeps the marker's `id` and `class` and holds the SVG:
+//! It becomes a `div` that keeps the marker's `id` and `class`, its
+//! accessibility and presentation attributes (`style`, `title`, `lang`, `dir`,
+//! `role`, `aria-*`), and holds the SVG:
 //!
 //! ```html
 //! <div class="surimono-island chart" id="sales" data-renderer="echarts"><svg …>…</svg></div>
 //! ```
+//!
+//! The `type` attribute must spell out `application/vnd.surimono+json` (any
+//! ASCII case) without character references: a document that doesn't contain
+//! `vnd.surimono+json` has no islands and is returned as it is, without being
+//! parsed. Other attributes are read the way a browser reads them, character
+//! references decoded (`data-width="&#49;00"` is 100), and written back out as
+//! they were.
 //!
 //! Everything outside the markers stays byte for byte as it was. The document is
 //! tokenized with lol_html, a streaming rewriter built on the HTML tokenizer, so
@@ -30,6 +39,7 @@ use lol_html::errors::RewritingError;
 use lol_html::html_content::{ContentType, Element, TextChunk};
 use lol_html::{RewriteStrSettings, element, rewrite_str, text};
 
+use crate::charref::decode_attribute;
 use crate::error::{Error, IslandRef};
 
 /// The `type` of an island marker's script element.
@@ -74,7 +84,8 @@ pub(crate) struct Island {
     pub(crate) spec_json: String,
 }
 
-/// A marker as cut out of the document, before it is checked.
+/// A marker as cut out of the document, before it is checked. Attribute values
+/// are raw, as written (character references intact).
 #[derive(Debug, Default)]
 struct RawMarker {
     renderer: Option<String>,
@@ -82,6 +93,9 @@ struct RawMarker {
     height: Option<String>,
     id: Option<String>,
     class: Option<String>,
+    /// Attributes carried over to the wrapper, in document order: name
+    /// (lowercase) and raw value. See [`kept_attribute`].
+    kept: Vec<(String, String)>,
     text: String,
     closed: bool,
 }
@@ -105,6 +119,12 @@ pub(crate) fn rewrite_islands<F>(
 where
     F: FnMut(&Island) -> Result<String, Error>,
 {
+    // No marker can be in a document that doesn't name the type; don't parse
+    // it at all (it's cheaper, and markup lol_html finds ambiguous can't fail
+    // a document without islands).
+    if !contains_ascii_case_insensitive(html, ISLAND_TYPE_SUBTYPE) {
+        return Ok(html.to_owned());
+    }
     let sentinel = Sentinel::for_input(html);
     let scan = Rc::new(RefCell::new(Scan::default()));
 
@@ -125,6 +145,7 @@ where
                     height: el.get_attribute("data-height"),
                     id: el.get_attribute("id"),
                     class: el.get_attribute("class"),
+                    kept: kept_attributes(el),
                     ..RawMarker::default()
                 });
                 s.current = Some(index);
@@ -187,6 +208,44 @@ where
     Ok(sentinel.splice(&rewritten, &replacements))
 }
 
+/// The part of [`ISLAND_TYPE`] every marker's raw `type` attribute contains.
+const ISLAND_TYPE_SUBTYPE: &str = "vnd.surimono+json";
+
+fn contains_ascii_case_insensitive(haystack: &str, needle: &str) -> bool {
+    let needle = needle.as_bytes();
+    haystack
+        .as_bytes()
+        .windows(needle.len())
+        .any(|w| w.eq_ignore_ascii_case(needle))
+}
+
+/// Whether the wrapper keeps this attribute of the marker: `style`, `title`,
+/// `lang`, `dir`, `role` and `aria-*` (for tagged, accessible PDFs). Event
+/// handlers and everything else are dropped; `id`, `class` and
+/// `data-renderer` are written separately.
+fn kept_attribute(name: &str) -> bool {
+    matches!(name, "style" | "title" | "lang" | "dir" | "role")
+        || name.strip_prefix("aria-").is_some_and(|rest| {
+            !rest.is_empty()
+                && rest
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        })
+}
+
+/// The marker's kept attributes in document order; for a repeated name the
+/// first one counts, as in a browser.
+fn kept_attributes(el: &Element<'_, '_>) -> Vec<(String, String)> {
+    let mut kept: Vec<(String, String)> = Vec::new();
+    for a in el.attributes() {
+        let name = a.name();
+        if kept_attribute(&name) && !kept.iter().any(|(n, _)| *n == name) {
+            kept.push((name, a.value()));
+        }
+    }
+    kept
+}
+
 fn is_island(el: &Element<'_, '_>) -> bool {
     el.namespace_uri() == HTML_NAMESPACE
         && el.get_attribute("type").is_some_and(|t| {
@@ -196,11 +255,14 @@ fn is_island(el: &Element<'_, '_>) -> bool {
 }
 
 /// Reads a cut-out marker into an [`Island`], or says what is wrong with it.
+/// Attribute values are decoded first, as a browser would.
 fn check(index: usize, raw: &RawMarker) -> Result<Island, Error> {
-    let renderer = raw.renderer.as_deref().map(str::trim).unwrap_or_default();
+    let decoded = |v: &Option<String>| v.as_deref().map(|v| decode_attribute(v).into_owned());
+    let renderer = decoded(&raw.renderer).unwrap_or_default();
+    let renderer = renderer.trim();
     let at = IslandRef::new(
         index,
-        raw.id.clone(),
+        decoded(&raw.id),
         (!renderer.is_empty()).then(|| renderer.to_owned()),
     );
     let invalid = |reason: String| Error::InvalidIsland {
@@ -215,8 +277,14 @@ fn check(index: usize, raw: &RawMarker) -> Result<Island, Error> {
     if renderer.is_empty() {
         return Err(invalid("data-renderer is missing or empty".into()));
     }
-    let width = size("data-width", raw.width.as_deref(), DEFAULT_WIDTH).map_err(invalid)?;
-    let height = size("data-height", raw.height.as_deref(), DEFAULT_HEIGHT).map_err(invalid)?;
+    let width =
+        size("data-width", decoded(&raw.width).as_deref(), DEFAULT_WIDTH).map_err(invalid)?;
+    let height = size(
+        "data-height",
+        decoded(&raw.height).as_deref(),
+        DEFAULT_HEIGHT,
+    )
+    .map_err(invalid)?;
     let json = raw.text.trim();
     if let Err(e) = serde_json::from_str::<serde::de::IgnoredAny>(json) {
         return Err(invalid(format!("the script's text is not valid JSON: {e}")));
@@ -251,17 +319,27 @@ fn size(attr: &str, value: Option<&str>, default: u32) -> Result<u32, String> {
 /// The element an island's SVG goes into.
 fn wrapper(raw: &RawMarker, svg: &str) -> String {
     format!(
-        "<div class=\"{}\"{}{}>{svg}</div>",
+        "<div class=\"{}\"{}{}{}>{svg}</div>",
         classes("surimono-island", raw.class.as_deref()),
         attr("id", raw.id.as_deref()),
         attr("data-renderer", raw.renderer.as_deref().map(str::trim)),
+        kept(raw),
     )
+}
+
+/// The kept attributes (see [`kept_attribute`]) as written in the marker. An
+/// empty value is kept too (`aria-hidden=""` means something).
+fn kept(raw: &RawMarker) -> String {
+    raw.kept
+        .iter()
+        .map(|(name, value)| format!(" {name}=\"{}\"", quote_safe(value)))
+        .collect()
 }
 
 /// What a failed island leaves behind under [`ErrorPolicy::Placeholder`].
 fn placeholder(raw: &RawMarker, error: &Error) -> String {
     format!(
-        "<div class=\"{}\"{}{}{}><!-- surimono: {} --></div>",
+        "<div class=\"{}\"{}{}{}{}><!-- surimono: {} --></div>",
         classes(
             "surimono-island surimono-island-error",
             raw.class.as_deref()
@@ -269,6 +347,7 @@ fn placeholder(raw: &RawMarker, error: &Error) -> String {
         attr("id", raw.id.as_deref()),
         attr("data-renderer", raw.renderer.as_deref().map(str::trim)),
         attr("data-error", Some(error.kind())),
+        kept(raw),
         comment_text(&error.to_string()),
     )
 }
@@ -716,6 +795,106 @@ mod tests {
             let c = comment_text(m);
             assert!(!c.contains("--"), "{m:?} -> {c:?}");
         }
+    }
+
+    #[test]
+    fn documents_without_the_island_type_are_not_parsed() {
+        // lol_html reports a parsing ambiguity for <style> inside <select>; a
+        // document without islands must come back unchanged regardless.
+        let html = "<select><style>p{}</style></select><p>Q3</p>";
+        assert_eq!(run(html), html);
+        let mut calls = 0;
+        let out = rewrite_islands(html, ErrorPolicy::Fail, |_| {
+            calls += 1;
+            Ok(String::new())
+        });
+        assert_eq!(out.ok().as_deref(), Some(html));
+        assert_eq!(calls, 0);
+        // The check ignores ASCII case, like the type attribute itself.
+        let upper = format!(
+            "<SCRIPT TYPE=\"{}\" data-renderer=x>1</SCRIPT>",
+            T.to_uppercase()
+        );
+        assert!(run(&upper).starts_with("<div class=\"surimono-island\""));
+        // With an island present the ambiguity is still an error, never a
+        // silently wrong rewrite.
+        let both = format!(
+            "<select><style>p{{}}</style></select><script type={T} data-renderer=x>1</script>"
+        );
+        assert!(matches!(run_err(&both), Error::Html(_)));
+    }
+
+    #[test]
+    fn type_must_be_written_without_character_references() {
+        let html = "<script type=\"application/vnd.surimono&#43;json\" data-renderer=x>1</script>";
+        assert_eq!(run(html), html);
+    }
+
+    #[test]
+    fn attribute_values_are_read_decoded_and_written_raw() {
+        let mut seen = None;
+        let html = format!(
+            "<script type={T} id=\"q&amp;a\" data-renderer=\"e&#99;harts\" data-width=\"&#49;0\" \
+             data-height=\"&#x32;0\">1</script>"
+        );
+        let out = rewrite_islands(&html, ErrorPolicy::Fail, |island| {
+            seen = Some(island.clone());
+            fake(island)
+        })
+        .unwrap_or_else(|e| panic!("{e}"));
+        let island = seen.unwrap_or_else(|| panic!("render not called"));
+        assert_eq!(island.renderer, "echarts");
+        assert_eq!((island.width, island.height), (10, 20));
+        assert_eq!(island.at.id.as_deref(), Some("q&a"));
+        assert_eq!(island.at.renderer.as_deref(), Some("echarts"));
+        // Written back as it was: the browser decodes it the same way again.
+        assert!(
+            out.starts_with(
+                "<div class=\"surimono-island\" id=\"q&amp;a\" data-renderer=\"e&#99;harts\">"
+            ),
+            "{out}"
+        );
+        // Errors name the island by its decoded id.
+        let e = run_err(&format!(
+            "<script type={T} id=\"a&lt;b\" data-renderer=x data-width=\"&#48;\">1</script>"
+        ));
+        assert!(e.to_string().starts_with("island #1 (id \"a<b\""), "{e}");
+    }
+
+    #[test]
+    fn wrapper_keeps_accessibility_and_style_attributes_only() {
+        let html = format!(
+            "<script type={T} data-renderer=x role=img aria-label=\"Sales &amp; costs\" \
+             onload=\"alert(1)\" title='Q3 \"draft\"' lang=ja dir=ltr style=\"width:50%\" \
+             aria-describedby=note aria-hidden=\"\" src=evil.js data-x=1 \
+             aria-x\"onclick=bad role=dup>1</script>"
+        );
+        let out = run(&html);
+        assert_eq!(
+            out,
+            "<div class=\"surimono-island\" data-renderer=\"x\" role=\"img\" \
+             aria-label=\"Sales &amp; costs\" title=\"Q3 &quot;draft&quot;\" lang=\"ja\" \
+             dir=\"ltr\" style=\"width:50%\" aria-describedby=\"note\" aria-hidden=\"\">\
+             <svg data-r=\"x\" width=\"600\" height=\"400\">1</svg></div>"
+        );
+        // The placeholder keeps them too.
+        let failed = rewrite_islands(
+            &format!("<script type={T} data-renderer=x role=img aria-label=L>1</script>"),
+            ErrorPolicy::Placeholder,
+            |island| {
+                Err(Error::TimeLimit {
+                    island: island.at.clone(),
+                })
+            },
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        assert!(
+            failed.starts_with(
+                "<div class=\"surimono-island surimono-island-error\" data-renderer=\"x\" \
+                 data-error=\"time-limit\" role=\"img\" aria-label=\"L\"><!--"
+            ),
+            "{failed}"
+        );
     }
 
     #[test]
