@@ -23,10 +23,11 @@ time is now enforced by `scripts/fleet/owner-check.sh`.
 ### Open PRs (merge order)
 | PR | Task | State |
 |---|---|---|
-| #32 → #37, #45 | P1-RT-09 engine patch, P1-RT-11 hostile harness, P1-RT-15 OOM fixes | #32 and #37 approved; P1-RT-15b adds the bind sweep test and nits (#45 blockers); then a delta review and normal merges |
+| #45 | P1-RT-15 OOM fixes | bind sweep test and nits pushed (22f3541); delta review next (#32 and #37 landed through #39) |
 | #47 | P1-RT-14 time-accurate deadlines (R4, R5) | in review (stacked on #32 and #45; patch level 3) |
 | #52, #53 | P1-RT-19 macOS determinism probe, P1-RT-13 ASan test limits | in review; from main, fix main's full.yml |
-| #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | #12 BLOCK (relative URLs pass as `data:image/`), #27 BLOCK (carries #12); being fixed |
+| #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | fixes pushed (#12 7cc4cc1, #27 e2923ee); in review |
+| #54 | P1-RT-16 on-demand pool, idle release (PSS 78 → 41 MB) | in review; P1-RT-17b (precompiled bytecode) next |
 | #25 → #26 → #34 | facade on the real backend, CLI, licences | BLOCKs from 16:25 being folded in; critical path for the checkpoint run |
 | #35 | P1-CF-09 checkpoint-2 run script | approved at 66cba58; merges after #27 |
 | #50, #51 | P1-CF-11 review follow-ups (checks, compat.py, offline WebRTC) | #50 BLOCK (sandboxed srcdoc iframe keeps WebRTC), being fixed; #51 inherits it |
