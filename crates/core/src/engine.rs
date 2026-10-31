@@ -314,10 +314,13 @@ fn stack_low() -> Option<usize> {
 }
 
 /// Test-only fault injection: refuse exactly the Nth allocation, to show no
-/// out-of-memory path in QuickJS aborts the process.
+/// out-of-memory path in QuickJS crashes or aborts the process.
 #[cfg(test)]
 pub(crate) mod fault {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::ffi::c_int;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    use rquickjs::{Ctx, qjs};
 
     static REFUSE_AT: AtomicUsize = AtomicUsize::new(0);
     static COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -338,6 +341,30 @@ pub(crate) mod fault {
         let n = REFUSE_AT.load(Ordering::Relaxed);
         let i = COUNT.fetch_add(1, Ordering::Relaxed) + 1;
         n != 0 && i == n
+    }
+
+    static ARENA_OFF: AtomicBool = AtomicBool::new(false);
+
+    /// With `off`, runtimes created from now on skip QuickJS's small-block
+    /// arenas, so every allocation reaches the sandbox's allocator and
+    /// `refuse_nth` can refuse each one. Normally only arena refills get
+    /// there. Process-wide: use it only in a child process.
+    pub(crate) fn set_arena_off(off: bool) {
+        ARENA_OFF.store(off, Ordering::SeqCst);
+    }
+
+    unsafe extern "C" {
+        /// Defined only by the patched QuickJS in `vendor/rquickjs-sys`.
+        fn surimono_quickjs_set_arena(rt: *mut qjs::JSRuntime, enabled: c_int);
+    }
+
+    /// Applies `set_arena_off` to the runtime of `ctx`.
+    pub(crate) fn apply_arena_setting(ctx: &Ctx<'_>) {
+        if ARENA_OFF.load(Ordering::SeqCst) {
+            // SAFETY: `ctx` is a live context inside `Context::with`, so its
+            // runtime is alive and locked; the call writes one field of it.
+            unsafe { surimono_quickjs_set_arena(qjs::JS_GetRuntime(ctx.as_raw().as_ptr()), 0) }
+        }
     }
 }
 
@@ -593,7 +620,7 @@ mod tests {
 
     #[test]
     fn the_engine_is_patched() {
-        assert!(patch_level() >= 1);
+        assert!(patch_level() >= 2);
     }
 
     #[test]
