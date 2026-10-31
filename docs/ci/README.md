@@ -27,4 +27,9 @@ job runs the default branch's copy of that script.
   rebuilding on every run.
 - New action pin: `actions/download-artifact` v5.0.0
   (634f93cb2916e3fdff6788551b99b062d0335ce0, from `git ls-remote`).
+- ci.yml's `publish` skips fork pull requests (their token is read-only).
 - Lint: `actionlint -shellcheck= docs/ci/*.yml` (1.7.12) is clean.
+
+One pull request after the copy, the old in-job mode
+(`publish-results.sh <status>`, which runs where code under test ran with
+the token) is removed from the script.

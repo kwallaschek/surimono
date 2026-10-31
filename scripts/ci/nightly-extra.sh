@@ -38,4 +38,11 @@ if [ -f crates/gfx/tests/fulgur_print.rs ]; then
   fi
   SURIMONO_REQUIRE_FULGUR=1 cargo test -p surimono-gfx --test fulgur_print --locked; ran=$((ran + 1))
 fi
+# The full out-of-memory sweep (P1-RT-15, #45): every allocation of a script
+# fails once in turn. Slow, so #[ignore]d; the ASan job runs it too, with
+# quickjs.c's arena off. A no-op until the test exists.
+if grep -rq 'fn out_of_memory_full_sweep' crates/core/src 2>/dev/null; then
+  step "core: out-of-memory full sweep (ignored test)"
+  cargo test -p surimono-core --lib --locked -- --ignored out_of_memory_full_sweep; ran=$((ran + 1))
+fi
 echo "nightly extra checks run: $ran"

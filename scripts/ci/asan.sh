@@ -14,7 +14,8 @@ rustc "+$toolchain" -Vv
 export RUSTFLAGS="-Zsanitizer=address" RUSTDOCFLAGS="-Zsanitizer=address"
 export ASAN_OPTIONS="detect_leaks=1"
 status=0
-cargo "+$toolchain" test -Zbuild-std --target "$target" --locked \
+# --no-fail-fast: every crate reports, not only those before the first failure.
+cargo "+$toolchain" test -Zbuild-std --target "$target" --locked --no-fail-fast \
   --workspace --exclude surimono-ruby --lib --tests || status=$?
 
 # The full out-of-memory sweep (P1-RT-15): every allocation QuickJS makes
