@@ -106,3 +106,6 @@ checkpoint and can overturn anything. Newest last.
 - 2026-10-31 · Benchmark ratios and 'met' are shown only when both sides are fully measured (n = requested runs) · A failed Grover run once produced a '5.0× met'.
 - 2026-10-31 · bench/rust is a standalone workspace on toolchain 1.97.0 · fulgur 0.40's krilla needs rustc 1.89 > MSRV 1.87.
 - 2026-10-31 · Grover on chrome-headless-shell is a second benchmark baseline; the bench/rust build gets a 30-minute budget inside a 50-minute job and a timed-out build is 'not measured' while a failed build is an error · Any claim must hold against the leanest Chrome; Grover numbers must survive a slow build.
+- 2026-10-31 · The real-world suite pins each library by npm tarball, sha512 integrity and sha256 of the exact bundle file · One manifest that the harness and crates/islands are checked against.
+- 2026-10-31 · Comparisons also need colour (16/255 on solid areas), hue (8° on strokes) and text checks to pass · Near-match alone is colour-blind; calibrated.
+- 2026-10-31 · The real-world manifest records both the npm dist file (Chrome) and the build crates/islands embeds · They are different files of the same package.
