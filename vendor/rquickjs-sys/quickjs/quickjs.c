@@ -77,6 +77,21 @@
 #define CONFIG_ATOMICS
 #endif
 
+/* surimono: the host's interrupt flag (see surimono_set_interrupt_flag).
+   Another thread sets it; the poll reads it with a relaxed load, which is
+   a plain load on every mainstream target. Without C11 atomics there are
+   no threads to set it from, so a volatile read is enough. */
+#if defined(CONFIG_ATOMICS) && !defined(GCC_BUILTIN_ATOMICS)
+typedef _Atomic uint32_t js_interrupt_flag_t;
+#define js_interrupt_flag_get(p) atomic_load_explicit((p), memory_order_relaxed)
+#elif defined(CONFIG_ATOMICS)
+typedef uint32_t js_interrupt_flag_t;
+#define js_interrupt_flag_get(p) __atomic_load_n((p), __ATOMIC_RELAXED)
+#else
+typedef volatile uint32_t js_interrupt_flag_t;
+#define js_interrupt_flag_get(p) (*(p))
+#endif
+
 #ifndef __GNUC__
 #define __extension__
 #endif
@@ -311,6 +326,9 @@ typedef struct JSArenaState {
     struct list_head arena_list[JS_ARENA_BLOCK_SIZE_COUNT];
     struct list_head free_arena_list[JS_ARENA_BLOCK_SIZE_COUNT];
     _Alignas(JS_ARENA_ALIGN) uint8_t zero_size_block[sizeof(JSMallocBlockHeader)];
+    /* surimono: like JS_ARENA_LARGE_BLOCKS_ONLY, for one runtime; set by
+       surimono_quickjs_set_arena() (tests only). */
+    bool large_blocks_only;
 } JSArenaState;
 
 typedef struct JSRuntimeFinalizerState {
@@ -381,6 +399,9 @@ struct JSRuntime {
 
     JSInterruptHandler *interrupt_handler;
     void *interrupt_opaque;
+    /* surimono: never NULL; points at js_interrupt_flag_clear unless the
+       host set its own flag. Copied to every context. */
+    js_interrupt_flag_t *interrupt_flag;
 
     JSPromiseHook *promise_hook;
     void *promise_hook_opaque;
@@ -606,6 +627,9 @@ struct JSContext {
 
     /* when the counter reaches zero, JSRutime.interrupt_handler is called */
     int interrupt_counter;
+    /* surimono: copy of JSRuntime.interrupt_flag, one load closer to the
+       poll; when the flag is nonzero the handler is called at once. */
+    js_interrupt_flag_t *interrupt_flag;
 
     struct list_head loaded_modules; /* list of JSModuleDef.link */
 
@@ -1809,7 +1833,8 @@ static void *js_arena_malloc(JSRuntime *rt, size_t size)
         return arena_zero_block(rt)->user_data;
     total_size = ((size + JS_ARENA_ALIGN - 1) & ~(size_t)(JS_ARENA_ALIGN - 1)) +
         sizeof(JSMallocBlockHeader);
-    if (!JS_ARENA_LARGE_BLOCKS_ONLY && total_size <= JS_ARENA_MAX_SMALL_SIZE) {
+    if (!JS_ARENA_LARGE_BLOCKS_ONLY && !rt->arena_state.large_blocks_only &&
+        total_size <= JS_ARENA_MAX_SMALL_SIZE) {
         int block_size_idx;
         unsigned int block_idx, block_size;
         JSMallocBlockHeader *b;
@@ -1948,7 +1973,8 @@ static void *js_arena_calloc(JSRuntime *rt, size_t count, size_t size)
     size_t n = count * size; /* overflow already checked by js_calloc_rt */
     size_t total_size = ((n + JS_ARENA_ALIGN - 1) & ~(size_t)(JS_ARENA_ALIGN - 1)) +
         sizeof(JSMallocBlockHeader);
-    if (!JS_ARENA_LARGE_BLOCKS_ONLY && total_size <= JS_ARENA_MAX_SMALL_SIZE) {
+    if (!JS_ARENA_LARGE_BLOCKS_ONLY && !rt->arena_state.large_blocks_only &&
+        total_size <= JS_ARENA_MAX_SMALL_SIZE) {
         /* Small blocks are carved from recycled (dirty) arena memory, so they
            must be zeroed explicitly. */
         void *ptr = js_arena_malloc(rt, n);
@@ -2311,6 +2337,9 @@ static inline bool js_check_stack_overflow(JSRuntime *rt, size_t alloca_size)
     return unlikely(sp < rt->stack_limit);
 }
 
+/* surimono: the flag of runtimes whose host set none; never written. */
+static js_interrupt_flag_t js_interrupt_flag_clear;
+
 JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
 {
     JSRuntime *rt;
@@ -2334,6 +2363,7 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
     rt->malloc_state = ms;
     js_arena_init(rt);
     rt->malloc_gc_threshold = 256 * 1024;
+    rt->interrupt_flag = &js_interrupt_flag_clear; /* surimono */
 
     init_list_head(&rt->context_list);
     init_list_head(&rt->gc_obj_list);
@@ -2477,6 +2507,28 @@ void JS_SetInterruptHandler(JSRuntime *rt, JSInterruptHandler *cb, void *opaque)
 {
     rt->interrupt_handler = cb;
     rt->interrupt_opaque = opaque;
+}
+
+/* surimono: an interrupt flag for time-accurate limits. The handler is
+   asked every JS_INTERRUPT_COUNTER_INIT polls; with a flag, every poll
+   also reads `*flag`, and while it is nonzero calls the handler at once,
+   so the time between a deadline and the stop no longer depends on how
+   much work lies between polls. The host
+   sets it from any thread (a watchdog timer, say) and clears it itself;
+   it must outlive the runtime, and the handler must answer true while it
+   is set, or every poll asks again. NULL removes it. Takes effect in every
+   context of `rt`, existing and future. */
+void surimono_set_interrupt_flag(JSRuntime *rt, uint32_t *flag)
+{
+    struct list_head *el;
+    js_interrupt_flag_t *f;
+
+    f = flag ? (js_interrupt_flag_t *)flag : &js_interrupt_flag_clear;
+    rt->interrupt_flag = f;
+    list_for_each(el, &rt->context_list) {
+        JSContext *ctx = list_entry(el, JSContext, link);
+        ctx->interrupt_flag = f;
+    }
 }
 
 void JS_SetCanBlock(JSRuntime *rt, bool can_block)
@@ -2701,7 +2753,13 @@ void JS_FreeRuntime(JSRuntime *rt)
     }
 #endif
 
-    assert(list_empty(&rt->gc_obj_list));
+    /* surimono: objects still listed here leaked a reference on some
+       error path (typically out-of-memory). Nothing below touches them,
+       and their arena blocks are released with the arenas, so leave them
+       rather than abort the process; surimono's tests check that a
+       runtime gives back every byte it allocated. */
+    if (!list_empty(&rt->gc_obj_list))
+        init_list_head(&rt->gc_obj_list);
 
     /* free the classes */
     for(i = 0; i < rt->class_count; i++) {
@@ -2867,6 +2925,7 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
         return NULL;
     }
     ctx->rt = rt;
+    ctx->interrupt_flag = rt->interrupt_flag; /* surimono */
     list_add_tail(&ctx->link, &rt->context_list);
     for(i = 0; i < rt->class_count; i++)
         ctx->class_proto[i] = JS_NULL;
@@ -7005,6 +7064,9 @@ static void js_bound_function_finalizer(JSRuntime *rt, JSValueConst val)
     JSBoundFunction *bf = p->u.bound_function;
     int i;
 
+    /* surimono: NULL-safe, like the other finalizers (see js_function_bind). */
+    if (!bf)
+        return;
     JS_FreeValueRT(rt, bf->func_obj);
     JS_FreeValueRT(rt, bf->this_val);
     for(i = 0; i < bf->argc; i++) {
@@ -7020,6 +7082,9 @@ static void js_bound_function_mark(JSRuntime *rt, JSValueConst val,
     JSBoundFunction *bf = p->u.bound_function;
     int i;
 
+    /* surimono: see js_bound_function_finalizer. */
+    if (!bf)
+        return;
     JS_MarkValue(rt, bf->func_obj, mark_func);
     JS_MarkValue(rt, bf->this_val, mark_func);
     for(i = 0; i < bf->argc; i++)
@@ -8667,15 +8732,31 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
     return 0;
 }
 
-/* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md. */
+/* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
+   3: both the allocation-failure hardening (p1-rt-15) and the interrupt
+   flag (p1-rt-14), each of which was level 2 on its own branch. */
 int surimono_quickjs_patch_level(void)
 {
-    return 1;
+    return 3;
+}
+
+/* surimono: with enabled = 0, every later allocation of this runtime goes
+   to the backing allocator instead of the small-block arenas, so a test
+   allocator sees (and can refuse) each one. Blocks already handed out are
+   freed correctly either way: js_arena_free looks at each block's own
+   header. */
+void surimono_quickjs_set_arena(JSRuntime *rt, int enabled)
+{
+    rt->arena_state.large_blocks_only = !enabled;
 }
 
 static inline __exception int js_poll_interrupts(JSContext *ctx)
 {
-    if (unlikely(--ctx->interrupt_counter <= 0)) {
+    /* surimono: also ask the handler whenever the host's interrupt flag is
+       set, so a deadline stops the script at its next poll (see
+       surimono_set_interrupt_flag). */
+    if (unlikely(--ctx->interrupt_counter <= 0 ||
+                 js_interrupt_flag_get(ctx->interrupt_flag))) {
         return __js_poll_interrupts(ctx);
     } else {
         return 0;
@@ -12489,7 +12570,9 @@ static js_limb_t js_mp_add_mul1(js_limb_t *tabr, const js_limb_t *taba, js_limb_
 }
 
 /* size of the result : op1_size + op2_size. */
-static void js_mp_mul_basecase(js_limb_t *result,
+/* surimono: takes `ctx` and polls once per row, returning -1 after an
+   interrupt; see js_bigint_mul. */
+static __exception int js_mp_mul_basecase(JSContext *ctx, js_limb_t *result,
                             const js_limb_t *op1, js_limb_t op1_size,
                             const js_limb_t *op2, js_limb_t op2_size)
 {
@@ -12498,9 +12581,12 @@ static void js_mp_mul_basecase(js_limb_t *result,
 
     result[op1_size] = js_mp_mul1(result, op1, op1_size, op2[0], 0);
     for(i=1;i<op2_size;i++) {
+        if (js_poll_interrupts(ctx))
+            return -1;
         r = js_mp_add_mul1(result + i, op1, op1_size, op2[i]);
         result[i + op1_size] = r;
     }
+    return 0;
 }
 
 /* tabr[] -= taba[] * b. Return the value to substract to the high
@@ -12580,7 +12666,10 @@ static js_limb_t js_mp_div1norm(js_limb_t *tabr, const js_limb_t *taba, js_limb_
    - 1] must be >= 1 << (JS_LIMB_BITS - 1). na - nb must be >= 0. 'taba'
    is modified and contains the remainder (nb limbs). tabq[0..na-nb]
    contains the quotient with tabq[na - nb] <= 1. */
-static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
+/* surimono: takes `ctx` and polls once per quotient limb, returning -1
+   after an interrupt; see js_bigint_mul. */
+static __exception int js_mp_divnorm(JSContext *ctx, js_limb_t *tabq,
+                       js_limb_t *taba, js_limb_t na,
                        const js_limb_t *tabb, js_limb_t nb)
 {
     js_limb_t r, a, c, q, v, b1, b1_inv, n, dummy_r;
@@ -12589,7 +12678,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
     b1 = tabb[nb - 1];
     if (nb == 1) {
         taba[0] = js_mp_div1norm(tabq, taba, na, b1, 0);
-        return;
+        return 0;
     }
     n = na - nb;
 
@@ -12613,6 +12702,8 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
     }
 
     for(i = n - 1; i >= 0; i--) {
+        if (js_poll_interrupts(ctx))
+            return -1;
         if (unlikely(taba[i + nb] >= b1)) {
             q = -1;
         } else if (b1_inv) {
@@ -12645,6 +12736,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
         }
         tabq[i] = q;
     }
+    return 0;
 }
 
 /* 1 <= shift <= JS_LIMB_BITS - 1 */
@@ -12935,7 +13027,13 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
     r = js_bigint_new(ctx, a->len + b->len);
     if (!r)
         return NULL;
-    js_mp_mul_basecase(r->tab, a->tab, a->len, b->tab, b->len);
+    /* surimono: the schoolbook kernels are quadratic in the size, so they
+       poll as they go: multiply per row, divide per quotient limb, decimal
+       toString and parsing per limb. */
+    if (js_mp_mul_basecase(ctx, r->tab, a->tab, a->len, b->tab, b->len)) {
+        js_free(ctx, r);
+        return NULL;
+    }
     /* correct the result if negative operands (no overflow is
        possible) */
     if (js_bigint_sign(a))
@@ -13025,7 +13123,13 @@ static JSBigInt *js_bigint_divrem(JSContext *ctx, const JSBigInt *a,
 
     //    js_bigint_dump1(ctx, "a", r->tab, na);
     //    js_bigint_dump1(ctx, "b", tabb, nb);
-    js_mp_divnorm(q->tab, r->tab, na, tabb, nb);
+    /* surimono: polls; see js_bigint_mul. */
+    if (js_mp_divnorm(ctx, q->tab, r->tab, na, tabb, nb)) {
+        js_free(ctx, q);
+        js_free(ctx, r);
+        js_free(ctx, tabb);
+        return NULL;
+    }
     js_free(ctx, tabb);
 
     if (is_rem) {
@@ -13538,6 +13642,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
         len = 1;
         r->tab[0] = 0;
         for(;;) {
+            /* surimono: quadratic in the length; poll per limb (see
+               js_bigint_mul). */
+            if (js_poll_interrupts(ctx)) {
+                js_free(ctx, r);
+                return NULL;
+            }
             /* XXX: slow */
             v = 0;
             for(i = 0; i < digits_per_limb; i++) {
@@ -13719,6 +13829,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
             radix_base = js_radix_base_table[radix - 2];
             len = r->len;
             for(;;) {
+                /* surimono: quadratic in the length; poll per limb (see
+                   js_bigint_mul). */
+                if (js_poll_interrupts(ctx)) {
+                    js_free(ctx, tmp);
+                    js_free(ctx, buf);
+                    return JS_EXCEPTION;
+                }
                 /* remove leading zero limbs */
                 while (len > 1 && r->tab[len - 1] == 0)
                     len--;
@@ -24065,6 +24182,20 @@ static void emit_op(JSParseState *s, uint8_t val)
     dbuf_putc(bc, val);
 }
 
+/* surimono: the parser carries on after failing to grow the bytecode
+   buffer (new_label also flags the buffer when the label table can't
+   grow), so offsets saved before the failure and label indices can point
+   past what was written. Call this before patching code at a saved
+   offset; js_create_function rejects the function anyway. */
+static int js_check_bytecode_oom(JSContext *ctx, JSFunctionDef *fd)
+{
+    if (unlikely(dbuf_error(&fd->byte_code))) {
+        JS_ThrowOutOfMemory(ctx);
+        return -1;
+    }
+    return 0;
+}
+
 static void emit_atom(JSParseState *s, JSAtom name)
 {
     DynBuf *bc = &s->cur_func->byte_code;
@@ -24158,8 +24289,11 @@ static int cpool_add(JSParseState *s, JSValue val)
     JSFunctionDef *fd = s->cur_func;
 
     if (js_resize_array(s->ctx, (void *)&fd->cpool, sizeof(fd->cpool[0]),
-                        &fd->cpool_size, fd->cpool_count + 1))
+                        &fd->cpool_size, fd->cpool_count + 1)) {
+        /* surimono: 'val' is ours, so free it rather than leak it. */
+        JS_FreeValue(s->ctx, val);
         return -1;
+    }
     fd->cpool[fd->cpool_count++] = val;
     return fd->cpool_count - 1;
 }
@@ -25973,6 +26107,9 @@ static __exception int js_parse_class(JSParseState *s, bool is_class_expr,
             goto fail;
     }
     /* patch the constant pool index for the constructor */
+    /* surimono: see js_check_bytecode_oom. */
+    if (js_check_bytecode_oom(ctx, fd))
+        goto fail;
     put_u32(fd->byte_code.buf + ctor_cpool_offset, ctor_fd->parent_cpool_idx);
 
     /* store the class source code in the constructor. */
@@ -26004,6 +26141,9 @@ static __exception int js_parse_class(JSParseState *s, bool is_class_expr,
             }
             /* patch the start of the function to enable the
                OP_add_brand_instance code */
+            /* surimono: see js_check_bytecode_oom. */
+            if (js_check_bytecode_oom(ctx, cf->fields_init_fd))
+                goto fail;
             cf->fields_init_fd->byte_code.buf[cf->brand_push_pos] = OP_push_true;
         }
 
@@ -27047,6 +27187,9 @@ static int js_parse_destructuring_element(JSParseState *s, int tok,
             return -1;
         }
         /* remove test and decrement label ref count */
+        /* surimono: see js_check_bytecode_oom. */
+        if (js_check_bytecode_oom(s->ctx, s->cur_func))
+            return -1;
         memset(s->cur_func->byte_code.buf + start_addr, OP_nop,
                assign_addr - start_addr);
         s->cur_func->label_slots[label_parse].ref_count--;
@@ -29292,7 +29435,10 @@ static __exception int js_parse_for_in_of(JSParseState *s, int label_name,
         int chunk_size = pos_expr - pos_next;
         int offset = bc->size - pos_next;
         int i;
-        if (dbuf_claim(bc, chunk_size))
+        /* surimono: see js_check_bytecode_oom; a failed claim flags the
+           buffer too. */
+        dbuf_claim(bc, chunk_size);
+        if (js_check_bytecode_oom(s->ctx, s->cur_func))
             return -1;
         dbuf_put(bc, bc->buf + pos_next, chunk_size);
         memset(bc->buf + pos_next, OP_nop, chunk_size);
@@ -29811,8 +29957,11 @@ static __exception int js_parse_statement_or_decl(JSParseState *s,
                 int chunk_size = pos_body - pos_cont;
                 int offset = bc->size - pos_cont;
                 int i;
-                if (dbuf_claim(bc, chunk_size))
-                    return -1;
+                /* surimono: see js_check_bytecode_oom; a failed claim
+                   flags the buffer too. */
+                dbuf_claim(bc, chunk_size);
+                if (js_check_bytecode_oom(ctx, s->cur_func))
+                    goto fail;
                 dbuf_put(bc, bc->buf + pos_cont, chunk_size);
                 memset(bc->buf + pos_cont, OP_nop, chunk_size);
                 /* increment part ends with a goto */
@@ -29990,6 +30139,9 @@ static __exception int js_parse_statement_or_decl(JSParseState *s,
                 goto fail;
             if (default_label_pos >= 0) {
                 /* Ugly patch for the `default` label, shameful and risky */
+                /* surimono: see js_check_bytecode_oom. */
+                if (js_check_bytecode_oom(ctx, s->cur_func))
+                    goto fail;
                 put_u32(s->cur_func->byte_code.buf + default_label_pos,
                         label_case);
                 s->cur_func->label_slots[label_case].pos = default_label_pos + 4;
@@ -33092,8 +33244,14 @@ static void js_free_function_def(JSContext *ctx, JSFunctionDef *fd)
         js_free_function_def(ctx, fd1);
     }
 
-    free_bytecode_atoms(ctx->rt, fd->byte_code.buf, fd->byte_code.size,
-                        fd->use_short_opcodes);
+    /* surimono: a write that fails to grow a DynBuf is dropped, but later
+       writes that fit the space left still land, so after an allocation
+       failure the buffer can hold partial instructions and decoding it
+       frees garbage as atoms. Leave the atoms it references instead:
+       JS_FreeRuntime frees every atom. */
+    if (!dbuf_error(&fd->byte_code))
+        free_bytecode_atoms(ctx->rt, fd->byte_code.buf, fd->byte_code.size,
+                            fd->use_short_opcodes);
     dbuf_free(&fd->byte_code);
     js_free(ctx, fd->jump_slots);
     js_free(ctx, fd->label_slots);
@@ -35866,6 +36024,13 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
 
     for (pos = 0; pos < bc_len; pos = pos_next) {
         int val;
+        /* surimono: once growing bc_out has failed, it no longer holds what
+           the offsets below expect: relocations and jump slots point past
+           its end or into the wrong instructions. Stop before patching. */
+        if (unlikely(dbuf_error(&bc_out))) {
+            JS_ThrowOutOfMemory(ctx);
+            goto fail;
+        }
         op = bc_buf[pos];
         len = opcode_info[op].size;
         pos_next = pos + len;
@@ -36578,6 +36743,12 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
         }
     }
 
+    /* surimono: see the top of the loop. */
+    if (unlikely(dbuf_error(&bc_out))) {
+        JS_ThrowOutOfMemory(ctx);
+        goto fail;
+    }
+
     /* check that there were no missing labels */
     for(i = 0; i < s->label_count; i++) {
         assert(label_slots[i].first_reloc == NULL);
@@ -36676,7 +36847,20 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
     }
     return 0;
  fail:
-    /* XXX: not safe */
+    /* surimono: free the relocations of labels not reached yet. Then flag
+       the source buffer so js_free_function_def doesn't decode it: the
+       atoms of the instructions copied so far moved to bc_out, and some
+       were freed while optimizing, so freeing them again from the source
+       would free atoms still in use. Their references are left to
+       JS_FreeRuntime, which frees every atom. */
+    for(i = 0; i < s->label_count; i++) {
+        for(re = label_slots[i].first_reloc; re != NULL; re = re_next) {
+            re_next = re->next;
+            js_free(ctx, re);
+        }
+        label_slots[i].first_reloc = NULL;
+    }
+    dbuf_set_error(&s->byte_code);
     dbuf_free(&bc_out);
     return -1;
 }
@@ -42591,16 +42775,21 @@ static JSValue js_function_bind(JSContext *ctx, JSValueConst this_val,
     if (check_function(ctx, this_val))
         return JS_EXCEPTION;
 
-    func_obj = JS_NewObjectProtoClass(ctx, ctx->function_proto,
-                                 JS_CLASS_BOUND_FUNCTION);
-    if (JS_IsException(func_obj))
-        return JS_EXCEPTION;
-    p = JS_VALUE_GET_OBJ(func_obj);
-    p->is_constructor = JS_IsConstructor(ctx, this_val);
+    /* surimono: allocate the bound-function record before the object.
+       When the object came first and this allocation failed, freeing the
+       object ran js_bound_function_finalizer on a NULL record. */
     arg_count = max_int(0, argc - 1);
     bf = js_malloc(ctx, sizeof(*bf) + arg_count * sizeof(JSValue));
     if (!bf)
-        goto exception;
+        return JS_EXCEPTION;
+    func_obj = JS_NewObjectProtoClass(ctx, ctx->function_proto,
+                                 JS_CLASS_BOUND_FUNCTION);
+    if (JS_IsException(func_obj)) {
+        js_free(ctx, bf);
+        return JS_EXCEPTION;
+    }
+    p = JS_VALUE_GET_OBJ(func_obj);
+    p->is_constructor = JS_IsConstructor(ctx, this_val);
     bf->func_obj = js_dup(this_val);
     bf->this_val = js_dup(argv[0]);
     bf->argc = arg_count;
@@ -47309,10 +47498,29 @@ static int string_indexof_char(JSString *p, int c, int from)
     return -1;
 }
 
-static int string_indexof(JSString *p1, JSString *p2, int from)
+/* surimono: the string searches here are naive, up to len1 * len2
+   character comparisons in one native call, so they count their
+   comparisons and poll every JS_SEARCH_POLL_UNITS of them (tens of
+   microseconds of work). */
+#define JS_SEARCH_POLL_UNITS (1 << 16)
+
+static inline __exception int js_search_poll(JSContext *ctx, int64_t *work,
+                                             int64_t cost)
+{
+    *work += cost;
+    if (likely(*work < JS_SEARCH_POLL_UNITS))
+        return 0;
+    *work = 0;
+    return js_poll_interrupts(ctx);
+}
+
+/* surimono: takes `ctx` to poll (see js_search_poll); returns -2 after an
+   interrupt, with the exception pending. */
+static int string_indexof(JSContext *ctx, JSString *p1, JSString *p2, int from)
 {
     /* assuming 0 <= from <= p1->len */
     int c, i, j, len1 = p1->len, len2 = p2->len;
+    int64_t work = 0;
     if (len2 == 0)
         return from;
     for (i = from, c = string_get(p2, 0); i + len2 <= len1; i = j + 1) {
@@ -47321,6 +47529,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
             break;
         if (!string_cmp(p1, p2, j + 1, 1, len2 - 1))
             return j;
+        if (js_search_poll(ctx, &work, (int64_t)j - i + len2))
+            return -2;
     }
     return -1;
 }
@@ -47458,6 +47668,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
     }
     ret = -1;
     if (len >= v_len && inc * (stop - start) >= 0) {
+        int64_t work = 0; /* surimono: see js_search_poll */
         for (i = start;; i += inc) {
             if (!string_cmp(p, p1, i, 0, v_len)) {
                 ret = i;
@@ -47465,6 +47676,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
             }
             if (i == stop)
                 break;
+            if (js_search_poll(ctx, &work, v_len))
+                goto fail;
         }
     }
     JS_FreeValue(ctx, str);
@@ -47524,6 +47737,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
         start = stop = pos;
     }
     if (start >= 0 && start <= stop) {
+        int64_t work = 0; /* surimono: see js_search_poll */
         for (i = start;; i++) {
             if (!string_cmp(p, p1, i, 0, v_len)) {
                 ret = 1;
@@ -47531,6 +47745,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
             }
             if (i == stop)
                 break;
+            if (js_search_poll(ctx, &work, v_len))
+                goto fail;
         }
     }
  done:
@@ -47786,6 +48002,10 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
     endOfLastMatch = 0;
     is_first = true;
     for(;;) {
+        /* surimono: poll once per match; with a non-function replacement
+           this loop calls no script code that would. */
+        if (js_poll_interrupts(ctx))
+            goto exception;
         if (unlikely(searchp->len == 0)) {
             if (is_first)
                 pos = 0;
@@ -47794,7 +48014,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
             else
                 pos = endOfLastMatch + 1;
         } else {
-            pos = string_indexof(sp, searchp, endOfLastMatch);
+            pos = string_indexof(ctx, sp, searchp, endOfLastMatch);
+            if (pos < -1)
+                goto exception;
         }
         if (pos < 0) {
             if (is_first) {
@@ -47905,7 +48127,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
     }
     q = p;
     for (q = p; (q += !r) <= s - r - !r; q = p = e + r) {
-        e = string_indexof(sp, rp, q);
+        /* surimono: poll once per piece too; see string_indexof. */
+        if (js_poll_interrupts(ctx))
+            goto exception;
+        e = string_indexof(ctx, sp, rp, q);
+        if (e < -1)
+            goto exception;
         if (e < 0)
             break;
         T = js_sub_string(ctx, sp, p, e);
@@ -51640,8 +51867,11 @@ static int js_json_to_str(JSContext *ctx, JSONStringifyContext *jsc,
                     goto exception;
                 /* XXX: could do this string conversion only when needed */
                 prop = JS_ToStringFree(ctx, js_int64(i));
-                if (JS_IsException(prop))
+                if (JS_IsException(prop)) {
+                    /* surimono: don't leak the element on out-of-memory. */
+                    JS_FreeValue(ctx, v);
                     goto exception;
+                }
                 v = js_json_check(ctx, jsc, val, v, prop);
                 JS_FreeValue(ctx, prop);
                 prop = JS_UNDEFINED;
@@ -56358,13 +56588,19 @@ static JSValue js_promise_all(JSContext *ctx, JSValueConst this_val,
                     JS_NewCFunctionData(ctx, js_promise_all_resolve_element, 1,
                                         magic | 4, 5, resolve_element_data);
                 if (JS_IsException(reject_element)) {
+                    /* surimono: don't leak resolve_element on out-of-memory. */
+                    JS_FreeValue(ctx, resolve_element);
                     JS_FreeValue(ctx, next_promise);
                     goto fail_reject1;
                 }
             } else if (magic == PROMISE_MAGIC_any) {
                 if (JS_DefinePropertyValueUint32(ctx, values, index,
-                                                 JS_UNDEFINED, JS_PROP_C_W_E) < 0)
+                                                 JS_UNDEFINED, JS_PROP_C_W_E) < 0) {
+                    /* surimono: as above. */
+                    JS_FreeValue(ctx, resolve_element);
+                    JS_FreeValue(ctx, next_promise);
                     goto fail_reject1;
+                }
                 reject_element = resolve_element;
                 resolve_element = js_dup(resolving_funcs[0]);
             } else {
@@ -61440,25 +61676,87 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
     return cmp;
 }
 
-/* surimono: the typed comparators are plain C and never poll, so sorting
-   a large typed array ran far past the deadline. This wrapper polls on
-   every comparison (js_poll_interrupts asks the handler every 10000) and,
-   once interrupted, answers 0 so rqsort finishes in one linear pass. */
+/* surimono: the typed comparators are plain C with no polls of their own.
+   These wrappers check the
+   host's interrupt flag (see surimono_set_interrupt_flag) on each
+   comparison and, once interrupted, answer 0 so rqsort finishes in one
+   linear pass. The check is loads only: a countdown or the context's
+   interrupt counter is a load-store chain through memory on every
+   comparison, and a poll per comparison through one generic wrapper cost
+   20-26% of a large sort. There is one wrapper per element type, so the
+   comparator is a direct call the compiler can inline. Without a host
+   flag (the static zero flag) a default typed-array sort is not
+   interrupted; surimono always sets one. */
+typedef int js_TA_cmp_fn(const void *a, const void *b, void *opaque);
+
 struct TA_poll_sort_context {
     JSContext *ctx;
-    int (*cmp)(const void *a, const void *b, void *opaque);
+    js_TA_cmp_fn *cmp; /* used by js_TA_cmp_poll only */
+    js_interrupt_flag_t *flag;
     int exception;
 };
 
-static int js_TA_cmp_poll(const void *a, const void *b, void *opaque) {
-    struct TA_poll_sort_context *psc = opaque;
-    if (unlikely(psc->exception))
-        return 0;
-    if (unlikely(js_poll_interrupts(psc->ctx))) {
+/* Called while the interrupt flag is set: true once interrupted, and from
+   then on for every comparison. */
+static no_inline bool js_TA_sort_poll(struct TA_poll_sort_context *psc)
+{
+    if (psc->exception)
+        return true;
+    if (js_poll_interrupts(psc->ctx)) {
         psc->exception = 1;
-        return 0;
+        return true;
     }
+    return false;
+}
+
+#define JS_TA_CMP_POLL(T)                                               \
+static int js_TA_cmp_poll_##T(const void *a, const void *b, void *opaque) \
+{                                                                       \
+    struct TA_poll_sort_context *psc = opaque;                          \
+    if (unlikely(js_interrupt_flag_get(psc->flag)) && js_TA_sort_poll(psc)) \
+        return 0;                                                       \
+    return js_TA_cmp_##T(a, b, NULL);                                   \
+}
+
+JS_TA_CMP_POLL(int8)
+JS_TA_CMP_POLL(uint8)
+JS_TA_CMP_POLL(int16)
+JS_TA_CMP_POLL(uint16)
+JS_TA_CMP_POLL(int32)
+JS_TA_CMP_POLL(uint32)
+JS_TA_CMP_POLL(int64)
+JS_TA_CMP_POLL(uint64)
+JS_TA_CMP_POLL(float16)
+JS_TA_CMP_POLL(float32)
+JS_TA_CMP_POLL(float64)
+
+/* For a comparator without its own wrapper (none today). */
+static int js_TA_cmp_poll(const void *a, const void *b, void *opaque)
+{
+    struct TA_poll_sort_context *psc = opaque;
+    if (unlikely(js_interrupt_flag_get(psc->flag)) && js_TA_sort_poll(psc))
+        return 0;
     return psc->cmp(a, b, NULL);
+}
+
+/* The polling wrapper for typed comparator `cmp`. */
+static js_TA_cmp_fn *js_TA_cmp_poll_for(js_TA_cmp_fn *cmp)
+{
+#define JS_TA_CMP_POLL_CASE(T) \
+    if (cmp == js_TA_cmp_##T) return js_TA_cmp_poll_##T;
+    JS_TA_CMP_POLL_CASE(int8)
+    JS_TA_CMP_POLL_CASE(uint8)
+    JS_TA_CMP_POLL_CASE(int16)
+    JS_TA_CMP_POLL_CASE(uint16)
+    JS_TA_CMP_POLL_CASE(int32)
+    JS_TA_CMP_POLL_CASE(uint32)
+    JS_TA_CMP_POLL_CASE(int64)
+    JS_TA_CMP_POLL_CASE(uint64)
+    JS_TA_CMP_POLL_CASE(float16)
+    JS_TA_CMP_POLL_CASE(float32)
+    JS_TA_CMP_POLL_CASE(float64)
+#undef JS_TA_CMP_POLL_CASE
+    return js_TA_cmp_poll;
 }
 
 static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
@@ -61603,9 +61901,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
         done:
             js_free(ctx, array_idx);
         } else {
-            /* surimono: poll while sorting; see js_TA_cmp_poll. */
-            struct TA_poll_sort_context psc = { ctx, cmpfun, 0 };
-            rqsort(p->u.array.u.ptr, len, elt_size, js_TA_cmp_poll, &psc);
+            /* surimono: poll while sorting; see js_TA_cmp_poll_for. */
+            struct TA_poll_sort_context psc = {
+                ctx, cmpfun, ctx->interrupt_flag, 0
+            };
+            rqsort(p->u.array.u.ptr, len, elt_size,
+                   js_TA_cmp_poll_for(cmpfun), &psc);
             if (psc.exception)
                 return JS_EXCEPTION;
         }
