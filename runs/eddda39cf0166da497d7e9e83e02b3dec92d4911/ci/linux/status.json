@@ -1,0 +1,1 @@
+{"workflow":"ci","job":"linux","matrix":"","status":"failure","sha":"eddda39cf0166da497d7e9e83e02b3dec92d4911","ref":"p1-pkg-08","event":"pull_request","run_id":"41163353704","attempt":"1","finished_at":"2026-10-31T03:13:20Z"}

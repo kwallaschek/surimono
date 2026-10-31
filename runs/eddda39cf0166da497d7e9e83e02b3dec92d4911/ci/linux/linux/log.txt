@@ -1,0 +1,124 @@
+
+==> fmt
+
+==> fixtures: fonts
+ok       NotoSans-Regular.ttf  Noto Sans 400
+ok       NotoSans-Bold.ttf  Noto Sans 700
+ok       NotoSansJP-Regular.otf  Noto Sans JP 400
+ok       NotoSansJP-Bold.otf  Noto Sans JP 700
+
+==> fixtures: hostile scripts
+59 cases, 60 files: ok
+
+==> fixtures: island inputs (gen-islands --check)
+
+==> bench: report (gen-report --check)
+bench/report/report.html matches its generator
+fixture verifiers run: 4
+
+==> clippy (workspace incl. Ruby ext)
+[1m[32m    Updating[0m crates.io index
+[1m[32m    Checking[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m    Checking[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m    Checking[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m    Checking[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m    Checking[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m    Checking[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Checking[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Checking[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 3.98s
+
+==> test (workspace)
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m   Compiling[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 15.29s
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-8e0a73f7ee14710e)
+
+running 63 tests
+test backend::tests::bundle_names_and_entries_are_checked ... ok
+test backend::tests::every_island_error_maps_to_a_public_error ... ok
+test backend::tests::fonts_must_be_fonts ... ok
+test charref::tests::named_references ... ok
+test charref::tests::numeric_references ... ok
+test charref::tests::plain_text_is_borrowed ... ok
+test error::tests::error_is_send_sync_static ... ok
+test error::tests::island_errors_name_the_island ... ok
+test options::tests::builder_sets_everything ... ok
+test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
+test options::tests::defaults ... ok
+test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
+test error::tests::document_errors_have_no_island ... ok
+test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
+test prepass::tests::attributes_in_any_order_and_quoting ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::cancel_skips_the_remaining_islands_whatever_the_policy ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
+test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
+test prepass::tests::document_without_islands_is_unchanged ... ok
+test prepass::tests::documents_without_the_island_type_are_not_parsed ... ok
+test prepass::tests::html_escaped_json_gets_a_hint ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::keeps_id_and_class ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
+test prepass::tests::other_scripts_are_left_alone ... ok
+test prepass::tests::placeholders_keep_the_island_size_and_style ... ok
+test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
+test prepass::tests::type_must_be_written_without_character_references ... ok
+test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
+test prepass::tests::utf8_text_around_and_inside_islands ... ok
+test prepass::tests::wrapper_keeps_accessibility_and_style_attributes_only ... ok
+test prepass::tests::too_many_islands_fail_before_any_island_runs ... ok
+test renderer::tests::builtins_come_first_then_bundles_in_order ... ok
+test renderer::tests::clock_options_reach_the_scripts ... ok
+test renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process ... FAILED
+test renderer::tests::dropping_a_renderer_from_another_process_does_not_join_its_threads ... ok
+test renderer::tests::a_forked_child_starts_its_own_runner_and_measurer ... ok
+test renderer::tests::hostile_svg_cannot_break_out_of_the_wrapper ... ok
+test renderer::tests::invalid_options ... ok
+test renderer::tests::many_threads_after_a_fork_share_one_new_slot ... ok
+test renderer::tests::many_threads_share_one_renderer ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::text_is_measured_with_the_given_fonts ... ok
+test renderer::tests::too_many_fork_generations_is_an_error_not_a_hang ... ok
+test renderer::tests::unknown_and_disabled_renderers ... ok
+test svg::tests::markup_that_would_break_out_of_the_wrapper_is_an_error ... ok
+test svg::tests::outlining_text_without_fonts_says_what_to_do ... ok
+test svg::tests::scripts_and_handlers_are_removed_and_ids_prefixed ... ok
+test tests::version_is_set ... ok
+test renderer::tests::script_failures_become_typed_errors ... ok
+test renderer::tests::a_cancelled_render_skips_the_remaining_islands ... ok
+test renderer::tests::max_islands_caps_a_document ... ok
+
+failures:
+
+---- renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process stdout ----
+
+thread 'renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process' panicked at crates/surimono/src/renderer.rs:812:9:
+assertion `left == right` failed
+  left: 3
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process
+
+test result: FAILED. 62 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+[1m[31merror[0m[1m:[0m test failed, to rerun pass `-p surimono --lib`
