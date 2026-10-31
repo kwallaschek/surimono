@@ -15,7 +15,7 @@ import { parseArgs } from "node:util";
 import { launchChromium, listFixtures, printIslandInChrome, rasterise } from "./lib/fixtures.mjs";
 import { PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
 import { diff, nearMatch, readPng } from "./lib/png.mjs";
-import { compareTexts, svgTexts } from "./lib/svgtext.mjs";
+import { compareStyles, compareTexts, svgTextStyles, svgTexts } from "./lib/svgtext.mjs";
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: { out: { type: "string" } } });
 const outRoot = path.resolve(values.out);
@@ -126,17 +126,19 @@ try {
         const actual = readPng(png);
         const { score } = diff(expected, actual);
         const text = compareTexts(svgTexts(svg), faulty);
+        const font = compareStyles(svgTextStyles(svg), faulty);
         const fails = [
           score.worst_window > PASS_WORST_WINDOW && "shape",
           score.colour_worst_window > PASS_COLOUR_WINDOW && "colour",
           score.hue_worst_window > PASS_HUE_WINDOW && "hue",
           !text.pass && "text",
+          !font.pass && "font",
         ].filter(Boolean);
         const verdict = fails.length ? `FAIL(${fails.join("+")})` : "pass";
         const alt = process.env.CALIBRATE_TOLERANCE ? nearMatch(expected, actual, { tolerance: Number(process.env.CALIBRATE_TOLERANCE) }).worst_window : undefined;
-        rows.push({ fixture: fixture.name, island: index, fault: name, worst_window: score.worst_window, colour_worst_window: score.colour_worst_window, hue_worst_window: score.hue_worst_window, text_pass: text.pass, text_missing: text.missing, near_ink_share: score.near_ink_share, pixelmatch_diff_ratio_ink: score.diff_ratio_ink, verdict, alt_tolerance_worst_window: alt });
+        rows.push({ fixture: fixture.name, island: index, fault: name, worst_window: score.worst_window, colour_worst_window: score.colour_worst_window, hue_worst_window: score.hue_worst_window, text_pass: text.pass, text_missing: text.missing, near_ink_share: score.near_ink_share, pixelmatch_diff_ratio_ink: score.diff_ratio_ink, font_pass: font.pass, verdict, alt_tolerance_worst_window: alt });
         const pct = (x) => `${(x * 100).toFixed(1).padStart(5)}%`;
-        console.log(`${verdict.padEnd(18)} shape ${pct(score.worst_window)} colour ${pct(score.colour_worst_window)} hue ${pct(score.hue_worst_window)} text ${text.pass ? "ok  " : "DIFF"}${alt === undefined ? "" : ` (tolerance ${process.env.CALIBRATE_TOLERANCE}: ${pct(alt)})`}  ${fixture.name}#${index}  ${name}`);
+        console.log(`${verdict.padEnd(18)} shape ${pct(score.worst_window)} colour ${pct(score.colour_worst_window)} hue ${pct(score.hue_worst_window)} text ${text.pass ? "ok  " : "DIFF"} font ${font.pass ? "ok  " : "DIFF"}${alt === undefined ? "" : ` (tolerance ${process.env.CALIBRATE_TOLERANCE}: ${pct(alt)})`}  ${fixture.name}#${index}  ${name}`);
       }
     }
   }
@@ -149,11 +151,11 @@ fs.writeFileSync(path.join(outRoot, "calibration.json"), `${JSON.stringify(rows,
 const faults = [...new Set(rows.map((r) => r.fault))];
 const range = (xs) => `${(Math.min(...xs) * 100).toFixed(1)} to ${(Math.max(...xs) * 100).toFixed(1)}%`;
 const md = [
-  "| Fault | Shape (near-match) | Colour (solid) | Hue (strokes) | Text differs | Fails |",
-  "|---|---|---|---|---|---|",
+  "| Fault | Shape (near-match) | Colour (solid) | Hue (strokes) | Text differs | Font differs | Fails |",
+  "|---|---|---|---|---|---|---|",
   ...faults.map((f) => {
     const rs = rows.filter((r) => r.fault === f && r.verdict !== "n/a");
-    return `| ${f} | ${range(rs.map((r) => r.worst_window))} | ${range(rs.map((r) => r.colour_worst_window))} | ${range(rs.map((r) => r.hue_worst_window))} | ${rs.filter((r) => !r.text_pass).length}/${rs.length} | ${rs.filter((r) => r.verdict !== "pass").length}/${rs.length} |`;
+    return `| ${f} | ${range(rs.map((r) => r.worst_window))} | ${range(rs.map((r) => r.colour_worst_window))} | ${range(rs.map((r) => r.hue_worst_window))} | ${rs.filter((r) => !r.text_pass).length}/${rs.length} | ${rs.filter((r) => !r.font_pass).length}/${rs.length} | ${rs.filter((r) => r.verdict !== "pass").length}/${rs.length} |`;
   }),
   "",
 ].join("\n");
