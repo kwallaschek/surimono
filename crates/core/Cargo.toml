@@ -10,6 +10,8 @@ publish.workspace = true
 [dependencies]
 rquickjs = { workspace = true, features = ["allocator"] }
 thiserror.workspace = true
+# Checks precompiled bytecode blobs against their source (precompiled.rs).
+sha2.workspace = true
 
 # Thread stack bounds, for the stack-size check (engine.rs).
 [target.'cfg(unix)'.dependencies]

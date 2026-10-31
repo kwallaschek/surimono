@@ -372,6 +372,20 @@ pub(crate) fn patch_level() -> i32 {
     unsafe { surimono_quickjs_patch_level() }
 }
 
+/// The QuickJS version string, e.g. `"0.16.2"`.
+pub(crate) fn engine_version() -> String {
+    // SAFETY: JS_GetVersion takes no arguments and returns a pointer to a
+    // static NUL-terminated string literal, valid for the whole program.
+    let p = unsafe { qjs::JS_GetVersion() };
+    if p.is_null() {
+        return String::new();
+    }
+    // SAFETY: `p` is non-null and points at that static C string.
+    unsafe { std::ffi::CStr::from_ptr(p) }
+        .to_string_lossy()
+        .into_owned()
+}
+
 /// Bytes of stack left on this thread below the current frame, if the
 /// platform can tell (Linux and macOS); `None` elsewhere.
 pub(crate) fn stack_available() -> Option<usize> {
@@ -842,6 +856,12 @@ mod tests {
     #[test]
     fn the_engine_is_patched() {
         assert!(patch_level() >= 2);
+    }
+
+    #[test]
+    fn engine_version_is_the_vendored_one() {
+        // vendor/rquickjs-sys bundles quickjs-ng 0.16.2 (PATCHES.md).
+        assert_eq!(engine_version(), "0.16.2");
     }
 
     #[test]

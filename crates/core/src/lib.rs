@@ -25,6 +25,9 @@
 mod engine;
 mod error;
 mod limits;
+// Declares `Bytecode::from_precompiled`, an `unsafe fn` (no unsafe blocks).
+#[allow(unsafe_code)]
+mod precompiled;
 mod sandbox;
 mod watchdog;
 

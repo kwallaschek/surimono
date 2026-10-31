@@ -186,15 +186,45 @@ impl fmt::Debug for Deadline {
 /// sandbox of this process.
 ///
 /// Cheap to clone and `Send + Sync`, so one compiled bundle can serve a whole
-/// pool of sandboxes. The bytes can only come from [`Sandbox::compile`], which
-/// is what makes loading them sound.
+/// pool of sandboxes. The bytes can only come from [`Sandbox::compile`], or
+/// from [`Bytecode::from_precompiled`] after its checks, which is what makes
+/// loading them sound.
 #[derive(Clone)]
 pub struct Bytecode {
     name: Arc<str>,
-    bytes: Arc<[u8]>,
+    bytes: BytecodeBytes,
+}
+
+/// Where a [`Bytecode`]'s bytes live: compiled in this process, or a
+/// precompiled blob in the binary's read-only data (shared, never copied).
+#[derive(Clone)]
+enum BytecodeBytes {
+    Owned(Arc<[u8]>),
+    Static(&'static [u8]),
 }
 
 impl Bytecode {
+    pub(crate) fn from_parts_owned(name: &str, bytes: Vec<u8>) -> Self {
+        Self {
+            name: Arc::from(name),
+            bytes: BytecodeBytes::Owned(Arc::from(bytes)),
+        }
+    }
+
+    pub(crate) fn from_parts_static(name: &str, bytes: &'static [u8]) -> Self {
+        Self {
+            name: Arc::from(name),
+            bytes: BytecodeBytes::Static(bytes),
+        }
+    }
+
+    pub(crate) fn bytes(&self) -> &[u8] {
+        match &self.bytes {
+            BytecodeBytes::Owned(b) => b,
+            BytecodeBytes::Static(b) => b,
+        }
+    }
+
     /// The file name given at compile time; it appears in stack traces.
     pub fn name(&self) -> &str {
         &self.name
@@ -202,14 +232,20 @@ impl Bytecode {
 
     /// Size of the bytecode in bytes.
     pub fn size_bytes(&self) -> usize {
-        self.bytes.len()
+        self.bytes().len()
+    }
+
+    /// Whether this bytecode was precompiled at build time
+    /// ([`Bytecode::from_precompiled`]) rather than compiled in this process.
+    pub fn is_precompiled(&self) -> bool {
+        matches!(self.bytes, BytecodeBytes::Static(_))
     }
 
     /// Runs the compiled script in `ctx` and returns its completion value.
     ///
     /// For use inside [`Sandbox::run`]; outside it no limits apply.
     pub fn eval<'js>(&self, ctx: &Ctx<'js>) -> rquickjs::Result<Value<'js>> {
-        engine::eval_bytecode(ctx, &self.bytes)
+        engine::eval_bytecode(ctx, self.bytes())
     }
 }
 
@@ -217,7 +253,8 @@ impl fmt::Debug for Bytecode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Bytecode")
             .field("name", &self.name)
-            .field("size_bytes", &self.bytes.len())
+            .field("size_bytes", &self.size_bytes())
+            .field("precompiled", &self.is_precompiled())
             .finish()
     }
 }
@@ -447,10 +484,7 @@ impl Sandbox {
     /// errors are reported as [`SandboxError::Exception`].
     pub fn compile(&mut self, source: &str, filename: &str) -> Result<Bytecode, SandboxError> {
         let bytes = self.run(|ctx| engine::compile_script(ctx, source, filename))?;
-        Ok(Bytecode {
-            name: Arc::from(filename),
-            bytes: Arc::from(bytes),
-        })
+        Ok(Bytecode::from_parts_owned(filename, bytes))
     }
 
     /// Runs compiled bytecode in this sandbox's context, ignoring its
