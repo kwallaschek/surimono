@@ -23,7 +23,7 @@ the orchestrator (write the request in your final report).
 |---|---|
 | Orchestrator | `CLAUDE.md`, `Cargo.toml` (workspace root), `Cargo.lock`, `rust-toolchain.toml`, `deny.toml`, `scripts/` except `scripts/ci*`, `docs/*.md` except `COMPAT.md`, `docs/upstream/`, `THIRD_PARTY.md` |
 | Conformance researcher | `fixtures/`, `wpt/`, `bench/`, `docs/COMPAT.md` |
-| Runtime engineer | `crates/core/`, `crates/islands/` |
+| Runtime engineer | `crates/core/`, `crates/islands/`, `vendor/` |
 | DOM engineer | `crates/webidl/`, `crates/dom/` |
 | Graphics engineer | `crates/gfx/` |
 | Packaging engineer | `crates/surimono/`, `crates/cli/`, `bindings/ruby/`, `.github/`, `scripts/ci.sh`, `scripts/ci/` |
@@ -89,8 +89,11 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    your crates (`-p surimono-core`) while iterating. **Run
    `scripts/fleet/touch-workspace.sh` before every build or test**: worktrees share
    artifact names for workspace crates, so without it cargo can silently use another
-   worktree's build of a crate (false red or false green). GitHub CI uses a fresh
-   target dir and is the authoritative result.
+   worktree's build of a crate (false red or false green). A worktree that changes
+   `vendor/` (the engine) also sets `RUSTFLAGS="--cfg surimono_wt_<task_id>"` for every
+   build and test, because touch-workspace.sh doesn't separate the engine's build
+   output; delete those artifacts when done. GitHub CI uses a fresh target dir and
+   is the authoritative result.
 3. **Checks before you report.** Run `scripts/ci.sh` from your worktree; it runs
    exactly what CI runs on Linux (fmt, clippy with warnings as errors, tests,
    cargo-deny). Your branch must pass it.
@@ -115,6 +118,15 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   (`status.json`, `<name>/log.txt`, `<name>/exit.json`, plus anything written to
   `$CI_JOB_OUT`). Read them with
   `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`.
+
+## Unreported security findings
+
+The repo is public. A bug in a third-party project (for example the QuickJS engine)
+that hasn't been reported to its maintainers yet stays out of every tracked file,
+commit message, PR body and PR comment. Describe what our change does, never how
+the old code failed: no crash sites, signals, out-of-bounds or use-after-free
+wording, and no triggering scripts. Details go only in `.private-tmp/`
+(git-excluded) and your report to the orchestrator.
 
 ## Code conventions
 
