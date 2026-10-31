@@ -11,8 +11,8 @@
 //!   the context instead of swallowing it;
 //! - [`update_stack_top`], so the stack limit is measured from where we enter
 //!   the engine rather than from where the runtime was created, and
-//!   [`stack_available`], which asks the OS how much of this thread's stack
-//!   is left;
+//!   [`stack_available`], which asks the OS where this thread's stack ends
+//!   and reads the stack pointer register to see how much is left;
 //! - [`patch_level`], which links against a symbol only the patched QuickJS
 //!   in `vendor/rquickjs-sys` defines, so a build against an unpatched
 //!   engine fails to link instead of shipping a sandbox that can hang.
@@ -287,9 +287,47 @@ pub(crate) fn patch_level() -> i32 {
 /// Bytes of stack left on this thread below the current frame, if the
 /// platform can tell (Linux and macOS); `None` elsewhere.
 pub(crate) fn stack_available() -> Option<usize> {
-    let here = std::hint::black_box(0u8);
-    let sp = std::ptr::addr_of!(here) as usize;
+    let sp = stack_pointer();
     STACK_LOW.with(|low| low.map(|low| sp.saturating_sub(low)))
+}
+
+// The current stack pointer, read from the register where we can. The
+// address of a local is not enough: AddressSanitizer's use-after-return mode
+// moves address-taken locals to a "fake stack" on the heap, which can lie
+// below the thread's stack, and `stack_available` then reported 0. Without a
+// sanitizer the two agree to within a few bytes.
+
+#[cfg(target_arch = "x86_64")]
+#[inline(always)]
+fn stack_pointer() -> usize {
+    let sp: usize;
+    // SAFETY: copies the stack pointer register into a general-purpose
+    // register. It reads and writes no memory, doesn't push or pop, and
+    // leaves the flags alone, as the options declare.
+    unsafe {
+        std::arch::asm!("mov {}, rsp", out(reg) sp, options(nomem, nostack, preserves_flags));
+    }
+    sp
+}
+
+#[cfg(target_arch = "aarch64")]
+#[inline(always)]
+fn stack_pointer() -> usize {
+    let sp: usize;
+    // SAFETY: as on x86_64: copies `sp` into a general-purpose register and
+    // touches nothing else.
+    unsafe {
+        std::arch::asm!("mov {}, sp", out(reg) sp, options(nomem, nostack, preserves_flags));
+    }
+    sp
+}
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[inline(always)]
+fn stack_pointer() -> usize {
+    // The address of a local: right except under AddressSanitizer.
+    let here = std::hint::black_box(0u8);
+    std::ptr::addr_of!(here) as usize
 }
 
 thread_local! {
@@ -616,6 +654,9 @@ mod tests {
         assert!(patch_level() >= 1);
     }
 
+    /// Also the regression test for `stack_pointer`: under AddressSanitizer
+    /// (`scripts/ci/asan.sh`) the address of a local can lie on a fake stack
+    /// outside the thread's stack, and this reported 0.
     #[test]
     fn stack_available_is_plausible() {
         if !cfg!(any(target_os = "linux", target_os = "macos")) {
