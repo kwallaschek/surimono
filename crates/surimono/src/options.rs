@@ -13,8 +13,11 @@ use crate::ErrorPolicy;
 /// it never crashes or hangs the process.
 ///
 /// The limits apply **per island**: every island gets a fresh JavaScript heap of
-/// `memory_bytes` and `time` to run, so a document with N islands can take up
-/// to N × `time`. Bound the whole document in your own code if you need to.
+/// `memory_bytes` and one deadline of `time` covering loading its renderer and
+/// drawing it, so a document with N islands can take up to N × `time`.
+/// [`Options::max_islands`] caps N (1,000 by default), and
+/// [`Renderer::render_islands_cancellable`](crate::Renderer::render_islands_cancellable)
+/// stops a render between islands.
 ///
 /// Build limits from the defaults, so a limit added in a later release keeps
 /// its default in your code:
@@ -33,9 +36,9 @@ use crate::ErrorPolicy;
 pub struct Limits {
     /// Most bytes the JavaScript heap may use. At least 1 MiB.
     pub memory_bytes: usize,
-    /// Longest one island's script may run. Must be more than zero. Loading
-    /// the renderer's bundle into a fresh runtime and drawing the island each
-    /// get this much.
+    /// Longest one island may run: one deadline per island covering loading
+    /// the renderer's bundle into a fresh runtime and drawing the island. Must
+    /// be more than zero.
     pub time: Duration,
     /// Most bytes of native stack the JavaScript engine may use, from 64 KiB to 16 MiB.
     pub stack_bytes: usize,
@@ -82,16 +85,23 @@ impl fmt::Debug for Bundle {
 /// How a [`Renderer`](crate::Renderer) is set up: fonts, limits, the random
 /// seed, the error policy and which renderers islands may use.
 ///
-/// Every setting has a default, so `Options::new()` is a working start:
+/// Every setting but the fonts has a default. A renderer needs at least one
+/// font ([`font`](Self::font)): the files your PDF engine prints with, since
+/// text is only ever measured and outlined with them.
 ///
 /// ```
-/// use surimono::{ErrorPolicy, Limits, Options};
+/// use surimono::{ErrorPolicy, Limits, Options, Renderer};
 ///
+/// # let noto_sans = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/NotoSans-Regular.ttf"))
+/// #     .unwrap_or_else(|e| panic!("{e}"));
 /// let options = Options::new()
+///     .font(noto_sans)
 ///     .seed(7)
 ///     .limits(Limits::default())
 ///     .error_policy(ErrorPolicy::Placeholder);
-/// # let _ = options;
+/// let renderer = Renderer::new(options)?;
+/// # let _ = renderer;
+/// # Ok::<(), surimono::Error>(())
 /// ```
 #[derive(Clone, Default)]
 pub struct Options {
@@ -105,6 +115,7 @@ pub struct Options {
     pub(crate) now_ms: Option<i64>,
     pub(crate) utc_offset_minutes: i32,
     pub(crate) text_mode: TextMode,
+    pub(crate) max_islands: Option<usize>,
 }
 
 /// What happens to text in the SVG a renderer returns.
@@ -140,14 +151,18 @@ pub(crate) fn default_pool_size() -> usize {
 }
 
 impl Options {
-    /// Default options: no fonts, default [`Limits`], seed 0,
-    /// [`ErrorPolicy::Fail`], every built-in renderer, a pool sized to the
-    /// machine, the clock at [`DEFAULT_NOW_MS`] in UTC.
+    /// Default options: default [`Limits`], seed 0, [`ErrorPolicy::Fail`],
+    /// every built-in renderer, a pool sized to the machine, the clock at
+    /// [`DEFAULT_NOW_MS`] in UTC, text as outlines, at most 1,000 islands per
+    /// document, and no fonts yet: add at least one with
+    /// [`font`](Self::font), or [`Renderer::new`](crate::Renderer::new) fails
+    /// with [`Error::InvalidOptions`](crate::Error::InvalidOptions).
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Adds a font file (TrueType, OpenType or a collection) for measuring text.
+    /// Adds a font file (TrueType, OpenType or a collection) for measuring and
+    /// outlining text. At least one is required.
     ///
     /// Use the same font files your PDF engine prints with, so labels measured
     /// here fit there. surimono never reads system fonts.
@@ -258,6 +273,16 @@ impl Options {
         self
     }
 
+    /// Sets the most island markers one document may have. A document with
+    /// more fails with [`Error::TooManyIslands`](crate::Error::TooManyIslands)
+    /// before any island runs, whatever the error policy. Each island has its
+    /// own time limit, so this bounds how long one document can take: up to
+    /// `max_islands` × [`Limits::time`]. Default: 1,000. Must be at least 1.
+    pub fn max_islands(mut self, max: usize) -> Self {
+        self.max_islands = Some(max);
+        self
+    }
+
     /// Sets local time's offset from UTC in minutes (540 for Japan), so dates
     /// on time axes show in that zone. From -720 to 840. Default: 0 (UTC).
     /// The host's time zone is never read.
@@ -281,6 +306,7 @@ impl fmt::Debug for Options {
             .field("now_ms", &self.now_ms)
             .field("utc_offset_minutes", &self.utc_offset_minutes)
             .field("text_mode", &self.text_mode)
+            .field("max_islands", &self.max_islands)
             .finish()
     }
 }
@@ -299,6 +325,8 @@ mod tests {
         assert_eq!(o.renderers, None);
         assert!(o.bundles.is_empty());
         assert_eq!(o.pool_size, None);
+        assert_eq!(o.max_islands, None);
+        assert_eq!(o.text_mode, TextMode::Outlines);
         assert_eq!(Limits::default().memory_bytes, 64 * 1024 * 1024);
         assert_eq!(Limits::default().time, Duration::from_secs(2));
         assert_eq!(Limits::default().stack_bytes, 512 * 1024);
@@ -313,7 +341,8 @@ mod tests {
             .error_policy(ErrorPolicy::Placeholder)
             .renderers(["echarts", "mine"])
             .bundle("mine", "function f(){}", "f")
-            .pool_size(3);
+            .pool_size(3)
+            .max_islands(20);
         assert_eq!(o.fonts, vec![vec![1, 2, 3], b"abcd".to_vec()]);
         assert_eq!(o.seed, 9);
         assert_eq!(o.error_policy, ErrorPolicy::Placeholder);
@@ -323,6 +352,7 @@ mod tests {
         );
         assert_eq!(o.bundles[0].name, "mine");
         assert_eq!(o.pool_size, Some(3));
+        assert_eq!(o.max_islands, Some(20));
     }
 
     #[test]
