@@ -2,8 +2,13 @@
 //   node --test fixtures/tools/test/*.test.mjs
 
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
-import { failedChecks, passes, verdict } from "../lib/report.mjs";
+import { failedChecks, passes, scoresCell, verdict } from "../lib/report.mjs";
+
+// Verdicts report.mjs and compat.py must agree on (test_compat.py reads them
+// too, and also compares the two on every combination of their dimensions).
+const VERDICTS = JSON.parse(fs.readFileSync(new URL("./verdict-cases.json", import.meta.url), "utf8"));
 
 const ok = (extra = {}) => ({ subject: "x island 0 (printed by chrome)", pass: true, worst_window: 0, worst_colour_window: 0, worst_hue_window: 0, pages: [{ page: 1, pass: true, failed: [] }], ...extra });
 
@@ -45,4 +50,20 @@ test("passes is derived like compat.py's, never taken from the top-level pass al
   assert.equal(verdict(ok({ pass: false })), "**FAIL** (pass is false)");
   // An absent or null check isn't run, so it can't fail.
   assert.equal(passes(ok({ text: null })), true);
+});
+
+test("the shared verdict table", () => {
+  for (const c of VERDICTS.cases) {
+    assert.deepEqual(failedChecks(c.score), c.failed, c.name);
+    assert.equal(passes(c.score), c.pass, c.name);
+  }
+});
+
+test("scoresCell says ok only when a check's pass is exactly true", () => {
+  // Review of #51: "pass": "false" printed "text ok" next to a FAIL verdict.
+  assert.equal(scoresCell(ok({ text: { pass: true }, font: { pass: true } })), "0.0% / 0.0% / 0.0% / text ok / font ok");
+  assert.equal(scoresCell(ok({ text: { pass: "false" }, font: { pass: 1 } })), "0.0% / 0.0% / 0.0% / text differs / font differs");
+  assert.equal(scoresCell(ok({ text: null })), "0.0% / 0.0% / 0.0%");
+  assert.equal(scoresCell({ error: "x" }), "—");
+  assert.equal(scoresCell(undefined), "—");
 });
