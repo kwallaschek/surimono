@@ -197,6 +197,57 @@ fn local_time_follows_the_configured_offset() {
     );
 }
 
+/// ECMA-262 §21.4.2.1 step 5: `new Date(y, m, ...)` is
+/// TimeClip(UTC(MakeDate(MakeDay(...), MakeTime(...)))), so local time is
+/// converted to UTC before the range check. The expected values are that
+/// arithmetic: 8.64e15 ms is 275760-09-13T00:00Z and -8.64e15 is
+/// -271821-04-20T00:00Z.
+#[test]
+fn date_fields_are_clipped_after_the_offset() {
+    let hour = 3_600_000.0;
+    let mut sb = sandbox(tokyo());
+    let checks = [
+        // Local 05:00 on the last day is 20:00 UTC the day before.
+        ("new Date(275760, 8, 13, 5).getTime()", 8.64e15 - 4.0 * hour),
+        ("new Date(275760, 8, 13, 9).getTime()", 8.64e15),
+        ("new Date(275760, 8, 13, 9, 0, 0, 1).getTime()", f64::NAN),
+        // Day and hour fields past their usual ranges add up the same way.
+        (
+            "new Date(1970, 0, 1e8 + 1, 5).getTime()",
+            8.64e15 - 4.0 * hour,
+        ),
+        // Local strings without a zone are read the same way.
+        ("Date.parse('+275760-09-13T05:00:00')", 8.64e15 - 4.0 * hour),
+        ("Date.parse('+275760-09-13T09:00:01')", f64::NAN),
+        // Two-digit years, and ordinary dates, are unchanged.
+        ("new Date(99, 11, 31, 9).getTime()", 946_598_400_000.0),
+        ("new Date(2026, 0, 1, 9).getTime()", 1_767_225_600_000.0),
+        ("new Date(2026, NaN).getTime()", f64::NAN),
+        ("new Date(2026, 0, Infinity).getTime()", f64::NAN),
+    ];
+    for (src, want) in checks {
+        let got: f64 = sb.eval(src).unwrap();
+        assert!(
+            got == want || (got.is_nan() && want.is_nan()),
+            "{src}: got {got}, want {want}"
+        );
+    }
+    // Every argument goes through ToNumber, in order, before any check.
+    assert_eq!(
+        sb.eval::<String>(
+            "const seen = []; new Date({ valueOf() { seen.push('y'); return NaN } }, \
+             { valueOf() { seen.push('m'); return 0 } }); seen.join()"
+        )
+        .unwrap(),
+        "y,m"
+    );
+    // West of UTC the same holds at the start of the range: local 20:00 on
+    // 19 April -271821 at -05:30 is 01:30 UTC on the 20th.
+    let mut west = sandbox(SandboxOptions::default().with_utc_offset_minutes(-(5 * 60 + 30)));
+    let got: f64 = west.eval("new Date(-271821, 3, 19, 20).getTime()").unwrap();
+    assert_eq!(got, -8.64e15 + 1.5 * hour);
+}
+
 #[test]
 fn date_shim_behaves_like_date() {
     let mut sb = default_sandbox();
