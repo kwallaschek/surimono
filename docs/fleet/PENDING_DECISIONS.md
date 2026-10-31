@@ -74,9 +74,7 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-10-31 · The CLI takes the facade's options (--bundle name[:fn]=file, --renderers, --max-islands, --pool-size) and writes output via temp file + rename · Gem and CLI share one API; no truncated output files.
 - 2026-10-31 · THIRD_PARTY_LICENSES.txt generation fails on an MPL-2.0-only crate not unmodified from crates.io or not named in about.toml/deny.toml, and on a non-licence, non-JS file in a bundle directory; cargo-about runs --frozen --fail · Notices must be complete and true.
 
-## CF batch 4: #50 #51 merged; #55 pending
-- 2026-10-31 · Text and font checks read gfx's data-surimono-text and data-surimono-face where present: the drawn string replaces the label, and each drawn face must be the one CSS Fonts 4 font matching picks for Chrome's computed weight and style (#55) · An author's aria-label hid the drawn string (Vega-Lite); the declared-weight check couldn't see the face drawn.
-- 2026-11-01 · compat.py reads results files as JSON.parse would (NaN and Infinity refused) and names listed failures as JavaScript's String() does; a stamped outline's aria-label is set aside only when it equals the stamp; a non-empty stamp must name a face; a stamped empty <g/> draws nothing (#50, #51, #55) · The three reviews; each keeps the checks at least as strict.
+## CF batch 4: #50 #51 #55 merged; lines moved
 
 ## RT-14 (#47), add on merge
 - 2026-10-31 · Deadlines are enforced by one watchdog thread per process that raises a per-runtime stop flag, which the patched QuickJS reads on every interrupt poll; a refused allocation raises it too; Deadline::passed() reads the same flag · The handler alone was asked every 10,000 polls, so a loop around one expensive call overran by minutes; no thread per render.
