@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -25,9 +25,33 @@ use serde::Deserialize;
 use surimono_islands::SandboxError;
 use surimono_islands::{IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions};
 
-/// Cases that fail today, with the reason. Each one is also in docs/COMPAT.md;
-/// the expectation itself is never changed.
-const KNOWN_FAILURES: &[(&str, &str)] = &[];
+/// A case that fails today in a known way. Each one is also in
+/// docs/COMPAT.md; the expectation itself is never changed.
+struct KnownFailure {
+    /// The case id.
+    id: &'static str,
+    /// The step (1-based) for `steps` cases, `None` for single-file cases.
+    step: Option<usize>,
+    /// The outcome it fails with today. Any other failure is unexpected.
+    outcome: &'static str,
+    reason: &'static str,
+}
+
+/// Cases that fail today, with the outcome they fail with and why.
+const KNOWN_FAILURES: &[KnownFailure] = &[];
+
+/// The entry of `known` that excuses step `step` of case `id` failing with
+/// `outcome`, if any.
+fn known_failure<'a>(
+    known: &'a [KnownFailure],
+    id: &str,
+    step: Option<usize>,
+    outcome: &str,
+) -> Option<&'a KnownFailure> {
+    known
+        .iter()
+        .find(|k| k.id == id && k.step == step && k.outcome == outcome)
+}
 
 /// Time a child may take beyond the cases' own `max_wall_ms`: starting the
 /// process and the runner, and a debug build on a busy machine.
@@ -189,21 +213,46 @@ fn hostile_child() {
 /// Runs one case in a child process under a watchdog.
 fn run_case(exe: &Path, case: &Case, max_wall: Duration) -> Vec<Outcome> {
     let steps = case.steps().len();
+    let deadline = max_wall * u32::try_from(steps).unwrap() + CHILD_SLACK;
+    run_child(exe, "hostile_child", &case.id, steps, deadline, max_wall)
+}
+
+/// Reads all of a child's pipe on its own thread, so a child that writes a
+/// lot never blocks on a full pipe while the watchdog waits for it.
+fn drain(mut pipe: impl Read + Send + 'static) -> std::thread::JoinHandle<String> {
+    std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = pipe.read_to_end(&mut bytes);
+        String::from_utf8_lossy(&bytes).into_owned()
+    })
+}
+
+/// Runs the ignored test `child_test` of this binary as a child for case
+/// `id`, kills it after `deadline`, and returns one outcome per step.
+fn run_child(
+    exe: &Path,
+    child_test: &str,
+    id: &str,
+    steps: usize,
+    deadline: Duration,
+    max_wall: Duration,
+) -> Vec<Outcome> {
     let started = Instant::now();
     let mut child = Command::new(exe)
         .args([
-            "hostile_child",
+            child_test,
             "--exact",
             "--ignored",
             "--nocapture",
             "--test-threads=1",
         ])
-        .env("SURIMONO_HOSTILE_CASE", &case.id)
+        .env("SURIMONO_HOSTILE_CASE", id)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    let deadline = max_wall * u32::try_from(steps).unwrap() + CHILD_SLACK;
+    let stdout = drain(child.stdout.take().unwrap());
+    let stderr = drain(child.stderr.take().unwrap());
     let status = loop {
         if let Some(status) = child.try_wait().unwrap() {
             break Some(status);
@@ -215,45 +264,78 @@ fn run_case(exe: &Path, case: &Case, max_wall: Duration) -> Vec<Outcome> {
         }
         std::thread::sleep(Duration::from_millis(5));
     };
-    let mut stdout = String::new();
-    child
-        .stdout
-        .take()
-        .unwrap()
-        .read_to_string(&mut stdout)
-        .unwrap();
-    let mut stderr = String::new();
-    child
-        .stderr
-        .take()
-        .unwrap()
-        .read_to_string(&mut stderr)
-        .unwrap();
+    let stdout = stdout.join().unwrap_or_default();
+    let stderr = stderr.join().unwrap_or_default();
+    let wall_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    outcomes_of_child(status, &stdout, &stderr, steps, wall_ms, max_wall)
+}
+
+/// One outcome per step from what a child printed and how it ended.
+///
+/// The child must exit successfully: steps it never reported hung (killed by
+/// the watchdog) or crashed it, and a child that reported every step but
+/// then crashed, aborted, failed or hung on the way out fails its last step
+/// with that ending, whatever the step reported.
+fn outcomes_of_child(
+    status: Option<ExitStatus>,
+    stdout: &str,
+    stderr: &str,
+    steps: usize,
+    wall_ms: u64,
+    max_wall: Duration,
+) -> Vec<Outcome> {
     let mut outcomes: Vec<Outcome> = stdout
         .lines()
         // libtest may print "test hostile_child ... " on the same line.
         .filter_map(|l| l.find(RESULT_PREFIX).map(|i| &l[i + RESULT_PREFIX.len()..]))
-        .map(|json| serde_json::from_str(json).unwrap())
+        .filter_map(|json| serde_json::from_str(json).ok())
         .collect();
-    // Steps the child never reported hung or crashed it.
-    let wall_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    while outcomes.len() < steps {
-        let (outcome, message) = match status {
-            None => ("Hang", "killed by the watchdog".to_owned()),
-            Some(s) => (
-                "Crash",
-                format!(
-                    "child exited with {s}: {}",
-                    stderr.lines().rev().take(5).collect::<Vec<_>>().join(" | ")
-                ),
+    outcomes.truncate(steps);
+    let ending = match status {
+        Some(s) if s.success() => None,
+        None => Some(("Hang", "killed by the watchdog".to_owned())),
+        Some(s) => Some((
+            "Crash",
+            format!(
+                "child exited with {s}: {}",
+                stderr.lines().rev().take(5).collect::<Vec<_>>().join(" | ")
             ),
-        };
-        outcomes.push(Outcome {
-            outcome: outcome.to_owned(),
-            output: None,
-            message: Some(message),
-            wall_ms,
-        });
+        )),
+    };
+    if let Some((outcome, message)) = &ending {
+        if outcomes.len() == steps {
+            // Every step reported, then the child failed anyway.
+            if let Some(last) = outcomes.last_mut() {
+                last.message = Some(format!(
+                    "{message} (after reporting {} {:?})",
+                    last.outcome,
+                    last.message
+                        .as_deref()
+                        .or(last.output.as_deref())
+                        .unwrap_or("")
+                ));
+                last.outcome = (*outcome).to_owned();
+                last.output = None;
+            }
+        }
+        while outcomes.len() < steps {
+            outcomes.push(Outcome {
+                outcome: (*outcome).to_owned(),
+                output: None,
+                message: Some(message.clone()),
+                wall_ms,
+            });
+        }
+    } else {
+        // A successful exit that left steps unreported is still a failure.
+        while outcomes.len() < steps {
+            outcomes.push(Outcome {
+                outcome: "Crash".to_owned(),
+                output: None,
+                message: Some("child exited without reporting this step".to_owned()),
+                wall_ms,
+            });
+        }
     }
     // Past max_wall_ms is a hang, whatever the outcome.
     for o in &mut outcomes {
@@ -348,8 +430,8 @@ fn hostile_suite() {
                 verdict.as_ref().err().map_or("", String::as_str)
             );
             if let Err(why) = verdict {
-                match KNOWN_FAILURES.iter().find(|(id, _)| *id == case.id) {
-                    Some((_, reason)) => known.push(format!("{label}: {why} (known: {reason})")),
+                match known_failure(KNOWN_FAILURES, &case.id, step, &o.outcome) {
+                    Some(k) => known.push(format!("{label}: {why} (known: {})", k.reason)),
                     None => failures.push(format!("{label}: {why}")),
                 }
             }
@@ -364,17 +446,21 @@ fn hostile_suite() {
         }
     }
     if let Some(path) = std::env::var_os("SURIMONO_HOSTILE_RESULTS") {
-        // CI's commit, or this checkout's.
-        let commit = std::env::var("GITHUB_SHA").ok().or_else(|| {
-            let out = Command::new("git")
-                .args(["rev-parse", "HEAD"])
-                .current_dir(env!("CARGO_MANIFEST_DIR"))
-                .output()
-                .ok()?;
-            out.status
-                .success()
-                .then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
-        });
+        // The pull request's head commit (on a pull request GITHUB_SHA is
+        // GitHub's merge commit), else CI's commit, else this checkout's.
+        let commit = ["PR_HEAD_SHA", "GITHUB_SHA"]
+            .iter()
+            .find_map(|v| std::env::var(v).ok().filter(|s| !s.is_empty()))
+            .or_else(|| {
+                let out = Command::new("git")
+                    .args(["rev-parse", "HEAD"])
+                    .current_dir(env!("CARGO_MANIFEST_DIR"))
+                    .output()
+                    .ok()?;
+                out.status
+                    .success()
+                    .then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
+            });
         let doc = serde_json::json!({"schema": 1, "commit": commit, "cases": entries});
         std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
         eprintln!(
@@ -397,4 +483,108 @@ fn hostile_suite() {
         "unexpected failures:\n{}",
         failures.join("\n")
     );
+}
+
+/// Child side of the harness's own tests: reports an Ok step, then ends
+/// badly the way SURIMONO_HOSTILE_CASE says. Does nothing unless the
+/// harness started it.
+#[test]
+#[ignore = "helper: run in a child process by the harness tests"]
+fn hostile_child_ends_badly() {
+    let how = std::env::var("SURIMONO_HOSTILE_CASE").unwrap_or_default();
+    if !how.starts_with("harness-") {
+        return;
+    }
+    let ok = Outcome {
+        outcome: "Ok".into(),
+        output: Some("fine".into()),
+        message: None,
+        wall_ms: 1,
+    };
+    println!("\n{RESULT_PREFIX}{}", serde_json::to_string(&ok).unwrap());
+    match how.as_str() {
+        "harness-abort" => std::process::abort(),
+        "harness-panic" => panic!("failing after reporting"),
+        "harness-exit" => std::process::exit(3),
+        _ => {}
+    }
+}
+
+#[test]
+fn a_child_that_ends_badly_after_reporting_fails() {
+    let exe = std::env::current_exe().unwrap();
+    let wall = Duration::from_secs(60);
+    for how in ["harness-abort", "harness-panic", "harness-exit"] {
+        let outcomes = run_child(&exe, "hostile_child_ends_badly", how, 1, wall, wall);
+        assert_eq!(outcomes.len(), 1, "{how}");
+        let o = &outcomes[0];
+        assert_eq!(o.outcome, "Crash", "{how}: {o:?}");
+        assert!(
+            o.message
+                .as_deref()
+                .unwrap_or("")
+                .contains("after reporting Ok"),
+            "{how}: {o:?}"
+        );
+        assert_eq!(o.output, None, "{how}");
+    }
+    // The same child exiting normally passes.
+    let outcomes = run_child(
+        &exe,
+        "hostile_child_ends_badly",
+        "harness-ok",
+        1,
+        wall,
+        wall,
+    );
+    assert_eq!(outcomes[0].outcome, "Ok", "{outcomes:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn every_way_a_child_ends_is_judged() {
+    use std::os::unix::process::ExitStatusExt;
+    let line = |outcome: &str| {
+        format!(
+            "test hostile_child ... \n{RESULT_PREFIX}{{\"outcome\":\"{outcome}\",\"output\":null,\"message\":null,\"wall_ms\":5}}\n"
+        )
+    };
+    let ok = Some(ExitStatus::from_raw(0));
+    let abort = Some(ExitStatus::from_raw(6)); // killed by SIGABRT
+    let wall = Duration::from_secs(10);
+    let judge = |status, stdout: &str, steps| {
+        outcomes_of_child(status, stdout, "boom", steps, 7, wall)
+            .into_iter()
+            .map(|o| o.outcome)
+            .collect::<Vec<_>>()
+    };
+    let two = format!("{}{}", line("TimeLimit"), line("Ok"));
+    assert_eq!(judge(ok, &two, 2), ["TimeLimit", "Ok"]);
+    assert_eq!(judge(abort, &two, 2), ["TimeLimit", "Crash"]);
+    assert_eq!(judge(None, &two, 2), ["TimeLimit", "Hang"]);
+    assert_eq!(judge(abort, &line("Ok"), 2), ["Ok", "Crash"]);
+    assert_eq!(judge(None, &line("Ok"), 2), ["Ok", "Hang"]);
+    assert_eq!(
+        judge(ok, &line("Ok"), 2),
+        ["Ok", "Crash"],
+        "a step never reported"
+    );
+    assert_eq!(judge(ok, "HOSTILE-RESULT {not json", 1), ["Crash"]);
+    // Past max_wall_ms is a hang.
+    let slow = line("Ok").replace("\"wall_ms\":5", "\"wall_ms\":10001");
+    assert_eq!(judge(ok, &slow, 1), ["Hang"]);
+}
+
+#[test]
+fn known_failures_excuse_only_their_outcome() {
+    let known = [KnownFailure {
+        id: "deep-recursion",
+        step: None,
+        outcome: "Crash",
+        reason: "example",
+    }];
+    assert!(known_failure(&known, "deep-recursion", None, "Crash").is_some());
+    assert!(known_failure(&known, "deep-recursion", None, "Hang").is_none());
+    assert!(known_failure(&known, "deep-recursion", Some(1), "Crash").is_none());
+    assert!(known_failure(&known, "other", None, "Crash").is_none());
 }
