@@ -15,7 +15,7 @@ patched QuickJS engine (#32 via #39) with the allocation-failure fixes (#45), is
 runner with the on-demand pool (#54), ECharts, Vega, gfx text measurement, hostile
 suite and harness (#37), the 11 fixtures, COMPAT generator (#28), font weight/style
 check (#43), CI hardening with the final YAML proposal for Kay (#44), macOS and ASan
-test fixes (#52, #53), and since 01:20 the gfx sanitizer with the island-box policy (#12), outlined text with stamps (#27), fulgur hand-off notes (#16), workspace buffer reset (#48) and the checkpoint run script (#35).
+test fixes (#52, #53), and since 01:20 the gfx sanitizer with the island-box policy (#12), outlined text with stamps (#27), fulgur hand-off notes (#16), workspace buffer reset (#48), the checkpoint run script (#35) and the CF review follow-ups (#50, #51).
 
 Usage-limit pauses on Sat 31 Oct: 03:20–06:17, ~09:40–11:10, ~14:00–16:35, ~18:00–23:03.
 
@@ -23,7 +23,7 @@ Usage-limit pauses on Sat 31 Oct: 03:20–06:17, ~09:40–11:10, ~14:00–16:35,
 | PR | Task | State |
 |---|---|---|
 | #25 → #26 → #34 | facade on the real backend, CLI, licences | PKG merging the new p1-gfx-05 in, plus island clipping; then one fresh review for all three. **Critical path** |
-| #50 → #55, #51 | CF review follow-ups, stamp-aware text/font checks | blockers fixed (7b88151, 1c7fdd7, 2452913); delta review running. #51 after #35 |
+| #55 | P1-CF-12 stamp-aware text/font checks | fix pushed (f411fe2); delta review running; needed before the real run |
 | #47 | P1-RT-14 time-accurate deadlines (R4, R5) | BLOCK (BigInt pow leak); RT fixing, P1-RT-22 fork-safe registry folded in; merges main (patch level 3) |
 | #56 | P1-RT-17b precompiled bytecode (cold start 2.0 → 1.5 s, PSS 41 → 27–29 MB) | in review; merge before the benchmark run |
 | (next) | P1-RT-24 ASan stack probe | RT working |
@@ -34,7 +34,7 @@ Usage-limit pauses on Sat 31 Oct: 03:20–06:17, ~09:40–11:10, ~14:00–16:35,
 - Nothing.
 
 ### Next (in order; a resumed session starts here)
-1. Read reviewer verdicts: merge #50 → #55 → #51. Move each PR's DECISIONS lines from docs/fleet/PENDING_DECISIONS.md.
+1. Merge #55 on approval. Move each PR's DECISIONS lines from docs/fleet/PENDING_DECISIONS.md.
 2. When PKG reports #25/#26/#34 with the new gfx: one fresh reviewer for all three; merge on approval.
 3. When RT-17b's PR is up: fresh reviewer; merge before the benchmark.
 4. After #25 (+ #26) merge: P1-CF-09 real run from main (`checkpoint.mjs`, release CLI), commit the report, regenerate COMPAT.md; trigger bench (Grover table, PSS) via a `release/ci-check-*` push or main merge.

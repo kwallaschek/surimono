@@ -74,15 +74,9 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-10-31 · The CLI takes the facade's options (--bundle name[:fn]=file, --renderers, --max-islands, --pool-size) and writes output via temp file + rename · Gem and CLI share one API; no truncated output files.
 - 2026-10-31 · THIRD_PARTY_LICENSES.txt generation fails on an MPL-2.0-only crate not unmodified from crates.io or not named in about.toml/deny.toml, and on a non-licence, non-JS file in a bundle directory; cargo-about runs --frozen --fail · Notices must be complete and true.
 
-## CF batch 4 (#50 #51), add on merge
-- 2026-10-31 · Text check: what the candidate draws (<text> plus outline labels Chrome lacks) must match Chrome's <text> strings exactly, including copies; extra outline labels fail (#50) · A duplicated label or a string drawn twice passed (#43 review).
-- 2026-10-31 · Font check: a candidate left over after one-to-one matching is "extra" and fails (#50) · #43 review.
-- 2026-10-31 · Outline groups stay structural whatever the group's own role; doc aligned to code (#50) · gfx keeps the text's role, so narrowing would drop Vega's outlines; revisit with data-surimono-text after #27.
-- 2026-10-31 · launchOffline removes WebRTC (RTC*) from every frame with an init script and turns IsolateSandboxedIframes off, re-passing Playwright's own --disable-features list (Chromium keeps only the last switch) (#50) · Makes "nothing reaches the network" true for the page itself, sandboxed iframes included; tested for 4 frame kinds with positive controls.
-- 2026-10-31 · compat.py: an unknown fixture is an error; a pass needs a compared page; a nested check passes only with pass: true; malformed producer/determinism/score files are errors (#50, #51) · #28 and #35 reviews.
-- 2026-10-31 · compat.py and lib/report.mjs share one verdict table, and a test compares them on every combination (50,544 scores) (#51) · #51 review found them drifting.
+## CF batch 4: #50 #51 merged; #55 pending
 - 2026-10-31 · Text and font checks read gfx's data-surimono-text and data-surimono-face where present: the drawn string replaces the label, and each drawn face must be the one CSS Fonts 4 font matching picks for Chrome's computed weight and style (#55) · An author's aria-label hid the drawn string (Vega-Lite); the declared-weight check couldn't see the face drawn.
-- 2026-10-31 · The checkpoint's second render tries decimal-comma locales first (de_DE, fr_FR, ja_JP, en_US; fallback de_DE.UTF-8; de_DE.UTF-8 generated on the fleet machine), and verdicts are derived in lib/report.mjs the way compat.py does (#51) · #35 review.
+- 2026-11-01 · compat.py reads results files as JSON.parse would (NaN and Infinity refused) and names listed failures as JavaScript's String() does; a stamped outline's aria-label is set aside only when it equals the stamp; a non-empty stamp must name a face; a stamped empty <g/> draws nothing (#50, #51, #55) · The three reviews; each keeps the checks at least as strict.
 
 ## RT-14 (#47), add on merge
 - 2026-10-31 · Deadlines are enforced by one watchdog thread per process that raises a per-runtime stop flag, which the patched QuickJS reads on every interrupt poll; a refused allocation raises it too; Deadline::passed() reads the same flag · The handler alone was asked every 10,000 polls, so a loop around one expensive call overran by minutes; no thread per render.
