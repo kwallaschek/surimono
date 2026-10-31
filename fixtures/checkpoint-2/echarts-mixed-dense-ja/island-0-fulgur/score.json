@@ -81,7 +81,7 @@
   "producer": {
     "cli": "target/release/surimono",
     "version": "surimono 0.0.0",
-    "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
-    "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+    "sha256": "7c8d26582fbe18a1bb4a236c1b6dcadf96d85a78014ec0fb78d599f65710ad2d",
+    "commit": "99c363cd359c281c34bf99e6de0337f3bf569ac8"
   }
 }
