@@ -134,7 +134,7 @@ test("font check: outlines that keep the text's attributes pass; a bold label fa
   const ref = svgTextStyles(chrome);
   const outlined = `<svg><g style="font-size:12px;font-weight:bold" role="img" aria-label="Title"><path d="M0 0"/></g>
     <g role="img" aria-label="Jan"><path d="M0 0"/></g><g aria-label="Value: 3" role="graphics-symbol"><path d="M0 0"/></g></svg>`;
-  assert.deepEqual(compareStyles(ref, outlined), { pass: true, compared: 3, mismatches: [] });
+  assert.deepEqual(compareStyles(ref, outlined), { pass: true, compared: 3, mismatches: [], missing: [] });
   const bold = outlined.replace('aria-label="Jan"', 'aria-label="Jan" font-weight="bold"');
   const r = compareStyles(ref, bold);
   assert.equal(r.pass, false);
@@ -142,5 +142,67 @@ test("font check: outlines that keep the text's attributes pass; a bold label fa
   // The calibration fault: every <text> wrapped in <g font-weight="bold">.
   const fault = chrome.replace(/<text\b[\s\S]*?<\/text>/g, (t) => `<g font-weight="bold">${t}</g>`);
   assert.equal(compareStyles(ref, fault).pass, false);
-  assert.equal(compareStyles(ref, "<svg><text>Other</text></svg>").compared, 0);
+  // A text the candidate lacks is missing, and fails.
+  const lacking = compareStyles(ref, "<svg><text>Other</text></svg>");
+  assert.equal(lacking.pass, false);
+  assert.equal(lacking.missing.length, 3);
+});
+
+test("font check matches same-key texts one to one", () => {
+  // echarts-pie-ja: each legend entry and its slice label share a string.
+  const chrome = `<svg><text>East</text><text>East</text><text>West</text><text>West</text></svg>`;
+  const ref = svgTextStyles(chrome);
+  const outline = (key, bold) => `<g role="img" aria-label="${key}"${bold ? ' font-weight="bold"' : ""}><path d="M0 0"/></g>`;
+  const good = `<svg>${outline("East")}${outline("East")}${outline("West")}${outline("West")}</svg>`;
+  assert.equal(compareStyles(ref, good).pass, true);
+  // Slice labels bold, legend entries normal: one of each pair is wrong.
+  const r = compareStyles(ref, `<svg>${outline("East", true)}${outline("East")}${outline("West", true)}${outline("West")}</svg>`);
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.mismatches, [
+    { key: "East", chrome: "400 normal", surimono: "700 normal" },
+    { key: "West", chrome: "400 normal", surimono: "700 normal" },
+  ]);
+  // Two candidates for one reference text: the right one is taken, the extra is ignored.
+  assert.equal(compareStyles(svgTextStyles("<svg><text>East</text></svg>"), `<svg>${outline("East", true)}${outline("East")}</svg>`).pass, true);
+});
+
+test("font check candidates are <text> and outline groups, never chart marks", () => {
+  const ref = svgTextStyles(`<svg><text>Jan</text></svg>`);
+  // A labelled mark, or a labelled group of labelled marks, doesn't stand in for the text.
+  for (const svg of [
+    `<svg><path aria-label="Jan" role="graphics-symbol" d="M0 0"/></svg>`,
+    `<svg><g aria-label="Jan"><path aria-label="bar" role="graphics-symbol" d="M0 0"/></g></svg>`,
+    `<svg><g aria-label="Jan"><rect width="1" height="1"/></g></svg>`,
+  ]) {
+    const r = compareStyles(ref, svg);
+    assert.equal(r.pass, false, svg);
+    assert.equal(r.missing.length, 1, svg);
+  }
+  // gfx's outline of a <text> with tspans: nested unlabelled groups of paths.
+  assert.equal(compareStyles(ref, `<svg><g role="img" aria-label="Jan"><g><path d="M0 0"/></g><path d="M1 1"/></g></svg>`).pass, true);
+});
+
+test("computedTextStyles is Chrome's view, and catches what svgTextStyles can't read", async (t) => {
+  const { createRequire } = await import("node:module");
+  const fs = await import("node:fs");
+  const require = createRequire(import.meta.url);
+  let chromium;
+  try {
+    ({ chromium } = require("playwright"));
+    if (!fs.existsSync(chromium.executablePath())) return t.skip("Playwright's Chromium is not installed");
+  } catch (e) {
+    return t.skip(`playwright not available: ${e.message}`);
+  }
+  const { computedTextStyles } = await import("../lib/fixtures.mjs");
+  const browser = await chromium.launch({ channel: "chromium" });
+  try {
+    const plain = `<svg xmlns="http://www.w3.org/2000/svg"><g font-weight="bold"><text>A</text></g><text style="font: italic 600 12px serif">B</text><text aria-label="C label">C</text></svg>`;
+    const sort = (xs) => xs.map((x) => `${x.key}|${x.weight}|${x.style}`).sort();
+    assert.deepEqual(sort(await computedTextStyles(browser, plain)), sort(svgTextStyles(plain)));
+    // A <style> sheet, which the resolver doesn't read: reference.mjs would refuse it.
+    const sheet = `<svg xmlns="http://www.w3.org/2000/svg"><style>text { font-weight: bold }</style><text>A</text></svg>`;
+    assert.notDeepEqual(sort(await computedTextStyles(browser, sheet)), sort(svgTextStyles(sheet)));
+  } finally {
+    await browser.close();
+  }
 });

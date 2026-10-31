@@ -108,6 +108,9 @@ export function printResult(result) {
   if (result.font) {
     const f = result.font;
     const shown = f.mismatches.slice(0, 5).map((x) => `${JSON.stringify(x.key)}: Chrome ${x.chrome}, surimono ${x.surimono}`);
-    console.log(`${f.pass ? "pass" : "FAIL(font)"} ${result.subject} font weight and style: ${f.compared} texts compared${shown.length ? `; ${shown.join("; ")}` : ""}`);
+    const lacking = (f.missing ?? []).slice(0, 5).map((x) => JSON.stringify(x.key));
+    console.log(
+      `${f.pass ? "pass" : "FAIL(font)"} ${result.subject} declared font weight and style: ${f.compared} texts compared${shown.length ? `; ${shown.join("; ")}` : ""}${lacking.length ? `; no text or outline for ${lacking.join(", ")}` : ""}`,
+    );
   }
 }
