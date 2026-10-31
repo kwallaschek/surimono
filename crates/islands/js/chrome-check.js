@@ -4,18 +4,22 @@
 //
 //   node chrome-check.js <renderer> <specs-dir> <surimono-svg-dir> [width height]
 //
-// <renderer> is echarts. <specs-dir> holds <name>.json specs, <surimono-svg-dir>
+// <renderer> is echarts, vega or vega-lite. <specs-dir> holds <name>.json specs, <surimono-svg-dir>
 // the matching <name>.svg files written by the islands tests with
 // SURIMONO_DUMP_DIR set. Three Chrome renders per spec:
 //
-//   same-metrics   the library's SSR path in Chrome, with text measured by
+//   same-metrics   the library's server-side path in Chrome (ECharts SSR,
+//                  Vega's headless view.toSVG()), with text measured by
 //                  the same deterministic formula as surimono's font-free
 //                  stand-in (TextMeasurer::approximate). Isolates the engine
 //                  and the bundle: QuickJS + our bundle vs V8 + the official
 //                  build. Expected to be byte-identical.
-//   chrome-ssr     the same SSR path with Chrome's own canvas text metrics.
+//   chrome-ssr     the same server-side path with Chrome's own canvas text
+//                  metrics.
 //   chrome-dom     the chart mounted in a <div> with the SVG renderer, as a
 //                  browser-printed page (Grover, Ferrum) would draw it.
+//
+// Vega specs set their own size; the width and height only apply to ECharts.
 //
 // For each it prints whether the SVG is identical, and otherwise the
 // structural differences: element counts by tag and the multiset of text
@@ -46,6 +50,8 @@ const height = Number(h);
 
 const LIBS = {
   echarts: ['echarts/dist/echarts.min.js'],
+  vega: ['vega/build/vega.min.js'],
+  'vega-lite': ['vega/build/vega.min.js', 'vega-lite/build/vega-lite.min.js'],
 };
 if (!LIBS[renderer]) {
   console.error(`chrome-check: unknown renderer ${renderer}`);
@@ -137,6 +143,34 @@ async function renderInPage({ renderer, mode, specJson, width, height }) {
       return chart.renderToSVGString();
     } finally {
       chart.dispose();
+    }
+  }
+  if (renderer === 'vega' || renderer === 'vega-lite') {
+    const vgSpec = renderer === 'vega-lite' ? vegaLite.compile(spec).spec : spec;
+    if (mode === 'same-metrics') {
+      // Vega measures with its own 2D context; swap the metrics underneath.
+      CanvasRenderingContext2D.prototype.measureText = function (text) {
+        return window.__approximate(text, this.font);
+      };
+    }
+    if (mode === 'chrome-dom') {
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      const view = new vega.View(vega.parse(vgSpec), { renderer: 'svg', container: div });
+      try {
+        await view.runAsync();
+        return div.querySelector('svg').outerHTML;
+      } finally {
+        view.finalize();
+        div.remove();
+      }
+    }
+    const view = new vega.View(vega.parse(vgSpec), { renderer: 'none' });
+    try {
+      await view.runAsync();
+      return await view.toSVG();
+    } finally {
+      view.finalize();
     }
   }
   throw new Error('unknown renderer ' + renderer);
