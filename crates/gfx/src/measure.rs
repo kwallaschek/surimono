@@ -227,8 +227,6 @@ pub(crate) struct Workspace {
     /// Bytes of every key in `fonts` and `results` (outer and inner).
     key_bytes: usize,
     glyphs: HashMap<GlyphKey, Option<PixelBounds>>,
-    /// Largest text (bytes) laid out since the buffers were last replaced.
-    laid_out_bytes: usize,
     /// How often the buffers were replaced (for tests).
     #[cfg(test)]
     buffer_resets: usize,
@@ -248,16 +246,22 @@ impl Workspace {
             result_count: 0,
             key_bytes: 0,
             glyphs: HashMap::new(),
-            laid_out_bytes: 0,
             #[cfg(test)]
             buffer_resets: 0,
         }
     }
 
-    /// Replaces the layout buffers if a large text grew them, so an idle
-    /// workspace holds only label-sized buffers.
+    /// Replaces the layout buffers if the text the layout holds (the last
+    /// one laid out) is large, so an idle workspace keeps only label-sized
+    /// buffers. Every call lays out at most one text, whatever it measures
+    /// or shapes, so this needs no bookkeeping in the callers.
     fn release_large_buffers(&mut self) {
-        if self.laid_out_bytes > LARGE_TEXT_BYTES {
+        let laid_out = self
+            .layout
+            .lines()
+            .last()
+            .map_or(0, |line| line.text_range().end);
+        if laid_out > LARGE_TEXT_BYTES {
             self.layout = Layout::new();
             self.layout_cx = LayoutContext::new();
             #[cfg(test)]
@@ -265,7 +269,6 @@ impl Workspace {
                 self.buffer_resets += 1;
             }
         }
-        self.laid_out_bytes = 0;
     }
 
     /// Empties the result and font caches.
@@ -411,7 +414,6 @@ impl Workspace {
         builder.push_default(StyleProperty::FontWidth(font.width));
         builder.build_into(&mut self.layout, &text);
         self.layout.break_all_lines(None);
-        self.laid_out_bytes = self.laid_out_bytes.max(text.len());
 
         // Ink bounds: per glyph, whole-pixel bounds placed at the glyph's
         // (fractional) position, as Chrome computes actualBoundingBox*.
@@ -568,7 +570,6 @@ mod tests {
         assert_eq!(resets(&m), 1);
         let ws = m.idle();
         assert_eq!(ws.len(), 1);
-        assert_eq!(ws[0].laid_out_bytes, 0);
         assert_eq!(ws[0].layout.len(), 0, "a fresh layout");
         drop(ws);
         // Measuring again in the fresh buffers gives the same result.
