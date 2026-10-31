@@ -151,7 +151,7 @@ struct Soak<'a> {
 /// nothing allocates until the next render.
 fn wait_until_idle(runner: &IslandRunner) {
     let start = Instant::now();
-    while runner.stats().idle_workers < runner.pool_size() {
+    while runner.stats().idle_workers < runner.stats().workers {
         assert!(
             start.elapsed() < Duration::from_secs(60),
             "workers never went idle: {:?}",
@@ -213,7 +213,7 @@ fn run_soak(soak: &Soak<'_>) {
         "{name}: {} renders in {elapsed:?} ({:?} per render incl. {rounds} waits for idle workers), {CALLERS} callers, {} workers, first SVG {} bytes",
         soak.renders,
         elapsed / soak.renders as u32,
-        soak.runner.pool_size(),
+        soak.runner.stats().workers,
         first_svg_len.load(Ordering::Relaxed)
     );
     eprintln!("{name}: resident memory before start {start_rss:?} KiB");
