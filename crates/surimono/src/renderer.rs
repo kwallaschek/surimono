@@ -477,18 +477,23 @@ mod tests {
 
     #[test]
     fn script_failures_become_typed_errors() {
-        let r = renderer(options().limits(Limits {
+        // The time case gets a short limit; the others the default 2 s, so
+        // on a loaded machine they hit their own limit before the clock.
+        let quick = renderer(options().limits(Limits {
             time: Duration::from_millis(100),
+            ..Limits::default()
+        }));
+        let r = renderer(options().limits(Limits {
             memory_bytes: 8 * 1024 * 1024,
             ..Limits::default()
         }));
-        for (spec, kind) in [
-            (r#"{"limit": "time"}"#, "time-limit"),
-            (r#"{"limit": "memory"}"#, "memory-limit"),
-            (r#"{"limit": "stack"}"#, "stack-overflow"),
-            (r#"{"throw": "boom"}"#, "javascript"),
+        for (renderer, spec, kind) in [
+            (&quick, r#"{"limit": "time"}"#, "time-limit"),
+            (&r, r#"{"limit": "memory"}"#, "memory-limit"),
+            (&r, r#"{"limit": "stack"}"#, "stack-overflow"),
+            (&r, r#"{"throw": "boom"}"#, "javascript"),
         ] {
-            match r.render_islands(&island(spec)) {
+            match renderer.render_islands(&island(spec)) {
                 Err(e) => {
                     assert_eq!(e.kind(), kind, "{spec}: {e}");
                     assert_eq!(e.island().map(|i| i.index), Some(0));
