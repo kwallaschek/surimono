@@ -6,7 +6,7 @@ import test from "node:test";
 import { PNG } from "pngjs";
 import { verdictOf } from "../lib/compare.mjs";
 import { colourMatch, diff, hueMatch, nearMatch, solidMask } from "../lib/png.mjs";
-import { compareStyles, compareTexts, decodeXml, multisetMinus, svgTextStyles, svgTexts } from "../lib/svgtext.mjs";
+import { compareStyles, compareTexts, decodeXml, expectedFace, faceName, fixtureFaces, matchWeight, multisetMinus, stampedOutlines, svgTextStyles, svgTexts } from "../lib/svgtext.mjs";
 
 const W = 96;
 const H = 64;
@@ -129,12 +129,12 @@ test("svgTextStyles resolves weight and style from attributes, style, the font s
   ]);
 });
 
-test("font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's", () => {
+test("font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails", () => {
   const chrome = `<svg><text style="font-size:12px;font-weight:bold">Title</text><text>Jan</text><text aria-label="Value: 3">3</text></svg>`;
   const ref = svgTextStyles(chrome);
   const outlined = `<svg><g style="font-size:12px;font-weight:bold" role="img" aria-label="Title"><path d="M0 0"/></g>
     <g role="img" aria-label="Jan"><path d="M0 0"/></g><g aria-label="Value: 3" role="graphics-symbol"><path d="M0 0"/></g></svg>`;
-  assert.deepEqual(compareStyles(ref, outlined), { pass: true, compared: 3, mismatches: [], missing: [] });
+  assert.deepEqual(compareStyles(ref, outlined), { pass: true, compared: 3, faces_checked: 0, mismatches: [], missing: [], extra: [] });
   const bold = outlined.replace('aria-label="Jan"', 'aria-label="Jan" font-weight="bold"');
   const r = compareStyles(ref, bold);
   assert.equal(r.pass, false);
@@ -162,8 +162,10 @@ test("font check matches same-key texts one to one", () => {
     { key: "East", chrome: "400 normal", surimono: "700 normal" },
     { key: "West", chrome: "400 normal", surimono: "700 normal" },
   ]);
-  // Two candidates for one reference text: the right one is taken, the extra is ignored.
-  assert.equal(compareStyles(svgTextStyles("<svg><text>East</text></svg>"), `<svg>${outline("East", true)}${outline("East")}</svg>`).pass, true);
+  // Two candidates for one reference text: the right one is taken, and the other is extra (P1-CF-11).
+  const two = compareStyles(svgTextStyles("<svg><text>East</text></svg>"), `<svg>${outline("East", true)}${outline("East")}</svg>`);
+  assert.equal(two.pass, false);
+  assert.deepEqual(two.extra, [{ key: "East", surimono: "700 normal" }]);
 });
 
 test("font check candidates are <text> and outline groups, never chart marks", () => {
@@ -206,3 +208,181 @@ test("computedTextStyles is Chrome's view, and catches what svgTextStyles can't 
     await browser.close();
   }
 });
+
+test("text check: every copy counts, however it is drawn", () => {
+  // Review of #43: a second copy of a label, or a string drawn both as an
+  // outline and as a <text>, passed because copies cancelled out.
+  const ref = svgTexts(`<svg><text>East</text><text>West</text></svg>`);
+  const outline = (key, bold) => `<g role="img" aria-label="${key}"${bold ? ' font-weight="bold"' : ""}><path d="M0 0"/></g>`;
+  assert.equal(compareTexts(ref, `<svg>${outline("East")}${outline("West")}</svg>`).pass, true);
+  const twice = compareTexts(ref, `<svg>${outline("East")}${outline("West")}${outline("East", true)}</svg>`);
+  assert.equal(twice.pass, false);
+  assert.deepEqual(twice.extra, ["East"]);
+  const both = compareTexts(ref, `<svg>${outline("East")}${outline("West")}<text>East</text></svg>`);
+  assert.equal(both.pass, false);
+  assert.deepEqual(both.extra, ["East"]);
+  // A label Chrome draws twice (echarts-pie-ja: legend entry and slice label) needs two copies, no more.
+  const pie = svgTexts(`<svg><text>East</text><text>East</text></svg>`);
+  assert.equal(compareTexts(pie, `<svg>${outline("East")}${outline("East")}</svg>`).pass, true);
+  assert.deepEqual(compareTexts(pie, `<svg>${outline("East")}</svg>`).missing, ["East"]);
+  assert.deepEqual(compareTexts(pie, `<svg>${outline("East")}${outline("East")}${outline("East")}</svg>`).extra, ["East"]);
+  // Labels Chrome's SVG has too are the chart library's own, not drawn strings.
+  assert.equal(compareTexts(svgTexts(`<svg aria-label="chart"><text>East</text></svg>`), `<svg aria-label="chart">${outline("East")}</svg>`).pass, true);
+});
+
+test("font check: an extra copy of a label, or a key Chrome has no text for, fails", () => {
+  const ref = svgTextStyles(`<svg><text>East</text><text>West</text></svg>`);
+  const outline = (key, bold) => `<g role="img" aria-label="${key}"${bold ? ' font-weight="bold"' : ""}><path d="M0 0"/></g>`;
+  const r = compareStyles(ref, `<svg>${outline("East")}${outline("West")}${outline("East", true)}</svg>`);
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.mismatches, []);
+  assert.deepEqual(r.missing, []);
+  assert.deepEqual(r.extra, [{ key: "East", surimono: "700 normal" }]);
+  const other = compareStyles(ref, `<svg>${outline("East")}${outline("West")}<text>North</text></svg>`);
+  assert.equal(other.pass, false);
+  assert.deepEqual(other.extra, [{ key: "North", surimono: "400 normal" }]);
+});
+
+test("outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does", () => {
+  // gfx keeps the role of the <text> it outlines (Vega's text marks carry
+  // role="graphics-symbol"), so a labelled group of plain paths counts whatever its role.
+  const keys = (svg) => svgTextStyles(svg, { outlines: true }).map((x) => x.key);
+  assert.deepEqual(keys(`<svg><g role="graphics-symbol" aria-label="Value: 3"><path d="M0 0"/></g></svg>`), ["Value:3"]);
+  assert.deepEqual(keys(`<svg><g role="img" aria-label="Jan"><g><path d="M0 0"/></g></g></svg>`), ["Jan"]);
+  assert.deepEqual(keys(`<svg><g aria-label="Jan"><g role="graphics-object"><path d="M0 0"/></g></g></svg>`), []);
+  assert.deepEqual(keys(`<svg><g aria-label="Jan"><path role="graphics-symbol" d="M0 0"/></g></svg>`), []);
+  assert.deepEqual(keys(`<svg><g aria-label="Jan"><path aria-label="bar" d="M0 0"/></g></svg>`), []);
+  // Without `outlines`, only <text> counts.
+  assert.deepEqual(svgTextStyles(`<svg><g role="img" aria-label="Jan"><path d="M0 0"/></g></svg>`), []);
+});
+
+// ---------------------------------------------------------------- gfx's stamps (P1-CF-12)
+// The outline groups below are built the way p1-gfx-05's crates/gfx/src/svg/text.rs
+// (convert_text) writes them: data-surimono-text (the outlined string) and
+// data-surimono-face (the faces, ", "-joined) always; the author's aria-label
+// and role kept; role="img" and aria-label = the string only when the <text>
+// had neither.
+
+/** gfx's outline group for a <text>: `label`/`role` are the author's, if any. */
+const stampedOutline = (text, faces, { label, role, attrs = "", inner = '<path d="M0 0"/>' } = {}) => {
+  const own = label === undefined ? `${role === undefined ? ' role="img"' : ` role="${role}"`} aria-label="${text}"` : `${role === undefined ? "" : ` role="${role}"`} aria-label="${label}"`;
+  return `<g${attrs} data-surimono-text="${text}" data-surimono-face="${faces}"${own}>${inner}</g>`;
+};
+
+test("text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it", () => {
+  // vegalite-bar-simple-latin: each value label is <text aria-label="…" role="graphics-symbol">.
+  const chrome = `<svg><text aria-label="value: 14,695" role="graphics-symbol">14,695</text><text>Jan</text></svg>`;
+  const ref = svgTexts(chrome);
+  const stamped = `<svg>${stampedOutline("14,695", "Noto Sans Regular", { label: "value: 14,695", role: "graphics-symbol" })}${stampedOutline("Jan", "Noto Sans Regular")}</svg>`;
+  const r = compareTexts(ref, stamped);
+  assert.equal(r.pass, true, JSON.stringify(r));
+  assert.equal(r.candidate_stamped, 2);
+  // Without the stamps (gfx before #27) the old rule applies, and the value label reads as missing.
+  const unstamped = stamped.replace(/ data-surimono-(text|face)="[^"]*"/g, "");
+  assert.deepEqual(compareTexts(ref, unstamped).missing, ["14,695"]);
+  // The stamp is compared, not trusted: a different drawn string fails both ways.
+  const wrong = compareTexts(ref, stamped.replace('data-surimono-text="14,695"', 'data-surimono-text="14695"'));
+  assert.deepEqual([wrong.missing, wrong.extra], [["14,695"], ["14695"]]);
+  // A stamped string drawn twice is extra; so is one drawn as a stamp and as a <text>.
+  assert.deepEqual(compareTexts(ref, stamped.replace("</svg>", `${stampedOutline("Jan", "Noto Sans Regular")}</svg>`)).extra, ["Jan"]);
+  assert.deepEqual(compareTexts(ref, stamped.replace("</svg>", "<text>Jan</text></svg>")).extra, ["Jan"]);
+  // gfx's own aria-label (= the string) isn't counted a second time.
+  assert.deepEqual(stampedOutlines(stamped), [{ text: "14,695", label: "value:14,695" }, { text: "Jan", label: "Jan" }]);
+});
+
+test("stamped strings are decoded and normalised like Chrome's", () => {
+  const ref = svgTexts(`<svg><text>Hi &amp; <tspan>bye</tspan><title>tip</title></text><text></text></svg>`);
+  const cand = `<svg>${stampedOutline("Hi &amp; bye", "Noto Sans Regular, Noto Sans Bold", { inner: '<path d="M0 0"/><g><path d="M1 1"/></g><title>tip</title>' })}<g data-surimono-text="" data-surimono-face="" role="img" aria-label=""/></svg>`;
+  assert.equal(compareTexts(ref, cand).pass, true, JSON.stringify(compareTexts(ref, cand)));
+});
+
+test("font check: a stamped group is an outline whatever it holds", () => {
+  // gfx copies a text's <title>, <desc> and <a> into its group (#50 review, nit 5).
+  const ref = svgTextStyles(`<svg><text>Jan<title>January</title></text></svg>`);
+  const withTitle = `<svg>${stampedOutline("Jan", "Noto Sans Regular", { inner: '<path d="M0 0"/><title>January</title>' })}</svg>`;
+  const r = compareStyles(ref, withTitle);
+  assert.equal(r.pass, true, JSON.stringify(r));
+  assert.equal(r.faces_checked, 1);
+  // Unstamped, the same group isn't an outline (the old rule), so the text is missing.
+  assert.equal(compareStyles(ref, withTitle.replace(/ data-surimono-(text|face)="[^"]*"/g, "")).missing.length, 1);
+});
+
+test("matchWeight follows CSS Fonts 4 font matching", () => {
+  const two = [400, 700];
+  assert.deepEqual([100, 300, 400, 450, 500, 501, 600, 700, 900].map((w) => matchWeight(w, two)), [400, 400, 400, 400, 400, 700, 700, 700, 700]);
+  const three = [300, 500, 700];
+  assert.deepEqual([400, 450, 350, 550, 200, 900].map((w) => matchWeight(w, three)), [500, 500, 300, 700, 300, 700]);
+  assert.deepEqual([400, 600].map((w) => matchWeight(w, [100, 900])), [100, 900]);
+});
+
+test("faces: names as the name table spells them; the fixture fonts' faces", () => {
+  assert.equal(faceName({ family: "Noto Sans JP", weight: 700, style: "normal" }), "Noto Sans JP Bold");
+  assert.equal(faceName({ family: "Noto Sans", weight: 400, style: "italic" }), "Noto Sans Italic");
+  assert.equal(faceName({ family: "Noto Sans", weight: 700, style: "italic" }), "Noto Sans Bold Italic");
+  assert.deepEqual(fixtureFaces().map(faceName).sort(), ["Noto Sans Bold", "Noto Sans JP Bold", "Noto Sans JP Regular", "Noto Sans Regular"]);
+  const fonts = fixtureFaces();
+  assert.equal(expectedFace("Noto Sans", 600, "normal", fonts), "Noto Sans Bold");
+  assert.equal(expectedFace("Noto Sans JP", 400, "italic", fonts), "Noto Sans JP Regular (synthetic oblique)");
+  assert.equal(expectedFace("Arial", 400, "normal", fonts), undefined);
+  const withItalic = [...fonts, { family: "Noto Sans", weight: 400, style: "italic" }];
+  assert.equal(expectedFace("Noto Sans", 400, "italic", withItalic), "Noto Sans Italic");
+});
+
+test("font check compares the faces gfx drew with what font matching picks for Chrome's weight and style", () => {
+  // Chrome: a bold title, a normal label, an italic note, Japanese in a Noto Sans text.
+  const chrome = `<svg font-family="Noto Sans"><text font-weight="bold">Title</text><text>Jan</text><text font-style="italic">note</text><text font-weight="600">売上 Sales</text></svg>`;
+  const ref = svgTextStyles(chrome);
+  const outline = (text, faces, attrs) => stampedOutline(text, faces, { attrs });
+  const good = `<svg font-family="Noto Sans">${outline("Title", "Noto Sans Bold", ' font-weight="bold"')}${outline("Jan", "Noto Sans Regular")}${outline("note", "Noto Sans Regular (synthetic oblique)", ' font-style="italic"')}${outline("売上 Sales", "Noto Sans JP Bold, Noto Sans Bold", ' font-weight="600"')}</svg>`;
+  const r = compareStyles(ref, good);
+  assert.equal(r.pass, true, JSON.stringify(r));
+  assert.equal(r.faces_checked, 4);
+  const faultWith = (from, to) => compareStyles(ref, good.replace(from, to));
+  // A gfx that ignores font-weight: the declared weight is right, the drawn face isn't.
+  const ignored = faultWith('data-surimono-face="Noto Sans Bold"', 'data-surimono-face="Noto Sans Regular"');
+  assert.equal(ignored.pass, false);
+  assert.deepEqual(ignored.mismatches, [{ key: "Title", chrome: "700 normal", surimono: "drawn with Noto Sans Regular", expected: "Noto Sans Bold" }]);
+  // A per-glyph fallback that picks the Bold face for a normal-weight label.
+  assert.equal(faultWith('data-surimono-face="Noto Sans Regular"', 'data-surimono-face="Noto Sans JP Bold, Noto Sans Regular"').mismatches[0].expected, "Noto Sans JP Regular");
+  // Italic not slanted; a face outside the fixture fonts; an unreadable face.
+  assert.equal(faultWith("Noto Sans Regular (synthetic oblique)", "Noto Sans Regular").pass, false);
+  assert.equal(faultWith('data-surimono-face="Noto Sans Regular"', 'data-surimono-face="DejaVu Sans Book"').mismatches[0].expected, "a fixture face");
+  assert.equal(faultWith('data-surimono-face="Noto Sans Regular"', 'data-surimono-face="(unreadable face)"').pass, false);
+  // A non-empty string drawn with no face is malformed output, and fails (#55 review).
+  const noFace = compareStyles(svgTextStyles("<svg><text>Jan</text></svg>"), `<svg>${outline("Jan", "")}</svg>`);
+  assert.equal(noFace.pass, false);
+  assert.deepEqual(noFace.mismatches, [{ key: "Jan", chrome: "400 normal", surimono: "drawn with no face", expected: "a fixture face" }]);
+  const absent = compareStyles(svgTextStyles("<svg><text>Jan</text></svg>"), '<svg><g data-surimono-text="Jan" role="img" aria-label="Jan"><path d="M0 0"/></g></svg>');
+  assert.equal(absent.pass, false);
+  // An empty string (an author label on an empty <text>) has no face to check.
+  const empty = compareStyles(svgTextStyles('<svg><text aria-label="nothing"></text></svg>'), '<svg><g data-surimono-text="" data-surimono-face="" aria-label="nothing"/></svg>');
+  assert.equal(empty.pass, true, JSON.stringify(empty));
+  assert.equal(empty.faces_checked, 0);
+});
+
+test("text check: a stamped group's author label is still compared with Chrome's", () => {
+  // #55 review: setting every stamped label aside let a wrong author label pass.
+  const ref = svgTexts(`<svg><text aria-label="Revenue: 12" role="graphics-symbol">12</text></svg>`);
+  const group = (label, role) => `<svg><g${role ? ` role="${role}"` : ""} aria-label="${label}" data-surimono-text="12" data-surimono-face="Noto Sans Regular"><path d="M0 0"/></g></svg>`;
+  assert.equal(compareTexts(ref, group("Revenue: 12", "graphics-symbol")).pass, true);
+  const wrongAuthor = compareTexts(ref, group("Revenue: 13", "graphics-symbol"));
+  assert.equal(wrongAuthor.pass, false);
+  assert.deepEqual(wrongAuthor.extra, ["Revenue:13"]);
+  // gfx's own label disagreeing with its stamp: the label counts as drawn too.
+  const wrongOwn = compareTexts(ref, group("13", "img"));
+  assert.equal(wrongOwn.pass, false);
+  assert.deepEqual(wrongOwn.extra, ["13"]);
+});
+
+test("stamps are read as attributes, never from inside another attribute's value", () => {
+  // #55 review: data-surimono-text='X' written inside an aria-label read as a stamp.
+  const forged = `<svg><g aria-label="note data-surimono-text='X' data-surimono-face='Noto Sans Regular'"><path d="M0 0"/></g></svg>`;
+  assert.deepEqual(stampedOutlines(forged), []);
+  const r = compareTexts(svgTexts("<svg><text>X</text></svg>"), forged);
+  assert.equal(r.pass, false);
+  assert.equal(r.candidate_stamped, 0);
+  assert.deepEqual(svgTextStyles(forged, { outlines: true }).map((x) => x.faces), [undefined]);
+  // Single-quoted stamps are attributes all the same.
+  assert.deepEqual(stampedOutlines(`<svg><g data-surimono-text='X' aria-label='X'/></svg>`), [{ text: "X", label: "X" }]);
+});
+
