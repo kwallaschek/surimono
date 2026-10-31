@@ -62,14 +62,15 @@ Kept: `LICENSE` (rquickjs, MIT) and `quickjs/LICENSE` (QuickJS, MIT).
    It now reports `JS_ThrowOutOfMemory` for both. Found by refusing each
    allocation of a compile-heavy `eval` in turn; the memory limit can
    refuse any of them.
-5. **`surimono_quickjs_patch_level()`**, returning 1. surimono-core calls it,
-   so it fails to link against an unpatched rquickjs-sys rather than ship a
-   sandbox that can hang.
+5. **`surimono_quickjs_patch_level()`**, returning 2 since the
+   allocation-failure patches below (1 before them). surimono-core calls it
+   and refuses to run below 2, and it fails to link against an unpatched
+   rquickjs-sys rather than ship a sandbox that can hang or crash.
 
 Tests: `crates/core/tests/hostile.rs` (47 scripts in child processes with a
 watchdog) and `out_of_memory_never_aborts` in `crates/core/src/sandbox.rs`.
 
-### Diff
+### Diff (patches 1 to 5)
 
 ```diff
 --- a/quickjs/quickjs.c	2026-10-31 06:30:19.303433598 +0900
@@ -253,3 +254,55 @@ watchdog) and `out_of_memory_never_aborts` in `crates/core/src/sandbox.rs`.
          }
      }
 ```
+
+## Allocation-failure paths (P1-RT-15)
+
+The heap limit can refuse any allocation, so every failure path has to
+leave the engine consistent. These changes come from refusing each single
+allocation of the sweep scripts in turn with the arena off (see below),
+under AddressSanitizer in a C harness and through the `Sandbox` API.
+Each is marked `surimono:` in the source.
+
+6. **Bound functions** (`js_function_bind`): the bound-function record is
+   allocated before the object, and `js_bound_function_finalizer` and
+   `js_bound_function_mark` return early on a NULL record, like the other
+   finalizers.
+7. **Function definitions with a failed bytecode buffer**
+   (`js_free_function_def`): a buffer whose growth failed is freed without
+   decoding it for atoms. Its atom references are left to
+   `JS_FreeRuntime`, which frees every atom.
+8. **`resolve_labels`** stops at the first failed write to the new
+   bytecode, before any relocation or jump patch, and its failure path
+   frees pending relocation entries and flags the source buffer so it is
+   not decoded either (patch 7).
+9. **Parser patches at saved offsets**: a new helper,
+   `js_check_bytecode_oom`, throws the out-of-memory error before code at a
+   saved offset is rewritten if the buffer has failed (class constructor
+   index and brand, destructuring defaults, `for`/`for-in`/`for-of` loop
+   reordering, `switch` default). `new_label` already flags the buffer
+   when the label table can't grow, so this covers failed labels too.
+   `cpool_add` frees its value when the constant pool can't grow.
+10. **Reference leaks on failure**: `JSON.stringify` frees the current array
+    element when converting its index fails; `Promise.allSettled` and
+    `Promise.any` free the resolve-element function when the next step
+    fails.
+11. **`JS_FreeRuntime`** no longer asserts that the object list is empty:
+    objects a failure path leaked are left alone (their arena blocks go with
+    the arenas) instead of aborting the process. The sweep checks that each
+    runtime gives back every byte, so a leak still fails the tests.
+12. **libregexp** (`re_parse_term`, `lre_compile`): parsing stops at the
+    first failed write to the group-name table, and compiling checks it
+    with the bytecode buffer.
+13. **Test-only arena switch**: `JSArenaState.large_blocks_only` and
+    `surimono_quickjs_set_arena(rt, enabled)`. With the arena off, every
+    allocation of that runtime goes to the backing allocator, so the
+    sweep's allocator sees each one; with it on (the default, and always in
+    production) only arena refills and large blocks get there. Blocks are
+    freed by their own header, so switching is safe at any time.
+
+Tests: `out_of_memory_never_aborts` and `out_of_memory_full_sweep` in
+`crates/core/src/sandbox.rs` (allocating, syntax and compile-heavy scripts,
+compiled from source and run from bytecode, arena on and off; each run
+must end as success or `MemoryLimit`, leave the sandbox usable and give
+back every byte). The full diff is
+`diff -u <rquickjs-sys-0.14.0>/quickjs vendor/rquickjs-sys/quickjs`.
