@@ -247,8 +247,8 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 ///   [`Limits::memory_bytes`]. Any refused allocation makes the call fail with
 ///   [`SandboxError::MemoryLimit`], even if the script catches the error; the
 ///   script is stopped at its next interrupt check. The engine is patched so
-///   that refused allocations are reported rather than crash it; the tests
-///   refuse every single allocation of three scripts in turn (compiling from
+///   that refused allocations are reported as errors; the tests refuse
+///   every single allocation of three scripts in turn (compiling from
 ///   source and running bytecode), so failure paths those scripts never
 ///   reach are not covered.
 /// - **Time**: each top-level call ([`eval`](Self::eval), [`call`](Self::call),
@@ -1845,18 +1845,18 @@ const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
         ns.len()
     }
 
-    /// Review of #5, F7, and of #32, R7: refuse each single allocation of a
-    /// script in turn. The memory limit can refuse any allocation a script
-    /// makes, so every such failure must end as success or `MemoryLimit`,
-    /// leave the sandbox usable and leak nothing; a crash or `abort()` fails
-    /// the test.
+    /// Review of #5, F7: refuse each single allocation of a script in turn.
+    /// The memory limit can refuse any allocation a script makes, so every
+    /// such failure must end as success or `MemoryLimit`, leave the sandbox
+    /// usable and leak nothing; a child process that doesn't exit cleanly
+    /// fails the test.
     ///
     /// With the arena on (as in production) only arena refills and large
     /// blocks reach the sandbox's allocator, a few percent of all
     /// allocations. With it off every allocation does, and since any small
     /// allocation can be the one that needs a refill, that covers every
     /// failure the limit can cause. The compile-heavy script makes about
-    /// 28,000 allocations per mode, so this test takes every 13th;
+    /// 21,500 allocations per mode, so this test takes every 13th;
     /// `out_of_memory_full_sweep` takes them all.
     ///
     /// Not swept: building the runtime and context, which needs about

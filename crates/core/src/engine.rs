@@ -368,8 +368,8 @@ fn stack_low() -> Option<usize> {
     None
 }
 
-/// Test-only fault injection: refuse exactly the Nth allocation, to show no
-/// out-of-memory path in QuickJS crashes or aborts the process.
+/// Test-only fault injection: refuse exactly the Nth allocation, to show every
+/// out-of-memory path in QuickJS ends as a reported error.
 #[cfg(test)]
 pub(crate) mod fault {
     use std::ffi::c_int;

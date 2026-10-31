@@ -245,41 +245,40 @@ watchdog) and `out_of_memory_never_aborts` in `crates/core/src/sandbox.rs`.
 ## Allocation-failure paths (P1-RT-15)
 
 The heap limit can refuse any allocation, so every failure path has to
-leave the engine consistent. These changes come from refusing each single
-allocation of the sweep scripts in turn with the arena off (see below),
-under AddressSanitizer in a C harness and through the `Sandbox` API.
-Each is marked `surimono:` in the source.
+leave the engine consistent. The out-of-memory sweep (see below) refuses
+each single allocation of its scripts in turn, with the arena off, to
+exercise these paths. Each change is marked `surimono:` in the source.
 
 6. **Bound functions** (`js_function_bind`): the bound-function record is
-   allocated before the object, and `js_bound_function_finalizer` and
-   `js_bound_function_mark` return early on a NULL record, like the other
-   finalizers.
-7. **Function definitions with a failed bytecode buffer**
-   (`js_free_function_def`): a buffer whose growth failed is freed without
-   decoding it for atoms. Its atom references are left to
-   `JS_FreeRuntime`, which frees every atom.
+   allocated before the object and freed if creating the object fails.
+   `js_bound_function_finalizer` and `js_bound_function_mark` do nothing
+   when no record is attached, like the other finalizers.
+7. **Function definitions** (`js_free_function_def`): the bytecode buffer
+   is decoded for atoms only if it was written in full. Otherwise its atom
+   references are left to `JS_FreeRuntime`, which frees every atom.
 8. **`resolve_labels`** stops at the first failed write to the new
-   bytecode, before any relocation or jump patch, and its failure path
-   frees pending relocation entries and flags the source buffer so it is
-   not decoded either (patch 7).
-9. **Parser patches at saved offsets**: a new helper,
-   `js_check_bytecode_oom`, throws the out-of-memory error before code at a
-   saved offset is rewritten if the buffer has failed (class constructor
-   index and brand, destructuring defaults, `for`/`for-in`/`for-of` loop
-   reordering, `switch` default). `new_label` already flags the buffer
-   when the label table can't grow, so this covers failed labels too.
-   `cpool_add` frees its value when the constant pool can't grow.
-10. **Reference leaks on failure**: `JSON.stringify` frees the current array
-    element when converting its index fails; `Promise.allSettled` and
-    `Promise.any` free the resolve-element function when the next step
+   bytecode, before any relocation or jump is patched. Its failure path
+   frees the pending relocation entries and flags the source buffer, so
+   that buffer is not decoded for atoms either (patch 7).
+9. **Parser rewrites at saved offsets**: a new helper,
+   `js_check_bytecode_oom`, throws the out-of-memory error if the bytecode
+   buffer has failed. The parser calls it before each rewrite of code at a
+   saved offset (classes, destructuring defaults, loops, `switch`).
+   `new_label` already flags the buffer when the label table can't grow,
+   so labels are covered too. `cpool_add` frees its value when the
+   constant pool can't grow.
+10. **References on failure paths**: `JSON.stringify` frees the current
+    array element when converting its index fails; `Promise.allSettled`
+    and `Promise.any` free the resolve-element function when the next step
     fails.
-11. **`JS_FreeRuntime`** no longer asserts that the object list is empty:
-    objects a failure path leaked are left alone (their arena blocks go with
-    the arenas) instead of aborting the process. The sweep checks that each
-    runtime gives back every byte, so a leak still fails the tests.
+11. **`JS_FreeRuntime`** unlinks objects that are still listed when the
+    runtime is freed (an error path kept a reference) and carries on.
+    Their small blocks go with the arenas; large blocks they own stay
+    allocated until the process exits. The sweep checks that each runtime
+    gives back every byte, so any such leak fails the tests.
 12. **libregexp** (`re_parse_term`, `lre_compile`): parsing stops at the
-    first failed write to the group-name table, and compiling checks it
-    with the bytecode buffer.
+    first failed write to the group-name table, and compiling checks that
+    table along with the bytecode buffer.
 13. **Test-only arena switch**: `JSArenaState.large_blocks_only` and
     `surimono_quickjs_set_arena(rt, enabled)`. With the arena off, every
     allocation of that runtime goes to the backing allocator, so the

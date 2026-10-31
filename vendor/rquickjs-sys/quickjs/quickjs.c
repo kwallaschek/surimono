@@ -2706,11 +2706,12 @@ void JS_FreeRuntime(JSRuntime *rt)
     }
 #endif
 
-    /* surimono: objects still listed here leaked a reference on some
-       error path (typically out-of-memory). Nothing below touches them,
-       and their arena blocks are released with the arenas, so leave them
-       rather than abort the process; surimono's tests check that a
-       runtime gives back every byte it allocated. */
+    /* surimono: objects can still be listed here when an error path
+       (typically out-of-memory) kept a reference to them. Nothing below
+       touches them, so unlink them and carry on. Their small blocks are
+       released with the arenas; large blocks they own (from the backing
+       allocator) stay allocated until the process exits. surimono's
+       tests check that a runtime gives back every byte it allocated. */
     if (!list_empty(&rt->gc_obj_list))
         init_list_head(&rt->gc_obj_list);
 
@@ -7016,7 +7017,8 @@ static void js_bound_function_finalizer(JSRuntime *rt, JSValueConst val)
     JSBoundFunction *bf = p->u.bound_function;
     int i;
 
-    /* surimono: NULL-safe, like the other finalizers (see js_function_bind). */
+    /* surimono: nothing to do when no record is attached, as in the other
+       finalizers. */
     if (!bf)
         return;
     JS_FreeValueRT(rt, bf->func_obj);
@@ -24087,11 +24089,11 @@ static void emit_op(JSParseState *s, uint8_t val)
     dbuf_putc(bc, val);
 }
 
-/* surimono: the parser carries on after failing to grow the bytecode
-   buffer (new_label also flags the buffer when the label table can't
-   grow), so offsets saved before the failure and label indices can point
-   past what was written. Call this before patching code at a saved
-   offset; js_create_function rejects the function anyway. */
+/* surimono: throws the out-of-memory error if growing the bytecode
+   buffer has failed (new_label also flags the buffer when the label
+   table can't grow). The parser calls it before rewriting code at a
+   saved offset, so rewrites only happen on a complete buffer;
+   js_create_function rejects the function anyway. */
 static int js_check_bytecode_oom(JSContext *ctx, JSFunctionDef *fd)
 {
     if (unlikely(dbuf_error(&fd->byte_code))) {
@@ -24195,7 +24197,7 @@ static int cpool_add(JSParseState *s, JSValue val)
 
     if (js_resize_array(s->ctx, (void *)&fd->cpool, sizeof(fd->cpool[0]),
                         &fd->cpool_size, fd->cpool_count + 1)) {
-        /* surimono: 'val' is ours, so free it rather than leak it. */
+        /* surimono: this function owns 'val'; free it on failure too. */
         JS_FreeValue(s->ctx, val);
         return -1;
     }
@@ -33149,11 +33151,9 @@ static void js_free_function_def(JSContext *ctx, JSFunctionDef *fd)
         js_free_function_def(ctx, fd1);
     }
 
-    /* surimono: a write that fails to grow a DynBuf is dropped, but later
-       writes that fit the space left still land, so after an allocation
-       failure the buffer can hold partial instructions and decoding it
-       frees garbage as atoms. Leave the atoms it references instead:
-       JS_FreeRuntime frees every atom. */
+    /* surimono: decode the buffer for atoms only if it was written in
+       full. If growing it failed, its atom references are left to
+       JS_FreeRuntime, which frees every atom. */
     if (!dbuf_error(&fd->byte_code))
         free_bytecode_atoms(ctx->rt, fd->byte_code.buf, fd->byte_code.size,
                             fd->use_short_opcodes);
@@ -35929,9 +35929,8 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
 
     for (pos = 0; pos < bc_len; pos = pos_next) {
         int val;
-        /* surimono: once growing bc_out has failed, it no longer holds what
-           the offsets below expect: relocations and jump slots point past
-           its end or into the wrong instructions. Stop before patching. */
+        /* surimono: stop at the first failed write to bc_out, before any
+           relocation or jump slot is recorded against it or patched. */
         if (unlikely(dbuf_error(&bc_out))) {
             JS_ThrowOutOfMemory(ctx);
             goto fail;
@@ -36753,11 +36752,10 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
     return 0;
  fail:
     /* surimono: free the relocations of labels not reached yet. Then flag
-       the source buffer so js_free_function_def doesn't decode it: the
-       atoms of the instructions copied so far moved to bc_out, and some
-       were freed while optimizing, so freeing them again from the source
-       would free atoms still in use. Their references are left to
-       JS_FreeRuntime, which frees every atom. */
+       the source buffer so js_free_function_def doesn't decode it for
+       atoms: the atom references of the instructions handled so far
+       belong to bc_out now. They are left to JS_FreeRuntime, which frees
+       every atom. */
     for(i = 0; i < s->label_count; i++) {
         for(re = label_slots[i].first_reloc; re != NULL; re = re_next) {
             re_next = re->next;
@@ -42679,9 +42677,8 @@ static JSValue js_function_bind(JSContext *ctx, JSValueConst this_val,
     if (check_function(ctx, this_val))
         return JS_EXCEPTION;
 
-    /* surimono: allocate the bound-function record before the object.
-       When the object came first and this allocation failed, freeing the
-       object ran js_bound_function_finalizer on a NULL record. */
+    /* surimono: allocate the bound-function record before the object, and
+       free it if creating the object fails. */
     arg_count = max_int(0, argc - 1);
     bf = js_malloc(ctx, sizeof(*bf) + arg_count * sizeof(JSValue));
     if (!bf)
@@ -51734,7 +51731,7 @@ static int js_json_to_str(JSContext *ctx, JSONStringifyContext *jsc,
                 /* XXX: could do this string conversion only when needed */
                 prop = JS_ToStringFree(ctx, js_int64(i));
                 if (JS_IsException(prop)) {
-                    /* surimono: don't leak the element on out-of-memory. */
+                    /* surimono: free the element on this failure path too. */
                     JS_FreeValue(ctx, v);
                     goto exception;
                 }
@@ -56454,7 +56451,7 @@ static JSValue js_promise_all(JSContext *ctx, JSValueConst this_val,
                     JS_NewCFunctionData(ctx, js_promise_all_resolve_element, 1,
                                         magic | 4, 5, resolve_element_data);
                 if (JS_IsException(reject_element)) {
-                    /* surimono: don't leak resolve_element on out-of-memory. */
+                    /* surimono: free resolve_element on this failure path too. */
                     JS_FreeValue(ctx, resolve_element);
                     JS_FreeValue(ctx, next_promise);
                     goto fail_reject1;
