@@ -24,8 +24,7 @@ time is now enforced by `scripts/fleet/owner-check.sh`.
 | PR | Task | State |
 |---|---|---|
 | #45 | P1-RT-15 OOM fixes | bind sweep test and nits pushed (22f3541); delta review next (#32 and #37 landed through #39) |
-| #47 | P1-RT-14 time-accurate deadlines (R4, R5) | in review (stacked on #32 and #45; patch level 3) |
-| #52, #53 | P1-RT-19 macOS determinism probe, P1-RT-13 ASan test limits | in review; from main, fix main's full.yml |
+| #47 | P1-RT-14 time-accurate deadlines (R4, R5) | BLOCK (BigInt pow leak on interrupt); fixing, with P1-RT-22 fork-safe registry folded in |
 | #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | fixes pushed (#12 7cc4cc1, #27 e2923ee); in review |
 | #54 | P1-RT-16 on-demand pool, idle release (PSS 78 → 41 MB) | in review; P1-RT-17b (precompiled bytecode) next |
 | #25 → #26 → #34 | facade on the real backend, CLI, licences | BLOCKs from 16:25 being folded in; critical path for the checkpoint run |
