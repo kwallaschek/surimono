@@ -165,7 +165,17 @@ const baseline = loadBaseline(values.baseline);
 const SECOND_LOCALES = ["de_DE.UTF-8", "fr_FR.UTF-8", "ja_JP.UTF-8", "en_US.UTF-8"];
 function secondLocale() {
   const r = spawnSync("locale", ["-a"], { encoding: "utf8" });
-  const have = new Set((r.stdout ?? "").split("\n").map((l) => l.trim().toLowerCase().replace("utf-8", "utf8")));
+  const names = (r.stdout ?? "").split("\n");
+  // Locales compiled with `localedef -i de_DE -f UTF-8 $LOCPATH/de_DE.UTF-8`
+  // (no root needed) are used by glibc through $LOCPATH but not listed by `locale -a`.
+  for (const dir of (process.env.LOCPATH || "").split(":").filter(Boolean)) {
+    try {
+      names.push(...fs.readdirSync(dir).filter((n) => fs.existsSync(path.join(dir, n, "LC_CTYPE"))));
+    } catch {
+      // A LOCPATH entry that isn't a readable directory adds nothing.
+    }
+  }
+  const have = new Set(names.map((l) => l.trim().toLowerCase().replace("utf-8", "utf8")));
   for (const want of SECOND_LOCALES) {
     if (have.has(want.toLowerCase().replace("utf-8", "utf8"))) return { locale: want, installed: true };
   }

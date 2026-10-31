@@ -1,0 +1,4 @@
+sanitized, one page (91 cases): alerts 0, requests 0, script elements 0, handler attributes 0, breakouts 0
+sanitized, one page per case: 91/91 clean
+raw inputs, one page per case (control): 75/91 trip a check
+OK
