@@ -84,14 +84,7 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 
 ## Islands #39 (merged; lines moved)
 
-## RT-15 (#45), add on merge
-- 2026-10-31 · The OOM sweep switches QuickJS's small-block arena off per runtime through a test-only engine hook, in the normal test suite · With the arena on the allocator sees ~2% of allocations; with it off every allocation can be refused.
-- 2026-10-31 · QuickJS assertions stay on, but JS_FreeRuntime leaves leaked objects instead of aborting; the sweep requires every runtime to give back all bytes · A leak costs memory, not safety; disable-assertions would hide other invariant violations.
-- 2026-10-31 · Atoms referenced from a failed bytecode buffer are released at runtime teardown instead of by decoding the buffer · A failed buffer can hold partial instructions; the sandbox replaces the runtime after MemoryLimit.
-- 2026-10-31 · new Date(y, m, …) follows ECMA-262 §21.4.2.1 (TimeClip after converting to UTC); Date.parse keeps QuickJS's order for zones written in the string · Spec; the 30,000-string differential still matches.
-- 2026-10-31 · On musl's main thread the stack check uses RLIMIT_STACK · musl reports only the mapped stack.
-- 2026-10-31 · The sandbox requires engine patch level 2 · It must not run without the allocation-failure fixes.
-Private: the maintainer report draft is in the Claude project (claude/private-quickjs-ng-security-report.md); Kay sends it.
+## RT-15 (#45): merged 00:2x Sun; lines moved.
 
 ## PKG batch 3 (#25 #26 #34 #33 #44), add on merge
 - 2026-10-31 · A forked child finds its state through pid-claimed slots (atomic loads, CAS) and builds its own TextMeasurer over a lock-free FontSet clone along with its pool; nothing a parent thread may hold is touched · 18 of 200 children hung on the measurer's lock.
