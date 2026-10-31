@@ -1,0 +1,443 @@
+
+==> stage the gem
+staged 4 crates (crates/core, crates/gfx, crates/islands, crates/surimono) in /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage
+
+==> rb-sys-dock: arm64-darwin, Ruby 3.2,3.3,3.4,4.0
+::info::🐳 Building for Ruby requested versions: 4.0.2:3.4.9:3.3.11:3.2.11
+::info::🐳 Downloading container "rbsys/arm64-darwin:0.9.130", this might take awhile...
+Fetching gem metadata from https://rubygems.org/...
+Resolving dependencies...
+Fetching rake 13.4.2
+Installing rake 13.4.2
+Fetching minitest 5.27.0
+Fetching rake-compiler 1.3.2
+Fetching rake-compiler-dock 1.12.0
+Installing minitest 5.27.0
+Installing rake-compiler 1.3.2
+Installing rake-compiler-dock 1.12.0
+Fetching rb_sys 0.9.130
+Installing rb_sys 0.9.130
+Bundle complete! 5 Gemfile dependencies, 7 gems now installed.
+Bundled gems are installed into `/tmp/rb-sys-dock/bundle`
+Post-install message from minitest:
+NOTE: minitest 5 will be the last in the minitest family to support
+      ruby 1.8 to 2.7. If you need to keep using these versions,
+      you need to pin your dependency to minitest with something
+      like "~> 5.0". See History.rdoc to locate compatible
+      versions.
+
+      Further, minitest 6 will be dropping the following:
+
+      + MiniTest (it's been Minitest for >10 years)
+      + MiniTest::Unit
+      + MiniTest::Unit::TestCase
+      + assert_send (unless you argue for it well)
+      + assert_equal nil, obj
+      + mocks and stubs: moving minitest/mock.rb to its own gem
+mkdir -p lib/surimono/4.0
+mkdir -p tmp/arm64-darwin/surimono/4.0.2
+cd tmp/arm64-darwin/surimono/4.0.2
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+cd -
+cd tmp/arm64-darwin/surimono/4.0.2
+/usr/bin/make
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-4.0.2/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling siphasher v1.0.4
+   Compiling rand_core v0.6.4
+   Compiling phf_shared v0.11.3
+   Compiling rand v0.8.8
+   Compiling smallvec v1.16.4
+   Compiling memchr v2.8.3
+   Compiling equivalent v1.0.3
+   Compiling libc v0.2.191
+   Compiling phf_generator v0.11.3
+   Compiling allocator-api2 v0.2.21
+   Compiling libm v0.2.16
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling glob v0.3.4
+   Compiling clang-sys v1.9.1
+   Compiling aho-corasick v1.1.5
+   Compiling regex-syntax v0.8.11
+   Compiling bytemuck_derive v1.12.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling shlex v2.0.1
+   Compiling cfg-if v1.0.5
+   Compiling minimal-lexical v0.2.1
+   Compiling bytemuck v1.25.2
+   Compiling serde_core v1.0.229
+   Compiling nom v7.1.3
+   Compiling font-types v0.10.1
+   Compiling regex-automata v0.4.18
+   Compiling libloading v0.8.9
+   Compiling cc v1.10.0
+   Compiling core_maths v0.1.1
+   Compiling phf_codegen v0.11.3
+   Compiling foldhash v0.2.0
+   Compiling either v1.19.0
+   Compiling bindgen v0.72.1
+   Compiling regex v1.13.1
+   Compiling itertools v0.13.0
+   Compiling rquickjs-sys v0.14.0
+   Compiling read-fonts v0.35.0
+   Compiling cexpr v0.6.0
+   Compiling font-types v0.12.7
+   Compiling displaydoc v0.2.7
+   Compiling thiserror v2.0.21
+   Compiling bitflags v2.13.2
+   Compiling serde v1.0.229
+   Compiling once_cell v1.21.4
+   Compiling shlex v1.3.0
+   Compiling rustc-hash v2.1.3
+   Compiling read-fonts v0.41.0
+   Compiling tinystr v0.8.5
+   Compiling phf_macros v0.11.3
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling itoa v1.0.18
+   Compiling lazy_static v1.5.1
+   Compiling foldhash v0.1.5
+   Compiling writeable v0.6.4
+   Compiling parking_lot_core v0.9.12
+   Compiling litemap v0.8.3
+   Compiling shell-words v1.1.1
+   Compiling rb-sys-build v0.9.130
+   Compiling icu_locale_core v2.2.0
+   Compiling hashbrown v0.15.5
+   Compiling skrifa v0.44.0
+   Compiling phf v0.11.3
+   Compiling hashbrown v0.17.1
+   Compiling memmap2 v0.9.12
+   Compiling precomputed-hash v0.1.1
+   Compiling scopeguard v1.2.0
+   Compiling new_debug_unreachable v1.0.6
+   Compiling rb-sys-env v0.2.3
+   Compiling dtoa v1.0.11
+   Compiling linebender_resource_handle v0.1.1
+   Compiling zmij v1.0.23
+   Compiling dtoa-short v0.3.5
+   Compiling fontique v0.6.0
+   Compiling lock_api v0.4.14
+   Compiling swash v0.2.10
+   Compiling rb-sys v0.9.130
+   Compiling skrifa v0.37.0
+   Compiling harfrust v0.3.2
+   Compiling selectors v0.32.0
+   Compiling cssparser-macros v0.6.1
+   Compiling derive_more-impl v2.1.1
+   Compiling string_cache_codegen v0.5.4
+   Compiling stable_deref_trait v1.2.1
+   Compiling serde_json v1.0.154
+   Compiling servo_arc v0.4.3
+   Compiling web_atoms v0.1.3
+   Compiling parley v0.6.0
+   Compiling derive_more v2.1.1
+   Compiling cssparser v0.35.0
+   Compiling parking_lot v0.12.5
+   Compiling log v0.4.34
+   Compiling magnus v0.9.3
+   Compiling string_cache v0.8.9
+   Compiling surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/gfx)
+   Compiling encoding_rs v0.8.35
+   Compiling hashbrown v0.16.1
+   Compiling mime v0.3.17
+   Compiling lol_html v2.7.0
+   Compiling magnus-macros v0.9.1
+   Compiling seq-macro v0.3.6
+   Compiling rquickjs-core v0.14.0
+   Compiling rquickjs v0.14.0
+   Compiling surimono-core v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/core)
+   Compiling surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/islands)
+   Compiling surimono v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/surimono)
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 1m 12s
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/4.0
+cp Cargo.lock tmp/arm64-darwin/stage/Cargo.lock
+cp Cargo.toml tmp/arm64-darwin/stage/Cargo.toml
+cp LICENSE-APACHE tmp/arm64-darwin/stage/LICENSE-APACHE
+cp LICENSE-MIT tmp/arm64-darwin/stage/LICENSE-MIT
+cp THIRD_PARTY.md tmp/arm64-darwin/stage/THIRD_PARTY.md
+mkdir -p tmp/arm64-darwin/stage/crates/core
+cp crates/core/Cargo.toml tmp/arm64-darwin/stage/crates/core/Cargo.toml
+mkdir -p tmp/arm64-darwin/stage/crates/core/src
+cp crates/core/src/engine.rs tmp/arm64-darwin/stage/crates/core/src/engine.rs
+cp crates/core/src/error.rs tmp/arm64-darwin/stage/crates/core/src/error.rs
+cp crates/core/src/lib.rs tmp/arm64-darwin/stage/crates/core/src/lib.rs
+cp crates/core/src/limits.rs tmp/arm64-darwin/stage/crates/core/src/limits.rs
+cp crates/core/src/prelude.js tmp/arm64-darwin/stage/crates/core/src/prelude.js
+cp crates/core/src/sandbox.rs tmp/arm64-darwin/stage/crates/core/src/sandbox.rs
+mkdir -p tmp/arm64-darwin/stage/crates/core/tests
+cp crates/core/tests/determinism.rs tmp/arm64-darwin/stage/crates/core/tests/determinism.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx
+cp crates/gfx/Cargo.toml tmp/arm64-darwin/stage/crates/gfx/Cargo.toml
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/src
+cp crates/gfx/src/css_font.rs tmp/arm64-darwin/stage/crates/gfx/src/css_font.rs
+cp crates/gfx/src/error.rs tmp/arm64-darwin/stage/crates/gfx/src/error.rs
+cp crates/gfx/src/fonts.rs tmp/arm64-darwin/stage/crates/gfx/src/fonts.rs
+cp crates/gfx/src/lib.rs tmp/arm64-darwin/stage/crates/gfx/src/lib.rs
+cp crates/gfx/src/measure.rs tmp/arm64-darwin/stage/crates/gfx/src/measure.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/tests/chrome
+cp crates/gfx/tests/chrome/font_shorthand.mjs tmp/arm64-darwin/stage/crates/gfx/tests/chrome/font_shorthand.mjs
+cp crates/gfx/tests/chrome/measure_text.mjs tmp/arm64-darwin/stage/crates/gfx/tests/chrome/measure_text.mjs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/tests/common
+cp crates/gfx/tests/common/mod.rs tmp/arm64-darwin/stage/crates/gfx/tests/common/mod.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/tests/data
+cp crates/gfx/tests/data/chrome_font_shorthand.json tmp/arm64-darwin/stage/crates/gfx/tests/data/chrome_font_shorthand.json
+cp crates/gfx/tests/data/chrome_measure_text.json tmp/arm64-darwin/stage/crates/gfx/tests/data/chrome_measure_text.json
+cp crates/gfx/tests/measure_text.rs tmp/arm64-darwin/stage/crates/gfx/tests/measure_text.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands
+cp crates/islands/Cargo.toml tmp/arm64-darwin/stage/crates/islands/Cargo.toml
+mkdir -p tmp/arm64-darwin/stage/crates/islands/bundles
+cp crates/islands/bundles/SHA256SUMS tmp/arm64-darwin/stage/crates/islands/bundles/SHA256SUMS
+mkdir -p tmp/arm64-darwin/stage/crates/islands/bundles/echarts
+cp crates/islands/bundles/echarts/LICENSE tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE
+cp crates/islands/bundles/echarts/LICENSE-d3 tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-d3
+cp crates/islands/bundles/echarts/LICENSE-tslib tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-tslib
+cp crates/islands/bundles/echarts/LICENSE-zrender tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-zrender
+cp crates/islands/bundles/echarts/NOTICE tmp/arm64-darwin/stage/crates/islands/bundles/echarts/NOTICE
+cp crates/islands/bundles/echarts/echarts.min.js tmp/arm64-darwin/stage/crates/islands/bundles/echarts/echarts.min.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/bundles/vega
+cp crates/islands/bundles/vega/LICENSE tmp/arm64-darwin/stage/crates/islands/bundles/vega/LICENSE
+cp crates/islands/bundles/vega/THIRD_PARTY_LICENSES.txt tmp/arm64-darwin/stage/crates/islands/bundles/vega/THIRD_PARTY_LICENSES.txt
+cp crates/islands/bundles/vega/vega.min.js tmp/arm64-darwin/stage/crates/islands/bundles/vega/vega.min.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/js
+cp crates/islands/js/build.sh tmp/arm64-darwin/stage/crates/islands/js/build.sh
+cp crates/islands/js/chrome-check.js tmp/arm64-darwin/stage/crates/islands/js/chrome-check.js
+cp crates/islands/js/package-lock.json tmp/arm64-darwin/stage/crates/islands/js/package-lock.json
+cp crates/islands/js/package.json tmp/arm64-darwin/stage/crates/islands/js/package.json
+mkdir -p tmp/arm64-darwin/stage/crates/islands/js/src
+cp crates/islands/js/src/echarts.js tmp/arm64-darwin/stage/crates/islands/js/src/echarts.js
+cp crates/islands/js/src/structured-clone.js tmp/arm64-darwin/stage/crates/islands/js/src/structured-clone.js
+cp crates/islands/js/src/timers.js tmp/arm64-darwin/stage/crates/islands/js/src/timers.js
+cp crates/islands/js/src/vega-canvas.js tmp/arm64-darwin/stage/crates/islands/js/src/vega-canvas.js
+cp crates/islands/js/src/vega.js tmp/arm64-darwin/stage/crates/islands/js/src/vega.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/js/tools
+cp crates/islands/js/tools/licenses.js tmp/arm64-darwin/stage/crates/islands/js/tools/licenses.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/src
+cp crates/islands/src/builtins.rs tmp/arm64-darwin/stage/crates/islands/src/builtins.rs
+cp crates/islands/src/error.rs tmp/arm64-darwin/stage/crates/islands/src/error.rs
+cp crates/islands/src/lib.rs tmp/arm64-darwin/stage/crates/islands/src/lib.rs
+cp crates/islands/src/measure.rs tmp/arm64-darwin/stage/crates/islands/src/measure.rs
+cp crates/islands/src/runner.rs tmp/arm64-darwin/stage/crates/islands/src/runner.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests
+cp crates/islands/tests/bundles.rs tmp/arm64-darwin/stage/crates/islands/tests/bundles.rs
+cp crates/islands/tests/echarts.rs tmp/arm64-darwin/stage/crates/islands/tests/echarts.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests/echarts
+cp crates/islands/tests/echarts/bar.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/bar.json
+cp crates/islands/tests/echarts/dense.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/dense.json
+cp crates/islands/tests/echarts/japanese.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/japanese.json
+cp crates/islands/tests/echarts/pie.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/pie.json
+cp crates/islands/tests/echarts/scatter.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/scatter.json
+cp crates/islands/tests/echarts/time.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/time.json
+cp crates/islands/tests/pool.rs tmp/arm64-darwin/stage/crates/islands/tests/pool.rs
+cp crates/islands/tests/runner.rs tmp/arm64-darwin/stage/crates/islands/tests/runner.rs
+cp crates/islands/tests/soak.rs tmp/arm64-darwin/stage/crates/islands/tests/soak.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests/vega-lite
+cp crates/islands/tests/vega-lite/bar.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/bar.json
+cp crates/islands/tests/vega-lite/japanese.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/japanese.json
+cp crates/islands/tests/vega-lite/line-temporal.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/line-temporal.json
+cp crates/islands/tests/vega-lite/scatter-2000.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/scatter-2000.json
+cp crates/islands/tests/vega.rs tmp/arm64-darwin/stage/crates/islands/tests/vega.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests/vega
+cp crates/islands/tests/vega/bar.json tmp/arm64-darwin/stage/crates/islands/tests/vega/bar.json
+cp crates/islands/tests/vega/truncated-labels.json tmp/arm64-darwin/stage/crates/islands/tests/vega/truncated-labels.json
+mkdir -p tmp/arm64-darwin/stage/crates/surimono
+cp crates/surimono/Cargo.toml tmp/arm64-darwin/stage/crates/surimono/Cargo.toml
+mkdir -p tmp/arm64-darwin/stage/crates/surimono/src
+cp crates/surimono/src/backend.rs tmp/arm64-darwin/stage/crates/surimono/src/backend.rs
+cp crates/surimono/src/charref.rs tmp/arm64-darwin/stage/crates/surimono/src/charref.rs
+cp crates/surimono/src/error.rs tmp/arm64-darwin/stage/crates/surimono/src/error.rs
+cp crates/surimono/src/lib.rs tmp/arm64-darwin/stage/crates/surimono/src/lib.rs
+cp crates/surimono/src/options.rs tmp/arm64-darwin/stage/crates/surimono/src/options.rs
+cp crates/surimono/src/prepass.rs tmp/arm64-darwin/stage/crates/surimono/src/prepass.rs
+cp crates/surimono/src/renderer.rs tmp/arm64-darwin/stage/crates/surimono/src/renderer.rs
+mkdir -p tmp/arm64-darwin/stage/ext/surimono
+cp ext/surimono/Cargo.toml tmp/arm64-darwin/stage/ext/surimono/Cargo.toml
+cp ext/surimono/extconf.rb tmp/arm64-darwin/stage/ext/surimono/extconf.rb
+mkdir -p tmp/arm64-darwin/stage/ext/surimono/src
+cp ext/surimono/src/ffi.rs tmp/arm64-darwin/stage/ext/surimono/src/ffi.rs
+cp ext/surimono/src/lib.rs tmp/arm64-darwin/stage/ext/surimono/src/lib.rs
+cp lib/surimono.rb tmp/arm64-darwin/stage/lib/surimono.rb
+cp lib/surimono/version.rb tmp/arm64-darwin/stage/lib/surimono/version.rb
+cp tmp/arm64-darwin/surimono/4.0.2/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/4.0/surimono.bundle
+mkdir -p lib/surimono/3.4
+mkdir -p tmp/arm64-darwin/surimono/3.4.9
+cd tmp/arm64-darwin/surimono/3.4.9
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
+cd -
+cd tmp/arm64-darwin/surimono/3.4.9
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-3.4.9/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.debug_unreachable-fcd0911994ea435d.debug_unreachable.ee48e5186c2da4f0-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.std-61f27fb94867ea3a.std.55d473a4219306f9-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 10.23s
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.4
+cp tmp/arm64-darwin/surimono/3.4.9/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.4/surimono.bundle
+mkdir -p lib/surimono/3.3
+mkdir -p tmp/arm64-darwin/surimono/3.3.11
+cd tmp/arm64-darwin/surimono/3.3.11
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
+cd -
+cd tmp/arm64-darwin/surimono/3.3.11
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-3.3.11/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+         ld: warning:
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.allocator_api2-c770ee64e549192a.allocator_api2.56b22b9bff7baaed-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.cfg_if-d1f01e26b51fc912.cfg_if.1d1a5299bc79fd12-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 10.21s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.3
+cp tmp/arm64-darwin/surimono/3.3.11/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.3/surimono.bundle
+mkdir -p lib/surimono/3.2
+mkdir -p tmp/arm64-darwin/surimono/3.2.11
+cd tmp/arm64-darwin/surimono/3.2.11
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
+cd -
+cd tmp/arm64-darwin/surimono/3.2.11
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-3.2.11/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.cfg_if-a2da65a3839b459b.cfg_if.b32b0a1838cecfed-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 10.10s
+osxcross: debug: dsymutil: executing "/opt/osxcross/target/bin/arm64-apple-darwin20.2-wrapper -version" failed
+Removing unneeded dependencies from native gemspec
+Removing source files from native gemspec
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.2
+cp tmp/arm64-darwin/surimono/3.2.11/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.2/surimono.bundle
+mkdir -p pkg
+mkdir -p pkg/surimono-0.0.0-arm64-darwin
+mkdir -p pkg
+rm -f pkg/surimono-0.0.0-arm64-darwin/LICENSE-APACHE
+ln tmp/arm64-darwin/stage/LICENSE-APACHE pkg/surimono-0.0.0-arm64-darwin/LICENSE-APACHE
+cp tmp/arm64-darwin/stage/LICENSE-APACHE pkg/surimono-0.0.0-arm64-darwin/LICENSE-APACHE
+rm -f pkg/surimono-0.0.0-arm64-darwin/LICENSE-MIT
+cp tmp/arm64-darwin/stage/LICENSE-MIT pkg/surimono-0.0.0-arm64-darwin/LICENSE-MIT
+rm -f pkg/surimono-0.0.0-arm64-darwin/THIRD_PARTY.md
+cp tmp/arm64-darwin/stage/THIRD_PARTY.md pkg/surimono-0.0.0-arm64-darwin/THIRD_PARTY.md
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts
+rm -f pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE
+rm -f pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-d3
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-d3 pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-d3
+rm -f pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-tslib
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-tslib pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-tslib
+rm -f pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-zrender
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-zrender pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-zrender
+rm -f pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/NOTICE
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/NOTICE pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/echarts/NOTICE
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/vega
+rm -f pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/vega/LICENSE
+cp tmp/arm64-darwin/stage/crates/islands/bundles/vega/LICENSE pkg/surimono-0.0.0-arm64-darwin/crates/islands/bundles/vega/LICENSE
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/crates/islands/js/tools
+rm -f pkg/surimono-0.0.0-arm64-darwin/crates/islands/js/tools/licenses.js
+cp tmp/arm64-darwin/stage/crates/islands/js/tools/licenses.js pkg/surimono-0.0.0-arm64-darwin/crates/islands/js/tools/licenses.js
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/lib
+rm -f pkg/surimono-0.0.0-arm64-darwin/lib/surimono.rb
+cp tmp/arm64-darwin/stage/lib/surimono.rb pkg/surimono-0.0.0-arm64-darwin/lib/surimono.rb
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.2
+rm -f pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.2/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/3.2/surimono.bundle pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.2/surimono.bundle
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.3
+rm -f pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.3/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/3.3/surimono.bundle pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.3/surimono.bundle
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.4
+rm -f pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.4/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/3.4/surimono.bundle pkg/surimono-0.0.0-arm64-darwin/lib/surimono/3.4/surimono.bundle
+mkdir -p pkg/surimono-0.0.0-arm64-darwin/lib/surimono/4.0
+rm -f pkg/surimono-0.0.0-arm64-darwin/lib/surimono/4.0/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/4.0/surimono.bundle pkg/surimono-0.0.0-arm64-darwin/lib/surimono/4.0/surimono.bundle
+rm -f pkg/surimono-0.0.0-arm64-darwin/lib/surimono/version.rb
+cp tmp/arm64-darwin/stage/lib/surimono/version.rb pkg/surimono-0.0.0-arm64-darwin/lib/surimono/version.rb
+cd pkg/surimono-0.0.0-arm64-darwin
+  Successfully built RubyGem
+  Name: surimono
+  Version: 0.0.0
+  File: surimono-0.0.0-arm64-darwin.gem
+cd -
+'/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/pkg/surimono-0.0.0-arm64-darwin.gem' -> 'pkg/surimono-0.0.0-arm64-darwin.gem'
+total 2748
+drwxr-xr-x  2 runner runner    4096 Oct 31 03:43 .
+drwxr-xr-x 10 runner runner    4096 Oct 31 03:43 ..
+-rw-r--r--  1 runner runner 2803712 Oct 31 03:43 surimono-0.0.0-arm64-darwin.gem
+
+==> check the gem's contents
+LICENSE-APACHE
+LICENSE-MIT
+THIRD_PARTY.md
+crates/islands/bundles/echarts/LICENSE
+crates/islands/bundles/echarts/LICENSE-d3
+crates/islands/bundles/echarts/LICENSE-tslib
+crates/islands/bundles/echarts/LICENSE-zrender
+crates/islands/bundles/echarts/NOTICE
+crates/islands/bundles/vega/LICENSE
+crates/islands/js/tools/licenses.js
+lib/surimono.rb
+lib/surimono/3.2/surimono.bundle
+lib/surimono/3.3/surimono.bundle
+lib/surimono/3.4/surimono.bundle
+lib/surimono/4.0/surimono.bundle
+lib/surimono/version.rb
+host platform x86_64-linux: install test skipped for arm64-darwin
