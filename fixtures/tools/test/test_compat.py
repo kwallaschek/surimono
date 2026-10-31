@@ -492,6 +492,14 @@ class CompatTest(unittest.TestCase):
             compat.load_scores(self.root / "scores")
         self.assertIn("not a JSON object", str(e.exception))
 
+    def test_determinism_files_refuse_nan_too(self):
+        d = self.root / "detnan" / "echarts-a"
+        d.mkdir(parents=True)
+        (d / "determinism.json").write_text('{"subject": "echarts-a", "deterministic": NaN}')
+        with self.assertRaises(compat.CompatError) as e:
+            compat.load_determinism(self.root / "detnan")
+        self.assertIn("is not valid JSON", str(e.exception))
+
     def test_a_determinism_result_for_an_unknown_fixture_is_an_error(self):
         scores = [score("echarts-a", True)]
         det = {"ECHARTS-A": {"subject": "ECHARTS-A", "deterministic": False, "_file": "run/ECHARTS-A/determinism.json"}}

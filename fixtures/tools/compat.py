@@ -49,6 +49,7 @@ one entry per case and step:
 from __future__ import annotations
 
 import argparse
+import decimal
 import difflib
 import json
 import re
@@ -106,10 +107,7 @@ def load_determinism(directory: Path | None) -> dict[str, dict]:
         return {}
     out: dict[str, dict] = {}
     for f in sorted(directory.rglob("determinism.json")):
-        try:
-            data = json.loads(f.read_text())
-        except (OSError, json.JSONDecodeError) as e:
-            raise CompatError(f"{f}: {e}")
+        data = read_json(f)
         if not isinstance(data, dict):
             raise CompatError(f"{f}: not a JSON object")
         data["_file"] = str(f)
@@ -196,6 +194,40 @@ def _set(value) -> bool:
     return True
 
 
+def _js_string(value) -> str:
+    """A JSON value as JavaScript's String() spells it, so a check named in a
+    page's "failed" list reads the same here as in lib/report.mjs: null,
+    true, false, 1 (not 1.0), 1e-7, "a,b" for a list, [object Object]."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if value != value:
+            return "NaN"
+        if value in (float("inf"), float("-inf")):
+            return "Infinity" if value > 0 else "-Infinity"
+        if value == 0:
+            return "0"
+        # repr has the shortest round-trip digits, as JavaScript does; only the
+        # layout differs: JavaScript is positional for exponents -7 < e < 21.
+        exact = decimal.Decimal(repr(value))
+        mantissa, exponent = f"{exact:e}".split("e")
+        if -7 < int(exponent) < 21:
+            text = format(exact, "f")
+            return text[:-2] if text.endswith(".0") else text
+        if "." in mantissa:
+            mantissa = mantissa.rstrip("0").rstrip(".")
+        return f"{mantissa}e{'+' if int(exponent) > 0 else '-'}{abs(int(exponent))}"
+    if isinstance(value, list):
+        return ",".join("" if x is None else _js_string(x) for x in value)
+    return "[object Object]"
+
+
 def _check_failed(check) -> bool:
     """A check that is present failed unless it is an object whose `pass` is
     exactly true: a missing `pass`, the string "false" or anything else fails."""
@@ -222,7 +254,7 @@ def failed_checks(score: dict) -> list[str]:
         listed = p.get("failed") if isinstance(p, dict) else None
         if isinstance(listed, list):
             for n in listed:
-                add(str(n))
+                add(_js_string(n))
             if not listed and _check_failed(p):
                 add("page")
         elif _set(listed) or _check_failed(p):
