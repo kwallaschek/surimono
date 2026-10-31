@@ -165,6 +165,160 @@ struct Shared {
     preloaded_renders: AtomicU64,
     /// Workers holding a JavaScript runtime right now.
     runtimes: AtomicUsize,
+    /// Most worker threads.
+    pool_size: usize,
+    /// Stack size of each worker thread.
+    stack_size: usize,
+    /// Handles of the worker threads started and not yet seen finished, to
+    /// join when the runner is dropped. Taken before `queue`'s lock when
+    /// both are held. How many are alive is `QueueState::live`.
+    workers: Mutex<Vec<JoinHandle<()>>>,
+    /// Worker threads started so far, for their names.
+    spawned: AtomicUsize,
+    /// Test-only: makes workers die outside their guard (see [`Fault`]).
+    #[cfg(test)]
+    fault: std::sync::atomic::AtomicU8,
+}
+
+/// Test-only ways for a worker thread to die outside [`Worker::guard`], as
+/// a bug there would make it.
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum Fault {
+    None = 0,
+    /// The next worker to finish a job dies after replying (once).
+    AfterReply = 1,
+    /// The next worker to take a job dies holding it (once).
+    HoldingJob = 2,
+    /// Every worker dies as it starts, before taking a job.
+    AtStart = 3,
+}
+
+impl Shared {
+    fn workers_lock(&self) -> MutexGuard<'_, Vec<JoinHandle<()>>> {
+        // Nothing panics while holding the lock.
+        self.workers.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Starts a worker thread, counting it live in `q`. The caller holds
+    /// `workers` (passed in) and the queue lock (`q`), so the new thread's
+    /// handle is listed before the thread can look for it, and the live
+    /// count is right whenever the queue lock is free.
+    fn spawn_worker(
+        self: &Arc<Self>,
+        workers: &mut Vec<JoinHandle<()>>,
+        q: &mut QueueState,
+    ) -> Result<(), IslandError> {
+        // Handles of finished threads are dropped (detached) here, so a
+        // pool whose workers die and are replaced keeps a bounded list.
+        workers.retain(|h| !h.is_finished());
+        let index = self.spawned.fetch_add(1, Ordering::Relaxed);
+        let shared = self.clone();
+        let handle = thread::Builder::new()
+            .name(format!("surimono-island-{index}"))
+            .stack_size(self.stack_size)
+            .spawn(move || {
+                // First, so that whatever ends this thread, it is counted
+                // out and its job and queue are seen to.
+                let life = Life::new(shared);
+                Worker::new(life).run()
+            })
+            .map_err(|e| IslandError::Worker {
+                message: format!("could not start a worker thread: {e}"),
+            })?;
+        workers.push(handle);
+        q.live += 1;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    fn fault(&self, fault: Fault, once: bool) -> bool {
+        let now = fault as u8;
+        if once {
+            self.fault
+                .compare_exchange(now, Fault::None as u8, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+        } else {
+            self.fault.load(Ordering::Acquire) == now
+        }
+    }
+}
+
+/// A worker thread's life, from its first line to its end however it ends
+/// (returning, or a panic that escaped [`Worker::guard`]). When it ends
+/// before the runner closes the queue, the worker died: [`Drop`] answers
+/// the job it held, starts a replacement if jobs are waiting and the dead
+/// worker had taken one (a worker that dies before taking any could die
+/// the same way again, so it is never replaced in a loop), and otherwise,
+/// if no worker is left, fails every waiting job with
+/// [`IslandError::Worker`]. The next request starts a new worker. Callers
+/// never wait on a queue nobody serves.
+struct Life {
+    shared: Arc<Shared>,
+    /// Holding a job that is not yet answered (counted in `in_flight`).
+    in_job: bool,
+    /// Jobs answered.
+    served: u64,
+}
+
+impl Life {
+    fn new(shared: Arc<Shared>) -> Self {
+        Self {
+            shared,
+            in_job: false,
+            served: 0,
+        }
+    }
+}
+
+impl Drop for Life {
+    fn drop(&mut self) {
+        let shared = &self.shared;
+        let mut workers = shared.workers_lock();
+        let mut q = shared.queue.lock();
+        q.live = q.live.saturating_sub(1);
+        if self.in_job {
+            // Its reply sender is already dropped: that caller has its
+            // error (see `IslandRunner::dispatch`).
+            q.in_flight = q.in_flight.saturating_sub(1);
+        }
+        if q.closed {
+            return;
+        }
+        // A worker that took a job can be replaced: each such death uses
+        // up a job, so replacements can't loop on their own.
+        let took_a_job = self.in_job || self.served > 0;
+        let waiting = q.in_flight > q.live;
+        if waiting
+            && took_a_job
+            && q.live < shared.pool_size
+            && shared.spawn_worker(&mut workers, &mut q).is_ok()
+        {
+            return;
+        }
+        if q.live > 0 {
+            // The others take the waiting jobs.
+            return;
+        }
+        let orphans: Vec<Job> = q.jobs.drain(..).collect();
+        q.in_flight = q.in_flight.saturating_sub(orphans.len());
+        drop(q);
+        drop(workers);
+        let error = || IslandError::Worker {
+            message: "the worker thread stopped and no other worker could take this request".into(),
+        };
+        for job in orphans {
+            match job {
+                Job::Render(job) => {
+                    let _ = job.reply.send(Err(error()));
+                }
+                Job::Register(job) => {
+                    let _ = job.reply.send(Err(error()));
+                }
+            }
+        }
+    }
 }
 
 /// The jobs waiting for a worker, shared by the runner and its workers.
@@ -183,6 +337,8 @@ struct QueueState {
     in_flight: usize,
     /// Workers waiting for a job.
     idle: usize,
+    /// Worker threads started and not yet ended (see [`Life`]).
+    live: usize,
 }
 
 /// What a worker got from the queue.
@@ -208,19 +364,19 @@ impl Queue {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Adds a job; returns the number of jobs now in flight, or the job
-    /// back if the queue is closed.
-    fn push(&self, job: Job) -> Result<usize, Job> {
+    /// Adds a job; returns whether more jobs are now in flight than live
+    /// workers, or the job back if the queue is closed.
+    fn push(&self, job: Job) -> Result<bool, Job> {
         let mut q = self.lock();
         if q.closed {
             return Err(job);
         }
         q.jobs.push_back(job);
         q.in_flight += 1;
-        let in_flight = q.in_flight;
+        let short = q.in_flight > q.live;
         drop(q);
         self.ready.notify_one();
-        Ok(in_flight)
+        Ok(short)
     }
 
     /// A waiting job, without waiting.
@@ -292,8 +448,10 @@ pub struct RunnerStats {
     /// Workers waiting for a job right now, with their runtime reset and
     /// preloaded (or released). Equal to `workers` when the runner is quiet.
     pub idle_workers: usize,
-    /// Worker threads started so far: one at first, more only when
-    /// requests overlap, up to the pool size.
+    /// Worker threads running now: one at first, more only when requests
+    /// overlap, up to the pool size. A worker thread that died (a bug: a
+    /// panic that escaped its guard) no longer counts; it is replaced when
+    /// work is waiting for it.
     pub workers: usize,
     /// Workers holding a JavaScript runtime right now. A worker frees its
     /// runtime after [`RunnerOptions::release_idle_after`] without work.
@@ -378,12 +536,6 @@ pub struct IslandRunner {
     /// The fingerprint the built-ins' bytecode was written with (see
     /// `embedded.rs`); replaced only by tests of the fallback.
     embedded_fingerprint: &'static [u8],
-    /// Most worker threads.
-    pool_size: usize,
-    /// Stack size of each worker thread.
-    stack_size: usize,
-    /// The workers started so far (at least one).
-    workers: Mutex<Vec<JoinHandle<()>>>,
 }
 
 impl fmt::Debug for IslandRunner {
@@ -391,12 +543,12 @@ impl fmt::Debug for IslandRunner {
         if !self.in_this_process() {
             return f
                 .debug_struct("IslandRunner")
-                .field("pool_size", &self.pool_size)
+                .field("pool_size", &self.shared.pool_size)
                 .field("forked", &true)
                 .finish_non_exhaustive();
         }
         f.debug_struct("IslandRunner")
-            .field("pool_size", &self.pool_size)
+            .field("pool_size", &self.shared.pool_size)
             .field("workers", &self.worker_count())
             .field("renderers", &self.renderers())
             .finish_non_exhaustive()
@@ -453,6 +605,12 @@ impl IslandRunner {
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
             runtimes: AtomicUsize::new(0),
+            pool_size,
+            stack_size,
+            workers: Mutex::new(Vec::with_capacity(pool_size)),
+            spawned: AtomicUsize::new(0),
+            #[cfg(test)]
+            fault: std::sync::atomic::AtomicU8::new(Fault::None as u8),
         });
         let generation = surimono_core::fork_generation().map_err(IslandError::Sandbox)?;
         let runner = Self {
@@ -461,13 +619,14 @@ impl IslandRunner {
             bundles: RwLock::new(HashMap::new()),
             builtin_lock: Mutex::new(()),
             embedded_fingerprint: builtins::ENGINE_FINGERPRINT,
-            pool_size,
-            stack_size,
-            workers: Mutex::new(Vec::with_capacity(pool_size)),
         };
         // One worker from the start; the rest only when requests overlap.
-        let first = runner.spawn_worker(0)?;
-        runner.workers_lock().push(first);
+        {
+            let mut workers = runner.shared.workers_lock();
+            runner
+                .shared
+                .spawn_worker(&mut workers, &mut runner.shared.queue.lock())?;
+        }
         Ok(runner)
     }
 
@@ -490,34 +649,41 @@ impl IslandRunner {
         })
     }
 
-    fn workers_lock(&self) -> MutexGuard<'_, Vec<JoinHandle<()>>> {
-        self.workers.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
+    /// Live worker threads.
     fn worker_count(&self) -> usize {
-        self.workers_lock().len()
+        self.shared.queue.lock().live
     }
 
-    fn spawn_worker(&self, index: usize) -> Result<JoinHandle<()>, IslandError> {
-        let shared = self.shared.clone();
-        thread::Builder::new()
-            .name(format!("surimono-island-{index}"))
-            .stack_size(self.stack_size)
-            .spawn(move || Worker::new(shared).run())
-            .map_err(|e| IslandError::Worker {
-                message: format!("could not start a worker thread: {e}"),
-            })
-    }
-
-    /// Starts another worker if more jobs are in flight than there are
+    /// Starts another worker if more jobs are in flight than there are live
     /// workers and the pool isn't full. A worker that can't start is not an
-    /// error: the job waits for a running one.
+    /// error while another runs: the job waits for it. With no worker
+    /// alive (the last one died), the waiting jobs fail instead of waiting
+    /// for nobody.
     fn grow(&self) {
-        let mut workers = self.workers_lock();
-        let in_flight = self.shared.queue.lock().in_flight;
-        if in_flight > workers.len() && workers.len() < self.pool_size {
-            if let Ok(handle) = self.spawn_worker(workers.len()) {
-                workers.push(handle);
+        let shared = &self.shared;
+        let mut workers = shared.workers_lock();
+        let mut q = shared.queue.lock();
+        if q.closed || q.in_flight <= q.live || q.live >= shared.pool_size {
+            return;
+        }
+        let Err(e) = shared.spawn_worker(&mut workers, &mut q) else {
+            return;
+        };
+        if q.live > 0 {
+            return;
+        }
+        let orphans: Vec<Job> = q.jobs.drain(..).collect();
+        q.in_flight = q.in_flight.saturating_sub(orphans.len());
+        drop(q);
+        drop(workers);
+        for job in orphans {
+            match job {
+                Job::Render(job) => {
+                    let _ = job.reply.send(Err(e.clone()));
+                }
+                Job::Register(job) => {
+                    let _ = job.reply.send(Err(e.clone()));
+                }
             }
         }
     }
@@ -666,7 +832,7 @@ impl IslandRunner {
     /// Most worker threads this runner starts (see [`RunnerStats::workers`]
     /// for how many it has started).
     pub fn pool_size(&self) -> usize {
-        self.pool_size
+        self.shared.pool_size
     }
 
     /// Counters since the runner started. In a forked child (see the
@@ -681,12 +847,15 @@ impl IslandRunner {
                 ..RunnerStats::default()
             };
         }
-        let workers = self.worker_count();
+        let (idle_workers, workers) = {
+            let q = self.shared.queue.lock();
+            (q.idle, q.live)
+        };
         RunnerStats {
             renders: self.shared.renders.load(Ordering::Relaxed),
             failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
             preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
-            idle_workers: self.shared.queue.lock().idle,
+            idle_workers,
             workers,
             runtimes: self.shared.runtimes.load(Ordering::Relaxed),
         }
@@ -698,15 +867,23 @@ impl IslandRunner {
         make: impl FnOnce(SyncSender<Result<T, IslandError>>) -> Job,
     ) -> Result<T, IslandError> {
         let (reply, answer) = mpsc::sync_channel(1);
-        let gone = || IslandError::Worker {
-            message: "the worker pool has stopped".into(),
-        };
-        let in_flight = self.shared.queue.push(make(reply)).map_err(|_| gone())?;
+        let short = self
+            .shared
+            .queue
+            .push(make(reply))
+            .map_err(|_| IslandError::Worker {
+                message: "the worker pool has stopped".into(),
+            })?;
         // Cheap check first; grow() decides under the lock.
-        if in_flight > 1 {
+        if short {
             self.grow();
         }
-        answer.recv().map_err(|_| gone())?
+        // Every job is answered or dropped: by its worker, by a dying
+        // worker's `Life` (with an error), or with the worker that died
+        // holding it. The queue can't close while `self` is borrowed.
+        answer.recv().map_err(|_| IslandError::Worker {
+            message: "the worker thread stopped while handling this request".into(),
+        })?
     }
 }
 
@@ -718,13 +895,9 @@ impl Drop for IslandRunner {
             // been changing the data behind one. Leak all of it, touching
             // nothing: `get_mut` takes no lock, and moving a value out
             // reads none of it. The leaked extra reference keeps `Shared`
-            // (the queue and its lock) from ever being dropped here.
+            // (the queue, the worker handles and their locks) from ever
+            // being dropped here.
             Box::leak(Box::new(Arc::clone(&self.shared)));
-            let workers = self
-                .workers
-                .get_mut()
-                .unwrap_or_else(PoisonError::into_inner);
-            Box::leak(Box::new(std::mem::take(workers)));
             let bundles = self
                 .bundles
                 .get_mut()
@@ -734,8 +907,17 @@ impl Drop for IslandRunner {
         }
         // Closing the queue ends the workers once they finish their job.
         self.shared.queue.close();
-        for w in self.workers_lock().drain(..) {
-            let _ = w.join();
+        // Joined without holding the lock: a worker dying right now takes
+        // it (see `Life`). One that started a replacement before the close
+        // listed it before ending, so the next round joins that one too.
+        loop {
+            let batch = std::mem::take(&mut *self.shared.workers_lock());
+            if batch.is_empty() {
+                break;
+            }
+            for w in batch {
+                let _ = w.join();
+            }
         }
     }
 }
@@ -754,6 +936,8 @@ struct Worker {
     preloaded: Option<Arc<Bundle>>,
     /// The bundle of the last render, the one to preload.
     last_bundle: Option<Arc<Bundle>>,
+    /// Last, so it is dropped after the sandbox (see [`Life`]).
+    life: Life,
 }
 
 impl Drop for Worker {
@@ -763,19 +947,25 @@ impl Drop for Worker {
 }
 
 impl Worker {
-    fn new(shared: Arc<Shared>) -> Self {
+    fn new(life: Life) -> Self {
+        let shared = life.shared.clone();
         Self {
             measure: shared.measure.for_worker(),
             shared,
             sandbox: None,
             preloaded: None,
             last_bundle: None,
+            life,
         }
     }
 
     fn run(mut self) {
         let shared = self.shared.clone();
         let queue = &shared.queue;
+        #[cfg(test)]
+        if shared.fault(Fault::AtStart, false) {
+            panic!("test fault: worker dies at start");
+        }
         // Warm up before the first job arrives.
         let _ = self.sandbox();
         loop {
@@ -798,6 +988,11 @@ impl Worker {
                 Next::Job(job) => job,
                 Next::Empty | Next::Closed => return,
             };
+            self.life.in_job = true;
+            #[cfg(test)]
+            if shared.fault(Fault::HoldingJob, true) {
+                panic!("test fault: worker dies holding a job");
+            }
             match job {
                 Job::Render(job) => {
                     let result = self.guard(|w| w.render(&job));
@@ -806,13 +1001,20 @@ impl Worker {
                         self.shared.failed_renders.fetch_add(1, Ordering::Relaxed);
                     }
                     queue.done();
+                    self.life.in_job = false;
                     let _ = job.reply.send(result);
                 }
                 Job::Register(job) => {
                     let result = self.guard(|w| w.register(&job));
                     queue.done();
+                    self.life.in_job = false;
                     let _ = job.reply.send(result);
                 }
+            }
+            self.life.served += 1;
+            #[cfg(test)]
+            if shared.fault(Fault::AfterReply, true) {
+                panic!("test fault: worker dies after replying");
             }
             // The caller has its answer; now clear the job's state.
             self.recycle();
@@ -1179,6 +1381,248 @@ mod tests {
         assert_eq!(measure(&r, "abcd").unwrap(), "4");
         let stats = r.stats();
         assert_eq!((stats.renders, stats.failed_renders), (3, 1));
+    }
+
+    /// Runs `f` on its own thread and returns its result, failing the test
+    /// (instead of hanging it) if it takes more than 60 s.
+    fn bounded<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let _ = tx.send(f());
+        });
+        rx.recv_timeout(Duration::from_secs(60))
+            .expect("a caller waited 60 s: hung on a dead worker")
+    }
+
+    fn echo_runner(pool_size: usize) -> Arc<IslandRunner> {
+        let r = IslandRunner::start(
+            RunnerOptions {
+                pool_size,
+                ..RunnerOptions::default()
+            },
+            Measure::Estimate,
+        )
+        .unwrap();
+        r.register_bundle("echo", "function entry(s) { return s }", "entry")
+            .unwrap();
+        wait_idle(&r);
+        Arc::new(r)
+    }
+
+    /// Waits (bounded) until every worker is back waiting for a job, past
+    /// the fault checks of its last one, so a fault set now hits the next.
+    fn wait_idle(r: &IslandRunner) {
+        let until = std::time::Instant::now() + Duration::from_secs(60);
+        loop {
+            let stats = r.stats();
+            if stats.idle_workers == stats.workers {
+                return;
+            }
+            assert!(std::time::Instant::now() < until, "{stats:?}");
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    fn echo(r: &Arc<IslandRunner>, n: usize) -> Result<String, IslandError> {
+        let r = r.clone();
+        bounded(move || {
+            r.render(&IslandRequest {
+                renderer: "echo",
+                spec_json: &n.to_string(),
+                width: 1,
+                height: 1,
+            })
+        })
+    }
+
+    fn set_fault(r: &IslandRunner, fault: Fault) {
+        r.shared.fault.store(fault as u8, Ordering::Release);
+    }
+
+    /// Waits (bounded) until the runner has `n` live workers.
+    fn wait_for_workers(r: &IslandRunner, n: usize) {
+        let until = std::time::Instant::now() + Duration::from_secs(60);
+        while r.stats().workers != n {
+            assert!(std::time::Instant::now() < until, "{:?}", r.stats());
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    /// Waits (bounded) until no job is in flight or queued. A worker that
+    /// died holding a job counts it out a moment after its caller saw the
+    /// error.
+    fn wait_quiet(r: &IslandRunner) {
+        let until = std::time::Instant::now() + Duration::from_secs(60);
+        loop {
+            {
+                let q = r.shared.queue.lock();
+                if q.in_flight == 0 && q.jobs.is_empty() {
+                    return;
+                }
+                assert!(
+                    std::time::Instant::now() < until,
+                    "in flight {}, queued {}",
+                    q.in_flight,
+                    q.jobs.len()
+                );
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    #[test]
+    fn a_worker_that_dies_after_replying_is_replaced() {
+        let r = echo_runner(1);
+        set_fault(&r, Fault::AfterReply);
+        assert_eq!(echo(&r, 1).unwrap(), "1");
+        wait_for_workers(&r, 0);
+        // The next request starts a new worker.
+        assert_eq!(echo(&r, 2).unwrap(), "2");
+        assert_eq!(r.stats().workers, 1);
+        wait_quiet(&r);
+    }
+
+    #[test]
+    fn a_worker_that_dies_holding_a_job_fails_only_that_job() {
+        let r = echo_runner(1);
+        set_fault(&r, Fault::HoldingJob);
+        match echo(&r, 1).unwrap_err() {
+            IslandError::Worker { message } => {
+                assert!(message.contains("stopped while handling"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(echo(&r, 2).unwrap(), "2");
+        wait_quiet(&r);
+        wait_for_workers(&r, 1);
+    }
+
+    /// Requests queued behind a worker that dies after replying are served
+    /// by its replacement, not left waiting.
+    #[test]
+    fn waiting_callers_are_served_by_a_replacement() {
+        let r = echo_runner(1);
+        // Hold the only worker in a slow job so the others queue up.
+        r.register_bundle(
+            "slow",
+            "function entry(s) { let t = 0; for (let i = 0; i < 2e6; i++) t += i; return s }",
+            "entry",
+        )
+        .unwrap();
+        wait_idle(&r);
+        set_fault(&r, Fault::AfterReply);
+        let results = bounded({
+            let r = r.clone();
+            move || {
+                thread::scope(|s| {
+                    let slow = s.spawn(|| {
+                        r.render(&IslandRequest {
+                            renderer: "slow",
+                            spec_json: "0",
+                            width: 1,
+                            height: 1,
+                        })
+                    });
+                    let others: Vec<_> = (1..4)
+                        .map(|n| {
+                            let r = &r;
+                            s.spawn(move || {
+                                r.render(&IslandRequest {
+                                    renderer: "echo",
+                                    spec_json: &n.to_string(),
+                                    width: 1,
+                                    height: 1,
+                                })
+                            })
+                        })
+                        .collect();
+                    let mut all = vec![slow.join().unwrap()];
+                    all.extend(others.into_iter().map(|h| h.join().unwrap()));
+                    all
+                })
+            }
+        });
+        for (n, result) in results.into_iter().enumerate() {
+            assert_eq!(result.unwrap(), n.to_string());
+        }
+        assert!(r.stats().workers <= 1, "{:?}", r.stats());
+    }
+
+    /// Workers that die before serving anything are not replaced in a
+    /// loop: waiting callers get the typed error, and the pool works again
+    /// once workers can start.
+    #[test]
+    fn callers_fail_when_workers_die_at_start() {
+        let r = echo_runner(2);
+        // Kill the worker that already runs: its next job ends it.
+        set_fault(&r, Fault::HoldingJob);
+        assert!(matches!(echo(&r, 0), Err(IslandError::Worker { .. })));
+        set_fault(&r, Fault::AtStart);
+        wait_for_workers(&r, 0);
+        let results = bounded({
+            let r = r.clone();
+            move || {
+                thread::scope(|s| {
+                    let callers: Vec<_> = (0..4)
+                        .map(|n| {
+                            let r = &r;
+                            s.spawn(move || {
+                                r.render(&IslandRequest {
+                                    renderer: "echo",
+                                    spec_json: &n.to_string(),
+                                    width: 1,
+                                    height: 1,
+                                })
+                            })
+                        })
+                        .collect();
+                    callers
+                        .into_iter()
+                        .map(|h| h.join().unwrap())
+                        .collect::<Vec<_>>()
+                })
+            }
+        });
+        for result in results {
+            match result.unwrap_err() {
+                IslandError::Worker { message } => {
+                    assert!(message.contains("no other worker"), "{message}")
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+        wait_for_workers(&r, 0);
+        wait_quiet(&r);
+        set_fault(&r, Fault::None);
+        assert_eq!(echo(&r, 5).unwrap(), "5");
+        assert_eq!(r.stats().workers, 1);
+    }
+
+    /// Repeated deaths leave no threads, handles or in-flight counts
+    /// behind, and dropping the runner joins whatever is left.
+    #[test]
+    fn repeated_deaths_do_not_grow_the_pool() {
+        let r = echo_runner(2);
+        for n in 0..50 {
+            wait_idle(&r);
+            set_fault(
+                &r,
+                if n % 2 == 0 {
+                    Fault::AfterReply
+                } else {
+                    Fault::HoldingJob
+                },
+            );
+            let _ = echo(&r, n);
+            assert!(r.stats().workers <= 2, "{:?}", r.stats());
+            assert!(r.shared.workers_lock().len() <= 3);
+        }
+        set_fault(&r, Fault::None);
+        assert_eq!(echo(&r, 99).unwrap(), "99");
+        wait_quiet(&r);
+        assert!(r.stats().workers <= 2, "{:?}", r.stats());
+        let r = Arc::into_inner(r).expect("no other owner");
+        bounded(move || drop(r));
     }
 
     /// The built-ins' test specs, by renderer.
