@@ -10,6 +10,8 @@ members = [
     "crates/cli",
     "bindings/ruby/ext/surimono",
 ]
+# Vendored third-party crates are patched dependencies, not members.
+exclude = ["vendor"]
 # The Ruby extension needs Ruby headers and libclang; keep plain `cargo build`
 # fast and toolchain-only. CI builds it explicitly with `--workspace`.
 default-members = [
@@ -31,6 +33,8 @@ description = "Run a document's JavaScript without a browser, so browserless HTM
 keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
 categories = ["rendering", "web-programming"]
 publish = false
+repository = "https://github.com/kwallaschek/surimono"
+homepage = "https://github.com/kwallaschek/surimono"
 
 [workspace.dependencies]
 # Internal crates
@@ -38,7 +42,7 @@ surimono-core = { path = "crates/core", version = "0.0.0" }
 surimono-webidl = { path = "crates/webidl", version = "0.0.0" }
 surimono-dom = { path = "crates/dom", version = "0.0.0" }
 surimono-gfx = { path = "crates/gfx", version = "0.0.0" }
-surimono-islands = { path = "crates/islands", version = "0.0.0" }
+surimono-islands = { path = "crates/islands", version = "0.0.0", default-features = false }
 surimono = { path = "crates/surimono", version = "0.0.0" }
 
 # JS engine: QuickJS-ng through rquickjs. Exact pin; upgrades are planned tasks.
@@ -50,10 +54,20 @@ blitz-dom = { version = "=0.2.4", default-features = false }
 blitz-html = { version = "=0.2.0" }
 blitz-traits = { version = "=0.2.0" }
 
+# Shared by more than one crate: pin once here and use `<dep>.workspace = true`.
+roxmltree = "=0.21.2"
+sha2 = "=0.10.9"
+
 # Common
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# QuickJS with surimono's sandbox patches (sticky interrupt, interrupt polls
+# in native loops); see vendor/rquickjs-sys/PATCHES.md. Drop once upstream
+# quickjs-ng and rquickjs ship them (drafts in docs/upstream/).
+[patch.crates-io]
+rquickjs-sys = { path = "vendor/rquickjs-sys" }
 
 [workspace.lints.rust]
 # unsafe is allowed only in engine-binding modules, each opted in with

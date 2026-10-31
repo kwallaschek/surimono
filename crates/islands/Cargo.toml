@@ -1,17 +1,46 @@
 [package]
 name = "surimono-islands"
-description = "Island runner and built-in chart renderers (ECharts, Vega) for surimono."
+description = "Island runner and built-in chart renderers (ECharts, Vega, Vega-Lite) for surimono."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+default = ["echarts", "vega"]
+## The built-in `echarts` renderer: Apache ECharts 6.1.0, SVG server-side rendering.
+echarts = []
+## The built-in `vega` and `vega-lite` renderers: Vega 6.4.0 and Vega-Lite 6.5.0, headless view to SVG.
+vega = []
+## Not public API: lets surimono's own tests and tools measure text with a
+## deterministic font-free estimate (IslandRunner::with_estimated_text_metrics).
+test-estimate = []
+
 [dependencies]
 surimono-core.workspace = true
 surimono-gfx.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+# Checks that built-in bytecode was compiled from the embedded source.
+sha2.workspace = true
+
+[build-dependencies]
+# build.rs compiles the built-in bundles to bytecode with the same engine.
+surimono-core.workspace = true
+# Records the SHA-256 of each source build.rs compiled.
+sha2.workspace = true
+
+[dev-dependencies]
+# The crate's own tests use the font-free estimate.
+surimono-islands = { path = ".", default-features = false, features = ["test-estimate"] }
+# Parses rendered SVG in the renderer tests.
+roxmltree.workspace = true
+# Reads fixtures/hostile/manifest.toml in the hostile-suite harness.
+toml = "=1.1.8"
+# Counts live heap bytes in the soak test.
+stats_alloc = "=0.1.10"
 
 [lints]
 workspace = true
