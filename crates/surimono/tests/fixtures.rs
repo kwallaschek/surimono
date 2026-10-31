@@ -6,8 +6,9 @@
 #![cfg(feature = "echarts")]
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use surimono::{Options, Renderer, TextMode};
+use surimono::{Limits, Options, Renderer, TextMode};
 
 const MARKER_TYPE: &str = "application/vnd.surimono+json";
 
@@ -20,10 +21,22 @@ fn read(rel: &str) -> Vec<u8> {
     std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
+/// These tests check structure, not speed: give every island far more than
+/// the 2 s default, so a debug build under AddressSanitizer on a loaded CI
+/// runner (several times slower than release) still finishes. Speed is the
+/// benchmark's job.
+fn structural_limits() -> Limits {
+    Limits {
+        time: Duration::from_secs(60),
+        ..Limits::default()
+    }
+}
+
 fn renderer() -> Renderer {
     let options = Options::new()
         .font(read("fixtures/fonts/NotoSans-Regular.ttf"))
-        .font(read("fixtures/fonts/NotoSans-Bold.ttf"));
+        .font(read("fixtures/fonts/NotoSans-Bold.ttf"))
+        .limits(structural_limits());
     Renderer::new(options).unwrap_or_else(|e| panic!("{e}"))
 }
 
@@ -141,6 +154,7 @@ fn keep_mode_keeps_text_in_the_registered_font() {
     let options = Options::new()
         .font(read("fixtures/fonts/NotoSans-Regular.ttf"))
         .font(read("fixtures/fonts/NotoSans-Bold.ttf"))
+        .limits(structural_limits())
         .text_mode(TextMode::Keep);
     let out = Renderer::new(options)
         .and_then(|r| r.render_islands(&input))
@@ -163,7 +177,7 @@ fn every_checkpoint_fixture_renders() {
         "NotoSansJP-Bold.otf",
     ]
     .iter()
-    .fold(Options::new(), |o, f| {
+    .fold(Options::new().limits(structural_limits()), |o, f| {
         o.font(read(&format!("fixtures/fonts/{f}")))
     });
     let r = Renderer::new(options).unwrap_or_else(|e| panic!("{e}"));
