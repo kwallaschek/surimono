@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # Checks the Rails snippet the way a user would: the view writes valid markers,
-# every island becomes SVG, output is the same every time, the renderer works
-# after fork, and a broken island names itself. Run from the repository root:
+# every island becomes SVG, output is the same every time, a renderer built
+# before fork works in the child, and a broken island names itself. Run from the repository root:
 #
 #   ruby -Ibindings/ruby/lib examples/rails-snippet/render_report_test.rb
 
@@ -43,8 +43,10 @@ class RenderReportTest < Minitest::Test
   def test_renders_every_island_and_keeps_the_rest
     out = ReportExample.renderer.render(report_html)
     refute_includes out, MARKER
-    assert_includes out, %(<div class="surimono-island" id="revenue" data-renderer="echarts"><svg)
-    assert_includes out, %(<div class="surimono-island" id="trend" data-renderer="sparkline"><svg)
+    assert_includes out, %(<div class="surimono-island" id="revenue" data-renderer="echarts" ) +
+                         %(style="width:680px;height:300px;overflow:hidden"><svg)
+    assert_includes out, %(<div class="surimono-island" id="trend" data-renderer="sparkline" ) +
+                         %(style="width:200px;height:24px;overflow:hidden"><svg)
     assert out.start_with?(report_html[0, report_html.index("<script")]), "the page before the first island changed"
     assert_equal Encoding::UTF_8, out.encoding
   end
@@ -54,7 +56,10 @@ class RenderReportTest < Minitest::Test
     assert_equal ReportExample.renderer.render(html), ReportExample.renderer.render(html)
   end
 
-  def test_a_forked_child_gets_its_own_working_renderer
+  # Puma's preload_app!, Unicorn and Resque build the renderer, then fork. The
+  # parent has rendered (its runtime threads are running); the child uses the
+  # same Renderer object, which starts its own runtimes there.
+  def test_a_renderer_built_before_fork_works_in_the_child
     parent = ReportExample.renderer
     html = report_html
     expected = parent.render(html)
@@ -62,7 +67,7 @@ class RenderReportTest < Minitest::Test
     pid = fork do
       reader.close
       child = ReportExample.renderer
-      writer.write(child.equal?(parent) ? "same renderer" : child.render(html))
+      writer.write(child.equal?(parent) ? child.render(html) : "a different renderer")
       writer.close
       exit!(0)
     end
@@ -73,7 +78,8 @@ class RenderReportTest < Minitest::Test
       Process.kill(:KILL, pid)
       flunk "the forked child hung while rendering"
     end
-    assert_equal expected, reader.read
+    # The pipe reads in the default external encoding (US-ASCII in a C locale).
+    assert_equal expected, reader.read.force_encoding(Encoding::UTF_8)
   end
 
   def test_a_broken_island_names_itself

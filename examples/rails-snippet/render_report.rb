@@ -73,16 +73,11 @@ module ReportExample
 
   LOCK = Mutex.new
 
-  # One renderer per process, built on first use and again in a forked child:
-  # its JavaScript runtimes live on threads, which don't survive fork.
+  # One renderer, built on first use and shared by every thread. It survives
+  # fork (Puma's preload_app!, Unicorn, Resque): a forked child starts its own
+  # JavaScript runtimes on its first render.
   def self.renderer
-    pid = Process.pid
-    return @renderer if @pid == pid
-
-    LOCK.synchronize do
-      @renderer, @pid = build_renderer, pid unless @pid == pid
-      @renderer
-    end
+    @renderer || LOCK.synchronize { @renderer ||= build_renderer }
   end
 
   def self.build_renderer

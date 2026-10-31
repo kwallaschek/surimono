@@ -49,12 +49,14 @@ fn renders_every_island_and_keeps_the_rest() {
     );
     assert!(
         html.contains(
-            r#"<div class="surimono-island chart" id="revenue" data-renderer="echarts"><svg"#
+            r#"<div class="surimono-island chart" id="revenue" data-renderer="echarts" style="width:680px;height:300px;overflow:hidden"><svg"#
         ),
         "the ECharts island is missing:\n{html}"
     );
     assert!(
-        html.contains(r#"<div class="surimono-island" id="trend" data-renderer="sparkline"><svg"#),
+        html.contains(
+            r#"<div class="surimono-island" id="trend" data-renderer="sparkline" style="width:200px;height:24px;overflow:hidden"><svg"#
+        ),
         "the sparkline island is missing:\n{html}"
     );
 
