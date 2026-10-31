@@ -1,12 +1,13 @@
 //! The island runner: bundles compiled once, rendered on worker threads.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TryRecvError};
-use std::sync::{Arc, Mutex, PoisonError, RwLock, TryLockError};
+use std::sync::mpsc::{self, SyncSender};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
@@ -22,9 +23,17 @@ use crate::{IslandError, TextMeasurer, builtins};
 pub struct RunnerOptions {
     /// Memory, time and stack limits for each render.
     pub limits: Limits,
-    /// Number of worker threads, each with its own JavaScript runtime.
-    /// 0 picks the default: the number of CPUs, at most 4.
+    /// Most worker threads, each with its own JavaScript runtime. The pool
+    /// starts with one and adds a worker only when a request finds every
+    /// worker busy, so a caller rendering one island at a time never uses
+    /// more than one. 0 picks the default: the number of CPUs, at most 4.
     pub pool_size: usize,
+    /// How long a worker may sit idle before it frees its JavaScript
+    /// runtime (and the bundle preloaded in it). The next request on that
+    /// worker starts a runtime and loads its bundle itself (about 0.5 ms
+    /// plus the bundle's load time). `None` keeps runtimes for as long as
+    /// the runner lives. Default: 2 s.
+    pub release_idle_after: Option<Duration>,
     /// Seed for `Math.random`; every render starts the same sequence.
     pub seed: u64,
     /// Answers `ctx.measureText` for renderers: `TextMeasurer::new(fonts)`
@@ -43,6 +52,8 @@ impl RunnerOptions {
     pub const MAX_POOL_SIZE: usize = 64;
     /// Default ceiling on worker threads when `pool_size` is 0.
     pub const DEFAULT_MAX_POOL_SIZE: usize = 4;
+    /// Default for [`release_idle_after`](Self::release_idle_after).
+    pub const DEFAULT_RELEASE_IDLE_AFTER: Duration = Duration::from_secs(2);
 
     fn sandbox_options(&self) -> SandboxOptions {
         SandboxOptions::default()
@@ -70,6 +81,7 @@ impl Default for RunnerOptions {
         Self {
             limits: sandbox.limits,
             pool_size: 0,
+            release_idle_after: Some(Self::DEFAULT_RELEASE_IDLE_AFTER),
             seed: sandbox.random_seed,
             text_measurer: None,
             now_ms: sandbox.now_ms,
@@ -105,6 +117,15 @@ struct Bundle {
     source_id: Option<usize>,
 }
 
+impl Bundle {
+    /// Whether evaluating `self` and `other` leaves the same state: they
+    /// are one bundle, or built-ins compiled from one source (vega and
+    /// vega-lite), which differ only in the entry a render calls.
+    fn loads_like(&self, other: &Bundle) -> bool {
+        std::ptr::eq(self, other) || (self.source_id.is_some() && self.source_id == other.source_id)
+    }
+}
+
 struct RenderJob {
     bundle: Arc<Bundle>,
     spec_json: String,
@@ -136,10 +157,125 @@ enum Job {
 struct Shared {
     sandbox_options: SandboxOptions,
     measure: Measure,
+    /// See [`RunnerOptions::release_idle_after`].
+    release_idle_after: Option<Duration>,
+    queue: Queue,
     renders: AtomicU64,
     failed_renders: AtomicU64,
     preloaded_renders: AtomicU64,
-    idle_workers: AtomicUsize,
+    /// Workers holding a JavaScript runtime right now.
+    runtimes: AtomicUsize,
+}
+
+/// The jobs waiting for a worker, shared by the runner and its workers.
+struct Queue {
+    state: Mutex<QueueState>,
+    /// Signalled when a job arrives or the queue closes.
+    ready: Condvar,
+}
+
+#[derive(Default)]
+struct QueueState {
+    jobs: VecDeque<Job>,
+    /// Set when the runner is dropped: workers finish and exit.
+    closed: bool,
+    /// Jobs sent and not yet answered (waiting or running).
+    in_flight: usize,
+    /// Workers waiting for a job.
+    idle: usize,
+}
+
+/// What a worker got from the queue.
+enum Next {
+    Job(Job),
+    /// Nothing arrived in time.
+    Empty,
+    /// The runner is gone.
+    Closed,
+}
+
+impl Queue {
+    fn new() -> Self {
+        Self {
+            state: Mutex::new(QueueState::default()),
+            ready: Condvar::new(),
+        }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, QueueState> {
+        // Nothing panics while holding the lock, and the state is
+        // consistent whenever it is released.
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Adds a job; returns the number of jobs now in flight, or the job
+    /// back if the queue is closed.
+    fn push(&self, job: Job) -> Result<usize, Job> {
+        let mut q = self.lock();
+        if q.closed {
+            return Err(job);
+        }
+        q.jobs.push_back(job);
+        q.in_flight += 1;
+        let in_flight = q.in_flight;
+        drop(q);
+        self.ready.notify_one();
+        Ok(in_flight)
+    }
+
+    /// A waiting job, without waiting.
+    fn try_pop(&self) -> Next {
+        let mut q = self.lock();
+        match q.jobs.pop_front() {
+            Some(job) => Next::Job(job),
+            None if q.closed => Next::Closed,
+            None => Next::Empty,
+        }
+    }
+
+    /// Waits for a job, at most `timeout` if given, counted as idle while
+    /// waiting.
+    fn pop(&self, timeout: Option<Duration>) -> Next {
+        let mut q = self.lock();
+        let deadline = timeout.and_then(|t| std::time::Instant::now().checked_add(t));
+        q.idle += 1;
+        let next = loop {
+            if let Some(job) = q.jobs.pop_front() {
+                break Next::Job(job);
+            }
+            if q.closed {
+                break Next::Closed;
+            }
+            match deadline {
+                None => q = self.ready.wait(q).unwrap_or_else(PoisonError::into_inner),
+                Some(deadline) => {
+                    let left = deadline.saturating_duration_since(std::time::Instant::now());
+                    if left.is_zero() {
+                        break Next::Empty;
+                    }
+                    q = self
+                        .ready
+                        .wait_timeout(q, left)
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .0;
+                }
+            }
+        };
+        q.idle -= 1;
+        next
+    }
+
+    /// A job is answered (called just before the reply is sent, so a
+    /// caller that sends its next job right away sees it as done).
+    fn done(&self) {
+        let mut q = self.lock();
+        q.in_flight = q.in_flight.saturating_sub(1);
+    }
+
+    fn close(&self) {
+        self.lock().closed = true;
+        self.ready.notify_all();
+    }
 }
 
 /// Counters for an [`IslandRunner`], for monitoring and tests.
@@ -154,8 +290,14 @@ pub struct RunnerStats {
     /// runtime while it was idle, so the request skipped that step.
     pub preloaded_renders: u64,
     /// Workers waiting for a job right now, with their runtime reset and
-    /// preloaded. Equal to the pool size when the runner is quiet.
+    /// preloaded (or released). Equal to `workers` when the runner is quiet.
     pub idle_workers: usize,
+    /// Worker threads started so far: one at first, more only when
+    /// requests overlap, up to the pool size.
+    pub workers: usize,
+    /// Workers holding a JavaScript runtime right now. A worker frees its
+    /// runtime after [`RunnerOptions::release_idle_after`] without work.
+    pub runtimes: usize,
 }
 
 /// Renders islands: JavaScript bundles that turn a JSON spec into an SVG
@@ -170,23 +312,29 @@ pub struct RunnerStats {
 /// `TypeError` and the render fails with [`IslandError::NoFonts`].
 ///
 /// Bundles are compiled to bytecode once, at registration, and loaded from
-/// bytecode for each render (no re-parsing). Each render runs on one of a
-/// fixed pool of worker threads, in a fresh JavaScript runtime under the
-/// runner's limits, so nothing leaks from one render to the next, the whole
-/// heap is freed after every render, and the same request always gives the
-/// same SVG. Each worker prepares the runtime for its next render right
-/// after sending a reply, off the caller's clock: it starts a fresh runtime
-/// and, if no request is waiting, evaluates the bundle it rendered last, so
-/// a repeated renderer skips that step. (A bundle whose top level queues
-/// microtasks is never preloaded.) A request that arrives while its worker
-/// is preloading waits for the preload to finish. The limits apply to each
-/// island as a whole: one time budget covers loading the bundle, if it
-/// wasn't preloaded, the entry call and the microtasks it queues. The
-/// result is the same either way, but a cold render spends part of its
-/// budget loading the bundle (about 20 ms for ECharts, 70 ms for Vega in a
-/// release build), so set the time limit for the cold case: with a limit
-/// close to a chart's cost, a cold render can hit it where a preloaded one
-/// passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
+/// bytecode for each render (no re-parsing). Each render runs on a worker
+/// thread, in a fresh JavaScript runtime under the runner's limits, so
+/// nothing leaks from one render to the next, the whole heap is freed after
+/// every render, and the same request always gives the same SVG.
+///
+/// The pool starts with one worker and adds one (up to
+/// [`RunnerOptions::pool_size`]) only when a request finds every worker
+/// busy, so memory follows how many islands are rendered at once, not the
+/// number of CPUs. Each worker prepares the runtime for its next render
+/// right after sending a reply, off the caller's clock: it starts a fresh
+/// runtime and, if no request is waiting, evaluates the bundle it rendered
+/// last, so a repeated renderer skips that step. (A bundle whose top level
+/// queues microtasks is never preloaded.) A request that arrives while its
+/// worker is preloading waits for the preload to finish. A worker idle for
+/// [`RunnerOptions::release_idle_after`] frees its runtime.
+///
+/// The limits apply to each island as a whole: one time budget covers
+/// loading the bundle, if it wasn't preloaded, the entry call and the
+/// microtasks it queues. The result is the same either way, but a cold
+/// render spends part of its budget loading the bundle (about 20 ms for
+/// ECharts, 70 ms for Vega in a release build), so set the time limit for
+/// the cold case: with a limit close to a chart's cost, a cold render can
+/// hit it where a preloaded one passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
 /// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
 /// Text measurement runs inside that budget, on the worker thread, with
@@ -205,14 +353,19 @@ pub struct IslandRunner {
     bundles: RwLock<HashMap<String, Arc<Bundle>>>,
     /// Held while a built-in renderer is compiled on first use.
     builtin_lock: Mutex<()>,
-    jobs: Option<Sender<Job>>,
-    workers: Vec<JoinHandle<()>>,
+    /// Most worker threads.
+    pool_size: usize,
+    /// Stack size of each worker thread.
+    stack_size: usize,
+    /// The workers started so far (at least one).
+    workers: Mutex<Vec<JoinHandle<()>>>,
 }
 
 impl fmt::Debug for IslandRunner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("IslandRunner")
-            .field("pool_size", &self.workers.len())
+            .field("pool_size", &self.pool_size)
+            .field("workers", &self.worker_count())
             .field("renderers", &self.renderers())
             .finish_non_exhaustive()
     }
@@ -255,38 +408,64 @@ impl IslandRunner {
             });
         }
         // Room for the script's stack limit plus the Rust frames around it
-        // (text measurement, shaping). Untouched stack costs no memory.
+        // (text measurement, shaping). Untouched stack costs no memory: a
+        // worker's resident stack is the deepest it has been, typically
+        // well under 1 MiB.
         let stack_size = sandbox_options.limits.stack_bytes + 8 * 1024 * 1024;
         let shared = Arc::new(Shared {
             sandbox_options,
             measure,
+            release_idle_after: opts.release_idle_after,
+            queue: Queue::new(),
             renders: AtomicU64::new(0),
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
-            idle_workers: AtomicUsize::new(0),
+            runtimes: AtomicUsize::new(0),
         });
-        let (tx, rx) = mpsc::channel::<Job>();
-        let rx = Arc::new(Mutex::new(rx));
-        let mut workers = Vec::with_capacity(pool_size);
-        for i in 0..pool_size {
-            let shared = shared.clone();
-            let rx = rx.clone();
-            let handle = thread::Builder::new()
-                .name(format!("surimono-island-{i}"))
-                .stack_size(stack_size)
-                .spawn(move || Worker::new(shared).run(&rx))
-                .map_err(|e| IslandError::Worker {
-                    message: format!("could not start a worker thread: {e}"),
-                })?;
-            workers.push(handle);
-        }
-        Ok(Self {
+        let runner = Self {
             shared,
             bundles: RwLock::new(HashMap::new()),
             builtin_lock: Mutex::new(()),
-            jobs: Some(tx),
-            workers,
-        })
+            pool_size,
+            stack_size,
+            workers: Mutex::new(Vec::with_capacity(pool_size)),
+        };
+        // One worker from the start; the rest only when requests overlap.
+        let first = runner.spawn_worker(0)?;
+        runner.workers_lock().push(first);
+        Ok(runner)
+    }
+
+    fn workers_lock(&self) -> MutexGuard<'_, Vec<JoinHandle<()>>> {
+        self.workers.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn worker_count(&self) -> usize {
+        self.workers_lock().len()
+    }
+
+    fn spawn_worker(&self, index: usize) -> Result<JoinHandle<()>, IslandError> {
+        let shared = self.shared.clone();
+        thread::Builder::new()
+            .name(format!("surimono-island-{index}"))
+            .stack_size(self.stack_size)
+            .spawn(move || Worker::new(shared).run())
+            .map_err(|e| IslandError::Worker {
+                message: format!("could not start a worker thread: {e}"),
+            })
+    }
+
+    /// Starts another worker if more jobs are in flight than there are
+    /// workers and the pool isn't full. A worker that can't start is not an
+    /// error: the job waits for a running one.
+    fn grow(&self) {
+        let mut workers = self.workers_lock();
+        let in_flight = self.shared.queue.lock().in_flight;
+        if in_flight > workers.len() && workers.len() < self.pool_size {
+            if let Ok(handle) = self.spawn_worker(workers.len()) {
+                workers.push(handle);
+            }
+        }
     }
 
     /// Compiles `js_source` and registers it as renderer `name`, replacing
@@ -406,18 +585,22 @@ impl IslandRunner {
         names
     }
 
-    /// Number of worker threads.
+    /// Most worker threads this runner starts (see [`RunnerStats::workers`]
+    /// for how many it has started).
     pub fn pool_size(&self) -> usize {
-        self.workers.len()
+        self.pool_size
     }
 
     /// Counters since the runner started.
     pub fn stats(&self) -> RunnerStats {
+        let workers = self.worker_count();
         RunnerStats {
             renders: self.shared.renders.load(Ordering::Relaxed),
             failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
             preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
-            idle_workers: self.shared.idle_workers.load(Ordering::SeqCst),
+            idle_workers: self.shared.queue.lock().idle,
+            workers,
+            runtimes: self.shared.runtimes.load(Ordering::Relaxed),
         }
     }
 
@@ -430,8 +613,11 @@ impl IslandRunner {
         let gone = || IslandError::Worker {
             message: "the worker pool has stopped".into(),
         };
-        let jobs = self.jobs.as_ref().ok_or_else(gone)?;
-        jobs.send(make(reply)).map_err(|_| gone())?;
+        let in_flight = self.shared.queue.push(make(reply)).map_err(|_| gone())?;
+        // Cheap check first; grow() decides under the lock.
+        if in_flight > 1 {
+            self.grow();
+        }
         answer.recv().map_err(|_| gone())?
     }
 }
@@ -439,8 +625,8 @@ impl IslandRunner {
 impl Drop for IslandRunner {
     fn drop(&mut self) {
         // Closing the queue ends the workers once they finish their job.
-        self.jobs = None;
-        for w in self.workers.drain(..) {
+        self.shared.queue.close();
+        for w in self.workers_lock().drain(..) {
             let _ = w.join();
         }
     }
@@ -462,6 +648,12 @@ struct Worker {
     last_bundle: Option<Arc<Bundle>>,
 }
 
+impl Drop for Worker {
+    fn drop(&mut self) {
+        self.drop_sandbox();
+    }
+}
+
 impl Worker {
     fn new(shared: Arc<Shared>) -> Self {
         Self {
@@ -473,34 +665,30 @@ impl Worker {
         }
     }
 
-    fn run(mut self, jobs: &Mutex<Receiver<Job>>) {
+    fn run(mut self) {
+        let shared = self.shared.clone();
+        let queue = &shared.queue;
         // Warm up before the first job arrives.
         let _ = self.sandbox();
         loop {
-            // A waiting job goes first; otherwise preload while idle. If
-            // another worker holds the queue, it is waiting for the next job
-            // itself, so there is nothing for this one yet.
-            let waiting = match jobs.try_lock() {
-                Ok(rx) => rx.try_recv(),
-                Err(TryLockError::Poisoned(rx)) => rx.into_inner().try_recv(),
-                Err(TryLockError::WouldBlock) => Err(TryRecvError::Empty),
-            };
-            let job = match waiting {
-                Ok(job) => Ok(job),
-                Err(TryRecvError::Disconnected) => return,
-                Err(TryRecvError::Empty) => {
+            // A waiting job goes first; otherwise preload while idle, wait,
+            // and free the runtime if nothing comes for a while.
+            let next = match queue.try_pop() {
+                Next::Empty => {
                     self.preload();
-                    self.shared.idle_workers.fetch_add(1, Ordering::SeqCst);
-                    let job = {
-                        let rx = jobs.lock().unwrap_or_else(PoisonError::into_inner);
-                        rx.recv()
-                    };
-                    self.shared.idle_workers.fetch_sub(1, Ordering::SeqCst);
-                    job
+                    match queue.pop(self.shared.release_idle_after) {
+                        Next::Empty => {
+                            self.release();
+                            queue.pop(None)
+                        }
+                        next => next,
+                    }
                 }
+                next => next,
             };
-            let Ok(job) = job else {
-                return;
+            let job = match next {
+                Next::Job(job) => job,
+                Next::Empty | Next::Closed => return,
             };
             match job {
                 Job::Render(job) => {
@@ -509,10 +697,12 @@ impl Worker {
                     if result.is_err() {
                         self.shared.failed_renders.fetch_add(1, Ordering::Relaxed);
                     }
+                    queue.done();
                     let _ = job.reply.send(result);
                 }
                 Job::Register(job) => {
                     let result = self.guard(|w| w.register(&job));
+                    queue.done();
                     let _ = job.reply.send(result);
                 }
             }
@@ -530,8 +720,7 @@ impl Worker {
         let result = catch_unwind(AssertUnwindSafe(|| f(self)));
         result.unwrap_or_else(|panic| {
             // The runtime may be mid-call; never reuse it.
-            self.sandbox = None;
-            self.preloaded = None;
+            self.drop_sandbox();
             let message = panic
                 .downcast_ref::<&str>()
                 .map(|s| (*s).to_owned())
@@ -549,10 +738,26 @@ impl Worker {
             Some(sb) => sb,
             None => {
                 self.preloaded = None;
-                Sandbox::with_options(self.shared.sandbox_options.clone())?
+                let sb = Sandbox::with_options(self.shared.sandbox_options.clone())?;
+                self.shared.runtimes.fetch_add(1, Ordering::Relaxed);
+                sb
             }
         };
         Ok(self.sandbox.insert(sb))
+    }
+
+    /// Drops the sandbox and whatever is loaded in it.
+    fn drop_sandbox(&mut self) {
+        self.preloaded = None;
+        if self.sandbox.take().is_some() {
+            self.shared.runtimes.fetch_sub(1, Ordering::Relaxed);
+        }
+    }
+
+    /// Frees the runtime of a worker that has been idle for a while; the
+    /// next job starts a new one.
+    fn release(&mut self) {
+        self.drop_sandbox();
     }
 
     /// Gives the sandbox a fresh context for the next job, freeing this
@@ -561,7 +766,7 @@ impl Worker {
         self.preloaded = None;
         if let Some(sb) = self.sandbox.as_mut() {
             if sb.reset().is_err() {
-                self.sandbox = None;
+                self.drop_sandbox();
             }
         }
     }
@@ -596,19 +801,20 @@ impl Worker {
             }
             Ok(Err(_)) => self.recycle(),
             // The runtime may be mid-call; never reuse it.
-            Err(_) => self.sandbox = None,
+            Err(_) => self.drop_sandbox(),
         }
     }
 
     /// Takes the preloaded bundle, if any, leaving a sandbox that is either
-    /// pristine or holds exactly `wanted`. Returns whether `wanted` (if
-    /// given) is already loaded. A sandbox holding another bundle is reset,
+    /// pristine or holds exactly what evaluating `wanted` would leave (see
+    /// [`Bundle::loads_like`]). Returns whether `wanted` (if given) is
+    /// already loaded. A sandbox holding another bundle is reset,
     /// so no job ever sees a bundle it did not ask for.
     fn take_preloaded(&mut self, wanted: Option<&Arc<Bundle>>) -> bool {
         let Some(loaded) = self.preloaded.take() else {
             return false;
         };
-        if wanted.is_some_and(|w| Arc::ptr_eq(w, &loaded)) {
+        if wanted.is_some_and(|w| w.loads_like(&loaded)) {
             return true;
         }
         self.recycle();

@@ -194,11 +194,10 @@ fn limit_errors_keep_the_pool_healthy() {
     }
 }
 
-/// Gives an idle worker time to reset and preload.
-/// Waits until every worker of `r` is idle: reset and preloaded.
+/// Waits until every started worker of `r` is idle: reset and preloaded.
 fn idle(r: &IslandRunner) {
     let start = std::time::Instant::now();
-    while r.stats().idle_workers < r.pool_size() {
+    while r.stats().idle_workers < r.stats().workers {
         assert!(
             start.elapsed() < Duration::from_secs(30),
             "workers never went idle: {:?}",
@@ -281,11 +280,111 @@ fn idle_workers_are_counted() {
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     render(&r, "x").unwrap();
+    // One render at a time never needs a second worker.
     let start = std::time::Instant::now();
-    while r.stats().idle_workers != 2 {
+    while r.stats().idle_workers != 1 {
         assert!(start.elapsed() < Duration::from_secs(10), "{:?}", r.stats());
         std::thread::sleep(Duration::from_millis(2));
     }
+    assert_eq!(r.stats().workers, 1);
+}
+
+#[test]
+fn renders_one_at_a_time_use_one_worker() {
+    let r = IslandRunner::with_estimated_text_metrics(options(4)).unwrap();
+    assert_eq!(r.stats().workers, 1, "the pool starts with one worker");
+    r.register_bundle("x", "function entry() { return 'x' }", "entry")
+        .unwrap();
+    r.register_bundle("y", "function entry() { return 'y' }", "entry")
+        .unwrap();
+    for i in 0..30 {
+        // Back to back, and with the worker idle (preloaded) in between.
+        assert_eq!(render(&r, "x").unwrap(), "x");
+        assert_eq!(render(&r, "y").unwrap(), "y");
+        if i % 3 == 0 {
+            idle(&r);
+        }
+    }
+    assert_eq!(r.stats().workers, 1, "{:?}", r.stats());
+    assert_eq!(r.pool_size(), 4);
+}
+
+#[test]
+fn overlapping_renders_grow_the_pool_up_to_its_size() {
+    const CALLERS: usize = 6;
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        pool_size: 3,
+        limits: Limits::default().with_time(Duration::from_secs(10)),
+        ..RunnerOptions::default()
+    })
+    .unwrap();
+    // Each render takes a while, so callers that start together overlap.
+    r.register_bundle(
+        "slow",
+        "function entry() { let n = 0; for (let i = 0; i < 3e6; i++) n += i; return 'done' }",
+        "entry",
+    )
+    .unwrap();
+    let barrier = std::sync::Barrier::new(CALLERS);
+    std::thread::scope(|s| {
+        for _ in 0..CALLERS {
+            s.spawn(|| {
+                barrier.wait();
+                assert_eq!(render(&r, "slow").unwrap(), "done");
+            });
+        }
+    });
+    let stats = r.stats();
+    assert_eq!(stats.renders, CALLERS as u64);
+    assert_eq!(
+        stats.workers, 3,
+        "grows to the pool size, no further: {stats:?}"
+    );
+}
+
+#[test]
+fn an_idle_worker_frees_its_runtime() {
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        release_idle_after: Some(Duration::from_millis(50)),
+        ..options(1)
+    })
+    .unwrap();
+    r.register_bundle(
+        "x",
+        "var top = 1; function entry() { return 'x' + top }",
+        "entry",
+    )
+    .unwrap();
+    for _ in 0..3 {
+        assert_eq!(render(&r, "x").unwrap(), "x1");
+        let start = std::time::Instant::now();
+        while r.stats().runtimes != 0 {
+            assert!(
+                start.elapsed() < Duration::from_secs(10),
+                "the runtime was never freed: {:?}",
+                r.stats()
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+    // A released worker is still idle and still serves requests.
+    idle(&r);
+    assert_eq!(r.stats().workers, 1);
+}
+
+#[test]
+fn runtimes_are_kept_without_an_idle_release() {
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        release_idle_after: None,
+        ..options(1)
+    })
+    .unwrap();
+    r.register_bundle("x", "function entry() { return 'x' }", "entry")
+        .unwrap();
+    assert_eq!(render(&r, "x").unwrap(), "x");
+    idle(&r);
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(r.stats().runtimes, 1, "{:?}", r.stats());
 }
 
 #[test]

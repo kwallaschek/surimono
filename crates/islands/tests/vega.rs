@@ -476,3 +476,30 @@ fn vega_and_vega_lite_share_a_compile_and_render_alike() {
         render(&r, "vega", &vega_bar).unwrap() == render(&runner(), "vega", &vega_bar).unwrap()
     );
 }
+
+#[test]
+fn vega_and_vega_lite_share_a_preload() {
+    // One bundle defines both entries, so a worker that preloaded it for
+    // one serves the other without loading it again, with the same output
+    // as a cold render.
+    let r = runner();
+    let lite = spec("vega-lite", "bar");
+    let vega = spec("vega", "bar");
+    let cold_lite = render(&r, "vega-lite", &lite).unwrap();
+    let cold_vega = render(&r, "vega", &vega).unwrap();
+    let wait_idle = || {
+        let start = Instant::now();
+        while r.stats().idle_workers < r.stats().workers {
+            assert!(start.elapsed() < Duration::from_secs(30), "{:?}", r.stats());
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    };
+    let before = r.stats().preloaded_renders;
+    for _ in 0..2 {
+        wait_idle();
+        assert_eq!(render(&r, "vega-lite", &lite).unwrap(), cold_lite);
+        wait_idle();
+        assert_eq!(render(&r, "vega", &vega).unwrap(), cold_vega);
+    }
+    assert_eq!(r.stats().preloaded_renders - before, 4, "{:?}", r.stats());
+}

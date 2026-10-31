@@ -8,7 +8,9 @@
 //! - no `<style>` element is left anywhere;
 //! - the island's wrapper holds one SVG-namespace `<svg>` with only SVG
 //!   elements below it, and no box-moving style on the root (or it is the
-//!   error placeholder, which holds nothing).
+//!   error placeholder, which holds nothing);
+//! - the wrapper is a box of the island's declared size (200 × 100 here)
+//!   that clips its content, so SVG larger than declared stays in it.
 //!
 //! Cases: the reproducers from the #25 review (an ECharts emphasis colour
 //! carrying page CSS with the default options and built-in bundle, and
@@ -155,6 +157,12 @@ fn contained(out: &str) -> Result<(), String> {
             Err("the error placeholder holds elements".into())
         };
     }
+    let box_style = attr(island, "style").unwrap_or_default();
+    if !box_style.starts_with("width:200px;height:100px;overflow:hidden") {
+        return Err(format!(
+            "the wrapper isn't a clipping 200x100 box: {box_style:?}"
+        ));
+    }
     if inside.len() != 1 || name(inside[0]) != (SVG_NS.to_owned(), "svg".to_owned()) {
         return Err(format!(
             "the wrapper holds {:?}, not one <svg>",
@@ -211,23 +219,30 @@ fn assert_contained(case: &str, island: &str) {
 /// hostile markup spliced in without the facade fails it.
 #[test]
 fn the_check_catches_raw_breakouts() {
+    // The raw markup in a correctly sized box, as the facade writes it, so
+    // each case fails on its breakout, not on the box.
+    let boxed = |svg: &str| {
+        page(&format!(
+            "<div class=\"surimono-island\" style=\"width:200px;height:100px;overflow:hidden\">{svg}</div>"
+        ))
+    };
     for (case, raw) in hostile_svgs() {
-        let unsafe_page = page(&format!("<div class=\"surimono-island\">{raw}</div>"));
+        if case == "root far larger than the island" {
+            // The box is what contains this one: without it, it fails.
+            let unboxed = page(&format!("<div class=\"surimono-island\">{raw}</div>"));
+            assert!(contained(&unboxed).is_err(), "{case}: unboxed should fail");
+            assert_eq!(contained(&boxed(&raw)), Ok(()), "{case}");
+            continue;
+        }
         assert!(
-            contained(&unsafe_page).is_err(),
+            contained(&boxed(&raw)).is_err(),
             "{case}: the raw markup should fail the check"
         );
     }
     // Escaped markup is only text, even raw.
-    let text = page(&format!(
-        "<div class=\"surimono-island\">{}</div>",
-        escaped_markup_in_title()
-    ));
-    assert_eq!(contained(&text), Ok(()));
-    let fine = page(&format!(
-        "<div class=\"surimono-island\"><svg xmlns=\"{SVG_NS}\"><rect/></svg></div>"
-    ));
-    assert_eq!(contained(&fine), Ok(()));
+    assert_eq!(contained(&boxed(&escaped_markup_in_title())), Ok(()));
+    let fine = format!("<svg xmlns=\"{SVG_NS}\"><rect/></svg>");
+    assert_eq!(contained(&boxed(&fine)), Ok(()));
 }
 
 /// SVG a custom bundle could return that, inlined as it is, breaks out of
@@ -299,6 +314,12 @@ fn hostile_svgs() -> Vec<(&'static str, String)> {
             "<svg:svg xmlns:svg=\"http://www.w3.org/2000/svg\"><svg:style>body{display:none}</svg:style>\
              <svg:rect/></svg:svg>"
                 .to_owned(),
+        ),
+        (
+            "root far larger than the island",
+            format!(
+                "<svg xmlns=\"{SVG_NS}\" width=\"100000\" height=\"100000\"><rect width=\"100000\" height=\"100000\" fill=\"red\"/></svg>"
+            ),
         ),
         (
             "fixed overlay on the root",

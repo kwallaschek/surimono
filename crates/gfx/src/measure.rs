@@ -49,6 +49,12 @@ const MAX_CACHED_GLYPHS: usize = 16_384;
 /// speed, never memory.
 const MAX_IDLE_WORKSPACES: usize = 8;
 
+/// After laying out more than this many bytes of text, a workspace gets
+/// fresh Parley layout buffers before it goes back to the idle list: they
+/// keep the capacity of the largest text they held (about 17 MB after one
+/// 256 KiB text), and idle workspaces live as long as the measurer.
+const LARGE_TEXT_BYTES: usize = 4 * 1024;
+
 /// The result of measuring text, as canvas `TextMetrics` defines it.
 ///
 /// All values are CSS px, for `textAlign = "start"`, `textBaseline =
@@ -145,6 +151,7 @@ impl TextMeasurer {
         let idle = self.idle().pop();
         let mut ws = idle.unwrap_or_else(|| Workspace::new(&self.shared.fonts));
         let out = f(&mut ws, &self.shared.fonts);
+        ws.release_large_buffers();
         let mut idle = self.idle();
         if idle.len() < MAX_IDLE_WORKSPACES {
             idle.push(ws);
@@ -284,6 +291,9 @@ pub(crate) struct Workspace {
     /// Bytes of every key in `fonts` and `results` (outer and inner).
     key_bytes: usize,
     glyphs: HashMap<GlyphKey, Option<PixelBounds>>,
+    /// How often the buffers were replaced (for tests).
+    #[cfg(test)]
+    buffer_resets: usize,
 }
 
 impl Workspace {
@@ -300,6 +310,28 @@ impl Workspace {
             result_count: 0,
             key_bytes: 0,
             glyphs: HashMap::new(),
+            #[cfg(test)]
+            buffer_resets: 0,
+        }
+    }
+
+    /// Replaces the layout buffers if the text the layout holds (the last
+    /// one laid out) is large, so an idle workspace keeps only label-sized
+    /// buffers. Every call lays out at most one text, whatever it measures
+    /// or shapes, so this needs no bookkeeping in the callers.
+    fn release_large_buffers(&mut self) {
+        let laid_out = self
+            .layout
+            .lines()
+            .last()
+            .map_or(0, |line| line.text_range().end);
+        if laid_out > LARGE_TEXT_BYTES {
+            self.layout = Layout::new();
+            self.layout_cx = LayoutContext::new();
+            #[cfg(test)]
+            {
+                self.buffer_resets += 1;
+            }
         }
     }
 
@@ -677,6 +709,36 @@ mod tests {
         assert_eq!(round_px(2.5), 3.0);
         assert_eq!(round_px(0.293), 0.0);
         assert_eq!(round_px(-0.2).to_bits(), 0.0f64.to_bits());
+    }
+
+    /// Review of #3: after one large measure, the idle workspace holds fresh
+    /// layout buffers; label-sized measures keep theirs.
+    #[test]
+    fn large_texts_leave_no_large_buffers_behind() {
+        let mut fonts = FontSet::new();
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/");
+        fonts
+            .add_font_bytes(std::fs::read(format!("{dir}NotoSans-Regular.ttf")).unwrap())
+            .unwrap();
+        let m = TextMeasurer::new(fonts);
+        let resets = |m: &TextMeasurer| m.idle().iter().map(|w| w.buffer_resets).sum::<usize>();
+        m.measure("Revenue 2026", "12px sans-serif").unwrap();
+        m.measure(&"x".repeat(LARGE_TEXT_BYTES), "12px sans-serif")
+            .unwrap();
+        assert_eq!(resets(&m), 0, "label-sized texts keep the buffers");
+        let big = "Sales 2026 ".repeat(MAX_TEXT_BYTES / 11);
+        let a = m.measure(&big, "12px sans-serif").unwrap();
+        assert_eq!(resets(&m), 1);
+        let ws = m.idle();
+        assert_eq!(ws.len(), 1);
+        assert_eq!(ws[0].layout.len(), 0, "a fresh layout");
+        drop(ws);
+        // Measuring again in the fresh buffers gives the same result.
+        assert_eq!(m.measure(&big, "12px sans-serif").unwrap(), a);
+        assert_eq!(
+            m.measure("Revenue 2026", "12px sans-serif").unwrap(),
+            m.measure("Revenue 2026", "12px sans-serif").unwrap()
+        );
     }
 
     #[test]

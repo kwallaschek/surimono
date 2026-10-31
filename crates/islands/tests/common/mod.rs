@@ -21,3 +21,81 @@ pub fn fixture_measurer() -> TextMeasurer {
     }
     TextMeasurer::new(fonts)
 }
+
+/// An island marker found in a document.
+pub struct Island {
+    /// Where it came from (a fixture name or a file name).
+    pub source: String,
+    pub renderer: String,
+    pub width: u32,
+    pub height: u32,
+    pub spec: String,
+}
+
+fn attribute(tag: &str, name: &str) -> Option<String> {
+    let start = tag.find(&format!("{name}=\""))? + name.len() + 2;
+    let len = tag[start..].find('"')?;
+    Some(tag[start..start + len].to_owned())
+}
+
+/// The island markers in `html`, in document order: `<script
+/// type="application/vnd.surimono+json" data-renderer=… data-width=…
+/// data-height=…>`. A simple scanner for surimono's own fixtures, not an
+/// HTML parser.
+pub fn islands_in(source: &str, html: &str) -> Vec<Island> {
+    const MARKER: &str = "type=\"application/vnd.surimono+json\"";
+    let mut out = Vec::new();
+    let mut rest = html;
+    while let Some(open) = rest.find("<script") {
+        let after = &rest[open..];
+        let Some(tag_end) = after.find('>') else {
+            break;
+        };
+        let tag = &after[..tag_end];
+        let body_start = tag_end + 1;
+        let Some(close) = after[body_start..].find("</script>") else {
+            break;
+        };
+        if tag.contains(MARKER) {
+            if let (Some(renderer), Some(w), Some(h)) = (
+                attribute(tag, "data-renderer"),
+                attribute(tag, "data-width"),
+                attribute(tag, "data-height"),
+            ) {
+                out.push(Island {
+                    source: source.to_owned(),
+                    renderer,
+                    width: w.parse().unwrap_or(0),
+                    height: h.parse().unwrap_or(0),
+                    spec: after[body_start..body_start + close].trim().to_owned(),
+                });
+            }
+        }
+        rest = &after[body_start + close..];
+    }
+    out
+}
+
+/// Every island in the visual fixtures: each `*/input.html` under
+/// `SURIMONO_FIXTURES_DIR` (default: the repository's `fixtures/islands`),
+/// fixtures sorted by name.
+pub fn fixture_islands() -> Vec<Island> {
+    let dir = std::env::var_os("SURIMONO_FIXTURES_DIR").map_or_else(
+        || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/islands"),
+        std::path::PathBuf::from,
+    );
+    let mut fixtures: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.join("input.html").exists())
+        .collect();
+    fixtures.sort();
+    let mut islands = Vec::new();
+    for f in &fixtures {
+        let html = std::fs::read_to_string(f.join("input.html")).unwrap();
+        let name = f.file_name().unwrap().to_string_lossy().into_owned();
+        islands.extend(islands_in(&name, &html));
+    }
+    assert!(!islands.is_empty(), "no islands under {}", dir.display());
+    islands
+}
