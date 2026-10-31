@@ -8,7 +8,9 @@
 //
 // Strings are compared as multisets after decoding XML entities and removing
 // all whitespace, so tspan line breaks and spacing conventions don't matter;
-// changed, missing or extra characters do.
+// changed, missing or extra characters do. Every copy counts: a string the
+// candidate draws twice (two outlines, or an outline and a <text>) where
+// Chrome draws it once is extra.
 
 const NAMED = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0" };
 
@@ -56,24 +58,24 @@ export function multisetMinus(a, b) {
 
 /**
  * Compares a candidate SVG's strings with the reference's (svgTexts of
- * Chrome's SVG). Passes when every reference string is found, as <text> or as
- * an outline's label, and the candidate has no <text> string Chrome lacks.
- * Labels the candidate has beyond that are reported but don't fail.
+ * Chrome's SVG). The candidate draws its <text> strings plus its labels that
+ * Chrome's SVG doesn't have (the outlines' labels). Passes when those equal
+ * Chrome's <text> strings as multisets: nothing missing, and nothing extra,
+ * copies included.
  */
 export function compareTexts(reference, candidateSvg) {
   const cand = svgTexts(candidateSvg);
   const outlined = multisetMinus(cand.labels, reference.labels);
-  const missing = multisetMinus(reference.text, [...cand.text, ...outlined]);
-  const extra = multisetMinus(cand.text, reference.text);
-  const otherLabels = multisetMinus(outlined, reference.text);
+  const drawn = [...cand.text, ...outlined];
+  const missing = multisetMinus(reference.text, drawn);
+  const extra = multisetMinus(drawn, reference.text);
   return {
     pass: missing.length === 0 && extra.length === 0,
     reference_strings: reference.text.length,
     candidate_text: cand.text.length,
-    candidate_outlined: outlined.length - otherLabels.length,
+    candidate_outlined: outlined.length,
     missing,
     extra,
-    other_labels: otherLabels,
   };
 }
 
@@ -140,11 +142,14 @@ function declared(tag, parent) {
 
 /**
  * [{ key, weight, style }] for every <text> in the SVG, sorted; with
- * `outlines`, also for every outline group: a <g> with an aria-label whose
- * descendants are only unlabelled <path> and <g> elements (how surimono's
- * gfx replaces a <text>; chart marks, which carry their own aria-label or
- * role, never qualify). `key` is the element's aria-label (normalised) or,
- * for a <text> without one, its content.
+ * `outlines`, also for every outline group (how surimono's gfx replaces a
+ * <text>): a <g> with an aria-label whose descendants are only <path> and <g>
+ * elements with neither an aria-label nor a role. The group's own role
+ * doesn't matter: gfx keeps the role of the <text> it replaces (Vega's text
+ * marks have role="graphics-symbol") and adds role="img" when there is none.
+ * So a labelled mark, or a group holding one, never qualifies; a labelled
+ * group of plain paths does, whatever its role. `key` is the element's
+ * aria-label (normalised) or, for a <text> without one, its content.
  */
 export function svgTextStyles(svg, { outlines = false } = {}) {
   const out = [];
@@ -185,9 +190,10 @@ export function svgTextStyles(svg, { outlines = false } = {}) {
  * Compares the declared weight and style of every reference <text> with the
  * candidate's texts and outline groups, one to one per key: each reference
  * entry consumes one candidate element with its key and the same weight and
- * style. An entry left over is a mismatch (a wrong weight or style) or, when
- * the candidate has fewer elements with that key, missing. Passes when
- * nothing is left over.
+ * style. A reference entry left over is a mismatch (a wrong weight or style)
+ * or, when the candidate has fewer elements with that key, missing. A
+ * candidate element left over (a second copy of a label, or a key Chrome has
+ * no text for) is extra. Passes when nothing is left over on either side.
  */
 export function compareStyles(referenceStyles, candidateSvg) {
   const pool = new Map();
@@ -202,6 +208,7 @@ export function compareStyles(referenceStyles, candidateSvg) {
   }
   const mismatches = [];
   const missing = [];
+  const extra = [];
   let compared = 0;
   for (const [key, wanted] of byKey) {
     const have = [...(pool.get(key) ?? [])];
@@ -221,6 +228,9 @@ export function compareStyles(referenceStyles, candidateSvg) {
         mismatches.push({ key, chrome: w, surimono: have[i] });
       } else missing.push({ key, chrome: w });
     });
+    // Candidate elements of that key beyond Chrome's count.
+    for (const h of have.slice(left.length)) extra.push({ key, surimono: h });
   }
-  return { pass: mismatches.length === 0 && missing.length === 0, compared, mismatches, missing };
+  for (const [key, have] of pool) if (!byKey.has(key)) for (const h of have) extra.push({ key, surimono: h });
+  return { pass: mismatches.length === 0 && missing.length === 0 && extra.length === 0, compared, mismatches, missing, extra };
 }
