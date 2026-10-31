@@ -284,6 +284,20 @@ module Surimono
     end
   end
 
+  ##
+  # :singleton-method: builtin_renderers
+  # The built-in renderers in this native extension, sorted:
+  # ["echarts", "vega", "vega-lite"]. Defined by the extension.
+
+  ##
+  # :singleton-method: precompiled_builtins
+  # How many of Surimono.builtin_renderers load precompiled bytecode in this
+  # process: all of them, unless SURIMONO_PRECOMPILE=0 was set when the gem
+  # was built or when the process started (then 0), or the bytecode doesn't
+  # fit the engine (a broken build). Output is the same either way; only
+  # each built-in's first render in a process is slower. For diagnostics and
+  # packaging checks. Defined by the extension.
+
   # Renderers Surimono.render keeps, least recently used dropped first. Each
   # one holds a pool of JavaScript runtimes with the renderers compiled, so the
   # cache is small; build Renderer objects yourself for more control.

@@ -315,11 +315,13 @@ class SurimonoTest < Minitest::Test
     assert_equal stub_svg, r.render(island), "the parent still renders"
   end
 
-  # Runs the block in a forked child and returns what it wrote, failing the
-  # test (and killing the child) if it doesn't finish within the deadline.
+  # Runs the block in a forked child (Process.fork) and returns what it
+  # wrote, or nil (killing the child) if it doesn't finish within the
+  # deadline. A thread reads the pipe while the parent waits, so a child that
+  # writes more than the pipe holds (64 KiB on Linux) can't block on it.
   def in_child(deadline: 30)
     reader, writer = IO.pipe
-    pid = fork do
+    pid = Process.fork do
       reader.close
       writer.write(yield)
       writer.close
@@ -329,6 +331,7 @@ class SurimonoTest < Minitest::Test
       exit!(1)
     end
     writer.close
+    drain = Thread.new { reader.read }
     status = nil
     give_up = Process.clock_gettime(Process::CLOCK_MONOTONIC) + deadline
     loop do
@@ -342,12 +345,48 @@ class SurimonoTest < Minitest::Test
       Process.wait(pid)
       return nil
     end
-    got = reader.read
+    got = drain.value
     raise "child failed: #{got}" unless status.success?
 
     got
   ensure
+    drain&.join(5) || drain&.kill
     reader&.close
+  end
+
+  ECHARTS_SPEC = <<~JSON
+    {"animation": false, "textStyle": {"fontFamily": "'Noto Sans'"},
+     "xAxis": {"type": "category", "data": ["Q1", "Q2", "Q3", "Q4"]},
+     "yAxis": {"type": "value"},
+     "series": [{"type": "bar", "data": [120, 200, 150, 80]}]}
+  JSON
+
+  # The usual Puma/Unicorn sequence with a built-in renderer: render in the
+  # parent, Process.fork, render in the child. The child starts its own
+  # runtimes (from the precompiled bytecode) and gives the parent's bytes.
+  def test_builtin_renderer_renders_the_same_after_fork
+    skip "no fork on this platform" unless Process.respond_to?(:fork)
+
+    r = new_renderer(pool_size: 1, limits: { time_ms: 60_000 })
+    doc = "<p>before</p>#{island(ECHARTS_SPEC, renderer: "echarts")}<p>after</p>"
+    expected = r.render(doc)
+    assert_match(%r{\A<p>before</p><div class="surimono-island" data-renderer="echarts".*<svg .*</svg></div><p>after</p>\z}m,
+      expected)
+    got = in_child(deadline: 120) { r.render(doc) }
+    refute_nil got, "the forked child hung rendering"
+    assert_equal expected, got
+    assert_equal expected, r.render(doc), "the parent still renders"
+  end
+
+  # Packaging check: a gem (source or precompiled) carries bytecode that the
+  # running engine accepts for every built-in, unless switched off.
+  def test_every_builtin_is_precompiled
+    builtins = Surimono.builtin_renderers
+    assert_equal %w[echarts vega vega-lite], builtins
+    assert_equal builtins, new_renderer.renderers
+    want = ENV["SURIMONO_PRECOMPILE"] == "0" ? 0 : builtins.size
+    assert_equal want, Surimono.precompiled_builtins,
+      "built-ins loading precompiled bytecode (SURIMONO_PRECOMPILE=#{ENV["SURIMONO_PRECOMPILE"].inspect})"
   end
 
   # Puma's fork_worker and Resque fork from a process that is busy rendering.
