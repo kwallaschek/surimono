@@ -11,11 +11,27 @@ import { PIXEL_THRESHOLD, diff, readPng, sideBySide, writePng } from "./png.mjs"
  * fixtures/README.md ("Diff metric").
  */
 export const PASS_WORST_WINDOW = 0.1;
+/** Colour checks (lib/png.mjs): worst window's share of solid pixels in the wrong colour, and of inked pixels in the wrong hue. */
+export const PASS_COLOUR_WINDOW = 0.1;
+export const PASS_HUE_WINDOW = 0.3;
+
+/** Whether a page or island score passes every image check; names the failed ones. */
+export function verdictOf(score) {
+  const failed = [];
+  if (!score.size_match) failed.push("size");
+  if (score.worst_window > PASS_WORST_WINDOW) failed.push("shape");
+  if (score.colour_worst_window > PASS_COLOUR_WINDOW) failed.push("colour");
+  if (score.hue_worst_window > PASS_HUE_WINDOW) failed.push("hue");
+  return { pass: failed.length === 0, failed };
+}
 
 export const METRIC =
-  "near-match (1 px radius, per-channel tolerance 128/255), worst 32x32 window's share of mismatched ink; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink";
+  "shape: near-match (1 px radius, per-channel tolerance 128/255), worst 32x32 window's share of mismatched ink, pass <= 10%; colour: solid pixels (flat 5x5) within 16/255 per channel at 1 px, worst window <= 10%; hue: ink direction of strongly inked pixels within 8 degrees at 1 px, worst window <= 30%; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink";
 
-/** Committed Chrome references of a fixture: full pages and single islands. */
+/**
+ * Committed Chrome references of a fixture: full pages, single islands, and the
+ * strings in each island's SVG (island-<i>.texts.json, from lib/svgtext.mjs).
+ */
 export function referenceFiles(fixtureDir) {
   const refDir = path.join(fixtureDir, "reference");
   const list = (re) =>
@@ -26,7 +42,7 @@ export function referenceFiles(fixtureDir) {
           .sort((a, b) => Number(re.exec(a)[1]) - Number(re.exec(b)[1]))
           .map((f) => path.join(refDir, f))
       : [];
-  return { pages: list(/^chrome-(\d+)\.png$/), islands: list(/^island-(\d+)\.png$/) };
+  return { pages: list(/^chrome-(\d+)\.png$/), islands: list(/^island-(\d+)\.png$/), texts: list(/^island-(\d+)\.texts\.json$/) };
 }
 
 /**
@@ -47,10 +63,10 @@ export function comparePdf({ expectedPngs, pdf, outDir, label, subject }) {
     const expected = readPng(expectedPngs[i]);
     const actual = readPng(actualPages[i]);
     const { score, image } = diff(expected, actual);
-    const pass = score.size_match && score.worst_window <= PASS_WORST_WINDOW;
+    const { pass, failed } = verdictOf(score);
     const sbs = path.join(outDir, `side-by-side-${i + 1}.png`);
     writePng(sbs, sideBySide([expected, actual, image]));
-    pages.push({ page: i + 1, pass, ...score, side_by_side: path.basename(sbs) });
+    pages.push({ page: i + 1, pass, failed, ...score, side_by_side: path.basename(sbs) });
   }
   const result = {
     subject,
@@ -59,12 +75,16 @@ export function comparePdf({ expectedPngs, pdf, outDir, label, subject }) {
     metric: METRIC,
     pixel_threshold: PIXEL_THRESHOLD,
     pass_worst_window: PASS_WORST_WINDOW,
+    pass_colour_window: PASS_COLOUR_WINDOW,
+    pass_hue_window: PASS_HUE_WINDOW,
     poppler: popplerVersion(),
     dpi: DPI,
     page_count: { chrome: expectedPngs.length, [label]: actualPages.length },
     pass: pages.every((p) => p.pass),
     worst_window: Math.max(...pages.map((p) => p.worst_window ?? 1)),
     worst_diff_ratio_ink: Math.max(...pages.map((p) => p.diff_ratio_ink ?? 1)),
+    worst_colour_window: Math.max(...pages.map((p) => p.colour_worst_window ?? 1)),
+    worst_hue_window: Math.max(...pages.map((p) => p.hue_worst_window ?? 1)),
     pages,
   };
   fs.writeFileSync(path.join(outDir, "score.json"), `${JSON.stringify(result, null, 2)}\n`);
@@ -76,7 +96,13 @@ export function printResult(result) {
     const s =
       p.worst_window === undefined
         ? p.detail
-        : `worst window ${(p.worst_window * 100).toFixed(1)}% at ${p.worst_window_at}, near-mismatch ${(p.near_ink_share * 100).toFixed(2)}% of ink, pixelmatch ${(p.diff_ratio_ink * 100).toFixed(2)}%${p.size_match ? "" : `, size ${p.actual_size} vs Chrome ${p.expected_size}`}`;
-    console.log(`${p.pass ? "pass" : "FAIL"} ${result.subject}${result.pages.length > 1 ? ` page ${p.page}` : ""}: ${s}`);
+        : `worst window ${(p.worst_window * 100).toFixed(1)}% at ${p.worst_window_at}, colour ${(p.colour_worst_window * 100).toFixed(1)}%, hue ${(p.hue_worst_window * 100).toFixed(1)}%, near-mismatch ${(p.near_ink_share * 100).toFixed(2)}% of ink, pixelmatch ${(p.diff_ratio_ink * 100).toFixed(2)}%${p.size_match ? "" : `, size ${p.actual_size} vs Chrome ${p.expected_size}`}`;
+    console.log(`${p.pass ? "pass" : `FAIL(${(p.failed ?? []).join("+") || "missing"})`} ${result.subject}${result.pages.length > 1 ? ` page ${p.page}` : ""}: ${s}`);
+  }
+  if (result.text) {
+    const t = result.text;
+    console.log(
+      `${t.pass ? "pass" : "FAIL(text)"} ${result.subject} text: ${t.reference_strings} strings in Chrome's SVG, found ${t.candidate_text} as <text> and ${t.candidate_outlined} as outline labels${t.missing.length ? `; missing ${JSON.stringify(t.missing.slice(0, 10))}` : ""}${t.extra.length ? `; extra ${JSON.stringify(t.extra.slice(0, 10))}` : ""}`,
+    );
   }
 }
