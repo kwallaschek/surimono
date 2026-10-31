@@ -104,9 +104,152 @@ pub fn builtin_renderers() -> Vec<&'static str> {
     ALL.iter().map(|b| b.name).collect()
 }
 
+/// How many of [`builtin_renderers`] will load precompiled bytecode in
+/// this process instead of compiling their source on first use.
+///
+/// Equal to `builtin_renderers().len()` in a normal build. Less (usually 0)
+/// when `SURIMONO_PRECOMPILE=0` was set at build or run time, or when the
+/// running engine's fingerprint differs from the one that compiled the
+/// bytecode (a broken cross build); renders are the same then, only each
+/// built-in's first render in a process is slower. Packaging checks use it
+/// to prove a shipped binary carries usable bytecode. The answer is worked
+/// out on the first call (hashing each bundle once, a few milliseconds).
+pub fn precompiled_builtins() -> usize {
+    ALL.iter()
+        .filter(|b| crate::embedded::bytecode(b, ENGINE_FINGERPRINT).is_some())
+        .count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The positions of native `class` declarations and expressions in
+    /// minified JavaScript: the keyword (not part of a longer name or a
+    /// property such as `a.class`), an optional name, then `{` or
+    /// `extends`. Doesn't look inside strings or comments, so it may
+    /// over-report, never under-report class syntax as minifiers write it.
+    fn native_classes(js: &str) -> Vec<usize> {
+        let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'$';
+        let b = js.as_bytes();
+        let skip_ws = |mut i: usize| {
+            while i < b.len() && b[i].is_ascii_whitespace() {
+                i += 1;
+            }
+            i
+        };
+        let word = |i: usize| {
+            let mut j = i;
+            while j < b.len() && ident(b[j]) {
+                j += 1;
+            }
+            &js[i..j]
+        };
+        let mut found = Vec::new();
+        let mut from = 0;
+        while let Some(at) = js[from..].find("class").map(|i| i + from) {
+            from = at + 5;
+            let before = at.checked_sub(1).map(|i| b[i]);
+            let after = b.get(from).copied();
+            if before.is_some_and(|c| ident(c) || c == b'.') || after.is_some_and(ident) {
+                continue; // `subclass`, `a.class`, `className`, …
+            }
+            let mut i = skip_ws(from);
+            let name = word(i);
+            if !name.is_empty() && name != "extends" {
+                i = skip_ws(i + name.len());
+            }
+            if js[i..].starts_with('{') || word(i) == "extends" {
+                found.push(at);
+            }
+        }
+        found
+    }
+
+    #[test]
+    fn the_class_scanner_finds_class_syntax() {
+        for js in [
+            "var a=class{}",
+            "var a=class extends B{}",
+            "class A{}",
+            "x;class A extends B{}",
+            "(class A {})",
+            "f(class\n{})",
+        ] {
+            assert_eq!(native_classes(js).len(), 1, "{js}");
+        }
+        for js in [
+            "a.className='x'",
+            "e.classList.add(t)",
+            "a.class={}",
+            "var subclass={}",
+            "var klass=class_",
+            "'class'",
+        ] {
+            assert!(native_classes(js).is_empty(), "{js}");
+        }
+        // Real minified output: the Vega bundle has native classes (and no
+        // source-text class detection).
+        if let Some(vega) = find("vega") {
+            assert!(native_classes(vega.source).len() > 10);
+        }
+    }
+
+    /// A bundle that tells classes from functions by their source text
+    /// (ECharts' `isESClass`: `/^class\s/` on `Function.prototype.toString`)
+    /// misjudges every native class once it runs from stripped bytecode,
+    /// whose functions' text is `[native code]` (surimono-core's
+    /// `stripping_hides_native_classes_from_to_string`). ECharts then calls
+    /// such a class without `new` in `extend`, which throws. So a bundle
+    /// with that check must contain no native class syntax: if a new
+    /// version or our entry adds one, either transpile classes away in
+    /// `js/build.sh` or stop stripping that bundle.
+    #[test]
+    fn bundles_that_detect_classes_by_source_have_no_native_classes() {
+        let detects = |js: &str| js.contains(r"/^class\s/.test(Function.prototype.toString");
+        let mut checked = 0;
+        for b in ALL {
+            if !detects(b.source) {
+                continue;
+            }
+            checked += 1;
+            let at = native_classes(b.source);
+            let show: Vec<&str> = at
+                .iter()
+                .take(3)
+                .map(|&i| {
+                    let (mut lo, mut hi) = (i.saturating_sub(40), (i + 60).min(b.source.len()));
+                    while !b.source.is_char_boundary(lo) {
+                        lo -= 1;
+                    }
+                    while !b.source.is_char_boundary(hi) {
+                        hi += 1;
+                    }
+                    &b.source[lo..hi]
+                })
+                .collect();
+            assert!(
+                at.is_empty(),
+                "{}: {} native classes under source-text class detection, e.g. {show:?}",
+                b.name,
+                at.len()
+            );
+        }
+        if cfg!(feature = "echarts") {
+            assert!(checked >= 1, "ECharts' isESClass is no longer found");
+        }
+    }
+
+    #[test]
+    fn precompiled_builtins_counts_every_builtin() {
+        if option_env!("SURIMONO_PRECOMPILE") == Some("0")
+            || std::env::var_os("SURIMONO_PRECOMPILE").is_some_and(|v| v == "0")
+        {
+            assert_eq!(precompiled_builtins(), 0);
+        } else {
+            assert_eq!(precompiled_builtins(), builtin_renderers().len());
+        }
+    }
 
     #[test]
     fn builtins_are_sorted_and_unique() {
