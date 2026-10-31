@@ -75,20 +75,20 @@ LLVM version: 23.1.4
 [1m[92m  Downloaded[0m serde_spanned v1.1.2
 [1m[92m  Downloaded[0m toml v1.1.8+spec-1.1.0
 [1m[92m  Downloaded[0m toml_datetime v1.1.2+spec-1.1.0
-[1m[92m  Downloaded[0m toml_parser v1.1.5+spec-1.1.0
 [1m[92m  Downloaded[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m  Downloaded[0m toml_parser v1.1.5+spec-1.1.0
 [1m[92m  Downloaded[0m winnow v1.0.4
 [1m[92m    Updating[0m crates.io index
 [1m[92m Downloading[0m crates ...
-[1m[92m  Downloaded[0m addr2line v0.27.1
-[1m[92m  Downloaded[0m rustc-literal-escaper v0.0.8
-[1m[92m  Downloaded[0m rustc-demangle v0.1.28
-[1m[92m  Downloaded[0m cfg-if v1.0.4
-[1m[92m  Downloaded[0m getopts v0.2.24
 [1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m addr2line v0.27.1
+[1m[92m  Downloaded[0m getopts v0.2.24
+[1m[92m  Downloaded[0m rustc-literal-escaper v0.0.8
+[1m[92m  Downloaded[0m cfg-if v1.0.4
 [1m[92m  Downloaded[0m miniz_oxide v0.9.1
-[1m[92m  Downloaded[0m gimli v0.34.0
+[1m[92m  Downloaded[0m rustc-demangle v0.1.28
 [1m[92m  Downloaded[0m object v0.39.1
+[1m[92m  Downloaded[0m gimli v0.34.0
 [1m[92m   Compiling[0m compiler_builtins v0.1.160 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
 [1m[92m   Compiling[0m core v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
 [1m[92m   Compiling[0m object v0.39.1
@@ -103,8 +103,8 @@ LLVM version: 23.1.4
 [1m[92m   Compiling[0m typenum v1.20.1
 [1m[92m   Compiling[0m thiserror v2.0.21
 [1m[92m   Compiling[0m parking_lot_core v0.9.12
-[1m[92m   Compiling[0m cfg-if v1.0.5
 [1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m cfg-if v1.0.5
 [1m[92m   Compiling[0m zmij v1.0.23
 [1m[92m   Compiling[0m serde_json v1.0.154
 [1m[92m   Compiling[0m equivalent v1.0.3
@@ -119,30 +119,30 @@ LLVM version: 23.1.4
 [1m[92m   Compiling[0m selectors v0.32.0
 [1m[92m   Compiling[0m web_atoms v0.1.3
 [1m[92m   Compiling[0m num-traits v0.2.19
-[1m[92m   Compiling[0m icu_properties_data v2.2.0
 [1m[92m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[92m   Compiling[0m icu_properties_data v2.2.0
 [1m[92m   Compiling[0m crossbeam-utils v0.8.23
 [1m[92m   Compiling[0m crossbeam-epoch v0.9.21
-[1m[92m   Compiling[0m icu_locale_data v2.2.0
-[1m[92m   Compiling[0m crossbeam-deque v0.8.8
 [1m[92m   Compiling[0m rayon-core v1.13.0
+[1m[92m   Compiling[0m crossbeam-deque v0.8.8
+[1m[92m   Compiling[0m icu_locale_data v2.2.0
 [1m[92m   Compiling[0m icu_segmenter_data v2.2.0
 [1m[92m   Compiling[0m stylo_atoms v0.8.0
 [1m[92m   Compiling[0m stylo v0.8.0
 [1m[92m   Compiling[0m rustc-std-workspace-core v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-core)
 [1m[92m   Compiling[0m alloc v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc)
 [1m[92m   Compiling[0m unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/unwind)
-[1m[92m   Compiling[0m adler2 v2.0.1
 [1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m cfg-if v1.0.4
+[1m[92m   Compiling[0m rustc-demangle v0.1.28
 [1m[92m   Compiling[0m rustc-std-workspace-alloc v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-alloc)
 [1m[92m   Compiling[0m gimli v0.34.0
 [1m[92m   Compiling[0m std_detect v0.1.5 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std_detect)
-[1m[92m   Compiling[0m addr2line v0.27.1
 [1m[92m   Compiling[0m miniz_oxide v0.9.1
-[1m[92m   Compiling[0m panic_unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_unwind)
+[1m[92m   Compiling[0m addr2line v0.27.1
 [1m[92m   Compiling[0m panic_abort v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_abort)
-[1m[92m   Compiling[0m cfg-if v1.0.4
-[1m[92m   Compiling[0m rustc-demangle v0.1.28
+[1m[92m   Compiling[0m panic_unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_unwind)
 [1m[92m   Compiling[0m rustc-literal-escaper v0.0.8
 [1m[92m   Compiling[0m rustc-std-workspace-std v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-std)
 [1m[92m   Compiling[0m getopts v0.2.24
@@ -151,41 +151,41 @@ LLVM version: 23.1.4
 [1m[92m   Compiling[0m smallvec v1.16.4
 [1m[92m   Compiling[0m zerofrom v0.1.8
 [1m[92m   Compiling[0m yoke v0.8.4
-[1m[92m   Compiling[0m writeable v0.6.4
 [1m[92m   Compiling[0m zerovec v0.11.9
-[1m[92m   Compiling[0m litemap v0.8.3
-[1m[92m   Compiling[0m bitflags v2.13.2
-[1m[92m   Compiling[0m bytemuck v1.25.2
-[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m writeable v0.6.4
 [1m[92m   Compiling[0m tinystr v0.8.5
+[1m[92m   Compiling[0m litemap v0.8.3
 [1m[92m   Compiling[0m icu_locale_core v2.2.0
-[1m[92m   Compiling[0m core_maths v0.1.1
+[1m[92m   Compiling[0m bitflags v2.13.2
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m bytemuck v1.25.2
 [1m[92m   Compiling[0m font-types v0.10.1
+[1m[92m   Compiling[0m core_maths v0.1.1
 [1m[92m   Compiling[0m siphasher v1.0.4
 [1m[92m   Compiling[0m phf_shared v0.11.3
 [1m[92m   Compiling[0m read-fonts v0.35.0
 [1m[92m   Compiling[0m font-types v0.12.7
 [1m[92m   Compiling[0m new_debug_unreachable v1.0.6
-[1m[92m   Compiling[0m scopeguard v1.2.0
 [1m[92m   Compiling[0m once_cell v1.21.4
-[1m[92m   Compiling[0m read-fonts v0.41.0
+[1m[92m   Compiling[0m scopeguard v1.2.0
 [1m[92m   Compiling[0m lock_api v0.4.14
+[1m[92m   Compiling[0m read-fonts v0.41.0
 [1m[92m   Compiling[0m foldhash v0.1.5
 [1m[92m   Compiling[0m hashbrown v0.15.5
 [1m[92m   Compiling[0m parking_lot v0.12.5
 [1m[92m   Compiling[0m memmap2 v0.9.12
 [1m[92m   Compiling[0m precomputed-hash v0.1.1
 [1m[92m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[92m   Compiling[0m string_cache v0.8.9
 [1m[92m   Compiling[0m fontique v0.6.0
+[1m[92m   Compiling[0m harfrust v0.3.2
 [1m[92m   Compiling[0m skrifa v0.44.0
 [1m[92m   Compiling[0m swash v0.2.10
-[1m[92m   Compiling[0m string_cache v0.8.9
 [1m[92m   Compiling[0m skrifa v0.37.0
-[1m[92m   Compiling[0m harfrust v0.3.2
 [1m[92m   Compiling[0m phf v0.11.3
 [1m[92m   Compiling[0m parley v0.6.0
-[1m[92m   Compiling[0m log v0.4.34
 [1m[92m   Compiling[0m dtoa v1.0.11
+[1m[92m   Compiling[0m log v0.4.34
 [1m[92m   Compiling[0m dtoa-short v0.3.5
 [1m[92m   Compiling[0m rquickjs-core v0.14.0
 [1m[92m   Compiling[0m roxmltree v0.21.2
@@ -193,17 +193,17 @@ LLVM version: 23.1.4
 [1m[92m   Compiling[0m utf8_iter v1.1.0
 [1m[92m   Compiling[0m rquickjs v0.14.0
 [1m[92m   Compiling[0m cssparser v0.35.0
+[1m[92m   Compiling[0m servo_arc v0.4.3
 [1m[92m   Compiling[0m potential_utf v0.1.6
 [1m[92m   Compiling[0m zerotrie v0.2.5
-[1m[92m   Compiling[0m servo_arc v0.4.3
 [1m[92m   Compiling[0m smallbitvec v2.6.1
 [1m[92m   Compiling[0m thin-vec v0.2.21
 [1m[92m   Compiling[0m to_shmem v0.2.0
 [1m[92m   Compiling[0m icu_provider v2.2.0
 [1m[92m   Compiling[0m icu_collections v2.2.0
 [1m[92m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
-[1m[92m   Compiling[0m derive_more v2.1.1
 [1m[92m   Compiling[0m rustc-hash v2.1.3
+[1m[92m   Compiling[0m derive_more v2.1.1
 [1m[92m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
 [1m[92m   Compiling[0m icu_properties v2.2.0
 [1m[92m   Compiling[0m icu_normalizer v2.2.0
@@ -215,14 +215,14 @@ LLVM version: 23.1.4
 [1m[92m   Compiling[0m idna v1.1.0
 [1m[92m   Compiling[0m app_units v0.7.8
 [1m[92m   Compiling[0m euclid v0.22.14
-[1m[92m   Compiling[0m void v1.0.2
 [1m[92m   Compiling[0m mac v0.1.1
+[1m[92m   Compiling[0m void v1.0.2
 [1m[92m   Compiling[0m futf v0.1.5
 [1m[92m   Compiling[0m url v2.5.8
 [1m[92m   Compiling[0m stylo_malloc_size_of v0.8.0
 [1m[92m   Compiling[0m arrayvec v0.7.8
-[1m[92m   Compiling[0m utf-8 v0.7.6
 [1m[92m   Compiling[0m either v1.19.0
+[1m[92m   Compiling[0m utf-8 v0.7.6
 [1m[92m   Compiling[0m icu_locale v2.2.0
 [1m[92m   Compiling[0m tendril v0.4.3
 [1m[92m   Compiling[0m icu_segmenter v2.2.0
@@ -236,36 +236,36 @@ LLVM version: 23.1.4
 [1m[92m   Compiling[0m indexmap v2.14.2
 [1m[92m   Compiling[0m num_cpus v1.17.0
 [1m[92m   Compiling[0m byteorder v1.5.0
-[1m[92m   Compiling[0m stylo_config v0.8.0
-[1m[92m   Compiling[0m static_assertions v1.1.0
-[1m[92m   Compiling[0m grid v1.0.1
-[1m[92m   Compiling[0m stylo_static_prefs v0.8.0
-[1m[92m   Compiling[0m bytes v1.12.1
-[1m[92m   Compiling[0m atomic_refcell v0.1.14
-[1m[92m   Compiling[0m lazy_static v1.5.1
-[1m[92m   Compiling[0m unicode-segmentation v1.13.3
 [1m[92m   Compiling[0m matches v0.1.10
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m stylo_static_prefs v0.8.0
+[1m[92m   Compiling[0m grid v1.0.1
+[1m[92m   Compiling[0m atomic_refcell v0.1.14
+[1m[92m   Compiling[0m unicode-segmentation v1.13.3
+[1m[92m   Compiling[0m static_assertions v1.1.0
+[1m[92m   Compiling[0m stylo_config v0.8.0
+[1m[92m   Compiling[0m lazy_static v1.5.1
 [1m[92m   Compiling[0m http v1.5.0
 [1m[92m   Compiling[0m keyboard-types v0.7.0
 [1m[92m   Compiling[0m taffy v0.9.2
-[1m[92m   Compiling[0m cursor-icon v1.2.0
-[1m[92m   Compiling[0m byteorder-lite v0.1.0
 [1m[92m   Compiling[0m winnow v1.0.4
+[1m[92m   Compiling[0m byteorder-lite v0.1.0
 [1m[92m   Compiling[0m smol_str v0.2.2
+[1m[92m   Compiling[0m cursor-icon v1.2.0
+[1m[92m   Compiling[0m image v0.25.6
 [1m[92m   Compiling[0m blitz-traits v0.2.0
 [1m[92m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
-[1m[92m   Compiling[0m image v0.25.6
 [1m[92m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
 [1m[92m   Compiling[0m serde_spanned v1.1.2
-[1m[92m   Compiling[0m debug_timer v0.1.3
-[1m[92m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
-[1m[92m   Compiling[0m slab v0.4.12
-[1m[92m   Compiling[0m color v0.3.3
 [1m[92m   Compiling[0m fastrand v2.5.0
+[1m[92m   Compiling[0m color v0.3.3
 [1m[92m   Compiling[0m html-escape v0.2.15
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m   Compiling[0m debug_timer v0.1.3
 [1m[92m   Compiling[0m toml v1.1.8+spec-1.1.0
-[1m[92m   Compiling[0m xml5ever v0.35.0
 [1m[92m   Compiling[0m html5ever v0.35.0
+[1m[92m   Compiling[0m xml5ever v0.35.0
 [1m[92m   Compiling[0m stats_alloc v0.1.10
 [1m[92m   Compiling[0m hashbrown v0.16.1
 [1m[92m   Compiling[0m lol_html v2.7.0
@@ -276,67 +276,67 @@ LLVM version: 23.1.4
 [1m[92m   Compiling[0m blitz-dom v0.2.4
 [1m[92m   Compiling[0m blitz-html v0.2.0
 [1m[92m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
-[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 3m 20s
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 4m 42s
 [1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/66f5911132a8f5b2/out/surimono-66f5911132a8f5b2)
 
 running 64 tests
 test backend::tests::bundle_names_and_entries_are_checked ... ok
 test backend::tests::fonts_must_be_fonts ... ok
 test backend::tests::every_island_error_maps_to_a_public_error ... ok
-test charref::tests::numeric_references ... ok
-test charref::tests::plain_text_is_borrowed ... ok
 test charref::tests::named_references ... ok
+test charref::tests::plain_text_is_borrowed ... ok
+test charref::tests::numeric_references ... ok
 test error::tests::document_errors_have_no_island ... ok
 test error::tests::error_is_send_sync_static ... ok
 test error::tests::island_errors_name_the_island ... ok
 test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
 test options::tests::builder_sets_everything ... ok
-test options::tests::defaults ... ok
 test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
-test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
+test options::tests::defaults ... ok
 test prepass::tests::attributes_in_any_order_and_quoting ... ok
-test prepass::tests::comment_text_never_closes_the_comment ... ok
-test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
 test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
-test prepass::tests::default_size_is_600_by_400 ... ok
-test prepass::tests::cancel_skips_the_remaining_islands_whatever_the_policy ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
 test prepass::tests::document_without_islands_is_unchanged ... ok
-test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
 test prepass::tests::documents_without_the_island_type_are_not_parsed ... ok
-test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
-test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::cancel_skips_the_remaining_islands_whatever_the_policy ... ok
 test prepass::tests::html_escaped_json_gets_a_hint ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
 test prepass::tests::keeps_id_and_class ... ok
-test prepass::tests::malformed_markers_are_invalid_islands ... ok
 test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
 test prepass::tests::other_scripts_are_left_alone ... ok
-test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
-test prepass::tests::placeholders_keep_the_island_size_and_style ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
 test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::placeholders_keep_the_island_size_and_style ... ok
 test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
 test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
 test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
 test prepass::tests::type_must_be_written_without_character_references ... ok
-test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
 test prepass::tests::utf8_text_around_and_inside_islands ... ok
-test prepass::tests::too_many_islands_fail_before_any_island_runs ... ok
 test prepass::tests::wrapper_keeps_accessibility_and_style_attributes_only ... ok
+test prepass::tests::too_many_islands_fail_before_any_island_runs ... ok
 test renderer::tests::an_island_is_clipped_to_its_declared_box ... ok
-test renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process ... ok
 test renderer::tests::builtins_come_first_then_bundles_in_order ... ok
-test renderer::tests::clock_options_reach_the_scripts ... ok
 test renderer::tests::a_forked_child_starts_its_own_runner_and_measurer ... ok
-test renderer::tests::hostile_svg_cannot_break_out_of_the_wrapper ... ok
+test renderer::tests::clock_options_reach_the_scripts ... ok
+test renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process ... ok
 test renderer::tests::dropping_a_renderer_from_another_process_does_not_join_its_threads ... ok
+test renderer::tests::hostile_svg_cannot_break_out_of_the_wrapper ... ok
 test renderer::tests::many_threads_share_one_renderer ... ok
-test renderer::tests::many_threads_after_a_fork_share_one_new_slot ... ok
-test renderer::tests::invalid_options ... ok
-test renderer::tests::renderer_is_send_and_sync ... ok
-test renderer::tests::placeholder_policy ... ok
-test renderer::tests::renders_islands_and_keeps_the_rest ... ok
 test renderer::tests::a_cancelled_render_skips_the_remaining_islands ... ok
-test renderer::tests::text_is_measured_with_the_given_fonts ... ok
+test renderer::tests::many_threads_after_a_fork_share_one_new_slot ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::invalid_options ... ok
 test renderer::tests::too_many_fork_generations_is_an_error_not_a_hang ... ok
+test renderer::tests::text_is_measured_with_the_given_fonts ... ok
 test svg::tests::markup_that_would_break_out_of_the_wrapper_is_an_error ... ok
 test svg::tests::outlining_text_without_fonts_says_what_to_do ... ok
 test svg::tests::scripts_and_handlers_are_removed_and_ids_prefixed ... ok
@@ -345,7 +345,7 @@ test renderer::tests::unknown_and_disabled_renderers ... ok
 test renderer::tests::script_failures_become_typed_errors ... ok
 test renderer::tests::max_islands_caps_a_document ... ok
 
-test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.79s
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.65s
 
 [1m[92m     Running[0m tests/breakout.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/d396f396784ba3f5/out/breakout-d396f396784ba3f5)
 
@@ -354,69 +354,69 @@ test the_check_catches_raw_breakouts ... ok
 test echarts_emphasis_colour_cannot_style_the_page ... ok
 test custom_bundle_svg_stays_in_its_box ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
 
 [1m[92m     Running[0m tests/fixtures.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/c2ec2603fe44349e/out/fixtures-c2ec2603fe44349e)
 
 running 4 tests
 test keep_mode_keeps_text_in_the_registered_font ... ok
-test two_echarts_islands_share_no_ids ... ok
 test echarts_bar_simple_latin_becomes_sanitised_svg ... ok
+test two_echarts_islands_share_no_ids ... ok
 test every_checkpoint_fixture_renders ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.68s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.60s
 
 [1m[92m     Running[0m unittests src/main.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-cli/d22af61186f935d8/out/surimono-d22af61186f935d8)
 
 running 6 tests
 test tests::dash_and_defaults ... ok
 test tests::parses_every_option ... ok
-test tests::atomic_write_replaces_or_leaves_alone ... ok
-test tests::usage_errors ... ok
 test tests::atomic_write_keeps_permissions_and_follows_links ... ok
+test tests::usage_errors ... ok
+test tests::atomic_write_replaces_or_leaves_alone ... ok
 test tests::errors_map_to_exit_codes ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
 [1m[92m     Running[0m tests/cli.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-cli/9918e3c5f2b77e6c/out/cli-9918e3c5f2b77e6c)
 
 running 8 tests
 test a_failed_render_writes_no_output_file ... ok
-test a_failed_render_leaves_an_existing_output_alone ... ok
 test help_and_version ... ok
+test a_failed_render_leaves_an_existing_output_alone ... ok
 test bundles_renderers_and_island_cap ... ok
 test stdin_to_stdout_leaves_a_document_without_islands_alone ... ok
 test exit_codes_are_typed ... ok
-test renders_an_echarts_island_from_file_to_file ... ok
 test same_input_same_output ... ok
+test renders_an_echarts_island_from_file_to_file ... ok
 
-test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.20s
 
 [1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d3f1daf2c37842a5/out/surimono_core-d3f1daf2c37842a5)
 
 running 75 tests
-test embed::tests::a_different_fingerprint_is_refused ... ok
 test embed::tests::embedded_bytecode_is_stripped_and_smaller ... ok
+test embed::tests::a_different_fingerprint_is_refused ... ok
 test embed::tests::compiling_for_embedding_is_deterministic ... ok
 test embed::tests::embedded_bytecode_runs_like_compiled_bytecode ... ok
-test embed::tests::the_fingerprint_includes_the_engine_sources ... ok
 test embed::tests::syntax_errors_are_reported ... ok
+test embed::tests::the_fingerprint_includes_the_engine_sources ... ok
+test embed::tests::the_version_is_readable ... ok
+test engine::tests::allocator_tracks_and_limits ... ok
 test embed::tests::the_canary_compiles_and_the_fingerprint_is_stable ... ok
 test embed::tests::the_fingerprint_includes_the_patch_level ... ok
-test engine::tests::allocator_tracks_and_limits ... ok
-test embed::tests::the_version_is_readable ... ok
-test engine::tests::compile_reports_syntax_errors ... ok
 test engine::tests::compile_does_not_run_the_script ... ok
 test engine::tests::deadline_arms_and_disarms ... ok
-test engine::tests::eval_bytecode_reports_exceptions ... ok
 test engine::tests::bytecode_round_trip_across_runtimes ... ok
+test engine::tests::compile_reports_syntax_errors ... ok
 test engine::tests::stack_available_is_plausible ... FAILED
-test engine::tests::the_engine_is_patched ... ok
 test engine::tests::pending_jobs_run_and_report_errors ... ok
-test engine::tests::update_stack_top_is_harmless ... ok
+test engine::tests::eval_bytecode_reports_exceptions ... ok
+test engine::tests::the_engine_is_patched ... ok
 test error::tests::limit_errors_are_flagged ... ok
 test limits::tests::defaults_match_the_spec ... ok
 test limits::tests::out_of_range_limits_are_rejected ... ok
+test engine::tests::update_stack_top_is_harmless ... ok
 test limits::tests::setters_and_new_build_the_same_limits ... ok
 test sandbox::tests::array_builtins_behave_normally ... ok
 test embed::tests::the_fingerprint_covers_the_format ... ok
@@ -424,30 +424,30 @@ test sandbox::tests::bound_functions_behave_normally ... ok
 test sandbox::tests::bytecode_compiles_once_and_runs_anywhere ... ok
 test sandbox::tests::call_json_parses_arguments ... ok
 test sandbox::tests::calls_global_functions ... ok
-test sandbox::tests::allocation_bomb_hits_memory_limit ... ok
 test sandbox::tests::a_stale_deadline_fails_safe ... ok
 test sandbox::tests::async_infinite_loop_hits_time_limit ... ok
 test sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails ... ok
-test sandbox::tests::compile_reports_syntax_errors ... ok
 test sandbox::tests::caught_stack_overflow_is_ordinary_js ... ok
+test sandbox::tests::compile_reports_syntax_errors ... ok
 test sandbox::tests::debug_of_a_deadline_records_nothing ... ok
+test sandbox::tests::allocation_bomb_hits_memory_limit ... ok
 test sandbox::tests::deep_recursion_hits_stack_limit ... ok
 test sandbox::tests::caught_infinite_loop_hits_time_limit ... ok
 test sandbox::tests::doubling_string_ends_with_a_typed_error ... ok
 test sandbox::tests::eval_and_function_constructor_stay_inside ... ok
-test sandbox::tests::exceptions_carry_message_and_stack ... ok
 test sandbox::tests::evaluates_scripts ... ok
+test sandbox::tests::exceptions_carry_message_and_stack ... ok
 test sandbox::tests::deep_recursion_in_native_code_hits_stack_limit ... ok
 test sandbox::tests::caught_out_of_memory_still_reports_memory_limit ... ok
 test sandbox::tests::huge_messages_are_truncated ... ok
-test sandbox::tests::huge_string_hits_memory_limit ... ok
-test sandbox::tests::huge_typed_array_hits_memory_limit ... ok
-test sandbox::tests::heap_returns_to_baseline_after_reset ... ok
 test sandbox::tests::exponential_microtask_flood_hits_a_limit ... ok
+test sandbox::tests::huge_typed_array_hits_memory_limit ... ok
+test sandbox::tests::huge_string_hits_memory_limit ... ok
+test sandbox::tests::heap_returns_to_baseline_after_reset ... ok
 test sandbox::tests::host_functions_stop_at_the_deadline ... ok
 test sandbox::tests::infinite_loop_hits_time_limit ... ok
-test sandbox::tests::interrupt_skips_finally ... ok
 test sandbox::tests::limits_out_of_range_are_rejected ... ok
+test sandbox::tests::interrupt_skips_finally ... ok
 test sandbox::tests::microtasks_run_before_the_call_returns ... ok
 test sandbox::tests::oom_sweep_child ... ignored, helper: run in a child process by the out-of-memory sweeps
 test sandbox::tests::out_of_memory_full_sweep ... ignored, slow: every allocation of the compile-heavy script
@@ -476,7 +476,7 @@ failures:
 
 ---- engine::tests::stack_available_is_plausible stdout ----
 
-thread 'engine::tests::stack_available_is_plausible' (6141) panicked at crates/core/src/engine.rs:749:9:
+thread 'engine::tests::stack_available_is_plausible' (6424) panicked at crates/core/src/engine.rs:749:9:
 assertion failed: deeper(16) + 16 * 4096 <= stack_available().unwrap()
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
@@ -484,16 +484,16 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 failures:
     engine::tests::stack_available_is_plausible
 
-test result: FAILED. 72 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 447.75s
+test result: FAILED. 72 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 726.34s
 
 
 =================================================================
-==6116==ERROR: LeakSanitizer: detected memory leaks
+==6398==ERROR: LeakSanitizer: detected memory leaks
 
 Direct leak of 756 byte(s) in 3 object(s) allocated from:
-    #0 0x55dc12472594  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d3f1daf2c37842a5/out/surimono_core-d3f1daf2c37842a5+0x34f594) (BuildId: abbff38015e7c4d57688b0962b1abc223578e651)
-    #1 0x55dc128bbb9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d3f1daf2c37842a5/out/surimono_core-d3f1daf2c37842a5+0x798b9f) (BuildId: abbff38015e7c4d57688b0962b1abc223578e651)
-    #2 0x55dc12949b46  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d3f1daf2c37842a5/out/surimono_core-d3f1daf2c37842a5+0x826b46) (BuildId: abbff38015e7c4d57688b0962b1abc223578e651)
+    #0 0x56161e159594  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d3f1daf2c37842a5/out/surimono_core-d3f1daf2c37842a5+0x34f594) (BuildId: abbff38015e7c4d57688b0962b1abc223578e651)
+    #1 0x56161e5a2b9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d3f1daf2c37842a5/out/surimono_core-d3f1daf2c37842a5+0x798b9f) (BuildId: abbff38015e7c4d57688b0962b1abc223578e651)
+    #2 0x56161e630b46  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d3f1daf2c37842a5/out/surimono_core-d3f1daf2c37842a5+0x826b46) (BuildId: abbff38015e7c4d57688b0962b1abc223578e651)
 
 SUMMARY: AddressSanitizer: 756 byte(s) leaked in 3 allocation(s).
 [1m[91merror[0m: test failed, to rerun pass `-p surimono-core --lib`
@@ -504,8 +504,8 @@ Caused by:
 [1m[92m     Running[0m tests/determinism.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/c725f305b4cef4bc/out/determinism-c725f305b4cef4bc)
 
 running 20 tests
-test console_exists_and_is_silent ... ok
 test date_from_an_object_uses_the_sandbox_zone ... ok
+test console_exists_and_is_silent ... ok
 test date_parse_matches_quickjs_child ... ignored, helper: run in a child process with TZ=UTC0
 test clock_is_fixed_and_configurable ... ok
 test date_fields_are_clipped_after_the_offset ... ok
@@ -518,14 +518,14 @@ test date_parse_honours_named_zones ... ok
 test math_random_is_seeded ... ok
 test performance_is_virtual ... ok
 test stack_trace_api_is_off ... ok
-test two_runs_are_byte_identical ... ok
-test tz_child ... ignored, helper: run in a child process with TZ set
 test looping_prepare_stack_trace_hits_the_time_limit ... ok
+test tz_child ... ignored, helper: run in a child process with TZ set
+test two_runs_are_byte_identical ... ok
 test weak_refs_are_strong_and_cleanup_never_runs ... ok
 test output_ignores_the_host_time_zone ... ok
 test date_parse_matches_quickjs_on_a_utc_host ... ok
 
-test result: ok. 18 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 12.90s
+test result: ok. 18 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 23.58s
 
 [1m[92m     Running[0m tests/hostile.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/f19043b12f0c628c/out/hostile-f19043b12f0c628c)
 
@@ -535,7 +535,7 @@ test group_b_swallowed_interrupts_end ... ok
 test group_c_long_native_sorts_end ... ok
 test group_a_native_array_like_loops_end ... ok
 
-test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 8.28s
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 9.16s
 
 [1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/c9d9a03969b27831/out/surimono_dom-c9d9a03969b27831)
 
@@ -549,12 +549,12 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 70 tests
 test css_font::tests::brief_examples ... ok
 test css_font::tests::family_names ... ok
-test css_font::tests::weights_and_styles ... ok
 test css_font::tests::family_offset_points_at_the_list ... ok
-test fonts::tests::empty_set_resolves_to_nothing ... ok
-test css_font::tests::chrome_validity_and_sizes ... ok
+test css_font::tests::weights_and_styles ... ok
 test fonts::tests::rejects_non_fonts_without_panicking ... ok
+test fonts::tests::empty_set_resolves_to_nothing ... ok
 test fonts::tests::unknown_generic_target_is_an_error ... ok
+test css_font::tests::chrome_validity_and_sizes ... ok
 test measure::tests::empty_font_set_is_an_error ... ok
 test measure::tests::measurer_is_send_sync_clone ... ok
 test measure::tests::metrics_serialize_with_canvas_names ... ok
@@ -562,9 +562,9 @@ test css_font::tests::hostile_input_never_panics ... ok
 test measure::tests::rounding_matches_skia ... ok
 test measure::tests::too_long_text_is_an_error ... ok
 test svg::css::tests::allowed_properties ... ok
+test svg::css::tests::css_string_escaping ... ok
 test measure::tests::overlong_font_string_means_canvas_default ... ok
 test svg::css::tests::declaration_pairs_and_removal ... ok
-test svg::css::tests::css_string_escaping ... ok
 test svg::css::tests::escapes_and_hidden_loads_drop_the_declaration ... ok
 test svg::css::tests::final_check_is_structure_free ... ok
 test svg::css::tests::hostile_css_never_panics ... ok
@@ -618,7 +618,7 @@ test measure::tests::large_texts_leave_no_large_buffers_behind ... ok
 test svg::text::tests::too_much_text_is_an_error_not_a_blowup ... ok
 test measure::tests::caches_stay_under_byte_budget_with_hostile_input ... ok
 
-test result: ok. 70 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.43s
+test result: ok. 70 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 41.52s
 
 [1m[92m     Running[0m tests/fulgur_layout.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3)
 
@@ -626,107 +626,107 @@ running 2 tests
 test generic_families_find_no_font_in_blitz_without_system_fonts ... ok
 test measured_width_equals_blitz_layout_width ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
 
 
 =================================================================
-==7318==ERROR: LeakSanitizer: detected memory leaks
+==7586==ERROR: LeakSanitizer: detected memory leaks
 
 Direct leak of 9496 byte(s) in 1 object(s) allocated from:
-    #0 0x55e9d0a66de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #1 0x55e9d1fb020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #2 0x55e9d0f48782  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9782) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #3 0x55e9d0e51ba1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x1002ba1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #4 0x55e9d0d274b0  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed84b0) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #5 0x55e9d0df74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #6 0x55e9d0d2082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #7 0x55e9d0cf92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #8 0x55e9d0f128c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #9 0x55e9d0f19012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #10 0x55e9d0a9d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #11 0x55e9d0a9f404  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc50404) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #12 0x55e9d0a9c1d6  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d1d6) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #13 0x55e9d0b1112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #14 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #15 0x55e9d0ac2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #16 0x55e9d0b41ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #17 0x55e9d0b10f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #18 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #19 0x55e9d0b126e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #20 0x55e9d1ff4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #21 0x55e9d0a64126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #0 0x55c32c046de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #1 0x55c32d59020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #2 0x55c32c528782  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9782) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #3 0x55c32c431ba1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x1002ba1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #4 0x55c32c3074b0  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed84b0) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #5 0x55c32c3d74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #6 0x55c32c30082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #7 0x55c32c2d92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #8 0x55c32c4f28c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #9 0x55c32c4f9012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #10 0x55c32c07d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #11 0x55c32c07f404  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc50404) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #12 0x55c32c07c1d6  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d1d6) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #13 0x55c32c0f112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #14 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #15 0x55c32c0a2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #16 0x55c32c121ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #17 0x55c32c0f0f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #18 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #19 0x55c32c0f26e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #20 0x55c32d5d4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #21 0x55c32c044126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
 
 Direct leak of 9496 byte(s) in 1 object(s) allocated from:
-    #0 0x55e9d0a66de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #1 0x55e9d1fb020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #2 0x55e9d0f48782  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9782) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #3 0x55e9d0e51ba1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x1002ba1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #4 0x55e9d0d274b0  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed84b0) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #5 0x55e9d0df74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #6 0x55e9d0d2082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #7 0x55e9d0cf92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #8 0x55e9d0f128c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #9 0x55e9d0f19012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #10 0x55e9d0a9d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #11 0x55e9d0a9c875  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d875) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #12 0x55e9d0a9c206  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d206) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #13 0x55e9d0b1112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #14 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #15 0x55e9d0ac2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #16 0x55e9d0b41ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #17 0x55e9d0b10f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #18 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #19 0x55e9d0b126e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #20 0x55e9d1ff4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #21 0x55e9d0a64126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #0 0x55c32c046de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #1 0x55c32d59020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #2 0x55c32c528782  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9782) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #3 0x55c32c431ba1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x1002ba1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #4 0x55c32c3074b0  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed84b0) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #5 0x55c32c3d74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #6 0x55c32c30082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #7 0x55c32c2d92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #8 0x55c32c4f28c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #9 0x55c32c4f9012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #10 0x55c32c07d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #11 0x55c32c07c875  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d875) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #12 0x55c32c07c206  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d206) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #13 0x55c32c0f112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #14 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #15 0x55c32c0a2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #16 0x55c32c121ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #17 0x55c32c0f0f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #18 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #19 0x55c32c0f26e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #20 0x55c32d5d4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #21 0x55c32c044126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
 
 Direct leak of 4104 byte(s) in 1 object(s) allocated from:
-    #0 0x55e9d0a66de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #1 0x55e9d1fb020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #2 0x55e9d0f48542  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9542) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #3 0x55e9d0e519d1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10029d1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #4 0x55e9d0dc7054  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xf78054) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #5 0x55e9d0df74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #6 0x55e9d0d2082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #7 0x55e9d0cf92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #8 0x55e9d0f128c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #9 0x55e9d0f19012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #10 0x55e9d0a9d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #11 0x55e9d0a9f404  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc50404) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #12 0x55e9d0a9c1d6  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d1d6) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #13 0x55e9d0b1112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #14 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #15 0x55e9d0ac2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #16 0x55e9d0b41ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #17 0x55e9d0b10f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #18 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #19 0x55e9d0b126e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #20 0x55e9d1ff4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #21 0x55e9d0a64126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #0 0x55c32c046de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #1 0x55c32d59020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #2 0x55c32c528542  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9542) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #3 0x55c32c4319d1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10029d1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #4 0x55c32c3a7054  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xf78054) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #5 0x55c32c3d74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #6 0x55c32c30082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #7 0x55c32c2d92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #8 0x55c32c4f28c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #9 0x55c32c4f9012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #10 0x55c32c07d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #11 0x55c32c07f404  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc50404) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #12 0x55c32c07c1d6  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d1d6) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #13 0x55c32c0f112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #14 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #15 0x55c32c0a2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #16 0x55c32c121ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #17 0x55c32c0f0f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #18 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #19 0x55c32c0f26e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #20 0x55c32d5d4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #21 0x55c32c044126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
 
 Direct leak of 4104 byte(s) in 1 object(s) allocated from:
-    #0 0x55e9d0a66de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #1 0x55e9d1fb020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #2 0x55e9d0f48542  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9542) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #3 0x55e9d0e519d1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10029d1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #4 0x55e9d0dc7054  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xf78054) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #5 0x55e9d0df74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #6 0x55e9d0d2082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #7 0x55e9d0cf92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #8 0x55e9d0f128c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #9 0x55e9d0f19012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #10 0x55e9d0a9d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #11 0x55e9d0a9c875  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d875) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #12 0x55e9d0a9c206  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d206) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #13 0x55e9d0b1112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #14 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #15 0x55e9d0ac2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #16 0x55e9d0b41ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #17 0x55e9d0b10f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #18 0x55e9d0b16e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #19 0x55e9d0b126e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #20 0x55e9d1ff4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
-    #21 0x55e9d0a64126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #0 0x55c32c046de4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc17de4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #1 0x55c32d59020f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x216120f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #2 0x55c32c528542  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10f9542) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #3 0x55c32c4319d1  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10029d1) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #4 0x55c32c3a7054  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xf78054) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #5 0x55c32c3d74a3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xfa84a3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #6 0x55c32c30082c  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xed182c) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #7 0x55c32c2d92f4  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xeaa2f4) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #8 0x55c32c4f28c3  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10c38c3) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #9 0x55c32c4f9012  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x10ca012) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #10 0x55c32c07d58a  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4e58a) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #11 0x55c32c07c875  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d875) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #12 0x55c32c07c206  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc4d206) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #13 0x55c32c0f112d  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc212d) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #14 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #15 0x55c32c0a2e9f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc73e9f) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #16 0x55c32c121ea2  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcf2ea2) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #17 0x55c32c0f0f02  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc1f02) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #18 0x55c32c0f6e61  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc7e61) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #19 0x55c32c0f26e5  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xcc36e5) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #20 0x55c32d5d4741  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0x21a5741) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
+    #21 0x55c32c044126  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/c8410fa12657d5f3/out/fulgur_layout-c8410fa12657d5f3+0xc15126) (BuildId: 363c3ece805853c0e359e367b1c9170d4e9fd54d)
 
 SUMMARY: AddressSanitizer: 27200 byte(s) leaked in 4 allocation(s).
 [1m[91merror[0m: test failed, to rerun pass `-p surimono-gfx --test fulgur_layout`
@@ -749,16 +749,16 @@ test errors ... ok
 test bad_font_strings_mean_canvas_default ... ok
 test generic_families_follow_the_mapping ... ok
 test font_files_are_returned_unchanged ... ok
-test deterministic_bits_across_measurers_and_order ... ok
 test japanese_falls_back_to_a_registered_cjk_font ... ok
-test matches_chrome_measure_text ... ok
-test measures_identically_from_many_threads ... ok
+test deterministic_bits_across_measurers_and_order ... ok
 test reference_fonts_are_the_ones_chrome_used ... ok
+test measures_identically_from_many_threads ... ok
+test matches_chrome_measure_text ... ok
 test whitespace_and_empty_text ... ok
 test hostile_inputs_do_not_panic ... ok
 test timing_short_labels ... ok
 
-test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.54s
 
 [1m[92m     Running[0m tests/svg.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/5a1068d5c04fef87/out/svg-5a1068d5c04fef87)
 
@@ -775,14 +775,14 @@ test every_id_and_reference_carries_the_island_prefix ... ok
 test real_charts_print_as_outlines ... ok
 test islands_stay_in_their_box ... ok
 
-test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.32s
 
 [1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8df69f120fd9074e/out/surimono_islands-8df69f120fd9074e)
 
 running 19 tests
-test builtins::tests::every_listed_builtin_is_found ... ok
 test builtins::tests::builtins_are_sorted_and_unique ... ok
 test builtins::tests::echarts_is_built_in ... ok
+test builtins::tests::every_listed_builtin_is_found ... ok
 test builtins::tests::vega_and_vega_lite_are_built_in ... ok
 test embedded::tests::empty_bytecode_is_refused ... ok
 test embedded::tests::bytecode_for_other_source_is_refused ... ok
@@ -791,25 +791,25 @@ test error::tests::wraps_sandbox_errors ... ok
 test measure::tests::a_worker_measurer_measures_like_the_original ... ok
 test measure::tests::estimates_latin_and_cjk ... ok
 test measure::tests::no_fonts_is_its_own_error ... ok
+test measure::tests::parses_font_sizes ... ok
 test embedded::tests::another_engines_bytecode_is_refused ... ok
 test embedded::tests::every_builtin_is_precompiled_for_this_engine ... ok
-test measure::tests::parses_font_sizes ... ok
 test runner::tests::measurer_errors_become_type_errors ... ok
 test tests::version_is_set ... ok
 test runner::tests::measurer_panics_do_not_kill_the_pool ... ok
 test embedded::tests::precompiled_bytecode_is_what_this_engine_writes ... ok
 test runner::tests::builtins_fall_back_to_source_for_another_engine ... ok
 
-test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.17s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.95s
 
 
 =================================================================
-==7365==ERROR: LeakSanitizer: detected memory leaks
+==7631==ERROR: LeakSanitizer: detected memory leaks
 
 Direct leak of 10106 byte(s) in 1 object(s) allocated from:
-    #0 0x55c1e4b3a784  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8df69f120fd9074e/out/surimono_islands-8df69f120fd9074e+0xf53784) (BuildId: 4ecbaaf065417715eee5a28d7d017d9b40ec6063)
-    #1 0x55c1e548242f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8df69f120fd9074e/out/surimono_islands-8df69f120fd9074e+0x189b42f) (BuildId: 4ecbaaf065417715eee5a28d7d017d9b40ec6063)
-    #2 0x55c1e55122c6  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8df69f120fd9074e/out/surimono_islands-8df69f120fd9074e+0x192b2c6) (BuildId: 4ecbaaf065417715eee5a28d7d017d9b40ec6063)
+    #0 0x56023e9fb784  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8df69f120fd9074e/out/surimono_islands-8df69f120fd9074e+0xf53784) (BuildId: 4ecbaaf065417715eee5a28d7d017d9b40ec6063)
+    #1 0x56023f34342f  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8df69f120fd9074e/out/surimono_islands-8df69f120fd9074e+0x189b42f) (BuildId: 4ecbaaf065417715eee5a28d7d017d9b40ec6063)
+    #2 0x56023f3d32c6  (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8df69f120fd9074e/out/surimono_islands-8df69f120fd9074e+0x192b2c6) (BuildId: 4ecbaaf065417715eee5a28d7d017d9b40ec6063)
 
 SUMMARY: AddressSanitizer: 10106 byte(s) leaked in 1 allocation(s).
 [1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --lib`
@@ -823,22 +823,22 @@ running 2 tests
 test every_bundle_ships_its_licences ... ok
 test bundles_match_their_recorded_sha256 ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
 [1m[92m     Running[0m tests/echarts.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/5a2e8ea43c8eeb0e/out/echarts-5a2e8ea43c8eeb0e)
 
 running 9 tests
-test bar_chart_is_valid_svg ... ok
 test echarts_is_a_builtin ... ok
+test bar_chart_is_valid_svg ... ok
 test bad_specs_are_typed_errors ... ok
 test japanese_labels_survive ... ok
 test series_cannot_turn_animation_back_on ... ok
 test timing_echarts ... ignored, timing report; run explicitly in release mode
-test text_is_measured_by_the_host ... ok
 test a_preloaded_render_matches_a_cold_one ... ok
+test text_is_measured_by_the_host ... ok
 test every_option_renders_and_is_deterministic ... ok
 
-test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.70s
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 7.26s
 
 [1m[92m     Running[0m tests/fixture_timing.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/2bcaab0204df629d/out/fixture_timing-2bcaab0204df629d)
 
@@ -854,13 +854,88 @@ test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; fini
 running 6 tests
 test hostile_child ... ignored, helper: run in a child process by hostile_suite
 test hostile_child_ends_badly ... ignored, helper: run in a child process by the harness tests
-test known_failures_excuse_only_their_outcome ... ok
 test every_way_a_child_ends_is_judged ... ok
+test known_failures_excuse_only_their_outcome ... ok
 test a_child_that_ends_badly_after_reporting_fails ... ok
-test hostile_suite ... ok
+test hostile_suite ... FAILED
 
-test result: ok. 4 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 27.54s
+failures:
 
+---- hostile_suite stdout ----
+pass  infinite-loop                        TimeLimit       2012 ms  
+pass  infinite-loop-try-catch              TimeLimit       2013 ms  
+pass  infinite-loop-in-finally             TimeLimit       2012 ms  
+pass  microtask-flood                      TimeLimit       2012 ms  
+pass  microtask-flood-growing              TimeLimit       2102 ms  
+pass  microtask-await-loop                 TimeLimit       2011 ms  
+pass  regex-redos                          TimeLimit       2012 ms  
+pass  regex-redos-alternation              TimeLimit       2011 ms  
+pass  atomics-wait                         Exception          6 ms  
+pass  native-loop-join-arraylike           TimeLimit       2010 ms  
+pass  native-loop-join-holey               TimeLimit       2014 ms  
+pass  native-loop-join-getter-length       TimeLimit       2016 ms  
+pass  native-loop-join-proxy               TimeLimit       2019 ms  
+pass  native-loop-reverse                  TimeLimit       2013 ms  
+pass  native-loop-copywithin               TimeLimit       2013 ms  
+pass  native-loop-string-raw               MemoryLimit     1764 ms  
+pass  native-loop-join-length-toctou       Ok                 8 ms  
+pass  native-loop-join-length-valueof      TimeLimit       2012 ms  
+pass  native-loop-typedarray-own-length    TimeLimit       2010 ms  
+pass  native-loop-dataview-length          TimeLimit       2013 ms  
+pass  native-loop-fill-typedarray-proto    MemoryLimit      714 ms  
+pass  native-sort-typed-array              Ok              1614 ms  
+pass  reentry-promise-executor             TimeLimit       2008 ms  
+pass  reentry-promise-try                  TimeLimit       2009 ms  
+pass  reentry-async-generator              TimeLimit       2013 ms  
+pass  reentry-prepare-stack-trace          TimeLimit       2047 ms  
+pass  reentry-disposable-stack             TimeLimit       2014 ms  
+pass  alloc-arrays                         MemoryLimit      634 ms  
+pass  alloc-string-doubling                Exception          8 ms  
+pass  alloc-string-repeat                  MemoryLimit       15 ms  
+pass  alloc-typed-array                    MemoryLimit       13 ms  
+pass  alloc-typed-arrays-many              MemoryLimit       28 ms  
+FAIL  alloc-object-graph                   TimeLimit       2292 ms  got TimeLimit (""), want MemoryLimit
+pass  oom-caught-retry                     MemoryLimit      735 ms  
+pass  oom-caught-continue                  MemoryLimit      639 ms  
+pass  recursion-plain                      StackOverflow     10 ms  
+pass  recursion-caught                     Ok                 6 ms  
+pass  recursion-getter                     StackOverflow     11 ms  
+pass  recursion-tostring                   StackOverflow     10 ms  
+pass  recursion-proxy                      StackOverflow     18 ms  
+pass  recursion-json-stringify             StackOverflow    291 ms  
+pass  recursion-array-join                 StackOverflow    392 ms  
+pass  recursion-json-parse                 StackOverflow     27 ms  
+pass  recursion-parser                     StackOverflow     22 ms  
+pass  regex-deep-nesting                   Exception         13 ms  
+pass  deep-free-chain                      Ok               795 ms  
+pass  result-not-a-string                  Exception          6 ms  
+pass  result-hostile-thenable              Exception          8 ms  
+pass  promise-never-settles                Exception          4 ms  
+pass  unhandled-rejection                  Ok                 4 ms  
+pass  control-sync                         Ok                 8 ms  
+pass  control-async                        Ok                 9 ms  
+pass  escape-require                       Ok                 7 ms  
+pass  escape-require-call                  Exception          4 ms  
+pass  escape-dynamic-import                Ok                 8 ms  
+pass  escape-network                       Ok                 8 ms  
+pass  escape-global-sniff                  Ok                56 ms  
+pass  escape-function-constructor          Ok                 6 ms  
+pass  pollution-across-renders step 1      Ok                 5 ms  
+pass  pollution-across-renders step 2      Ok                 4 ms  
+hostile: 59 cases, 60 step results, 1 unexpected failures, 0 known failures
+
+thread 'hostile_suite' (7701) panicked at crates/islands/tests/hostile.rs:481:5:
+unexpected failures:
+alloc-object-graph: got TimeLimit (""), want MemoryLimit
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    hostile_suite
+
+test result: FAILED. 3 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 30.27s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --test hostile`
 [1m[92m     Running[0m tests/memory_report.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/9ccc6da6e19fcde0/out/memory_report-9ccc6da6e19fcde0)
 
 running 1 test
@@ -880,18 +955,18 @@ test an_idle_worker_frees_its_runtime ... ok
 test no_state_leaks_across_renderers ... ok
 test many_renders_on_a_small_pool_are_counted ... ok
 test no_state_leaks_between_renders ... ok
-test heap_is_freed_after_every_render ... ok
 test no_state_leaks_after_errors ... ok
 test preloaded_and_cold_renders_give_the_same_output ... ok
 test registration_never_sees_a_preloaded_bundle ... ok
+test heap_is_freed_after_every_render ... ok
 test replacing_a_bundle_drops_its_preloaded_copy ... ok
-test runtimes_are_kept_without_an_idle_release ... ok
-test stats_count_failures ... ok
-test renders_one_at_a_time_use_one_worker ... ok
 test limit_errors_keep_the_pool_healthy ... ok
+test stats_count_failures ... ok
+test runtimes_are_kept_without_an_idle_release ... ok
+test renders_one_at_a_time_use_one_worker ... ok
 test overlapping_renders_grow_the_pool_up_to_its_size ... ok
 
-test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.65s
 
 [1m[92m     Running[0m tests/runner.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/f06e95a8dd647e8d/out/runner-f06e95a8dd647e8d)
 
@@ -907,18 +982,33 @@ test non_string_output ... ok
 test pool_size_defaults_to_cpus_up_to_four ... ok
 test measuring_without_fonts_is_a_typed_error ... ok
 test registration_checks_the_bundle ... ok
-test renders_concurrently_from_many_threads ... ok
 test renders_svg_with_measured_text ... ok
-test runner_is_send_and_sync ... ok
 test reregistering_replaces_the_bundle ... ok
+test runner_is_send_and_sync ... ok
+test renders_concurrently_from_many_threads ... ok
+test hostile_renderers_hit_limits_and_the_pool_recovers ... FAILED
 test unknown_renderer ... ok
 test uses_the_configured_measurer ... ok
 test same_request_same_svg ... ok
 test a_measure_text_loop_stops_at_the_time_limit ... ok
-test hostile_renderers_hit_limits_and_the_pool_recovers ... ok
 
-test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.36s
+failures:
 
+---- hostile_renderers_hit_limits_and_the_pool_recovers stdout ----
+
+thread 'hostile_renderers_hit_limits_and_the_pool_recovers' (8207) panicked at crates/islands/tests/runner.rs:387:50:
+assertion `left == right` failed: alloc
+  left: TimeLimit
+ right: MemoryLimit
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    hostile_renderers_hit_limits_and_the_pool_recovers
+
+test result: FAILED. 19 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.28s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --test runner`
 [1m[92m     Running[0m tests/soak.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/852520017fef969d/out/soak-852520017fef969d)
 
 running 3 tests
@@ -931,25 +1021,25 @@ test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; fini
 [1m[92m     Running[0m tests/vega.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/7450cdc328bace47/out/vega-7450cdc328bace47)
 
 running 17 tests
-test data_urls_are_refused ... ok
 test a_bundle_registered_during_a_builtin_compile_wins ... ok
+test data_urls_are_refused ... ok
 test bad_specs_are_typed_errors ... ok
 test japanese_labels_survive ... ok
 test raster_features_fail_clearly ... ok
-test every_kind_of_load_is_refused_with_its_reason ... ok
+test text_is_measured_by_the_host ... ok
 test timing_vega ... ignored, timing report; run explicitly in release mode
 test vega_and_vega_lite_are_builtins ... ok
-test text_is_measured_by_the_host ... ok
+test every_kind_of_load_is_refused_with_its_reason ... ok
 test dense_scatter_has_every_point ... ok
-test vega_bar_chart ... ok
 test vega_and_vega_lite_share_a_compile_and_render_alike ... ok
+test vega_bar_chart ... ok
 test vega_lite_bar_chart ... ok
 test vega_lite_container_size_is_the_island ... ok
-test vega_and_vega_lite_share_a_preload ... ok
 test vega_soaks_up_no_state_between_specs ... ok
+test vega_and_vega_lite_share_a_preload ... ok
 test every_spec_renders_and_is_deterministic ... ok
 
-test result: ok. 16 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 12.98s
+test result: ok. 16 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 19.54s
 
 [1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-webidl/ff8dd0d587adc58f/out/surimono_webidl-ff8dd0d587adc58f)
 
@@ -958,10 +1048,12 @@ test tests::version_is_set ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-[1m[91merror[0m: 3 targets failed:
+[1m[91merror[0m: 5 targets failed:
     `-p surimono-core --lib`
     `-p surimono-gfx --test fulgur_layout`
     `-p surimono-islands --lib`
+    `-p surimono-islands --test hostile`
+    `-p surimono-islands --test runner`
 
 ==> core: out-of-memory full sweep (ignored test)
 [1m[33mwarning[0m[1m: unused workspace dependency `surimono-dom`[0m
@@ -1027,7 +1119,7 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 [1m[92m   Compiling[0m thiserror-impl v2.0.21
 [1m[92m   Compiling[0m thiserror v2.0.21
 [1m[92m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
-[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 6.19s
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 9.10s
 [1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/4df000238f878516/out/surimono_core-4df000238f878516)
 
 running 1 test
