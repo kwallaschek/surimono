@@ -4,7 +4,8 @@ This directory is rquickjs-sys 0.14.0 from crates.io (rquickjs git `d7ef5ee`,
 path `sys/`), which bundles quickjs-ng 0.16.2. It is wired in through
 `[patch.crates-io]` in the workspace `Cargo.toml`. Every change to upstream
 code is listed here and marked `surimono:` in the source. Drafts for
-upstream are in `docs/upstream/quickjs-ng-sticky-interrupt-and-native-loop-polls.md`.
+upstream are in `docs/upstream/quickjs-ng-sticky-interrupt-and-native-loop-polls.md`
+and `docs/upstream/quickjs-ng-interrupt-granularity.md`.
 
 ## Removed (not needed to build)
 
@@ -317,9 +318,12 @@ back every byte). The full diff is
 
 ## Time-accurate interrupts (P1-RT-14)
 
-Review of #32, R4 and R5: make the time limit take effect at the next
-poll, and poll inside the native operations whose cost grows faster than
-their input. With patches 6 to 13, patch level 3.
+Review of #32, R4 and R5: the handler was asked only once per 10,000
+polls, so a loop whose body makes one expensive native call (a
+`JSON.stringify` of 20k objects, `indexOf` on a 1M-item array) saw its
+deadline only every few thousand iterations, minutes late; and some native
+calls with superlinear cost never polled at all. With patches 6 to 13,
+patch level 3.
 
 14. **Interrupt flag** (`surimono_set_interrupt_flag`, `js_poll_interrupts`).
    The host can give a runtime a `uint32_t` flag. Every poll still counts
@@ -340,15 +344,18 @@ their input. With patches 6 to 13, patch level 3.
    inside one native call. They count comparisons and poll every 65,536
    (`JS_SEARCH_POLL_UNITS`). `string_indexof` takes `ctx` and returns -2
    after an interrupt; both callers check it. `replace`/`replaceAll` and
-   `split` also poll once per match. Results are unchanged.
+   `split` also poll once per match: `replaceAll('a', '')` on a 64 MB
+   string made 64M passes without calling script code. Results are
+   unchanged.
 16. **Polls in BigInt arithmetic.** `js_mp_mul_basecase` (multiply) polls
    once per row and `js_mp_divnorm` (divide and remainder) once per
    quotient limb; both take `ctx` and return -1 after an interrupt, and
    `js_bigint_mul`/`js_bigint_divrem` free their buffers and fail. Decimal
    `toString` polls once per limb it divides out, and decimal parsing once
-   per limb it multiplies in. These are quadratic in the size, so with
-   these polls the time to stop no longer grows with it. The size cap is
-   unchanged; power goes through multiply. Results are unchanged.
+   per limb it multiplies in. Near the 1 Mbit size cap these took 0.4 s,
+   1.1 s, 11 s and 0.3 s per operation at -O2, and straight-line code never
+   polls between operations. The size cap is unchanged; power goes through
+   multiply. Results are unchanged.
 17. **Typed-array sort checks the flag, not the counter** (amends patch 3;
    review of #32, F2). Patch 3's wrapper polled on every comparison through
    one generic wrapper that called the comparator through a pointer; that
@@ -371,9 +378,10 @@ their input. With patches 6 to 13, patch level 3.
 Tests: groups D and E in `crates/core/tests/hostile.rs`;
 `watchdog_raises_the_flag_at_the_deadline`,
 `one_watchdog_serves_every_sandbox` and `a_refused_allocation_raises_the_flag`
-in `crates/core/src/engine.rs`. A native call without polls of its own
-still runs to its end once started; the ones left are linear in data the
-memory limit bounds.
+in `crates/core/src/engine.rs`. Known limit: a native call without polls
+of its own still runs to its end once started; the ones left are linear
+in data the memory limit bounds (a `JSON.stringify` or
+`TypedArray#includes` of the whole heap).
 
 ### Diff of patches 14 to 18 (on top of patches 1 to 13)
 
