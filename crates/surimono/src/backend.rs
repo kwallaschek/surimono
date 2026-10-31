@@ -62,12 +62,16 @@ pub(crate) fn runner(
     })
 }
 
-/// Renderers compiled into this build, sorted (Cargo features `echarts`, …).
+/// Names of the renderers compiled into this build, sorted (Cargo features
+/// `echarts`, …). Worked out once per process; the list never changes.
+pub(crate) fn builtin_names() -> &'static [&'static str] {
+    static NAMES: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();
+    NAMES.get_or_init(surimono_islands::builtin_renderers)
+}
+
+/// [`builtin_names`] as owned strings, to extend with registered bundles.
 pub(crate) fn builtin_renderers() -> Vec<String> {
-    surimono_islands::builtin_renderers()
-        .into_iter()
-        .map(str::to_owned)
-        .collect()
+    builtin_names().iter().map(|&n| n.to_owned()).collect()
 }
 
 /// Checks a bundle's name and entry before it is compiled.

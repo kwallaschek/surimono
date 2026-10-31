@@ -65,14 +65,16 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// The built-in renderers compiled into this build, sorted (Cargo features
 /// `echarts` and `vega`). Every [`Renderer`] offers them unless
-/// [`Options::renderers`] narrows its list.
+/// [`Options::renderers`] narrows its list. The list is fixed when the
+/// crate is compiled, so it is a static slice; collect it into owned
+/// strings if you need to extend it.
 ///
 /// ```
-/// let names = surimono::builtin_renderers();
+/// let names: &'static [&'static str] = surimono::builtin_renderers();
 /// assert!(names.windows(2).all(|w| w[0] < w[1]));
 /// ```
-pub fn builtin_renderers() -> Vec<String> {
-    backend::builtin_renderers()
+pub fn builtin_renderers() -> &'static [&'static str] {
+    backend::builtin_names()
 }
 
 /// How many of [`builtin_renderers`] load precompiled bytecode in this
@@ -114,7 +116,7 @@ mod tests {
         };
         assert_eq!(super::precompiled_builtins(), want);
         if cfg!(feature = "echarts") {
-            assert!(super::builtin_renderers().iter().any(|n| n == "echarts"));
+            assert!(super::builtin_renderers().contains(&"echarts"));
         }
     }
 }

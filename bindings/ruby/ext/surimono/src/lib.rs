@@ -198,8 +198,8 @@ fn native_version() -> String {
 }
 
 /// `Surimono.builtin_renderers`: the built-in renderers in this build, sorted.
-fn builtin_renderers() -> Vec<String> {
-    surimono::builtin_renderers()
+fn builtin_renderers() -> Vec<&'static str> {
+    surimono::builtin_renderers().to_vec()
 }
 
 /// `Surimono.precompiled_builtins`: how many built-ins load precompiled
