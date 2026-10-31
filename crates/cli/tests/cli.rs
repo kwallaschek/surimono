@@ -28,9 +28,14 @@ fn run(args: &[&str], stdin: &str) -> Output {
         .spawn()
         .unwrap_or_else(|e| panic!("{e}"));
     if let Some(mut input) = child.stdin.take() {
-        input
-            .write_all(stdin.as_bytes())
-            .unwrap_or_else(|e| panic!("{e}"));
+        // The CLI may exit before reading its input (a usage or
+        // configuration error), which closes the pipe; that is its answer,
+        // not a test failure.
+        match input.write_all(stdin.as_bytes()) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {}
+            Err(e) => panic!("{e}"),
+        }
     }
     child.wait_with_output().unwrap_or_else(|e| panic!("{e}"))
 }
