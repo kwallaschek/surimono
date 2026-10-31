@@ -99,6 +99,10 @@ What changed:
 - **No `animation: false` needed.** surimono turns animation off.
 - **No `<script>` tags for the library.** ECharts and Vega are built into the
   gem.
+- **Dates come from the options.** In Chrome, `new Date()` was the server's
+  clock and zone. In surimono it is a fixed time (`now:`) in a fixed zone
+  (`utc_offset_minutes:`, UTC by default), so time axes may shift if your
+  server ran in another zone. Set `utc_offset_minutes:` to match.
 
 ## 3. Register your fonts
 
@@ -119,7 +123,7 @@ pdf = Grover.new(html, format: "A4", margin: { top: "15mm", bottom: "15mm", left
 send_data pdf, type: "application/pdf", disposition: "inline"
 ```
 
-After, with the `PdfRenderer` from the [Rails guide](rails.md#one-renderer-per-process):
+After, with the `PdfRenderer` from the [Rails guide](rails.md#one-renderer-shared):
 
 ```ruby
 html = render_to_string(:show, layout: "pdf")

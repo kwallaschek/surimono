@@ -3,7 +3,7 @@
 Run a document's JavaScript without a browser, so browserless HTML-to-PDF
 engines can print it.
 
-surimono is a Rust library and Ruby gem. It runs the scripts a document needs in
+surimono is a Rust library, a Ruby gem and a command-line tool. It runs the scripts a document needs in
 a sandboxed QuickJS runtime and returns HTML that an engine such as
 [fulgur](https://github.com/fulgur-rs/fulgur) can print. Version 0.1 does this
 for charts: it finds chart *islands* in your HTML, draws them as SVG with
@@ -29,8 +29,10 @@ benchmark in `bench/` has results. Until then this README gives no numbers._
   `<script type="application/vnd.surimono+json" data-renderer="…">` marker in
   your HTML with the SVG its renderer draws. Everything else in the document
   stays byte for byte as it was.
-- **Built-in renderers.** `echarts` (Apache ECharts, server-side SVG) and
-  `vega-lite` / `vega`. Pinned versions are listed in
+- **Built-in renderers.** `echarts` (Apache ECharts 6.1.0, server-side SVG),
+  `vega-lite` (Vega-Lite 6.5.0) and `vega` (Vega 6.4.0). They ship as
+  precompiled QuickJS bytecode, so a new process skips parsing and compiling
+  the libraries. Sources and licences are listed in
   [THIRD_PARTY.md](THIRD_PARTY.md).
 - **Bring your own bundle.** Any script that defines a function taking the
   island's JSON and returning an SVG string can be a renderer.
@@ -38,7 +40,10 @@ benchmark in `bench/` has results. Until then this README gives no numbers._
   font files you pass in, so they fit and look the same on any server.
 - **A sandbox.** Every script runs under memory, time and stack limits, with no
   filesystem or network access.
-- **Ruby and Rust.** The gem and the crate expose the same API.
+- **Ruby, Rust and a CLI.** The gem, the crate and the `surimono` command take
+  the same options and give the same bytes for the same input.
+- **Safe to share and to fork.** One renderer serves many threads, and a
+  renderer built before Puma, Unicorn or Resque forks works in every child.
 
 ## What it is not
 
@@ -64,16 +69,23 @@ macOS. On other platforms the gem builds from source and needs a Rust
 toolchain. fulgur's gem 0.40.0 supports Ruby 3.1 to 3.4, so the pair runs on
 Ruby 3.2 to 3.4 today.
 
-**Rust** (1.87 or later):
+**Rust** (1.87 or later; a C compiler builds QuickJS):
 
 ```sh
 cargo add surimono
 ```
 
-<!-- confirm: facade feature names once P1-PKG-02 wires in the renderers -->
-ECharts and Vega are Cargo features (`echarts`, `vega`), both on by default.
-To leave one out, use
+ECharts and Vega are Cargo features, both on by default: `echarts` adds the
+`echarts` renderer, `vega` adds `vega` and `vega-lite`. To leave Vega out, use
 `surimono = { version = "0.1", default-features = false, features = ["echarts"] }`.
+fulgur 0.40 depends on krilla 0.7, which needs Rust 1.89, so a project that
+uses both needs 1.89.
+
+**Command line:**
+
+```sh
+cargo install surimono-cli   # installs the `surimono` command
+```
 
 ## Rails example
 
@@ -107,9 +119,9 @@ end
 ```
 
 Use `raw json_escape(…)`, not plain `<%= … %>`: ERB would turn `"` into `&quot;`
-and the island would no longer be JSON. In production, build the fulgur engine
-once per process and render in a background job. The
-[Rails guide](docs/guide/rails.md) shows how.
+and the island would no longer be JSON. In production, build one
+`Surimono::Renderer` and one fulgur engine and reuse them, and render large
+documents in a background job. The [Rails guide](docs/guide/rails.md) shows how.
 
 ## Rust example
 
@@ -133,6 +145,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 More in the [Rust guide](docs/guide/rust.md).
 
+## Command-line example
+
+```sh
+surimono render report.html -o report.out.html \
+  --font fonts/NotoSans-Regular.ttf --font fonts/NotoSansJP-Regular.otf
+```
+
+`-` reads standard input or writes standard output, and `-o` defaults to
+standard output. The output file is written only after the render succeeded.
+`surimono --help` lists every option (limits, `--seed`, `--now-ms`,
+`--utc-offset-minutes`, `--error-policy`, `--text`, `--bundle`,
+`--renderers`, `--max-islands`, `--pool-size`). Exit codes tell a script what
+to fix:
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | An island failed (bad marker, unknown renderer, script error, unusable SVG), more islands than `--max-islands`, or a document that can't be rewritten |
+| 2 | Usage error: an unknown option or a bad value |
+| 3 | A script hit its memory, time or stack limit |
+| 4 | Invalid configuration: no font, a font or bundle that can't be used, limits out of range |
+| 5 | A file couldn't be read or written |
+
 ## Island markers
 
 ```html
@@ -148,21 +183,25 @@ More in the [Rust guide](docs/guide/rust.md).
 | `data-renderer` | yes | `echarts`, `vega-lite`, `vega`, or the name of your own bundle |
 | `data-width`, `data-height` | no | Size in CSS pixels, a whole number from 1 to 16384. Default 600 × 400. |
 | `id`, `class` | no | Kept on the output element |
+| `style`, `title`, `lang`, `dir`, `role`, `aria-*` | no | Kept on the output element; `style` comes after the island's size |
 
 The element's text is the renderer's spec as JSON: an ECharts option object, a
-Vega-Lite spec or a Vega spec. The marker becomes:
+Vega-Lite spec or a Vega spec. The marker becomes a box of the island's size
+that clips anything drawn outside it:
 
 ```html
-<div class="surimono-island chart" id="sales" data-renderer="echarts"><svg …>…</svg></div>
+<div class="surimono-island chart" id="sales" data-renderer="echarts"
+     style="width:640px;height:320px;overflow:hidden"><svg …>…</svg></div>
 ```
 
 - Put markers where a `<div>` is allowed, not inside `<p>`, `<span>` or `<a>`.
-- Write `</script>` inside a JSON string as `<\/script>`. Rails'
-  `json_escape` does this for you.
+- Inside the JSON, write `<` as `\u003c`, so `</script>` in a string can't end
+  the marker. Rails' `json_escape` does this for you.
 - If an island fails, the whole render fails with an error that names the
-  island. With `error_policy: :placeholder` (Ruby) or `ErrorPolicy::Placeholder`
-  (Rust), a failed island becomes an empty
-  `<div class="surimono-island surimono-island-error" data-error="…">` and the
+  island. With `error_policy: :placeholder` (Ruby), `ErrorPolicy::Placeholder`
+  (Rust) or `--error-policy placeholder` (CLI), a failed island becomes an
+  empty box of the same size,
+  `<div class="surimono-island surimono-island-error" data-error="…">`, and the
   rest of the document renders.
 
 The [islands guide](docs/guide/islands.md) covers sizing, the renderers, your
@@ -170,7 +209,7 @@ own bundles and fonts.
 
 ## Sandbox and determinism
 
-Every renderer runs in a fresh QuickJS context with these limits per island:
+Every island runs in a fresh QuickJS runtime with these limits:
 
 | Limit | Default | Ruby option | Error when exceeded |
 |---|---|---|---|
@@ -181,17 +220,30 @@ Every renderer runs in a fresh QuickJS context with these limits per island:
 A script that hits a limit stops with that typed error. It doesn't crash or
 hang your process. Scripts get the JavaScript language and nothing else: no
 filesystem, network, module imports, DOM, timers or `console`. The built-in
-renderers bring the few stubs their libraries need. The SVG that comes back is
-cleaned before it is inlined: no `<script>`, no event handlers, no external
-URLs, and every `id` prefixed per island so two charts can't collide. Its text
-is then drawn as outlines (see [Fonts](#fonts)).
+renderers bring the few stubs their libraries need.
+
+The limits apply to each island, so a document with N islands can take up to
+N × the time limit. Two things bound a whole document:
+
+- **`max_islands`** (default 1,000): a document with more islands fails with
+  `too-many-islands` before any island runs.
+- **Cancellation.** In Ruby, `Timeout.timeout`, `Rack::Timeout`,
+  `Thread#raise` or a signal stops a render before its next island. In Rust,
+  `Renderer::render_islands_cancellable` takes an `AtomicBool` to the same
+  effect. An island already running ends within its own time limit.
+
+The SVG that comes back is cleaned before it is inlined: no `<script>`, event
+handlers, style sheets, `<foreignObject>`, animation or external URLs, and
+every `id` prefixed per island, so no chart can reach the page or another
+chart. Its text is then drawn as outlines (see [Fonts](#fonts)).
 
 The same HTML and options give the same bytes on every run and every machine:
 
 - `Math.random` is seeded (the `seed` option, default 0).
-- `Date` returns a fixed time in UTC, not the server's clock or time zone. Put
-  any dates a chart shows into its spec, already formatted if the time zone
-  matters.
+- `Date` sees a fixed "now", 2026-01-01T00:00:00Z unless you set `now:`
+  (Ruby) or `Options::now_ms` (Rust), and local time is UTC unless you set
+  `utc_offset_minutes:` (540 for Japan). The server's clock and time zone are
+  never read.
 - Text is measured only with the fonts you pass in. System fonts are never read.
 
 ## Fonts
@@ -204,9 +256,9 @@ Pass the same font files to surimono and to your PDF engine.
   register, so labels would otherwise print in a different font from the one
   they were measured with, and differ from server to server. As outlines they
   look exactly as measured, everywhere. The cost: chart text can't be selected,
-  searched or copied in the PDF. The original string is kept in the SVG for
-  accessibility (`aria-label` / `<title>`).
-  <!-- confirm: exact attribute/element when the gfx outline change lands -->
+  searched or copied in the PDF. Each label becomes a
+  `<g role="img" aria-label="…">`, so the words stay in the SVG for
+  accessibility.
 - **Keeping real text is an option** (`text: :keep` in Ruby,
   `TextMode::Keep` in Rust). Do this only if your PDF engine prints SVG text
   with your registered fonts. With fulgur 0.40 it doesn't, so labels print in
@@ -242,7 +294,14 @@ Pass the same font files to surimono and to your PDF engine.
 - **Static output.** Animations are off and the chart is drawn in its final
   state. Tooltips and hover states don't exist in a PDF.
 - **The time limit is per island.** A document with many islands can take that
-  many times as long.
+  many times as long; cap it with `max_islands` and cancel from outside (see
+  [Sandbox and determinism](#sandbox-and-determinism)).
+- **Vega data and size.** Vega and Vega-Lite specs keep their own `width` and
+  `height` (a Vega-Lite `"container"` size means the island's). Images, links
+  and transforms that draw to a raster canvas (label placement, word clouds,
+  heatmap images) aren't supported.
+- **Dense charts are slow.** A chart with thousands of marks can take more than
+  a second in QuickJS and may need a time limit above the default 2 s.
 - **QuickJS is not V8.** Heavy charts run slower than in Chrome. The benchmark
   will show by how much.
 - **Mermaid is not included in v0.1.**
@@ -266,7 +325,10 @@ hidden.
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
 [MIT licence](LICENSE-MIT), at your option. Bundled JavaScript libraries keep
-their own licences, listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+their own licences, listed in [THIRD_PARTY.md](THIRD_PARTY.md). Every gem
+includes `THIRD_PARTY_LICENSES.txt` with the licences and notices of all the
+Rust crates and JavaScript libraries built into it; include it when you
+redistribute the gem or a binary built from surimono.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 licence, shall be
