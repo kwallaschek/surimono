@@ -142,11 +142,14 @@ class CompatTest(unittest.TestCase):
             score("echarts-b island 0 (printed by chrome)", False, ["colour"], text_pass=False, worst=0.02, colour=0.4, hue=0.1, text_missing=["1,200"]),
             score("vega-a island 0 (printed by chrome)", True),
         ]
-        lines, status = compat.fixtures_section(scores, compat.fixture_meta())
+        det = {"echarts-a": {"subject": "echarts-a", "deterministic": True}}
+        lines, status = compat.fixtures_section(scores, compat.fixture_meta(), det)
+        # vega-a: not every comparison ran and no determinism result, so partial.
         self.assertEqual(status, {"echarts-a": "pass", "echarts-b": "fail", "vega-a": "partial"})
+        self.assertEqual(compat.fixtures_section(scores, compat.fixture_meta())[1]["echarts-a"], "partial", "pass needs the determinism check")
         # Each failed check with its own number, not the shape score.
         self.assertIn("**FAIL** (colour 40.0%; text: 1 missing)", "\n".join(lines))
-        self.assertIn("| echarts-a | echarts | pass (shape 0.0%) | pass (shape 0.0%) | pass (shape 0.0%) |", "\n".join(lines))
+        self.assertIn("| echarts-a | echarts | pass (shape 0.0%) | pass (shape 0.0%) | pass (shape 0.0%) | yes |", "\n".join(lines))
         rw = "\n".join(compat.real_world_section(status, compat.fixture_meta()))
         self.assertIn("**1 failing**: echarts-b", rw)
         self.assertIn("| vega | 6.4.0 | BSD-3-Clause | required | 1 | partly run |", rw)
@@ -272,6 +275,46 @@ class CompatTest(unittest.TestCase):
         self.assertIn("| loop | TimeLimit | TimeLimit (? ms) | **FAIL**: no wall_ms, so the max_wall_ms check can't be made |", text)
         self.assertIn("| req | Exception | — (3 ms) | **FAIL**: no outcome in the results file |", text)
         self.assertIn("0 of 5 cases", text)
+
+    def test_a_determinism_failure_fails_the_fixture(self):
+        scores = [score("echarts-a island 0 (printed by chrome)", True), score("echarts-a island 0 (printed by fulgur)", True), score("echarts-a", True)]
+        det = {"echarts-a": {"subject": "echarts-a", "deterministic": False, "note": "the second render's bytes differ"}}
+        lines, status = compat.fixtures_section(scores, compat.fixture_meta(), det)
+        self.assertEqual(status["echarts-a"], "fail")
+        self.assertIn("| **FAIL** (the second render's bytes differ) |", "\n".join(lines))
+
+    def test_determinism_files_load_and_duplicates_are_an_error(self):
+        for run in ("a", "b"):
+            d = self.root / "det" / run / "echarts-a"
+            d.mkdir(parents=True)
+            (d / "determinism.json").write_text(json.dumps({"subject": "echarts-a", "deterministic": True}))
+        with self.assertRaises(compat.CompatError):
+            compat.load_determinism(self.root / "det")
+        self.assertEqual(list(compat.load_determinism(self.root / "det" / "a")), ["echarts-a"])
+
+    def test_unstamped_results_never_mix_with_stamped_ones(self):
+        # Review of #35: an unstamped passing score (compare.mjs by hand, maybe
+        # on Chrome's own SVG) next to stamped real ones was credited to the real CLI.
+        real = {"cli": "/r/target/release/surimono", "version": "surimono 0.1.0", "sha256": "2", "commit": "abc"}
+        stamped = {**score("echarts-a island 0 (printed by chrome)", True), "producer": real, "_file": "a/score.json"}
+        unstamped = {**score("echarts-b island 0 (printed by chrome)", True), "_file": "b/score.json"}
+        with self.assertRaises(compat.CompatError) as e:
+            compat.generate([stamped, unstamped], None, None, "c", None)
+        self.assertIn("producer not recorded", str(e.exception))
+        out = compat.generate([unstamped], None, None, "c", None)
+        self.assertIn("Results: fixtures from c (producer not recorded)", out)
+
+    def test_stand_in_and_mixed_producers_are_refused(self):
+        fake = {"cli": "/r/fixtures/tools/test/fake-surimono.mjs", "version": "surimono 0.0.0 (fake-surimono.mjs: Chrome's SVGs, not surimono)", "sha256": "1", "commit": None}
+        real = {"cli": "/r/target/release/surimono", "version": "surimono 0.1.0", "sha256": "2", "commit": "abc"}
+        s = score("echarts-a", True)
+        with self.assertRaises(compat.CompatError) as e:
+            compat.generate([{**s, "producer": fake, "_file": "x/score.json"}], None, None, "c", None)
+        self.assertIn("stand-in", str(e.exception))
+        with self.assertRaises(compat.CompatError):
+            compat.check_producers([{**s, "producer": real}, {**s, "producer": {**real, "sha256": "3"}}])
+        out = compat.generate([{**s, "producer": real}], None, None, "c", None)
+        self.assertIn("surimono CLI surimono 0.1.0, sha256 2, commit abc", out)
 
     def test_missing_inputs_say_not_run(self):
         out = compat.generate([], None, None, "c", None)

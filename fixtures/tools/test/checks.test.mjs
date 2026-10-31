@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PNG } from "pngjs";
 import { verdictOf } from "../lib/compare.mjs";
+import { islandWrapper, islandsOf, prepassHtml } from "../lib/fixtures.mjs";
 import { colourMatch, diff, hueMatch, nearMatch, solidMask } from "../lib/png.mjs";
 import { compareStyles, compareTexts, decodeXml, multisetMinus, svgTextStyles, svgTexts } from "../lib/svgtext.mjs";
 
@@ -112,6 +113,17 @@ test("text check fails on a changed, missing or extra string", () => {
 
 test("multisetMinus counts duplicates", () => {
   assert.deepEqual(multisetMinus(["a", "a", "b"], ["a"]), ["a", "b"]);
+});
+
+test("islandsOf cuts surimono's islands back out, in order, and reports error placeholders", () => {
+  const marker = (r) => `<script type="application/vnd.surimono+json" data-renderer="${r}" class="chart wide">{}</script>`;
+  const page = `<p>a</p>${marker("echarts")}<p>b</p>${marker("vega")}`;
+  const svgs = ['<svg width="8" height="8"><g><text>A</text></g></svg>', '<svg width="8" height="8"><path d="M0 0"/></svg>'];
+  assert.deepEqual(islandsOf(prepassHtml(page, svgs)), svgs.map((svg) => ({ svg })));
+  const failed = `<div class="surimono-island surimono-island-error chart" data-error="time-limit"><!-- surimono: island 1 hit the time limit (2000 ms) --></div>`;
+  const out = islandsOf(`${islandWrapper(marker("echarts"), svgs[0])}${failed}`);
+  assert.deepEqual(out[0], { svg: svgs[0] });
+  assert.match(out[1].error, /island 1 hit the time limit/);
 });
 
 test("svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors", () => {
