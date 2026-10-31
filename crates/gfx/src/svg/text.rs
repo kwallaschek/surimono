@@ -59,6 +59,10 @@ const PATH_DECIMALS: i32 = 2;
 /// KB of path data (dense CJK glyphs), so this bounds the output at tens of
 /// MB and the shaping time at well under a second; dense charts have a few
 /// thousand characters of labels. More is a hostile or broken island.
+///
+/// For dense CJK text the 32 MiB path budget is usually reached first: a
+/// 16 px CJK glyph is about 1.7 KB of path data, so about 20,000 such glyphs
+/// fill it (at larger sizes, fewer). Either limit is `InvalidSvg`.
 pub const MAX_OUTLINE_CHARS: usize = 20_000;
 
 /// Most bytes of outline path data one SVG may produce.
