@@ -717,19 +717,19 @@ impl Drop for IslandRunner {
             // thread that didn't survive the fork may have held a lock or
             // been changing the data behind one. Leak all of it, touching
             // nothing: `get_mut` takes no lock, and moving a value out
-            // reads none of it. The extra reference keeps `Shared` (the
-            // queue and its lock) from ever being dropped here.
-            std::mem::forget(Arc::clone(&self.shared));
+            // reads none of it. The leaked extra reference keeps `Shared`
+            // (the queue and its lock) from ever being dropped here.
+            Box::leak(Box::new(Arc::clone(&self.shared)));
             let workers = self
                 .workers
                 .get_mut()
                 .unwrap_or_else(PoisonError::into_inner);
-            std::mem::forget(std::mem::take(workers));
+            Box::leak(Box::new(std::mem::take(workers)));
             let bundles = self
                 .bundles
                 .get_mut()
                 .unwrap_or_else(PoisonError::into_inner);
-            std::mem::forget(std::mem::take(bundles));
+            Box::leak(Box::new(std::mem::take(bundles)));
             return;
         }
         // Closing the queue ends the workers once they finish their job.
