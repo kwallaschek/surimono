@@ -1,0 +1,181 @@
+
+==> fixtures: tool tests (node, after npm ci)
+
+added 86 packages in 4s
+TAP version 13
+# Subtest: solid pixels are flat interiors, never edges or thin lines
+ok 1 - solid pixels are flat interiors, never edges or thin lines
+  ---
+  duration_ms: 5.18577
+  type: 'test'
+  ...
+# Subtest: near-match is colour-blind; the colour check is not
+ok 2 - near-match is colour-blind; the colour check is not
+  ---
+  duration_ms: 66.036437
+  type: 'test'
+  ...
+# Subtest: the same picture passes every check
+ok 3 - the same picture passes every check
+  ---
+  duration_ms: 8.690285
+  type: 'test'
+  ...
+# Subtest: a bar shifted by 1 px keeps its colour score at 0
+ok 4 - a bar shifted by 1 px keeps its colour score at 0
+  ---
+  duration_ms: 7.274078
+  type: 'test'
+  ...
+# Subtest: hue ignores anti-aliasing coverage but sees a different colour
+ok 5 - hue ignores anti-aliasing coverage but sees a different colour
+  ---
+  duration_ms: 2.200933
+  type: 'test'
+  ...
+# Subtest: hue does not judge position: a line with no ink near it in the other image is near-match's job
+ok 6 - hue does not judge position: a line with no ink near it in the other image is near-match's job
+  ---
+  duration_ms: 0.896871
+  type: 'test'
+  ...
+# Subtest: svgTexts reads <text> with tspans, entities, labels and titles
+ok 7 - svgTexts reads <text> with tspans, entities, labels and titles
+  ---
+  duration_ms: 1.367875
+  type: 'test'
+  ...
+# Subtest: svgTexts: a self-closing <text/> doesn't swallow the next element
+ok 8 - svgTexts: a self-closing <text/> doesn't swallow the next element
+  ---
+  duration_ms: 0.308802
+  type: 'test'
+  ...
+# Subtest: svgTexts: a <title> inside <text> is a label, not printed text
+ok 9 - svgTexts: a <title> inside <text> is a label, not printed text
+  ---
+  duration_ms: 0.621422
+  type: 'test'
+  ...
+# Subtest: text check accepts outlines that keep the string in aria-label
+ok 10 - text check accepts outlines that keep the string in aria-label
+  ---
+  duration_ms: 0.470022
+  type: 'test'
+  ...
+# Subtest: text check fails on a changed, missing or extra string
+ok 11 - text check fails on a changed, missing or extra string
+  ---
+  duration_ms: 0.324102
+  type: 'test'
+  ...
+# Subtest: multisetMinus counts duplicates
+ok 12 - multisetMinus counts duplicates
+  ---
+  duration_ms: 0.115161
+  type: 'test'
+  ...
+# Subtest: svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+ok 13 - svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+  ---
+  duration_ms: 1.689071
+  type: 'test'
+  ...
+# Subtest: font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's
+ok 14 - font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's
+  ---
+  duration_ms: 0.97484
+  type: 'test'
+  ...
+# Subtest: font check matches same-key texts one to one
+ok 15 - font check matches same-key texts one to one
+  ---
+  duration_ms: 0.697018
+  type: 'test'
+  ...
+# Subtest: font check candidates are <text> and outline groups, never chart marks
+ok 16 - font check candidates are <text> and outline groups, never chart marks
+  ---
+  duration_ms: 0.341375
+  type: 'test'
+  ...
+# Subtest: computedTextStyles is Chrome's view, and catches what svgTextStyles can't read
+ok 17 - computedTextStyles is Chrome's view, and catches what svgTextStyles can't read # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 444.00282
+  type: 'test'
+  ...
+# Subtest: hostileCases reads manifest.toml exactly as tomllib does
+ok 18 - hostileCases reads manifest.toml exactly as tomllib does
+  ---
+  duration_ms: 129.814854
+  type: 'test'
+  ...
+# Subtest: hostileCases: steps become numbered entries; a case without file or steps is an error
+ok 19 - hostileCases: steps become numbered entries; a case without file or steps is an error
+  ---
+  duration_ms: 0.841214
+  type: 'test'
+  ...
+# Subtest: launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback
+ok 20 - launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 424.432617
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 2
+# todo 0
+# duration_ms 697.791143
+
+==> fixtures: real-world suite (needs registry.npmjs.org)
+ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
+ok   vega 6.4.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   vega-lite 6.5.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   mermaid 12.2.0 (stretch, MIT); embedded build not recorded yet
+
+==> gfx: fulgur print test
+Selecting previously unselected package poppler-data.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 215504 files and directories currently installed.)
+Preparing to unpack .../poppler-data_0.4.12-1_all.deb ...
+Unpacking poppler-data (0.4.12-1) ...
+Selecting previously unselected package libpoppler134:amd64.
+Preparing to unpack .../libpoppler134_24.02.0-1ubuntu9.11_amd64.deb ...
+Unpacking libpoppler134:amd64 (24.02.0-1ubuntu9.11) ...
+Selecting previously unselected package poppler-utils.
+Preparing to unpack .../poppler-utils_24.02.0-1ubuntu9.11_amd64.deb ...
+Unpacking poppler-utils (24.02.0-1ubuntu9.11) ...
+Setting up libpoppler134:amd64 (24.02.0-1ubuntu9.11) ...
+Setting up poppler-data (0.4.12-1) ...
+Setting up poppler-utils (24.02.0-1ubuntu9.11) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 3.47s
+[1m[32m     Running[0m tests/fulgur_print.rs (target/debug/deps/fulgur_print-35a3108a0e9c27b6)
+
+running 2 tests
+test kept_island_text_prints_in_system_fonts_expected_failure ... ok
+test outlined_island_text_prints_without_system_fonts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
+
+nightly extra checks run: 3
