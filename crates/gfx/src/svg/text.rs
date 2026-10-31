@@ -40,6 +40,7 @@ use std::ops::Range;
 use roxmltree::{Document, Node, ParsingOptions};
 use skrifa::instance::{LocationRef, NormalizedCoord, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
+use skrifa::string::StringId;
 use skrifa::{GlyphId, MetadataProvider};
 
 use super::{MAX_SVG_NODES, Ns, Visit, css, escape_attribute, invalid, walk};
@@ -47,7 +48,7 @@ use crate::GfxError;
 use crate::css_font::{
     FamilyEntry, FontSpec, Slant, parse_family_list, serialize_families, svg_font_size, svg_length,
 };
-use crate::measure::{Shaped, TextMeasurer};
+use crate::measure::{Shaped, ShapedRun, TextMeasurer};
 
 /// Decimal places in outline path data. A hundredth of a CSS px is far below
 /// what a printer or rasteriser resolves, and fixed precision keeps the
@@ -691,6 +692,53 @@ fn layout(
     })
 }
 
+/// The face a run was shaped with, as its name table names it: family and
+/// style (typographic names first, e.g. `Noto Sans JP Bold`), with
+/// ` (synthetic oblique)` when the face was slanted to fake an italic, and
+/// the normalized variation coordinates (`[wght 0.5]`) of a variable face.
+fn face_name(run: &ShapedRun) -> String {
+    let Ok(font) = skrifa::FontRef::from_index(run.font.data.as_ref(), run.font.index) else {
+        return String::from("(unreadable face)");
+    };
+    let name = |ids: [StringId; 2]| {
+        ids.iter()
+            .find_map(|&id| font.localized_strings(id).english_or_first())
+            .map(|s| s.to_string())
+            .unwrap_or_default()
+    };
+    let family = name([StringId::TYPOGRAPHIC_FAMILY_NAME, StringId::FAMILY_NAME]);
+    let style = name([
+        StringId::TYPOGRAPHIC_SUBFAMILY_NAME,
+        StringId::SUBFAMILY_NAME,
+    ]);
+    let mut out = format!("{family} {style}").trim().to_string();
+    if run.coords.iter().any(|&c| c != 0) {
+        let axes: Vec<String> = font
+            .axes()
+            .iter()
+            .zip(&run.coords)
+            .map(|(axis, &c)| format!("{} {}", axis.tag(), f64::from(c) / 16384.0))
+            .collect();
+        out.push_str(&format!(" [{}]", axes.join(", ")));
+    }
+    if run.skew != 0.0 {
+        out.push_str(" (synthetic oblique)");
+    }
+    out
+}
+
+/// The faces a laid-out `<text>` was shaped with, in order of first use.
+fn faces(laid: &Laid) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for run in laid.segments.iter().flat_map(|s| &s.shaped.runs) {
+        let name = face_name(run);
+        if !out.contains(&name) {
+            out.push(name);
+        }
+    }
+    out
+}
+
 /// True if a glyph origin lies within [`MAX_TEXT_COORD`] of the origin.
 fn near(v: f64) -> bool {
     v.is_finite() && v.abs() <= MAX_TEXT_COORD
@@ -919,7 +967,12 @@ fn convert_text(
         // can swallow it.
         let d: String = paths.concat();
         let mut drop: Vec<&str> = POSITIONING.to_vec();
-        drop.extend(["aria-label", "style", "data-surimono-text"]);
+        drop.extend([
+            "aria-label",
+            "style",
+            "data-surimono-text",
+            "data-surimono-face",
+        ]);
         let style = match text.attribute("style") {
             Some(s) if !s.trim().is_empty() => format!("{NONZERO_CLIP};{s}"),
             _ => NONZERO_CLIP.to_string(),
@@ -932,11 +985,13 @@ fn convert_text(
         }
         return Ok(tag);
     }
-    // The outlined string is always recorded (the text checks read it); the
-    // author's own label and role, if any, stay.
+    // The outlined string and the faces that drew it are always recorded
+    // (the conformance checks read them); the author's own label and role,
+    // if any, stay.
     let mut extra = format!(
-        " data-surimono-text=\"{}\"",
-        escape_attribute(&laid.label, '"')
+        " data-surimono-text=\"{}\" data-surimono-face=\"{}\"",
+        escape_attribute(&laid.label, '"'),
+        escape_attribute(&faces(&laid).join(", "), '"')
     );
     if text.attribute("aria-label").is_none() {
         if text.attribute("role").is_none() {
@@ -948,7 +1003,7 @@ fn convert_text(
         ));
     }
     let mut drop: Vec<&str> = POSITIONING.to_vec();
-    drop.push("data-surimono-text");
+    drop.extend(["data-surimono-text", "data-surimono-face"]);
     let (mut out, self_closing) = start_tag(text, input, "g", &drop, &extra);
     if self_closing {
         return Ok(out);
@@ -1159,7 +1214,7 @@ pub(crate) mod tests {
         let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><g fill-rule=\"evenodd\">\
             <text id=\"t\" class=\"c\" x=\"10\" y=\"20\" fill=\"red\" transform=\"rotate(5)\" font-family=\"'Noto Sans'\" font-size=\"12\">Hi &amp; <tspan font-weight=\"bold\" fill=\"blue\" dx=\"3\" opacity=\"0.5\" style=\"opacity:.2;transform:scale(9);fill:green;filter:blur(1px)\">bye</tspan><title>tip</title></text>\
             <clipPath id=\"k\"><text x=\"1\" y=\"9\" font-size=\"8\" style=\"fill:red\">clip</text></clipPath><text/>\
-            <text aria-label=\"Revenue: 12\" role=\"graphics-symbol\" data-surimono-text=\"forged\">12</text></g></svg>";
+            <text aria-label=\"Revenue: 12\" role=\"graphics-symbol\" data-surimono-text=\"forged\" data-surimono-face=\"forged\">12</text></g></svg>";
         let out = outline_text(svg, &m).unwrap();
         let doc = Document::parse(&out).unwrap();
         assert!(
@@ -1177,6 +1232,11 @@ pub(crate) mod tests {
         assert_eq!(g.attribute("role"), Some("img"));
         assert_eq!(g.attribute("aria-label"), Some("Hi & bye"));
         assert_eq!(g.attribute("data-surimono-text"), Some("Hi & bye"));
+        assert_eq!(
+            g.attribute("data-surimono-face"),
+            Some("Noto Sans Regular, Noto Sans Bold"),
+            "the faces Parley picked, in order"
+        );
         assert_eq!(g.attribute("x"), None);
         let kids: Vec<_> = g.children().filter(|n| n.is_element()).collect();
         assert_eq!(kids.len(), 3, "path, tspan group, title");
@@ -1213,7 +1273,9 @@ pub(crate) mod tests {
             Some("clip-rule:nonzero!important;fill:red")
         );
         // An empty <text/> stays an (empty) labelled group.
-        assert!(out.contains("<g data-surimono-text=\"\" role=\"img\" aria-label=\"\"/>"));
+        assert!(out.contains(
+            "<g data-surimono-text=\"\" data-surimono-face=\"\" role=\"img\" aria-label=\"\"/>"
+        ));
         // The author's label and role stay; the outlined string is always
         // recorded, and a forged one goes.
         let v = doc
@@ -1222,6 +1284,7 @@ pub(crate) mod tests {
             .unwrap();
         assert_eq!(v.attribute("role"), Some("graphics-symbol"));
         assert_eq!(v.attribute("data-surimono-text"), Some("12"));
+        assert_ne!(v.attribute("data-surimono-face"), Some("forged"));
     }
 
     fn wrap(body: &str) -> String {
@@ -1363,6 +1426,35 @@ pub(crate) mod tests {
             "<g font-size=\"40\"><rect/></g><text x=\"50\" style=\"font:bold 20px 'Noto Sans'\" letter-spacing=\"2\" text-anchor=\"end\">AV</text>",
         );
         assert_eq!(sibling, direct, "a closed sibling's style doesn't leak");
+    }
+
+    /// The face actually used is recorded, so a face-selection bug (say,
+    /// fallback picking a Bold face) shows up in the checks.
+    #[test]
+    fn faces_used_are_recorded() {
+        let m = test_measurer();
+        let face = |body: &str| {
+            let out = outline_text(&wrap(body), &m).unwrap();
+            let doc = Document::parse(&out).unwrap();
+            let g = doc.descendants().find(|n| n.has_tag_name("g")).unwrap();
+            g.attribute("data-surimono-face").unwrap().to_string()
+        };
+        assert_eq!(
+            face("<text font-family=\"Noto Sans\">Sales</text>"),
+            "Noto Sans Regular"
+        );
+        assert_eq!(
+            face("<text font-family=\"Noto Sans\" font-weight=\"bold\">売上 Sales</text>"),
+            "Noto Sans JP Bold, Noto Sans Bold",
+            "fallback for Japanese keeps the weight"
+        );
+        assert_eq!(
+            face("<text font-family=\"Noto Sans JP\" font-style=\"italic\">A</text>"),
+            "Noto Sans JP Regular (synthetic oblique)"
+        );
+        // Deterministic: the same text, the same string.
+        let t = "<text font-family=\"Noto Sans\">売上 Sales 2026</text>";
+        assert_eq!(face(t), face(t));
     }
 
     #[test]
