@@ -12,5 +12,62 @@
   "55,000",
   "Cashbalance(EUR)"
  ],
- "labels": []
+ "labels": [],
+ "styles": [
+  {
+   "key": "1Aug",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1Jul",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1Oct",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1Sep",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "30,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "35,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "40,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "45,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "50,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "55,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Cashbalance(EUR)",
+   "weight": 700,
+   "style": "normal"
+  }
+ ]
 }

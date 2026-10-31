@@ -44,9 +44,23 @@ impl Measure {
         measurer.map_or(Self::NoFonts, Self::Fonts)
     }
 
+    /// A measurer for one worker thread: the same fonts (shared, not
+    /// copied), with measuring state of its own. A shared measurer creates
+    /// a workspace for each call that overlaps another and keeps it, so how
+    /// many it holds depends on timing; one per worker is created by the
+    /// worker's first measurement and stays the only one.
+    pub(crate) fn for_worker(&self) -> Self {
+        match self {
+            Self::Fonts(m) => Self::Fonts(TextMeasurer::new(m.fonts().clone())),
+            other => other.clone(),
+        }
+    }
+
     /// Measures `text` in the CSS `font` shorthand `css_font`.
     pub(crate) fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, MeasureError> {
         match self {
+            // No fonts comes first, whatever else is wrong with the text.
+            Self::Fonts(m) if m.fonts().face_count() == 0 => Err(MeasureError::NoFonts),
             Self::Fonts(m) => m.measure(text, css_font).map_err(|e| match e {
                 GfxError::NoFonts => MeasureError::NoFonts,
                 other => MeasureError::Other(other.to_string()),
@@ -166,11 +180,37 @@ mod tests {
             empty.measure("x", "10px sans-serif"),
             Err(MeasureError::NoFonts)
         );
+        // Even for text the measurer would refuse as too long.
+        let long = "x".repeat(surimono_gfx::MAX_TEXT_BYTES + 1);
+        assert_eq!(
+            empty.measure(&long, "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
         let none = Measure::new(None);
         assert_eq!(
             none.measure("x", "10px sans-serif"),
             Err(MeasureError::NoFonts)
         );
         assert_eq!(format!("{none:?}"), "NoFonts");
+    }
+
+    #[test]
+    fn a_worker_measurer_measures_like_the_original() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/fonts");
+        let mut fonts = surimono_gfx::FontSet::new();
+        fonts
+            .add_font_bytes(std::fs::read(dir.join("NotoSans-Regular.ttf")).unwrap())
+            .unwrap();
+        let shared = Measure::new(Some(TextMeasurer::new(fonts)));
+        let worker = shared.for_worker();
+        for text in ["Revenue", "Q3 2026", ""] {
+            assert_eq!(
+                worker.measure(text, "12px 'Noto Sans'"),
+                shared.measure(text, "12px 'Noto Sans'"),
+                "{text:?}"
+            );
+        }
+        assert!(matches!(Measure::NoFonts.for_worker(), Measure::NoFonts));
+        assert!(matches!(Measure::Estimate.for_worker(), Measure::Estimate));
     }
 }

@@ -41,7 +41,9 @@
 #
 # Every "Chromium 153: …" claim in an about text can be rechecked with
 # `node fixtures/tools/hostile-chrome.mjs` (each case alone in a Worker of the
-# pinned Chromium, 4 s each).
+# pinned Chromium, 4 s each; a case that times out runs again for 12 s, and
+# only then is it called "still running after 12 s"; nothing reaches the
+# network, Workers included).
 #
 # Every case must also end within `max_wall_ms` of wall-clock time (a hang
 # detector); a crash or abort of the test process fails the case outright.
@@ -49,12 +51,14 @@
 # `steps` cases run several files one after another as consecutive renders in
 # the same pooled runtime (the runtime pool's reset must isolate them).
 #
-# The harness names each script by its path from the repository root (for
-# example fixtures/hostile/escape-dynamic-import.js) wherever the engine takes
-# a script name, and runs from the repository root or a crate directory
-# (cargo test's working directory). escape-dynamic-import.js relies on this:
-# it asks for the real module fixtures/hostile/modules/escape-target.mjs by
-# every name such a loader could resolve.
+# How a harness names a script varies: by its path from the repository root,
+# or not at all (an indirect eval, where the referrer is a placeholder such as
+# <input>, as the runner's harness does), from the repository root or a crate
+# directory (cargo test's working directory). escape-dynamic-import.js asks
+# for the real module fixtures/hostile/modules/escape-target.mjs by every name
+# a file-reading loader could resolve in any of these: relative to the script,
+# to the repository root and to a crate directory. A harness that names scripts
+# some other way must make sure one of those names still reaches the module.
 
 [limits]
 memory_bytes = 67108864 # 64 MiB
@@ -161,21 +165,21 @@ about = "join over a Proxy reporting length 2**40; every index read calls the ge
 id = "native-loop-reverse"
 file = "native-loop-reverse.js"
 expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
-about = "Array.prototype.reverse over { length: 2**40 } (Chromium 153: still running after 4 s)"
+about = "Array.prototype.reverse over { length: 2**40 } (Chromium 153: still running after 12 s)"
 source = "ECMA-262, Array.prototype.reverse: https://tc39.es/ecma262/#sec-array.prototype.reverse"
 
 [[case]]
 id = "native-loop-copywithin"
 file = "native-loop-copywithin.js"
 expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
-about = "Array.prototype.copyWithin over { length: 2**40 } (Chromium 153: still running after 4 s)"
+about = "Array.prototype.copyWithin over { length: 2**40 } (Chromium 153: still running after 12 s)"
 source = "ECMA-262, Array.prototype.copyWithin: https://tc39.es/ecma262/#sec-array.prototype.copywithin"
 
 [[case]]
 id = "native-loop-string-raw"
 file = "native-loop-string-raw.js"
 expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
-about = "String.raw over raw.length 2**40 (Chromium 153: still running after 4 s)"
+about = "String.raw over raw.length 2**40 (Chromium 153: still running after 12 s)"
 source = "ECMA-262, String.raw: https://tc39.es/ecma262/#sec-string.raw"
 
 [[case]]
@@ -208,7 +212,7 @@ about = "join over a DataView given a length of 2**40 (Chromium 153: TypeError, 
 id = "native-loop-fill-typedarray-proto"
 file = "native-loop-fill-typedarray-proto.js"
 expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
-about = "Array.prototype.fill over an ordinary object that inherits from Uint8Array.prototype with its own length of 2**40 (Chromium 153: still running after 4 s)"
+about = "Array.prototype.fill over an ordinary object that inherits from Uint8Array.prototype with its own length of 2**40 (Chromium 153: still running after 12 s)"
 
 [[case]]
 id = "native-sort-typed-array"
@@ -230,7 +234,7 @@ about = "Sorting a 12,000,000-element Uint32Array (48 MB) in one native call; an
 id = "reentry-promise-executor"
 file = "reentry-promise-executor.js"
 expect_any = ["TimeLimit", "MemoryLimit"]
-about = "An infinite loop in a Promise executor, inside an outer infinite loop; Promise always exists (ES2023), so Exception here would mean the time-limit interrupt surfaced as a catchable exception (Chromium 153: still running after 4 s)"
+about = "An infinite loop in a Promise executor, inside an outer infinite loop; Promise always exists (ES2023), so Exception here would mean the time-limit interrupt surfaced as a catchable exception (Chromium 153: still running after 12 s)"
 source = "ECMA-262, the Promise constructor rejects with whatever the executor throws: https://tc39.es/ecma262/#sec-promise-executor"
 
 [[case]]
@@ -244,7 +248,7 @@ source = "ECMA-262, Promise.try: https://tc39.es/ecma262/#sec-promise.try"
 id = "reentry-async-generator"
 file = "reentry-async-generator.js"
 expect_any = ["TimeLimit", "MemoryLimit"]
-about = "An infinite loop in an async generator body started by next(), inside an outer infinite loop; async generators always exist (ES2023), so Exception here would mean the time-limit interrupt surfaced as a catchable exception (Chromium 153: still running after 4 s)"
+about = "An infinite loop in an async generator body started by next(), inside an outer infinite loop; async generators always exist (ES2023), so Exception here would mean the time-limit interrupt surfaced as a catchable exception (Chromium 153: still running after 12 s)"
 
 [[case]]
 id = "reentry-prepare-stack-trace"
@@ -255,8 +259,8 @@ about = "An infinite loop in Error.prepareStackTrace, which the engine may call 
 [[case]]
 id = "reentry-disposable-stack"
 file = "reentry-disposable-stack.js"
-expect_any = ["TimeLimit", "Exception", "MemoryLimit"]
-about = "An infinite loop in a DisposableStack#defer callback; dispose collects callback errors, and the outer loop catches and repeats"
+expect = "TimeLimit"
+about = "An infinite loop in a DisposableStack#defer callback; dispose collects callback errors, and the outer loop catches and repeats. The script catches every exception (a missing DisposableStack too), so only the time limit can end it (its memory use is constant: one DisposableStack and closure at a time); Exception would mean the time-limit interrupt surfaced as a catchable exception (Chromium 153: still running after 12 s)"
 source = "ECMA-262 explicit resource management, DisposableStack.prototype.dispose: https://tc39.es/proposal-explicit-resource-management/#sec-disposablestack.prototype.dispose"
 
 # ---------------------------------------------------------------- memory

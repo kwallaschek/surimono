@@ -105,4 +105,12 @@ export function printResult(result) {
       `${t.pass ? "pass" : "FAIL(text)"} ${result.subject} text: ${t.reference_strings} strings in Chrome's SVG, found ${t.candidate_text} as <text> and ${t.candidate_outlined} as outline labels${t.missing.length ? `; missing ${JSON.stringify(t.missing.slice(0, 10))}` : ""}${t.extra.length ? `; extra ${JSON.stringify(t.extra.slice(0, 10))}` : ""}`,
     );
   }
+  if (result.font) {
+    const f = result.font;
+    const shown = f.mismatches.slice(0, 5).map((x) => `${JSON.stringify(x.key)}: Chrome ${x.chrome}, surimono ${x.surimono}`);
+    const lacking = (f.missing ?? []).slice(0, 5).map((x) => JSON.stringify(x.key));
+    console.log(
+      `${f.pass ? "pass" : "FAIL(font)"} ${result.subject} declared font weight and style: ${f.compared} texts compared${shown.length ? `; ${shown.join("; ")}` : ""}${lacking.length ? `; no text or outline for ${lacking.join(", ")}` : ""}`,
+    );
+  }
 }

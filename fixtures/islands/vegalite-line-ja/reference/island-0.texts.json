@@ -67,5 +67,122 @@
   "月:9月;売上高（万円）:1,909;店舗:横浜店",
   "月:9月;売上高（万円）:2,862;店舗:新宿店",
   "月:9月;売上高（万円）:3,381;店舗:渋谷店"
+ ],
+ "styles": [
+  {
+   "key": "10月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "11月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "12月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "2,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "2,500",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "2月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "3,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "3,500",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "3月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "4,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "4月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "5月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "6月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "7月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "8月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "9月",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "売上高（万円）",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "店舗",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "新宿店",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "月",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "横浜店",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "渋谷店",
+   "weight": 400,
+   "style": "normal"
+  }
  ]
 }
