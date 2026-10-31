@@ -29342,10 +29342,10 @@ static __exception int js_parse_for_in_of(JSParseState *s, int label_name,
         int chunk_size = pos_expr - pos_next;
         int offset = bc->size - pos_next;
         int i;
-        /* surimono: see js_check_bytecode_oom; a failed claim flags the
-           buffer too. */
-        dbuf_claim(bc, chunk_size);
-        if (js_check_bytecode_oom(s->ctx, s->cur_func))
+        /* surimono: check the claim and the buffer before moving code;
+           see js_check_bytecode_oom. */
+        if (dbuf_claim(bc, chunk_size) ||
+            js_check_bytecode_oom(s->ctx, s->cur_func))
             return -1;
         dbuf_put(bc, bc->buf + pos_next, chunk_size);
         memset(bc->buf + pos_next, OP_nop, chunk_size);
@@ -29864,10 +29864,10 @@ static __exception int js_parse_statement_or_decl(JSParseState *s,
                 int chunk_size = pos_body - pos_cont;
                 int offset = bc->size - pos_cont;
                 int i;
-                /* surimono: see js_check_bytecode_oom; a failed claim
-                   flags the buffer too. */
-                dbuf_claim(bc, chunk_size);
-                if (js_check_bytecode_oom(ctx, s->cur_func))
+                /* surimono: check the claim and the buffer before moving
+                   code; see js_check_bytecode_oom. */
+                if (dbuf_claim(bc, chunk_size) ||
+                    js_check_bytecode_oom(ctx, s->cur_func))
                     goto fail;
                 dbuf_put(bc, bc->buf + pos_cont, chunk_size);
                 memset(bc->buf + pos_cont, OP_nop, chunk_size);
