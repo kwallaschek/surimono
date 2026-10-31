@@ -311,9 +311,44 @@ fn stack_low() -> Option<usize> {
         let mut size: libc::size_t = 0;
         let ok = libc::pthread_attr_getstack(attr.as_ptr(), &mut addr, &mut size) == 0;
         libc::pthread_attr_destroy(attr.as_mut_ptr());
+        if !ok || addr.is_null() {
+            return None;
+        }
         // `addr` is the lowest address of the stack mapping.
-        (ok && !addr.is_null()).then_some(addr as usize)
+        let low = addr as usize;
+        #[cfg(target_env = "musl")]
+        let low = musl_main_thread_low(low, low.saturating_add(size)).unwrap_or(low);
+        Some(low)
     }
+}
+
+/// musl's `pthread_getattr_np` reports only the part of the main thread's
+/// stack that is mapped so far, not how far it can grow, so the stack check
+/// would refuse sandboxes the thread has room for. The main thread's stack
+/// grows down to `RLIMIT_STACK` below its top. With an unlimited rlimit
+/// there is no bound to trust, so the mapped part is kept (refusing is safer
+/// than overrunning). `None` off the main thread.
+#[cfg(all(any(target_os = "linux", target_os = "android"), target_env = "musl"))]
+fn musl_main_thread_low(mapped_low: usize, top: usize) -> Option<usize> {
+    // SAFETY: getpid and the gettid system call take no arguments and
+    // can't fail; the thread id of the main thread equals the process id.
+    let main = unsafe { libc::syscall(libc::SYS_gettid) == libc::c_long::from(libc::getpid()) };
+    if !main {
+        return None;
+    }
+    let mut lim = std::mem::MaybeUninit::<libc::rlimit>::uninit();
+    // SAFETY: getrlimit writes `lim` when it returns 0; it is read only then.
+    let lim = unsafe {
+        if libc::getrlimit(libc::RLIMIT_STACK, lim.as_mut_ptr()) != 0 {
+            return None;
+        }
+        lim.assume_init()
+    };
+    if lim.rlim_cur == libc::RLIM_INFINITY {
+        return None;
+    }
+    let size = usize::try_from(lim.rlim_cur).ok()?;
+    Some(top.checked_sub(size)?.min(mapped_low))
 }
 
 #[cfg(target_os = "macos")]
@@ -334,10 +369,13 @@ fn stack_low() -> Option<usize> {
 }
 
 /// Test-only fault injection: refuse exactly the Nth allocation, to show no
-/// out-of-memory path in QuickJS aborts the process.
+/// out-of-memory path in QuickJS crashes or aborts the process.
 #[cfg(test)]
 pub(crate) mod fault {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::ffi::c_int;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    use rquickjs::{Ctx, qjs};
 
     static REFUSE_AT: AtomicUsize = AtomicUsize::new(0);
     static COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -358,6 +396,30 @@ pub(crate) mod fault {
         let n = REFUSE_AT.load(Ordering::Relaxed);
         let i = COUNT.fetch_add(1, Ordering::Relaxed) + 1;
         n != 0 && i == n
+    }
+
+    static ARENA_OFF: AtomicBool = AtomicBool::new(false);
+
+    /// With `off`, runtimes created from now on skip QuickJS's small-block
+    /// arenas, so every allocation reaches the sandbox's allocator and
+    /// `refuse_nth` can refuse each one. Normally only arena refills get
+    /// there. Process-wide: use it only in a child process.
+    pub(crate) fn set_arena_off(off: bool) {
+        ARENA_OFF.store(off, Ordering::SeqCst);
+    }
+
+    unsafe extern "C" {
+        /// Defined only by the patched QuickJS in `vendor/rquickjs-sys`.
+        fn surimono_quickjs_set_arena(rt: *mut qjs::JSRuntime, enabled: c_int);
+    }
+
+    /// Applies `set_arena_off` to the runtime of `ctx`.
+    pub(crate) fn apply_arena_setting(ctx: &Ctx<'_>) {
+        if ARENA_OFF.load(Ordering::SeqCst) {
+            // SAFETY: `ctx` is a live context inside `Context::with`, so its
+            // runtime is alive and locked; the call writes one field of it.
+            unsafe { surimono_quickjs_set_arena(qjs::JS_GetRuntime(ctx.as_raw().as_ptr()), 0) }
+        }
     }
 }
 
@@ -613,7 +675,7 @@ mod tests {
 
     #[test]
     fn the_engine_is_patched() {
-        assert!(patch_level() >= 1);
+        assert!(patch_level() >= 2);
     }
 
     #[test]
