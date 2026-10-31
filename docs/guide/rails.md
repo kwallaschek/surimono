@@ -373,4 +373,5 @@ File.join(Gem.loaded_specs.fetch("surimono").full_gem_path, "THIRD_PARTY_LICENSE
 | Chart labels can't be selected or searched | Expected: chart text is drawn as outlines. See [above](#chart-text-is-drawn-as-outlines). |
 | A gap under every chart | The SVG is inline. Add `.surimono-island > svg { display: block; }`. |
 | A render takes far longer than `time_ms` | The limit is per island. Lower `max_islands:` or put a timeout around the call (see [Limits](#limits)). |
+| The first chart in each process is much slower than later ones | The chart libraries aren't loading precompiled bytecode. Check that `Surimono.precompiled_builtins` equals `Surimono.builtin_renderers.size`; if it doesn't, `SURIMONO_PRECOMPILE=0` was set when the gem was built or the app started, or the gem's precompiled bytecode doesn't fit its engine (a broken build). |
 | `RenderError` "unknown renderer" | A typo in `data-renderer`, or the renderer isn't in `renderers:`. The message lists the enabled ones. |

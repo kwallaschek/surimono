@@ -28,7 +28,9 @@ The first release: chart islands.
   `invalid-island` error that names the island.
 - **Built-in renderers**, precompiled to QuickJS bytecode at build time and
   checked against the engine and the bundle source before use
-  (`SURIMONO_PRECOMPILE=0` compiles from source instead):
+  (`SURIMONO_PRECOMPILE=0` compiles from source instead). `builtin_renderers()`
+  lists the built-ins in a build and `precompiled_builtins()` says how many of
+  them loaded precompiled bytecode, for checking a build or a packaged gem:
   - `echarts`: Apache ECharts 6.1.0, server-side SVG, at the island's size,
     animation off (Cargo feature `echarts`);
   - `vega` and `vega-lite`: Vega 6.4.0 and Vega-Lite 6.5.0, headless view to
@@ -73,7 +75,10 @@ The first release: chart islands.
   `Renderer::render_islands`, `Renderer::render_islands_cancellable`;
   `Options` (`font`, `limits`, `seed`, `error_policy`, `renderers`, `bundle`,
   `pool_size`, `now_ms`, `utc_offset_minutes`, `text_mode`, `max_islands`);
-  `Limits`, `ErrorPolicy`, `TextMode`, `DEFAULT_NOW_MS`; one
+  `Limits`, `ErrorPolicy`, `TextMode`, `DEFAULT_NOW_MS`;
+  `surimono::builtin_renderers()` (the built-in renderer names, sorted) and
+  `surimono::precompiled_builtins()` (how many of them loaded precompiled
+  bytecode in this process); one
   `#[non_exhaustive]` `Error` enum with `island()` and a stable `kind()`.
   `Renderer` is `Send + Sync`.
 - **Fork safety.** A `Renderer` built before a fork (Puma `preload_app!` or
@@ -86,7 +91,8 @@ The first release: chart islands.
 - **Ruby gem** `surimono`: `Surimono::Renderer.new(fonts:, limits:, seed:,
   now:, utc_offset_minutes:, error_policy:, renderers:, bundles:, text:,
   pool_size:, max_islands:)`, `Renderer#render`, and
-  `Surimono.render(html, **options)`, which keeps up to 4 renderers. Errors
+  `Surimono.render(html, **options)`, which keeps up to 4 renderers;
+  `Surimono.builtin_renderers` and `Surimono.precompiled_builtins`. Errors
   are `Surimono::Error` subclasses (`MemoryLimitError`, `TimeLimitError`,
   `StackOverflowError`, `JavaScriptError` with `js_stack`, `RenderError`,
   `ConfigurationError`, `InternalError`) with `kind`, `island_index`,
