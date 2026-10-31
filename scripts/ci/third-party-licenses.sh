@@ -37,11 +37,17 @@ trap 'rm -f "$tmp" "$shipped" "$partial"' EXIT
 
 # The crates the shipped library links: normal dependencies on the targets in
 # about.toml, as cargo-about sees them (no dev-dependencies, no build scripts).
+# Captured with $(...), not read from a process substitution, so a failure here
+# (about.toml without a non-empty `targets`) aborts instead of leaving the list
+# empty and listing only the host's crates.
+targets="$(python3 -I -c '
+import sys, tomllib
+t = tomllib.load(open(sys.argv[1], "rb")).get("targets")
+if not t or not all(isinstance(x, str) and x for x in t):
+    sys.exit(sys.argv[1] + ": `targets` must be a non-empty list of target triples")
+print("\n".join(t))' scripts/ci/about.toml)"
 target_args=()
-while IFS= read -r t; do target_args+=(--target "$t"); done < <(
-  python3 -I -c 'import sys, tomllib; print("\n".join(tomllib.load(open(sys.argv[1], "rb"))["targets"]))' \
-    scripts/ci/about.toml
-)
+while IFS= read -r t; do target_args+=(--target "$t"); done <<< "$targets"
 cargo tree --frozen --manifest-path "$manifest" -e normal "${target_args[@]}" \
   --prefix none -f '{p}' > "$shipped"
 
