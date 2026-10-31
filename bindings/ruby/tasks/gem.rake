@@ -76,6 +76,9 @@ module SurimonoGem
     dirs = []
     section = nil
     File.foreach(File.join(REPO_ROOT, "Cargo.toml")) do |line|
+      # Drop a comment (a `#` outside a string), so a commented-out
+      # `path = "..."` isn't read.
+      line = line.sub(/\A((?:[^"#]|"[^"]*")*)#.*/m, '\1')
       if (m = line.match(/^\s*\[([^\]]+)\]/))
         section = m[1].strip
       elsif section&.start_with?("patch") && (m = line.match(/\bpath\s*=\s*"([^"]+)"/))
