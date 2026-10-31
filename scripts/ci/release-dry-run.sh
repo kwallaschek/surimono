@@ -11,7 +11,7 @@ mkdir -p "$out"
 
 # Crates published to crates.io, in dependency order; and those never published.
 PUBLISHED=(surimono-core surimono-gfx surimono-islands surimono surimono-cli)
-NEVER=(surimono-ruby)
+NEVER=(surimono-ruby surimono-webidl surimono-dom)
 
 step "no stand-in renderer left"
 if git grep -n 'surimono-stub' -- crates bindings; then
@@ -44,7 +44,7 @@ for name in never:
         errors.append(f"{name}: must say publish = false")
 others = sorted(n for n, p in pkgs.items() if n not in published + never and p["publish"] != [])
 for name in others:
-    print(f"warning: {name} is publishable but not part of this release; set publish = false until it is")
+    errors.append(f"{name} is publishable but not part of this release; set publish = false until it is")
 for e in errors:
     print("error:", e)
 sys.exit(1 if errors else 0)
