@@ -1,0 +1,24 @@
+[1m[33mwarning[0m: manifest has no documentation, homepage or repository
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: see https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata for more info
+[1m[92m   Packaging[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 15 files, 212.6KiB (60.4KiB compressed)
+[1m[33mwarning[0m: manifest has no documentation, homepage or repository
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: see https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata for more info
+[1m[92m   Packaging[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 31 files, 543.6KiB (124.3KiB compressed)
+[1m[33mwarning[0m: manifest has no documentation, homepage or repository
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: see https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata for more info
+[1m[92m   Packaging[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 53 files, 2.3MiB (741.1KiB compressed)
+[1m[92m   Packaging[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 16 files, 210.4KiB (58.6KiB compressed)
+[1m[92m   Packaging[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 8 files, 71.0KiB (20.8KiB compressed)
