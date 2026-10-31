@@ -1,0 +1,5 @@
+# Installed by bench/run.sh
+.cache/
+grover/node_modules/
+__pycache__/
+*.pyc

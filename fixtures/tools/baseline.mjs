@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { islandPageHtml, listFixtures } from "./lib/fixtures.mjs";
-import { comparePdf, printResult, referenceFiles, PASS_WORST_WINDOW } from "./lib/compare.mjs";
+import { comparePdf, printResult, referenceFiles, PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW } from "./lib/compare.mjs";
 import { fulgurPrint, fulgurVersion } from "./lib/fulgur.mjs";
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: { out: { type: "string" }, kind: { type: "string", default: "islands" } } });
@@ -67,27 +67,36 @@ for (const fixture of listFixtures(values.kind, positionals)) {
 }
 
 const pct = (r) => (r?.worst_window === undefined ? "error" : `${(r.worst_window * 100).toFixed(1)}% (pixelmatch ${(r.worst_diff_ratio_ink * 100).toFixed(2)}%)`);
-// The verdict is the tool's own: worst window at or below the threshold AND the
-// same page size and count as Chrome (lib/compare.mjs). A size mismatch is named.
+const pctOf = (key) => (r) => (r?.[key] === undefined ? "error" : `${(r[key] * 100).toFixed(1)}%`);
+const colourPct = pctOf("worst_colour_window");
+const huePct = pctOf("worst_hue_window");
+// The verdict is the tool's own (verdictOf in lib/compare.mjs): every check
+// passes and the page size and count match Chrome's. A failure names the checks
+// that failed (size, shape, colour, hue) and the size mismatch.
 const verdict = (r) => {
   if (!r || r.error) return "FAIL (error)";
   if (r.pass) return "pass";
-  const sizes = (r.pages ?? []).filter((p) => p.size_match === false).map((p) => `size ${p.actual_size} vs Chrome ${p.expected_size}`);
-  const missing = (r.pages ?? []).filter((p) => p.worst_window === undefined).map((p) => p.detail);
-  return `FAIL (${[...sizes, ...missing].join("; ") || "score"})`;
+  const pages = r.pages ?? [];
+  const failed = [...new Set(pages.flatMap((p) => p.failed ?? []))];
+  const sizes = pages.filter((p) => p.size_match === false).map((p) => `size ${p.actual_size} vs Chrome ${p.expected_size}`);
+  const missing = pages.filter((p) => p.worst_window === undefined).map((p) => p.detail);
+  return `FAIL (${[failed.join("+"), ...sizes, ...missing].filter(Boolean).join("; ") || "page count"})`;
 };
-const islandsCell = (r) => r.islands.map(pct).join(", ");
+const islandsCell = (f) => (r) => r.islands.map(f).join(", ");
 const islandsVerdict = (r) => r.islands.map(verdict).join(", ");
 const all = rows.flatMap((r) => [r.page, ...r.islands]);
 const passed = all.filter((r) => r && !r.error && r.pass).length;
 const md = [
   `# fulgur baseline (fulgur ${version})`,
   "",
-  `fulgur printing Chrome's own island SVGs, compared with the Chrome references. Score: worst 32x32 window's share of near-mismatched ink (pass at or below ${(PASS_WORST_WINDOW * 100).toFixed(0)}% and same page size and count as Chrome), with pixelmatch's share of differing ink in brackets.`,
+  `fulgur printing Chrome's own island SVGs, compared with the Chrome references. Shape: worst 32x32 window's share of near-mismatched ink (pass at or below ${(PASS_WORST_WINDOW * 100).toFixed(0)}%), with pixelmatch's share of differing ink in brackets. Colour: worst window of solid pixels off by more than the colour tolerance (pass at or below ${(PASS_COLOUR_WINDOW * 100).toFixed(0)}%). Hue: worst window of stroke pixels whose ink direction differs (pass at or below ${(PASS_HUE_WINDOW * 100).toFixed(0)}%). Every check must pass, with the same page size and count as Chrome.`,
   "",
-  "| Fixture | Page | Page verdict | Islands | Island verdict |",
-  "|---|---|---|---|---|",
-  ...rows.map((r) => `| ${r.fixture} | ${pct(r.page)} | ${verdict(r.page)} | ${islandsCell(r)} | ${islandsVerdict(r)} |`),
+  "| Fixture | Page shape | Page colour | Page hue | Page verdict | Islands shape | Islands colour | Islands hue | Island verdict |",
+  "|---|---|---|---|---|---|---|---|---|",
+  ...rows.map(
+    (r) =>
+      `| ${r.fixture} | ${pct(r.page)} | ${colourPct(r.page)} | ${huePct(r.page)} | ${verdict(r.page)} | ${islandsCell(pct)(r)} | ${islandsCell(colourPct)(r)} | ${islandsCell(huePct)(r)} | ${islandsVerdict(r)} |`,
+  ),
   "",
   `${passed} of ${all.length} comparisons pass.`,
   "",
