@@ -186,8 +186,8 @@ impl fmt::Debug for Deadline {
 /// is what makes loading them sound.
 #[derive(Clone)]
 pub struct Bytecode {
-    name: Arc<str>,
-    bytes: Arc<[u8]>,
+    pub(crate) name: Arc<str>,
+    pub(crate) bytes: crate::embed::Bytes,
 }
 
 impl Bytecode {
@@ -435,7 +435,7 @@ impl Sandbox {
         let bytes = self.run(|ctx| engine::compile_script(ctx, source, filename))?;
         Ok(Bytecode {
             name: Arc::from(filename),
-            bytes: Arc::from(bytes),
+            bytes: bytes.into(),
         })
     }
 
