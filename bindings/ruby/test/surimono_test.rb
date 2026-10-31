@@ -402,6 +402,8 @@ class SurimonoTest < Minitest::Test
     assert_equal stub_svg * 2, r.render(island * 2)
     e = assert_raises(Surimono::RenderError) { r.render(island * 3) }
     assert_equal "too-many-islands", e.kind
+    # Names the option as Ruby (and the CLI's --max-islands) spell it, not a Rust item.
+    assert_equal "the document has more than 2 islands (max_islands)", e.message
     assert_nil e.island_index
     e = assert_raises(Surimono::RenderError) { new_renderer(bundles: BUNDLES).render(island * 1001) }
     assert_equal "too-many-islands", e.kind
