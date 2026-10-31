@@ -92,3 +92,9 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-10-31 · SvgOptions { text: TextMode::Outlines | Keep }, default Outlines; <text> becomes <g role=img aria-label> shaped with the same Parley path as measure(), glyphs from skrifa, two fixed decimals · fulgur 0.40 prints inline SVG text with system fonts; outline advances are bit-identical to measure() and within 0.049 px of Chrome.
 - 2026-10-31 · MAX_OUTLINE_CHARS 20,000 and 32 MiB of path data per SVG → InvalidSvg; outlining with no fonts → NoFonts · Bounds host memory and time.
 - 2026-10-31 · tests/fulgur_print.rs runs only where fulgur CLI and poppler exist; SURIMONO_REQUIRE_FULGUR=1 enforces it in a CI job · Keeps PR CI green without fulgur.
+
+## 11:40 · #25 review outcomes
+- DECISION 2026-10-31 · Island output can't affect anything outside its own box: sanitize_svg drops every <style>, foreignObject and HTML-namespace content and SMIL; desc/title become text-only; the root <svg> style is allowlisted · An ECharts emphasis colour injected page-wide CSS (body{display:none}); custom bundles could swallow the rest of the document or set page <body> attributes.
+- DECISION 2026-10-31 · A forked child rebuilds its FontSet/TextMeasurer from font bytes along with the pool · A parent thread can hold the measurer's lock at fork time (18 of 200 children hung).
+- DECISION 2026-10-31 · Optional max_islands per document (default 1,000) and a cancel path: the Ruby unblock function sets a flag the facade checks between islands · Per-island deadlines don't bound a whole document; Timeout/SIGTERM waited for all islands.
+- Open: macos-14 runner image retired 2 Nov; full.yml needs macos-15 (YAML for Kay at checkpoint 2).
