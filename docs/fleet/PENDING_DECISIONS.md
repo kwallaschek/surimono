@@ -77,14 +77,18 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 ### DX #18 #19 #23
 - Replace the pending "builds renderers lazily per process" line with: 2026-11-01 · Guides and examples build one shared Surimono::Renderer (and fulgur engine), safe to build before fork; the per-pid rebuild is gone · The facade restarts its pool in a forked child (#25); a fulgur 0.40 engine built before fork rendered in 20/20 children.
 - 2026-11-01 · Docs state Rust 1.89 for projects that also use the fulgur crate · fulgur 0.40 depends on krilla 0.7 (rust-version 1.89); surimono itself stays at 1.87.
-### CF #59
-- 2026-11-01 · The checkpoint-2 report is committed under fixtures/checkpoint-2/ (scores, determinism results, 256-colour side-by-side PNGs), and docs/COMPAT.md is generated from it · checkpoint.mjs refuses to write inside fixtures/; a curated copy keeps the evidence reviewable and COMPAT reproducible.
-- 2026-11-01 · reference.sh runs gfx's svg_inline.mjs and svg_outline.mjs (needs cargo) · Same pinned Chromium as the references.
-### PKG #58
-- 2026-11-01 · scripts/ci/about.toml accepts MPL-2.0 only for the MPL crates the shipped library links (cargo tree -e normal on its targets); check-mpl.py makes it equal that set and a subset of deny.toml's exceptions · cargo-about's "not present in the graph" warning stays meaningful (#58).
+
+
 ### PKG #38
 - 2026-11-01 · The release dry-run links and runs a program against the packaged surimono-core outside the workspace, and requires LICENSE-MIT/LICENSE-APACHE in every released .crate · cargo publish --dry-run only builds an rlib, so it can't see that [patch] doesn't reach crates.io users (#38).
 - 2026-11-01 · surimono-webidl and surimono-dom stay publish = false until phase 2 is signed off; the dry-run fails on any publishable crate outside the release list (#38).
 
 ## Open for checkpoint 2 (Kay), added 06:00 Sun
 - ENGINE DISTRIBUTION (Kay decides): crates.io users of surimono-core get unpatched rquickjs-sys 0.14.0 ([patch] doesn't travel); a linked program fails (undefined surimono_quickjs_patch_level). Options: (1) wait for upstream quickjs-ng/rquickjs releases; (2) publish the fork under our own crate names (3 crates); (3) v0.1 = gem (+ CLI binary) only, Rust crates held. Recommend (3) for v0.1, (2) later.
+### PKG #63
+- 2026-11-01 · The facade's per-process renderer slots are tagged with surimono_core::fork_generation(), not the pid (#63) · A reused pid made a grandchild take a dead ancestor's runner for its own.
+- 2026-11-01 · Error::TooManyIslands reads "… islands (max_islands)", without the Rust path (#63) · The same message reaches Ruby and CLI users.
+- 2026-11-01 · CI runs examples/run.sh (full in the Linux and Ruby jobs, --no-ruby with scripts/ci.sh --no-ruby) and skips with a message while it's missing (#63) · Lets #23 and #63 merge in either order.
+### DX #18 #19 #23 (add)
+- 2026-11-01 · Until the engine-distribution decision, docs tell Rust users to use a git dependency plus their own [patch.crates-io] rquickjs-sys, and to build the CLI from a clone (cargo install --path crates/cli) · A dependency's [patch] doesn't reach the consumer; cargo install --git ignores [patch] (verified).
+- Open for checkpoint 2: bench on main 15b530e0 (real pipeline): speed 2.4× cold/warm vs Grover (met); memory 5.8× PSS Ruby / 8.0× Rust (10× not met; fulgur alone 8.7×); vs chrome-headless-shell 1.8–2.3× / 3.8–5.2×.
