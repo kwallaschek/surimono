@@ -10,12 +10,14 @@
 //! </script>
 //! ```
 //!
-//! It becomes a `div` that keeps the marker's `id` and `class`, its
-//! accessibility and presentation attributes (`style`, `title`, `lang`, `dir`,
-//! `role`, `aria-*`), and holds the SVG:
+//! It becomes a `div` of the island's declared size that clips what it holds,
+//! keeps the marker's `id` and `class` and its accessibility and presentation
+//! attributes (`style` after the size, `title`, `lang`, `dir`, `role`,
+//! `aria-*`), and holds the SVG:
 //!
 //! ```html
-//! <div class="surimono-island chart" id="sales" data-renderer="echarts"><svg …>…</svg></div>
+//! <div class="surimono-island chart" id="sales" data-renderer="echarts"
+//!      style="width:600px;height:400px;overflow:hidden"><svg …>…</svg></div>
 //! ```
 //!
 //! The `type` attribute must spell out `application/vnd.surimono+json` (any
@@ -385,11 +387,12 @@ fn size(attr: &str, value: Option<&str>, default: u32) -> Result<u32, String> {
 /// The element an island's SVG goes into.
 fn wrapper(raw: &RawMarker, svg: &SanitizedSvg) -> String {
     format!(
-        "<div class=\"{}\"{}{}{}>{}</div>",
+        "<div class=\"{}\"{}{}{}{}>{}</div>",
         classes("surimono-island", raw.class.as_deref()),
         attr("id", raw.id.as_deref()),
         attr("data-renderer", raw.renderer.as_deref().map(str::trim)),
-        kept(raw, true),
+        box_style(raw, true),
+        kept(raw, false),
         svg.as_str(),
     )
 }
@@ -408,7 +411,11 @@ fn kept(raw: &RawMarker, with_style: bool) -> String {
 /// The placeholder's `style`: the island's size first, so the page keeps its
 /// layout when a chart fails, then the marker's own style. A size that can't be
 /// read falls back to the default.
-fn placeholder_style(raw: &RawMarker) -> String {
+/// The `style` of an island's box: its declared size in CSS pixels, with
+/// `overflow:hidden` for a rendered island (`clip`), so SVG larger than the
+/// declared size is cut at the box and can't cover the page around it; then
+/// the marker's own `style`, which the page's author wrote.
+fn box_style(raw: &RawMarker, clip: bool) -> String {
     let px = |attr: &str, value: &Option<String>, default: u32| {
         let decoded = value.as_deref().map(decode_attribute);
         size(attr, decoded.as_deref(), default).unwrap_or(default)
@@ -418,6 +425,9 @@ fn placeholder_style(raw: &RawMarker) -> String {
         px("data-width", &raw.width, DEFAULT_WIDTH),
         px("data-height", &raw.height, DEFAULT_HEIGHT)
     );
+    if clip {
+        style.push_str(";overflow:hidden");
+    }
     if let Some((_, theirs)) = raw.kept.iter().find(|(name, _)| name == "style") {
         if !theirs.trim().is_empty() {
             style.push(';');
@@ -438,7 +448,7 @@ fn placeholder(raw: &RawMarker, error: &Error) -> String {
         attr("id", raw.id.as_deref()),
         attr("data-renderer", raw.renderer.as_deref().map(str::trim)),
         attr("data-error", Some(error.kind())),
-        placeholder_style(raw),
+        box_style(raw, false),
         kept(raw, false),
         comment_text(&error.to_string()),
     )
@@ -639,7 +649,7 @@ mod tests {
         );
         assert_eq!(
             run(&html),
-            "<p>before</p>\n<div class=\"surimono-island\" data-renderer=\"echarts\">\
+            "<p>before</p>\n<div class=\"surimono-island\" data-renderer=\"echarts\" style=\"width:300px;height:200px;overflow:hidden\">\
              <svg data-r=\"echarts\" width=\"300\" height=\"200\">{\"a\": 1}</svg></div>\n\
              <p>after</p>"
         );
@@ -660,7 +670,7 @@ mod tests {
         ));
         assert_eq!(
             out,
-            "<div class=\"surimono-island chart wide\" id=\"sales\" data-renderer=\"echarts\">\
+            "<div class=\"surimono-island chart wide\" id=\"sales\" data-renderer=\"echarts\" style=\"width:600px;height:400px;overflow:hidden\">\
              <svg data-r=\"echarts\" width=\"600\" height=\"400\">[]</svg></div>"
         );
     }
@@ -685,7 +695,7 @@ mod tests {
         for i in 0..25 {
             let want = format!(
                 "<div class=\"cell\"><h2>Chart {i}</h2><div class=\"surimono-island\" \
-                 data-renderer=\"r{i}\"><svg data-r=\"r{i}\" width=\"600\" height=\"400\">\
+                 data-renderer=\"r{i}\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"r{i}\" width=\"600\" height=\"400\">\
                  {{\"n\":{i}}}</svg></div></div>"
             );
             assert!(out.contains(&want), "island {i} missing in {out}");
@@ -711,7 +721,7 @@ mod tests {
         ] {
             assert_eq!(
                 run(&marker),
-                "<div class=\"surimono-island\" data-renderer=\"x\"><svg data-r=\"x\" width=\"70\" \
+                "<div class=\"surimono-island\" data-renderer=\"x\" style=\"width:70px;height:50px;overflow:hidden\"><svg data-r=\"x\" width=\"70\" \
                  height=\"50\">1</svg></div>",
                 "marker: {marker}"
             );
@@ -725,7 +735,7 @@ mod tests {
         ));
         assert!(
             out.starts_with(
-                "<div class=\"surimono-island c&amp;d\" id=\"a&quot;b\" data-renderer=\"x\">"
+                "<div class=\"surimono-island c&amp;d\" id=\"a&quot;b\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\">"
             ),
             "{out}"
         );
@@ -746,7 +756,7 @@ mod tests {
             "<script>if (a < b && c > d) { document.write('</p>'); }</script>\
              <script type=\"application/json\" data-renderer=\"echarts\">{}</script>\
              <script type=\"module\">import x from './x.js';</script>\
-             <div class=\"surimono-island\" data-renderer=\"echarts\"><svg data-r=\"echarts\" \
+             <div class=\"surimono-island\" data-renderer=\"echarts\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"echarts\" \
              width=\"600\" height=\"400\">{}</svg></div>\
              <script src=\"a.js\"></script>"
         );
@@ -761,7 +771,7 @@ mod tests {
         ));
         assert_eq!(
             out,
-            "<div class=\"surimono-island\" data-renderer=\"x\"><svg data-r=\"x\" width=\"600\" \
+            "<div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"x\" width=\"600\" \
              height=\"400\">{\"label\":\"<\\/script><b>\"}</svg></div><i>after</i>"
         );
         // Unescaped, the script ends early and the rest isn't JSON.
@@ -798,7 +808,7 @@ mod tests {
         let out = run(&html);
         assert_eq!(
             out,
-            "\u{feff}<html>\r\n<body>\r\n<div class=\"surimono-island\" data-renderer=\"x\">\
+            "\u{feff}<html>\r\n<body>\r\n<div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\">\
              <svg data-r=\"x\" width=\"600\" height=\"400\">{\"a\":\r\n1}</svg></div>\r\n\
              </body>\r\n</html>\r\n"
         );
@@ -812,7 +822,7 @@ mod tests {
         let out = run(&html);
         assert_eq!(
             out,
-            "<p>売上 €</p><div class=\"surimono-island\" data-renderer=\"x\"><svg data-r=\"x\" \
+            "<p>売上 €</p><div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"x\" \
              width=\"600\" height=\"400\">{\"label\":\"四半期\"}</svg></div><p>終わり</p>"
         );
     }
@@ -835,7 +845,7 @@ mod tests {
         assert_eq!(
             out,
             format!(
-                "<p>{tricky}</p><div class=\"surimono-island\" data-renderer=\"x\"><svg \
+                "<p>{tricky}</p><div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\"><svg \
                  data-r=\"x\" width=\"600\" height=\"400\">1</svg></div>"
             )
         );
@@ -944,7 +954,7 @@ mod tests {
              data-renderer=\"bad\" data-error=\"javascript\" style=\"width:600px;height:400px\">\
              <!-- surimono: island #1 (id \"s\", \
              renderer \"bad\"): JavaScript error: x is not defined - - see < !- - here - -> --></div>\
-             <div class=\"surimono-island\" data-renderer=\"ok\"><svg data-r=\"ok\" width=\"600\" \
+             <div class=\"surimono-island\" data-renderer=\"ok\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"ok\" width=\"600\" \
              height=\"400\">2</svg></div>\
              <div class=\"surimono-island surimono-island-error\" data-renderer=\"ok\" \
              data-error=\"invalid-island\" style=\"width:600px;height:400px\"><!-- surimono: island #3 (renderer \"ok\"): invalid \
@@ -1014,7 +1024,7 @@ mod tests {
         // Written back as it was: the browser decodes it the same way again.
         assert!(
             out.starts_with(
-                "<div class=\"surimono-island\" id=\"q&amp;a\" data-renderer=\"e&#99;harts\">"
+                "<div class=\"surimono-island\" id=\"q&amp;a\" data-renderer=\"e&#99;harts\" style=\"width:10px;height:20px;overflow:hidden\">"
             ),
             "{out}"
         );
@@ -1036,9 +1046,10 @@ mod tests {
         let out = run(&html);
         assert_eq!(
             out,
-            "<div class=\"surimono-island\" data-renderer=\"x\" role=\"img\" \
+            "<div class=\"surimono-island\" data-renderer=\"x\" \
+             style=\"width:600px;height:400px;overflow:hidden;width:50%\" role=\"img\" \
              aria-label=\"Sales &amp; costs\" title=\"Q3 &quot;draft&quot;\" lang=\"ja\" \
-             dir=\"ltr\" style=\"width:50%\" aria-describedby=\"note\" aria-hidden=\"\">\
+             dir=\"ltr\" aria-describedby=\"note\" aria-hidden=\"\">\
              <svg data-r=\"x\" width=\"600\" height=\"400\">1</svg></div>"
         );
         // The placeholder keeps them too.

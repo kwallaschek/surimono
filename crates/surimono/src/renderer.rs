@@ -263,10 +263,12 @@ impl Renderer {
     /// ```
     ///
     /// It becomes `<div class="surimono-island chart" id="sales"
-    /// data-renderer="echarts"><svg …>…</svg></div>`. Without `data-width` and
-    /// `data-height` an island is 600 × 400 CSS pixels. Put markers where a
+    /// data-renderer="echarts" style="width:600px;height:400px;overflow:hidden">
+    /// <svg …>…</svg></div>`: a box of the island's declared size that clips
+    /// SVG drawn beyond it. Without `data-width` and `data-height` an island is
+    /// 600 × 400 CSS pixels. Put markers where a
     /// `div` is allowed, not inside `<p>`, `<span>` or `<a>`. Inside the JSON,
-    /// write `<` as `<` (Rails' `to_json` does), so no `</script>` or
+    /// write `<` as `\u003c` (Rails' `to_json` does), so no `</script>` or
     /// `<!--` in a string can end or confuse the marker.
     ///
     /// Every renderer's SVG is sanitised before it goes in: no scripts, event
@@ -454,7 +456,7 @@ mod tests {
         Renderer::new(options).unwrap_or_else(|e| panic!("{e}"))
     }
 
-    const EMPTY: &str = "<div class=\"surimono-island\" data-renderer=\"t\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"30\" height=\"20\"></svg></div>";
+    const EMPTY: &str = "<div class=\"surimono-island\" data-renderer=\"t\" style=\"width:30px;height:20px;overflow:hidden\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"30\" height=\"20\"></svg></div>";
 
     #[test]
     fn renderer_is_send_and_sync() {
@@ -539,6 +541,35 @@ mod tests {
         assert!(!out.contains("script") && !out.contains("onload"), "{out}");
         assert!(
             out.starts_with("<div class=\"surimono-island\"") && out.ends_with("</svg></div>"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn an_island_is_clipped_to_its_declared_box() {
+        // The sanitiser keeps the root's own size; the box the facade writes
+        // around it is the island's declared size and clips the rest.
+        let r = renderer(options());
+        let big = r#"{"raw": "<svg xmlns='http://www.w3.org/2000/svg' width='5000' height='5000'><rect width='5000' height='5000'/></svg>"}"#;
+        let out = r
+            .render_islands(&format!("<main>{}<p>after</p></main>", island(big)))
+            .unwrap_or_else(|e| panic!("{e}"));
+        assert!(
+            out.starts_with(
+                "<main><div class=\"surimono-island\" data-renderer=\"t\" \
+                 style=\"width:30px;height:20px;overflow:hidden\"><svg"
+            ),
+            "{out}"
+        );
+        assert!(out.ends_with("</svg></div><p>after</p></main>"), "{out}");
+        // The marker's own style comes after the box (the page's author wrote it).
+        let styled = format!(
+            "<script type=\"{T}\" data-renderer=\"t\" data-width=\"30\" data-height=\"20\" \
+             style=\"margin:0 auto\">{{}}</script>"
+        );
+        let out = r.render_islands(&styled).unwrap_or_else(|e| panic!("{e}"));
+        assert!(
+            out.contains("style=\"width:30px;height:20px;overflow:hidden;margin:0 auto\""),
             "{out}"
         );
     }
