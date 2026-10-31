@@ -90,7 +90,10 @@ fn renders_an_echarts_island_from_file_to_file() {
     assert_eq!(code(&o), 0, "{}", text(&o.stderr));
     let out = std::fs::read_to_string(&output).unwrap_or_else(|e| panic!("{e}"));
     assert!(
-        out.starts_with("<h1>Q</h1><div class=\"surimono-island\" data-renderer=\"echarts\"><svg"),
+        out.starts_with(
+            "<h1>Q</h1><div class=\"surimono-island\" data-renderer=\"echarts\" \
+             style=\"width:200px;height:100px;overflow:hidden\"><svg"
+        ),
         "{out}"
     );
     assert!(out.ends_with("</svg></div><p>end</p>"));
