@@ -34,6 +34,11 @@ use crate::fonts::FontSet;
 /// Nesting deeper than this is rejected rather than walked.
 const MAX_DEPTH: usize = 64;
 
+/// Longest CSS (one attribute value) that is read; longer is dropped. A
+/// chart's `style` attributes are about 100 bytes, and this keeps the
+/// tokens of any one value to a few MB while it is checked.
+pub(crate) const MAX_CSS_BYTES: usize = 64 * 1024;
+
 /// What the rewriter needs from the SVG around the CSS.
 pub(crate) struct CssContext<'a> {
     pub(crate) fonts: &'a FontSet,
@@ -62,6 +67,9 @@ pub(crate) fn rewrite_declarations(
     cx: &CssContext<'_>,
     allowed: Option<&[&str]>,
 ) -> Result<Rewrite, String> {
+    if css.len() > MAX_CSS_BYTES {
+        return Ok(Rewrite::Drop);
+    }
     let pre = preprocess(css);
     let mut w = Walker::new(&pre, cx);
     w.declarations(allowed)?;
@@ -71,6 +79,9 @@ pub(crate) fn rewrite_declarations(
 /// Rewrites a presentation attribute's value (`fill="url(#g)"`, `mask`,
 /// `cursor`, ...), which the browser parses as a CSS property value.
 pub(crate) fn rewrite_value(css: &str, cx: &CssContext<'_>) -> Rewrite {
+    if css.len() > MAX_CSS_BYTES {
+        return Rewrite::Drop;
+    }
     let pre = preprocess(css);
     let mut w = Walker::new(&pre, cx);
     let end = w.t.len();
@@ -79,6 +90,105 @@ pub(crate) fn rewrite_value(css: &str, cx: &CssContext<'_>) -> Rewrite {
         return Rewrite::Drop;
     }
     w.finish(css)
+}
+
+/// One top-level item of a declaration list: its byte range in the
+/// preprocessed CSS, and the lower-case property name and value range when
+/// it is a declaration (`name: value`).
+struct Item {
+    range: Range<usize>,
+    declaration: Option<(String, Range<usize>)>,
+}
+
+/// Splits a declaration list at top-level `;` with the tokenizer.
+fn items(css: &str, t: &[Token]) -> Vec<Item> {
+    let start = |i: usize| t.get(i).map_or(css.len(), |t| t.range.start);
+    let mut out = Vec::new();
+    let mut depth = 0usize;
+    let mut first = 0;
+    for i in 0..=t.len() {
+        let item_ends = match t.get(i).map(|t| t.kind) {
+            None => true,
+            Some(Kind::Semicolon) => depth == 0,
+            Some(k) => {
+                if closer(k).is_some() {
+                    depth += 1;
+                } else if matches!(k, Kind::CloseParen | Kind::CloseSquare | Kind::CloseCurly) {
+                    depth = depth.saturating_sub(1);
+                }
+                false
+            }
+        };
+        if !item_ends {
+            continue;
+        }
+        let mut j = first;
+        while j < i && matches!(t[j].kind, Kind::Whitespace | Kind::Comment) {
+            j += 1;
+        }
+        let mut colon = j + 1;
+        while colon < i && matches!(t[colon].kind, Kind::Whitespace | Kind::Comment) {
+            colon += 1;
+        }
+        let declaration =
+            (j < i && t[j].kind == Kind::Ident && colon < i && t[colon].kind == Kind::Colon)
+                .then(|| (t[j].value.to_ascii_lowercase(), start(colon + 1)..start(i)));
+        out.push(Item {
+            range: start(first)..start(i),
+            declaration,
+        });
+        first = i + 1;
+    }
+    out
+}
+
+/// The declarations of a (sanitized) `style` attribute whose names `keep`
+/// accepts, as lower-case name and trimmed value without `!important`.
+/// Nothing for CSS over [`MAX_CSS_BYTES`] (the sanitiser drops it).
+pub(crate) fn declaration_pairs(css: &str, keep: impl Fn(&str) -> bool) -> Vec<(String, String)> {
+    if css.len() > MAX_CSS_BYTES {
+        return Vec::new();
+    }
+    let pre = preprocess(css);
+    let t = tokenize(&pre);
+    items(&pre, &t)
+        .into_iter()
+        .filter_map(|item| item.declaration)
+        .filter(|(name, _)| keep(name))
+        .map(|(name, value)| {
+            let v = pre[value].trim();
+            let lower = v.to_ascii_lowercase();
+            let v = match lower.strip_suffix("important").map(str::trim_end) {
+                Some(rest) if rest.ends_with('!') => v[..rest.len() - 1].trim_end(),
+                _ => v,
+            };
+            (name, v.to_string())
+        })
+        .collect()
+}
+
+/// A (sanitized) `style` attribute without the declarations of `names`
+/// (empty for CSS over [`MAX_CSS_BYTES`]).
+pub(crate) fn remove_properties(css: &str, names: &[&str]) -> String {
+    if css.len() > MAX_CSS_BYTES {
+        return String::new();
+    }
+    let pre = preprocess(css);
+    let t = tokenize(&pre);
+    let mut out = String::with_capacity(pre.len());
+    let mut pos = 0;
+    for item in items(&pre, &t) {
+        if item
+            .declaration
+            .as_ref()
+            .is_some_and(|(name, _)| names.contains(&name.as_str()))
+        {
+            out.push_str(&pre[pos..item.range.start]);
+            pos = item.range.end;
+        }
+    }
+    out.push_str(&pre[pos..]);
+    out
 }
 
 /// The value to write for a `font-family`: the registered stack, quoted.
@@ -660,6 +770,23 @@ mod tests {
         }
     }
 
+    /// Tokens cost memory: CSS over the size bound is not read at all.
+    #[test]
+    fn oversized_css_is_dropped() {
+        let big = format!("fill:red;{}", "a:b;".repeat(MAX_CSS_BYTES / 4));
+        assert_eq!(
+            with_cx(|cx| rewrite_declarations(&big, cx, None)),
+            Ok(Rewrite::Drop)
+        );
+        assert_eq!(with_cx(|cx| rewrite_value(&big, cx)), Rewrite::Drop);
+        assert!(declaration_pairs(&big, |_| true).is_empty());
+        let ok = format!("fill:red;{}", "a:b;".repeat(MAX_CSS_BYTES / 8));
+        assert_eq!(
+            with_cx(|cx| rewrite_declarations(&ok, cx, None)),
+            Ok(Rewrite::Unchanged)
+        );
+    }
+
     #[test]
     fn deep_nesting_is_an_error_not_a_crash() {
         let css = format!("a:{}", "(".repeat(10_000));
@@ -705,6 +832,34 @@ mod tests {
         assert_eq!(css_string("it's", '\''), "'it\\'s'");
         assert_eq!(css_string("a\\b", '"'), "\"a\\\\b\"");
         assert_eq!(css_string("a\nb", '"'), "\"a\\a b\"");
+    }
+
+    #[test]
+    fn declaration_pairs_and_removal() {
+        assert_eq!(
+            declaration_pairs(
+                "font-size:12px; font-family: 'a;b', c !important;;x;--f:1;Font-Weight:bold !IMPORTANT",
+                |_| true
+            ),
+            vec![
+                ("font-size".to_string(), "12px".to_string()),
+                ("font-family".to_string(), "'a;b', c".to_string()),
+                ("--f".to_string(), "1".to_string()),
+                ("font-weight".to_string(), "bold".to_string()),
+            ]
+        );
+        assert_eq!(
+            declaration_pairs("a:rgb(1;2);b:x\rc", |n| n != "a"),
+            vec![("b".to_string(), "x\nc".to_string())]
+        );
+        assert_eq!(
+            remove_properties(
+                "fill:red;opacity:.5; transform:scale(2);font-size:9px",
+                &["opacity", "transform"]
+            ),
+            "fill:red;;;font-size:9px"
+        );
+        assert_eq!(remove_properties("OPACITY:0", &["opacity"]), "");
     }
 
     #[test]
