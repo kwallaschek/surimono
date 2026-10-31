@@ -25,7 +25,7 @@
 
 use std::ffi::CString;
 use std::ptr;
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -53,6 +53,9 @@ pub(crate) struct LimitState {
     stop: AtomicU32,
     /// Deadline in nanoseconds since `origin`; `u64::MAX` means disarmed.
     deadline: AtomicU64,
+    /// Set when the sandbox replaces or drops this state's runtime; a
+    /// [`Deadline`](crate::Deadline) still holding it then reports passed.
+    retired: AtomicBool,
     /// Monotonic origin for the deadline. Only decides whether to abort; it
     /// never reaches script-visible output.
     origin: Instant,
@@ -75,6 +78,7 @@ impl LimitState {
             limit: AtomicUsize::new(memory_limit),
             stop: AtomicU32::new(0),
             deadline: AtomicU64::new(DISARMED),
+            retired: AtomicBool::new(false),
             origin: Instant::now(),
             timer: Mutex::new(None),
         })
@@ -141,6 +145,23 @@ impl LimitState {
     /// Bytes currently held by the engine.
     pub(crate) fn used(&self) -> usize {
         self.used.load(Ordering::Relaxed)
+    }
+
+    /// Marks this state's runtime as gone (replaced or dropped).
+    pub(crate) fn retire(&self) {
+        self.retired.store(true, Ordering::Relaxed);
+    }
+
+    /// Whether this state's runtime is gone.
+    pub(crate) fn retired(&self) -> bool {
+        self.retired.load(Ordering::Relaxed)
+    }
+
+    /// Whether the running call is past its deadline, without raising the
+    /// stop flag (for `Debug`).
+    pub(crate) fn deadline_passed_quietly(&self) -> bool {
+        let deadline = self.deadline.load(Ordering::Relaxed);
+        deadline != DISARMED && (self.timed_out() || self.elapsed_nanos() >= deadline)
     }
 
     /// Whether the running call is past its deadline; false when no call
