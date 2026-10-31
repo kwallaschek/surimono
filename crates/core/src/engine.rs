@@ -41,6 +41,9 @@ pub(crate) struct LimitState {
     timed_out: AtomicBool,
     /// Deadline in nanoseconds since `origin`; `u64::MAX` means disarmed.
     deadline: AtomicU64,
+    /// Set when the sandbox replaces or drops this state's runtime; a
+    /// [`Deadline`](crate::Deadline) still holding it then reports passed.
+    retired: AtomicBool,
     /// Monotonic origin for the deadline. Only decides whether to abort; it
     /// never reaches script-visible output.
     origin: Instant,
@@ -56,6 +59,7 @@ impl LimitState {
             oom: AtomicBool::new(false),
             timed_out: AtomicBool::new(false),
             deadline: AtomicU64::new(DISARMED),
+            retired: AtomicBool::new(false),
             origin: Instant::now(),
         })
     }
@@ -89,6 +93,22 @@ impl LimitState {
     /// Bytes currently held by the engine.
     pub(crate) fn used(&self) -> usize {
         self.used.load(Ordering::Relaxed)
+    }
+
+    /// Marks this state's runtime as gone (replaced or dropped).
+    pub(crate) fn retire(&self) {
+        self.retired.store(true, Ordering::Relaxed);
+    }
+
+    /// Whether this state's runtime is gone.
+    pub(crate) fn retired(&self) -> bool {
+        self.retired.load(Ordering::Relaxed)
+    }
+
+    /// Whether the deadline has passed, without recording a timeout.
+    pub(crate) fn deadline_passed_quietly(&self) -> bool {
+        let deadline = self.deadline.load(Ordering::Relaxed);
+        deadline != DISARMED && self.elapsed_nanos() >= deadline
     }
 
     /// Checks the deadline and records a timeout. Called by the interrupt

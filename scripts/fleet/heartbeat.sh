@@ -15,13 +15,15 @@ print(f\"{age:.0f} minutes ago by {x.get('session','?')}: {x.get('note','')}\")"
   exit 0
 fi
 note="${1:-working}"
+# Refuses (exit 3) when another live session holds the fleet; see owner-check.sh.
+scripts/fleet/owner-check.sh
 work="$(mktemp -d)"
 git worktree add --quiet --detach "$work" HEAD
 (
   cd "$work"
   git checkout --quiet --orphan hb-tmp
   git rm -rfq --ignore-unmatch . && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-  printf '{"time":"%s","session":"%s","note":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${CLAUDE_SESSION_URL:-unknown}" "$note" > heartbeat.json
+  printf '{"time":"%s","session":"%s","note":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${CLAUDE_CODE_REMOTE_SESSION_ID:-unknown}" "$note" > heartbeat.json
   git add heartbeat.json
   git -c user.name="surimono fleet" -c user.email="noreply@anthropic.com" commit --quiet -m "heartbeat: $note"
   git push --quiet --force origin HEAD:refs/heads/fleet-heartbeat

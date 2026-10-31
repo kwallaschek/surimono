@@ -37,7 +37,7 @@ pub use builtins::builtin_renderers;
 pub use error::IslandError;
 pub use runner::{IslandRequest, IslandRunner, RunnerOptions, RunnerStats};
 pub use surimono_core::{Limits, SandboxError};
-pub use surimono_gfx::{FontSet, TextMeasurer, TextMetrics};
+pub use surimono_gfx::{FontSet, GfxError, TextMeasurer, TextMetrics};
 
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
