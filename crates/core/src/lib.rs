@@ -24,6 +24,7 @@
 #[allow(unsafe_code)]
 mod engine;
 mod error;
+mod fork_safe;
 mod limits;
 mod sandbox;
 mod watchdog;

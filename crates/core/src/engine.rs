@@ -25,15 +25,15 @@
 
 use std::ffi::CString;
 use std::ptr;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use rquickjs::allocator::{Allocator, RustAllocator};
 use rquickjs::{Ctx, Value, qjs};
 
 use crate::SandboxError;
-use crate::watchdog::{self, Registry, TimerKey};
+use crate::watchdog::{self, TimerKey};
 
 /// Shared state between the sandbox, its allocator, its interrupt handler
 /// and the watchdog thread.
@@ -59,11 +59,20 @@ pub(crate) struct LimitState {
     /// Monotonic origin for the deadline. Only decides whether to abort; it
     /// never reaches script-visible output.
     origin: Instant,
-    /// The running call's watchdog timer. Its lock also orders the changes
-    /// to `deadline` and the `STOP_TIME` bit between this sandbox's thread
-    /// and the watchdog, so a late timer can't stop the next call.
-    timer: Mutex<Option<(Arc<Registry>, TimerKey)>>,
+    /// The running call's sequence number (0 when none runs), with the
+    /// [`EXPIRING`] bit set while a thread that found the deadline passed
+    /// raises `STOP_TIME` for that call. Ending a call waits for that bit to
+    /// clear, so a late timer can't stop the next call; no lock is shared
+    /// with the watchdog, so a fork can't leave one held.
+    call: AtomicU64,
+    /// Id of the process whose watchdog holds the running call's timer. In
+    /// a forked child a call never waits on an [`EXPIRING`] bit that its
+    /// parent's watchdog set: that thread doesn't exist here.
+    armed_pid: AtomicU32,
 }
+
+/// [`LimitState::call`] bit: the stop flag is being raised for this call.
+const EXPIRING: u64 = 1 << 63;
 
 const DISARMED: u64 = u64::MAX;
 /// [`LimitState::stop`] bit: the deadline passed.
@@ -80,7 +89,8 @@ impl LimitState {
             deadline: AtomicU64::new(DISARMED),
             retired: AtomicBool::new(false),
             origin: Instant::now(),
-            timer: Mutex::new(None),
+            call: AtomicU64::new(0),
+            armed_pid: AtomicU32::new(0),
         })
     }
 
@@ -90,13 +100,10 @@ impl LimitState {
     /// Fails only if the watchdog thread can't be started (in a forked
     /// child, say); the call must not run then.
     pub(crate) fn arm(self: &Arc<Self>, budget: Duration) -> Result<(), SandboxError> {
+        self.disarm();
         let registry = watchdog::registry()?;
-        let mut timer = watchdog::lock(&self.timer);
-        if let Some((old, key)) = timer.take() {
-            old.remove(key);
-        }
-        let now = Instant::now();
-        let since_origin = now.saturating_duration_since(self.origin);
+        let seq = registry.next_seq();
+        let since_origin = self.origin.elapsed();
         let deadline = since_origin.saturating_add(budget).as_nanos();
         // Saturate one below DISARMED so a huge budget still counts as armed.
         let deadline = u64::try_from(deadline)
@@ -104,31 +111,68 @@ impl LimitState {
             .min(DISARMED - 1);
         self.stop.store(0, Ordering::Relaxed);
         self.deadline.store(deadline, Ordering::Relaxed);
+        self.armed_pid.store(registry.pid(), Ordering::Relaxed);
+        // Publishes the deadline with the call: whoever sees `seq` sees it.
+        self.call.store(seq, Ordering::Release);
         // A budget too large for an Instant never fires; the handler's own
         // clock check covers it, as it does a watchdog running late.
-        if let Some(at) = now.checked_add(budget) {
-            let key = registry.insert(at, Arc::downgrade(self));
-            *timer = Some((registry, key));
+        if let Some(key) = self.timer_key(deadline, seq) {
+            registry.insert(key, Arc::downgrade(self));
         }
         Ok(())
     }
 
+    /// The watchdog key of call `seq` with deadline `deadline`.
+    fn timer_key(&self, deadline: u64, seq: u64) -> Option<TimerKey> {
+        let at = self.origin.checked_add(Duration::from_nanos(deadline))?;
+        Some((at, seq))
+    }
+
     /// Ends a call: no deadline and a clear stop flag until the next `arm`.
     pub(crate) fn disarm(&self) {
-        let mut timer = watchdog::lock(&self.timer);
-        if let Some((registry, key)) = timer.take() {
-            registry.remove(key);
+        let deadline = self.deadline.load(Ordering::Relaxed);
+        let ended = loop {
+            let call = self.call.load(Ordering::Acquire);
+            if call == 0 {
+                break 0;
+            }
+            if call & EXPIRING != 0 && self.armed_pid.load(Ordering::Relaxed) == std::process::id()
+            {
+                // A live thread is raising the flag for this call; it takes
+                // two atomic operations.
+                std::thread::yield_now();
+                continue;
+            }
+            if self
+                .call
+                .compare_exchange_weak(call, 0, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                break call & !EXPIRING;
+            }
+        };
+        if ended != 0 {
+            let armed_in = self.armed_pid.load(Ordering::Relaxed);
+            let registry = watchdog::current().filter(|r| r.pid() == armed_in);
+            if let (Some(registry), Some(key)) = (registry, self.timer_key(deadline, ended)) {
+                registry.remove(key);
+            }
         }
         self.deadline.store(DISARMED, Ordering::Relaxed);
         self.stop.store(0, Ordering::Relaxed);
     }
 
-    /// Called by the watchdog when timer `key` is due: raises the stop flag
-    /// if that timer still belongs to the running call.
-    pub(crate) fn expire(&self, key: TimerKey) {
-        let timer = watchdog::lock(&self.timer);
-        if timer.as_ref().is_some_and(|(_, k)| *k == key) {
+    /// Raises the stop flag if call `seq` is still running. Called by the
+    /// watchdog when that call's timer is due, and by the clock backstop.
+    pub(crate) fn expire(&self, seq: u64) {
+        if self
+            .call
+            .compare_exchange(seq, seq | EXPIRING, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             self.stop.fetch_or(STOP_TIME, Ordering::Release);
+            // Only this thread changes `call` while EXPIRING is set.
+            self.call.store(seq, Ordering::Release);
         }
     }
 
@@ -171,8 +215,9 @@ impl LimitState {
     /// the interrupt handler, between microtasks and through
     /// [`crate::Deadline::passed`].
     pub(crate) fn deadline_passed(&self) -> bool {
+        let call = self.call.load(Ordering::Acquire) & !EXPIRING;
         let deadline = self.deadline.load(Ordering::Relaxed);
-        if deadline == DISARMED {
+        if call == 0 || deadline == DISARMED {
             return false;
         }
         if self.timed_out() {
@@ -181,12 +226,9 @@ impl LimitState {
         if self.elapsed_nanos() < deadline {
             return false;
         }
-        // Under the timer lock, so the call that was checked is still the
-        // one running when the flag goes up.
-        let _timer = watchdog::lock(&self.timer);
-        if self.deadline.load(Ordering::Relaxed) == deadline {
-            self.stop.fetch_or(STOP_TIME, Ordering::Release);
-        }
+        // Raised only if the call that was checked is still running (and
+        // not if the watchdog is raising it right now, which it will).
+        self.expire(call);
         true
     }
 
@@ -339,7 +381,7 @@ pub(crate) fn update_stack_top(ctx: &Ctx<'_>) {
 unsafe extern "C" {
     /// Defined only by the patched QuickJS in `vendor/rquickjs-sys`.
     fn surimono_quickjs_patch_level() -> std::ffi::c_int;
-    /// Defined only by the patched QuickJS (patch level 2): every interrupt
+    /// Defined only by the patched QuickJS (patch 14, level 3): every interrupt
     /// poll of `rt`'s contexts also loads `*flag` (atomically, relaxed) and
     /// calls the interrupt handler while it is nonzero.
     fn surimono_set_interrupt_flag(rt: *mut qjs::JSRuntime, flag: *mut u32);
@@ -728,7 +770,7 @@ mod tests {
         assert_eq!(state.stop.load(Ordering::Acquire), 0);
         assert!(!state.deadline_passed());
         state.disarm();
-        assert!(state.timer.lock().unwrap().is_none());
+        assert_eq!(state.call.load(Ordering::Acquire), 0);
     }
 
     /// Many sandboxes' calls share the one watchdog thread, and every timer
@@ -748,7 +790,7 @@ mod tests {
             s.disarm();
         }
         let registry = watchdog::registry().unwrap();
-        assert!(Arc::ptr_eq(&registry, &watchdog::registry().unwrap()));
+        assert!(std::ptr::eq(registry, watchdog::registry().unwrap()));
         // Arming and disarming leaves nothing behind. (Other tests' calls
         // may be running, so allow for theirs.)
         for _ in 0..10_000 {
@@ -764,6 +806,196 @@ mod tests {
                 .count();
             assert_eq!(watchdogs, 1);
         }
+    }
+
+    /// A late timer can't stop the next call: the watchdog (or the clock
+    /// backstop) raises the flag only for the call whose sequence number it
+    /// holds, and ending a call waits out a raise in progress.
+    #[test]
+    fn a_stale_expiry_never_stops_the_next_call() {
+        let state = LimitState::new(usize::MAX);
+        state.arm(Duration::from_secs(60)).unwrap();
+        let first = state.call.load(Ordering::Acquire);
+        state.disarm();
+        state.arm(Duration::from_secs(60)).unwrap();
+        state.expire(first);
+        assert!(!state.timed_out());
+        state.expire(state.call.load(Ordering::Acquire));
+        assert!(state.timed_out());
+        state.disarm();
+        assert_eq!(state.stop.load(Ordering::Acquire), 0);
+        // An EXPIRING bit inherited from another process's watchdog (a
+        // fork mid-raise) doesn't hold up the end of the call.
+        state.arm(Duration::from_secs(60)).unwrap();
+        let seq = state.call.load(Ordering::Acquire);
+        state.call.store(seq | EXPIRING, Ordering::Release);
+        state
+            .armed_pid
+            .store(std::process::id().wrapping_add(1).max(1), Ordering::Relaxed);
+        state.disarm();
+        assert_eq!(state.call.load(Ordering::Acquire), 0);
+    }
+
+    /// Child side of `forks_never_hang`: one thread makes calls and new
+    /// sandboxes as fast as it can while this thread forks. Each child makes
+    /// a sandbox and runs a call; every 25th also runs a loop in a sandbox
+    /// made before the fork, which only its own fresh watchdog can stop.
+    /// SURIMONO_FORKS sets the number of forks (default 3,000: at 0.12% the
+    /// old registry lock hangs about 4 of them).
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "helper: run in a child process by forks_never_hang"]
+    fn fork_stress_child() {
+        use crate::{Limits, Sandbox, SandboxError};
+        use std::sync::atomic::AtomicBool;
+
+        let forks: usize = std::env::var("SURIMONO_FORKS")
+            .ok()
+            .and_then(|n| n.parse().ok())
+            .unwrap_or(3000);
+        let limits = Limits::default().with_time(Duration::from_millis(200));
+        let mut pre_fork = Sandbox::new(limits).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let busy = {
+            let stop = stop.clone();
+            std::thread::spawn(move || {
+                let mut calls = 0u64;
+                let mut sb = Sandbox::new(limits).unwrap();
+                while !stop.load(Ordering::Relaxed) {
+                    assert_eq!(sb.eval::<i32>("1"), Ok(1));
+                    calls += 1;
+                    if calls % 16 == 0 {
+                        sb = Sandbox::new(limits).unwrap();
+                    }
+                }
+                calls
+            })
+        };
+        let child = |pre_fork: &mut Sandbox, i: usize| -> i32 {
+            let Ok(mut sb) = Sandbox::new(limits) else {
+                return 3;
+            };
+            if sb.eval::<i32>("6 * 7") != Ok(42) {
+                return 4;
+            }
+            if i % 25 == 0 {
+                let start = Instant::now();
+                if pre_fork.eval::<()>("for (;;) {}") != Err(SandboxError::TimeLimit) {
+                    return 5;
+                }
+                if start.elapsed() > Duration::from_secs(3) {
+                    return 6;
+                }
+                if pre_fork.eval::<i32>("6 * 7") != Ok(42) {
+                    return 7;
+                }
+            }
+            0
+        };
+        const HANG: Duration = Duration::from_secs(20);
+        const AT_ONCE: usize = 4;
+        let (mut ok, mut hung, mut failed) = (0usize, 0usize, Vec::new());
+        let mut running: Vec<(libc::pid_t, Instant)> = Vec::new();
+        let mut reap = |running: &mut Vec<(libc::pid_t, Instant)>, keep: usize| {
+            while running.len() > keep {
+                let mut i = 0;
+                while i < running.len() {
+                    let (pid, started) = running[i];
+                    let mut status: libc::c_int = 0;
+                    // SAFETY: `pid` is our own child that we haven't reaped,
+                    // and `status` is a valid place to write its status.
+                    let r = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+                    if r == pid {
+                        if libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0 {
+                            ok += 1;
+                        } else {
+                            failed.push(status);
+                        }
+                        running.swap_remove(i);
+                    } else if started.elapsed() > HANG {
+                        // SAFETY: as above; it is still ours until reaped.
+                        unsafe {
+                            libc::kill(pid, libc::SIGKILL);
+                            libc::waitpid(pid, &mut status, 0);
+                        }
+                        hung += 1;
+                        running.swap_remove(i);
+                    } else {
+                        i += 1;
+                    }
+                }
+                if running.len() > keep {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            }
+        };
+        for i in 0..forks {
+            // SAFETY: fork has no preconditions. The child runs only this
+            // process's own code on its one thread (the allocator is the
+            // system's, which is fork-safe) and leaves through `_exit`, so
+            // no destructor or test-harness code of the parent runs twice.
+            let pid = unsafe { libc::fork() };
+            if pid == 0 {
+                let code = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    child(&mut pre_fork, i)
+                }))
+                .unwrap_or(2);
+                // SAFETY: ends the child at once; see above.
+                unsafe { libc::_exit(code) };
+            }
+            assert!(pid > 0, "fork failed");
+            running.push((pid, Instant::now()));
+            reap(&mut running, AT_ONCE - 1);
+        }
+        reap(&mut running, 0);
+        stop.store(true, Ordering::Relaxed);
+        let calls = busy.join().unwrap();
+        println!(
+            "FORK-STRESS forks={forks} ok={ok} hung={hung} failed={failed:?} busy_calls={calls}"
+        );
+    }
+
+    /// Review of #47, finding 2 (P1-RT-22): a fork while another thread is
+    /// inside the sandbox (here about every call it makes) must never leave
+    /// the child hanging on a lock that thread held. Runs
+    /// `fork_stress_child` in its own process, so a hang fails the test.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn forks_never_hang() {
+        let exe = std::env::current_exe().unwrap();
+        let mut child = std::process::Command::new(exe)
+            .args([
+                "engine::tests::fork_stress_child",
+                "--exact",
+                "--ignored",
+                "--nocapture",
+            ])
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        let started = Instant::now();
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status;
+            }
+            if started.elapsed() > Duration::from_secs(600) {
+                let _ = child.kill();
+                panic!("the fork stress run itself hung");
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        let mut out = String::new();
+        std::io::Read::read_to_string(&mut child.stdout.take().unwrap(), &mut out).unwrap();
+        assert!(status.success(), "{status:?}: {out}");
+        let line = out
+            .lines()
+            .find(|l| l.starts_with("FORK-STRESS "))
+            .unwrap_or_else(|| panic!("no result: {out}"));
+        println!("{line}");
+        assert!(
+            line.contains(" hung=0 ") && line.contains(" failed=[] "),
+            "{line}"
+        );
     }
 
     #[test]

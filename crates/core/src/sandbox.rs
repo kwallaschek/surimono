@@ -1,7 +1,7 @@
 //! The QuickJS sandbox: one runtime and one context under resource limits.
 
 use std::fmt;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use rquickjs::context::EvalOptions;
 use rquickjs::context::intrinsic;
@@ -10,6 +10,7 @@ use rquickjs::promise::PromiseState;
 use rquickjs::{Context, Ctx, FromJs, Function, Object, Runtime, Value};
 
 use crate::engine::{self, LimitAllocator, LimitState};
+use crate::fork_safe::ForkSafeCell;
 use crate::{Limits, SandboxError};
 
 /// How a [`Sandbox`] is set up.
@@ -160,8 +161,10 @@ impl Deadline {
     /// soon as control returns to the engine. False when no call is running.
     ///
     /// It reads the same stop flag the engine polls, which the sandbox's
-    /// watchdog raises at the deadline, so it is about as cheap as an
-    /// atomic load. Call it from host functions while the call runs.
+    /// watchdog raises at the deadline, so it costs an atomic load and,
+    /// until the deadline passes, a monotonic clock read (the backstop for
+    /// a watchdog running late). Call it from host functions while the
+    /// call runs.
     ///
     /// Fails safe: a handle taken before the sandbox replaced its runtime
     /// (a [`reset`](Sandbox::reset) or a limit error) or after the sandbox
@@ -258,11 +261,12 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// - **Time**: each top-level call ([`eval`](Self::eval), [`call`](Self::call),
 ///   [`run`](Self::run), …) gets [`Limits::time`], covering the call and the
 ///   microtasks it queues. A watchdog thread (one per process, shared by
-///   every sandbox) raises a flag at the deadline that the patched engine
-///   reads at every interrupt check: every loop back-edge and call, and
-///   inside the native loops that can run long (`join`, `fill`, `sort`…
-///   over a huge array-like, string searches, BigInt arithmetic). The
-///   interrupt is uncatchable, so `try`/`catch`/`finally` can't hold it
+///   every sandbox, started by the first sandbox and again by the first
+///   sandbox in a forked child) raises a flag at the deadline that the
+///   patched engine reads at every interrupt check: every loop back-edge
+///   and call, and inside the native loops that can run long (`join`,
+///   `fill`, `sort`… over a huge array-like, string searches, BigInt
+///   arithmetic). The interrupt is uncatchable, so `try`/`catch`/`finally` can't hold it
 ///   off, and it is sticky: built-ins that turn exceptions into rejections
 ///   or new errors (the `Promise` constructor, async generators,
 ///   `DisposableStack`) can't swallow it either. See
@@ -317,6 +321,11 @@ impl Sandbox {
     pub const STACK_HEADROOM_BYTES: usize = 256 * 1024;
 
     /// Creates a sandbox with the given limits and default options.
+    ///
+    /// The first sandbox in a process (and the first in a forked child)
+    /// starts the process's watchdog thread, which enforces every
+    /// sandbox's time limit. If that thread can't be started, this and
+    /// every later call return [`SandboxError::Engine`].
     pub fn new(limits: Limits) -> Result<Self, SandboxError> {
         Self::with_options(SandboxOptions {
             limits,
@@ -325,6 +334,11 @@ impl Sandbox {
     }
 
     /// Creates a sandbox from full options.
+    ///
+    /// Starts the process's watchdog thread if no sandbox has yet (see
+    /// [`new`](Self::new)), and returns [`SandboxError::Engine`] if it
+    /// can't; so does any later call that finds it can't start one (in a
+    /// forked child whose parent's thread is gone, say).
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
         options.validate()?;
         if engine::patch_level() < 3 {
@@ -536,7 +550,11 @@ impl Sandbox {
     fn rebuild(&mut self) -> Result<(), SandboxError> {
         // Deadlines taken so far belong to the old runtime.
         self.state.retire();
-        // Drop the old runtime first so its memory is gone before we allocate.
+        // Drop the old context first, which frees most of the old heap before
+        // the new runtime allocates. The old runtime itself (with anything its
+        // job queue still holds) lives until `*self = fresh`. If building
+        // fails, the sandbox is left without a context and every later call
+        // reports an engine error.
         self.ctx = None;
         let fresh = Self::with_options(self.options.clone())?;
         *self = fresh;
@@ -573,7 +591,9 @@ fn eval_options(filename: &str) -> EvalOptions {
 const PRELUDE_SOURCE: &str = include_str!("prelude.js");
 
 /// The prelude's bytecode, compiled by the first context that needs it.
-static PRELUDE: OnceLock<Vec<u8>> = OnceLock::new();
+/// A forked child keeps it; a fork during the first compile can't leave it
+/// locked (review of #47, finding 2).
+static PRELUDE: ForkSafeCell<Vec<u8>> = ForkSafeCell::shared();
 
 /// Creates a context with the sandbox's built-ins and runs the prelude.
 fn new_context(
@@ -599,13 +619,14 @@ fn new_context(
 
 /// Runs the prelude function with this sandbox's settings.
 fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<()> {
-    let bytes = match PRELUDE.get() {
-        Some(bytes) => bytes,
-        None => {
-            let bytes = engine::compile_script(ctx, PRELUDE_SOURCE, "surimono:prelude")?;
-            PRELUDE.get_or_init(|| bytes)
-        }
-    };
+    let bytes = PRELUDE.get_or_try_init(
+        || engine::compile_script(ctx, PRELUDE_SOURCE, "surimono:prelude"),
+        || rquickjs::Error::FromJs {
+            from: "prelude",
+            to: "bytecode",
+            message: Some("no slot left to cache the prelude".into()),
+        },
+    )?;
     let prelude: Function<'_> =
         engine::eval_bytecode(ctx, bytes)?
             .into_function()
@@ -1785,6 +1806,54 @@ const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
  Array.from({ length: 5 }, (_, i) => i * i).reduce((s, v) => s + v, 0),
 ].join(';');
 "#;
+
+    /// Review of #47, finding 1: a call stopped inside an expensive native
+    /// leaks nothing. Each group E vector of `tests/hostile.rs` (the
+    /// natives that poll inside their loops) runs with a short limit; after
+    /// the limit error the sandbox replaces its runtime, and the old one
+    /// must have given back every byte when it was freed. A block an
+    /// interrupt path forgets (as `js_bigint_pow` did with its running
+    /// product) is a large allocation the arena doesn't own, so
+    /// `JS_FreeRuntime` can't reclaim it and it shows here.
+    #[test]
+    fn interrupted_natives_leak_nothing() {
+        const GROUP_E: &[&str] = &[
+            "'a'.repeat(1 << 20).indexOf('a'.repeat(1 << 12) + 'b')",
+            "'a'.repeat(1 << 20).lastIndexOf('a'.repeat(1 << 12) + 'b')",
+            "'a'.repeat(1 << 20).includes('a'.repeat(1 << 12) + 'b')",
+            "'a'.repeat(1 << 20).split('a'.repeat(1 << 12) + 'b')",
+            "'a'.repeat(1 << 20).replace('a'.repeat(1 << 12) + 'b', '')",
+            "'a'.repeat(1 << 20).replaceAll('a'.repeat(1 << 12) + 'b', '')",
+            "'a'.repeat(1 << 24).replaceAll('a', '')",
+            "const b = (1n << 1000000n) - 1n; let s; eval('s = String(b);'.repeat(8))",
+            "const b = (1n << 500000n) - 1n; let x; eval('x = b * b;'.repeat(64))",
+            "const a = (1n << 1000000n) - 1n, d = (1n << 500000n) - 3n; let q; eval('q = a / d;'.repeat(16))",
+            "const t = '9'.repeat(300000); let x; eval('x = BigInt(t);'.repeat(16))",
+            "let x; eval('x = 3n ** 600000n;'.repeat(16))",
+        ];
+        let limits = Limits::default()
+            .with_time(Duration::from_millis(60))
+            .with_memory_bytes(128 * 1024 * 1024);
+        for source in GROUP_E {
+            // Several stop points per vector: the interrupt lands at a
+            // different place in the loop each time.
+            for _ in 0..3 {
+                let mut sb = Sandbox::new(limits).unwrap();
+                let state = sb.state.clone();
+                let result = sb.eval::<()>(source);
+                assert!(
+                    matches!(
+                        result,
+                        Err(SandboxError::TimeLimit | SandboxError::MemoryLimit)
+                    ),
+                    "{source}: {result:?}"
+                );
+                // The limit error replaced the runtime already.
+                assert_eq!(state.used(), 0, "{source} leaked");
+                assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42), "{source}");
+            }
+        }
+    }
 
     /// Child side of the out-of-memory sweeps. SURIMONO_OOM_SCRIPT picks the
     /// script, SURIMONO_OOM_MODE `eval` (compile and run) or `bytecode` (run
