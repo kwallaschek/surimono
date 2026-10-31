@@ -4,7 +4,10 @@
 """
 
 import importlib.util
+import itertools
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,6 +16,9 @@ HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("compat", HERE.parent / "compat.py")
 compat = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(compat)
+
+# Verdicts compat.py and lib/report.mjs must agree on (report.test.mjs reads them too).
+VERDICTS = json.loads((HERE / "verdict-cases.json").read_text(encoding="utf-8"))
 
 HOSTILE = """
 [limits]
@@ -453,6 +459,89 @@ class CompatTest(unittest.TestCase):
         self.assertEqual(compat.cell(s), "**FAIL** (font: 1 missing, 1 extra)")
         s["font"]["mismatches"] = [{"key": "Jan", "chrome": "400 normal", "surimono": "700 normal"}]
         self.assertEqual(compat.cell(s), "**FAIL** (font: 1 differ, 1 missing, 1 extra (Jan: Chrome 400 normal, surimono 700 normal))")
+
+    def test_a_producer_that_is_not_an_object_is_an_error(self):
+        # Review of #35: "producer": "surimono 0.1.0" raised AttributeError.
+        s = score("echarts-a", True)
+        # Falsy values that aren't objects are refused too (#51 review); only
+        # an absent, null or empty producer means "not recorded".
+        for producer in ("surimono 0.1.0", ["surimono"], 3, True, "", [], 0, False):
+            with self.assertRaises(compat.CompatError, msg=repr(producer)) as e:
+                compat.generate([{**s, "producer": producer, "_file": "x/score.json"}], None, None, "c", None)
+            self.assertIn("is not an object", str(e.exception))
+        for producer in (None, {}):
+            self.assertIn("(producer not recorded)", compat.generate([{**s, "producer": producer}], None, None, "c", None))
+        # Values that aren't strings are compared, not hashed.
+        odd = {"cli": ["/r/surimono"], "version": {"v": 1}, "sha256": "2", "commit": None}
+        self.assertIn("Results: fixtures from c", compat.generate([{**s, "producer": odd}, {**s, "subject": "echarts-b", "producer": dict(odd)}], None, None, "c", None))
+        with self.assertRaises(compat.CompatError):
+            compat.generate([{**s, "producer": odd}, {**s, "subject": "echarts-b", "producer": {**odd, "cli": ["/other"]}}], None, None, "c", None)
+
+    def test_malformed_result_files_are_errors(self):
+        # Review of #35: a determinism.json without "subject" raised TypeError.
+        for i, data in enumerate(({"deterministic": True}, {"subject": 3, "deterministic": True}, {"subject": "", "deterministic": True}, ["echarts-a"])):
+            d = self.root / f"det{i}" / "echarts-a"
+            d.mkdir(parents=True)
+            (d / "determinism.json").write_text(json.dumps(data))
+            with self.assertRaises(compat.CompatError, msg=repr(data)):
+                compat.load_determinism(self.root / f"det{i}")
+        d = self.root / "scores" / "echarts-a"
+        d.mkdir(parents=True)
+        (d / "score.json").write_text(json.dumps([score("echarts-a", True)]))
+        with self.assertRaises(compat.CompatError) as e:
+            compat.load_scores(self.root / "scores")
+        self.assertIn("not a JSON object", str(e.exception))
+
+    def test_determinism_files_refuse_nan_too(self):
+        d = self.root / "detnan" / "echarts-a"
+        d.mkdir(parents=True)
+        (d / "determinism.json").write_text('{"subject": "echarts-a", "deterministic": NaN}')
+        with self.assertRaises(compat.CompatError) as e:
+            compat.load_determinism(self.root / "detnan")
+        self.assertIn("is not valid JSON", str(e.exception))
+
+    def test_a_determinism_result_for_an_unknown_fixture_is_an_error(self):
+        scores = [score("echarts-a", True)]
+        det = {"ECHARTS-A": {"subject": "ECHARTS-A", "deterministic": False, "_file": "run/ECHARTS-A/determinism.json"}}
+        with self.assertRaises(compat.CompatError) as e:
+            compat.fixtures_section(scores, compat.fixture_meta(), det)
+        self.assertIn("a determinism result for 'ECHARTS-A'", str(e.exception))
+        self.assertIn("did you mean 'echarts-a'?", str(e.exception))
+
+
+
+class VerdictTableTest(unittest.TestCase):
+    """compat.py against the shared table, and against lib/report.mjs (#51
+    review: the two disagreed on some shapes)."""
+
+    def test_shared_verdict_cases(self):
+        for c in VERDICTS["cases"]:
+            with self.subTest(c["name"]):
+                self.assertEqual(compat.failed_checks(c["score"]), c["failed"])
+                self.assertEqual(compat.passed(c["score"]), c["pass"])
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed")
+    def test_report_mjs_agrees_with_compat_on_every_combination(self):
+        dims = VERDICTS["dimensions"]
+        scores = []
+        for values in itertools.product(*dims.values()):
+            s = {"subject": "echarts-a island 0 (printed by chrome)", "worst_window": 0}
+            s.update({k: v for k, v in zip(dims, values) if v != {"$absent": True}})
+            scores.append(s)
+        report = (HERE.parent / "lib" / "report.mjs").as_uri()
+        script = (
+            f"import {{ failedChecks, passes }} from {json.dumps(report)};"
+            "let input = ''; process.stdin.setEncoding('utf8');"
+            "process.stdin.on('data', (d) => (input += d)).on('end', () => {"
+            "  process.stdout.write(JSON.stringify(JSON.parse(input).map((s) => [passes(s), failedChecks(s)])));"
+            "});"
+        )
+        r = subprocess.run(["node", "--input-type=module", "-e", script], input=json.dumps(scores), capture_output=True, text=True, timeout=300)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        js = json.loads(r.stdout)
+        self.assertEqual(len(js), len(scores))
+        differ = [(s, [compat.passed(s), compat.failed_checks(s)], j) for s, j in zip(scores, js) if [compat.passed(s), compat.failed_checks(s)] != j]
+        self.assertEqual(differ[:3], [], f"{len(differ)} of {len(scores)} scores get different verdicts")
 
 
 if __name__ == "__main__":

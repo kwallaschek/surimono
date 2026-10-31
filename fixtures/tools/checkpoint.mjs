@@ -45,6 +45,7 @@ import os from "node:os";
 import { FIXTURES_DIR, TOOLS_DIR, islandsOf, listFixtures } from "./lib/fixtures.mjs";
 import { fulgurPrint, fulgurVersion } from "./lib/fulgur.mjs";
 import { PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
+import { passes, pct, scoresCell, verdict } from "./lib/report.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -155,20 +156,23 @@ const baseline = loadBaseline(values.baseline);
  * host's time zone, locale or working directory.
  */
 /**
- * The second run's locale: the first of these that `locale -a` lists. If none
- * is installed, ja_JP.UTF-8 is set anyway: that still catches code reading
- * LANG or LC_ALL, but not libc's locale behaviour, and the report says so.
+ * The second run's locale: the first of these that `locale -a` lists. The
+ * decimal-comma locales come first, so a leak through printf or strtod
+ * (1.5 printed or read as 1,5) shows too; ja_JP and en_US share C's ".". If
+ * none is installed, de_DE.UTF-8 is set anyway: that still catches code
+ * reading LANG or LC_ALL, but not libc's locale behaviour, and the report says so.
  */
+const SECOND_LOCALES = ["de_DE.UTF-8", "fr_FR.UTF-8", "ja_JP.UTF-8", "en_US.UTF-8"];
 function secondLocale() {
   const r = spawnSync("locale", ["-a"], { encoding: "utf8" });
   const have = new Set((r.stdout ?? "").split("\n").map((l) => l.trim().toLowerCase().replace("utf-8", "utf8")));
-  for (const want of ["ja_JP.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8", "en_US.UTF-8"]) {
+  for (const want of SECOND_LOCALES) {
     if (have.has(want.toLowerCase().replace("utf-8", "utf8"))) return { locale: want, installed: true };
   }
-  return { locale: "ja_JP.UTF-8", installed: false };
+  return { locale: SECOND_LOCALES[0], installed: false };
 }
 const second = secondLocale();
-if (!second.installed) console.log(`note: no ja_JP, de_DE, fr_FR or en_US UTF-8 locale is installed (locale -a); the second render sets LANG=${second.locale} anyway, which catches code that reads LANG but not libc's locale behaviour`);
+if (!second.installed) console.log(`note: no ${SECOND_LOCALES.map((l) => l.split(".")[0]).join(", ")} UTF-8 locale is installed (locale -a); the second render sets LANG=${second.locale} anyway, which catches code that reads LANG but not libc's locale behaviour`);
 const RUNS = [
   { TZ: "UTC", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", cwd: REPO, locale_installed: true },
   { TZ: "Asia/Tokyo", LANG: second.locale, LC_ALL: second.locale, cwd: null, locale_installed: second.installed },
@@ -255,27 +259,12 @@ for (const fixture of listFixtures(values.kind, positionals)) {
 
 // ---------------------------------------------------------------- report
 
-const pct = (x) => (typeof x === "number" ? `${(x * 100).toFixed(1)}%` : "—");
 const rel = (file) => path.relative(outRoot, file).split(path.sep).join("/");
-/** pass/FAIL with each failed check and its own number (the format compat.py uses). */
-function verdict(s) {
-  if (!s) return "not run";
-  if (s.error) return `**FAIL** (render error: ${s.error.split("\n")[0].slice(0, 100)})`;
-  const failed = [...new Set((s.pages ?? []).flatMap((p) => p.failed ?? []))];
-  if (s.text && !s.text.pass) failed.push("text");
-  if (s.font && !s.font.pass) failed.push("font");
-  if (s.pass) return "pass";
-  const detail = failed.map((c) =>
-    c === "shape" ? `shape ${pct(s.worst_window)}` : c === "colour" ? `colour ${pct(s.worst_colour_window)}` : c === "hue" ? `hue ${pct(s.worst_hue_window)}` : c === "text" ? `text: ${(s.text.missing ?? []).length} missing, ${(s.text.extra ?? []).length} extra` : c === "font" ? `font: ${s.font.mismatches.length} differ` : c,
-  );
-  return `**FAIL** (${detail.join("; ") || "page count"})`;
-}
 const floor = (fixture, key, i) => {
   if (!baseline) return "—";
   const b = baseline.rows[fixture];
   return b ? pct(key === "page" ? b.page : b.islands[i]) : "not in the baseline";
 };
-const scoresCell = (s) => (s && !s.error ? `${pct(s.worst_window)} / ${pct(s.worst_colour_window)} / ${pct(s.worst_hue_window)}${s.text ? ` / text ${s.text.pass ? "ok" : "differs"}` : ""}${s.font ? ` / font ${s.font.pass ? "ok" : "differs"}` : ""}` : "—");
 const image = (dirName, label) => {
   const f = path.join(outRoot, dirName, "side-by-side-1.png");
   return fs.existsSync(f) ? `[${label}](${rel(f)})` : "—";
@@ -295,7 +284,7 @@ const md = [
   "",
   `${versions.surimono} (\`${producer.cli}\`, sha256 ${producer.sha256?.slice(0, 12) ?? "?"}${producer.commit ? `, commit ${producer.commit}` : ""}), text as outlines (the default), fixture fonts only; fulgur ${versions.fulgur}. The second render runs in a later second of the wall clock with TZ=${RUNS[1].TZ}, ${RUNS[1].LANG}${RUNS[1].locale_installed ? "" : " (not installed here: only the environment variables change)"} and another working directory. Chrome references: \`fixtures/islands/*/reference/\` (Chromium 153, pinned). Generated by \`fixtures/tools/checkpoint.mjs\`.`,
   "",
-  `**Gate (each island's SVG printed by Chrome): ${gate.filter((s) => s.pass && !s.error).length} of ${gate.length} pass.** All comparisons: ${all.filter((s) => s.pass && !s.error).length} of ${all.length} pass. Byte-identical across two processes: ${rows.filter((r) => r.deterministic).length} of the ${rows.filter((r) => r.deterministic !== undefined).length} fixtures that rendered (${rows.length} in all).`,
+  `**Gate (each island's SVG printed by Chrome): ${gate.filter(passes).length} of ${gate.length} pass.** All comparisons: ${all.filter(passes).length} of ${all.length} pass. Byte-identical across two processes: ${rows.filter((r) => r.deterministic).length} of the ${rows.filter((r) => r.deterministic !== undefined).length} fixtures that rendered (${rows.length} in all).`,
   "",
   `A comparison passes when shape (worst 32×32 window of near-mismatched ink) ≤ ${pct(PASS_WORST_WINDOW)}, colour (solid areas) ≤ ${pct(PASS_COLOUR_WINDOW)}, hue (strokes) ≤ ${pct(PASS_HUE_WINDOW)}, the page size matches and, for islands, every Chrome string is there with the same declared font weight and style (\`fixtures/README.md\`). Scores are shape / colour / hue. Each image is Chrome | surimono | diff.`,
   "",
