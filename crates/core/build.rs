@@ -42,7 +42,7 @@ fn hash_engine(vendor: &Path) -> Option<String> {
         return None;
     }
     let mut files = Vec::new();
-    collect(&sources, &mut files);
+    collect(&sources, &mut files, &mut Vec::new());
     files.push(vendor.join("build.rs"));
     files.push(vendor.join("Cargo.toml"));
     let mut named: Vec<(String, PathBuf)> = files
@@ -65,8 +65,21 @@ fn hash_engine(vendor: &Path) -> Option<String> {
 
 /// Every file under `dir`, recursively. A directory is also watched, so a
 /// file added to it reruns this script. Symbolic links are followed (the
-/// engine's build reads through them too).
-fn collect(dir: &Path, files: &mut Vec<PathBuf>) {
+/// engine's build reads through them too), except a link back to a
+/// directory being walked (`ancestors`, canonical paths), which would
+/// recurse forever: it is skipped, so a tree without such a cycle hashes
+/// exactly as before.
+fn collect(dir: &Path, files: &mut Vec<PathBuf>, ancestors: &mut Vec<PathBuf>) {
+    let canonical = fs::canonicalize(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
+    if ancestors.contains(&canonical) {
+        println!(
+            "cargo:warning={} links back to {}; not followed",
+            dir.display(),
+            canonical.display()
+        );
+        return;
+    }
+    ancestors.push(canonical);
     println!("cargo:rerun-if-changed={}", dir.display());
     let entries = fs::read_dir(dir).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
     for entry in entries {
@@ -74,11 +87,12 @@ fn collect(dir: &Path, files: &mut Vec<PathBuf>) {
             .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
             .path();
         if path.is_dir() {
-            collect(&path, files);
+            collect(&path, files, ancestors);
         } else {
             files.push(path);
         }
     }
+    ancestors.pop();
 }
 
 /// `file`'s path below `base`, with `/` between components on every host.

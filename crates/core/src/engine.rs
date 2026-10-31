@@ -958,6 +958,18 @@ mod tests {
         let mode = AtomicU32::new(0);
         let last_ended = AtomicU64::new(0);
         let hits = AtomicUsize::new(0);
+        /// Stops the expirer when the test thread leaves the scope, by
+        /// returning or by a failing assert: otherwise `thread::scope` would
+        /// wait for it forever and the test would hang instead of failing.
+        struct StopExpirer<'a>(&'a AtomicU32);
+        impl Drop for StopExpirer<'_> {
+            fn drop(&mut self) {
+                self.0.store(2, Ordering::Release);
+            }
+        }
+        // Far longer than the 60 s wait below, so only the expirer thread,
+        // never the real watchdog, can stop a call during the test.
+        const BUDGET: Duration = Duration::from_secs(3_600);
         std::thread::scope(|s| {
             s.spawn(|| {
                 let mut i = 0u64;
@@ -977,10 +989,11 @@ mod tests {
                     }
                 }
             });
+            let _stop = StopExpirer(&mode);
             for phase in 0..2u32 {
                 mode.store(phase, Ordering::Release);
                 for round in 0..ROUNDS {
-                    state.arm(Duration::from_secs(60)).unwrap();
+                    state.arm(BUDGET).unwrap();
                     let seq = state.call.load(Ordering::Acquire);
                     for _ in 0..8 {
                         std::hint::spin_loop();
@@ -1007,7 +1020,6 @@ mod tests {
                     last_ended.store(seq, Ordering::Release);
                 }
             }
-            mode.store(2, Ordering::Release);
         });
         // Every call that waited was stopped while it ran, and then ended
         // cleanly (the asserts after `disarm`); the others may have been.
