@@ -296,9 +296,20 @@ const URL_PRESENTATION: &[&str] = &[
 /// XML parser (a literal tab or newline, an entity) is written again from
 /// what was checked. Input that is not well-formed XML with an unprefixed
 /// `<svg>` root, uses a DTD or has more than [`MAX_SVG_NODES`] nodes is
-/// rejected with [`GfxError::InvalidSvg`], as is SVG with more than
-/// [`MAX_OUTLINE_CHARS`] characters of text to outline. Outlining text with
-/// no registered fonts fails with [`GfxError::NoFonts`].
+/// rejected with [`GfxError::InvalidSvg`].
+///
+/// # Errors
+///
+/// - [`GfxError::InvalidSvg`] for the input above, and when outlining would
+///   go over its bounds: more than [`MAX_OUTLINE_CHARS`] shaped characters
+///   (spaces that are shaped count), more than 20,000 `<text>` elements, or
+///   more than 32 MiB of path data.
+/// - [`GfxError::NoFonts`] when there is text to outline and no registered
+///   font.
+///
+/// No other error is returned ([`GfxError::TextTooLong`] can't happen: the
+/// character bound keeps every run far below
+/// [`MAX_TEXT_BYTES`](crate::MAX_TEXT_BYTES)).
 pub fn sanitize_svg(
     svg: &str,
     island: usize,
