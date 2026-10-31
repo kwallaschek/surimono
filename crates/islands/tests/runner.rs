@@ -343,8 +343,11 @@ fn hostile_renderers_hit_limits_and_the_pool_recovers() {
             SandboxError::TimeLimit,
         ),
         (
+            // 1.6 MB steps, so the 16 MiB limit is reached in a few
+            // milliseconds even when parallel tests load the machine (small
+            // steps could meet the 300 ms time limit first).
             "alloc",
-            "function entry() { const a = []; for (;;) a.push(new Array(1e4).fill(1)) }",
+            "function entry() { const a = []; for (;;) a.push(new Array(1e5).fill(1)) }",
             SandboxError::MemoryLimit,
         ),
         (

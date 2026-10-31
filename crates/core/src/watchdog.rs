@@ -1,13 +1,11 @@
 //! The watchdog: one thread per process that raises a running call's stop
 //! flag when its deadline passes.
 //!
-//! QuickJS asks the interrupt handler only once every 10,000 polls, and a
-//! loop whose body makes one expensive native call (`JSON.stringify` of a
-//! big object, `indexOf` on a big array) polls two or three times per
-//! iteration, so the deadline used to be looked at only every few thousand
-//! iterations, minutes late. The patched engine (`vendor/rquickjs-sys`,
-//! PATCHES.md) also reads a per-runtime flag on every poll, one relaxed
-//! load; this thread sets that flag at the deadline.
+//! QuickJS asks the interrupt handler once every 10,000 polls. The patched
+//! engine (`vendor/rquickjs-sys`, PATCHES.md) also reads a per-runtime
+//! flag on every poll, one relaxed load, so a deadline takes effect at the
+//! next poll however much work lies between polls; this thread sets that
+//! flag at the deadline.
 //!
 //! Each armed call puts one timer in a map ordered by deadline and takes it
 //! out again when it ends, so the map holds only the calls running right

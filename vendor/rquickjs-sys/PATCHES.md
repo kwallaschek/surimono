@@ -4,8 +4,7 @@ This directory is rquickjs-sys 0.14.0 from crates.io (rquickjs git `d7ef5ee`,
 path `sys/`), which bundles quickjs-ng 0.16.2. It is wired in through
 `[patch.crates-io]` in the workspace `Cargo.toml`. Every change to upstream
 code is listed here and marked `surimono:` in the source. Drafts for
-upstream are in `docs/upstream/quickjs-ng-sticky-interrupt-and-native-loop-polls.md`
-and `docs/upstream/quickjs-ng-interrupt-granularity.md`.
+upstream are in `docs/upstream/quickjs-ng-sticky-interrupt-and-native-loop-polls.md`.
 
 ## Removed (not needed to build)
 
@@ -318,9 +317,9 @@ back every byte). The full diff is
 
 ## Time-accurate interrupts (P1-RT-14)
 
-Review of #32, R4 and R5: the deadline was checked only once per 10,000
-polls, and some native calls never polled at all, so one-line scripts ran
-for minutes past a 250 ms limit. With patches 6 to 13, patch level 3.
+Review of #32, R4 and R5: make the time limit take effect at the next
+poll, and poll inside the native operations whose cost grows faster than
+their input. With patches 6 to 13, patch level 3.
 
 14. **Interrupt flag** (`surimono_set_interrupt_flag`, `js_poll_interrupts`).
    The host can give a runtime a `uint32_t` flag. Every poll still counts
@@ -341,17 +340,15 @@ for minutes past a 250 ms limit. With patches 6 to 13, patch level 3.
    inside one native call. They count comparisons and poll every 65,536
    (`JS_SEARCH_POLL_UNITS`). `string_indexof` takes `ctx` and returns -2
    after an interrupt; both callers check it. `replace`/`replaceAll` and
-   `split` also poll once per match: `replaceAll('a', '')` on a 64 MB
-   string made 64M passes without one. Results are unchanged.
+   `split` also poll once per match. Results are unchanged.
 16. **Polls in BigInt arithmetic.** `js_mp_mul_basecase` (multiply) polls
    once per row and `js_mp_divnorm` (divide and remainder) once per
    quotient limb; both take `ctx` and return -1 after an interrupt, and
    `js_bigint_mul`/`js_bigint_divrem` free their buffers and fail. Decimal
    `toString` polls once per limb it divides out, and decimal parsing once
-   per limb it multiplies in. Near the 1 Mbit size cap these took 0.4 s,
-   1.1 s, 11 s and 0.3 s per operation, and straight-line code never polls
-   between operations. The size cap is unchanged; power goes through
-   multiply. Results are unchanged.
+   per limb it multiplies in. These are quadratic in the size, so with
+   these polls the time to stop no longer grows with it. The size cap is
+   unchanged; power goes through multiply. Results are unchanged.
 17. **Typed-array sort checks the flag, not the counter** (amends patch 3;
    review of #32, F2). Patch 3's wrapper polled on every comparison through
    one generic wrapper that called the comparator through a pointer; that
@@ -371,14 +368,12 @@ for minutes past a 250 ms limit. With patches 6 to 13, patch level 3.
     `surimono_set_interrupt_flag`, so it can't be built against an engine
     without these patches.
 
-Tests: groups D (loops around one expensive native call) and E (string
-searches and BigInt near the cap) in `crates/core/tests/hostile.rs`;
+Tests: groups D and E in `crates/core/tests/hostile.rs`;
 `watchdog_raises_the_flag_at_the_deadline`,
 `one_watchdog_serves_every_sandbox` and `a_refused_allocation_raises_the_flag`
-in `crates/core/src/engine.rs`. Known limit: a native call that never polls
-still runs to its end once started; those left are linear in data the
-memory limit bounds (a `JSON.stringify` or `TypedArray#includes` of the
-whole heap).
+in `crates/core/src/engine.rs`. A native call without polls of its own
+still runs to its end once started; the ones left are linear in data the
+memory limit bounds.
 
 ### Diff of patches 14 to 18 (on top of patches 1 to 13)
 
@@ -449,11 +444,11 @@ whole heap).
      rt->interrupt_opaque = opaque;
  }
  
-+/* surimono: an interrupt flag for time-accurate limits. The handler alone
-+   is asked only every JS_INTERRUPT_COUNTER_INIT polls, which a loop whose
-+   body makes one expensive native call (JSON.stringify, indexOf on a big
-+   array) reaches only minutes after its deadline. Every poll also reads
-+   `*flag`, and while it is nonzero calls the handler at once. The host
++/* surimono: an interrupt flag for time-accurate limits. The handler is
++   asked every JS_INTERRUPT_COUNTER_INIT polls; with a flag, every poll
++   also reads `*flag`, and while it is nonzero calls the handler at once,
++   so the time between a deadline and the stop no longer depends on how
++   much work lies between polls. The host
 +   sets it from any thread (a watchdog timer, say) and clears it itself;
 +   it must outlive the runtime, and the handler must answer true while it
 +   is set, or every poll asks again. NULL removes it. Takes effect in every
@@ -503,8 +498,8 @@ whole heap).
  {
 -    if (unlikely(--ctx->interrupt_counter <= 0)) {
 +    /* surimono: also ask the handler whenever the host's interrupt flag is
-+       set, so a deadline stops the script at its next poll rather than up
-+       to 10000 polls later (see surimono_set_interrupt_flag). */
++       set, so a deadline stops the script at its next poll (see
++       surimono_set_interrupt_flag). */
 +    if (unlikely(--ctx->interrupt_counter <= 0 ||
 +                 js_interrupt_flag_get(ctx->interrupt_flag))) {
          return __js_poll_interrupts(ctx);
@@ -572,15 +567,14 @@ whole heap).
  }
  
  /* 1 <= shift <= JS_LIMB_BITS - 1 */
-@@ -12962,7 +13027,14 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
+@@ -12962,7 +13027,13 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
      r = js_bigint_new(ctx, a->len + b->len);
      if (!r)
          return NULL;
 -    js_mp_mul_basecase(r->tab, a->tab, a->len, b->tab, b->len);
-+    /* surimono: schoolbook products and quotients of BigInts near the
-+       size cap (1 Mbit) take 0.4 s and 1.1 s, and straight-line code never
-+       polls, so a few such statements ran seconds past the deadline. The
-+       kernels poll per row, toString and parsing per limb. */
++    /* surimono: the schoolbook kernels are quadratic in the size, so they
++       poll as they go: multiply per row, divide per quotient limb, decimal
++       toString and parsing per limb. */
 +    if (js_mp_mul_basecase(ctx, r->tab, a->tab, a->len, b->tab, b->len)) {
 +        js_free(ctx, r);
 +        return NULL;
@@ -588,7 +582,7 @@ whole heap).
      /* correct the result if negative operands (no overflow is
         possible) */
      if (js_bigint_sign(a))
-@@ -13052,7 +13124,13 @@ static JSBigInt *js_bigint_divrem(JSContext *ctx, const JSBigInt *a,
+@@ -13052,7 +13123,13 @@ static JSBigInt *js_bigint_divrem(JSContext *ctx, const JSBigInt *a,
  
      //    js_bigint_dump1(ctx, "a", r->tab, na);
      //    js_bigint_dump1(ctx, "b", tabb, nb);
@@ -603,7 +597,7 @@ whole heap).
      js_free(ctx, tabb);
  
      if (is_rem) {
-@@ -13565,6 +13643,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
+@@ -13565,6 +13642,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
          len = 1;
          r->tab[0] = 0;
          for(;;) {
@@ -616,12 +610,12 @@ whole heap).
              /* XXX: slow */
              v = 0;
              for(i = 0; i < digits_per_limb; i++) {
-@@ -13746,6 +13830,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
+@@ -13746,6 +13829,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
              radix_base = js_radix_base_table[radix - 2];
              len = r->len;
              for(;;) {
-+                /* surimono: quadratic in the length (11 s at the size cap);
-+                   poll per limb (see js_bigint_mul). */
++                /* surimono: quadratic in the length; poll per limb (see
++                   js_bigint_mul). */
 +                if (js_poll_interrupts(ctx)) {
 +                    js_free(ctx, tmp);
 +                    js_free(ctx, buf);
@@ -630,16 +624,15 @@ whole heap).
                  /* remove leading zero limbs */
                  while (len > 1 && r->tab[len - 1] == 0)
                      len--;
-@@ -47408,10 +47499,30 @@ static int string_indexof_char(JSString *p, int c, int from)
+@@ -47408,10 +47498,29 @@ static int string_indexof_char(JSString *p, int c, int from)
      return -1;
  }
  
 -static int string_indexof(JSString *p1, JSString *p2, int from)
 +/* surimono: the string searches here are naive, up to len1 * len2
-+   character comparisons, and run inside one native call that never
-+   reached a poll: 'a'.repeat(1 << 20).indexOf('a'.repeat(4096) + 'b')
-+   ran for 20 s. They count their comparisons and poll every
-+   JS_SEARCH_POLL_UNITS of them (tens of microseconds). */
++   character comparisons in one native call, so they count their
++   comparisons and poll every JS_SEARCH_POLL_UNITS of them (tens of
++   microseconds of work). */
 +#define JS_SEARCH_POLL_UNITS (1 << 16)
 +
 +static inline __exception int js_search_poll(JSContext *ctx, int64_t *work,
@@ -662,7 +655,7 @@ whole heap).
      if (len2 == 0)
          return from;
      for (i = from, c = string_get(p2, 0); i + len2 <= len1; i = j + 1) {
-@@ -47420,6 +47531,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
+@@ -47420,6 +47529,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
              break;
          if (!string_cmp(p1, p2, j + 1, 1, len2 - 1))
              return j;
@@ -671,7 +664,7 @@ whole heap).
      }
      return -1;
  }
-@@ -47557,6 +47670,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47557,6 +47668,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
      }
      ret = -1;
      if (len >= v_len && inc * (stop - start) >= 0) {
@@ -679,7 +672,7 @@ whole heap).
          for (i = start;; i += inc) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = i;
-@@ -47564,6 +47678,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47564,6 +47676,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -688,7 +681,7 @@ whole heap).
          }
      }
      JS_FreeValue(ctx, str);
-@@ -47623,6 +47739,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47623,6 +47737,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
          start = stop = pos;
      }
      if (start >= 0 && start <= stop) {
@@ -696,7 +689,7 @@ whole heap).
          for (i = start;; i++) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = 1;
-@@ -47630,6 +47747,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47630,6 +47745,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -705,19 +698,18 @@ whole heap).
          }
      }
   done:
-@@ -47885,6 +48004,11 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47885,6 +48002,10 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
      endOfLastMatch = 0;
      is_first = true;
      for(;;) {
-+        /* surimono: replaceAll of a short pattern loops once per match
-+           without calling any script ('a'.repeat(1 << 26).replaceAll('a',
-+           '') makes 64M passes); poll on each. */
++        /* surimono: poll once per match; with a non-function replacement
++           this loop calls no script code that would. */
 +        if (js_poll_interrupts(ctx))
 +            goto exception;
          if (unlikely(searchp->len == 0)) {
              if (is_first)
                  pos = 0;
-@@ -47893,7 +48017,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47893,7 +48014,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
              else
                  pos = endOfLastMatch + 1;
          } else {
@@ -728,7 +720,7 @@ whole heap).
          }
          if (pos < 0) {
              if (is_first) {
-@@ -48004,7 +48130,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
+@@ -48004,7 +48127,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
      }
      q = p;
      for (q = p; (q += !r) <= s - r - !r; q = p = e + r) {
@@ -742,14 +734,16 @@ whole heap).
          if (e < 0)
              break;
          T = js_sub_string(ctx, sp, p, e);
-@@ -61549,26 +61680,88 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
+@@ -61548,27 +61676,89 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
+     return cmp;
  }
  
- /* surimono: the typed comparators are plain C and never poll, so sorting
+-/* surimono: the typed comparators are plain C and never poll, so sorting
 -   a large typed array ran far past the deadline. This wrapper polls on
 -   every comparison (js_poll_interrupts asks the handler every 10000) and,
 -   once interrupted, answers 0 so rqsort finishes in one linear pass. */
-+   a large typed array ran far past the deadline. These wrappers check the
++/* surimono: the typed comparators are plain C with no polls of their own.
++   These wrappers check the
 +   host's interrupt flag (see surimono_set_interrupt_flag) on each
 +   comparison and, once interrupted, answer 0 so rqsort finishes in one
 +   linear pass. The check is loads only: a countdown or the context's
@@ -841,7 +835,7 @@ whole heap).
  static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
  {
-@@ -61711,9 +61904,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
+@@ -61711,9 +61901,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
          done:
              js_free(ctx, array_idx);
          } else {

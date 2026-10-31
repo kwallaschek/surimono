@@ -2509,11 +2509,11 @@ void JS_SetInterruptHandler(JSRuntime *rt, JSInterruptHandler *cb, void *opaque)
     rt->interrupt_opaque = opaque;
 }
 
-/* surimono: an interrupt flag for time-accurate limits. The handler alone
-   is asked only every JS_INTERRUPT_COUNTER_INIT polls, which a loop whose
-   body makes one expensive native call (JSON.stringify, indexOf on a big
-   array) reaches only minutes after its deadline. Every poll also reads
-   `*flag`, and while it is nonzero calls the handler at once. The host
+/* surimono: an interrupt flag for time-accurate limits. The handler is
+   asked every JS_INTERRUPT_COUNTER_INIT polls; with a flag, every poll
+   also reads `*flag`, and while it is nonzero calls the handler at once,
+   so the time between a deadline and the stop no longer depends on how
+   much work lies between polls. The host
    sets it from any thread (a watchdog timer, say) and clears it itself;
    it must outlive the runtime, and the handler must answer true while it
    is set, or every poll asks again. NULL removes it. Takes effect in every
@@ -8753,8 +8753,8 @@ void surimono_quickjs_set_arena(JSRuntime *rt, int enabled)
 static inline __exception int js_poll_interrupts(JSContext *ctx)
 {
     /* surimono: also ask the handler whenever the host's interrupt flag is
-       set, so a deadline stops the script at its next poll rather than up
-       to 10000 polls later (see surimono_set_interrupt_flag). */
+       set, so a deadline stops the script at its next poll (see
+       surimono_set_interrupt_flag). */
     if (unlikely(--ctx->interrupt_counter <= 0 ||
                  js_interrupt_flag_get(ctx->interrupt_flag))) {
         return __js_poll_interrupts(ctx);
@@ -13027,10 +13027,9 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
     r = js_bigint_new(ctx, a->len + b->len);
     if (!r)
         return NULL;
-    /* surimono: schoolbook products and quotients of BigInts near the
-       size cap (1 Mbit) take 0.4 s and 1.1 s, and straight-line code never
-       polls, so a few such statements ran seconds past the deadline. The
-       kernels poll per row, toString and parsing per limb. */
+    /* surimono: the schoolbook kernels are quadratic in the size, so they
+       poll as they go: multiply per row, divide per quotient limb, decimal
+       toString and parsing per limb. */
     if (js_mp_mul_basecase(ctx, r->tab, a->tab, a->len, b->tab, b->len)) {
         js_free(ctx, r);
         return NULL;
@@ -13830,8 +13829,8 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
             radix_base = js_radix_base_table[radix - 2];
             len = r->len;
             for(;;) {
-                /* surimono: quadratic in the length (11 s at the size cap);
-                   poll per limb (see js_bigint_mul). */
+                /* surimono: quadratic in the length; poll per limb (see
+                   js_bigint_mul). */
                 if (js_poll_interrupts(ctx)) {
                     js_free(ctx, tmp);
                     js_free(ctx, buf);
@@ -47500,10 +47499,9 @@ static int string_indexof_char(JSString *p, int c, int from)
 }
 
 /* surimono: the string searches here are naive, up to len1 * len2
-   character comparisons, and run inside one native call that never
-   reached a poll: 'a'.repeat(1 << 20).indexOf('a'.repeat(4096) + 'b')
-   ran for 20 s. They count their comparisons and poll every
-   JS_SEARCH_POLL_UNITS of them (tens of microseconds). */
+   character comparisons in one native call, so they count their
+   comparisons and poll every JS_SEARCH_POLL_UNITS of them (tens of
+   microseconds of work). */
 #define JS_SEARCH_POLL_UNITS (1 << 16)
 
 static inline __exception int js_search_poll(JSContext *ctx, int64_t *work,
@@ -48004,9 +48002,8 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
     endOfLastMatch = 0;
     is_first = true;
     for(;;) {
-        /* surimono: replaceAll of a short pattern loops once per match
-           without calling any script ('a'.repeat(1 << 26).replaceAll('a',
-           '') makes 64M passes); poll on each. */
+        /* surimono: poll once per match; with a non-function replacement
+           this loop calls no script code that would. */
         if (js_poll_interrupts(ctx))
             goto exception;
         if (unlikely(searchp->len == 0)) {
@@ -61679,8 +61676,8 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
     return cmp;
 }
 
-/* surimono: the typed comparators are plain C and never poll, so sorting
-   a large typed array ran far past the deadline. These wrappers check the
+/* surimono: the typed comparators are plain C with no polls of their own.
+   These wrappers check the
    host's interrupt flag (see surimono_set_interrupt_flag) on each
    comparison and, once interrupted, answer 0 so rqsort finishes in one
    linear pass. The check is loads only: a countdown or the context's

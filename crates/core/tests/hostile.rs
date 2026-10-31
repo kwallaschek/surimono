@@ -6,15 +6,12 @@
 //! Group A loops over a huge array-like inside a native built-in; group B
 //! has a built-in swallow the time-limit interrupt while an outer loop runs
 //! on; group C is a long native sort; group D is a loop whose body is one
-//! expensive native call, which the engine used to check the deadline for
-//! only every few thousand iterations; group E is a single native call
-//! with superlinear cost (naive string search, BigInt arithmetic near the
-//! size cap) that never polled. Before the QuickJS patches in
-//! `vendor/rquickjs-sys` (see its PATCHES.md) every vector here except the
-//! controls hung or overshot the limit by seconds to minutes. Each must now
-//! end within about twice the time limit: with the expected limit error,
-//! or for the TOCTOU vectors (whose trick only fooled the old prelude
-//! guards) normally.
+//! expensive native call; group E is a single native call whose cost grows
+//! faster than its input (string search, BigInt arithmetic near the size
+//! cap). Each must end within about twice the time limit: with the
+//! expected limit error, or for the TOCTOU vectors (whose trick only
+//! fooled the old prelude guards) normally. See
+//! `vendor/rquickjs-sys/PATCHES.md` for the engine patches they cover.
 
 use std::io::Read;
 use std::process::{Command, Stdio};
@@ -335,11 +332,8 @@ const GROUP_C: &[Vector] = &[
     },
 ];
 
-/// Group D: a loop around one expensive native call (review of #32, R4).
-/// The engine asked for the deadline only every 10,000 polls, and these
-/// bodies poll two or three times per iteration, so the deadline was seen
-/// every few thousand iterations: still running at 15 s with a 250 ms
-/// limit (187 s, 49 s and 67 s in C at -O2).
+/// Group D: a loop around one expensive native call (review of #32, R4;
+/// the interrupt flag, patch 14).
 const GROUP_D: &[Vector] = &[
     v(
         "D JSON.stringify of 20k objects, in a loop",
@@ -368,12 +362,9 @@ const GROUP_D: &[Vector] = &[
     ),
 ];
 
-/// Group E: one native call with superlinear cost that never polled
-/// (review of #32, R5). String searches are naive, up to n * m character
-/// comparisons; BigInt multiply, divide, toString and parsing are
-/// quadratic in the size, up to seconds per operation near the 1 Mbit cap,
-/// and straight-line code (built here with `eval`) never polls between
-/// them.
+/// Group E: native calls whose cost grows faster than their input (review
+/// of #32, R5; the polls of patches 15 and 16). Straight-line code is built
+/// with `eval`.
 const GROUP_E: &[Vector] = &[
     v(
         "E String indexOf, 1M chars, 4K pattern",

@@ -268,10 +268,9 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 ///   `DisposableStack`) can't swallow it either. See
 ///   `vendor/rquickjs-sys/PATCHES.md`. `tests/hostile.rs` runs each hang
 ///   vector found so far and checks it ends with a limit error in about
-///   twice the time limit. Known gap: a native call that never polls runs
-///   to its end once started; the ones left are linear passes over data
-///   the memory limit bounds (a `JSON.stringify` or `TypedArray#includes`
-///   of the whole heap). Host functions check [`Sandbox::deadline`].
+///   twice the time limit. Known gap: a native call without polls of its
+///   own runs to its end once started; the ones left are linear in data
+///   the memory limit bounds. Host functions check [`Sandbox::deadline`].
 /// - **Stack**: recursion deeper than [`Limits::stack_bytes`] fails with
 ///   [`SandboxError::StackOverflow`] unless the script catches the `RangeError`.
 ///
