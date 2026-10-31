@@ -27,6 +27,7 @@ allow = [
     "CC0-1.0",
     "Unicode-3.0",
     "Unicode-DFS-2016",
+    "Unlicense",
 ]
 # MPL-2.0 is file-level copyleft, not permissive. It is allowed only for the
 # Servo style crates (Stylo, cssparser, selectors and their helpers) that Blitz

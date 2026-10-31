@@ -1,15 +1,16 @@
 //! The [`Renderer`]: options in, islands rendered.
 
 use std::fmt;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{Mutex, OnceLock, TryLockError};
 
-use surimono_gfx::TextMeasurer;
+use surimono_gfx::{FontSet, TextMeasurer};
 use surimono_islands::{IslandRequest, IslandRunner};
 
 use crate::Options;
 use crate::backend;
 use crate::error::Error;
-use crate::prepass::{self, ErrorPolicy};
+use crate::prepass::{self, Document, ErrorPolicy};
 use crate::svg::SanitizedSvg;
 
 /// Renders a document's islands to SVG.
@@ -18,6 +19,12 @@ use crate::svg::SanitizedSvg;
 /// runtimes, compiles each renderer's bundle once, and measures text with the
 /// fonts you gave it. It is `Send + Sync`, so one renderer can serve many
 /// threads at a time.
+///
+/// A renderer survives `fork` (Puma's `preload_app!` and `fork_worker`,
+/// Unicorn, Resque): worker threads don't, so the first render in a forked
+/// process starts a new pool and text measurer there, sharing the font data
+/// with the parent. Nothing it needs in the child is a lock a parent thread
+/// could have held at the moment of the fork.
 ///
 /// ```
 /// use surimono::{Options, Renderer};
@@ -33,51 +40,101 @@ pub struct Renderer {
     /// The options it was built with (fonts moved out), to start the pool
     /// again in a forked child.
     options: Options,
-    /// Measures text for renderers and outlines it in their SVG, with the
-    /// caller's fonts.
-    measurer: TextMeasurer,
-    pool: Mutex<Pool>,
+    /// The caller's fonts. Never mutated after `new` and holding no lock, so
+    /// a forked child can clone it safely (the clone shares the font data).
+    fonts: FontSet,
+    /// Per-process state, see [`Slot`]: `[0]` is the process that built the
+    /// renderer, then one slot per fork along this process's ancestry.
+    slots: Box<[Slot; MAX_FORK_DEPTH]>,
     policy: ErrorPolicy,
     enabled: Vec<String>,
 }
 
-/// The runner and the process whose threads it runs on.
+/// Fork generations one renderer can follow (a process forked from a process
+/// forked from … the one that built it). Puma's `fork_worker` and Resque go
+/// two or three deep.
+const MAX_FORK_DEPTH: usize = 16;
+
+/// The state one process renders with: its own runner (worker threads) and
+/// text measurer (whose internal lock a parent thread may have held at fork
+/// time, so a child never touches its parent's).
 ///
-/// Worker threads don't survive `fork`: in a child (Puma or Unicorn workers
-/// after `preload_app!`, Resque jobs) the runner would wait forever for
-/// threads that don't exist. So the pool remembers the pid it was started in,
-/// and the first render in another process starts a new one there.
-struct Pool {
-    pid: u32,
-    /// Always `Some` until the renderer is dropped.
-    runner: Option<Arc<IslandRunner>>,
+/// Finding this process's slot takes only atomic loads, never a lock: the
+/// slot claimed last in this process's memory is its own if its pid matches,
+/// and otherwise this process is a fork and claims the next free slot with a
+/// compare-and-swap. A process forked from it sees that slot as claimed by
+/// another pid and claims the one after. `state` is only ever written by the
+/// process that claimed the slot, so a child never waits on a `OnceLock` a
+/// parent thread was filling.
+struct Slot {
+    /// The pid that claimed this slot; 0 while free.
+    pid: AtomicU32,
+    state: OnceLock<Local>,
 }
 
-/// Runners given up on in this process; see [`abandon`].
-static ABANDONED: Mutex<Vec<Arc<IslandRunner>>> = Mutex::new(Vec::new());
+impl Slot {
+    fn free() -> Self {
+        Slot {
+            pid: AtomicU32::new(0),
+            state: OnceLock::new(),
+        }
+    }
+}
 
-/// Gives up on a runner whose threads belong to another process: dropping it
+/// One process's runner and measurer.
+struct Local {
+    /// Measures text for renderers and outlines it in their SVG.
+    measurer: TextMeasurer,
+    runner: IslandRunner,
+}
+
+/// Process state given up on in this process; see [`abandon`].
+static ABANDONED: Mutex<Vec<Local>> = Mutex::new(Vec::new());
+
+/// Gives up on state whose threads belong to another process: dropping it
 /// would join threads that don't exist here, which never returns. It is kept
 /// for the life of the process instead (its memory is the parent's, copied on
-/// write), one per renderer per fork, and stays reachable, so leak checkers
-/// don't report it.
-fn abandon(runner: Arc<IslandRunner>) {
-    ABANDONED
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .push(runner);
+/// write), and stays reachable, so leak checkers don't report it. If the list
+/// is locked, possibly by a thread that didn't survive a fork, it is leaked
+/// rather than waited for.
+fn abandon(local: Local) {
+    match ABANDONED.try_lock() {
+        Ok(mut list) => list.push(local),
+        Err(TryLockError::Poisoned(p)) => p.into_inner().push(local),
+        Err(TryLockError::WouldBlock) => {
+            Box::leak(Box::new(local));
+        }
+    }
 }
 
 impl Drop for Renderer {
     fn drop(&mut self) {
-        let pool = self.pool.get_mut().unwrap_or_else(PoisonError::into_inner);
-        if pool.pid != std::process::id() {
-            if let Some(runner) = pool.runner.take() {
-                abandon(runner);
+        let pid = std::process::id();
+        let own = last_claimed(&self.slots[..]);
+        for (i, slot) in self.slots.iter_mut().enumerate() {
+            // Only the last claimed slot can be this process's own: an earlier
+            // one with the same pid belonged to an ancestor whose pid was reused.
+            if i == own && *slot.pid.get_mut() == pid {
+                continue;
+            }
+            if let Some(local) = slot.state.take() {
+                abandon(local);
             }
         }
     }
 }
+
+/// Index of the last slot claimed in this process's memory (slot 0 is claimed
+/// by `Renderer::new`).
+fn last_claimed(slots: &[Slot]) -> usize {
+    slots
+        .iter()
+        .rposition(|s| s.pid.load(Ordering::Acquire) != 0)
+        .unwrap_or(0)
+}
+
+/// Most islands one document may have by default; see [`Options::max_islands`].
+pub(crate) const DEFAULT_MAX_ISLANDS: usize = 1000;
 
 impl Renderer {
     /// Builds a renderer: loads the fonts, checks the limits, starts the
@@ -87,9 +144,10 @@ impl Renderer {
     /// # Errors
     ///
     /// [`Error::Font`] for a font file that can't be read,
-    /// [`Error::InvalidOptions`] for limits out of range (including a zero time
-    /// limit), a pool size of 0 or an unknown name in [`Options::renderers`],
-    /// and [`Error::Bundle`] for a bundle that can't be used.
+    /// [`Error::InvalidOptions`] for no fonts, limits out of range (including a
+    /// zero time limit), a pool size or `max_islands` of 0 or an unknown name
+    /// in [`Options::renderers`], and [`Error::Bundle`] for a bundle that can't
+    /// be used.
     pub fn new(mut options: Options) -> Result<Self, Error> {
         if options.limits.time.is_zero() {
             return Err(Error::InvalidOptions(
@@ -99,6 +157,11 @@ impl Renderer {
         if options.pool_size == Some(0) {
             return Err(Error::InvalidOptions("pool_size must be at least 1".into()));
         }
+        if options.max_islands == Some(0) {
+            return Err(Error::InvalidOptions(
+                "max_islands must be at least 1".into(),
+            ));
+        }
         if options.fonts.is_empty() {
             return Err(Error::InvalidOptions(
                 "no fonts were given: pass the font files your PDF engine prints with \
@@ -107,7 +170,7 @@ impl Renderer {
                     .into(),
             ));
         }
-        let measurer = TextMeasurer::new(backend::font_set(std::mem::take(&mut options.fonts))?);
+        let fonts = backend::font_set(std::mem::take(&mut options.fonts))?;
         let mut available = backend::builtin_renderers();
         for b in &options.bundles {
             backend::check_bundle(&b.name, &b.entry, &available).map_err(|message| {
@@ -118,7 +181,7 @@ impl Renderer {
             })?;
             available.push(b.name.clone());
         }
-        let runner = start_runner(&options, &measurer)?;
+        let local = start_local(&options, &fonts)?;
         let enabled = match &options.renderers {
             None => available,
             Some(wanted) => {
@@ -137,32 +200,53 @@ impl Renderer {
                 enabled
             }
         };
+        let slots: Box<[Slot; MAX_FORK_DEPTH]> = Box::new(std::array::from_fn(|_| Slot::free()));
+        slots[0].pid.store(std::process::id(), Ordering::Release);
+        if slots[0].state.set(local).is_err() {
+            // A fresh OnceLock is empty; this can't happen.
+            return Err(Error::InvalidOptions("the renderer could not start".into()));
+        }
         Ok(Self {
             policy: options.error_policy,
             options,
-            measurer,
-            pool: Mutex::new(Pool {
-                pid: std::process::id(),
-                runner: Some(Arc::new(runner)),
-            }),
+            fonts,
+            slots,
             enabled,
         })
     }
 
-    /// The runner for this process, started again if this is a forked child.
-    fn runner(&self) -> Result<Arc<IslandRunner>, Error> {
+    /// This process's runner and measurer, started on first use in a forked
+    /// child. Takes no lock on the way that a thread which didn't survive a
+    /// fork could hold.
+    fn local(&self) -> Result<&Local, Error> {
         let pid = std::process::id();
-        let mut pool = self.pool.lock().unwrap_or_else(PoisonError::into_inner);
-        if pool.pid != pid || pool.runner.is_none() {
-            let fresh = Arc::new(start_runner(&self.options, &self.measurer)?);
-            if let Some(old) = pool.runner.replace(fresh) {
-                abandon(old);
+        loop {
+            let last = last_claimed(&self.slots[..]);
+            let slot = &self.slots[last];
+            if slot.pid.load(Ordering::Acquire) == pid {
+                if let Some(local) = slot.state.get() {
+                    return Ok(local);
+                }
+                // Claimed by this process and not started yet. Threads of this
+                // process may race here; the losers drop their own runner.
+                let fresh = start_local(&self.options, &self.fonts)?;
+                drop(slot.state.set(fresh));
+                return slot.state.get().ok_or_else(|| {
+                    Error::InvalidOptions("the renderer could not start in this process".into())
+                });
             }
-            pool.pid = pid;
+            // A fork: claim the next slot for this process, or pick up the one
+            // another thread of this process just claimed.
+            let Some(next) = self.slots.get(last + 1) else {
+                return Err(Error::InvalidOptions(format!(
+                    "this renderer was built {MAX_FORK_DEPTH} fork generations ago; \
+                     build a new Renderer in this process"
+                )));
+            };
+            let _ = next
+                .pid
+                .compare_exchange(0, pid, Ordering::AcqRel, Ordering::Acquire);
         }
-        pool.runner
-            .clone()
-            .ok_or_else(|| Error::InvalidOptions("the renderer has no runner".into()))
     }
 
     /// Replaces every island marker in `html` with the SVG its renderer draws,
@@ -182,16 +266,21 @@ impl Renderer {
     /// data-renderer="echarts"><svg …>…</svg></div>`. Without `data-width` and
     /// `data-height` an island is 600 × 400 CSS pixels. Put markers where a
     /// `div` is allowed, not inside `<p>`, `<span>` or `<a>`. Inside the JSON,
-    /// write `<` as `\u003c` (Rails' `to_json` does), so no `</script>` or
+    /// write `<` as `<` (Rails' `to_json` does), so no `</script>` or
     /// `<!--` in a string can end or confuse the marker.
     ///
     /// Every renderer's SVG is sanitised before it goes in: no scripts, event
-    /// handlers, external references or markup that could end the wrapper; ids
-    /// get a per-island prefix; font families map to your fonts. SVG that can't
-    /// be made safe fails the island with [`Error::Render`].
+    /// handlers, external references, style sheets or markup that could end
+    /// the wrapper or reach the rest of the page; ids get a per-island prefix;
+    /// font families map to your fonts. SVG that can't be made safe fails the
+    /// island with [`Error::Render`].
     ///
-    /// Islands render in document order. The same renderer, options and input
-    /// always give the same bytes.
+    /// Islands render in document order, one after another. Each has its own
+    /// time limit ([`Limits::time`](crate::Limits::time)), so a document with
+    /// N islands can take up to N × that; [`Options::max_islands`] caps N
+    /// (1,000 by default), and [`render_islands_cancellable`](Self::render_islands_cancellable)
+    /// lets you stop a render between islands. The same renderer, options and
+    /// input always give the same bytes.
     ///
     /// # Errors
     ///
@@ -200,11 +289,57 @@ impl Renderer {
     /// [`Error::UnknownRenderer`], [`Error::MemoryLimit`], [`Error::TimeLimit`],
     /// [`Error::StackOverflow`], [`Error::JavaScript`] or [`Error::Render`]. With
     /// [`ErrorPolicy::Placeholder`] failed islands become placeholders instead.
+    /// Whatever the policy, [`Error::TooManyIslands`] if the document has more
+    /// islands than [`Options::max_islands`] (before any of them runs), and
     /// [`Error::Html`] if the markup is too ambiguous to rewrite safely.
     pub fn render_islands(&self, html: &str) -> Result<String, Error> {
+        self.render(html, None)
+    }
+
+    /// [`render_islands`](Self::render_islands) that stops early once `cancel`
+    /// is true: it is checked before each island, and the islands not yet
+    /// started are skipped with [`Error::Cancelled`] whatever the error
+    /// policy. An island already running finishes or stops at its own time
+    /// limit.
+    ///
+    /// Set it from another thread, a timer or a signal handler (storing to an
+    /// `AtomicBool` is async-signal-safe). The Ruby gem sets it when the
+    /// rendering thread is interrupted (`Timeout`, `Thread#raise`,
+    /// `Thread#kill`, a signal).
+    ///
+    /// ```
+    /// use std::sync::atomic::AtomicBool;
+    /// use surimono::{Error, Options, Renderer};
+    ///
+    /// # let font = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/NotoSans-Regular.ttf"))
+    /// #     .unwrap_or_else(|e| panic!("{e}"));
+    /// let renderer = Renderer::new(Options::new().font(font))?;
+    /// let html = r#"<script type="application/vnd.surimono+json" data-renderer="echarts">{}</script>"#;
+    /// let cancel = AtomicBool::new(true);
+    /// assert!(matches!(renderer.render_islands_cancellable(html, &cancel), Err(Error::Cancelled)));
+    /// # Ok::<(), surimono::Error>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`render_islands`](Self::render_islands), plus [`Error::Cancelled`].
+    pub fn render_islands_cancellable(
+        &self,
+        html: &str,
+        cancel: &AtomicBool,
+    ) -> Result<String, Error> {
+        self.render(html, Some(cancel))
+    }
+
+    fn render(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<String, Error> {
+        let document = Document {
+            policy: self.policy,
+            max_islands: self.options.max_islands.unwrap_or(DEFAULT_MAX_ISLANDS),
+            cancel,
+        };
         // Documents without islands never need the runner.
-        let mut runner: Option<Arc<IslandRunner>> = None;
-        prepass::rewrite_islands(html, self.policy, |island| {
+        let mut local: Option<&Local> = None;
+        prepass::rewrite_islands(html, &document, |island| {
             if !self.enabled.contains(&island.renderer) {
                 return Err(Error::UnknownRenderer {
                     island: island.at.clone(),
@@ -217,15 +352,15 @@ impl Renderer {
                 width: island.width,
                 height: island.height,
             };
-            if runner.is_none() {
-                runner = Some(self.runner()?);
-            }
-            let svg = runner
-                .as_ref()
-                .ok_or_else(|| Error::InvalidOptions("the renderer has no runner".into()))?
+            let local = match local {
+                Some(l) => l,
+                None => *local.insert(self.local()?),
+            };
+            let svg = local
+                .runner
                 .render(&request)
                 .map_err(|e| backend::island_error(e, island.at.clone(), &self.enabled))?;
-            SanitizedSvg::new(&svg, &island.at, &self.measurer, self.options.text_mode)
+            SanitizedSvg::new(&svg, &island.at, &local.measurer, self.options.text_mode)
         })
     }
 
@@ -246,9 +381,12 @@ impl fmt::Debug for Renderer {
     }
 }
 
-/// Starts a runner and registers the bundles (names already checked).
-fn start_runner(options: &Options, measurer: &TextMeasurer) -> Result<IslandRunner, Error> {
-    let runner = backend::runner(options, measurer)?;
+/// Starts one process's state: a text measurer over a clone of the fonts (a
+/// fresh lock, the font data shared) and a runner with the bundles registered
+/// (names already checked).
+fn start_local(options: &Options, fonts: &FontSet) -> Result<Local, Error> {
+    let measurer = TextMeasurer::new(fonts.clone());
+    let runner = backend::runner(options, &measurer)?;
     for b in &options.bundles {
         runner
             .register_bundle(&b.name, &b.source, &b.entry)
@@ -263,13 +401,14 @@ fn start_runner(options: &Options, measurer: &TextMeasurer) -> Result<IslandRunn
                 },
             })?;
     }
-    Ok(runner)
+    Ok(Local { measurer, runner })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::Limits;
+    use std::sync::{Arc, PoisonError};
     use std::time::Duration;
 
     const T: &str = "application/vnd.surimono+json";
@@ -571,33 +710,210 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_runner_from_another_process_is_replaced_not_joined() {
-        let r = renderer(options());
-        let before = r
-            .render_islands(&island("{}"))
-            .unwrap_or_else(|e| panic!("{e}"));
-        // What a forked child sees: a pool started under another pid.
-        r.pool.lock().unwrap_or_else(PoisonError::into_inner).pid = u32::MAX;
-        assert_eq!(r.render_islands(&island("{}")).ok(), Some(before));
-        assert_eq!(
-            r.pool.lock().unwrap_or_else(PoisonError::into_inner).pid,
-            std::process::id()
-        );
-        // Dropping a renderer whose pool belongs to another process doesn't
-        // join (and hang on) that pool's threads.
-        r.pool.lock().unwrap_or_else(PoisonError::into_inner).pid = u32::MAX;
-        let abandoned = ABANDONED
+    /// What a forked child sees: the slot claimed last belongs to another pid.
+    fn pretend_forked(r: &Renderer) {
+        let last = last_claimed(&r.slots[..]);
+        r.slots[last]
+            .pid
+            .store(u32::MAX - last as u32, Ordering::Release);
+    }
+
+    fn abandoned() -> usize {
+        ABANDONED
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .len();
+            .len()
+    }
+
+    #[test]
+    fn a_forked_child_starts_its_own_runner_and_measurer() {
+        let r = renderer(options());
+        let measured = island(r#"{"measure": "Revenue"}"#);
+        let before = r
+            .render_islands(&measured)
+            .unwrap_or_else(|e| panic!("{e}"));
+        pretend_forked(&r);
+        assert_eq!(r.render_islands(&measured).ok(), Some(before.clone()));
+        assert_eq!(last_claimed(&r.slots[..]), 1);
+        assert_eq!(r.slots[1].pid.load(Ordering::Acquire), std::process::id());
+        let (Some(parent), Some(child)) = (r.slots[0].state.get(), r.slots[1].state.get()) else {
+            panic!("both processes' state should be started");
+        };
+        // A new measurer (its own lock), over the same font data.
+        assert!(!std::ptr::eq(
+            parent.measurer.fonts(),
+            child.measurer.fonts()
+        ));
+        assert_eq!(
+            parent.measurer.fonts().font_files().collect::<Vec<_>>(),
+            child.measurer.fonts().font_files().collect::<Vec<_>>()
+        );
+        // A fork of the fork claims the next slot, and so on, with the same output.
+        pretend_forked(&r);
+        assert_eq!(r.render_islands(&measured).ok(), Some(before));
+        assert_eq!(last_claimed(&r.slots[..]), 2);
+    }
+
+    #[test]
+    fn many_threads_after_a_fork_share_one_new_slot() {
+        let r = Arc::new(renderer(options()));
+        let html = format!("<main>{}</main>", island(r#"{"measure": "Q3"}"#));
+        let expected = r.render_islands(&html).unwrap_or_else(|e| panic!("{e}"));
+        // Threads keep measuring in the "parent" state while the "child" starts.
+        let stop = Arc::new(AtomicBool::new(false));
+        let busy: Vec<_> = (0..2)
+            .map(|_| {
+                let (r, stop) = (Arc::clone(&r), Arc::clone(&stop));
+                let parent = r.slots[0].state.get().map(|l| l.measurer.clone());
+                std::thread::spawn(move || {
+                    let Some(m) = parent else { return };
+                    while !stop.load(Ordering::Relaxed) {
+                        let _ = m.measure("busy", "12px Noto Sans");
+                    }
+                })
+            })
+            .collect();
+        pretend_forked(&r);
+        let handles: Vec<_> = (0..6)
+            .map(|_| {
+                let r = Arc::clone(&r);
+                let html = html.clone();
+                std::thread::spawn(move || r.render_islands(&html))
+            })
+            .collect();
+        for h in handles {
+            match h.join() {
+                Ok(Ok(out)) => assert_eq!(out, expected),
+                other => panic!("{other:?}"),
+            }
+        }
+        stop.store(true, Ordering::Relaxed);
+        for b in busy {
+            let _ = b.join();
+        }
+        assert_eq!(
+            last_claimed(&r.slots[..]),
+            1,
+            "one slot for the new process"
+        );
+    }
+
+    #[test]
+    fn a_reused_pid_of_an_ancestor_is_not_this_process() {
+        let r = renderer(options());
+        // Slot 0 has our pid but slot 1 was claimed after it by another
+        // process: slot 0 belonged to an ancestor whose pid came back.
+        r.slots[1].pid.store(u32::MAX, Ordering::Release);
+        assert!(r.render_islands(&island("{}")).is_ok());
+        assert_eq!(last_claimed(&r.slots[..]), 2);
+        // On drop, only slot 2 is this process's; slot 0 is abandoned.
+        let before = abandoned();
+        drop(r);
+        assert_eq!(abandoned(), before + 1);
+    }
+
+    #[test]
+    fn too_many_fork_generations_is_an_error_not_a_hang() {
+        let r = renderer(options());
+        for slot in r.slots.iter() {
+            slot.pid.store(u32::MAX, Ordering::Release);
+        }
+        match r.render_islands(&island("{}")) {
+            Err(Error::InvalidOptions(m)) => assert!(m.contains("fork generations"), "{m}"),
+            other => panic!("{other:?}"),
+        }
+        // A document without islands still needs nothing.
+        assert_eq!(
+            r.render_islands("<p>x</p>").ok().as_deref(),
+            Some("<p>x</p>")
+        );
+    }
+
+    #[test]
+    fn dropping_a_renderer_from_another_process_does_not_join_its_threads() {
+        let r = renderer(options());
+        assert!(r.render_islands(&island("{}")).is_ok());
+        pretend_forked(&r);
+        let before = abandoned();
         drop(r);
         assert_eq!(
-            ABANDONED
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .len(),
-            abandoned + 1
+            abandoned(),
+            before + 1,
+            "the parent's runner is kept, not joined"
         );
+    }
+
+    #[test]
+    fn max_islands_caps_a_document() {
+        let r = renderer(options().max_islands(2));
+        assert!(r.render_islands(&island("{}").repeat(2)).is_ok());
+        for policy in [ErrorPolicy::Fail, ErrorPolicy::Placeholder] {
+            let r = renderer(options().max_islands(2).error_policy(policy));
+            match r.render_islands(&island("{}").repeat(3)) {
+                Err(e @ Error::TooManyIslands { max: 2 }) => {
+                    assert_eq!(e.kind(), "too-many-islands");
+                }
+                other => panic!("{policy:?}: {other:?}"),
+            }
+        }
+        assert!(matches!(
+            Renderer::new(options().max_islands(0)),
+            Err(Error::InvalidOptions(_))
+        ));
+        // The default is 1,000.
+        let r = renderer(options());
+        assert!(r.render_islands(&island("{}").repeat(1000)).is_ok());
+        assert!(matches!(
+            r.render_islands(&island("{}").repeat(1001)),
+            Err(Error::TooManyIslands { max: 1000 })
+        ));
+    }
+
+    #[test]
+    fn a_cancelled_render_skips_the_remaining_islands() {
+        let r = renderer(options());
+        let cancel = AtomicBool::new(true);
+        assert!(matches!(
+            r.render_islands_cancellable(&island("{}"), &cancel),
+            Err(Error::Cancelled)
+        ));
+        // A document without islands has nothing to cancel.
+        assert_eq!(
+            r.render_islands_cancellable("<p>x</p>", &cancel)
+                .ok()
+                .as_deref(),
+            Some("<p>x</p>")
+        );
+        cancel.store(false, Ordering::Release);
+        assert_eq!(
+            r.render_islands_cancellable(&island("{}"), &cancel).ok(),
+            r.render_islands(&island("{}")).ok()
+        );
+
+        // Twenty islands that each run into a 100 ms time limit take 2 s;
+        // cancelled after the first, the render ends at the next island.
+        let slow = renderer(
+            options()
+                .error_policy(ErrorPolicy::Placeholder)
+                .limits(Limits {
+                    time: Duration::from_millis(100),
+                    ..Limits::default()
+                }),
+        );
+        let html = island(r#"{"limit": "time"}"#).repeat(20);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let setter = {
+            let cancel = Arc::clone(&cancel);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(150));
+                cancel.store(true, Ordering::Release);
+            })
+        };
+        let started = std::time::Instant::now();
+        let out = slow.render_islands_cancellable(&html, &cancel);
+        let took = started.elapsed();
+        let _ = setter.join();
+        assert!(matches!(out, Err(Error::Cancelled)), "{out:?}");
+        assert!(took < Duration::from_millis(1500), "took {took:?}");
     }
 }

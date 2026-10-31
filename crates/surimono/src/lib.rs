@@ -3,16 +3,20 @@
 //!
 //! In this release it renders *islands*: chart specs embedded in the HTML as
 //! `<script type="application/vnd.surimono+json">` markers. A [`Renderer`] runs
-//! each island's renderer (the built-in ECharts, or a bundle of your own; see
-//! [`Options::bundle`]) in a sandboxed QuickJS runtime with memory, time and
-//! stack [`Limits`] per island, measures text with the fonts you pass in,
-//! sanitises the SVG it returns, and swaps the marker for it. Everything else in
-//! the document stays byte for byte as it was.
+//! each island's renderer (the built-in ECharts, Vega and Vega-Lite, or a
+//! bundle of your own; see [`Options::bundle`]) in a sandboxed QuickJS runtime
+//! with memory, time and stack [`Limits`] per island, measures text with the
+//! fonts you pass in (at least one is required), sanitises the SVG it returns
+//! (text becomes outlines in those fonts by default, see [`TextMode`]), and
+//! swaps the marker for it. Everything else in the document stays byte for
+//! byte as it was.
 //!
-//! Cargo features: `echarts` (on by default) builds in the `echarts` renderer.
+//! Cargo features, both on by default: `echarts` builds in the `echarts`
+//! renderer (Apache ECharts), and `vega` the `vega` and `vega-lite` renderers.
 //!
-//! A `Renderer` built before a `fork` (Puma's `preload_app!`, Unicorn) starts
-//! its runtime pool again in the child on first use.
+//! A `Renderer` built before a `fork` (Puma's `preload_app!` or `fork_worker`,
+//! Unicorn, Resque) starts its runtime pool and text measurer again in the
+//! child on first use.
 //!
 //! ```
 //! use surimono::{Error, Options, Renderer};
