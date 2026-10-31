@@ -73,7 +73,7 @@ automatically the first time.
 
 | Command | What it does |
 |---|---|
-| `fixtures/tools/reference.sh <out>` | **Check** (what CI runs): renders every fixture in the pinned Chromium, rasterises at 96 dpi, and compares with the committed references. Exits 1 if a page or island changed. Writes `<out>/reference-report.json`, and per fixture `chrome.pdf`, `chrome-N.png`, `island-I.svg/.png`, `prepass.html` (markers replaced by Chrome's SVG) and `render.json`. |
+| `fixtures/tools/reference.sh <out>` | **Check** (what CI runs): renders every fixture in the pinned Chromium, rasterises at 96 dpi, and compares with the committed references. Exits 1 if a page or island changed. Writes `<out>/reference-report.json`, and per fixture `chrome.pdf`, `chrome-N.png`, `island-I.svg/.png`, `prepass.html` (markers replaced by Chrome's SVG) and `render.json`. Then, with cargo available and no fixture names given, it runs gfx's Chrome checks in the same Chromium (`crates/gfx/tests/chrome/svg_inline.mjs`: sanitized SVG stays inert inlined in HTML; `svg_outline.mjs`: outlined text looks like Chrome's text in the same fonts), logs in `<out>/gfx-svg-*.log`; `SURIMONO_SKIP_GFX_CHROME=1` skips them. |
 | `fixtures/tools/reference.sh --update <out> [name...]` | Rewrites the committed references. Only for a new fixture, or a deliberate Chromium or library upgrade, said so in the pull request. Never to make surimono pass. |
 | `fixtures/tools/compare.sh <fixture> <pdf> <out>` | Compares a surimono + fulgur PDF with the page references. |
 | `fixtures/tools/compare.sh --island I [--printer chrome\|fulgur] <fixture> <svg> <out>` | Compares one island SVG from surimono with `island-I.png`. With `--printer chrome` (default) Chrome draws both sides, so the score measures surimono's SVG alone. With `--printer fulgur` it also includes fulgur's SVG printing. |
@@ -253,7 +253,9 @@ renders every island fixture with the surimono CLI (fixture fonts, default
 limits, text as outlines) twice: once with TZ=UTC, the C locale and the
 repository as working directory, once with TZ=Asia/Tokyo, the first
 installed of de_DE, fr_FR, ja_JP and en_US UTF-8 (decimal-comma locales first;
-de_DE.UTF-8 is set anyway when none is installed, and the report says so) and a
+`locale -a` or a directory on `$LOCPATH`, so `localedef -i de_DE -f UTF-8
+$LOCPATH/de_DE.UTF-8` works without root; de_DE.UTF-8 is set anyway when none
+is installed, and the report says so) and a
 fresh temporary directory. Both outputs must be byte-identical
 (`DIR/<fixture>/determinism.json`); if any differ the run exits 1. It cuts each
 island's SVG out of the output and runs every comparison below: each island

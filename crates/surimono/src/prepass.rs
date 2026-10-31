@@ -408,9 +408,6 @@ fn kept(raw: &RawMarker, with_style: bool) -> String {
         .collect()
 }
 
-/// The placeholder's `style`: the island's size first, so the page keeps its
-/// layout when a chart fails, then the marker's own style. A size that can't be
-/// read falls back to the default.
 /// The `style` of an island's box: its declared size in CSS pixels, with
 /// `overflow:hidden` for a rendered island (`clip`), so SVG larger than the
 /// declared size is cut at the box and can't cover the page around it; then
