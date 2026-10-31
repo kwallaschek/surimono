@@ -1,0 +1,29 @@
+THIRD-PARTY SOFTWARE NOTICES AND LICENSES
+
+surimono's native library statically links the Rust crates listed below.
+Each is used under the licence it is listed with; the full texts follow.
+
+Crates under the Mozilla Public License 2.0 are used unmodified. As MPL-2.0
+section 3.2 requires, their Source Code Form is available: each is published
+on crates.io at https://crates.io/crates/<name>/<version> (name and version as
+listed under MPL-2.0 below), and in the repository given with it.
+
+The JavaScript libraries built into surimono (for example Apache ECharts) and
+their licences and notices follow the Rust crates, at the end of this file.
+
+Overview
+{{#each overview}}
+  {{{name}}} ({{id}}): {{count}} crate(s)
+{{/each}}
+{{#each licenses}}
+
+================================================================================
+{{{name}}} ({{id}})
+
+Used by:
+{{#each used_by}}
+  {{crate.name}} {{crate.version}}{{#if crate.repository}}  {{crate.repository}}{{/if}}
+{{/each}}
+
+{{{text}}}
+{{/each}}

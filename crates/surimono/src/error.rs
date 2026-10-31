@@ -124,6 +124,19 @@ pub enum Error {
     /// ambiguous enough that the islands' context can't be known for sure.
     #[error("could not rewrite the document: {0}")]
     Html(String),
+    /// The document has more island markers than
+    /// [`Options::max_islands`](crate::Options::max_islands) allows. No island
+    /// was rendered.
+    #[error("the document has more than {max} islands (Options::max_islands)")]
+    TooManyIslands {
+        /// The cap it went over.
+        max: usize,
+    },
+    /// The render was cancelled through the flag given to
+    /// [`Renderer::render_islands_cancellable`](crate::Renderer::render_islands_cancellable);
+    /// the islands not yet started were skipped.
+    #[error("the render was cancelled")]
+    Cancelled,
 }
 
 impl Error {
@@ -140,7 +153,9 @@ impl Error {
             Error::Font { .. }
             | Error::Bundle { .. }
             | Error::InvalidOptions(_)
-            | Error::Html(_) => None,
+            | Error::Html(_)
+            | Error::TooManyIslands { .. }
+            | Error::Cancelled => None,
         }
     }
 
@@ -159,6 +174,8 @@ impl Error {
             Error::Bundle { .. } => "bundle",
             Error::InvalidOptions(_) => "invalid-options",
             Error::Html(_) => "html",
+            Error::TooManyIslands { .. } => "too-many-islands",
+            Error::Cancelled => "cancelled",
         }
     }
 }
@@ -204,6 +221,21 @@ mod tests {
             enabled: vec![],
         };
         assert!(none.to_string().ends_with("enabled renderers: none"));
+    }
+
+    #[test]
+    fn document_errors_have_no_island() {
+        for (e, kind) in [
+            (Error::TooManyIslands { max: 1000 }, "too-many-islands"),
+            (Error::Cancelled, "cancelled"),
+        ] {
+            assert_eq!(e.kind(), kind);
+            assert!(e.island().is_none());
+        }
+        assert_eq!(
+            Error::TooManyIslands { max: 1000 }.to_string(),
+            "the document has more than 1000 islands (Options::max_islands)"
+        );
     }
 
     #[test]

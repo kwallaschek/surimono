@@ -2,9 +2,14 @@
 //!
 //! The Ruby side (lib/surimono.rb) checks and normalises the options and calls
 //! `Surimono::Renderer._native_new` with plain values. Rendering copies the HTML
-//! into Rust and releases the GVL, so other Ruby threads keep running.
+//! into Rust and releases the GVL, so other Ruby threads keep running; an
+//! interrupt (`Timeout`, `Thread#raise`, `Thread#kill`, a signal) stops the
+//! render before its next island.
 
+// A library never writes to stdout or stderr; tests may.
+#![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use magnus::{
@@ -32,6 +37,10 @@ fn renderer_new(
     renderers: Option<Vec<String>>,
     bundles: Vec<(String, String, String)>,
     pool_size: Option<usize>,
+    now_ms: Option<i64>,
+    utc_offset_minutes: i32,
+    text: String,
+    max_islands: Option<usize>,
 ) -> Result<Renderer, Error> {
     let mut options = surimono::Options::new()
         .limits(surimono::Limits {
@@ -63,6 +72,17 @@ fn renderer_new(
     if let Some(size) = pool_size {
         options = options.pool_size(size);
     }
+    if let Some(ms) = now_ms {
+        options = options.now_ms(ms);
+    }
+    options = options.utc_offset_minutes(utc_offset_minutes);
+    options = options.text_mode(match text.as_str() {
+        "keep" => surimono::TextMode::Keep,
+        _ => surimono::TextMode::Outlines,
+    });
+    if let Some(max) = max_islands {
+        options = options.max_islands(max);
+    }
     // Building compiles bundles and starts runtimes: release the GVL for it too.
     let built = ffi::without_gvl(ruby, move || surimono::Renderer::new(options))?;
     built
@@ -74,12 +94,25 @@ impl Renderer {
     fn render(ruby: &Ruby, rb_self: &Self, html: RString) -> Result<RString, Error> {
         // Copy everything the render needs while holding the GVL; the closure
         // owns plain Rust data only.
-        let html = html.to_string()?;
-        let renderer = Arc::clone(&rb_self.0);
-        let result = ffi::without_gvl(ruby, move || renderer.render_islands(&html))?;
-        match result {
-            Ok(out) => Ok(ruby.str_new(&out)),
-            Err(e) => Err(to_ruby_error(ruby, &e)),
+        let html: Arc<str> = Arc::from(html.to_string()?);
+        loop {
+            let renderer = Arc::clone(&rb_self.0);
+            let doc = Arc::clone(&html);
+            // Raised by the unblock function when Ruby interrupts this thread;
+            // the facade checks it before each island.
+            let cancel = Arc::new(AtomicBool::new(false));
+            let flag = Arc::clone(&cancel);
+            let result = ffi::without_gvl_cancellable(ruby, &cancel, move || {
+                renderer.render_islands_cancellable(&doc, &flag)
+            })?;
+            match result {
+                Ok(out) => return Ok(ruby.str_new(&out)),
+                // Cancelled, but Ruby had no exception to raise afterwards: a
+                // Thread#wakeup, or an interrupt Thread.handle_interrupt
+                // defers. Render again, as Ruby's own blocking calls retry.
+                Err(surimono::Error::Cancelled) => continue,
+                Err(e) => return Err(to_ruby_error(ruby, &e)),
+            }
         }
     }
 
@@ -97,9 +130,12 @@ fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
         E::TimeLimit { .. } => "TimeLimitError",
         E::StackOverflow { .. } => "StackOverflowError",
         E::JavaScript { .. } => "JavaScriptError",
-        E::InvalidIsland { .. } | E::UnknownRenderer { .. } | E::Render { .. } | E::Html(_) => {
-            "RenderError"
-        }
+        E::InvalidIsland { .. }
+        | E::UnknownRenderer { .. }
+        | E::Render { .. }
+        | E::Html(_)
+        | E::TooManyIslands { .. }
+        | E::Cancelled => "RenderError",
         E::Font { .. } | E::Bundle { .. } | E::InvalidOptions(_) => "ConfigurationError",
         _ => "Error",
     };
@@ -117,8 +153,12 @@ fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
 }
 
 /// A `Surimono::<class_name>` exception with `message`, `kind` and the details
-/// `add` puts in. If lib/surimono.rb's classes are missing, still raises
-/// something useful (a RuntimeError with the message).
+/// `add` puts in. If lib/surimono.rb's classes are missing (a `NameError`),
+/// still raises something useful (a RuntimeError with the message). Anything
+/// else that goes wrong while the exception is built is returned unchanged:
+/// in particular an interrupt delivered meanwhile (`Thread#raise`,
+/// `Thread#kill`, which isn't an exception at all) must not become a
+/// RuntimeError or be swallowed.
 pub(crate) fn surimono_error(
     ruby: &Ruby,
     class_name: &str,
@@ -135,7 +175,13 @@ pub(crate) fn surimono_error(
         let exception = class.new_instance((message, KwArgs(details)))?;
         Ok(Error::from(exception))
     };
-    build().unwrap_or_else(|_| Error::new(ruby.exception_runtime_error(), message.to_owned()))
+    match build() {
+        Ok(e) => e,
+        Err(e) if e.is_kind_of(ruby.exception_name_error()) => {
+            Error::new(ruby.exception_runtime_error(), message.to_owned())
+        }
+        Err(e) => e,
+    }
 }
 
 /// Panics inside a GVL-free section, to test that a panic becomes
@@ -159,7 +205,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     module.define_singleton_method("native_version", function!(native_version, 0))?;
     module.define_singleton_method("_internal_panic_check", function!(internal_panic_check, 0))?;
     let class = module.define_class("Renderer", ruby.class_object())?;
-    class.define_singleton_method("_native_new", function!(renderer_new, 9))?;
+    class.define_singleton_method("_native_new", function!(renderer_new, 13))?;
     class.define_method("_render", method!(Renderer::render, 1))?;
     class.define_method("renderers", method!(Renderer::renderers, 0))?;
     Ok(())

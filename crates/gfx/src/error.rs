@@ -29,6 +29,13 @@ pub enum GfxError {
     #[error("no fonts are registered; add at least one font before measuring text")]
     NoFonts,
 
+    /// SVG that can't be parsed or rewritten safely.
+    #[error("invalid SVG: {reason}")]
+    InvalidSvg {
+        /// What was wrong.
+        reason: String,
+    },
+
     /// The text to measure is longer than the measurer accepts.
     #[error("text is {len} bytes long; the limit is {max} bytes")]
     TextTooLong {
