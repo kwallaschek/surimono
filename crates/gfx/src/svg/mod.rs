@@ -2,6 +2,9 @@
 //! inline into an HTML document.
 
 mod css;
+mod text;
+
+pub use text::MAX_OUTLINE_CHARS;
 
 use std::collections::HashSet;
 use std::ops::Range;
@@ -10,6 +13,47 @@ use roxmltree::{Document, Node, ParsingOptions};
 
 use crate::GfxError;
 use crate::fonts::FontSet;
+use crate::measure::TextMeasurer;
+
+/// What [`sanitize_svg`] does with SVG `<text>`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TextMode {
+    /// Replace every SVG `<text>` with `<path>` outlines of its glyphs in the
+    /// registered fonts, shaped exactly as [`TextMeasurer::measure`] shapes
+    /// them. Any PDF engine then prints what was measured, whatever fonts it
+    /// has. The text stays as `aria-label` on the group that replaces it, but
+    /// can no longer be selected or searched in the PDF.
+    #[default]
+    Outlines,
+    /// Keep `<text>` as text (with its `font-family` rewritten to the
+    /// registered families). Only right for a renderer that lays out inline
+    /// SVG text with the registered fonts; fulgur 0.40 does not (it uses
+    /// system fonts there), so with fulgur the printed labels can differ from
+    /// the measured ones or go missing.
+    Keep,
+}
+
+/// Options for [`sanitize_svg`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct SvgOptions {
+    /// What to do with `<text>`; outlines by default.
+    pub text: TextMode,
+}
+
+impl SvgOptions {
+    /// The defaults: text becomes outlines.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// These options with `text` set.
+    pub fn with_text(mut self, text: TextMode) -> Self {
+        self.text = text;
+        self
+    }
+}
 
 /// Largest number of XML nodes [`sanitize_svg`] accepts.
 pub const MAX_SVG_NODES: u32 = 1_000_000;
@@ -272,13 +316,43 @@ const URL_PRESENTATION: &[&str] = &[
 /// - Drops the XML declaration, DOCTYPE, comments and processing
 ///   instructions, and turns CDATA into escaped text.
 ///
+/// - With [`TextMode::Outlines`] (the default), replaces SVG `<text>` with
+///   outlines of its glyphs in the measurer's fonts (see [`TextMode`]).
+///
 /// Everything else is copied byte for byte, except that a CSS-bearing
 /// attribute whose raw bytes an HTML parser would read differently from the
 /// XML parser (a literal tab or newline, an entity) is written again from
 /// what was checked. Input that is not well-formed XML with an unprefixed
 /// `<svg>` root, uses a DTD or has more than [`MAX_SVG_NODES`] nodes is
 /// rejected with [`GfxError::InvalidSvg`].
-pub fn sanitize_svg(svg: &str, island: usize, fonts: &FontSet) -> Result<String, GfxError> {
+///
+/// # Errors
+///
+/// - [`GfxError::InvalidSvg`] for the input above, and when outlining would
+///   go over its bounds: more than [`MAX_OUTLINE_CHARS`] shaped characters
+///   (spaces that are shaped count), more than 20,000 `<text>` elements, or
+///   more than 32 MiB of path data.
+/// - [`GfxError::NoFonts`] when there is text to outline and no registered
+///   font.
+///
+/// No other error is returned ([`GfxError::TextTooLong`] can't happen: the
+/// character bound keeps every run far below
+/// [`MAX_TEXT_BYTES`](crate::MAX_TEXT_BYTES)).
+pub fn sanitize_svg(
+    svg: &str,
+    island: usize,
+    measurer: &TextMeasurer,
+    options: &SvgOptions,
+) -> Result<String, GfxError> {
+    let clean = sanitize(svg, island, measurer.fonts())?;
+    match options.text {
+        TextMode::Keep => Ok(clean),
+        TextMode::Outlines => text::outline_text(&clean, measurer),
+    }
+}
+
+/// The sanitising part of [`sanitize_svg`], text kept.
+fn sanitize(svg: &str, island: usize, fonts: &FontSet) -> Result<String, GfxError> {
     check_depth(svg, MAX_SVG_DEPTH)?;
     let doc = Document::parse_with_options(
         svg,
@@ -440,6 +514,8 @@ enum Ns {
 enum Visit<'a, 'input> {
     Element {
         node: Node<'a, 'input>,
+        /// The namespace an HTML parser puts this element in.
+        ns: Ns,
         removed: bool,
     },
     Other {
@@ -468,7 +544,7 @@ fn walk<'a, 'input: 'a>(
             continue;
         }
         let removed = ns == Ns::Html || is_removed(node, input);
-        f(Visit::Element { node, removed })?;
+        f(Visit::Element { node, ns, removed })?;
         if removed {
             continue;
         }
@@ -834,7 +910,7 @@ mod tests {
     use super::*;
 
     fn clean(svg: &str) -> String {
-        sanitize_svg(svg, 0, &FontSet::new()).unwrap_or_else(|e| panic!("{svg}: {e}"))
+        sanitize(svg, 0, &FontSet::new()).unwrap_or_else(|e| panic!("{svg}: {e}"))
     }
 
     const NS: &str =
@@ -882,7 +958,7 @@ mod tests {
         let s = svg(
             r##"<defs><linearGradient id="g0"/><clipPath id='c0'/></defs><path fill="url(#g0)" clip-path="url('#c0')"/><use href="#g0"/><use xlink:href="#c0"/><style>#g0{fill:url(#c0)} #other{}</style>"##,
         );
-        let out = sanitize_svg(&s, 3, &FontSet::new()).unwrap();
+        let out = sanitize(&s, 3, &FontSet::new()).unwrap();
         assert_eq!(
             out,
             svg(
@@ -962,7 +1038,7 @@ mod tests {
         ] {
             assert!(
                 matches!(
-                    sanitize_svg(bad, 0, &FontSet::new()),
+                    sanitize(bad, 0, &FontSet::new()),
                     Err(GfxError::InvalidSvg { .. })
                 ),
                 "{bad:?}"
@@ -984,7 +1060,7 @@ mod tests {
             nest(200_000, "<!--x--><g><![CDATA[<g/>]]>"),
         ] {
             assert!(matches!(
-                sanitize_svg(&s, 0, &FontSet::new()),
+                sanitize(&s, 0, &FontSet::new()),
                 Err(GfxError::InvalidSvg { .. })
             ));
         }
@@ -1061,7 +1137,7 @@ mod tests {
             "<x:svg xmlns:x=\"http://www.w3.org/2000/svg\"/>",
         ] {
             assert!(matches!(
-                sanitize_svg(bad, 0, &FontSet::new()),
+                sanitize(bad, 0, &FontSet::new()),
                 Err(GfxError::InvalidSvg { .. })
             ));
         }
@@ -1076,7 +1152,7 @@ mod tests {
              <path class=\"zr0-cls-1 keep zr1-x\"/>",
         );
         assert_eq!(
-            sanitize_svg(&s, 4, &FontSet::new()).unwrap(),
+            sanitize(&s, 4, &FontSet::new()).unwrap(),
             svg(
                 "<text id=\"sm4-t\" aria-labelledby=\"sm4-t\" aria-describedby=\"sm4-d\">x</text><desc id=\"sm4-d\"/>\
                  <rect id=\"sm4-r\"/>\
