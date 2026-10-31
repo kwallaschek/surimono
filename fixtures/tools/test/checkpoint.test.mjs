@@ -64,6 +64,8 @@ test("a render that depends on the time zone is caught and fails the run", () =>
   const d = readJson(path.join(out, FIXTURE, "determinism.json"));
   assert.equal(d.deterministic, false);
   assert.deepEqual(d.runs.map((x) => x.TZ), ["UTC", "Asia/Tokyo"]);
+  // Where each run happened, in words: no checkout or temp path in committed results.
+  assert.deepEqual(d.runs.map((x) => x.cwd), ["the repository", "a fresh temporary directory"]);
   // The page has no islands, so every comparison fails without Chrome.
   assert.match(readJson(path.join(out, FIXTURE, "island-0-chrome", "score.json")).error, /0 islands, the fixture has 1/);
 });
