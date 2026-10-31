@@ -169,6 +169,17 @@ def fixture_meta() -> dict[str, dict]:
     return meta
 
 
+def _set(value) -> bool:
+    """Whether a JSON value is set, as JavaScript reads it (and lib/report.mjs
+    with it): anything but absent, null, false, 0, NaN and "". An empty object
+    or list is set, so `"error": {}` is an error."""
+    if value is None or value is False or value == "":
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value == value and value != 0
+    return True
+
+
 def _check_failed(check) -> bool:
     """A check that is present failed unless it is an object whose `pass` is
     exactly true: a missing `pass`, the string "false" or anything else fails."""
@@ -184,19 +195,22 @@ def failed_checks(score: dict) -> list[str]:
         if name not in names:
             names.append(name)
 
-    if score.get("error"):
+    if _set(score.get("error")):
         add("render error")
     pages = score.get("pages")
     if not isinstance(pages, list):
         pages = []
-    if not pages and not score.get("error"):
+    if not pages and not _set(score.get("error")):
         add("no pages")
     for p in pages:
         listed = p.get("failed") if isinstance(p, dict) else None
-        if isinstance(listed, list) and listed:
+        if isinstance(listed, list):
             for n in listed:
                 add(str(n))
-        elif listed or _check_failed(p):
+            if not listed and _check_failed(p):
+                add("page")
+        elif _set(listed) or _check_failed(p):
+            # A "failed" that isn't a list (an object, a string) fails the page.
             add("page")
     for check in ("text", "font"):
         if score.get(check) is not None and _check_failed(score[check]):
@@ -248,7 +262,7 @@ def passed(score: dict) -> bool:
     at least one page must have been compared and no check inside the score may
     have failed, so a producer that forgets to fold a new check into `pass`
     can't turn it into a pass."""
-    return score.get("pass") is True and not score.get("error") and not failed_checks(score)
+    return score.get("pass") is True and not _set(score.get("error")) and not failed_checks(score)
 
 
 def cell(score: dict | None) -> str:

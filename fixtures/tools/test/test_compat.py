@@ -405,6 +405,21 @@ class CompatTest(unittest.TestCase):
         self.assertEqual(cell_with(text={"pass": True, "missing": [], "extra": []}, font={"pass": True}), "pass (shape 0.0%)")
         self.assertEqual(cell_with(text=None), "pass (shape 0.0%)")
 
+    def test_error_and_failed_are_set_as_javascript_reads_them(self):
+        # Review of #50: "failed": {} and "error": {} or [] passed, while
+        # lib/report.mjs (JavaScript truthiness) fails them.
+        s = score("echarts-a island 0 (printed by chrome)", True)
+        s["pages"] = [{"pass": True, "failed": {}}]
+        self.assertEqual(compat.cell(s), "**FAIL** (page (shape 0.0%))")
+        for error in ({}, [], "0", "false", 1):
+            e = {**score("echarts-a island 0 (printed by chrome)", True), "error": error}
+            self.assertFalse(compat.passed(e), repr(error))
+            self.assertTrue(compat.cell(e).startswith("**FAIL** (render error: "), compat.cell(e))
+        # Unset values aren't an error: absent, null, false, 0, NaN and "".
+        for error in (None, False, 0, 0.0, float("nan"), ""):
+            e = {**score("echarts-a island 0 (printed by chrome)", True), "error": error}
+            self.assertEqual(compat.cell(e), "pass (shape 0.0%)", repr(error))
+
     def test_font_cell_counts_missing_and_extra_texts(self):
         # Reviews of #28 and #43: a font failure that is only missing (or
         # extra) texts read "font: 0 differ".
