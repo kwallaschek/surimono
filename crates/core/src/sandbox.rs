@@ -147,15 +147,22 @@ impl Deadline {
     /// Whether the running call has passed its time limit. Once this is
     /// true the call is over: it fails with [`SandboxError::TimeLimit`] as
     /// soon as control returns to the engine. False when no call is running.
+    ///
+    /// Fails safe: a handle taken before the sandbox replaced its runtime
+    /// (a [`reset`](Sandbox::reset) or a limit error) or after the sandbox
+    /// was dropped always reports `true`, so a host function holding a
+    /// stale handle refuses work instead of running unbounded.
     pub fn passed(&self) -> bool {
-        self.state.deadline_passed()
+        self.state.retired() || self.state.deadline_passed()
     }
 }
 
 impl fmt::Debug for Deadline {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Read-only: checking through `passed` would record a timeout.
         f.debug_struct("Deadline")
-            .field("passed", &self.passed())
+            .field("passed", &self.state.deadline_passed_quietly())
+            .field("stale", &self.state.retired())
             .finish()
     }
 }
@@ -310,7 +317,8 @@ impl Sandbox {
     /// [`Deadline::passed`] before expensive work and throw if it has: the
     /// call then fails with [`SandboxError::TimeLimit`], however the script
     /// handles the exception. The handle belongs to this sandbox's current
-    /// runtime; take a new one after a [`reset`](Self::reset).
+    /// runtime; take a new one after a [`reset`](Self::reset) or a limit
+    /// error (an old handle then always reports passed).
     pub fn deadline(&self) -> Deadline {
         Deadline {
             state: self.state.clone(),
@@ -464,11 +472,21 @@ impl Sandbox {
 
     /// Replaces the runtime and context with fresh ones.
     fn rebuild(&mut self) -> Result<(), SandboxError> {
+        // Deadlines taken so far belong to the old runtime.
+        self.state.retire();
         // Drop the old runtime first so its memory is gone before we allocate.
         self.ctx = None;
         let fresh = Self::with_options(self.options.clone())?;
         *self = fresh;
         Ok(())
+    }
+}
+
+impl Drop for Sandbox {
+    fn drop(&mut self) {
+        // Deadlines taken from this runtime now report passed. (A rebuild
+        // drops the old sandbox value, so it lands here too.)
+        self.state.retire();
     }
 }
 
@@ -746,6 +764,54 @@ mod tests {
         assert!(took < Duration::from_secs(2), "took {took:?}");
         // The handle tracks the call: no call, no deadline.
         assert!(!sb.deadline().passed());
+    }
+
+    #[test]
+    fn a_stale_deadline_fails_safe() {
+        let mut sb = sandbox();
+        let before_reset = sb.deadline();
+        assert!(!before_reset.passed());
+        sb.reset().unwrap();
+        assert!(before_reset.passed(), "taken before a reset");
+        assert!(!sb.deadline().passed(), "a fresh handle works");
+
+        let before_limit = sb.deadline();
+        assert_eq!(sb.eval::<()>("for (;;) {}"), Err(SandboxError::TimeLimit));
+        assert!(before_limit.passed(), "taken before a limit error");
+        assert!(!sb.deadline().passed());
+
+        let outliving = sb.deadline();
+        drop(sb);
+        assert!(outliving.passed(), "its sandbox is gone");
+    }
+
+    #[test]
+    fn debug_of_a_deadline_records_nothing() {
+        let mut sb = sandbox();
+        let deadline = sb.deadline();
+        assert_eq!(
+            format!("{deadline:?}"),
+            "Deadline { passed: false, stale: false }"
+        );
+        sb.reset().unwrap();
+        assert_eq!(
+            format!("{deadline:?}"),
+            "Deadline { passed: false, stale: true }"
+        );
+        // A call past its deadline: formatting shows it without recording
+        // the timeout; `passed` records it.
+        let state = LimitState::new(usize::MAX);
+        state.arm(Duration::ZERO);
+        let deadline = Deadline {
+            state: state.clone(),
+        };
+        assert_eq!(
+            format!("{deadline:?}"),
+            "Deadline { passed: true, stale: false }"
+        );
+        assert!(!state.timed_out(), "formatting recorded a timeout");
+        assert!(deadline.passed());
+        assert!(state.timed_out());
     }
 
     /// Runs a hostile script and checks it fails with `want`, well within a
