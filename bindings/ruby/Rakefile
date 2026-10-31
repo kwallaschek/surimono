@@ -16,10 +16,11 @@ RbSys::ExtensionTask.new("surimono", GEMSPEC) do |ext|
   # an x86_64-linux build would also pack an unversioned lib/surimono/surimono.so.
   ext.no_native = ENV.key?("RUBY_TARGET")
   ext.cross_compiling do |spec|
-    # A native gem carries the compiled library, not the crate sources. Licence
-    # files of crates (and of the JS libraries they bundle) stay in.
+    # A native gem carries the compiled library, not the crate sources (nor the
+    # vendored ones). Licence files of crates (and of the JS libraries and C
+    # engine they bundle) stay in.
     spec.files.reject! do |f|
-      f.start_with?("crates/") && !File.basename(f).match?(/\A(LICEN[CS]E|NOTICE|COPYING)/i)
+      f.start_with?("crates/", "vendor/") && !File.basename(f).match?(/\A(LICEN[CS]E|NOTICE|COPYING)/i)
     end
   end
 end

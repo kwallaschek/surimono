@@ -1,0 +1,109 @@
+{
+ "text": [
+  "0",
+  "1,000",
+  "2,000",
+  "2025",
+  "3,000",
+  "4,000",
+  "Jul",
+  "Mar",
+  "Marketplace",
+  "May",
+  "Nov",
+  "Orders",
+  "Phoneorders",
+  "Retail",
+  "Sep",
+  "Webshop",
+  "Wholesale"
+ ],
+ "labels": [],
+ "styles": [
+  {
+   "key": "0",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "1,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "2,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "2025",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "3,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "4,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Jul",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Mar",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Marketplace",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "May",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Nov",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Orders",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Phoneorders",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Retail",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Sep",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Webshop",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Wholesale",
+   "weight": 400,
+   "style": "normal"
+  }
+ ]
+}
