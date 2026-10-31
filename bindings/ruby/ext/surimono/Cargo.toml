@@ -12,7 +12,7 @@ name = "surimono"
 crate-type = ["cdylib"]
 
 [dependencies]
-magnus = "=0.9.3"
+magnus = { version = "=0.9.3", features = ["rb-sys"] }
 rb-sys = { version = "=0.9.130", default-features = false, features = ["stable-api-compiled-fallback"] }
 surimono.workspace = true
 

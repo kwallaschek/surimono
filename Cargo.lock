@@ -1800,6 +1800,7 @@ dependencies = [
  "surimono-gfx",
  "surimono-islands",
  "thiserror",
+ "web_atoms",
 ]
 
 [[package]]
