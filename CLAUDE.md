@@ -23,7 +23,7 @@ the orchestrator (write the request in your final report).
 |---|---|
 | Orchestrator | `CLAUDE.md`, `Cargo.toml` (workspace root), `Cargo.lock`, `rust-toolchain.toml`, `deny.toml`, `scripts/` except `scripts/ci*`, `docs/*.md` except `COMPAT.md`, `docs/upstream/`, `THIRD_PARTY.md` |
 | Conformance researcher | `fixtures/`, `wpt/`, `bench/`, `docs/COMPAT.md` |
-| Runtime engineer | `crates/core/`, `crates/islands/` |
+| Runtime engineer | `crates/core/`, `crates/islands/`, `vendor/` |
 | DOM engineer | `crates/webidl/`, `crates/dom/` |
 | Graphics engineer | `crates/gfx/` |
 | Packaging engineer | `crates/surimono/`, `crates/cli/`, `bindings/ruby/`, `.github/`, `scripts/ci.sh`, `scripts/ci/` |
@@ -33,7 +33,9 @@ the orchestrator (write the request in your final report).
 A crate's own `Cargo.toml` belongs to the crate's owner. New workspace-level
 dependencies go in the root `Cargo.toml` via the orchestrator: ask in your report,
 and meanwhile add the dependency directly in your crate's `Cargo.toml` with an
-exact version.
+exact version. If another crate already uses the same dependency, use the root
+`[workspace.dependencies]` pin (`<dep>.workspace = true`) instead; two different
+exact pins of one crate can't resolve together.
 
 ## Fleet rules
 
@@ -80,10 +82,20 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
 1. **Worktree.** Work in your own git worktree, never in the main checkout:
    `git -C /home/claude/surimono worktree add /home/claude/wt/<task-id> -b <task-id> main`
    Branch names are the task id from `docs/TASKS.md` in lower case, e.g. `p1-rt-01`.
-2. **Shared build cache.** Always `export CARGO_TARGET_DIR=/home/claude/target`
-   and `export CARGO_BUILD_JOBS=2` (the machine has 2 cores and 7 GB of RAM). Cargo
+2. **Shared build cache.** Always `export CARGO_TARGET_DIR=/home/claude/target`,
+   `export CARGO_BUILD_JOBS=2` and `export CARGO_INCREMENTAL=0` (disk is tight; never
+   create another target dir) (the machine has 2 cores and 7 GB of RAM). Cargo
    serialises builds on that directory; waiting on its lock is normal. Build only
-   your crates (`-p surimono-core`) while iterating.
+   your crates (`-p surimono-core`) while iterating. **Run
+   `scripts/fleet/touch-workspace.sh` before every build or test**: worktrees share
+   artifact names for workspace crates, so without it cargo can silently use another
+   worktree's build of a crate (false red or false green). A worktree that changes
+   `vendor/` (the engine) also sets `RUSTFLAGS="--cfg surimono_wt_<task_id>"` for every
+   build and test, because touch-workspace.sh doesn't separate the engine's build
+   output; delete those artifacts when done. GitHub CI uses a fresh target dir and
+   is the authoritative result.
+   Scratch files: the session scratchpad is shared by every agent, so prefix your
+   file names there with your task id (`p1-rt-14-clippy.log`, not `clippy.log`).
 3. **Checks before you report.** Run `scripts/ci.sh` from your worktree; it runs
    exactly what CI runs on Linux (fmt, clippy with warnings as errors, tests,
    cargo-deny). Your branch must pass it.
@@ -107,7 +119,18 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   results to the `ci-results` branch under `runs/<head sha>/<workflow>/<job>/`
   (`status.json`, `<name>/log.txt`, `<name>/exit.json`, plus anything written to
   `$CI_JOB_OUT`). Read them with
-  `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`.
+  `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`, or run
+  `scripts/fleet/ci-status.sh <sha>`. A job's own `status.json` is written by code under
+  test; GitHub's check runs (and `needs_result`, once the publish-job YAML is live) are
+  the authoritative result.
+
+## Security findings in other projects
+
+Follow the upstream project's own security policy. Where it asks for a private
+report, keep an unreported bug out of every tracked file, commit message, PR body
+and PR comment until Kay has reported it (details only in `.private-tmp/`, which
+is git-excluded, and your report). quickjs-ng's policy treats AI-found bugs as
+public: write those up as public issue drafts in `docs/upstream/` for Kay to file.
 
 ## Code conventions
 
@@ -116,5 +139,6 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   `unwrap()`/`expect()` only in tests or with a comment proving it can't fail.
 - Public items carry doc comments. Keep the public API small; the facade crate
   `surimono` is the only API users should need.
+- When writing files, byte-check any `\uXXXX` escapes in string literals; file tools have saved them as the literal characters.
 - Tests live next to the code (`#[cfg(test)]`) or in the crate's `tests/`.
   Fixture-driven tests read from `fixtures/` and never rewrite expectations.

@@ -1,0 +1,103 @@
+{
+ "text": [
+  "0",
+  "100",
+  "200",
+  "245",
+  "300",
+  "335",
+  "348",
+  "350",
+  "400",
+  "400",
+  "Central",
+  "East",
+  "Grossmarginbyregion(kEUR)",
+  "North",
+  "South",
+  "West"
+ ],
+ "labels": [],
+ "styles": [
+  {
+   "key": "0",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "100",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "200",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "245",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "300",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "335",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "348",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "350",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "400",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "400",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Central",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "East",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Grossmarginbyregion(kEUR)",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "North",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "South",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "West",
+   "weight": 400,
+   "style": "normal"
+  }
+ ]
+}

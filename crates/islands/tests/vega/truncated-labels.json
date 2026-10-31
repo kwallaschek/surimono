@@ -1,0 +1,24 @@
+{
+  "width": 300, "height": 120, "padding": 5,
+  "data": [{ "name": "t", "values": [
+    {"label": "A rather long label that must be truncated", "v": 3},
+    {"label": "Short", "v": 5},
+    {"label": "長い日本語のラベルは途中で切り詰められます", "v": 4}
+  ] }],
+  "scales": [
+    { "name": "y", "type": "band", "domain": {"data": "t", "field": "label"}, "range": "height", "padding": 0.2 },
+    { "name": "x", "domain": {"data": "t", "field": "v"}, "range": "width" }
+  ],
+  "marks": [
+    { "type": "text", "from": {"data": "t"},
+      "encode": { "enter": {
+        "x": {"value": 0}, "y": {"scale": "y", "field": "label", "band": 0.5},
+        "baseline": {"value": "middle"}, "limit": {"value": 120}, "fontSize": {"value": 12},
+        "text": {"field": "label"} } } },
+    { "type": "rect", "from": {"data": "t"},
+      "encode": { "enter": {
+        "x": {"value": 130}, "x2": {"scale": "x", "field": "v", "offset": 130},
+        "y": {"scale": "y", "field": "label"}, "height": {"scale": "y", "band": 1},
+        "fill": {"value": "#4c78a8"} } } }
+  ]
+}

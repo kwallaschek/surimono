@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Monthly invoiced revenue, FY2026</title>
+  <style>
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+    @page { size: 210mm 297mm; margin: 15mm; }
+    html { font-family: "Noto Sans", "Noto Sans JP"; font-size: 13px; line-height: 19px; color: #1f2328; background: #ffffff; text-spacing-trim: space-all; }
+    body { margin: 0; }
+    /* The page avoids auto-sized flex items, tables, single-side border colours
+       fractional line heights and Chrome's default text-spacing-trim of
+       full-width punctuation, which fulgur 0.40.0 lays out or prints
+       differently from Chrome (docs/COMPAT.md), so page diffs reflect the
+       islands, not the page chrome. Sizes are whole CSS pixels. */
+    header { margin-bottom: 16px; }
+    header .org { font-weight: 700; font-size: 16px; line-height: 22px; }
+    header .meta { font-size: 12px; line-height: 17px; color: #57606a; }
+    .rule { height: 2px; background: #1f2328; margin: 8px 0 18px; }
+    h1 { font-size: 21px; line-height: 28px; font-weight: 700; margin: 0 0 12px; }
+    p { margin: 0 0 12px; }
+    figure.island { margin: 16px 0 4px; padding: 0; }
+    .surimono-island > svg { display: block; }
+    .caption { font-size: 11px; line-height: 16px; color: #57606a; margin-bottom: 18px; }
+    .table { font-size: 12px; line-height: 17px; }
+    .tr { display: flex; flex-wrap: nowrap; }
+    .tr:nth-child(odd) { background: #f6f8fa; }
+    .tr.th { font-weight: 700; background: #e8ecf0; }
+    .c { flex-grow: 0; flex-shrink: 0; box-sizing: border-box; padding: 5px 8px; text-align: left; white-space: nowrap; overflow: hidden; }
+    .num { text-align: right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="org">Northwind Trading GmbH</div>
+    <div class="meta">Revenue report · Period: Jan to Dec 2026 · Currency: EUR</div>
+    <div class="rule"></div>
+  </header>
+  <h1>Monthly invoiced revenue, FY2026</h1>
+  <p>Invoiced revenue per month, net of credit notes. Values are in euros and rounded to the nearest euro.</p>
+  <figure class="island" style="width: 640px; height: 320px">
+    <script type="application/vnd.surimono+json" data-renderer="echarts" data-width="640" data-height="320">{
+ "textStyle": {
+  "fontFamily": "'Noto Sans'"
+ },
+ "title": {
+  "text": "Invoiced revenue (EUR)",
+  "left": 0,
+  "top": 0,
+  "textStyle": {
+   "fontFamily": "'Noto Sans'",
+   "fontSize": 14,
+   "fontWeight": "bold"
+  }
+ },
+ "grid": {
+  "left": 64,
+  "right": 16,
+  "top": 48,
+  "bottom": 32
+ },
+ "xAxis": {
+  "type": "category",
+  "data": [
+   "Jan",
+   "Feb",
+   "Mar",
+   "Apr",
+   "May",
+   "Jun",
+   "Jul",
+   "Aug",
+   "Sep",
+   "Oct",
+   "Nov",
+   "Dec"
+  ],
+  "axisTick": {
+   "alignWithLabel": true
+  }
+ },
+ "yAxis": {
+  "type": "value",
+  "axisLabel": {
+   "formatter": "{value}"
+  }
+ },
+ "series": [
+  {
+   "type": "bar",
+   "name": "Revenue",
+   "data": [
+    43221,
+    50683,
+    50465,
+    53187,
+    52657,
+    57240,
+    58088,
+    63270,
+    58457,
+    58899,
+    63472,
+    68947
+   ],
+   "barWidth": "60%",
+   "itemStyle": {
+    "color": "#2f6fb0"
+   },
+   "label": {
+    "show": true,
+    "position": "top",
+    "fontSize": 9,
+    "fontFamily": "'Noto Sans'"
+   }
+  }
+ ]
+}</script>
+  </figure>
+  <p class="caption">Figure 1. Invoiced revenue per month (EUR).</p>
+  <div class="table">
+      <div class="tr th"><span class="c" style="flex-basis: 40%">Quarter</span><span class="c num" style="flex-basis: 60%">Revenue (EUR)</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Q1</span><span class="c num" style="flex-basis: 60%">144,369</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Q2</span><span class="c num" style="flex-basis: 60%">163,084</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Q3</span><span class="c num" style="flex-basis: 60%">179,815</span></div>
+      <div class="tr"><span class="c" style="flex-basis: 40%">Q4</span><span class="c num" style="flex-basis: 60%">191,318</span></div>
+    </div>
+</body>
+</html>
