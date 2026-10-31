@@ -32,7 +32,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 
 - P1-RT-09 · RT · doing · QuickJS patch (vendored rquickjs-sys, [patch]): sticky interrupt, interrupt polls in native array loops and typed-array sort; watchdog tests; upstream drafts (v0.1 release blocker)
 - P1-RT-10 · RT · done (#30) · Use surimono-gfx's TextMeasurer/TextMetrics in islands (one type each across the API)
-- P1-RT-12 · RT · review · Islands follow-ups from #21/#29 review: Vega image/href refused synchronously with tests; preload time vs deadline; built-in vs registered name race; entry check consistency; idle-wait in tests; docs
+- P1-RT-12 · RT · done (#39) · Islands follow-ups from #21/#29 review: Vega image/href refused synchronously with tests; preload time vs deadline; built-in vs registered name race; entry check consistency; idle-wait in tests; docs
 - P1-RT-14 · RT · review · (#47) Deadline enforcement: watchdog flag checked on every poll; expensive natives poll (indexOf, BigInt cap); flaky core tests; F2/F3 (v0.1 release blockers R4, R5)
 - P1-RT-15 · RT · review · (#45) Allocation-failure crash fixes in the vendored engine; full-coverage OOM sweep; docs stop over-claiming (v0.1 release blockers R6, R7, R8; details private)
 - P1-RT-15b · RT · doing · Neutral wording of engine notes on #32 and #45; sweep covers bind and Promise.any (#45 review blockers)
@@ -64,6 +64,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-04c · CF · done (#42) · (#42) Hostile follow-ups; blocked: Worker WebSockets escape routeWebSocket
 - P1-CF-08b · CF · done (#43) · (#43) Exact font weight and style check
 - P1-CF-07 · CF · done (#28) · COMPAT.md generated from test results
+- P1-CF-05c · CF · done (#46) · Record #39's Vega bundle hash in the real-world manifest
+- P1-CF-11 · CF · doing · Review follow-ups from #28/#35/#42/#43 (unknown fixture names, page-level WebRTC, duplicated labels, positive controls); #35 merges main
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
 - P1-PKG-01 · PKG · done · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
