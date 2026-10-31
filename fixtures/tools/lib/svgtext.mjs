@@ -146,7 +146,8 @@ function declared(tag, parent) {
  * <text>): a <g> with an aria-label whose descendants are only <path> and <g>
  * elements with neither an aria-label nor a role. The group's own role
  * doesn't matter: gfx keeps the role of the <text> it replaces (Vega's text
- * marks have role="graphics-symbol") and adds role="img" when there is none.
+ * marks have role="graphics-symbol") and adds role="img" only when the <text>
+ * has neither an aria-label nor a role.
  * So a labelled mark, or a group holding one, never qualifies; a labelled
  * group of plain paths does, whatever its role. `key` is the element's
  * aria-label (normalised) or, for a <text> without one, its content.

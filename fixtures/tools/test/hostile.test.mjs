@@ -118,18 +118,22 @@ test("launchOffline: a Worker's WebSocket and fetch reach nothing, not even loop
   assert.deepEqual(listener.connections, [], "no TCP connection reached the listener");
 });
 
+/** The places webRtcProbe tries, in order. */
+const PLACES = ["page", "iframe", "sandboxed srcdoc", "window.open"];
+
 /**
- * In `page`, its about:blank iframe and a window.open window: an
- * RTCPeerConnection with a STUN server at 127.0.0.1:port, gathering
- * candidates for up to 3 s. Also reports whether a dedicated Worker has
- * RTCPeerConnection. Returns one line per place.
+ * An RTCPeerConnection with a STUN server at 127.0.0.1:ports[place], gathering
+ * candidates for up to 3 s, in each of PLACES: `page`, an about:blank iframe,
+ * an `<iframe sandbox="allow-scripts" srcdoc>` (an opaque origin, which
+ * answers by postMessage) and a window.open window. Also reports whether a
+ * dedicated Worker has RTCPeerConnection. Returns one line per place.
  */
-function webRtcProbe(page, port) {
-  return page.evaluate(async (port) => {
-    const out = [];
-    const attempt = async (w, where) => {
+function webRtcProbe(page, ports) {
+  return page.evaluate(async ([places, ports]) => {
+    // Self-contained: the sandboxed frame runs it from its source text.
+    async function tryStun(w, port) {
       const PC = w.RTCPeerConnection || w.webkitRTCPeerConnection;
-      if (!PC) return out.push(`${where}: no RTCPeerConnection`);
+      if (!PC) return "no RTCPeerConnection";
       try {
         const pc = new PC({ iceServers: [{ urls: `stun:127.0.0.1:${port}` }] });
         pc.createDataChannel("probe");
@@ -138,58 +142,114 @@ function webRtcProbe(page, port) {
           pc.onicegatheringstatechange = () => pc.iceGatheringState === "complete" && res();
           setTimeout(res, 3000);
         });
-        out.push(`${where}: gathered`);
+        return "gathered";
       } catch (e) {
-        out.push(`${where}: ${e.name}`);
+        return e.name;
       }
-    };
-    await attempt(window, "page");
+    }
+    const out = {};
+    out.page = await tryStun(window, ports.page);
     const frame = document.createElement("iframe");
     document.body.appendChild(frame);
-    await attempt(frame.contentWindow, "iframe");
+    out.iframe = await tryStun(frame.contentWindow, ports.iframe);
+    out["sandboxed srcdoc"] = await new Promise((res) => {
+      const onMessage = (e) => {
+        if (e.data && e.data.probe === "sandboxed") {
+          removeEventListener("message", onMessage);
+          res(e.data.result);
+        }
+      };
+      addEventListener("message", onMessage);
+      setTimeout(() => res("no answer"), 8000);
+      const sandboxed = document.createElement("iframe");
+      sandboxed.sandbox = "allow-scripts";
+      sandboxed.srcdoc = `<script>(${tryStun})(window, ${ports["sandboxed srcdoc"]}).then((result) => parent.postMessage({ probe: "sandboxed", result }, "*"));<\/script>`;
+      document.body.appendChild(sandboxed);
+    });
     const popup = window.open("about:blank");
-    if (popup) await attempt(popup, "window.open");
+    out["window.open"] = popup ? await tryStun(popup, ports["window.open"]) : "blocked";
     const worker = new Worker(URL.createObjectURL(new Blob(["postMessage(typeof RTCPeerConnection)"], { type: "text/javascript" })));
-    out.push(`worker: ${await new Promise((res) => (worker.onmessage = (e) => res(e.data)))} RTCPeerConnection`);
-    return out.join("; ");
-  }, port);
+    const inWorker = await new Promise((res) => (worker.onmessage = (e) => res(e.data)));
+    return [...places.map((p) => `${p}: ${out[p]}`), `worker: ${inWorker} RTCPeerConnection`].join("; ");
+  }, [PLACES, ports]);
 }
 
-test("launchOffline: the page has no WebRTC, so a STUN request from the page or its frames sends nothing", async (t) => {
+/** One local UDP socket per place, each counting the datagrams it receives. */
+async function udpSockets(places) {
+  const dgram = await import("node:dgram");
+  const sockets = {};
+  for (const place of places) {
+    const socket = dgram.createSocket("udp4");
+    const entry = { socket, datagrams: 0 };
+    socket.on("message", () => entry.datagrams++);
+    await new Promise((resolve) => socket.bind(0, "127.0.0.1", resolve));
+    sockets[place] = entry;
+  }
+  return {
+    ports: Object.fromEntries(places.map((p) => [p, sockets[p].socket.address().port])),
+    counts: () => Object.fromEntries(places.map((p) => [p, sockets[p].datagrams])),
+    reset: () => places.forEach((p) => (sockets[p].datagrams = 0)),
+    close: () => places.forEach((p) => sockets[p].socket.close()),
+  };
+}
+
+test("launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing", async (t) => {
   const { chromium, skip } = await playwrightChromium();
   if (skip) return t.skip(skip);
-  const { OFFLINE_LAUNCH, launchOffline } = await import("../lib/hostile.mjs");
-  const dgram = await import("node:dgram");
-  const socket = dgram.createSocket("udp4");
-  let datagrams = 0;
-  socket.on("message", () => datagrams++);
-  await new Promise((resolve) => socket.bind(0, "127.0.0.1", resolve));
-  const port = socket.address().port;
+  const { offlineLaunch, launchOffline } = await import("../lib/hostile.mjs");
+  const udp = await udpSockets(PLACES);
   const settle = () => new Promise((resolve) => setTimeout(resolve, 500));
   try {
-    // Positive control: the same proxy without the init script. STUN goes
-    // over UDP past the proxy and reaches the socket.
-    const proxied = await chromium.launch(OFFLINE_LAUNCH);
+    // Positive control: the same launch options without the init script.
+    // STUN goes over UDP past the proxy, and every place's socket hears it.
+    const proxied = await chromium.launch(offlineLaunch());
     try {
-      const result = await webRtcProbe(await proxied.newPage(), port);
-      assert.match(result, /page: gathered/, result);
+      const result = await webRtcProbe(await proxied.newPage(), udp.ports);
+      for (const place of PLACES) assert.match(result, new RegExp(`${place}: gathered`), result);
     } finally {
       await proxied.close();
     }
     await settle();
-    assert.ok(datagrams >= 1, `the control's STUN requests reached the socket (${datagrams} datagrams)`);
-    datagrams = 0;
+    for (const [place, n] of Object.entries(udp.counts())) assert.ok(n >= 1, `the control's STUN requests from ${place} reached its socket (${n} datagrams)`);
+    udp.reset();
 
     const { browser, page } = await launchOffline();
     try {
-      const result = await webRtcProbe(page, port);
-      assert.equal(result, "page: no RTCPeerConnection; iframe: no RTCPeerConnection; window.open: no RTCPeerConnection; worker: undefined RTCPeerConnection");
+      const result = await webRtcProbe(page, udp.ports);
+      assert.equal(result, `${PLACES.map((p) => `${p}: no RTCPeerConnection`).join("; ")}; worker: undefined RTCPeerConnection`);
       await settle();
     } finally {
       await browser.close();
     }
-    assert.equal(datagrams, 0, "no UDP datagram reached the socket");
+    assert.deepEqual(udp.counts(), Object.fromEntries(PLACES.map((p) => [p, 0])), "no UDP datagram reached any socket");
   } finally {
-    socket.close();
+    udp.close();
   }
+});
+
+test("offlineLaunch keeps Playwright's own disabled features", async (t) => {
+  // Chromium keeps only the last --disable-features switch. HttpsUpgrades is
+  // one Playwright disables: with it back on, http:// navigations become https://.
+  const { chromium, skip } = await playwrightChromium();
+  if (skip) return t.skip(skip);
+  const { offlineLaunch } = await import("../lib/hostile.mjs");
+  const firstUrl = async (options) => {
+    const browser = await chromium.launch(options);
+    try {
+      const context = await browser.newContext();
+      const urls = [];
+      await context.route("**/*", (route) => {
+        urls.push(route.request().url());
+        return route.fulfill({ contentType: "text/html", body: "<p>ok" });
+      });
+      await (await context.newPage()).goto("http://www.example.com/upgrade");
+      return urls[0];
+    } finally {
+      await browser.close();
+    }
+  };
+  // Positive control: a lone --disable-features replaces Playwright's list.
+  assert.equal(await firstUrl({ channel: "chromium", args: ["--disable-features=IsolateSandboxedIframes"] }), "https://www.example.com/upgrade");
+  assert.equal(await firstUrl(offlineLaunch()), "http://www.example.com/upgrade");
+  assert.match(offlineLaunch().args.join(" "), /--disable-features=\S*\bHttpsUpgrades\b\S*\bIsolateSandboxedIframes\b/);
 });
