@@ -1,0 +1,36 @@
+
+==> fmt
+
+==> fixtures: fonts
+ok       NotoSans-Regular.ttf  Noto Sans 400
+ok       NotoSans-Bold.ttf  Noto Sans 700
+ok       NotoSansJP-Regular.otf  Noto Sans JP 400
+ok       NotoSansJP-Bold.otf  Noto Sans JP 700
+
+==> fixtures: hostile scripts
+59 cases, 60 files: ok
+
+==> fixtures: island inputs (gen-islands --check)
+
+==> bench: report (gen-report --check)
+bench/report/report.html matches its generator
+
+==> fixtures: tool tests (python)
+.......F.....compat.py: two results for echarts-a page: /tmp/tmpneiqhlvu/res/a/score.json and /tmp/tmpneiqhlvu/res/b/score.json; pass one run's directory, so one result can't hide the other
+...
+======================================================================
+FAIL: test_font_check_is_named_with_its_mismatch (test_compat.CompatTest.test_font_check_is_named_with_its_mismatch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/runner/work/surimono/surimono/fixtures/tools/test/test_compat.py", line 184, in test_font_check_is_named_with_its_mismatch
+    self.assertEqual(compat.cell(s), "**FAIL** (font: 1 differ (Jan: Chrome 400 normal, surimono 700 normal))")
+AssertionError: '**FAIL** (page (shape 0.0%); font: 1 differ (Jan: C[35 chars]al))' != '**FAIL** (font: 1 differ (Jan: Chrome 400 normal, s[16 chars]al))'
+- **FAIL** (page (shape 0.0%); font: 1 differ (Jan: Chrome 400 normal, surimono 700 normal))
+?           -------------------
++ **FAIL** (font: 1 differ (Jan: Chrome 400 normal, surimono 700 normal))
+
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.031s
+
+FAILED (failures=1)
