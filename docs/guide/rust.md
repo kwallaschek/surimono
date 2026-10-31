@@ -256,3 +256,6 @@ fn report_renders_the_same_twice() {
     assert_eq!(first, pipeline.islands(&html).unwrap());
 }
 ```
+
+A runnable version of the island step, with its tests, is in
+[`examples/rust-islands`](../../examples/rust-islands).

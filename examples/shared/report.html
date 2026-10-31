@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Quarterly revenue</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    /* Name the registered fonts: a generic family alone prints blank or in a
+       server font (see README, Fonts). */
+    html { font-family: "Noto Sans", "Noto Sans JP"; font-size: 13px; color: #1f2328; }
+    h1 { font-size: 21px; margin: 0 0 12px; }
+    .surimono-island > svg { display: block; }
+    .kpi { display: flex; gap: 12px; align-items: center; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Quarterly revenue</h1>
+  <p>Revenue by quarter, in thousands of euros. 売上は四半期ごとに集計しています。</p>
+
+  <script type="application/vnd.surimono+json" id="revenue" class="chart"
+          data-renderer="echarts" data-width="680" data-height="300">
+  {
+    "textStyle": { "fontFamily": "Noto Sans" },
+    "grid": { "left": 48, "right": 16, "top": 24, "bottom": 32 },
+    "xAxis": { "type": "category", "data": ["Q1", "Q2", "Q3", "Q4"] },
+    "yAxis": { "type": "value", "axisLabel": { "formatter": "{value} k€" } },
+    "series": [{ "type": "bar", "data": [120, 200, 150, 80], "itemStyle": { "color": "#2f6fb0" } }]
+  }
+  </script>
+
+  <div class="kpi">
+    <span>Trend</span>
+    <script type="application/vnd.surimono+json" id="trend"
+            data-renderer="sparkline" data-width="200" data-height="24">
+      { "values": [120, 200, 150, 80, 140, 190], "label": "+12 %" }
+    </script>
+  </div>
+
+  <script>
+    // A page script. surimono 0.1 leaves it untouched and doesn't run it.
+    document.title = "never runs";
+  </script>
+</body>
+</html>

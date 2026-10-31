@@ -9,6 +9,7 @@ members = [
     "crates/surimono",
     "crates/cli",
     "bindings/ruby/ext/surimono",
+    "examples/rust-islands",
 ]
 # Vendored third-party crates are patched dependencies, not members.
 exclude = ["vendor"]
@@ -22,6 +23,7 @@ default-members = [
     "crates/islands",
     "crates/surimono",
     "crates/cli",
+    "examples/rust-islands",
 ]
 
 [workspace.package]
