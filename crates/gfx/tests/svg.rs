@@ -54,9 +54,10 @@ fn vega_output_changes_only_fonts() {
     Document::parse(&out).expect("output is well-formed XML");
     let attr = format!("font-family=\"{STACK}\"");
     assert_eq!(out.matches(&attr).count(), 16);
+    // The root loses `class="marks"`: the page's CSS could match it.
     assert_eq!(
         out.replace(&attr, "font-family=\"sans-serif\""),
-        VEGA.trim_end()
+        VEGA.trim_end().replacen(" class=\"marks\"", "", 1)
     );
 }
 
@@ -222,6 +223,21 @@ const HOSTILE: &[&str] = &[
     // Other at-rules and loading functions.
     r#"<svg><style>@namespace x url(https://evil.example/ns);@page{size:1mm}@media print{@import "https://evil.example/m.css";}a{b:src("https://evil.example/s")}</style></svg>"#,
     r#"<svg><style>a{--x:url(https://evil.example/v.png);background:var(--x)}</style><rect style="--y:url('https://evil.example/w.png')"/></svg>"#,
+    // Third review of #12: URLs that passed as data:image/ but that a URL
+    // parser reads as relative (fetched from the page's own origin).
+    r#"<svg width="10" height="10"><image width="10" height="10" href="d ata:image/../../r1.png"/></svg>"#,
+    r#"<svg width="10" height="10"><image width="10" height="10" href="data :image/png,x"/></svg>"#,
+    r#"<svg width="10" height="10"><image width="10" height="10" href="da&#x80;ta:image/../../r3.png"/></svg>"#,
+    "<svg width=\"10\" height=\"10\"><image width=\"10\" height=\"10\" href=\"da\u{85}ta:image/../../r4.png\"/></svg>",
+    r#"<svg width="10" height="10"><image width="10" height="10" href="&#x3000;data:image/../r5.png"/></svg>"#,
+    r##"<svg width="10" height="10"><filter id="f"><feImage width="10" height="10" href="d ata:image/../r6.png"/></filter><rect width="10" height="10" filter="url(#f)"/></svg>"##,
+    r#"<svg width="10" height="10"><rect width="10" height="10" style="cursor:url('d ata:image/../r7.png'),auto"/></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10" mask="url('d ata:image/../r8.svg#m')"/></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10" filter="url('d ata:image/../r9.svg#f')"/></svg>"#,
+    r#"<svg width="10" height="10"><rect width="10" height="10" style="fill:url('d&#x80;ata:image/../r11.svg#p')"/></svg>"#,
+    r#"<svg width="10" height="10"><a href="&#x3000;https://evil.example/r12"><rect width="10" height="10"/></a></svg>"#,
+    // The page's own CSS matches the root's class or role.
+    r#"<svg width="10" height="10" class="fixed inset-0 z-50" role="dialog"><rect width="10" height="10"/></svg>"#,
 ];
 
 /// Cases where the attacker's URL may stay in the output, but only as text
@@ -620,6 +636,9 @@ fn contained(svg: &str) -> Result<(), String> {
             roots.iter().map(|n| name(n)).collect::<Vec<_>>()
         ));
     }
+    if attrs(roots[0]).iter().any(|(k, _)| k == "class") {
+        return Err("the root keeps a class the page's CSS can match".into());
+    }
     let style = attrs(roots[0])
         .into_iter()
         .find(|(k, _)| k == "style")
@@ -672,6 +691,8 @@ const BREAKOUTS: &[&str] = &[
     "<svg width=\"10\" height=\"10\" style=\"position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999\"><rect/></svg>",
     // Links and forms in foreignObject.
     "<svg width=\"10\" height=\"10\"><foreignObject width=\"10\" height=\"10\"><form xmlns=\"http://www.w3.org/1999/xhtml\" action=\"https://evil.example/\"><input name=\"q\"/></form><a xmlns=\"http://www.w3.org/1999/xhtml\" href=\"https://evil.example/\">x</a></foreignObject></svg>",
+    // The page's utility CSS (Tailwind) would fix the root over the page.
+    "<svg width=\"10\" height=\"10\" class=\"fixed inset-0 z-50\"><rect/></svg>",
     // A prefixed root is an unknown HTML element: its children are HTML.
     "<svg:svg xmlns:svg=\"http://www.w3.org/2000/svg\" xmlns=\"http://www.w3.org/2000/svg\"><textarea/></svg:svg>",
 ];

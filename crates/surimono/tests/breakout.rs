@@ -17,7 +17,9 @@
 
 use blitz_dom::{BaseDocument, DocumentConfig, Node};
 use blitz_html::HtmlDocument;
-use surimono::{ErrorPolicy, Options, Renderer};
+use std::time::Duration;
+
+use surimono::{ErrorPolicy, Limits, Options, Renderer};
 
 const SVG_NS: &str = "http://www.w3.org/2000/svg";
 const MARKER_TYPE: &str = "application/vnd.surimono+json";
@@ -30,6 +32,16 @@ fn font() -> Vec<u8> {
     std::fs::read(path).unwrap_or_else(|e| panic!("{path}: {e}"))
 }
 
+/// These tests check structure, not speed: a generous island limit keeps a
+/// loaded machine (or a sanitizer build) from turning a render into a
+/// TimeLimit. Speed is the benchmark's job.
+fn structural_limits() -> Limits {
+    Limits {
+        time: Duration::from_secs(60),
+        ..Limits::default()
+    }
+}
+
 /// A bundle that returns the island's `raw` SVG unchanged: whatever a
 /// custom bundle (or a compromised one) could return.
 const RAW_BUNDLE: &str = "function entry(specJson) { return JSON.parse(specJson).raw; }";
@@ -39,6 +51,7 @@ fn renderer(policy: ErrorPolicy) -> Renderer {
         Options::new()
             .font(font())
             .bundle("raw", RAW_BUNDLE, "entry")
+            .limits(structural_limits())
             .error_policy(policy),
     )
     .unwrap_or_else(|e| panic!("{e}"))
@@ -335,7 +348,8 @@ fn echarts_emphasis_colour_cannot_style_the_page() {
         }]
     });
     let html = page(&marker("echarts", &spec));
-    let r = Renderer::new(Options::new().font(font())).unwrap_or_else(|e| panic!("{e}"));
+    let r = Renderer::new(Options::new().font(font()).limits(structural_limits()))
+        .unwrap_or_else(|e| panic!("{e}"));
     let out = r.render_islands(&html).unwrap_or_else(|e| panic!("{e}"));
     if let Err(why) = contained(&out) {
         panic!("{why}\n{out}");

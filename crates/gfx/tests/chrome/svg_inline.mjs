@@ -54,7 +54,8 @@ async function check(markup) {
     if (attrs(document.body) !== 'class=page') breakouts.push(`body ${attrs(document.body)}`);
     const after = document.getElementById('after');
     if (!after || after.parentNode !== document.body || document.body.lastElementChild !== after) breakouts.push('page after the islands moved');
-    if (document.querySelectorAll('style').length !== 0) breakouts.push('style element');
+    // Only the page's own utility sheet.
+    if (document.querySelectorAll('style').length !== 1) breakouts.push('style element');
     for (const island of document.querySelectorAll('div.surimono-island')) {
       if (island.parentNode !== document.body) breakouts.push('island moved');
       for (const el of island.querySelectorAll('*')) {
@@ -74,7 +75,10 @@ async function check(markup) {
   return { requests, dialogs, ...dom };
 }
 
-const wrap = (svgs) => `<!doctype html><html lang="en"><meta charset="utf-8"><script>window.__pwned=0;window.alert=()=>{window.__pwned++}</script><body class="page">${svgs.map((s) => `<div class="surimono-island">${s}</div>`).join('\n')}<p id="after">after</p></body></html>`;
+// The host page has utility CSS like Tailwind's or Bootstrap's, which an
+// island's root must not be able to pick up.
+const HOST_CSS = '.fixed,.position-fixed,.fixed-top{position:fixed}.absolute{position:absolute}.inset-0{inset:0}.z-50{z-index:50}.float-left{float:left}.rotate-45{transform:rotate(45deg)}.overflow-visible{overflow:visible}[role=dialog],[aria-modal=true]{position:fixed}';
+const wrap = (svgs) => `<!doctype html><html lang="en"><meta charset="utf-8"><style>${HOST_CSS}</style><script>window.__pwned=0;window.alert=()=>{window.__pwned++}</script><body class="page">${svgs.map((s) => `<div class="surimono-island">${s}</div>`).join('\n')}<p id="after">after</p></body></html>`;
 const report = (r) => `alerts ${r.pwned + r.dialogs.length}, requests ${r.requests.length}, script elements ${r.scripts - 1}, handler attributes ${r.handlers.length}, breakouts ${r.breakouts.length}${r.breakouts.length ? ` (${r.breakouts.slice(0, 3).join('; ')})` : ''}`;
 
 const isClean = (r) => r.pwned + r.dialogs.length === 0 && r.requests.length === 0 && r.scripts === 1 && r.handlers.length === 0 && r.breakouts.length === 0;
