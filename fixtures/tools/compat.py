@@ -82,6 +82,8 @@ def load_scores(directory: Path | None) -> list[dict]:
             data = json.loads(f.read_text())
         except (OSError, json.JSONDecodeError) as e:
             raise CompatError(f"{f}: {e}")
+        if not isinstance(data, dict):
+            raise CompatError(f"{f}: not a JSON object")
         data["_file"] = str(f)
         scores.append(data)
     return scores
@@ -97,8 +99,12 @@ def load_determinism(directory: Path | None) -> dict[str, dict]:
             data = json.loads(f.read_text())
         except (OSError, json.JSONDecodeError) as e:
             raise CompatError(f"{f}: {e}")
+        if not isinstance(data, dict):
+            raise CompatError(f"{f}: not a JSON object")
         data["_file"] = str(f)
         name = data.get("subject")
+        if not isinstance(name, str) or not name:
+            raise CompatError(f"{f}: no \"subject\" naming the fixture")
         if name in out:
             raise CompatError(f"two determinism results for {name}: {out[name]['_file']} and {f}")
         out[name] = data
@@ -118,9 +124,13 @@ def check_producers(records: list[dict]) -> dict | None:
     seen: dict[tuple, dict] = {}
     for r in records:
         p = r.get("producer") or NOT_RECORDED
+        if not isinstance(p, dict):
+            raise CompatError(f"{r.get('_file', '?')}: producer {p!r} is not an object with cli, version, sha256 and commit")
         if "fake-surimono" in str(p.get("version", "")) or "fake-surimono" in str(p.get("cli", "")):
             raise CompatError(f"{r.get('_file', '?')}: produced by the stand-in {p.get('cli')} ({p.get('version')}), not by surimono")
-        seen.setdefault((p.get("cli"), p.get("version"), p.get("sha256"), p.get("commit")), {**p, "_file": r.get("_file", "?")})
+        # Compared as JSON text, so any value (a list, an object) can be a key.
+        key = tuple(json.dumps(p.get(k), sort_keys=True) for k in ("cli", "version", "sha256", "commit"))
+        seen.setdefault(key, {**p, "_file": r.get("_file", "?")})
     if len(seen) > 1:
         a, b = list(seen.values())[:2]
         raise CompatError(
@@ -253,20 +263,25 @@ def cell(score: dict | None) -> str:
 # ---------------------------------------------------------------- sections
 
 
+def unknown_fixture(record: dict, what: str, name: str, meta: dict[str, dict]) -> CompatError:
+    """The error for a result whose fixture isn't in fixtures/islands/: its own
+    row would show renderer "?", and the real-world table, which groups by
+    meta.toml's renderer, would never count it."""
+    near = [n for n in meta if n.casefold() == name.casefold()] or difflib.get_close_matches(name, list(meta), n=1)
+    return CompatError(
+        f"{record.get('_file', '?')}: {what} for {name!r}, which is not a fixture in fixtures/islands/ (no meta.toml)"
+        + (f"; did you mean {near[0]!r}?" if near else "")
+        + "; pass results for this checkout's fixtures only"
+    )
+
+
 def fixtures_section(scores: list[dict], meta: dict[str, dict], determinism: dict[str, dict] | None = None) -> tuple[list[str], dict[str, str]]:
     """Returns the lines and a status per fixture (pass, fail, partial, not run)."""
     by: dict[str, dict[str, dict]] = {}
     for s in scores:
         fixture, kind = classify(s)
         if fixture not in meta:
-            # Its own row would show renderer "?", and the real-world table,
-            # which groups by meta.toml's renderer, would never count it.
-            near = [n for n in meta if n.casefold() == fixture.casefold()] or difflib.get_close_matches(fixture, list(meta), n=1)
-            raise CompatError(
-                f"{s.get('_file', '?')}: a result for {fixture!r}, which is not a fixture in fixtures/islands/ (no meta.toml)"
-                + (f"; did you mean {near[0]!r}?" if near else "")
-                + "; pass results for this checkout's fixtures only"
-            )
+            raise unknown_fixture(s, "a result", fixture, meta)
         if kind in by.get(fixture, {}):
             first = by[fixture][kind].get("_file", "?")
             raise CompatError(
@@ -285,6 +300,9 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict], determinism: dic
         "| Fixture | Renderers | Islands, printed by Chrome | Islands, printed by fulgur | Page (surimono + fulgur) | Byte-identical (two processes) |",
         "|---|---|---|---|---|---|",
     ]
+    for name, det in (determinism or {}).items():
+        if name not in meta:
+            raise unknown_fixture(det, "a determinism result", name, meta)
     status: dict[str, str] = {}
     for name in sorted(set(meta) | set(by) | set(determinism or {})):
         got = by.get(name, {})

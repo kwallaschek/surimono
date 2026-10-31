@@ -415,6 +415,42 @@ class CompatTest(unittest.TestCase):
         s["font"]["mismatches"] = [{"key": "Jan", "chrome": "400 normal", "surimono": "700 normal"}]
         self.assertEqual(compat.cell(s), "**FAIL** (font: 1 differ, 1 missing, 1 extra (Jan: Chrome 400 normal, surimono 700 normal))")
 
+    def test_a_producer_that_is_not_an_object_is_an_error(self):
+        # Review of #35: "producer": "surimono 0.1.0" raised AttributeError.
+        s = score("echarts-a", True)
+        for producer in ("surimono 0.1.0", ["surimono"], 3, True):
+            with self.assertRaises(compat.CompatError, msg=repr(producer)) as e:
+                compat.generate([{**s, "producer": producer, "_file": "x/score.json"}], None, None, "c", None)
+            self.assertIn("is not an object", str(e.exception))
+        # Values that aren't strings are compared, not hashed.
+        odd = {"cli": ["/r/surimono"], "version": {"v": 1}, "sha256": "2", "commit": None}
+        self.assertIn("Results: fixtures from c", compat.generate([{**s, "producer": odd}, {**s, "subject": "echarts-b", "producer": dict(odd)}], None, None, "c", None))
+        with self.assertRaises(compat.CompatError):
+            compat.generate([{**s, "producer": odd}, {**s, "subject": "echarts-b", "producer": {**odd, "cli": ["/other"]}}], None, None, "c", None)
+
+    def test_malformed_result_files_are_errors(self):
+        # Review of #35: a determinism.json without "subject" raised TypeError.
+        for i, data in enumerate(({"deterministic": True}, {"subject": 3, "deterministic": True}, {"subject": "", "deterministic": True}, ["echarts-a"])):
+            d = self.root / f"det{i}" / "echarts-a"
+            d.mkdir(parents=True)
+            (d / "determinism.json").write_text(json.dumps(data))
+            with self.assertRaises(compat.CompatError, msg=repr(data)):
+                compat.load_determinism(self.root / f"det{i}")
+        d = self.root / "scores" / "echarts-a"
+        d.mkdir(parents=True)
+        (d / "score.json").write_text(json.dumps([score("echarts-a", True)]))
+        with self.assertRaises(compat.CompatError) as e:
+            compat.load_scores(self.root / "scores")
+        self.assertIn("not a JSON object", str(e.exception))
+
+    def test_a_determinism_result_for_an_unknown_fixture_is_an_error(self):
+        scores = [score("echarts-a", True)]
+        det = {"ECHARTS-A": {"subject": "ECHARTS-A", "deterministic": False, "_file": "run/ECHARTS-A/determinism.json"}}
+        with self.assertRaises(compat.CompatError) as e:
+            compat.fixtures_section(scores, compat.fixture_meta(), det)
+        self.assertIn("a determinism result for 'ECHARTS-A'", str(e.exception))
+        self.assertIn("did you mean 'echarts-a'?", str(e.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
