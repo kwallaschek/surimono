@@ -251,6 +251,50 @@ export function prepassHtml(sourceHtml, svgs) {
   return html;
 }
 
+/**
+ * The inverse of prepassHtml for surimono's real output: the island SVGs in
+ * document order, cut out of each div.surimono-island. An island surimono
+ * replaced with its error placeholder (class surimono-island-error, a
+ * <!-- surimono: … --> comment) comes back as { error } instead of { svg }.
+ */
+export function islandsOf(html) {
+  return [...html.matchAll(/<div class="surimono-island(?: ([^"]*))?"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => {
+    if ((m[1] ?? "").split(/\s+/).includes("surimono-island-error")) {
+      const note = /<!--\s*surimono:\s*([\s\S]*?)\s*-->/.exec(m[2]);
+      return { error: `surimono left an error placeholder: ${note ? note[1] : "no detail"}` };
+    }
+    return { svg: m[2] };
+  });
+}
+
+/**
+ * Chrome's computed font-weight and font-style of every <text> in `svg` (not
+ * nested in another <text>), as [{ key, weight, style }] keyed like
+ * svgTextStyles: the aria-label, else the content without <title>/<desc>,
+ * whitespace removed. The outside truth reference.mjs checks svgTextStyles
+ * against.
+ */
+export async function computedTextStyles(browser, svg) {
+  const page = await browser.newPage();
+  try {
+    await page.setContent(`<!doctype html><html><head><style>html,body{margin:0}svg{display:block}</style></head><body><div class="surimono-island">${svg}</div></body></html>`);
+    return await page.evaluate(() =>
+      [...document.querySelectorAll("svg text")]
+        .filter((t) => !t.parentElement.closest("text"))
+        .map((t) => {
+          const cs = getComputedStyle(t);
+          const label = t.getAttribute("aria-label");
+          const text = (n) => (n.nodeType === 3 ? n.data : n.nodeType === 1 && !/^(title|desc)$/i.test(n.nodeName) ? [...n.childNodes].map(text).join("") : "");
+          const key = (label ?? [...t.childNodes].map(text).join("")).replace(/\s+/g, "");
+          return { key, weight: Number(cs.fontWeight), style: cs.fontStyle };
+        })
+        .filter((x) => x.key),
+    );
+  } finally {
+    await page.close();
+  }
+}
+
 /** Rasterises every page of `pdf` to `<outDir>/<prefix>-<page>.png`; returns the paths. */
 export function rasterise(pdf, outDir, prefix) {
   fs.mkdirSync(outDir, { recursive: true });

@@ -6,8 +6,9 @@
 #![cfg(feature = "echarts")]
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use surimono::{Options, Renderer, TextMode};
+use surimono::{Limits, Options, Renderer, TextMode};
 
 const MARKER_TYPE: &str = "application/vnd.surimono+json";
 
@@ -20,11 +21,53 @@ fn read(rel: &str) -> Vec<u8> {
     std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
+/// These tests check structure, not speed: give every island far more than
+/// the 2 s default, so a debug build under AddressSanitizer on a loaded CI
+/// runner (several times slower than release) still finishes. Speed is the
+/// benchmark's job.
+fn structural_limits() -> Limits {
+    Limits {
+        time: Duration::from_secs(60),
+        ..Limits::default()
+    }
+}
+
 fn renderer() -> Renderer {
     let options = Options::new()
         .font(read("fixtures/fonts/NotoSans-Regular.ttf"))
-        .font(read("fixtures/fonts/NotoSans-Bold.ttf"));
+        .font(read("fixtures/fonts/NotoSans-Bold.ttf"))
+        .limits(structural_limits());
     Renderer::new(options).unwrap_or_else(|e| panic!("{e}"))
+}
+
+/// For each island wrapper in `out`: its box size from the wrapper's style
+/// and the root SVG's own width and height.
+fn boxes_and_svg_sizes(out: &str) -> Vec<(f64, f64, f64, f64)> {
+    let num = |s: &str, key: &str, end: char| -> f64 {
+        let at = s
+            .find(key)
+            .unwrap_or_else(|| panic!("no {key} in {}", &s[..s.len().min(300)]));
+        let rest = &s[at + key.len()..];
+        rest[..rest.find(end).unwrap_or(rest.len())]
+            .trim_end_matches("px")
+            .parse()
+            .unwrap_or_else(|e| panic!("{key}: {e}"))
+    };
+    out.split("<div class=\"surimono-island\"")
+        .skip(1)
+        .map(|w| {
+            let tag_end = w.find('>').unwrap_or(w.len());
+            let tag = &w[..tag_end];
+            let svg_at = w.find("<svg").unwrap_or_else(|| panic!("no svg"));
+            let svg_tag = &w[svg_at..svg_at + w[svg_at..].find('>').unwrap_or(0)];
+            (
+                num(tag, "width:", 'p'),
+                num(tag, "height:", 'p'),
+                num(svg_tag, " width=\"", '"'),
+                num(svg_tag, " height=\"", '"'),
+            )
+        })
+        .collect()
 }
 
 /// The input before and after its one island marker.
@@ -54,7 +97,10 @@ fn echarts_bar_simple_latin_becomes_sanitised_svg() {
 
     // One wrapper holding one SVG.
     assert!(
-        island.starts_with("<div class=\"surimono-island\" data-renderer=\"echarts\"><svg"),
+        island.starts_with(
+            "<div class=\"surimono-island\" data-renderer=\"echarts\" \
+             style=\"width:640px;height:320px;overflow:hidden\"><svg"
+        ),
         "{}",
         &island[..island.len().min(200)]
     );
@@ -141,6 +187,7 @@ fn keep_mode_keeps_text_in_the_registered_font() {
     let options = Options::new()
         .font(read("fixtures/fonts/NotoSans-Regular.ttf"))
         .font(read("fixtures/fonts/NotoSans-Bold.ttf"))
+        .limits(structural_limits())
         .text_mode(TextMode::Keep);
     let out = Renderer::new(options)
         .and_then(|r| r.render_islands(&input))
@@ -163,7 +210,7 @@ fn every_checkpoint_fixture_renders() {
         "NotoSansJP-Bold.otf",
     ]
     .iter()
-    .fold(Options::new(), |o, f| {
+    .fold(Options::new().limits(structural_limits()), |o, f| {
         o.font(read(&format!("fixtures/fonts/{f}")))
     });
     let r = Renderer::new(options).unwrap_or_else(|e| panic!("{e}"));
@@ -191,6 +238,14 @@ fn every_checkpoint_fixture_renders() {
         );
         let lower = out.to_ascii_lowercase();
         assert!(!lower.contains("<text"), "{name}: text not outlined");
+        // Every island's SVG fits its declared box, so the box's clip hides
+        // nothing of the chart.
+        for (bw, bh, sw, sh) in boxes_and_svg_sizes(&out) {
+            assert!(
+                sw <= bw && sh <= bh,
+                "{name}: SVG {sw}x{sh} is larger than its {bw}x{bh} box"
+            );
+        }
         assert_eq!(
             r.render_islands(&input).ok().as_deref(),
             Some(out.as_str()),

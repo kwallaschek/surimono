@@ -10,12 +10,14 @@
 //! </script>
 //! ```
 //!
-//! It becomes a `div` that keeps the marker's `id` and `class`, its
-//! accessibility and presentation attributes (`style`, `title`, `lang`, `dir`,
-//! `role`, `aria-*`), and holds the SVG:
+//! It becomes a `div` of the island's declared size that clips what it holds,
+//! keeps the marker's `id` and `class` and its accessibility and presentation
+//! attributes (`style` after the size, `title`, `lang`, `dir`, `role`,
+//! `aria-*`), and holds the SVG:
 //!
 //! ```html
-//! <div class="surimono-island chart" id="sales" data-renderer="echarts"><svg …>…</svg></div>
+//! <div class="surimono-island chart" id="sales" data-renderer="echarts"
+//!      style="width:600px;height:400px;overflow:hidden"><svg …>…</svg></div>
 //! ```
 //!
 //! The `type` attribute must spell out `application/vnd.surimono+json` (any
@@ -34,6 +36,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use lol_html::errors::RewritingError;
 use lol_html::html_content::{ContentType, Element, TextChunk};
@@ -69,6 +72,48 @@ pub enum ErrorPolicy {
     /// `.surimono-island-error` to make failures visible on the page.
     Placeholder,
 }
+
+/// What a render of one document allows: the error policy, how many islands
+/// it may have, and the flag that cancels it between islands.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Document<'a> {
+    pub(crate) policy: ErrorPolicy,
+    /// Most island markers the document may have; one more fails it with
+    /// [`Error::TooManyIslands`] before any island runs.
+    pub(crate) max_islands: usize,
+    /// Checked before each island; once true, the rest are skipped with
+    /// [`Error::Cancelled`].
+    pub(crate) cancel: Option<&'a AtomicBool>,
+}
+
+impl Document<'_> {
+    /// A document with this policy, the default island cap and no cancel flag.
+    #[cfg(test)]
+    pub(crate) fn with_policy(policy: ErrorPolicy) -> Self {
+        Document {
+            policy,
+            max_islands: crate::renderer::DEFAULT_MAX_ISLANDS,
+            cancel: None,
+        }
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancel.is_some_and(|c| c.load(Ordering::Acquire))
+    }
+}
+
+/// The marker over the island cap, as a lol_html handler error (stops the
+/// rewrite at once).
+#[derive(Debug)]
+struct TooMany;
+
+impl std::fmt::Display for TooMany {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("too many islands")
+    }
+}
+
+impl std::error::Error for TooMany {}
 
 /// An island marker, read and checked.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -113,10 +158,11 @@ struct Scan {
 /// the document.
 ///
 /// `render` is called once per well-formed marker, in document order. Errors
-/// (malformed markers and whatever `render` returns) follow `policy`.
+/// (malformed markers and whatever `render` returns) follow `doc.policy`; too
+/// many markers and cancellation fail the document whatever the policy.
 pub(crate) fn rewrite_islands<F>(
     html: &str,
-    policy: ErrorPolicy,
+    doc: &Document<'_>,
     mut render: F,
 ) -> Result<String, Error>
 where
@@ -135,6 +181,7 @@ where
         let on_script = {
             let scan = Rc::clone(&scan);
             let sentinel = &sentinel;
+            let max_islands = doc.max_islands;
             move |el: &mut Element<'_, '_>| {
                 let mut s = scan.borrow_mut();
                 if !is_island(el) {
@@ -142,6 +189,9 @@ where
                     return Ok(());
                 }
                 let index = s.markers.len();
+                if index >= max_islands {
+                    return Err(Box::new(TooMany) as Box<dyn std::error::Error + Send + Sync>);
+                }
                 s.markers.push(RawMarker {
                     renderer: el.get_attribute("data-renderer"),
                     width: el.get_attribute("data-width"),
@@ -191,6 +241,9 @@ where
         };
         rewrite_str(html, settings).map_err(|e| match e {
             RewritingError::ParsingAmbiguity(e) => Error::Html(e.to_string()),
+            RewritingError::ContentHandlerError(e) if e.is::<TooMany>() => Error::TooManyIslands {
+                max: doc.max_islands,
+            },
             other => Error::Html(other.to_string()),
         })?
     };
@@ -201,8 +254,11 @@ where
     }
     let mut replacements = Vec::with_capacity(markers.len());
     for (index, raw) in markers.into_iter().enumerate() {
+        if doc.cancelled() {
+            return Err(Error::Cancelled);
+        }
         let outcome = check(index, &raw).and_then(|island| render(&island));
-        match (outcome, policy) {
+        match (outcome, doc.policy) {
             (Ok(svg), _) => replacements.push(wrapper(&raw, &svg)),
             (Err(e), ErrorPolicy::Placeholder) => replacements.push(placeholder(&raw, &e)),
             (Err(e), ErrorPolicy::Fail) => return Err(e),
@@ -331,11 +387,12 @@ fn size(attr: &str, value: Option<&str>, default: u32) -> Result<u32, String> {
 /// The element an island's SVG goes into.
 fn wrapper(raw: &RawMarker, svg: &SanitizedSvg) -> String {
     format!(
-        "<div class=\"{}\"{}{}{}>{}</div>",
+        "<div class=\"{}\"{}{}{}{}>{}</div>",
         classes("surimono-island", raw.class.as_deref()),
         attr("id", raw.id.as_deref()),
         attr("data-renderer", raw.renderer.as_deref().map(str::trim)),
-        kept(raw, true),
+        box_style(raw, true),
+        kept(raw, false),
         svg.as_str(),
     )
 }
@@ -354,7 +411,11 @@ fn kept(raw: &RawMarker, with_style: bool) -> String {
 /// The placeholder's `style`: the island's size first, so the page keeps its
 /// layout when a chart fails, then the marker's own style. A size that can't be
 /// read falls back to the default.
-fn placeholder_style(raw: &RawMarker) -> String {
+/// The `style` of an island's box: its declared size in CSS pixels, with
+/// `overflow:hidden` for a rendered island (`clip`), so SVG larger than the
+/// declared size is cut at the box and can't cover the page around it; then
+/// the marker's own `style`, which the page's author wrote.
+fn box_style(raw: &RawMarker, clip: bool) -> String {
     let px = |attr: &str, value: &Option<String>, default: u32| {
         let decoded = value.as_deref().map(decode_attribute);
         size(attr, decoded.as_deref(), default).unwrap_or(default)
@@ -364,6 +425,9 @@ fn placeholder_style(raw: &RawMarker) -> String {
         px("data-width", &raw.width, DEFAULT_WIDTH),
         px("data-height", &raw.height, DEFAULT_HEIGHT)
     );
+    if clip {
+        style.push_str(";overflow:hidden");
+    }
     if let Some((_, theirs)) = raw.kept.iter().find(|(name, _)| name == "style") {
         if !theirs.trim().is_empty() {
             style.push(';');
@@ -384,7 +448,7 @@ fn placeholder(raw: &RawMarker, error: &Error) -> String {
         attr("id", raw.id.as_deref()),
         attr("data-renderer", raw.renderer.as_deref().map(str::trim)),
         attr("data-error", Some(error.kind())),
-        placeholder_style(raw),
+        box_style(raw, false),
         kept(raw, false),
         comment_text(&error.to_string()),
     )
@@ -488,17 +552,84 @@ mod tests {
     }
 
     fn run(html: &str) -> String {
-        match rewrite_islands(html, ErrorPolicy::Fail, fake) {
+        match rewrite_islands(html, &Document::with_policy(ErrorPolicy::Fail), fake) {
             Ok(out) => out,
             Err(e) => panic!("rewrite failed: {e}"),
         }
     }
 
     fn run_err(html: &str) -> Error {
-        match rewrite_islands(html, ErrorPolicy::Fail, fake) {
+        match rewrite_islands(html, &Document::with_policy(ErrorPolicy::Fail), fake) {
             Ok(out) => panic!("expected an error, got {out}"),
             Err(e) => e,
         }
+    }
+
+    #[test]
+    fn too_many_islands_fail_before_any_island_runs() {
+        let one = format!("<script type={T} data-renderer=r>1</script>");
+        for policy in [ErrorPolicy::Fail, ErrorPolicy::Placeholder] {
+            let doc = Document {
+                max_islands: 3,
+                ..Document::with_policy(policy)
+            };
+            let mut ran = 0;
+            let mut count = |island: &Island| {
+                ran += 1;
+                fake(island)
+            };
+            assert!(rewrite_islands(&one.repeat(3), &doc, &mut count).is_ok());
+            assert_eq!(ran, 3);
+            ran = 0;
+            let mut count = |island: &Island| {
+                ran += 1;
+                fake(island)
+            };
+            match rewrite_islands(&one.repeat(4), &doc, &mut count) {
+                Err(Error::TooManyIslands { max: 3 }) => {}
+                other => panic!("{policy:?}: {other:?}"),
+            }
+            assert_eq!(
+                ran, 0,
+                "{policy:?}: no island runs in a document over the cap"
+            );
+        }
+        // Scripts of other types don't count.
+        let doc = Document {
+            max_islands: 1,
+            ..Document::with_policy(ErrorPolicy::Fail)
+        };
+        let html = format!("<script>1</script><script type=module>2</script>{one}");
+        assert!(rewrite_islands(&html, &doc, fake).is_ok());
+    }
+
+    #[test]
+    fn cancel_skips_the_remaining_islands_whatever_the_policy() {
+        let html = format!("<script type={T} data-renderer=r>1</script>").repeat(5);
+        for policy in [ErrorPolicy::Fail, ErrorPolicy::Placeholder] {
+            let cancel = AtomicBool::new(false);
+            let doc = Document {
+                cancel: Some(&cancel),
+                ..Document::with_policy(policy)
+            };
+            let mut ran = Vec::new();
+            let out = rewrite_islands(&html, &doc, |island| {
+                ran.push(island.at.index);
+                if island.at.index == 1 {
+                    cancel.store(true, Ordering::Release);
+                }
+                fake(island)
+            });
+            assert!(matches!(out, Err(Error::Cancelled)), "{policy:?}: {out:?}");
+            assert_eq!(ran, [0, 1], "{policy:?}");
+        }
+        // A flag that stays false changes nothing.
+        let cancel = AtomicBool::new(false);
+        let doc = Document {
+            cancel: Some(&cancel),
+            ..Document::with_policy(ErrorPolicy::Fail)
+        };
+        assert_eq!(rewrite_islands(&html, &doc, fake).ok(), Some(run(&html)));
     }
 
     #[test]
@@ -518,7 +649,7 @@ mod tests {
         );
         assert_eq!(
             run(&html),
-            "<p>before</p>\n<div class=\"surimono-island\" data-renderer=\"echarts\">\
+            "<p>before</p>\n<div class=\"surimono-island\" data-renderer=\"echarts\" style=\"width:300px;height:200px;overflow:hidden\">\
              <svg data-r=\"echarts\" width=\"300\" height=\"200\">{\"a\": 1}</svg></div>\n\
              <p>after</p>"
         );
@@ -539,7 +670,7 @@ mod tests {
         ));
         assert_eq!(
             out,
-            "<div class=\"surimono-island chart wide\" id=\"sales\" data-renderer=\"echarts\">\
+            "<div class=\"surimono-island chart wide\" id=\"sales\" data-renderer=\"echarts\" style=\"width:600px;height:400px;overflow:hidden\">\
              <svg data-r=\"echarts\" width=\"600\" height=\"400\">[]</svg></div>"
         );
     }
@@ -555,7 +686,7 @@ mod tests {
         }
         html.push_str("</div></section></main>");
         let mut seen = Vec::new();
-        let out = rewrite_islands(&html, ErrorPolicy::Fail, |island| {
+        let out = rewrite_islands(&html, &Document::with_policy(ErrorPolicy::Fail), |island| {
             seen.push(island.at.index);
             fake(island)
         })
@@ -564,7 +695,7 @@ mod tests {
         for i in 0..25 {
             let want = format!(
                 "<div class=\"cell\"><h2>Chart {i}</h2><div class=\"surimono-island\" \
-                 data-renderer=\"r{i}\"><svg data-r=\"r{i}\" width=\"600\" height=\"400\">\
+                 data-renderer=\"r{i}\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"r{i}\" width=\"600\" height=\"400\">\
                  {{\"n\":{i}}}</svg></div></div>"
             );
             assert!(out.contains(&want), "island {i} missing in {out}");
@@ -590,7 +721,7 @@ mod tests {
         ] {
             assert_eq!(
                 run(&marker),
-                "<div class=\"surimono-island\" data-renderer=\"x\"><svg data-r=\"x\" width=\"70\" \
+                "<div class=\"surimono-island\" data-renderer=\"x\" style=\"width:70px;height:50px;overflow:hidden\"><svg data-r=\"x\" width=\"70\" \
                  height=\"50\">1</svg></div>",
                 "marker: {marker}"
             );
@@ -604,7 +735,7 @@ mod tests {
         ));
         assert!(
             out.starts_with(
-                "<div class=\"surimono-island c&amp;d\" id=\"a&quot;b\" data-renderer=\"x\">"
+                "<div class=\"surimono-island c&amp;d\" id=\"a&quot;b\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\">"
             ),
             "{out}"
         );
@@ -625,7 +756,7 @@ mod tests {
             "<script>if (a < b && c > d) { document.write('</p>'); }</script>\
              <script type=\"application/json\" data-renderer=\"echarts\">{}</script>\
              <script type=\"module\">import x from './x.js';</script>\
-             <div class=\"surimono-island\" data-renderer=\"echarts\"><svg data-r=\"echarts\" \
+             <div class=\"surimono-island\" data-renderer=\"echarts\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"echarts\" \
              width=\"600\" height=\"400\">{}</svg></div>\
              <script src=\"a.js\"></script>"
         );
@@ -640,7 +771,7 @@ mod tests {
         ));
         assert_eq!(
             out,
-            "<div class=\"surimono-island\" data-renderer=\"x\"><svg data-r=\"x\" width=\"600\" \
+            "<div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"x\" width=\"600\" \
              height=\"400\">{\"label\":\"<\\/script><b>\"}</svg></div><i>after</i>"
         );
         // Unescaped, the script ends early and the rest isn't JSON.
@@ -661,7 +792,7 @@ mod tests {
     fn island_text_is_raw_not_entity_decoded() {
         let mut got = String::new();
         let html = format!("<script type={T} data-renderer=x>\"&lt;&amp;\"</script>");
-        rewrite_islands(&html, ErrorPolicy::Fail, |i| {
+        rewrite_islands(&html, &Document::with_policy(ErrorPolicy::Fail), |i| {
             got = i.spec_json.clone();
             Ok(SanitizedSvg::trusted_for_tests(""))
         })
@@ -677,7 +808,7 @@ mod tests {
         let out = run(&html);
         assert_eq!(
             out,
-            "\u{feff}<html>\r\n<body>\r\n<div class=\"surimono-island\" data-renderer=\"x\">\
+            "\u{feff}<html>\r\n<body>\r\n<div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\">\
              <svg data-r=\"x\" width=\"600\" height=\"400\">{\"a\":\r\n1}</svg></div>\r\n\
              </body>\r\n</html>\r\n"
         );
@@ -691,7 +822,7 @@ mod tests {
         let out = run(&html);
         assert_eq!(
             out,
-            "<p>売上 €</p><div class=\"surimono-island\" data-renderer=\"x\"><svg data-r=\"x\" \
+            "<p>売上 €</p><div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"x\" \
              width=\"600\" height=\"400\">{\"label\":\"四半期\"}</svg></div><p>終わり</p>"
         );
     }
@@ -714,7 +845,7 @@ mod tests {
         assert_eq!(
             out,
             format!(
-                "<p>{tricky}</p><div class=\"surimono-island\" data-renderer=\"x\"><svg \
+                "<p>{tricky}</p><div class=\"surimono-island\" data-renderer=\"x\" style=\"width:600px;height:400px;overflow:hidden\"><svg \
                  data-r=\"x\" width=\"600\" height=\"400\">1</svg></div>"
             )
         );
@@ -775,7 +906,7 @@ mod tests {
              <script type={T} data-renderer=ok>3</script>"
         );
         let mut calls = 0;
-        let e = match rewrite_islands(&html, ErrorPolicy::Fail, |island| {
+        let e = match rewrite_islands(&html, &Document::with_policy(ErrorPolicy::Fail), |island| {
             calls += 1;
             if island.renderer == "bad" {
                 Err(Error::TimeLimit {
@@ -801,17 +932,21 @@ mod tests {
             "<p>a</p><script type={T} id=s class=\"chart\" data-renderer=bad>1</script>\
              <script type={T} data-renderer=ok>2</script><script type={T} data-renderer=ok>{{x</script>"
         );
-        let out = rewrite_islands(&html, ErrorPolicy::Placeholder, |island| {
-            if island.renderer == "bad" {
-                Err(Error::JavaScript {
-                    island: island.at.clone(),
-                    message: "x is not defined -- see <!-- here -->".into(),
-                    stack: None,
-                })
-            } else {
-                fake(island)
-            }
-        })
+        let out = rewrite_islands(
+            &html,
+            &Document::with_policy(ErrorPolicy::Placeholder),
+            |island| {
+                if island.renderer == "bad" {
+                    Err(Error::JavaScript {
+                        island: island.at.clone(),
+                        message: "x is not defined -- see <!-- here -->".into(),
+                        stack: None,
+                    })
+                } else {
+                    fake(island)
+                }
+            },
+        )
         .unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(
             out,
@@ -819,7 +954,7 @@ mod tests {
              data-renderer=\"bad\" data-error=\"javascript\" style=\"width:600px;height:400px\">\
              <!-- surimono: island #1 (id \"s\", \
              renderer \"bad\"): JavaScript error: x is not defined - - see < !- - here - -> --></div>\
-             <div class=\"surimono-island\" data-renderer=\"ok\"><svg data-r=\"ok\" width=\"600\" \
+             <div class=\"surimono-island\" data-renderer=\"ok\" style=\"width:600px;height:400px;overflow:hidden\"><svg data-r=\"ok\" width=\"600\" \
              height=\"400\">2</svg></div>\
              <div class=\"surimono-island surimono-island-error\" data-renderer=\"ok\" \
              data-error=\"invalid-island\" style=\"width:600px;height:400px\"><!-- surimono: island #3 (renderer \"ok\"): invalid \
@@ -843,7 +978,7 @@ mod tests {
         let html = "<select><style>p{}</style></select><p>Q3</p>";
         assert_eq!(run(html), html);
         let mut calls = 0;
-        let out = rewrite_islands(html, ErrorPolicy::Fail, |_| {
+        let out = rewrite_islands(html, &Document::with_policy(ErrorPolicy::Fail), |_| {
             calls += 1;
             Ok(SanitizedSvg::trusted_for_tests(""))
         });
@@ -876,7 +1011,7 @@ mod tests {
             "<script type={T} id=\"q&amp;a\" data-renderer=\"e&#99;harts\" data-width=\"&#49;0\" \
              data-height=\"&#x32;0\">1</script>"
         );
-        let out = rewrite_islands(&html, ErrorPolicy::Fail, |island| {
+        let out = rewrite_islands(&html, &Document::with_policy(ErrorPolicy::Fail), |island| {
             seen = Some(island.clone());
             fake(island)
         })
@@ -889,7 +1024,7 @@ mod tests {
         // Written back as it was: the browser decodes it the same way again.
         assert!(
             out.starts_with(
-                "<div class=\"surimono-island\" id=\"q&amp;a\" data-renderer=\"e&#99;harts\">"
+                "<div class=\"surimono-island\" id=\"q&amp;a\" data-renderer=\"e&#99;harts\" style=\"width:10px;height:20px;overflow:hidden\">"
             ),
             "{out}"
         );
@@ -911,15 +1046,16 @@ mod tests {
         let out = run(&html);
         assert_eq!(
             out,
-            "<div class=\"surimono-island\" data-renderer=\"x\" role=\"img\" \
+            "<div class=\"surimono-island\" data-renderer=\"x\" \
+             style=\"width:600px;height:400px;overflow:hidden;width:50%\" role=\"img\" \
              aria-label=\"Sales &amp; costs\" title=\"Q3 &quot;draft&quot;\" lang=\"ja\" \
-             dir=\"ltr\" style=\"width:50%\" aria-describedby=\"note\" aria-hidden=\"\">\
+             dir=\"ltr\" aria-describedby=\"note\" aria-hidden=\"\">\
              <svg data-r=\"x\" width=\"600\" height=\"400\">1</svg></div>"
         );
         // The placeholder keeps them too.
         let failed = rewrite_islands(
             &format!("<script type={T} data-renderer=x role=img aria-label=L>1</script>"),
-            ErrorPolicy::Placeholder,
+            &Document::with_policy(ErrorPolicy::Placeholder),
             |island| {
                 Err(Error::TimeLimit {
                     island: island.at.clone(),
@@ -950,7 +1086,7 @@ mod tests {
                  style='border:1px solid \"red\"'>1</script>\
                  <script type={T} data-renderer=x data-width=12px>1</script>"
             ),
-            ErrorPolicy::Placeholder,
+            &Document::with_policy(ErrorPolicy::Placeholder),
             fail,
         )
         .unwrap_or_else(|e| panic!("{e}"));

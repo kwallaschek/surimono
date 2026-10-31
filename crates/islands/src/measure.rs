@@ -20,6 +20,7 @@ pub(crate) enum Measure {
     NoFonts,
     /// The font-free estimate: 0.6 em per character, 1 em for wide (CJK)
     /// characters, ascent 0.8 em, descent 0.2 em. Tests and tools only.
+    #[cfg(any(test, feature = "test-estimate"))]
     Estimate,
     /// Any function, for the runner's own tests (errors, panics).
     #[cfg(test)]
@@ -44,14 +45,29 @@ impl Measure {
         measurer.map_or(Self::NoFonts, Self::Fonts)
     }
 
+    /// A measurer for one worker thread: the same fonts (shared, not
+    /// copied), with measuring state of its own. A shared measurer creates
+    /// a workspace for each call that overlaps another and keeps it, so how
+    /// many it holds depends on timing; one per worker is created by the
+    /// worker's first measurement and stays the only one.
+    pub(crate) fn for_worker(&self) -> Self {
+        match self {
+            Self::Fonts(m) => Self::Fonts(TextMeasurer::new(m.fonts().clone())),
+            other => other.clone(),
+        }
+    }
+
     /// Measures `text` in the CSS `font` shorthand `css_font`.
     pub(crate) fn measure(&self, text: &str, css_font: &str) -> Result<TextMetrics, MeasureError> {
         match self {
+            // No fonts comes first, whatever else is wrong with the text.
+            Self::Fonts(m) if m.fonts().face_count() == 0 => Err(MeasureError::NoFonts),
             Self::Fonts(m) => m.measure(text, css_font).map_err(|e| match e {
                 GfxError::NoFonts => MeasureError::NoFonts,
                 other => MeasureError::Other(other.to_string()),
             }),
             Self::NoFonts => Err(MeasureError::NoFonts),
+            #[cfg(any(test, feature = "test-estimate"))]
             Self::Estimate => Ok(estimate(text, css_font)),
             #[cfg(test)]
             Self::Custom(f) => f(text, css_font).map_err(MeasureError::Other),
@@ -64,6 +80,7 @@ impl fmt::Debug for Measure {
         match self {
             Self::Fonts(m) => f.debug_tuple("Fonts").field(m).finish(),
             Self::NoFonts => f.write_str("NoFonts"),
+            #[cfg(any(test, feature = "test-estimate"))]
             Self::Estimate => f.write_str("Estimate"),
             #[cfg(test)]
             Self::Custom(_) => f.write_str("Custom"),
@@ -71,9 +88,11 @@ impl fmt::Debug for Measure {
     }
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 /// Canvas's default font size.
 const DEFAULT_FONT_PX: f64 = 10.0;
 
+#[cfg(any(test, feature = "test-estimate"))]
 /// The font size in px from a CSS `font` shorthand, or the canvas default.
 fn font_size_px(css_font: &str) -> f64 {
     for token in css_font.split_whitespace() {
@@ -101,6 +120,7 @@ fn font_size_px(css_font: &str) -> f64 {
     DEFAULT_FONT_PX
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 fn is_wide(c: char) -> bool {
     matches!(c as u32,
         0x1100..=0x115F
@@ -114,6 +134,7 @@ fn is_wide(c: char) -> bool {
         | 0x20000..=0x3FFFD)
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 fn estimate(text: &str, css_font: &str) -> TextMetrics {
     let em = font_size_px(css_font);
     let (wide, narrow) = text.chars().fold((0u32, 0u32), |(w, n), c| {
@@ -166,11 +187,37 @@ mod tests {
             empty.measure("x", "10px sans-serif"),
             Err(MeasureError::NoFonts)
         );
+        // Even for text the measurer would refuse as too long.
+        let long = "x".repeat(surimono_gfx::MAX_TEXT_BYTES + 1);
+        assert_eq!(
+            empty.measure(&long, "10px sans-serif"),
+            Err(MeasureError::NoFonts)
+        );
         let none = Measure::new(None);
         assert_eq!(
             none.measure("x", "10px sans-serif"),
             Err(MeasureError::NoFonts)
         );
         assert_eq!(format!("{none:?}"), "NoFonts");
+    }
+
+    #[test]
+    fn a_worker_measurer_measures_like_the_original() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/fonts");
+        let mut fonts = surimono_gfx::FontSet::new();
+        fonts
+            .add_font_bytes(std::fs::read(dir.join("NotoSans-Regular.ttf")).unwrap())
+            .unwrap();
+        let shared = Measure::new(Some(TextMeasurer::new(fonts)));
+        let worker = shared.for_worker();
+        for text in ["Revenue", "Q3 2026", ""] {
+            assert_eq!(
+                worker.measure(text, "12px 'Noto Sans'"),
+                shared.measure(text, "12px 'Noto Sans'"),
+                "{text:?}"
+            );
+        }
+        assert!(matches!(Measure::NoFonts.for_worker(), Measure::NoFonts));
+        assert!(matches!(Measure::Estimate.for_worker(), Measure::Estimate));
     }
 }

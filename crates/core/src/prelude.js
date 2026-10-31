@@ -7,7 +7,7 @@
   // First of all: switch off V8's stack-trace API, which quickjs-ng
   // implements. Through `Error.prepareStackTrace`, `CallSite.getFunction()`
   // hands a script the function of every frame on the stack, native ones
-  // included: the real `Date` and the unguarded built-ins this prelude hides.
+  // included, such as the real `Date` behind the shim below.
   // QuickJS reads the hook only through the accessor this replaces, so a
   // plain data property makes assignments harmless and stacks stay strings.
   Object.defineProperty(Error, 'prepareStackTrace', {
@@ -16,42 +16,12 @@
 
   const apply = Reflect.apply;
   const defineProperty = Object.defineProperty;
-  const isArray = Array.isArray;
-  const isView = ArrayBuffer.isView;
-  const stringValueOf = String.prototype.valueOf;
-  const RangeErrorCtor = RangeError;
-  const maxLength = config.maxLength;
 
-  // --- Long native loops --------------------------------------------------
-  //
-  // Some of QuickJS's array built-ins walk an array-like index by index in
-  // native code without checking for interrupts, so
-  // `Array.prototype.join.call({ length: 2 ** 40 })` would never return and
-  // the time limit could not stop it. No array-like can hold more elements
-  // than fit in the heap, so a longer one is sparse by construction: refuse
-  // it before the native loop starts. Typed arrays and strings use their
-  // real length and are exempt.
-
-  function isStringObject(o) {
-    try {
-      apply(stringValueOf, o, []);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  function checkLength(o, what) {
-    if (o === null || (typeof o !== 'object' && typeof o !== 'function')) {
-      return;
-    }
-    const len = +o.length;
-    if (len > maxLength && !isView(o) && !isStringObject(o)) {
-      throw new RangeErrorCtor(
-        what + ': length ' + len + ' exceeds the sandbox limit of ' + maxLength,
-      );
-    }
-  }
+  // Long native loops (join, fill, sort... over an array-like with a huge
+  // `length`) used to need guards here. The patched QuickJS
+  // (vendor/rquickjs-sys/PATCHES.md) polls for interrupts inside them, so
+  // the time limit stops them like any other loop, and the built-ins stay
+  // native.
 
   function replace(target, name, fn, length) {
     defineProperty(fn, 'length', { value: length, configurable: true });
@@ -62,102 +32,6 @@
       configurable: true,
     });
   }
-
-  function guardThis(target, name) {
-    const native = target[name];
-    const what = 'Array.prototype.' + name;
-    const guarded = {
-      [name](...args) {
-        checkLength(this, what);
-        return apply(native, this, args);
-      },
-    }[name];
-    replace(target, name, guarded, native.length);
-  }
-
-  const AP = Array.prototype;
-  for (const name of [
-    'copyWithin', 'join', 'reverse', 'shift', 'slice', 'sort', 'splice',
-    'toLocaleString', 'unshift',
-  ]) {
-    guardThis(AP, name);
-  }
-
-  // concat spreads its arguments too.
-  const nativeConcat = AP.concat;
-  const isConcatSpreadable = Symbol.isConcatSpreadable;
-  replace(AP, 'concat', {
-    concat(...items) {
-      checkLength(this, 'Array.prototype.concat');
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item !== null && typeof item === 'object' &&
-            (isArray(item) || item[isConcatSpreadable])) {
-          checkLength(item, 'Array.prototype.concat');
-        }
-      }
-      return apply(nativeConcat, this, items);
-    },
-  }.concat, nativeConcat.length);
-
-  // flat descends into nested arrays, which the receiver check can't see:
-  // check them, to the requested depth, before the native call. (This loop
-  // is script code, so the time limit applies to it.)
-  function scan(arr, depth, what) {
-    checkLength(arr, what);
-    if (depth < 1) return;
-    const len = +arr.length;
-    for (let i = 0; i < len; i++) {
-      const el = arr[i];
-      if (isArray(el)) scan(el, depth - 1, what);
-    }
-  }
-  const nativeFlat = AP.flat;
-  replace(AP, 'flat', {
-    flat(depth) {
-      let d = depth === undefined ? 1 : +depth;
-      if (d !== d) d = 0;
-      if (this !== null && this !== undefined) scan(this, d, 'Array.prototype.flat');
-      return apply(nativeFlat, this, arguments);
-    },
-  }.flat, nativeFlat.length);
-
-  // flatMap flattens what the callback returns: check each result.
-  const nativeFlatMap = AP.flatMap;
-  replace(AP, 'flatMap', {
-    flatMap(callback, thisArg) {
-      checkLength(this, 'Array.prototype.flatMap');
-      if (typeof callback !== 'function') {
-        return apply(nativeFlatMap, this, arguments);
-      }
-      const checked = function (el, i, arr) {
-        const r = apply(callback, thisArg, [el, i, arr]);
-        if (isArray(r)) checkLength(r, 'Array.prototype.flatMap');
-        return r;
-      };
-      return apply(nativeFlatMap, this, [checked]);
-    },
-  }.flatMap, nativeFlatMap.length);
-
-  // JSON.stringify walks an array replacer natively.
-  const nativeStringify = JSON.stringify;
-  replace(JSON, 'stringify', {
-    stringify(value, replacer, space) {
-      if (isArray(replacer)) checkLength(replacer, 'JSON.stringify');
-      return apply(nativeStringify, JSON, arguments);
-    },
-  }.stringify, nativeStringify.length);
-
-  // String.raw walks its template's raw strings.
-  const nativeRaw = String.raw;
-  replace(String, 'raw', {
-    raw(template, ...subs) {
-      if (template !== null && template !== undefined) {
-        checkLength(template.raw, 'String.raw');
-      }
-      return apply(nativeRaw, String, arguments);
-    },
-  }.raw, nativeRaw.length);
 
   // --- Determinism -----------------------------------------------------------
   //
@@ -370,9 +244,31 @@
                      'PDT', 'PST', 'WET', 'WEST', 'CET', 'CEST', 'EET', 'EEST'];
   const zoneOffsets = [0, 0, 0, 0, -240, -300, -300, -360, -360, -420, -420, -480,
                        0, 60, 60, 120, 120, 180];
-  // Days in 400 Gregorian years, in ms: shifts years 0-99 past Date.UTC's
-  // two-digit-year rule without changing the result.
-  const msPer400Years = 146097 * 86400000;
+  // ECMA-262 MakeDay, MakeTime and MakeDate (§21.4.1.27 to .29) for
+  // integer fields, without TimeClip: the caller converts local time to
+  // UTC first and clips after (TimeClip(UTC(t)), §21.4.2.1 step 5), so a
+  // local time past the end of the range in a zone ahead of UTC is still
+  // valid. Years outside [-271821, 275760] give NaN, as in QuickJS's
+  // set_date_fields: no day of theirs is a valid time value. Same operation
+  // order as the spec and set_date_fields, so rounding matches too.
+  const floor = Math.floor;
+  const mathTrunc = Math.trunc;
+  const daysBeforeMonth = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  function makeDate(y, mon, day, h, min, sec, ms) {
+    const ym = y + floor(mon / 12);
+    if (!(ym >= -271821 && ym <= 275760)) return NaN;
+    let mn = mon % 12;
+    if (mn < 0) mn += 12;
+    let days = 365 * (ym - 1970) + floor((ym - 1969) / 4) -
+      floor((ym - 1901) / 100) + floor((ym - 1601) / 400) + daysBeforeMonth[mn];
+    if (mn > 1 && ym % 4 === 0 && (ym % 100 !== 0 || ym % 400 === 0)) days++;
+    const time = h * 3600000 + min * 60000 + sec * 1000 + ms;
+    return (days + day - 1) * 86400000 + time;
+  }
+  // §21.4.1.31 TimeClip.
+  function timeClip(t) {
+    return t >= -8.64e15 && t <= 8.64e15 ? mathTrunc(t) + 0 : NaN;
+  }
 
   let src = '';    // the string being parsed
   let srcLen = 0;  // where QuickJS's C string ends: first NUL, at most 127
@@ -714,15 +610,12 @@
         (F[3] === 24 && (F[4] | F[5] | F[6]) !== 0)) {
       return NaN;
     }
-    // set_date_fields(fields, is_local): MakeDay, MakeTime, MakeDate, TimeClip.
-    const y = F[0];
-    const shift = y >= 0 && y < 100;
-    let t = apply(nativeUTC, undefined, [shift ? y + 400 : y, F[1], F[2], F[3], F[4],
-                                         F[5], F[6]]);
-    if (shift) t -= msPer400Years;
+    // set_date_fields(fields, is_local): MakeDay, MakeTime, MakeDate, local
+    // time to UTC, then TimeClip. Like QuickJS, a zone given in the string
+    // is applied after clipping.
+    let t = makeDate(F[0], F[1], F[2], F[3], F[4], F[5], F[6]);
     if (isLocal) t -= offsetMs;
-    t = t >= -8.64e15 && t <= 8.64e15 ? t : NaN;
-    return t - F[8] * 60000;
+    return timeClip(t) - F[8] * 60000;
   }
 
   // ECMA-262 §7.1.1 ToPrimitive with no hint, run here rather than in the
@@ -783,7 +676,19 @@
     } else if (n === 1) {
       v = timeValueOf(year);
     } else {
-      v = apply(nativeUTC, undefined, arguments) - offsetMs;
+      // §21.4.2.1 step 5: ToNumber on every argument, in order; two-digit
+      // years are in the 1900s; then TimeClip(UTC(MakeDate(...))), so the
+      // offset applies before clipping.
+      const f = [0, 0, 1, 0, 0, 0, 0];
+      for (let i = 0; i < n && i < 7; i++) f[i] = +arguments[i];
+      let finite = true;
+      for (let i = 0; i < 7; i++) {
+        if (f[i] - f[i] === 0) f[i] = mathTrunc(f[i]);
+        else finite = false;
+      }
+      if (f[0] >= 0 && f[0] <= 99) f[0] += 1900;
+      v = finite ? timeClip(makeDate(f[0], f[1], f[2], f[3], f[4], f[5], f[6]) - offsetMs)
+        : NaN;
     }
     return construct(RealDate, [v], new.target);
   };

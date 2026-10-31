@@ -1,97 +1,194 @@
-//! Minimal CSS rewriting for SVG `style` attributes and `<style>` sheets.
+//! CSS rewriting for SVG `style` attributes and presentation attributes.
+//! (`<style>` elements are removed whole; see `sanitize_svg`.)
 //!
-//! Not a full CSS parser: it tracks strings, comments, parentheses and blocks
-//! well enough to find every `url(...)`, `@import`, `font`/`font-family`
-//! declaration and `#id` selector, and edits only those. Anything that could
-//! hide a resource load from this scanner (CSS escapes outside strings,
-//! `image-set()`, `expression()`) drops the declaration or rule.
+//! Everything goes through one CSS Syntax Level 3 tokenizer ([`tokenizer`]),
+//! after the spec's preprocessing (CR, CR LF and FF become LF), so this module
+//! and the browser agree on every string, comment, `url(...)`, bad url and
+//! block. On those tokens:
+//!
+//! - each `url(...)` is rewritten: `#id` gets the island prefix,
+//!   `data:image/...` stays, anything else (bad urls too) becomes `none`;
+//! - `font` / `font-family` get the registered families;
+//! - a declaration or attribute value holding a function that can load
+//!   without `url(` (`image-set()`, `image()`, `src()`, ...), an at-keyword,
+//!   an escape in a name, a bad string or anything left open at the end is
+//!   dropped, and so is anything in a `style` attribute that isn't a
+//!   declaration (at-rules, nested rules);
+//! - optionally, only listed properties are kept (the root `<svg>`).
+//!
+//! Then the result is tokenized again and checked on its own, with no
+//! structure: every url is a fragment or an inline image, and no loading
+//! function, at-keyword, escape or bad or unclosed token is left anywhere.
+//! CSS that fails this check is dropped as a whole, so a gap in the walker
+//! fails closed.
 
-use std::collections::HashSet;
+mod tokenizer;
+
 use std::ops::Range;
+
+use tokenizer::{Kind, Token, preprocess, tokenize};
 
 use crate::css_font::FontSpec;
 use crate::fonts::FontSet;
 
-/// Nesting deeper than this is rejected rather than scanned.
+/// Nesting deeper than this is rejected rather than walked.
 const MAX_DEPTH: usize = 64;
+
+/// Longest CSS (one attribute value) that is read; longer is dropped. A
+/// chart's `style` attributes are about 100 bytes, and this keeps the
+/// tokens of any one value to a few MB while it is checked.
+pub(crate) const MAX_CSS_BYTES: usize = 64 * 1024;
 
 /// What the rewriter needs from the SVG around the CSS.
 pub(crate) struct CssContext<'a> {
     pub(crate) fonts: &'a FontSet,
     /// Prefix for `#id` references.
     pub(crate) id_prefix: &'a str,
-    /// Ids defined in the SVG; only these `#id` selectors are prefixed.
-    pub(crate) ids: &'a HashSet<String>,
     /// Quote character for family names (the one the surrounding XML does
     /// not use as attribute delimiter).
     pub(crate) quote: char,
 }
 
-/// Rewrites a declaration list (a `style` attribute). `Ok(None)`: unchanged.
+/// The outcome of rewriting some CSS.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Rewrite {
+    /// The CSS is safe as it is.
+    Unchanged,
+    /// The CSS to write instead.
+    Changed(String),
+    /// Drop the attribute.
+    Drop,
+}
+
+/// Rewrites a declaration list (a `style` attribute). With `allowed`, only
+/// declarations of those properties (lower case) are kept.
 pub(crate) fn rewrite_declarations(
     css: &str,
     cx: &CssContext<'_>,
-) -> Result<Option<String>, String> {
-    let mut sc = Scanner::new(css, cx);
-    let mut i = 0;
-    while i < css.len() {
-        // A stray `}` in a style attribute ends nothing; step over it.
-        i = sc.declarations(i, 0)? + 1;
+    allowed: Option<&[&str]>,
+) -> Result<Rewrite, String> {
+    if css.len() > MAX_CSS_BYTES {
+        return Ok(Rewrite::Drop);
     }
-    Ok(sc.finish())
+    let pre = preprocess(css);
+    let mut w = Walker::new(&pre, cx);
+    w.declarations(allowed)?;
+    Ok(w.finish(css))
 }
 
-/// Rewrites a style sheet (`<style>` text). `Ok(None)`: unchanged.
-pub(crate) fn rewrite_stylesheet(css: &str, cx: &CssContext<'_>) -> Result<Option<String>, String> {
-    let mut sc = Scanner::new(css, cx);
-    let mut i = 0;
-    while i < css.len() {
-        i = sc.rules(i, 0)? + 1;
+/// Rewrites a presentation attribute's value (`fill="url(#g)"`, `mask`,
+/// `cursor`, ...), which the browser parses as a CSS property value.
+pub(crate) fn rewrite_value(css: &str, cx: &CssContext<'_>) -> Rewrite {
+    if css.len() > MAX_CSS_BYTES {
+        return Rewrite::Drop;
     }
-    Ok(sc.finish())
+    let pre = preprocess(css);
+    let mut w = Walker::new(&pre, cx);
+    let end = w.t.len();
+    let ok = w.value_is_safe(0, end) && w.urls(0, end).is_ok();
+    if !ok {
+        return Rewrite::Drop;
+    }
+    w.finish(css)
 }
 
-/// True if every string and comment in `css` is closed. A style sheet that
-/// ends inside one is not something a chart library writes, and whatever
-/// follows the opening quote is text no rule can use: such a sheet is dropped.
-pub(crate) fn strings_and_comments_closed(css: &str) -> bool {
-    let b = css.as_bytes();
-    let mut i = 0;
-    while i < b.len() {
-        match b[i] {
-            b'\\' => i += 2,
-            q @ (b'"' | b'\'') => {
-                i += 1;
-                loop {
-                    match b.get(i) {
-                        None | Some(b'\n' | b'\r' | b'\x0c') => return false,
-                        Some(b'\\') => i += 2,
-                        Some(&c) if c == q => break,
-                        Some(_) => i += 1,
-                    }
+/// One top-level item of a declaration list: its byte range in the
+/// preprocessed CSS, and the lower-case property name and value range when
+/// it is a declaration (`name: value`).
+struct Item {
+    range: Range<usize>,
+    declaration: Option<(String, Range<usize>)>,
+}
+
+/// Splits a declaration list at top-level `;` with the tokenizer.
+fn items(css: &str, t: &[Token]) -> Vec<Item> {
+    let start = |i: usize| t.get(i).map_or(css.len(), |t| t.range.start);
+    let mut out = Vec::new();
+    let mut depth = 0usize;
+    let mut first = 0;
+    for i in 0..=t.len() {
+        let item_ends = match t.get(i).map(|t| t.kind) {
+            None => true,
+            Some(Kind::Semicolon) => depth == 0,
+            Some(k) => {
+                if closer(k).is_some() {
+                    depth += 1;
+                } else if matches!(k, Kind::CloseParen | Kind::CloseSquare | Kind::CloseCurly) {
+                    depth = depth.saturating_sub(1);
                 }
-                i += 1;
+                false
             }
-            b'/' if b.get(i + 1) == Some(&b'*') => match css[i + 2..].find("*/") {
-                Some(k) => i += 2 + k + 2,
-                None => return false,
-            },
-            _ => i += 1,
+        };
+        if !item_ends {
+            continue;
+        }
+        let mut j = first;
+        while j < i && matches!(t[j].kind, Kind::Whitespace | Kind::Comment) {
+            j += 1;
+        }
+        let mut colon = j + 1;
+        while colon < i && matches!(t[colon].kind, Kind::Whitespace | Kind::Comment) {
+            colon += 1;
+        }
+        let declaration =
+            (j < i && t[j].kind == Kind::Ident && colon < i && t[colon].kind == Kind::Colon)
+                .then(|| (t[j].value.to_ascii_lowercase(), start(colon + 1)..start(i)));
+        out.push(Item {
+            range: start(first)..start(i),
+            declaration,
+        });
+        first = i + 1;
+    }
+    out
+}
+
+/// The declarations of a (sanitized) `style` attribute whose names `keep`
+/// accepts, as lower-case name and trimmed value without `!important`.
+/// Nothing for CSS over [`MAX_CSS_BYTES`] (the sanitiser drops it).
+pub(crate) fn declaration_pairs(css: &str, keep: impl Fn(&str) -> bool) -> Vec<(String, String)> {
+    if css.len() > MAX_CSS_BYTES {
+        return Vec::new();
+    }
+    let pre = preprocess(css);
+    let t = tokenize(&pre);
+    items(&pre, &t)
+        .into_iter()
+        .filter_map(|item| item.declaration)
+        .filter(|(name, _)| keep(name))
+        .map(|(name, value)| {
+            let v = pre[value].trim();
+            let lower = v.to_ascii_lowercase();
+            let v = match lower.strip_suffix("important").map(str::trim_end) {
+                Some(rest) if rest.ends_with('!') => v[..rest.len() - 1].trim_end(),
+                _ => v,
+            };
+            (name, v.to_string())
+        })
+        .collect()
+}
+
+/// A (sanitized) `style` attribute without the declarations of `names`
+/// (empty for CSS over [`MAX_CSS_BYTES`]).
+pub(crate) fn remove_properties(css: &str, names: &[&str]) -> String {
+    if css.len() > MAX_CSS_BYTES {
+        return String::new();
+    }
+    let pre = preprocess(css);
+    let t = tokenize(&pre);
+    let mut out = String::with_capacity(pre.len());
+    let mut pos = 0;
+    for item in items(&pre, &t) {
+        if item
+            .declaration
+            .as_ref()
+            .is_some_and(|(name, _)| names.contains(&name.as_str()))
+        {
+            out.push_str(&pre[pos..item.range.start]);
+            pos = item.range.end;
         }
     }
-    true
-}
-
-/// Rewrites only the `url(...)` tokens in a presentation attribute value
-/// such as `fill="url(#g)"`. `Ok(None)`: unchanged.
-pub(crate) fn rewrite_urls(value: &str, cx: &CssContext<'_>) -> Result<Option<String>, String> {
-    let mut sc = Scanner::new(value, cx);
-    if sc.has_escape_outside_strings(0..value.len()) {
-        // An escaped `url(` would slip past the scanner: drop the value.
-        return Ok(Some("none".to_string()));
-    }
-    sc.urls(0..value.len());
-    Ok(sc.finish())
+    out.push_str(&pre[pos..]);
+    out
 }
 
 /// The value to write for a `font-family`: the registered stack, quoted.
@@ -134,188 +231,246 @@ fn css_string(s: &str, quote: char) -> String {
     out
 }
 
-fn is_ident_byte(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b >= 0x80
+/// Functions that can load a resource without a `url(` token, or that
+/// build values from outside the CSS. A declaration, rule or attribute
+/// holding one is dropped.
+fn is_loading_function(lower: &str) -> bool {
+    lower.contains("image") // image(), image-set(), -webkit-image-set()
+        || matches!(
+            lower,
+            "src"
+                | "expression"
+                | "element"
+                | "-moz-element"
+                | "attr"
+                | "paint"
+                | "cross-fade"
+                | "-webkit-cross-fade"
+        )
 }
 
-struct Scanner<'a> {
+/// A URL that loads nothing: a fragment or an inline image.
+fn is_safe_url(url: &str) -> bool {
+    url_parser_input(url).is_some_and(|u| u.starts_with('#') || is_inline_image(&u))
+}
+
+/// A URL as the URL Standard's parser starts on it: leading and trailing C0
+/// controls and spaces stripped, and tab, LF and CR removed, nothing else.
+/// `None` if it holds a C1 control (U+0080 to U+009F): an HTML parser reads
+/// `&#x80;`-`&#x9F;` as other characters (windows-1252) than XML does.
+/// Every URL decision is made on this, so `d ata:image/..` stays relative
+/// and `\u{3000}https://` is not a link.
+pub(crate) fn url_parser_input(url: &str) -> Option<String> {
+    if url.chars().any(|c| (0x80..=0x9f).contains(&(c as u32))) {
+        return None;
+    }
+    let trimmed = url.trim_matches(|c: char| c <= ' ');
+    Some(
+        trimmed
+            .chars()
+            .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+            .collect(),
+    )
+}
+
+/// `data:image/...` URLs (as [`url_parser_input`] gives them) are
+/// self-contained and safe to keep.
+pub(crate) fn is_inline_image(url: &str) -> bool {
+    url.get(..11)
+        .is_some_and(|p| p.eq_ignore_ascii_case("data:image/"))
+}
+
+/// The final, structure-free check of CSS about to be written: tokenized on
+/// its own, it holds no url but fragments and inline images, no loading
+/// function, at-keyword, escape in a name, or bad or unclosed token.
+fn is_safe(css: &str) -> bool {
+    let t = tokenize(css);
+    t.iter().enumerate().all(|(i, tok)| {
+        if tok.escaped || tok.unclosed {
+            return false;
+        }
+        match tok.kind {
+            Kind::BadString | Kind::BadUrl | Kind::AtKeyword | Kind::Delim('\\') => false,
+            Kind::Url => is_safe_url(&tok.value),
+            Kind::Function if tok.value.eq_ignore_ascii_case("url") => {
+                let arg = t[i + 1..]
+                    .iter()
+                    .find(|t| !matches!(t.kind, Kind::Whitespace | Kind::Comment));
+                arg.is_some_and(|a| a.kind == Kind::String && is_safe_url(&a.value))
+            }
+            Kind::Function => !is_loading_function(&tok.value.to_ascii_lowercase()),
+            _ => true,
+        }
+    })
+}
+
+/// The closing token for a block opener.
+fn closer(kind: Kind) -> Option<Kind> {
+    match kind {
+        Kind::OpenCurly => Some(Kind::CloseCurly),
+        Kind::OpenSquare => Some(Kind::CloseSquare),
+        Kind::OpenParen | Kind::Function => Some(Kind::CloseParen),
+        _ => None,
+    }
+}
+
+/// Walks the tokens of preprocessed CSS and collects edits. Token index
+/// ranges `[a, b)` cover the bytes `start(a)..start(b)`, as tokens tile the
+/// input.
+struct Walker<'a> {
     s: &'a str,
-    b: &'a [u8],
+    t: Vec<Token>,
     cx: &'a CssContext<'a>,
     edits: Vec<(Range<usize>, String)>,
 }
 
-impl<'a> Scanner<'a> {
+impl<'a> Walker<'a> {
     fn new(s: &'a str, cx: &'a CssContext<'a>) -> Self {
-        Scanner {
+        Walker {
             s,
-            b: s.as_bytes(),
+            t: tokenize(s),
             cx,
             edits: Vec::new(),
         }
     }
 
-    fn finish(mut self) -> Option<String> {
-        if self.edits.is_empty() {
-            return None;
-        }
-        self.edits.sort_by_key(|(r, _)| (r.start, r.end));
-        let mut out = String::with_capacity(self.s.len() + 64);
-        let mut pos = 0;
-        for (r, new) in &self.edits {
-            if r.start < pos {
-                continue; // nested in an earlier edit (a dropped rule); already gone
-            }
-            out.push_str(&self.s[pos..r.start]);
-            out.push_str(new);
-            pos = r.end;
-        }
-        out.push_str(&self.s[pos..]);
-        Some(out)
-    }
-
-    /// Index just past a string starting at `i` (the quote). Unterminated
-    /// strings end at a newline or the end, as in CSS.
-    fn skip_string(&self, i: usize) -> usize {
-        let q = self.b[i];
-        let mut j = i + 1;
-        while j < self.b.len() {
-            match self.b[j] {
-                b'\\' => j += 2,
-                b'\n' => return j,
-                c if c == q => return j + 1,
-                _ => j += 1,
-            }
-        }
-        self.b.len()
-    }
-
-    /// Index just past a comment starting at `i` (`/*`).
-    fn skip_comment(&self, i: usize) -> usize {
-        match self.s[i + 2..].find("*/") {
-            Some(k) => i + 2 + k + 2,
-            None => self.b.len(),
+    /// The kind of token `i`, or `None` at or past `lim`.
+    fn kind(&self, i: usize, lim: usize) -> Option<Kind> {
+        if i < lim {
+            self.t.get(i).map(|t| t.kind)
+        } else {
+            None
         }
     }
 
-    fn skip_ws_comments(&self, mut i: usize) -> usize {
-        loop {
-            while i < self.b.len() && self.b[i].is_ascii_whitespace() {
-                i += 1;
-            }
-            let rest = self.b.get(i..).unwrap_or(&[]);
-            if rest.is_empty() {
-                return i.min(self.b.len());
-            } else if rest.starts_with(b"/*") {
-                i = self.skip_comment(i);
-            } else if rest.starts_with(b"<!--") {
-                i += 4; // CDO, ignored by CSS
-            } else if rest.starts_with(b"-->") {
-                i += 3; // CDC
-            } else {
-                return i;
-            }
-        }
+    /// Byte offset where token `i` starts (the end of the input past the last).
+    fn start(&self, i: usize) -> usize {
+        self.t.get(i).map_or(self.s.len(), |t| t.range.start)
     }
 
-    /// Finds the first of `stops` at parenthesis depth 0, outside strings and
-    /// comments. Returns its index (or the end) and the byte found.
-    fn find_stop(&self, mut i: usize, stops: &[u8]) -> (usize, Option<u8>) {
-        let mut parens = 0usize;
-        while i < self.b.len() {
-            let c = self.b[i];
-            match c {
-                b'"' | b'\'' => {
-                    i = self.skip_string(i);
-                    continue;
-                }
-                b'/' if self.b.get(i + 1) == Some(&b'*') => {
-                    i = self.skip_comment(i);
-                    continue;
-                }
-                b'\\' => {
-                    i += 2;
-                    continue;
-                }
-                b'(' => parens += 1,
-                b')' => parens = parens.saturating_sub(1),
-                _ if parens == 0 && stops.contains(&c) => return (i, Some(c)),
-                _ => {}
-            }
+    fn skip_trivia(&self, mut i: usize, lim: usize) -> usize {
+        while matches!(self.kind(i, lim), Some(Kind::Whitespace | Kind::Comment)) {
             i += 1;
         }
-        (self.b.len(), None)
+        i
     }
 
-    fn has_escape_outside_strings(&self, r: Range<usize>) -> bool {
-        let mut i = r.start;
-        while i < r.end {
-            match self.b[i] {
-                b'"' | b'\'' => i = self.skip_string(i),
-                b'/' if self.b.get(i + 1) == Some(&b'*') => i = self.skip_comment(i),
-                b'\\' => return true,
-                _ => i += 1,
-            }
-        }
-        false
-    }
-
-    /// Scans a block of declarations from `i` to the `}` that closes it (its
-    /// index is returned) or the end.
-    fn declarations(&mut self, mut i: usize, depth: usize) -> Result<usize, String> {
-        if depth > MAX_DEPTH {
-            return Err("CSS nests too deeply".into());
-        }
-        loop {
-            i = self.skip_ws_comments(i);
-            match self.b.get(i) {
-                None => return Ok(self.b.len()),
-                Some(b'}') => return Ok(i),
-                Some(b';') => {
-                    i += 1;
-                    continue;
-                }
-                _ => {}
-            }
-            let start = i;
-            let (end, stop) = self.find_stop(i, b";{}");
-            if stop == Some(b'{') {
-                // A nested rule (CSS nesting): selector, then a block.
-                self.selector(start..end);
-                let close = self.declarations(end + 1, depth + 1)?;
-                i = close + 1;
-                continue;
-            }
-            self.declaration(start..end);
-            i = end;
-            if stop == Some(b'}') {
-                return Ok(end);
-            }
-        }
-    }
-
-    fn declaration(&mut self, r: Range<usize>) {
-        // Anything that could load a resource without a plain `url(` token
-        // loses the whole declaration.
-        let lower = self.s[r.clone()].to_ascii_lowercase();
-        if self.has_escape_outside_strings(r.clone())
-            || lower.contains("image-set(")
-            || lower.contains("image(")
-            || lower.contains("src(")
-            || lower.contains("expression(")
-            || lower.contains("element(")
-        {
+    /// Removes the tokens `[a, b)`.
+    fn drop_tokens(&mut self, a: usize, b: usize) {
+        let r = self.start(a)..self.start(b);
+        if !r.is_empty() {
             self.edits.push((r, String::new()));
-            return;
         }
-        let Some(colon) = self.s[r.clone()].find(':').map(|k| r.start + k) else {
-            self.urls(r);
-            return;
+    }
+
+    /// Index just past the component value starting at `i` (a token, or a
+    /// block or function through its matching closer, §5.4.7-9).
+    fn component_end(&self, i: usize, lim: usize) -> Result<usize, String> {
+        let Some(first) = self.kind(i, lim).and_then(closer) else {
+            return Ok(i + 1);
         };
-        let name = self.s[r.start..colon].trim().to_ascii_lowercase();
-        let value = colon + 1..r.end;
+        let mut stack = vec![first];
+        let mut j = i + 1;
+        while let Some(k) = self.kind(j, lim) {
+            if Some(&k) == stack.last() {
+                stack.pop();
+                if stack.is_empty() {
+                    return Ok(j + 1);
+                }
+            } else if let Some(c) = closer(k) {
+                if stack.len() >= MAX_DEPTH {
+                    return Err("CSS nests too deeply".into());
+                }
+                stack.push(c);
+            }
+            j += 1;
+        }
+        Ok(j)
+    }
+
+    /// Index of the next top-level `;` or `}` from `j` (or `lim`).
+    fn until_semicolon(&self, mut j: usize, lim: usize) -> Result<usize, String> {
+        loop {
+            match self.kind(j, lim) {
+                None | Some(Kind::Semicolon | Kind::CloseCurly) => return Ok(j),
+                Some(_) => j = self.component_end(j, lim)?,
+            }
+        }
+    }
+
+    /// A `style` attribute: declarations separated by `;` (§5.4.6). Anything
+    /// else (at-rules, nested rules, garbage) is dropped up to the next
+    /// top-level `;`; a stray `}` is stepped over.
+    fn declarations(&mut self, allowed: Option<&[&str]>) -> Result<(), String> {
+        let lim = self.t.len();
+        let mut i = 0;
+        loop {
+            match self.kind(i, lim) {
+                None => return Ok(()),
+                Some(Kind::Whitespace | Kind::Comment | Kind::Semicolon | Kind::CloseCurly) => {
+                    i += 1
+                }
+                Some(k) => {
+                    let end = self.until_semicolon(i, lim)?;
+                    let colon = self.skip_trivia(i + 1, lim);
+                    let is_declaration =
+                        k == Kind::Ident && self.kind(colon, end) == Some(Kind::Colon);
+                    let name = self.t[i].value.to_ascii_lowercase();
+                    if is_declaration && allowed.is_none_or(|list| list.contains(&name.as_str())) {
+                        self.declaration(i, colon + 1, end)?;
+                    } else {
+                        self.drop_tokens(i, end);
+                    }
+                    i = end;
+                }
+            }
+        }
+    }
+
+    /// True if nothing in `[a, b)` (blocks and functions included) can load
+    /// or hide anything: no loading function, `url()` function without a
+    /// string, at-keyword, escape, bad string or unclosed token.
+    fn value_is_safe(&self, a: usize, b: usize) -> bool {
+        (a..b.min(self.t.len())).all(|j| {
+            let t = &self.t[j];
+            if t.escaped || t.unclosed {
+                return false;
+            }
+            match t.kind {
+                Kind::BadString | Kind::AtKeyword | Kind::Delim('\\') => false,
+                Kind::Function => {
+                    let lower = t.value.to_ascii_lowercase();
+                    !is_loading_function(&lower)
+                        && (lower != "url"
+                            || self.kind(self.skip_trivia(j + 1, b), b) == Some(Kind::String))
+                }
+                _ => true,
+            }
+        })
+    }
+
+    /// True if `[a, b)` holds a url, a bad url or a `url()` function.
+    fn has_url(&self, a: usize, b: usize) -> bool {
+        self.t[a..b.min(self.t.len())].iter().any(|t| {
+            matches!(t.kind, Kind::Url | Kind::BadUrl)
+                || (t.kind == Kind::Function && t.value.eq_ignore_ascii_case("url"))
+        })
+    }
+
+    /// A declaration: name token `n`, value `[a, b)`.
+    fn declaration(&mut self, n: usize, a: usize, b: usize) -> Result<(), String> {
+        let name = self.t[n].value.to_ascii_lowercase();
+        if self.t[n].escaped || !self.value_is_safe(a, b) {
+            self.drop_tokens(n, b);
+            return Ok(());
+        }
         if name == "font-family" || name == "font" {
-            let core = value_core(self.s, value.clone());
+            if self.has_url(a, b) {
+                self.drop_tokens(n, b);
+                return Ok(());
+            }
+            let value = self.start(a)..self.start(b);
+            let core = value_core(self.s, value);
             let core_str = &self.s[core.clone()];
             let family = if name == "font-family" {
                 Some(core.clone())
@@ -329,210 +484,84 @@ impl<'a> Scanner<'a> {
                     self.edits.push((f, new));
                 }
             }
-            return;
+            return Ok(());
         }
-        self.urls(value);
+        self.urls(a, b)
     }
 
-    /// Prefixes `#id` selectors that name ids defined in this SVG, and
-    /// ECharts' `.zr0-cls-1` class selectors.
-    fn selector(&mut self, r: Range<usize>) {
-        let mut i = r.start;
-        while i < r.end {
-            match self.b[i] {
-                b'"' | b'\'' => {
-                    i = self.skip_string(i);
-                    continue;
-                }
-                b'/' if self.b.get(i + 1) == Some(&b'*') => {
-                    i = self.skip_comment(i);
-                    continue;
-                }
-                b'\\' => {
-                    i += 2;
-                    continue;
-                }
-                b'#' | b'.' => {
-                    let start = i + 1;
-                    let mut j = start;
-                    while j < r.end && is_ident_byte(self.b[j]) {
-                        j += 1;
-                    }
-                    let name = &self.s[start..j];
-                    let prefixed = if self.b[i] == b'#' {
-                        self.cx.ids.contains(name)
-                    } else {
-                        super::is_echarts_class(name)
+    /// Rewrites every url in `[a, b)`: `#id` gets the island prefix,
+    /// `data:image/...` stays, anything else (bad urls too) becomes `none`.
+    fn urls(&mut self, a: usize, b: usize) -> Result<(), String> {
+        let mut j = a;
+        while j < b {
+            let t = &self.t[j];
+            let (url, end) = match t.kind {
+                Kind::Url => (Some(t.value.clone()), j + 1),
+                Kind::BadUrl => (None, j + 1),
+                Kind::Function if t.value.eq_ignore_ascii_case("url") => {
+                    let arg = self.skip_trivia(j + 1, b);
+                    let url = match self.kind(arg, b) {
+                        Some(Kind::String) => Some(self.t[arg].value.clone()),
+                        _ => None,
                     };
-                    if j > start && prefixed {
-                        self.edits
-                            .push((start..start, self.cx.id_prefix.to_string()));
-                    }
-                    i = j;
-                    continue;
-                }
-                _ => {}
-            }
-            i += 1;
-        }
-    }
-
-    /// Scans rules from `i` to the `}` closing the enclosing block (index
-    /// returned) or the end.
-    fn rules(&mut self, mut i: usize, depth: usize) -> Result<usize, String> {
-        if depth > MAX_DEPTH {
-            return Err("CSS nests too deeply".into());
-        }
-        loop {
-            i = self.skip_ws_comments(i);
-            match self.b.get(i) {
-                None => return Ok(self.b.len()),
-                Some(b'}') => return Ok(i),
-                _ => {}
-            }
-            let start = i;
-            let (end, stop) = self.find_stop(i, b";{}");
-            let prelude = self.s[start..end].trim();
-            let lower = prelude.to_ascii_lowercase();
-            match stop {
-                Some(b'{') => {
-                    let at = lower.strip_prefix('@').map(|rest| {
-                        rest.split(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
-                            .next()
-                            .unwrap_or("")
-                            .to_string()
-                    });
-                    let close = match at.as_deref() {
-                        _ if prelude.starts_with('@') && prelude.contains('\\') => {
-                            // An escaped at-keyword could be anything: drop the rule.
-                            let close = self.skip_block(end + 1);
-                            self.edits
-                                .push((start..(close + 1).min(self.b.len()), String::new()));
-                            close
-                        }
-                        Some(
-                            "media" | "supports" | "layer" | "container" | "document"
-                            | "-moz-document" | "scope" | "starting-style" | "keyframes"
-                            | "-webkit-keyframes" | "-moz-keyframes",
-                        ) => self.rules(end + 1, depth + 1)?,
-                        Some("font-face") => {
-                            // Fonts come from the registry only: `src: local()`
-                            // would reach system fonts. Drop the rule.
-                            let close = self.skip_block(end + 1);
-                            self.edits
-                                .push((start..(close + 1).min(self.b.len()), String::new()));
-                            close
-                        }
-                        Some(_) => self.declarations(end + 1, depth + 1)?,
-                        None => {
-                            self.selector(start..end);
-                            self.declarations(end + 1, depth + 1)?
-                        }
-                    };
-                    i = close + 1;
-                }
-                Some(b'}') => {
-                    // A prelude cut short by the block's end: drop it.
-                    self.urls(start..end);
-                    return Ok(end);
+                    (url, self.component_end(j, b)?)
                 }
                 _ => {
-                    // A statement at-rule (or garbage) up to `;`.
-                    let stmt_end = if stop == Some(b';') { end + 1 } else { end };
-                    if lower.starts_with("@import")
-                        || (prelude.starts_with('@') && prelude.contains('\\'))
-                    {
-                        self.edits.push((start..stmt_end, String::new()));
-                    } else {
-                        self.urls(start..end);
-                    }
-                    i = stmt_end;
-                }
-            }
-        }
-    }
-
-    /// Index of the `}` matching an opened block whose body starts at `i`.
-    fn skip_block(&self, mut i: usize) -> usize {
-        let mut depth = 1usize;
-        loop {
-            let (end, stop) = self.find_stop(i, b"{}");
-            match stop {
-                Some(b'{') => depth += 1,
-                Some(_) => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return end;
-                    }
-                }
-                None => return end,
-            }
-            i = end + 1;
-        }
-    }
-
-    /// Rewrites every `url(...)` in `r`: `#id` gets the island prefix,
-    /// `data:image/...` stays, anything else becomes `none`.
-    fn urls(&mut self, r: Range<usize>) {
-        let mut i = r.start;
-        while i < r.end {
-            match self.b[i] {
-                b'"' | b'\'' => {
-                    i = self.skip_string(i);
+                    j += 1;
                     continue;
                 }
-                b'/' if self.b.get(i + 1) == Some(&b'*') => {
-                    i = self.skip_comment(i);
-                    continue;
-                }
-                b'u' | b'U'
-                    if self.b.len() >= i + 4
-                        && self.b[i..i + 4].eq_ignore_ascii_case(b"url(")
-                        && (i == 0 || !is_ident_byte(self.b[i - 1])) =>
-                {
-                    let (end, url) = self.url_token(i + 4);
-                    let replacement = classify_url(&url, self.cx.id_prefix);
-                    if let Some(new) = replacement {
-                        self.edits.push((i..end, new));
-                    }
-                    i = end;
-                    continue;
-                }
-                _ => {}
-            }
-            i += 1;
-        }
-    }
-
-    /// Parses a url token's argument starting at `i` (after `url(`). Returns
-    /// the index after the closing `)` and the URL text.
-    fn url_token(&self, i: usize) -> (usize, String) {
-        let mut j = i;
-        while j < self.b.len() && self.b[j].is_ascii_whitespace() {
-            j += 1;
-        }
-        let mut url = String::new();
-        if j < self.b.len() && (self.b[j] == b'"' || self.b[j] == b'\'') {
-            let end = self.skip_string(j);
-            let inner_end = if end > j + 1 && self.b[end - 1] == self.b[j] {
-                end - 1
-            } else {
-                end
             };
-            url.push_str(&unescape(&self.s[j + 1..inner_end]));
-            j = end;
-        } else {
-            let start = j;
-            while j < self.b.len() && self.b[j] != b')' {
-                j += 1;
+            let replacement = match url {
+                Some(u) => classify_url(&u, self.cx.id_prefix),
+                None => Some("none".to_string()),
+            };
+            if let Some(mut new) = replacement {
+                // Keep a following name from running into the replacement.
+                let next = self.s[self.start(end)..].bytes().next();
+                if next.is_some_and(|c| {
+                    c.is_ascii_alphanumeric()
+                        || matches!(c, b'-' | b'_' | b'(' | b'\\')
+                        || c >= 0x80
+                }) {
+                    new.push(' ');
+                }
+                self.edits.push((self.start(j)..self.start(end), new));
             }
-            url.push_str(self.s[start..j].trim());
+            j = end;
         }
-        // Up to and including the closing parenthesis.
-        while j < self.b.len() && self.b[j] != b')' {
-            j += 1;
+        Ok(())
+    }
+
+    /// Applies the edits and checks the result. `original` is the CSS before
+    /// preprocessing.
+    fn finish(mut self, original: &str) -> Rewrite {
+        if self.edits.is_empty() && self.s == original {
+            return if is_safe(self.s) {
+                Rewrite::Unchanged
+            } else {
+                Rewrite::Drop
+            };
         }
-        ((j + 1).min(self.b.len()), url)
+        // Larger edits first at one position; an edit inside a removed range
+        // is already gone.
+        self.edits
+            .sort_by(|(x, _), (y, _)| x.start.cmp(&y.start).then(y.end.cmp(&x.end)));
+        let mut out = String::with_capacity(self.s.len() + 64);
+        let mut pos = 0;
+        for (r, new) in &self.edits {
+            if r.start < pos {
+                continue;
+            }
+            out.push_str(&self.s[pos..r.start]);
+            out.push_str(new);
+            pos = r.end;
+        }
+        out.push_str(&self.s[pos..]);
+        if is_safe(&out) {
+            Rewrite::Changed(out)
+        } else {
+            Rewrite::Drop
+        }
     }
 }
 
@@ -552,93 +581,65 @@ fn value_core(s: &str, r: Range<usize>) -> Range<usize> {
     r.start + start.min(end)..r.start + end
 }
 
-/// Resolves backslash escapes in a CSS string body (enough for URLs).
-fn unescape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c != '\\' {
-            out.push(c);
-            continue;
-        }
-        let mut hex = String::new();
-        while hex.len() < 6 && chars.peek().is_some_and(|c| c.is_ascii_hexdigit()) {
-            hex.extend(chars.next());
-        }
-        if hex.is_empty() {
-            match chars.next() {
-                Some('\n') | None => {}
-                Some(c) => out.push(c),
-            }
-        } else {
-            if chars.peek().is_some_and(|c| c.is_ascii_whitespace()) {
-                chars.next();
-            }
-            let cp = u32::from_str_radix(&hex, 16).unwrap_or(0xfffd);
-            out.push(char::from_u32(cp).unwrap_or(char::REPLACEMENT_CHARACTER));
-        }
-    }
-    out
-}
-
 /// What to do with a URL inside `url()`: `None` keeps it as written.
 fn classify_url(url: &str, prefix: &str) -> Option<String> {
-    let trimmed = url.trim();
+    let Some(trimmed) = url_parser_input(url) else {
+        return Some("none".to_string());
+    };
     if let Some(id) = trimmed.strip_prefix('#') {
         let new_id = format!("{prefix}{id}");
-        if new_id
-            .bytes()
-            .all(|b| is_ident_byte(b) || b == b'.' || b == b':')
-        {
+        if new_id.bytes().all(|b| {
+            b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b':') || b >= 0x80
+        }) {
             return Some(format!("url(#{new_id})"));
         }
         return Some(format!(
             "url(\"#{}\")",
-            new_id.replace('\\', "\\\\").replace('"', "\\\"")
+            new_id
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\a ")
         ));
     }
-    if is_inline_image(trimmed) {
+    if is_inline_image(&trimmed) {
         return None;
     }
     Some("none".to_string())
-}
-
-/// `data:image/...` URLs are self-contained and safe to keep.
-pub(crate) fn is_inline_image(url: &str) -> bool {
-    let compact: String = url
-        .chars()
-        .filter(|c| !c.is_ascii_whitespace() && !c.is_control())
-        .take(11)
-        .collect();
-    compact.eq_ignore_ascii_case("data:image/")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn with_cx<R>(ids: &[&str], f: impl FnOnce(&CssContext<'_>) -> R) -> R {
+    fn with_cx<R>(f: impl FnOnce(&CssContext<'_>) -> R) -> R {
         let fonts = FontSet::new();
-        let ids: HashSet<String> = ids.iter().map(|s| s.to_string()).collect();
         let cx = CssContext {
             fonts: &fonts,
             id_prefix: "sm0-",
-            ids: &ids,
             quote: '\'',
         };
         f(&cx)
     }
 
+    /// The rewritten declarations; `<dropped>` if the attribute goes.
     fn decl(css: &str) -> String {
-        with_cx(&["a"], |cx| rewrite_declarations(css, cx))
-            .expect("ok")
-            .unwrap_or_else(|| css.to_string())
+        decl_only(css, None)
     }
 
-    fn sheet(css: &str) -> String {
-        with_cx(&["a", "b"], |cx| rewrite_stylesheet(css, cx))
-            .expect("ok")
-            .unwrap_or_else(|| css.to_string())
+    fn decl_only(css: &str, allowed: Option<&[&str]>) -> String {
+        match with_cx(|cx| rewrite_declarations(css, cx, allowed)).expect("ok") {
+            Rewrite::Unchanged => css.to_string(),
+            Rewrite::Changed(s) => s,
+            Rewrite::Drop => "<dropped>".into(),
+        }
+    }
+
+    fn value(css: &str) -> String {
+        match with_cx(|cx| rewrite_value(css, cx)) {
+            Rewrite::Unchanged => css.to_string(),
+            Rewrite::Changed(s) => s,
+            Rewrite::Drop => "<dropped>".into(),
+        }
     }
 
     #[test]
@@ -649,10 +650,12 @@ mod tests {
             "",
             "  ",
             "a:b;;;c:d",
+            "--x:{a:b}",
+            "a:'x'/* c */",
         ] {
             assert_eq!(
-                with_cx(&[], |cx| rewrite_declarations(css, cx)),
-                Ok(None),
+                with_cx(|cx| rewrite_declarations(css, cx, None)),
+                Ok(Rewrite::Unchanged),
                 "{css:?}"
             );
         }
@@ -684,77 +687,133 @@ mod tests {
             "strings are not urls"
         );
         assert_eq!(decl("x:myurl(http://x)"), "x:myurl(http://x)");
+        assert_eq!(decl("--v:url(http://x)"), "--v:none");
+        assert_eq!(decl("a:url(x)b"), "a:none b", "no name runs into it");
     }
 
     #[test]
     fn escapes_and_hidden_loads_drop_the_declaration() {
         assert_eq!(decl("fill:red;background:u\\72l(http://x)"), "fill:red;");
         assert_eq!(decl("background:image-set('a.png' 1x)"), "");
+        assert_eq!(decl("mask:-WEBKIT-image-set('a.png' 1x);x:y"), ";x:y");
         assert_eq!(decl("width:expression(alert(1));color:red"), ";color:red");
+        assert_eq!(decl("b\\61ckground:red;c:d"), ";c:d");
+        assert_eq!(decl("a:url( x y);b:c"), "a:none;b:c");
+        assert_eq!(
+            decl("a:url(var(--x))"),
+            "a:none)",
+            "a bad url ends at the first )"
+        );
+        assert_eq!(decl("a:x;@import 'y';b:c"), "a:x;;b:c");
+        assert_eq!(
+            decl("a:x;b{c:url(x)}d:e;f:g"),
+            "a:x;;f:g",
+            "no nested rules"
+        );
+        assert_eq!(decl("a:x}@import 'y';b:c"), "a:x};b:c");
+        assert_eq!(decl("a:'b"), "", "a string left open");
+        assert_eq!(decl("a:b/* c"), "", "a comment left open");
+    }
+
+    /// Review of #12, finding 1: CR (and CR LF, FF) is a newline to CSS, and
+    /// a newline ends a string as a bad string.
+    #[test]
+    fn newlines_end_strings_as_in_css() {
+        for nl in ["\r", "\r\n", "\x0c", "\n"] {
+            let css = format!("x:'{nl};background:url(https://evil/a.png);y:'");
+            assert_eq!(decl(&css), ";background:none;", "{nl:?}");
+        }
+        assert_eq!(decl("a:b\rc"), "a:b\nc", "preprocessed output");
+    }
+
+    /// Review of #12, finding 2: an unquoted `url(` is one token, so a `(`
+    /// or `/*` inside it neither nests nor comments out the rest.
+    #[test]
+    fn unquoted_urls_are_one_token() {
+        assert_eq!(
+            decl("a:url(a(b);b:image-set(\"https://evil/g2.png\" 1x)"),
+            "a:none;"
+        );
+        assert_eq!(
+            decl("a:url(/*);b:url(https://evil/g4.png)/**/"),
+            "a:none;b:none/**/"
+        );
     }
 
     #[test]
-    fn stylesheets() {
-        assert_eq!(sheet("@import 'x.css';\n.a{fill:red}"), "\n.a{fill:red}");
-        assert_eq!(sheet("@import url(x.css) screen;"), "");
-        assert_eq!(sheet("@\\69mport 'x.css';.a{}"), ".a{}");
+    fn allowed_properties() {
+        let root: &[&str] = &["fill", "font-family"];
         assert_eq!(
-            sheet("#a:hover{fill:url(#b)}"),
-            "#sm0-a:hover{fill:url(#sm0-b)}"
+            decl_only(
+                "position:fixed;fill:url(#a);top:0;FILL:red;--x:1",
+                Some(root)
+            ),
+            ";fill:url(#sm0-a);;FILL:red;"
         );
-        assert_eq!(sheet("#zz{}"), "#zz{}", "unknown ids are left alone");
-        assert_eq!(
-            sheet("@media print{#a{fill:url(http://x)}}"),
-            "@media print{#sm0-a{fill:none}}"
-        );
-        assert_eq!(
-            sheet("@font-face{font-family:X;src:url(http://x/f.woff2)}.a{}"),
-            ".a{}",
-            "@font-face goes: fonts come from the registry"
-        );
-        assert_eq!(
-            sheet("@media print{@FONT-FACE{font-family:Y;src:local(Arial)}}"),
-            "@media print{}"
-        );
-        assert_eq!(
-            sheet(".zr0-cls-1:hover{fill:red} .zr12-x .zrx-y .zr-1 #a.zr3-z{}"),
-            ".sm0-zr0-cls-1:hover{fill:red} .sm0-zr12-x .zrx-y .zr-1 #sm0-a.sm0-zr3-z{}",
-            "ECharts classes get the island prefix"
-        );
-        assert_eq!(
-            sheet("@\\66ont-face{src:url(http://x)}.b{}"),
-            ".b{}",
-            "escaped at-keywords drop the rule"
-        );
-        assert_eq!(
-            sheet(".a{fill:red}}.b{fill:url(x)}"),
-            ".a{fill:red}}.b{fill:none}"
-        );
+        assert_eq!(decl_only("fill:red", Some(root)), "fill:red");
     }
 
     #[test]
-    fn open_strings_and_comments() {
-        for ok in [
-            "",
-            "a{b:\"c\"}",
-            "a{b:'c\\'d'}",
-            "/* x */a{}",
-            "a{b:\"/*\"}",
-            "a\\\"b",
+    fn presentation_values() {
+        assert_eq!(value("url(#a)"), "url(#sm0-a)");
+        assert_eq!(value("url('https://x/#a')"), "none");
+        assert_eq!(value("u\\72l(https://x/#a)"), "<dropped>");
+        assert_eq!(value("image-set('https://x' 1x)"), "<dropped>");
+        assert_eq!(value("-webkit-image-set('https://x' 1x)"), "<dropped>");
+        assert_eq!(value("image-set('https://x' 1x), auto"), "<dropped>");
+        assert_eq!(value("url(x) red"), "none red");
+        assert_eq!(value("red;@import 'x'"), "<dropped>");
+        assert_eq!(value("#fff"), "#fff");
+    }
+
+    #[test]
+    fn final_check_is_structure_free() {
+        for (css, ok) in [
+            ("a:url(#x)", true),
+            ("a:url(data:image/png,x)", true),
+            ("a:url('#x')", true),
+            ("a{b:url(#x)}", true),
+            ("a:url(x)", false),
+            ("a:url( 'x')", false),
+            ("a:url(var(--x))", false),
+            ("a:src('x')", false),
+            ("a:IMAGE('x')", false),
+            ("@media x{}", false),
+            ("a\\62 c", false),
+            ("'a\nb'", false),
+            ("'a", false),
+            ("/* a", false),
         ] {
-            assert!(strings_and_comments_closed(ok), "{ok}");
+            assert_eq!(is_safe(css), ok, "{css:?}");
         }
-        for open in ["a{b:\"}", "a{b:'c\nd'}", "/* x", "a{b:\"c\\\"}", "x'"] {
-            assert!(!strings_and_comments_closed(open), "{open}");
-        }
+    }
+
+    /// Tokens cost memory: CSS over the size bound is not read at all.
+    #[test]
+    fn oversized_css_is_dropped() {
+        let big = format!("fill:red;{}", "a:b;".repeat(MAX_CSS_BYTES / 4));
+        assert_eq!(
+            with_cx(|cx| rewrite_declarations(&big, cx, None)),
+            Ok(Rewrite::Drop)
+        );
+        assert_eq!(with_cx(|cx| rewrite_value(&big, cx)), Rewrite::Drop);
+        assert!(declaration_pairs(&big, |_| true).is_empty());
+        let ok = format!("fill:red;{}", "a:b;".repeat(MAX_CSS_BYTES / 8));
+        assert_eq!(
+            with_cx(|cx| rewrite_declarations(&ok, cx, None)),
+            Ok(Rewrite::Unchanged)
+        );
     }
 
     #[test]
     fn deep_nesting_is_an_error_not_a_crash() {
-        let css = "@media x{".repeat(10_000);
-        assert!(with_cx(&[], |cx| rewrite_stylesheet(&css, cx)).is_err());
-        let css = "a{".repeat(10_000);
-        assert!(with_cx(&[], |cx| rewrite_declarations(&css, cx)).is_err());
+        let css = format!("a:{}", "(".repeat(10_000));
+        assert!(with_cx(|cx| rewrite_declarations(&css, cx, None)).is_err());
+        // A property value is only scanned token by token.
+        assert_eq!(
+            with_cx(|cx| rewrite_value(&css[2..], cx)),
+            Rewrite::Unchanged
+        );
     }
 
     #[test]
@@ -776,10 +835,12 @@ mod tests {
             "u\\",
             "{{{}}}}}",
             "@a{@b{@c{",
+            "a:{",
+            "--x:{}{}",
+            ";;}}{{",
         ] {
-            let _ = with_cx(&["a"], |cx| rewrite_declarations(css, cx));
-            let _ = with_cx(&["a"], |cx| rewrite_stylesheet(css, cx));
-            let _ = with_cx(&["a"], |cx| rewrite_urls(css, cx));
+            let _ = with_cx(|cx| rewrite_declarations(css, cx, None));
+            let _ = with_cx(|cx| rewrite_value(css, cx));
         }
     }
 
@@ -792,10 +853,70 @@ mod tests {
     }
 
     #[test]
+    fn declaration_pairs_and_removal() {
+        assert_eq!(
+            declaration_pairs(
+                "font-size:12px; font-family: 'a;b', c !important;;x;--f:1;Font-Weight:bold !IMPORTANT",
+                |_| true
+            ),
+            vec![
+                ("font-size".to_string(), "12px".to_string()),
+                ("font-family".to_string(), "'a;b', c".to_string()),
+                ("--f".to_string(), "1".to_string()),
+                ("font-weight".to_string(), "bold".to_string()),
+            ]
+        );
+        assert_eq!(
+            declaration_pairs("a:rgb(1;2);b:x\rc", |n| n != "a"),
+            vec![("b".to_string(), "x\nc".to_string())]
+        );
+        assert_eq!(
+            remove_properties(
+                "fill:red;opacity:.5; transform:scale(2);font-size:9px",
+                &["opacity", "transform"]
+            ),
+            "fill:red;;;font-size:9px"
+        );
+        assert_eq!(remove_properties("OPACITY:0", &["opacity"]), "");
+    }
+
+    #[test]
     fn inline_images() {
-        assert!(is_inline_image("data:image/png;base64,AAAA"));
-        assert!(is_inline_image(" DATA:Image/svg+xml,<svg/>"));
-        assert!(!is_inline_image("data:text/html,<script>"));
-        assert!(!is_inline_image("data:"));
+        let inline = |u: &str| url_parser_input(u).is_some_and(|u| is_inline_image(&u));
+        assert!(inline("data:image/png;base64,AAAA"));
+        assert!(inline(" DATA:Image/svg+xml,<svg/>"));
+        assert!(
+            inline("\u{1}\tdata:im\nage/png,x \u{1f}"),
+            "C0 and space at the ends, tab/LF/CR anywhere"
+        );
+        assert!(!inline("data:text/html,<script>"));
+        assert!(!inline("data:"));
+        // Review of #12 (second round): what a URL parser keeps, the check
+        // keeps; these are relative URLs to a browser.
+        for relative in [
+            "d ata:image/../../r1.png",
+            "data :image/png,x",
+            "da\u{80}ta:image/../../r3.png",
+            "da\u{85}ta:image/../../r4.png",
+            "d\u{1}ata:image/x.png",
+            "\u{3000}data:image/x.png",
+            "d\u{a0}ata:image/x.png",
+        ] {
+            assert!(!inline(relative), "{relative:?}");
+        }
+        assert_eq!(
+            url_parser_input("\u{3000}#a").as_deref(),
+            Some("\u{3000}#a")
+        );
+        assert_eq!(url_parser_input(" #a\n").as_deref(), Some("#a"));
+    }
+
+    #[test]
+    fn urls_follow_the_url_parser() {
+        assert_eq!(decl("fill:url('d ata:image/../r.svg#p')"), "fill:none");
+        assert_eq!(decl("fill:url('d\\80 ata:image/x.svg#p')"), "fill:none");
+        assert_eq!(decl("cursor:url('\\3000 #a'),auto"), "cursor:none,auto");
+        assert_eq!(decl("fill:url(' #a ')"), "fill:url(#sm0-a)");
+        assert_eq!(value("url('d ata:image/../r8.svg#m')"), "none");
     }
 }

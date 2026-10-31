@@ -20,6 +20,8 @@ use surimono_islands::{
     IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError,
 };
 
+mod common;
+
 #[global_allocator]
 static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
@@ -40,7 +42,16 @@ const BUNDLE: &str = r#"
 function entry(specJson, ctx) {
   const spec = JSON.parse(specJson);
   if (spec.fail === 'throw') throw new Error('planned failure ' + spec.i);
-  if (spec.fail === 'oom') { const a = []; for (;;) a.push(new Array(1e4).fill(spec.i)); }
+  // Reaches the heap limit in large steps, so it ends with the memory limit
+  // however slow the machine is (filling the heap 80 KB at a time could hit
+  // the time limit first on a busy machine). Alternates typed-array buffers
+  // with ordinary arrays of 512K elements, so both allocation paths are
+  // soaked.
+  if (spec.fail === 'oom') {
+    const a = [];
+    if (spec.i % 200 === 99) { for (;;) a.push(new Uint8Array(4 * 1024 * 1024).fill(spec.i % 256)); }
+    for (;;) a.push(new Array(512 * 1024).fill(spec.i));
+  }
   if (spec.fail === 'loop') { for (;;) {} }
   const points = spec.values.map((v, i) => ({
     x: i * 4, y: 100 - v, label: 'p' + i + '-' + Math.random().toString(36).slice(2, 6),
@@ -149,7 +160,7 @@ struct Soak<'a> {
 /// nothing allocates until the next render.
 fn wait_until_idle(runner: &IslandRunner) {
     let start = Instant::now();
-    while runner.stats().idle_workers < runner.pool_size() {
+    while runner.stats().idle_workers < runner.stats().workers {
         assert!(
             start.elapsed() < Duration::from_secs(60),
             "workers never went idle: {:?}",
@@ -211,7 +222,7 @@ fn run_soak(soak: &Soak<'_>) {
         "{name}: {} renders in {elapsed:?} ({:?} per render incl. {rounds} waits for idle workers), {CALLERS} callers, {} workers, first SVG {} bytes",
         soak.renders,
         elapsed / soak.renders as u32,
-        soak.runner.pool_size(),
+        soak.runner.stats().workers,
         first_svg_len.load(Ordering::Relaxed)
     );
     eprintln!("{name}: resident memory before start {start_rss:?} KiB");
@@ -263,11 +274,16 @@ fn run_soak(soak: &Soak<'_>) {
 fn soak_10000_renders_flat_memory() {
     const RENDERS: usize = 10_000;
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
-    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+    let runner = IslandRunner::new(RunnerOptions {
+        // The measurer production uses: the fixture fonts, shaped by gfx.
+        text_measurer: Some(common::fixture_measurer()),
         pool_size: POOL_SIZE,
         limits: Limits::default()
             .with_memory_bytes(MEMORY_BYTES)
-            .with_time(Duration::from_millis(250)),
+            // Ordinary renders take a few ms; the margin keeps a busy
+            // machine's scheduling stalls from failing them, while the
+            // planned infinite loops still end quickly.
+            .with_time(Duration::from_millis(1000)),
         ..RunnerOptions::default()
     })
     .unwrap();
@@ -308,7 +324,9 @@ fn soak_echarts_2000_renders_flat_memory() {
         .collect();
     options.sort();
     assert!(options.len() >= 6);
-    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+    let runner = IslandRunner::new(RunnerOptions {
+        // The measurer production uses: the fixture fonts, shaped by gfx.
+        text_measurer: Some(common::fixture_measurer()),
         pool_size: POOL_SIZE,
         ..RunnerOptions::default()
     })
@@ -355,7 +373,9 @@ fn soak_vega_lite_600_renders_flat_memory() {
         .iter()
         .map(|n| std::fs::read_to_string(dir.join(format!("{n}.json"))).unwrap())
         .collect();
-    let runner = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+    let runner = IslandRunner::new(RunnerOptions {
+        // The measurer production uses: the fixture fonts, shaped by gfx.
+        text_measurer: Some(common::fixture_measurer()),
         pool_size: POOL_SIZE,
         ..RunnerOptions::default()
     })

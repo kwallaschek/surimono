@@ -28,9 +28,14 @@ fn run(args: &[&str], stdin: &str) -> Output {
         .spawn()
         .unwrap_or_else(|e| panic!("{e}"));
     if let Some(mut input) = child.stdin.take() {
-        input
-            .write_all(stdin.as_bytes())
-            .unwrap_or_else(|e| panic!("{e}"));
+        // The CLI may exit before reading its input (a usage or
+        // configuration error), which closes the pipe; that is its answer,
+        // not a test failure.
+        match input.write_all(stdin.as_bytes()) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {}
+            Err(e) => panic!("{e}"),
+        }
     }
     child.wait_with_output().unwrap_or_else(|e| panic!("{e}"))
 }
@@ -85,7 +90,10 @@ fn renders_an_echarts_island_from_file_to_file() {
     assert_eq!(code(&o), 0, "{}", text(&o.stderr));
     let out = std::fs::read_to_string(&output).unwrap_or_else(|e| panic!("{e}"));
     assert!(
-        out.starts_with("<h1>Q</h1><div class=\"surimono-island\" data-renderer=\"echarts\"><svg"),
+        out.starts_with(
+            "<h1>Q</h1><div class=\"surimono-island\" data-renderer=\"echarts\" \
+             style=\"width:200px;height:100px;overflow:hidden\"><svg"
+        ),
         "{out}"
     );
     assert!(out.ends_with("</svg></div><p>end</p>"));
@@ -199,4 +207,150 @@ fn same_input_same_output() {
     let b = run(&["render", "-", "--font", &font()], ISLAND);
     assert_eq!(code(&a), 0, "{}", text(&a.stderr));
     assert_eq!(a.stdout, b.stdout);
+}
+
+fn temp_dir(tag: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("surimono-cli-{tag}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("{e}"));
+    dir
+}
+
+/// --bundle, --renderers, --max-islands and --pool-size reach the renderer
+/// as the gem's and the facade's options do.
+#[test]
+fn bundles_renderers_and_island_cap() {
+    let dir = temp_dir("bundle");
+    let js = dir.join("badge.js");
+    std::fs::write(
+        &js,
+        "function draw(specJson, ctx) { const s = JSON.parse(specJson); \
+         return `<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${ctx.width}\" \
+         height=\"${ctx.height}\"><rect width=\"${s.w}\" height=\"4\"/></svg>`; }",
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    let badge = "<script type=\"application/vnd.surimono+json\" data-renderer=\"badge\" \
+                 data-width=\"40\" data-height=\"8\">{\"w\": 30}</script>";
+    let bundle = format!("badge:draw={}", js.display());
+    let f = font();
+    let o = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--bundle",
+            &bundle,
+            "--pool-size",
+            "1",
+        ],
+        badge,
+    );
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    assert!(
+        text(&o.stdout).contains("<rect width=\"30\""),
+        "{}",
+        text(&o.stdout)
+    );
+
+    // Only the bundle enabled: an ECharts island is an unknown renderer.
+    let o = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--bundle",
+            &bundle,
+            "--renderers",
+            "badge",
+        ],
+        &format!("{badge}{ISLAND}"),
+    );
+    assert_eq!(code(&o), 1, "{}", text(&o.stderr));
+    assert!(
+        text(&o.stderr).contains("unknown-renderer"),
+        "{}",
+        text(&o.stderr)
+    );
+
+    // A missing entry function is a configuration error; a missing file an I/O one.
+    let o = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--bundle",
+            &format!("badge={}", js.display()),
+        ],
+        badge,
+    );
+    assert_eq!(code(&o), 4, "{}", text(&o.stderr));
+    let o = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--bundle",
+            "x=/no/such/file.js",
+        ],
+        badge,
+    );
+    assert_eq!(code(&o), 5, "{}", text(&o.stderr));
+
+    // More islands than --max-islands: exit 1 before any runs.
+    let o = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--bundle",
+            &bundle,
+            "--max-islands",
+            "1",
+        ],
+        &badge.repeat(2),
+    );
+    assert_eq!(code(&o), 1, "{}", text(&o.stderr));
+    assert!(
+        text(&o.stderr).contains("too-many-islands"),
+        "{}",
+        text(&o.stderr)
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The output is replaced only by a complete render: a failed one leaves an
+/// existing file as it was, and no temporary file stays behind.
+#[test]
+fn a_failed_render_leaves_an_existing_output_alone() {
+    let dir = temp_dir("keep");
+    let output = dir.join("out.html");
+    std::fs::write(&output, "previous").unwrap_or_else(|e| panic!("{e}"));
+    let bad = "<script type=\"application/vnd.surimono+json\" data-renderer=\"none\">{}</script>";
+    let out = output.display().to_string();
+    let o = run(&["render", "-", "-o", &out, "--font", &font()], bad);
+    assert_eq!(code(&o), 1, "{}", text(&o.stderr));
+    assert_eq!(
+        std::fs::read_to_string(&output).ok().as_deref(),
+        Some("previous")
+    );
+    let o = run(
+        &["render", "-", "-o", &out, "--font", &font()],
+        "<p>new</p>",
+    );
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    assert_eq!(
+        std::fs::read_to_string(&output).ok().as_deref(),
+        Some("<p>new</p>")
+    );
+    let names: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("{e}"))
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["out.html"]);
+    let _ = std::fs::remove_dir_all(&dir);
 }

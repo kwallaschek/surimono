@@ -22,14 +22,17 @@
 #![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
 
 #[allow(unsafe_code)]
+mod embed;
+#[allow(unsafe_code)]
 mod engine;
 mod error;
 mod limits;
 mod sandbox;
 
+pub use embed::{compile_for_embedding, engine_fingerprint};
 pub use error::SandboxError;
 pub use limits::Limits;
-pub use sandbox::{Bytecode, Sandbox, SandboxOptions};
+pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
 
 /// The rquickjs version surimono-core is built against, re-exported so
 /// dependent crates use the same one for [`Sandbox::run`] closures.

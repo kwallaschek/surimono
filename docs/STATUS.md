@@ -2,56 +2,38 @@
 
 Updated after every task. Times are JST.
 
-## Now (Sat 31 Oct 2026, 06:30)
+> **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
+> is under 3 hours old and names another session: change nothing more, end the session.
 
-**Phase 1: islands.** Kay authorised fleet merges at 06:17. Six reviewed PRs are
-merged (#1 fonts, #4 CI, #7 pre-pass, #10 facade, #6 fixture pipeline, #5 sandbox).
-All agents stopped 03:20 to 06:17 on the account's 5-hour usage limit and were
-resumed at 06:20.
+## Now (Sun 1 Nov 2026, 05:20)
 
-### Done
-- 06:20 · Merged #1, #4, #7, #10, #6, #5 (merge commits, reviewed heads pinned).
-- 01:19 · Checkpoint 1 approved; workflows committed by Kay; CI publishes to ci-results; scheduled resume every 4 h at :16.
-- 02:10 to 02:20 · Batch 1 delivered by all four specialists (18 PRs, all green on Linux CI; #4 and #14 green on the full matrix).
-- 02:30 to 02:55 · Review round 1 (fresh reviewer per area).
+**Phase 1: islands. Checkpoint 2 is today about 18:00.** The live session with Kay ended
+(heartbeat 231 min old at 04:16); a scheduled resume (cse_011c8hfq5ufjN5m2pZpZysXx) holds
+the fleet now. Since 04:20: merged #55 (CF-12), #25 (facade on the real backend), #26 (CLI),
+#34 (licences), #56 (precompiled bytecode), #57 (ASan stack probe), each on green ci/linux and
+a fresh reviewer's APPROVE. Agents of the previous session were lost with its machine; their
+unpushed work on #47 was redone (head 2268e80).
 
-### Review state (merge order in brackets)
-| PR | Task | Verdict |
+### Open PRs (merge order)
+| PR | Task | State |
 |---|---|---|
-| #1 | P1-CF-02 fonts | approved [1] |
-| #2 | P1-CF-05 real-world manifest | approved |
-| #6 | P1-CF-01 fixture pipeline | approved [after #1] |
-| #9 | P1-CF-04 hostile suite | blocked: one Chrome expectation wrong; adding hang cases |
-| #17 | P1-CF-03 10 fixtures | blocked: page heights that Chrome rounds (1/300 in) |
-| #3 | P1-GFX-01/02 measureText | blocked: caches bounded by count, not bytes |
-| #12 | P1-GFX-03 sanitize_svg | blocked: style escape inside integration points (security) |
-| #16 | P1-GFX-04 hand-off | blocked: fulgur prints inline SVG text with system fonts |
-| #5 | P1-RT-01 sandbox | approved to merge; v0.1 release blocked on the QuickJS patch (P1-RT-09) |
-| #8 | P1-RT-02 determinism | blocked: three Date / prepareStackTrace host leaks |
-| #11 | P1-RT-03 island runner | approved [after #5, #8] |
-| #13 | P1-RT-04 pool | blocked: leftover debug print |
-| #15 | P1-RT-05 soak | blocked: RSS metric unreliable; switch to live heap bytes |
-| #4 | P1-PKG-01 CI | approved |
-| #7 | P1-PKG-03 pre-pass | approved |
-| #10 | P1-PKG-02 facade | approved [after #7] |
-| #14 | P1-PKG-04 gem | blocked: Thread#raise longjmps over Rust frames |
+| #47 | P1-RT-14 + P1-RT-22 deadlines, BigInt pow leak fix, fork-safe registry | fixes pushed 2268e80; delta review next |
+| #18 → #19 → #23 | README, guides, examples | DX batch 2 (update to the merged facade/CLI, CHANGELOG 0.1.0), then review |
+| #38 | v0.1 release PR | update to main, dry-run; merge only with Kay's OK at checkpoint 2 |
 
-### In progress
-- Runtime (islands): fixes for #13 and #15, then ECharts (P1-RT-06) and Vega (P1-RT-07).
-- Runtime (sandbox hardening): #8 fixes, then the QuickJS patch (P1-RT-09).
-- Graphics: #3, #12 and #16 fixes, then island text as outlines (P1-GFX-05).
-- Conformance: #9 and #17 fixes, a colour-aware diff, then the Grover benchmark (P1-CF-06) and the COMPAT generator (P1-CF-07).
-- Packaging: #14 fix, pre-pass follow-ups, real backend with sanitised SVG (P1-PKG-08), CLI, licence file, then the v0.1 release PR.
-- Docs and DX: README, guides, examples.
+### Blocked / waiting on Kay
+- Nothing.
 
-### Blocked
-- Nothing. Risk: the usage limit can pause the fleet again; agents resume where they stopped.
+### Next (in order; a resumed session starts here)
+1. #47 delta review of 2268e80; merge on approval; move its PENDING_DECISIONS lines; mark P1-RT-14/22 done.
+2. P1-CF-09 real run from main (`checkpoint.mjs`, release CLI); commit report; regenerate COMPAT.md; bench (Grover table, PSS) from main's full.yml/bench run.
+3. DX batch 2 on #18/#19/#23, then review and merge.
+4. #38 to main; dry-run; webidl/dom stay publish=false.
+5. Checkpoint 2 message (~18:00 JST): fixtures side by side with Chrome, Grover table, hostile results, release PR with dry-run, "Open for checkpoint 2" items in docs/fleet/PENDING_DECISIONS.md, YAML copy for Kay (docs/ci/, macos-15 before 2 Nov). Weekly digest ~20:00.
+6. Follow-ups queued: P1-PKG-11, P1-RT-28, P1-RT-29, P1-RT-25/26/27, P1-RT-20/21/23/18.
 
-### Next
-1. Merge each fixed PR as soon as a fresh reviewer approves its head: #8, then #11, #13, #15, #21; #3, #12, #16; #9, #17; #2 (pyc removed); #14. Move its DECISIONS lines from docs/fleet/PENDING_DECISIONS.md.
-2. Fresh reviewers for every fixed or new PR.
-3. Start the DOM engineer (phase 2 scaffolding) once the build machine is less busy.
-4. Checkpoint 2 package (Sun ~18:00): 10 side-by-side fixtures, Grover table, hostile results, v0.1 release PR with dry-run.
+### Disk
+When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh`.
 
 ### Branch rule
-Never rebase or force-push a pushed branch; fix with new commits; downstream branches merge their parent in. PRs merge with merge commits.
+Never rebase or force-push a pushed branch; fix with new commits; downstream branches merge their parent in. PRs merge with merge commits. The orchestrator may merge main into an approved branch when the result is exactly the mechanical merge.

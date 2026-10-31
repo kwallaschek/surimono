@@ -358,12 +358,13 @@ fn hostile_renderers_hit_limits_and_the_pool_recovers() {
             SandboxError::TimeLimit,
         ),
         (
+            // The patched engine polls inside native loops over array-likes
+            // (vendor/rquickjs-sys/PATCHES.md, patch 2), so this ends at the
+            // time limit, like the matching vectors in core's hostile tests;
+            // the interim prelude guard that threw here is gone.
             "native",
             "function entry() { return Array.prototype.join.call({ length: 2 ** 40 }, '') }",
-            SandboxError::Exception {
-                message: String::new(),
-                stack: None,
-            },
+            SandboxError::TimeLimit,
         ),
     ];
     for (name, src, want) in hostile {
@@ -372,8 +373,15 @@ fn hostile_renderers_hit_limits_and_the_pool_recovers() {
         let err = r.render(&req(name, "{}")).unwrap_err();
         assert!(start.elapsed() < Duration::from_secs(5), "{name}");
         match (&err, &want) {
+            // A native loop over a huge array-like: any typed end will do,
+            // as fixtures/hostile/manifest.toml allows (the patched engine
+            // stops it with the time limit; the old prelude guard threw).
             (
-                IslandError::Sandbox(SandboxError::Exception { .. }),
+                IslandError::Sandbox(
+                    SandboxError::Exception { .. }
+                    | SandboxError::TimeLimit
+                    | SandboxError::MemoryLimit,
+                ),
                 SandboxError::Exception { .. },
             ) => {}
             (IslandError::Sandbox(got), want) => assert_eq!(got, want, "{name}"),
@@ -458,4 +466,45 @@ fn dropping_the_runner_stops_the_workers() {
     let r = runner();
     r.render(&req("label", r#"{"label":"x"}"#)).unwrap();
     drop(r); // joins the workers; must not hang
+}
+
+#[test]
+fn a_measure_text_loop_stops_at_the_time_limit() {
+    // Each call shapes 16 KiB of new text (no cache hits), and the script
+    // swallows errors: without measureText checking the deadline itself,
+    // the engine would notice the limit only thousands of calls later.
+    let limit = Duration::from_millis(300);
+    let measurer = common::fixture_measurer();
+    let text = "abc ".repeat(4096);
+    let t = Instant::now();
+    measurer
+        .measure(&format!("{text}0"), "12px Noto Sans")
+        .unwrap();
+    let one_call = t.elapsed();
+    let r = IslandRunner::new(RunnerOptions {
+        pool_size: 1,
+        limits: Limits::default().with_time(limit),
+        text_measurer: Some(measurer),
+        ..RunnerOptions::default()
+    })
+    .unwrap();
+    r.register_bundle(
+        "measure",
+        "function entry(s, ctx) { const t = 'abc '.repeat(4096); let i = 0; \
+         for (;;) { try { ctx.measureText(t + i++, '12px Noto Sans') } catch (e) {} } }",
+        "entry",
+    )
+    .unwrap();
+    let start = Instant::now();
+    assert_eq!(
+        r.render(&req("measure", "{}")).unwrap_err(),
+        IslandError::Sandbox(SandboxError::TimeLimit)
+    );
+    // The limit, plus the call in flight when it passed, plus slack.
+    let took = start.elapsed();
+    let bound = 2 * limit + 2 * one_call;
+    assert!(
+        took < bound,
+        "took {took:?}, bound {bound:?} (one call {one_call:?})"
+    );
 }

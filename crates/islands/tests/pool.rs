@@ -89,6 +89,13 @@ fn no_state_leaks_across_renderers() {
         render(&r, "observer").unwrap(),
         "undefined,undefined,undefined,undefined"
     );
+    // The same with an idle gap, so the worker has preloaded the polluter.
+    render(&r, "polluter").unwrap();
+    idle(&r);
+    assert_eq!(
+        render(&r, "observer").unwrap(),
+        "undefined,undefined,undefined,undefined"
+    );
 }
 
 #[test]
@@ -187,9 +194,17 @@ fn limit_errors_keep_the_pool_healthy() {
     }
 }
 
-/// Gives an idle worker time to reset and preload.
-fn idle() {
-    std::thread::sleep(Duration::from_millis(50));
+/// Waits until every started worker of `r` is idle: reset and preloaded.
+fn idle(r: &IslandRunner) {
+    let start = std::time::Instant::now();
+    while r.stats().idle_workers < r.stats().workers {
+        assert!(
+            start.elapsed() < Duration::from_secs(30),
+            "workers never went idle: {:?}",
+            r.stats()
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
 }
 
 #[test]
@@ -199,7 +214,7 @@ fn an_idle_worker_preloads_the_last_bundle() {
         .unwrap();
     for _ in 0..5 {
         assert_eq!(render(&r, "x").unwrap(), "x");
-        idle();
+        idle(&r);
     }
     // The first render loads the bundle itself; the worker preloads it for
     // each of the others while idle.
@@ -230,7 +245,7 @@ function entry(specJson, ctx) {
         if i % 2 == 1 {
             render(&r, "x").unwrap();
         }
-        idle();
+        idle(&r);
         assert_eq!(render(&r, "s").unwrap(), first, "round {i}");
     }
     let stats = r.stats();
@@ -254,7 +269,7 @@ function entry() { return log.join('|') }
     r.register_bundle("q", QUEUES, "entry").unwrap();
     for _ in 0..4 {
         assert_eq!(render(&r, "q").unwrap(), "top");
-        idle();
+        idle(&r);
     }
     assert_eq!(r.stats().preloaded_renders, 0);
 }
@@ -265,11 +280,111 @@ fn idle_workers_are_counted() {
     r.register_bundle("x", "function entry() { return 'x' }", "entry")
         .unwrap();
     render(&r, "x").unwrap();
+    // One render at a time never needs a second worker.
     let start = std::time::Instant::now();
-    while r.stats().idle_workers != 2 {
+    while r.stats().idle_workers != 1 {
         assert!(start.elapsed() < Duration::from_secs(10), "{:?}", r.stats());
         std::thread::sleep(Duration::from_millis(2));
     }
+    assert_eq!(r.stats().workers, 1);
+}
+
+#[test]
+fn renders_one_at_a_time_use_one_worker() {
+    let r = IslandRunner::with_estimated_text_metrics(options(4)).unwrap();
+    assert_eq!(r.stats().workers, 1, "the pool starts with one worker");
+    r.register_bundle("x", "function entry() { return 'x' }", "entry")
+        .unwrap();
+    r.register_bundle("y", "function entry() { return 'y' }", "entry")
+        .unwrap();
+    for i in 0..30 {
+        // Back to back, and with the worker idle (preloaded) in between.
+        assert_eq!(render(&r, "x").unwrap(), "x");
+        assert_eq!(render(&r, "y").unwrap(), "y");
+        if i % 3 == 0 {
+            idle(&r);
+        }
+    }
+    assert_eq!(r.stats().workers, 1, "{:?}", r.stats());
+    assert_eq!(r.pool_size(), 4);
+}
+
+#[test]
+fn overlapping_renders_grow_the_pool_up_to_its_size() {
+    const CALLERS: usize = 6;
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        pool_size: 3,
+        limits: Limits::default().with_time(Duration::from_secs(10)),
+        ..RunnerOptions::default()
+    })
+    .unwrap();
+    // Each render takes a while, so callers that start together overlap.
+    r.register_bundle(
+        "slow",
+        "function entry() { let n = 0; for (let i = 0; i < 3e6; i++) n += i; return 'done' }",
+        "entry",
+    )
+    .unwrap();
+    let barrier = std::sync::Barrier::new(CALLERS);
+    std::thread::scope(|s| {
+        for _ in 0..CALLERS {
+            s.spawn(|| {
+                barrier.wait();
+                assert_eq!(render(&r, "slow").unwrap(), "done");
+            });
+        }
+    });
+    let stats = r.stats();
+    assert_eq!(stats.renders, CALLERS as u64);
+    assert_eq!(
+        stats.workers, 3,
+        "grows to the pool size, no further: {stats:?}"
+    );
+}
+
+#[test]
+fn an_idle_worker_frees_its_runtime() {
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        release_idle_after: Some(Duration::from_millis(50)),
+        ..options(1)
+    })
+    .unwrap();
+    r.register_bundle(
+        "x",
+        "var top = 1; function entry() { return 'x' + top }",
+        "entry",
+    )
+    .unwrap();
+    for _ in 0..3 {
+        assert_eq!(render(&r, "x").unwrap(), "x1");
+        let start = std::time::Instant::now();
+        while r.stats().runtimes != 0 {
+            assert!(
+                start.elapsed() < Duration::from_secs(10),
+                "the runtime was never freed: {:?}",
+                r.stats()
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+    // A released worker is still idle and still serves requests.
+    idle(&r);
+    assert_eq!(r.stats().workers, 1);
+}
+
+#[test]
+fn runtimes_are_kept_without_an_idle_release() {
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        release_idle_after: None,
+        ..options(1)
+    })
+    .unwrap();
+    r.register_bundle("x", "function entry() { return 'x' }", "entry")
+        .unwrap();
+    assert_eq!(render(&r, "x").unwrap(), "x");
+    idle(&r);
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(r.stats().runtimes, 1, "{:?}", r.stats());
 }
 
 #[test]
@@ -278,10 +393,10 @@ fn replacing_a_bundle_drops_its_preloaded_copy() {
     r.register_bundle("v", "function entry() { return 'old' }", "entry")
         .unwrap();
     assert_eq!(render(&r, "v").unwrap(), "old");
-    idle();
+    idle(&r);
     r.register_bundle("v", "function entry() { return 'new' }", "entry")
         .unwrap();
-    idle();
+    idle(&r);
     assert_eq!(render(&r, "v").unwrap(), "new");
 }
 
@@ -299,9 +414,9 @@ fn a_preloaded_bundle_never_leaks_into_another_renderer() {
     for _ in 0..3 {
         render(&r, "a").unwrap();
         // The idle worker preloads "a"; "b" must still start clean.
-        idle();
+        idle(&r);
         assert_eq!(render(&r, "b").unwrap(), "undefined");
-        idle();
+        idle(&r);
     }
 }
 
@@ -313,11 +428,30 @@ fn registration_never_sees_a_preloaded_bundle() {
     render(&r, "a").unwrap();
     // The worker now holds "a", which defines `entry`; a bundle that
     // doesn't define it must still be refused.
-    idle();
+    idle(&r);
     assert_eq!(
         r.register_bundle("b", "var x = 1;", "entry").unwrap_err(),
         IslandError::MissingEntry {
             bundle: "b".into(),
+            entry: "entry".into()
+        }
+    );
+}
+
+#[test]
+fn an_entry_defined_in_a_microtask_is_refused_at_registration() {
+    // A render looks the entry up right after the bundle runs, before any
+    // microtask, so registration must refuse it too.
+    let r = IslandRunner::with_estimated_text_metrics(options(1)).unwrap();
+    assert_eq!(
+        r.register_bundle(
+            "late",
+            "Promise.resolve().then(() => { globalThis.entry = () => 'x' })",
+            "entry",
+        )
+        .unwrap_err(),
+        IslandError::MissingEntry {
+            bundle: "late".into(),
             entry: "entry".into()
         }
     );
