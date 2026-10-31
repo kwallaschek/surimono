@@ -117,7 +117,10 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   results to the `ci-results` branch under `runs/<head sha>/<workflow>/<job>/`
   (`status.json`, `<name>/log.txt`, `<name>/exit.json`, plus anything written to
   `$CI_JOB_OUT`). Read them with
-  `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`.
+  `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`, or run
+  `scripts/fleet/ci-status.sh <sha>`. A job's own `status.json` is written by code under
+  test; GitHub's check runs (and `needs_result`, once the publish-job YAML is live) are
+  the authoritative result.
 
 ## Security findings in other projects
 

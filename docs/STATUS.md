@@ -13,7 +13,7 @@ Updated after every task. Times are JST.
 fixture pipeline, sandbox with determinism fixes, island runner, pool, soak, ECharts,
 Vega, gfx text measurement, hostile suite, the 11 fixtures, and since 16:45 the gfx
 measurer in islands (#30), the COMPAT generator (#28), hostile follow-ups (#42), the
-font weight/style check (#43), gem staging of the vendored engine (#33), islands follow-ups (#39) and the Vega bundle hash (#46).
+font weight/style check (#43), gem staging of the vendored engine (#33), islands follow-ups (#39), the Vega bundle hash (#46) and CI hardening with the final YAML proposal for Kay (#44).
 
 The fleet stopped three times on the account's 5-hour usage limit (03:20 to 06:17,
 about 09:40 to 11:10, about 14:00 to 16:35). At 16:16 a scheduled resume started a
@@ -28,7 +28,6 @@ time is now enforced by `scripts/fleet/owner-check.sh`.
 | #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | #12 BLOCK (relative URLs pass as `data:image/`), #27 BLOCK (carries #12); being fixed |
 | #25 → #26 → #34 | facade on the real backend, CLI, licences | BLOCKs from 16:25 being folded in; critical path for the checkpoint run |
 | #35 | P1-CF-09 checkpoint-2 run script | approved; after #27; needs main merged (conflicts with #43) |
-| #44 | P1-PKG-01c CI hardening + YAML proposal | BLOCK (results-free compat check in the gate; symlinks); after #26 |
 | #18 → #19 → #23 | README, guides, examples | waiting for #25, then review |
 | #38 | v0.1 release PR | last; only with Kay's OK at checkpoint 2 |
 

@@ -77,6 +77,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-06 · PKG · review · CLI: `surimono render in.html -o out.html --font …` (third to cut)
 - P1-PKG-01b · PKG · done · (#20) CI scripts: offline fixture checks in the PR gate, nightly fulgur/npm checks, bench cache, hostile results; workflow YAML proposal for Kay (SHA-pinned actions, persist-credentials false)
 - P1-PKG-03b · PKG · done · (#22) Pre-pass and facade follow-ups
+- P1-PKG-01c · PKG · done (#44) · CI hardening: separate publish job holds the write token, safe status publishing, YAML proposals in docs/ci/ (macos-15)
+- P1-PKG-01d · PKG · todo · #44 review follow-ups: take the job from the artifact name and never publish success without a matching needs entry; check the index for link/gitlink entries; reject artifact names starting with a dot; --no-fail-fast in scripts/ci.sh; exit trap that removes the temp worktree
 - P1-PKG-10 · PKG · done (#33) · (#33) Gem build carries the vendored QuickJS
 - P1-PKG-08 · PKG · review · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
 - P1-PKG-09 · PKG · review · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
