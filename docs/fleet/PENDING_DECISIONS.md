@@ -5,14 +5,6 @@
 
 ## PKG batch 1 (#4 #7 #10 #14)
 
-## GFX batch 1 (#3 #12 #16)
-- 2026-10-31 · surimono-gfx measures with parley =0.6.0 and skrifa =0.37.0 (no system feature) · Same shaper fulgur 0.40 prints with.
-- 2026-10-31 · A family list resolves to registered families it names (or the sans-serif mapping), then every other registered family as fallback · Browser-like CJK fallback without system fonts.
-- 2026-10-31 · TextMetrics rounds font ascent/descent and snaps ink boxes to whole px like Chrome on Linux; serializes with canvas camelCase names · Matches Chrome to 0.0007 px.
-- 2026-10-31 · WOFF/WOFF2 rejected for now; measureText rejects text over 256 KiB; ex/ch = 0.5em, viewport units invalid in canvas fonts · No brotli dep; shaping can't be interrupted; no viewport at parse time.
-- 2026-10-31 · sanitize_svg(svg, island, &FontSet) with MAX_SVG_NODES 1,000,000 and MAX_SVG_DEPTH 128, roxmltree =0.21.1, edits by byte range; ids prefixed sm{island}-; only #fragment and data:image/ refs kept (plus http/https/mailto on <a>); CDATA escaped, comments/PI/DOCTYPE dropped, HTML breakout elements removed; DTD or deep/malformed SVG rejected · One place for safety, ids and fonts; untouched bytes identical.
-- 2026-10-31 · Callers give fulgur the same font files with system fonts off · Proven exact by tests/fulgur_layout.rs; generic families print blank without system fonts, so page CSS must name registered families.
-
 ## Upstream drafts to write (orchestrator)
 - fulgur-ruby: expose system_fonts: and AssetBundle#add_font_bytes
 - fulgur: map generic families to bundled fonts
@@ -66,16 +58,7 @@ TODO: upstream drafts for 5 fulgur 0.40 gaps from COMPAT.md (#17); RT task: Rust
 ## RT sandbox hardening (#32): merged via #39 at 23:30; lines moved; open for Kay: [patch] does not reach crates.io users (publishing surimono-core needs the forked engine under its own crate names).
 Known gap: allocation failure during runtime/context creation (real system OOM only) can still crash; not reachable through the memory limit.
 
-## GFX batch 2 (#3 #12 #27 #16) — replaces the GFX batch 1 lines above on merge
-- 2026-10-31 · surimono-gfx public API: FontSet (new, add_font_bytes, families, face_count, set_generic_family, font_files, resolve_families), TextMeasurer (new, measure, fonts; Clone + Send + Sync), TextMetrics, GenericFamily, GfxError (#[non_exhaustive]: InvalidFont, UnsupportedFontFormat, UnknownFamily, NoFonts, TextTooLong, InvalidSvg), MAX_TEXT_BYTES = 256 KiB · canvas measureText from the caller's fonts with Parley =0.6.0, matching Chrome to 0.0007 px.
-- 2026-10-31 · measureText caches are bounded by bytes: keys ≤ 256 B, ≤ 256 KiB per workspace; a css_font over 1 KiB means the canvas default · Hostile input grew the host by 67 to 101 MB in review.
-- 2026-10-31 · sanitize_svg(svg, island, &TextMeasurer, &SvgOptions), MAX_SVG_NODES 1,000,000, MAX_SVG_DEPTH 128 · One safe inlining step; the measurer carries fonts and shaping.
-- 2026-10-31 · The island prefix covers ids, ARIA and other id lists and ECharts zrN- classes; id-list tokens that name nothing in the SVG are dropped · Islands must not reference or style each other.
-- 2026-10-31 · SvgOptions { text: TextMode::Outlines | Keep }, default Outlines; <text> becomes <g role=img aria-label> shaped with the same Parley path as measure(), glyphs from skrifa, two fixed decimals · fulgur 0.40 prints inline SVG text with system fonts; outline advances are bit-identical to measure() and within 0.049 px of Chrome.
-- 2026-10-31 · tests/fulgur_print.rs runs only where fulgur CLI and poppler exist; SURIMONO_REQUIRE_FULGUR=1 enforces it in a CI job · Keeps PR CI green without fulgur.
-
 ## 11:40 · #25 review outcomes
-- DECISION 2026-10-31 · Island output can't affect anything outside its own box: sanitize_svg drops every <style>, foreignObject and HTML-namespace content and SMIL; desc/title become text-only; the root <svg> style is allowlisted · An ECharts emphasis colour injected page-wide CSS (body{display:none}); custom bundles could swallow the rest of the document or set page <body> attributes.
 - DECISION 2026-10-31 · A forked child rebuilds its FontSet/TextMeasurer from font bytes along with the pool · A parent thread can hold the measurer's lock at fork time (18 of 200 children hung).
 - DECISION 2026-10-31 · Optional max_islands per document (default 1,000) and a cancel path: the Ruby unblock function sets a flag the facade checks between islands · Per-island deadlines don't bound a whole document; Timeout/SIGTERM waited for all islands.
 - Open: macos-14 runner image retired 2 Nov; full.yml needs macos-15 (YAML for Kay at checkpoint 2).
@@ -108,13 +91,3 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-10-31 · Typed-array default sort checks only the interrupt flag through per-type wrappers · 8–11% overhead instead of 15–26%.
 - 2026-10-31 · Engine patch level 3 = #45's allocation-failure patches + #47's interrupt patches; build.rs refuses wasm32-unknown-unknown · One level for both sets.
 - 2026-10-31 · The sandbox starts one watchdog thread per process (a fresh one in a forked child) that raises a per-runtime stop flag at each call's deadline; Sandbox::new/with_options and calls return SandboxError::Engine if it can't start; its registry is a lock-free fork-safe cell, no global lock on the per-call path (P1-RT-22 folded in) · Time-accurate limits without a thread per render; a Renderer must survive fork (21 of 29,300 forks hung with a lock).
-
-## GFX batch 3 (#12 #27 #16 #48), add on merge (replaces stale GFX batch 2 lines on <style> and SMIL)
-- 2026-10-31 · CSS in island SVG is read with one CSS Syntax 3 tokenizer for every path, then re-checked with no structure, so a gap drops the CSS; presentation attributes get the same checks; CSS over 64 KiB per attribute is dropped (#12) · The hand-rolled scanner let 15 of 19 hostile SVGs load.
-- 2026-10-31 · sanitize_svg removes all SMIL animation (#12) · fulgur and usvg ignore it, ECharts and Vega emit none, and it can set URLs after sanitising.
-- 2026-10-31 · URLs are decided as the URL parser reads them, C1 controls refuse a URL, and kept URL and CSS attributes are written as XML read them (#12) · Parser differentials (`d ata:image`, `&#x80;`, literal newlines).
-- 2026-10-31 · A <use> whose target is or holds a <use> is removed (#12) · Chains fan out exponentially in the printer.
-- 2026-10-31 · Outline bounds: 20,000 shaped characters (spaces count), 20,000 <text>, 32 MiB of path data checked per command, styles computed once top down, glyphs beyond 1e7 px not drawn, lengths clamped to 1e9 → InvalidSvg; outlining with no fonts → NoFonts (#27) · Outlining runs on the host after the script limits end; review cases went from 31–72 s to milliseconds.
-- 2026-10-31 · Outlined groups carry data-surimono-text (the outlined string) and data-surimono-face (the faces used); any data-surimono-* in the input is dropped on every element (#12, #27) · For the checkpoint-2 text and face checks.
-- 2026-10-31 · A TextMeasurer workspace gets fresh layout buffers after laying out more than 4 KiB (#48) · Idle workspaces each kept about 20 MB.
-

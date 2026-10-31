@@ -53,9 +53,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 ### Graphics engineer (crates/gfx)
 - P1-GFX-01 · GFX · done · Font registry from caller-supplied font bytes only (TTF, OTF, TTC, WOFF2 if cheap); CSS `font` shorthand parsing; family, weight and style matching; fallback chain for CJK; never system fonts
 - P1-GFX-02 · GFX · done · `measureText` from the same shaping the renderer uses (Parley 0.6 as in fulgur): width, actual and font bounding-box ascent and descent; tests against reference widths from fixed fonts
-- P1-GFX-03 · GFX · review · SVG output helpers: deterministic ids, font-family rewritten to registered families, safe inlining into HTML (no script, no external refs)
-- P1-GFX-05 · GFX · review · (#27; merge order #3 → #12 → #27 → #16) Island text to vector outlines in the registered fonts (default; Keep opt-in), because fulgur 0.40 prints inline SVG text with system fonts
-- P1-GFX-04 · GFX · review · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
+- P1-GFX-03 · GFX · done (#12) · SVG output helpers: deterministic ids, font-family rewritten to registered families, safe inlining into HTML (no script, no external refs)
+- P1-GFX-05 · GFX · done (#27) · (#27; merge order #3 → #12 → #27 → #16) Island text to vector outlines in the registered fonts (default; Keep opt-in), because fulgur 0.40 prints inline SVG text with system fonts
+- P1-GFX-04 · GFX · done (#16) · Hand-off notes for fulgur: how the same fonts reach fulgur so measured text matches printed text; fixture to prove it
 
 ### Conformance researcher (fixtures, wpt, bench, docs/COMPAT.md)
 - P1-CF-01 · CF · done · Fixture format (input HTML, data, fonts, meta) and the pipeline: Chrome reference render (pinned Chromium via Playwright), fulgur render, rasterize, perceptual diff, side-by-side PNGs
@@ -65,7 +65,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-05 · CF · done · Real-world suite manifest for phase 1 (ECharts, Vega, Vega-Lite): pinned version, licence, source URL, checksum
 - P1-CF-06 · CF · done · Grover benchmark: reference report, time and peak memory for Grover vs surimono+fulgur, table output
 - P1-CF-08 · CF · done · Colour, hue and text checks in compare.sh (near-match alone is colour-blind)
-- P1-CF-09 · CF · review · (#35) Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
+- P1-CF-09 · CF · doing · (#35 merged: the run script) the real run itself, once #25/#26 are on main — Checkpoint-2 run once the real pipeline is on main: all 11 fixtures through surimono (outlines) and fulgur, side-by-side PNGs with scores; COMPAT entries for fulgur's system-font SVG text, unsupported outline features (rotate, textLength, textPath, vertical, word-spacing, baseline-shift, decoration, synthetic bold, <style>-only font rules) and Chrome's 1/64 px text positions; wire gfx's svg_inline.mjs and svg_outline.mjs checks into reference.sh
 - P1-CF-04b · CF · done · (#36) Hostile follow-ups: real dynamic-import target, narrowed re-entry cases, hostile-chrome.mjs
 - P1-CF-10 · CF · done · (#40) Benchmark follow-ups: gem version probe, gem build failure is an error, warm verdict needs full n, pool size recorded
 - P1-CF-05b · CF · done · (#41) A missing embedded bundle fails verify.py
