@@ -12,8 +12,8 @@ Installing rake 13.4.2
 Fetching minitest 5.27.0
 Fetching rake-compiler 1.3.2
 Fetching rake-compiler-dock 1.12.0
-Installing minitest 5.27.0
 Installing rake-compiler 1.3.2
+Installing minitest 5.27.0
 Installing rake-compiler-dock 1.12.0
 Fetching rb_sys 0.9.130
 Installing rb_sys 0.9.130
@@ -44,84 +44,84 @@ checking for aarch64-apple-darwin-ar... yes
 checking for cargo... yes
 checking for install_name_tool... no
 checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
-/usr/bin/make
 cd -
 cd tmp/arm64-darwin/surimono/4.0.2
+/usr/bin/make
 generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
 /usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-4.0.2/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
    Compiling proc-macro2 v1.0.107
-   Compiling unicode-ident v1.0.27
    Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
    Compiling libc v0.2.191
    Compiling version_check v0.9.5
    Compiling cfg-if v1.0.5
-   Compiling find-msvc-tools v0.1.15
-   Compiling generic-array v0.14.7
    Compiling shlex v2.0.1
-   Compiling cc v1.10.0
+   Compiling generic-array v0.14.7
+   Compiling find-msvc-tools v0.1.15
    Compiling siphasher v1.0.4
    Compiling rand_core v0.6.4
-   Compiling phf_shared v0.11.3
+   Compiling cc v1.10.0
    Compiling rand v0.8.8
+   Compiling phf_shared v0.11.3
+   Compiling typenum v1.20.1
+   Compiling phf_generator v0.11.3
    Compiling syn v3.0.9
    Compiling syn v2.0.119
-   Compiling typenum v1.20.1
    Compiling rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/vendor/rquickjs-sys)
-   Compiling phf_generator v0.11.3
-   Compiling bytemuck_derive v1.12.1
    Compiling smallvec v1.16.4
    Compiling allocator-api2 v0.2.21
+   Compiling memchr v2.8.3
+   Compiling bytemuck_derive v1.12.1
    Compiling thiserror v2.0.21
    Compiling equivalent v1.0.3
-   Compiling memchr v2.8.3
-   Compiling block-buffer v0.10.4
    Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
    Compiling libm v0.2.16
    Compiling glob v0.3.4
-   Compiling bytemuck v1.25.2
    Compiling digest v0.10.7
-   Compiling clang-sys v1.9.1
    Compiling thiserror-impl v2.0.21
+   Compiling clang-sys v1.9.1
+   Compiling bytemuck v1.25.2
    Compiling cpufeatures v0.2.17
    Compiling sha2 v0.10.9
    Compiling aho-corasick v1.1.5
-   Compiling minimal-lexical v0.2.1
-   Compiling serde_core v1.0.229
    Compiling regex-syntax v0.8.11
-   Compiling nom v7.1.3
+   Compiling serde_core v1.0.229
+   Compiling minimal-lexical v0.2.1
    Compiling core_maths v0.1.1
+   Compiling nom v7.1.3
    Compiling surimono-core v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/core)
    Compiling font-types v0.10.1
    Compiling phf_codegen v0.11.3
    Compiling libloading v0.8.9
-   Compiling bindgen v0.72.1
    Compiling regex-automata v0.4.18
    Compiling either v1.19.0
    Compiling foldhash v0.2.0
+   Compiling bindgen v0.72.1
    Compiling hashbrown v0.17.1
    Compiling itertools v0.13.0
    Compiling cexpr v0.6.0
-   Compiling read-fonts v0.35.0
    Compiling regex v1.13.1
+   Compiling read-fonts v0.35.0
    Compiling font-types v0.12.7
    Compiling displaydoc v0.2.7
-   Compiling shlex v1.3.0
    Compiling bitflags v2.13.2
+   Compiling once_cell v1.21.4
    Compiling rustc-hash v2.1.3
    Compiling serde v1.0.229
-   Compiling once_cell v1.21.4
+   Compiling shlex v1.3.0
    Compiling read-fonts v0.41.0
    Compiling rquickjs-core v0.14.0
    Compiling tinystr v0.8.5
    Compiling phf_macros v0.11.3
    Compiling serde_derive v1.0.229
-   Compiling writeable v0.6.4
    Compiling parking_lot_core v0.9.12
    Compiling foldhash v0.1.5
-   Compiling shell-words v1.1.1
-   Compiling litemap v0.8.3
+   Compiling writeable v0.6.4
    Compiling itoa v1.0.18
    Compiling lazy_static v1.5.1
+   Compiling shell-words v1.1.1
+   Compiling litemap v0.8.3
    Compiling rb-sys-build v0.9.130
    Compiling icu_locale_core v2.2.0
    Compiling hashbrown v0.15.5
@@ -129,31 +129,31 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling phf v0.11.3
    Compiling rquickjs v0.14.0
    Compiling memmap2 v0.9.12
-   Compiling precomputed-hash v0.1.1
+   Compiling dtoa v1.0.11
    Compiling rb-sys-env v0.2.3
    Compiling linebender_resource_handle v0.1.1
    Compiling zmij v1.0.23
-   Compiling dtoa v1.0.11
-   Compiling scopeguard v1.2.0
+   Compiling precomputed-hash v0.1.1
    Compiling new_debug_unreachable v1.0.6
+   Compiling scopeguard v1.2.0
    Compiling lock_api v0.4.14
-   Compiling dtoa-short v0.3.5
    Compiling fontique v0.6.0
+   Compiling dtoa-short v0.3.5
    Compiling swash v0.2.10
    Compiling rb-sys v0.9.130
-   Compiling skrifa v0.37.0
    Compiling harfrust v0.3.2
+   Compiling skrifa v0.37.0
    Compiling selectors v0.32.0
-   Compiling cssparser-macros v0.6.1
    Compiling derive_more-impl v2.1.1
+   Compiling cssparser-macros v0.6.1
    Compiling string_cache_codegen v0.5.4
-   Compiling stable_deref_trait v1.2.1
    Compiling serde_json v1.0.154
+   Compiling stable_deref_trait v1.2.1
    Compiling servo_arc v0.4.3
    Compiling web_atoms v0.1.3
-   Compiling derive_more v2.1.1
-   Compiling cssparser v0.35.0
    Compiling parley v0.6.0
+   Compiling cssparser v0.35.0
+   Compiling derive_more v2.1.1
    Compiling parking_lot v0.12.5
    Compiling surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/islands)
    Compiling roxmltree v0.21.2
@@ -170,13 +170,17 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling surimono v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/surimono)
    Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
 warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
-         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.crypto_common-2fc26069a1299c28.crypto_common.70d8226367727a7e-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
-         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.bytemuck-09bb70879297b53d.bytemuck.1b08b84911f04413-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.addr2line-e7495c686e7a4546.addr2line.5580f7e390a18d75-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.debug_unreachable-fcd0911994ea435d.debug_unreachable.ee48e5186c2da4f0-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.core-a4b78f7f6a62a375.core.ff995cfa4774f676-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.serde_json-139d2be6312976ae.serde_json.78c1bb3f04b41e18-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.std_detect-d8bccb6c13974054.std_detect.54e7b0ef3c654806-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
   |
   = note: `#[warn(linker_messages)]` on by default
 
 warning: `surimono-ruby` (lib) generated 1 warning
-    Finished `release` profile [optimized] target(s) in 53.93s
+    Finished `release` profile [optimized] target(s) in 1m 26s
 cd -
 mkdir -p tmp/arm64-darwin/stage/lib/surimono/4.0
 cp Cargo.lock tmp/arm64-darwin/stage/Cargo.lock
@@ -387,19 +391,22 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling magnus v0.9.3
    Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
 warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
-         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.block_buffer-6f8fac1b0ab58704.block_buffer.84d0dedcae4d5f31-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)ld: object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.cfg_if-d1f01e26b51fc912.cfg_if.1d1a5299bc79fd12-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.bitflags-3d1c51e4e8210435.bitflags.18fdbfaf39aad2c1-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.debug_unreachable-fcd0911994ea435d.debug_unreachable.ee48e5186c2da4f0-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.libm-730d6b3e87700751.libm.b580f249f86ccc0c-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
   |
   = note: `#[warn(linker_messages)]` on by default
 
 warning: `surimono-ruby` (lib) generated 1 warning
-    Finished `release` profile [optimized] target(s) in 10.81s
-/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+    Finished `release` profile [optimized] target(s) in 17.01s
 cd -
 mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.4
 cp tmp/arm64-darwin/surimono/3.4.9/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.4/surimono.bundle
 mkdir -p lib/surimono/3.3
 mkdir -p tmp/arm64-darwin/surimono/3.3.11
 cd tmp/arm64-darwin/surimono/3.3.11
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
 checking for aarch64-apple-darwin-clang... yes
 checking for aarch64-apple-darwin-clang++... yes
 checking for aarch64-apple-darwin-ar... yes
@@ -415,11 +422,13 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling magnus v0.9.3
    Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
 warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+         
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.rquickjs_sys-c03f4d40131347bf.rquickjs_sys.f25a8a025d2d89c8-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
   |
   = note: `#[warn(linker_messages)]` on by default
 
 warning: `surimono-ruby` (lib) generated 1 warning
-    Finished `release` profile [optimized] target(s) in 10.97s
+    Finished `release` profile [optimized] target(s) in 17.04s
 cd -
 mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.3
 cp tmp/arm64-darwin/surimono/3.3.11/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.3/surimono.bundle
@@ -442,12 +451,12 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling magnus v0.9.3
    Compiling surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
 warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
-         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.addr2line-e7495c686e7a4546.addr2line.5580f7e390a18d75-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.selectors-15e08ed3b261d041.selectors.fee8ec36a346f837-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
   |
   = note: `#[warn(linker_messages)]` on by default
 
 warning: `surimono-ruby` (lib) generated 1 warning
-    Finished `release` profile [optimized] target(s) in 10.49s
+    Finished `release` profile [optimized] target(s) in 16.98s
 osxcross: debug: dsymutil: executing "/opt/osxcross/target/bin/arm64-apple-darwin20.2-wrapper -version" failed
 Removing unneeded dependencies from native gemspec
 Removing source files from native gemspec
@@ -514,9 +523,9 @@ cd pkg/surimono-0.0.0-arm64-darwin
 cd -
 '/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/pkg/surimono-0.0.0-arm64-darwin.gem' -> 'pkg/surimono-0.0.0-arm64-darwin.gem'
 total 14836
-drwxr-xr-x  2 runner runner     4096 Oct 31 20:05 .
-drwxr-xr-x 10 runner runner     4096 Oct 31 20:05 ..
--rw-r--r--  1 runner runner 15180800 Oct 31 20:05 surimono-0.0.0-arm64-darwin.gem
+drwxr-xr-x  2 runner runner     4096 Oct 31 20:26 .
+drwxr-xr-x 10 runner runner     4096 Oct 31 20:26 ..
+-rw-r--r--  1 runner runner 15180800 Oct 31 20:26 surimono-0.0.0-arm64-darwin.gem
 
 ==> check the gem's contents
 LICENSE-APACHE
