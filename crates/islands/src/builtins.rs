@@ -59,7 +59,23 @@ pub(crate) fn find(name: &str) -> Option<Builtin> {
 /// Names of the built-in renderers in this build, sorted.
 ///
 /// Which ones are present depends on Cargo features, both on by default:
-/// `echarts` adds `"echarts"`, and `vega` adds `"vega"` and `"vega-lite"`. A bundle registered under the same name with
+/// `echarts` adds `"echarts"`, and `vega` adds `"vega"` and `"vega-lite"`.
+///
+/// - **`echarts`** (Apache ECharts 6.1.0): the spec is an ECharts option
+///   object. It is drawn with ECharts' server-side SVG renderer at the
+///   island's width and height, with animation off and the `EN` locale.
+/// - **`vega`** (Vega 6.4.0) and **`vega-lite`** (Vega-Lite 6.5.0): the spec
+///   is a Vega or Vega-Lite spec and keeps its own size, except that a
+///   Vega-Lite `"container"` width or height means the island's. Data must
+///   be inline (`values`): a data `url`, an image mark or a link (`href`)
+///   fails the render with an error naming it. Features that draw to a
+///   raster canvas (the label transform, word clouds, heatmap images) are
+///   not supported.
+///
+/// All of them measure text with the runner's fonts. Charts with thousands
+/// of marks can take a second or more (a 2,000-point Vega-Lite scatter
+/// takes 0.5 to 1.2 s in a release build), so they may need a time limit
+/// above the default 2 s. A bundle registered under the same name with
 /// [`IslandRunner::register_bundle`](crate::IslandRunner::register_bundle)
 /// takes precedence over the built-in.
 pub fn builtin_renderers() -> Vec<&'static str> {

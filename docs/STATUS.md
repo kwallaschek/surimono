@@ -2,45 +2,54 @@
 
 Updated after every task. Times are JST.
 
-## Now (Sat 31 Oct 2026, 11:20)
+> **Scheduled sessions: stop.** Since 16:35 on Sat 31 Oct a live orchestrator session
+> (cse_011c8hfp9aeYhQp5RpWyywaN, with Kay) runs the fleet. If you are a scheduled
+> resume and `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat is under
+> 3 hours old: change nothing more, stop your subagents, end the session.
 
-**Phase 1: islands.** Merged into main so far: fonts, CI, pre-pass, facade
-(stand-in backend), fixture pipeline, sandbox with determinism fixes, island
-runner, pool, soak, ECharts, Vega, gfx text measurement, hostile suite and the 11
-fixtures. The fleet stopped twice on the account's 5-hour usage limit (03:20 to
-06:17 and about 09:40 to 11:10) and resumed where it stopped.
+## Now (Sat 31 Oct 2026, 17:05)
+
+**Phase 1: islands.** On main: fonts, CI, pre-pass, facade (stand-in backend),
+fixture pipeline, sandbox with determinism fixes, island runner, pool, soak, ECharts,
+Vega, gfx text measurement, hostile suite, the 11 fixtures, and since 16:45 the gfx
+measurer in islands (#30), the COMPAT generator (#28), hostile follow-ups (#42), the
+font weight/style check (#43), gem staging of the vendored engine (#33), islands follow-ups (#39), the Vega bundle hash (#46) and CI hardening with the final YAML proposal for Kay (#44).
+
+The fleet stopped three times on the account's 5-hour usage limit (03:20 to 06:17,
+about 09:40 to 11:10, about 14:00 to 16:35). At 16:16 a scheduled resume started a
+second orchestrator while this one was paused; both ran reviewers. One session at a
+time is now enforced by `scripts/fleet/owner-check.sh`.
 
 ### Open PRs (merge order)
 | PR | Task | State |
 |---|---|---|
-| #30 | P1-RT-10 gfx measurer in islands, deadline hook | blockers fixed, delta review running |
-| #32 + #33 | P1-RT-09 vendored QuickJS patch + gem staging of vendor/ | #32 approved (release blockers R4 to R8 open); #33 in review; merge together |
-| #37 | P1-RT-11 hostile harness (all 59 cases) | in review; carries the #11 test fix needed once #32 lands, so merge right after #32 |
-| #39 | P1-RT-12 islands follow-ups | in review |
-| #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | #12 and #27 blocked (sanitizer bypasses, outline bounds), being fixed; #16 approved |
-| #14, #20, #22 | gem fix, CI scripts + YAML proposal, pre-pass follow-ups | in review |
-| #25 → #26 → #34 | facade on the real backend, CLI, licences | in review |
-| #2, #24, #28, #31 | manifest, colour checks, COMPAT generator, Grover bench | blocked, being fixed |
-| #18 → #19 → #23 | README, guides, examples | waiting for the facade to settle, then review |
+| #32 → #37, #45 | P1-RT-09 engine patch, P1-RT-11 hostile harness, P1-RT-15 OOM fixes | #32 and #37 approved; P1-RT-15b adds the bind sweep test and nits (#45 blockers); then a delta review and normal merges |
+| #47 | P1-RT-14 time-accurate deadlines (R4, R5) | in review (stacked on #32 and #45; patch level 3) |
+| #52, #53 | P1-RT-19 macOS determinism probe, P1-RT-13 ASan test limits | in review; from main, fix main's full.yml |
+| #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | #12 BLOCK (relative URLs pass as `data:image/`), #27 BLOCK (carries #12); being fixed |
+| #25 → #26 → #34 | facade on the real backend, CLI, licences | BLOCKs from 16:25 being folded in; critical path for the checkpoint run |
+| #35 | P1-CF-09 checkpoint-2 run script | approved at 66cba58; merges after #27 |
+| #50, #51 | P1-CF-11 review follow-ups (checks, compat.py, offline WebRTC) | #50 BLOCK (sandboxed srcdoc iframe keeps WebRTC), being fixed; #51 inherits it |
+| #48 | P1-GFX-06 fresh layout buffers after a large text | opened by GFX; review after #12/#27 |
+| #18 → #19 → #23 | README, guides, examples | waiting for #25, then review |
 | #38 | v0.1 release PR | last; only with Kay's OK at checkpoint 2 |
 
 ### In progress
-- Runtime p1-rt-14: deadline enforcement (watchdog flag on every poll, polls in expensive natives) — v0.1 blockers R4, R5.
-- Runtime p1-rt-15: allocation-failure crash fixes in the vendored engine — v0.1 blockers R6, R7, R8 (details private).
-- Graphics batch 3: CSS tokenizer for the sanitizer, SMIL dropped, outline bounds.
-- Conformance batch 3: #31, #28, #2, #24 fixes, then P1-CF-09 (checkpoint-2 run of all fixtures through the real pipeline).
-- Reviews: #14/#20/#22/#33, #25/#26/#34, #30/#37/#39.
+- Runtime: P1-RT-15b (neutral engine notes, bind sweep test); P1-RT-14 (#47); perf P1-RT-16/17 after the #37 fixes.
+- Graphics: #12/#27 URL classification fix, forged data attributes, then #16 and P1-GFX-06.
+- Packaging: #25 breakout tests and review items, then #26, #34, #44.
 
 ### Blocked / waiting on Kay
-- Delete one public PR comment with unreported QuickJS security details (asked 09:10): https://github.com/kwallaschek/surimono/pull/32#issuecomment-6535086647
+- Nothing. (Kay deleted the two PR comments and stopped the duplicate session at 17:07. quickjs-ng wants AI-found bugs as public issues, so P1-RT-20 prepares issue drafts with reproducers on master for Kay to verify and file.)
 
 ### Next
-1. Merge each PR when a fresh reviewer approves its exact head and CI is green; move its DECISIONS lines from docs/fleet/PENDING_DECISIONS.md.
-2. When #25 merges: start Docs and DX batch 2 (resolve `confirm` markers, CHANGELOG 0.1.0, Ferrum/WickedPDF notes), then review #18/#19/#23.
-3. Checkpoint 2 package (Sun ~18:00): fixtures side by side with Chrome, Grover table (PSS, from CI), hostile results, the v0.1 release PR with a passing dry-run, and the open questions in docs/fleet/PENDING_DECISIONS.md ("Open for checkpoint 2").
+1. When P1-RT-15b reports: one fresh reviewer for #32's delta plus #45; then merge #32, #37 (mechanical main merge if needed), then #45; add the QuickJS THIRD_PARTY row (in PENDING_DECISIONS).
+2. Review #47 when RT says it is ready.
+3. When #25 merges: Docs and DX batch 2, then review #18/#19/#23. Then P1-CF-09's real run from main.
+4. Checkpoint 2 package (Sun ~18:00): fixtures side by side with Chrome, Grover table (PSS, from CI), hostile results, the v0.1 release PR with a passing dry-run, and "Open for checkpoint 2" in docs/fleet/PENDING_DECISIONS.md.
 
 ### Disk
-When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh`.
+When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh` (freed 12.4 GB at 16:40).
 
 ### Branch rule
-Never rebase or force-push a pushed branch; fix with new commits; downstream branches merge their parent in. PRs merge with merge commits. The orchestrator may merge main into an approved branch when the result is exactly the mechanical merge (see DECISIONS).
+Never rebase or force-push a pushed branch; fix with new commits; downstream branches merge their parent in. PRs merge with merge commits. The orchestrator may merge main into an approved branch when the result is exactly the mechanical merge.
