@@ -1,12 +1,7 @@
 # Pending DECISIONS lines (moved into docs/DECISIONS.md when each PR merges)
 
 ## RT batch 1 (#5 #8 #11 #13 #15)
-- 2026-10-31 · Sandbox local time is UTC plus a fixed utc_offset_minutes (default 0), never the host's zone · Output must not depend on where the server runs.
-- 2026-10-31 · Default Math.random seed 0x73757269_6d6f6e6f and clock 2026-01-01T00:00:00Z; every context restarts the sequence · Same input, same output across pooled workers.
-- 2026-10-31 · WeakRef and FinalizationRegistry are strong/no-op shims; performance.now() returns 0 in phase 1 · GC timing must not leak; the phase-2 virtual clock will drive performance.now().
-- 2026-10-31 · Island entry is `entry(specJson, ctx)` with the spec as JSON text, validated in Rust first; it may return SVG or a Promise of SVG that settles without timers · BadJson with line and column before any JS runs; Vega's toSVG is async.
-- 2026-10-31 · IslandRunner is a fixed pool of worker threads, each owning its sandbox, behind a job queue; a fresh QuickJS runtime per render, prepared after replying · Send + Sync without rquickjs `parallel`; rquickjs 0.14 caches class prototypes per runtime (pins the first context), and a fresh runtime costs the same as a fresh context.
-- 2026-10-31 · TextMeasurer::approximate() is the islands default until gfx is wired in · Deterministic and font-free; the facade always passes the gfx measurer.
+- (superseded by #30: islands uses surimono_gfx::TextMeasurer; no fonts → IslandError::NoFonts; the estimate is test-only)
 
 ## PKG batch 1 (#4 #7 #10 #14)
 - 2026-10-31 · Ruby: Surimono::Renderer.new(fonts:, limits: {memory_mb:, time_ms:, stack_kb:}, seed:, error_policy:, renderers:, bundles:, pool_size:), #render(html), Surimono.render(html, **opts) caching ≤16 renderers · Mirrors the Rust facade in Ruby units.
@@ -81,10 +76,6 @@ TODO: upstream drafts for 5 fulgur 0.40 gaps from COMPAT.md (#17); RT task: Rust
 - Vega speed: scatter 2,000 pts ~1.2 s under load vs 2 s default limit.
 
 ## RT sandbox hardening (#8 fixes, #32), add on merge
-- 2026-10-31 · Limits and SandboxOptions are #[non_exhaustive] with Default, Limits::new and with_* setters · Later phases can add options without breaking callers.
-- 2026-10-31 · Limits::validate rejects time == 0 and memory_bytes > isize::MAX/2 · A zero budget fails every call; bigger limits could overflow allocator size arithmetic.
-- 2026-10-31 · Error.prepareStackTrace is switched off (a plain data property) · CallSite exposed native functions, including the real Date.
-- 2026-10-31 · Date.parse is a JS port of quickjs-ng's parser using the sandbox offset; new Date(x) copies Date values and converts others in JS · The host zone is never read; a 30,000-string differential test pins the port to the native parser.
 - 2026-10-31 · QuickJS (quickjs-ng 0.16.2 via rquickjs-sys 0.14.0) is vendored in vendor/rquickjs-sys with [patch.crates-io]: sticky interrupt, polls in generic element access and sorts, two compiler OOM crash fixes, link marker · The only way to make "never a hang or crash" true; drop when upstream ships the fixes.
 - 2026-10-31 · The prelude's array-like length guards are removed · The patched engine covers those loops and the guards had holes.
 - 2026-10-31 · surimono-core links only against the patched engine (marker symbol) · An unpatched build fails loudly instead of shipping a sandbox that can hang.

@@ -6,16 +6,135 @@ use std::sync::{Arc, OnceLock};
 use rquickjs::context::EvalOptions;
 use rquickjs::context::intrinsic;
 use rquickjs::function::{IntoArgs, Rest};
+use rquickjs::promise::PromiseState;
 use rquickjs::{Context, Ctx, FromJs, Function, Object, Runtime, Value};
 
 use crate::engine::{self, LimitAllocator, LimitState};
 use crate::{Limits, SandboxError};
 
 /// How a [`Sandbox`] is set up.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+///
+/// Besides the limits, these pin everything a script could otherwise read
+/// from the host, so the same input gives the same output whatever the
+/// host's clock and time zone: `Math.random` is seeded, `Date.now()` and
+/// `new Date()` return a fixed instant, local time (including how
+/// `Date.parse` reads strings without a zone) is a fixed offset from UTC,
+/// never the host's zone, and `performance.now()` is a virtual clock.
+///
+/// Floating-point maths is the exception: `Math.sin`, `Math.exp`,
+/// `Math.pow` and their kin come from the platform's C library, which can
+/// differ in the last bit between glibc, musl and macOS. Output is
+/// byte-identical across runs on one platform; across platforms, numbers
+/// computed with those functions can differ in their last digits.
+///
+/// Locale-sensitive methods (`toLocaleString` and friends) ignore their
+/// `locales` and `options` arguments and always format like Chrome's
+/// `en-US`.
+///
+/// Start from [`SandboxOptions::default`] and adjust it with the `with_*`
+/// setters; more options will be added in later versions:
+///
+/// ```
+/// use surimono_core::{Limits, SandboxOptions};
+///
+/// let tokyo = SandboxOptions::default()
+///     .with_utc_offset_minutes(9 * 60)
+///     .with_limits(Limits::default().with_memory_bytes(32 << 20));
+/// assert_eq!(tokyo.validate(), Ok(()));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SandboxOptions {
     /// Memory, time and stack limits for every call.
     pub limits: Limits,
+    /// Seed for `Math.random`. Every fresh context starts the same sequence.
+    pub random_seed: u64,
+    /// What `Date.now()` and `new Date()` return, in milliseconds since the
+    /// Unix epoch. Also `performance.timeOrigin`.
+    pub now_ms: i64,
+    /// Local time's offset from UTC in minutes, e.g. 540 for Japan. Affects
+    /// `getHours()`, `toString()`, `new Date(2026, 0, 1)` and the like.
+    pub utc_offset_minutes: i32,
+}
+
+impl SandboxOptions {
+    /// Default `Math.random` seed: "surimono" in ASCII.
+    pub const DEFAULT_RANDOM_SEED: u64 = 0x7375_7269_6d6f_6e6f;
+    /// Default clock: 2026-01-01T00:00:00Z.
+    pub const DEFAULT_NOW_MS: i64 = 1_767_225_600_000;
+    /// Largest `|now_ms|` a JavaScript Date can hold.
+    pub const MAX_ABS_NOW_MS: i64 = 8_640_000_000_000_000;
+    /// Earliest real-world UTC offset, in minutes (UTC-12:00).
+    pub const MIN_UTC_OFFSET_MINUTES: i32 = -12 * 60;
+    /// Latest real-world UTC offset, in minutes (UTC+14:00).
+    pub const MAX_UTC_OFFSET_MINUTES: i32 = 14 * 60;
+
+    /// These options with `limits` as the limits.
+    #[must_use]
+    pub fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// These options with `Math.random` seeded with `seed`.
+    #[must_use]
+    pub fn with_random_seed(mut self, seed: u64) -> Self {
+        self.random_seed = seed;
+        self
+    }
+
+    /// These options with the clock fixed at `now_ms` (ms since the epoch).
+    #[must_use]
+    pub fn with_now_ms(mut self, now_ms: i64) -> Self {
+        self.now_ms = now_ms;
+        self
+    }
+
+    /// These options with local time `minutes` ahead of UTC.
+    #[must_use]
+    pub fn with_utc_offset_minutes(mut self, minutes: i32) -> Self {
+        self.utc_offset_minutes = minutes;
+        self
+    }
+
+    /// Checks every option is in range.
+    pub fn validate(&self) -> Result<(), SandboxError> {
+        self.limits.validate()?;
+        if !(-Self::MAX_ABS_NOW_MS..=Self::MAX_ABS_NOW_MS).contains(&self.now_ms) {
+            return Err(SandboxError::InvalidOptions {
+                message: format!(
+                    "now_ms is {}, a Date holds at most ±{}",
+                    self.now_ms,
+                    Self::MAX_ABS_NOW_MS
+                ),
+            });
+        }
+        if !(Self::MIN_UTC_OFFSET_MINUTES..=Self::MAX_UTC_OFFSET_MINUTES)
+            .contains(&self.utc_offset_minutes)
+        {
+            return Err(SandboxError::InvalidOptions {
+                message: format!(
+                    "utc_offset_minutes is {}, it must be between {} and {}",
+                    self.utc_offset_minutes,
+                    Self::MIN_UTC_OFFSET_MINUTES,
+                    Self::MAX_UTC_OFFSET_MINUTES
+                ),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl Default for SandboxOptions {
+    /// Default limits, the default seed, 2026-01-01T00:00:00Z, and UTC.
+    fn default() -> Self {
+        Self {
+            limits: Limits::default(),
+            random_seed: Self::DEFAULT_RANDOM_SEED,
+            now_ms: Self::DEFAULT_NOW_MS,
+            utc_offset_minutes: 0,
+        }
+    }
 }
 
 /// Script bytecode compiled once by [`Sandbox::compile`] and runnable in any
@@ -104,9 +223,8 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 pub struct Sandbox {
     options: SandboxOptions,
     state: Arc<LimitState>,
-    rt: Runtime,
-    /// Always `Some` outside `reset`; `None` only if a reset could not build a
-    /// context, in which case every call reports an engine error.
+    /// The context, which also keeps its runtime alive. Always `Some` except
+    /// if a rebuild failed, in which case every call reports an engine error.
     ctx: Option<Context>,
 }
 
@@ -122,12 +240,15 @@ impl fmt::Debug for Sandbox {
 impl Sandbox {
     /// Creates a sandbox with the given limits and default options.
     pub fn new(limits: Limits) -> Result<Self, SandboxError> {
-        Self::with_options(SandboxOptions { limits })
+        Self::with_options(SandboxOptions {
+            limits,
+            ..SandboxOptions::default()
+        })
     }
 
     /// Creates a sandbox from full options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
-        options.limits.validate()?;
+        options.validate()?;
         let state = LimitState::new(options.limits.memory_bytes);
         let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone()))
             .map_err(|e| setup_error(&state, e))?;
@@ -138,7 +259,6 @@ impl Sandbox {
         Ok(Self {
             options,
             state,
-            rt,
             ctx: Some(ctx),
         })
     }
@@ -158,25 +278,17 @@ impl Sandbox {
         self.state.used()
     }
 
-    /// Discards all script state and starts a fresh context.
+    /// Discards all script state: the next call runs in a fresh runtime and
+    /// context, with all of the old heap freed.
     ///
-    /// Reuses the runtime when it is clean; if the previous script left
-    /// microtasks queued, the runtime is replaced too.
+    /// The QuickJS runtime is replaced, not reused. rquickjs 0.14 caches the
+    /// prototypes of Rust-backed classes (including every `Function::new`)
+    /// per runtime, taken from the first context that needed them; reusing
+    /// the runtime would keep that context alive and give later contexts
+    /// functions inheriting from its `Function.prototype`. A fresh runtime
+    /// costs about the same as a fresh context (≈0.45 ms in release builds).
     pub fn reset(&mut self) -> Result<(), SandboxError> {
-        if self.rt.is_job_pending() {
-            return self.rebuild();
-        }
-        // Free the old context before building the new one, so its heap does
-        // not count against the new context's limit.
-        self.ctx = None;
-        self.rt.run_gc();
-        match new_context(&self.rt, &self.state, &self.options) {
-            Ok(ctx) => {
-                self.ctx = Some(ctx);
-                Ok(())
-            }
-            Err(_) => self.rebuild(),
-        }
+        self.rebuild()
     }
 
     /// Evaluates a classic script and converts its completion value to `T`.
@@ -252,6 +364,42 @@ impl Sandbox {
     where
         F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<R>,
     {
+        self.execute(|ctx, state| {
+            let v = f(ctx)?;
+            drain_jobs(ctx, state)?;
+            Ok(v)
+        })
+    }
+
+    /// Like [`run`](Self::run), for code that may produce a Promise.
+    ///
+    /// `f` returns a value; after the microtasks have run, a fulfilled
+    /// promise is replaced by its value and a rejected one fails like a thrown
+    /// exception. `then` converts the final value. One time budget covers
+    /// all of it. A promise still pending once nothing is left to run fails
+    /// with [`SandboxError::Type`] (the sandbox has no timers or I/O, so it
+    /// would never settle).
+    pub fn run_await<R, F, G>(&mut self, f: F, then: G) -> Result<R, SandboxError>
+    where
+        F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<Value<'js>>,
+        G: for<'js> FnOnce(&Ctx<'js>, Value<'js>) -> rquickjs::Result<R>,
+    {
+        self.execute(|ctx, state| {
+            let v = f(ctx)?;
+            drain_jobs(ctx, state)?;
+            let v = settle(v)?;
+            let r = then(ctx, v)?;
+            drain_jobs(ctx, state)?;
+            Ok(r)
+        })
+    }
+
+    /// Enters the context with the deadline armed, runs `body`, classifies
+    /// its error, and rebuilds the sandbox after a limit error.
+    fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
+    where
+        B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
+    {
         let Some(ctx) = self.ctx.clone() else {
             return Err(SandboxError::Engine {
                 message: "the sandbox has no context; a reset failed".into(),
@@ -261,8 +409,7 @@ impl Sandbox {
         state.arm(self.options.limits.time);
         let result = ctx.with(|ctx| {
             engine::update_stack_top(&ctx);
-            let out = f(&ctx).and_then(|v| drain_jobs(&ctx, state).map(|()| v));
-            out.map_err(|e| classify(&ctx, state, e))
+            body(&ctx, state).map_err(|e| classify(&ctx, state, e))
         });
         state.disarm();
         if let Err(e) = &result {
@@ -338,6 +485,11 @@ fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<
             })?;
     let config = Object::new(ctx.clone())?;
     config.set("maxLength", max_array_like_length(&options.limits))?;
+    // The seed travels as two 32-bit halves: JS numbers can't hold 64 bits.
+    config.set("seedLo", (options.random_seed & 0xffff_ffff) as f64)?;
+    config.set("seedHi", (options.random_seed >> 32) as f64)?;
+    config.set("nowMs", options.now_ms as f64)?;
+    config.set("utcOffsetMinutes", options.utc_offset_minutes)?;
     prelude.call::<_, ()>((config,))
 }
 
@@ -378,6 +530,26 @@ fn string_result(v: Value<'_>) -> rquickjs::Result<String> {
             from: found,
             to: "string",
             message: Some(format!("expected a string result, got {found}")),
+        }),
+    }
+}
+
+/// Replaces a settled promise by its value; other values pass through.
+fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
+    let Some(promise) = v.as_promise() else {
+        return Ok(v);
+    };
+    match promise.state() {
+        PromiseState::Resolved | PromiseState::Rejected => promise
+            .result::<Value<'_>>()
+            .unwrap_or(Err(rquickjs::Error::Unknown)),
+        PromiseState::Pending => Err(rquickjs::Error::FromJs {
+            from: "pending promise",
+            to: "value",
+            message: Some(
+                "the promise never settled: nothing was left to run (the sandbox has no timers or I/O)"
+                    .into(),
+            ),
         }),
     }
 }
@@ -689,6 +861,41 @@ mod tests {
     }
 
     #[test]
+    fn reset_frees_contexts_that_used_rust_functions() {
+        // rquickjs caches Rust-function prototypes per runtime; a reused
+        // runtime would pin the first context and share its Function.prototype.
+        let mut sb = sandbox();
+        let base = sb.heap_bytes();
+        for _ in 0..3 {
+            sb.run(|ctx| {
+                let f = Function::new(ctx.clone(), |x: f64| x + 1.0)?;
+                ctx.globals().set("rustFn", f)?;
+                ctx.eval::<(), _>(
+                    "Function.prototype.planted = 1; globalThis.big = new Float64Array(1 << 20)",
+                )
+            })
+            .unwrap();
+            assert!(sb.heap_bytes() > base + 8_000_000);
+            sb.reset().unwrap();
+            assert!(
+                sb.heap_bytes() < base + 64 * 1024,
+                "heap {}",
+                sb.heap_bytes()
+            );
+            let fresh: String = sb
+                .run(|ctx| {
+                    let f = Function::new(ctx.clone(), |x: f64| x + 1.0)?;
+                    ctx.globals().set("rustFn", f)?;
+                    ctx.eval(
+                        "String(Object.getPrototypeOf(rustFn) === Function.prototype) + ' ' + typeof rustFn.planted",
+                    )
+                })
+                .unwrap();
+            assert_eq!(fresh, "true undefined");
+        }
+    }
+
+    #[test]
     fn reset_with_queued_microtasks_replaces_the_runtime() {
         let mut sb = sandbox();
         // An exception leaves a microtask queued.
@@ -711,7 +918,7 @@ mod tests {
         let kinds: String = sb
             .eval(
                 "[typeof std, typeof os, typeof require, typeof process, typeof fetch,
-                  typeof XMLHttpRequest, typeof performance, typeof setTimeout,
+                  typeof XMLHttpRequest, typeof setTimeout, typeof setInterval,
                   typeof print, typeof scriptArgs].join(',')",
             )
             .unwrap();
@@ -1069,6 +1276,53 @@ mod tests {
         assert_eq!(
             sb.eval::<()>("const a = []; for (;;) a.push({})"),
             Err(SandboxError::MemoryLimit)
+        );
+    }
+
+    #[test]
+    fn run_await_settles_promises() {
+        let mut sb = sandbox();
+        let to_string = |_: &Ctx<'_>, v: Value<'_>| string_result(v);
+        // A plain value passes through.
+        assert_eq!(
+            sb.run_await(|ctx| ctx.eval("'plain'"), to_string).unwrap(),
+            "plain"
+        );
+        // A promise resolved through several microtasks.
+        assert_eq!(
+            sb.run_await(
+                |ctx| ctx.eval("(async () => { await null; await 1; return 'later' })()"),
+                to_string
+            )
+            .unwrap(),
+            "later"
+        );
+        // A rejection is an exception.
+        match sb
+            .run_await(
+                |ctx| ctx.eval("Promise.reject(new RangeError('no'))"),
+                to_string,
+            )
+            .unwrap_err()
+        {
+            SandboxError::Exception { message, .. } => assert_eq!(message, "RangeError: no"),
+            other => panic!("{other:?}"),
+        }
+        // A promise nothing will ever settle.
+        match sb
+            .run_await(|ctx| ctx.eval("new Promise(() => {})"), to_string)
+            .unwrap_err()
+        {
+            SandboxError::Type { message } => assert!(message.contains("never settled")),
+            other => panic!("{other:?}"),
+        }
+        // Limits still apply, and the budget covers the awaiting.
+        assert_eq!(
+            sb.run_await(
+                |ctx| ctx.eval("(async () => { for (;;) await null })()"),
+                to_string
+            ),
+            Err(SandboxError::TimeLimit)
         );
     }
 
