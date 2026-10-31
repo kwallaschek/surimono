@@ -1,6 +1,7 @@
-//! Hostile scripts: every known way to hang the engine, each run in a child
+//! Hostile scripts: the hang vectors found so far, each run in a child
 //! process with a watchdog, so a regression fails the test instead of
-//! hanging CI.
+//! hanging CI. Not every way to overshoot the time limit is here yet; see
+//! the time-limit notes on `Sandbox`.
 //!
 //! Group A loops over a huge array-like inside a native built-in; group B
 //! has a built-in swallow the time-limit interrupt while an outer loop runs

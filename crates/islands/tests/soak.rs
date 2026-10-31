@@ -42,7 +42,10 @@ const BUNDLE: &str = r#"
 function entry(specJson, ctx) {
   const spec = JSON.parse(specJson);
   if (spec.fail === 'throw') throw new Error('planned failure ' + spec.i);
-  if (spec.fail === 'oom') { const a = []; for (;;) a.push(new Array(1e4).fill(spec.i)); }
+  // Reaches the heap limit in a few large allocations, so it ends with the
+  // memory limit however slow the machine is (filling the heap element by
+  // element could hit the time limit first on a busy machine).
+  if (spec.fail === 'oom') { const a = []; for (;;) a.push(new Uint8Array(4 * 1024 * 1024).fill(spec.i % 256)); }
   if (spec.fail === 'loop') { for (;;) {} }
   const points = spec.values.map((v, i) => ({
     x: i * 4, y: 100 - v, label: 'p' + i + '-' + Math.random().toString(36).slice(2, 6),
@@ -151,7 +154,7 @@ struct Soak<'a> {
 /// nothing allocates until the next render.
 fn wait_until_idle(runner: &IslandRunner) {
     let start = Instant::now();
-    while runner.stats().idle_workers < runner.pool_size() {
+    while runner.stats().idle_workers < runner.stats().workers {
         assert!(
             start.elapsed() < Duration::from_secs(60),
             "workers never went idle: {:?}",
@@ -213,7 +216,7 @@ fn run_soak(soak: &Soak<'_>) {
         "{name}: {} renders in {elapsed:?} ({:?} per render incl. {rounds} waits for idle workers), {CALLERS} callers, {} workers, first SVG {} bytes",
         soak.renders,
         elapsed / soak.renders as u32,
-        soak.runner.pool_size(),
+        soak.runner.stats().workers,
         first_svg_len.load(Ordering::Relaxed)
     );
     eprintln!("{name}: resident memory before start {start_rss:?} KiB");
@@ -271,7 +274,10 @@ fn soak_10000_renders_flat_memory() {
         pool_size: POOL_SIZE,
         limits: Limits::default()
             .with_memory_bytes(MEMORY_BYTES)
-            .with_time(Duration::from_millis(250)),
+            // Ordinary renders take a few ms; the margin keeps a busy
+            // machine's scheduling stalls from failing them, while the
+            // planned infinite loops still end quickly.
+            .with_time(Duration::from_millis(1000)),
         ..RunnerOptions::default()
     })
     .unwrap();
