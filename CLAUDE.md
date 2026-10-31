@@ -119,14 +119,13 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   `$CI_JOB_OUT`). Read them with
   `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`.
 
-## Unreported security findings
+## Security findings in other projects
 
-The repo is public. A bug in a third-party project (for example the QuickJS engine)
-that hasn't been reported to its maintainers yet stays out of every tracked file,
-commit message, PR body and PR comment. Describe what our change does, never how
-the old code failed: no crash sites, signals, out-of-bounds or use-after-free
-wording, and no triggering scripts. Details go only in `.private-tmp/`
-(git-excluded) and your report to the orchestrator.
+Follow the upstream project's own security policy. Where it asks for a private
+report, keep an unreported bug out of every tracked file, commit message, PR body
+and PR comment until Kay has reported it (details only in `.private-tmp/`, which
+is git-excluded, and your report). quickjs-ng's policy treats AI-found bugs as
+public: write those up as public issue drafts in `docs/upstream/` for Kay to file.
 
 ## Code conventions
 
