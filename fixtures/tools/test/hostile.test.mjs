@@ -253,3 +253,31 @@ test("offlineLaunch keeps Playwright's own disabled features", async (t) => {
   assert.equal(await firstUrl(offlineLaunch()), "http://www.example.com/upgrade");
   assert.match(offlineLaunch().args.join(" "), /--disable-features=\S*\bHttpsUpgrades\b\S*\bIsolateSandboxedIframes\b/);
 });
+
+test("offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes", async (t) => {
+  // Review of #50: offlineLaunch reads Playwright's list from its bundled
+  // source with a regex, which could silently drop a name. The outside truth
+  // is the command line Chromium itself reports (chrome://version).
+  const { chromium, skip } = await playwrightChromium();
+  if (skip) return t.skip(skip);
+  const { offlineLaunch } = await import("../lib/hostile.mjs");
+  const disabledOf = async (options) => {
+    const browser = await chromium.launch(options);
+    try {
+      const page = await browser.newPage();
+      await page.goto("chrome://version");
+      const line = await page.locator("#command_line").innerText();
+      const all = [...line.matchAll(/--disable-features=(\S*)/g)];
+      assert.ok(all.length >= 1, `no --disable-features in ${line.slice(0, 200)}`);
+      return all[all.length - 1][1].split(",").filter(Boolean); // Chromium keeps the last one
+    } finally {
+      await browser.close();
+    }
+  };
+  const playwrights = await disabledOf({ channel: "chromium" });
+  assert.ok(playwrights.includes("HttpsUpgrades"), playwrights.join(","));
+  const ours = offlineLaunch().args.find((a) => a.startsWith("--disable-features=")).slice("--disable-features=".length).split(",");
+  assert.deepEqual(ours, [...playwrights, "IsolateSandboxedIframes"]);
+  // And that is what Chromium runs with.
+  assert.deepEqual(await disabledOf(offlineLaunch()), ours);
+});
