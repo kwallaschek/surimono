@@ -66,7 +66,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-08b · CF · done (#43) · (#43) Exact font weight and style check
 - P1-CF-07 · CF · done (#28) · COMPAT.md generated from test results
 - P1-CF-05c · CF · done (#46) · Record #39's Vega bundle hash in the real-world manifest
-- P1-CF-11 · CF · doing · Review follow-ups from #28/#35/#42/#43 (unknown fixture names, page-level WebRTC, duplicated labels, positive controls); #35 merges main
+- P1-CF-11 · CF · review · (#50 from main, #51 on #35+#50) Review follow-ups from #28/#35/#42/#43 (unknown fixture names, page-level WebRTC, duplicated labels, positive controls); #35 merges main
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
 - P1-PKG-01 · PKG · done · CI workflows working end to end (caches, Ruby + libclang for the ext, cargo-deny), pinned action versions
