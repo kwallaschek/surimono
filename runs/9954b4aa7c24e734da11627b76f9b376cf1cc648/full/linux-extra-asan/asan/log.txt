@@ -1,0 +1,2330 @@
+info: syncing channel updates for nightly-x86_64-unknown-linux-gnu
+info: latest update on 2026-10-31 for version 1.101.0-nightly (92b5b8c87 2026-10-29)
+info: downloading 4 components
+
+  nightly-x86_64-unknown-linux-gnu installed - rustc 1.101.0-nightly (92b5b8c87 2026-10-29)
+
+rustc 1.101.0-nightly (92b5b8c87 2026-10-29)
+binary: rustc
+commit-hash: 92b5b8c87c61b20adc9001b41baf587634a74734
+commit-date: 2026-10-29
+host: x86_64-unknown-linux-gnu
+release: 1.101.0-nightly
+LLVM version: 23.1.4
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-dom`[0m
+  [1m[94m--> [0mCargo.toml:43:1
+   [1m[94m|[0m
+[1m[94m43[0m [1m[94m|[0m surimono-dom = { path = "crates/dom", version = "0.0.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_dependencies` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-dom`
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-webidl`[0m
+  [1m[94m--> [0mCargo.toml:42:1
+   [1m[94m|[0m
+[1m[94m42[0m [1m[94m|[0m surimono-webidl = { path = "crates/webidl", version = "0.0.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-webidl`
+[1m[33mwarning[0m[1m: unused field `description` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:32:1
+   [1m[94m|[0m
+[1m[94m32[0m [1m[94m|[0m description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_package_fields` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the field `workspace.package.description`
+[1m[33mwarning[0m[1m: unused field `keywords` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:33:1
+   [1m[94m|[0m
+[1m[94m33[0m [1m[94m|[0m keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.keywords`
+[1m[33mwarning[0m[1m: unused field `categories` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:34:1
+   [1m[94m|[0m
+[1m[94m34[0m [1m[94m|[0m categories = ["rendering", "web-programming"]
+   [1m[94m|[0m [1m[33m^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.categories`
+[1m[33mwarning[0m[1m: unused field `repository` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:36:1
+   [1m[94m|[0m
+[1m[94m36[0m [1m[94m|[0m repository = "https://github.com/kwallaschek/surimono"
+   [1m[94m|[0m [1m[33m^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.repository`
+[1m[33mwarning[0m[1m: unused field `homepage` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:37:1
+   [1m[94m|[0m
+[1m[94m37[0m [1m[94m|[0m homepage = "https://github.com/kwallaschek/surimono"
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.homepage`
+[1m[33mwarning[0m: workspace (manifest) generated 7 warnings
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m serde_spanned v1.1.2
+[1m[92m  Downloaded[0m toml v1.1.8+spec-1.1.0
+[1m[92m  Downloaded[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[92m  Downloaded[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m  Downloaded[0m toml_parser v1.1.5+spec-1.1.0
+[1m[92m  Downloaded[0m winnow v1.0.4
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m addr2line v0.27.1
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m rustc-literal-escaper v0.0.8
+[1m[92m  Downloaded[0m getopts v0.2.24
+[1m[92m  Downloaded[0m rustc-demangle v0.1.28
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m miniz_oxide v0.9.1
+[1m[92m  Downloaded[0m object v0.39.1
+[1m[92m  Downloaded[0m gimli v0.34.0
+[1m[92m   Compiling[0m compiler_builtins v0.1.160 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
+[1m[92m   Compiling[0m core v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
+[1m[92m   Compiling[0m object v0.39.1
+[1m[92m   Compiling[0m std v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std)
+[1m[92m   Compiling[0m test v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test)
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m libc v0.2.191
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m libm v0.2.16
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m parking_lot_core v0.9.12
+[1m[92m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m selectors v0.32.0
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m icu_properties_data v2.2.0
+[1m[92m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[92m   Compiling[0m web_atoms v0.1.3
+[1m[92m   Compiling[0m crossbeam-utils v0.8.23
+[1m[92m   Compiling[0m crossbeam-epoch v0.9.21
+[1m[92m   Compiling[0m icu_locale_data v2.2.0
+[1m[92m   Compiling[0m crossbeam-deque v0.8.8
+[1m[92m   Compiling[0m rayon-core v1.13.0
+[1m[92m   Compiling[0m icu_segmenter_data v2.2.0
+[1m[92m   Compiling[0m stylo_atoms v0.8.0
+[1m[92m   Compiling[0m stylo v0.8.0
+[1m[92m   Compiling[0m rustc-std-workspace-core v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-core)
+[1m[92m   Compiling[0m alloc v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc)
+[1m[92m   Compiling[0m unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/unwind)
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m rustc-demangle v0.1.28
+[1m[92m   Compiling[0m cfg-if v1.0.4
+[1m[92m   Compiling[0m rustc-literal-escaper v0.0.8
+[1m[92m   Compiling[0m rustc-std-workspace-alloc v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-alloc)
+[1m[92m   Compiling[0m gimli v0.34.0
+[1m[92m   Compiling[0m hashbrown v0.17.1
+[1m[92m   Compiling[0m miniz_oxide v0.9.1
+[1m[92m   Compiling[0m addr2line v0.27.1
+[1m[92m   Compiling[0m std_detect v0.1.5 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std_detect)
+[1m[92m   Compiling[0m panic_unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_unwind)
+[1m[92m   Compiling[0m panic_abort v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_abort)
+[1m[92m   Compiling[0m rustc-std-workspace-std v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-std)
+[1m[92m   Compiling[0m proc_macro v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/proc_macro)
+[1m[92m   Compiling[0m getopts v0.2.24
+[1m[92m   Compiling[0m stable_deref_trait v1.2.1
+[1m[92m   Compiling[0m smallvec v1.16.4
+[1m[92m   Compiling[0m zerofrom v0.1.8
+[1m[92m   Compiling[0m yoke v0.8.4
+[1m[92m   Compiling[0m zerovec v0.11.9
+[1m[92m   Compiling[0m writeable v0.6.4
+[1m[92m   Compiling[0m cfg-if v1.0.5
+[1m[92m   Compiling[0m equivalent v1.0.3
+[1m[92m   Compiling[0m litemap v0.8.3
+[1m[92m   Compiling[0m allocator-api2 v0.2.21
+[1m[92m   Compiling[0m tinystr v0.8.5
+[1m[92m   Compiling[0m bitflags v2.13.2
+[1m[92m   Compiling[0m icu_locale_core v2.2.0
+[1m[92m   Compiling[0m bytemuck v1.25.2
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m foldhash v0.2.0
+[1m[92m   Compiling[0m font-types v0.10.1
+[1m[92m   Compiling[0m core_maths v0.1.1
+[1m[92m   Compiling[0m read-fonts v0.35.0
+[1m[92m   Compiling[0m font-types v0.12.7
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m siphasher v1.0.4
+[1m[92m   Compiling[0m phf_shared v0.11.3
+[1m[92m   Compiling[0m read-fonts v0.41.0
+[1m[92m   Compiling[0m scopeguard v1.2.0
+[1m[92m   Compiling[0m foldhash v0.1.5
+[1m[92m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[92m   Compiling[0m hashbrown v0.15.5
+[1m[92m   Compiling[0m lock_api v0.4.14
+[1m[92m   Compiling[0m memmap2 v0.9.12
+[1m[92m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[92m   Compiling[0m fontique v0.6.0
+[1m[92m   Compiling[0m skrifa v0.37.0
+[1m[92m   Compiling[0m skrifa v0.44.0
+[1m[92m   Compiling[0m swash v0.2.10
+[1m[92m   Compiling[0m harfrust v0.3.2
+[1m[92m   Compiling[0m parking_lot v0.12.5
+[1m[92m   Compiling[0m precomputed-hash v0.1.1
+[1m[92m   Compiling[0m string_cache v0.8.9
+[1m[92m   Compiling[0m rquickjs-core v0.14.0
+[1m[92m   Compiling[0m parley v0.6.0
+[1m[92m   Compiling[0m phf v0.11.3
+[1m[92m   Compiling[0m rquickjs v0.14.0
+[1m[92m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[92m   Compiling[0m dtoa v1.0.11
+[1m[92m   Compiling[0m utf_types v1.0.0
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m log v0.4.34
+[1m[92m   Compiling[0m utf8_iter v1.1.0
+[1m[92m   Compiling[0m dtoa-short v0.3.5
+[1m[92m   Compiling[0m potential_utf v0.1.6
+[1m[92m   Compiling[0m zerotrie v0.2.5
+[1m[92m   Compiling[0m icu_provider v2.2.0
+[1m[92m   Compiling[0m icu_collections v2.2.0
+[1m[92m   Compiling[0m cssparser v0.35.0
+[1m[92m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[92m   Compiling[0m servo_arc v0.4.3
+[1m[92m   Compiling[0m smallbitvec v2.6.1
+[1m[92m   Compiling[0m thin-vec v0.2.21
+[1m[92m   Compiling[0m to_shmem v0.2.0
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m rustc-hash v2.1.3
+[1m[92m   Compiling[0m derive_more v2.1.1
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m winnow v1.0.4
+[1m[92m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[92m   Compiling[0m icu_properties v2.2.0
+[1m[92m   Compiling[0m icu_normalizer v2.2.0
+[1m[92m   Compiling[0m serde_spanned v1.1.2
+[1m[92m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[92m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m   Compiling[0m toml v1.1.8+spec-1.1.0
+[1m[92m   Compiling[0m idna_adapter v1.2.2
+[1m[92m   Compiling[0m roxmltree v0.21.2
+[1m[92m   Compiling[0m encoding_rs v0.8.35
+[1m[92m   Compiling[0m stats_alloc v0.1.10
+[1m[92m   Compiling[0m mime v0.3.17
+[1m[92m   Compiling[0m percent-encoding v2.3.2
+[1m[92m   Compiling[0m form_urlencoded v1.2.2
+[1m[92m   Compiling[0m idna v1.1.0
+[1m[92m   Compiling[0m euclid v0.22.14
+[1m[92m   Compiling[0m app_units v0.7.8
+[1m[92m   Compiling[0m mac v0.1.1
+[1m[92m   Compiling[0m void v1.0.2
+[1m[92m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[92m   Compiling[0m futf v0.1.5
+[1m[92m   Compiling[0m url v2.5.8
+[1m[92m   Compiling[0m either v1.19.0
+[1m[92m   Compiling[0m arrayvec v0.7.8
+[1m[92m   Compiling[0m utf-8 v0.7.6
+[1m[92m   Compiling[0m icu_locale v2.2.0
+[1m[92m   Compiling[0m tendril v0.4.3
+[1m[92m   Compiling[0m icu_segmenter v2.2.0
+[1m[92m   Compiling[0m stylo_traits v0.8.0
+[1m[92m   Compiling[0m rayon v1.12.0
+[1m[92m   Compiling[0m markup5ever v0.35.0
+[1m[92m   Compiling[0m uluru v3.1.0
+[1m[92m   Compiling[0m itertools v0.14.0
+[1m[92m   Compiling[0m stylo_dom v0.8.0
+[1m[92m   Compiling[0m num-integer v0.1.47
+[1m[92m   Compiling[0m indexmap v2.14.2
+[1m[92m   Compiling[0m num_cpus v1.17.0
+[1m[92m   Compiling[0m lazy_static v1.5.1
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m stylo_config v0.8.0
+[1m[92m   Compiling[0m byteorder v1.5.0
+[1m[92m   Compiling[0m stylo_static_prefs v0.8.0
+[1m[92m   Compiling[0m matches v0.1.10
+[1m[92m   Compiling[0m atomic_refcell v0.1.14
+[1m[92m   Compiling[0m static_assertions v1.1.0
+[1m[92m   Compiling[0m unicode-segmentation v1.13.3
+[1m[92m   Compiling[0m grid v1.0.1
+[1m[92m   Compiling[0m taffy v0.9.2
+[1m[92m   Compiling[0m keyboard-types v0.7.0
+[1m[92m   Compiling[0m http v1.5.0
+[1m[92m   Compiling[0m hashbrown v0.16.1
+[1m[92m   Compiling[0m byteorder-lite v0.1.0
+[1m[92m   Compiling[0m cursor-icon v1.2.0
+[1m[92m   Compiling[0m smol_str v0.2.2
+[1m[92m   Compiling[0m blitz-traits v0.2.0
+[1m[92m   Compiling[0m image v0.25.6
+[1m[92m   Compiling[0m lol_html v2.7.0
+[1m[92m   Compiling[0m debug_timer v0.1.3
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m html-escape v0.2.15
+[1m[92m   Compiling[0m color v0.3.3
+[1m[92m   Compiling[0m fastrand v2.5.0
+[1m[92m   Compiling[0m html5ever v0.35.0
+[1m[92m   Compiling[0m xml5ever v0.35.0
+[1m[92m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[92m   Compiling[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[92m   Compiling[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[92m   Compiling[0m stylo_taffy v0.2.0
+[1m[92m   Compiling[0m blitz-dom v0.2.4
+[1m[92m   Compiling[0m blitz-html v0.2.0
+[1m[92m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 4m 48s
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/3b13c63187c3e9cd/out/surimono-3b13c63187c3e9cd)
+
+running 45 tests
+test backend::tests::default_pool_is_between_1_and_8 ... ok
+test backend::tests::fonts_must_look_like_fonts ... ok
+test backend::tests::every_island_error_maps_to_a_public_error ... ok
+test backend::tests::runner_is_send_and_sync ... ok
+test charref::tests::named_references ... ok
+test charref::tests::plain_text_is_borrowed ... ok
+test charref::tests::numeric_references ... ok
+test error::tests::error_is_send_sync_static ... ok
+test error::tests::island_errors_name_the_island ... ok
+test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
+test options::tests::builder_sets_everything ... ok
+test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
+test options::tests::defaults ... ok
+test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
+test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
+test prepass::tests::attributes_in_any_order_and_quoting ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::document_without_islands_is_unchanged ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::documents_without_the_island_type_are_not_parsed ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::keeps_id_and_class ... ok
+test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
+test prepass::tests::other_scripts_are_left_alone ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
+test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
+test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
+test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
+test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::type_must_be_written_without_character_references ... ok
+test renderer::tests::invalid_options ... ok
+test prepass::tests::utf8_text_around_and_inside_islands ... ok
+test prepass::tests::wrapper_keeps_accessibility_and_style_attributes_only ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test renderer::tests::unknown_and_disabled_renderers ... ok
+test tests::version_is_set ... ok
+test renderer::tests::many_threads_share_one_renderer ... ok
+test renderer::tests::script_failures_become_typed_errors ... ok
+
+test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+[1m[92m     Running[0m unittests src/main.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-cli/f1e48ae078af649c/out/surimono-f1e48ae078af649c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/2e87d2dcbdcab3c4/out/surimono_core-2e87d2dcbdcab3c4)
+
+running 63 tests
+test engine::tests::allocator_tracks_and_limits ... ok
+test engine::tests::deadline_arms_and_disarms ... ok
+test engine::tests::compile_does_not_run_the_script ... ok
+test engine::tests::compile_reports_syntax_errors ... ok
+test engine::tests::bytecode_round_trip_across_runtimes ... ok
+test engine::tests::eval_bytecode_reports_exceptions ... ok
+test engine::tests::the_engine_is_patched ... ok
+test engine::tests::pending_jobs_run_and_report_errors ... ok
+test engine::tests::stack_available_is_plausible ... FAILED
+test error::tests::limit_errors_are_flagged ... ok
+test limits::tests::defaults_match_the_spec ... ok
+test limits::tests::setters_and_new_build_the_same_limits ... ok
+test sandbox::tests::a_stale_deadline_fails_safe ... FAILED
+test limits::tests::out_of_range_limits_are_rejected ... ok
+test sandbox::tests::allocation_bomb_hits_memory_limit ... FAILED
+test sandbox::tests::array_builtins_behave_normally ... FAILED
+test engine::tests::update_stack_top_is_harmless ... ok
+test sandbox::tests::call_json_parses_arguments ... FAILED
+test sandbox::tests::calls_global_functions ... FAILED
+test sandbox::tests::bytecode_compiles_once_and_runs_anywhere ... FAILED
+test sandbox::tests::caught_infinite_loop_hits_time_limit ... FAILED
+test sandbox::tests::caught_out_of_memory_still_reports_memory_limit ... FAILED
+test sandbox::tests::compile_reports_syntax_errors ... FAILED
+test sandbox::tests::caught_stack_overflow_is_ordinary_js ... FAILED
+test sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails ... FAILED
+test sandbox::tests::deep_recursion_hits_stack_limit ... FAILED
+test sandbox::tests::deep_recursion_in_native_code_hits_stack_limit ... FAILED
+test sandbox::tests::doubling_string_ends_with_a_typed_error ... FAILED
+test sandbox::tests::debug_of_a_deadline_records_nothing ... FAILED
+test sandbox::tests::exceptions_carry_message_and_stack ... FAILED
+test sandbox::tests::eval_and_function_constructor_stay_inside ... FAILED
+test sandbox::tests::exponential_microtask_flood_hits_a_limit ... FAILED
+test sandbox::tests::evaluates_scripts ... FAILED
+test sandbox::tests::heap_returns_to_baseline_after_reset ... FAILED
+test sandbox::tests::huge_messages_are_truncated ... FAILED
+test sandbox::tests::huge_string_hits_memory_limit ... FAILED
+test sandbox::tests::host_functions_stop_at_the_deadline ... FAILED
+test sandbox::tests::huge_typed_array_hits_memory_limit ... FAILED
+test sandbox::tests::interrupt_skips_finally ... FAILED
+test sandbox::tests::infinite_loop_hits_time_limit ... FAILED
+test sandbox::tests::limit_errors_discard_state ... FAILED
+test sandbox::tests::limits_out_of_range_are_rejected ... FAILED
+test sandbox::tests::microtask_flood_hits_a_limit ... FAILED
+test sandbox::tests::microtasks_run_before_the_call_returns ... FAILED
+test sandbox::tests::oom_sweep_child ... ignored, helper: run in a child process by out_of_memory_never_aborts
+test sandbox::tests::no_host_access ... FAILED
+test sandbox::tests::reset_discards_globals ... FAILED
+test sandbox::tests::regex_backtracking_hits_time_limit ... FAILED
+test sandbox::tests::reset_frees_contexts_that_used_rust_functions ... FAILED
+test sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime ... FAILED
+test sandbox::tests::run_gives_direct_context_access ... FAILED
+test sandbox::tests::run_await_settles_promises ... FAILED
+test sandbox::tests::sandboxes_are_independent ... FAILED
+test sandbox::tests::scripts_are_sloppy_like_classic_scripts ... FAILED
+test sandbox::tests::syntax_errors_are_exceptions ... FAILED
+test sandbox::tests::thrown_primitives_are_described ... FAILED
+test sandbox::tests::time_limit_is_per_call ... FAILED
+test sandbox::tests::type_errors_on_conversion ... FAILED
+test sandbox::tests::too_little_thread_stack_is_refused ... FAILED
+test sandbox::tests::works_from_a_deep_rust_stack ... FAILED
+test tests::version_is_set ... ok
+test sandbox::tests::out_of_memory_never_aborts ... FAILED
+test sandbox::tests::async_infinite_loop_hits_time_limit ... ok
+
+failures:
+
+---- engine::tests::stack_available_is_plausible stdout ----
+
+thread 'engine::tests::stack_available_is_plausible' (6041) panicked at crates/core/src/engine.rs:633:9:
+0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- sandbox::tests::a_stale_deadline_fails_safe stdout ----
+
+thread 'sandbox::tests::a_stale_deadline_fails_safe' (6049) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::allocation_bomb_hits_memory_limit stdout ----
+
+thread 'sandbox::tests::allocation_bomb_hits_memory_limit' (6050) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::array_builtins_behave_normally stdout ----
+
+thread 'sandbox::tests::array_builtins_behave_normally' (6051) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::call_json_parses_arguments stdout ----
+
+thread 'sandbox::tests::call_json_parses_arguments' (6054) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::calls_global_functions stdout ----
+
+thread 'sandbox::tests::calls_global_functions' (6055) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::bytecode_compiles_once_and_runs_anywhere stdout ----
+
+thread 'sandbox::tests::bytecode_compiles_once_and_runs_anywhere' (6053) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::caught_infinite_loop_hits_time_limit stdout ----
+
+thread 'sandbox::tests::caught_infinite_loop_hits_time_limit' (6056) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::caught_out_of_memory_still_reports_memory_limit stdout ----
+
+thread 'sandbox::tests::caught_out_of_memory_still_reports_memory_limit' (6057) panicked at crates/core/src/sandbox.rs:1195:10:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::compile_reports_syntax_errors stdout ----
+
+thread 'sandbox::tests::compile_reports_syntax_errors' (6060) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::caught_stack_overflow_is_ordinary_js stdout ----
+
+thread 'sandbox::tests::caught_stack_overflow_is_ordinary_js' (6059) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails stdout ----
+
+thread 'sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails' (6058) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::deep_recursion_hits_stack_limit stdout ----
+
+thread 'sandbox::tests::deep_recursion_hits_stack_limit' (6062) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::deep_recursion_in_native_code_hits_stack_limit stdout ----
+
+thread 'sandbox::tests::deep_recursion_in_native_code_hits_stack_limit' (6063) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::doubling_string_ends_with_a_typed_error stdout ----
+
+thread 'sandbox::tests::doubling_string_ends_with_a_typed_error' (6064) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::debug_of_a_deadline_records_nothing stdout ----
+
+thread 'sandbox::tests::debug_of_a_deadline_records_nothing' (6061) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::exceptions_carry_message_and_stack stdout ----
+
+thread 'sandbox::tests::exceptions_carry_message_and_stack' (6067) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::eval_and_function_constructor_stay_inside stdout ----
+
+thread 'sandbox::tests::eval_and_function_constructor_stay_inside' (6065) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::exponential_microtask_flood_hits_a_limit stdout ----
+
+thread 'sandbox::tests::exponential_microtask_flood_hits_a_limit' (6068) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::evaluates_scripts stdout ----
+
+thread 'sandbox::tests::evaluates_scripts' (6066) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::heap_returns_to_baseline_after_reset stdout ----
+
+thread 'sandbox::tests::heap_returns_to_baseline_after_reset' (6069) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::huge_messages_are_truncated stdout ----
+
+thread 'sandbox::tests::huge_messages_are_truncated' (6071) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::huge_string_hits_memory_limit stdout ----
+
+thread 'sandbox::tests::huge_string_hits_memory_limit' (6072) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::host_functions_stop_at_the_deadline stdout ----
+
+thread 'sandbox::tests::host_functions_stop_at_the_deadline' (6070) panicked at crates/core/src/sandbox.rs:789:45:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::huge_typed_array_hits_memory_limit stdout ----
+
+thread 'sandbox::tests::huge_typed_array_hits_memory_limit' (6073) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::interrupt_skips_finally stdout ----
+
+thread 'sandbox::tests::interrupt_skips_finally' (6075) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::infinite_loop_hits_time_limit stdout ----
+
+thread 'sandbox::tests::infinite_loop_hits_time_limit' (6074) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::limit_errors_discard_state stdout ----
+
+thread 'sandbox::tests::limit_errors_discard_state' (6076) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::limits_out_of_range_are_rejected stdout ----
+
+thread 'sandbox::tests::limits_out_of_range_are_rejected' (6077) panicked at crates/core/src/sandbox.rs:1415:10:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 327680 (stack_bytes 65536 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::microtask_flood_hits_a_limit stdout ----
+
+thread 'sandbox::tests::microtask_flood_hits_a_limit' (6078) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::microtasks_run_before_the_call_returns stdout ----
+
+thread 'sandbox::tests::microtasks_run_before_the_call_returns' (6079) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::no_host_access stdout ----
+
+thread 'sandbox::tests::no_host_access' (6080) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::reset_discards_globals stdout ----
+
+thread 'sandbox::tests::reset_discards_globals' (6083) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::regex_backtracking_hits_time_limit stdout ----
+
+thread 'sandbox::tests::regex_backtracking_hits_time_limit' (6082) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::reset_frees_contexts_that_used_rust_functions stdout ----
+
+thread 'sandbox::tests::reset_frees_contexts_that_used_rust_functions' (6084) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime stdout ----
+
+thread 'sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime' (6085) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::run_gives_direct_context_access stdout ----
+
+thread 'sandbox::tests::run_gives_direct_context_access' (6088) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::run_await_settles_promises stdout ----
+
+thread 'sandbox::tests::run_await_settles_promises' (6087) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::sandboxes_are_independent stdout ----
+
+thread 'sandbox::tests::sandboxes_are_independent' (6089) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::scripts_are_sloppy_like_classic_scripts stdout ----
+
+thread 'sandbox::tests::scripts_are_sloppy_like_classic_scripts' (6090) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::syntax_errors_are_exceptions stdout ----
+
+thread 'sandbox::tests::syntax_errors_are_exceptions' (6091) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::thrown_primitives_are_described stdout ----
+
+thread 'sandbox::tests::thrown_primitives_are_described' (6092) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::time_limit_is_per_call stdout ----
+
+thread 'sandbox::tests::time_limit_is_per_call' (6093) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::type_errors_on_conversion stdout ----
+
+thread 'sandbox::tests::type_errors_on_conversion' (6095) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- sandbox::tests::too_little_thread_stack_is_refused stdout ----
+
+thread '<unnamed>' (6099) panicked at crates/core/src/sandbox.rs:1545:62:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+thread 'sandbox::tests::too_little_thread_stack_is_refused' (6094) panicked at crates/core/src/sandbox.rs:1551:14:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+---- sandbox::tests::works_from_a_deep_rust_stack stdout ----
+
+thread '<unnamed>' (6100) panicked at crates/core/src/sandbox.rs:781:32:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+thread 'sandbox::tests::works_from_a_deep_rust_stack' (6098) panicked at crates/core/src/sandbox.rs:1517:34:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+---- sandbox::tests::out_of_memory_never_aborts stdout ----
+
+thread 'sandbox::tests::out_of_memory_never_aborts' (6081) panicked at crates/core/src/sandbox.rs:1684:13:
+the child died (ExitStatus(unix_wait_status(25856, "exit status: 101"))) on the allocating script with SURIMONO_OOM_COUNT=1:
+
+running 1 test
+test sandbox::tests::oom_sweep_child ... FAILED
+
+failures:
+
+failures:
+    sandbox::tests::oom_sweep_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 62 filtered out; finished in 0.00s
+
+
+
+thread 'sandbox::tests::oom_sweep_child' (6096) panicked at crates/core/src/sandbox.rs:1632:47:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 524288 (stack_bytes 262144 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+
+failures:
+    engine::tests::stack_available_is_plausible
+    sandbox::tests::a_stale_deadline_fails_safe
+    sandbox::tests::allocation_bomb_hits_memory_limit
+    sandbox::tests::array_builtins_behave_normally
+    sandbox::tests::bytecode_compiles_once_and_runs_anywhere
+    sandbox::tests::call_json_parses_arguments
+    sandbox::tests::calls_global_functions
+    sandbox::tests::caught_infinite_loop_hits_time_limit
+    sandbox::tests::caught_out_of_memory_still_reports_memory_limit
+    sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails
+    sandbox::tests::caught_stack_overflow_is_ordinary_js
+    sandbox::tests::compile_reports_syntax_errors
+    sandbox::tests::debug_of_a_deadline_records_nothing
+    sandbox::tests::deep_recursion_hits_stack_limit
+    sandbox::tests::deep_recursion_in_native_code_hits_stack_limit
+    sandbox::tests::doubling_string_ends_with_a_typed_error
+    sandbox::tests::eval_and_function_constructor_stay_inside
+    sandbox::tests::evaluates_scripts
+    sandbox::tests::exceptions_carry_message_and_stack
+    sandbox::tests::exponential_microtask_flood_hits_a_limit
+    sandbox::tests::heap_returns_to_baseline_after_reset
+    sandbox::tests::host_functions_stop_at_the_deadline
+    sandbox::tests::huge_messages_are_truncated
+    sandbox::tests::huge_string_hits_memory_limit
+    sandbox::tests::huge_typed_array_hits_memory_limit
+    sandbox::tests::infinite_loop_hits_time_limit
+    sandbox::tests::interrupt_skips_finally
+    sandbox::tests::limit_errors_discard_state
+    sandbox::tests::limits_out_of_range_are_rejected
+    sandbox::tests::microtask_flood_hits_a_limit
+    sandbox::tests::microtasks_run_before_the_call_returns
+    sandbox::tests::no_host_access
+    sandbox::tests::out_of_memory_never_aborts
+    sandbox::tests::regex_backtracking_hits_time_limit
+    sandbox::tests::reset_discards_globals
+    sandbox::tests::reset_frees_contexts_that_used_rust_functions
+    sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime
+    sandbox::tests::run_await_settles_promises
+    sandbox::tests::run_gives_direct_context_access
+    sandbox::tests::sandboxes_are_independent
+    sandbox::tests::scripts_are_sloppy_like_classic_scripts
+    sandbox::tests::syntax_errors_are_exceptions
+    sandbox::tests::thrown_primitives_are_described
+    sandbox::tests::time_limit_is_per_call
+    sandbox::tests::too_little_thread_stack_is_refused
+    sandbox::tests::type_errors_on_conversion
+    sandbox::tests::works_from_a_deep_rust_stack
+
+test result: FAILED. 15 passed; 47 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-core --lib`
+[1m[92m     Running[0m tests/determinism.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/374edf7ed7f1f661/out/determinism-374edf7ed7f1f661)
+
+running 19 tests
+test console_exists_and_is_silent ... FAILED
+test clock_is_fixed_and_configurable ... FAILED
+test date_from_an_object_uses_the_sandbox_zone ... FAILED
+test date_parse_matches_quickjs_child ... ignored, helper: run in a child process with TZ=UTC0
+test date_parse_honours_named_zones ... FAILED
+test every_context_restarts_the_sequence ... FAILED
+test invalid_options_are_rejected ... ok
+test local_time_follows_the_configured_offset ... FAILED
+test local_time_is_utc_by_default ... FAILED
+test math_random_is_seeded ... FAILED
+test date_shim_behaves_like_date ... FAILED
+test looping_prepare_stack_trace_hits_the_time_limit ... FAILED
+test performance_is_virtual ... FAILED
+test two_runs_are_byte_identical ... FAILED
+test stack_trace_api_is_off ... FAILED
+test tz_child ... ignored, helper: run in a child process with TZ set
+test weak_refs_are_strong_and_cleanup_never_runs ... FAILED
+test output_ignores_the_host_time_zone ... FAILED
+test date_parse_matches_quickjs_on_a_utc_host ... FAILED
+
+failures:
+
+---- console_exists_and_is_silent stdout ----
+
+thread 'console_exists_and_is_silent' (6108) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- clock_is_fixed_and_configurable stdout ----
+
+thread 'clock_is_fixed_and_configurable' (6107) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- date_from_an_object_uses_the_sandbox_zone stdout ----
+
+thread 'date_from_an_object_uses_the_sandbox_zone' (6109) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- date_parse_honours_named_zones stdout ----
+
+thread 'date_parse_honours_named_zones' (6110) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- every_context_restarts_the_sequence stdout ----
+
+thread 'every_context_restarts_the_sequence' (6113) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- local_time_follows_the_configured_offset stdout ----
+
+thread 'local_time_follows_the_configured_offset' (6115) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- local_time_is_utc_by_default stdout ----
+
+thread 'local_time_is_utc_by_default' (6116) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- math_random_is_seeded stdout ----
+
+thread 'math_random_is_seeded' (6119) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- date_shim_behaves_like_date stdout ----
+
+thread 'date_shim_behaves_like_date' (6112) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- looping_prepare_stack_trace_hits_the_time_limit stdout ----
+
+thread '<unnamed>' (6120) panicked at crates/core/tests/determinism.rs:394:57:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+thread 'looping_prepare_stack_trace_hits_the_time_limit' (6118) panicked at crates/core/tests/determinism.rs:399:29:
+still running after 10s: Error.prepareStackTrace = () => { for (;;) {} }; for (;;) { try { null.x } catch (e) {} }
+
+---- performance_is_virtual stdout ----
+
+thread 'performance_is_virtual' (6122) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- two_runs_are_byte_identical stdout ----
+
+thread 'two_runs_are_byte_identical' (6124) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- stack_trace_api_is_off stdout ----
+
+thread 'stack_trace_api_is_off' (6123) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- weak_refs_are_strong_and_cleanup_never_runs stdout ----
+
+thread 'weak_refs_are_strong_and_cleanup_never_runs' (6126) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+
+---- output_ignores_the_host_time_zone stdout ----
+
+thread 'output_ignores_the_host_time_zone' (6121) panicked at crates/core/tests/determinism.rs:366:9:
+child failed: 
+running 1 test
+test tz_child ... FAILED
+
+failures:
+
+failures:
+    tz_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.01s
+
+
+
+---- date_parse_matches_quickjs_on_a_utc_host stdout ----
+
+thread 'date_parse_matches_quickjs_on_a_utc_host' (6111) panicked at crates/core/tests/determinism.rs:676:5:
+child failed:
+
+running 1 test
+test date_parse_matches_quickjs_child ... FAILED
+
+failures:
+
+failures:
+    date_parse_matches_quickjs_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 18 filtered out; finished in 1.15s
+
+
+
+thread 'date_parse_matches_quickjs_child' (6125) panicked at crates/core/tests/determinism.rs:10:36:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+
+failures:
+    clock_is_fixed_and_configurable
+    console_exists_and_is_silent
+    date_from_an_object_uses_the_sandbox_zone
+    date_parse_honours_named_zones
+    date_parse_matches_quickjs_on_a_utc_host
+    date_shim_behaves_like_date
+    every_context_restarts_the_sequence
+    local_time_follows_the_configured_offset
+    local_time_is_utc_by_default
+    looping_prepare_stack_trace_hits_the_time_limit
+    math_random_is_seeded
+    output_ignores_the_host_time_zone
+    performance_is_virtual
+    stack_trace_api_is_off
+    two_runs_are_byte_identical
+    weak_refs_are_strong_and_cleanup_never_runs
+
+test result: FAILED. 1 passed; 16 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.21s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-core --test determinism`
+[1m[92m     Running[0m tests/hostile.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/7fa74cd2fd518924/out/hostile-7fa74cd2fd518924)
+
+running 4 tests
+test hostile_child ... ignored, helper: run in a child process by the hostile tests
+test group_c_long_native_sorts_end ... FAILED
+test group_b_swallowed_interrupts_end ... FAILED
+test group_a_native_array_like_loops_end ... FAILED
+
+failures:
+
+---- group_c_long_native_sorts_end stdout ----
+
+
+thread 'group_c_long_native_sorts_end' (6139) panicked at crates/core/tests/hostile.rs:453:5:
+4 of 4 vectors failed:
+C Int32Array sort, 12M random: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6144) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+C Float64Array sort, 6M random: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6159) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+C Int32Array sort with a comparator (control): child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6167) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+C Array sort, 1M numbers as strings: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6178) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+all results:
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- group_b_swallowed_interrupts_end stdout ----
+
+
+thread 'group_b_swallowed_interrupts_end' (6138) panicked at crates/core/tests/hostile.rs:453:5:
+11 of 11 vectors failed:
+B5 new Promise: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6143) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B6 Promise.try: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6153) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B7 async generator: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6166) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B8 Error.prepareStackTrace: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6181) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B9 DisposableStack: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6189) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B async function: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6197) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B Promise.all, iterator next: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6202) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B Promise.race, iterator next: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6210) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B thenable getter: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6221) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B Array.fromAsync: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6226) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+B swallowed, then straight-line code: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6233) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+all results:
+
+
+---- group_a_native_array_like_loops_end stdout ----
+
+
+thread 'group_a_native_array_like_loops_end' (6137) panicked at crates/core/tests/hostile.rs:453:5:
+32 of 32 vectors failed:
+A1 join, length getter small then huge: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6145) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A1 copyWithin, length getter small then huge: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6158) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A1 join, length getter huge: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6173) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A2 join, length valueOf small then huge: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6185) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A2 join, length valueOf huge: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6194) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A3 join, typed array with an own length: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6203) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A3 reverse, DataView with an own length: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6211) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A4 fill, typed array on the prototype chain: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6217) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A4 fill, typed array with an own length: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6229) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A fill, plain object: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6237) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A join, plain object: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6241) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A join, sparse array: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6245) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A toString, sparse array: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6249) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A toLocaleString: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6253) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A reverse: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6257) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A copyWithin: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6261) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A sort: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6265) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A splice: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6269) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A shift: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6273) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A unshift: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6277) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A slice: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6281) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A concat, spreadable array-like: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6285) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A concat, sparse argument: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6289) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A flat, array-like: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6293) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A flat, nested: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6297) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A flat, deeper: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6301) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A flatMap: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6305) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A JSON.stringify, array replacer: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6309) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A String.raw: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6313) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A lastIndexOf (polled upstream; control): child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6317) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A toReversed: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6321) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+A toSpliced: child failed (ExitStatus(unix_wait_status(25856, "exit status: 101"))): 
+running 1 test
+test hostile_child ... FAILED
+
+failures:
+
+failures:
+    hostile_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+ 
+thread 'hostile_child' (6325) panicked at crates/core/tests/hostile.rs:342:39:
+called `Result::unwrap()` on an `Err` value: InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+all results:
+
+
+
+failures:
+    group_a_native_array_like_loops_end
+    group_b_swallowed_interrupts_end
+    group_c_long_native_sorts_end
+
+test result: FAILED. 0 passed; 3 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.81s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-core --test hostile`
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/7f4b3bf9ab879dfe/out/surimono_dom-7f4b3bf9ab879dfe)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/a3bace727b6502e8/out/surimono_gfx-a3bace727b6502e8)
+
+running 16 tests
+test css_font::tests::brief_examples ... ok
+test css_font::tests::family_names ... ok
+test css_font::tests::weights_and_styles ... ok
+test fonts::tests::rejects_non_fonts_without_panicking ... ok
+test css_font::tests::chrome_validity_and_sizes ... ok
+test fonts::tests::empty_set_resolves_to_nothing ... ok
+test fonts::tests::unknown_generic_target_is_an_error ... ok
+test measure::tests::empty_font_set_is_an_error ... ok
+test measure::tests::measurer_is_send_sync_clone ... ok
+test measure::tests::metrics_serialize_with_canvas_names ... ok
+test measure::tests::rounding_matches_skia ... ok
+test measure::tests::overlong_font_string_means_canvas_default ... ok
+test measure::tests::too_long_text_is_an_error ... ok
+test tests::version_is_set ... ok
+test css_font::tests::hostile_input_never_panics ... ok
+test measure::tests::caches_stay_under_byte_budget_with_hostile_input ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 35.85s
+
+[1m[92m     Running[0m tests/measure_text.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/6112cf16c364acc6/out/measure_text-6112cf16c364acc6)
+
+running 12 tests
+test errors ... ok
+test bad_font_strings_mean_canvas_default ... ok
+test font_files_are_returned_unchanged ... ok
+test generic_families_follow_the_mapping ... ok
+test deterministic_bits_across_measurers_and_order ... ok
+test japanese_falls_back_to_a_registered_cjk_font ... ok
+test matches_chrome_measure_text ... ok
+test reference_fonts_are_the_ones_chrome_used ... ok
+test measures_identically_from_many_threads ... ok
+test whitespace_and_empty_text ... ok
+test hostile_inputs_do_not_panic ... ok
+test timing_short_labels ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.50s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/e0bc1bc69c49e1d2/out/surimono_islands-e0bc1bc69c49e1d2)
+
+running 12 tests
+test builtins::tests::builtins_are_sorted_and_unique ... ok
+test builtins::tests::every_listed_builtin_is_found ... ok
+test builtins::tests::echarts_is_built_in ... ok
+test builtins::tests::vega_and_vega_lite_are_built_in ... ok
+test error::tests::wraps_sandbox_errors ... ok
+test measure::tests::estimates_latin_and_cjk ... ok
+test measure::tests::no_fonts_is_its_own_error ... ok
+test measure::tests::parses_font_sizes ... ok
+test tests::version_is_set ... ok
+test runner::tests::measurer_errors_become_type_errors ... FAILED
+test measure::tests::a_worker_measurer_measures_like_the_original ... ok
+test runner::tests::measurer_panics_do_not_kill_the_pool ... ok
+
+failures:
+
+---- runner::tests::measurer_errors_become_type_errors stdout ----
+
+thread 'runner::tests::measurer_errors_become_type_errors' (6387) panicked at crates/islands/src/runner.rs:831:10:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runner::tests::measurer_errors_become_type_errors
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --lib`
+[1m[92m     Running[0m tests/bundles.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/c9186434f9d17f7b/out/bundles-c9186434f9d17f7b)
+
+running 2 tests
+test every_bundle_ships_its_licences ... ok
+test bundles_match_their_recorded_sha256 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[92m     Running[0m tests/echarts.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/07a319000ef7d77e/out/echarts-07a319000ef7d77e)
+
+running 9 tests
+test a_preloaded_render_matches_a_cold_one ... FAILED
+test bad_specs_are_typed_errors ... FAILED
+test echarts_is_a_builtin ... FAILED
+test bar_chart_is_valid_svg ... FAILED
+test series_cannot_turn_animation_back_on ... FAILED
+test timing_echarts ... ignored, timing report; run explicitly in release mode
+test japanese_labels_survive ... FAILED
+test text_is_measured_by_the_host ... FAILED
+test every_option_renders_and_is_deterministic ... ok
+
+failures:
+
+---- a_preloaded_render_matches_a_cold_one stdout ----
+
+thread 'a_preloaded_render_matches_a_cold_one' (6400) panicked at crates/islands/tests/echarts.rs:235:34:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- bad_specs_are_typed_errors stdout ----
+
+thread 'bad_specs_are_typed_errors' (6401) panicked at crates/islands/tests/echarts.rs:191:5:
+Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- echarts_is_a_builtin stdout ----
+
+thread 'echarts_is_a_builtin' (6403) panicked at crates/islands/tests/echarts.rs:87:32:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- bar_chart_is_valid_svg stdout ----
+
+thread 'bar_chart_is_valid_svg' (6402) panicked at crates/islands/tests/echarts.rs:93:49:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- series_cannot_turn_animation_back_on stdout ----
+
+thread 'series_cannot_turn_animation_back_on' (6411) panicked at crates/islands/tests/echarts.rs:218:39:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- japanese_labels_survive stdout ----
+
+thread 'japanese_labels_survive' (6410) panicked at crates/islands/tests/echarts.rs:109:54:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- text_is_measured_by_the_host stdout ----
+
+thread 'text_is_measured_by_the_host' (6412) panicked at crates/islands/tests/echarts.rs:177:61:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+
+failures:
+    a_preloaded_render_matches_a_cold_one
+    bad_specs_are_typed_errors
+    bar_chart_is_valid_svg
+    echarts_is_a_builtin
+    japanese_labels_survive
+    series_cannot_turn_animation_back_on
+    text_is_measured_by_the_host
+
+test result: FAILED. 1 passed; 7 failed; 1 ignored; 0 measured; 0 filtered out; finished in 12.65s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --test echarts`
+[1m[92m     Running[0m tests/fixture_timing.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/75744c3b54f8e95f/out/fixture_timing-75744c3b54f8e95f)
+
+running 1 test
+test timing_fixture_islands ... ignored, timing report; run explicitly in release mode
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/hostile.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/f4d4887ecae5dae5/out/hostile-f4d4887ecae5dae5)
+
+running 6 tests
+test hostile_child ... ignored, helper: run in a child process by hostile_suite
+test hostile_child_ends_badly ... ignored, helper: run in a child process by the harness tests
+test known_failures_excuse_only_their_outcome ... ok
+test every_way_a_child_ends_is_judged ... ok
+test a_child_that_ends_badly_after_reporting_fails ... ok
+test hostile_suite ... FAILED
+
+failures:
+
+---- hostile_suite stdout ----
+FAIL  infinite-loop                        Crash             47 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6449) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  infinite-loop-try-catch              Crash             52 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6451) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  infinite-loop-in-finally             Crash             54 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6470) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  microtask-flood                      Crash             51 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6476) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  microtask-flood-growing              Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6495) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or MemoryLimit
+FAIL  microtask-await-loop                 Crash             45 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6496) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  regex-redos                          Crash             50 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6509) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  regex-redos-alternation              Crash             38 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6510) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  atomics-wait                         Crash             48 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6523) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+FAIL  native-loop-join-arraylike           Crash             40 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6524) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-join-holey               Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6537) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit or Ok
+FAIL  native-loop-join-getter-length       Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6538) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-join-proxy               Crash             49 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6551) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-reverse                  Crash             42 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6552) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-copywithin               Crash             38 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6565) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-string-raw               Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6566) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-join-length-toctou       Crash             39 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6579) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit or Ok
+FAIL  native-loop-join-length-valueof      Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6580) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-typedarray-own-length    Crash             48 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6590) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-dataview-length          Crash             40 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6595) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-loop-fill-typedarray-proto    Crash             47 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6607) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  native-sort-typed-array              Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6608) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit or Ok
+FAIL  reentry-promise-executor             Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6622) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or MemoryLimit
+FAIL  reentry-promise-try                  Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6621) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  reentry-async-generator              Crash             39 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6636) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or MemoryLimit
+FAIL  reentry-prepare-stack-trace          Crash             42 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6635) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+FAIL  reentry-disposable-stack             Crash             47 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6649) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+FAIL  alloc-arrays                         Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6650) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+FAIL  alloc-string-doubling                Crash             46 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6664) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit or Exception
+FAIL  alloc-string-repeat                  Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6663) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+FAIL  alloc-typed-array                    Crash             38 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6678) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+FAIL  alloc-typed-arrays-many              Crash             46 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6677) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+FAIL  alloc-object-graph                   Crash             41 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6688) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+FAIL  oom-caught-retry                     Crash             54 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6693) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+FAIL  oom-caught-continue                  Crash             45 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6702) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+FAIL  recursion-plain                      Crash             47 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6709) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+FAIL  recursion-caught                     Crash             39 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6716) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  recursion-getter                     Crash             42 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6723) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+FAIL  recursion-tostring                   Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6728) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+FAIL  recursion-proxy                      Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6737) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+FAIL  recursion-json-stringify             Crash             37 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6741) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Ok
+FAIL  recursion-array-join                 Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6754) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+FAIL  recursion-json-parse                 Crash             35 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6755) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Ok
+FAIL  recursion-parser                     Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6768) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Exception
+FAIL  regex-deep-nesting                   Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6769) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Exception or Ok
+FAIL  deep-free-chain                      Crash             47 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6782) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  result-not-a-string                  Crash             47 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6783) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+FAIL  result-hostile-thenable              Crash             37 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6796) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception or TimeLimit
+FAIL  promise-never-settles                Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6797) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+FAIL  unhandled-rejection                  Crash             43 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6810) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  control-sync                         Crash             38 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6811) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  control-async                        Crash             42 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6825) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  escape-require                       Crash             42 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6826) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  escape-require-call                  Crash             44 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6839) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+FAIL  escape-dynamic-import                Crash             49 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6840) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok or Exception
+FAIL  escape-network                       Crash             37 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6853) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  escape-global-sniff                  Crash             38 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6854) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  escape-function-constructor          Crash             42 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6865) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  pollution-across-renders step 1      Crash             39 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6868) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+FAIL  pollution-across-renders step 2      Crash             39 ms  got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6868) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+hostile: 59 cases, 60 step results, 60 unexpected failures, 0 known failures
+
+thread 'hostile_suite' (6435) panicked at crates/islands/tests/hostile.rs:481:5:
+unexpected failures:
+infinite-loop: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6449) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+infinite-loop-try-catch: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6451) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+infinite-loop-in-finally: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6470) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+microtask-flood: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6476) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+microtask-flood-growing: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6495) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or MemoryLimit
+microtask-await-loop: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6496) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+regex-redos: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6509) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+regex-redos-alternation: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6510) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+atomics-wait: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6523) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+native-loop-join-arraylike: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6524) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-join-holey: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6537) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit or Ok
+native-loop-join-getter-length: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6538) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-join-proxy: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6551) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-reverse: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6552) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-copywithin: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6565) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-string-raw: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6566) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-join-length-toctou: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6579) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit or Ok
+native-loop-join-length-valueof: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6580) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-typedarray-own-length: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6590) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-dataview-length: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6595) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-loop-fill-typedarray-proto: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6607) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+native-sort-typed-array: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6608) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit or Ok
+reentry-promise-executor: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6622) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or MemoryLimit
+reentry-promise-try: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6621) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+reentry-async-generator: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6636) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or MemoryLimit
+reentry-prepare-stack-trace: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6635) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit or Exception or MemoryLimit
+reentry-disposable-stack: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6649) panicked at crates/islands/tests/hostile.rs:197:14: | "), want TimeLimit
+alloc-arrays: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6650) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+alloc-string-doubling: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6664) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit or Exception
+alloc-string-repeat: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6663) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+alloc-typed-array: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6678) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+alloc-typed-arrays-many: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6677) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+alloc-object-graph: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6688) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+oom-caught-retry: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6693) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+oom-caught-continue: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6702) panicked at crates/islands/tests/hostile.rs:197:14: | "), want MemoryLimit
+recursion-plain: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6709) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+recursion-caught: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6716) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+recursion-getter: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6723) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+recursion-tostring: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6728) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+recursion-proxy: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6737) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+recursion-json-stringify: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6741) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Ok
+recursion-array-join: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6754) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow
+recursion-json-parse: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6755) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Ok
+recursion-parser: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6768) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Exception
+regex-deep-nesting: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6769) panicked at crates/islands/tests/hostile.rs:197:14: | "), want StackOverflow or Exception or Ok
+deep-free-chain: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6782) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+result-not-a-string: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6783) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+result-hostile-thenable: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6796) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception or TimeLimit
+promise-never-settles: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6797) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+unhandled-rejection: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6810) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+control-sync: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6811) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+control-async: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6825) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+escape-require: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6826) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+escape-require-call: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6839) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Exception
+escape-dynamic-import: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6840) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok or Exception
+escape-network: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6853) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+escape-global-sniff: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6854) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+escape-function-constructor: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6865) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+pollution-across-renders step 1: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6868) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+pollution-across-renders step 2: got Crash ("child exited with exit status: 101: note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace | called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: \"this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes\" }) | thread 'hostile_child' (6868) panicked at crates/islands/tests/hostile.rs:197:14: | "), want Ok
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    hostile_suite
+
+test result: FAILED. 3 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.33s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --test hostile`
+[1m[92m     Running[0m tests/pool.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/d3bd131549716dcb/out/pool-d3bd131549716dcb)
+
+running 15 tests
+test an_entry_defined_in_a_microtask_is_refused_at_registration ... FAILED
+test a_bundle_that_queues_microtasks_is_never_preloaded ... FAILED
+test an_idle_worker_preloads_the_last_bundle ... FAILED
+test a_preloaded_bundle_never_leaks_into_another_renderer ... FAILED
+test idle_workers_are_counted ... FAILED
+test limit_errors_keep_the_pool_healthy ... FAILED
+test many_renders_on_a_small_pool_are_counted ... FAILED
+test no_state_leaks_between_renders ... FAILED
+test no_state_leaks_across_renderers ... FAILED
+test preloaded_and_cold_renders_give_the_same_output ... FAILED
+test registration_never_sees_a_preloaded_bundle ... FAILED
+test replacing_a_bundle_drops_its_preloaded_copy ... FAILED
+test stats_count_failures ... FAILED
+test no_state_leaks_after_errors ... ok
+test heap_is_freed_after_every_render ... ok
+
+failures:
+
+---- an_entry_defined_in_a_microtask_is_refused_at_registration stdout ----
+
+thread 'an_entry_defined_in_a_microtask_is_refused_at_registration' (6880) panicked at crates/islands/tests/pool.rs:347:5:
+assertion `left == right` failed
+  left: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+ right: MissingEntry { bundle: "late", entry: "entry" }
+
+---- a_bundle_that_queues_microtasks_is_never_preloaded stdout ----
+
+thread 'a_bundle_that_queues_microtasks_is_never_preloaded' (6878) panicked at crates/islands/tests/pool.rs:270:45:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- an_idle_worker_preloads_the_last_bundle stdout ----
+
+thread 'an_idle_worker_preloads_the_last_bundle' (6883) panicked at crates/islands/tests/pool.rs:215:10:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- a_preloaded_bundle_never_leaks_into_another_renderer stdout ----
+
+thread 'a_preloaded_bundle_never_leaks_into_another_renderer' (6879) panicked at crates/islands/tests/pool.rs:312:6:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- idle_workers_are_counted stdout ----
+
+thread 'idle_workers_are_counted' (6888) panicked at crates/islands/tests/pool.rs:282:10:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- limit_errors_keep_the_pool_healthy stdout ----
+
+thread 'limit_errors_keep_the_pool_healthy' (6889) panicked at crates/islands/tests/pool.rs:185:10:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- many_renders_on_a_small_pool_are_counted stdout ----
+
+thread 'many_renders_on_a_small_pool_are_counted' (6892) panicked at crates/islands/tests/pool.rs:129:10:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- no_state_leaks_between_renders stdout ----
+
+thread 'no_state_leaks_between_renders' (6899) panicked at crates/islands/tests/pool.rs:71:54:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- no_state_leaks_across_renderers stdout ----
+
+thread 'no_state_leaks_across_renderers' (6897) panicked at crates/islands/tests/pool.rs:80:54:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- preloaded_and_cold_renders_give_the_same_output stdout ----
+
+thread 'preloaded_and_cold_renders_give_the_same_output' (6903) panicked at crates/islands/tests/pool.rs:239:47:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- registration_never_sees_a_preloaded_bundle stdout ----
+
+thread 'registration_never_sees_a_preloaded_bundle' (6904) panicked at crates/islands/tests/pool.rs:328:10:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- replacing_a_bundle_drops_its_preloaded_copy stdout ----
+
+thread 'replacing_a_bundle_drops_its_preloaded_copy' (6907) panicked at crates/islands/tests/pool.rs:295:10:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- stats_count_failures stdout ----
+
+thread 'stats_count_failures' (6909) panicked at crates/islands/tests/pool.rs:164:6:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+
+failures:
+    a_bundle_that_queues_microtasks_is_never_preloaded
+    a_preloaded_bundle_never_leaks_into_another_renderer
+    an_entry_defined_in_a_microtask_is_refused_at_registration
+    an_idle_worker_preloads_the_last_bundle
+    idle_workers_are_counted
+    limit_errors_keep_the_pool_healthy
+    many_renders_on_a_small_pool_are_counted
+    no_state_leaks_across_renderers
+    no_state_leaks_between_renders
+    preloaded_and_cold_renders_give_the_same_output
+    registration_never_sees_a_preloaded_bundle
+    replacing_a_bundle_drops_its_preloaded_copy
+    stats_count_failures
+
+test result: FAILED. 2 passed; 13 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --test pool`
+[1m[92m     Running[0m tests/runner.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/552576d3b991b8d9/out/runner-552576d3b991b8d9)
+
+running 20 tests
+test bad_json_is_reported_with_position ... FAILED
+test async_entries_are_awaited ... FAILED
+test dropping_the_runner_stops_the_workers ... FAILED
+test invalid_options_are_rejected ... ok
+test lone_surrogates_become_replacement_characters ... FAILED
+test measure_text_returns_all_canvas_fields ... FAILED
+test measuring_without_fonts_is_a_typed_error ... FAILED
+test non_string_output ... FAILED
+test entry_exceptions_are_sandbox_errors ... FAILED
+test hostile_renderers_hit_limits_and_the_pool_recovers ... FAILED
+test renders_concurrently_from_many_threads ... FAILED
+test registration_checks_the_bundle ... FAILED
+test pool_size_defaults_to_cpus_up_to_four ... ok
+test runner_is_send_and_sync ... ok
+test renders_svg_with_measured_text ... FAILED
+test unknown_renderer ... FAILED
+test same_request_same_svg ... FAILED
+test reregistering_replaces_the_bundle ... ok
+test uses_the_configured_measurer ... ok
+test a_measure_text_loop_stops_at_the_time_limit ... ok
+
+failures:
+
+---- bad_json_is_reported_with_position stdout ----
+
+thread 'bad_json_is_reported_with_position' (6916) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- async_entries_are_awaited stdout ----
+
+thread 'async_entries_are_awaited' (6915) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- dropping_the_runner_stops_the_workers stdout ----
+
+thread 'dropping_the_runner_stops_the_workers' (6917) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- lone_surrogates_become_replacement_characters stdout ----
+
+thread 'lone_surrogates_become_replacement_characters' (6931) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- measure_text_returns_all_canvas_fields stdout ----
+
+thread 'measure_text_returns_all_canvas_fields' (6934) panicked at crates/islands/tests/runner.rs:112:6:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- measuring_without_fonts_is_a_typed_error stdout ----
+
+thread 'measuring_without_fonts_is_a_typed_error' (6937) panicked at crates/islands/tests/runner.rs:130:52:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- non_string_output stdout ----
+
+thread 'non_string_output' (6940) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- entry_exceptions_are_sandbox_errors stdout ----
+
+thread 'entry_exceptions_are_sandbox_errors' (6924) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- hostile_renderers_hit_limits_and_the_pool_recovers stdout ----
+
+thread 'hostile_renderers_hit_limits_and_the_pool_recovers' (6925) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- renders_concurrently_from_many_threads stdout ----
+
+thread 'renders_concurrently_from_many_threads' (6951) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- registration_checks_the_bundle stdout ----
+
+thread 'registration_checks_the_bundle' (6949) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- renders_svg_with_measured_text stdout ----
+
+thread 'renders_svg_with_measured_text' (6957) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- unknown_renderer stdout ----
+
+thread 'unknown_renderer' (6967) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- same_request_same_svg stdout ----
+
+thread 'same_request_same_svg' (6964) panicked at crates/islands/tests/runner.rs:39:48:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+
+failures:
+    async_entries_are_awaited
+    bad_json_is_reported_with_position
+    dropping_the_runner_stops_the_workers
+    entry_exceptions_are_sandbox_errors
+    hostile_renderers_hit_limits_and_the_pool_recovers
+    lone_surrogates_become_replacement_characters
+    measure_text_returns_all_canvas_fields
+    measuring_without_fonts_is_a_typed_error
+    non_string_output
+    registration_checks_the_bundle
+    renders_concurrently_from_many_threads
+    renders_svg_with_measured_text
+    same_request_same_svg
+    unknown_renderer
+
+test result: FAILED. 6 passed; 14 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.98s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --test runner`
+[1m[92m     Running[0m tests/soak.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/030f373d3b2ab952/out/soak-030f373d3b2ab952)
+
+running 3 tests
+test soak_10000_renders_flat_memory ... ignored, soak: 10,000 renders; run in release with `--ignored soak`
+test soak_echarts_2000_renders_flat_memory ... ignored, soak: 2,000 ECharts renders; run in release with `--ignored soak`
+test soak_vega_lite_600_renders_flat_memory ... ignored, soak: 600 Vega-Lite renders; run in release with `--ignored soak`
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/vega.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/269bf1cd05a76f8b/out/vega-269bf1cd05a76f8b)
+
+running 16 tests
+test dense_scatter_has_every_point ... FAILED
+test bad_specs_are_typed_errors ... FAILED
+test data_urls_are_refused ... FAILED
+test every_kind_of_load_is_refused_with_its_reason ... FAILED
+test japanese_labels_survive ... FAILED
+test every_spec_renders_and_is_deterministic ... FAILED
+test raster_features_fail_clearly ... FAILED
+test timing_vega ... ignored, timing report; run explicitly in release mode
+test vega_and_vega_lite_are_builtins ... ok
+test vega_and_vega_lite_share_a_compile_and_render_alike ... FAILED
+test vega_bar_chart ... FAILED
+test a_bundle_registered_during_a_builtin_compile_wins ... FAILED
+test vega_lite_container_size_is_the_island ... FAILED
+test vega_soaks_up_no_state_between_specs ... FAILED
+test text_is_measured_by_the_host ... FAILED
+test vega_lite_bar_chart ... ok
+
+failures:
+
+---- dense_scatter_has_every_point stdout ----
+
+thread 'dense_scatter_has_every_point' (6984) panicked at crates/islands/tests/vega.rs:194:82:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- bad_specs_are_typed_errors stdout ----
+
+thread 'bad_specs_are_typed_errors' (6982) panicked at crates/islands/tests/vega.rs:111:18:
+not an exception: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- data_urls_are_refused stdout ----
+
+thread 'data_urls_are_refused' (6983) panicked at crates/islands/tests/vega.rs:111:18:
+not an exception: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- every_kind_of_load_is_refused_with_its_reason stdout ----
+
+thread 'every_kind_of_load_is_refused_with_its_reason' (6991) panicked at crates/islands/tests/vega.rs:111:18:
+not an exception: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- japanese_labels_survive stdout ----
+
+thread 'japanese_labels_survive' (6995) panicked at crates/islands/tests/vega.rs:151:78:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- every_spec_renders_and_is_deterministic stdout ----
+
+thread 'every_spec_renders_and_is_deterministic' (6993) panicked at crates/islands/tests/vega.rs:177:64:
+vega/bar: invalid sandbox options: this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes
+
+---- raster_features_fail_clearly stdout ----
+
+thread 'raster_features_fail_clearly' (6996) panicked at crates/islands/tests/vega.rs:111:18:
+not an exception: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- vega_and_vega_lite_share_a_compile_and_render_alike stdout ----
+
+thread 'vega_and_vega_lite_share_a_compile_and_render_alike' (7001) panicked at crates/islands/tests/vega.rs:474:56:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- vega_bar_chart stdout ----
+
+thread 'vega_bar_chart' (7002) panicked at crates/islands/tests/vega.rs:138:63:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- a_bundle_registered_during_a_builtin_compile_wins stdout ----
+
+thread 'a_bundle_registered_during_a_builtin_compile_wins' (6981) panicked at crates/islands/tests/vega.rs:462:14:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- vega_lite_container_size_is_the_island stdout ----
+
+thread 'vega_lite_container_size_is_the_island' (7007) panicked at crates/islands/tests/vega.rs:423:45:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- vega_soaks_up_no_state_between_specs stdout ----
+
+thread 'vega_soaks_up_no_state_between_specs' (7010) panicked at crates/islands/tests/vega.rs:297:44:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+---- text_is_measured_by_the_host stdout ----
+
+thread 'text_is_measured_by_the_host' (6999) panicked at crates/islands/tests/vega.rs:214:54:
+called `Result::unwrap()` on an `Err` value: Sandbox(InvalidOptions { message: "this thread has 0 bytes of stack left, but the sandbox needs 786432 (stack_bytes 524288 plus 262144 of headroom); run it on a thread with a larger stack or lower stack_bytes" })
+
+
+failures:
+    a_bundle_registered_during_a_builtin_compile_wins
+    bad_specs_are_typed_errors
+    data_urls_are_refused
+    dense_scatter_has_every_point
+    every_kind_of_load_is_refused_with_its_reason
+    every_spec_renders_and_is_deterministic
+    japanese_labels_survive
+    raster_features_fail_clearly
+    text_is_measured_by_the_host
+    vega_and_vega_lite_share_a_compile_and_render_alike
+    vega_bar_chart
+    vega_lite_container_size_is_the_island
+    vega_soaks_up_no_state_between_specs
+
+test result: FAILED. 2 passed; 13 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.82s
+
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-islands --test vega`
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-webidl/ff8dd0d587adc58f/out/surimono_webidl-ff8dd0d587adc58f)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[91merror[0m: 9 targets failed:
+    `-p surimono-core --lib`
+    `-p surimono-core --test determinism`
+    `-p surimono-core --test hostile`
+    `-p surimono-islands --lib`
+    `-p surimono-islands --test echarts`
+    `-p surimono-islands --test hostile`
+    `-p surimono-islands --test pool`
+    `-p surimono-islands --test runner`
+    `-p surimono-islands --test vega`
+out_of_memory_full_sweep isn't in crates/core yet; skipping
