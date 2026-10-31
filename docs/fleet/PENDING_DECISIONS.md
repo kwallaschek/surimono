@@ -35,14 +35,7 @@ TODO: upstream drafts for 5 fulgur 0.40 gaps from COMPAT.md (#17); RT task: Rust
 - RULE 2026-10-31 · Never rebase or force-push a pushed branch; fix with new commits; downstream merges parent in · Force-push may be refused; merge commits keep stacks valid.
 - COMPAT: toLocale*String ignores locale ('ja-JP').
 
-## DX batch 1 (#18 #19 #23), add on merge
-- 2026-10-31 · Docs quote no speed or memory figures until bench/ has results · Every performance claim must cite a benchmark.
-- 2026-10-31 · Ruby examples write island JSON with `raw json_escape(spec.to_json)` · Plain ERB escapes quotes and breaks the JSON.
-- 2026-10-31 · The Rails guide builds renderers lazily per process (keyed by Process.pid) until the facade is fork-safe · Runner threads don't survive fork.
-- 2026-10-31 · Jobs discard Surimono::Error but retry TimeLimitError · Only time limits depend on machine load.
-- 2026-10-31 · Examples are a workspace crate plus a plain-Ruby snippet, driven by examples/run.sh · Examples that run in CI can't rot.
-- 2026-10-31 · Examples use ECharts plus a bring-your-own bundle, not Vega · Vega is second in the cut order.
-- ORC TODO after #10 merges: add examples/rust-islands to workspace members/default-members.
+## DX batch 1: #18 #19 #23 merged 07:20 Sun; lines moved
 
 ## Orchestrator
 
@@ -71,10 +64,15 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 
 ## CF batch 4: #50 #51 #55 merged; lines moved
 
-## RT-14 (#47), add on merge
-- 2026-10-31 · Deadlines are enforced by one watchdog thread per process that raises a per-runtime stop flag, which the patched QuickJS reads on every interrupt poll; a refused allocation raises it too; Deadline::passed() reads the same flag · The handler alone was asked every 10,000 polls, so a loop around one expensive call overran by minutes; no thread per render.
-- 2026-10-31 · The BigInt 1 Mbit cap stays; multiply, divide, toString and parsing poll inside their loops · Size limit unchanged, time to stop bounded.
-- 2026-10-31 · String searches stay naive (exact semantics) but poll every 65,536 comparisons and once per match · Bounds time without changing results.
-- 2026-10-31 · Typed-array default sort checks only the interrupt flag through per-type wrappers · 8–11% overhead instead of 15–26%.
-- 2026-10-31 · Engine patch level 3 = #45's allocation-failure patches + #47's interrupt patches; build.rs refuses wasm32-unknown-unknown · One level for both sets.
-- 2026-10-31 · The sandbox starts one watchdog thread per process (a fresh one in a forked child) that raises a per-runtime stop flag at each call's deadline; Sandbox::new/with_options and calls return SandboxError::Engine if it can't start; the registry and the prelude bytecode live in a lock-free ForkSafeCell (pid-tagged election, fresh slot per value), and a call and the watchdog agree through a sequence number with an EXPIRING bit, so no lock on the per-call path is shared with the watchdog or crosses a fork (P1-RT-22 folded in) · Time-accurate limits without a thread per render; a Renderer must survive fork (old code: 21 of 29,300 and 18 of 15,000 forks hung).
+## RT-14 (#47): merged 05:55 Sun; lines moved
+
+## Pending for open PRs (add on merge)
+
+### PKG #38
+- 2026-11-01 · The release dry-run links and runs a program against the packaged surimono-core outside the workspace, and requires LICENSE-MIT/LICENSE-APACHE in every released .crate · cargo publish --dry-run only builds an rlib, so it can't see that [patch] doesn't reach crates.io users (#38).
+- 2026-11-01 · surimono-webidl and surimono-dom stay publish = false until phase 2 is signed off; the dry-run fails on any publishable crate outside the release list (#38).
+
+## Open for checkpoint 2 (Kay), added 06:00 Sun
+- ENGINE DISTRIBUTION (Kay decides): crates.io users of surimono-core get unpatched rquickjs-sys 0.14.0 ([patch] doesn't travel); a linked program fails (undefined surimono_quickjs_patch_level). Options: (1) wait for upstream quickjs-ng/rquickjs releases; (2) publish the fork under our own crate names (3 crates); (3) v0.1 = gem (+ CLI binary) only, Rust crates held. Recommend (3) for v0.1, (2) later.
+
+- Open for checkpoint 2: bench on main 15b530e0 (real pipeline): speed 2.4× cold/warm vs Grover (met); memory 5.8× PSS Ruby / 8.0× Rust (10× not met; fulgur alone 8.7×); vs chrome-headless-shell 1.8–2.3× / 3.8–5.2×.

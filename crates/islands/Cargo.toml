@@ -6,6 +6,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 default = ["echarts", "vega"]
@@ -41,6 +45,11 @@ roxmltree.workspace = true
 toml = "=1.1.8"
 # Counts live heap bytes in the soak test.
 stats_alloc = "=0.1.10"
+
+# fork, waitpid and _exit in the fork stress test (tests/fork.rs); the same
+# pin as surimono-core's.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "=0.2.191"
 
 [lints]
 workspace = true

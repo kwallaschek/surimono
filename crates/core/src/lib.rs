@@ -26,10 +26,13 @@ mod embed;
 #[allow(unsafe_code)]
 mod engine;
 mod error;
+mod fork_safe;
 mod limits;
 mod sandbox;
+mod watchdog;
 
 pub use embed::{compile_for_embedding, engine_fingerprint};
+pub use engine::fork_generation;
 pub use error::SandboxError;
 pub use limits::Limits;
 pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};

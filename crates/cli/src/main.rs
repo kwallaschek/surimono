@@ -59,7 +59,9 @@ Options:
   The output file is written only after the render succeeded, through a
   temporary file renamed into place, so it is either complete or untouched.
   It keeps an existing file's permissions; if it is a symbolic link, the
-  file it points to is replaced.
+  file it points to is replaced. Because the file is replaced rather than
+  rewritten, a read-only output is replaced too (the directory must be
+  writable), and the new file belongs to the user running surimono.
 
 Exit codes:
   0  success
@@ -363,6 +365,10 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
 /// the file it points to is replaced and the link stays, as with shell
 /// redirection; a dangling link is replaced by the file. The directory is
 /// synced after the rename where the platform allows it.
+///
+/// Because `path` is replaced by a rename, not opened for writing, a
+/// read-only file is replaced too (only the directory's permissions matter),
+/// and the new file is owned by the running user, not the old file's owner.
 fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let resolved;
     let path = match fs::symlink_metadata(path) {
@@ -586,6 +592,11 @@ mod tests {
         for (e, exit) in cases {
             assert_eq!(Failure::from_error(&e).exit, exit, "{e}");
         }
+        // The message names the option, not a Rust item (Options::max_islands).
+        assert_eq!(
+            Failure::from_error(&Error::TooManyIslands { max: 3 }).message,
+            "the document has more than 3 islands (max_islands) [too-many-islands]"
+        );
     }
 
     #[test]
@@ -615,7 +626,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn atomic_write_keeps_permissions_and_follows_links() {
-        use std::os::unix::fs::{PermissionsExt, symlink};
+        use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
         let dir = std::env::temp_dir().join(format!("surimono-cli-perm-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("{e}"));
         let out = dir.join("out.html");
@@ -627,6 +638,32 @@ mod tests {
             .map(|m| m.permissions().mode() & 0o777)
             .unwrap_or(0);
         assert_eq!(mode, 0o640);
+        // A read-only output is replaced (rename needs only the directory),
+        // as --help says, and stays read-only. Running as root (the fleet
+        // machine), a 0444 file is writable anyway, so the content check alone
+        // couldn't tell a rename from an in-place write; the inode check can.
+        fs::set_permissions(&out, fs::Permissions::from_mode(0o444))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let inode = || fs::metadata(&out).map(|m| m.ino()).unwrap_or(0);
+        let before = inode();
+        if fs::OpenOptions::new().write(true).open(&out).is_ok() {
+            eprintln!(
+                "note: a 0444 file is writable here (root?); the inode check \
+                 shows it is replaced rather than written in place"
+            );
+        }
+        write_atomically(&out, b"read-only replaced").unwrap_or_else(|e| panic!("{e}"));
+        assert_ne!(inode(), before, "the read-only output was not replaced");
+        assert_eq!(
+            fs::read_to_string(&out).ok().as_deref(),
+            Some("read-only replaced")
+        );
+        let mode = fs::metadata(&out)
+            .map(|m| m.permissions().mode() & 0o777)
+            .unwrap_or(0);
+        assert_eq!(mode, 0o444);
+        fs::set_permissions(&out, fs::Permissions::from_mode(0o640))
+            .unwrap_or_else(|e| panic!("{e}"));
         // Through a link: the target is replaced, the link stays a link.
         let link = dir.join("link.html");
         symlink(&out, &link).unwrap_or_else(|e| panic!("{e}"));

@@ -1,0 +1,89 @@
+{
+  "subject": "vegalite-line-ja island 0 (printed by fulgur)",
+  "pdf": "checkpoint-out/vegalite-line-ja/island-0-fulgur/surimono.pdf",
+  "label": "surimono",
+  "metric": "shape: near-match (1 px radius, per-channel tolerance 128/255), worst 32x32 window's share of mismatched ink, pass <= 10%; colour: solid pixels (flat 5x5) within 16/255 per channel at 1 px, worst window <= 10%; hue: ink direction of strongly inked pixels within 8 degrees at 1 px, worst window <= 30%; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink",
+  "pixel_threshold": 0.1,
+  "pass_worst_window": 0.1,
+  "pass_colour_window": 0.1,
+  "pass_hue_window": 0.3,
+  "poppler": "24.02.0",
+  "dpi": 96,
+  "page_count": {
+    "chrome": 1,
+    "surimono": 1
+  },
+  "pass": false,
+  "worst_window": 0.10204081632653061,
+  "worst_diff_ratio_ink": 0.12442851847275423,
+  "worst_colour_window": 0,
+  "worst_hue_window": 0.017241379310344827,
+  "pages": [
+    {
+      "page": 1,
+      "pass": false,
+      "failed": [
+        "shape"
+      ],
+      "worst_window": 0.10204081632653061,
+      "worst_window_at": [
+        240,
+        288
+      ],
+      "near_mismatch_pixels": 68,
+      "near_ink_share": 0.004201161497590511,
+      "colour_worst_window": 0,
+      "colour_worst_window_at": null,
+      "colour_mismatch_pixels": 0,
+      "solid_pixels": 72,
+      "hue_worst_window": 0.017241379310344827,
+      "hue_worst_window_at": [
+        208,
+        96
+      ],
+      "hue_mismatch_pixels": 1,
+      "hue_pixels": 8951,
+      "width": 640,
+      "height": 320,
+      "size_match": true,
+      "expected_size": [
+        640,
+        320
+      ],
+      "actual_size": [
+        640,
+        320
+      ],
+      "diff_pixels": 2014,
+      "ink_pixels": 16186,
+      "expected_ink_pixels": 15457,
+      "actual_ink_pixels": 15335,
+      "diff_ratio_ink": 0.12442851847275423,
+      "diff_ratio_page": 0.009833984375,
+      "side_by_side": "side-by-side-1.png"
+    }
+  ],
+  "text": {
+    "pass": true,
+    "reference_strings": 23,
+    "candidate_text": 0,
+    "candidate_outlined": 23,
+    "candidate_stamped": 23,
+    "missing": [],
+    "extra": []
+  },
+  "font": {
+    "pass": true,
+    "compared": 23,
+    "faces_checked": 23,
+    "mismatches": [],
+    "missing": [],
+    "extra": []
+  },
+  "producer": {
+    "cli": "target/release/surimono",
+    "version": "surimono 0.0.0",
+    "sha256": "d93c398c8ff54c4ebca9c5df342267c2055bc23fe0d9b882bfcaf9b514df70d3",
+    "commit": "6eb38139bb5894a5b235fb84fb24256969752305"
+  }
+}

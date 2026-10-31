@@ -76,6 +76,22 @@ test("a render that depends on the working directory or locale is caught too", (
   }
 });
 
+test("a locale compiled into $LOCPATH is used for the second render", (t) => {
+  const listed = spawnSync("locale", ["-a"], { encoding: "utf8" }).stdout ?? "";
+  if (/^de_DE\.utf-?8$/im.test(listed)) return t.skip("de_DE.UTF-8 is installed system-wide, so it would win");
+  const locpath = tmp();
+  // What `localedef -i fr_FR -f UTF-8 $LOCPATH/fr_FR.UTF-8` makes; only LC_CTYPE is checked.
+  fs.mkdirSync(path.join(locpath, "fr_FR.UTF-8"));
+  fs.writeFileSync(path.join(locpath, "fr_FR.UTF-8", "LC_CTYPE"), "");
+  fs.mkdirSync(path.join(locpath, "not-a-locale"));
+  const out = tmp();
+  // The TZ leak fails fast, before Chrome, and still writes determinism.json.
+  run({ FAKE_SURIMONO_LEAK: "TZ", LOCPATH: `${locpath}:${path.join(locpath, "missing")}` }, out);
+  const second = readJson(path.join(out, FIXTURE, "determinism.json")).runs[1];
+  assert.equal(second.LANG, "fr_FR.UTF-8");
+  assert.equal(second.locale_installed, true);
+});
+
 test("byte-identical renders pass the determinism check", () => {
   const out = tmp();
   const r = run({}, out);
