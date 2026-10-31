@@ -500,11 +500,24 @@ def stats(values: list[float]) -> dict:
 # ---------------------------------------------------------------- environment
 
 
-def sh(cmd: list[str], cwd: Path = ROOT) -> str:
+def sh(cmd: list[str], cwd: Path = ROOT, env: dict | None = None) -> str:
     try:
-        return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=60).stdout.strip()
+        return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=60).stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
         return ""
+
+
+def pool_size_note(env: dict) -> dict:
+    """surimono's runtime pool size in this run: BENCH_POOL_SIZE if set (both
+    drivers pass it to the renderer), else the facade's default, which is the
+    number of CPUs clamped to 1..8 (crates/surimono/src/backend.rs)."""
+    if env.get("BENCH_POOL_SIZE"):
+        return {"setting": "BENCH_POOL_SIZE", "size": int(env["BENCH_POOL_SIZE"])}
+    try:
+        cpus = len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        cpus = os.cpu_count() or 1
+    return {"setting": "default (CPUs clamped to 1..8)", "size": max(1, min(cpus, 8)), "cpus": cpus}
 
 
 def chrome_executable() -> str:
@@ -547,9 +560,14 @@ def npm_version(package_dir: Path) -> str:
 
 
 def versions(chrome: str, env: dict) -> dict:
-    surimono_version = sh(
-        ["ruby", "-e", "$LOAD_PATH.unshift(ENV['SURIMONO_RUBY_LIB']); begin; require 'surimono'; print Surimono::VERSION, ' (native ', (Surimono.native_version rescue '?'), ')'; rescue LoadError; print 'not built'; end"],
-    ) if env.get("SURIMONO_RUBY_LIB") else "not built"
+    # The probe gets the benchmark's own environment (SURIMONO_RUBY_LIB); any
+    # failure is reported with its class, never as an empty cell.
+    probe = (
+        "begin; $LOAD_PATH.unshift(ENV.fetch('SURIMONO_RUBY_LIB')); require 'surimono'; "
+        "print Surimono::VERSION, ' (native ', (Surimono.native_version rescue '?'), ')'; "
+        "rescue Exception => e; print 'not built (', e.class, ': ', e.message.lines.first.to_s.strip, ')'; end"
+    )
+    surimono_version = (sh(["ruby", "-e", probe], env=env) or "not built (the probe printed nothing)") if env.get("SURIMONO_RUBY_LIB") else "not built"
     return {
         "chromium": sh([chrome, "--version"]),
         "chrome_headless_shell": sh([env["BENCH_CHROME_SHELL"], "--version"]) if env.get("BENCH_CHROME_SHELL") else "not installed",
@@ -630,6 +648,8 @@ def summarize(r: dict) -> dict:
         mem = r["warm-memory"]["memory"]
         summary["warm_peak_pss_mb"] = mem["peak_pss_mb"]
         summary["warm_peak_rss_mb"] = mem["peak_rss_mb"]
+        # The peak of one process that rendered this many timed documents.
+        summary["warm_memory_renders"] = len(r["warm-memory"].get("iterations", []))
         summary["warm_memory_complete"] = mem.get("complete", True)
     return summary
 
@@ -727,6 +747,7 @@ def main() -> int:
             "report": "bench/report/report.html",
             "spec_targets": {"speed": SPEC_SPEED, "memory": SPEC_MEMORY},
             "time_budget_min": args.time_budget_min,
+            "surimono_pool_size": pool_size_note(env),
         },
         "results": results,
     }
@@ -751,6 +772,10 @@ def main() -> int:
     def live(system: str) -> bool:
         return results[system].get("status") not in ("error", "unavailable")
 
+    if "surimono-ruby" in results and env.get("BENCH_GEM_BUILD_FAILED"):
+        # run.sh tried to build the gem (the checkout has a Surimono::Renderer)
+        # and the build failed: a bug, not a system that can't run yet.
+        results["surimono-ruby"].update({"status": "error", "reason": "the surimono gem did not build (bundle exec rake compile in bindings/ruby; see the job log)", "failed_in": "build"})
     if "grover-shell" in results and not shell:
         results["grover-shell"].update({"status": "unavailable", "reason": "chrome-headless-shell is not installed next to Playwright's Chromium (or set BENCH_CHROME_SHELL)", "failed_in": "setup"})
 
