@@ -90,3 +90,17 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - DECISION 2026-10-31 · A forked child rebuilds its FontSet/TextMeasurer from font bytes along with the pool · A parent thread can hold the measurer's lock at fork time (18 of 200 children hung).
 - DECISION 2026-10-31 · Optional max_islands per document (default 1,000) and a cancel path: the Ruby unblock function sets a flag the facade checks between islands · Per-island deadlines don't bound a whole document; Timeout/SIGTERM waited for all islands.
 - Open: macos-14 runner image retired 2 Nov; full.yml needs macos-15 (YAML for Kay at checkpoint 2).
+
+## Islands #30 #39 (add on merge)
+- 2026-10-31 · Sandbox::deadline() exposes one passed/not-passed bit to host functions (measureText checks it before shaping); once passed, the call ends in TimeLimit and its runtime is discarded · A loop of host calls could otherwise run for minutes past the limit; no timing reaches output. islands re-exports GfxError.
+- 2026-10-31 · The font-free text estimate is behind a non-default `test-estimate` cargo feature · It must never become a silent default; production always measures with the caller's fonts.
+- 2026-10-31 · Vega images and links are refused synchronously with their URL; Vega-Lite "container" sizes map to the island box with autosize fit; vega and vega-lite share one compile; the cold-render budget is documented, not charged; a built-in's first-use compile never overwrites a registered bundle; registration checks the entry before microtasks, as render does · From the #21/#29 reviews.
+
+## RT-15 (#45), add on merge
+- 2026-10-31 · The OOM sweep switches QuickJS's small-block arena off per runtime through a test-only engine hook, in the normal test suite · With the arena on the allocator sees ~2% of allocations; with it off every allocation can be refused.
+- 2026-10-31 · QuickJS assertions stay on, but JS_FreeRuntime leaves leaked objects instead of aborting; the sweep requires every runtime to give back all bytes · A leak costs memory, not safety; disable-assertions would hide other invariant violations.
+- 2026-10-31 · Atoms referenced from a failed bytecode buffer are released at runtime teardown instead of by decoding the buffer · A failed buffer can hold partial instructions; the sandbox replaces the runtime after MemoryLimit.
+- 2026-10-31 · new Date(y, m, …) follows ECMA-262 §21.4.2.1 (TimeClip after converting to UTC); Date.parse keeps QuickJS's order for zones written in the string · Spec; the 30,000-string differential still matches.
+- 2026-10-31 · On musl's main thread the stack check uses RLIMIT_STACK · musl reports only the mapped stack.
+- 2026-10-31 · The sandbox requires engine patch level 2 · It must not run without the allocation-failure fixes.
+Private: the maintainer report draft is in the Claude project (claude/private-quickjs-ng-security-report.md); Kay sends it.

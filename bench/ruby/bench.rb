@@ -24,7 +24,8 @@
 #   warm   set up once, render `warmup` times untimed, then `iterations` times,
 #          printing one JSON line per timed render.
 #
-# Environment: BENCH_CHROME (Chrome executable for Grover), BENCH_CHROME_SHELL
+# Environment: BENCH_POOL_SIZE (surimono's runtime pool; unset: the default),
+# BENCH_CHROME (Chrome executable for Grover), BENCH_CHROME_SHELL
 # (chrome-headless-shell, for the grover-shell systems), BENCH_FONTS_DIR
 # (fixtures/fonts), SURIMONO_RUBY_LIB (load path of the built surimono gem).
 
@@ -132,7 +133,10 @@ def setup(system_name, input)
       fail!("the surimono gem on this commit has no Surimono::Renderer yet (P1-PKG-04)", status: 4)
     end
     html = File.read(input, encoding: "UTF-8")
-    renderer = Surimono::Renderer.new(fonts: font_files)
+    # BENCH_POOL_SIZE sets the runtime pool; unset, the facade's default is
+    # used (bench.py records which).
+    pool = ENV["BENCH_POOL_SIZE"].to_s.empty? ? {} : { pool_size: Integer(ENV["BENCH_POOL_SIZE"]) }
+    renderer = Surimono::Renderer.new(fonts: font_files, **pool)
     wanted = html.scan(/data-renderer="([^"]+)"/).flatten.uniq.sort
     missing = wanted - renderer.renderers
     unless missing.empty?
