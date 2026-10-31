@@ -124,6 +124,10 @@ module SurimonoGem
     patched = patch_dirs
     patched.each { |dir| repo_files(dir).each { |f| copy(f, f) } }
     ROOT_FILES.each { |f| copy(f, f) if File.file?(File.join(REPO_ROOT, f)) }
+    # The licences and notices of everything the native library links, for
+    # the gem (MIT/Apache/BSD notices; MPL-2.0 source availability).
+    capture!(File.join(REPO_ROOT, "scripts/ci/third-party-licenses.sh"),
+      File.join(STAGE_DIR, "THIRD_PARTY_LICENSES.txt"))
     File.write(File.join(STAGE_DIR, "Cargo.toml"), workspace_manifest(crates))
     copy("Cargo.lock", "Cargo.lock")
     # Trim the lock file to the staged crates. Versions stay as locked; Cargo only
@@ -138,7 +142,7 @@ module SurimonoGem
   def source_gem
     stage
     spec = Gem::Specification.load(File.join(STAGE_DIR, "surimono.gemspec"))
-    missing = %w[Cargo.toml Cargo.lock ext/surimono/Cargo.toml] - spec.files
+    missing = %w[Cargo.toml Cargo.lock ext/surimono/Cargo.toml THIRD_PARTY_LICENSES.txt] - spec.files
     raise "staged gemspec is missing #{missing.join(", ")}" unless missing.empty?
 
     FileUtils.mkdir_p(PKG_DIR)
