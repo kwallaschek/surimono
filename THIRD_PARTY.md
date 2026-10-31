@@ -14,3 +14,4 @@ keeps its licence file next to it. Rust dependencies are checked by cargo-deny
 | Vega | 6.4.0 | BSD-3-Clause | npm `vega` | crates/islands/bundles/vega/ |
 | Vega-Lite | 6.5.0 | BSD-3-Clause | npm `vega-lite` | crates/islands/bundles/vega/ |
 | Vega's 51 bundled dependencies | per lockfile | BSD-3-Clause, ISC, Unlicense (robust-predicates) | npm | crates/islands/bundles/vega/THIRD_PARTY_LICENSES.txt |
+| QuickJS-ng (patched, via rquickjs-sys) | 0.16.2 (rquickjs-sys 0.14.0) | MIT | https://github.com/quickjs-ng/quickjs, https://crates.io/crates/rquickjs-sys | vendor/rquickjs-sys/ (changes in PATCHES.md) |
