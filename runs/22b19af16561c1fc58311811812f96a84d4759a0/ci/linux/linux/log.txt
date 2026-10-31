@@ -1,0 +1,64 @@
+
+==> fmt
+
+==> ci script tests
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 1.777s
+
+OK
+
+==> fixtures: fonts
+ok       NotoSans-Regular.ttf  Noto Sans 400
+ok       NotoSans-Bold.ttf  Noto Sans 700
+ok       NotoSansJP-Regular.otf  Noto Sans JP 400
+ok       NotoSansJP-Bold.otf  Noto Sans JP 700
+
+==> fixtures: hostile scripts
+59 cases, 60 files: ok
+
+==> fixtures: island inputs (gen-islands --check)
+
+==> bench: report (gen-report --check)
+bench/report/report.html matches its generator
+
+==> fixtures: tool tests (python)
+..............compat.py: two results for echarts-a page: /tmp/tmpdf08m_6_/res/a/score.json and /tmp/tmpdf08m_6_/res/b/score.json; pass one run's directory, so one result can't hide the other
+....
+----------------------------------------------------------------------
+Ran 18 tests in 0.020s
+
+OK
+
+==> fixtures: real-world embedded builds (offline)
+ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
+ok   vega 6.4.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   vega-lite 6.5.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   mermaid 12.2.0 (stretch, MIT); embedded build not recorded yet
+
+==> fixtures: real-world tool tests (python)
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.007s
+
+OK
+
+==> bench: tool tests (python)
+..............==> building bench/rust (release, target /tmp/tmp6bwvafoz/target, budget 0 min; log /tmp/tmp6bwvafoz/rust-build.log)
+    cargo build --release --config patch."crates-io"."rquickjs-sys".path="/home/runner/work/surimono/surimono/vendor/rquickjs-sys"
+..==> building bench/rust (release, target /tmp/tmp4342boif/target, budget 0 min; log /tmp/tmp4342boif/rust-build.log)
+    cargo build --release --config patch."crates-io"."rquickjs-sys".path="/home/runner/work/surimono/surimono/vendor/rquickjs-sys"
+..==> building bench/rust (release, target /tmp/tmp88e7d_id/target, budget 0 min; log /tmp/tmp88e7d_id/rust-build.log)
+    cargo build --release --config patch."crates-io"."rquickjs-sys".path="/home/runner/work/surimono/surimono/vendor/rquickjs-sys"
+.....
+----------------------------------------------------------------------
+Ran 23 tests in 2.053s
+
+OK
+fixture verifiers run: 8
+
+==> clippy (workspace incl. Ruby ext)
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m    Checking[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m    Checking[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
