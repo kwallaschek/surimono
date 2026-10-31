@@ -1,0 +1,57 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    fulgur (0.40.0-aarch64-linux)
+    fulgur (0.40.0-aarch64-linux-musl)
+    fulgur (0.40.0-arm64-darwin)
+    fulgur (0.40.0-x86_64-darwin)
+    fulgur (0.40.0-x86_64-linux)
+    fulgur (0.40.0-x86_64-linux-musl)
+    grover (1.2.10)
+      nokogiri (~> 1)
+    nokogiri (1.19.4-aarch64-linux-gnu)
+      racc (~> 1.4)
+    nokogiri (1.19.4-aarch64-linux-musl)
+      racc (~> 1.4)
+    nokogiri (1.19.4-arm64-darwin)
+      racc (~> 1.4)
+    nokogiri (1.19.4-x86_64-darwin)
+      racc (~> 1.4)
+    nokogiri (1.19.4-x86_64-linux-gnu)
+      racc (~> 1.4)
+    nokogiri (1.19.4-x86_64-linux-musl)
+      racc (~> 1.4)
+    racc (1.8.1)
+
+PLATFORMS
+  aarch64-linux
+  aarch64-linux-gnu
+  aarch64-linux-musl
+  arm64-darwin
+  x86_64-darwin
+  x86_64-linux-gnu
+  x86_64-linux-musl
+
+DEPENDENCIES
+  fulgur (= 0.40.0)
+  grover (= 1.2.10)
+
+CHECKSUMS
+  bundler (4.0.18) sha256=02d9a17429de1847b4e0c9f27a9ee4b20c0a74c0a641b4e77195d6019e3618ac
+  fulgur (0.40.0-aarch64-linux) sha256=b3332137337eca9aff308c94d82147e52080e90b12fc80651293ff44350d6649
+  fulgur (0.40.0-aarch64-linux-musl) sha256=bf39be2d3b72a2d466c002a3c4cc022db7dd5c4aa7dad4150b8272b4285a703f
+  fulgur (0.40.0-arm64-darwin) sha256=cf0251c9c364133868124e1f5b7719384fe36d14f8c6300ccd4fb2cb76b78a4a
+  fulgur (0.40.0-x86_64-darwin) sha256=2f0a8794983a43f94adbf04678fdba4356d28f25ea58997cd54ed9c963a2c96d
+  fulgur (0.40.0-x86_64-linux) sha256=1840fc9bb3f6e0ae1adfb86d01586e9784340694ec18992eaa93f886309aec4d
+  fulgur (0.40.0-x86_64-linux-musl) sha256=1a385ad694718278dc5ff5c5fa6f9bfe385bd959f8b8048921ba0b3efa4760ef
+  grover (1.2.10) sha256=989b21d1a0048e3793b9939b392152fb309c7a107911ad04c10e422de4e1479b
+  nokogiri (1.19.4-aarch64-linux-gnu) sha256=1269fb644a6de405057a53dd5c762b1209b43ca7424f839454d3dbc677c31a8f
+  nokogiri (1.19.4-aarch64-linux-musl) sha256=35c65b9ce72b3bb03207bdbe7067915019dc18c1b9b59139684bd6690fdd01af
+  nokogiri (1.19.4-arm64-darwin) sha256=a46db9853286e6597b36ebc6953817d15acf3a299583eb3f89fdc6f91dd63527
+  nokogiri (1.19.4-x86_64-darwin) sha256=7fd17057d3e1f00e9954a74b3cd76595d3d4a5ef233b7ed9599047c204f70551
+  nokogiri (1.19.4-x86_64-linux-gnu) sha256=379fae440b28915e3f19d752ce2dcf8465ed2b2fbefd2a7ca0dd497bc981a06a
+  nokogiri (1.19.4-x86_64-linux-musl) sha256=17dfb7c1fa194ae02fbf7c51a7afc8d278045ab3fdacfd86f91d02d7b274470b
+  racc (1.8.1) sha256=4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f
+
+BUNDLED WITH
+  4.0.18

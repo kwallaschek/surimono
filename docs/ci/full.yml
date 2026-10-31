@@ -33,15 +33,20 @@ jobs:
     env:
       MATRIX_KEY: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain || rustup toolchain install
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.4"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: scripts/ci/job.sh test-${{ matrix.os }} scripts/ci/test.sh
       - if: always()
         run: scripts/ci/publish-results.sh "${{ job.status }}"
+        env:
+          # The only step that gets the write token (checkout keeps none).
+          GITHUB_TOKEN: ${{ github.token }}
 
   ruby:
     strategy:
@@ -53,17 +58,22 @@ jobs:
     env:
       MATRIX_KEY: ruby-${{ matrix.ruby }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain || rustup toolchain install
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
           working-directory: bindings/ruby
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: scripts/ci/job.sh ruby-${{ matrix.ruby }} scripts/ci/ruby.sh
       - if: always()
         run: scripts/ci/publish-results.sh "${{ job.status }}"
+        env:
+          # The only step that gets the write token (checkout keeps none).
+          GITHUB_TOKEN: ${{ github.token }}
 
   native-gems:
     strategy:
@@ -75,14 +85,16 @@ jobs:
     env:
       MATRIX_KEY: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.4"
           bundler-cache: true
           working-directory: bindings/ruby
       - run: scripts/ci/job.sh gem-${{ matrix.platform }} scripts/ci/native-gem.sh ${{ matrix.platform }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: success()
         with:
           name: gem-${{ matrix.platform }}
@@ -90,6 +102,9 @@ jobs:
           retention-days: 14
       - if: always()
         run: scripts/ci/publish-results.sh "${{ job.status }}"
+        env:
+          # The only step that gets the write token (checkout keeps none).
+          GITHUB_TOKEN: ${{ github.token }}
 
   linux-extra:
     strategy:
@@ -101,14 +116,19 @@ jobs:
     env:
       MATRIX_KEY: ${{ matrix.check }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain || rustup toolchain install
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.4"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: ${{ matrix.check }}
       - run: scripts/ci/job.sh ${{ matrix.check }} scripts/ci/${{ matrix.check }}.sh
       - if: always()
         run: scripts/ci/publish-results.sh "${{ job.status }}"
+        env:
+          # The only step that gets the write token (checkout keeps none).
+          GITHUB_TOKEN: ${{ github.token }}
