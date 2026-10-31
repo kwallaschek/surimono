@@ -195,7 +195,8 @@ fn wait_until_idle(runner: &IslandRunner) {
         );
         std::thread::sleep(Duration::from_millis(1));
     }
-    // Let a worker that just went idle finish trimming.
+    // A worker counts as idle once it waits for a job, after it has reset
+    // and preloaded; give the allocator a moment to settle before sampling.
     std::thread::sleep(Duration::from_millis(50));
 }
 

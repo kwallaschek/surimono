@@ -42,10 +42,16 @@ const BUNDLE: &str = r#"
 function entry(specJson, ctx) {
   const spec = JSON.parse(specJson);
   if (spec.fail === 'throw') throw new Error('planned failure ' + spec.i);
-  // Reaches the heap limit in a few large allocations, so it ends with the
-  // memory limit however slow the machine is (filling the heap element by
-  // element could hit the time limit first on a busy machine).
-  if (spec.fail === 'oom') { const a = []; for (;;) a.push(new Uint8Array(4 * 1024 * 1024).fill(spec.i % 256)); }
+  // Reaches the heap limit in large steps, so it ends with the memory limit
+  // however slow the machine is (filling the heap 80 KB at a time could hit
+  // the time limit first on a busy machine). Alternates typed-array buffers
+  // with ordinary arrays of 512K elements, so both allocation paths are
+  // soaked.
+  if (spec.fail === 'oom') {
+    const a = [];
+    if (spec.i % 200 === 99) { for (;;) a.push(new Uint8Array(4 * 1024 * 1024).fill(spec.i % 256)); }
+    for (;;) a.push(new Array(512 * 1024).fill(spec.i));
+  }
   if (spec.fail === 'loop') { for (;;) {} }
   const points = spec.values.map((v, i) => ({
     x: i * 4, y: 100 - v, label: 'p' + i + '-' + Math.random().toString(36).slice(2, 6),

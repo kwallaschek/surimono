@@ -623,6 +623,10 @@ impl IslandRunner {
     }
 
     /// Counters since the runner started.
+    ///
+    /// Takes the runner's internal locks (as does its `Debug` output), so
+    /// don't call it in a child process forked while another thread may
+    /// hold them.
     pub fn stats(&self) -> RunnerStats {
         let workers = self.worker_count();
         RunnerStats {
