@@ -1833,7 +1833,10 @@ dependencies = [
 name = "surimono-gfx"
 version = "0.0.0"
 dependencies = [
+ "blitz-dom",
+ "blitz-html",
  "parley",
+ "roxmltree",
  "serde",
  "serde_json",
  "sha2",
