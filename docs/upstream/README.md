@@ -7,5 +7,3 @@ other projects.
 
 One file per change: `<project>-<short-name>.md` with the problem, the minimal
 patch, the test that shows it, and the local `[patch]` it replaces.
-
-quickjs-ng changes are carried in `vendor/rquickjs-sys` (see its `PATCHES.md`) and were reported to the maintainers privately.

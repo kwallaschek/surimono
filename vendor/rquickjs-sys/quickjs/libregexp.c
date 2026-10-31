@@ -2044,8 +2044,9 @@ static int re_parse_term(REParseState *s, bool is_backward_dir)
                 dbuf_put(&s->group_names, (uint8_t *)s->u.tmp_buf,
                          strlen(s->u.tmp_buf) + 1);
                 dbuf_putc(&s->group_names, s->group_name_scope);
-                /* surimono: stop at the first failed write to the
-                   group-name table, so it always matches the captures. */
+                /* surimono: a failed write leaves the name table out of
+                   step with the captures; its readers then run past its
+                   end. Stop at the first failure. */
                 if (dbuf_error(&s->group_names))
                     return re_parse_out_of_memory(s);
                 s->has_named_captures = 1;
