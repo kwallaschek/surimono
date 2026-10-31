@@ -1,0 +1,175 @@
+{
+  "mode": "check",
+  "env": {
+    "versions": {
+      "echarts": "6.1.0",
+      "pixelmatch": "8.0.0",
+      "playwright": "1.63.0",
+      "pngjs": "7.0.0",
+      "vega": "6.4.0",
+      "vega-lite": "6.5.0"
+    },
+    "poppler": "24.02.0",
+    "chromium": "153.0.8010.12"
+  },
+  "fixtures": {
+    "echarts-bar-simple-ja": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "echarts-bar-simple-latin": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "echarts-line-dense-latin": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "echarts-mixed-dense-ja": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "echarts-pie-ja": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "echarts-two-charts-latin": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        },
+        {
+          "name": "island-1",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "vega-bar-simple-latin": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "vegalite-bar-simple-latin": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "vegalite-layered-dense-ja": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "vegalite-line-ja": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    },
+    "vegalite-scatter-dense-latin": {
+      "status": "identical",
+      "results": [
+        {
+          "name": "page-1",
+          "result": "identical"
+        },
+        {
+          "name": "island-0",
+          "result": "identical"
+        }
+      ],
+      "notes": []
+    }
+  }
+}
