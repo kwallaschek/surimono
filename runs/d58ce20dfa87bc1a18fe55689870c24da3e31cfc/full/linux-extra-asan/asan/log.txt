@@ -1,0 +1,149 @@
+info: syncing channel updates for nightly-x86_64-unknown-linux-gnu
+info: latest update on 2026-10-31 for version 1.101.0-nightly (92b5b8c87 2026-10-29)
+info: downloading 4 components
+
+  nightly-x86_64-unknown-linux-gnu installed - rustc 1.101.0-nightly (92b5b8c87 2026-10-29)
+
+rustc 1.101.0-nightly (92b5b8c87 2026-10-29)
+binary: rustc
+commit-hash: 92b5b8c87c61b20adc9001b41baf587634a74734
+commit-date: 2026-10-29
+host: x86_64-unknown-linux-gnu
+release: 1.101.0-nightly
+LLVM version: 23.1.4
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-dom`[0m
+  [1m[94m--> [0mCargo.toml:43:1
+   [1m[94m|[0m
+[1m[94m43[0m [1m[94m|[0m surimono-dom = { path = "crates/dom", version = "0.0.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_dependencies` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-dom`
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-islands`[0m
+  [1m[94m--> [0mCargo.toml:45:1
+   [1m[94m|[0m
+[1m[94m45[0m [1m[94m|[0m surimono-islands = { path = "crates/islands", version = "0.0.0", default-features = false }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-islands`
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-webidl`[0m
+  [1m[94m--> [0mCargo.toml:42:1
+   [1m[94m|[0m
+[1m[94m42[0m [1m[94m|[0m surimono-webidl = { path = "crates/webidl", version = "0.0.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-webidl`
+[1m[33mwarning[0m[1m: unused field `description` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:32:1
+   [1m[94m|[0m
+[1m[94m32[0m [1m[94m|[0m description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_package_fields` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the field `workspace.package.description`
+[1m[33mwarning[0m[1m: unused field `keywords` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:33:1
+   [1m[94m|[0m
+[1m[94m33[0m [1m[94m|[0m keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.keywords`
+[1m[33mwarning[0m[1m: unused field `categories` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:34:1
+   [1m[94m|[0m
+[1m[94m34[0m [1m[94m|[0m categories = ["rendering", "web-programming"]
+   [1m[94m|[0m [1m[33m^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.categories`
+[1m[33mwarning[0m[1m: unused field `repository` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:36:1
+   [1m[94m|[0m
+[1m[94m36[0m [1m[94m|[0m repository = "https://github.com/kwallaschek/surimono"
+   [1m[94m|[0m [1m[33m^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.repository`
+[1m[33mwarning[0m[1m: unused field `homepage` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:37:1
+   [1m[94m|[0m
+[1m[94m37[0m [1m[94m|[0m homepage = "https://github.com/kwallaschek/surimono"
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the field `workspace.package.homepage`
+[1m[33mwarning[0m: workspace (manifest) generated 8 warnings
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m serde_spanned v1.1.2
+[1m[92m  Downloaded[0m toml v1.1.8+spec-1.1.0
+[1m[92m  Downloaded[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[92m  Downloaded[0m toml_parser v1.1.5+spec-1.1.0
+[1m[92m  Downloaded[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m  Downloaded[0m winnow v1.0.4
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m addr2line v0.27.1
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m miniz_oxide v0.9.1
+[1m[92m  Downloaded[0m getopts v0.2.24
+[1m[92m  Downloaded[0m rustc-demangle v0.1.28
+[1m[92m  Downloaded[0m gimli v0.34.0
+[1m[92m  Downloaded[0m rustc-literal-escaper v0.0.8
+[1m[92m  Downloaded[0m object v0.39.1
+[1m[92m   Compiling[0m compiler_builtins v0.1.160 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
+[1m[92m   Compiling[0m core v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
+[1m[92m   Compiling[0m object v0.39.1
+[1m[92m   Compiling[0m std v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std)
+[1m[92m   Compiling[0m test v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test)
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m libc v0.2.191
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m libm v0.2.16
+[1m[92m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m parking_lot_core v0.9.12
+[1m[92m   Compiling[0m cfg-if v1.0.5
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m equivalent v1.0.3
+[1m[92m   Compiling[0m foldhash v0.2.0
+[1m[92m   Compiling[0m allocator-api2 v0.2.21
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[92m   Compiling[0m hashbrown v0.17.1
+[1m[92m   Compiling[0m selectors v0.32.0
+[1m[92m   Compiling[0m web_atoms v0.1.3
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[92m   Compiling[0m icu_properties_data v2.2.0
+[1m[92m   Compiling[0m crossbeam-utils v0.8.23
+[1m[92m   Compiling[0m crossbeam-epoch v0.9.21
+[1m[92m   Compiling[0m rayon-core v1.13.0
+[1m[92m   Compiling[0m crossbeam-deque v0.8.8
+[1m[92m   Compiling[0m icu_locale_data v2.2.0
+[1m[92m   Compiling[0m icu_segmenter_data v2.2.0
+[1m[92m   Compiling[0m stylo_atoms v0.8.0
+[1m[92m   Compiling[0m stylo v0.8.0
+[1m[92m   Compiling[0m rustc-std-workspace-core v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-core)
+[1m[92m   Compiling[0m alloc v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc)
+[1m[92m   Compiling[0m unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/unwind)
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m rustc-std-workspace-alloc v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-alloc)
+[1m[92m   Compiling[0m gimli v0.34.0
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m miniz_oxide v0.9.1
+[1m[92m   Compiling[0m addr2line v0.27.1
+[1m[92m   Compiling[0m std_detect v0.1.5 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std_detect)
+[1m[92m   Compiling[0m panic_unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_unwind)
+[1m[92m   Compiling[0m panic_abort v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_abort)
+[1m[92m   Compiling[0m rustc-demangle v0.1.28
+[1m[92m   Compiling[0m cfg-if v1.0.4
+[1m[92m   Compiling[0m rustc-literal-escaper v0.0.8
+[1m[92m   Compiling[0m rustc-std-workspace-std v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-std)
+[1m[92m   Compiling[0m getopts v0.2.24
+[1m[92m   Compiling[0m proc_macro v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/proc_macro)
