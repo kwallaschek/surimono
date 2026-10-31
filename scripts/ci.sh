@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Runs exactly what .github/workflows/ci.yml runs on Linux: fmt, the offline
-# fixture verifiers, clippy (warnings are errors), tests, the Ruby gem's tests and
-# cargo-deny.
+# fixture verifiers, clippy (warnings are errors), tests, the Ruby gem's tests,
+# the examples (examples/run.sh, skipped while it doesn't exist) and cargo-deny.
 # Usage: scripts/ci.sh [--no-deny] [--no-ruby]
-#   --no-ruby skips the Ruby extension (needs Ruby headers and libclang) and the gem tests.
+#   --no-ruby skips the Ruby extension (needs Ruby headers and libclang), the gem
+#             tests and the Ruby examples.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/home/claude/target}"
@@ -43,9 +44,11 @@ if [ "$run_ruby" = 1 ]; then
   step "ruby gem (compile, test)"
   ruby_path
   (cd bindings/ruby && bundle install --quiet && bundle exec rake compile:dev test)
+  run_examples
 else
   step "clippy (default members)"; cargo clippy --all-targets --locked -- -D warnings
   step "test (default members)";   cargo test --locked
+  run_examples --no-ruby
 fi
 if [ "$run_deny" = 1 ]; then
   if command -v cargo-deny >/dev/null; then
