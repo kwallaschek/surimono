@@ -366,10 +366,34 @@ test("font check compares the faces gfx drew with what font matching picks for C
   assert.deepEqual(noFace.mismatches, [{ key: "Jan", chrome: "400 normal", surimono: "drawn with no face", expected: "a fixture face" }]);
   const absent = compareStyles(svgTextStyles("<svg><text>Jan</text></svg>"), '<svg><g data-surimono-text="Jan" role="img" aria-label="Jan"><path d="M0 0"/></g></svg>');
   assert.equal(absent.pass, false);
-  // An empty string (an author label on an empty <text>) has no face to check.
-  const empty = compareStyles(svgTextStyles('<svg><text aria-label="nothing"></text></svg>'), '<svg><g data-surimono-text="" data-surimono-face="" aria-label="nothing"/></svg>');
-  assert.equal(empty.pass, true, JSON.stringify(empty));
-  assert.equal(empty.faces_checked, 0);
+});
+
+test("a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count", () => {
+  // #55 review. gfx writes <g …/> only for a self-closing <text/> (Vega writes
+  // an empty text mark that way, in Chrome and in surimono alike).
+  const vega = '<g aria-label="nothing" role="graphics-symbol" data-surimono-text="" data-surimono-face=""/>';
+  const chromeEmpty = `<svg><text aria-label="nothing" role="graphics-symbol"/></svg>`;
+  const t = compareTexts(svgTexts(chromeEmpty), `<svg>${vega}</svg>`);
+  const f = compareStyles(svgTextStyles(chromeEmpty), `<svg>${vega}</svg>`);
+  assert.equal(t.pass, true, JSON.stringify(t));
+  assert.equal(f.pass, true, JSON.stringify(f));
+  assert.equal(f.faces_checked, 0);
+  assert.equal(compareTexts(svgTexts(chromeEmpty), `<svg>${vega}${vega}</svg>`).pass, true);
+  // Chrome draws "Feb"; surimono's library wrote an empty <text aria-label="Feb"/>: missing, in both checks.
+  const feb = svgTexts("<svg><text>Feb</text></svg>");
+  const febStyles = svgTextStyles("<svg><text>Feb</text></svg>");
+  const emptyFeb = '<svg><g aria-label="Feb" data-surimono-text="" data-surimono-face=""/></svg>';
+  assert.deepEqual(compareTexts(feb, emptyFeb).missing, ["Feb"]);
+  assert.equal(compareStyles(febStyles, emptyFeb).pass, false);
+  // A formatted label left empty (Chrome "Revenue: 12" drawing "12").
+  const rev = '<svg><text aria-label="Revenue: 12">12</text></svg>';
+  const emptyRev = '<svg><g aria-label="Revenue: 12" data-surimono-text="" data-surimono-face=""/></svg>';
+  assert.deepEqual(compareTexts(svgTexts(rev), emptyRev).missing, ["12"]);
+  assert.equal(compareStyles(svgTextStyles(rev), emptyRev).pass, false);
+  // A self-closing group can't stand in for drawn text, whatever its stamp says.
+  const noPaths = '<svg><g data-surimono-text="X" data-surimono-face="Noto Sans Regular" role="img" aria-label="X"/></svg>';
+  assert.equal(compareTexts(svgTexts("<svg><text>X</text></svg>"), noPaths).pass, false);
+  assert.equal(compareStyles(svgTextStyles("<svg><text>X</text></svg>"), noPaths).pass, false);
 });
 
 test("text check: a stamped group's author label is still compared with Chrome's", () => {
@@ -395,6 +419,13 @@ test("stamps are read as attributes, never from inside another attribute's value
   assert.equal(r.candidate_stamped, 0);
   assert.deepEqual(svgTextStyles(forged, { outlines: true }).map((x) => x.faces), [undefined]);
   // Single-quoted stamps are attributes all the same.
-  assert.deepEqual(stampedOutlines(`<svg><g data-surimono-text='X' aria-label='X'/></svg>`), [{ text: "X", label: "X" }]);
+  assert.deepEqual(stampedOutlines(`<svg><g data-surimono-text='X' aria-label='X'><path d="M0 0"/></g></svg>`), [{ text: "X", label: "X" }]);
+  assert.deepEqual(stampedOutlines(`<svg><g data-surimono-text='' aria-label='X'/></svg>`), [{ text: "", label: "X", empty: true }]);
+  // The font check's other reads walk the pairs too (#55 review, nit 3): a
+  // weight, a label or a role inside another attribute's value isn't one.
+  assert.deepEqual(svgTextStyles(`<svg><g data-note=" font-weight='700' style='font-style:italic'"><text>A</text></g></svg>`), [{ key: "A", weight: 400, style: "normal" }]);
+  assert.deepEqual(svgTextStyles(`<svg><g data-note=" aria-label='Jan'"><path d="M0 0"/></g></svg>`, { outlines: true }), []);
+  assert.deepEqual(svgTextStyles(`<svg><g aria-label="Jan"><path data-note=" role='x'" d="M0 0"/></g></svg>`, { outlines: true }).map((x) => x.key), ["Jan"]);
+  assert.deepEqual(svgTextStyles(`<svg><text FONT-WEIGHT="bold">B</text></svg>`), [{ key: "B", weight: 700, style: "normal" }]);
 });
 

@@ -58,9 +58,10 @@ export function svgTexts(svg) {
  * attribute's value (aria-label="… data-surimono-text='X'") is never read
  * as an attribute.
  */
-function attrOf(attrs, name) {
+function attrOf(attrs, name, { ignoreCase = false } = {}) {
+  const want = ignoreCase ? name.toLowerCase() : name;
   for (const m of attrs.matchAll(/\s+([^\s=>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
-    if (m[1] === name) return m[2] ?? m[3];
+    if ((ignoreCase ? m[1].toLowerCase() : m[1]) === want) return m[2] ?? m[3];
   }
   return undefined;
 }
@@ -69,16 +70,18 @@ function attrOf(attrs, name) {
  * gfx's stamped outline groups: [{ text, label }] for every <g> with a
  * data-surimono-text attribute, normalised like svgTexts (text is the string
  * gfx outlined; label the group's aria-label, the author's or gfx's own, or
- * undefined).
+ * undefined). A self-closing <g/> also has `empty: true`: gfx writes one only
+ * for a self-closing <text/>, which draws nothing (svgTexts drops Chrome's
+ * <text/> with its label the same way).
  */
 export function stampedOutlines(svg) {
-  const tags = svg.replace(/<!--[\s\S]*?-->/g, "").matchAll(/<g\b((?:\s+[^\s=>]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*\/?>/g);
+  const tags = svg.replace(/<!--[\s\S]*?-->/g, "").matchAll(/<g\b((?:\s+[^\s=>]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/g);
   const out = [];
-  for (const [, attrs] of tags) {
+  for (const [, attrs, selfClosing] of tags) {
     const text = attrOf(attrs, "data-surimono-text");
     if (text === undefined) continue;
     const label = attrOf(attrs, "aria-label");
-    out.push({ text: normaliseText(text), label: label === undefined ? undefined : normaliseText(label) });
+    out.push({ text: normaliseText(text), label: label === undefined ? undefined : normaliseText(label), ...(selfClosing ? { empty: true } : {}) });
   }
   return out;
 }
@@ -100,7 +103,8 @@ export function multisetMinus(a, b) {
  * Compares a candidate SVG's strings with the reference's (svgTexts of
  * Chrome's SVG). The candidate draws its <text> strings, the strings its
  * stamped outline groups record (data-surimono-text; a group's aria-label is
- * set aside only when it is gfx's copy of that string), and its other labels
+ * set aside only when it is gfx's copy of that string; a self-closing <g/>
+ * draws nothing), and its other labels
  * that Chrome's SVG doesn't have (the labels of unstamped outlines, or an
  * author's label that differs from Chrome's). Passes when those equal Chrome's <text> strings as
  * multisets: nothing missing, and nothing extra, copies included.
@@ -110,10 +114,11 @@ export function compareTexts(reference, candidateSvg) {
   const stamped = stampedOutlines(candidateSvg);
   // Only gfx's own copy of the string is set aside. An author's label stays
   // with the other labels, where it cancels against Chrome's copy or, if it
-  // differs, counts as extra.
-  const labels = multisetMinus(cand.labels, stamped.flatMap((x) => (x.label && x.label === x.text ? [x.label] : [])));
+  // differs, counts as extra. A self-closing stamped <g/> draws nothing: its
+  // label is set aside and its stamp isn't credited.
+  const labels = multisetMinus(cand.labels, stamped.flatMap((x) => (x.label && (x.empty || x.label === x.text) ? [x.label] : [])));
   const outlined = multisetMinus(labels, reference.labels);
-  const fromStamps = stamped.map((x) => x.text).filter(Boolean);
+  const fromStamps = stamped.filter((x) => !x.empty).map((x) => x.text).filter(Boolean);
   const drawn = [...cand.text, ...fromStamps, ...outlined];
   const missing = multisetMinus(reference.text, drawn);
   const extra = multisetMinus(drawn, reference.text);
@@ -155,12 +160,9 @@ function weightOf(value, inherited) {
   return WEIGHTS[v] ?? inherited;
 }
 
-/** The weight and style one element declares, given what it inherits. */
-function declared(tag, parent) {
-  const attr = (name) => {
-    const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i").exec(tag);
-    return m ? (m[1] ?? m[2]) : undefined;
-  };
+/** The weight and style one element declares (from its attribute text), given what it inherits. */
+function declared(attrs, parent) {
+  const attr = (name) => attrOf(attrs, name, { ignoreCase: true });
   let { weight, style } = parent;
   if (attr("font-weight") !== undefined) weight = weightOf(decodeXml(attr("font-weight")), parent.weight);
   if (attr("font-style") !== undefined) style = decodeXml(attr("font-style")).trim().toLowerCase();
@@ -229,12 +231,12 @@ export function svgTextStyles(svg, { outlines = false } = {}) {
       }
       continue;
     }
-    const own = declared(whole, stack[stack.length - 1]);
-    const label = /\saria-label\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(whole);
-    const labelKey = label ? normaliseText(label[1] ?? label[2]) : undefined;
+    const own = declared(attrs, stack[stack.length - 1]);
+    const label = attrOf(attrs, "aria-label");
+    const labelKey = label === undefined ? undefined : normaliseText(label);
     // Any element inside an unstamped outline candidate other than an
     // unlabelled <path> or <g> means it isn't an outline group.
-    if (!(name === "path" || name === "g") || label || /\srole\s*=/.test(whole)) {
+    if (!(name === "path" || name === "g") || label !== undefined || attrOf(attrs, "role") !== undefined) {
       for (const e of stack) if (e.outline && !e.outline.faces) e.outline.valid = false;
     }
     if (name === "text" && !selfClosing && !open) open = { start: m.index + whole.length, label: labelKey || undefined, ...own, depth: stack.length };
@@ -243,8 +245,6 @@ export function svgTextStyles(svg, { outlines = false } = {}) {
     const key = labelKey || drawn;
     const faces = stamp === undefined ? undefined : splitFaces(decodeXml(attrOf(attrs, "data-surimono-face") ?? ""));
     const outline = outlines && name === "g" && key && !open && !selfClosing ? { key, valid: true, faces, drawn } : undefined;
-    // gfx writes an empty <text> as a self-closing stamped <g/>.
-    if (outlines && selfClosing && name === "g" && key && !open && faces) out.push({ key, weight: own.weight, style: own.style, faces, drawn });
     if (!selfClosing) stack.push({ ...own, name, outline });
   }
   return out.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.weight - b.weight || (a.style < b.style ? -1 : a.style > b.style ? 1 : 0)));
