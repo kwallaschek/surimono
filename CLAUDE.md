@@ -94,6 +94,8 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    build and test, because touch-workspace.sh doesn't separate the engine's build
    output; delete those artifacts when done. GitHub CI uses a fresh target dir and
    is the authoritative result.
+   Scratch files: the session scratchpad is shared by every agent, so prefix your
+   file names there with your task id (`p1-rt-14-clippy.log`, not `clippy.log`).
 3. **Checks before you report.** Run `scripts/ci.sh` from your worktree; it runs
    exactly what CI runs on Linux (fmt, clippy with warnings as errors, tests,
    cargo-deny). Your branch must pass it.

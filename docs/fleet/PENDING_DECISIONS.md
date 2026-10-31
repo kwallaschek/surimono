@@ -116,4 +116,4 @@ Private: the maintainer report draft is in the Claude project (claude/private-qu
 - 2026-10-31 · String searches stay naive (exact semantics) but poll every 65,536 comparisons and once per match · Bounds time without changing results.
 - 2026-10-31 · Typed-array default sort checks only the interrupt flag through per-type wrappers · 8–11% overhead instead of 15–26%.
 - 2026-10-31 · Engine patch level 3 = #45's allocation-failure patches + #47's interrupt patches; build.rs refuses wasm32-unknown-unknown · One level for both sets.
-- 2026-10-31 · Sandbox::new/with_options (and a call in a forked child) return SandboxError::Engine when the watchdog thread can't be spawned · Typed error instead of a panic.
+- 2026-10-31 · The sandbox starts one watchdog thread per process (a fresh one in a forked child) that raises a per-runtime stop flag at each call's deadline; Sandbox::new/with_options and calls return SandboxError::Engine if it can't start; its registry is a lock-free fork-safe cell, no global lock on the per-call path (P1-RT-22 folded in) · Time-accurate limits without a thread per render; a Renderer must survive fork (21 of 29,300 forks hung with a lock).
