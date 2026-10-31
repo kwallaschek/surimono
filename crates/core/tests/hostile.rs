@@ -430,7 +430,13 @@ const GROUP_E: &[Vector] = &[
         "const t = '9'.repeat(300000); let x; eval('x = BigInt(t);'.repeat(16))",
         Want::Time,
     ),
-    v("E BigInt power near the cap", "3n ** 600000n", Want::Time),
+    // One power took 164 ms on a GitHub runner: repeat it so it can't finish
+    // inside the limit on a fast machine.
+    v(
+        "E BigInt power near the cap, straight-line",
+        "let x; eval('x = 3n ** 600000n;'.repeat(16))",
+        Want::Time,
+    ),
 ];
 
 fn all_vectors() -> impl Iterator<Item = &'static Vector> {
