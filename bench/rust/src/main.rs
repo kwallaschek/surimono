@@ -6,7 +6,8 @@
 //! surimono-bench <cold|warm> <input.html> <out.pdf> [iterations] [warmup]
 //! ```
 //!
-//! Fonts come from `$BENCH_FONTS_DIR` (fixtures/fonts). Exit code 4 means
+//! Fonts come from `$BENCH_FONTS_DIR` (fixtures/fonts); `$BENCH_POOL_SIZE`
+//! sets the runtime pool (unset: the facade's default). Exit code 4 means
 //! surimono can't render the report yet (a renderer it needs is missing).
 
 use std::path::{Path, PathBuf};
@@ -64,6 +65,14 @@ fn main() -> ExitCode {
         Err(e) => return fail(e, 2),
     };
     let mut options = surimono::Options::new();
+    // BENCH_POOL_SIZE sets the runtime pool; unset, the facade's default is
+    // used (bench.py records which).
+    if let Ok(size) = std::env::var("BENCH_POOL_SIZE") {
+        match size.parse::<usize>() {
+            Ok(n) => options = options.pool_size(n),
+            Err(e) => return fail(format!("BENCH_POOL_SIZE {size:?}: {e}"), 2),
+        }
+    }
     for f in &fonts {
         match std::fs::read(f) {
             Ok(bytes) => options = options.font(bytes),
