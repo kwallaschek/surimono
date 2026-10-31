@@ -13,6 +13,9 @@
 // - vega: new vega.View(vega.parse(spec), { renderer: "none" }), runAsync(), toSVG().
 //   The spec is used verbatim; the SVG it produces must be exactly W x H, or the
 //   fixture is inconsistent and the harness fails.
+// Each marker becomes <div class="surimono-island[ marker classes]"[ id]
+// data-renderer="…">SVG</div>, the element surimono's pre-pass puts in its place
+// (crates/surimono/src/prepass.rs), so page CSS styles both the same way.
 // Text is measured by Chrome's canvas with the page's @font-face fonts, which are
 // all loaded before any island renders.
 
@@ -101,7 +104,12 @@
       }
       const tpl = document.createElement("template");
       tpl.innerHTML = svg.trim();
-      el.replaceWith(tpl.content);
+      const wrapper = document.createElement("div");
+      wrapper.setAttribute("class", ["surimono-island", (el.getAttribute("class") || "").trim()].filter(Boolean).join(" "));
+      if (el.getAttribute("id")) wrapper.setAttribute("id", el.getAttribute("id"));
+      wrapper.setAttribute("data-renderer", renderer.trim());
+      wrapper.append(tpl.content);
+      el.replaceWith(wrapper);
       islands.push({ index, renderer, width, height, svg });
     }
     // Text drawn after the island SVGs are in the DOM must use loaded fonts too.

@@ -33,6 +33,8 @@ description = "Run a document's JavaScript without a browser, so browserless HTM
 keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
 categories = ["rendering", "web-programming"]
 publish = false
+repository = "https://github.com/kwallaschek/surimono"
+homepage = "https://github.com/kwallaschek/surimono"
 
 [workspace.dependencies]
 # Internal crates
@@ -40,7 +42,7 @@ surimono-core = { path = "crates/core", version = "0.0.0" }
 surimono-webidl = { path = "crates/webidl", version = "0.0.0" }
 surimono-dom = { path = "crates/dom", version = "0.0.0" }
 surimono-gfx = { path = "crates/gfx", version = "0.0.0" }
-surimono-islands = { path = "crates/islands", version = "0.0.0" }
+surimono-islands = { path = "crates/islands", version = "0.0.0", default-features = false }
 surimono = { path = "crates/surimono", version = "0.0.0" }
 
 # JS engine: QuickJS-ng through rquickjs. Exact pin; upgrades are planned tasks.
