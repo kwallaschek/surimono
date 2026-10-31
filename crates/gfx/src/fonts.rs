@@ -8,7 +8,7 @@ use parley::fontique::{Blob, Collection, CollectionOptions, FamilyId};
 use skrifa::raw::FileRef;
 
 use crate::GfxError;
-use crate::css_font::{FamilyEntry, GenericFamily};
+use crate::css_font::{FamilyEntry, GenericFamily, parse_family_list};
 
 /// A set of fonts registered from bytes the caller supplies.
 ///
@@ -181,6 +181,16 @@ impl FontSet {
             Some(list) => list,
             None => &self.families[..self.families.len().min(1)],
         }
+    }
+
+    /// Resolves a CSS `font-family` list (for example `"Arial, sans-serif"`)
+    /// to the registered families measurement and printing use, in order:
+    /// the listed families that are registered (generics expanded), or the
+    /// `sans-serif` mapping if none is, then every other registered family as
+    /// per-character fallback. Empty only when no font is registered.
+    pub fn resolve_families(&self, css_family_list: &str) -> Vec<String> {
+        let entries = parse_family_list(css_family_list).unwrap_or_default();
+        self.resolve_stack(&entries)
     }
 
     /// Resolves a parsed family list to the registered families to try, in

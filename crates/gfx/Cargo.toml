@@ -16,11 +16,18 @@ serde.workspace = true
 parley = { version = "=0.6.0", default-features = false, features = ["std"] }
 # Outlines and font metrics, the same skrifa version Parley 0.6.0 uses.
 skrifa = { version = "=0.37.0", default-features = false, features = ["std"] }
+# SVG sanitizing: a strict XML parser that reports byte ranges, so everything
+# we don't rewrite is copied byte for byte. No dependencies of its own.
+# Byte positions (the `positions` feature, on by default) are what sanitize_svg edits by.
+roxmltree.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
 # Checks the reference fonts are byte-identical to the ones Chrome measured.
 sha2.workspace = true
+# Parses sanitized islands inside a page with html5ever, as fulgur does.
+blitz-dom.workspace = true
+blitz-html.workspace = true
 
 [lints]
 workspace = true

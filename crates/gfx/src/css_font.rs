@@ -141,9 +141,15 @@ impl FontSpec {
 
     /// Parses a CSS `font` shorthand; `None` if the canvas setter would ignore it.
     pub(crate) fn parse(input: &str) -> Option<FontSpec> {
+        Self::parse_with_family_offset(input).map(|(spec, _)| spec)
+    }
+
+    /// Like [`FontSpec::parse`], also returning the byte offset in `input`
+    /// where the family list starts (`None` for system font keywords).
+    pub(crate) fn parse_with_family_offset(input: &str) -> Option<(FontSpec, Option<usize>)> {
         let s = trim_ws(input);
         if let Some(spec) = system_font(s) {
-            return Some(spec);
+            return Some((spec, None));
         }
 
         let mut slant = None;
@@ -238,16 +244,20 @@ impl FontSpec {
             rest = after;
         }
 
+        let rest = trim_ws_start(rest);
         let families = parse_family_list(rest)?;
+        // `rest` is a subslice of `input`; its start is where the families begin.
+        let family_offset = rest.as_ptr() as usize - input.as_ptr() as usize;
         // `+ 0.0` turns -0 into +0, so equal sizes have equal bits.
         let size_px = (size.clamp(0.0, MAX_FONT_SIZE_PX) + 0.0) as f32;
-        Some(FontSpec {
+        let spec = FontSpec {
             slant: slant.unwrap_or(Slant::Normal),
             weight: weight.unwrap_or(400.0),
             width: width.unwrap_or(1.0),
             size_px,
             families,
-        })
+        };
+        Some((spec, Some(family_offset)))
     }
 }
 
@@ -386,6 +396,66 @@ fn parse_size(lower: &str) -> Option<f64> {
     (px >= 0.0).then_some(px)
 }
 
+/// Resolves an SVG `font-size` value (presentation attribute or `style`) to
+/// px: keywords, lengths (a bare number is px), and `em`, `%`, `larger`,
+/// `smaller` relative to the parent's size.
+pub(crate) fn svg_font_size(value: &str, parent_px: f64) -> Option<f64> {
+    let lower = trim_ws(value).to_ascii_lowercase();
+    let px = match lower.as_str() {
+        "larger" => parent_px * 1.2,
+        "smaller" => parent_px / 1.2,
+        // Absolute keywords (`medium`, `x-small`, ...).
+        k if k.bytes().all(|b| b.is_ascii_alphabetic() || b == b'-') => parse_size(k)?,
+        _ => match parse_plain_number(&lower) {
+            Some(n) => n,
+            None => length_px(&lower, parent_px)?,
+        },
+    };
+    (px >= 0.0 && px.is_finite()).then(|| px.min(MAX_FONT_SIZE_PX))
+}
+
+/// Resolves an SVG length (`x`, `dy`, `letter-spacing`, ...) to px: a bare
+/// number is px; `em` and `ex` refer to `em_px`. Percentages are not
+/// supported (they refer to the viewport) and give `None`.
+pub(crate) fn svg_length(value: &str, em_px: f64) -> Option<f64> {
+    let lower = trim_ws(value).to_ascii_lowercase();
+    if lower.ends_with('%') {
+        return None;
+    }
+    match parse_plain_number(&lower) {
+        Some(n) => Some(n),
+        None => length_px(&lower, em_px),
+    }
+}
+
+/// Serializes a family list so [`FontSpec::parse`] reads it back unchanged.
+pub(crate) fn serialize_families(families: &[FamilyEntry]) -> String {
+    let mut out = String::new();
+    for (n, entry) in families.iter().enumerate() {
+        if n > 0 {
+            out.push_str(", ");
+        }
+        match entry {
+            FamilyEntry::Generic(g) => out.push_str(g.keyword()),
+            FamilyEntry::Named(name) => {
+                out.push('"');
+                for c in name.chars() {
+                    match c {
+                        '"' | '\\' => {
+                            out.push('\\');
+                            out.push(c);
+                        }
+                        c if c.is_control() => out.push_str(&format!("\\{:x} ", c as u32)),
+                        c => out.push(c),
+                    }
+                }
+                out.push('"');
+            }
+        }
+    }
+    out
+}
+
 /// Converts a length or percentage token to px. `em` and `%` refer to `em_px`.
 fn length_px(lower: &str, em_px: f64) -> Option<f64> {
     let (v, unit) = split_number(lower)?;
@@ -428,7 +498,7 @@ fn reserved_family_word(lower: &str) -> bool {
 }
 
 /// Parses a comma-separated `font-family` list. Empty entries make it invalid.
-fn parse_family_list(s: &str) -> Option<Vec<FamilyEntry>> {
+pub(crate) fn parse_family_list(s: &str) -> Option<Vec<FamilyEntry>> {
     let mut out = Vec::new();
     let mut chars = s.chars().peekable();
     loop {
@@ -648,6 +718,23 @@ mod tests {
                 generic(GenericFamily::SystemUi),
                 generic(GenericFamily::Emoji)
             ]
+        );
+    }
+
+    #[test]
+    fn family_offset_points_at_the_list() {
+        for (input, list) in [
+            ("12px x", "x"),
+            ("  bold 14px/1.2 'A b', serif ", "'A b', serif "),
+            ("italic 600 13.5px/1.2 Arial", "Arial"),
+            ("12px\tx", "x"),
+        ] {
+            let (_, off) = FontSpec::parse_with_family_offset(input).expect("parses");
+            assert_eq!(&input[off.expect("offset")..], list, "{input:?}");
+        }
+        assert_eq!(
+            FontSpec::parse_with_family_offset("caption").map(|p| p.1),
+            Some(None)
         );
     }
 
