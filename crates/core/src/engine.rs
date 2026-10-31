@@ -291,9 +291,44 @@ fn stack_low() -> Option<usize> {
         let mut size: libc::size_t = 0;
         let ok = libc::pthread_attr_getstack(attr.as_ptr(), &mut addr, &mut size) == 0;
         libc::pthread_attr_destroy(attr.as_mut_ptr());
+        if !ok || addr.is_null() {
+            return None;
+        }
         // `addr` is the lowest address of the stack mapping.
-        (ok && !addr.is_null()).then_some(addr as usize)
+        let low = addr as usize;
+        #[cfg(target_env = "musl")]
+        let low = musl_main_thread_low(low, low.saturating_add(size)).unwrap_or(low);
+        Some(low)
     }
+}
+
+/// musl's `pthread_getattr_np` reports only the part of the main thread's
+/// stack that is mapped so far, not how far it can grow, so the stack check
+/// would refuse sandboxes the thread has room for. The main thread's stack
+/// grows down to `RLIMIT_STACK` below its top. With an unlimited rlimit
+/// there is no bound to trust, so the mapped part is kept (refusing is safer
+/// than overrunning). `None` off the main thread.
+#[cfg(all(any(target_os = "linux", target_os = "android"), target_env = "musl"))]
+fn musl_main_thread_low(mapped_low: usize, top: usize) -> Option<usize> {
+    // SAFETY: getpid and the gettid system call take no arguments and
+    // can't fail; the thread id of the main thread equals the process id.
+    let main = unsafe { libc::syscall(libc::SYS_gettid) == libc::c_long::from(libc::getpid()) };
+    if !main {
+        return None;
+    }
+    let mut lim = std::mem::MaybeUninit::<libc::rlimit>::uninit();
+    // SAFETY: getrlimit writes `lim` when it returns 0; it is read only then.
+    let lim = unsafe {
+        if libc::getrlimit(libc::RLIMIT_STACK, lim.as_mut_ptr()) != 0 {
+            return None;
+        }
+        lim.assume_init()
+    };
+    if lim.rlim_cur == libc::RLIM_INFINITY {
+        return None;
+    }
+    let size = usize::try_from(lim.rlim_cur).ok()?;
+    Some(top.checked_sub(size)?.min(mapped_low))
 }
 
 #[cfg(target_os = "macos")]
