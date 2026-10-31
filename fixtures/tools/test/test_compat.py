@@ -421,10 +421,34 @@ class CompatTest(unittest.TestCase):
             e = {**score("echarts-a island 0 (printed by chrome)", True), "error": error}
             self.assertFalse(compat.passed(e), repr(error))
             self.assertTrue(compat.cell(e).startswith("**FAIL** (render error: "), compat.cell(e))
-        # Unset values aren't an error: absent, null, false, 0, NaN and "".
-        for error in (None, False, 0, 0.0, float("nan"), ""):
+        # Unset values aren't an error: absent, null, false, 0 and "".
+        for error in (None, False, 0, 0.0, ""):
             e = {**score("echarts-a island 0 (printed by chrome)", True), "error": error}
             self.assertEqual(compat.cell(e), "pass (shape 0.0%)", repr(error))
+
+    def test_nan_and_infinity_are_refused_on_read(self):
+        # Review of #50: json.loads accepts NaN, and a NaN error read as unset
+        # passed. JSON.parse (lib/report.mjs) refuses such a file outright.
+        clean = '{"subject": "echarts-a", "pass": true, "worst_window": 0, "pages": [{"pass": true, "failed": []}]'
+        for i, bad in enumerate(('"error": NaN', '"error": Infinity', '"error": -Infinity', '"pages": [{"pass": true, "failed": NaN}]', '"worst_window": NaN')):
+            d = self.root / f"nan{i}" / "echarts-a"
+            d.mkdir(parents=True)
+            (d / "score.json").write_text(clean + ", " + bad + "}")
+            with self.assertRaises(compat.CompatError, msg=bad) as e:
+                compat.load_scores(self.root / f"nan{i}")
+            self.assertIn("is not valid JSON", str(e.exception))
+        # The hostile results and the bench file too.
+        hostile = self.root / "hostile-nan.json"
+        hostile.write_text('{"cases": [{"id": "loop", "step": null, "outcome": "TimeLimit", "wall_ms": NaN}]}')
+        with self.assertRaises(compat.CompatError):
+            compat.hostile_section(hostile)
+        bench = self.root / "bench-nan.json"
+        bench.write_text('{"results": {"grover": {"status": "measured", "summary": {"cold_ms": {"median": Infinity}}}}}')
+        with self.assertRaises(compat.CompatError):
+            compat.bench_section(bench)
+        # A NaN that reaches failed_checks some other way counts as set, never as a pass.
+        self.assertFalse(compat.passed({**score("echarts-a", True), "error": float("nan")}))
+        self.assertFalse(compat.passed({**score("echarts-a", True), "pages": [{"pass": True, "failed": float("nan")}]}))
 
     def test_font_cell_counts_missing_and_extra_texts(self):
         # Reviews of #28 and #43: a font failure that is only missing (or
