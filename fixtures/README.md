@@ -253,7 +253,9 @@ renders every island fixture with the surimono CLI (fixture fonts, default
 limits, text as outlines) twice: once with TZ=UTC, the C locale and the
 repository as working directory, once with TZ=Asia/Tokyo, the first
 installed of de_DE, fr_FR, ja_JP and en_US UTF-8 (decimal-comma locales first;
-de_DE.UTF-8 is set anyway when none is installed, and the report says so) and a
+`locale -a` or a directory on `$LOCPATH`, so `localedef -i de_DE -f UTF-8
+$LOCPATH/de_DE.UTF-8` works without root; de_DE.UTF-8 is set anyway when none
+is installed, and the report says so) and a
 fresh temporary directory. Both outputs must be byte-identical
 (`DIR/<fixture>/determinism.json`); if any differ the run exits 1. It cuts each
 island's SVG out of the output and runs every comparison below: each island
