@@ -8651,14 +8651,12 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
     ctx->interrupt_counter = JS_INTERRUPT_COUNTER_INIT;
     if (rt->interrupt_handler) {
         if (rt->interrupt_handler(rt, rt->interrupt_opaque)) {
-            /* surimono: sticky interrupt. Some built-ins (the Promise
-               constructor, Promise.try, async generators, DisposableStack,
-               Error.prepareStackTrace) turn any exception into a rejection
-               or a new, catchable error, swallowing the interrupt. Ask the
-               handler again at the very next poll instead of 10000 polls
-               later, so the code around the swallow is stopped at once.
-               The counter goes back to normal at the first poll where the
-               handler says no. */
+            /* surimono: sticky interrupt. While the handler keeps saying
+               yes, ask it again at the very next poll instead of 10000
+               polls later, so code that runs after a built-in has turned
+               the interrupt into a rejection or a new error is stopped at
+               its next poll too. The counter goes back to normal at the
+               first poll where the handler says no. */
             ctx->interrupt_counter = 0;
             JS_ThrowInterrupted(ctx);
             return -1;
@@ -10102,10 +10100,9 @@ static int JS_TryGetPropertyInt64(JSContext *ctx, JSValueConst obj, int64_t idx,
             return true;
     }
     /* surimono: native loops over array-likes (join, reverse, sort, concat,
-       flat, splice, copyWithin...) come through here one index at a time
-       and never reach a bytecode poll, so a huge `length` would loop
-       forever. Poll on the slow path; the fast path is bounded by the
-       elements actually allocated. */
+       flat, splice, copyWithin...) read one index at a time through here,
+       so poll for interrupts on the slow path. The fast path is bounded by
+       the elements actually allocated. */
     if (js_poll_interrupts(ctx)) {
         *pval = JS_EXCEPTION;
         return -1;
@@ -11005,10 +11002,8 @@ int JS_SetPropertyInt64(JSContext *ctx, JSValueConst this_obj,
     int res;
 
     /* surimono: native loops that write an array-like one index at a time
-       (fill, copyWithin, reverse, splice, sort...) never reach a bytecode
-       poll. A write that lands on a typed array in the prototype chain, or
-       past a typed array's end, allocates nothing, so the memory limit
-       can't stop them either. Every caller checks for -1. */
+       (fill, copyWithin, reverse, splice, sort...) come through here, so
+       poll for interrupts on every call. Every caller checks for -1. */
     if (js_poll_interrupts(ctx)) {
         JS_FreeValue(ctx, val);
         return -1;
@@ -36978,9 +36973,8 @@ static JSValue js_create_function(JSContext *ctx, JSFunctionDef *fd)
     int function_size, byte_code_offset, cpool_offset;
     int closure_var_offset, vardefs_offset;
 
-    /* surimono: the parser carries on when growing the bytecode buffer
-       fails, leaving it truncated or NULL, which resolve_variables then
-       reads. Report the out-of-memory error instead. */
+    /* surimono: if growing the bytecode buffer failed while parsing,
+       report the out-of-memory error here, before the later passes. */
     if (dbuf_error(&fd->byte_code)) {
         JS_ThrowOutOfMemory(ctx);
         goto fail;
@@ -37038,8 +37032,8 @@ static JSValue js_create_function(JSContext *ctx, JSFunctionDef *fd)
         if (JS_IsException(func_obj))
             goto fail;
         /* save it in the constant pool */
-        /* surimono: cpool_add fails only when out of memory, and the parser
-           carries on; report the error instead of asserting. */
+        /* surimono: a negative index means cpool_add ran out of memory
+           while parsing; report the out-of-memory error. */
         if (cpool_idx < 0) {
             JS_FreeValue(ctx, func_obj);
             JS_ThrowOutOfMemory(ctx);
@@ -44728,9 +44722,9 @@ static int js_array_cmp_generic(const void *a, const void *b, void *opaque) {
     if (psc->exception)
         return 0;
 
-    /* surimono: the default comparison is native, so a large sort never
-       reaches a bytecode poll. Once this fails, every later comparison
-       returns 0 and rqsort's three-way partition finishes in one pass. */
+    /* surimono: poll for interrupts on every comparison, including the
+       native default one. Once this fails, every later comparison returns
+       0 and rqsort's three-way partition finishes in one pass. */
     if (js_poll_interrupts(ctx))
         goto exception;
 
@@ -61440,8 +61434,7 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
     return cmp;
 }
 
-/* surimono: the typed comparators are plain C and never poll, so sorting
-   a large typed array ran far past the deadline. This wrapper polls on
+/* surimono: wraps a typed-array comparator. It polls for interrupts on
    every comparison (js_poll_interrupts asks the handler every 10000) and,
    once interrupted, answers 0 so rqsort finishes in one linear pass. */
 struct TA_poll_sort_context {
