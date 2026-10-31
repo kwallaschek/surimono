@@ -1,0 +1,69 @@
+# Test fonts shared by Chrome (via @font-face in fixtures) and by surimono and
+# fulgur (via the font registry), so measured and printed text use the same
+# glyphs. Never replace a file without updating its sha256 and size here;
+# `python3 fixtures/fonts/verify.py` checks them.
+#
+# Noto Sans is the unhinted static build (hinting is irrelevant for vector PDF
+# output and only adds rasteriser variance). Noto Sans JP is the static
+# region-subset OTF (CFF outlines) from noto-cjk, about 4.5 MB per weight.
+# All four are SIL OFL 1.1; see OFL.txt.
+
+[[font]]
+file = "NotoSans-Regular.ttf"
+family = "Noto Sans"
+weight = 400
+style = "normal"
+format = "truetype"
+version = "2.015"
+sha256 = "f3961a9cde016d41a4879aecda1474d3a36d6bf54fa0e4643de029cc2248b0e8"
+bytes = 431364
+license = "OFL-1.1"
+license_file = "OFL.txt"
+source_repo = "https://github.com/notofonts/notofonts.github.io"
+source_commit = "412a7edb2c8c535d1066157e5b17e661fd5591fe"
+source_url = "https://raw.githubusercontent.com/notofonts/notofonts.github.io/412a7edb2c8c535d1066157e5b17e661fd5591fe/fonts/NotoSans/unhinted/ttf/NotoSans-Regular.ttf"
+
+[[font]]
+file = "NotoSans-Bold.ttf"
+family = "Noto Sans"
+weight = 700
+style = "normal"
+format = "truetype"
+version = "2.015"
+sha256 = "87cb2d84472a7d66da659ee47b6cdb9552326e8c128245231f191b6ac72529d9"
+bytes = 432376
+license = "OFL-1.1"
+license_file = "OFL.txt"
+source_repo = "https://github.com/notofonts/notofonts.github.io"
+source_commit = "412a7edb2c8c535d1066157e5b17e661fd5591fe"
+source_url = "https://raw.githubusercontent.com/notofonts/notofonts.github.io/412a7edb2c8c535d1066157e5b17e661fd5591fe/fonts/NotoSans/unhinted/ttf/NotoSans-Bold.ttf"
+
+[[font]]
+file = "NotoSansJP-Regular.otf"
+family = "Noto Sans JP"
+weight = 400
+style = "normal"
+format = "opentype"
+version = "2.004"
+sha256 = "dff723ba59d57d136764a04b9b2d03205544f7cd785a711442d6d2d085ac5073"
+bytes = 4533028
+license = "OFL-1.1"
+license_file = "OFL.txt"
+source_repo = "https://github.com/notofonts/noto-cjk"
+source_commit = "f8d157532fbfaeda587e826d4cd5b21a49186f7c"
+source_url = "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/JP/NotoSansJP-Regular.otf"
+
+[[font]]
+file = "NotoSansJP-Bold.otf"
+family = "Noto Sans JP"
+weight = 700
+style = "normal"
+format = "opentype"
+version = "2.004"
+sha256 = "1b0edfb500b73a4fa8a4fcaae1bbbd403994e08e73e3e0da37e70d3853f42c5f"
+bytes = 4656448
+license = "OFL-1.1"
+license_file = "OFL.txt"
+source_repo = "https://github.com/notofonts/noto-cjk"
+source_commit = "f8d157532fbfaeda587e826d4cd5b21a49186f7c"
+source_url = "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/JP/NotoSansJP-Bold.otf"

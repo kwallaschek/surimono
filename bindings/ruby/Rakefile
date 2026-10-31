@@ -3,15 +3,35 @@
 require "rake/testtask"
 require "rb_sys/extensiontask"
 
-GEMSPEC = Gem::Specification.load("surimono.gemspec")
+GEMSPEC = Gem::Specification.load(File.expand_path("surimono.gemspec", __dir__))
 
+# The extension's Cargo package is `surimono-ruby` (library name `surimono`). The
+# workspace also holds the facade crate `surimono`, which rb_sys would pick by
+# name, so the extension directory is set explicitly.
 RbSys::ExtensionTask.new("surimono", GEMSPEC) do |ext|
   ext.lib_dir = "lib/surimono"
+  ext.ext_dir = "ext/surimono"
+  # Cross builds (rb-sys-dock sets RUBY_TARGET) make one fat gem with a library per
+  # Ruby version under lib/surimono/X.Y/. Skip the host's own native task there, or
+  # an x86_64-linux build would also pack an unversioned lib/surimono/surimono.so.
+  ext.no_native = ENV.key?("RUBY_TARGET")
+  ext.cross_compiling do |spec|
+    # A native gem carries the compiled library, not the crate sources (nor the
+    # vendored ones). Licence files of crates (and of the JS libraries and C
+    # engine they bundle) stay in.
+    spec.files.reject! do |f|
+      f.start_with?("crates/", "vendor/") && !File.basename(f).match?(/\A(LICEN[CS]E|NOTICE|COPYING)/i)
+    end
+  end
 end
 
 Rake::TestTask.new(:test) do |t|
   t.libs << "test"
   t.test_files = FileList["test/**/*_test.rb"]
 end
+
+# Gem packaging (gem:stage, gem:source, gem:verify_source) needs the repository
+# around the gem, so it is only defined there, not in the staged tree.
+load File.expand_path("tasks/gem.rake", __dir__) if File.exist?(File.expand_path("tasks/gem.rake", __dir__))
 
 task default: %i[compile test]
