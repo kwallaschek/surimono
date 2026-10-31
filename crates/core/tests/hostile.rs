@@ -1,14 +1,20 @@
-//! Hostile scripts: every known way to hang the engine, each run in a child
-//! process with a watchdog, so a regression fails the test instead of
-//! hanging CI.
+//! Hostile scripts: each way found so far to hang the engine or overrun
+//! the time limit, each run in a child process with a watchdog, so a
+//! regression fails the test instead of hanging CI. The known gaps are in
+//! the time-limit notes on `Sandbox`.
 //!
 //! Group A loops over a huge array-like inside a native built-in; group B
 //! has a built-in swallow the time-limit interrupt while an outer loop runs
-//! on; group C is a long native sort. Before the QuickJS patch in
+//! on; group C is a long native sort; group D is a loop whose body is one
+//! expensive native call, which the engine used to check the deadline for
+//! only every few thousand iterations; group E is a single native call
+//! with superlinear cost (naive string search, BigInt arithmetic near the
+//! size cap) that never polled. Before the QuickJS patches in
 //! `vendor/rquickjs-sys` (see its PATCHES.md) every vector here except the
-//! controls hung or overshot the limit by seconds. Each must now end within
-//! about twice the time limit: with the expected limit error, or for the
-//! TOCTOU vectors (whose trick only fooled the old prelude guards) normally.
+//! controls hung or overshot the limit by seconds to minutes. Each must now
+//! end within about twice the time limit: with the expected limit error,
+//! or for the TOCTOU vectors (whose trick only fooled the old prelude
+//! guards) normally.
 
 use std::io::Read;
 use std::process::{Command, Stdio};
@@ -19,11 +25,27 @@ use surimono_core::{Limits, Sandbox, SandboxError};
 
 /// Time limit for every vector.
 const LIMIT: Duration = Duration::from_millis(250);
-/// Allowed time for a vector: twice the limit, plus slack for a debug build
-/// on a busy machine (process start is not included).
-const BOUND: Duration = Duration::from_millis(2 * 250 + 250);
 /// A child still running after this is hung and gets killed.
 const WATCHDOG: Duration = Duration::from_secs(10);
+
+/// Allowed time for a vector's call: twice the limit, plus slack for a
+/// debug build on a busy 2-core machine. The call's time includes stopping
+/// the script and the rebuild after the limit error, which frees the
+/// vector's heap (up to 128 MiB); process start and setup are not
+/// included. Stopping itself takes microseconds; the slack is for the
+/// cleanup on a machine whose other cores are busy (the fleet's shared
+/// machine ran at a load of 7 to 10 on 2 cores, where the 12M-element sort
+/// took 440 to 780 ms). AddressSanitizer (the nightly job, which sets
+/// ASAN_OPTIONS) makes every allocation and free several times slower, so
+/// it gets more.
+fn bound() -> Duration {
+    let slack = if std::env::var_os("ASAN_OPTIONS").is_some() {
+        Duration::from_millis(2500)
+    } else {
+        Duration::from_millis(750)
+    };
+    2 * LIMIT + slack
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Want {
@@ -313,8 +335,111 @@ const GROUP_C: &[Vector] = &[
     },
 ];
 
+/// Group D: a loop around one expensive native call (review of #32, R4).
+/// The engine asked for the deadline only every 10,000 polls, and these
+/// bodies poll two or three times per iteration, so the deadline was seen
+/// every few thousand iterations: still running at 15 s with a 250 ms
+/// limit (187 s, 49 s and 67 s in C at -O2).
+const GROUP_D: &[Vector] = &[
+    v(
+        "D JSON.stringify of 20k objects, in a loop",
+        "const o = []; for (let i = 0; i < 20000; i++) o.push({ i, s: 'x' + i }); for (;;) JSON.stringify(o)",
+        Want::Time,
+    ),
+    v(
+        "D Array indexOf on 1M items, in a loop",
+        "const a = new Array(1e6).fill(1); for (;;) a.indexOf(2)",
+        Want::Time,
+    ),
+    v(
+        "D String indexOf on 1 MB, in a loop",
+        "const s = 'ab'.repeat(5e5); for (;;) s.indexOf('abc')",
+        Want::Time,
+    ),
+    v(
+        "D TypedArray includes on 16 MB, in a loop",
+        "const t = new Uint8Array(1 << 24); for (;;) t.includes(1)",
+        Want::Time,
+    ),
+    v(
+        "D Array join of 100k, caught, in a loop",
+        "const a = new Array(1e5).fill('ab'); for (;;) { try { a.join(',') } catch (e) {} }",
+        Want::Time,
+    ),
+];
+
+/// Group E: one native call with superlinear cost that never polled
+/// (review of #32, R5). String searches are naive, up to n * m character
+/// comparisons; BigInt multiply, divide, toString and parsing are
+/// quadratic in the size, up to seconds per operation near the 1 Mbit cap,
+/// and straight-line code (built here with `eval`) never polls between
+/// them.
+const GROUP_E: &[Vector] = &[
+    v(
+        "E String indexOf, 1M chars, 4K pattern",
+        "'a'.repeat(1 << 20).indexOf('a'.repeat(1 << 12) + 'b')",
+        Want::Time,
+    ),
+    v(
+        "E String lastIndexOf, 1M chars, 4K pattern",
+        "'a'.repeat(1 << 20).lastIndexOf('a'.repeat(1 << 12) + 'b')",
+        Want::Time,
+    ),
+    v(
+        "E String includes, 1M chars, 4K pattern",
+        "'a'.repeat(1 << 20).includes('a'.repeat(1 << 12) + 'b')",
+        Want::Time,
+    ),
+    v(
+        "E String split, 1M chars, 4K separator",
+        "'a'.repeat(1 << 20).split('a'.repeat(1 << 12) + 'b')",
+        Want::Time,
+    ),
+    v(
+        "E String replace, 1M chars, 4K pattern",
+        "'a'.repeat(1 << 20).replace('a'.repeat(1 << 12) + 'b', '')",
+        Want::Time,
+    ),
+    v(
+        "E String replaceAll, 1M chars, 4K pattern",
+        "'a'.repeat(1 << 20).replaceAll('a'.repeat(1 << 12) + 'b', '')",
+        Want::Time,
+    ),
+    v(
+        "E String replaceAll, one pass per match, 16M matches",
+        "'a'.repeat(1 << 24).replaceAll('a', '')",
+        Want::AnyLimit,
+    ),
+    v(
+        "E BigInt toString near the cap, straight-line",
+        "const b = (1n << 1000000n) - 1n; let s; eval('s = String(b);'.repeat(8))",
+        Want::Time,
+    ),
+    v(
+        "E BigInt multiply near the cap, straight-line",
+        "const b = (1n << 500000n) - 1n; let x; eval('x = b * b;'.repeat(64))",
+        Want::Time,
+    ),
+    v(
+        "E BigInt divide near the cap, straight-line",
+        "const a = (1n << 1000000n) - 1n, d = (1n << 500000n) - 3n; let q; eval('q = a / d;'.repeat(16))",
+        Want::Time,
+    ),
+    v(
+        "E BigInt parse near the cap, straight-line",
+        "const t = '9'.repeat(300000); let x; eval('x = BigInt(t);'.repeat(16))",
+        Want::Time,
+    ),
+    v("E BigInt power near the cap", "3n ** 600000n", Want::Time),
+];
+
 fn all_vectors() -> impl Iterator<Item = &'static Vector> {
-    GROUP_A.iter().chain(GROUP_B).chain(GROUP_C)
+    GROUP_A
+        .iter()
+        .chain(GROUP_B)
+        .chain(GROUP_C)
+        .chain(GROUP_D)
+        .chain(GROUP_E)
 }
 
 fn pseudo_random(n: usize) -> Vec<i32> {
@@ -340,18 +465,17 @@ fn hostile_child() {
         .with_time(LIMIT)
         .with_memory_bytes(128 * 1024 * 1024);
     let mut sb = Sandbox::new(limits).unwrap();
-    let data = match vector.setup {
-        Setup::None => None,
-        Setup::RandomInt32(n) => Some(pseudo_random(n)),
-    };
-    let start = Instant::now();
-    let result: Result<(), SandboxError> = sb.run(|ctx| {
-        if let Some(data) = data {
+    // Setup gets a call of its own, so copying the data doesn't count.
+    if let Setup::RandomInt32(n) = vector.setup {
+        let data = pseudo_random(n);
+        sb.run(|ctx| {
             ctx.globals()
-                .set("buf", ArrayBuffer::new(ctx.clone(), data)?)?;
-        }
-        ctx.eval::<(), _>(vector.source)
-    });
+                .set("buf", ArrayBuffer::new(ctx.clone(), data)?)
+        })
+        .unwrap();
+    }
+    let start = Instant::now();
+    let result: Result<(), SandboxError> = sb.run(|ctx| ctx.eval::<(), _>(vector.source));
     let took = start.elapsed();
     let after = sb.eval::<i32>("6 * 7");
     println!(
@@ -439,8 +563,8 @@ fn run_group(group: &[Vector]) {
                 vector.name, vector.want
             ));
         }
-        if Duration::from_millis(ms) > BOUND {
-            failures.push(format!("{}: took {ms} ms, over {BOUND:?}", vector.name));
+        if Duration::from_millis(ms) > bound() {
+            failures.push(format!("{}: took {ms} ms, over {:?}", vector.name, bound()));
         }
         if after != "Ok(42)" {
             failures.push(format!(
@@ -473,4 +597,14 @@ fn group_b_swallowed_interrupts_end() {
 #[test]
 fn group_c_long_native_sorts_end() {
     run_group(GROUP_C);
+}
+
+#[test]
+fn group_d_loops_around_expensive_native_calls_end() {
+    run_group(GROUP_D);
+}
+
+#[test]
+fn group_e_superlinear_native_calls_end() {
+    run_group(GROUP_E);
 }

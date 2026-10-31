@@ -197,6 +197,57 @@ fn local_time_follows_the_configured_offset() {
     );
 }
 
+/// ECMA-262 §21.4.2.1 step 5: `new Date(y, m, ...)` is
+/// TimeClip(UTC(MakeDate(MakeDay(...), MakeTime(...)))), so local time is
+/// converted to UTC before the range check. The expected values are that
+/// arithmetic: 8.64e15 ms is 275760-09-13T00:00Z and -8.64e15 is
+/// -271821-04-20T00:00Z.
+#[test]
+fn date_fields_are_clipped_after_the_offset() {
+    let hour = 3_600_000.0;
+    let mut sb = sandbox(tokyo());
+    let checks = [
+        // Local 05:00 on the last day is 20:00 UTC the day before.
+        ("new Date(275760, 8, 13, 5).getTime()", 8.64e15 - 4.0 * hour),
+        ("new Date(275760, 8, 13, 9).getTime()", 8.64e15),
+        ("new Date(275760, 8, 13, 9, 0, 0, 1).getTime()", f64::NAN),
+        // Day and hour fields past their usual ranges add up the same way.
+        (
+            "new Date(1970, 0, 1e8 + 1, 5).getTime()",
+            8.64e15 - 4.0 * hour,
+        ),
+        // Local strings without a zone are read the same way.
+        ("Date.parse('+275760-09-13T05:00:00')", 8.64e15 - 4.0 * hour),
+        ("Date.parse('+275760-09-13T09:00:01')", f64::NAN),
+        // Two-digit years, and ordinary dates, are unchanged.
+        ("new Date(99, 11, 31, 9).getTime()", 946_598_400_000.0),
+        ("new Date(2026, 0, 1, 9).getTime()", 1_767_225_600_000.0),
+        ("new Date(2026, NaN).getTime()", f64::NAN),
+        ("new Date(2026, 0, Infinity).getTime()", f64::NAN),
+    ];
+    for (src, want) in checks {
+        let got: f64 = sb.eval(src).unwrap();
+        assert!(
+            got == want || (got.is_nan() && want.is_nan()),
+            "{src}: got {got}, want {want}"
+        );
+    }
+    // Every argument goes through ToNumber, in order, before any check.
+    assert_eq!(
+        sb.eval::<String>(
+            "const seen = []; new Date({ valueOf() { seen.push('y'); return NaN } }, \
+             { valueOf() { seen.push('m'); return 0 } }); seen.join()"
+        )
+        .unwrap(),
+        "y,m"
+    );
+    // West of UTC the same holds at the start of the range: local 20:00 on
+    // 19 April -271821 at -05:30 is 01:30 UTC on the 20th.
+    let mut west = sandbox(SandboxOptions::default().with_utc_offset_minutes(-(5 * 60 + 30)));
+    let got: f64 = west.eval("new Date(-271821, 3, 19, 20).getTime()").unwrap();
+    assert_eq!(got, -8.64e15 + 1.5 * hour);
+}
+
 #[test]
 fn date_shim_behaves_like_date() {
     let mut sb = default_sandbox();
@@ -315,14 +366,22 @@ fn invalid_options_are_rejected() {
 
 /// Output of `EVERYTHING` in the default and Tokyo sandboxes, plus the host's
 /// own idea of the zone (to prove the child really ran in another one).
+///
+/// The host's offset comes from an unsandboxed QuickJS context, in mid
+/// January and mid July 2001, so both sides of daylight saving show. (Not
+/// 1970: macOS's C library computes POSIX-rule transitions only from 1970
+/// on, so in a southern zone it reports standard time for January 1970,
+/// where glibc reports summer time.)
 fn tz_report() -> String {
     let host = {
         use surimono_core::rquickjs::{Context, Runtime};
         let rt = Runtime::new().unwrap();
         let ctx = Context::full(&rt).unwrap();
         ctx.with(|ctx| {
-            ctx.eval::<i32, _>("new Date(0).getTimezoneOffset()")
-                .unwrap()
+            ctx.eval::<String, _>(
+                "[0, 6].map(m => new Date(Date.UTC(2001, m, 15)).getTimezoneOffset()).join()",
+            )
+            .unwrap()
         })
     };
     let utc = default_sandbox().eval::<String>(EVERYTHING).unwrap();
@@ -341,16 +400,29 @@ fn tz_child() {
 fn output_ignores_the_host_time_zone() {
     let ours = tz_report();
     let ours_body = ours.split_once('\n').unwrap().1.to_owned();
-    // POSIX zone strings need no tzdata, so they work in minimal containers.
-    // The host offset is the zone's on 1970-01-01 (summer in the south).
-    for (tz, host_offset) in [
-        ("UTC0", "0"),
-        ("JST-9", "-540"),
-        ("EST5EDT,M3.2.0,M11.1.0", "300"),
-        ("CET-1CEST,M3.5.0,M10.5.0/3", "-60"),
-        ("AEST-10AEDT,M10.1.0,M4.1.0/3", "-660"),
-        ("IST-5:30", "-330"),
-    ] {
+    // POSIX zone strings need no tzdata, so they work in minimal containers;
+    // IANA names are tried too where the host has them. The host offsets
+    // are the zone's in January and July 2001.
+    let posix = [
+        ("UTC0", "0,0"),
+        ("JST-9", "-540,-540"),
+        ("EST5EDT,M3.2.0,M11.1.0", "300,240"),
+        ("CET-1CEST,M3.5.0,M10.5.0/3", "-60,-120"),
+        ("AEST-10AEDT,M10.1.0,M4.1.0/3", "-660,-600"),
+        ("IST-5:30", "-330,-330"),
+    ];
+    let iana = [
+        ("Asia/Tokyo", "-540,-540"),
+        ("America/New_York", "300,240"),
+        ("Europe/Berlin", "-60,-120"),
+        ("Australia/Sydney", "-660,-600"),
+        ("Asia/Kolkata", "-330,-330"),
+    ];
+    let zoneinfo = std::path::Path::new("/usr/share/zoneinfo");
+    let installed = iana
+        .into_iter()
+        .filter(|(name, _)| zoneinfo.join(name).is_file());
+    for (tz, host_offset) in posix.into_iter().chain(installed) {
         let out = Command::new(std::env::current_exe().unwrap())
             .args([
                 "tz_child",
