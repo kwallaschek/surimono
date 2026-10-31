@@ -28,8 +28,9 @@ time is now enforced by `scripts/fleet/owner-check.sh`.
 | #52, #53 | P1-RT-19 macOS determinism probe, P1-RT-13 ASan test limits | in review; from main, fix main's full.yml |
 | #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | #12 BLOCK (relative URLs pass as `data:image/`), #27 BLOCK (carries #12); being fixed |
 | #25 → #26 → #34 | facade on the real backend, CLI, licences | BLOCKs from 16:25 being folded in; critical path for the checkpoint run |
-| #35 | P1-CF-09 checkpoint-2 run script | approved at 1beb0b9; main merged in (66cba58), delta in review; merges after #27 |
-| #50, #51 | P1-CF-11 review follow-ups (checks, compat.py, offline WebRTC) | in review; #50 can merge any time, #51 after #35 and #50 |
+| #35 | P1-CF-09 checkpoint-2 run script | approved at 66cba58; merges after #27 |
+| #50, #51 | P1-CF-11 review follow-ups (checks, compat.py, offline WebRTC) | #50 BLOCK (sandboxed srcdoc iframe keeps WebRTC), being fixed; #51 inherits it |
+| #48 | P1-GFX-06 fresh layout buffers after a large text | opened by GFX; review after #12/#27 |
 | #18 → #19 → #23 | README, guides, examples | waiting for #25, then review |
 | #38 | v0.1 release PR | last; only with Kay's OK at checkpoint 2 |
 

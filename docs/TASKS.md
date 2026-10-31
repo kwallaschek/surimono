@@ -70,6 +70,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-CF-08b · CF · done (#43) · (#43) Exact font weight and style check
 - P1-CF-07 · CF · done (#28) · COMPAT.md generated from test results
 - P1-CF-05c · CF · done (#46) · Record #39's Vega bundle hash in the real-world manifest
+- P1-CF-12 · CF · todo · Text and font checks read data-surimono-text / data-surimono-face on outline groups (Vega-Lite labels with their own aria-label are false failures otherwise); needed for checkpoint 2
 - P1-CF-11 · CF · review · (#50 from main, #51 on #35+#50) Review follow-ups from #28/#35/#42/#43 (unknown fixture names, page-level WebRTC, duplicated labels, positive controls); #35 merges main
 
 ### Packaging engineer (crates/surimono, crates/cli, bindings/ruby, .github)
