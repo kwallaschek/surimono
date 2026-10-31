@@ -425,7 +425,8 @@ mod tests {
           if (spec.limit === "stack") { const f = (n) => f(n + 1) + 1; f(0); }
           if (spec.raw) return spec.raw;
           const w = spec.measure ? ctx.measureText(spec.measure, "16px Noto Sans").width : 0;
-          return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}" data-w="${w.toFixed(2)}"></svg>`;
+          const title = spec.measure ? `<title>w=${w.toFixed(2)}</title>` : "";
+          return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}">${title}</svg>`;
         }"#;
 
     fn test_font() -> Vec<u8> {
@@ -453,7 +454,7 @@ mod tests {
         Renderer::new(options).unwrap_or_else(|e| panic!("{e}"))
     }
 
-    const EMPTY: &str = "<div class=\"surimono-island\" data-renderer=\"t\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"30\" height=\"20\" data-w=\"0.00\"></svg></div>";
+    const EMPTY: &str = "<div class=\"surimono-island\" data-renderer=\"t\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"30\" height=\"20\"></svg></div>";
 
     #[test]
     fn renderer_is_send_and_sync() {
@@ -551,9 +552,9 @@ mod tests {
             .render_islands(&island(r#"{"measure": "Revenue"}"#))
             .unwrap_or_else(|e| panic!("{e}"));
         let w: f64 = out
-            .split("data-w=\"")
+            .split("<title>w=")
             .nth(1)
-            .and_then(|s| s.split('"').next())
+            .and_then(|s| s.split('<').next())
             .and_then(|s| s.parse().ok())
             .unwrap_or_else(|| panic!("{out}"));
         assert!(w > 40.0 && w < 80.0, "Revenue at 16px measured {w}");
@@ -673,7 +674,7 @@ mod tests {
     #[test]
     fn clock_options_reach_the_scripts() {
         let bundle = "function entry(s, ctx) { const d = new Date(); \
-            return `<svg xmlns='http://www.w3.org/2000/svg' data-t='${Date.now()}' data-h='${d.getHours()}'/>`; }";
+            return `<svg xmlns='http://www.w3.org/2000/svg'><title>t=${Date.now()} h=${d.getHours()}</title></svg>`; }";
         let r = renderer(
             Options::new()
                 .font(test_font())
@@ -687,7 +688,7 @@ mod tests {
             ))
             .unwrap_or_else(|e| panic!("{e}"));
         // 2023-11-14T22:13:20Z is 07:13 the next day in Japan.
-        assert!(out.contains("data-t='1700000000000' data-h='7'"), "{out}");
+        assert!(out.contains("t=1700000000000 h=7"), "{out}");
     }
 
     #[test]
