@@ -20,6 +20,7 @@ pub(crate) enum Measure {
     NoFonts,
     /// The font-free estimate: 0.6 em per character, 1 em for wide (CJK)
     /// characters, ascent 0.8 em, descent 0.2 em. Tests and tools only.
+    #[cfg(any(test, feature = "test-estimate"))]
     Estimate,
     /// Any function, for the runner's own tests (errors, panics).
     #[cfg(test)]
@@ -66,6 +67,7 @@ impl Measure {
                 other => MeasureError::Other(other.to_string()),
             }),
             Self::NoFonts => Err(MeasureError::NoFonts),
+            #[cfg(any(test, feature = "test-estimate"))]
             Self::Estimate => Ok(estimate(text, css_font)),
             #[cfg(test)]
             Self::Custom(f) => f(text, css_font).map_err(MeasureError::Other),
@@ -78,6 +80,7 @@ impl fmt::Debug for Measure {
         match self {
             Self::Fonts(m) => f.debug_tuple("Fonts").field(m).finish(),
             Self::NoFonts => f.write_str("NoFonts"),
+            #[cfg(any(test, feature = "test-estimate"))]
             Self::Estimate => f.write_str("Estimate"),
             #[cfg(test)]
             Self::Custom(_) => f.write_str("Custom"),
@@ -85,9 +88,11 @@ impl fmt::Debug for Measure {
     }
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 /// Canvas's default font size.
 const DEFAULT_FONT_PX: f64 = 10.0;
 
+#[cfg(any(test, feature = "test-estimate"))]
 /// The font size in px from a CSS `font` shorthand, or the canvas default.
 fn font_size_px(css_font: &str) -> f64 {
     for token in css_font.split_whitespace() {
@@ -115,6 +120,7 @@ fn font_size_px(css_font: &str) -> f64 {
     DEFAULT_FONT_PX
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 fn is_wide(c: char) -> bool {
     matches!(c as u32,
         0x1100..=0x115F
@@ -128,6 +134,7 @@ fn is_wide(c: char) -> bool {
         | 0x20000..=0x3FFFD)
 }
 
+#[cfg(any(test, feature = "test-estimate"))]
 fn estimate(text: &str, css_font: &str) -> TextMetrics {
     let em = font_size_px(css_font);
     let (wide, narrow) = text.chars().fold((0u32, 0u32), |(w, n), c| {
