@@ -336,10 +336,13 @@ pub struct RunnerStats {
 /// passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
 /// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
-/// Text measurement runs inside that budget, on the worker thread. The
-/// time limit can only interrupt JavaScript, so every `measureText` call
-/// is bounded instead: [`TextMeasurer`] refuses text over
-/// [`surimono_gfx::MAX_TEXT_BYTES`].
+/// Text measurement runs inside that budget, on the worker thread, with
+/// the worker's own measuring state (the fonts are shared). The engine
+/// checks the time limit only every few thousand operations and can't
+/// interrupt Rust code, so `measureText` is bounded twice over: it refuses
+/// to start once the limit has passed (the render then fails with the time
+/// limit error), and [`TextMeasurer`] refuses text over
+/// [`surimono_gfx::MAX_TEXT_BYTES`], which bounds a single call.
 ///
 /// `IslandRunner` is `Send + Sync`: share it between threads (e.g. in an
 /// `Arc`); [`render`](Self::render) blocks the calling thread until a worker
@@ -631,6 +634,8 @@ impl Drop for IslandRunner {
 /// One worker thread's state.
 struct Worker {
     shared: Arc<Shared>,
+    /// This worker's own measurer (see [`Measure::for_worker`]).
+    measure: Measure,
     /// The worker's sandbox, always fresh when a job starts: it is reset
     /// after every job. `None` until first use or after a failure.
     sandbox: Option<Sandbox>,
@@ -651,6 +656,7 @@ impl Drop for Worker {
 impl Worker {
     fn new(shared: Arc<Shared>) -> Self {
         Self {
+            measure: shared.measure.for_worker(),
             shared,
             sandbox: None,
             preloaded: None,
@@ -845,7 +851,7 @@ impl Worker {
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
-        let measurer = self.shared.measure.clone();
+        let measurer = self.measure.clone();
         let bundle = &job.bundle;
         // The sandbox is used from here on, so it is no longer pristine.
         let preloaded = self.take_preloaded(Some(bundle));
