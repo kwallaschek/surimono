@@ -49,7 +49,7 @@ built_by = "crates/islands/js/build.sh: esbuild 0.28.2 bundling crates/islands/j
 built_from = ["echarts 6.1.0", "zrender 6.1.0", "tslib 2.3.0"]
 contents = "echarts/core with the SVG renderer, every chart and component, and the LabelLayout, AxisBreak, LegacyGridContainLabel and ScatterJitter features; not the canvas renderer or the universal-transition feature"
 license_files = ["LICENSE", "NOTICE", "LICENSE-d3", "LICENSE-zrender", "LICENSE-tslib"]
-recorded_from = "branch p1-rt-06 at bc5c34c (crates/islands/bundles/SHA256SUMS)"
+recorded_from = "main at e3b14be (crates/islands/bundles/SHA256SUMS; #21 merged)"
 
 [[library]]
 name = "vega"
@@ -67,8 +67,18 @@ dist_bytes = 521123
 dist_format = "UMD, global `vega`"
 source_repo = "https://github.com/vega/vega"
 source_commit = "adf0ae7cd5dbc5bd0d7b4fb5566a68adf14cac3f"
-used_by = "Chrome references (dist_file); P1-RT-07 Vega renderer (headless View, toSVG)"
-# embedded: not recorded yet; P1-RT-07 builds it.
+used_by = "Chrome references (dist_file); P1-RT-07 Vega renderer (headless View, toSVG), which embeds its own build of the same package together with vega-lite (embedded)"
+
+[library.embedded]
+file = "crates/islands/bundles/vega/vega.min.js"
+sha256 = "28a99a4829f483dbc6d4955218235c340ac438608cc04b696f483395c603ff3f"
+bytes = 780158
+format = "IIFE that defines the globals vegaEntry(specJson, ctx) and vegaLiteEntry(specJson, ctx); minified"
+built_by = "crates/islands/js/build.sh: esbuild 0.28.2 bundling crates/islands/js/src/vega.js (vega-canvas aliased to src/vega-canvas.js, which measures text through the host); reproducible with build.sh --check"
+built_from = ["vega 6.4.0", "vega-lite 6.5.0", "their d3 and other dependencies (THIRD_PARTY_LICENSES.txt)"]
+contents = "Vega's parser and headless View with the SVG string renderer, and Vega-Lite's compile(); one bundle for both renderers. A loader that loads nothing: data urls are refused; images and links load nothing (docs/COMPAT.md)"
+license_files = ["LICENSE", "THIRD_PARTY_LICENSES.txt"]
+recorded_from = "main at e3b14be (crates/islands/bundles/SHA256SUMS; #29 merged)"
 
 [[library]]
 name = "vega-lite"
@@ -86,8 +96,18 @@ dist_bytes = 257954
 dist_format = "UMD, global `vegaLite`, requires global `vega`"
 source_repo = "https://github.com/vega/vega-lite"
 source_commit = "ca9888cb3835a6658886aab32006b4f67d6177f9"
-used_by = "Chrome references (dist_file); P1-RT-07 Vega-Lite renderer (compile to Vega, then as vega)"
-# embedded: not recorded yet; P1-RT-07 builds it.
+used_by = "Chrome references (dist_file); P1-RT-07 Vega-Lite renderer (compile to Vega, then as vega), compiled into the same embedded bundle as vega (embedded)"
+
+[library.embedded]
+file = "crates/islands/bundles/vega/vega.min.js"
+sha256 = "28a99a4829f483dbc6d4955218235c340ac438608cc04b696f483395c603ff3f"
+bytes = 780158
+format = "IIFE that defines the globals vegaEntry(specJson, ctx) and vegaLiteEntry(specJson, ctx); minified"
+built_by = "crates/islands/js/build.sh: esbuild 0.28.2 bundling crates/islands/js/src/vega.js (vega-canvas aliased to src/vega-canvas.js, which measures text through the host); reproducible with build.sh --check"
+built_from = ["vega 6.4.0", "vega-lite 6.5.0", "their d3 and other dependencies (THIRD_PARTY_LICENSES.txt)"]
+contents = "Vega's parser and headless View with the SVG string renderer, and Vega-Lite's compile(); one bundle for both renderers. A loader that loads nothing: data urls are refused; images and links load nothing (docs/COMPAT.md)"
+license_files = ["LICENSE", "THIRD_PARTY_LICENSES.txt"]
+recorded_from = "main at e3b14be (crates/islands/bundles/SHA256SUMS; #29 merged); the same file as vega's"
 
 [[library]]
 name = "mermaid"
