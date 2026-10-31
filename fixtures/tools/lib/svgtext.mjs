@@ -52,10 +52,17 @@ export function svgTexts(svg) {
   return { text: clean(text), labels: clean(labels) };
 }
 
-/** An attribute's raw value in a start tag's attribute text, or undefined. */
+/**
+ * An attribute's raw value in a start tag's attribute text, or undefined.
+ * Walks the name="value" pairs in order, so text inside another
+ * attribute's value (aria-label="… data-surimono-text='X'") is never read
+ * as an attribute.
+ */
 function attrOf(attrs, name) {
-  const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`).exec(attrs);
-  return m ? (m[1] ?? m[2]) : undefined;
+  for (const m of attrs.matchAll(/\s+([^\s=>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+    if (m[1] === name) return m[2] ?? m[3];
+  }
+  return undefined;
 }
 
 /**
@@ -92,15 +99,19 @@ export function multisetMinus(a, b) {
 /**
  * Compares a candidate SVG's strings with the reference's (svgTexts of
  * Chrome's SVG). The candidate draws its <text> strings, the strings its
- * stamped outline groups record (data-surimono-text; their aria-labels are
- * set aside), and its other labels that Chrome's SVG doesn't have (the labels
- * of unstamped outlines). Passes when those equal Chrome's <text> strings as
+ * stamped outline groups record (data-surimono-text; a group's aria-label is
+ * set aside only when it is gfx's copy of that string), and its other labels
+ * that Chrome's SVG doesn't have (the labels of unstamped outlines, or an
+ * author's label that differs from Chrome's). Passes when those equal Chrome's <text> strings as
  * multisets: nothing missing, and nothing extra, copies included.
  */
 export function compareTexts(reference, candidateSvg) {
   const cand = svgTexts(candidateSvg);
   const stamped = stampedOutlines(candidateSvg);
-  const labels = multisetMinus(cand.labels, stamped.flatMap((x) => (x.label ? [x.label] : [])));
+  // Only gfx's own copy of the string is set aside. An author's label stays
+  // with the other labels, where it cancels against Chrome's copy or, if it
+  // differs, counts as extra.
+  const labels = multisetMinus(cand.labels, stamped.flatMap((x) => (x.label && x.label === x.text ? [x.label] : [])));
   const outlined = multisetMinus(labels, reference.labels);
   const fromStamps = stamped.map((x) => x.text).filter(Boolean);
   const drawn = [...cand.text, ...fromStamps, ...outlined];
@@ -183,7 +194,8 @@ function declared(tag, parent) {
  * `outlines`, also for every outline group (how surimono's gfx replaces a
  * <text>). A <g> with gfx's data-surimono-text stamp is one, whatever it
  * holds (gfx copies a text's <title>, <desc> and <a> into it), and its entry
- * also has `faces`, the data-surimono-face list. Without a stamp, an outline
+ * also has `faces`, the data-surimono-face list, and `drawn`, the stamped
+ * string (normalised). Without a stamp, an outline
  * group is a <g> with an aria-label whose descendants are only <path> and <g>
  * elements with neither an aria-label nor a role. The group's own role
  * doesn't matter: gfx keeps the role of the <text> it replaces (Vega's text
@@ -201,7 +213,7 @@ export function svgTextStyles(svg, { outlines = false } = {}) {
   let open = null; // a <text> being read: { start, label, weight, style, depth }
   let m;
   while ((m = re.exec(svg))) {
-    const [whole, closing, name, , selfClosing] = m;
+    const [whole, closing, name, attrs = "", selfClosing] = m;
     if (!name) continue;
     if (closing) {
       const top = stack.pop();
@@ -212,8 +224,8 @@ export function svgTextStyles(svg, { outlines = false } = {}) {
         open = null;
       }
       if (top?.outline && top.outline.valid) {
-        const { key, faces } = top.outline;
-        out.push(faces ? { key, weight: top.weight, style: top.style, faces } : { key, weight: top.weight, style: top.style });
+        const { key, faces, drawn } = top.outline;
+        out.push(faces ? { key, weight: top.weight, style: top.style, faces, drawn } : { key, weight: top.weight, style: top.style });
       }
       continue;
     }
@@ -226,10 +238,13 @@ export function svgTextStyles(svg, { outlines = false } = {}) {
       for (const e of stack) if (e.outline && !e.outline.faces) e.outline.valid = false;
     }
     if (name === "text" && !selfClosing && !open) open = { start: m.index + whole.length, label: labelKey || undefined, ...own, depth: stack.length };
-    const stamp = name === "g" ? attrOf(whole, "data-surimono-text") : undefined;
-    const key = labelKey || (stamp === undefined ? undefined : normaliseText(stamp));
-    const faces = stamp === undefined ? undefined : splitFaces(decodeXml(attrOf(whole, "data-surimono-face") ?? ""));
-    const outline = outlines && name === "g" && key && !open && !selfClosing ? { key, valid: true, faces } : undefined;
+    const stamp = name === "g" ? attrOf(attrs, "data-surimono-text") : undefined;
+    const drawn = stamp === undefined ? undefined : normaliseText(stamp);
+    const key = labelKey || drawn;
+    const faces = stamp === undefined ? undefined : splitFaces(decodeXml(attrOf(attrs, "data-surimono-face") ?? ""));
+    const outline = outlines && name === "g" && key && !open && !selfClosing ? { key, valid: true, faces, drawn } : undefined;
+    // gfx writes an empty <text> as a self-closing stamped <g/>.
+    if (outlines && selfClosing && name === "g" && key && !open && faces) out.push({ key, weight: own.weight, style: own.style, faces, drawn });
     if (!selfClosing) stack.push({ ...own, name, outline });
   }
   return out.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.weight - b.weight || (a.style < b.style ? -1 : a.style > b.style ? 1 : 0)));
@@ -283,6 +298,12 @@ export function matchWeight(desired, available) {
  * and style, from the faces in `fonts`: an italic face if the family has one
  * for a slanted style, else an upright face slanted by synthesis (gfx names
  * that "(synthetic oblique)"). Undefined for a family `fonts` lacks.
+ *
+ * Simplified for today's fixture fonts (four upright faces, Regular and Bold):
+ * italic and oblique faces are pooled, where CSS Fonts 4 §5.2 prefers italic
+ * faces for `italic` and oblique faces for `oblique`; a `normal` style with
+ * only slanted faces returns undefined (§5.2 falls back to oblique, then
+ * italic); synthetic bold isn't modelled. Revisit before adding a slanted face.
  */
 export function expectedFace(family, weight, style, fonts) {
   const own = fonts.filter((f) => f.family === family);
@@ -320,16 +341,18 @@ function wrongFaces(drawn, weight, style, fonts) {
  * no text for) is extra. Passes when nothing is left over on either side.
  *
  * A matched outline group with gfx's face stamp is also checked against the
- * faces actually drawn: each must be the face CSS font matching picks for
- * Chrome's weight and style (expectedFace, from `fonts`, the fixture fonts by
- * default). A wrong face is a mismatch too, with `surimono` "drawn with …"
- * and `expected` the face it should have been.
+ * faces actually drawn: within each drawn face's own family, it must be the
+ * face CSS font matching picks for Chrome's weight and style (expectedFace,
+ * from `fonts`, the fixture fonts by default). Which family draws a glyph
+ * isn't checked (that needs the fonts' character coverage). A wrong face,
+ * or a non-empty string drawn with no face, is a mismatch too, with
+ * `surimono` "drawn with …" and `expected` the face it should have been.
  */
 export function compareStyles(referenceStyles, candidateSvg, { fonts } = {}) {
   const pool = new Map();
   for (const s of svgTextStyles(candidateSvg, { outlines: true })) {
     if (!pool.has(s.key)) pool.set(s.key, []);
-    pool.get(s.key).push({ style: `${s.weight} ${s.style}`, faces: s.faces });
+    pool.get(s.key).push({ style: `${s.weight} ${s.style}`, faces: s.faces, drawn: s.drawn });
   }
   const byKey = new Map();
   for (const r of referenceStyles) {
@@ -343,7 +366,15 @@ export function compareStyles(referenceStyles, candidateSvg, { fonts } = {}) {
   let facesChecked = 0;
   let faceList;
   const checkFaces = (key, ref, cand) => {
-    if (!cand.faces?.length) return;
+    if (!cand.faces) return; // not stamped
+    if (!cand.faces.length) {
+      // gfx names a face for every run it shapes: only an empty string has none.
+      if (cand.drawn) {
+        facesChecked++;
+        mismatches.push({ key, chrome: `${ref.weight} ${ref.style}`, surimono: "drawn with no face", expected: "a fixture face" });
+      }
+      return;
+    }
     faceList ??= fonts ?? fixtureFaces();
     facesChecked++;
     const wrong = wrongFaces(cand.faces, ref.weight, ref.style, faceList);

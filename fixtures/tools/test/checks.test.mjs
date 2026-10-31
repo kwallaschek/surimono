@@ -348,7 +348,41 @@ test("font check compares the faces gfx drew with what font matching picks for C
   assert.equal(faultWith("Noto Sans Regular (synthetic oblique)", "Noto Sans Regular").pass, false);
   assert.equal(faultWith('data-surimono-face="Noto Sans Regular"', 'data-surimono-face="DejaVu Sans Book"').mismatches[0].expected, "a fixture face");
   assert.equal(faultWith('data-surimono-face="Noto Sans Regular"', 'data-surimono-face="(unreadable face)"').pass, false);
-  // A stamp with no faces (an empty text) has nothing to check.
-  assert.equal(compareStyles(svgTextStyles("<svg><text>Jan</text></svg>"), `<svg>${outline("Jan", "")}</svg>`).faces_checked, 0);
+  // A non-empty string drawn with no face is malformed output, and fails (#55 review).
+  const noFace = compareStyles(svgTextStyles("<svg><text>Jan</text></svg>"), `<svg>${outline("Jan", "")}</svg>`);
+  assert.equal(noFace.pass, false);
+  assert.deepEqual(noFace.mismatches, [{ key: "Jan", chrome: "400 normal", surimono: "drawn with no face", expected: "a fixture face" }]);
+  const absent = compareStyles(svgTextStyles("<svg><text>Jan</text></svg>"), '<svg><g data-surimono-text="Jan" role="img" aria-label="Jan"><path d="M0 0"/></g></svg>');
+  assert.equal(absent.pass, false);
+  // An empty string (an author label on an empty <text>) has no face to check.
+  const empty = compareStyles(svgTextStyles('<svg><text aria-label="nothing"></text></svg>'), '<svg><g data-surimono-text="" data-surimono-face="" aria-label="nothing"/></svg>');
+  assert.equal(empty.pass, true, JSON.stringify(empty));
+  assert.equal(empty.faces_checked, 0);
+});
+
+test("text check: a stamped group's author label is still compared with Chrome's", () => {
+  // #55 review: setting every stamped label aside let a wrong author label pass.
+  const ref = svgTexts(`<svg><text aria-label="Revenue: 12" role="graphics-symbol">12</text></svg>`);
+  const group = (label, role) => `<svg><g${role ? ` role="${role}"` : ""} aria-label="${label}" data-surimono-text="12" data-surimono-face="Noto Sans Regular"><path d="M0 0"/></g></svg>`;
+  assert.equal(compareTexts(ref, group("Revenue: 12", "graphics-symbol")).pass, true);
+  const wrongAuthor = compareTexts(ref, group("Revenue: 13", "graphics-symbol"));
+  assert.equal(wrongAuthor.pass, false);
+  assert.deepEqual(wrongAuthor.extra, ["Revenue:13"]);
+  // gfx's own label disagreeing with its stamp: the label counts as drawn too.
+  const wrongOwn = compareTexts(ref, group("13", "img"));
+  assert.equal(wrongOwn.pass, false);
+  assert.deepEqual(wrongOwn.extra, ["13"]);
+});
+
+test("stamps are read as attributes, never from inside another attribute's value", () => {
+  // #55 review: data-surimono-text='X' written inside an aria-label read as a stamp.
+  const forged = `<svg><g aria-label="note data-surimono-text='X' data-surimono-face='Noto Sans Regular'"><path d="M0 0"/></g></svg>`;
+  assert.deepEqual(stampedOutlines(forged), []);
+  const r = compareTexts(svgTexts("<svg><text>X</text></svg>"), forged);
+  assert.equal(r.pass, false);
+  assert.equal(r.candidate_stamped, 0);
+  assert.deepEqual(svgTextStyles(forged, { outlines: true }).map((x) => x.faces), [undefined]);
+  // Single-quoted stamps are attributes all the same.
+  assert.deepEqual(stampedOutlines(`<svg><g data-surimono-text='X' aria-label='X'/></svg>`), [{ text: "X", label: "X" }]);
 });
 
