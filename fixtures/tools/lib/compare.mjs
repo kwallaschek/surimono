@@ -102,16 +102,16 @@ export function printResult(result) {
   if (result.text) {
     const t = result.text;
     console.log(
-      `${t.pass ? "pass" : "FAIL(text)"} ${result.subject} text: ${t.reference_strings} strings in Chrome's SVG, found ${t.candidate_text} as <text> and ${t.candidate_outlined} as outline labels${t.missing.length ? `; missing ${JSON.stringify(t.missing.slice(0, 10))}` : ""}${t.extra.length ? `; extra ${JSON.stringify(t.extra.slice(0, 10))}` : ""}`,
+      `${t.pass ? "pass" : "FAIL(text)"} ${result.subject} text: ${t.reference_strings} strings in Chrome's SVG, found ${t.candidate_text} as <text> and ${t.candidate_outlined} as outlines (${t.candidate_stamped ?? 0} from gfx's data-surimono-text)${t.missing.length ? `; missing ${JSON.stringify(t.missing.slice(0, 10))}` : ""}${t.extra.length ? `; extra ${JSON.stringify(t.extra.slice(0, 10))}` : ""}`,
     );
   }
   if (result.font) {
     const f = result.font;
-    const shown = f.mismatches.slice(0, 5).map((x) => `${JSON.stringify(x.key)}: Chrome ${x.chrome}, surimono ${x.surimono}`);
+    const shown = f.mismatches.slice(0, 5).map((x) => `${JSON.stringify(x.key)}: Chrome ${x.chrome}, surimono ${x.surimono}${x.expected ? ` (expected ${x.expected})` : ""}`);
     const lacking = (f.missing ?? []).slice(0, 5).map((x) => JSON.stringify(x.key));
     const surplus = (f.extra ?? []).slice(0, 5).map((x) => `${JSON.stringify(x.key)} (${x.surimono})`);
     console.log(
-      `${f.pass ? "pass" : "FAIL(font)"} ${result.subject} declared font weight and style: ${f.compared} texts compared${shown.length ? `; ${shown.join("; ")}` : ""}${lacking.length ? `; no text or outline for ${lacking.join(", ")}` : ""}${surplus.length ? `; more texts or outlines than Chrome has for ${surplus.join(", ")}` : ""}`,
+      `${f.pass ? "pass" : "FAIL(font)"} ${result.subject} declared font weight and style: ${f.compared} texts compared, ${f.faces_checked ?? 0} with the faces gfx drew${shown.length ? `; ${shown.join("; ")}` : ""}${lacking.length ? `; no text or outline for ${lacking.join(", ")}` : ""}${surplus.length ? `; more texts or outlines than Chrome has for ${surplus.join(", ")}` : ""}`,
     );
   }
 }
