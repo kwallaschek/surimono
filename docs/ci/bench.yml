@@ -5,7 +5,9 @@ name: bench
 
 on:
   push:
-    branches: [main, "release/**"]
+    # ci-check/<task>: the fleet runs this before a merge (a release/ name
+    # looked like a release). release/** stays for real release branches.
+    branches: [main, "release/**", "ci-check/**"]
     paths: ["crates/**", "bench/**", "Cargo.lock", "scripts/ci/bench.sh"]
   schedule:
     - cron: "15 18 * * *" # 03:15 JST

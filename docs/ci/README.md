@@ -33,3 +33,7 @@ job runs the default branch's copy of that script.
 One pull request after the copy, the old in-job mode
 (`publish-results.sh <status>`, which runs where code under test ran with
 the token) is removed from the script.
+
+- **ci-check branches.** full.yml and bench.yml also run on pushes to
+  `ci-check/**`. Once this YAML is live, the fleet pushes `ci-check/<task>`
+  to run them before a merge, instead of `release/ci-check-<task>`.
