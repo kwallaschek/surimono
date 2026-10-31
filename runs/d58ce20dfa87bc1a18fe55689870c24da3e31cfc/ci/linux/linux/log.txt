@@ -1,0 +1,85 @@
+
+==> fmt
+
+==> ci script tests
+..........
+----------------------------------------------------------------------
+Ran 10 tests in 0.854s
+
+OK
+
+==> fixtures: fonts
+ok       NotoSans-Regular.ttf  Noto Sans 400
+ok       NotoSans-Bold.ttf  Noto Sans 700
+ok       NotoSansJP-Regular.otf  Noto Sans JP 400
+ok       NotoSansJP-Bold.otf  Noto Sans JP 700
+
+==> fixtures: hostile scripts
+59 cases, 60 files: ok
+
+==> fixtures: island inputs (gen-islands --check)
+
+==> bench: report (gen-report --check)
+bench/report/report.html matches its generator
+
+==> fixtures: tool tests (python)
+...compat.py: /tmp/tmpvn0mfzc1/res/old-name/score.json: a result for 'old-name', which is not a fixture in fixtures/islands/ (no meta.toml); pass results for this checkout's fixtures only
+....................compat.py: two results for echarts-a page: /tmp/tmp5xwf4l5f/res/a/score.json and /tmp/tmp5xwf4l5f/res/b/score.json; pass one run's directory, so one result can't hide the other
+...........
+----------------------------------------------------------------------
+Ran 34 tests in 0.851s
+
+OK
+
+==> fixtures: real-world embedded builds (offline)
+ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
+ok   vega 6.4.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   vega-lite 6.5.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   mermaid 12.2.0 (stretch, MIT); embedded build not recorded yet
+
+==> fixtures: real-world tool tests (python)
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.011s
+
+OK
+
+==> bench: tool tests (python)
+..............==> building bench/rust (release, target /tmp/tmpy_dolk70/target, budget 0 min; log /tmp/tmpy_dolk70/rust-build.log)
+    cargo build --release --config patch."crates-io"."rquickjs-sys".path="/home/runner/work/surimono/surimono/vendor/rquickjs-sys"
+..==> building bench/rust (release, target /tmp/tmpfp0qw6pe/target, budget 0 min; log /tmp/tmpfp0qw6pe/rust-build.log)
+    cargo build --release --config patch."crates-io"."rquickjs-sys".path="/home/runner/work/surimono/surimono/vendor/rquickjs-sys"
+..==> building bench/rust (release, target /tmp/tmp9dq4ky7j/target, budget 0 min; log /tmp/tmp9dq4ky7j/rust-build.log)
+    cargo build --release --config patch."crates-io"."rquickjs-sys".path="/home/runner/work/surimono/surimono/vendor/rquickjs-sys"
+.....
+----------------------------------------------------------------------
+Ran 23 tests in 2.187s
+
+OK
+fixture verifiers run: 8
+
+==> clippy (workspace incl. Ruby ext)
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m    Checking[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m    Checking[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m    Checking[0m rquickjs-core v0.14.0
+[1m[32m    Checking[0m rquickjs v0.14.0
+[1m[32m    Checking[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m    Checking[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m    Checking[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Checking[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 30.65s
+
+==> test (workspace)
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
