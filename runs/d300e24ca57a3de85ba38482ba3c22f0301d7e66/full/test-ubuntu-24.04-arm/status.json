@@ -1,0 +1,1 @@
+{"workflow":"full","job":"test","matrix":"ubuntu-24.04-arm","status":"success","sha":"d300e24ca57a3de85ba38482ba3c22f0301d7e66","ref":"release/ci-check-p1-cf-06-pkg08","event":"push","run_id":"41159256373","attempt":"1","finished_at":"2026-10-31T02:17:43Z"}
