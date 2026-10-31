@@ -14,6 +14,7 @@
 # - a bundle directory holds a file that is neither JavaScript nor a licence
 #   or notice this script copies, so a new bundle can't ship without its
 #   licences.
+# It needs python3 3.11 or later (check-mpl.py reads TOML with tomllib).
 # cargo-about runs with --frozen: no network, so licence texts never come
 # from a crate's repository at generation time. Crate sources are fetched
 # first, from the checksums in Cargo.lock.
@@ -32,7 +33,10 @@ cargo metadata --format-version 1 --frozen --manifest-path "$manifest" |
   python3 -I scripts/ci/check-mpl.py scripts/ci/about.toml deny.toml
 
 tmp="$(mktemp)"
-trap 'rm -f "$tmp"' EXIT
+# Written next to the output, then moved into place, so a failure never leaves
+# a partial file where gem staging could pick it up.
+partial="$(mktemp "$(dirname "$out")/.THIRD_PARTY_LICENSES.XXXXXX")"
+trap 'rm -f "$tmp" "$partial"' EXIT
 cargo about generate --frozen --fail \
   --manifest-path "$manifest" \
   -c scripts/ci/about.toml scripts/ci/about.hbs -o "$tmp"
@@ -71,12 +75,14 @@ is_bundle() {
       fi
     done < <(find "$dir" -type f -print0 | LC_ALL=C sort -z)
   done
-} > "$out"
+} > "$partial"
 
 # MPL-2.0 (section 3.2) wants recipients told where the source is; the
 # template says so whenever an MPL-2.0 crate is listed. Check it did.
-if grep -q '(MPL-2.0)$' "$out" && ! grep -q 'Source Code Form is available' "$out"; then
+if grep -q '(MPL-2.0)$' "$partial" && ! grep -q 'Source Code Form is available' "$partial"; then
   echo "MPL-2.0 crates are listed but the source-availability notice is missing" >&2
   exit 1
 fi
+chmod 644 "$partial"
+mv -f "$partial" "$out"
 echo "wrote $out ($(grep -c '' "$out") lines; $(grep -c '^JavaScript library built in' "$out") JS licence files)"
