@@ -179,7 +179,9 @@ class CompatTest(unittest.TestCase):
         self.assertEqual(compat.cell(score("x", False, ["colour"])), "**FAIL** (colour ?)")
 
     def test_font_check_is_named_with_its_mismatch(self):
-        s = score("x island 0 (printed by chrome)", False)
+        # The images pass; only the font check fails (as compare.mjs writes it).
+        s = score("x island 0 (printed by chrome)", True)
+        s["pass"] = False
         s["font"] = {"pass": False, "compared": 3, "mismatches": [{"key": "Jan", "chrome": "400 normal", "surimono": "700 normal"}]}
         self.assertEqual(compat.cell(s), "**FAIL** (font: 1 differ (Jan: Chrome 400 normal, surimono 700 normal))")
 
