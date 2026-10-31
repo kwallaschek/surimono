@@ -228,7 +228,8 @@ N × the time limit. Two things bound a whole document:
 - **`max_islands`** (default 1,000): a document with more islands fails with
   `too-many-islands` before any island runs.
 - **Cancellation.** In Ruby, `Timeout.timeout`, `Rack::Timeout`,
-  `Thread#raise` or a signal stops a render before its next island. In Rust,
+  `Thread#raise` or a signal handler that raises in the rendering thread stops
+  a render before its next island. In Rust,
   `Renderer::render_islands_cancellable` takes an `AtomicBool` to the same
   effect. An island already running ends within its own time limit.
 
