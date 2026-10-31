@@ -1833,6 +1833,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "surimono-example-rust-islands"
+version = "0.0.0"
+dependencies = [
+ "surimono",
+]
+
+[[package]]
 name = "surimono-gfx"
 version = "0.0.0"
 dependencies = [
