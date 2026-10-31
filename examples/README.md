@@ -7,7 +7,11 @@ CI runs it:
   of it as part of [`scripts/ci.sh`](../scripts/ci.sh);
 - on `main`, nightly and release branches, the Ruby jobs (Ruby 3.2 to 4.0) run
   all of it again against the release build of the extension
-  ([`scripts/ci/ruby.sh`](../scripts/ci/ruby.sh)).
+  ([`scripts/ci/ruby.sh`](../scripts/ci/ruby.sh));
+- on the same branches, the macOS and aarch64 Linux test jobs run the Rust
+  example's tests (`cargo test --workspace` in
+  [`scripts/ci/test.sh`](../scripts/ci/test.sh)) but not `run.sh`, so the Rails
+  snippet and the cross-binding check run on Linux x86_64 only.
 
 Locally, `scripts/ci.sh --no-ruby` runs only the Rust example
 (`examples/run.sh --no-ruby`).

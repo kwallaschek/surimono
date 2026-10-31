@@ -45,6 +45,14 @@ use:
 surimono = { git = "https://github.com/kwallaschek/surimono", branch = "main", default-features = false, features = ["echarts"] }
 ```
 
+`surimono::builtin_renderers()` lists the built-ins in your build, and
+`surimono::precompiled_builtins()` says how many of them loaded precompiled
+bytecode. The two counts match in a normal build. If the second is lower
+(`SURIMONO_PRECOMPILE=0` was set when building or at start-up, or a cross
+build produced bytecode that doesn't fit the engine), output is the same, but
+each built-in's first render in a process compiles its library from source and
+is slower. A test that the counts match catches a broken build early.
+
 ## A pipeline
 
 Build the renderer and the fulgur engine once, with the same font bytes, and
