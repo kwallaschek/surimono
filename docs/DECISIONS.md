@@ -197,3 +197,14 @@ checkpoint and can overturn anything. Newest last.
 - 2026-11-01 · An IslandRunner used in a forked child of the process that started it never touches its locks or threads: render/register_bundle fail at once with IslandError::Worker, stats/Debug/renderers read no lock, Drop leaks it (#62) · Its workers don't survive fork; joining or waiting on them hung every time.
 - 2026-11-01 · A ForkSafeCell out of slots fails before running init (#62) · Otherwise each call past 32 nested forks started and leaked a watchdog thread.
 - 2026-11-01 · Test files may use unsafe for process control (fork, waitpid, kill, _exit), opted in per file with a SAFETY comment on each block · Fork-safety tests need real forks; shipped unsafe stays in engine-binding modules.
+- 2026-11-01 · The facade's per-process renderer slots are tagged with surimono_core::fork_generation(), not the pid (#63) · A reused pid made a grandchild take a dead ancestor's runner for its own.
+- 2026-11-01 · Error::TooManyIslands reads "… islands (max_islands)", without the Rust path (#63) · The same message reaches Ruby and CLI users.
+- 2026-11-01 · CI runs examples/run.sh (full in the Linux and Ruby jobs, --no-ruby with scripts/ci.sh --no-ruby) and skips with a message while it's missing (#63) · Lets #23 and #63 merge in either order.
+- 2026-11-01 · Until the engine-distribution decision, docs tell Rust users to use a git dependency plus their own [patch.crates-io] rquickjs-sys, and to build the CLI from a clone (cargo install --path crates/cli) · A dependency's [patch] doesn't reach the consumer; cargo install --git ignores [patch] (verified).
+- 2026-11-01 · Guides and examples build one shared Surimono::Renderer (and fulgur engine), safe to build before fork; the per-pid rebuild is gone · The facade restarts its pool in a forked child (#25); a fulgur 0.40 engine built before fork rendered in 20/20 children.
+- 2026-11-01 · Docs state Rust 1.89 for projects that also use the fulgur crate · fulgur 0.40 depends on krilla 0.7 (rust-version 1.89); surimono itself stays at 1.87.
+- 2026-10-31 · Docs quote no speed or memory figures until bench/ has results · Every performance claim must cite a benchmark.
+- 2026-10-31 · Ruby examples write island JSON with `raw json_escape(spec.to_json)` · Plain ERB escapes quotes and breaks the JSON.
+- 2026-10-31 · Jobs discard Surimono::Error but retry TimeLimitError · Only time limits depend on machine load.
+- 2026-10-31 · Examples are a workspace crate plus a plain-Ruby snippet, driven by examples/run.sh · Examples that run in CI can't rot.
+- 2026-10-31 · Examples use ECharts plus a bring-your-own bundle, not Vega · Vega is second in the cut order.

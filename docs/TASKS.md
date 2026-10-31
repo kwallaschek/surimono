@@ -43,13 +43,15 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-26 · RT · todo · (v0.1) A worker that dies outside guard hangs callers since #54 (one worker): live-worker count via a drop guard, replace a dead worker or fail callers with IslandError::Worker
 - P1-RT-27 · RT+PKG · todo · Test time-scale factor (env var set by scripts/ci/asan.sh) that multiplies wall-clock limits and bounds in core/islands tests; ASan runs determinism and hostile groups B/C past their bounds
 - P1-PKG-11 · PKG · done (#58) · #25/#26/#34 review follow-ups: drop the stale placeholder_style doc (prepass.rs:411-413); fixtures.rs asserts the island count; CLI docs say an existing read-only output is replaced; about.toml MPL list limited to normal deps (or commented) so real warnings show; root surimono-islands workspace entry default-features=false (ORC) and drop the web_atoms exact pin
-- P1-RT-28 · RT · todo · #56 review follow-ups: native-gem jobs and the gem smoke test assert built-ins are precompiled (expose a count); measure the extra source-gem install time; guard test for native `class` in bundles (isESClass under stripping); core build.rs hashes quickjs/ recursively; #57 nit: assert SP vs local agree outside sanitizers
+- P1-RT-28 · RT · review · (#64) #56 review follow-ups: native-gem jobs and the gem smoke test assert built-ins are precompiled (expose a count); measure the extra source-gem install time; guard test for native `class` in bundles (isESClass under stripping); core build.rs hashes quickjs/ recursively; #57 nit: assert SP vs local agree outside sanitizers
 - P1-RT-29 · RT · todo · #47 review follow-ups: hostile.rs times the stop apart from the cleanup (test-only hook); poll per match in js_regexp_Symbol_replace (with P1-RT-23)
 - P1-RT-30 · RT · done (#62) · (v0.1) Verify/fix that a forked child never touches the parent's IslandRunner locks (queue Mutex, bundles RwLock, workers Mutex in crates/islands/src/runner.rs) via the facade's pid-claimed slots; fork stress test through the facade; plus #47 review follow-ups: ForkSafeCell checks slot exhaustion before init (no thread leak), doc fix; pid reuse → fork-generation counter (pthread_atfork child handler); expire vs arm/disarm stress test
 - P1-RT-31 · RT+GFX · done (#60 #61) · (v0.1 release blocker) LICENSE-MIT/LICENSE-APACHE symlinks and repository/homepage/keywords/categories .workspace in crates/core, crates/islands, crates/gfx
-- P1-PKG-12 · PKG · review · (#63) examples/run.sh in CI; TooManyIslands wording; facade slots by fork generation; facade fork stress test; #58 nits
-- P1-CF-13 · CF · todo · Re-run checkpoint.mjs and the hostile suite on main after #62/#63; regenerate COMPAT; provenance note on the local-vs-CI Chromium 65 px difference; reference.sh pipe/exit fixes and fail when cargo is missing in CI; determinism.json paths neutral; "59 cases, 60 results" wording
-- P1-RT-32 · RT · todo · core forks_never_hang flakes under load (busy thread eval("1") hits its 200 ms limit at load 3 on 2 cores): raise the limit; expire_races_arm_and_disarm asserts its second phase; fork_generation doc mentions _Fork/SYS_fork
+- P1-PKG-12 · PKG · done (#63) · examples/run.sh in CI; TooManyIslands wording; facade slots by fork generation; facade fork stress test; #58 nits
+- P1-CF-13 · CF · review · (#65) Re-run checkpoint.mjs and the hostile suite on main after #62/#63; regenerate COMPAT; provenance note on the local-vs-CI Chromium 65 px difference; reference.sh pipe/exit fixes and fail when cargo is missing in CI; determinism.json paths neutral; "59 cases, 60 results" wording
+- P1-RT-32 · RT · review · (#64, with P1-RT-28) core forks_never_hang flakes under load (busy thread eval("1") hits its 200 ms limit at load 3 on 2 cores): raise the limit; expire_races_arm_and_disarm asserts its second phase; fork_generation doc mentions _Fork/SYS_fork
+- P1-PKG-13 · PKG · todo · Expose precompiled_builtins() in the facade and the gem; native-gem jobs and the gem smoke test assert it equals the built-in count; tests/fork.rs reads the helper's stdout on a thread and kills its process group on timeout; nested-fork case; Ruby gem test: render, Process.fork, render in the child; libc pin → workspace (ORC)
+- P1-DX-04 · DX · todo · examples/README: CI now runs run.sh (#63); README Install line wrap; after Kay's engine decision, update install docs and CHANGELOG
 - P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
 - P1-RT-22 · RT · done (#47) · (#47) Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
 - P1-RT-23 · RT · todo · Regex deadline gaps: js_regexp_Symbol_replace never polls ('a'.repeat(1<<25).replace(/(?:)/g,'') stops at 1,174 ms vs 250 ms); back-references checked in #47 review and fine
@@ -102,9 +104,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-07 · PKG · review · v0.1 release PR with a passing dry-run (cargo publish --dry-run in order, gem build, CHANGELOG), no tag, no publish
 
 ### Docs and DX (README.md, docs/guide, examples, CHANGELOG.md)
-- P1-DX-01 · DX · review · README for v0.1: what it is, what it is not, install, a 10-line Rails example, a 10-line Rust example, honest limits
-- P1-DX-02 · DX · review · Guides: Rails with fulgur, Rust; migration notes from Grover for chart-only documents
-- P1-DX-03 · DX · review · Examples that run in CI; wording of error messages reviewed
+- P1-DX-01 · DX · done (#18) · README for v0.1: what it is, what it is not, install, a 10-line Rails example, a 10-line Rust example, honest limits
+- P1-DX-02 · DX · done (#19) · Guides: Rails with fulgur, Rust; migration notes from Grover for chart-only documents
+- P1-DX-03 · DX · done (#23) · Examples that run in CI; wording of error messages reviewed
 
 ### DOM engineer (early phase 2 scaffolding; no public API merged before checkpoint 2)
 - P1-DOM-01 · DOM · todo · WebIDL fetch and parse from w3c/webref (pinned commit) and a code-generation skeleton producing binding stubs for a handful of interfaces
