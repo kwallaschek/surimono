@@ -1,0 +1,7 @@
+
+==> stage the gem
+staged 4 crates (crates/core, crates/gfx, crates/islands, crates/surimono) in /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage
+
+==> rb-sys-dock: x86_64-darwin, Ruby 3.2,3.3,3.4,4.0
+::info::🐳 Building for Ruby requested versions: 4.0.2:3.4.9:3.3.11:3.2.11
+::info::🐳 Downloading container "rbsys/x86_64-darwin:0.9.130", this might take awhile...
