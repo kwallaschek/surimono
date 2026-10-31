@@ -4,8 +4,8 @@
 For every library in manifest.toml: download the tarball, check its sha512
 integrity and sha256, and check that the dist file and licence files exist
 in it with the pinned sha256 and size. When an entry records what
-crates/islands embeds ([library.embedded]) and that file is in this checkout,
-check its sha256 and size too. Needs network access to registry.npmjs.org;
+crates/islands embeds ([library.embedded]), check that file's sha256 and size
+too; a recorded file that is missing is an error. Needs network access to registry.npmjs.org;
 nothing is written outside a temporary directory.
 
 --embedded-only checks only the embedded files, offline: what PR CI runs, so a
@@ -88,7 +88,9 @@ def check_embedded(lib: dict, root: pathlib.Path = ROOT) -> tuple[list[str], str
             return [f"embedded.{key} missing"], ""
     path = root / emb["file"]
     if not path.is_file():
-        return [], f"embedded {emb['file']} not in this checkout (recorded from {emb['recorded_from']})"
+        # The bundles are on main: a missing one means it moved or was dropped
+        # without the manifest following.
+        return [f"embedded {emb['file']} is missing (recorded from {emb['recorded_from']})"], ""
     data = path.read_bytes()
     errors = []
     if hashlib.sha256(data).hexdigest() != emb["sha256"]:

@@ -30,7 +30,7 @@ def measured_system(label: str, cold_ms: float, warm_ms: float, cold_pss: float,
         "cold": [{"wall_ms": cold_ms, "cpu_ms": cold_ms} for _ in range(n)],
         "cold-memory": [{"memory": {"peak_pss_mb": cold_pss, "peak_rss_mb": cold_pss * 2, "complete": True}} for _ in range(mem_n)],
         "warm": {"iterations": [{"ms": warm_ms} for _ in range(n)]},
-        "warm-memory": {"memory": {"peak_pss_mb": warm_pss, "peak_rss_mb": warm_pss * 2, "complete": True}},
+        "warm-memory": {"memory": {"peak_pss_mb": warm_pss, "peak_rss_mb": warm_pss * 2, "complete": True}, "iterations": [{"ms": warm_ms} for _ in range(n)]},
     }
     return r
 
@@ -110,6 +110,31 @@ class Ratios(unittest.TestCase):
         self.assertEqual(cells[2], "1.5× **not met**")
         self.assertEqual(cells[3], "6.0× (6.0×) **not met**")
         self.assertEqual(cells[4], "10.0× (10.0×) **met**")
+
+    def test_warm_memory_verdict_needs_the_spec_renders(self) -> None:
+        # Warm memory is one process's peak; with fewer renders than the SPEC's
+        # 20 the peak may be lower, so it's indicative, like the times.
+        g = measured_system("Grover (Chrome)", 3000, 900, 600, 700)
+        sur = measured_system("surimono + fulgur (Ruby)", 600, 150, 60, 70)
+        sur["warm-memory"]["iterations"] = sur["warm-memory"]["iterations"][:5]
+        res = {"grover": g, "surimono-ruby": sur}
+        bench.finalize(res, final=True, why_unfinished="x")
+        cells = [c.strip() for c in comparison_line(summary.write_summary(info_with(res)), "Grover (Chrome)", "surimono + fulgur (Ruby)").strip("|").split("|")]
+        self.assertEqual(cells[4], "10.0× (10.0×) indicative (n=5; needs 20)")
+
+    def test_headless_shell_caveat_covers_speed(self) -> None:
+        res = {"grover": measured_system("Grover (Chrome)", 3000, 900, 600, 700)}
+        bench.finalize(res, final=True, why_unfinished="x")
+        self.assertIn("a speed or memory claim should hold against it too", summary.write_summary(info_with(res)))
+
+    def test_pool_size_is_recorded(self) -> None:
+        self.assertEqual(bench.pool_size_note({"BENCH_POOL_SIZE": "2"}), {"setting": "BENCH_POOL_SIZE", "size": 2})
+        note = bench.pool_size_note({})
+        self.assertEqual(note["size"], max(1, min(note["cpus"], 8)))
+        info = info_with({"grover": measured_system("Grover (Chrome)", 3000, 900, 600, 700)})
+        info["method"]["surimono_pool_size"] = {"setting": "BENCH_POOL_SIZE", "size": 2}
+        bench.finalize(info["results"], final=True, why_unfinished="x")
+        self.assertIn("surimono's runtime pool**: 2 runtimes (BENCH_POOL_SIZE)", summary.write_summary(info))
 
     def test_incomplete_memory_gives_no_verdict(self) -> None:
         sur = measured_system("surimono + fulgur (Ruby)", 600, 150, 60, 70)
@@ -234,6 +259,18 @@ class SamplerTests(unittest.TestCase):
         s = bench.Sampler(proc=str(self.proc.root), root=0)
         s.sample_once([])
         self.assertNotIn("sum_of_process_hwm_mb", s.result())
+
+
+class GemProbe(unittest.TestCase):
+    def test_probe_gets_the_benchmarks_environment_and_names_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            lib = Path(d)
+            (lib / "surimono.rb").write_text("module Surimono; VERSION = '9.9.9'; def self.native_version = 'test'; end\n")
+            env = dict(os.environ, SURIMONO_RUBY_LIB=str(lib))
+            v = bench.versions("/bin/true", env)
+            self.assertEqual(v["surimono_gem"], "9.9.9 (native test)")
+            (lib / "surimono.rb").write_text("raise TypeError, 'broken build'\n")
+            self.assertEqual(bench.versions("/bin/true", env)["surimono_gem"], "not built (TypeError: broken build)")
 
 
 class RustBuild(unittest.TestCase):

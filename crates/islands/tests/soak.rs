@@ -20,6 +20,8 @@ use surimono_islands::{
     IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions, SandboxError,
 };
 
+mod common;
+
 #[global_allocator]
 static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 
@@ -264,6 +266,8 @@ fn soak_10000_renders_flat_memory() {
     const RENDERS: usize = 10_000;
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let runner = IslandRunner::new(RunnerOptions {
+        // The measurer production uses: the fixture fonts, shaped by gfx.
+        text_measurer: Some(common::fixture_measurer()),
         pool_size: POOL_SIZE,
         limits: Limits::default()
             .with_memory_bytes(MEMORY_BYTES)
@@ -309,6 +313,8 @@ fn soak_echarts_2000_renders_flat_memory() {
     options.sort();
     assert!(options.len() >= 6);
     let runner = IslandRunner::new(RunnerOptions {
+        // The measurer production uses: the fixture fonts, shaped by gfx.
+        text_measurer: Some(common::fixture_measurer()),
         pool_size: POOL_SIZE,
         ..RunnerOptions::default()
     })
@@ -356,6 +362,8 @@ fn soak_vega_lite_600_renders_flat_memory() {
         .map(|n| std::fs::read_to_string(dir.join(format!("{n}.json"))).unwrap())
         .collect();
     let runner = IslandRunner::new(RunnerOptions {
+        // The measurer production uses: the fixture fonts, shaped by gfx.
+        text_measurer: Some(common::fixture_measurer()),
         pool_size: POOL_SIZE,
         ..RunnerOptions::default()
     })

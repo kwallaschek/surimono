@@ -12,7 +12,8 @@
 #   once the renderer exists; until then the entry says so.
 #
 # `python3 -I fixtures/real-world/verify.py` downloads each tarball and checks
-# the npm side, and checks the embedded file's sha256 when it is in the checkout.
+# the npm side, and checks each recorded embedded file's sha256 (a missing one
+# is an error).
 # `--embedded-only` skips the downloads (offline, for PR CI), so a rebuilt
 # bundle that doesn't match this manifest fails the build.
 #
