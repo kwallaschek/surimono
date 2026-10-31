@@ -4,6 +4,9 @@
 #   examples/run.sh            # Rust and Ruby examples, and the cross-binding check
 #   examples/run.sh --no-ruby  # the Rust example only
 #
+# CI runs it in full from scripts/ci.sh (every pull request) and from
+# scripts/ci/ruby.sh (Ruby 3.2 to 4.0 on main, nightly and release branches).
+#
 # Needs examples/rust-islands in the workspace members, the test fonts in
 # fixtures/fonts, and for Ruby the extension compiled
 # (cd bindings/ruby && bundle exec rake compile:dev).
