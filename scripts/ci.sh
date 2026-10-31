@@ -34,6 +34,7 @@ if [ -n "${CI_JOB_OUT:-}" ]; then
 fi
 
 step "fmt";    cargo fmt --all -- --check
+step "ci script tests"; python3 -B -I -m unittest discover -s scripts/ci -p 'test_*.py'
 scripts/ci/fixtures.sh
 if [ "$run_ruby" = 1 ]; then
   ensure_libclang
