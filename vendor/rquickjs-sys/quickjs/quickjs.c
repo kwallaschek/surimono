@@ -61570,32 +61570,86 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
 }
 
 /* surimono: the typed comparators are plain C and never poll, so sorting
-   a large typed array ran far past the deadline. This wrapper polls every
-   JS_TA_SORT_POLL_INTERVAL comparisons (a poll per comparison cost 20% of
-   a large sort) and, once interrupted, answers 0 so rqsort finishes in one
-   linear pass. */
-#define JS_TA_SORT_POLL_INTERVAL 64
+   a large typed array ran far past the deadline. These wrappers check the
+   host's interrupt flag (see surimono_set_interrupt_flag) on each
+   comparison and, once interrupted, answer 0 so rqsort finishes in one
+   linear pass. The check is loads only: a countdown or the context's
+   interrupt counter is a load-store chain through memory on every
+   comparison, and a poll per comparison through one generic wrapper cost
+   20-26% of a large sort. There is one wrapper per element type, so the
+   comparator is a direct call the compiler can inline. Without a host
+   flag (the static zero flag) a default typed-array sort is not
+   interrupted; surimono always sets one. */
+typedef int js_TA_cmp_fn(const void *a, const void *b, void *opaque);
 
 struct TA_poll_sort_context {
     JSContext *ctx;
-    int (*cmp)(const void *a, const void *b, void *opaque);
+    js_TA_cmp_fn *cmp; /* used by js_TA_cmp_poll only */
+    js_interrupt_flag_t *flag;
     int exception;
-    int countdown;
 };
 
-static int js_TA_cmp_poll(const void *a, const void *b, void *opaque) {
-    struct TA_poll_sort_context *psc = opaque;
-    if (unlikely(--psc->countdown <= 0)) {
-        if (psc->exception)
-            return 0;
-        psc->countdown = JS_TA_SORT_POLL_INTERVAL;
-        if (js_poll_interrupts(psc->ctx)) {
-            psc->exception = 1;
-            psc->countdown = 0;
-            return 0;
-        }
+/* Called while the interrupt flag is set: true once interrupted, and from
+   then on for every comparison. */
+static no_inline bool js_TA_sort_poll(struct TA_poll_sort_context *psc)
+{
+    if (psc->exception)
+        return true;
+    if (js_poll_interrupts(psc->ctx)) {
+        psc->exception = 1;
+        return true;
     }
+    return false;
+}
+
+#define JS_TA_CMP_POLL(T)                                               \
+static int js_TA_cmp_poll_##T(const void *a, const void *b, void *opaque) \
+{                                                                       \
+    struct TA_poll_sort_context *psc = opaque;                          \
+    if (unlikely(js_interrupt_flag_get(psc->flag)) && js_TA_sort_poll(psc)) \
+        return 0;                                                       \
+    return js_TA_cmp_##T(a, b, NULL);                                   \
+}
+
+JS_TA_CMP_POLL(int8)
+JS_TA_CMP_POLL(uint8)
+JS_TA_CMP_POLL(int16)
+JS_TA_CMP_POLL(uint16)
+JS_TA_CMP_POLL(int32)
+JS_TA_CMP_POLL(uint32)
+JS_TA_CMP_POLL(int64)
+JS_TA_CMP_POLL(uint64)
+JS_TA_CMP_POLL(float16)
+JS_TA_CMP_POLL(float32)
+JS_TA_CMP_POLL(float64)
+
+/* For a comparator without its own wrapper (none today). */
+static int js_TA_cmp_poll(const void *a, const void *b, void *opaque)
+{
+    struct TA_poll_sort_context *psc = opaque;
+    if (unlikely(js_interrupt_flag_get(psc->flag)) && js_TA_sort_poll(psc))
+        return 0;
     return psc->cmp(a, b, NULL);
+}
+
+/* The polling wrapper for typed comparator `cmp`. */
+static js_TA_cmp_fn *js_TA_cmp_poll_for(js_TA_cmp_fn *cmp)
+{
+#define JS_TA_CMP_POLL_CASE(T) \
+    if (cmp == js_TA_cmp_##T) return js_TA_cmp_poll_##T;
+    JS_TA_CMP_POLL_CASE(int8)
+    JS_TA_CMP_POLL_CASE(uint8)
+    JS_TA_CMP_POLL_CASE(int16)
+    JS_TA_CMP_POLL_CASE(uint16)
+    JS_TA_CMP_POLL_CASE(int32)
+    JS_TA_CMP_POLL_CASE(uint32)
+    JS_TA_CMP_POLL_CASE(int64)
+    JS_TA_CMP_POLL_CASE(uint64)
+    JS_TA_CMP_POLL_CASE(float16)
+    JS_TA_CMP_POLL_CASE(float32)
+    JS_TA_CMP_POLL_CASE(float64)
+#undef JS_TA_CMP_POLL_CASE
+    return js_TA_cmp_poll;
 }
 
 static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
@@ -61740,9 +61794,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
         done:
             js_free(ctx, array_idx);
         } else {
-            /* surimono: poll while sorting; see js_TA_cmp_poll. */
-            struct TA_poll_sort_context psc = { ctx, cmpfun, 0, 0 };
-            rqsort(p->u.array.u.ptr, len, elt_size, js_TA_cmp_poll, &psc);
+            /* surimono: poll while sorting; see js_TA_cmp_poll_for. */
+            struct TA_poll_sort_context psc = {
+                ctx, cmpfun, ctx->interrupt_flag, 0
+            };
+            rqsort(p->u.array.u.ptr, len, elt_size,
+                   js_TA_cmp_poll_for(cmpfun), &psc);
             if (psc.exception)
                 return JS_EXCEPTION;
         }
