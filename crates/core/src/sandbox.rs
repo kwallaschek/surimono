@@ -1160,12 +1160,35 @@ mod tests {
 
     #[test]
     fn time_limit_is_per_call() {
-        let mut sb = sandbox();
-        // Several calls that each use most of the budget all succeed.
+        // Three calls that each take 60% of a 1 s budget all succeed: the
+        // budget is per call, and time between calls doesn't count. The
+        // time is a host function sleeping, not a calibrated loop, so a
+        // busy machine (or a sanitizer) can't push a call over the limit.
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_secs(1))).unwrap();
+        let nap = |ctx: &Ctx<'_>| -> rquickjs::Result<()> {
+            let f = Function::new(ctx.clone(), || {
+                std::thread::sleep(Duration::from_millis(600))
+            })?;
+            ctx.globals().set("nap", f)
+        };
         for _ in 0..3 {
-            sb.eval::<()>("var t = 0; for (let i = 0; i < 2e5; i++) { t += i }")
-                .unwrap();
+            sb.run(|ctx| {
+                nap(ctx)?;
+                ctx.eval::<(), _>("nap()")
+            })
+            .unwrap();
+            std::thread::sleep(Duration::from_millis(500));
         }
+        // And a call that sleeps past it fails, at its next poll.
+        let start = Instant::now();
+        let err = sb
+            .run(|ctx| {
+                nap(ctx)?;
+                ctx.eval::<(), _>("nap(); nap(); for (;;) {}")
+            })
+            .unwrap_err();
+        assert_eq!(err, SandboxError::TimeLimit);
+        assert!(start.elapsed() < Duration::from_secs(3));
     }
 
     #[test]
@@ -1367,7 +1390,9 @@ mod tests {
 
     #[test]
     fn heap_returns_to_baseline_after_reset() {
-        let mut sb = sandbox();
+        // Not a time test: a generous limit, so a slow build (the nightly
+        // AddressSanitizer job) doesn't fail it with TimeLimit.
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_secs(30))).unwrap();
         let base = sb.heap_bytes();
         assert!(base > 0);
         sb.eval::<()>("globalThis.big = new Array(100000).fill('x').map((s, i) => s + i)")
