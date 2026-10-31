@@ -863,14 +863,23 @@ mod tests {
     }
 
     /// Runs a hostile script and checks it fails with `want`, well within a
-    /// bound that proves it didn't hang.
+    /// bound that proves it didn't hang. A script that should hit the memory
+    /// or stack limit gets the whole bound as its time limit, so a loaded
+    /// machine or a sanitizer build (several times slower) can't make the
+    /// short test time limit fire first.
     fn expect_limit(source: &str, want: SandboxError) {
-        let mut sb = sandbox();
+        let bound = Duration::from_secs(5);
+        let limits = if want == SandboxError::TimeLimit {
+            limits()
+        } else {
+            limits().with_time(bound)
+        };
+        let mut sb = Sandbox::new(limits).unwrap();
         let start = Instant::now();
         let err = sb.eval::<()>(source).unwrap_err();
         let took = start.elapsed();
         assert_eq!(err, want, "script: {source}");
-        assert!(took < Duration::from_secs(5), "took {took:?}: {source}");
+        assert!(took < bound, "took {took:?}: {source}");
         // The sandbox is usable afterwards.
         assert_eq!(sb.eval::<i32>("6 * 7").unwrap(), 42);
     }
