@@ -1,0 +1,1 @@
+{"workflow":"full","job":"native-gems","matrix":"aarch64-linux","status":"success","sha":"34e1defe3702af94a199f9c737f248d5eb17120e","ref":"release/ci-check-p1-pkg-09","event":"push","run_id":"41181770509","attempt":"1","finished_at":"2026-10-31T07:50:04Z"}
