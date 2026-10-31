@@ -34,7 +34,12 @@ Not run yet: 59 cases in `fixtures/hostile/manifest.toml`; the sandbox harness h
 
 ### Real-world libraries
 
-The real-world manifest (`fixtures/real-world/`) is not in this checkout.
+| Library | Version | Licence | In the plan | Fixtures | Status |
+|---|---|---|---|---|---|
+| echarts | 6.1.0 | Apache-2.0 | required | 6 | not run |
+| vega | 6.4.0 | BSD-3-Clause | required | 1 | not run |
+| vega-lite | 6.5.0 | BSD-3-Clause | required | 4 | not run |
+| mermaid | 12.2.0 | MIT | stretch | 0 | no fixtures yet |
 
 ### Speed and memory against Grover
 
