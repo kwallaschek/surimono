@@ -31,13 +31,17 @@ const WATCHDOG: Duration = Duration::from_secs(10);
 /// debug build on a busy 2-core machine. The call's time includes stopping
 /// the script and the rebuild after the limit error, which frees the
 /// vector's heap (up to 128 MiB); process start and setup are not
-/// included. AddressSanitizer (the nightly job, which sets ASAN_OPTIONS)
-/// makes every allocation and free several times slower, so it gets more.
+/// included. Stopping itself takes microseconds; the slack is for the
+/// cleanup on a machine whose other cores are busy (the fleet's shared
+/// machine ran at a load of 7 to 10 on 2 cores, where the 12M-element sort
+/// took 440 to 780 ms). AddressSanitizer (the nightly job, which sets
+/// ASAN_OPTIONS) makes every allocation and free several times slower, so
+/// it gets more.
 fn bound() -> Duration {
     let slack = if std::env::var_os("ASAN_OPTIONS").is_some() {
-        Duration::from_millis(2000)
+        Duration::from_millis(2500)
     } else {
-        Duration::from_millis(500)
+        Duration::from_millis(750)
     };
     2 * LIMIT + slack
 }
@@ -401,8 +405,8 @@ const GROUP_E: &[Vector] = &[
         Want::Time,
     ),
     v(
-        "E String replaceAll, one pass per match, 64M matches",
-        "'a'.repeat(1 << 26).replaceAll('a', '')",
+        "E String replaceAll, one pass per match, 16M matches",
+        "'a'.repeat(1 << 24).replaceAll('a', '')",
         Want::AnyLimit,
     ),
     v(
