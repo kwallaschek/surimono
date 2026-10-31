@@ -35,7 +35,7 @@ mod error;
 mod measure;
 mod runner;
 
-pub use builtins::builtin_renderers;
+pub use builtins::{builtin_renderers, precompiled_builtins};
 pub use error::IslandError;
 pub use runner::{IslandRequest, IslandRunner, RunnerOptions, RunnerStats};
 pub use surimono_core::{Limits, SandboxError};
