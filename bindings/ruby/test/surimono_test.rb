@@ -36,7 +36,7 @@ class SurimonoTest < Minitest::Test
   end
 
   def stub_svg
-    '<div class="surimono-island" data-renderer="t">' \
+    '<div class="surimono-island" data-renderer="t" style="width:30px;height:20px;overflow:hidden">' \
       '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="20"></svg></div>'
   end
 
@@ -73,7 +73,7 @@ class SurimonoTest < Minitest::Test
 
   def test_keeps_id_and_class
     out = renderer.render(island("{}", attrs: ' id="q3" class="chart wide"'))
-    assert_match(/\A<div class="surimono-island chart wide" id="q3" data-renderer="t">/, out)
+    assert_match(/\A<div class="surimono-island chart wide" id="q3" data-renderer="t" style="width:30px;height:20px;overflow:hidden">/, out)
   end
 
   def test_utf8_and_other_encodings

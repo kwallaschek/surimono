@@ -40,6 +40,36 @@ fn renderer() -> Renderer {
     Renderer::new(options).unwrap_or_else(|e| panic!("{e}"))
 }
 
+/// For each island wrapper in `out`: its box size from the wrapper's style
+/// and the root SVG's own width and height.
+fn boxes_and_svg_sizes(out: &str) -> Vec<(f64, f64, f64, f64)> {
+    let num = |s: &str, key: &str, end: char| -> f64 {
+        let at = s
+            .find(key)
+            .unwrap_or_else(|| panic!("no {key} in {}", &s[..s.len().min(300)]));
+        let rest = &s[at + key.len()..];
+        rest[..rest.find(end).unwrap_or(rest.len())]
+            .trim_end_matches("px")
+            .parse()
+            .unwrap_or_else(|e| panic!("{key}: {e}"))
+    };
+    out.split("<div class=\"surimono-island\"")
+        .skip(1)
+        .map(|w| {
+            let tag_end = w.find('>').unwrap_or(w.len());
+            let tag = &w[..tag_end];
+            let svg_at = w.find("<svg").unwrap_or_else(|| panic!("no svg"));
+            let svg_tag = &w[svg_at..svg_at + w[svg_at..].find('>').unwrap_or(0)];
+            (
+                num(tag, "width:", 'p'),
+                num(tag, "height:", 'p'),
+                num(svg_tag, " width=\"", '"'),
+                num(svg_tag, " height=\"", '"'),
+            )
+        })
+        .collect()
+}
+
 /// The input before and after its one island marker.
 fn around_marker(input: &str) -> (&str, &str) {
     let start = input
@@ -67,7 +97,10 @@ fn echarts_bar_simple_latin_becomes_sanitised_svg() {
 
     // One wrapper holding one SVG.
     assert!(
-        island.starts_with("<div class=\"surimono-island\" data-renderer=\"echarts\"><svg"),
+        island.starts_with(
+            "<div class=\"surimono-island\" data-renderer=\"echarts\" \
+             style=\"width:640px;height:320px;overflow:hidden\"><svg"
+        ),
         "{}",
         &island[..island.len().min(200)]
     );
@@ -205,6 +238,14 @@ fn every_checkpoint_fixture_renders() {
         );
         let lower = out.to_ascii_lowercase();
         assert!(!lower.contains("<text"), "{name}: text not outlined");
+        // Every island's SVG fits its declared box, so the box's clip hides
+        // nothing of the chart.
+        for (bw, bh, sw, sh) in boxes_and_svg_sizes(&out) {
+            assert!(
+                sw <= bw && sh <= bh,
+                "{name}: SVG {sw}x{sh} is larger than its {bw}x{bh} box"
+            );
+        }
         assert_eq!(
             r.render_islands(&input).ok().as_deref(),
             Some(out.as_str()),

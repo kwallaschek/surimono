@@ -1837,6 +1837,7 @@ version = "0.0.0"
 dependencies = [
  "blitz-dom",
  "blitz-html",
+ "blitz-traits",
  "parley",
  "roxmltree",
  "serde",

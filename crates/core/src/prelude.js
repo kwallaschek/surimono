@@ -244,9 +244,31 @@
                      'PDT', 'PST', 'WET', 'WEST', 'CET', 'CEST', 'EET', 'EEST'];
   const zoneOffsets = [0, 0, 0, 0, -240, -300, -300, -360, -360, -420, -420, -480,
                        0, 60, 60, 120, 120, 180];
-  // Days in 400 Gregorian years, in ms: shifts years 0-99 past Date.UTC's
-  // two-digit-year rule without changing the result.
-  const msPer400Years = 146097 * 86400000;
+  // ECMA-262 MakeDay, MakeTime and MakeDate (§21.4.1.27 to .29) for
+  // integer fields, without TimeClip: the caller converts local time to
+  // UTC first and clips after (TimeClip(UTC(t)), §21.4.2.1 step 5), so a
+  // local time past the end of the range in a zone ahead of UTC is still
+  // valid. Years outside [-271821, 275760] give NaN, as in QuickJS's
+  // set_date_fields: no day of theirs is a valid time value. Same operation
+  // order as the spec and set_date_fields, so rounding matches too.
+  const floor = Math.floor;
+  const mathTrunc = Math.trunc;
+  const daysBeforeMonth = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  function makeDate(y, mon, day, h, min, sec, ms) {
+    const ym = y + floor(mon / 12);
+    if (!(ym >= -271821 && ym <= 275760)) return NaN;
+    let mn = mon % 12;
+    if (mn < 0) mn += 12;
+    let days = 365 * (ym - 1970) + floor((ym - 1969) / 4) -
+      floor((ym - 1901) / 100) + floor((ym - 1601) / 400) + daysBeforeMonth[mn];
+    if (mn > 1 && ym % 4 === 0 && (ym % 100 !== 0 || ym % 400 === 0)) days++;
+    const time = h * 3600000 + min * 60000 + sec * 1000 + ms;
+    return (days + day - 1) * 86400000 + time;
+  }
+  // §21.4.1.31 TimeClip.
+  function timeClip(t) {
+    return t >= -8.64e15 && t <= 8.64e15 ? mathTrunc(t) + 0 : NaN;
+  }
 
   let src = '';    // the string being parsed
   let srcLen = 0;  // where QuickJS's C string ends: first NUL, at most 127
@@ -588,15 +610,12 @@
         (F[3] === 24 && (F[4] | F[5] | F[6]) !== 0)) {
       return NaN;
     }
-    // set_date_fields(fields, is_local): MakeDay, MakeTime, MakeDate, TimeClip.
-    const y = F[0];
-    const shift = y >= 0 && y < 100;
-    let t = apply(nativeUTC, undefined, [shift ? y + 400 : y, F[1], F[2], F[3], F[4],
-                                         F[5], F[6]]);
-    if (shift) t -= msPer400Years;
+    // set_date_fields(fields, is_local): MakeDay, MakeTime, MakeDate, local
+    // time to UTC, then TimeClip. Like QuickJS, a zone given in the string
+    // is applied after clipping.
+    let t = makeDate(F[0], F[1], F[2], F[3], F[4], F[5], F[6]);
     if (isLocal) t -= offsetMs;
-    t = t >= -8.64e15 && t <= 8.64e15 ? t : NaN;
-    return t - F[8] * 60000;
+    return timeClip(t) - F[8] * 60000;
   }
 
   // ECMA-262 §7.1.1 ToPrimitive with no hint, run here rather than in the
@@ -657,7 +676,19 @@
     } else if (n === 1) {
       v = timeValueOf(year);
     } else {
-      v = apply(nativeUTC, undefined, arguments) - offsetMs;
+      // §21.4.2.1 step 5: ToNumber on every argument, in order; two-digit
+      // years are in the 1900s; then TimeClip(UTC(MakeDate(...))), so the
+      // offset applies before clipping.
+      const f = [0, 0, 1, 0, 0, 0, 0];
+      for (let i = 0; i < n && i < 7; i++) f[i] = +arguments[i];
+      let finite = true;
+      for (let i = 0; i < 7; i++) {
+        if (f[i] - f[i] === 0) f[i] = mathTrunc(f[i]);
+        else finite = false;
+      }
+      if (f[0] >= 0 && f[0] <= 99) f[0] += 1900;
+      v = finite ? timeClip(makeDate(f[0], f[1], f[2], f[3], f[4], f[5], f[6]) - offsetMs)
+        : NaN;
     }
     return construct(RealDate, [v], new.target);
   };
