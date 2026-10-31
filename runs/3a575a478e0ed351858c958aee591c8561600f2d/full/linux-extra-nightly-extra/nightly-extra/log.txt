@@ -1,0 +1,171 @@
+
+==> fixtures: tool tests (node, after npm ci)
+
+added 86 packages in 3s
+TAP version 13
+# Subtest: solid pixels are flat interiors, never edges or thin lines
+ok 1 - solid pixels are flat interiors, never edges or thin lines
+  ---
+  duration_ms: 4.716816
+  type: 'test'
+  ...
+# Subtest: near-match is colour-blind; the colour check is not
+ok 2 - near-match is colour-blind; the colour check is not
+  ---
+  duration_ms: 29.61719
+  type: 'test'
+  ...
+# Subtest: the same picture passes every check
+ok 3 - the same picture passes every check
+  ---
+  duration_ms: 6.39076
+  type: 'test'
+  ...
+# Subtest: a bar shifted by 1 px keeps its colour score at 0
+ok 4 - a bar shifted by 1 px keeps its colour score at 0
+  ---
+  duration_ms: 7.256816
+  type: 'test'
+  ...
+# Subtest: hue ignores anti-aliasing coverage but sees a different colour
+ok 5 - hue ignores anti-aliasing coverage but sees a different colour
+  ---
+  duration_ms: 3.936972
+  type: 'test'
+  ...
+# Subtest: hue does not judge position: a line with no ink near it in the other image is near-match's job
+ok 6 - hue does not judge position: a line with no ink near it in the other image is near-match's job
+  ---
+  duration_ms: 1.481993
+  type: 'test'
+  ...
+# Subtest: svgTexts reads <text> with tspans, entities, labels and titles
+ok 7 - svgTexts reads <text> with tspans, entities, labels and titles
+  ---
+  duration_ms: 1.780814
+  type: 'test'
+  ...
+# Subtest: svgTexts: a self-closing <text/> doesn't swallow the next element
+ok 8 - svgTexts: a self-closing <text/> doesn't swallow the next element
+  ---
+  duration_ms: 0.433885
+  type: 'test'
+  ...
+# Subtest: svgTexts: a <title> inside <text> is a label, not printed text
+ok 9 - svgTexts: a <title> inside <text> is a label, not printed text
+  ---
+  duration_ms: 0.770126
+  type: 'test'
+  ...
+# Subtest: text check accepts outlines that keep the string in aria-label
+ok 10 - text check accepts outlines that keep the string in aria-label
+  ---
+  duration_ms: 0.745589
+  type: 'test'
+  ...
+# Subtest: text check fails on a changed, missing or extra string
+ok 11 - text check fails on a changed, missing or extra string
+  ---
+  duration_ms: 0.354366
+  type: 'test'
+  ...
+# Subtest: multisetMinus counts duplicates
+ok 12 - multisetMinus counts duplicates
+  ---
+  duration_ms: 0.155822
+  type: 'test'
+  ...
+# Subtest: svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+ok 13 - svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+  ---
+  duration_ms: 2.149276
+  type: 'test'
+  ...
+# Subtest: font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's
+ok 14 - font check: outlines that keep the text's attributes pass; a bold label fails; missing keys are the text check's
+  ---
+  duration_ms: 1.159537
+  type: 'test'
+  ...
+# Subtest: font check matches same-key texts one to one
+ok 15 - font check matches same-key texts one to one
+  ---
+  duration_ms: 0.509005
+  type: 'test'
+  ...
+# Subtest: font check candidates are <text> and outline groups, never chart marks
+ok 16 - font check candidates are <text> and outline groups, never chart marks
+  ---
+  duration_ms: 0.343084
+  type: 'test'
+  ...
+# Subtest: computedTextStyles is Chrome's view, and catches what svgTextStyles can't read
+ok 17 - computedTextStyles is Chrome's view, and catches what svgTextStyles can't read # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 323.853084
+  type: 'test'
+  ...
+# Subtest: hostileCases reads manifest.toml exactly as tomllib does
+ok 18 - hostileCases reads manifest.toml exactly as tomllib does
+  ---
+  duration_ms: 50.433932
+  type: 'test'
+  ...
+# Subtest: hostileCases: steps become numbered entries; a case without file or steps is an error
+ok 19 - hostileCases: steps become numbered entries; a case without file or steps is an error
+  ---
+  duration_ms: 0.930337
+  type: 'test'
+  ...
+# Subtest: launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback
+ok 20 - launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 328.208983
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 2
+# todo 0
+# duration_ms 502.013354
+
+==> fixtures: real-world suite (needs registry.npmjs.org)
+ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
+ok   vega 6.4.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   vega-lite 6.5.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   mermaid 12.2.0 (stretch, MIT); embedded build not recorded yet
+
+==> core: out-of-memory full sweep (ignored test)
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m proc-macro2 v1.0.107
+[1m[32m   Compiling[0m shlex v2.0.1
+[1m[32m   Compiling[0m find-msvc-tools v0.1.15
+[1m[32m   Compiling[0m quote v1.0.47
+[1m[32m   Compiling[0m cc v1.10.0
+[1m[32m   Compiling[0m unicode-ident v1.0.27
+[1m[32m   Compiling[0m allocator-api2 v0.2.21
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m equivalent v1.0.3
+[1m[32m   Compiling[0m libc v0.2.191
+[1m[32m   Compiling[0m hashbrown v0.17.1
+[1m[32m   Compiling[0m syn v3.0.9
+[1m[32m   Compiling[0m thiserror v2.0.21
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m thiserror-impl v2.0.21
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 33.87s
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_core-aed0f69d32840ab7)
+
+running 1 test
+test sandbox::tests::out_of_memory_full_sweep has been running for over 60 seconds
+test sandbox::tests::out_of_memory_full_sweep ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 64 filtered out; finished in 237.00s
+
+nightly extra checks run: 3
