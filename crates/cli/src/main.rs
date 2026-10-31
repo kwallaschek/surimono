@@ -52,12 +52,14 @@ Options:
   --bundle <name>:<fn>=<file>
                            The same, calling the global function <fn>
   --renderers <a,b,...>    Enable only these renderers (built-in or bundles;
-                           default: all)
+                           default: all); empty names are ignored
   --max-islands <n>        Most islands one document may have (default 1000)
   --pool-size <n>          JavaScript runtimes kept (default: CPUs, at most 4)
 
   The output file is written only after the render succeeded, through a
   temporary file renamed into place, so it is either complete or untouched.
+  It keeps an existing file's permissions; if it is a symbolic link, the
+  file it points to is replaced.
 
 Exit codes:
   0  success
@@ -356,7 +358,23 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
 /// synced and then renamed over `path`, so `path` ends up either complete or
 /// as it was (a full disk or a quota leaves no truncated file). The
 /// temporary file is removed on any failure.
+///
+/// An existing file keeps its permissions. A symbolic link is followed, so
+/// the file it points to is replaced and the link stays, as with shell
+/// redirection; a dangling link is replaced by the file. The directory is
+/// synced after the rename where the platform allows it.
 fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let resolved;
+    let path = match fs::symlink_metadata(path) {
+        Ok(m) if m.file_type().is_symlink() => match fs::canonicalize(path) {
+            Ok(target) => {
+                resolved = target;
+                resolved.as_path()
+            }
+            Err(_) => path,
+        },
+        _ => path,
+    };
     let dir = match path.parent() {
         Some(d) if !d.as_os_str().is_empty() => d,
         _ => Path::new("."),
@@ -378,6 +396,11 @@ fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
     };
     let written = file
         .write_all(bytes)
+        .and_then(|()| match fs::metadata(path) {
+            Ok(old) => file.set_permissions(old.permissions()),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e),
+        })
         .and_then(|()| file.sync_all())
         .and_then(|()| {
             drop(file);
@@ -385,8 +408,14 @@ fn write_atomically(path: &Path, bytes: &[u8]) -> io::Result<()> {
         });
     if written.is_err() {
         let _ = fs::remove_file(&tmp);
+        return written;
     }
-    written
+    // Make the rename itself durable (best effort: not every platform can
+    // open a directory).
+    if let Ok(d) = fs::File::open(dir) {
+        let _ = d.sync_all();
+    }
+    Ok(())
 }
 
 fn main() -> ExitCode {
@@ -580,6 +609,34 @@ mod tests {
             .filter(|n| n.ends_with(".tmp"))
             .collect();
         assert!(left.is_empty(), "{left:?}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_keeps_permissions_and_follows_links() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let dir = std::env::temp_dir().join(format!("surimono-cli-perm-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("{e}"));
+        let out = dir.join("out.html");
+        fs::write(&out, "old").unwrap_or_else(|e| panic!("{e}"));
+        fs::set_permissions(&out, fs::Permissions::from_mode(0o640))
+            .unwrap_or_else(|e| panic!("{e}"));
+        write_atomically(&out, b"new").unwrap_or_else(|e| panic!("{e}"));
+        let mode = fs::metadata(&out)
+            .map(|m| m.permissions().mode() & 0o777)
+            .unwrap_or(0);
+        assert_eq!(mode, 0o640);
+        // Through a link: the target is replaced, the link stays a link.
+        let link = dir.join("link.html");
+        symlink(&out, &link).unwrap_or_else(|e| panic!("{e}"));
+        write_atomically(&link, b"via link").unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(fs::read_to_string(&out).ok().as_deref(), Some("via link"));
+        assert!(
+            fs::symlink_metadata(&link)
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false)
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
