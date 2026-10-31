@@ -76,8 +76,3 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - ENGINE DISTRIBUTION (Kay decides): crates.io users of surimono-core get unpatched rquickjs-sys 0.14.0 ([patch] doesn't travel); a linked program fails (undefined surimono_quickjs_patch_level). Options: (1) wait for upstream quickjs-ng/rquickjs releases; (2) publish the fork under our own crate names (3 crates); (3) v0.1 = gem (+ CLI binary) only, Rust crates held. Recommend (3) for v0.1, (2) later.
 
 - Open for checkpoint 2: bench on main 15b530e0 (real pipeline): speed 2.4× cold/warm vs Grover (met); memory 5.8× PSS Ruby / 8.0× Rust (10× not met; fulgur alone 8.7×); vs chrome-headless-shell 1.8–2.3× / 3.8–5.2×.
-### PKG #67 (add on merge)
-- 2026-11-01 · surimono::precompiled_builtins() and surimono::builtin_renderers() (gem: Surimono.precompiled_builtins, Surimono.builtin_renderers) are public (#67) · Packaging checks prove a shipped binary carries bytecode its engine accepts; the built-in list needs no fonts or Renderer.
-- 2026-11-01 · rake gem:verify fails unless every built-in loads precompiled bytecode (0 expected with SURIMONO_PRECOMPILE=0); native-gem.sh refuses SURIMONO_PRECOMPILE=0 (#67) · A cross build whose bytecode doesn't fit its engine would silently ship slow first renders.
-- 2026-11-01 · Fork tests run their helper in its own process group, read its output on a thread, and cover a fork of a fork (Rust and Ruby) (#67) · A hang kills every descendant; large output can't deadlock the pipe; Puma's fork_worker forks from a fork.
-
