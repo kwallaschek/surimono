@@ -134,7 +134,8 @@ const URL_ATTRIBUTES: &[&str] = &[
 ];
 
 /// Attributes the root `<svg>` keeps (lower case, no namespace), besides
-/// `aria-*`, `xml:lang`, `xml:space` and [`ROOT_PROPERTIES`]. The root is
+/// [`ROOT_ROLES`], [`ROOT_ARIA`], `xml:lang`, `xml:space` and
+/// [`ROOT_PROPERTIES`]. The root is
 /// laid out by the page as a box of its own: nothing may move it out of
 /// that box, put it over other content or let it paint outside (`position`,
 /// `transform`, `overflow`, `filter`, `display`, ... all go).
@@ -145,12 +146,32 @@ const ROOT_ATTRIBUTES: &[&str] = &[
     "preserveaspectratio",
     "version",
     "baseprofile",
-    "class",
     "id",
-    "role",
     "lang",
     "style",
     "focusable",
+];
+
+/// `role` values the root keeps, and its ARIA attributes. The page's own CSS
+/// can match the root's attributes (utility classes such as Tailwind's
+/// `fixed inset-0`, or `[role=dialog]` rules), so the root keeps no `class`
+/// and only roles and ARIA a chart needs.
+const ROOT_ROLES: &[&str] = &[
+    "img",
+    "graphics-document",
+    "graphics-object",
+    "document",
+    "figure",
+    "group",
+    "presentation",
+    "none",
+];
+const ROOT_ARIA: &[&str] = &[
+    "aria-label",
+    "aria-labelledby",
+    "aria-describedby",
+    "aria-roledescription",
+    "aria-hidden",
 ];
 
 /// CSS properties the root `<svg>` keeps, in `style` or as presentation
@@ -224,9 +245,16 @@ const URL_PRESENTATION: &[&str] = &[
 ///   as HTML, and removes elements whose names would end SVG parsing in an
 ///   HTML parser (`<p>`, `<div>`, `<img>`, ...).
 /// - Keeps only a short list of attributes on the root `<svg>` (size,
-///   `viewBox`, `class`, `id`, ARIA, inherited paint and font settings), and
-///   only those properties in its `style`: nothing that positions,
-///   transforms, hides, filters or un-clips the island's box.
+///   `viewBox`, `id`, a chart `role`, ARIA labels, inherited paint and font
+///   settings; no `class`, which the page's own CSS could match), and only
+///   those properties in its `style`: nothing that positions, transforms,
+///   hides, filters or un-clips the island's box.
+/// - Decides every URL as the URL Standard's parser reads it (only leading
+///   and trailing C0 controls and spaces stripped, tab, LF and CR removed;
+///   C1 controls refused), and writes kept URLs as the XML parser read them.
+/// - Removes a `<use>` whose target is or holds a `<use>` (such chains fan
+///   out exponentially in the printer), id-list tokens (`aria-labelledby`,
+///   ...) that name no id of the SVG, and any `data-surimono-*` attribute.
 /// - Reads all remaining CSS (`style` attributes and presentation attributes
 ///   such as `fill` or `mask`) with a CSS Syntax Level 3 tokenizer, as a
 ///   browser does. A declaration or attribute with a function that loads
@@ -272,8 +300,10 @@ pub fn sanitize_svg(svg: &str, island: usize, fonts: &FontSet) -> Result<String,
     }
     let prefix = format!("sm{island}-");
 
-    // Pass 1: ids of the elements that stay.
+    // Pass 1: ids of the elements that stay, and those that are or hold a
+    // <use>.
     let mut ids = HashSet::new();
+    let mut ids_with_use = HashSet::new();
     walk(root, svg, |visit| {
         if let Visit::Element {
             node,
@@ -283,6 +313,9 @@ pub fn sanitize_svg(svg: &str, island: usize, fonts: &FontSet) -> Result<String,
         {
             if let Some(id) = node.attribute("id") {
                 ids.insert(id.to_string());
+                if node.descendants().any(is_use) {
+                    ids_with_use.insert(id.to_string());
+                }
             }
         }
         Ok(())
@@ -297,6 +330,14 @@ pub fn sanitize_svg(svg: &str, island: usize, fonts: &FontSet) -> Result<String,
                 removed: true,
                 ..
             } => edits.push((node.range(), String::new())),
+            // A <use> of something that holds a <use> goes: chains of them
+            // fan out exponentially in the printer (ten levels of ten uses
+            // are 10^10 copies), after every script limit has ended.
+            Visit::Element { node, .. }
+                if is_use(node) && use_target(node).is_some_and(|t| ids_with_use.contains(t)) =>
+            {
+                edits.push((node.range(), String::new()))
+            }
             Visit::Element { node, .. } => {
                 let is_root = node == root;
                 attribute_edits(node, is_root, svg, &prefix, &ids, fonts, &mut edits)?;
@@ -457,6 +498,23 @@ fn qname_lower(node: Node<'_, '_>, input: &str) -> String {
     rest[..end].to_ascii_lowercase()
 }
 
+fn is_use(node: Node<'_, '_>) -> bool {
+    node.is_element() && node.tag_name().name().eq_ignore_ascii_case("use")
+}
+
+/// The id a `<use>` points at (`href` or `xlink:href`, `#id`).
+fn use_target<'a>(node: Node<'a, '_>) -> Option<&'a str> {
+    node.attributes()
+        .filter(|a| a.name().eq_ignore_ascii_case("href"))
+        .find_map(|a| {
+            let v = a.value();
+            let start = v.len() - v.trim_start_matches(|c: char| c <= ' ').len();
+            v[start..]
+                .strip_prefix('#')
+                .map(|id| id.trim_end_matches(|c: char| c <= ' '))
+        })
+}
+
 fn is_removed(node: Node<'_, '_>, input: &str) -> bool {
     let local = node.tag_name().name().to_ascii_lowercase();
     REMOVED_ELEMENTS.contains(&local.as_str())
@@ -508,7 +566,7 @@ fn attribute_edits(
         // or newline in an attribute into a space, HTML keeps it, and a
         // newline ends a CSS string. Otherwise the value is written again.
         let raw = &input[value_range.clone()];
-        let css_keep = |v: &str| {
+        let keep_as_read = |v: &str| {
             if escape_attribute(v, delim) == raw {
                 AttrAction::Keep
             } else {
@@ -516,16 +574,19 @@ fn attribute_edits(
             }
         };
         let action = if local.starts_with("on")
+            || local.starts_with("data-surimono-")
             || has_script_scheme(value)
             || (is_root && !root_keeps(&attr))
         {
+            // `data-surimono-*` is what outlining writes for the checks: an
+            // island can't forge it.
             AttrAction::Remove
         } else if local == "id" && plain {
             AttrAction::Replace(format!("{prefix}{value}"))
         } else if ID_LIST_ATTRIBUTES.contains(&local.as_str()) && plain {
             match rewrite_id_list(value, prefix, ids) {
                 Some(new) => AttrAction::Replace(new),
-                None => AttrAction::Keep,
+                None => AttrAction::Remove,
             }
         } else if local == "class" && plain {
             match rewrite_classes(value, prefix) {
@@ -533,23 +594,29 @@ fn attribute_edits(
                 None => AttrAction::Keep,
             }
         } else if URL_ATTRIBUTES.contains(&local.as_str()) {
-            let t = value.trim();
-            if let Some(rest) = t.strip_prefix('#') {
-                if local == "href" {
-                    AttrAction::Replace(format!("#{prefix}{rest}"))
-                } else {
-                    AttrAction::Keep
-                }
-            } else if css::is_inline_image(t) || (element == "a" && local == "href" && is_link(t)) {
-                AttrAction::Keep
-            } else {
-                AttrAction::Remove
+            // Decided on the URL as a URL parser reads it; kept values are
+            // written as the XML parser read them (no entity an HTML parser
+            // decodes differently).
+            match css::url_parser_input(value) {
+                None => AttrAction::Remove,
+                Some(u) => match u.strip_prefix('#') {
+                    Some(rest) if local == "href" => {
+                        AttrAction::Replace(format!("#{prefix}{rest}"))
+                    }
+                    Some(_) => keep_as_read(value),
+                    None if css::is_inline_image(&u)
+                        || (element == "a" && local == "href" && is_link(&u)) =>
+                    {
+                        keep_as_read(value)
+                    }
+                    None => AttrAction::Remove,
+                },
             }
         } else if local == "font-family" && plain {
             match css::family_value(fonts, value, quote) {
                 Some(new) => AttrAction::Replace(new),
                 None => match css::rewrite_value(value, &cx) {
-                    css::Rewrite::Unchanged => css_keep(value),
+                    css::Rewrite::Unchanged => keep_as_read(value),
                     css::Rewrite::Changed(new) => AttrAction::Replace(new),
                     css::Rewrite::Drop => AttrAction::Remove,
                 },
@@ -557,7 +624,7 @@ fn attribute_edits(
         } else if local == "style" && plain {
             let allowed = is_root.then_some(ROOT_PROPERTIES);
             match css::rewrite_declarations(value, &cx, allowed) {
-                Ok(css::Rewrite::Unchanged) => css_keep(value),
+                Ok(css::Rewrite::Unchanged) => keep_as_read(value),
                 Ok(css::Rewrite::Changed(new)) => AttrAction::Replace(new),
                 Ok(css::Rewrite::Drop) | Err(_) => AttrAction::Remove,
             }
@@ -565,7 +632,7 @@ fn attribute_edits(
             || value.to_ascii_lowercase().contains("url(")
         {
             match css::rewrite_value(value, &cx) {
-                css::Rewrite::Unchanged => css_keep(value),
+                css::Rewrite::Unchanged => keep_as_read(value),
                 css::Rewrite::Changed(new) => AttrAction::Replace(new),
                 css::Rewrite::Drop => AttrAction::Remove,
             }
@@ -596,10 +663,13 @@ fn attribute_edits(
 fn root_keeps(attr: &roxmltree::Attribute<'_, '_>) -> bool {
     let local = attr.name().to_ascii_lowercase();
     match attr.namespace() {
+        None if local == "role" => {
+            ROOT_ROLES.contains(&attr.value().trim().to_ascii_lowercase().as_str())
+        }
         None => {
             ROOT_ATTRIBUTES.contains(&local.as_str())
                 || ROOT_PROPERTIES.contains(&local.as_str())
-                || local.starts_with("aria-")
+                || ROOT_ARIA.contains(&local.as_str())
         }
         Some("http://www.w3.org/XML/1998/namespace") => matches!(local.as_str(), "lang" | "space"),
         Some(_) => false,
@@ -623,29 +693,16 @@ const ID_LIST_ATTRIBUTES: &[&str] = &[
     "list",
 ];
 
-/// Prefixes the tokens of a space-separated id list that name ids defined in
-/// this SVG. `None`: nothing to change.
+/// The tokens of a space-separated id list that name ids defined in this
+/// SVG, prefixed; the others go (they could only point at the page's own
+/// elements). `None`: nothing is left, the attribute goes.
 fn rewrite_id_list(value: &str, prefix: &str, ids: &HashSet<String>) -> Option<String> {
-    let mut out = String::with_capacity(value.len() + 16);
-    let mut changed = false;
-    let mut rest = value;
-    while !rest.is_empty() {
-        let token_len = rest
-            .find(|c: char| c.is_ascii_whitespace())
-            .unwrap_or(rest.len());
-        let (token, after) = rest.split_at(token_len);
-        if !token.is_empty() && ids.contains(token) {
-            out.push_str(prefix);
-            changed = true;
-        }
-        out.push_str(token);
-        let ws_len = after
-            .find(|c: char| !c.is_ascii_whitespace())
-            .unwrap_or(after.len());
-        out.push_str(&after[..ws_len]);
-        rest = &after[ws_len..];
-    }
-    changed.then_some(out)
+    let kept: Vec<String> = value
+        .split(|c: char| c.is_ascii_whitespace())
+        .filter(|t| !t.is_empty() && ids.contains(*t))
+        .map(|t| format!("{prefix}{t}"))
+        .collect();
+    (!kept.is_empty()).then(|| kept.join(" "))
 }
 
 /// True for ECharts' per-chart class names (`zr0-cls-1`): `zr`, digits, `-`.
@@ -984,11 +1041,15 @@ mod tests {
         assert_eq!(
             clean(s),
             "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" \
-             width=\"400\" height=\"300\" viewBox=\"0 0 400 300\" version=\"1.1\" baseProfile=\"full\" class=\"marks\" \
+             width=\"400\" height=\"300\" viewBox=\"0 0 400 300\" version=\"1.1\" baseProfile=\"full\" \
              role=\"img\" aria-label=\"c\" xml:lang=\"ja\" fill=\"red\" font-family=\"x\" \
              style=\";;;;;user-select:none;;fill:blue\"><rect style=\"position:fixed\" transform=\"scale(2)\"/></svg>",
             "inside the root, CSS boxes don't apply to SVG content"
         );
+        // The page's CSS can match the root's class, role and ARIA
+        // (Tailwind's `fixed inset-0 z-50`): no class, chart roles only.
+        let s = "<svg class=\"fixed inset-0 z-50\" role=\"dialog\" aria-modal=\"true\" aria-label=\"x\"><g class=\"fixed\"/></svg>";
+        assert_eq!(clean(s), "<svg aria-label=\"x\"><g class=\"fixed\"/></svg>");
     }
 
     /// An HTML parser compares the root's name as written: `<svg:svg>` is an
@@ -1010,14 +1071,14 @@ mod tests {
     #[test]
     fn id_lists_and_echarts_classes_are_prefixed() {
         let s = svg(
-            "<text id=\"t\" aria-labelledby=\"t  other\" aria-describedby=\"d\">x</text><desc id=\"d\"/>\
+            "<text id=\"t\" aria-labelledby=\"t  other\" aria-describedby=\"d\" aria-owns=\"page-total\">x</text><desc id=\"d\"/>\
              <rect id=\"r\"/>\
              <path class=\"zr0-cls-1 keep zr1-x\"/>",
         );
         assert_eq!(
             sanitize_svg(&s, 4, &FontSet::new()).unwrap(),
             svg(
-                "<text id=\"sm4-t\" aria-labelledby=\"sm4-t  other\" aria-describedby=\"sm4-d\">x</text><desc id=\"sm4-d\"/>\
+                "<text id=\"sm4-t\" aria-labelledby=\"sm4-t\" aria-describedby=\"sm4-d\">x</text><desc id=\"sm4-d\"/>\
                  <rect id=\"sm4-r\"/>\
                  <path class=\"sm4-zr0-cls-1 keep sm4-zr1-x\"/>"
             )
@@ -1025,6 +1086,54 @@ mod tests {
         assert!(is_echarts_class("zr0-cls-1"));
         assert!(
             !is_echarts_class("zr-1") && !is_echarts_class("zrx-1") && !is_echarts_class("zr0")
+        );
+    }
+
+    /// Review of #12 (second round), finding 1: a value that passed as
+    /// `data:image/` but that a URL parser reads as a relative URL.
+    #[test]
+    fn urls_are_read_as_a_url_parser_reads_them() {
+        let s = svg(
+            "<image href=\"d ata:image/../../r1.png\"/><image href=\"data :image/png,x\"/>\
+             <image href=\"da&#x80;ta:image/../../r3.png\"/><image xlink:href=\"da\u{85}ta:image/../r4.png\"/>\
+             <filter><feImage href=\"d ata:image/../r6.png\"/></filter>\
+             <a href=\"&#x3000;https://example.com/\">l</a><a href=\" https://example.com/\">k</a>\
+             <image href=\"&#9;data:image/png;base64,AA&#10;AA\"/><image href=\"#&#x3000;a\"/>",
+        );
+        assert_eq!(
+            clean(&s),
+            svg(
+                "<image/><image/><image/><image/><filter><feImage/></filter>\
+                 <a>l</a><a href=\" https://example.com/\">k</a>\
+                 <image href=\"&#9;data:image/png;base64,AA&#10;AA\"/><image href=\"#sm0-\u{3000}a\"/>"
+            )
+        );
+    }
+
+    /// Outlining writes `data-surimono-*` for the conformance checks; an
+    /// island can't forge it on any element.
+    #[test]
+    fn data_surimono_attributes_go() {
+        let s = svg("<g data-surimono-text=\"Total: 0\" DATA-SURIMONO-FACE=\"x\" data-x=\"1\"/>");
+        assert_eq!(clean(&s), svg("<g data-x=\"1\"/>"));
+    }
+
+    /// Chains of <use> fan out exponentially in the printer: a <use> whose
+    /// target is or holds a <use> goes.
+    #[test]
+    fn use_chains_are_cut() {
+        let s = svg(
+            "<defs><path id=\"p\" d=\"M0 0\"/><g id=\"a\"><use href=\"#p\"/><use href=\"#p\"/></g>\
+             <use id=\"u\" href=\"#p\"/></defs>\
+             <use href=\"#a\"/><use xlink:href=\" #u\"/><use href=\"#p\"/><g id=\"self\"><use href=\"#self\"/></g>",
+        );
+        assert_eq!(
+            clean(&s),
+            svg(
+                "<defs><path id=\"sm0-p\" d=\"M0 0\"/><g id=\"sm0-a\"><use href=\"#sm0-p\"/><use href=\"#sm0-p\"/></g>\
+                 <use id=\"sm0-u\" href=\"#sm0-p\"/></defs>\
+                 <use href=\"#sm0-p\"/><g id=\"sm0-self\"></g>"
+            )
         );
     }
 
