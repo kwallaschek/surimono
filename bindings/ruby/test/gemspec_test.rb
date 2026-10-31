@@ -28,12 +28,14 @@ class GemspecTest < Minitest::Test
       write(root, "vendor/bundle/ruby/3.3.0/gems/rake-13.3.0/lib/rake.rb")
       write(root, "vendor/cache/rake-13.3.0.gem")
       write(root, "vendor/notes.txt")
+      write(root, "THIRD_PARTY_LICENSES.txt")
       files = Gem::Specification.load(File.join(root, "surimono.gemspec")).files
       assert_includes files, "vendor/rquickjs-sys/Cargo.toml"
       assert_includes files, "vendor/rquickjs-sys/quickjs/quickjs.c"
       assert_includes files, "crates/core/Cargo.toml"
       assert_empty files.grep(%r{\Avendor/(bundle|cache)/}), files.inspect
       refute_includes files, "vendor/notes.txt"
+      assert_includes files, "THIRD_PARTY_LICENSES.txt"
     end
   end
 end
