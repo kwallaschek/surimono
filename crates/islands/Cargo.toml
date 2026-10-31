@@ -24,6 +24,10 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[build-dependencies]
+# build.rs compiles the built-in bundles to bytecode with the same engine.
+surimono-core.workspace = true
+
 [dev-dependencies]
 # The crate's own tests use the font-free estimate.
 surimono-islands = { path = ".", default-features = false, features = ["test-estimate"] }

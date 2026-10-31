@@ -14,7 +14,7 @@ use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, V
 use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxOptions};
 
 use crate::measure::{Measure, MeasureError};
-use crate::{IslandError, TextMeasurer, builtins};
+use crate::{IslandError, TextMeasurer, builtins, embedded};
 
 /// How an [`IslandRunner`] is set up.
 ///
@@ -350,8 +350,11 @@ pub struct RunnerStats {
 pub struct IslandRunner {
     shared: Arc<Shared>,
     bundles: RwLock<HashMap<String, Arc<Bundle>>>,
-    /// Held while a built-in renderer is compiled on first use.
+    /// Held while a built-in renderer is loaded or compiled on first use.
     builtin_lock: Mutex<()>,
+    /// The fingerprint the built-ins' bytecode was written with (see
+    /// `embedded.rs`); replaced only by tests of the fallback.
+    embedded_fingerprint: &'static [u8],
     /// Most worker threads.
     pool_size: usize,
     /// Stack size of each worker thread.
@@ -425,6 +428,7 @@ impl IslandRunner {
             shared,
             bundles: RwLock::new(HashMap::new()),
             builtin_lock: Mutex::new(()),
+            embedded_fingerprint: builtins::ENGINE_FINGERPRINT,
             pool_size,
             stack_size,
             workers: Mutex::new(Vec::with_capacity(pool_size)),
@@ -539,7 +543,7 @@ impl IslandRunner {
                 name: name.to_owned(),
             });
         };
-        // One compile per built-in, even if many threads ask at once.
+        // One load or compile per built-in, even if many threads ask at once.
         let _compiling = self
             .builtin_lock
             .lock()
@@ -547,21 +551,38 @@ impl IslandRunner {
         if let Some(bundle) = registered(&self.bundles) {
             return Ok(bundle);
         }
-        // Built-ins that share a source (vega and vega-lite) share its
-        // bytecode: compile it once.
-        let shared = self
-            .bundles
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .values()
-            .find(|b| b.source_id == Some(builtin.source.as_ptr() as usize))
-            .map(|b| b.bytecode.clone());
-        let code = match shared {
-            Some(bytecode) => Code::Compiled(bytecode),
-            None => Code::Source(builtin.source.to_owned()),
+        let source_id = Some(builtin.source.as_ptr() as usize);
+        let bundle = match embedded::bytecode(&builtin, self.embedded_fingerprint) {
+            // Bytecode built into the binary from our own bundle: loaded in
+            // place, no compile. This crate's tests check that it defines
+            // its entry, so it skips the registration run.
+            Some(bytecode) => Bundle {
+                name: builtin.name.to_owned(),
+                entry: builtin.entry.to_owned(),
+                bytecode,
+                preloadable: AtomicBool::new(true),
+                source_id,
+            },
+            // This engine can't read it: compile the source, like any
+            // registered bundle. Built-ins that share a source (vega and
+            // vega-lite) share its bytecode: compile it once.
+            None => {
+                let shared = self
+                    .bundles
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .values()
+                    .find(|b| b.source_id == source_id)
+                    .map(|b| b.bytecode.clone());
+                let code = match shared {
+                    Some(bytecode) => Code::Compiled(bytecode),
+                    None => Code::Source(builtin.source.to_owned()),
+                };
+                let mut bundle = self.compile_bundle(builtin.name, code, builtin.entry)?;
+                bundle.source_id = source_id;
+                bundle
+            }
         };
-        let mut bundle = self.compile_bundle(builtin.name, code, builtin.entry)?;
-        bundle.source_id = Some(builtin.source.as_ptr() as usize);
         // A bundle registered under this name while we compiled wins.
         let mut bundles = self.bundles.write().unwrap_or_else(PoisonError::into_inner);
         let bundle = bundles
@@ -1070,5 +1091,51 @@ mod tests {
         assert_eq!(measure(&r, "abcd").unwrap(), "4");
         let stats = r.stats();
         assert_eq!((stats.renders, stats.failed_renders), (3, 1));
+    }
+
+    /// The built-ins' test specs, by renderer.
+    fn builtin_specs() -> Vec<(&'static str, String)> {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
+        let read = |p: &str| std::fs::read_to_string(dir.join(p)).unwrap();
+        let mut specs = Vec::new();
+        if cfg!(feature = "echarts") {
+            specs.push(("echarts", read("echarts/bar.json")));
+            specs.push(("echarts", read("echarts/japanese.json")));
+        }
+        if cfg!(feature = "vega") {
+            specs.push(("vega", read("vega/bar.json")));
+            specs.push(("vega-lite", read("vega-lite/line-temporal.json")));
+        }
+        specs
+    }
+
+    #[test]
+    fn builtins_fall_back_to_source_for_another_engine() {
+        let options = || RunnerOptions {
+            pool_size: 1,
+            limits: Limits::default().with_time(std::time::Duration::from_secs(30)),
+            ..RunnerOptions::default()
+        };
+        let embedded = IslandRunner::start(options(), Measure::Estimate).unwrap();
+        // Bytecode recorded with another engine's fingerprint: refused, so
+        // this runner compiles every built-in from source.
+        let mut other = IslandRunner::start(options(), Measure::Estimate).unwrap();
+        let mut fingerprint = builtins::ENGINE_FINGERPRINT.to_vec();
+        let last = fingerprint.len() - 1;
+        fingerprint[last] ^= 1;
+        other.embedded_fingerprint = Box::leak(fingerprint.into_boxed_slice());
+        for (renderer, spec) in builtin_specs() {
+            let req = IslandRequest {
+                renderer,
+                spec_json: &spec,
+                width: 600,
+                height: 400,
+            };
+            let precompiled = embedded.render(&req).unwrap();
+            let from_source = other.render(&req).unwrap();
+            assert!(precompiled == from_source, "{renderer}: outputs differ");
+            assert!(embedded.bundle(renderer).unwrap().bytecode.is_embedded());
+            assert!(!other.bundle(renderer).unwrap().bytecode.is_embedded());
+        }
     }
 }
