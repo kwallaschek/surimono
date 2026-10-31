@@ -23,6 +23,18 @@ esac
 
 step() { printf '\n==> %s\n' "$*"; }
 
+# The examples (examples/run.sh, from the Docs and DX branch #23). Until that
+# lands, a branch without them skips the step, so either can merge first.
+# Arguments go to examples/run.sh (--no-ruby: the Rust example only).
+run_examples() {
+  if [ -f examples/run.sh ]; then
+    step "examples ${*:-(Rust and Ruby)}"
+    bash examples/run.sh "$@"
+  else
+    step "examples: skipped, examples/run.sh is not on this branch yet"
+  fi
+}
+
 # Executables of gems installed outside Bundler's bin dir (rbenv without shims,
 # setup-ruby) must be on PATH for `bundle exec rake`.
 ruby_path() {

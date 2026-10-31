@@ -1,7 +1,7 @@
 //! The [`Renderer`]: options in, islands rendered.
 
 use std::fmt;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock, TryLockError};
 
 use surimono_gfx::{FontSet, TextMeasurer};
@@ -60,25 +60,43 @@ const MAX_FORK_DEPTH: usize = 16;
 /// time, so a child never touches its parent's).
 ///
 /// Finding this process's slot takes only atomic loads, never a lock: the
-/// slot claimed last in this process's memory is its own if its pid matches,
-/// and otherwise this process is a fork and claims the next free slot with a
-/// compare-and-swap. A process forked from it sees that slot as claimed by
-/// another pid and claims the one after. `state` is only ever written by the
-/// process that claimed the slot, so a child never waits on a `OnceLock` a
-/// parent thread was filling.
+/// slot claimed last in this process's memory is its own if its fork
+/// generation ([`surimono_core::fork_generation`]) matches, and otherwise this
+/// process is a fork and claims the next free slot with a compare-and-swap. A
+/// process forked from it has a greater generation, sees that slot as claimed
+/// by another process and claims the one after. `state` is only ever written
+/// by the process that claimed the slot, so a child never waits on a
+/// `OnceLock` a parent thread was filling.
+///
+/// Slots are tagged with a generation rather than a pid: a pid can come back.
+/// A grandchild given the pid of the dead process that built the renderer
+/// (its parent never rendered, so never claimed a slot) would otherwise take
+/// that ancestor's slot for its own and wait on its threads forever.
 struct Slot {
-    /// The pid that claimed this slot; 0 while free.
-    pid: AtomicU32,
+    /// The fork generation of the process that claimed this slot; [`FREE`]
+    /// while free.
+    generation: AtomicU64,
     state: OnceLock<Local>,
 }
+
+/// [`Slot::generation`] of a free slot. Generations count forks from 1, so
+/// they never reach it.
+const FREE: u64 = u64::MAX;
 
 impl Slot {
     fn free() -> Self {
         Slot {
-            pid: AtomicU32::new(0),
+            generation: AtomicU64::new(FREE),
             state: OnceLock::new(),
         }
     }
+}
+
+/// This process's fork generation, as a facade error if it can't be had
+/// (only if the fork handler can't be registered, which happens at most on
+/// the first call, in `Renderer::new`).
+fn this_generation() -> Result<u64, Error> {
+    surimono_core::fork_generation().map_err(|e| Error::InvalidOptions(e.to_string()))
 }
 
 /// One process's runner and measurer.
@@ -109,12 +127,14 @@ fn abandon(local: Local) {
 
 impl Drop for Renderer {
     fn drop(&mut self) {
-        let pid = std::process::id();
+        // Without a generation (which can't happen after `new`) nothing is
+        // known to be this process's: everything is abandoned, never joined.
+        let generation = this_generation().ok();
         let own = last_claimed(&self.slots[..]);
         for (i, slot) in self.slots.iter_mut().enumerate() {
-            // Only the last claimed slot can be this process's own: an earlier
-            // one with the same pid belonged to an ancestor whose pid was reused.
-            if i == own && *slot.pid.get_mut() == pid {
+            // Only the last claimed slot can be this process's own; ancestors
+            // have smaller generations.
+            if i == own && Some(*slot.generation.get_mut()) == generation {
                 continue;
             }
             if let Some(local) = slot.state.take() {
@@ -129,7 +149,7 @@ impl Drop for Renderer {
 fn last_claimed(slots: &[Slot]) -> usize {
     slots
         .iter()
-        .rposition(|s| s.pid.load(Ordering::Acquire) != 0)
+        .rposition(|s| s.generation.load(Ordering::Acquire) != FREE)
         .unwrap_or(0)
 }
 
@@ -200,8 +220,9 @@ impl Renderer {
                 enabled
             }
         };
+        let generation = this_generation()?;
         let slots: Box<[Slot; MAX_FORK_DEPTH]> = Box::new(std::array::from_fn(|_| Slot::free()));
-        slots[0].pid.store(std::process::id(), Ordering::Release);
+        slots[0].generation.store(generation, Ordering::Release);
         if slots[0].state.set(local).is_err() {
             // A fresh OnceLock is empty; this can't happen.
             return Err(Error::InvalidOptions("the renderer could not start".into()));
@@ -219,11 +240,11 @@ impl Renderer {
     /// child. Takes no lock on the way that a thread which didn't survive a
     /// fork could hold.
     fn local(&self) -> Result<&Local, Error> {
-        let pid = std::process::id();
+        let generation = this_generation()?;
         loop {
             let last = last_claimed(&self.slots[..]);
             let slot = &self.slots[last];
-            if slot.pid.load(Ordering::Acquire) == pid {
+            if slot.generation.load(Ordering::Acquire) == generation {
                 if let Some(local) = slot.state.get() {
                     return Ok(local);
                 }
@@ -243,9 +264,12 @@ impl Renderer {
                      build a new Renderer in this process"
                 )));
             };
-            let _ = next
-                .pid
-                .compare_exchange(0, pid, Ordering::AcqRel, Ordering::Acquire);
+            let _ = next.generation.compare_exchange(
+                FREE,
+                generation,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            );
         }
     }
 
@@ -747,12 +771,19 @@ mod tests {
         }
     }
 
-    /// What a forked child sees: the slot claimed last belongs to another pid.
+    /// This process's fork generation.
+    fn generation() -> u64 {
+        surimono_core::fork_generation().unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    /// What a forked child sees: the slot claimed last belongs to another
+    /// generation. (A real ancestor's is smaller; only equality is compared,
+    /// so any value but this process's and FREE will do.)
     fn pretend_forked(r: &Renderer) {
         let last = last_claimed(&r.slots[..]);
         r.slots[last]
-            .pid
-            .store(u32::MAX - last as u32, Ordering::Release);
+            .generation
+            .store(FREE - 1 - last as u64, Ordering::Release);
     }
 
     /// Tests that give up on another process's state push to the shared
@@ -780,7 +811,7 @@ mod tests {
         pretend_forked(&r);
         assert_eq!(r.render_islands(&measured).ok(), Some(before.clone()));
         assert_eq!(last_claimed(&r.slots[..]), 1);
-        assert_eq!(r.slots[1].pid.load(Ordering::Acquire), std::process::id());
+        assert_eq!(r.slots[1].generation.load(Ordering::Acquire), generation());
         let (Some(parent), Some(child)) = (r.slots[0].state.get(), r.slots[1].state.get()) else {
             panic!("both processes' state should be started");
         };
@@ -847,10 +878,26 @@ mod tests {
     #[test]
     fn a_reused_pid_of_an_ancestor_is_not_this_process() {
         let _serial = serial();
+        // The renderer was built by an ancestor (an older generation), and the
+        // process between it and this one never rendered, so slot 0 is the
+        // last claimed. A pid can't tell this process from that ancestor if
+        // the ancestor's pid came back; the generation can.
         let r = renderer(options());
-        // Slot 0 has our pid but slot 1 was claimed after it by another
-        // process: slot 0 belonged to an ancestor whose pid came back.
-        r.slots[1].pid.store(u32::MAX, Ordering::Release);
+        assert!(r.render_islands(&island("{}")).is_ok());
+        let older = generation() - 1;
+        r.slots[0].generation.store(older, Ordering::Release);
+        assert_eq!(last_claimed(&r.slots[..]), 0);
+        assert!(r.render_islands(&island("{}")).is_ok());
+        assert_eq!(last_claimed(&r.slots[..]), 1, "a slot of its own");
+        assert_eq!(r.slots[1].generation.load(Ordering::Acquire), generation());
+        let before = abandoned();
+        drop(r);
+        assert_eq!(abandoned(), before + 1, "the ancestor's state is kept");
+
+        // Slot 0 is ours but slot 1 was claimed after it by another
+        // generation: whatever slot 0 says, the last claimed slot decides.
+        let r = renderer(options());
+        r.slots[1].generation.store(FREE - 1, Ordering::Release);
         assert!(r.render_islands(&island("{}")).is_ok());
         assert_eq!(last_claimed(&r.slots[..]), 2);
         // On drop, only slot 2 is this process's; slot 0 is abandoned.
@@ -864,7 +911,7 @@ mod tests {
         let _serial = serial();
         let r = renderer(options());
         for slot in r.slots.iter() {
-            slot.pid.store(u32::MAX, Ordering::Release);
+            slot.generation.store(FREE - 1, Ordering::Release);
         }
         match r.render_islands(&island("{}")) {
             Err(Error::InvalidOptions(m)) => assert!(m.contains("fork generations"), "{m}"),

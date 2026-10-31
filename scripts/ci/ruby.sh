@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Ruby gem on one Ruby version (full.yml matrix, 3.2 to 4.0):
 #   1. compile the extension in release and run the tests from the repository;
-#   2. build the source gem from the staged tree, install it into an empty
+#   2. run the examples against it (Rust, Ruby and the byte-for-byte check
+#      between them; skipped while examples/run.sh doesn't exist);
+#   3. build the source gem from the staged tree, install it into an empty
 #      GEM_HOME (compiling it as `gem install` would) and run the tests against it.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -14,6 +16,8 @@ cd bindings/ruby
 bundle install --quiet
 step "compile and test (repository)"
 bundle exec rake compile test
+# The extension compiled above is what the Ruby examples load.
+(cd "$REPO_ROOT" && run_examples)
 step "source gem: build, install, test"
 # Reuse the compiled dependencies from step 1 for the installed gem's build.
 export RB_SYS_CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target}"

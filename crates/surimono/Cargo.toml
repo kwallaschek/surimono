@@ -39,6 +39,9 @@ web_atoms = "=0.1.3"
 # blitz-html as fulgur does, to check islands stay in their box.
 blitz-dom.workspace = true
 blitz-html.workspace = true
+# tests/fork.rs forks (fork, waitpid, kill, _exit). MIT OR Apache-2.0; the same
+# exact pin as surimono-core and surimono-islands. Moves to the workspace root.
+libc = "=0.2.191"
 
 [lints]
 workspace = true

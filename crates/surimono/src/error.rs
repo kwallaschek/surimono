@@ -127,7 +127,7 @@ pub enum Error {
     /// The document has more island markers than
     /// [`Options::max_islands`](crate::Options::max_islands) allows. No island
     /// was rendered.
-    #[error("the document has more than {max} islands (Options::max_islands)")]
+    #[error("the document has more than {max} islands (max_islands)")]
     TooManyIslands {
         /// The cap it went over.
         max: usize,
@@ -234,7 +234,7 @@ mod tests {
         }
         assert_eq!(
             Error::TooManyIslands { max: 1000 }.to_string(),
-            "the document has more than 1000 islands (Options::max_islands)"
+            "the document has more than 1000 islands (max_islands)"
         );
     }
 
