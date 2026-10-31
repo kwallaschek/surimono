@@ -315,14 +315,22 @@ fn invalid_options_are_rejected() {
 
 /// Output of `EVERYTHING` in the default and Tokyo sandboxes, plus the host's
 /// own idea of the zone (to prove the child really ran in another one).
+///
+/// The host's offset comes from an unsandboxed QuickJS context, in mid
+/// January and mid July 2001, so both sides of daylight saving show. (Not
+/// 1970: macOS's C library computes POSIX-rule transitions only from 1970
+/// on, so in a southern zone it reports standard time for January 1970,
+/// where glibc reports summer time.)
 fn tz_report() -> String {
     let host = {
         use surimono_core::rquickjs::{Context, Runtime};
         let rt = Runtime::new().unwrap();
         let ctx = Context::full(&rt).unwrap();
         ctx.with(|ctx| {
-            ctx.eval::<i32, _>("new Date(0).getTimezoneOffset()")
-                .unwrap()
+            ctx.eval::<String, _>(
+                "[0, 6].map(m => new Date(Date.UTC(2001, m, 15)).getTimezoneOffset()).join()",
+            )
+            .unwrap()
         })
     };
     let utc = default_sandbox().eval::<String>(EVERYTHING).unwrap();
@@ -341,16 +349,29 @@ fn tz_child() {
 fn output_ignores_the_host_time_zone() {
     let ours = tz_report();
     let ours_body = ours.split_once('\n').unwrap().1.to_owned();
-    // POSIX zone strings need no tzdata, so they work in minimal containers.
-    // The host offset is the zone's on 1970-01-01 (summer in the south).
-    for (tz, host_offset) in [
-        ("UTC0", "0"),
-        ("JST-9", "-540"),
-        ("EST5EDT,M3.2.0,M11.1.0", "300"),
-        ("CET-1CEST,M3.5.0,M10.5.0/3", "-60"),
-        ("AEST-10AEDT,M10.1.0,M4.1.0/3", "-660"),
-        ("IST-5:30", "-330"),
-    ] {
+    // POSIX zone strings need no tzdata, so they work in minimal containers;
+    // IANA names are tried too where the host has them. The host offsets
+    // are the zone's in January and July 2001.
+    let posix = [
+        ("UTC0", "0,0"),
+        ("JST-9", "-540,-540"),
+        ("EST5EDT,M3.2.0,M11.1.0", "300,240"),
+        ("CET-1CEST,M3.5.0,M10.5.0/3", "-60,-120"),
+        ("AEST-10AEDT,M10.1.0,M4.1.0/3", "-660,-600"),
+        ("IST-5:30", "-330,-330"),
+    ];
+    let iana = [
+        ("Asia/Tokyo", "-540,-540"),
+        ("America/New_York", "300,240"),
+        ("Europe/Berlin", "-60,-120"),
+        ("Australia/Sydney", "-660,-600"),
+        ("Asia/Kolkata", "-330,-330"),
+    ];
+    let zoneinfo = std::path::Path::new("/usr/share/zoneinfo");
+    let installed = iana
+        .into_iter()
+        .filter(|(name, _)| zoneinfo.join(name).is_file());
+    for (tz, host_offset) in posix.into_iter().chain(installed) {
         let out = Command::new(std::env::current_exe().unwrap())
             .args([
                 "tz_child",
