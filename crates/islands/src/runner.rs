@@ -1,4 +1,4 @@
-//! The island runner: bundles compiled once, rendered on worker threads.
+//! The island runner: bundles compiled once (built-ins at build time), rendered on worker threads.
 
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
@@ -312,10 +312,15 @@ pub struct RunnerStats {
 /// `TypeError` and the render fails with [`IslandError::NoFonts`].
 ///
 /// Bundles are compiled to bytecode once, at registration, and loaded from
-/// bytecode for each render (no re-parsing). Each render runs on a worker
-/// thread, in a fresh JavaScript runtime under the runner's limits, so
-/// nothing leaks from one render to the next, the whole heap is freed after
-/// every render, and the same request always gives the same SVG.
+/// bytecode for each render (no re-parsing). The built-in renderers were
+/// compiled when this crate was built: their bytecode is loaded in place on
+/// first use, so the first render in a new process skips parsing and
+/// compiling (if the running engine can't read that bytecode, the built-in
+/// is compiled from source instead, with the same output). Each render runs
+/// on a worker thread, in a fresh JavaScript runtime under the runner's
+/// limits, so nothing leaks from one render to the next, the whole heap is
+/// freed after every render, and the same request always gives the same
+/// SVG.
 ///
 /// The pool starts with one worker and adds one (up to
 /// [`RunnerOptions::pool_size`]) only when a request finds every worker
@@ -326,13 +331,13 @@ pub struct RunnerStats {
 /// last, so a repeated renderer skips that step. (A bundle whose top level
 /// queues microtasks is never preloaded.) A request that arrives while its
 /// worker is preloading waits for the preload to finish. A worker idle for
-/// [`RunnerOptions::release_idle_after`] frees its runtime. The limits apply to each
-/// island as a whole: one time budget covers loading the bundle, if it
+/// [`RunnerOptions::release_idle_after`] frees its runtime. The limits
+/// apply to each island as a whole: one time budget covers loading the bundle, if it
 /// wasn't preloaded, the entry call and the microtasks it queues. The
 /// result is the same either way, but a cold render spends part of its
-/// budget loading the bundle (about 20 ms for ECharts, 70 ms for Vega in a
-/// release build), so set the time limit for the cold case: with a limit
-/// close to a chart's cost, a cold render can hit it where a preloaded one
+/// budget loading the bundle (about 20 to 40 ms for the built-in ECharts or
+/// Vega in a release build), so set the time limit for the cold case: with
+/// a limit close to a chart's cost, a cold render can hit it where a preloaded one
 /// passes. Charts with thousands of marks (a 2,000-point Vega-Lite scatter
 /// takes about 0.5 to 1.2 s) may need more than the default 2 s.
 ///
@@ -510,8 +515,8 @@ impl IslandRunner {
     /// Renders one island and returns the renderer's SVG string.
     ///
     /// A built-in renderer (see [`builtin_renderers`](crate::builtin_renderers))
-    /// is compiled on its first use, unless a bundle was registered under
-    /// its name.
+    /// is loaded on its first use, unless a bundle was registered under its
+    /// name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
         let bundle = self.bundle(req.renderer)?;
         serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(bad_json)?;
@@ -526,7 +531,8 @@ impl IslandRunner {
         })
     }
 
-    /// The bundle for `name`: a registered one, or a built-in compiled now.
+    /// The bundle for `name`: a registered one, or a built-in loaded (or
+    /// compiled) now.
     fn bundle(&self, name: &str) -> Result<Arc<Bundle>, IslandError> {
         let registered = |bundles: &RwLock<HashMap<String, Arc<Bundle>>>| {
             bundles
