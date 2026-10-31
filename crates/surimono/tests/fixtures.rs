@@ -223,6 +223,8 @@ fn every_checkpoint_fixture_renders() {
         .collect();
     names.sort();
     assert!(names.len() >= 10, "{names:?}");
+    let fixtures = names.len();
+    let mut islands = 0;
     for name in names {
         let input = String::from_utf8(read(&format!("fixtures/islands/{name}/input.html")))
             .unwrap_or_else(|e| panic!("{e}"));
@@ -239,8 +241,13 @@ fn every_checkpoint_fixture_renders() {
         let lower = out.to_ascii_lowercase();
         assert!(!lower.contains("<text"), "{name}: text not outlined");
         // Every island's SVG fits its declared box, so the box's clip hides
-        // nothing of the chart.
-        for (bw, bh, sw, sh) in boxes_and_svg_sizes(&out) {
+        // nothing of the chart. The helper finds boxes by their exact opening
+        // tag, so check it found one per marker rather than none.
+        let boxes = boxes_and_svg_sizes(&out);
+        assert!(markers >= 1, "{name}: no island marker in the fixture");
+        assert_eq!(boxes.len(), markers, "{name}: boxes found");
+        islands += boxes.len();
+        for (bw, bh, sw, sh) in boxes {
             assert!(
                 sw <= bw && sh <= bh,
                 "{name}: SVG {sw}x{sh} is larger than its {bw}x{bh} box"
@@ -252,4 +259,8 @@ fn every_checkpoint_fixture_renders() {
             "{name}"
         );
     }
+    assert!(
+        islands >= fixtures,
+        "{islands} islands checked in {fixtures} fixtures"
+    );
 }
