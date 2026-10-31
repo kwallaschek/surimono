@@ -25,13 +25,16 @@
 //! flag layouts, the constant pool (numbers, multi-limb BigInts, Latin-1 and
 //! UTF-16 strings, template objects), regular expression bytecode, classes,
 //! generators and async functions. It also includes the engine's version
-//! string and the level of surimono's patches to it
-//! (`vendor/rquickjs-sys/PATCHES.md`). An engine change that alters the
-//! format (a patch adding an opcode or a predefined atom, a new version)
-//! changes the canary's bytes and so the fingerprint, which is what makes
-//! loading sound; a new patch level changes it too, even when the format
-//! stays the same, because a patch can change what bytecode means (how an
-//! opcode behaves) without changing how it is written.
+//! string, the level of surimono's patches to it
+//! (`vendor/rquickjs-sys/PATCHES.md`) and, in workspace builds, a SHA-256 of
+//! the vendored engine's sources and build script (`build.rs`). An engine
+//! change that alters the format (a patch adding an opcode or a predefined
+//! atom, a new version) changes the canary's bytes, which is what makes
+//! loading sound across targets; any change to the vendored sources at all
+//! changes the source hash, because a patch can change what bytecode means
+//! (how an opcode behaves) without changing how it is written, and the
+//! patch level is a minimum-safety marker that isn't bumped for every
+//! patch.
 //!
 //! Embedded bytecode is written without source text or debug information
 //! (see [`compile_for_embedding`]).
@@ -79,7 +82,11 @@ const EMBED_FLAGS: u32 =
 const CANARY: &str = include_str!("canary.js");
 
 /// Changes whenever the fingerprint's layout does.
-const FINGERPRINT_HEADER: &[u8] = b"surimono embedded bytecode 2\0";
+const FINGERPRINT_HEADER: &[u8] = b"surimono embedded bytecode 3\0";
+
+/// SHA-256 of the vendored engine's sources and build script, hex, from
+/// `build.rs`; empty outside the workspace.
+const ENGINE_SOURCES_SHA256: &str = env!("SURIMONO_ENGINE_SOURCES_SHA256");
 
 /// Stack of the thread [`compile_for_embedding`] compiles on: the stack
 /// limit plus room for the Rust frames around the engine. Untouched stack
@@ -143,6 +150,8 @@ pub fn engine_fingerprint() -> Option<&'static [u8]> {
             let mut fp = FINGERPRINT_HEADER.to_vec();
             fp.extend_from_slice(engine_version().to_bytes_with_nul());
             fp.extend_from_slice(&crate::engine::patch_level().to_le_bytes());
+            fp.extend_from_slice(ENGINE_SOURCES_SHA256.as_bytes());
+            fp.push(0);
             fp.push(std::mem::size_of::<usize>() as u8);
             fp.push(if cfg!(target_endian = "little") {
                 b'l'
@@ -403,6 +412,16 @@ log.push(outer(7));
         let bytes = embedded(SCRIPT);
         // SAFETY: refused before anything is read.
         assert!(unsafe { Bytecode::from_embedded("t", bytes, &other) }.is_none());
+    }
+
+    #[test]
+    fn the_fingerprint_includes_the_engine_sources() {
+        // Workspace builds hash vendor/rquickjs-sys.
+        assert_eq!(ENGINE_SOURCES_SHA256.len(), 64, "{ENGINE_SOURCES_SHA256:?}");
+        assert!(ENGINE_SOURCES_SHA256.bytes().all(|b| b.is_ascii_hexdigit()));
+        let fp = fingerprint();
+        let needle = format!("{ENGINE_SOURCES_SHA256}\0");
+        assert!(fp.windows(needle.len()).any(|w| w == needle.as_bytes()));
     }
 
     #[test]
