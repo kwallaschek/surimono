@@ -27,11 +27,13 @@ For setup, see the [Rails guide](rails.md) or the [Rust guide](rust.md).
 | `data-width` | no | Width in CSS pixels, a whole number from 1 to 16384. Default 600. |
 | `data-height` | no | Height in CSS pixels, a whole number from 1 to 16384. Default 400. |
 | `id`, `class` | no | Copied to the output element |
+| `style`, `title`, `lang`, `dir`, `role`, `aria-*` | no | Copied to the output element, for layout and accessible PDFs. `style` goes after the island's size. |
 
-Any other attribute on the marker is dropped.
+Any other attribute on the marker, event handlers included, is dropped.
 
 The element's text is the spec, as JSON. surimono checks that it parses before
-any JavaScript runs and reports the line and column if it doesn't.
+any JavaScript runs and reports the line and column if it doesn't. If it looks
+HTML-escaped (`&quot;`), the error says so.
 
 Rules that follow from HTML itself:
 
@@ -39,29 +41,36 @@ Rules that follow from HTML itself:
   exactly as written, and so does surimono. Write `"Q&A"`, not `"Q&amp;A"`. This
   is also why ERB's plain `<%= spec.to_json %>` breaks the JSON: it turns `"`
   into `&quot;`.
-- **`</script>` ends the element**, even inside a JSON string. Write it as
-  `<\/script>`, which JSON reads as the same string. Rails' `json_escape` and
-  most JSON encoders that target HTML escape `<` as `\u003c`, which also works.
+- **`</script>` ends the element**, even inside a JSON string. Write every `<`
+  in the JSON as `\u003c`, which JSON reads as the same character, so no
+  `</script>` or `<!--` in a string can end or confuse the marker. Rails'
+  `json_escape` and `to_json` do this.
 - **Markers inside comments, `<textarea>`, `<title>` or `<svg>` are not
   islands.** They are text or SVG there, so they are left alone.
 - **Put markers where a `<div>` is allowed.** The marker becomes a `<div>`, and a
   `<div>` inside `<p>`, `<span>` or `<a>` makes the HTML parser close or move
   elements around it. A `<figure>`, `<section>`, `<td>` or `<div>` is fine.
 
-Islands are rendered in document order. If the document is too ambiguous to
-rewrite safely (rare, and only with malformed markup), the whole render fails
-with an `html` error instead of guessing.
+Islands are rendered in document order, one after another. If the document is
+too ambiguous to rewrite safely (rare, and only with malformed markup), the
+whole render fails with an `html` error instead of guessing.
+
+A document may have at most `max_islands` markers (1,000 by default). One with
+more fails with `too-many-islands` before any island runs.
 
 ## What it becomes
 
 ```html
-<div class="surimono-island chart" id="sales" data-renderer="echarts"><svg …>…</svg></div>
+<div class="surimono-island chart" id="sales" data-renderer="echarts"
+     style="width:640px;height:320px;overflow:hidden"><svg …>…</svg></div>
 ```
 
 The wrapper always has the class `surimono-island`, followed by the marker's own
-classes. Everything else in the document is left byte for byte as it was,
-including line endings, attribute quoting and the page's other `<script>`
-elements.
+classes. It is a box of the island's declared size that clips: a renderer that
+draws outside its size can't paint over the page around it. A `style` on the
+marker comes after the size, so it can override it. Everything else in the
+document is left byte for byte as it was, including line endings, attribute
+quoting and the page's other `<script>` elements.
 
 An inline `<svg>` sits on the text baseline like an image, which leaves a few
 pixels of space under it. Most documents want this in their print CSS:
@@ -85,23 +94,27 @@ Give the island the size it will have on the page. Charts lay out their axes and
 labels for that size, and scaling the SVG afterwards scales its text too.
 
 - **ECharts** draws at exactly the island's size.
-<!-- confirm: how the vega renderer uses ctx.width/height when P1-RT-07 lands -->
 - **Vega-Lite and Vega** size the chart from the spec's `width`, `height` and
-  `autosize`. Set them to match the island, and use
-  `"autosize": { "type": "fit", "contains": "padding" }` so axes and legends
-  fit inside that size rather than adding to it.
+  `autosize`, not from the island. In Vega-Lite, `"width": "container"` and
+  `"height": "container"` mean the island's size. Otherwise set them to match
+  the island, and use `"autosize": { "type": "fit", "contains": "padding" }`
+  so axes and legends fit inside that size rather than adding to it. Anything
+  drawn beyond the island's box is clipped.
 
 ## Built-in renderers
 
 | `data-renderer` | Library | Spec |
 |---|---|---|
-| `echarts` | Apache ECharts, server-side SVG renderer | An ECharts option object |
-| `vega-lite` | Vega-Lite, compiled to Vega, then Vega's headless SVG renderer | A Vega-Lite spec |
-| `vega` | Vega's headless SVG renderer | A Vega spec |
+| `echarts` | Apache ECharts 6.1.0, server-side SVG renderer | An ECharts option object |
+| `vega-lite` | Vega-Lite 6.5.0, compiled to Vega, then Vega's headless SVG renderer | A Vega-Lite spec |
+| `vega` | Vega 6.4.0, headless SVG renderer | A Vega spec |
 
-The exact versions are listed in [THIRD_PARTY.md](../../THIRD_PARTY.md). In
-Rust each library is a Cargo feature, so you can leave out the ones you don't
-use.
+Sources and licences are listed in [THIRD_PARTY.md](../../THIRD_PARTY.md). They
+are built in as precompiled QuickJS bytecode, checked against the engine and the
+library source before use; if the check fails, or `SURIMONO_PRECOMPILE=0` is
+set, the library is compiled from source instead, with the same output. In
+Rust, the Cargo feature `echarts` adds `echarts` and `vega` adds `vega` and
+`vega-lite`; both are on by default, so leave out the one you don't use.
 
 What to know about each:
 
@@ -111,6 +124,7 @@ What to know about each:
   format the values before you put them in the spec.
 - Animation is switched off for the option and every series. The SVG shows the
   chart's final state.
+- The locale is ECharts' `EN`.
 - Name a registered font in `textStyle.fontFamily` (for example
   `"'Noto Sans JP'"`). Any other name resolves to your registered fonts as
   described in [Fonts in islands](#fonts-in-islands).
@@ -119,12 +133,20 @@ What to know about each:
 - Expressions are strings in Vega's own expression language, so they work as
   they do in a browser.
 - Put the data in the spec (`"data": { "values": [...] }`). A spec that loads
-  data from a URL fails: the sandbox has no network.
+  data from a URL fails, as do image marks and links (`href`), and the error
+  names what it refused: the sandbox has no network.
+- Transforms and marks that draw to a raster canvas (the label transform, word
+  clouds, heatmap images) aren't supported.
 - Set the font with `"config": { "font": "Noto Sans" }`.
+- Charts with thousands of marks are slow in QuickJS: a scatter plot of a few
+  thousand points can take more than a second, so it may need a time limit
+  above the default 2 s.
 
-**Both:** `Date` in a renderer returns a fixed time in UTC, not the server's
-clock or time zone. A time axis formats dates in UTC. Put dates into the spec as
-values, and pre-format labels when the time zone matters.
+**Both:** scripts never see the server's clock or time zone. `Date.now()` and
+`new Date()` return 2026-01-01T00:00:00Z unless you set `now:` (Ruby),
+`Options::now_ms` (Rust) or `--now-ms` (CLI), and local time is UTC unless you
+set `utc_offset_minutes` (540 for Japan), so time axes show that zone. Put the
+dates a chart shows into its spec as values.
 
 ## When an island fails
 
@@ -138,10 +160,15 @@ values, and pre-format labels when the time zone matters.
 | `javascript` | The script threw | `Surimono::JavaScriptError` (with `js_stack`) | `Error::JavaScript` (with `stack`) |
 | `render` | The renderer's result isn't usable SVG | `Surimono::RenderError` | `Error::Render` |
 | `html` | The document is too ambiguous to rewrite | `Surimono::RenderError` | `Error::Html` |
+| `too-many-islands` | More markers than `max_islands`; nothing was rendered | `Surimono::RenderError` | `Error::TooManyIslands` |
+| `cancelled` | The render was cancelled between islands | the interrupt's own exception, such as `Timeout::Error` | `Error::Cancelled` |
 
 Every island error names the island: in Ruby `island_index` (from 0),
 `island_id` and `renderer`; in Rust `Error::island()`. `kind` is the stable
-name in the first column.
+name in the first column. The CLI prints the message with the kind in brackets
+and exits with 3 for the three limits and 1 for the other island errors.
+
+`too-many-islands`, `html` and `cancelled` end the render whatever the policy.
 
 There are two policies:
 
@@ -156,8 +183,9 @@ There are two policies:
        data-renderer="echarts" data-error="time-limit"><!-- surimono: … --></div>
   ```
 
-  The comment holds the error message. The placeholder has no size, so give
-  `.surimono-island-error` a size or a visible style if the gap should show.
+  The comment holds the error message. The placeholder keeps the island's size
+  (`style="width:…px;height:…px"`), so the page lays out as it would with the
+  chart. Style `.surimono-island-error` to make the gap visible.
 
 Choose it with `error_policy: :placeholder` in Ruby or
 `Options::error_policy(ErrorPolicy::Placeholder)` in Rust.
@@ -240,14 +268,19 @@ What a bundle can rely on, and what it can't:
   and assign the entry to `globalThis` as above, because `iife` output keeps
   top-level names private.
 - **It runs once at registration**, under the same limits, to check that the
-  entry exists. It is compiled to bytecode once, and every island then starts
-  from a fresh context. Nothing one island sets is visible to the next.
+  entry exists. It is compiled to bytecode once, and every island then runs in
+  a fresh JavaScript runtime. Nothing one island sets is visible to the next.
+- **Its name must be new.** A bundle can't take the name of a built-in renderer
+  or of another bundle; that is a `Bundle` (Rust) or `ConfigurationError`
+  (Ruby) error when the renderer is built.
 - **The same limits apply** as to the built-in renderers.
 - **The output is cleaned** before it is inlined: `<script>` elements, event
-  handler attributes and external URLs are removed, every `id` gets a per-island
-  prefix (references to it follow), font families are rewritten to your
-  registered fonts, and text is drawn as outlines (below). Return plain SVG
-  with `<text>` elements and you won't notice.
+  handler attributes, `<style>` sheets, `<foreignObject>`, SMIL animation and
+  external URLs are removed, CSS in attributes is checked, every `id` gets a
+  per-island prefix (references to it follow), font families are rewritten to
+  your registered fonts, and text is drawn as outlines (below). SVG that can't
+  be made safe fails with a `render` error. Return plain SVG with `<text>`
+  elements and presentation attributes and you won't notice.
 - **Determinism is yours to keep.** `Math.random` is seeded and `Date` is fixed,
   so a bundle that only uses the language gives the same output for the same
   spec.
@@ -281,9 +314,9 @@ from one server to the next. Outlines print exactly as measured, on any machine.
 What it costs:
 
 - Chart text can't be selected, searched or copied in the PDF.
-- The original string is kept in the SVG for accessibility
-  (`aria-label` / `<title>`); what reaches the PDF depends on the engine.
-  <!-- confirm: exact attribute/element when the gfx outline change lands -->
+- Each piece of text becomes `<g role="img" aria-label="…">` holding its glyph
+  paths, so the words stay in the SVG for accessibility; what reaches the PDF
+  depends on the engine.
 - The SVG, and so the PDF, gets larger, since every label becomes path data.
 
 To keep real `<text>` instead, pass `text: :keep` in Ruby or `TextMode::Keep` in

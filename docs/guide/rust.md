@@ -1,7 +1,8 @@
 # Rust
 
 The `surimono` crate is the whole public API: a `Renderer` built from `Options`,
-one method that renders a document's islands, and one error type. This guide
+a method that renders a document's islands (and a cancellable variant), and one
+error type. This guide
 pairs it with [fulgur](https://github.com/fulgur-rs/fulgur) to print PDFs.
 
 For the marker format and the renderers, see the [islands guide](islands.md).
@@ -14,12 +15,13 @@ surimono = "0.1"
 fulgur = "0.40"   # surimono 0.1 is tested with fulgur 0.40.0
 ```
 
-surimono needs Rust 1.87 or later. It builds QuickJS from C sources, so a C
-compiler must be installed (as for most `-sys` crates).
+surimono needs Rust 1.87 or later. fulgur 0.40 depends on krilla 0.7, which
+needs Rust 1.89, so the pair needs 1.89. surimono builds QuickJS from C
+sources, so a C compiler must be installed (as for most `-sys` crates).
 
-<!-- confirm: facade feature names once P1-PKG-02 wires in the renderers -->
-ECharts and Vega are Cargo features, `echarts` and `vega`, both on by default.
-Each adds its library's JavaScript to your binary. Leave out the one you don't
+ECharts and Vega are Cargo features, both on by default: `echarts` adds the
+`echarts` renderer, `vega` adds `vega` and `vega-lite`. Each adds its library,
+as precompiled QuickJS bytecode, to your binary. Leave out the one you don't
 use:
 
 ```toml
@@ -72,8 +74,9 @@ impl PdfPipeline {
   of range, unknown renderer names and bundles that don't compile fail here, at
   start-up, not on the first document.
 - `Renderer` is `Send + Sync`. Put the pipeline in an `Arc` and share it
-  between threads. It keeps a pool of JavaScript runtimes, sized with
-  `Options::pool_size` (default: about the number of CPUs).
+  between threads. It keeps a pool of JavaScript runtimes that starts with one
+  and grows only when renders overlap, up to `Options::pool_size` (default: the
+  number of CPUs, at most 4; at most 64). Idle runtimes free their memory.
 - `render_islands` blocks the calling thread until the islands are drawn. In
   async code, call it from `spawn_blocking`:
 
@@ -82,8 +85,10 @@ impl PdfPipeline {
   let pdf = tokio::task::spawn_blocking(move || pipeline.render(&html)).await??;
   ```
 
-- Don't build a renderer and then `fork` the process. Its runtimes live on
-  threads, which don't survive a fork. Build it in the process that uses it.
+- A renderer survives `fork`. Its runtimes live on threads, which don't, so
+  the first render in a forked child starts the child's own pool and text
+  measurer, sharing the font data with the parent and taking no lock a parent
+  thread could have held.
 
 ## Fonts
 
@@ -100,10 +105,10 @@ the one it was measured with. Outlines print exactly as measured. The cost is
 that chart text can't be selected, searched or copied in the PDF. The
 [islands guide](islands.md#chart-text-is-drawn-as-outlines) has the details.
 
-To keep real text, set `TextMode::Keep` in the options. Only do this with an
-engine that prints SVG text with your registered fonts:
+Each label becomes a `<g role="img" aria-label="…">`, so the words stay in the
+SVG for accessibility. To keep real text, set `TextMode::Keep` in the options.
+Only do this with an engine that prints SVG text with your registered fonts:
 
-<!-- confirm: builder method name for TextMode once the gfx/facade change lands -->
 ```rust
 use surimono::TextMode;
 
@@ -130,7 +135,10 @@ let options = Options::new()
     .error_policy(ErrorPolicy::Placeholder)
     .renderers(["echarts", "sparkline"])
     .bundle("sparkline", std::fs::read_to_string("pdf/sparkline.js")?, "render")
-    .pool_size(4);
+    .pool_size(4)
+    .max_islands(50)
+    .now_ms(1_775_001_600_000) // 2026-04-01T00:00:00Z
+    .utc_offset_minutes(540); // Japan
 ```
 
 | Method | Default | What it does |
@@ -141,13 +149,41 @@ let options = Options::new()
 | `error_policy(ErrorPolicy)` | `Fail` | `Fail` stops at the first failed island; `Placeholder` leaves an empty element and continues |
 | `renderers(names)` | all | Enables only these renderers. Islands naming any other fail with `Error::UnknownRenderer`. |
 | `bundle(name, source, entry)` | none | Adds your own renderer; see [the islands guide](islands.md#your-own-renderer) |
-| `pool_size(n)` | about the CPU count | How many islands can render at once |
+| `pool_size(n)` | CPUs, at most 4 | Most islands rendered at once (1 to 64) |
+| `max_islands(n)` | 1,000 | Most island markers one document may have; more fails with `Error::TooManyIslands` before any island runs |
+| `now_ms(i64)` | `DEFAULT_NOW_MS` (2026-01-01T00:00:00Z) | What `Date.now()` and `new Date()` return, in ms since the epoch |
+| `utc_offset_minutes(i32)` | 0 | Local time's offset from UTC for scripts (-720 to 840) |
+| `text_mode(TextMode)` | `Outlines` | `Outlines` draws chart text as paths in your fonts; `Keep` leaves `<text>` |
+
+The host's clock and time zone are never read.
 
 `Limits` has public fields (`memory_bytes`, `time`, `stack_bytes`) and the
 constants `Limits::DEFAULT_MEMORY_BYTES`, `DEFAULT_TIME` and
 `DEFAULT_STACK_BYTES`. The memory limit must be at least 1 MiB and the stack
-limit between 64 KiB and 16 MiB. The time limit applies to each island, not to
-the whole document.
+limit between 64 KiB and 16 MiB. The time limit covers loading the renderer
+and drawing one island, not the whole document, so a document with N islands
+can take up to N × `time`. `max_islands` caps N.
+
+## Cancelling a render
+
+`render_islands_cancellable` takes an `AtomicBool` and checks it before each
+island; once it is true, the rest are skipped with `Error::Cancelled`, whatever
+the error policy. An island already running ends at its own time limit. Set the
+flag from another thread, a timer or a signal handler:
+
+```rust
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
+let cancel = Arc::new(AtomicBool::new(false));
+let flag = Arc::clone(&cancel);
+std::thread::spawn(move || {
+    std::thread::sleep(Duration::from_secs(10));
+    flag.store(true, Ordering::Relaxed);
+});
+let result = renderer.render_islands_cancellable(&html, &cancel);
+```
 
 ## Errors
 
@@ -181,7 +217,8 @@ far a script gets in its time depends on how busy the machine is.
   (from 0), the marker's `id` and its `renderer`. `Error::island()` returns it
   for any error that has one.
 - `Font`, `Bundle` and `InvalidOptions` come from `Renderer::new`. `Html` means
-  the markup was too ambiguous to rewrite safely.
+  the markup was too ambiguous to rewrite safely. `TooManyIslands { max }` and
+  `Cancelled` belong to the whole document and end it whatever the policy.
 - `Error::kind()` returns a stable kebab-case name (`"time-limit"`), the same
   one the Ruby gem and placeholders use.
 

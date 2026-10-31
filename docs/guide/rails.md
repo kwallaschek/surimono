@@ -54,8 +54,10 @@ By default surimono draws the text in every chart as vector outlines from your
 font files. fulgur 0.40 would otherwise print `<svg>` text with the server's
 system fonts, not the ones you register, so labels could print in the wrong font
 and overflow. Outlines print exactly as measured on every machine, but chart
-labels can't be selected, searched or copied in the PDF. The
-[islands guide](islands.md#chart-text-is-drawn-as-outlines) has the details.
+labels can't be selected, searched or copied in the PDF. Each label becomes a
+`<g role="img" aria-label="…">`, so the words stay in the SVG for
+accessibility. The [islands guide](islands.md#chart-text-is-drawn-as-outlines)
+has the details.
 
 To keep real text, pass `text: :keep` to `Surimono::Renderer.new`. With fulgur
 0.40 that prints chart labels in a system font, so only do it with an engine
@@ -76,27 +78,21 @@ html { font-family: "Noto Sans", "Noto Sans JP"; }
 The family name is the one stored in the file, not the file name. On Linux,
 `fc-scan --format "%{family}\n" app/fonts/NotoSansJP-Regular.otf` prints it.
 
-## One renderer per process
+## One renderer, shared
 
-A `Surimono::Renderer` loads the fonts, compiles the chart libraries to bytecode
-and keeps a pool of JavaScript runtimes. A `Fulgur::Engine` holds its fonts too.
-Build each once per process and share it between threads. Both release the GVL
-while they render, so other threads keep running.
+A `Surimono::Renderer` loads the fonts and keeps a pool of JavaScript runtimes
+with the chart libraries loaded from precompiled bytecode. A `Fulgur::Engine`
+holds its fonts too. Build each once and share it between threads. Both release
+the GVL while they render, so other threads keep running.
 
 ```ruby
 # app/lib/pdf_renderer.rb
 class PdfRenderer
   LOCK = Mutex.new
 
-  # The renderer for this process, built on first use.
+  # The shared renderer, built on first use.
   def self.instance
-    pid = Process.pid
-    return @instance if @pid == pid
-
-    LOCK.synchronize do
-      @instance, @pid = new, pid unless @pid == pid
-      @instance
-    end
+    @instance || LOCK.synchronize { @instance ||= new }
   end
 
   def self.render(html) = instance.render(html)
@@ -105,7 +101,7 @@ class PdfRenderer
   def initialize
     @surimono = Surimono::Renderer.new(
       fonts: PDF_FONTS,
-      pool_size: Integer(ENV.fetch("RAILS_MAX_THREADS", 5)),
+      pool_size: Integer(ENV.fetch("RAILS_MAX_THREADS", 3)),
     )
     assets = Fulgur::AssetBundle.new
     PDF_FONTS.each { |path| assets.add_font_file(path) }
@@ -126,27 +122,49 @@ end
 
 Why it is built this way:
 
-- **On first use, per process.** surimono renders on worker threads, and threads
-  don't survive `fork`. Puma with `preload_app!` and several workers, Unicorn,
-  Resque and Sidekiq swarm all load the app and then fork. A renderer built
-  before the fork would have no workers in the child. The `Process.pid` check
-  builds a new one in each child, so it is safe even if something renders in the
-  parent first. Don't build renderers in an initializer.
-- **`pool_size`** is how many islands this process can render at once. Match it
-  to the threads that render PDFs: Puma's thread count, or Sidekiq's
-  `concurrency`. Extra renders wait for a free runtime. Each busy runtime can
-  use up to the memory limit (64 MB by default), and its heap is freed after
-  every island.
+- **Forking is fine.** A `Surimono::Renderer` survives `fork`: Puma with
+  `preload_app!` or `fork_worker`, Unicorn, Resque and Sidekiq swarm can load
+  the app, build the renderer, and fork. Its worker threads don't survive the
+  fork, so the first render in each child starts that child's own runtime pool
+  and text measurer, sharing the font data with the parent. You can build it
+  lazily as above or eagerly at boot, with
+  `Rails.application.config.after_initialize { PdfRenderer.instance }` in an
+  initializer; both work. In our tests a
+  fulgur 0.40 engine built before the fork also rendered in every child.
+- **`pool_size`** is the most islands this process renders at once. The pool
+  starts with one JavaScript runtime and adds one only when renders overlap, up
+  to `pool_size`, and a runtime idle for a couple of seconds frees its memory.
+  Set it to the threads that render PDFs: Puma's thread count, or Sidekiq's
+  `concurrency`. Extra renders wait for a free runtime. The default is the
+  number of CPUs, at most 4; the most is 64. Each busy runtime can use up to
+  the memory limit (64 MB by default), and its heap is freed after every
+  island.
 - **`Fulgur::Engine.new` takes the fonts out of the `AssetBundle`** you pass it,
   leaving the bundle empty. Build a new bundle for every engine.
 - **Page size and margins** come from the template's `@page` rule below. If you
   pass `page_size:` or `margin:` to `Fulgur::Engine.new`, they override it.
 
 `Surimono.render(html, fonts: PDF_FONTS)` is a shortcut that keeps one renderer
-per set of options in the process (up to 16). It is fine for scripts and small
-apps. With several option sets or font data passed as Strings, prefer an
-explicit renderer as above, since the shortcut compares the options on every
-call.
+per set of options in the process (up to 4, least recently used dropped first).
+It is fine for scripts and small apps. With several option sets or font data
+passed as Strings, prefer an explicit renderer as above, since the shortcut
+compares the options on every call, and a fifth option set rebuilds a
+renderer.
+
+### Dates and time zones
+
+Scripts never see the server's clock or time zone. `Date.now()` and
+`new Date()` return 2026-01-01 00:00:00 UTC, and local time is UTC, unless you
+set them:
+
+```ruby
+Surimono::Renderer.new(fonts: PDF_FONTS, now: Time.utc(2026, 4, 1), utc_offset_minutes: 540)
+```
+
+`utc_offset_minutes: 540` shows time axes in Japan time. These options belong
+to the renderer, so don't build one per document with that document's time;
+put dates a chart shows into its spec instead, and set `now:` only for charts
+that compute "today" themselves.
 
 ## The view
 
@@ -261,7 +279,7 @@ Everything surimono raises is a `Surimono::Error`, a `StandardError`:
 | `Surimono::TimeLimitError` | An island's script ran longer than `limits[:time_ms]` |
 | `Surimono::StackOverflowError` | An island's script recursed deeper than `limits[:stack_kb]` allows |
 | `Surimono::JavaScriptError` | An island's script threw; `#js_stack` has the JavaScript stack |
-| `Surimono::RenderError` | A malformed marker, an unknown renderer, unusable output, or markup too ambiguous to rewrite |
+| `Surimono::RenderError` | A malformed marker, an unknown renderer, unusable output, more islands than `max_islands` (kind `"too-many-islands"`), or markup too ambiguous to rewrite |
 | `Surimono::ConfigurationError` | From `Renderer.new`: a font that can't be loaded, a limit out of range, an unknown renderer name, a bundle that can't be used |
 | `Surimono::InternalError` | A bug in surimono itself, such as a panic during a render. The process keeps running; please report it with the message. |
 
@@ -282,8 +300,9 @@ both under `Fulgur::Error`.
 
 By default the first failed island fails the whole render. To print the rest of
 the document and leave an empty `<div class="surimono-island
-surimono-island-error">` where the chart was, pass `error_policy: :placeholder`
-to `Surimono::Renderer.new`.
+surimono-island-error">` of the chart's size where the chart was, pass
+`error_policy: :placeholder` to `Surimono::Renderer.new`. Its `data-error`
+attribute holds the kind and a comment inside it holds the message.
 
 ## Limits
 
@@ -296,7 +315,25 @@ Surimono::Renderer.new(fonts: PDF_FONTS, limits: { memory_mb: 128, time_ms: 5_00
 ```
 
 The time limit applies to each island, so a document with 20 islands can take up
-to 20 times as long. Put a timeout around the job if that matters.
+to 20 times as long. Two options bound a whole document:
+
+- **`max_islands:`** (default 1,000). A document with more islands raises
+  `Surimono::RenderError` with kind `"too-many-islands"` before any island
+  runs. With documents from users, set it to what your templates need:
+
+  ```ruby
+  Surimono::Renderer.new(fonts: PDF_FONTS, limits: { time_ms: 1_000 }, max_islands: 20)
+  ```
+
+  Then one document spends at most about 20 seconds running chart scripts.
+- **Timeouts cancel.** `Timeout.timeout`, `Rack::Timeout`, `Thread#raise`,
+  `Thread#kill` or an exception a signal handler raises in the rendering thread
+  stop a render before its next island and raise as usual (for example `Timeout::Error`); the island already
+  running ends within its own `time_ms`. So a timeout around the call works:
+
+  ```ruby
+  html = Timeout.timeout(10) { PdfRenderer.islands(html) }
+  ```
 
 ## Testing
 
@@ -307,10 +344,22 @@ test "report renders its chart" do
   html = ApplicationController.render(template: "reports/show", layout: "pdf",
                                       assigns: { report: reports(:q3) })
   out = PdfRenderer.islands(html)
-  assert_includes out, %(<div class="surimono-island" id="sales" data-renderer="echarts"><svg)
+  assert_includes out, %(<div class="surimono-island" id="sales" data-renderer="echarts" ) +
+                       %(style="width:680px;height:320px;overflow:hidden"><svg)
   refute_includes out, "application/vnd.surimono+json"
   assert_equal out, PdfRenderer.islands(html) # same input, same bytes
 end
+```
+
+## Licences
+
+The gem includes `THIRD_PARTY_LICENSES.txt` at its root: the licences and
+notices of every Rust crate and JavaScript library (ECharts, Vega and their
+dependencies) built into it. If you ship the gem to others, in a container
+image or an installer, ship that file with it. To find it:
+
+```ruby
+File.join(Gem.loaded_specs.fetch("surimono").full_gem_path, "THIRD_PARTY_LICENSES.txt")
 ```
 
 ## When something looks wrong
@@ -324,5 +373,5 @@ end
 | Chart labels in the wrong font, overflowing or clipped | The renderer was built with `text: :keep`. Remove it so chart text is drawn as outlines. |
 | Chart labels can't be selected or searched | Expected: chart text is drawn as outlines. See [above](#chart-text-is-drawn-as-outlines). |
 | A gap under every chart | The SVG is inline. Add `.surimono-island > svg { display: block; }`. |
-| Renders hang after a deploy with `preload_app!` | A renderer was built before the fork. Build it per process as above. |
+| A render takes far longer than `time_ms` | The limit is per island. Lower `max_islands:` or put a timeout around the call (see [Limits](#limits)). |
 | `RenderError` "unknown renderer" | A typo in `data-renderer`, or the renderer isn't in `renderers:`. The message lists the enabled ones. |
