@@ -1,0 +1,12 @@
+{
+  "name": "surimono-bench-grover",
+  "private": true,
+  "description": "Puppeteer for the Grover side of surimono's benchmark (Grover resolves puppeteer from this folder). Test tooling only; never bundled.",
+  "license": "MIT OR Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "puppeteer": "25.11.0"
+  }
+}

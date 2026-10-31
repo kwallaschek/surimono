@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+# Ruby side of the Grover benchmark (bench/run.sh installs it into bench/.cache).
+# The surimono gem is not listed: bench/ruby/bench.rb loads it from
+# bindings/ruby/lib (built with `rake compile`) or $SURIMONO_RUBY_LIB.
+source "https://rubygems.org"
+
+gem "grover", "1.2.10"   # Chrome through Puppeteer (bench/grover/package.json pins puppeteer)
+gem "fulgur", "0.40.0"   # the PDF engine surimono hands its HTML to
