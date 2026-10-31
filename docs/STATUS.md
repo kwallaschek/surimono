@@ -25,7 +25,6 @@ time is now enforced by `scripts/fleet/owner-check.sh`.
 |---|---|---|
 | #47 | P1-RT-14 time-accurate deadlines (R4, R5) | BLOCK (BigInt pow leak on interrupt); fixing, with P1-RT-22 fork-safe registry folded in |
 | #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | fixes pushed (#12 7cc4cc1, #27 e2923ee); in review |
-| #54 | P1-RT-16 on-demand pool, idle release (PSS 78 → 41 MB) | in review; P1-RT-17b (precompiled bytecode) next |
 | #25 → #26 → #34 | facade on the real backend, CLI, licences | BLOCKs from 16:25 being folded in; critical path for the checkpoint run |
 | #35 | P1-CF-09 checkpoint-2 run script | approved at 66cba58; merges after #27 |
 | #50, #51 | P1-CF-11 review follow-ups (checks, compat.py, offline WebRTC) | #50 BLOCK (sandboxed srcdoc iframe keeps WebRTC), being fixed; #51 inherits it |
