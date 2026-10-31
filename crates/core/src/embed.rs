@@ -25,10 +25,13 @@
 //! flag layouts, the constant pool (numbers, multi-limb BigInts, Latin-1 and
 //! UTF-16 strings, template objects), regular expression bytecode, classes,
 //! generators and async functions. It also includes the engine's version
-//! string. An engine change that alters the format (a patch adding an opcode
-//! or a predefined atom, a new version) changes the canary's bytes and so
-//! the fingerprint; one that leaves the format alone (a runtime fix) keeps
-//! old bytecode readable, which is what makes it sound to load.
+//! string and the level of surimono's patches to it
+//! (`vendor/rquickjs-sys/PATCHES.md`). An engine change that alters the
+//! format (a patch adding an opcode or a predefined atom, a new version)
+//! changes the canary's bytes and so the fingerprint, which is what makes
+//! loading sound; a new patch level changes it too, even when the format
+//! stays the same, because a patch can change what bytecode means (how an
+//! opcode behaves) without changing how it is written.
 //!
 //! Embedded bytecode is written without source text or debug information
 //! (see [`compile_for_embedding`]).
@@ -76,7 +79,7 @@ const EMBED_FLAGS: u32 =
 const CANARY: &str = include_str!("canary.js");
 
 /// Changes whenever the fingerprint's layout does.
-const FINGERPRINT_HEADER: &[u8] = b"surimono embedded bytecode 1\0";
+const FINGERPRINT_HEADER: &[u8] = b"surimono embedded bytecode 2\0";
 
 /// Stack of the thread [`compile_for_embedding`] compiles on: the stack
 /// limit plus room for the Rust frames around the engine. Untouched stack
@@ -139,6 +142,7 @@ pub fn engine_fingerprint() -> Option<&'static [u8]> {
             let canary = compile_stripped(CANARY, "surimono:canary", Limits::default()).ok()?;
             let mut fp = FINGERPRINT_HEADER.to_vec();
             fp.extend_from_slice(engine_version().to_bytes_with_nul());
+            fp.extend_from_slice(&crate::engine::patch_level().to_le_bytes());
             fp.push(std::mem::size_of::<usize>() as u8);
             fp.push(if cfg!(target_endian = "little") {
                 b'l'
@@ -380,6 +384,25 @@ log.push(outer(7));
             compile_for_embedding("let = ;", "bad.js"),
             Err(SandboxError::Exception { .. })
         ));
+    }
+
+    #[test]
+    fn the_fingerprint_includes_the_patch_level() {
+        let fp = fingerprint();
+        let version = engine_version().to_bytes_with_nul();
+        let at = FINGERPRINT_HEADER.len() + version.len();
+        assert_eq!(&fp[FINGERPRINT_HEADER.len()..at], version);
+        assert_eq!(
+            fp[at..at + 4],
+            crate::engine::patch_level().to_le_bytes(),
+            "the patch level follows the version"
+        );
+        // Bytecode recorded at another patch level is refused.
+        let mut other = fp.to_vec();
+        other[at] ^= 1;
+        let bytes = embedded(SCRIPT);
+        // SAFETY: refused before anything is read.
+        assert!(unsafe { Bytecode::from_embedded("t", bytes, &other) }.is_none());
     }
 
     #[test]
