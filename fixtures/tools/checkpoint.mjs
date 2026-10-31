@@ -15,7 +15,7 @@
 //   surimono.html             surimono's output for input.html (fixture fonts, default limits)
 //   island-<i>.svg            island i cut out of it (the facade's div.surimono-island)
 //   island-<i>-chrome/        Chrome prints that SVG alone: surimono's SVG by itself,
-//                             the checkpoint-2 gate (shape, colour, hue and text checks)
+//                             the checkpoint-2 gate (shape, colour, hue, text and font checks)
 //   island-<i>-fulgur/        fulgur prints that SVG alone: plus fulgur's SVG printing
 //   page/                     fulgur prints surimono.html: the whole document
 //
@@ -297,7 +297,7 @@ const md = [
   "",
   `**Gate (each island's SVG printed by Chrome): ${gate.filter((s) => s.pass && !s.error).length} of ${gate.length} pass.** All comparisons: ${all.filter((s) => s.pass && !s.error).length} of ${all.length} pass. Byte-identical across two processes: ${rows.filter((r) => r.deterministic).length} of the ${rows.filter((r) => r.deterministic !== undefined).length} fixtures that rendered (${rows.length} in all).`,
   "",
-  `A comparison passes when shape (worst 32×32 window of near-mismatched ink) ≤ ${pct(PASS_WORST_WINDOW)}, colour (solid areas) ≤ ${pct(PASS_COLOUR_WINDOW)}, hue (strokes) ≤ ${pct(PASS_HUE_WINDOW)}, the page size matches and, for islands, every Chrome string is there (\`fixtures/README.md\`). Scores are shape / colour / hue. Each image is Chrome | surimono | diff.`,
+  `A comparison passes when shape (worst 32×32 window of near-mismatched ink) ≤ ${pct(PASS_WORST_WINDOW)}, colour (solid areas) ≤ ${pct(PASS_COLOUR_WINDOW)}, hue (strokes) ≤ ${pct(PASS_HUE_WINDOW)}, the page size matches and, for islands, every Chrome string is there with the same declared font weight and style (\`fixtures/README.md\`). Scores are shape / colour / hue. Each image is Chrome | surimono | diff.`,
   "",
   "| Fixture | Island | Printed by Chrome (gate) | Scores | Printed by fulgur | Scores | fulgur's floor | Images |",
   "|---|---|---|---|---|---|---|---|",
