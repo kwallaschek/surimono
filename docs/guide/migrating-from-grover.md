@@ -58,7 +58,9 @@ Sort them into three groups:
 
 A chart drawn with another library (Chart.js, Highcharts, ApexCharts) has to be
 rewritten as an ECharts or Vega-Lite spec first. Both cover the usual bar, line,
-area, pie and scatter charts.
+area, pie and scatter charts. If the library can draw SVG without a browser,
+you can instead wrap it as your own bundle (see
+[Your own renderer](islands.md#your-own-renderer)).
 
 ## 2. Turn each chart into an island
 

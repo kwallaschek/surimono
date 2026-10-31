@@ -82,8 +82,8 @@ The family name is the one stored in the file, not the file name. On Linux,
 
 A `Surimono::Renderer` loads the fonts and keeps a pool of JavaScript runtimes
 with the chart libraries loaded from precompiled bytecode. A `Fulgur::Engine`
-holds its fonts too. Build each once and share it between threads. Both release
-the GVL while they render, so other threads keep running.
+holds its fonts too. Build each once and share it between threads. surimono
+releases the GVL while it renders, so other threads keep running.
 
 ```ruby
 # app/lib/pdf_renderer.rb
@@ -122,15 +122,14 @@ end
 
 Why it is built this way:
 
-- **Forking is fine.** A `Surimono::Renderer` survives `fork`: Puma with
-  `preload_app!` or `fork_worker`, Unicorn, Resque and Sidekiq swarm can load
-  the app, build the renderer, and fork. Its worker threads don't survive the
-  fork, so the first render in each child starts that child's own runtime pool
-  and text measurer, sharing the font data with the parent. You can build it
-  lazily as above or eagerly at boot, with
-  `Rails.application.config.after_initialize { PdfRenderer.instance }` in an
-  initializer; both work. In our tests a
-  fulgur 0.40 engine built before the fork also rendered in every child.
+- **Build the fulgur engine after the fork.** A `Surimono::Renderer` survives
+  `fork`: Puma with `preload_app!` or `fork_worker`, Unicorn, Resque and
+  Sidekiq swarm can load the app, build the renderer, and fork. Its worker
+  threads don't survive the fork, so the first render in each child starts that
+  child's own runtime pool and text measurer, sharing the font data with the
+  parent. fulgur makes no such promise, so build its engine in each worker,
+  after the fork. The lazy `instance` above does that as long as nothing calls
+  it before the fork; don't warm it up in an initializer.
 - **`pool_size`** is the most islands this process renders at once. The pool
   starts with one JavaScript runtime and adds one only when renders overlap, up
   to `pool_size`, and a runtime idle for a couple of seconds frees its memory.
