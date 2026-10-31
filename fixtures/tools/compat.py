@@ -130,7 +130,8 @@ def classify(score: dict) -> tuple[str, str]:
     result in surimono's columns."""
     subject = score.get("subject", "")
     where = score.get("_file", "?")
-    m = re.fullmatch(r"(\S+) island (\d+) \(printed by (chrome|fulgur)\)", subject)
+    # ASCII digits, no leading zero: one island has exactly one spelling.
+    m = re.fullmatch(r"(\S+) island (0|[1-9][0-9]*) \(printed by (chrome|fulgur)\)", subject)
     if m:
         return m.group(1), f"island-{m.group(2)}" + ("-fulgur" if m.group(3) == "fulgur" else "")
     if re.fullmatch(r"\S+", subject):
@@ -197,10 +198,17 @@ def check_detail(score: dict, check: str) -> str:
     return check
 
 
+def passed(score: dict) -> bool:
+    """A pass is derived, never taken on trust: `pass` must be the boolean true
+    and no check inside the score may have failed, so a producer that forgets
+    to fold a new check into `pass` can't turn it into a pass."""
+    return score.get("pass") is True and not score.get("error") and not failed_checks(score)
+
+
 def cell(score: dict | None) -> str:
     if score is None:
         return "not run"
-    if score.get("pass") and not score.get("error"):
+    if passed(score):
         return f"pass (shape {_pct(score.get('worst_window'))})"
     checks = failed_checks(score) or ["shape"]
     return f"**FAIL** ({'; '.join(check_detail(score, c) for c in checks)})"
@@ -236,11 +244,14 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict], determinism: dic
     for name in sorted(set(meta) | set(by) | set(determinism or {})):
         got = by.get(name, {})
         n = len(meta.get(name, {}).get("islands", [])) or max([int(k.split("-")[1]) + 1 for k in got if k.startswith("island-")] or [1])
-        beyond = [k for k in got if k.startswith("island-") and int(k.split("-")[1]) >= n]
-        if beyond:
+        # Every result must land in a column the table shows; anything else
+        # (an island the fixture doesn't have, any other key) stops the run.
+        shown = {"page"} | {f"island-{i}" for i in range(n)} | {f"island-{i}-fulgur" for i in range(n)}
+        stray = [k for k in got if k not in shown]
+        if stray:
             raise CompatError(
-                f"{got[beyond[0]].get('_file', '?')}: a result for {name} {beyond[0]}, but the fixture has {n} island"
-                f"{'' if n == 1 else 's'} (meta.toml); one result can't hide another"
+                f"{got[stray[0]].get('_file', '?')}: a result for {name} {stray[0]}, which the table has no place for "
+                f"(the fixture has {n} island{'' if n == 1 else 's'}, meta.toml); one result can't hide another"
             )
         chrome = [got.get(f"island-{i}") for i in range(n)]
         fulgur = [got.get(f"island-{i}-fulgur") for i in range(n)]
@@ -256,7 +267,7 @@ def fixtures_section(scores: list[dict], meta: dict[str, dict], determinism: dic
             det_cell = f"**FAIL** ({det.get('note') or 'the two renders differ'})"
         if not ran:
             status[name] = "not run"
-        elif all(s.get("pass") and not s.get("error") for s in ran) and (det is None or det.get("deterministic") is True):
+        elif all(passed(s) for s in ran) and (det is None or det.get("deterministic") is True):
             status[name] = "pass" if len(ran) == len(everything) and det is not None else "partial"
         else:
             status[name] = "fail"

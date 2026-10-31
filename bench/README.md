@@ -26,8 +26,16 @@ didn't finish every run (a timeout, the job's time budget). No number is ever
 estimated, and no ratio or verdict uses a system that isn't fully measured: a
 ratio needs both sides measured, and "met" / "not met" also needs the runs the
 SPEC asks for (20 timed runs, and the requested memory runs); with fewer it
-says "indicative". A bench/rust build that fails is an error (the job goes
-red); one that doesn't fit its time budget is "not measured".
+says "indicative"; that holds for the warm memory peak too, which needs a
+process that rendered the same 20 timed documents. A bench/rust build or a
+surimono gem build that fails is an error (the job goes red, after everything
+else is measured); a bench/rust build that doesn't fit its time budget is "not
+measured".
+
+surimono's runtime pool is the facade's default (the number of CPUs, 1 to 8)
+unless `BENCH_POOL_SIZE` sets it; `results.json` (`method.surimono_pool_size`)
+and `summary.md` record which. Each pooled runtime keeps its own QuickJS heap,
+so the pool size shows in peak memory.
 
 ### CI time
 

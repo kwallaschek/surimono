@@ -66,9 +66,13 @@ bundle install --quiet
 
 if [ -n "${CI:-}" ] && [ -z "${SURIMONO_RUBY_LIB:-}" ] && grep -q "class Renderer" bindings/ruby/lib/surimono.rb 2>/dev/null; then
   step "surimono gem (release build from bindings/ruby)"
-  ( unset BUNDLE_GEMFILE BUNDLE_PATH
-    cd bindings/ruby && bundle install --quiet && bundle exec rake compile ) \
-    || echo "surimono gem did not build; the surimono-ruby row will say so"
+  # A failed build is a bug, not "not built yet": bench.py marks surimono-ruby
+  # as an error (the job goes red) after measuring everything else.
+  if ! ( unset BUNDLE_GEMFILE BUNDLE_PATH
+         cd bindings/ruby && bundle install --quiet && bundle exec rake compile ); then
+    echo "surimono gem did not build; surimono-ruby is an error in this run" >&2
+    export BENCH_GEM_BUILD_FAILED=1
+  fi
 fi
 
 work_args=()
