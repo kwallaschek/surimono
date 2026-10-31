@@ -1,0 +1,31 @@
+{
+  "fixture": "echarts-line-dense-latin",
+  "chromium": "153.0.8010.12",
+  "echarts": "6.1.0",
+  "pixelmatch": "8.0.0",
+  "playwright": "1.63.0",
+  "pngjs": "7.0.0",
+  "vega": "6.4.0",
+  "vega-lite": "6.5.0",
+  "poppler": "24.02.0",
+  "fonts": [
+    "Noto Sans 400 normal",
+    "Noto Sans 700 normal",
+    "Noto Sans JP 400 normal",
+    "Noto Sans JP 700 normal"
+  ],
+  "islands": [
+    {
+      "index": 0,
+      "renderer": "echarts",
+      "width": 680,
+      "height": 384,
+      "svg_bytes": 30098,
+      "svg_sha256": "102ad527c7fab89b113041c9a7927ca974380c105872a071bd417107abf90a31"
+    }
+  ],
+  "console": [],
+  "pages": [
+    "chrome-1.png"
+  ]
+}
