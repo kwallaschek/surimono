@@ -5,11 +5,19 @@ use std::time::Duration;
 
 use crate::ErrorPolicy;
 
-/// Resource limits for every script a renderer runs.
+/// Resource limits for every script a renderer runs, applied to each island
+/// separately.
 ///
 /// A script that goes over a limit stops with [`Error::MemoryLimit`],
 /// [`Error::TimeLimit`] or [`Error::StackOverflow`](crate::Error::StackOverflow);
 /// it never crashes or hangs the process.
+///
+/// The limits apply **per island**: every island gets a fresh JavaScript heap of
+/// `memory_bytes` and `time` to run, so a document with N islands can take up
+/// to N × `time`. Bound the whole document in your own code if you need to.
+///
+/// Build limits from the defaults, so a limit added in a later release keeps
+/// its default in your code:
 ///
 /// ```
 /// use std::time::Duration;
@@ -25,7 +33,7 @@ use crate::ErrorPolicy;
 pub struct Limits {
     /// Most bytes the JavaScript heap may use. At least 1 MiB.
     pub memory_bytes: usize,
-    /// Longest one island's script may run.
+    /// Longest one island's script may run. Must be more than zero.
     pub time: Duration,
     /// Most bytes of native stack the JavaScript engine may use, from 64 KiB to 16 MiB.
     pub stack_bytes: usize,

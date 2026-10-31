@@ -18,6 +18,10 @@ serde_json.workspace = true
 # fenced in deny.toml) with Stylo. 2.7.0 is the newest release that builds on our
 # MSRV 1.87 (2.7.1 and later use let chains). Exact pin; moves to the workspace root.
 lol_html = "=2.7.0"
+# HTML named character references (the standard's table), for decoding marker
+# attributes. MIT OR Apache-2.0; already in the tree through blitz-html 0.2.
+# Exact pin; moves to the workspace root.
+web_atoms = "=0.1.3"
 
 [lints]
 workspace = true
