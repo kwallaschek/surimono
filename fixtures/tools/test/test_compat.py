@@ -292,6 +292,18 @@ class CompatTest(unittest.TestCase):
             compat.load_determinism(self.root / "det")
         self.assertEqual(list(compat.load_determinism(self.root / "det" / "a")), ["echarts-a"])
 
+    def test_unstamped_results_never_mix_with_stamped_ones(self):
+        # Review of #35: an unstamped passing score (compare.mjs by hand, maybe
+        # on Chrome's own SVG) next to stamped real ones was credited to the real CLI.
+        real = {"cli": "/r/target/release/surimono", "version": "surimono 0.1.0", "sha256": "2", "commit": "abc"}
+        stamped = {**score("echarts-a island 0 (printed by chrome)", True), "producer": real, "_file": "a/score.json"}
+        unstamped = {**score("echarts-b island 0 (printed by chrome)", True), "_file": "b/score.json"}
+        with self.assertRaises(compat.CompatError) as e:
+            compat.generate([stamped, unstamped], None, None, "c", None)
+        self.assertIn("producer not recorded", str(e.exception))
+        out = compat.generate([unstamped], None, None, "c", None)
+        self.assertIn("Results: fixtures from c (producer not recorded)", out)
+
     def test_stand_in_and_mixed_producers_are_refused(self):
         fake = {"cli": "/r/fixtures/tools/test/fake-surimono.mjs", "version": "surimono 0.0.0 (fake-surimono.mjs: Chrome's SVGs, not surimono)", "sha256": "1", "commit": None}
         real = {"cli": "/r/target/release/surimono", "version": "surimono 0.1.0", "sha256": "2", "commit": "abc"}

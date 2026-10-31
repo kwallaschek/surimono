@@ -20,7 +20,15 @@ function run(env, out, extra = []) {
     env: { ...process.env, FAKE_SURIMONO_FROM: "", FAKE_SURIMONO_FAIL: "", FAKE_SURIMONO_LEAK: "", ...env },
   });
 }
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "checkpoint-test-"));
+const made = [];
+const tmp = () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "checkpoint-test-"));
+  made.push(d);
+  return d;
+};
+test.after(() => {
+  for (const d of made) fs.rmSync(d, { recursive: true, force: true });
+});
 const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
 
 test("--out inside fixtures/ is refused", () => {
@@ -84,4 +92,18 @@ test("floors come from a baseline run, never from constants", () => {
   assert.match(md, /at most 1\.2% on a page and 3\.4% on an island/);
   run({ FAKE_SURIMONO_FAIL: FIXTURE }, out);
   assert.match(fs.readFileSync(path.join(out, "index.md"), "utf8"), /wasn't measured in this run/);
+  // A baseline with no numeric scores says so instead of "-Infinity%".
+  fs.writeFileSync(path.join(base, "baseline.json"), JSON.stringify({ fulgur: "0.40.0", rows: [{ fixture: FIXTURE, page: { error: "x" }, islands: [{ error: "x" }] }] }));
+  run({ FAKE_SURIMONO_FAIL: FIXTURE }, out, ["--baseline", base]);
+  const md2 = fs.readFileSync(path.join(out, "index.md"), "utf8");
+  assert.doesNotMatch(md2, /Infinity/);
+  assert.match(md2, /at most not measured \(no scores in the baseline\) on a page/);
+});
+
+test("the second render starts in a later second of the wall clock", () => {
+  const out = tmp();
+  // fake-surimono with FAKE_SURIMONO_LEAK=SECOND appends the current Unix second.
+  const r = run({ FAKE_SURIMONO_LEAK: "SECOND" }, out);
+  assert.equal(r.status, 1, "a render that prints the second differs");
+  assert.equal(readJson(path.join(out, FIXTURE, "determinism.json")).deterministic, false);
 });

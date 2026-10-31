@@ -8,7 +8,8 @@
 //
 // FAKE_SURIMONO_FAIL=<fixture> makes that fixture's render exit 3 with a
 // time-limit message, to check that a failed render is reported as failing.
-// FAKE_SURIMONO_LEAK=TZ|LANG|cwd appends that value of the host to the output,
+// FAKE_SURIMONO_LEAK=TZ|LANG|cwd|SECOND appends that value of the host (SECOND:
+// the wall clock's Unix second) to the output,
 // a render that depends on its environment. Without FAKE_SURIMONO_FROM the
 // output is a page with no islands (every comparison then fails without
 // needing Chrome or fulgur), for checkpoint.mjs's own tests.
@@ -43,5 +44,5 @@ if (process.env.FAKE_SURIMONO_FROM) {
   html = fs.readFileSync(from, "utf8");
 }
 const leak = process.env.FAKE_SURIMONO_LEAK;
-if (leak) html += `<!-- ${leak === "cwd" ? process.cwd() : process.env[leak]} -->\n`;
+if (leak) html += `<!-- ${leak === "cwd" ? process.cwd() : leak === "SECOND" ? Math.floor(Date.now() / 1000) : process.env[leak]} -->\n`;
 fs.writeFileSync(out, html);

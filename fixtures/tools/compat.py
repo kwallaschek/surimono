@@ -102,21 +102,28 @@ def load_determinism(directory: Path | None) -> dict[str, dict]:
     return out
 
 
+NOT_RECORDED = {"cli": None, "version": "producer not recorded", "sha256": None, "commit": None}
+
+
 def check_producers(records: list[dict]) -> dict | None:
-    """The one surimono CLI that produced these results, if they say. A stand-in
-    (fixtures/tools/test/fake-surimono.mjs prints Chrome's own SVGs) or a mix of
-    CLIs is an error: results must come from one real run."""
+    """The one surimono CLI that produced these results. A stand-in
+    (fixtures/tools/test/fake-surimono.mjs prints Chrome's own SVGs) is an
+    error, and so is a mix of CLIs. A result without a stamp (compare.mjs run
+    by hand, on any SVG) counts as one more, unknown CLI, so it can't be
+    credited to a stamped one. Returns NOT_RECORDED when nothing is stamped,
+    None when there are no results."""
     seen: dict[tuple, dict] = {}
     for r in records:
-        p = r.get("producer")
-        if not p:
-            continue
+        p = r.get("producer") or NOT_RECORDED
         if "fake-surimono" in str(p.get("version", "")) or "fake-surimono" in str(p.get("cli", "")):
             raise CompatError(f"{r.get('_file', '?')}: produced by the stand-in {p.get('cli')} ({p.get('version')}), not by surimono")
         seen.setdefault((p.get("cli"), p.get("version"), p.get("sha256"), p.get("commit")), {**p, "_file": r.get("_file", "?")})
     if len(seen) > 1:
         a, b = list(seen.values())[:2]
-        raise CompatError(f"results from two different surimono CLIs ({a['_file']} and {b['_file']}); pass one run's directory")
+        raise CompatError(
+            f"results from two different surimono CLIs ({a['_file']}: {a.get('version')}; {b['_file']}: {b.get('version')}); "
+            "a result without a producer stamp counts as its own; pass one run's directory"
+        )
     return next(iter(seen.values()), None)
 
 
@@ -426,7 +433,9 @@ def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commi
     producer = check_producers(scores + list((determinism or {}).values()))
     fx_lines, fx_status = fixtures_section(scores, meta, determinism)
     made_by = ""
-    if producer:
+    if producer and producer.get("cli") is None:
+        made_by = " (producer not recorded)"
+    elif producer:
         made_by = f" (surimono CLI {producer.get('version')}, sha256 {str(producer.get('sha256'))[:12]}{', commit ' + producer['commit'] if producer.get('commit') else ''})"
     out = [
         "# Compatibility",
