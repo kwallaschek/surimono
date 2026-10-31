@@ -147,6 +147,10 @@ impl Deadline {
     /// Whether the running call has passed its time limit. Once this is
     /// true the call is over: it fails with [`SandboxError::TimeLimit`] as
     /// soon as control returns to the engine. False when no call is running.
+    ///
+    /// It reads the same stop flag the engine polls, which the sandbox's
+    /// watchdog raises at the deadline, so it is about as cheap as an
+    /// atomic load. Call it from host functions while the call runs.
     pub fn passed(&self) -> bool {
         self.state.deadline_passed()
     }
@@ -231,15 +235,20 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 ///   script is stopped at its next interrupt check.
 /// - **Time**: each top-level call ([`eval`](Self::eval), [`call`](Self::call),
 ///   [`run`](Self::run), …) gets [`Limits::time`], covering the call and the
-///   microtasks it queues. The interrupt QuickJS raises is uncatchable, so
-///   `try`/`catch`/`finally` can't hold it off, and it is sticky: built-ins
-///   that turn exceptions into rejections or new errors (the `Promise`
-///   constructor, async generators, `DisposableStack`) can't swallow it
-///   either. The engine is patched to check for it inside native loops
-///   (`join`, `fill`, `sort`… over a huge array-like) as well; see
-///   `vendor/rquickjs-sys/PATCHES.md`. The hostile-script tests in
-///   `tests/hostile.rs` run every known way to hang the engine and check
-///   each ends with a limit error in about twice the time limit.
+///   microtasks it queues. A watchdog thread (one per process, shared by
+///   every sandbox) raises a flag at the deadline that the patched engine
+///   reads at every interrupt check: every loop back-edge and call, and
+///   inside the native loops that can run long (`join`, `fill`, `sort`…
+///   over a huge array-like, string searches, BigInt arithmetic). The
+///   interrupt is uncatchable, so `try`/`catch`/`finally` can't hold it
+///   off, and it is sticky: built-ins that turn exceptions into rejections
+///   or new errors (the `Promise` constructor, async generators,
+///   `DisposableStack`) can't swallow it either. See
+///   `vendor/rquickjs-sys/PATCHES.md`. `tests/hostile.rs` runs each hang
+///   vector found so far and checks it ends with a limit error in about
+///   twice the time limit; a single native call that never polls can still
+///   overrun by its own length (known: none longer than the memory limit
+///   lets a linear pass run). Host functions check [`Sandbox::deadline`].
 /// - **Stack**: recursion deeper than [`Limits::stack_bytes`] fails with
 ///   [`SandboxError::StackOverflow`] unless the script catches the `RangeError`.
 ///
@@ -261,10 +270,13 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// [`std::thread::Builder::stack_size`] set from `stack_bytes`.
 pub struct Sandbox {
     options: SandboxOptions,
-    state: Arc<LimitState>,
     /// The context, which also keeps its runtime alive. Always `Some` except
     /// if a rebuild failed, in which case every call reports an engine error.
     ctx: Option<Context>,
+    /// Declared after `ctx` so it is dropped after the runtime, whose
+    /// interrupt polls read its stop flag (the runtime's allocator holds a
+    /// reference too; see `engine::install_stop_flag`).
+    state: Arc<LimitState>,
 }
 
 impl fmt::Debug for Sandbox {
@@ -293,12 +305,14 @@ impl Sandbox {
     /// Creates a sandbox from full options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
         options.validate()?;
-        if engine::patch_level() < 1 {
+        if engine::patch_level() < 2 {
             return Err(SandboxError::Engine {
                 message: "QuickJS lacks surimono's sandbox patches".into(),
             });
         }
         check_stack(&options.limits)?;
+        // Fail here, not at the first call, if the watchdog can't start.
+        crate::watchdog::registry()?;
         let state = LimitState::new(options.limits.memory_bytes);
         let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone()))
             .map_err(|e| setup_error(&state, e))?;
@@ -308,8 +322,8 @@ impl Sandbox {
         let ctx = new_context(&rt, &state, &options)?;
         Ok(Self {
             options,
-            state,
             ctx: Some(ctx),
+            state,
         })
     }
 
@@ -331,13 +345,15 @@ impl Sandbox {
     /// A handle that host functions (Rust functions the script calls) use
     /// to check the running call's time limit.
     ///
-    /// The engine checks the deadline only every few thousand JavaScript
-    /// operations, so a script that calls an expensive host function in a
-    /// loop could run long past its limit. A host function should check
-    /// [`Deadline::passed`] before expensive work and throw if it has: the
-    /// call then fails with [`SandboxError::TimeLimit`], however the script
-    /// handles the exception. The handle belongs to this sandbox's current
-    /// runtime; take a new one after a [`reset`](Self::reset).
+    /// The engine stops a script at its next interrupt check once the
+    /// deadline passes, but a host function is native code the engine
+    /// can't interrupt, so a script that calls an expensive one in a loop
+    /// would overrun by up to one call each time it catches the error. A
+    /// host function should check [`Deadline::passed`] before expensive
+    /// work and throw if it has: the call then fails with
+    /// [`SandboxError::TimeLimit`], however the script handles the
+    /// exception. The handle belongs to this sandbox's current runtime;
+    /// take a new one after a [`reset`](Self::reset).
     pub fn deadline(&self) -> Deadline {
         Deadline {
             state: self.state.clone(),
@@ -472,13 +488,16 @@ impl Sandbox {
             });
         };
         check_stack(&self.options.limits)?;
+        self.state.arm(self.options.limits.time)?;
+        // Disarms even if `body` panics (a host function can), so no timer
+        // outlives the call.
+        let armed = Armed(&self.state);
         let state = &*self.state;
-        state.arm(self.options.limits.time);
         let result = ctx.with(|ctx| {
             engine::update_stack_top(&ctx);
             body(&ctx, state).map_err(|e| classify(&ctx, state, e))
         });
-        state.disarm();
+        drop(armed);
         if let Err(e) = &result {
             if e.is_limit() {
                 // A limit can stop a script anywhere, leaving its state half
@@ -504,6 +523,15 @@ impl Sandbox {
     }
 }
 
+/// Disarms the deadline when dropped.
+struct Armed<'a>(&'a LimitState);
+
+impl Drop for Armed<'_> {
+    fn drop(&mut self) {
+        self.0.disarm();
+    }
+}
+
 fn eval_options(filename: &str) -> EvalOptions {
     let mut opts = EvalOptions::default();
     opts.global = true;
@@ -521,12 +549,13 @@ static PRELUDE: OnceLock<Vec<u8>> = OnceLock::new();
 /// Creates a context with the sandbox's built-ins and runs the prelude.
 fn new_context(
     rt: &Runtime,
-    state: &LimitState,
+    state: &Arc<LimitState>,
     options: &SandboxOptions,
 ) -> Result<Context, SandboxError> {
     let ctx = Context::custom::<Intrinsics>(rt).map_err(|e| setup_error(state, e))?;
     ctx.with(|ctx| {
         engine::update_stack_top(&ctx);
+        engine::install_stop_flag(&ctx, state);
         install_prelude(&ctx, options).map_err(|e| match classify(&ctx, state, e) {
             limit if limit.is_limit() => limit,
             other => SandboxError::Engine {

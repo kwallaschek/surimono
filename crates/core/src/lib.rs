@@ -26,6 +26,7 @@ mod engine;
 mod error;
 mod limits;
 mod sandbox;
+mod watchdog;
 
 pub use error::SandboxError;
 pub use limits::Limits;

@@ -15,7 +15,9 @@
 //!   is left;
 //! - [`patch_level`], which links against a symbol only the patched QuickJS
 //!   in `vendor/rquickjs-sys` defines, so a build against an unpatched
-//!   engine fails to link instead of shipping a sandbox that can hang.
+//!   engine fails to link instead of shipping a sandbox that can hang;
+//! - [`install_stop_flag`], which points the patched engine at the
+//!   [`LimitState`]'s stop flag, read on every interrupt poll.
 //!
 //! Every `unsafe` block carries a `SAFETY:` comment and is covered by the tests
 //! at the bottom of this file and in `sandbox.rs`. The module is opted in to
@@ -23,72 +25,117 @@
 
 use std::ffi::CString;
 use std::ptr;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use rquickjs::allocator::{Allocator, RustAllocator};
 use rquickjs::{Ctx, Value, qjs};
 
-/// Shared state between the sandbox, its allocator and its interrupt handler.
+use crate::SandboxError;
+use crate::watchdog::{self, Registry, TimerKey};
+
+/// Shared state between the sandbox, its allocator, its interrupt handler
+/// and the watchdog thread.
 ///
-/// Atomics keep this `Send + Sync`, which rquickjs requires of interrupt
-/// handlers when its `parallel` feature is on; without it they cost nothing.
+/// Atomics keep this `Send + Sync`, which the watchdog needs, as does
+/// rquickjs of interrupt handlers when its `parallel` feature is on.
 #[derive(Debug)]
 pub(crate) struct LimitState {
     /// Bytes currently allocated by the engine (usable sizes).
     used: AtomicUsize,
     /// Maximum bytes the engine may hold.
     limit: AtomicUsize,
-    /// Set when an allocation was refused; cleared at the start of each call.
-    oom: AtomicBool,
-    /// Set when the deadline passed; cleared at the start of each call.
-    timed_out: AtomicBool,
+    /// Why the running call must stop: [`STOP_TIME`] and [`STOP_MEMORY`]
+    /// bits, zero while it may go on. The patched engine reads it on every
+    /// interrupt poll and asks the handler as soon as it is nonzero (see
+    /// [`install_stop_flag`]). Cleared when a call is armed and disarmed.
+    stop: AtomicU32,
     /// Deadline in nanoseconds since `origin`; `u64::MAX` means disarmed.
     deadline: AtomicU64,
     /// Monotonic origin for the deadline. Only decides whether to abort; it
     /// never reaches script-visible output.
     origin: Instant,
+    /// The running call's watchdog timer. Its lock also orders the changes
+    /// to `deadline` and the `STOP_TIME` bit between this sandbox's thread
+    /// and the watchdog, so a late timer can't stop the next call.
+    timer: Mutex<Option<(Arc<Registry>, TimerKey)>>,
 }
 
 const DISARMED: u64 = u64::MAX;
+/// [`LimitState::stop`] bit: the deadline passed.
+const STOP_TIME: u32 = 1;
+/// [`LimitState::stop`] bit: an allocation was refused.
+const STOP_MEMORY: u32 = 2;
 
 impl LimitState {
     pub(crate) fn new(memory_limit: usize) -> Arc<Self> {
         Arc::new(Self {
             used: AtomicUsize::new(0),
             limit: AtomicUsize::new(memory_limit),
-            oom: AtomicBool::new(false),
-            timed_out: AtomicBool::new(false),
+            stop: AtomicU32::new(0),
             deadline: AtomicU64::new(DISARMED),
             origin: Instant::now(),
+            timer: Mutex::new(None),
         })
     }
 
-    /// Starts a call: clears the flags and sets the deadline `budget` from now.
-    pub(crate) fn arm(&self, budget: Duration) {
-        self.oom.store(false, Ordering::Relaxed);
-        self.timed_out.store(false, Ordering::Relaxed);
-        let now = self.elapsed_nanos();
-        let budget = u64::try_from(budget.as_nanos()).unwrap_or(u64::MAX);
+    /// Starts a call: clears the stop flag, sets the deadline `budget` from
+    /// now and asks the watchdog to raise the flag then.
+    ///
+    /// Fails only if the watchdog thread can't be started (in a forked
+    /// child, say); the call must not run then.
+    pub(crate) fn arm(self: &Arc<Self>, budget: Duration) -> Result<(), SandboxError> {
+        let registry = watchdog::registry()?;
+        let mut timer = watchdog::lock(&self.timer);
+        if let Some((old, key)) = timer.take() {
+            old.remove(key);
+        }
+        let now = Instant::now();
+        let since_origin = now.saturating_duration_since(self.origin);
+        let deadline = since_origin.saturating_add(budget).as_nanos();
         // Saturate one below DISARMED so a huge budget still counts as armed.
-        let deadline = now.saturating_add(budget).min(DISARMED - 1);
+        let deadline = u64::try_from(deadline)
+            .unwrap_or(u64::MAX)
+            .min(DISARMED - 1);
+        self.stop.store(0, Ordering::Relaxed);
         self.deadline.store(deadline, Ordering::Relaxed);
+        // A budget too large for an Instant never fires; the handler's own
+        // clock check covers it, as it does a watchdog running late.
+        if let Some(at) = now.checked_add(budget) {
+            let key = registry.insert(at, Arc::downgrade(self));
+            *timer = Some((registry, key));
+        }
+        Ok(())
     }
 
-    /// Ends a call: no deadline until the next `arm`.
+    /// Ends a call: no deadline and a clear stop flag until the next `arm`.
     pub(crate) fn disarm(&self) {
+        let mut timer = watchdog::lock(&self.timer);
+        if let Some((registry, key)) = timer.take() {
+            registry.remove(key);
+        }
         self.deadline.store(DISARMED, Ordering::Relaxed);
+        self.stop.store(0, Ordering::Relaxed);
     }
 
-    /// Whether an allocation was refused since the last `arm`.
+    /// Called by the watchdog when timer `key` is due: raises the stop flag
+    /// if that timer still belongs to the running call.
+    pub(crate) fn expire(&self, key: TimerKey) {
+        let timer = watchdog::lock(&self.timer);
+        if timer.as_ref().is_some_and(|(_, k)| *k == key) {
+            self.stop.fetch_or(STOP_TIME, Ordering::Release);
+        }
+    }
+
+    /// Whether an allocation was refused in the running call.
     pub(crate) fn oom(&self) -> bool {
-        self.oom.load(Ordering::Relaxed)
+        self.stop.load(Ordering::Acquire) & STOP_MEMORY != 0
     }
 
-    /// Whether the deadline passed since the last `arm`.
+    /// Whether the running call passed its deadline.
     pub(crate) fn timed_out(&self) -> bool {
-        self.timed_out.load(Ordering::Relaxed)
+        self.stop.load(Ordering::Acquire) & STOP_TIME != 0
     }
 
     /// Bytes currently held by the engine.
@@ -96,18 +143,30 @@ impl LimitState {
         self.used.load(Ordering::Relaxed)
     }
 
-    /// Checks the deadline and records a timeout. Called by the interrupt
-    /// handler and between microtasks.
+    /// Whether the running call is past its deadline; false when no call
+    /// runs. Normally the watchdog has raised the stop flag and this is one
+    /// load. If the watchdog runs late (a starved machine), the clock is
+    /// checked too, and a passed deadline raises the flag here. Called by
+    /// the interrupt handler, between microtasks and through
+    /// [`crate::Deadline::passed`].
     pub(crate) fn deadline_passed(&self) -> bool {
         let deadline = self.deadline.load(Ordering::Relaxed);
         if deadline == DISARMED {
             return false;
         }
-        if self.elapsed_nanos() >= deadline {
-            self.timed_out.store(true, Ordering::Relaxed);
+        if self.timed_out() {
             return true;
         }
-        false
+        if self.elapsed_nanos() < deadline {
+            return false;
+        }
+        // Under the timer lock, so the call that was checked is still the
+        // one running when the flag goes up.
+        let _timer = watchdog::lock(&self.timer);
+        if self.deadline.load(Ordering::Relaxed) == deadline {
+            self.stop.fetch_or(STOP_TIME, Ordering::Release);
+        }
+        true
     }
 
     /// The interrupt handler's answer: stop on a passed deadline, and stop at
@@ -121,18 +180,23 @@ impl LimitState {
         u64::try_from(self.origin.elapsed().as_nanos()).unwrap_or(DISARMED - 1)
     }
 
+    /// Records a refused allocation. Raising the stop flag makes the engine
+    /// stop the script at its next poll, before it can catch the error.
+    fn refuse(&self) -> bool {
+        self.stop.fetch_or(STOP_MEMORY, Ordering::Release);
+        false
+    }
+
     /// Reserves room for `extra` more bytes, or records an out-of-memory error.
     fn admit(&self, extra: usize) -> bool {
         #[cfg(test)]
         if fault::refuse_this_allocation() {
-            self.oom.store(true, Ordering::Relaxed);
-            return false;
+            return self.refuse();
         }
         let used = self.used.load(Ordering::Relaxed);
         let limit = self.limit.load(Ordering::Relaxed);
         if used.saturating_add(extra) > limit {
-            self.oom.store(true, Ordering::Relaxed);
-            return false;
+            return self.refuse();
         }
         true
     }
@@ -254,6 +318,29 @@ pub(crate) fn update_stack_top(ctx: &Ctx<'_>) {
 unsafe extern "C" {
     /// Defined only by the patched QuickJS in `vendor/rquickjs-sys`.
     fn surimono_quickjs_patch_level() -> std::ffi::c_int;
+    /// Defined only by the patched QuickJS (patch level 2): every interrupt
+    /// poll of `rt`'s contexts also loads `*flag` (atomically, relaxed) and
+    /// calls the interrupt handler while it is nonzero.
+    fn surimono_set_interrupt_flag(rt: *mut qjs::JSRuntime, flag: *mut u32);
+}
+
+/// Makes every interrupt poll of `ctx`'s runtime read `state`'s stop flag,
+/// so a passed deadline or a refused allocation stops the script at its
+/// next poll instead of up to 10,000 polls later.
+pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
+    let flag = state.stop.as_ptr();
+    // SAFETY: `ctx` is a live context and we are inside `Context::with`, so
+    // the runtime is locked; the call only writes the flag pointer into the
+    // runtime and its contexts. The pointer stays valid as long as the
+    // runtime polls: it points into `state`, an `Arc` that the runtime's
+    // `LimitAllocator` also owns, and rquickjs drops the allocator only
+    // after `JS_FreeRuntime` has returned. `AtomicU32` has the same layout
+    // as `u32` (and C11's `_Atomic uint32_t` on our targets); the engine
+    // only ever loads it atomically, and Rust writes it atomically.
+    unsafe {
+        let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
+        surimono_set_interrupt_flag(rt, flag);
+    }
 }
 
 /// The level of surimono's QuickJS patches in the linked engine (see
@@ -521,14 +608,92 @@ mod tests {
     fn deadline_arms_and_disarms() {
         let state = LimitState::new(usize::MAX);
         assert!(!state.should_interrupt(), "disarmed by default");
-        state.arm(Duration::ZERO);
+        state.arm(Duration::ZERO).unwrap();
         assert!(state.should_interrupt());
         assert!(state.timed_out());
         state.disarm();
         assert!(!state.deadline_passed());
-        state.arm(Duration::MAX);
+        assert!(!state.timed_out(), "disarm clears the flag");
+        state.arm(Duration::MAX).unwrap();
         assert!(!state.should_interrupt());
         assert!(!state.timed_out(), "arm clears the flag");
+        state.disarm();
+    }
+
+    /// The watchdog raises the stop flag at the deadline without anyone
+    /// polling the clock, and only for the call that armed it.
+    #[test]
+    fn watchdog_raises_the_flag_at_the_deadline() {
+        let state = LimitState::new(usize::MAX);
+        let start = Instant::now();
+        state.arm(Duration::from_millis(50)).unwrap();
+        while state.stop.load(Ordering::Acquire) == 0 {
+            assert!(start.elapsed() < Duration::from_secs(5), "never raised");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(start.elapsed() >= Duration::from_millis(50));
+        assert!(state.timed_out());
+        state.disarm();
+        assert_eq!(state.stop.load(Ordering::Acquire), 0);
+
+        // A call that ends before its deadline leaves no timer behind, and
+        // the next call is not stopped by the old deadline.
+        state.arm(Duration::from_millis(30)).unwrap();
+        state.disarm();
+        state.arm(Duration::from_secs(60)).unwrap();
+        std::thread::sleep(Duration::from_millis(80));
+        assert_eq!(state.stop.load(Ordering::Acquire), 0);
+        assert!(!state.deadline_passed());
+        state.disarm();
+        assert!(state.timer.lock().unwrap().is_none());
+    }
+
+    /// Many sandboxes' calls share the one watchdog thread, and every timer
+    /// leaves the registry when its call ends.
+    #[test]
+    fn one_watchdog_serves_every_sandbox() {
+        let states: Vec<_> = (0..64).map(|_| LimitState::new(usize::MAX)).collect();
+        for (i, s) in states.iter().enumerate() {
+            s.arm(Duration::from_millis(20 + i as u64)).unwrap();
+        }
+        let start = Instant::now();
+        while !states.iter().all(|s| s.timed_out()) {
+            assert!(start.elapsed() < Duration::from_secs(5), "not all raised");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        for s in &states {
+            s.disarm();
+        }
+        let registry = watchdog::registry().unwrap();
+        assert!(Arc::ptr_eq(&registry, &watchdog::registry().unwrap()));
+        // Arming and disarming leaves nothing behind. (Other tests' calls
+        // may be running, so allow for theirs.)
+        for _ in 0..10_000 {
+            states[0].arm(Duration::from_secs(60)).unwrap();
+            states[0].disarm();
+        }
+        assert!(registry.pending() < 100, "{} timers", registry.pending());
+        // One watchdog thread in the process (Linux names it in /proc).
+        if let Ok(tasks) = std::fs::read_dir("/proc/self/task") {
+            let watchdogs = tasks
+                .filter_map(|t| std::fs::read_to_string(t.ok()?.path().join("comm")).ok())
+                .filter(|name| name.starts_with("surimono-watch"))
+                .count();
+            assert_eq!(watchdogs, 1);
+        }
+    }
+
+    #[test]
+    fn a_refused_allocation_raises_the_flag() {
+        let state = LimitState::new(64);
+        state.arm(Duration::from_secs(60)).unwrap();
+        let mut a = LimitAllocator::new(state.clone());
+        assert!(a.alloc(1000).is_null());
+        assert!(state.oom());
+        assert_ne!(state.stop.load(Ordering::Acquire), 0);
+        assert!(state.should_interrupt());
+        state.disarm();
+        assert!(!state.oom());
     }
 
     #[test]
