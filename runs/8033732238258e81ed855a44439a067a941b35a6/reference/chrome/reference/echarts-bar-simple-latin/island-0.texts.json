@@ -1,0 +1,205 @@
+{
+ "text": [
+  "0",
+  "10,000",
+  "20,000",
+  "30,000",
+  "40,000",
+  "43221",
+  "50,000",
+  "50465",
+  "50683",
+  "52657",
+  "53187",
+  "57240",
+  "58088",
+  "58457",
+  "58899",
+  "60,000",
+  "63270",
+  "63472",
+  "68947",
+  "70,000",
+  "Apr",
+  "Aug",
+  "Dec",
+  "Feb",
+  "Invoicedrevenue(EUR)",
+  "Jan",
+  "Jul",
+  "Jun",
+  "Mar",
+  "May",
+  "Nov",
+  "Oct",
+  "Sep"
+ ],
+ "labels": [],
+ "styles": [
+  {
+   "key": "0",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "10,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "20,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "30,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "40,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "43221",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "50,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "50465",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "50683",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "52657",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "53187",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "57240",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "58088",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "58457",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "58899",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "60,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "63270",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "63472",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "68947",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "70,000",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Apr",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Aug",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Dec",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Feb",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Invoicedrevenue(EUR)",
+   "weight": 700,
+   "style": "normal"
+  },
+  {
+   "key": "Jan",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Jul",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Jun",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Mar",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "May",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Nov",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Oct",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "Sep",
+   "weight": 400,
+   "style": "normal"
+  }
+ ]
+}
