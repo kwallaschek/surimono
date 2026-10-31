@@ -1,6 +1,7 @@
 //! Hostile scripts: each way found so far to hang the engine or overrun
 //! the time limit, each run in a child process with a watchdog, so a
-//! regression fails the test instead of hanging CI.
+//! regression fails the test instead of hanging CI. The known gaps are in
+//! the time-limit notes on `Sandbox`.
 //!
 //! Group A loops over a huge array-like inside a native built-in; group B
 //! has a built-in swallow the time-limit interrupt while an outer loop runs

@@ -326,6 +326,9 @@ typedef struct JSArenaState {
     struct list_head arena_list[JS_ARENA_BLOCK_SIZE_COUNT];
     struct list_head free_arena_list[JS_ARENA_BLOCK_SIZE_COUNT];
     _Alignas(JS_ARENA_ALIGN) uint8_t zero_size_block[sizeof(JSMallocBlockHeader)];
+    /* surimono: like JS_ARENA_LARGE_BLOCKS_ONLY, for one runtime; set by
+       surimono_quickjs_set_arena() (tests only). */
+    bool large_blocks_only;
 } JSArenaState;
 
 typedef struct JSRuntimeFinalizerState {
@@ -1830,7 +1833,8 @@ static void *js_arena_malloc(JSRuntime *rt, size_t size)
         return arena_zero_block(rt)->user_data;
     total_size = ((size + JS_ARENA_ALIGN - 1) & ~(size_t)(JS_ARENA_ALIGN - 1)) +
         sizeof(JSMallocBlockHeader);
-    if (!JS_ARENA_LARGE_BLOCKS_ONLY && total_size <= JS_ARENA_MAX_SMALL_SIZE) {
+    if (!JS_ARENA_LARGE_BLOCKS_ONLY && !rt->arena_state.large_blocks_only &&
+        total_size <= JS_ARENA_MAX_SMALL_SIZE) {
         int block_size_idx;
         unsigned int block_idx, block_size;
         JSMallocBlockHeader *b;
@@ -1969,7 +1973,8 @@ static void *js_arena_calloc(JSRuntime *rt, size_t count, size_t size)
     size_t n = count * size; /* overflow already checked by js_calloc_rt */
     size_t total_size = ((n + JS_ARENA_ALIGN - 1) & ~(size_t)(JS_ARENA_ALIGN - 1)) +
         sizeof(JSMallocBlockHeader);
-    if (!JS_ARENA_LARGE_BLOCKS_ONLY && total_size <= JS_ARENA_MAX_SMALL_SIZE) {
+    if (!JS_ARENA_LARGE_BLOCKS_ONLY && !rt->arena_state.large_blocks_only &&
+        total_size <= JS_ARENA_MAX_SMALL_SIZE) {
         /* Small blocks are carved from recycled (dirty) arena memory, so they
            must be zeroed explicitly. */
         void *ptr = js_arena_malloc(rt, n);
@@ -2748,7 +2753,13 @@ void JS_FreeRuntime(JSRuntime *rt)
     }
 #endif
 
-    assert(list_empty(&rt->gc_obj_list));
+    /* surimono: objects still listed here leaked a reference on some
+       error path (typically out-of-memory). Nothing below touches them,
+       and their arena blocks are released with the arenas, so leave them
+       rather than abort the process; surimono's tests check that a
+       runtime gives back every byte it allocated. */
+    if (!list_empty(&rt->gc_obj_list))
+        init_list_head(&rt->gc_obj_list);
 
     /* free the classes */
     for(i = 0; i < rt->class_count; i++) {
@@ -7053,6 +7064,9 @@ static void js_bound_function_finalizer(JSRuntime *rt, JSValueConst val)
     JSBoundFunction *bf = p->u.bound_function;
     int i;
 
+    /* surimono: NULL-safe, like the other finalizers (see js_function_bind). */
+    if (!bf)
+        return;
     JS_FreeValueRT(rt, bf->func_obj);
     JS_FreeValueRT(rt, bf->this_val);
     for(i = 0; i < bf->argc; i++) {
@@ -7068,6 +7082,9 @@ static void js_bound_function_mark(JSRuntime *rt, JSValueConst val,
     JSBoundFunction *bf = p->u.bound_function;
     int i;
 
+    /* surimono: see js_bound_function_finalizer. */
+    if (!bf)
+        return;
     JS_MarkValue(rt, bf->func_obj, mark_func);
     JS_MarkValue(rt, bf->this_val, mark_func);
     for(i = 0; i < bf->argc; i++)
@@ -8715,10 +8732,22 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
     return 0;
 }
 
-/* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md. */
+/* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
+   3: both the allocation-failure hardening (p1-rt-15) and the interrupt
+   flag (p1-rt-14), each of which was level 2 on its own branch. */
 int surimono_quickjs_patch_level(void)
 {
-    return 2;
+    return 3;
+}
+
+/* surimono: with enabled = 0, every later allocation of this runtime goes
+   to the backing allocator instead of the small-block arenas, so a test
+   allocator sees (and can refuse) each one. Blocks already handed out are
+   freed correctly either way: js_arena_free looks at each block's own
+   header. */
+void surimono_quickjs_set_arena(JSRuntime *rt, int enabled)
+{
+    rt->arena_state.large_blocks_only = !enabled;
 }
 
 static inline __exception int js_poll_interrupts(JSContext *ctx)
@@ -24154,6 +24183,20 @@ static void emit_op(JSParseState *s, uint8_t val)
     dbuf_putc(bc, val);
 }
 
+/* surimono: the parser carries on after failing to grow the bytecode
+   buffer (new_label also flags the buffer when the label table can't
+   grow), so offsets saved before the failure and label indices can point
+   past what was written. Call this before patching code at a saved
+   offset; js_create_function rejects the function anyway. */
+static int js_check_bytecode_oom(JSContext *ctx, JSFunctionDef *fd)
+{
+    if (unlikely(dbuf_error(&fd->byte_code))) {
+        JS_ThrowOutOfMemory(ctx);
+        return -1;
+    }
+    return 0;
+}
+
 static void emit_atom(JSParseState *s, JSAtom name)
 {
     DynBuf *bc = &s->cur_func->byte_code;
@@ -24247,8 +24290,11 @@ static int cpool_add(JSParseState *s, JSValue val)
     JSFunctionDef *fd = s->cur_func;
 
     if (js_resize_array(s->ctx, (void *)&fd->cpool, sizeof(fd->cpool[0]),
-                        &fd->cpool_size, fd->cpool_count + 1))
+                        &fd->cpool_size, fd->cpool_count + 1)) {
+        /* surimono: 'val' is ours, so free it rather than leak it. */
+        JS_FreeValue(s->ctx, val);
         return -1;
+    }
     fd->cpool[fd->cpool_count++] = val;
     return fd->cpool_count - 1;
 }
@@ -26062,6 +26108,9 @@ static __exception int js_parse_class(JSParseState *s, bool is_class_expr,
             goto fail;
     }
     /* patch the constant pool index for the constructor */
+    /* surimono: see js_check_bytecode_oom. */
+    if (js_check_bytecode_oom(ctx, fd))
+        goto fail;
     put_u32(fd->byte_code.buf + ctor_cpool_offset, ctor_fd->parent_cpool_idx);
 
     /* store the class source code in the constructor. */
@@ -26093,6 +26142,9 @@ static __exception int js_parse_class(JSParseState *s, bool is_class_expr,
             }
             /* patch the start of the function to enable the
                OP_add_brand_instance code */
+            /* surimono: see js_check_bytecode_oom. */
+            if (js_check_bytecode_oom(ctx, cf->fields_init_fd))
+                goto fail;
             cf->fields_init_fd->byte_code.buf[cf->brand_push_pos] = OP_push_true;
         }
 
@@ -27136,6 +27188,9 @@ static int js_parse_destructuring_element(JSParseState *s, int tok,
             return -1;
         }
         /* remove test and decrement label ref count */
+        /* surimono: see js_check_bytecode_oom. */
+        if (js_check_bytecode_oom(s->ctx, s->cur_func))
+            return -1;
         memset(s->cur_func->byte_code.buf + start_addr, OP_nop,
                assign_addr - start_addr);
         s->cur_func->label_slots[label_parse].ref_count--;
@@ -29381,7 +29436,10 @@ static __exception int js_parse_for_in_of(JSParseState *s, int label_name,
         int chunk_size = pos_expr - pos_next;
         int offset = bc->size - pos_next;
         int i;
-        if (dbuf_claim(bc, chunk_size))
+        /* surimono: see js_check_bytecode_oom; a failed claim flags the
+           buffer too. */
+        dbuf_claim(bc, chunk_size);
+        if (js_check_bytecode_oom(s->ctx, s->cur_func))
             return -1;
         dbuf_put(bc, bc->buf + pos_next, chunk_size);
         memset(bc->buf + pos_next, OP_nop, chunk_size);
@@ -29900,8 +29958,11 @@ static __exception int js_parse_statement_or_decl(JSParseState *s,
                 int chunk_size = pos_body - pos_cont;
                 int offset = bc->size - pos_cont;
                 int i;
-                if (dbuf_claim(bc, chunk_size))
-                    return -1;
+                /* surimono: see js_check_bytecode_oom; a failed claim
+                   flags the buffer too. */
+                dbuf_claim(bc, chunk_size);
+                if (js_check_bytecode_oom(ctx, s->cur_func))
+                    goto fail;
                 dbuf_put(bc, bc->buf + pos_cont, chunk_size);
                 memset(bc->buf + pos_cont, OP_nop, chunk_size);
                 /* increment part ends with a goto */
@@ -30079,6 +30140,9 @@ static __exception int js_parse_statement_or_decl(JSParseState *s,
                 goto fail;
             if (default_label_pos >= 0) {
                 /* Ugly patch for the `default` label, shameful and risky */
+                /* surimono: see js_check_bytecode_oom. */
+                if (js_check_bytecode_oom(ctx, s->cur_func))
+                    goto fail;
                 put_u32(s->cur_func->byte_code.buf + default_label_pos,
                         label_case);
                 s->cur_func->label_slots[label_case].pos = default_label_pos + 4;
@@ -33181,8 +33245,14 @@ static void js_free_function_def(JSContext *ctx, JSFunctionDef *fd)
         js_free_function_def(ctx, fd1);
     }
 
-    free_bytecode_atoms(ctx->rt, fd->byte_code.buf, fd->byte_code.size,
-                        fd->use_short_opcodes);
+    /* surimono: a write that fails to grow a DynBuf is dropped, but later
+       writes that fit the space left still land, so after an allocation
+       failure the buffer can hold partial instructions and decoding it
+       frees garbage as atoms. Leave the atoms it references instead:
+       JS_FreeRuntime frees every atom. */
+    if (!dbuf_error(&fd->byte_code))
+        free_bytecode_atoms(ctx->rt, fd->byte_code.buf, fd->byte_code.size,
+                            fd->use_short_opcodes);
     dbuf_free(&fd->byte_code);
     js_free(ctx, fd->jump_slots);
     js_free(ctx, fd->label_slots);
@@ -35955,6 +36025,13 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
 
     for (pos = 0; pos < bc_len; pos = pos_next) {
         int val;
+        /* surimono: once growing bc_out has failed, it no longer holds what
+           the offsets below expect: relocations and jump slots point past
+           its end or into the wrong instructions. Stop before patching. */
+        if (unlikely(dbuf_error(&bc_out))) {
+            JS_ThrowOutOfMemory(ctx);
+            goto fail;
+        }
         op = bc_buf[pos];
         len = opcode_info[op].size;
         pos_next = pos + len;
@@ -36667,6 +36744,12 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
         }
     }
 
+    /* surimono: see the top of the loop. */
+    if (unlikely(dbuf_error(&bc_out))) {
+        JS_ThrowOutOfMemory(ctx);
+        goto fail;
+    }
+
     /* check that there were no missing labels */
     for(i = 0; i < s->label_count; i++) {
         assert(label_slots[i].first_reloc == NULL);
@@ -36765,7 +36848,20 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
     }
     return 0;
  fail:
-    /* XXX: not safe */
+    /* surimono: free the relocations of labels not reached yet. Then flag
+       the source buffer so js_free_function_def doesn't decode it: the
+       atoms of the instructions copied so far moved to bc_out, and some
+       were freed while optimizing, so freeing them again from the source
+       would free atoms still in use. Their references are left to
+       JS_FreeRuntime, which frees every atom. */
+    for(i = 0; i < s->label_count; i++) {
+        for(re = label_slots[i].first_reloc; re != NULL; re = re_next) {
+            re_next = re->next;
+            js_free(ctx, re);
+        }
+        label_slots[i].first_reloc = NULL;
+    }
+    dbuf_set_error(&s->byte_code);
     dbuf_free(&bc_out);
     return -1;
 }
@@ -42680,16 +42776,21 @@ static JSValue js_function_bind(JSContext *ctx, JSValueConst this_val,
     if (check_function(ctx, this_val))
         return JS_EXCEPTION;
 
-    func_obj = JS_NewObjectProtoClass(ctx, ctx->function_proto,
-                                 JS_CLASS_BOUND_FUNCTION);
-    if (JS_IsException(func_obj))
-        return JS_EXCEPTION;
-    p = JS_VALUE_GET_OBJ(func_obj);
-    p->is_constructor = JS_IsConstructor(ctx, this_val);
+    /* surimono: allocate the bound-function record before the object.
+       When the object came first and this allocation failed, freeing the
+       object ran js_bound_function_finalizer on a NULL record. */
     arg_count = max_int(0, argc - 1);
     bf = js_malloc(ctx, sizeof(*bf) + arg_count * sizeof(JSValue));
     if (!bf)
-        goto exception;
+        return JS_EXCEPTION;
+    func_obj = JS_NewObjectProtoClass(ctx, ctx->function_proto,
+                                 JS_CLASS_BOUND_FUNCTION);
+    if (JS_IsException(func_obj)) {
+        js_free(ctx, bf);
+        return JS_EXCEPTION;
+    }
+    p = JS_VALUE_GET_OBJ(func_obj);
+    p->is_constructor = JS_IsConstructor(ctx, this_val);
     bf->func_obj = js_dup(this_val);
     bf->this_val = js_dup(argv[0]);
     bf->argc = arg_count;
@@ -51769,8 +51870,11 @@ static int js_json_to_str(JSContext *ctx, JSONStringifyContext *jsc,
                     goto exception;
                 /* XXX: could do this string conversion only when needed */
                 prop = JS_ToStringFree(ctx, js_int64(i));
-                if (JS_IsException(prop))
+                if (JS_IsException(prop)) {
+                    /* surimono: don't leak the element on out-of-memory. */
+                    JS_FreeValue(ctx, v);
                     goto exception;
+                }
                 v = js_json_check(ctx, jsc, val, v, prop);
                 JS_FreeValue(ctx, prop);
                 prop = JS_UNDEFINED;
@@ -56487,13 +56591,19 @@ static JSValue js_promise_all(JSContext *ctx, JSValueConst this_val,
                     JS_NewCFunctionData(ctx, js_promise_all_resolve_element, 1,
                                         magic | 4, 5, resolve_element_data);
                 if (JS_IsException(reject_element)) {
+                    /* surimono: don't leak resolve_element on out-of-memory. */
+                    JS_FreeValue(ctx, resolve_element);
                     JS_FreeValue(ctx, next_promise);
                     goto fail_reject1;
                 }
             } else if (magic == PROMISE_MAGIC_any) {
                 if (JS_DefinePropertyValueUint32(ctx, values, index,
-                                                 JS_UNDEFINED, JS_PROP_C_W_E) < 0)
+                                                 JS_UNDEFINED, JS_PROP_C_W_E) < 0) {
+                    /* surimono: as above. */
+                    JS_FreeValue(ctx, resolve_element);
+                    JS_FreeValue(ctx, next_promise);
                     goto fail_reject1;
+                }
                 reject_element = resolve_element;
                 resolve_element = js_dup(resolving_funcs[0]);
             } else {

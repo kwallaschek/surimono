@@ -358,12 +358,13 @@ fn hostile_renderers_hit_limits_and_the_pool_recovers() {
             SandboxError::TimeLimit,
         ),
         (
+            // The patched engine polls inside native loops over array-likes
+            // (vendor/rquickjs-sys/PATCHES.md, patch 2), so this ends at the
+            // time limit, like the matching vectors in core's hostile tests;
+            // the interim prelude guard that threw here is gone.
             "native",
             "function entry() { return Array.prototype.join.call({ length: 2 ** 40 }, '') }",
-            SandboxError::Exception {
-                message: String::new(),
-                stack: None,
-            },
+            SandboxError::TimeLimit,
         ),
     ];
     for (name, src, want) in hostile {

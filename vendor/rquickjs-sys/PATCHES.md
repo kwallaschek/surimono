@@ -69,14 +69,17 @@ Kept: `LICENSE` (rquickjs, MIT) and `quickjs/LICENSE` (QuickJS, MIT).
    It now reports `JS_ThrowOutOfMemory` for both. Found by refusing each
    allocation of a compile-heavy `eval` in turn; the memory limit can
    refuse any of them.
-5. **`surimono_quickjs_patch_level()`**, returning 1 (2 since patch 10).
-   surimono-core calls it, so it fails to link against an unpatched
-   rquickjs-sys rather than ship a sandbox that can hang.
+5. **`surimono_quickjs_patch_level()`**, returning 3: 1 with patches 1
+   to 5, 2 on the branches that added the allocation-failure patches
+   (6 to 13) or the interrupt flag (14 to 18) alone, 3 with both.
+   surimono-core calls it and refuses to run below 3, and it fails to link
+   against an unpatched rquickjs-sys rather than ship a sandbox that can
+   hang or crash.
 
 Tests: `crates/core/tests/hostile.rs` (47 scripts then, 64 since p1-rt-14,
 in child processes with a watchdog) and `out_of_memory_never_aborts` in `crates/core/src/sandbox.rs`.
 
-### Diff
+### Diff (patches 1 to 5)
 
 ```diff
 --- a/quickjs/quickjs.c	2026-10-31 06:30:19.303433598 +0900
@@ -261,13 +264,65 @@ in child processes with a watchdog) and `out_of_memory_never_aborts` in `crates/
      }
 ```
 
-## quickjs/quickjs.c: time-accurate interrupts (p1-rt-14)
+## Allocation-failure paths (P1-RT-15)
+
+The heap limit can refuse any allocation, so every failure path has to
+leave the engine consistent. These changes come from refusing each single
+allocation of the sweep scripts in turn with the arena off (see below),
+under AddressSanitizer in a C harness and through the `Sandbox` API.
+Each is marked `surimono:` in the source.
+
+6. **Bound functions** (`js_function_bind`): the bound-function record is
+   allocated before the object, and `js_bound_function_finalizer` and
+   `js_bound_function_mark` return early on a NULL record, like the other
+   finalizers.
+7. **Function definitions with a failed bytecode buffer**
+   (`js_free_function_def`): a buffer whose growth failed is freed without
+   decoding it for atoms. Its atom references are left to
+   `JS_FreeRuntime`, which frees every atom.
+8. **`resolve_labels`** stops at the first failed write to the new
+   bytecode, before any relocation or jump patch, and its failure path
+   frees pending relocation entries and flags the source buffer so it is
+   not decoded either (patch 7).
+9. **Parser patches at saved offsets**: a new helper,
+   `js_check_bytecode_oom`, throws the out-of-memory error before code at a
+   saved offset is rewritten if the buffer has failed (class constructor
+   index and brand, destructuring defaults, `for`/`for-in`/`for-of` loop
+   reordering, `switch` default). `new_label` already flags the buffer
+   when the label table can't grow, so this covers failed labels too.
+   `cpool_add` frees its value when the constant pool can't grow.
+10. **Reference leaks on failure**: `JSON.stringify` frees the current array
+    element when converting its index fails; `Promise.allSettled` and
+    `Promise.any` free the resolve-element function when the next step
+    fails.
+11. **`JS_FreeRuntime`** no longer asserts that the object list is empty:
+    objects a failure path leaked are left alone (their arena blocks go with
+    the arenas) instead of aborting the process. The sweep checks that each
+    runtime gives back every byte, so a leak still fails the tests.
+12. **libregexp** (`re_parse_term`, `lre_compile`): parsing stops at the
+    first failed write to the group-name table, and compiling checks it
+    with the bytecode buffer.
+13. **Test-only arena switch**: `JSArenaState.large_blocks_only` and
+    `surimono_quickjs_set_arena(rt, enabled)`. With the arena off, every
+    allocation of that runtime goes to the backing allocator, so the
+    sweep's allocator sees each one; with it on (the default, and always in
+    production) only arena refills and large blocks get there. Blocks are
+    freed by their own header, so switching is safe at any time.
+
+Tests: `out_of_memory_never_aborts` and `out_of_memory_full_sweep` in
+`crates/core/src/sandbox.rs` (allocating, syntax and compile-heavy scripts,
+compiled from source and run from bytecode, arena on and off; each run
+must end as success or `MemoryLimit`, leave the sandbox usable and give
+back every byte). The full diff is
+`diff -u <rquickjs-sys-0.14.0>/quickjs vendor/rquickjs-sys/quickjs`.
+
+## Time-accurate interrupts (P1-RT-14)
 
 Review of #32, R4 and R5: the deadline was checked only once per 10,000
 polls, and some native calls never polled at all, so one-line scripts ran
-for minutes past a 250 ms limit. Patch level 2.
+for minutes past a 250 ms limit. With patches 6 to 13, patch level 3.
 
-6. **Interrupt flag** (`surimono_set_interrupt_flag`, `js_poll_interrupts`).
+14. **Interrupt flag** (`surimono_set_interrupt_flag`, `js_poll_interrupts`).
    The host can give a runtime a `uint32_t` flag. Every poll still counts
    down `interrupt_counter`, and also loads the flag (a relaxed C11 atomic
    load; `volatile` where the compiler has no atomics, and so no threads);
@@ -279,7 +334,7 @@ for minutes past a 250 ms limit. Patch level 2.
    points at a static zero flag until the host sets one, so the poll needs
    no NULL check. The flag must outlive the runtime, and the handler must
    answer true while it is set.
-7. **Polls in string searches.** `indexOf`, `lastIndexOf`, `includes`
+15. **Polls in string searches.** `indexOf`, `lastIndexOf`, `includes`
    (and `startsWith`/`endsWith`, which share its loop), and
    `string_indexof`, used by `split`, `replace` and `replaceAll` with a
    string pattern, are naive searches of up to n * m character comparisons
@@ -288,7 +343,7 @@ for minutes past a 250 ms limit. Patch level 2.
    after an interrupt; both callers check it. `replace`/`replaceAll` and
    `split` also poll once per match: `replaceAll('a', '')` on a 64 MB
    string made 64M passes without one. Results are unchanged.
-8. **Polls in BigInt arithmetic.** `js_mp_mul_basecase` (multiply) polls
+16. **Polls in BigInt arithmetic.** `js_mp_mul_basecase` (multiply) polls
    once per row and `js_mp_divnorm` (divide and remainder) once per
    quotient limb; both take `ctx` and return -1 after an interrupt, and
    `js_bigint_mul`/`js_bigint_divrem` free their buffers and fail. Decimal
@@ -297,13 +352,13 @@ for minutes past a 250 ms limit. Patch level 2.
    1.1 s, 11 s and 0.3 s per operation, and straight-line code never polls
    between operations. The size cap is unchanged; power goes through
    multiply. Results are unchanged.
-9. **Typed-array sort checks the flag, not the counter** (amends patch 3;
+17. **Typed-array sort checks the flag, not the counter** (amends patch 3;
    review of #32, F2). Patch 3's wrapper polled on every comparison through
    one generic wrapper that called the comparator through a pointer; that
    cost 15-26% of a large default sort. Now there is one wrapper per
    element type (`JS_TA_CMP_POLL`, chosen by `js_TA_cmp_poll_for`), so the
    comparator is a direct, inlinable call, and the wrapper only loads the
-   interrupt flag of patch 6 (loads only; a countdown or
+   interrupt flag of patch 14 (loads only; a countdown or
    `interrupt_counter` is a load-store chain through memory on every
    comparison). When the flag is set it polls, and after an interrupt it
    answers 0 as before. Release build, 4M elements, sort only: Int32Array
@@ -311,9 +366,10 @@ for minutes past a 250 ms limit. Patch level 2.
    757-764, 730-736; Uint8Array 652-665, 817-825, 708-719. Without a host
    flag, a default typed-array sort is no longer interrupted; surimono
    always sets one.
-10. **`surimono_quickjs_patch_level()` returns 2.** surimono-core requires
-    2 and also links against `surimono_set_interrupt_flag`, so it can't be
-    built against the engine of #32 alone.
+18. **`surimono_quickjs_patch_level()` returns 3** (see patch 5).
+    surimono-core requires 3 and also links against
+    `surimono_set_interrupt_flag`, so it can't be built against an engine
+    without these patches.
 
 Tests: groups D (loops around one expensive native call) and E (string
 searches and BigInt near the cap) in `crates/core/tests/hostile.rs`;
@@ -324,10 +380,10 @@ still runs to its end once started; those left are linear in data the
 memory limit bounds (a `JSON.stringify` or `TypedArray#includes` of the
 whole heap).
 
-### Diff against patches 1 to 5
+### Diff of patches 14 to 18 (on top of patches 1 to 13)
 
 ```diff
---- a/quickjs/quickjs.c (after patches 1 to 5)
+--- a/quickjs/quickjs.c (with patches 1 to 13)
 +++ b/quickjs/quickjs.c
 @@ -77,6 +77,21 @@
  #define CONFIG_ATOMICS
@@ -351,7 +407,7 @@ whole heap).
  #ifndef __GNUC__
  #define __extension__
  #endif
-@@ -381,6 +396,9 @@ struct JSRuntime {
+@@ -384,6 +399,9 @@ struct JSRuntime {
  
      JSInterruptHandler *interrupt_handler;
      void *interrupt_opaque;
@@ -361,7 +417,7 @@ whole heap).
  
      JSPromiseHook *promise_hook;
      void *promise_hook_opaque;
-@@ -606,6 +624,9 @@ struct JSContext {
+@@ -609,6 +627,9 @@ struct JSContext {
  
      /* when the counter reaches zero, JSRutime.interrupt_handler is called */
      int interrupt_counter;
@@ -371,7 +427,7 @@ whole heap).
  
      struct list_head loaded_modules; /* list of JSModuleDef.link */
  
-@@ -2311,6 +2332,9 @@ static inline bool js_check_stack_overflow(JSRuntime *rt, size_t alloca_size)
+@@ -2316,6 +2337,9 @@ static inline bool js_check_stack_overflow(JSRuntime *rt, size_t alloca_size)
      return unlikely(sp < rt->stack_limit);
  }
  
@@ -381,7 +437,7 @@ whole heap).
  JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
  {
      JSRuntime *rt;
-@@ -2334,6 +2358,7 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
+@@ -2339,6 +2363,7 @@ JSRuntime *JS_NewRuntime2(const JSMallocFunctions *mf, void *opaque)
      rt->malloc_state = ms;
      js_arena_init(rt);
      rt->malloc_gc_threshold = 256 * 1024;
@@ -389,7 +445,7 @@ whole heap).
  
      init_list_head(&rt->context_list);
      init_list_head(&rt->gc_obj_list);
-@@ -2479,6 +2504,28 @@ void JS_SetInterruptHandler(JSRuntime *rt, JSInterruptHandler *cb, void *opaque)
+@@ -2484,6 +2509,28 @@ void JS_SetInterruptHandler(JSRuntime *rt, JSInterruptHandler *cb, void *opaque)
      rt->interrupt_opaque = opaque;
  }
  
@@ -418,7 +474,7 @@ whole heap).
  void JS_SetCanBlock(JSRuntime *rt, bool can_block)
  {
      rt->can_block = can_block;
-@@ -2867,6 +2914,7 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
+@@ -2878,6 +2925,7 @@ JSContext *JS_NewContextRaw(JSRuntime *rt)
          return NULL;
      }
      ctx->rt = rt;
@@ -426,13 +482,22 @@ whole heap).
      list_add_tail(&ctx->link, &rt->context_list);
      for(i = 0; i < rt->class_count; i++)
          ctx->class_proto[i] = JS_NULL;
-@@ -8670,12 +8718,16 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
- /* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md. */
+@@ -8684,10 +8732,12 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
+     return 0;
+ }
+ 
+-/* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md. */
++/* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
++   3: both the allocation-failure hardening (p1-rt-15) and the interrupt
++   flag (p1-rt-14), each of which was level 2 on its own branch. */
  int surimono_quickjs_patch_level(void)
  {
--    return 1;
-+    return 2;
+-    return 2;
++    return 3;
  }
+ 
+ /* surimono: with enabled = 0, every later allocation of this runtime goes
+@@ -8702,7 +8752,11 @@ void surimono_quickjs_set_arena(JSRuntime *rt, int enabled)
  
  static inline __exception int js_poll_interrupts(JSContext *ctx)
  {
@@ -445,7 +510,7 @@ whole heap).
          return __js_poll_interrupts(ctx);
      } else {
          return 0;
-@@ -12489,7 +12541,9 @@ static js_limb_t js_mp_add_mul1(js_limb_t *tabr, const js_limb_t *taba, js_limb_
+@@ -12516,7 +12570,9 @@ static js_limb_t js_mp_add_mul1(js_limb_t *tabr, const js_limb_t *taba, js_limb_
  }
  
  /* size of the result : op1_size + op2_size. */
@@ -456,7 +521,7 @@ whole heap).
                              const js_limb_t *op1, js_limb_t op1_size,
                              const js_limb_t *op2, js_limb_t op2_size)
  {
-@@ -12498,9 +12552,12 @@ static void js_mp_mul_basecase(js_limb_t *result,
+@@ -12525,9 +12581,12 @@ static void js_mp_mul_basecase(js_limb_t *result,
  
      result[op1_size] = js_mp_mul1(result, op1, op1_size, op2[0], 0);
      for(i=1;i<op2_size;i++) {
@@ -469,7 +534,7 @@ whole heap).
  }
  
  /* tabr[] -= taba[] * b. Return the value to substract to the high
-@@ -12580,7 +12637,10 @@ static js_limb_t js_mp_div1norm(js_limb_t *tabr, const js_limb_t *taba, js_limb_
+@@ -12607,7 +12666,10 @@ static js_limb_t js_mp_div1norm(js_limb_t *tabr, const js_limb_t *taba, js_limb_
     - 1] must be >= 1 << (JS_LIMB_BITS - 1). na - nb must be >= 0. 'taba'
     is modified and contains the remainder (nb limbs). tabq[0..na-nb]
     contains the quotient with tabq[na - nb] <= 1. */
@@ -481,7 +546,7 @@ whole heap).
                         const js_limb_t *tabb, js_limb_t nb)
  {
      js_limb_t r, a, c, q, v, b1, b1_inv, n, dummy_r;
-@@ -12589,7 +12649,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
+@@ -12616,7 +12678,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
      b1 = tabb[nb - 1];
      if (nb == 1) {
          taba[0] = js_mp_div1norm(tabq, taba, na, b1, 0);
@@ -490,7 +555,7 @@ whole heap).
      }
      n = na - nb;
  
-@@ -12613,6 +12673,8 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
+@@ -12640,6 +12702,8 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
      }
  
      for(i = n - 1; i >= 0; i--) {
@@ -499,7 +564,7 @@ whole heap).
          if (unlikely(taba[i + nb] >= b1)) {
              q = -1;
          } else if (b1_inv) {
-@@ -12645,6 +12707,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
+@@ -12672,6 +12736,7 @@ static void js_mp_divnorm(js_limb_t *tabq, js_limb_t *taba, js_limb_t na,
          }
          tabq[i] = q;
      }
@@ -507,7 +572,7 @@ whole heap).
  }
  
  /* 1 <= shift <= JS_LIMB_BITS - 1 */
-@@ -12935,7 +12998,14 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
+@@ -12962,7 +13027,14 @@ static JSBigInt *js_bigint_mul(JSContext *ctx, const JSBigInt *a,
      r = js_bigint_new(ctx, a->len + b->len);
      if (!r)
          return NULL;
@@ -523,7 +588,7 @@ whole heap).
      /* correct the result if negative operands (no overflow is
         possible) */
      if (js_bigint_sign(a))
-@@ -13025,7 +13095,13 @@ static JSBigInt *js_bigint_divrem(JSContext *ctx, const JSBigInt *a,
+@@ -13052,7 +13124,13 @@ static JSBigInt *js_bigint_divrem(JSContext *ctx, const JSBigInt *a,
  
      //    js_bigint_dump1(ctx, "a", r->tab, na);
      //    js_bigint_dump1(ctx, "b", tabb, nb);
@@ -538,7 +603,7 @@ whole heap).
      js_free(ctx, tabb);
  
      if (is_rem) {
-@@ -13538,6 +13614,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
+@@ -13565,6 +13643,12 @@ static JSBigInt *js_bigint_from_string(JSContext *ctx,
          len = 1;
          r->tab[0] = 0;
          for(;;) {
@@ -551,7 +616,7 @@ whole heap).
              /* XXX: slow */
              v = 0;
              for(i = 0; i < digits_per_limb; i++) {
-@@ -13719,6 +13801,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
+@@ -13746,6 +13830,13 @@ static JSValue js_bigint_to_string1(JSContext *ctx, JSValueConst val, int radix)
              radix_base = js_radix_base_table[radix - 2];
              len = r->len;
              for(;;) {
@@ -565,7 +630,7 @@ whole heap).
                  /* remove leading zero limbs */
                  while (len > 1 && r->tab[len - 1] == 0)
                      len--;
-@@ -47309,10 +47398,30 @@ static int string_indexof_char(JSString *p, int c, int from)
+@@ -47408,10 +47499,30 @@ static int string_indexof_char(JSString *p, int c, int from)
      return -1;
  }
  
@@ -597,7 +662,7 @@ whole heap).
      if (len2 == 0)
          return from;
      for (i = from, c = string_get(p2, 0); i + len2 <= len1; i = j + 1) {
-@@ -47321,6 +47430,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
+@@ -47420,6 +47531,8 @@ static int string_indexof(JSString *p1, JSString *p2, int from)
              break;
          if (!string_cmp(p1, p2, j + 1, 1, len2 - 1))
              return j;
@@ -606,7 +671,7 @@ whole heap).
      }
      return -1;
  }
-@@ -47458,6 +47569,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47557,6 +47670,7 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
      }
      ret = -1;
      if (len >= v_len && inc * (stop - start) >= 0) {
@@ -614,7 +679,7 @@ whole heap).
          for (i = start;; i += inc) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = i;
-@@ -47465,6 +47577,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
+@@ -47564,6 +47678,8 @@ static JSValue js_string_indexOf(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -623,7 +688,7 @@ whole heap).
          }
      }
      JS_FreeValue(ctx, str);
-@@ -47524,6 +47638,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47623,6 +47739,7 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
          start = stop = pos;
      }
      if (start >= 0 && start <= stop) {
@@ -631,7 +696,7 @@ whole heap).
          for (i = start;; i++) {
              if (!string_cmp(p, p1, i, 0, v_len)) {
                  ret = 1;
-@@ -47531,6 +47646,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
+@@ -47630,6 +47747,8 @@ static JSValue js_string_includes(JSContext *ctx, JSValueConst this_val,
              }
              if (i == stop)
                  break;
@@ -640,7 +705,7 @@ whole heap).
          }
      }
   done:
-@@ -47786,6 +47903,11 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47885,6 +48004,11 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
      endOfLastMatch = 0;
      is_first = true;
      for(;;) {
@@ -652,7 +717,7 @@ whole heap).
          if (unlikely(searchp->len == 0)) {
              if (is_first)
                  pos = 0;
-@@ -47794,7 +47916,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
+@@ -47893,7 +48017,9 @@ static JSValue js_string_replace(JSContext *ctx, JSValueConst this_val,
              else
                  pos = endOfLastMatch + 1;
          } else {
@@ -663,7 +728,7 @@ whole heap).
          }
          if (pos < 0) {
              if (is_first) {
-@@ -47905,7 +48029,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
+@@ -48004,7 +48130,12 @@ static JSValue js_string_split(JSContext *ctx, JSValueConst this_val,
      }
      q = p;
      for (q = p; (q += !r) <= s - r - !r; q = p = e + r) {
@@ -677,7 +742,7 @@ whole heap).
          if (e < 0)
              break;
          T = js_sub_string(ctx, sp, p, e);
-@@ -61441,26 +61570,88 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
+@@ -61549,26 +61680,88 @@ static int js_TA_cmp_generic(const void *a, const void *b, void *opaque) {
  }
  
  /* surimono: the typed comparators are plain C and never poll, so sorting
@@ -776,7 +841,7 @@ whole heap).
  static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
                                     int argc, JSValueConst *argv)
  {
-@@ -61603,9 +61794,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
+@@ -61711,9 +61904,12 @@ static JSValue js_typed_array_sort(JSContext *ctx, JSValueConst this_val,
          done:
              js_free(ctx, array_idx);
          } else {
