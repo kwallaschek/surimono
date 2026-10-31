@@ -92,10 +92,10 @@ class EmbeddedOnly(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("licence file LICENSE missing", out)
 
-    def test_bundle_not_in_checkout_is_reported_not_failed(self) -> None:
+    def test_missing_bundle_fails(self) -> None:
         code, out = self.run_verify()
-        self.assertEqual(code, 0, out)
-        self.assertIn("not in this checkout", out)
+        self.assertEqual(code, 1, out)
+        self.assertIn("is missing", out)
 
     def test_unknown_library_name_fails(self) -> None:
         out = io.StringIO()
@@ -105,14 +105,16 @@ class EmbeddedOnly(unittest.TestCase):
 
 
 class RealManifest(unittest.TestCase):
-    def test_every_embedded_entry_is_complete(self) -> None:
+    def test_every_embedded_entry_matches_this_checkout(self) -> None:
+        """The drift guard: what the manifest records is what crates/islands embeds."""
         import tomllib
 
         manifest = tomllib.loads((pathlib.Path(verify.HERE) / "manifest.toml").read_text(encoding="utf-8"))
         for lib in manifest["library"]:
             if "embedded" in lib:
-                errors, _ = verify.check_embedded(lib, pathlib.Path(tempfile.gettempdir()) / "surimono-no-such-checkout")
+                errors, note = verify.check_embedded(lib)
                 self.assertEqual(errors, [], lib["name"])
+                self.assertIn("checked", note)
 
 
 if __name__ == "__main__":
