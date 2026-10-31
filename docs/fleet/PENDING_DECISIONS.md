@@ -116,3 +116,11 @@ Private: the maintainer report draft is in the Claude project (claude/private-qu
 - 2026-10-31 · launchOffline removes WebRTC (RTC*) from every frame with an init script (#50) · Makes "nothing reaches the network" true for the page itself; tested with positive controls.
 - 2026-10-31 · compat.py: an unknown fixture is an error; a pass needs a compared page; a nested check passes only with pass: true; malformed producer/determinism/score files are errors (#50, #51) · #28 and #35 reviews.
 - 2026-10-31 · The checkpoint's second render tries decimal-comma locales first (de_DE, fr_FR, ja_JP, en_US; fallback de_DE.UTF-8), and verdicts are derived in lib/report.mjs the way compat.py does (#51) · #35 review.
+
+## RT-14 (#47), add on merge
+- 2026-10-31 · Deadlines are enforced by one watchdog thread per process that raises a per-runtime stop flag, which the patched QuickJS reads on every interrupt poll; a refused allocation raises it too; Deadline::passed() reads the same flag · The handler alone was asked every 10,000 polls, so a loop around one expensive call overran by minutes; no thread per render.
+- 2026-10-31 · The BigInt 1 Mbit cap stays; multiply, divide, toString and parsing poll inside their loops · Size limit unchanged, time to stop bounded.
+- 2026-10-31 · String searches stay naive (exact semantics) but poll every 65,536 comparisons and once per match · Bounds time without changing results.
+- 2026-10-31 · Typed-array default sort checks only the interrupt flag through per-type wrappers · 8–11% overhead instead of 15–26%.
+- 2026-10-31 · Engine patch level 3 = #45's allocation-failure patches + #47's interrupt patches; build.rs refuses wasm32-unknown-unknown · One level for both sets.
+- 2026-10-31 · Sandbox::new/with_options (and a call in a forked child) return SandboxError::Engine when the watchdog thread can't be spawned · Typed error instead of a panic.

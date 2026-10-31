@@ -24,7 +24,8 @@ time is now enforced by `scripts/fleet/owner-check.sh`.
 | PR | Task | State |
 |---|---|---|
 | #32 → #37, #45 | P1-RT-09 engine patch, P1-RT-11 hostile harness, P1-RT-15 OOM fixes | #32 and #37 approved; P1-RT-15b adds the bind sweep test and nits (#45 blockers); then a delta review and normal merges |
-| #47 | P1-RT-14 time-accurate deadlines (R4, R5) | opened, not reviewed; patch level becomes 3 if #45 lands first |
+| #47 | P1-RT-14 time-accurate deadlines (R4, R5) | in review (stacked on #32 and #45; patch level 3) |
+| #52, #53 | P1-RT-19 macOS determinism probe, P1-RT-13 ASan test limits | in review; from main, fix main's full.yml |
 | #12 → #27 → #16 | gfx sanitizer, outlines, hand-off | #12 BLOCK (relative URLs pass as `data:image/`), #27 BLOCK (carries #12); being fixed |
 | #25 → #26 → #34 | facade on the real backend, CLI, licences | BLOCKs from 16:25 being folded in; critical path for the checkpoint run |
 | #35 | P1-CF-09 checkpoint-2 run script | approved at 1beb0b9; main merged in (66cba58), delta in review; merges after #27 |
