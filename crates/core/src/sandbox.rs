@@ -27,6 +27,17 @@ use crate::{Limits, SandboxError};
 /// byte-identical across runs on one platform; across platforms, numbers
 /// computed with those functions can differ in their last digits.
 ///
+/// So can how deep recursion gets before a caught stack overflow: the limit
+/// is in bytes, and frame sizes differ between debug and release builds,
+/// compilers and platforms. A script that catches the `RangeError` and
+/// prints how deep it got gives different output across builds; one that
+/// lets it escape fails with [`SandboxError::StackOverflow`] everywhere.
+///
+/// Local time near the ends of the Date range (within the UTC offset of
+/// ±8.64e15 ms) is a known gap: the constructor and `Date.parse` handle it,
+/// but the local-time getters, setters and string methods report an
+/// invalid date there.
+///
 /// Locale-sensitive methods (`toLocaleString` and friends) ignore their
 /// `locales` and `options` arguments and always format like Chrome's
 /// `en-US`.
@@ -235,7 +246,11 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// - **Memory**: the runtime's allocator refuses to go past
 ///   [`Limits::memory_bytes`]. Any refused allocation makes the call fail with
 ///   [`SandboxError::MemoryLimit`], even if the script catches the error; the
-///   script is stopped at its next interrupt check.
+///   script is stopped at its next interrupt check. The engine is patched so
+///   that refused allocations are reported rather than crash it; the tests
+///   refuse every single allocation of three scripts in turn (compiling from
+///   source and running bytecode), so failure paths those scripts never
+///   reach are not covered.
 /// - **Time**: each top-level call ([`eval`](Self::eval), [`call`](Self::call),
 ///   [`run`](Self::run), …) gets [`Limits::time`], covering the call and the
 ///   microtasks it queues. The interrupt QuickJS raises is uncatchable, so
@@ -245,8 +260,11 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 ///   either. The engine is patched to check for it inside native loops
 ///   (`join`, `fill`, `sort`… over a huge array-like) as well; see
 ///   `vendor/rquickjs-sys/PATCHES.md`. The hostile-script tests in
-///   `tests/hostile.rs` run every known way to hang the engine and check
-///   each ends with a limit error in about twice the time limit.
+///   `tests/hostile.rs` run the hang vectors found so far and check each
+///   ends with a limit error in about twice the time limit. Known gap: the
+///   engine looks at the deadline only every few thousand interrupt checks,
+///   and some expensive built-ins don't check at all while they run, so a
+///   loop around such a call can overshoot the limit by far more.
 /// - **Stack**: recursion deeper than [`Limits::stack_bytes`] fails with
 ///   [`SandboxError::StackOverflow`] unless the script catches the `RangeError`.
 ///
@@ -300,7 +318,7 @@ impl Sandbox {
     /// Creates a sandbox from full options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
         options.validate()?;
-        if engine::patch_level() < 1 {
+        if engine::patch_level() < 2 {
             return Err(SandboxError::Engine {
                 message: "QuickJS lacks surimono's sandbox patches".into(),
             });
@@ -545,6 +563,8 @@ fn new_context(
     let ctx = Context::custom::<Intrinsics>(rt).map_err(|e| setup_error(state, e))?;
     ctx.with(|ctx| {
         engine::update_stack_top(&ctx);
+        #[cfg(test)]
+        engine::fault::apply_arena_setting(&ctx);
         install_prelude(&ctx, options).map_err(|e| match classify(&ctx, state, e) {
             limit if limit.is_limit() => limit,
             other => SandboxError::Engine {
@@ -1380,6 +1400,32 @@ mod tests {
         }
     }
 
+    /// `Function.prototype.bind` after the engine change that builds the
+    /// bound-function record first (PATCHES.md, patch 6).
+    #[test]
+    fn bound_functions_behave_normally() {
+        let mut sb = sandbox();
+        let checks = [
+            (
+                "function f(a, b, c) { return [this.k, a, b, c].join() } f.bind({ k: 1 }, 2)(3, 4)",
+                "1,2,3,4",
+            ),
+            (
+                "function g(a, b, c) {} const h = g.bind(null, 1); h.name + ':' + h.length",
+                "bound g:2",
+            ),
+            (
+                "function P(x) { this.x = x } const Q = P.bind(null, 7); const q = new Q(); \
+                 q.x + ':' + (q instanceof P) + ':' + (q instanceof Q)",
+                "7:true:true",
+            ),
+            ("(() => 5).bind().bind().bind()() + ''", "5"),
+        ];
+        for (src, want) in checks {
+            assert_eq!(sb.eval::<String>(src).unwrap(), want, "{src}");
+        }
+    }
+
     #[test]
     fn limit_errors_discard_state() {
         let mut sb = sandbox();
@@ -1641,22 +1687,119 @@ mod tests {
         eval(parts.join('\n') + '; typeof f199') + new Function(parts[7] + '; return f7(1)')().constructor.name
     "#;
 
-    /// Child side of `out_of_memory_never_aborts`. With SURIMONO_OOM_COUNT
-    /// set it prints how many allocations a clean run of the script makes;
-    /// otherwise, for each N in SURIMONO_OOM_NS, it refuses the script's Nth
-    /// allocation.
+    /// Compiles and runs a wide range of syntax (classes with private and
+    /// static members, destructuring, labels, switch, try/finally, generators,
+    /// async iteration, tagged templates, named groups, BigInt, direct eval),
+    /// so the parser and both code-generation passes meet refused
+    /// allocations everywhere. It also calls `Function.prototype.bind` (with
+    /// no, a few and a long spread of bound arguments, and on a constructor)
+    /// and `Promise.allSettled`/`Promise.any`, so the sweep refuses each of
+    /// their allocations too.
+    const SYNTAX_SCRIPT: &str = r#"
+'use strict';
+class Base {
+  static #count = 0;
+  #secret;
+  static { Base.ready = true; }
+  constructor(x = 1, { y, z: [w = 2] = [] } = {}) { this.#secret = x + (y ?? 0) + w; Base.#count++; }
+  get secret() { return this.#secret; }
+  set secret(v) { this.#secret = v; }
+  #hidden() { return this.#secret * 2; }
+  reveal() { return this.#hidden(); }
+  static count() { return Base.#count; }
+  *[Symbol.iterator]() { yield this.#secret; yield* [1, 2]; }
+}
+class Derived extends Base {
+  field = 3;
+  ['computed' + 1] = 4;
+  constructor(...args) { super(...args); this.extra = new.target.name; }
+  reveal() { return super.reveal() + this.field; }
+  static async *gen(n) { for (let i = 0; i < n; i++) { await null; yield i; } }
+}
+function sloppy() { return typeof this; }
+const tag = (s, ...v) => s.raw.join('|') + v.join(',');
+let acc = 0n;
+outer: for (const [k, v] of Object.entries({ a: 1, b: 2, c: 3 })) {
+  for (const key in { p: 1, q: 2 }) {
+    if (key === 'q') continue outer;
+    switch (v) {
+      case 1: acc += 1n; break;
+      case 2: { acc **= 2n; break; }
+      default: acc ||= 5n;
+    }
+  }
+}
+let n = 0;
+do { n++; } while (n < 3);
+while (n > 0) { try { if (n === 2) throw new RangeError('r'); } catch ({ message }) { n -= message.length; } finally { n--; } }
+const d = new Derived(5, { y: 1 });
+const o = { a: { b: [1, { c: 2 }] }, get g() { return 7; }, set s(v) { this._s = v; }, m() { return this?.a?.b?.[1]?.c; }, async am() { return 1; }, *gm() { yield 1; } };
+const { a: { b: [, { c } = {}] } = {}, ...rest } = o;
+let x1 = null; x1 ??= 4; let x2 = 0; x2 ||= 5; let x3 = 1; x3 &&= 6;
+const re = /(?<year>\d{4})-(?<m>\d\d)/gu;
+const dates = [...'2026-10 2027-01'.matchAll(re)].map((mm) => mm.groups.year + mm.groups.m);
+const fns = [];
+for (let i = 0; i < 3; i++) fns.push(() => i);
+const label = `${tag`a${1}b${2}c`}:${dates}:${fns.map((f) => f())}`;
+const big = 1_000_000n * 3n;
+const ev = eval('(function inner(p) { var q = p + 1; return eval("q * 2"); })(20)');
+const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
+function sum3(a, b, c) { return this.k + a + b + c; }
+const bound0 = sum3.bind({ k: 1 });
+const bound2 = sum3.bind({ k: 2 }, 3, 4);
+const bargs = new Array(300).fill(1);
+const boundMany = sum3.bind({ k: 3 }, ...bargs);
+function Pt(x) { this.x = x; }
+const BoundPt = Pt.bind(null, 7);
+(async () => {
+  const out = [];
+  for await (const v of Derived.gen(3)) out.push(v);
+  try { await Promise.reject(new Error('x')); } catch (e) { out.push(e.message); }
+  const r = await Promise.allSettled([o.am(), Promise.resolve(2)]);
+  out.push(await Promise.any([Promise.reject(new Error('y')), Promise.resolve(4), 5]));
+  globalThis.asyncResult = out.join() + r.length;
+})();
+[d.secret, d.reveal(), Base.count(), [...d].join(), d.extra, d.computed1, sloppy.call(1), String(acc), n,
+ c, Object.keys(rest).length, o.m(), o.g, x1 + x2 + x3, label, String(big), ev, fn(3), [...o.gm()].length,
+ bound0(1, 2, 3), bound2(5), boundMany(), boundMany.length, new BoundPt().x, BoundPt.name,
+ typeof Base.ready, (function () { return arguments.length; })(1, 2, 3),
+ JSON.stringify({ k: [1, 'two', { three: 3 }] }, null, 2).length,
+ new Map([[1, { deep: [new Set([1])] }]]).size,
+ Array.from({ length: 5 }, (_, i) => i * i).reduce((s, v) => s + v, 0),
+].join(';');
+"#;
+
+    /// Child side of the out-of-memory sweeps. SURIMONO_OOM_SCRIPT picks the
+    /// script, SURIMONO_OOM_MODE `eval` (compile and run) or `bytecode` (run
+    /// precompiled bytecode), and SURIMONO_OOM_ARENA=off makes every
+    /// allocation reach the sandbox's allocator. With SURIMONO_OOM_COUNT set
+    /// it prints how many allocations a clean run makes; otherwise, for each
+    /// N in SURIMONO_OOM_NS, it refuses the run's Nth allocation.
     #[test]
-    #[ignore = "helper: run in a child process by out_of_memory_never_aborts"]
+    #[ignore = "helper: run in a child process by the out-of-memory sweeps"]
     fn oom_sweep_child() {
         let limits = limits().with_time(Duration::from_secs(10));
         let script = match std::env::var("SURIMONO_OOM_SCRIPT").as_deref() {
             Ok("compiling") => COMPILING_SCRIPT,
+            Ok("syntax") => SYNTAX_SCRIPT,
             _ => ALLOCATING_SCRIPT,
+        };
+        let bytecode = std::env::var("SURIMONO_OOM_MODE").as_deref() == Ok("bytecode");
+        engine::fault::set_arena_off(std::env::var("SURIMONO_OOM_ARENA").as_deref() == Ok("off"));
+        let compiled = bytecode.then(|| {
+            Sandbox::new(limits)
+                .unwrap()
+                .compile(script, "sweep.js")
+                .unwrap()
+        });
+        let run = |sb: &mut Sandbox| match &compiled {
+            Some(bc) => sb.eval_bytecode(bc),
+            None => sb.eval::<String>(script).map(drop),
         };
         if std::env::var_os("SURIMONO_OOM_COUNT").is_some() {
             let mut sb = Sandbox::new(limits).unwrap();
             engine::fault::refuse_nth(usize::MAX);
-            sb.eval::<String>(script).unwrap();
+            run(&mut sb).unwrap();
             println!("OOM-COUNT {}", engine::fault::count());
             return;
         }
@@ -1664,8 +1807,9 @@ mod tests {
         let (mut ok, mut refused) = (0, 0);
         for n in ns.split(',').map(|n| n.parse::<usize>().unwrap()) {
             let mut sb = Sandbox::new(limits).unwrap();
+            let state = sb.state.clone();
             engine::fault::refuse_nth(n);
-            let result = sb.eval::<String>(script);
+            let result = run(&mut sb);
             engine::fault::refuse_nth(0);
             // Whatever happened, the sandbox works afterwards.
             assert_eq!(
@@ -1673,8 +1817,13 @@ mod tests {
                 Ok(42),
                 "after refusing allocation {n}"
             );
+            // And the runtime that met the refusal gave back every byte when
+            // it was freed (the sandbox replaces it after MemoryLimit), so no
+            // error path leaked an object.
+            drop(sb);
+            assert_eq!(state.used(), 0, "leak after refusing allocation {n}");
             match result {
-                Ok(_) => ok += 1,
+                Ok(()) => ok += 1,
                 Err(SandboxError::MemoryLimit) => refused += 1,
                 Err(other) => panic!("refusing allocation {n} gave {other:?}"),
             }
@@ -1682,18 +1831,12 @@ mod tests {
         println!("OOM-SWEEP ok={ok} memory_limit={refused}");
     }
 
-    /// Review of #5, F7: refuse each single allocation of an allocation-heavy
-    /// script in turn. The memory limit can refuse any allocation a script
-    /// makes, so QuickJS must report every such failure, never crash or
-    /// `abort()`; each run must end as success or `MemoryLimit` and leave
-    /// the sandbox usable. (Building the runtime and context is not swept:
-    /// it needs about 200 KiB, under the 1 MiB minimum limit, so the limit
-    /// never refuses there.) Runs in child processes, so a crash fails the
-    /// test instead of killing the harness.
-    #[test]
-    fn out_of_memory_never_aborts() {
+    /// Runs `oom_sweep_child` over allocations 1, 1 + stride, … of one
+    /// script, mode and arena setting, in child processes so a crash fails
+    /// the test instead of killing the harness. Returns how many runs it made.
+    fn oom_sweep(script: &str, mode: &str, arena: &str, stride: usize) -> usize {
         let exe = std::env::current_exe().unwrap();
-        let child = |script: &str, env: (&str, String)| {
+        let child = |env: (&str, String)| {
             let out = std::process::Command::new(&exe)
                 .args([
                     "sandbox::tests::oom_sweep_child",
@@ -1702,13 +1845,15 @@ mod tests {
                     "--nocapture",
                 ])
                 .env("SURIMONO_OOM_SCRIPT", script)
+                .env("SURIMONO_OOM_MODE", mode)
+                .env("SURIMONO_OOM_ARENA", arena)
                 .env(env.0, &env.1)
                 .output()
                 .unwrap();
             let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
             assert!(
                 out.status.success(),
-                "the child died ({:?}) on the {script} script with {}={}:\n{stdout}\n{}",
+                "the child died ({:?}) on the {script} script ({mode}, arena {arena}) with {}={}:\n{stdout}\n{}",
                 out.status,
                 env.0,
                 env.1,
@@ -1716,26 +1861,68 @@ mod tests {
             );
             stdout
         };
+        let counted = child(("SURIMONO_OOM_COUNT", "1".into()));
+        let total: usize = counted
+            .split("OOM-COUNT ")
+            .nth(1)
+            .and_then(|s| s.split_whitespace().next())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_else(|| panic!("no count in: {counted}"));
+        assert!(total > 20, "{script}: only {total} allocations");
+        let ns: Vec<usize> = (1..=total).step_by(stride.max(1)).collect();
+        for chunk in ns.chunks(250) {
+            let list = chunk
+                .iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>()
+                .join(",");
+            let out = child(("SURIMONO_OOM_NS", list));
+            assert!(out.contains("OOM-SWEEP"), "{out}");
+        }
+        ns.len()
+    }
+
+    /// Review of #5, F7, and of #32, R7: refuse each single allocation of a
+    /// script in turn. The memory limit can refuse any allocation a script
+    /// makes, so every such failure must end as success or `MemoryLimit`,
+    /// leave the sandbox usable and leak nothing; a crash or `abort()` fails
+    /// the test.
+    ///
+    /// With the arena on (as in production) only arena refills and large
+    /// blocks reach the sandbox's allocator, a few percent of all
+    /// allocations. With it off every allocation does, and since any small
+    /// allocation can be the one that needs a refill, that covers every
+    /// failure the limit can cause. The compile-heavy script makes about
+    /// 21,500 allocations per mode, so this test takes every 13th;
+    /// `out_of_memory_full_sweep` takes them all.
+    ///
+    /// Not swept: building the runtime and context, which needs about
+    /// 200 KiB, under the 1 MiB minimum limit, so the limit never refuses
+    /// there.
+    #[test]
+    fn out_of_memory_never_aborts() {
         for script in ["allocating", "compiling"] {
-            let counted = child(script, ("SURIMONO_OOM_COUNT", "1".into()));
-            let total: usize = counted
-                .split("OOM-COUNT ")
-                .nth(1)
-                .and_then(|s| s.split_whitespace().next())
-                .and_then(|s| s.parse().ok())
-                .unwrap_or_else(|| panic!("no count in: {counted}"));
-            // quickjs-ng carves small objects out of arena chunks, so these
-            // are the chunk and buffer allocations the limit can refuse.
-            assert!(total > 20, "{script}: only {total} allocations");
-            let ns: Vec<usize> = (1..=total).collect();
-            for chunk in ns.chunks(250) {
-                let list = chunk
-                    .iter()
-                    .map(|n| n.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                let out = child(script, ("SURIMONO_OOM_NS", list));
-                assert!(out.contains("OOM-SWEEP"), "{out}");
+            oom_sweep(script, "eval", "on", 1);
+        }
+        for script in ["allocating", "syntax"] {
+            for mode in ["eval", "bytecode"] {
+                oom_sweep(script, mode, "off", 1);
+            }
+        }
+        for mode in ["eval", "bytecode"] {
+            oom_sweep("compiling", mode, "off", 13);
+        }
+    }
+
+    /// Every allocation of every sweep script, both modes, arena off. Slow
+    /// in a debug build; run before releases and in the nightly jobs.
+    #[test]
+    #[ignore = "slow: every allocation of the compile-heavy script"]
+    fn out_of_memory_full_sweep() {
+        for script in ["allocating", "syntax", "compiling"] {
+            for mode in ["eval", "bytecode"] {
+                let runs = oom_sweep(script, mode, "off", 1);
+                println!("{script} {mode}: {runs} runs, no crash or leak");
             }
         }
     }
