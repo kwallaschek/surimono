@@ -53,5 +53,8 @@ resumed at 06:20.
 3. Start the DOM engineer (phase 2 scaffolding) once the build machine is less busy.
 4. Checkpoint 2 package (Sun ~18:00): 10 side-by-side fixtures, Grover table, hostile results, v0.1 release PR with dry-run.
 
+### Disk
+The session's disk allowance is small. When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh` (freed 15 GB at 08:00).
+
 ### Branch rule
 Never rebase or force-push a pushed branch; fix with new commits; downstream branches merge their parent in. PRs merge with merge commits.
