@@ -9,16 +9,19 @@
 //! expensive native call; group E is a single native call whose cost grows
 //! faster than its input (string search, BigInt arithmetic near the size
 //! cap); group F is a regular expression's per-match loop inside one native
-//! call (`replace`, `split`, `match`, `matchAll`). Each must end within about twice the time limit: with the
-//! expected limit error, or for the TOCTOU vectors (whose trick only
-//! fooled the old prelude guards) normally. See
-//! `vendor/rquickjs-sys/PATCHES.md` for the engine patches they cover.
+//! call (`replace`, `split`, `match`, `matchAll`). Each must stop within
+//! about twice the time limit (timed apart from the cleanup after it, which
+//! has a bound of its own): with the expected limit error, or for the
+//! TOCTOU vectors (whose trick only fooled the old prelude guards)
+//! normally. See `vendor/rquickjs-sys/PATCHES.md` for the engine patches
+//! they cover.
 
 use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use surimono_core::rquickjs::ArrayBuffer;
+use surimono_core::test_hooks::{self, CallTimings};
 use surimono_core::{Limits, Sandbox, SandboxError};
 
 mod common;
@@ -35,24 +38,57 @@ fn watchdog() -> Duration {
     scaled(Duration::from_secs(10))
 }
 
-/// Allowed time for a vector's call: twice the limit, plus slack for a
-/// debug build on a busy 2-core machine. The call's time includes stopping
-/// the script and the rebuild after the limit error, which frees the
-/// vector's heap (up to 128 MiB); process start and setup are not
-/// included. Stopping itself takes microseconds; the slack is for the
-/// cleanup on a machine whose other cores are busy (the fleet's shared
-/// machine ran at a load of 7 to 10 on 2 cores, where the 12M-element sort
-/// took 440 to 780 ms). AddressSanitizer (the nightly job, which sets
-/// ASAN_OPTIONS) makes every allocation and free several times slower, so
-/// it gets more, and the whole bound is multiplied by the test time scale
-/// (`SURIMONO_TEST_TIME_SCALE`, which that job also sets).
+/// Allowed time for a vector's script to stop: twice the limit, plus slack
+/// for a debug build on a busy 2-core machine. This is the time from arming
+/// the deadline until the script has stopped, timed by the sandbox itself
+/// (`surimono_core::test_hooks`, a test-only hook), so it leaves out the
+/// rebuild after the limit error. The slack covers how often a slow native
+/// loop polls (the group C sorts run 100 to 200 ms past the limit) and the
+/// scheduler on a loaded machine. AddressSanitizer (the nightly job, which
+/// sets ASAN_OPTIONS) slows every allocation, so it gets more, and every
+/// bound is multiplied by the test time scale (`SURIMONO_TEST_TIME_SCALE`,
+/// which that job also sets).
+fn stop_bound() -> Duration {
+    let slack = if asan() {
+        Duration::from_millis(2000)
+    } else {
+        Duration::from_millis(500)
+    };
+    scaled(2 * LIMIT + slack)
+}
+
+/// Allowed time from the first "stop" answer of the interrupt check to the
+/// call's return: unwinding the script's stack, a few ms at most. A
+/// regression that keeps running after being told to stop fails here even
+/// when the total is in bounds.
+fn unwind_bound() -> Duration {
+    scaled(Duration::from_millis(if asan() { 600 } else { 150 }))
+}
+
+/// The same for the group C sorts, which by design go on after the stop
+/// answer: `rqsort` can't be aborted, so the comparison answers 0 and the
+/// sort finishes in one linear pass (patches 3 and 17). That takes 65 to
+/// 105 ms for the 12M-element sort in a debug build, and up to about 500 ms
+/// on a heavily loaded machine; the stop bound still covers it.
+fn sort_unwind_bound() -> Duration {
+    stop_bound()
+}
+
+/// Allowed time for the whole call: the stop plus the rebuild after the
+/// limit error, which frees the vector's heap (up to 128 MiB); process
+/// start and setup are not included. On the fleet's shared machine (a load
+/// of 7 to 10 on 2 cores) the 12M-element sort took 440 to 780 ms in all.
 fn bound() -> Duration {
-    let slack = if std::env::var_os("ASAN_OPTIONS").is_some() {
+    let slack = if asan() {
         Duration::from_millis(2500)
     } else {
         Duration::from_millis(750)
     };
     scaled(2 * LIMIT + slack)
+}
+
+fn asan() -> bool {
+    std::env::var_os("ASAN_OPTIONS").is_some()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -552,20 +588,35 @@ fn hostile_child() {
         })
         .unwrap();
     }
+    test_hooks::take_last_call();
     let start = Instant::now();
     let result: Result<(), SandboxError> = sb.run(|ctx| ctx.eval::<(), _>(vector.source));
     let took = start.elapsed();
+    let timings = test_hooks::take_last_call();
     let after = sb.eval::<i32>("6 * 7");
+    // A missing hook record prints u128::MAX, which fails the stop bound.
+    let ms = |d: Option<Duration>| d.map_or(0, |d| d.as_millis());
+    let (stop_ms, unwind_ms, cleanup_ms) = match timings {
+        Some(CallTimings {
+            run,
+            unwind,
+            cleanup,
+        }) => (run.as_millis(), ms(unwind), ms(cleanup)),
+        None => (u128::MAX, u128::MAX, u128::MAX),
+    };
     println!(
-        "\nHOSTILE-RESULT {:?}|{}|{:?}",
+        "\nHOSTILE-RESULT {:?}|{}|{}|{}|{}|{:?}",
         result,
         took.as_millis(),
+        stop_ms,
+        unwind_ms,
+        cleanup_ms,
         after
     );
 }
 
 /// Runs each vector in a child with a watchdog and checks the outcomes.
-fn run_group(group: &[Vector]) {
+fn run_group(group: &[Vector], unwind_bound: Duration) {
     let exe = std::env::current_exe().unwrap();
     let mut report = Vec::new();
     let mut failures = Vec::new();
@@ -623,17 +674,16 @@ fn run_group(group: &[Vector]) {
             ));
             continue;
         };
-        let mut parts = line.splitn(3, '|');
-        let (result, ms, after) = (
-            parts.next().unwrap_or(""),
-            parts
-                .next()
-                .unwrap_or("")
-                .parse::<u64>()
-                .unwrap_or(u64::MAX),
-            parts.next().unwrap_or(""),
-        );
-        report.push(format!("{:>6} ms  {:<16} {}", ms, result, vector.name));
+        let mut parts = line.splitn(6, '|');
+        let mut text = || parts.next().unwrap_or("");
+        let ms = |s: &str| s.parse::<u64>().unwrap_or(u64::MAX);
+        let result = text();
+        let (total, stop, unwind, cleanup) = (ms(text()), ms(text()), ms(text()), ms(text()));
+        let after = text();
+        report.push(format!(
+            "{total:>6} ms (stop {stop:>5}, unwind {unwind:>3}, cleanup {cleanup:>5})  {result:<16} {}",
+            vector.name
+        ));
         let outcome_ok = match vector.want {
             Want::Time => result == "Err(TimeLimit)",
             Want::AnyLimit => result == "Err(TimeLimit)" || result == "Err(MemoryLimit)",
@@ -645,8 +695,25 @@ fn run_group(group: &[Vector]) {
                 vector.name, vector.want
             ));
         }
-        if Duration::from_millis(ms) > bound() {
-            failures.push(format!("{}: took {ms} ms, over {:?}", vector.name, bound()));
+        if Duration::from_millis(stop) > stop_bound() {
+            failures.push(format!(
+                "{}: took {stop} ms to stop, over {:?}",
+                vector.name,
+                stop_bound()
+            ));
+        }
+        if Duration::from_millis(unwind) > unwind_bound {
+            failures.push(format!(
+                "{}: took {unwind} ms to unwind after the stop answer, over {:?}",
+                vector.name, unwind_bound
+            ));
+        }
+        if Duration::from_millis(total) > bound() {
+            failures.push(format!(
+                "{}: took {total} ms with the cleanup ({cleanup} ms), over {:?}",
+                vector.name,
+                bound()
+            ));
         }
         if after != "Ok(42)" {
             failures.push(format!(
@@ -668,30 +735,30 @@ fn run_group(group: &[Vector]) {
 
 #[test]
 fn group_a_native_array_like_loops_end() {
-    run_group(GROUP_A);
+    run_group(GROUP_A, unwind_bound());
 }
 
 #[test]
 fn group_b_swallowed_interrupts_end() {
-    run_group(GROUP_B);
+    run_group(GROUP_B, unwind_bound());
 }
 
 #[test]
 fn group_c_long_native_sorts_end() {
-    run_group(GROUP_C);
+    run_group(GROUP_C, sort_unwind_bound());
 }
 
 #[test]
 fn group_d_loops_around_expensive_native_calls_end() {
-    run_group(GROUP_D);
+    run_group(GROUP_D, unwind_bound());
 }
 
 #[test]
 fn group_e_superlinear_native_calls_end() {
-    run_group(GROUP_E);
+    run_group(GROUP_E, unwind_bound());
 }
 
 #[test]
 fn group_f_regexp_per_match_loops_end() {
-    run_group(GROUP_F);
+    run_group(GROUP_F, unwind_bound());
 }

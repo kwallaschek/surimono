@@ -154,8 +154,10 @@ impl Document {
 
     /// The document's serialization: the `<html>` element's outer HTML, by
     /// the HTML Standard's fragment serialization algorithm (§13.3) for
-    /// HTML elements, text and comments. Iterative, so tree depth can't
-    /// overflow the stack.
+    /// elements (HTML, SVG and MathML) with their attributes, text and
+    /// comments, with scripting disabled, as blitz-html parsed the
+    /// document. Comments come out empty: blitz-dom 0.2.4 keeps no comment
+    /// data. Iterative, so tree depth can't overflow the stack.
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         if let Some(id) = self.document_element() {
@@ -183,21 +185,32 @@ impl Document {
                     let node = self.node(id);
                     match &node.data {
                         NodeData::Text(t) => {
+                            // §13.3: text is written unescaped when its
+                            // parent is an HTML style, script, xmp, iframe,
+                            // noembed, noframes or plaintext element (an SVG
+                            // <style> or <script> is escaped), or a noscript
+                            // element when scripting is enabled for the
+                            // node. It isn't here: blitz-html 0.2.0 parses
+                            // with `scripting_enabled: false`, so noscript
+                            // content is parsed as markup and its text must
+                            // be escaped to survive a reparse. Written raw,
+                            // `<noscript>&lt;b&gt;</noscript>` would come
+                            // back as a real <b> element.
                             let raw = node
                                 .parent
                                 .and_then(|p| self.node(p).element_data())
                                 .is_some_and(|e| {
-                                    matches!(
-                                        e.name.local.as_ref(),
-                                        "style"
-                                            | "script"
-                                            | "xmp"
-                                            | "iframe"
-                                            | "noembed"
-                                            | "noframes"
-                                            | "plaintext"
-                                            | "noscript"
-                                    )
+                                    e.name.ns == ns!(html)
+                                        && matches!(
+                                            e.name.local.as_ref(),
+                                            "style"
+                                                | "script"
+                                                | "xmp"
+                                                | "iframe"
+                                                | "noembed"
+                                                | "noframes"
+                                                | "plaintext"
+                                        )
                                 });
                             if raw {
                                 out.push_str(&t.content);
@@ -205,7 +218,9 @@ impl Document {
                                 escape_into(&t.content, false, out);
                             }
                         }
-                        // blitz-dom 0.2.4 keeps no comment data.
+                        // blitz-dom 0.2.4 keeps no comment data
+                        // (`NodeData::Comment` has no fields), so every
+                        // comment serializes empty: a known gap.
                         NodeData::Comment => out.push_str("<!---->"),
                         NodeData::Document => {}
                         NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
@@ -213,33 +228,34 @@ impl Document {
                             out.push_str(&e.name.local);
                             for a in e.attrs() {
                                 out.push(' ');
-                                out.push_str(&a.name.local);
+                                push_attribute_name(&a.name, out);
                                 out.push_str("=\"");
                                 escape_into(&a.value, true, out);
                                 out.push('"');
                             }
                             out.push('>');
-                            let void = matches!(
-                                e.name.local.as_ref(),
-                                "area"
-                                    | "base"
-                                    | "basefont"
-                                    | "bgsound"
-                                    | "br"
-                                    | "col"
-                                    | "embed"
-                                    | "frame"
-                                    | "hr"
-                                    | "img"
-                                    | "input"
-                                    | "keygen"
-                                    | "link"
-                                    | "meta"
-                                    | "param"
-                                    | "source"
-                                    | "track"
-                                    | "wbr"
-                            );
+                            let void = e.name.ns == ns!(html)
+                                && matches!(
+                                    e.name.local.as_ref(),
+                                    "area"
+                                        | "base"
+                                        | "basefont"
+                                        | "bgsound"
+                                        | "br"
+                                        | "col"
+                                        | "embed"
+                                        | "frame"
+                                        | "hr"
+                                        | "img"
+                                        | "input"
+                                        | "keygen"
+                                        | "link"
+                                        | "meta"
+                                        | "param"
+                                        | "source"
+                                        | "track"
+                                        | "wbr"
+                                );
                             if !void {
                                 stack.push(Step::Close(id));
                                 stack.extend(node.children.iter().rev().map(|&c| Step::Open(c)));
@@ -527,6 +543,29 @@ impl Document {
         self.inner.mutate().append_children(parent, &[child]);
         Ok(true)
     }
+}
+
+/// Writes an attribute's serialized name (HTML Standard §13.3, "serializing
+/// HTML fragments"): the local name without a namespace; `xml:`, `xmlns:`
+/// or `xlink:` plus the local name in those namespaces (`xmlns` alone for
+/// the `xmlns` attribute itself); the qualified name otherwise.
+fn push_attribute_name(name: &QualName, out: &mut String) {
+    let prefix = if name.ns == ns!() {
+        None
+    } else if name.ns == ns!(xml) {
+        Some("xml")
+    } else if name.ns == ns!(xmlns) {
+        (name.local != *"xmlns").then_some("xmlns")
+    } else if name.ns == ns!(xlink) {
+        Some("xlink")
+    } else {
+        name.prefix.as_ref().map(|p| p.as_ref())
+    };
+    if let Some(prefix) = prefix {
+        out.push_str(prefix);
+        out.push(':');
+    }
+    out.push_str(&name.local);
 }
 
 /// Escapes text or an attribute value as HTML serialization does (HTML

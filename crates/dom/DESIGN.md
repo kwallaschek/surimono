@@ -119,10 +119,20 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   when the document drops; the handle table already supports that.
 - **Serialization.** blitz-dom 0.2.4's `outer_html` doesn't escape text
   (`<` stays `<`) and recurses per level, so `Document::to_html` has its own
-  iterative serializer (HTML §13.3 for HTML elements, text and comments).
-  E2-02 extends it to foreign elements, `<template>` and namespaced
-  attributes.
+  iterative serializer (HTML §13.3): HTML, SVG and MathML elements, attribute
+  names with their `xml:`/`xmlns:`/`xlink:` prefixes, raw text and void
+  elements for HTML elements only, text and comments (`tests/serialize.rs`).
+  It serializes with scripting disabled, because blitz-html 0.2.0 parses
+  that way (`scripting_enabled: false`): `<noscript>` content is markup, so
+  its text is escaped, and a reparse (fulgur's included) gives the same
+  tree. E2-02 adds `<template>` contents.
 - **Comments** carry no data in blitz-dom 0.2.4 (`NodeData::Comment`), so a
-  comment's `textContent` is always empty.
+  comment's `textContent` is always empty and it serializes as `<!---->`
+  (ignored spec test `comments_keep_their_data`).
+- **Parse errors on stdout.** blitz-html 0.2.0's `TreeSink::finish` prints
+  every html5ever parse error as `ERROR: <message>` with `println!` (e.g.
+  `ERROR: Unexpected token` for a document without `<!doctype html>`).
+  libtest captures it unless `--nocapture` (the soak script) or a test
+  fails. Fixing it needs a `[patch]` of blitz-html or our own `TreeSink`.
 - The prototypes are hand-written for the spike; E2-01 generates them from the
   WebIDL in `crates/webidl/`.

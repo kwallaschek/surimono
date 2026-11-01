@@ -254,7 +254,12 @@ impl LimitState {
     /// once after an out-of-memory error so a script that catches it cannot
     /// keep going.
     pub(crate) fn should_interrupt(&self) -> bool {
-        self.oom() || self.deadline_passed()
+        let stop = self.oom() || self.deadline_passed();
+        #[cfg(any(test, feature = "test-hooks"))]
+        if stop {
+            crate::sandbox::test_hooks::note_stop_answer();
+        }
+        stop
     }
 
     fn elapsed_nanos(&self) -> u64 {
