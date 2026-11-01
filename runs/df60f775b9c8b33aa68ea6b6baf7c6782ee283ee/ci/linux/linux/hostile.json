@@ -1,0 +1,486 @@
+{
+  "cases": [
+    {
+      "id": "infinite-loop",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "infinite-loop-try-catch",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "infinite-loop-in-finally",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "microtask-flood",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "microtask-flood-growing",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 445
+    },
+    {
+      "id": "microtask-await-loop",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "regex-redos",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "regex-redos-alternation",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "atomics-wait",
+      "message": "TypeError: cannot block in this thread",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "native-loop-join-arraylike",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-join-holey",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-join-getter-length",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-join-proxy",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-reverse",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-copywithin",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-string-raw",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 327
+    },
+    {
+      "id": "native-loop-join-length-toctou",
+      "message": null,
+      "outcome": "Ok",
+      "output": "finished",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "native-loop-join-length-valueof",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-typedarray-own-length",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-dataview-length",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "native-loop-fill-typedarray-proto",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 189
+    },
+    {
+      "id": "native-sort-typed-array",
+      "message": null,
+      "outcome": "Ok",
+      "output": "sorted",
+      "step": null,
+      "wall_ms": 989
+    },
+    {
+      "id": "reentry-promise-executor",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "reentry-promise-try",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "reentry-async-generator",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "reentry-prepare-stack-trace",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "reentry-disposable-stack",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2001
+    },
+    {
+      "id": "alloc-arrays",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 104
+    },
+    {
+      "id": "alloc-string-doubling",
+      "message": "InternalError: string too long",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "alloc-string-repeat",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 1
+    },
+    {
+      "id": "alloc-typed-array",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 1
+    },
+    {
+      "id": "alloc-typed-arrays-many",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2
+    },
+    {
+      "id": "alloc-object-graph",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 323
+    },
+    {
+      "id": "oom-caught-retry",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 103
+    },
+    {
+      "id": "oom-caught-continue",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 103
+    },
+    {
+      "id": "recursion-plain",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 1
+    },
+    {
+      "id": "recursion-caught",
+      "message": null,
+      "outcome": "Ok",
+      "output": "caught:2,4,6",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "recursion-getter",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 1
+    },
+    {
+      "id": "recursion-tostring",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 1
+    },
+    {
+      "id": "recursion-proxy",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 1
+    },
+    {
+      "id": "recursion-json-stringify",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 42
+    },
+    {
+      "id": "recursion-array-join",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 36
+    },
+    {
+      "id": "recursion-json-parse",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 3
+    },
+    {
+      "id": "recursion-parser",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 3
+    },
+    {
+      "id": "regex-deep-nesting",
+      "message": "SyntaxError: stack overflow",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 2
+    },
+    {
+      "id": "deep-free-chain",
+      "message": null,
+      "outcome": "Ok",
+      "output": "freed",
+      "step": null,
+      "wall_ms": 75
+    },
+    {
+      "id": "result-not-a-string",
+      "message": "renderer \"step-0\" returned object, not an SVG string",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "result-hostile-thenable",
+      "message": "renderer \"step-0\" returned object, not an SVG string",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "promise-never-settles",
+      "message": "unexpected value: the promise never settled: nothing was left to run (the sandbox has no timers or I/O)",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "unhandled-rejection",
+      "message": null,
+      "outcome": "Ok",
+      "output": "ok",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "control-sync",
+      "message": null,
+      "outcome": "Ok",
+      "output": "surimono:2:object",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "control-async",
+      "message": null,
+      "outcome": "Ok",
+      "output": "async:ok",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "escape-require",
+      "message": null,
+      "outcome": "Ok",
+      "output": "none",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "escape-require-call",
+      "message": "ReferenceError: require is not defined",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "escape-dynamic-import",
+      "message": null,
+      "outcome": "Ok",
+      "output": "denied",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "escape-network",
+      "message": null,
+      "outcome": "Ok",
+      "output": "denied",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "escape-global-sniff",
+      "message": null,
+      "outcome": "Ok",
+      "output": "clean",
+      "step": null,
+      "wall_ms": 4
+    },
+    {
+      "id": "escape-function-constructor",
+      "message": null,
+      "outcome": "Ok",
+      "output": "undefined,undefined,undefined,undefined,undefined",
+      "step": null,
+      "wall_ms": 0
+    },
+    {
+      "id": "pollution-across-renders",
+      "message": null,
+      "outcome": "Ok",
+      "output": "polluted",
+      "step": 1,
+      "wall_ms": 0
+    },
+    {
+      "id": "pollution-across-renders",
+      "message": null,
+      "outcome": "Ok",
+      "output": "undefined,2,object,x,undefined,undefined,false,undefined",
+      "step": 2,
+      "wall_ms": 0
+    }
+  ],
+  "commit": "df60f775b9c8b33aa68ea6b6baf7c6782ee283ee",
+  "schema": 1
+}
