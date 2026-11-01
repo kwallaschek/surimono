@@ -199,6 +199,7 @@ impl LimitState {
 
     /// Objects the runtime's `JS_FreeRuntime` found still alive; zero
     /// until it has run.
+    #[cfg(test)]
     pub(crate) fn leaked_objects(&self) -> u32 {
         self.leaked_objects.load(Ordering::Relaxed)
     }
