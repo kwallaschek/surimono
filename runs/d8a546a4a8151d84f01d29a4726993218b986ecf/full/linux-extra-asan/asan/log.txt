@@ -1,0 +1,115 @@
+info: syncing channel updates for nightly-x86_64-unknown-linux-gnu
+info: latest update on 2026-11-01 for version 1.101.0-nightly (f9ceb4a4d 2026-10-31)
+info: downloading 4 components
+
+  nightly-x86_64-unknown-linux-gnu installed - rustc 1.101.0-nightly (f9ceb4a4d 2026-10-31)
+
+rustc 1.101.0-nightly (f9ceb4a4d 2026-10-31)
+binary: rustc
+commit-hash: f9ceb4a4d45a471eed7bd8c40dddb7c38e749e21
+commit-date: 2026-10-31
+host: x86_64-unknown-linux-gnu
+release: 1.101.0-nightly
+LLVM version: 23.1.4
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-dom`[0m
+  [1m[94m--> [0mCargo.toml:45:1
+   [1m[94m|[0m
+[1m[94m45[0m [1m[94m|[0m surimono-dom = { path = "crates/dom", version = "0.0.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_dependencies` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-dom`
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-webidl`[0m
+  [1m[94m--> [0mCargo.toml:44:1
+   [1m[94m|[0m
+[1m[94m44[0m [1m[94m|[0m surimono-webidl = { path = "crates/webidl", version = "0.0.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-webidl`
+[1m[33mwarning[0m[1m: unused field `description` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:34:1
+   [1m[94m|[0m
+[1m[94m34[0m [1m[94m|[0m description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_package_fields` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the field `workspace.package.description`
+[1m[33mwarning[0m: workspace (manifest) generated 3 warnings
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/core/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-core` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/gfx/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-gfx` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/islands/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-islands` (manifest) generated 1 warning
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m  Downloaded[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[92m  Downloaded[0m serde_spanned v1.1.2
+[1m[92m  Downloaded[0m toml v1.1.8+spec-1.1.0
+[1m[92m  Downloaded[0m toml_parser v1.1.5+spec-1.1.0
+[1m[92m  Downloaded[0m winnow v1.0.4
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m rustc-demangle v0.1.28
+[1m[92m  Downloaded[0m rustc-literal-escaper v0.0.8
+[1m[92m  Downloaded[0m getopts v0.2.24
+[1m[92m  Downloaded[0m addr2line v0.27.1
+[1m[92m  Downloaded[0m miniz_oxide v0.9.1
+[1m[92m  Downloaded[0m gimli v0.34.0
+[1m[92m  Downloaded[0m object v0.39.1
+[1m[92m   Compiling[0m compiler_builtins v0.1.160 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
+[1m[92m   Compiling[0m core v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
+[1m[92m   Compiling[0m libc v0.2.191
+[1m[92m   Compiling[0m object v0.39.1
+[1m[92m   Compiling[0m std v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std)
+[1m[92m   Compiling[0m test v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test)
+[1m[92m   Compiling[0m proc-macro2 v1.0.107
+[1m[92m   Compiling[0m quote v1.0.47
+[1m[92m   Compiling[0m unicode-ident v1.0.27
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m syn v3.0.9
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m rand_core v0.6.4
+[1m[92m   Compiling[0m synstructure v0.14.0
+[1m[92m   Compiling[0m siphasher v1.0.4
+[1m[92m   Compiling[0m phf_shared v0.11.3
+[1m[92m   Compiling[0m rand v0.8.8
+[1m[92m   Compiling[0m phf_generator v0.11.3
+[1m[92m   Compiling[0m libm v0.2.16
+[1m[92m   Compiling[0m shlex v2.0.1
+[1m[92m   Compiling[0m find-msvc-tools v0.1.15
+[1m[92m   Compiling[0m cc v1.10.0
