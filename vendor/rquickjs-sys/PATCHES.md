@@ -5,7 +5,9 @@ path `sys/`), which bundles quickjs-ng 0.16.2. It is wired in through
 `[patch.crates-io]` in the workspace `Cargo.toml`. Every change to upstream
 code is listed here and marked `surimono:` in the source. Drafts for
 upstream are in `docs/upstream/quickjs-ng-sticky-interrupt-and-native-loop-polls.md`
-and `docs/upstream/quickjs-ng-interrupt-granularity.md`.
+and `docs/upstream/quickjs-ng-interrupt-granularity.md`; the regexp
+per-match polls (patches 19 and 20) are in
+`docs/upstream/quickjs-ng-regexp-replace-polls.md`.
 
 ## Removed (not needed to build)
 
@@ -885,4 +887,89 @@ in data the memory limit bounds (a `JSON.stringify` or
              if (psc.exception)
                  return JS_EXCEPTION;
          }
+```
+
+## Regexp per-match polls (P1-RT-23)
+
+Review of #47: `'a'.repeat(1 << 25).replace(/(?:)/g, '')` stopped at
+1,174 ms against a 250 ms limit. `lre_exec` polls every 10,000 steps of
+one match attempt and restarts that count at every call, so a pattern that
+matches in a few steps never polls, and a C loop over its matches must.
+The loops audited: `js_regexp_Symbol_match` (global), `Symbol.split` and
+the first loop of `Symbol.replace` call `exec` through `JS_RegExpExec`,
+and `matchAll`'s iterator is called from script or a native iteration;
+all of them go through `JS_CallInternal`, which polls on entry, so they
+already polled per match. Two loops did not. With patches 1 to 18,
+patch level 4.
+
+19. **`JS_RegExpDelete` polls per match.** It is the fast path of
+    `replace`/`replaceAll` with `''` on a standard global or sticky regexp
+    and calls `lre_exec` directly, so nothing in it polled. It now calls
+    `js_poll_interrupts` before each match and fails after an interrupt,
+    freeing its buffers on the existing path. Debug build, 250 ms limit:
+    the empty pattern on 32M chars took 997 ms unpatched and stops at
+    250 ms; an 8-way alternation on 64M chars 4,587 ms and 253 ms.
+20. **`js_regexp_Symbol_replace` polls per match in its second loop**, the
+    one that builds the result from the collected matches. With a string
+    replacement it calls no script code, so a match list collected just
+    inside the limit was processed in one more unpolled pass of about the
+    same length. Results are unchanged.
+21. **`surimono_quickjs_patch_level()` returns 4.** surimono-core requires
+    4 (`engine::REQUIRED_PATCH_LEVEL`). The level is part of the bytecode
+    cache's engine fingerprint, so old cached bytecode is refused, as with
+    any engine change.
+
+Tests: group F in `crates/core/tests/hostile.rs` (ten vectors: the replace
+fast path, `replaceAll`, string and function replacements, `split`,
+`match`, `matchAll`); `interrupted_natives_leak_nothing` (three group F
+vectors) and `regexp_replace_results_are_unchanged` in
+`crates/core/src/sandbox.rs`.
+
+### Diff of patches 19 to 21 (on top of patches 1 to 18)
+
+```diff
+--- a/quickjs/quickjs.c (with patches 1 to 18)
++++ b/quickjs/quickjs.c
+@@ -8736,10 +8736,11 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
+ 
+ /* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
+    3: both the allocation-failure hardening (p1-rt-15) and the interrupt
+-   flag (p1-rt-14), each of which was level 2 on its own branch. */
++   flag (p1-rt-14), each of which was level 2 on its own branch.
++   4: also the per-match polls in the regexp replace loops (p1-rt-23). */
+ int surimono_quickjs_patch_level(void)
+ {
+-    return 3;
++    return 4;
+ }
+ 
+ /* surimono: with enabled = 0, every later allocation of this runtime goes
+@@ -50244,6 +50245,13 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
+         if (last_index > str->len)
+             break;
+ 
++        /* surimono: poll once per match. Each lre_exec starts its own
++           step counter, so a pattern that matches in a few steps never
++           reaches the regexp engine's poll, and this loop calls no script
++           code: 'a'.repeat(1 << 25).replace(/(?:)/g, '') made 32M
++           matches in one native call. */
++        if (js_poll_interrupts(ctx))
++            goto fail;
+         ret = lre_exec(capture, re_bytecode,
+                        str_buf, last_index, str->len, shift, ctx);
+         if (ret != 1) {
+@@ -50747,6 +50755,13 @@ static JSValue js_regexp_Symbol_replace(JSContext *ctx, JSValueConst this_val,
+     nextSourcePosition = 0;
+     for(j = 0; j < results->len; j++) {
+         JSValue result;
++        /* surimono: poll once per match. The loop above polls through
++           each exec call, but this one may call no script code (a string
++           replacement), so a match list collected just inside the limit
++           was replaced in one more unpolled pass of about the same
++           length. */
++        if (js_poll_interrupts(ctx))
++            goto exception;
+         result = results->arr[j];
+         if (js_get_length32(ctx, &nCaptures, result) < 0)
+             goto exception;
 ```

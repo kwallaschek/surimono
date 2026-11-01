@@ -8,7 +8,8 @@
 //! on; group C is a long native sort; group D is a loop whose body is one
 //! expensive native call; group E is a single native call whose cost grows
 //! faster than its input (string search, BigInt arithmetic near the size
-//! cap). Each must end within about twice the time limit: with the
+//! cap); group F is a regular expression's per-match loop inside one native
+//! call (`replace`, `split`, `match`, `matchAll`). Each must end within about twice the time limit: with the
 //! expected limit error, or for the TOCTOU vectors (whose trick only
 //! fooled the old prelude guards) normally. See
 //! `vendor/rquickjs-sys/PATCHES.md` for the engine patches they cover.
@@ -440,6 +441,75 @@ const GROUP_E: &[Vector] = &[
     ),
 ];
 
+/// Group F: a regular expression's per-match loop inside one native call
+/// (P1-RT-23; patch 19). Each match of an empty pattern takes a few steps,
+/// so the regexp engine's own poll (every 10,000 steps of one `lre_exec`)
+/// never comes, and the loop must poll per match. The strings are sized
+/// so each call runs well over the limit on a fast machine, and so a
+/// version that collects every match stays under the memory limit long
+/// enough to need the time limit (or else hits the memory limit:
+/// `AnyLimit`).
+const GROUP_F: &[Vector] = &[
+    // Review of #47: stopped at 1,174 ms against the 250 ms limit, because
+    // replace with '' on a standard global regexp takes a fast path
+    // (JS_RegExpDelete) that calls the matcher directly. Unpolled it runs
+    // to its end in about 0.9 s here, inside the bound, so the vectors
+    // after it make the same loop longer.
+    v(
+        "F RegExp replace with '', empty pattern, 32M chars",
+        "'a'.repeat(1 << 25).replace(/(?:)/g, '')",
+        Want::Time,
+    ),
+    // The same fast path with an 8-way alternation: a few dozen steps per
+    // match, 64M matches, an empty result. Unpolled it ran 4.5 s (debug
+    // build, loaded 2-core machine), well past the bound.
+    v(
+        "F RegExp replace with '', alternation, 64M chars",
+        "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/g, '')",
+        Want::Time,
+    ),
+    v(
+        "F RegExp replace with '', sticky alternation, 64M chars",
+        "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/gy, '')",
+        Want::Time,
+    ),
+    v(
+        "F String replaceAll with a regexp and '', 64M chars",
+        "'a'.repeat(1 << 26).replaceAll(/(?:x|y|z|w|v|u|t|a)/g, '')",
+        Want::Time,
+    ),
+    v(
+        "F RegExp replace with a string, empty pattern, 4M chars",
+        "'a'.repeat(1 << 22).replace(/(?:)/g, 'b')",
+        Want::AnyLimit,
+    ),
+    v(
+        "F RegExp replace with a function, empty pattern, 4M chars",
+        "'a'.repeat(1 << 22).replace(/(?:)/g, () => '')",
+        Want::AnyLimit,
+    ),
+    v(
+        "F RegExp split, never matches, 16M chars",
+        "'a'.repeat(1 << 24).split(/(?!)/)",
+        Want::Time,
+    ),
+    v(
+        "F RegExp split, empty pattern, 4M chars",
+        "'a'.repeat(1 << 22).split(/(?:)/)",
+        Want::AnyLimit,
+    ),
+    v(
+        "F RegExp match, global, empty pattern, 4M chars",
+        "'a'.repeat(1 << 22).match(/(?:)/g)",
+        Want::AnyLimit,
+    ),
+    v(
+        "F RegExp matchAll, spread, empty pattern, 4M chars",
+        "[...'a'.repeat(1 << 22).matchAll(/(?:)/g)]",
+        Want::AnyLimit,
+    ),
+];
+
 fn all_vectors() -> impl Iterator<Item = &'static Vector> {
     GROUP_A
         .iter()
@@ -447,6 +517,7 @@ fn all_vectors() -> impl Iterator<Item = &'static Vector> {
         .chain(GROUP_C)
         .chain(GROUP_D)
         .chain(GROUP_E)
+        .chain(GROUP_F)
 }
 
 fn pseudo_random(n: usize) -> Vec<i32> {
@@ -618,4 +689,9 @@ fn group_d_loops_around_expensive_native_calls_end() {
 #[test]
 fn group_e_superlinear_native_calls_end() {
     run_group(GROUP_E);
+}
+
+#[test]
+fn group_f_regexp_per_match_loops_end() {
+    run_group(GROUP_F);
 }

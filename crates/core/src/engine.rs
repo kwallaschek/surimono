@@ -411,6 +411,11 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
     }
 }
 
+/// The lowest engine patch level the sandbox runs on: 4, the per-match
+/// polls in the regexp replace loops (P1-RT-23) on top of level 3 (see
+/// `vendor/rquickjs-sys/PATCHES.md`).
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 4;
+
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse
 /// to link against an unpatched rquickjs-sys.
@@ -1315,7 +1320,7 @@ mod tests {
 
     #[test]
     fn the_engine_is_patched() {
-        assert!(patch_level() >= 2);
+        assert!(patch_level() >= REQUIRED_PATCH_LEVEL);
     }
 
     /// Also the regression test for `stack_pointer`: under AddressSanitizer
