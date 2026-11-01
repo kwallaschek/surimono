@@ -1404,6 +1404,8 @@ mod tests {
             ctx.with(|ctx| {
                 install_stop_flag(&ctx, &state);
                 let v: Value<'_> = ctx.eval("({ big: new ArrayBuffer(1 << 20) })").unwrap();
+                // The leak under test: a reference never released.
+                #[allow(clippy::mem_forget)]
                 std::mem::forget(v);
             });
         }
