@@ -62,23 +62,12 @@ pub(crate) fn runner(
     })
 }
 
-/// Names of the renderers compiled into this build, sorted, by the same
-/// Cargo features as `surimono_islands`' own list (a test keeps the two
-/// equal). A plain constant, with no lazy initialisation: a lock or `Once`
-/// here could be inherited mid-initialisation by a forked child and hang
-/// its first `Renderer::new`.
-const NAMES: &[&str] = &[
-    #[cfg(feature = "echarts")]
-    "echarts",
-    #[cfg(feature = "vega")]
-    "vega",
-    #[cfg(feature = "vega")]
-    "vega-lite",
-];
-
-/// [`NAMES`]: the renderers compiled into this build, sorted.
+/// The renderers compiled into this build, sorted: the islands crate's own
+/// constant list. A plain constant, with no lazy initialisation: a lock or
+/// `Once` here could be inherited mid-initialisation by a forked child and
+/// hang its first `Renderer::new`.
 pub(crate) fn builtin_names() -> &'static [&'static str] {
-    NAMES
+    surimono_islands::BUILTIN_RENDERERS
 }
 
 /// [`builtin_names`] as owned strings, to extend with registered bundles.
@@ -150,11 +139,9 @@ mod tests {
     /// The facade's constant list matches the islands crate's built-ins.
     #[test]
     fn builtin_names_match_the_islands_crate() {
-        assert_eq!(
-            builtin_names(),
-            surimono_islands::builtin_renderers().as_slice()
-        );
-        assert!(NAMES.windows(2).all(|w| w[0] < w[1]), "{NAMES:?}");
+        let names = builtin_names();
+        assert_eq!(names, surimono_islands::builtin_renderers().as_slice());
+        assert!(names.windows(2).all(|w| w[0] < w[1]), "{names:?}");
     }
 
     #[test]

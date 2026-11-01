@@ -96,7 +96,9 @@ copy_tree() {
 # The job an artifact belongs to and GitHub's result for it, from $NEEDS
 # (toJSON(needs)): "<job> <result>", or "" when no needs entry matches. The
 # artifact is ci-out-<job>[-<matrix>], so the job is the longest needs key K
-# with name == K or name starting with "K-".
+# with name == K or name starting with "K-". So a job id must never be another
+# job's id plus "-<suffix>" (e.g. test and test-macos): a leg of the shorter
+# one would then be matched to the longer one.
 needs_match() {
   ARTIFACT="$1" python3 -I -c '
 import json, os, re
@@ -130,7 +132,7 @@ stage() {
     msg="results: ${workflow}/${GITHUB_JOB} ${status} @ ${sha:0:9}"
     return
   fi
-  local n=0 dir name job matrix st reported needed
+  local n=0 dir name job matrix st reported needed reported_job
   for dir in "$from"/ci-out-*/; do
     [ -d "$dir" ] || continue
     name="${dir%/}"; name="${name##*/ci-out-}"
@@ -189,7 +191,13 @@ for attempt in 1 2 3 4 5 6; do
   # With core.symlinks=false a link entry checks out as a plain file, but it
   # keeps mode 120000 when committed again (and a gitlink, 160000, would hide
   # a tree): refuse to publish into a branch that has either.
-  if git_safe -C "$work" ls-files -s | awk '$1 == "120000" || $1 == "160000" { found = 1 } END { exit !found }'; then
+  # The index is read first, so a failing ls-files refuses instead of
+  # passing as "no such entry".
+  if ! index="$(git_safe -C "$work" ls-files -s)"; then
+    echo "could not read the ci-results index; not publishing" >&2
+    exit 0
+  fi
+  if printf '%s\n' "$index" | awk '$1 == "120000" || $1 == "160000" { found = 1 } END { exit !found }'; then
     echo "ci-results has a symbolic link or gitlink entry; not publishing" >&2
     exit 0
   fi
