@@ -77,6 +77,35 @@ pub enum GenError {
     /// The interface is listed twice.
     #[error("`{0}` listed twice")]
     Duplicate(String),
+    /// The interface's parent chain leads back to an interface already on it
+    /// (`interface J : J`, or `A : B` and `B : A`).
+    #[error("`{interface}` has an inheritance cycle: {}", chain.join(" : "))]
+    InheritanceCycle {
+        /// The interface being generated.
+        interface: String,
+        /// The parent chain from `interface`, ending with the repeated name.
+        chain: Vec<String>,
+    },
+}
+
+/// Walks `name`'s parent chain and fails if a name comes back. Iterative and
+/// bounded: every step adds a distinct interface name, and the set has
+/// finitely many.
+fn check_inheritance(set: &IdlSet, name: &str) -> Result<(), GenError> {
+    let mut chain = vec![name.to_owned()];
+    let mut seen = BTreeSet::from([name.to_owned()]);
+    let mut current = set.interface(name).and_then(|m| m.parent);
+    while let Some(parent) = current {
+        chain.push(parent.clone());
+        if !seen.insert(parent.clone()) {
+            return Err(GenError::InheritanceCycle {
+                interface: name.to_owned(),
+                chain,
+            });
+        }
+        current = set.interface(&parent).and_then(|m| m.parent);
+    }
+    Ok(())
 }
 
 /// The Rust identifier for an IDL name: `camelCase` to `snake_case`
@@ -133,6 +162,7 @@ pub fn generate_stubs(set: &IdlSet, interfaces: &[&str], header: &str) -> Result
         let m = set
             .interface(name)
             .ok_or_else(|| GenError::UnknownInterface((*name).to_owned()))?;
+        check_inheritance(set, name)?;
         if let Some(p) = &m.parent {
             if !interfaces.contains(&p.as_str()) {
                 return Err(GenError::ParentNotGenerated {
@@ -749,6 +779,39 @@ mod tests {
             generate_stubs(&s, &["A"], "").unwrap_err(),
             GenError::TooDeep(_)
         ));
+        let s = set("interface J : J {};");
+        assert_eq!(
+            generate_stubs(&s, &["J"], "").unwrap_err(),
+            GenError::InheritanceCycle {
+                interface: "J".into(),
+                chain: vec!["J".into(), "J".into()],
+            }
+        );
+        let s = set("interface A : B {}; interface B : C {}; interface C : A {};");
+        let e = generate_stubs(&s, &["A", "B", "C"], "").unwrap_err();
+        assert_eq!(
+            e,
+            GenError::InheritanceCycle {
+                interface: "A".into(),
+                chain: vec!["A".into(), "B".into(), "C".into(), "A".into()],
+            }
+        );
+        assert_eq!(e.to_string(), "`A` has an inheritance cycle: A : B : C : A");
+        // A cycle above the interface, not through it.
+        let s = set("interface A : B {}; interface B : C {}; interface C : B {};");
+        assert!(matches!(
+            generate_stubs(&s, &["C", "B", "A"], "").unwrap_err(),
+            GenError::InheritanceCycle { .. }
+        ));
+        // Long acyclic chains are fine.
+        let src: String = (0..100)
+            .map(|i| format!("interface I{} : I{} {{}};", i + 1, i))
+            .chain(["interface I0 {};".to_owned()])
+            .collect();
+        let s = set(&src);
+        let names: Vec<String> = (0..=100).map(|i| format!("I{i}")).collect();
+        let names: Vec<&str> = names.iter().map(String::as_str).collect();
+        assert!(generate_stubs(&s, &names, "").is_ok());
         let s = set("interface A { const octet X = 256; };");
         assert!(matches!(
             generate_stubs(&s, &["A"], "").unwrap_err(),

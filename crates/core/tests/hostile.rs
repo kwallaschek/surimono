@@ -20,10 +20,19 @@ use std::time::{Duration, Instant};
 use surimono_core::rquickjs::ArrayBuffer;
 use surimono_core::{Limits, Sandbox, SandboxError};
 
-/// Time limit for every vector.
+mod common;
+use common::scaled;
+
+/// Time limit for every vector. Not scaled by `SURIMONO_TEST_TIME_SCALE`:
+/// a longer limit would let the group C sorts finish inside it on a fast
+/// machine. What the scale stretches is the time allowed to stop.
 const LIMIT: Duration = Duration::from_millis(250);
-/// A child still running after this is hung and gets killed.
-const WATCHDOG: Duration = Duration::from_secs(10);
+
+/// A child still running after this is hung and gets killed (10 s, times
+/// the test time scale).
+fn watchdog() -> Duration {
+    scaled(Duration::from_secs(10))
+}
 
 /// Allowed time for a vector's call: twice the limit, plus slack for a
 /// debug build on a busy 2-core machine. The call's time includes stopping
@@ -34,14 +43,15 @@ const WATCHDOG: Duration = Duration::from_secs(10);
 /// machine ran at a load of 7 to 10 on 2 cores, where the 12M-element sort
 /// took 440 to 780 ms). AddressSanitizer (the nightly job, which sets
 /// ASAN_OPTIONS) makes every allocation and free several times slower, so
-/// it gets more.
+/// it gets more, and the whole bound is multiplied by the test time scale
+/// (`SURIMONO_TEST_TIME_SCALE`, which that job also sets).
 fn bound() -> Duration {
     let slack = if std::env::var_os("ASAN_OPTIONS").is_some() {
         Duration::from_millis(2500)
     } else {
         Duration::from_millis(750)
     };
-    2 * LIMIT + slack
+    scaled(2 * LIMIT + slack)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -507,7 +517,7 @@ fn run_group(group: &[Vector]) {
             if let Some(status) = child.try_wait().unwrap() {
                 break Some(status);
             }
-            if started.elapsed() > WATCHDOG {
+            if started.elapsed() > watchdog() {
                 let _ = child.kill();
                 let _ = child.wait();
                 break None;
@@ -522,7 +532,11 @@ fn run_group(group: &[Vector]) {
             .read_to_string(&mut stdout)
             .unwrap();
         let Some(status) = status else {
-            failures.push(format!("{}: HUNG, killed after {WATCHDOG:?}", vector.name));
+            failures.push(format!(
+                "{}: HUNG, killed after {:?}",
+                vector.name,
+                watchdog()
+            ));
             continue;
         };
         let line = stdout

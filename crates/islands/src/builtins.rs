@@ -78,7 +78,20 @@ pub(crate) fn find(name: &str) -> Option<Builtin> {
     ALL.iter().find(|b| b.name == name).copied()
 }
 
-/// Names of the built-in renderers in this build, sorted.
+/// Names of the built-in renderers in this build, sorted: the same list as
+/// [`builtin_renderers`], fixed at compile time, for callers (the
+/// `surimono` facade) that re-export it as a static slice.
+pub const BUILTIN_RENDERERS: &[&str] = &[
+    #[cfg(feature = "echarts")]
+    "echarts",
+    #[cfg(feature = "vega")]
+    "vega",
+    #[cfg(feature = "vega")]
+    "vega-lite",
+];
+
+/// Names of the built-in renderers in this build, sorted (the same as
+/// [`BUILTIN_RENDERERS`]).
 ///
 /// Which ones are present depends on Cargo features, both on by default:
 /// `echarts` adds `"echarts"`, and `vega` adds `"vega"` and `"vega-lite"`.
@@ -249,6 +262,13 @@ mod tests {
         } else {
             assert_eq!(precompiled_builtins(), builtin_renderers().len());
         }
+    }
+
+    #[test]
+    fn the_constant_list_matches_the_builtins() {
+        let names: Vec<&str> = ALL.iter().map(|b| b.name).collect();
+        assert_eq!(BUILTIN_RENDERERS, names.as_slice());
+        assert_eq!(builtin_renderers(), names);
     }
 
     #[test]

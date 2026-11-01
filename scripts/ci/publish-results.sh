@@ -22,6 +22,10 @@
 # symlinks or .git* entries, so publishing writes nowhere but runs/<sha>/.
 # In --from mode a job's status is GitHub's (needs.json) whenever that isn't
 # success: a build job runs code under test and could rewrite its job.json.
+# The job is taken from the artifact's name (set by the workflow), never from
+# job.json, and a leg with no matching needs entry is never published as
+# success. A ci-results tree holding a symbolic link or gitlink entry is
+# refused, and the temporary worktree is removed on every exit.
 set -uo pipefail
 if [ -z "${GITHUB_ACTIONS:-}" ]; then echo "not in GitHub Actions; skipping"; exit 0; fi
 
@@ -66,10 +70,11 @@ sha="${PR_HEAD_SHA:-}"; [ -n "$sha" ] || sha="$GITHUB_SHA"
 workflow="${GITHUB_WORKFLOW// /-}"
 base="runs/${sha}/${workflow}"
 
-# status.json for one job: <dir> <job> <matrix> <status> [<reported> <needs-result>]
+# status.json for one job:
+#   <dir> <job> <matrix> <status> [<reported> <needs-result> <reported-job>]
 write_status() {
   cat > "$1/status.json" <<JSON
-{"workflow":"$(esc "$GITHUB_WORKFLOW")","job":"$(esc "$2")","matrix":"$(esc "$3")","status":"$(esc "$4")","reported":"$(esc "${5:-$4}")","needs_result":"$(esc "${6:-}")","sha":"$(esc "$sha")","ref":"$(esc "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}")","event":"$(esc "${GITHUB_EVENT_NAME:-}")","run_id":"$(esc "${GITHUB_RUN_ID:-}")","attempt":"$(esc "${GITHUB_RUN_ATTEMPT:-}")","finished_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+{"workflow":"$(esc "$GITHUB_WORKFLOW")","job":"$(esc "$2")","matrix":"$(esc "$3")","status":"$(esc "$4")","reported":"$(esc "${5:-$4}")","needs_result":"$(esc "${6:-}")","reported_job":"$(esc "${7:-$2}")","sha":"$(esc "$sha")","ref":"$(esc "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}")","event":"$(esc "${GITHUB_EVENT_NAME:-}")","run_id":"$(esc "${GITHUB_RUN_ID:-}")","attempt":"$(esc "${GITHUB_RUN_ATTEMPT:-}")","finished_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
 JSON
 }
 
@@ -88,16 +93,28 @@ copy_tree() {
     done
 }
 
-# GitHub's result for a job from $NEEDS (toJSON(needs)), or "".
-needs_result() {
-  NEEDS_JOB="$1" python3 -I -c '
-import json, os
+# The job an artifact belongs to and GitHub's result for it, from $NEEDS
+# (toJSON(needs)): "<job> <result>", or "" when no needs entry matches. The
+# artifact is ci-out-<job>[-<matrix>], so the job is the longest needs key K
+# with name == K or name starting with "K-". So a job id must never be another
+# job's id plus "-<suffix>" (e.g. test and test-macos): a leg of the shorter
+# one would then be matched to the longer one.
+needs_match() {
+  ARTIFACT="$1" python3 -I -c '
+import json, os, re
 try:
     needs = json.loads(os.environ.get("NEEDS") or "{}")
-    print((needs.get(os.environ["NEEDS_JOB"]) or {}).get("result", ""))
+    name = os.environ["ARTIFACT"]
+    keys = [k for k in needs if isinstance(k, str) and re.fullmatch(r"[A-Za-z0-9_-]+", k)
+            and (name == k or name.startswith(k + "-"))]
+    if keys:
+        job = max(keys, key=len)
+        result = (needs.get(job) or {}).get("result", "")
+        result = result if isinstance(result, str) and re.fullmatch(r"[a-z_]+", result) else "unknown"
+        print(job, result)
 except Exception:
-    print("")
-' 2>/dev/null | tr -cd 'a-z'
+    pass
+' 2>/dev/null
 }
 
 # A field of a job.json written by job-status.sh, or "" (no jq needed).
@@ -115,27 +132,38 @@ stage() {
     msg="results: ${workflow}/${GITHUB_JOB} ${status} @ ${sha:0:9}"
     return
   fi
-  local n=0 dir name job matrix st reported needed
+  local n=0 dir name job matrix st reported needed reported_job
   for dir in "$from"/ci-out-*/; do
     [ -d "$dir" ] || continue
     name="${dir%/}"; name="${name##*/ci-out-}"
     # Artifact names come from the workflow; refuse anything that isn't a
-    # plain path segment.
-    if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]] || [ "$name" = . ] || [ "$name" = .. ]; then
+    # plain path segment starting with a letter or digit (a leading dot could
+    # make it .git, . or ..).
+    if [[ ! "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
       echo "skipping artifact with an unexpected name: $name" >&2
       continue
     fi
-    job="$(field "$dir/job.json" job)"; job="${job:-${name%%-*}}"
-    matrix="$(field "$dir/job.json" matrix)"
+    reported_job="$(field "$dir/job.json" job)"
     reported="$(field "$dir/job.json" status)"
     case "$reported" in success | failure | cancelled) ;; *) reported=unknown ;; esac
-    # GitHub's result is per job (all matrix legs together). When it isn't
-    # success, no leg is published as success on the build job's word.
-    needed="$(needs_result "$job")"
+    # The job comes from the artifact's name and GitHub's result for it, per
+    # job (all matrix legs together). When that isn't success, the leg gets
+    # GitHub's result; with no matching needs entry, it is never success.
+    read -r job needed <<< "$(needs_match "$name")" || true
     st="$reported"
-    if [ -n "$needed" ] && [ "$needed" != success ]; then st="$needed"; fi
+    if [ -z "$job" ]; then
+      job="$name"; matrix=""; needed=""
+      [ "$st" != success ] || st=unknown
+      echo "artifact $name has no matching needs entry; not published as success" >&2
+    else
+      matrix="${name#"$job"}"; matrix="${matrix#-}"
+      if [ "$needed" != success ]; then st="$needed"; fi
+    fi
+    if [ -n "$reported_job" ] && [ "$reported_job" != "$job" ]; then
+      echo "artifact $name: job.json says job $reported_job; using $job" >&2
+    fi
     copy_tree "$dir" "$work/$base/$name"
-    write_status "$work/$base/$name" "$job" "$matrix" "$st" "$reported" "$needed"
+    write_status "$work/$base/$name" "$job" "$matrix" "$st" "$reported" "$needed" "${reported_job:-$job}"
     n=$((n + 1))
   done
   mkdir -p "$work/$base"
@@ -145,6 +173,12 @@ stage() {
 
 work="$(mktemp -d)"
 msg=""
+cleanup() {
+  git_safe worktree remove --force "$work" >/dev/null 2>&1 || true
+  rm -rf "$work"
+  git_safe worktree prune >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 for attempt in 1 2 3 4 5 6; do
   git_safe worktree remove --force "$work" >/dev/null 2>&1 || true
   rm -rf "$work"
@@ -154,10 +188,17 @@ for attempt in 1 2 3 4 5 6; do
     git_safe worktree add --quiet --detach "$work" HEAD
     (cd "$work" && git_safe checkout --quiet --orphan ci-results-new && git_safe rm -rfq --ignore-unmatch . && rm -rf ./*)
   fi
-  # With core.symlinks=false nothing checks out as a link; refuse to write
-  # into a tree that has one anyway.
-  if [ -n "$(find "$work" -path "$work/.git" -prune -o -type l -print -quit)" ]; then
-    echo "the ci-results worktree contains a symbolic link; not publishing" >&2
+  # With core.symlinks=false a link entry checks out as a plain file, but it
+  # keeps mode 120000 when committed again (and a gitlink, 160000, would hide
+  # a tree): refuse to publish into a branch that has either.
+  # The index is read first, so a failing ls-files refuses instead of
+  # passing as "no such entry".
+  if ! index="$(git_safe -C "$work" ls-files -s)"; then
+    echo "could not read the ci-results index; not publishing" >&2
+    exit 0
+  fi
+  if printf '%s\n' "$index" | awk '$1 == "120000" || $1 == "160000" { found = 1 } END { exit !found }'; then
+    echo "ci-results has a symbolic link or gitlink entry; not publishing" >&2
     exit 0
   fi
   stage "$work"

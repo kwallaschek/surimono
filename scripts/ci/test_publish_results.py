@@ -112,16 +112,33 @@ class Publish(unittest.TestCase):
         with open(os.path.join(self.repo, ".git", "config")) as f:
             self.assertNotIn(TOKEN, f.read())
 
-    def seed_results(self, path, link_to):
-        """Puts a symbolic link at <path> on origin's ci-results branch."""
+    def seed_results(self, path, link_to=None, gitlink=False):
+        """Puts a symbolic link (or a gitlink) at <path> on origin's ci-results branch."""
         seed = os.path.join(self.tmp, "seed")
         git(self.tmp, "clone", "-q", self.origin, seed)
         git(seed, "checkout", "-q", "--orphan", "ci-results")
         os.makedirs(os.path.join(seed, os.path.dirname(path)))
-        os.symlink(link_to, os.path.join(seed, path))
-        git(seed, "add", "-A")
+        if gitlink:
+            git(seed, "update-index", "--add", "--cacheinfo", f"160000,{SHA},{path}")
+            with open(os.path.join(seed, "README"), "w") as f:
+                f.write("seed\n")
+            git(seed, "add", "README")
+        else:
+            os.symlink(link_to, os.path.join(seed, path))
+            git(seed, "add", "-A")
         git(seed, "-c", "user.name=t", "-c", "user.email=t@e", "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "seed")
-        git(seed, "push", "-q", "origin", "ci-results")
+        git(seed, "push", "-q", "-f", "origin", "ci-results")
+
+    def ci_results_tip(self):
+        return git(self.origin, "rev-parse", "refs/heads/ci-results").strip()
+
+    def write_job(self, results, name, job, matrix, st):
+        """A build job's artifact ci-out-<name> with a job.json from job-status.sh."""
+        out = os.path.join(results, f"ci-out-{name}")
+        os.makedirs(out, exist_ok=True)
+        r = self.run_script(JOB_STATUS, st, CI_OUT=out, GITHUB_JOB=job, MATRIX_KEY=matrix)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return out
 
     def published(self, path):
         git(self.repo, "-c", "core.hooksPath=/dev/null", "fetch", "-q", "origin", "ci-results")
@@ -196,11 +213,28 @@ class Publish(unittest.TestCase):
         os.makedirs(out)
         with open(os.path.join(out, "job.json"), "w") as f:
             f.write('{"job":"soak","matrix":"","status":"great\\"}')
-        # Names that aren't one path segment are skipped.
+        # The job comes from the artifact's name, never from job.json. A leg
+        # in a failed job whose job.json names a job that passed, a job that
+        # isn't in needs, or no job at all, still gets GitHub's result.
+        self.write_job(results, "native-gems-x86_64-linux", "test", "x86_64-linux", "success")
+        self.write_job(results, "linux-extra-soak", "nonesuch", "soak", "success")
+        out = os.path.join(results, "ci-out-ruby-ruby-3.4")
+        os.makedirs(out)
+        with open(os.path.join(out, "job.json"), "w") as f:
+            f.write('{"matrix":"ruby-3.4","status":"success"}')
+        # A leg with no needs entry at all is never success.
+        self.write_job(results, "stray", "test", "", "success")
+        # Names that aren't one path segment, or start with a dot, are skipped.
         os.makedirs(os.path.join(results, "ci-out-a b"))
+        dot = os.path.join(results, "ci-out-.git")
+        os.makedirs(dot)
+        with open(os.path.join(dot, "HEAD"), "w") as f:
+            f.write("ref: refs/heads/main\n")
         r = self.run_script(
             PUBLISH, "--from", results, GITHUB_WORKFLOW="full", GITHUB_JOB="publish",
-            NEEDS='{"test":{"result":"success"},"ruby":{"result":"failure"},"soak":{"result":"cancelled"}}',
+            NEEDS='{"test":{"result":"success"},"ruby":{"result":"failure"},"soak":{"result":"cancelled"},'
+            '"native":{"result":"success"},"native-gems":{"result":"failure"},"linux":{"result":"success"},'
+            '"linux-extra":{"result":"failure"}}',
         )
         self.assertEqual(r.returncode, 0, r.stderr)
         base = f"runs/{SHA}/full"
@@ -213,11 +247,98 @@ class Publish(unittest.TestCase):
         self.assertEqual((s["status"], s["reported"], s["needs_result"]), ("failure", "success", "failure"))
         s = json.loads(self.published(f"{base}/soak/status.json"))
         self.assertEqual((s["status"], s["reported"]), ("cancelled", "unknown"))
+        s = json.loads(self.published(f"{base}/native-gems-x86_64-linux/status.json"))
+        self.assertEqual(
+            (s["job"], s["matrix"], s["status"], s["reported_job"], s["needs_result"]),
+            ("native-gems", "x86_64-linux", "failure", "test", "failure"),
+        )
+        s = json.loads(self.published(f"{base}/linux-extra-soak/status.json"))
+        self.assertEqual((s["job"], s["matrix"], s["status"]), ("linux-extra", "soak", "failure"))
+        s = json.loads(self.published(f"{base}/ruby-ruby-3.4/status.json"))
+        self.assertEqual((s["job"], s["status"]), ("ruby", "failure"))
+        s = json.loads(self.published(f"{base}/stray/status.json"))
+        self.assertEqual((s["job"], s["status"], s["reported"], s["needs_result"]), ("stray", "unknown", "success", ""))
         self.assertEqual(json.loads(self.published(f"{base}/needs.json"))["ruby"], {"result": "failure"})
         ls = git(self.repo, "ls-tree", "--name-only", "FETCH_HEAD", f"{base}/")
         self.assertNotIn("a b", ls)
+        self.assertNotIn(".git", ls)
+        entries = git(self.repo, "ls-tree", "-r", "FETCH_HEAD")
+        self.assertNotIn("160000", entries)
+        self.assertNotIn("120000", entries)
         self.assertFalse(os.path.exists(self.marker), "a planted hook ran")
         self.assert_token_only_in_fetch_and_push_env()
+
+    def test_without_needs_no_leg_is_success(self):
+        results = os.path.join(self.tmp, "results")
+        self.write_job(results, "test-macos-15", "test", "macos-15", "success")
+        self.write_job(results, "ruby-ruby-3.2", "ruby", "ruby-3.2", "failure")
+        r = self.run_script(PUBLISH, "--from", results, GITHUB_WORKFLOW="full", GITHUB_JOB="publish")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        base = f"runs/{SHA}/full"
+        s = json.loads(self.published(f"{base}/test-macos-15/status.json"))
+        self.assertEqual((s["status"], s["reported"]), ("unknown", "success"))
+        s = json.loads(self.published(f"{base}/ruby-ruby-3.2/status.json"))
+        self.assertEqual(s["status"], "failure")
+        self.assertEqual(json.loads(self.published(f"{base}/needs.json")), {})
+
+    def test_refuses_a_branch_with_link_or_gitlink_entries(self):
+        for kind in ("symlink", "gitlink"):
+            with self.subTest(kind=kind):
+                shutil.rmtree(os.path.join(self.tmp, "seed"), ignore_errors=True)
+                git(self.origin, "update-ref", "-d", "refs/heads/ci-results")
+                path = f"runs/{SHA}/full/test-macos-15/log.txt"
+                if kind == "gitlink":
+                    self.seed_results(f"runs/{SHA}/full/test-macos-15", gitlink=True)
+                else:
+                    self.seed_results(path, self.outside)
+                tip = self.ci_results_tip()
+                results = os.path.join(self.tmp, f"results-{kind}")
+                out = self.write_job(results, "test-macos-15", "test", "macos-15", "success")
+                with open(os.path.join(out, "log.txt"), "w") as f:
+                    f.write("new target?\n")
+                r = self.run_script(
+                    PUBLISH, "--from", results, GITHUB_WORKFLOW="full", GITHUB_JOB="publish",
+                    NEEDS='{"test":{"result":"success"}}',
+                )
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertIn("not publishing", r.stderr, r.stdout)
+                self.assertEqual(self.ci_results_tip(), tip)
+                with open(self.outside) as f:
+                    self.assertEqual(f.read(), "untouched\n")
+
+    def test_refuses_when_the_index_cannot_be_read(self):
+        # A git whose ls-files fails: the link check must not pass as
+        # "no such entry".
+        failing = os.path.join(self.tmp, "failing-bin")
+        os.makedirs(failing)
+        with open(os.path.join(failing, "git"), "w") as f:
+            f.write(
+                "#!/bin/sh\n"
+                'for a in "$@"; do [ "$a" = ls-files ] && exit 1; done\n'
+                f"exec {REAL_GIT} \"$@\"\n"
+            )
+        os.chmod(os.path.join(failing, "git"), 0o755)
+        os.makedirs(os.path.join(self.repo, "ci-out"))
+        r = self.run_script(PUBLISH, "success", PATH=failing + os.pathsep + os.environ["PATH"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("could not read the ci-results index", r.stderr)
+        self.assertNotIn("published", r.stdout)
+        self.assertEqual(git(self.origin, "branch", "--list", "ci-results"), "")
+
+    def test_removes_its_worktree_on_exit(self):
+        tmpdir = os.path.join(self.tmp, "tmpdir")
+        os.makedirs(tmpdir)
+        os.makedirs(os.path.join(self.repo, "ci-out"))
+        r = self.run_script(PUBLISH, "success", TMPDIR=tmpdir)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("published", r.stdout)
+        # And on the early exit when the branch is refused.
+        self.seed_results(f"runs/{SHA}/ci/linux/x", self.outside)
+        r = self.run_script(PUBLISH, "success", TMPDIR=tmpdir)
+        self.assertIn("not publishing", r.stderr)
+        self.assertEqual(os.listdir(tmpdir), [])
+        worktrees = git(self.repo, "worktree", "list", "--porcelain")
+        self.assertEqual(worktrees.count("worktree "), 1, worktrees)
 
     def test_outside_actions_it_does_nothing(self):
         env = self.env()

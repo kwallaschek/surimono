@@ -40,14 +40,14 @@ scripts/ci/fixtures.sh
 if [ "$run_ruby" = 1 ]; then
   ensure_libclang
   step "clippy (workspace incl. Ruby ext)"; cargo clippy --workspace --all-targets --locked -- -D warnings
-  step "test (workspace)";                  cargo test --workspace --locked
+  step "test (workspace)";                  cargo test --workspace --locked --no-fail-fast
   step "ruby gem (compile, test)"
   ruby_path
   (cd bindings/ruby && bundle install --quiet && bundle exec rake compile:dev test)
   run_examples
 else
   step "clippy (default members)"; cargo clippy --all-targets --locked -- -D warnings
-  step "test (default members)";   cargo test --locked
+  step "test (default members)";   cargo test --locked --no-fail-fast
   run_examples --no-ruby
 fi
 if [ "$run_deny" = 1 ]; then

@@ -285,11 +285,16 @@ log.push(outer(7));
 "#;
 
     fn embedded(source: &str) -> &'static [u8] {
-        Box::leak(
+        let bytes: &'static [u8] = Box::leak(
             compile_for_embedding(source, "test.js")
                 .unwrap()
                 .into_boxed_slice(),
-        )
+        );
+        // Keep it reachable, so LeakSanitizer (scripts/ci/asan.sh) doesn't
+        // report the deliberate leak.
+        static KEEP: std::sync::Mutex<Vec<&[u8]>> = std::sync::Mutex::new(Vec::new());
+        KEEP.lock().unwrap_or_else(|e| e.into_inner()).push(bytes);
+        bytes
     }
 
     fn fingerprint() -> &'static [u8] {

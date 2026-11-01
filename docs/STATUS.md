@@ -5,18 +5,16 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Sun 1 Nov 2026, 09:10)
+## Now (Sun 1 Nov 2026, 14:40)
 
-**Phase 1: islands. Checkpoint 2 is today about 18:00 JST.** The live session with Kay ended
-(heartbeat 231 min old at 04:16). Scheduled resume cse_011c8hfq5ufjN5m2pZpZysXx ran the fleet
-04:16–09:10 and merged, each on green ci/linux plus a fresh reviewer's APPROVE:
-#55, #25 (facade on the real backend), #26 (CLI), #34 (licences), #56 (precompiled bytecode),
-#57 (ASan stack probe), #47 (time-accurate deadlines, BigInt leak fix, fork-safe registry),
-#58, #59 + #65 (checkpoint-2 report, re-run on 99c363cd), #60/#61 (licence files in crates),
-#62 (fork generation; runner fork-safe), #18/#19/#23 (README, guides, examples), #63 (examples in
-CI, facade slots by generation), #64, #66, #67 (precompiled_builtins API + gem gate), #68,
-#69 (builtin_renderers const, libc workspace pin), #70 (WebIDL vendoring + stub generator, phase-2
-scaffolding, internal only), #71 (dead worker → typed error, never a hang).
+**Phase 1: islands. Checkpoint 2 is today about 18:00 JST.** Scheduled resume
+cse_011c8hfoBxyki5Uo3FJx7LZe (from 12:17) merged, each on green ci/linux plus a fresh reviewer's
+APPROVE: #72 (RT-35 macOS preload flake), #73 + #77 (RT-27 ASan time scale, LSan-reachable test
+leaks), #74 (DOM-03 webidl follow-ups), #75 + #79 (BUILTIN_RENDERERS, facade re-export), #76 (PKG-01d
+publish-results hardening), #78 (GFX-06 stylo thread-local leak in a gfx test). main 0eb1e4ee:
+full.yml all green except asan (still running at 14:30; first run with #73/#77). #38 merged main in
+(head 5d5182d2), dry-run evidence posted (only the engine-distribution blocker fails).
+Earlier sessions: see git log; cse_011c8hfq5ufjN5m2pZpZysXx ran 04:16–09:10.
 
 ### Checkpoint 2 evidence (all on main)
 - Fixtures: fixtures/checkpoint-2/index.md (+ NOTES.md). Gate 12/12 islands pass; 34/35 comparisons

@@ -9,7 +9,11 @@ use crate::lexer::{Token, TokenKind, tokenize};
 
 /// Deepest nesting of types and extended attributes accepted. Spec IDL nests
 /// a few levels; the cap keeps hostile input from exhausting the stack.
-const MAX_DEPTH: u32 = 64;
+/// Measured in a debug build, the worst pattern at this cap needs about
+/// 144 KiB of stack (release: about 40 KiB), so parsing fits a 256 KiB
+/// thread; `tests/stack.rs` checks that on such a thread. It was 64, which
+/// needed about 384 KiB.
+const MAX_DEPTH: u32 = 32;
 
 /// Parses one IDL source into its definitions, in source order.
 pub fn parse(src: &str) -> Result<Vec<Definition>, ParseError> {
@@ -849,5 +853,16 @@ mod tests {
         assert!(parse(&src).is_err());
         let src = format!("{}interface A {{}};", "[A(".repeat(10_000));
         assert!(parse(&src).is_err());
+    }
+
+    #[test]
+    fn nesting_up_to_the_cap_parses() {
+        // `typedef` + n `sequence<` enters `ty` n + 1 times.
+        let nested =
+            |n: usize| format!("typedef {}long{} T;", "sequence<".repeat(n), ">".repeat(n));
+        let cap = MAX_DEPTH as usize;
+        assert!(parse(&nested(cap - 1)).is_ok());
+        let e = parse(&nested(cap)).unwrap_err();
+        assert!(e.message.contains("less deeply nested"), "{e}");
     }
 }
