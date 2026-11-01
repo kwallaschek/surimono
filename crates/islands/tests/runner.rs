@@ -336,6 +336,19 @@ fn reregistering_replaces_the_bundle() {
 #[test]
 fn hostile_renderers_hit_limits_and_the_pool_recovers() {
     let r = runner();
+    // Under SURIMONO_TEST_TIME_SCALE > 1 (slow builds: ASan), the cases
+    // that don't test the time limit run on a second pool whose time limit
+    // is scaled, so a slow build can't turn them into TimeLimit first; the
+    // time-limit cases keep 300 ms. At the default scale every case runs on
+    // the one pool, as before.
+    let scale = common::time_scale();
+    let slow = (scale > 1).then(|| {
+        let mut opts = options();
+        opts.limits.time = common::scaled(opts.limits.time);
+        let r = IslandRunner::with_estimated_text_metrics(opts).unwrap();
+        r.register_bundle("label", LABEL, "entry").unwrap();
+        r
+    });
     let hostile = [
         (
             "loop",
@@ -371,10 +384,16 @@ fn hostile_renderers_hit_limits_and_the_pool_recovers() {
         ),
     ];
     for (name, src, want) in hostile {
+        let (r, bound) = match (&slow, &want) {
+            (Some(slow), w) if *w != SandboxError::TimeLimit => {
+                (slow, common::scaled(Duration::from_secs(5)))
+            }
+            _ => (&r, Duration::from_secs(5)),
+        };
         r.register_bundle(name, src, "entry").unwrap();
         let start = Instant::now();
         let err = r.render(&req(name, "{}")).unwrap_err();
-        assert!(start.elapsed() < Duration::from_secs(5), "{name}");
+        assert!(start.elapsed() < bound, "{name}");
         match (&err, &want) {
             // A native loop over a huge array-like: any typed end will do,
             // as fixtures/hostile/manifest.toml allows (the patched engine
