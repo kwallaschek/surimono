@@ -1,0 +1,15 @@
+[1m[92m   Packaging[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 19 files, 281.4KiB (81.4KiB compressed)
+[1m[92m   Packaging[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 33 files, 554.5KiB (128.4KiB compressed)
+[1m[92m   Packaging[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 56 files, 2.3MiB (750.9KiB compressed)
+[1m[92m   Packaging[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 18 files, 248.4KiB (71.3KiB compressed)
+[1m[92m   Packaging[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Packaged[0m 8 files, 73.0KiB (21.3KiB compressed)
