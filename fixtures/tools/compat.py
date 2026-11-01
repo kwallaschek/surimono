@@ -464,7 +464,12 @@ def hostile_section(results_file: Path | None) -> list[str]:
     commit = results.get("commit", "unknown")
     total = len(expected) + len(unknown)
     extra = f"; {len(unknown)} not in the manifest" if unknown else ""
-    lines.append(f"{passed} of {total} cases end as the manifest expects (results from {commit}{extra}).")
+    # A case with steps has one result per step, so cases and results are counted apart.
+    cases = len(manifest["case"])
+    lines.append(
+        f"{cases} case{'s' if cases != 1 else ''}, {total} result{'s' if total != 1 else ''}: "
+        f"{passed} of {total} end as the manifest expects (results from {commit}{extra})."
+    )
     lines.append("")
     failing = [r for r in rows if r[3] != "pass"]
     if failing:

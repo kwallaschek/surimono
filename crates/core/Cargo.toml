@@ -21,7 +21,7 @@ sha2.workspace = true
 
 # Thread stack bounds, for the stack-size check (engine.rs).
 [target.'cfg(unix)'.dependencies]
-libc = "=0.2.191"
+libc.workspace = true
 
 [lints]
 workspace = true

@@ -197,12 +197,25 @@ fn native_version() -> String {
     surimono::VERSION.to_string()
 }
 
+/// `Surimono.builtin_renderers`: the built-in renderers in this build, sorted.
+fn builtin_renderers() -> Vec<&'static str> {
+    surimono::builtin_renderers().to_vec()
+}
+
+/// `Surimono.precompiled_builtins`: how many built-ins load precompiled
+/// bytecode in this process (see `surimono::precompiled_builtins`).
+fn precompiled_builtins() -> usize {
+    surimono::precompiled_builtins()
+}
+
 // The Cargo package is `surimono-ruby`; Ruby loads `surimono/surimono.so` and
 // looks for `Init_surimono`.
 #[magnus::init(name = "surimono")]
 fn init(ruby: &Ruby) -> Result<(), Error> {
     let module = ruby.define_module("Surimono")?;
     module.define_singleton_method("native_version", function!(native_version, 0))?;
+    module.define_singleton_method("builtin_renderers", function!(builtin_renderers, 0))?;
+    module.define_singleton_method("precompiled_builtins", function!(precompiled_builtins, 0))?;
     module.define_singleton_method("_internal_panic_check", function!(internal_panic_check, 0))?;
     let class = module.define_class("Renderer", ruby.class_object())?;
     class.define_singleton_method("_native_new", function!(renderer_new, 13))?;

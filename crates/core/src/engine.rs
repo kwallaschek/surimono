@@ -446,9 +446,11 @@ extern "C" fn bump_fork_generation() {
 /// The first call registers a `pthread_atfork` child handler that bumps
 /// the counter. Threads racing on the first call may each register one;
 /// a fork then bumps it more than once, which keeps every comparison right.
-/// Processes made with a raw `clone` system call (rather than `fork`,
-/// which runs the handlers, or `vfork` and `posix_spawn`, which exec at
-/// once) aren't counted.
+/// Only processes made with libc's `fork` are counted: it runs the
+/// handlers. glibc's `_Fork`, `syscall(SYS_fork)` and a raw `clone` system
+/// call skip them, so a child made that way keeps its parent's generation
+/// and must not use the sandbox (`vfork` and `posix_spawn` children exec at
+/// once and never do).
 ///
 /// Fails only if the handler can't be registered (out of memory). Off Unix
 /// there is no `fork`, and it is always 1.
@@ -949,11 +951,25 @@ mod tests {
     #[test]
     fn expire_races_arm_and_disarm() {
         const ROUNDS: usize = 20_000;
+        // In the second phase, every WAIT_EVERY-th call waits to be expired.
+        const WAIT_EVERY: usize = 1_000;
         let state = LimitState::new(usize::MAX);
         // 0: expire the last ended call; 1: also the running one; 2: stop.
         let mode = AtomicU32::new(0);
         let last_ended = AtomicU64::new(0);
         let hits = AtomicUsize::new(0);
+        /// Stops the expirer when the test thread leaves the scope, by
+        /// returning or by a failing assert: otherwise `thread::scope` would
+        /// wait for it forever and the test would hang instead of failing.
+        struct StopExpirer<'a>(&'a AtomicU32);
+        impl Drop for StopExpirer<'_> {
+            fn drop(&mut self) {
+                self.0.store(2, Ordering::Release);
+            }
+        }
+        // Far longer than the 60 s wait below, so only the expirer thread,
+        // never the real watchdog, can stop a call during the test.
+        const BUDGET: Duration = Duration::from_secs(3_600);
         std::thread::scope(|s| {
             s.spawn(|| {
                 let mut i = 0u64;
@@ -973,13 +989,25 @@ mod tests {
                     }
                 }
             });
+            let _stop = StopExpirer(&mode);
             for phase in 0..2u32 {
                 mode.store(phase, Ordering::Release);
-                for _ in 0..ROUNDS {
-                    state.arm(Duration::from_secs(60)).unwrap();
+                for round in 0..ROUNDS {
+                    state.arm(BUDGET).unwrap();
                     let seq = state.call.load(Ordering::Acquire);
                     for _ in 0..8 {
                         std::hint::spin_loop();
+                    }
+                    if phase == 1 && round % WAIT_EVERY == 0 {
+                        // Hold this call open until the expirer stops it, so
+                        // the phase stops running calls however the threads
+                        // are scheduled (on a busy or single core the
+                        // expirer may otherwise never run while one is open).
+                        let until = Instant::now() + Duration::from_secs(60);
+                        while !state.timed_out() && Instant::now() < until {
+                            std::thread::yield_now();
+                        }
+                        assert!(state.timed_out(), "running call {seq} never expired");
                     }
                     if phase == 0 {
                         assert!(!state.timed_out(), "a stale expiry stopped call {seq}");
@@ -992,11 +1020,12 @@ mod tests {
                     last_ended.store(seq, Ordering::Release);
                 }
             }
-            mode.store(2, Ordering::Release);
         });
-        // The expirer reached running calls, so the second phase tested
-        // something (on one core it may rarely get the chance).
-        println!("expired {} of {ROUNDS} running calls", hits.into_inner());
+        // Every call that waited was stopped while it ran, and then ended
+        // cleanly (the asserts after `disarm`); the others may have been.
+        let hits = hits.into_inner();
+        println!("expired {hits} of {ROUNDS} running calls");
+        assert!(hits >= ROUNDS / WAIT_EVERY, "{hits}");
     }
 
     /// The `pthread_atfork` handler gives a forked child, and its own child,
@@ -1061,26 +1090,31 @@ mod tests {
             .ok()
             .and_then(|n| n.parse().ok())
             .unwrap_or(3000);
+        // The loop below needs a short limit; the other calls only need one
+        // that a loaded machine never reaches (P1-RT-32: at load 3 on two
+        // cores the busy thread's `1` once took over 200 ms), since this
+        // test is about hangs, not timing.
         let limits = Limits::default().with_time(Duration::from_millis(200));
+        let generous = Limits::default().with_time(Duration::from_secs(120));
         let mut pre_fork = Sandbox::new(limits).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let busy = {
             let stop = stop.clone();
             std::thread::spawn(move || {
                 let mut calls = 0u64;
-                let mut sb = Sandbox::new(limits).unwrap();
+                let mut sb = Sandbox::new(generous).unwrap();
                 while !stop.load(Ordering::Relaxed) {
                     assert_eq!(sb.eval::<i32>("1"), Ok(1));
                     calls += 1;
                     if calls % 16 == 0 {
-                        sb = Sandbox::new(limits).unwrap();
+                        sb = Sandbox::new(generous).unwrap();
                     }
                 }
                 calls
             })
         };
         let child = |pre_fork: &mut Sandbox, i: usize| -> i32 {
-            let Ok(mut sb) = Sandbox::new(limits) else {
+            let Ok(mut sb) = Sandbox::new(generous) else {
                 return 3;
             };
             if sb.eval::<i32>("6 * 7") != Ok(42) {
@@ -1315,6 +1349,18 @@ mod tests {
             }
         }
         assert!(deeper(16) + 16 * 4096 <= stack_available().unwrap());
+        // Outside sanitizers the register and a local's address agree: the
+        // local is in this frame, a little above the stack pointer (review
+        // of #57). Under AddressSanitizer it may be on a fake stack.
+        if !cfg!(surimono_sanitized) {
+            let here = std::hint::black_box(0u8);
+            let local = std::ptr::addr_of!(here) as usize;
+            let sp = stack_pointer();
+            assert!(
+                sp <= local && local - sp < 64 * 1024,
+                "sp {sp:#x}, local {local:#x}"
+            );
+        }
     }
 
     #[test]

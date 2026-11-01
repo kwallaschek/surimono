@@ -63,10 +63,60 @@ pub use renderer::Renderer;
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// The built-in renderers compiled into this build, sorted (Cargo features
+/// `echarts` and `vega`). Every [`Renderer`] offers them unless
+/// [`Options::renderers`] narrows its list. The list is fixed when the
+/// crate is compiled, so it is a static slice; collect it into owned
+/// strings if you need to extend it.
+///
+/// ```
+/// let names: &'static [&'static str] = surimono::builtin_renderers();
+/// assert!(names.windows(2).all(|w| w[0] < w[1]));
+/// ```
+pub fn builtin_renderers() -> &'static [&'static str] {
+    backend::builtin_names()
+}
+
+/// How many of [`builtin_renderers`] load precompiled bytecode in this
+/// process, for diagnostics and packaging checks.
+///
+/// Equal to `builtin_renderers().len()` in a normal build. Less (usually 0)
+/// when the environment variable `SURIMONO_PRECOMPILE=0` was set when this
+/// was built or when the process started, or when the bytecode doesn't fit
+/// the running engine (a broken cross build). Output is the same either
+/// way; only each built-in's first render in a process is slower, because
+/// it compiles the renderer's source. The first call takes a few
+/// milliseconds; later calls are free.
+///
+/// ```
+/// let precompiled = surimono::precompiled_builtins();
+/// assert!(precompiled <= surimono::builtin_renderers().len());
+/// ```
+pub fn precompiled_builtins() -> usize {
+    surimono_islands::precompiled_builtins()
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn version_is_set() {
         assert_eq!(super::VERSION.split('.').count(), 3);
+    }
+
+    /// Without `SURIMONO_PRECOMPILE=0` (at build or run time) every
+    /// built-in loads precompiled bytecode.
+    #[test]
+    fn every_builtin_is_precompiled() {
+        let off = option_env!("SURIMONO_PRECOMPILE") == Some("0")
+            || std::env::var_os("SURIMONO_PRECOMPILE").is_some_and(|v| v == "0");
+        let want = if off {
+            0
+        } else {
+            super::builtin_renderers().len()
+        };
+        assert_eq!(super::precompiled_builtins(), want);
+        if cfg!(feature = "echarts") {
+            assert!(super::builtin_renderers().contains(&"echarts"));
+        }
     }
 }

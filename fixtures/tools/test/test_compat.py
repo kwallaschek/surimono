@@ -133,7 +133,7 @@ class CompatTest(unittest.TestCase):
             },
         )
         text = "\n".join(compat.hostile_section(results))
-        self.assertIn("1 of 5 cases end as the manifest expects", text)
+        self.assertIn("4 cases, 5 results: 1 of 5 end as the manifest expects", text)
         self.assertIn("| loop | TimeLimit | TimeLimit (2001 ms) | pass |", text)
         self.assertIn("output 'wrong', expected 'fine'", text)  # the file's own "pass" is ignored
         self.assertIn("expected ReferenceError", text)
@@ -217,7 +217,7 @@ class CompatTest(unittest.TestCase):
             },
         )
         text = "\n".join(compat.hostile_section(results))
-        self.assertIn("1 of 7 cases end as the manifest expects (results from abc; 2 not in the manifest)", text)
+        self.assertIn("4 cases, 7 results: 1 of 7 end as the manifest expects (results from abc; 2 not in the manifest)", text)
         self.assertIn("| loop-typo | — | Crash (3 ms) | **FAIL**: not in the manifest |", text)
         self.assertIn("| two step 3 | — | Ok (1 ms) | **FAIL**: not in the manifest |", text)
 
@@ -280,7 +280,7 @@ class CompatTest(unittest.TestCase):
         text = "\n".join(compat.hostile_section(results))
         self.assertIn("| loop | TimeLimit | TimeLimit (? ms) | **FAIL**: no wall_ms, so the max_wall_ms check can't be made |", text)
         self.assertIn("| req | Exception | — (3 ms) | **FAIL**: no outcome in the results file |", text)
-        self.assertIn("0 of 5 cases", text)
+        self.assertIn("4 cases, 5 results: 0 of 5 end", text)
 
     def test_a_determinism_failure_fails_the_fixture(self):
         scores = [score("echarts-a island 0 (printed by chrome)", True), score("echarts-a island 0 (printed by fulgur)", True), score("echarts-a", True)]

@@ -5,32 +5,58 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Sun 1 Nov 2026, 05:20)
+## Now (Sun 1 Nov 2026, 09:10)
 
-**Phase 1: islands. Checkpoint 2 is today about 18:00.** The live session with Kay ended
-(heartbeat 231 min old at 04:16); a scheduled resume (cse_011c8hfq5ufjN5m2pZpZysXx) holds
-the fleet now. Since 04:20: merged #55 (CF-12), #25 (facade on the real backend), #26 (CLI),
-#34 (licences), #56 (precompiled bytecode), #57 (ASan stack probe), each on green ci/linux and
-a fresh reviewer's APPROVE. Agents of the previous session were lost with its machine; their
-unpushed work on #47 was redone (head 2268e80).
+**Phase 1: islands. Checkpoint 2 is today about 18:00 JST.** The live session with Kay ended
+(heartbeat 231 min old at 04:16). Scheduled resume cse_011c8hfq5ufjN5m2pZpZysXx ran the fleet
+04:16–09:10 and merged, each on green ci/linux plus a fresh reviewer's APPROVE:
+#55, #25 (facade on the real backend), #26 (CLI), #34 (licences), #56 (precompiled bytecode),
+#57 (ASan stack probe), #47 (time-accurate deadlines, BigInt leak fix, fork-safe registry),
+#58, #59 + #65 (checkpoint-2 report, re-run on 99c363cd), #60/#61 (licence files in crates),
+#62 (fork generation; runner fork-safe), #18/#19/#23 (README, guides, examples), #63 (examples in
+CI, facade slots by generation), #64, #66, #67 (precompiled_builtins API + gem gate), #68,
+#69 (builtin_renderers const, libc workspace pin), #70 (WebIDL vendoring + stub generator, phase-2
+scaffolding, internal only), #71 (dead worker → typed error, never a hang).
 
-### Open PRs (merge order)
+### Checkpoint 2 evidence (all on main)
+- Fixtures: fixtures/checkpoint-2/index.md (+ NOTES.md). Gate 12/12 islands pass; 34/35 comparisons
+  pass; the one fail is vegalite-line-ja printed by fulgur, shape 10.2% vs 10% at the 10 px "6月"
+  label (Chrome-printed 4.8%, page 7.3%). Determinism 11/11 byte-identical across processes, TZ and
+  locale. Mention: local Chromium differs from CI by 65 px / 38 px on two ECharts fixtures; refs and
+  fulgur floor are CI's (NOTES.md). Results predate #63 (no render-path change).
+- Hostile: 59 cases, 60 results, all as the manifest expects; no crash, no hang (COMPAT.md).
+- Bench (ci-results runs/15b530e0…/bench/grover/bench/summary.md; not committed to bench/):
+  Grover ÷ surimono+fulgur Ruby: 2.4× cold / 2.4× warm (2× met); PSS 5.8× / 5.6× (10× not met;
+  fulgur alone with Chrome's SVGs is only 8.7×). Rust: 3.0×/2.4×, PSS 8.0×/8.2×. Against
+  chrome-headless-shell: 1.8–2.3× time, 3.8–5.2× PSS.
+- Release PR #38 (release/v0.1.0, head 715a08f4): dry-run passes except the engine distribution
+  (crates.io users get unpatched rquickjs-sys; link fails). Licence files fixed. Source gem and the
+  x86_64-linux native gem build and pass. Needs main merged in again before the message.
+- Kay decisions (docs/fleet/PENDING_DECISIONS.md "Open for checkpoint 2"): engine distribution
+  (recommend v0.1 = gem + CLI from source, Rust crates held; publish the fork under our own names
+  later), the 10× memory target (PSS vs summed RSS; fulgur's own floor), MSRV 1.89 at phase 2,
+  outline text (labels not selectable), macos-14 retirement → YAML change (docs/ci/), reference.yml
+  paths should include crates/gfx/**.
+
+### Open PRs
 | PR | Task | State |
 |---|---|---|
-| #47 | P1-RT-14 + P1-RT-22 deadlines, BigInt pow leak fix, fork-safe registry | fixes pushed 2268e80; delta review next |
-| #18 → #19 → #23 | README, guides, examples | DX batch 2 (update to the merged facade/CLI, CHANGELOG 0.1.0), then review |
-| #38 | v0.1 release PR | update to main, dry-run; merge only with Kay's OK at checkpoint 2 |
+| #38 | v0.1 release PR | merge main in, re-run dry-run; merge only with Kay's OK |
 
 ### Blocked / waiting on Kay
-- Nothing.
+- Nothing until checkpoint 2.
 
 ### Next (in order; a resumed session starts here)
-1. #47 delta review of 2268e80; merge on approval; move its PENDING_DECISIONS lines; mark P1-RT-14/22 done.
-2. P1-CF-09 real run from main (`checkpoint.mjs`, release CLI); commit report; regenerate COMPAT.md; bench (Grover table, PSS) from main's full.yml/bench run.
-3. DX batch 2 on #18/#19/#23, then review and merge.
-4. #38 to main; dry-run; webidl/dom stay publish=false.
-5. Checkpoint 2 message (~18:00 JST): fixtures side by side with Chrome, Grover table, hostile results, release PR with dry-run, "Open for checkpoint 2" items in docs/fleet/PENDING_DECISIONS.md, YAML copy for Kay (docs/ci/, macos-15 before 2 Nov). Weekly digest ~20:00.
-6. Follow-ups queued: P1-PKG-11, P1-RT-28, P1-RT-29, P1-RT-25/26/27, P1-RT-20/21/23/18.
+1. Check main's full.yml on the latest main commit (macos-14 and asan jobs were "cancelled" on recent
+   runs — find out whether that is timeout or concurrency; asan is known red until P1-RT-27).
+2. PKG: merge main into release/v0.1.0 (#38), re-run scripts/ci/release-dry-run.sh, post evidence.
+3. ~16:00–18:00 JST: checkpoint 2 message to Kay (SendUserMessage + PushNotification): the evidence
+   above with links to fixtures/checkpoint-2/index.md, the bench summary, COMPAT.md, #38; the Kay
+   decisions; exact steps and time needed. Then wait for his OK; ask whether to publish v0.1.
+4. ~20:00 JST: Sunday digest (five lines) if checkpoint 2 hasn't covered it.
+5. Meanwhile (no checkpoint can change these): P1-RT-27 (ASan time scale), P1-RT-25 (gem RSS after
+   burst), P1-RT-21 (cancel inside an island), P1-RT-23/29 (regex polls), P1-RT-34, P1-DOM-03,
+   P1-DOM-02 (id handles spike), P1-PKG-01d, P1-RT-20 (quickjs-ng public issue drafts).
 
 ### Disk
 When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh`.

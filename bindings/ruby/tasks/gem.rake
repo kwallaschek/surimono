@@ -156,6 +156,10 @@ module SurimonoGem
   # Installs a gem file into an empty GEM_HOME and runs the test suite against
   # the installed copy (not lib/). For the source gem this compiles the extension
   # the way `gem install surimono` does on a machine without a precompiled gem.
+  # Before the tests it checks that the installed extension is the one loaded
+  # and that the gem has built-in renderers and every one of them loads
+  # precompiled bytecode (Surimono.precompiled_builtins; 0 expected with
+  # SURIMONO_PRECOMPILE=0). An empty list fails: 0 of 0 would pass vacuously.
   def verify_gem(gem_file)
     home = File.join(GEM_DIR, "tmp", "gemhome")
     FileUtils.rm_rf(home)
@@ -165,7 +169,12 @@ module SurimonoGem
       sh_ok!(env, "gem", "install", "--no-document", "--verbose", File.expand_path(gem_file))
       check = 'require "surimono"; f = $LOADED_FEATURES.grep(%r{/surimono\\.(so|bundle)\\z}).first; ' \
               'abort("surimono loaded from #{f.inspect}, not the installed gem") unless f&.start_with?(ENV["GEM_HOME"]); ' \
-              'puts "native extension: #{f}"'
+              'puts "native extension: #{f}"; ' \
+              'b = Surimono.builtin_renderers; n = Surimono.precompiled_builtins; ' \
+              'abort("the installed gem has no built-in renderers") if b.empty?; ' \
+              'puts "precompiled built-ins: #{n} of #{b.size} (#{b.join(", ")})"; ' \
+              'want = ENV["SURIMONO_PRECOMPILE"] == "0" ? 0 : b.size; ' \
+              'abort("#{n} of #{b.size} built-ins load precompiled bytecode, expected #{want}") unless n == want'
       sh_ok!(env, RbConfig.ruby, "-e", check)
       tests = Dir[File.join(GEM_DIR, "test", "**", "*_test.rb")].sort
       sh_ok!(env, RbConfig.ruby, "-I", File.join(GEM_DIR, "test"), "-e",

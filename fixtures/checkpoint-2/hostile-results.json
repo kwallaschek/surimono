@@ -6,7 +6,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2003
+      "wall_ms": 2001
     },
     {
       "id": "infinite-loop-try-catch",
@@ -30,7 +30,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2000
+      "wall_ms": 2001
     },
     {
       "id": "microtask-flood-growing",
@@ -38,7 +38,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 810
+      "wall_ms": 415
     },
     {
       "id": "microtask-await-loop",
@@ -46,7 +46,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2004
+      "wall_ms": 2001
     },
     {
       "id": "regex-redos",
@@ -62,7 +62,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2022
+      "wall_ms": 2000
     },
     {
       "id": "atomics-wait",
@@ -78,7 +78,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2001
+      "wall_ms": 2000
     },
     {
       "id": "native-loop-join-holey",
@@ -86,7 +86,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2004
+      "wall_ms": 2001
     },
     {
       "id": "native-loop-join-getter-length",
@@ -94,7 +94,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2019
+      "wall_ms": 2000
     },
     {
       "id": "native-loop-join-proxy",
@@ -102,7 +102,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2017
+      "wall_ms": 2001
     },
     {
       "id": "native-loop-reverse",
@@ -110,7 +110,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2013
+      "wall_ms": 2002
     },
     {
       "id": "native-loop-copywithin",
@@ -118,7 +118,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2010
+      "wall_ms": 2002
     },
     {
       "id": "native-loop-string-raw",
@@ -126,7 +126,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 618
+      "wall_ms": 216
     },
     {
       "id": "native-loop-join-length-toctou",
@@ -134,7 +134,7 @@
       "outcome": "Ok",
       "output": "finished",
       "step": null,
-      "wall_ms": 1
+      "wall_ms": 0
     },
     {
       "id": "native-loop-join-length-valueof",
@@ -142,7 +142,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2008
+      "wall_ms": 2001
     },
     {
       "id": "native-loop-typedarray-own-length",
@@ -150,7 +150,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2004
+      "wall_ms": 2001
     },
     {
       "id": "native-loop-dataview-length",
@@ -158,7 +158,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2012
+      "wall_ms": 2001
     },
     {
       "id": "native-loop-fill-typedarray-proto",
@@ -166,15 +166,15 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 858
+      "wall_ms": 295
     },
     {
       "id": "native-sort-typed-array",
       "message": null,
-      "outcome": "TimeLimit",
-      "output": null,
+      "outcome": "Ok",
+      "output": "sorted",
       "step": null,
-      "wall_ms": 2083
+      "wall_ms": 1031
     },
     {
       "id": "reentry-promise-executor",
@@ -182,7 +182,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2008
+      "wall_ms": 2000
     },
     {
       "id": "reentry-promise-try",
@@ -190,7 +190,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2002
+      "wall_ms": 2001
     },
     {
       "id": "reentry-async-generator",
@@ -198,7 +198,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2002
+      "wall_ms": 2001
     },
     {
       "id": "reentry-prepare-stack-trace",
@@ -206,7 +206,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2019
+      "wall_ms": 2001
     },
     {
       "id": "reentry-disposable-stack",
@@ -214,7 +214,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2004
+      "wall_ms": 2001
     },
     {
       "id": "alloc-arrays",
@@ -222,7 +222,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 268
+      "wall_ms": 95
     },
     {
       "id": "alloc-string-doubling",
@@ -238,7 +238,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 1
+      "wall_ms": 3
     },
     {
       "id": "alloc-typed-array",
@@ -246,7 +246,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 1
+      "wall_ms": 0
     },
     {
       "id": "alloc-typed-arrays-many",
@@ -254,7 +254,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2
+      "wall_ms": 1
     },
     {
       "id": "alloc-object-graph",
@@ -262,7 +262,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 1124
+      "wall_ms": 414
     },
     {
       "id": "oom-caught-retry",
@@ -270,7 +270,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 248
+      "wall_ms": 101
     },
     {
       "id": "oom-caught-continue",
@@ -278,7 +278,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 433
+      "wall_ms": 96
     },
     {
       "id": "recursion-plain",
@@ -286,7 +286,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 4
+      "wall_ms": 1
     },
     {
       "id": "recursion-caught",
@@ -294,7 +294,7 @@
       "outcome": "Ok",
       "output": "caught:2,4,6",
       "step": null,
-      "wall_ms": 3
+      "wall_ms": 0
     },
     {
       "id": "recursion-getter",
@@ -302,7 +302,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 2
+      "wall_ms": 0
     },
     {
       "id": "recursion-tostring",
@@ -310,7 +310,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 8
+      "wall_ms": 1
     },
     {
       "id": "recursion-proxy",
@@ -318,7 +318,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 5
+      "wall_ms": 1
     },
     {
       "id": "recursion-json-stringify",
@@ -326,7 +326,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 235
+      "wall_ms": 36
     },
     {
       "id": "recursion-array-join",
@@ -334,7 +334,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 94
+      "wall_ms": 47
     },
     {
       "id": "recursion-json-parse",
@@ -342,7 +342,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 3
+      "wall_ms": 4
     },
     {
       "id": "recursion-parser",
@@ -358,7 +358,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 2
+      "wall_ms": 1
     },
     {
       "id": "deep-free-chain",
@@ -366,7 +366,7 @@
       "outcome": "Ok",
       "output": "freed",
       "step": null,
-      "wall_ms": 136
+      "wall_ms": 88
     },
     {
       "id": "result-not-a-string",
@@ -390,7 +390,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 5
+      "wall_ms": 0
     },
     {
       "id": "unhandled-rejection",
@@ -398,7 +398,7 @@
       "outcome": "Ok",
       "output": "ok",
       "step": null,
-      "wall_ms": 27
+      "wall_ms": 0
     },
     {
       "id": "control-sync",
@@ -438,7 +438,7 @@
       "outcome": "Ok",
       "output": "denied",
       "step": null,
-      "wall_ms": 2
+      "wall_ms": 1
     },
     {
       "id": "escape-network",
@@ -454,7 +454,7 @@
       "outcome": "Ok",
       "output": "clean",
       "step": null,
-      "wall_ms": 2
+      "wall_ms": 9
     },
     {
       "id": "escape-function-constructor",
@@ -481,6 +481,6 @@
       "wall_ms": 0
     }
   ],
-  "commit": "6eb38139bb5894a5b235fb84fb24256969752305",
+  "commit": "52d76a392aa32a89067b62ae8be0ea0ad5e162e1",
   "schema": 1
 }

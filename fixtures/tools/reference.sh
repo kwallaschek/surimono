@@ -50,13 +50,21 @@ node "$here/reference.mjs" --out "$out" "${args[@]}" "$@" || status=$?
 #   svg_inline.mjs   sanitized island SVG stays inert when inlined in an HTML page
 #   svg_outline.mjs  outlined island text looks like Chrome's own text in the same fonts
 # Their inputs come from `cargo test -p surimono-gfx --test svg`. Skipped, with a
-# note, in --update mode, for a subset of fixtures, without cargo, or with
-# SURIMONO_SKIP_GFX_CHROME=1. Logs: <out>/gfx-svg-inline.log, <out>/gfx-svg-outline.log.
+# note, in --update mode, for a subset of fixtures, with SURIMONO_SKIP_GFX_CHROME=1,
+# or without cargo outside CI; without cargo in CI ($CI set) the run fails, so a
+# runner that lost its toolchain can't pass with the checks silently skipped. Both
+# scripts always run, and either failing fails the run.
+# Logs: <out>/gfx-svg-inline.log, <out>/gfx-svg-outline.log.
 repo="$(cd "$here/../.." && pwd)"
 if [ ${#args[@]} -gt 0 ] || [ $# -gt 0 ] || [ -n "${SURIMONO_SKIP_GFX_CHROME:-}" ]; then
   echo "==> gfx Chrome checks: skipped (--update, a fixture subset, or SURIMONO_SKIP_GFX_CHROME)"
 elif ! command -v cargo >/dev/null; then
-  echo "==> gfx Chrome checks: skipped, cargo not found" >&2
+  if [ -n "${CI:-}" ]; then
+    echo "gfx Chrome checks: cargo not found on a CI runner (\$CI is set); they can't be skipped there" >&2
+    status=1
+  else
+    echo "==> gfx Chrome checks: skipped, cargo not found" >&2
+  fi
 else
   echo "==> gfx Chrome checks: inputs (cargo test -p surimono-gfx --test svg)"
   target="$(cd "$repo" && cargo metadata --format-version 1 --no-deps |
@@ -65,11 +73,15 @@ else
     # The scripts load playwright with require(); resolve it to the pinned one here.
     export NODE_PATH="$here/node_modules${NODE_PATH:+:$NODE_PATH}"
     echo "==> gfx Chrome checks: svg_inline.mjs"
-    node "$repo/crates/gfx/tests/chrome/svg_inline.mjs" "$target/tmp/hostile-svg.json" 2>&1 | tee "$out/gfx-svg-inline.log"
-    [ "${PIPESTATUS[0]}" -eq 0 ] || status=1
+    # In an `if`, a failing pipeline (pipefail) sets status instead of ending the
+    # script under `set -e`, so svg_outline.mjs still runs after svg_inline.mjs fails.
+    if ! node "$repo/crates/gfx/tests/chrome/svg_inline.mjs" "$target/tmp/hostile-svg.json" 2>&1 | tee "$out/gfx-svg-inline.log"; then
+      status=1
+    fi
     echo "==> gfx Chrome checks: svg_outline.mjs"
-    node "$repo/crates/gfx/tests/chrome/svg_outline.mjs" "$target/tmp/outlined" "$repo/fixtures/fonts" 2>&1 | tee "$out/gfx-svg-outline.log"
-    [ "${PIPESTATUS[0]}" -eq 0 ] || status=1
+    if ! node "$repo/crates/gfx/tests/chrome/svg_outline.mjs" "$target/tmp/outlined" "$repo/fixtures/fonts" 2>&1 | tee "$out/gfx-svg-outline.log"; then
+      status=1
+    fi
   else
     echo "gfx Chrome checks: cargo test -p surimono-gfx --test svg failed" >&2
     status=1

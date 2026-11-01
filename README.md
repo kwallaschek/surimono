@@ -88,9 +88,9 @@ rquickjs-sys = { git = "https://github.com/kwallaschek/surimono", branch = "main
 Without the `[patch.crates-io]` entry the build fails at link time with
 `undefined reference to surimono_quickjs_patch_level`. Cargo finds
 `rquickjs-sys` in the repository's `vendor/` folder. Keep both entries on the
-same branch or `rev` so they come from one commit. On Rust 1.87, put `edition = "2024"` and
-`rust-version = "1.87"` in your package so that Cargo picks dependency
-versions that build on 1.87; some current releases need 1.88.
+same branch or `rev` so they come from one commit. On Rust 1.87, put
+`edition = "2024"` and `rust-version = "1.87"` in your package so that Cargo
+picks dependency versions that build on 1.87; some current releases need 1.88.
 
 ECharts and Vega are Cargo features, both on by default: `echarts` adds the
 `echarts` renderer, `vega` adds `vega` and `vega-lite`. To leave Vega out, add

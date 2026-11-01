@@ -375,6 +375,40 @@ log.push(outer(7));
         assert!(!sb.compile("1", "x.js").unwrap().is_embedded());
     }
 
+    /// Stripping loses what toString-based class detection looks for:
+    /// ECharts' `isESClass` (`/^class\s/` on `Function.prototype.toString`)
+    /// says yes for a native class compiled from source and no for the same
+    /// class loaded from embedded bytecode. Built-in bundles must therefore
+    /// not hand native classes to such a check (islands' guard test).
+    #[test]
+    fn stripping_hides_native_classes_from_to_string() {
+        const CLASSES: &str = r"
+var isESClass = function (f) {
+  return typeof f === 'function' && /^class\s/.test(Function.prototype.toString.call(f));
+};
+class Native { constructor() { this.x = 1; } }
+function Plain() { this.x = 1; }
+var verdicts = [isESClass(Native), isESClass(Plain)].join();
+";
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let full = sb.compile(CLASSES, "classes.js").unwrap();
+        sb.eval_bytecode(&full).unwrap();
+        assert_eq!(sb.eval::<String>("verdicts").unwrap(), "true,false");
+
+        // SAFETY: the bytes and the fingerprint come from this engine.
+        let bc = unsafe { Bytecode::from_embedded("classes.js", embedded(CLASSES), fingerprint()) }
+            .expect("same engine, same fingerprint");
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        sb.eval_bytecode(&bc).unwrap();
+        assert_eq!(sb.eval::<String>("verdicts").unwrap(), "false,false");
+        // The class itself still behaves as one.
+        assert!(matches!(
+            sb.eval::<()>("Native()"),
+            Err(SandboxError::Exception { .. })
+        ));
+        assert_eq!(sb.eval::<i32>("new Native().x").unwrap(), 1);
+    }
+
     #[test]
     fn a_different_fingerprint_is_refused() {
         let bytes = embedded(SCRIPT);
