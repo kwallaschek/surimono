@@ -481,8 +481,15 @@ fn vega_and_vega_lite_share_a_compile_and_render_alike() {
 fn vega_and_vega_lite_share_a_preload() {
     // One bundle defines both entries, so a worker that preloaded it for
     // one serves the other without loading it again, with the same output
-    // as a cold render.
-    let r = runner();
+    // as a cold render. Idle runtimes are never released here, so a slow
+    // poller can't find the preload already freed.
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        pool_size: 1,
+        limits: TEST_LIMITS,
+        release_idle_after: None,
+        ..RunnerOptions::default()
+    })
+    .unwrap();
     let lite = spec("vega-lite", "bar");
     let vega = spec("vega", "bar");
     let cold_lite = render(&r, "vega-lite", &lite).unwrap();
@@ -490,7 +497,11 @@ fn vega_and_vega_lite_share_a_preload() {
     let wait_idle = || {
         let start = Instant::now();
         while r.stats().idle_workers < r.stats().workers {
-            assert!(start.elapsed() < Duration::from_secs(30), "{:?}", r.stats());
+            assert!(
+                start.elapsed() < Duration::from_secs(60),
+                "the worker never finished preloading within 60 s: {:?}",
+                r.stats()
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
     };

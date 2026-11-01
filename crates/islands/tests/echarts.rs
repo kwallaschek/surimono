@@ -230,14 +230,40 @@ fn series_cannot_turn_animation_back_on() {
 
 #[test]
 fn a_preloaded_render_matches_a_cold_one() {
-    let r = runner();
+    // Never release an idle runtime here: with the default 2 s release, a
+    // slow runner (macos-14 CI) could free the preloaded runtime before the
+    // second request arrived, and that request would then load cold.
+    let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
+        pool_size: 1,
+        release_idle_after: None,
+        ..RunnerOptions::default()
+    })
+    .unwrap();
     let spec = option("japanese");
     let cold = render(&r, &spec).unwrap();
     assert_eq!(r.stats().preloaded_renders, 0);
-    // The idle worker loads ECharts into its fresh runtime.
-    std::thread::sleep(Duration::from_secs(2));
+    // The idle worker loads ECharts into its fresh runtime, then counts as
+    // idle (it only waits for a job after its preload). Wait for that,
+    // bounded, instead of guessing how long the preload takes.
+    let start = Instant::now();
+    loop {
+        let stats = r.stats();
+        if stats.workers > 0 && stats.idle_workers == stats.workers {
+            break;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(60),
+            "the worker never finished preloading ECharts within 60 s: {stats:?}"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
     let warm = render(&r, &spec).unwrap();
-    assert_eq!(r.stats().preloaded_renders, 1);
+    assert_eq!(
+        r.stats().preloaded_renders,
+        1,
+        "the second render was not served from the preload (did the preload fail?): {:?}",
+        r.stats()
+    );
     assert!(cold == warm, "preloaded and cold renders differ");
 }
 
