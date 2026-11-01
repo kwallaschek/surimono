@@ -16,17 +16,53 @@ static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DomLimits {
     /// Most nodes the document may hold (parsed and created together).
+    /// Checked when parsing and on every node a script creates.
     pub max_nodes: usize,
-    /// Deepest nesting an insertion may create, counted from the document
-    /// node. Bounds the recursion in blitz-dom's subtree walks.
+    /// Deepest nesting, counted from the document node (the `<html>`
+    /// element is at depth 1). Checked when parsing and on every insertion.
+    /// Bounds the recursion in blitz-dom's subtree walks (adding a subtree
+    /// to the document), which could otherwise overflow the stack; at most
+    /// [`MAX_DEPTH`](Self::MAX_DEPTH).
     pub max_depth: usize,
+    /// Most handles the document may give out over its life. A handle is
+    /// never reused, so its table entry outlives its node; this bounds that
+    /// table (16 bytes a handle, outside the JavaScript heap limit) when a
+    /// script creates and drops nodes in a loop.
+    pub max_handles: usize,
 }
 
 impl DomLimits {
     /// 100,000 nodes: a large report page has a few thousand.
     pub const DEFAULT_MAX_NODES: usize = 100_000;
-    /// 512 levels, as Blink's HTML parser caps nesting.
+    /// 512 levels. Chrome renders deeper trees, but no real page nests
+    /// this deep.
     pub const DEFAULT_MAX_DEPTH: usize = 512;
+    /// Largest `max_depth` accepted: blitz-dom recurses once per level when
+    /// a subtree joins the document, and 1,024 levels fit the sandbox's
+    /// stack headroom (tested on a 1 MiB thread).
+    pub const MAX_DEPTH: usize = 1_024;
+    /// 1,000,000 handles (16 MB of table at most).
+    pub const DEFAULT_MAX_HANDLES: usize = 1_000_000;
+
+    /// Checks the limits are in range: every limit at least 1, `max_depth`
+    /// at most [`MAX_DEPTH`](Self::MAX_DEPTH), `max_handles` within `u32`.
+    pub fn validate(&self) -> Result<(), DomError> {
+        let bad = |what: &str| {
+            Err(DomError::InvalidLimits {
+                message: what.to_owned(),
+            })
+        };
+        if self.max_nodes == 0 || self.max_depth == 0 || self.max_handles == 0 {
+            return bad("every DOM limit must be at least 1");
+        }
+        if self.max_depth > Self::MAX_DEPTH {
+            return bad("max_depth must be at most DomLimits::MAX_DEPTH (1,024)");
+        }
+        if u32::try_from(self.max_handles).is_err() {
+            return bad("max_handles must fit in 32 bits");
+        }
+        Ok(())
+    }
 }
 
 impl Default for DomLimits {
@@ -34,6 +70,7 @@ impl Default for DomLimits {
         Self {
             max_nodes: Self::DEFAULT_MAX_NODES,
             max_depth: Self::DEFAULT_MAX_DEPTH,
+            max_handles: Self::DEFAULT_MAX_HANDLES,
         }
     }
 }
@@ -80,28 +117,137 @@ impl std::fmt::Debug for Document {
 
 impl Document {
     /// Parses `html` with the default [`DomLimits`].
-    pub fn parse(html: &str) -> Self {
+    pub fn parse(html: &str) -> Result<Self, DomError> {
         Self::parse_with_limits(html, DomLimits::default())
     }
 
     /// Parses `html`. No network, no system fonts: blitz-dom is built
     /// without them and the config has no providers.
-    pub fn parse_with_limits(html: &str, limits: DomLimits) -> Self {
+    ///
+    /// Fails with [`DomError::NodeLimit`] or [`DomError::TreeTooDeep`] if
+    /// the parsed tree is already over `limits` (html5ever doesn't cap
+    /// nesting), and with [`DomError::InvalidLimits`] for limits out of
+    /// range. The parser itself doesn't recurse per level, and a refused
+    /// tree is freed without recursing (blitz-dom keeps nodes in a slab).
+    pub fn parse_with_limits(html: &str, limits: DomLimits) -> Result<Self, DomError> {
+        limits.validate()?;
         let inner = HtmlDocument::from_html(html, DocumentConfig::default()).into_inner();
-        Self {
+        let doc = Self {
             inner,
             generation: NEXT_GENERATION.fetch_add(1, Ordering::Relaxed),
             limits,
             handle_to_node: Vec::new(),
             node_to_handle: Vec::new(),
+        };
+        if doc.node_count() > limits.max_nodes {
+            return Err(DomError::NodeLimit {
+                limit: limits.max_nodes,
+            });
         }
+        if doc.height(doc.root()) - 1 > limits.max_depth {
+            return Err(DomError::TreeTooDeep {
+                limit: limits.max_depth,
+            });
+        }
+        Ok(doc)
     }
 
-    /// The document's serialization (the `<html>` element's outer HTML).
+    /// The document's serialization: the `<html>` element's outer HTML, by
+    /// the HTML Standard's fragment serialization algorithm (§13.3) for
+    /// HTML elements, text and comments. Iterative, so tree depth can't
+    /// overflow the stack.
     pub fn to_html(&self) -> String {
-        match self.document_element() {
-            Some(id) => self.node(id).outer_html(),
-            None => String::new(),
+        let mut out = String::new();
+        if let Some(id) = self.document_element() {
+            self.serialize(id, &mut out);
+        }
+        out
+    }
+
+    fn serialize(&self, top: usize, out: &mut String) {
+        enum Step {
+            Open(usize),
+            Close(usize),
+        }
+        let mut stack = vec![Step::Open(top)];
+        while let Some(step) = stack.pop() {
+            match step {
+                Step::Close(id) => {
+                    if let Some(e) = self.node(id).element_data() {
+                        out.push_str("</");
+                        out.push_str(&e.name.local);
+                        out.push('>');
+                    }
+                }
+                Step::Open(id) => {
+                    let node = self.node(id);
+                    match &node.data {
+                        NodeData::Text(t) => {
+                            let raw = node
+                                .parent
+                                .and_then(|p| self.node(p).element_data())
+                                .is_some_and(|e| {
+                                    matches!(
+                                        e.name.local.as_ref(),
+                                        "style"
+                                            | "script"
+                                            | "xmp"
+                                            | "iframe"
+                                            | "noembed"
+                                            | "noframes"
+                                            | "plaintext"
+                                            | "noscript"
+                                    )
+                                });
+                            if raw {
+                                out.push_str(&t.content);
+                            } else {
+                                escape_into(&t.content, false, out);
+                            }
+                        }
+                        // blitz-dom 0.2.4 keeps no comment data.
+                        NodeData::Comment => out.push_str("<!---->"),
+                        NodeData::Document => {}
+                        NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
+                            out.push('<');
+                            out.push_str(&e.name.local);
+                            for a in e.attrs() {
+                                out.push(' ');
+                                out.push_str(&a.name.local);
+                                out.push_str("=\"");
+                                escape_into(&a.value, true, out);
+                                out.push('"');
+                            }
+                            out.push('>');
+                            let void = matches!(
+                                e.name.local.as_ref(),
+                                "area"
+                                    | "base"
+                                    | "basefont"
+                                    | "bgsound"
+                                    | "br"
+                                    | "col"
+                                    | "embed"
+                                    | "frame"
+                                    | "hr"
+                                    | "img"
+                                    | "input"
+                                    | "keygen"
+                                    | "link"
+                                    | "meta"
+                                    | "param"
+                                    | "source"
+                                    | "track"
+                                    | "wbr"
+                            );
+                            if !void {
+                                stack.push(Step::Close(id));
+                                stack.extend(node.children.iter().rev().map(|&c| Step::Open(c)));
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -121,19 +267,25 @@ impl Document {
         &self.inner.tree()[id]
     }
 
-    /// The handle for blitz node `id`, made on first use.
-    pub(crate) fn handle_for(&mut self, id: usize) -> Handle {
+    /// The handle for blitz node `id`, made on first use. Fails with
+    /// [`DomError::HandleLimit`] once the document has given out
+    /// `max_handles`.
+    pub(crate) fn handle_for(&mut self, id: usize) -> Result<Handle, DomError> {
         if self.node_to_handle.len() <= id {
             self.node_to_handle.resize(id + 1, 0);
         }
         if self.node_to_handle[id] == 0 {
+            if self.handle_to_node.len() >= self.limits.max_handles {
+                return Err(DomError::HandleLimit {
+                    limit: self.limits.max_handles,
+                });
+            }
             self.handle_to_node.push(Some(id));
-            // At most `max_nodes` handles live at once, but dropped nodes'
-            // handles stay retired, so a script that churns nodes could in
-            // theory count past u32; saturate rather than wrap.
+            // `validate` keeps max_handles within u32, so this always fits;
+            // 0 (never a valid handle, resolves to NodeRemoved) otherwise.
             self.node_to_handle[id] = Handle::try_from(self.handle_to_node.len()).unwrap_or(0);
         }
-        self.node_to_handle[id]
+        Ok(self.node_to_handle[id])
     }
 
     /// The blitz node id that `(generation, handle)` names.
@@ -147,7 +299,7 @@ impl Document {
         {
             Some(Some(id)) => Ok(*id),
             // Handles only come from `handle_for`, so an unknown one is a
-            // dropped node's or handle 0 from saturation.
+            // dropped node's.
             _ => Err(DomError::NodeRemoved),
         }
     }
@@ -257,19 +409,49 @@ impl Document {
         }
     }
 
-    /// Drops every descendant of `id`, retiring their handles first.
+    /// Drops every descendant of `id`, retiring their handles.
+    ///
+    /// Iterative: blitz-dom's own `remove_and_drop_all_children` recurses
+    /// once per level. Every grandchild and below is cut loose (parent and
+    /// children links cleared, so each is a leaf with no parent) and
+    /// dropped on its own; then blitz drops `id`'s children, which are
+    /// leaves by then, and does its restyle bookkeeping for `id`. Each node
+    /// is visited once, so a wide tree costs no more than a deep one.
     fn drop_children(&mut self, id: usize) {
-        let mut stack: Vec<usize> = self.node(id).children.clone();
+        let children = self.node(id).children.clone();
+        let mut stack = Vec::new();
+        for &c in &children {
+            self.retire(c);
+            stack.extend(self.take_children(c));
+        }
         while let Some(n) = stack.pop() {
-            if let Some(h) = self.node_to_handle.get_mut(n) {
-                if *h != 0 {
-                    self.handle_to_node[*h as usize - 1] = None;
-                    *h = 0;
-                }
+            self.retire(n);
+            stack.extend(self.take_children(n));
+            if let Some(node) = self.inner.get_node_mut(n) {
+                node.parent = None;
             }
-            stack.extend(self.node(n).children.iter().copied());
+            // A leaf with no parent: blitz-dom neither recurses nor touches
+            // another node.
+            self.inner.mutate().remove_and_drop_node(n);
         }
         self.inner.mutate().remove_and_drop_all_children(id);
+    }
+
+    fn take_children(&mut self, id: usize) -> Vec<usize> {
+        self.inner
+            .get_node_mut(id)
+            .map(|n| std::mem::take(&mut n.children))
+            .unwrap_or_default()
+    }
+
+    /// Retires node `id`'s handle, if it has one.
+    fn retire(&mut self, id: usize) {
+        if let Some(h) = self.node_to_handle.get_mut(id) {
+            if *h != 0 {
+                self.handle_to_node[*h as usize - 1] = None;
+                *h = 0;
+            }
+        }
     }
 
     fn check_room(&self) -> Result<(), DomError> {
@@ -344,5 +526,22 @@ impl Document {
         }
         self.inner.mutate().append_children(parent, &[child]);
         Ok(true)
+    }
+}
+
+/// Escapes text or an attribute value as HTML serialization does (HTML
+/// Standard §13.3, "escaping a string").
+fn escape_into(s: &str, attribute: bool, out: &mut String) {
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '\u{a0}' => out.push_str("&nbsp;"),
+            '"' if attribute => out.push_str("&quot;"),
+            // Escaped in attribute values too since the 2025 change to the
+            // algorithm.
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            c => out.push(c),
+        }
     }
 }

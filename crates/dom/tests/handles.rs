@@ -12,7 +12,7 @@ const PAGE: &str = r#"<!doctype html><html><head><title>t</title></head>
 
 fn runtime_with(html: &str) -> DomRuntime {
     let mut rt = DomRuntime::new(Limits::default()).unwrap();
-    assert!(rt.load(Document::parse(html)).is_none());
+    assert!(rt.load(Document::parse(html).unwrap()).is_none());
     rt
 }
 
@@ -67,11 +67,13 @@ fn text_content_setter_mutates_the_rust_document() {
         .eval(r#"document.getElementById('chart').textContent = 'Revenue <b>'"#)
         .unwrap();
     // The old children are gone from the Rust tree and the id map; the
-    // text is one text node, not markup (DOM §4.4, "string replace all").
-    // (Not compared as serialized HTML: blitz-dom 0.2.4's outer_html doesn't
-    // escape text, a serializer gap for E2-02.)
+    // text is one text node, not markup (DOM §4.4, "string replace all"),
+    // escaped when serialized (HTML §13.3).
     let html = rt.with_document(Document::to_html).unwrap();
-    assert!(html.contains(r#"<div id="chart">Revenue "#), "{html}");
+    assert!(
+        html.contains(r#"<div id="chart">Revenue &lt;b&gt;</div>"#),
+        "{html}"
+    );
     assert!(!html.contains("label"), "{html}");
     let r: Vec<String> = rt
         .eval(
@@ -88,7 +90,10 @@ fn text_content_setter_mutates_the_rust_document() {
         .unwrap();
     assert_eq!(r, ["Revenue <b>", "null", "z", "Revenue <b>z", "#text"]);
     let html = rt.with_document(Document::to_html).unwrap();
-    assert!(html.contains("z</div>"), "{html}");
+    assert!(
+        html.contains(r#"<div id="chart">Revenue &lt;b&gt;z</div>"#),
+        "{html}"
+    );
 }
 
 #[test]
@@ -121,9 +126,7 @@ fn wrapper_from_a_previous_document_is_stale() {
         .eval("globalThis.old = document.getElementById('chart')")
         .unwrap();
     let old = rt
-        .load(Document::parse(
-            r#"<html><body><div id="chart">new</div></body></html>"#,
-        ))
+        .load(Document::parse(r#"<html><body><div id="chart">new</div></body></html>"#).unwrap())
         .unwrap();
     // The old document's #chart is node-for-node where the new one's is.
     let r = rt.eval::<String>("old.textContent");
@@ -205,24 +208,32 @@ fn create_and_append() {
 #[test]
 fn node_and_depth_limits_are_typed_errors() {
     let mut rt = DomRuntime::new(Limits::default()).unwrap();
-    rt.load(Document::parse_with_limits(
-        PAGE,
-        DomLimits {
-            max_nodes: 200,
-            max_depth: 50,
-        },
-    ));
+    rt.load(
+        Document::parse_with_limits(
+            PAGE,
+            DomLimits {
+                max_nodes: 200,
+                max_depth: 50,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
     let r = rt.eval::<()>(
         "try { for (;;) document.createElement('b'); } catch (e) {} // caught, still fatal",
     );
     assert_eq!(r, Err(DomError::NodeLimit { limit: 200 }));
-    rt.load(Document::parse_with_limits(
-        PAGE,
-        DomLimits {
-            max_nodes: 200,
-            max_depth: 50,
-        },
-    ));
+    rt.load(
+        Document::parse_with_limits(
+            PAGE,
+            DomLimits {
+                max_nodes: 200,
+                max_depth: 50,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
     let r = rt.eval::<()>(
         "let at = document.body; for (let i = 0; i < 60; i++) { const d = document.createElement('div'); at.appendChild(d); at = d; }",
     );
@@ -237,7 +248,7 @@ fn sandbox_limits_apply_and_bindings_survive_a_rebuild() {
             .with_time(Duration::from_millis(200)),
     )
     .unwrap();
-    rt.load(Document::parse(PAGE));
+    rt.load(Document::parse(PAGE).unwrap());
     // A loop of host calls still ends with the time limit.
     let r = rt
         .eval::<()>("for (;;) { try { document.getElementById('p').textContent; } catch (e) {} }");

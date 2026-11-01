@@ -146,49 +146,50 @@ impl DomRuntime {
 fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<()> {
     let n = Object::new(ctx.clone())?;
     n.set("current", native_current(ctx, host)?)?;
+    n.set("currentRoot", native_current_root(ctx, host)?)?;
     n.set(
         "nodeType",
         node_fn(ctx, host, "nodeType", |ctx, doc, id| {
             // `kind` is None only for layout boxes, which no tree link
             // reaches before layout; report them as plain nodes.
             let t = doc.kind(id).map_or(0, |k| k as u32);
-            t.into_js(ctx)
+            Ok(t.into_js(ctx))
         })?,
     )?;
     n.set(
         "nodeName",
         node_fn(ctx, host, "nodeName", |ctx, doc, id| {
-            doc.node_name(id).into_js(ctx)
+            Ok(doc.node_name(id).into_js(ctx))
         })?,
     )?;
     n.set(
         "parentNode",
         node_fn(ctx, host, "parentNode", |ctx, doc, id| {
-            let h = doc.parent(id).map_or(0, |p| doc.handle_for(p));
-            h.into_js(ctx)
+            let h = handle_or_null(doc, doc.parent(id))?;
+            Ok(h.into_js(ctx))
         })?,
     )?;
     n.set(
         "documentElement",
         node_fn(ctx, host, "documentElement", |ctx, doc, _| {
-            let h = doc.document_element().map_or(0, |e| doc.handle_for(e));
-            h.into_js(ctx)
+            let h = handle_or_null(doc, doc.document_element())?;
+            Ok(h.into_js(ctx))
         })?,
     )?;
     n.set(
         "body",
         node_fn(ctx, host, "body", |ctx, doc, _| {
-            let h = doc.body().map_or(0, |e| doc.handle_for(e));
-            h.into_js(ctx)
+            let h = handle_or_null(doc, doc.body())?;
+            Ok(h.into_js(ctx))
         })?,
     )?;
     n.set(
         "getTextContent",
         node_fn(ctx, host, "textContent", |ctx, doc, id| {
-            match doc.text_content(id) {
+            Ok(match doc.text_content(id) {
                 Some(s) => s.into_js(ctx),
                 None => Ok(Value::new_null(ctx.clone())),
-            }
+            })
         })?,
     )?;
     n.set(
@@ -210,7 +211,7 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<()> {
     n.set(
         "getElementById",
         node_arg_fn(ctx, host, "getElementById", |ctx, doc, _, id| {
-            let h = doc.element_by_id(&id).map_or(0, |e| doc.handle_for(e));
+            let h = handle_or_null(doc, doc.element_by_id(&id))?;
             Ok(h.into_js(ctx))
         })?,
     )?;
@@ -218,7 +219,7 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<()> {
         "createElement",
         node_arg_fn(ctx, host, "createElement", |ctx, doc, _, name| {
             Ok(match doc.create_element(&name)? {
-                Some(e) => doc.handle_for(e).into_js(ctx),
+                Some(e) => doc.handle_for(e)?.into_js(ctx),
                 None => Err(Exception::throw_dom(
                     ctx,
                     "InvalidCharacterError",
@@ -231,7 +232,7 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<()> {
         "createTextNode",
         node_arg_fn(ctx, host, "createTextNode", |ctx, doc, _, data| {
             let t = doc.create_text(&data)?;
-            Ok(doc.handle_for(t).into_js(ctx))
+            Ok(doc.handle_for(t)?.into_js(ctx))
         })?,
     )?;
     n.set("appendChild", native_append_child(ctx, host)?)?;
@@ -254,7 +255,9 @@ fn resolve_and<'js, R>(
     let mut guard = host.borrow_mut();
     let host = &mut *guard;
     if host.deadline.as_ref().is_none_or(Deadline::passed) {
-        // The call now fails with TimeLimit, whatever the script does.
+        // No fault is recorded: the sandbox's interrupt handler sees the
+        // same passed deadline at the script's next check and stops it, so
+        // the call fails with TimeLimit even if the script catches this.
         return Err(Exception::throw_internal(
             ctx,
             &format!("{what}: the time limit has passed"),
@@ -269,12 +272,20 @@ fn resolve_and<'js, R>(
     };
     match outcome {
         Ok(r) => r,
-        Err(e) => {
-            let message = format!("{what}: {}", e.script_message());
-            host.fault.get_or_insert(e);
-            Err(Exception::throw_internal(ctx, &message))
-        }
+        Err(e) => Err(fault(ctx, &mut host.fault, what, e)),
     }
+}
+
+/// Records `e` as the call's fault (the first one wins) and throws.
+fn fault(ctx: &Ctx<'_>, slot: &mut Option<DomError>, what: &str, e: DomError) -> rquickjs::Error {
+    let message = format!("{what}: {}", e.script_message());
+    slot.get_or_insert(e);
+    Exception::throw_internal(ctx, &message)
+}
+
+/// The handle for `id`, or 0 (the bindings' null) for `None`.
+fn handle_or_null(doc: &mut Document, id: Option<usize>) -> Result<Handle, DomError> {
+    id.map_or(Ok(0), |id| doc.handle_for(id))
 }
 
 /// A native `(generation, handle) -> value`.
@@ -282,13 +293,13 @@ fn node_fn<'js>(
     ctx: &Ctx<'js>,
     host: &Shared,
     what: &'static str,
-    f: impl Fn(&Ctx<'js>, &mut Document, usize) -> rquickjs::Result<Value<'js>> + 'js,
+    f: impl Fn(&Ctx<'js>, &mut Document, usize) -> Result<rquickjs::Result<Value<'js>>, DomError> + 'js,
 ) -> rquickjs::Result<Function<'js>> {
     let host = host.clone();
     Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>, g: f64, h: Handle| -> rquickjs::Result<Value<'js>> {
-            resolve_and(&ctx, &host, what, g, h, |doc, id| Ok(f(&ctx, doc, id)))
+            resolve_and(&ctx, &host, what, g, h, |doc, id| f(&ctx, doc, id))
         },
     )
 }
@@ -315,20 +326,35 @@ fn node_arg_fn<'js>(
     )
 }
 
-/// `current()`: `[generation, documentHandle]` of the loaded document, or
-/// null.
+/// `current()`: the loaded document's generation, or 0 (never a
+/// generation) for none. `currentRoot()`: the document node's handle.
+/// Two calls returning numbers, not one returning an array: rquickjs fills
+/// arrays with ordinary sets, which a script's `Array.prototype` index
+/// setters would intercept.
 fn native_current<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(ctx.clone(), move || -> f64 {
+        // Generations are below 2^53, so the f64 is exact.
+        host.borrow()
+            .doc
+            .as_ref()
+            .map_or(0.0, |d| d.generation() as f64)
+    })
+}
+
+fn native_current_root<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
     let host = host.clone();
     Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>| -> rquickjs::Result<Value<'js>> {
-            let mut host = host.borrow_mut();
+        move |ctx: Ctx<'js>| -> rquickjs::Result<Handle> {
+            let mut guard = host.borrow_mut();
+            let host = &mut *guard;
             match host.doc.as_mut() {
-                None => Ok(Value::new_null(ctx)),
+                None => Ok(0),
                 Some(doc) => {
                     let root = doc.root();
-                    let pair = vec![doc.generation() as f64, f64::from(doc.handle_for(root))];
-                    pair.into_js(&ctx)
+                    doc.handle_for(root)
+                        .map_err(|e| fault(&ctx, &mut host.fault, "document", e))
                 }
             }
         },

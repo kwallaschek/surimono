@@ -91,7 +91,7 @@ fn rss_kib() -> Option<u64> {
 /// reset (fresh JS state), the script, the document taken back and dropped.
 fn render(rt: &mut DomRuntime, i: usize) {
     rt.reset().unwrap();
-    rt.load(Document::parse(&page(i)));
+    rt.load(Document::parse(&page(i)).unwrap());
     let r = rt.eval::<i32>(&format!("({SCRIPT})({i})"));
     let doc = rt.take().unwrap();
     if i % 50 == 49 {
