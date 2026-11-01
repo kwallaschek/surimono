@@ -13,6 +13,9 @@ rustup toolchain install "$toolchain" --profile minimal -c rust-src
 rustc "+$toolchain" -Vv
 export RUSTFLAGS="-Zsanitizer=address" RUSTDOCFLAGS="-Zsanitizer=address"
 export ASAN_OPTIONS="detect_leaks=1"
+# Tests multiply their wall-clock limits and bounds by this (P1-RT-27, #73):
+# ASan runs several times slower than a normal debug build.
+export SURIMONO_TEST_TIME_SCALE=4
 status=0
 # --no-fail-fast: every crate reports, not only those before the first failure.
 cargo "+$toolchain" test -Zbuild-std --target "$target" --locked --no-fail-fast \
