@@ -1656,6 +1656,12 @@ mod tests {
         let last = fingerprint.len() - 1;
         fingerprint[last] ^= 1;
         other.embedded_fingerprint = Box::leak(fingerprint.into_boxed_slice());
+        // Keep it reachable, so LeakSanitizer (scripts/ci/asan.sh) doesn't
+        // report the deliberate leak.
+        static KEEP: std::sync::Mutex<Vec<&[u8]>> = std::sync::Mutex::new(Vec::new());
+        KEEP.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(other.embedded_fingerprint);
         for (renderer, spec) in builtin_specs() {
             let req = IslandRequest {
                 renderer,
