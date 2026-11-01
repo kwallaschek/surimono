@@ -223,3 +223,6 @@ checkpoint and can overturn anything. Newest last.
 - 2026-11-01 · A worker thread that dies outside its guard is counted out by a drop guard: its held job fails with IslandError::Worker, a replacement starts when jobs wait and the dead worker had taken a job, and with no worker left the waiting jobs fail with IslandError::Worker (#71) · Never a hang; a worker dying at start can't loop.
 - 2026-11-01 · RunnerStats::workers counts live worker threads, not threads ever started (#71) · A dead worker must not count as capacity.
 - 2026-11-01 · The engine-source hash skips a symlinked directory that points back into the walk; fingerprint unchanged (#71) · A link cycle would recurse forever.
+- 2026-11-01 · surimono::builtin_renderers() returns &'static [&'static str] from a const, no lazy init (fork-safe), not Vec<String> (#69) · The built-in list is fixed at compile time; the facade API freezes at v0.1; a OnceLock could be inherited mid-init by a forked child.
+- 2026-11-01 · libc is pinned once in [workspace.dependencies] (=0.2.191); core, islands and surimono use libc.workspace = true (#69) · One pin for three members.
+- 2026-11-01 · rake gem:verify also fails when the gem has no built-in renderers (#69) · 0 of 0 precompiled would pass vacuously.
