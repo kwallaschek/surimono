@@ -12,6 +12,11 @@ surimono-core.workspace = true
 blitz-dom.workspace = true
 blitz-html.workspace = true
 blitz-traits.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# Counts live heap bytes in the leak test, as crates/islands' soak test does.
+stats_alloc = "=0.1.10"
 
 [lints]
 workspace = true
