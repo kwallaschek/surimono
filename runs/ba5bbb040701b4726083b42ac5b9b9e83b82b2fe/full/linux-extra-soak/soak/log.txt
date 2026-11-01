@@ -1,0 +1,323 @@
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
+[1m[32m   Compiling[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 6m 25s
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono-849927ff53a8d3b5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/breakout.rs (target/release/deps/breakout-b4ec35ef3ac71234)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fixtures.rs (target/release/deps/fixtures-bae5a2f35782aa6a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fork.rs (target/release/deps/fork-65d66eec86dc6fa5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/main.rs (target/release/deps/surimono-dc53ae1c55988ae6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/cli.rs (target/release/deps/cli-71c5dab9af2bdbdd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_core-9146166b592fd7dd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 92 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/determinism.rs (target/release/deps/determinism-8880105e411803e8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/hostile.rs (target/release/deps/hostile-357c364c09b9c40e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_dom-a5b11a2f3d8bcf4e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/handles.rs (target/release/deps/handles-c96149c3288aa9f8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/hostile.rs (target/release/deps/hostile-104d1e0cbf44e710)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-6bc5aef020d8529e)
+
+running 1 test
+soak-dom-handles: 2000 renders in 9.411841286s (4.70592ms per render)
+soak-dom-handles: resident memory before start Some(6444) KiB
+soak-dom-handles: after   250 renders  live heap     522012 bytes  resident     9912 KiB
+soak-dom-handles: after   500 renders  live heap     522108 bytes  resident     9912 KiB
+soak-dom-handles: after   750 renders  live heap     522108 bytes  resident     9912 KiB
+soak-dom-handles: after  1000 renders  live heap     522108 bytes  resident     9916 KiB
+soak-dom-handles: after  1250 renders  live heap     522108 bytes  resident     9916 KiB
+soak-dom-handles: after  1500 renders  live heap     522204 bytes  resident     9916 KiB
+soak-dom-handles: after  1750 renders  live heap     522204 bytes  resident     9916 KiB
+soak-dom-handles: after  2000 renders  live heap     522204 bytes  resident    10440 KiB
+soak-dom-handles: live heap from render 500 to 2000: 522108 -> 522204 bytes (+96 bytes, highest 522204), limit +65536
+test soak_dom_handles_2000_renders_flat_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 9.42s
+
+[1m[32m     Running[0m unittests src/main.rs (target/release/deps/surimono_example_rust_islands-3c85202107688a98)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/example.rs (target/release/deps/example-8e0b65d4d8e90bbf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_gfx-b8230e036c29dc27)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 70 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fulgur_layout.rs (target/release/deps/fulgur_layout-734b38e558e2dea1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fulgur_print.rs (target/release/deps/fulgur_print-d343cf884651de39)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/measure_text.rs (target/release/deps/measure_text-798c77c80d696366)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/svg.rs (target/release/deps/svg-9ca954ca5cd30f04)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_islands-1c2f01844d07e24d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/bundles.rs (target/release/deps/bundles-d6cb0300dccfb4dc)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/echarts.rs (target/release/deps/echarts-8ea68886fcef9cc3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fixture_timing.rs (target/release/deps/fixture_timing-8a55e4a72491f5e6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fork.rs (target/release/deps/fork-466ee44e67f53a75)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/hostile.rs (target/release/deps/hostile-e17842be9b7b883e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/memory_report.rs (target/release/deps/memory_report-9e3693cd92ff3cc5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/pool.rs (target/release/deps/pool-5d3344d1bab78460)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/runner.rs (target/release/deps/runner-97022c313636ef2e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-de40a9d26a47f3aa)
+
+running 3 tests
+soak: 10000 renders in 37.003216102s (3.700321ms per render incl. 20 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
+soak: resident memory before start Some(15520) KiB
+soak: after   500 renders  live heap   10749431 bytes  resident    21788 KiB
+soak: after  1000 renders  live heap   10749431 bytes  resident    29932 KiB
+soak: after  1500 renders  live heap   10749431 bytes  resident    21876 KiB
+soak: after  2000 renders  live heap   10749431 bytes  resident    29936 KiB
+soak: after  2500 renders  live heap   10749431 bytes  resident    21740 KiB
+soak: after  3000 renders  live heap   10749431 bytes  resident    29940 KiB
+soak: after  3500 renders  live heap   10749431 bytes  resident    21768 KiB
+soak: after  4000 renders  live heap   10749431 bytes  resident    29964 KiB
+soak: after  4500 renders  live heap   10749431 bytes  resident    21896 KiB
+soak: after  5000 renders  live heap   10749431 bytes  resident    29964 KiB
+soak: after  5500 renders  live heap   10749431 bytes  resident    21904 KiB
+soak: after  6000 renders  live heap   10749559 bytes  resident    29964 KiB
+soak: after  6500 renders  live heap   10749559 bytes  resident    21900 KiB
+soak: after  7000 renders  live heap   10749559 bytes  resident    29964 KiB
+soak: after  7500 renders  live heap   10749559 bytes  resident    21900 KiB
+soak: after  8000 renders  live heap   10749559 bytes  resident    29964 KiB
+soak: after  8500 renders  live heap   10749559 bytes  resident    21768 KiB
+soak: after  9000 renders  live heap   10749559 bytes  resident    29964 KiB
+soak: after  9500 renders  live heap   10749559 bytes  resident    21768 KiB
+soak: after 10000 renders  live heap   10749559 bytes  resident    29964 KiB
+soak: RunnerStats { renders: 10000, failed_renders: 250, preloaded_renders: 319, idle_workers: 2, workers: 2, runtimes: 2 }
+soak: live heap from render 2000 to 10000: 10749431 -> 10749559 bytes (+128 bytes, highest 10749559), limit +65536
+soak: peak resident 29964 KiB, bound 212128 KiB
+test soak_10000_renders_flat_memory ... ok
+test soak_echarts_2000_renders_flat_memory has been running for over 60 seconds
+test soak_vega_lite_600_renders_flat_memory has been running for over 60 seconds
+soak-echarts: 2000 renders in 43.512041454s (21.75602ms per render incl. 8 waits for idle workers), 3 callers, 2 workers, first SVG 24997 bytes
+soak-echarts: resident memory before start Some(29988) KiB
+soak-echarts: after   250 renders  live heap   20650698 bytes  resident    46376 KiB
+soak-echarts: after   500 renders  live heap   20650698 bytes  resident    46392 KiB
+soak-echarts: after   750 renders  live heap   20650698 bytes  resident    46396 KiB
+soak-echarts: after  1000 renders  live heap   20650698 bytes  resident    46396 KiB
+soak-echarts: after  1250 renders  live heap   20650698 bytes  resident    46396 KiB
+soak-echarts: after  1500 renders  live heap   20650698 bytes  resident    46396 KiB
+soak-echarts: after  1750 renders  live heap   20650698 bytes  resident    46396 KiB
+soak-echarts: after  2000 renders  live heap   20650698 bytes  resident    46396 KiB
+soak-echarts: RunnerStats { renders: 2000, failed_renders: 20, preloaded_renders: 45, idle_workers: 2, workers: 2, runtimes: 2 }
+soak-echarts: live heap from render 500 to 2000: 20650698 -> 20650698 bytes (+0 bytes, highest 20650698), limit +65536
+soak-echarts: peak resident 46396 KiB, bound 357668 KiB
+test soak_echarts_2000_renders_flat_memory ... ok
+soak-vega-lite: 600 renders in 17.190325121s (28.650541ms per render incl. 4 waits for idle workers), 3 callers, 2 workers, first SVG 9870 bytes
+soak-vega-lite: resident memory before start Some(56056) KiB
+soak-vega-lite: after   150 renders  live heap   21587178 bytes  resident    60332 KiB
+soak-vega-lite: after   300 renders  live heap   21587178 bytes  resident    60332 KiB
+soak-vega-lite: after   450 renders  live heap   21587178 bytes  resident    60332 KiB
+soak-vega-lite: after   600 renders  live heap   21587178 bytes  resident    60332 KiB
+soak-vega-lite: RunnerStats { renders: 600, failed_renders: 6, preloaded_renders: 6, idle_workers: 2, workers: 2, runtimes: 2 }
+soak-vega-lite: live heap from render 300 to 600: 21587178 -> 21587178 bytes (+0 bytes, highest 21587178), limit +65536
+soak-vega-lite: peak resident 60332 KiB, bound 383736 KiB
+test soak_vega_lite_600_renders_flat_memory ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 97.74s
+
+[1m[32m     Running[0m tests/vega.rs (target/release/deps/vega-d81d9010246ac3aa)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_webidl-72ffcf8ae1c8ab86)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/codegen.rs (target/release/deps/codegen-110f0c2211fbb32a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/stack.rs (target/release/deps/stack-e39e35e96742e2cd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/vendored.rs (target/release/deps/vendored-fbb7caf7a0d26c25)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_dom
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_gfx
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_islands
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_webidl
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
