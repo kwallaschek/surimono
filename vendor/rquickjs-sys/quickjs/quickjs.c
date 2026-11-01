@@ -8736,10 +8736,11 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
 
 /* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
    3: both the allocation-failure hardening (p1-rt-15) and the interrupt
-   flag (p1-rt-14), each of which was level 2 on its own branch. */
+   flag (p1-rt-14), each of which was level 2 on its own branch.
+   4: also the per-match polls in the regexp replace loops (p1-rt-23). */
 int surimono_quickjs_patch_level(void)
 {
-    return 3;
+    return 4;
 }
 
 /* surimono: with enabled = 0, every later allocation of this runtime goes
@@ -50244,6 +50245,13 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
         if (last_index > str->len)
             break;
 
+        /* surimono: poll once per match. Each lre_exec starts its own
+           step counter, so a pattern that matches in a few steps never
+           reaches the regexp engine's poll, and this loop calls no script
+           code: 'a'.repeat(1 << 25).replace(/(?:)/g, '') made 32M
+           matches in one native call. */
+        if (js_poll_interrupts(ctx))
+            goto fail;
         ret = lre_exec(capture, re_bytecode,
                        str_buf, last_index, str->len, shift, ctx);
         if (ret != 1) {
@@ -50747,6 +50755,13 @@ static JSValue js_regexp_Symbol_replace(JSContext *ctx, JSValueConst this_val,
     nextSourcePosition = 0;
     for(j = 0; j < results->len; j++) {
         JSValue result;
+        /* surimono: poll once per match. The loop above polls through
+           each exec call, but this one may call no script code (a string
+           replacement), so a match list collected just inside the limit
+           was replaced in one more unpolled pass of about the same
+           length. */
+        if (js_poll_interrupts(ctx))
+            goto exception;
         result = results->arr[j];
         if (js_get_length32(ctx, &nCaptures, result) < 0)
             goto exception;

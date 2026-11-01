@@ -341,7 +341,7 @@ impl Sandbox {
     /// forked child whose parent's thread is gone, say).
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
         options.validate()?;
-        if engine::patch_level() < 3 {
+        if engine::patch_level() < engine::REQUIRED_PATCH_LEVEL {
             return Err(SandboxError::Engine {
                 message: "QuickJS lacks surimono's sandbox patches".into(),
             });
@@ -1830,7 +1830,9 @@ const BoundPt = Pt.bind(null, 7);
 
     /// Review of #47, finding 1: a call stopped inside an expensive native
     /// leaks nothing. Each group E vector of `tests/hostile.rs` (the
-    /// natives that poll inside their loops) runs with a short limit; after
+    /// natives that poll inside their loops), and the group F regexp
+    /// vectors that stop at the polls of patch 19 (P1-RT-23: the replace
+    /// fast path, and either of the replace loops), runs with a short limit; after
     /// the limit error the sandbox replaces its runtime, and the old one
     /// must have given back every byte when it was freed. A block an
     /// interrupt path forgets (as `js_bigint_pow` did with its running
@@ -1851,6 +1853,10 @@ const BoundPt = Pt.bind(null, 7);
             "const a = (1n << 1000000n) - 1n, d = (1n << 500000n) - 3n; let q; eval('q = a / d;'.repeat(16))",
             "const t = '9'.repeat(300000); let x; eval('x = BigInt(t);'.repeat(16))",
             "let x; eval('x = 3n ** 600000n;'.repeat(16))",
+            // Group F.
+            "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/g, '')",
+            "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/gy, '')",
+            "'a'.repeat(1 << 22).replace(/(?:)/g, 'b')",
         ];
         let limits = Limits::default()
             .with_time(Duration::from_millis(60))
@@ -1874,6 +1880,33 @@ const BoundPt = Pt.bind(null, 7);
                 assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42), "{source}");
             }
         }
+    }
+
+    /// The per-match polls of patch 19 (P1-RT-23) leave replace's results
+    /// unchanged, on the fast path (`''` with a standard global or sticky
+    /// regexp) and the general one.
+    #[test]
+    fn regexp_replace_results_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let got = sb
+            .eval::<String>(
+                r#"[
+ 'abcabc'.replace(/b/g, ''),
+ 'abcabc'.replace(/a/gy, ''),
+ 'aabca'.replace(/a/gy, ''),
+ 'abc'.replace(/(?:)/g, ''),
+ 'abcabc'.replaceAll(/c/g, ''),
+ 'abcabc'.replace(/b/g, '[$&]'),
+ 'abcabc'.replace(/(?<l>b)/g, '<$<l>>'),
+ 'abcabc'.replace(/b/g, (m, i) => i),
+ 'abc'.replace(/(?:)/g, '-'),
+].join('|')"#,
+            )
+            .unwrap();
+        assert_eq!(
+            got,
+            "acac|bcabc|bca|abc|abab|a[b]ca[b]c|a<b>ca<b>c|a1ca4c|-a-b-c-"
+        );
     }
 
     /// Child side of the out-of-memory sweeps. SURIMONO_OOM_SCRIPT picks the
