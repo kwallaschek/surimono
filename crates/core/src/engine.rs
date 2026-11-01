@@ -1348,7 +1348,15 @@ mod tests {
                 deeper(n - 1)
             }
         }
-        assert!(deeper(16) + 16 * 4096 <= stack_available().unwrap());
+        let here = stack_available().unwrap();
+        if cfg!(surimono_sanitized) {
+            // Under AddressSanitizer the 4 KiB pads live on its fake stack,
+            // so only the frames themselves use this thread's stack.
+            let deep = deeper(16);
+            assert!(deep < here, "{deep} vs {here}");
+        } else {
+            assert!(deeper(16) + 16 * 4096 <= here);
+        }
         // Outside sanitizers the register and a local's address agree: the
         // local is in this frame, a little above the stack pointer (review
         // of #57). Under AddressSanitizer it may be on a fake stack.
