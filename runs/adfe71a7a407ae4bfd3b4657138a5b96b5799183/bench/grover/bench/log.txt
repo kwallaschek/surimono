@@ -1,12 +1,12 @@
 
 ==> fixture tools (chart libraries, Playwright)
 
-added 86 packages in 3s
+added 86 packages in 2s
 Installing dependencies...
 Switching to root user to install dependencies...
 Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
-Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
 Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
 Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
 Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
 Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
@@ -14,7 +14,7 @@ Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages
 Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [617 kB]
 Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1408 kB]
 Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [311 kB]
-Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1708 kB]
+Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1707 kB]
 Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [343 kB]
 Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1813 kB]
 Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [412 kB]
@@ -23,7 +23,7 @@ Get:16 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages
 Get:17 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [231 kB]
 Get:18 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1223 kB]
 Get:19 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [246 kB]
-Fetched 10.5 MB in 1s (8614 kB/s)
+Fetched 10.5 MB in 1s (11.7 MB/s)
 Reading package lists...
 Reading package lists...
 Building dependency tree...
@@ -99,7 +99,7 @@ Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings a
 Get:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
 Get:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
 Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
-Fetched 21.1 MB in 16s (1285 kB/s)
+Fetched 21.1 MB in 1s (18.8 MB/s)
 Selecting previously unselected package fonts-ipafont-gothic.
 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 215504 files and directories currently installed.)
 Preparing to unpack .../0-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
@@ -230,7 +230,7 @@ bench/report/report.html matches its generator
 
 ==> puppeteer for Grover (no browser download: Grover uses Playwright's Chromium)
 
-added 27 packages in 1s
+added 27 packages in 893ms
 
 ==> gems (grover, fulgur)
 
@@ -257,7 +257,7 @@ cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/e
 [1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
 [1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
 [1m[32m   Compiling[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 56.03s
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 38.89s
 (cd tmp/x86_64-linux/surimono/3.4.12 && /usr/bin/gmake install sitearchdir=../../../../lib/surimono sitelibdir=../../../../lib/surimono target_prefix=)
 cd -
 mkdir -p tmp/x86_64-linux/stage/lib/surimono
@@ -271,7 +271,7 @@ cp lib/surimono.rb tmp/x86_64-linux/stage/lib/surimono.rb
 cp lib/surimono/version.rb tmp/x86_64-linux/stage/lib/surimono/version.rb
 generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
 cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/ext/surimono/Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.4.12/x64/lib -C link-arg=-lm -l pthread
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.09s
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.05s
 installing surimono.so to ../../../../lib/surimono
 /usr/bin/install -c -m 0755 surimono.so ../../../../lib/surimono
 cp tmp/x86_64-linux/surimono/3.4.12/surimono.so tmp/x86_64-linux/stage/lib/surimono/surimono.so
@@ -279,7 +279,7 @@ cp tmp/x86_64-linux/surimono/3.4.12/surimono.so tmp/x86_64-linux/stage/lib/surim
 ==> benchmark
 ==> building bench/rust (release, target /home/runner/work/surimono/surimono/target/bench-rust, budget 30 min; log /home/runner/work/_temp/surimono-bench-work/rust-build.log)
     cargo build --release --config patch."crates-io"."rquickjs-sys".path="/home/runner/work/surimono/surimono/vendor/rquickjs-sys"
-    bench/rust built in 2.5 min
+    bench/rust built in 1.9 min
 ==> pages
 ==> cold: 20 runs each of grover, surimono-ruby, surimono-rust, fulgur-prerendered, grover-shell
     run 1/20
