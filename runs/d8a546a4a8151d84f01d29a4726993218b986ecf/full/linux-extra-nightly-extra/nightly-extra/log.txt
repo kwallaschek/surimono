@@ -1,0 +1,394 @@
+
+==> fixtures: tool tests (node, after npm ci)
+
+added 86 packages in 2s
+TAP version 13
+# Subtest: --out inside fixtures/ is refused
+ok 1 - --out inside fixtures/ is refused
+  ---
+  duration_ms: 81.270056
+  type: 'test'
+  ...
+# Subtest: a failed render writes a failing, stamped score for every comparison
+ok 2 - a failed render writes a failing, stamped score for every comparison
+  ---
+  duration_ms: 217.77878
+  type: 'test'
+  ...
+# Subtest: a render that depends on the time zone is caught and fails the run
+ok 3 - a render that depends on the time zone is caught and fails the run
+  ---
+  duration_ms: 1214.094446
+  type: 'test'
+  ...
+# Subtest: a render that depends on the working directory or locale is caught too
+ok 4 - a render that depends on the working directory or locale is caught too
+  ---
+  duration_ms: 2000.514413
+  type: 'test'
+  ...
+# Subtest: a locale compiled into $LOCPATH is used for the second render
+ok 5 - a locale compiled into $LOCPATH is used for the second render
+  ---
+  duration_ms: 998.301804
+  type: 'test'
+  ...
+# Subtest: byte-identical renders pass the determinism check
+ok 6 - byte-identical renders pass the determinism check
+  ---
+  duration_ms: 1000.769341
+  type: 'test'
+  ...
+# Subtest: floors come from a baseline run, never from constants
+ok 7 - floors come from a baseline run, never from constants
+  ---
+  duration_ms: 493.938809
+  type: 'test'
+  ...
+# Subtest: the second render starts in a later second of the wall clock
+ok 8 - the second render starts in a later second of the wall clock
+  ---
+  duration_ms: 504.163782
+  type: 'test'
+  ...
+# Subtest: the second render tries a decimal-comma locale first
+ok 9 - the second render tries a decimal-comma locale first
+  ---
+  duration_ms: 4001.320305
+  type: 'test'
+  ...
+# Subtest: solid pixels are flat interiors, never edges or thin lines
+ok 10 - solid pixels are flat interiors, never edges or thin lines
+  ---
+  duration_ms: 3.900209
+  type: 'test'
+  ...
+# Subtest: near-match is colour-blind; the colour check is not
+ok 11 - near-match is colour-blind; the colour check is not
+  ---
+  duration_ms: 46.75457
+  type: 'test'
+  ...
+# Subtest: the same picture passes every check
+ok 12 - the same picture passes every check
+  ---
+  duration_ms: 11.173424
+  type: 'test'
+  ...
+# Subtest: a bar shifted by 1 px keeps its colour score at 0
+ok 13 - a bar shifted by 1 px keeps its colour score at 0
+  ---
+  duration_ms: 8.402721
+  type: 'test'
+  ...
+# Subtest: hue ignores anti-aliasing coverage but sees a different colour
+ok 14 - hue ignores anti-aliasing coverage but sees a different colour
+  ---
+  duration_ms: 6.01511
+  type: 'test'
+  ...
+# Subtest: hue does not judge position: a line with no ink near it in the other image is near-match's job
+ok 15 - hue does not judge position: a line with no ink near it in the other image is near-match's job
+  ---
+  duration_ms: 2.067652
+  type: 'test'
+  ...
+# Subtest: svgTexts reads <text> with tspans, entities, labels and titles
+ok 16 - svgTexts reads <text> with tspans, entities, labels and titles
+  ---
+  duration_ms: 1.256533
+  type: 'test'
+  ...
+# Subtest: svgTexts: a self-closing <text/> doesn't swallow the next element
+ok 17 - svgTexts: a self-closing <text/> doesn't swallow the next element
+  ---
+  duration_ms: 0.324876
+  type: 'test'
+  ...
+# Subtest: svgTexts: a <title> inside <text> is a label, not printed text
+ok 18 - svgTexts: a <title> inside <text> is a label, not printed text
+  ---
+  duration_ms: 1.018143
+  type: 'test'
+  ...
+# Subtest: text check accepts outlines that keep the string in aria-label
+ok 19 - text check accepts outlines that keep the string in aria-label
+  ---
+  duration_ms: 0.59333
+  type: 'test'
+  ...
+# Subtest: text check fails on a changed, missing or extra string
+ok 20 - text check fails on a changed, missing or extra string
+  ---
+  duration_ms: 0.338947
+  type: 'test'
+  ...
+# Subtest: multisetMinus counts duplicates
+ok 21 - multisetMinus counts duplicates
+  ---
+  duration_ms: 0.143941
+  type: 'test'
+  ...
+# Subtest: islandsOf cuts surimono's islands back out, in order, and reports error placeholders
+ok 22 - islandsOf cuts surimono's islands back out, in order, and reports error placeholders
+  ---
+  duration_ms: 1.365162
+  type: 'test'
+  ...
+# Subtest: svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+ok 23 - svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+  ---
+  duration_ms: 1.366955
+  type: 'test'
+  ...
+# Subtest: font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
+ok 24 - font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
+  ---
+  duration_ms: 1.181673
+  type: 'test'
+  ...
+# Subtest: font check matches same-key texts one to one
+ok 25 - font check matches same-key texts one to one
+  ---
+  duration_ms: 0.469188
+  type: 'test'
+  ...
+# Subtest: font check candidates are <text> and outline groups, never chart marks
+ok 26 - font check candidates are <text> and outline groups, never chart marks
+  ---
+  duration_ms: 0.270116
+  type: 'test'
+  ...
+# Subtest: computedTextStyles is Chrome's view, and catches what svgTextStyles can't read
+ok 27 - computedTextStyles is Chrome's view, and catches what svgTextStyles can't read # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 328.134561
+  type: 'test'
+  ...
+# Subtest: text check: every copy counts, however it is drawn
+ok 28 - text check: every copy counts, however it is drawn
+  ---
+  duration_ms: 0.507655
+  type: 'test'
+  ...
+# Subtest: font check: an extra copy of a label, or a key Chrome has no text for, fails
+ok 29 - font check: an extra copy of a label, or a key Chrome has no text for, fails
+  ---
+  duration_ms: 0.363793
+  type: 'test'
+  ...
+# Subtest: outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
+ok 30 - outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
+  ---
+  duration_ms: 0.25193
+  type: 'test'
+  ...
+# Subtest: text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
+ok 31 - text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
+  ---
+  duration_ms: 0.502217
+  type: 'test'
+  ...
+# Subtest: stamped strings are decoded and normalised like Chrome's
+ok 32 - stamped strings are decoded and normalised like Chrome's
+  ---
+  duration_ms: 0.235025
+  type: 'test'
+  ...
+# Subtest: font check: a stamped group is an outline whatever it holds
+ok 33 - font check: a stamped group is an outline whatever it holds
+  ---
+  duration_ms: 0.847322
+  type: 'test'
+  ...
+# Subtest: matchWeight follows CSS Fonts 4 font matching
+ok 34 - matchWeight follows CSS Fonts 4 font matching
+  ---
+  duration_ms: 3.609422
+  type: 'test'
+  ...
+# Subtest: faces: names as the name table spells them; the fixture fonts' faces
+ok 35 - faces: names as the name table spells them; the fixture fonts' faces
+  ---
+  duration_ms: 0.334481
+  type: 'test'
+  ...
+# Subtest: font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
+ok 36 - font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
+  ---
+  duration_ms: 1.406463
+  type: 'test'
+  ...
+# Subtest: a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
+ok 37 - a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
+  ---
+  duration_ms: 0.30018
+  type: 'test'
+  ...
+# Subtest: text check: a stamped group's author label is still compared with Chrome's
+ok 38 - text check: a stamped group's author label is still compared with Chrome's
+  ---
+  duration_ms: 0.159043
+  type: 'test'
+  ...
+# Subtest: stamps are read as attributes, never from inside another attribute's value
+ok 39 - stamps are read as attributes, never from inside another attribute's value
+  ---
+  duration_ms: 0.249856
+  type: 'test'
+  ...
+# Subtest: hostileCases reads manifest.toml exactly as tomllib does
+ok 40 - hostileCases reads manifest.toml exactly as tomllib does
+  ---
+  duration_ms: 44.677103
+  type: 'test'
+  ...
+# Subtest: hostileCases: steps become numbered entries; a case without file or steps is an error
+ok 41 - hostileCases: steps become numbered entries; a case without file or steps is an error
+  ---
+  duration_ms: 0.522376
+  type: 'test'
+  ...
+# Subtest: launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback
+ok 42 - launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 371.653141
+  type: 'test'
+  ...
+# Subtest: launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing
+ok 43 - launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 0.686046
+  type: 'test'
+  ...
+# Subtest: offlineLaunch keeps Playwright's own disabled features
+ok 44 - offlineLaunch keeps Playwright's own disabled features # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 0.471301
+  type: 'test'
+  ...
+# Subtest: offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes
+ok 45 - offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 0.416401
+  type: 'test'
+  ...
+# Subtest: both gfx checks run and pass
+ok 46 - both gfx checks run and pass
+  ---
+  duration_ms: 18.512536
+  type: 'test'
+  ...
+# Subtest: svg_inline failing still runs svg_outline, and fails the run
+ok 47 - svg_inline failing still runs svg_outline, and fails the run
+  ---
+  duration_ms: 13.826685
+  type: 'test'
+  ...
+# Subtest: svg_outline failing fails the run
+ok 48 - svg_outline failing fails the run
+  ---
+  duration_ms: 13.187358
+  type: 'test'
+  ...
+# Subtest: without cargo the checks are skipped locally
+ok 49 - without cargo the checks are skipped locally
+  ---
+  duration_ms: 7.411678
+  type: 'test'
+  ...
+# Subtest: without cargo on a CI runner the run fails
+ok 50 - without cargo on a CI runner the run fails
+  ---
+  duration_ms: 9.766912
+  type: 'test'
+  ...
+# Subtest: verdict: a clean score passes; each failed check shows its own number
+ok 51 - verdict: a clean score passes; each failed check shows its own number
+  ---
+  duration_ms: 2.099578
+  type: 'test'
+  ...
+# Subtest: verdict: the font detail counts mismatches, missing and extra texts
+ok 52 - verdict: the font detail counts mismatches, missing and extra texts
+  ---
+  duration_ms: 0.295283
+  type: 'test'
+  ...
+# Subtest: passes is derived like compat.py's, never taken from the top-level pass alone
+ok 53 - passes is derived like compat.py's, never taken from the top-level pass alone
+  ---
+  duration_ms: 0.970644
+  type: 'test'
+  ...
+# Subtest: the shared verdict table
+ok 54 - the shared verdict table
+  ---
+  duration_ms: 0.464582
+  type: 'test'
+  ...
+# Subtest: scoresCell says ok only when a check's pass is exactly true
+ok 55 - scoresCell says ok only when a check's pass is exactly true
+  ---
+  duration_ms: 0.1908
+  type: 'test'
+  ...
+1..55
+# tests 55
+# suites 0
+# pass 50
+# fail 0
+# cancelled 0
+# skipped 5
+# todo 0
+# duration_ms 10587.533647
+
+==> fixtures: real-world suite (needs registry.npmjs.org)
+ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
+ok   vega 6.4.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   vega-lite 6.5.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   mermaid 12.2.0 (stretch, MIT); embedded build not recorded yet
+
+==> gfx: fulgur print test
+Selecting previously unselected package poppler-data.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 215504 files and directories currently installed.)
+Preparing to unpack .../poppler-data_0.4.12-1_all.deb ...
+Unpacking poppler-data (0.4.12-1) ...
+Selecting previously unselected package libpoppler134:amd64.
+Preparing to unpack .../libpoppler134_24.02.0-1ubuntu9.11_amd64.deb ...
+Unpacking libpoppler134:amd64 (24.02.0-1ubuntu9.11) ...
+Selecting previously unselected package poppler-utils.
+Preparing to unpack .../poppler-utils_24.02.0-1ubuntu9.11_amd64.deb ...
+Unpacking poppler-utils (24.02.0-1ubuntu9.11) ...
+Setting up libpoppler134:amd64 (24.02.0-1ubuntu9.11) ...
+Setting up poppler-data (0.4.12-1) ...
+Setting up poppler-utils (24.02.0-1ubuntu9.11) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 3.83s
+[1m[32m     Running[0m tests/fulgur_print.rs (target/debug/deps/fulgur_print-8d10c20ad3817d5e)
+
+running 2 tests
+test kept_island_text_prints_in_system_fonts_expected_failure ... ok
+test outlined_island_text_prints_without_system_fonts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+
+==> core: out-of-memory full sweep (ignored test)
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
