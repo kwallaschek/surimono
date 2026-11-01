@@ -62,11 +62,23 @@ pub(crate) fn runner(
     })
 }
 
-/// Names of the renderers compiled into this build, sorted (Cargo features
-/// `echarts`, …). Worked out once per process; the list never changes.
+/// Names of the renderers compiled into this build, sorted, by the same
+/// Cargo features as `surimono_islands`' own list (a test keeps the two
+/// equal). A plain constant, with no lazy initialisation: a lock or `Once`
+/// here could be inherited mid-initialisation by a forked child and hang
+/// its first `Renderer::new`.
+const NAMES: &[&str] = &[
+    #[cfg(feature = "echarts")]
+    "echarts",
+    #[cfg(feature = "vega")]
+    "vega",
+    #[cfg(feature = "vega")]
+    "vega-lite",
+];
+
+/// [`NAMES`]: the renderers compiled into this build, sorted.
 pub(crate) fn builtin_names() -> &'static [&'static str] {
-    static NAMES: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();
-    NAMES.get_or_init(surimono_islands::builtin_renderers)
+    NAMES
 }
 
 /// [`builtin_names`] as owned strings, to extend with registered bundles.
@@ -134,6 +146,16 @@ pub(crate) fn island_error(e: IslandError, island: IslandRef, enabled: &[String]
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The facade's constant list matches the islands crate's built-ins.
+    #[test]
+    fn builtin_names_match_the_islands_crate() {
+        assert_eq!(
+            builtin_names(),
+            surimono_islands::builtin_renderers().as_slice()
+        );
+        assert!(NAMES.windows(2).all(|w| w[0] < w[1]), "{NAMES:?}");
+    }
 
     #[test]
     fn every_island_error_maps_to_a_public_error() {

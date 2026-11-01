@@ -372,31 +372,34 @@ fn forks_never_hang() {
         };
         if r != 0 {
             let e = std::io::Error::last_os_error();
-            assert_eq!(e.kind(), std::io::ErrorKind::Interrupted, "waitid: {e}");
-            continue;
+            if e.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            // Fail only after the group kill below, so the helper can't
+            // outlive the test.
+            break Err(format!("waitid: {e}"));
         }
         // SAFETY: waitid succeeded and filled `info` for a WEXITED query;
         // si_pid is 0 when the helper hasn't exited yet (WNOHANG).
         if unsafe { info.si_pid() } != 0 {
-            break true;
+            break Ok(());
         }
         if started.elapsed() > Duration::from_secs(900) {
-            break false;
+            break Err("the fork stress run itself hung; killed its process group".to_owned());
         }
         std::thread::sleep(Duration::from_millis(20));
     };
     // End whatever the helper forked and left behind, so the reader sees end
-    // of file even if a stray grandchild still holds the pipe; on a timeout
-    // this also ends the helper.
+    // of file even if a stray grandchild still holds the pipe; after a
+    // timeout or a waitid error this also ends the helper.
     // SAFETY: kill has no memory-safety preconditions. The helper leads its
     // own process group (process_group(0)), whose id is its pid, and it isn't
     // reaped yet, so the group holds only the helper and its descendants.
     unsafe { libc::kill(-group, libc::SIGKILL) };
     let status = child.wait().unwrap_or_else(|e| panic!("{e}"));
-    assert!(
-        exited,
-        "the fork stress run itself hung; killed its process group"
-    );
+    if let Err(e) = exited {
+        panic!("{e}");
+    }
     let out = reader
         .join()
         .unwrap_or_else(|_| panic!("the stdout reader panicked"));
