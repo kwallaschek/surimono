@@ -230,6 +230,29 @@ fn date_fields_are_clipped_after_the_offset() {
         // Local strings without a zone are read the same way.
         ("Date.parse('+275760-09-13T05:00:00')", 8.64e15 - 4.0 * hour),
         ("Date.parse('+275760-09-13T09:00:01')", f64::NAN),
+        // So are strings with a zone of their own: the zone is applied,
+        // then TimeClip (review of #45; QuickJS clips first, which gave
+        // values past 8.64e15 here and NaN for valid times).
+        ("Date.parse('+275760-09-13T00:00:00Z')", 8.64e15),
+        ("Date.parse('+275760-09-13T00:00:00-01:00')", f64::NAN),
+        ("Date.parse('+275760-09-12T23:00:00-01:00')", 8.64e15),
+        ("Date.parse('+275760-09-13T01:00:00+02:00')", 8.64e15 - hour),
+        ("Date.parse('-271821-04-20T00:00:00+01:00')", f64::NAN),
+        (
+            "Date.parse('-271821-04-19T23:00:00-02:00')",
+            -8.64e15 + hour,
+        ),
+        ("Date.parse('Sep 13 275760 00:00 EST')", f64::NAN),
+        ("Date.parse('Sep 13 275760 01:00 CEST')", 8.64e15 - hour),
+        ("Date.parse('Apr 20 -271821 00:00 CET')", f64::NAN),
+        (
+            "Date.parse('Apr 19 -271821 23:00 EST')",
+            -8.64e15 + 4.0 * hour,
+        ),
+        (
+            "new Date('+275760-09-13T00:00:00-01:00').getTime()",
+            f64::NAN,
+        ),
         // Two-digit years, and ordinary dates, are unchanged.
         ("new Date(99, 11, 31, 9).getTime()", 946_598_400_000.0),
         ("new Date(2026, 0, 1, 9).getTime()", 1_767_225_600_000.0),
@@ -680,6 +703,7 @@ const PARSE_CORPUS: &str = r#"(() => {
     '2026-03-04T05:06:07' + ' '.repeat(120) + 'Z', 'Jan 1 2026' + ' '.repeat(115) + '10:00',
     'Jan 1 2026' + ' '.repeat(110) + '10:00 PST', '999999999', '1000000000 Jan 1', '275760-09-13',
     'Sep 13 275760', 'Sep 14 275760', 'Apr 20 -271821', 'Apr 19 -271821 23:59',
+    '+275760-09-13T00:00:00Z',
   ];
   const parts = [
     '2026', '0', '1', '01', '12', '13', '31', '32', '99', '100', '123456789', '-', '+', ':', '.',
@@ -726,6 +750,12 @@ fn date_parse_matches_quickjs_child() {
     assert_eq!(ours.len(), corpus.len());
     let mut mismatches = Vec::new();
     for ((s, a), b) in corpus.iter().zip(&ours).zip(&native) {
+        // QuickJS applies a zone given in the string after TimeClip, so at
+        // the ends of the range it can return a value past ±8.64e15, which
+        // is no time value; ours is NaN there. (It also gives NaN for some
+        // valid times there; `date_fields_are_clipped_after_the_offset`
+        // checks those against the spec's arithmetic.)
+        let b = &if b.abs() > 8.64e15 { f64::NAN } else { *b };
         let same = (a.is_nan() && b.is_nan()) || a.to_bits() == b.to_bits();
         if !same {
             mismatches.push(format!("{s:?}: sandbox {a}, QuickJS {b}"));
@@ -743,7 +773,8 @@ fn date_parse_matches_quickjs_child() {
 }
 
 /// The sandbox's Date.parse is a port of QuickJS's; with offset 0 it must
-/// agree with the native parser on a UTC host, string for string.
+/// agree with the native parser on a UTC host, string for string, except
+/// at the ends of the Date range, where it follows ECMA-262 instead.
 #[test]
 fn date_parse_matches_quickjs_on_a_utc_host() {
     let out = Command::new(std::env::current_exe().unwrap())

@@ -973,3 +973,100 @@ vectors) and `regexp_replace_results_are_unchanged` in
          if (js_get_length32(ctx, &nCaptures, result) < 0)
              goto exception;
 ```
+
+## Leak count at teardown (P1-RT-18)
+
+Review of #45: patch 11 lets `JS_FreeRuntime` leave objects that an error
+path leaked instead of aborting. Their small blocks go back to the
+allocator with the arenas, so no byte count saw such a leak in production
+(arena on); only the sweep's arena-off runs did. With patches 1 to 21,
+patch level 5.
+
+22. **`surimono_set_leak_count(rt, count)`**: `JS_FreeRuntime` stores in
+    `*count` how many objects were still on `gc_obj_list` (after its final
+    GC) before it drops them from the list. A new `JSRuntime.leak_count`
+    field holds the pointer (NULL, the default, counts nothing).
+    surimono-core points it into the runtime's `LimitState` next to the
+    interrupt flag, and when rquickjs drops the runtime's allocator (after
+    `JS_FreeRuntime` returned) adds it, and any bytes the runtime never gave
+    back, to process-wide counters (`surimono_core::teardown_leaks`, hidden
+    from the docs). The soak tests require them to stay at zero; the
+    out-of-memory sweeps and `interrupted_natives_leak_nothing` require
+    each runtime's count to be zero.
+23. **`surimono_quickjs_patch_level()` returns 5.** surimono-core requires
+    5 (`engine::REQUIRED_PATCH_LEVEL`).
+
+Tests: `teardown_counts_leaked_objects` and `a_clean_teardown_leaks_nothing`
+in `crates/core/src/engine.rs`; the sweeps in `crates/core/src/sandbox.rs`;
+the soak tests in `crates/islands/tests/soak.rs`.
+
+### Diff of patches 22 and 23 (on top of patches 1 to 21)
+
+```diff
+--- a/quickjs/quickjs.c (with patches 1 to 21)
++++ b/quickjs/quickjs.c
+@@ -402,6 +402,9 @@
+     /* surimono: never NULL; points at js_interrupt_flag_clear unless the
+        host set its own flag. Copied to every context. */
+     js_interrupt_flag_t *interrupt_flag;
++    /* surimono: where JS_FreeRuntime reports how many objects leaked
++       (see surimono_set_leak_count); NULL when nobody asked. */
++    uint32_t *leak_count;
+ 
+     JSPromiseHook *promise_hook;
+     void *promise_hook_opaque;
+@@ -2531,6 +2534,17 @@
+     }
+ }
+ 
++/* surimono: JS_FreeRuntime stores in *count how many objects were still
++   alive when the runtime was freed: objects some error path leaked a
++   reference to (see the note there), which it leaves to the arenas
++   instead of aborting. The arena blocks go back to the allocator with the
++   arenas, so no byte count shows these leaks; this count does. The
++   pointer must stay valid until JS_FreeRuntime returns. NULL removes it. */
++void surimono_set_leak_count(JSRuntime *rt, uint32_t *count)
++{
++    rt->leak_count = count;
++}
++
+ void JS_SetCanBlock(JSRuntime *rt, bool can_block)
+ {
+     rt->can_block = can_block;
+@@ -2759,9 +2773,19 @@
+        rather than abort the process. Large blocks they own (from the
+        backing allocator) stay allocated until the process exits.
+        surimono's tests check that a runtime gives back every byte it
+-       allocated. */
+-    if (!list_empty(&rt->gc_obj_list))
++       allocated, and the host can have the leaked objects counted
++       (surimono_set_leak_count). */
++    if (!list_empty(&rt->gc_obj_list)) {
++        if (rt->leak_count) {
++            uint32_t n = 0;
++            list_for_each(el, &rt->gc_obj_list) {
++                if (n < UINT32_MAX)
++                    n++;
++            }
++            *rt->leak_count = n;
++        }
+         init_list_head(&rt->gc_obj_list);
++    }
+ 
+     /* free the classes */
+     for(i = 0; i < rt->class_count; i++) {
+@@ -8737,10 +8761,11 @@
+ /* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
+    3: both the allocation-failure hardening (p1-rt-15) and the interrupt
+    flag (p1-rt-14), each of which was level 2 on its own branch.
+-   4: also the per-match polls in the regexp replace loops (p1-rt-23). */
++   4: also the per-match polls in the regexp replace loops (p1-rt-23).
++   5: also the leak count at teardown (p1-rt-18). */
+ int surimono_quickjs_patch_level(void)
+ {
+-    return 4;
++    return 5;
+ }
+ 
+ /* surimono: with enabled = 0, every later allocation of this runtime goes
+```

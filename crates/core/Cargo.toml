@@ -34,3 +34,8 @@ libc.workspace = true
 
 [lints]
 workspace = true
+
+# Runs as the process's main thread, which libtest never uses.
+[[test]]
+name = "main_thread_stack"
+harness = false
