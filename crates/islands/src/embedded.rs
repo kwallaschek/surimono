@@ -159,6 +159,10 @@ mod tests {
         for b in ALL {
             // The genuine bytecode and hash, with a newer bundle's source.
             let newer: &'static str = Box::leak(format!("{}\n// newer", b.source).into_boxed_str());
+            // Keep it reachable, so LeakSanitizer (scripts/ci/asan.sh)
+            // doesn't report the deliberate leak.
+            static KEEP: std::sync::Mutex<Vec<&str>> = std::sync::Mutex::new(Vec::new());
+            KEEP.lock().unwrap_or_else(|e| e.into_inner()).push(newer);
             let stale = Builtin {
                 source: newer,
                 ..*b
