@@ -611,11 +611,15 @@
       return NaN;
     }
     // set_date_fields(fields, is_local): MakeDay, MakeTime, MakeDate, local
-    // time to UTC, then TimeClip. Like QuickJS, a zone given in the string
-    // is applied after clipping.
+    // time or the string's zone to UTC, then TimeClip. QuickJS applies a
+    // zone given in the string after clipping, so near the ends of the
+    // range it returns values that are no time value (and NaN for some
+    // valid ones). The result must be a time value (ECMA-262 §21.4.1.1,
+    // §21.4.1.31), so here the zone goes before TimeClip; Chrome gives NaN
+    // past the end too (review of #45).
     let t = makeDate(F[0], F[1], F[2], F[3], F[4], F[5], F[6]);
     if (isLocal) t -= offsetMs;
-    return timeClip(t) - F[8] * 60000;
+    return timeClip(t - F[8] * 60000);
   }
 
   // ECMA-262 §7.1.1 ToPrimitive with no hint, run here rather than in the

@@ -1914,7 +1914,8 @@ const BoundPt = Pt.bind(null, 7);
     /// precompiled bytecode), and SURIMONO_OOM_ARENA=off makes every
     /// allocation reach the sandbox's allocator. With SURIMONO_OOM_COUNT set
     /// it prints how many allocations a clean run makes; otherwise, for each
-    /// N in SURIMONO_OOM_NS, it refuses the run's Nth allocation.
+    /// N in SURIMONO_OOM_NS, it refuses the run's Nth allocation; a run that
+    /// still succeeds must return the clean run's value.
     #[test]
     #[ignore = "helper: run in a child process by the out-of-memory sweeps"]
     fn oom_sweep_child() {
@@ -1932,17 +1933,28 @@ const BoundPt = Pt.bind(null, 7);
                 .compile(script, "sweep.js")
                 .unwrap()
         });
-        let run = |sb: &mut Sandbox| match &compiled {
-            Some(bc) => sb.eval_bytecode(bc),
-            None => sb.eval::<String>(script).map(drop),
+        // The script's completion value plus what its async part left in
+        // `r` or `asyncResult`: a run that succeeds despite a refused allocation
+        // must give exactly what a clean run gives (review of #45).
+        let run = |sb: &mut Sandbox| -> Result<String, SandboxError> {
+            let value = match &compiled {
+                Some(bc) => sb.run(|ctx| String::from_js(ctx, bc.eval(ctx)?))?,
+                None => sb.eval::<String>(script)?,
+            };
+            let late = sb.eval::<String>("[globalThis.r, globalThis.asyncResult].join('|')")?;
+            Ok(format!("{value}|{late}"))
         };
-        if std::env::var_os("SURIMONO_OOM_COUNT").is_some() {
+        let clean = || {
             let mut sb = Sandbox::new(limits).unwrap();
             engine::fault::refuse_nth(usize::MAX);
-            run(&mut sb).unwrap();
-            println!("OOM-COUNT {}", engine::fault::count());
+            let value = run(&mut sb).unwrap();
+            (value, engine::fault::count())
+        };
+        if std::env::var_os("SURIMONO_OOM_COUNT").is_some() {
+            println!("OOM-COUNT {}", clean().1);
             return;
         }
+        let (expected, _) = clean();
         let ns = std::env::var("SURIMONO_OOM_NS").unwrap();
         let (mut ok, mut refused) = (0, 0);
         for n in ns.split(',').map(|n| n.parse::<usize>().unwrap()) {
@@ -1963,7 +1975,13 @@ const BoundPt = Pt.bind(null, 7);
             drop(sb);
             assert_eq!(state.used(), 0, "leak after refusing allocation {n}");
             match result {
-                Ok(()) => ok += 1,
+                Ok(value) => {
+                    assert_eq!(
+                        value, expected,
+                        "refusing allocation {n} changed the result"
+                    );
+                    ok += 1;
+                }
                 Err(SandboxError::MemoryLimit) => refused += 1,
                 Err(other) => panic!("refusing allocation {n} gave {other:?}"),
             }
