@@ -1820,6 +1820,7 @@ dependencies = [
  "libc",
  "rquickjs",
  "sha2",
+ "surimono-core",
  "thiserror",
 ]
 

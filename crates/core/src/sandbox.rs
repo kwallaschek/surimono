@@ -525,6 +525,8 @@ impl Sandbox {
             });
         };
         check_stack(&self.options.limits)?;
+        #[cfg(any(test, feature = "test-hooks"))]
+        let started = test_hooks::begin_call();
         self.state.arm(self.options.limits.time)?;
         // Disarms even if `body` panics (a host function can), so no timer
         // outlives the call.
@@ -535,14 +537,24 @@ impl Sandbox {
             body(&ctx, state).map_err(|e| classify(&ctx, state, e))
         });
         drop(armed);
-        if let Err(e) = &result {
-            if e.is_limit() {
-                // A limit can stop a script anywhere, leaving its state half
-                // updated and microtasks queued. Start over; if even that fails,
-                // later calls report an engine error (see `rebuild`).
-                let _ = self.rebuild();
-            }
+        // Let go of this clone now, so a rebuild below really frees the old
+        // context (and most of its heap) before the new runtime allocates.
+        drop(ctx);
+        #[cfg(any(test, feature = "test-hooks"))]
+        let stopped = std::time::Instant::now();
+        let rebuild = matches!(&result, Err(e) if e.is_limit());
+        if rebuild {
+            // A limit can stop a script anywhere, leaving its state half
+            // updated and microtasks queued. Start over; if even that fails,
+            // later calls report an engine error (see `rebuild`).
+            let _ = self.rebuild();
         }
+        #[cfg(any(test, feature = "test-hooks"))]
+        test_hooks::record(test_hooks::CallTimings {
+            run: stopped - started,
+            unwind: test_hooks::first_stop_answer().map(|at| stopped.saturating_duration_since(at)),
+            cleanup: rebuild.then(|| stopped.elapsed()),
+        });
         result
     }
 
@@ -556,6 +568,8 @@ impl Sandbox {
         // fails, the sandbox is left without a context and every later call
         // reports an engine error.
         self.ctx = None;
+        #[cfg(test)]
+        test_hooks::record_heap_before_rebuild(self.state.used());
         let fresh = Self::with_options(self.options.clone())?;
         *self = fresh;
         Ok(())
@@ -567,6 +581,85 @@ impl Drop for Sandbox {
         // Deadlines taken from this runtime now report passed. (A rebuild
         // drops the old sandbox value, so it lands here too.)
         self.state.retire();
+    }
+}
+
+/// Not public API: timings of the last call a [`Sandbox`] made on this
+/// thread, so the hostile-script suite can bound how long a limited script
+/// takes to stop apart from the cleanup after it. Only built for the
+/// crate's own tests (the non-default `test-hooks` feature).
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub mod test_hooks {
+    use std::cell::Cell;
+    use std::time::{Duration, Instant};
+
+    /// How one call's wall time splits.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct CallTimings {
+        /// From arming the deadline until the script returned or stopped,
+        /// including unwinding its stack and running its microtasks.
+        pub run: Duration,
+        /// From the first time the interrupt handler (or the check between
+        /// microtasks) answered "stop" until the call returned: how long the
+        /// engine took to unwind once it knew. `None` when nothing asked the
+        /// call to stop.
+        pub unwind: Option<Duration>,
+        /// The rebuild after a limit error, which frees the old heap and
+        /// makes a fresh runtime; `None` when the call didn't rebuild.
+        pub cleanup: Option<Duration>,
+    }
+
+    thread_local! {
+        static LAST: Cell<Option<CallTimings>> = const { Cell::new(None) };
+        static FIRST_STOP: Cell<Option<Instant>> = const { Cell::new(None) };
+    }
+
+    /// Starts timing a call on this thread.
+    pub(crate) fn begin_call() -> Instant {
+        FIRST_STOP.with(|f| f.set(None));
+        Instant::now()
+    }
+
+    /// Called whenever the stop check answers true; keeps the first time.
+    /// (A sandbox runs on the thread that calls it, so the handler's thread
+    /// is the call's.)
+    pub(crate) fn note_stop_answer() {
+        FIRST_STOP.with(|f| {
+            if f.get().is_none() {
+                f.set(Some(Instant::now()));
+            }
+        });
+    }
+
+    pub(crate) fn first_stop_answer() -> Option<Instant> {
+        FIRST_STOP.with(Cell::get)
+    }
+
+    pub(crate) fn record(timings: CallTimings) {
+        LAST.with(|last| last.set(Some(timings)));
+    }
+
+    /// Takes the timings of the last call on this thread, if any.
+    pub fn take_last_call() -> Option<CallTimings> {
+        LAST.with(Cell::take)
+    }
+
+    #[cfg(test)]
+    thread_local! {
+        static HEAP_BEFORE_REBUILD: Cell<Option<usize>> = const { Cell::new(None) };
+    }
+
+    /// Unit tests: the old runtime's heap when the last rebuild on this
+    /// thread started building the new one.
+    #[cfg(test)]
+    pub(crate) fn record_heap_before_rebuild(bytes: usize) {
+        HEAP_BEFORE_REBUILD.with(|h| h.set(Some(bytes)));
+    }
+
+    #[cfg(test)]
+    pub(crate) fn take_heap_before_rebuild() -> Option<usize> {
+        HEAP_BEFORE_REBUILD.with(Cell::take)
     }
 }
 
@@ -1506,6 +1599,40 @@ mod tests {
         sb.reset().unwrap();
         let after = sb.heap_bytes();
         assert!(after < base + 64 * 1024, "base {base}, after reset {after}");
+    }
+
+    #[test]
+    fn limit_error_times_the_stop_apart_from_the_rebuild() {
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_millis(50))).unwrap();
+        test_hooks::take_last_call();
+        assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42));
+        let ok = test_hooks::take_last_call().unwrap();
+        assert_eq!((ok.unwind, ok.cleanup), (None, None));
+        assert_eq!(sb.eval::<()>("for (;;) {}"), Err(SandboxError::TimeLimit));
+        let stopped = test_hooks::take_last_call().unwrap();
+        assert!(stopped.run >= Duration::from_millis(50), "{stopped:?}");
+        assert!(stopped.unwind.unwrap() <= stopped.run, "{stopped:?}");
+        assert!(stopped.cleanup.is_some(), "{stopped:?}");
+        // Taken: the next take sees nothing until another call.
+        assert_eq!(test_hooks::take_last_call(), None);
+    }
+
+    #[test]
+    fn rebuild_after_a_limit_frees_the_old_context_first() {
+        // The call's own handle on the context must be gone before the new
+        // runtime allocates, or two heaps coexist at the peak.
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_millis(200))).unwrap();
+        let base = sb.heap_bytes();
+        test_hooks::take_heap_before_rebuild();
+        assert_eq!(
+            sb.eval::<()>("globalThis.big = new Float64Array(1 << 20); for (;;) {}"),
+            Err(SandboxError::TimeLimit)
+        );
+        let held = test_hooks::take_heap_before_rebuild().unwrap();
+        assert!(
+            held < base + 1_000_000,
+            "base {base}, old heap at rebuild {held}"
+        );
     }
 
     #[test]
