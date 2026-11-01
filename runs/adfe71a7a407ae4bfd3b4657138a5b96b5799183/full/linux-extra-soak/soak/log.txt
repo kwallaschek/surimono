@@ -8,9 +8,9 @@
 [1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
 [1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
 [1m[32m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
-[1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
 [1m[32m   Compiling[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 5m 08s
+[1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 5m 21s
 [1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono-3cb46486e5524be2)
 
 running 0 tests
@@ -92,20 +92,20 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; fini
 [1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-b181a23583e56462)
 
 running 1 test
-soak-dom-handles: 2000 renders in 6.667769403s (3.333884ms per render)
-soak-dom-handles: resident memory before start Some(6500) KiB
-soak-dom-handles: after   250 renders  live heap     522012 bytes  resident     9888 KiB
-soak-dom-handles: after   500 renders  live heap     522108 bytes  resident     9888 KiB
-soak-dom-handles: after   750 renders  live heap     522108 bytes  resident     9888 KiB
-soak-dom-handles: after  1000 renders  live heap     522108 bytes  resident     9892 KiB
-soak-dom-handles: after  1250 renders  live heap     522108 bytes  resident     9892 KiB
-soak-dom-handles: after  1500 renders  live heap     522204 bytes  resident     9892 KiB
-soak-dom-handles: after  1750 renders  live heap     522204 bytes  resident    10380 KiB
-soak-dom-handles: after  2000 renders  live heap     522204 bytes  resident    10380 KiB
+soak-dom-handles: 2000 renders in 7.391262728s (3.695631ms per render)
+soak-dom-handles: resident memory before start Some(6628) KiB
+soak-dom-handles: after   250 renders  live heap     522012 bytes  resident    10140 KiB
+soak-dom-handles: after   500 renders  live heap     522108 bytes  resident    10140 KiB
+soak-dom-handles: after   750 renders  live heap     522108 bytes  resident    10140 KiB
+soak-dom-handles: after  1000 renders  live heap     522108 bytes  resident    10144 KiB
+soak-dom-handles: after  1250 renders  live heap     522108 bytes  resident    10144 KiB
+soak-dom-handles: after  1500 renders  live heap     522204 bytes  resident    10144 KiB
+soak-dom-handles: after  1750 renders  live heap     522204 bytes  resident    10144 KiB
+soak-dom-handles: after  2000 renders  live heap     522204 bytes  resident    10668 KiB
 soak-dom-handles: live heap from render 500 to 2000: 522108 -> 522204 bytes (+96 bytes, highest 522204), limit +65536
 test soak_dom_handles_2000_renders_flat_memory ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 6.67s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 7.39s
 
 [1m[32m     Running[0m unittests src/main.rs (target/release/deps/surimono_example_rust_islands-1c1f1e9e46d2a9a5)
 
@@ -206,60 +206,60 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; fin
 [1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-33202d805c6fca81)
 
 running 3 tests
-soak: 10000 renders in 34.812379534s (3.481237ms per render incl. 20 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
+soak: 10000 renders in 35.564749371s (3.556474ms per render incl. 20 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
 soak: resident memory before start Some(15844) KiB
-soak: after   500 renders  live heap   10749431 bytes  resident    21652 KiB
-soak: after  1000 renders  live heap   10749559 bytes  resident    21656 KiB
-soak: after  1500 renders  live heap   10749559 bytes  resident    21680 KiB
-soak: after  2000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  2500 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  3000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  3500 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  4000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  4500 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  5000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  5500 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  6000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  6500 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  7000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  7500 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  8000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  8500 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  9000 renders  live heap   10749559 bytes  resident    21728 KiB
-soak: after  9500 renders  live heap   10749559 bytes  resident    21756 KiB
-soak: after 10000 renders  live heap   10749559 bytes  resident    21756 KiB
-soak: RunnerStats { renders: 10000, failed_renders: 250, preloaded_renders: 350, idle_workers: 2, workers: 2, runtimes: 2 }
-soak: live heap from render 2000 to 10000: 10749559 -> 10749559 bytes (+0 bytes, highest 10749559), limit +65536
-soak: peak resident 21756 KiB, bound 212452 KiB
+soak: after   500 renders  live heap   10749431 bytes  resident    21576 KiB
+soak: after  1000 renders  live heap   10749431 bytes  resident    21600 KiB
+soak: after  1500 renders  live heap   10749431 bytes  resident    21604 KiB
+soak: after  2000 renders  live heap   10749431 bytes  resident    21604 KiB
+soak: after  2500 renders  live heap   10749431 bytes  resident    21608 KiB
+soak: after  3000 renders  live heap   10749431 bytes  resident    21612 KiB
+soak: after  3500 renders  live heap   10749431 bytes  resident    21612 KiB
+soak: after  4000 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  4500 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  5000 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  5500 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  6000 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  6500 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  7000 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  7500 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  8000 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  8500 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  9000 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after  9500 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: after 10000 renders  live heap   10749559 bytes  resident    21612 KiB
+soak: RunnerStats { renders: 10000, failed_renders: 250, preloaded_renders: 320, idle_workers: 2, workers: 2, runtimes: 2 }
+soak: live heap from render 2000 to 10000: 10749431 -> 10749559 bytes (+128 bytes, highest 10749559), limit +65536
+soak: peak resident 21612 KiB, bound 212452 KiB
 test soak_10000_renders_flat_memory ... ok
 test soak_echarts_2000_renders_flat_memory has been running for over 60 seconds
 test soak_vega_lite_600_renders_flat_memory has been running for over 60 seconds
-soak-echarts: 2000 renders in 33.189316356s (16.594658ms per render incl. 8 waits for idle workers), 3 callers, 2 workers, first SVG 24997 bytes
-soak-echarts: resident memory before start Some(21772) KiB
-soak-echarts: after   250 renders  live heap   20650698 bytes  resident    38328 KiB
-soak-echarts: after   500 renders  live heap   20650698 bytes  resident    38328 KiB
-soak-echarts: after   750 renders  live heap   20650698 bytes  resident    38328 KiB
-soak-echarts: after  1000 renders  live heap   20650698 bytes  resident    38328 KiB
-soak-echarts: after  1250 renders  live heap   20650698 bytes  resident    38328 KiB
-soak-echarts: after  1500 renders  live heap   20650698 bytes  resident    38328 KiB
-soak-echarts: after  1750 renders  live heap   20650698 bytes  resident    38328 KiB
-soak-echarts: after  2000 renders  live heap   20650698 bytes  resident    38336 KiB
-soak-echarts: RunnerStats { renders: 2000, failed_renders: 20, preloaded_renders: 32, idle_workers: 2, workers: 2, runtimes: 2 }
+soak-echarts: 2000 renders in 35.441436955s (17.720718ms per render incl. 8 waits for idle workers), 3 callers, 2 workers, first SVG 24997 bytes
+soak-echarts: resident memory before start Some(21628) KiB
+soak-echarts: after   250 renders  live heap   20650698 bytes  resident    38488 KiB
+soak-echarts: after   500 renders  live heap   20650698 bytes  resident    38504 KiB
+soak-echarts: after   750 renders  live heap   20650698 bytes  resident    38512 KiB
+soak-echarts: after  1000 renders  live heap   20650698 bytes  resident    38512 KiB
+soak-echarts: after  1250 renders  live heap   20650698 bytes  resident    38512 KiB
+soak-echarts: after  1500 renders  live heap   20650698 bytes  resident    38512 KiB
+soak-echarts: after  1750 renders  live heap   20650698 bytes  resident    38512 KiB
+soak-echarts: after  2000 renders  live heap   20650698 bytes  resident    38512 KiB
+soak-echarts: RunnerStats { renders: 2000, failed_renders: 20, preloaded_renders: 38, idle_workers: 2, workers: 2, runtimes: 2 }
 soak-echarts: live heap from render 500 to 2000: 20650698 -> 20650698 bytes (+0 bytes, highest 20650698), limit +65536
-soak-echarts: peak resident 38336 KiB, bound 349452 KiB
+soak-echarts: peak resident 38512 KiB, bound 349308 KiB
 test soak_echarts_2000_renders_flat_memory ... ok
-soak-vega-lite: 600 renders in 13.004703649s (21.674506ms per render incl. 4 waits for idle workers), 3 callers, 2 workers, first SVG 9870 bytes
-soak-vega-lite: resident memory before start Some(47996) KiB
-soak-vega-lite: after   150 renders  live heap   21587178 bytes  resident    56904 KiB
-soak-vega-lite: after   300 renders  live heap   21587178 bytes  resident    56904 KiB
-soak-vega-lite: after   450 renders  live heap   21587178 bytes  resident    56908 KiB
-soak-vega-lite: after   600 renders  live heap   21587178 bytes  resident    56908 KiB
-soak-vega-lite: RunnerStats { renders: 600, failed_renders: 6, preloaded_renders: 8, idle_workers: 2, workers: 2, runtimes: 2 }
+soak-vega-lite: 600 renders in 13.638545919s (22.730909ms per render incl. 4 waits for idle workers), 3 callers, 2 workers, first SVG 9870 bytes
+soak-vega-lite: resident memory before start Some(48172) KiB
+soak-vega-lite: after   150 renders  live heap   21587178 bytes  resident    56076 KiB
+soak-vega-lite: after   300 renders  live heap   21587178 bytes  resident    56160 KiB
+soak-vega-lite: after   450 renders  live heap   21587178 bytes  resident    56160 KiB
+soak-vega-lite: after   600 renders  live heap   21587178 bytes  resident    56160 KiB
+soak-vega-lite: RunnerStats { renders: 600, failed_renders: 6, preloaded_renders: 6, idle_workers: 2, workers: 2, runtimes: 2 }
 soak-vega-lite: live heap from render 300 to 600: 21587178 -> 21587178 bytes (+0 bytes, highest 21587178), limit +65536
-soak-vega-lite: peak resident 56908 KiB, bound 375676 KiB
+soak-vega-lite: peak resident 56160 KiB, bound 375852 KiB
 test soak_vega_lite_600_renders_flat_memory ... ok
 
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 81.04s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 84.67s
 
 [1m[32m     Running[0m tests/vega.rs (target/release/deps/vega-7bed3d737fa882cd)
 
