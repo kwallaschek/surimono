@@ -1830,7 +1830,9 @@ dependencies = [
  "blitz-dom",
  "blitz-html",
  "blitz-traits",
+ "stats_alloc",
  "surimono-core",
+ "thiserror",
 ]
 
 [[package]]
