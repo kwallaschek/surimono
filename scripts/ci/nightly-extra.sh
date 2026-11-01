@@ -45,4 +45,10 @@ if grep -rq 'fn out_of_memory_full_sweep' crates/core/src 2>/dev/null; then
   step "core: out-of-memory full sweep (ignored test)"
   cargo test -p surimono-core --lib --locked -- --ignored out_of_memory_full_sweep; ran=$((ran + 1))
 fi
+# On a release branch (release/v*, the release PR): the release dry-run.
+# Packages every crate and the gem; never publishes or tags.
+case "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}" in
+  release/v*)
+    step "release dry-run"; scripts/ci/release-dry-run.sh; ran=$((ran + 1)) ;;
+esac
 echo "nightly extra checks run: $ran"
