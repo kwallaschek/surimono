@@ -3,7 +3,7 @@
 //! churn, and scripts that tamper with built-ins to read or forge handles
 //! (review of #80).
 
-use surimono_core::Limits;
+use surimono_core::{Limits, Sandbox};
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
 const PAGE: &str = r#"<html><body><p id="p">secret</p><div id="d">x</div></body></html>"#;
@@ -239,4 +239,88 @@ fn tampering_after_use_cannot_read_or_forge_handles() {
     rt.reset().unwrap();
     let out: String = rt.eval(TAMPER).unwrap();
     assert_eq!(out, EXPECTED);
+}
+
+/// Runs `script` on a thread whose stack is only just large enough for the
+/// sandbox (`stack_bytes` plus [`Sandbox::STACK_HEADROOM_BYTES`], plus
+/// `SLACK` for this test's own frames), against a body-only page whose
+/// limits allow [`DomLimits::MAX_DEPTH`].
+/// On success, checks the `levels`-deep chain is in the serialization.
+fn on_a_tight_stack(script: &'static str, levels: usize) -> Result<i32, DomError> {
+    // The frames between the thread's start and the sandbox's stack check,
+    // and the part of the requested size that isn't usable stack (32 KiB
+    // was too little on Linux, debug build).
+    const SLACK: usize = 64 * 1024;
+    let limits = Limits::default();
+    let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + SLACK;
+    std::thread::Builder::new()
+        .stack_size(size)
+        .spawn(move || {
+            let mut rt = DomRuntime::new(limits).unwrap();
+            let dom_limits = DomLimits {
+                max_depth: DomLimits::MAX_DEPTH,
+                ..DomLimits::default()
+            };
+            rt.load(Document::parse_with_limits(PAGE, dom_limits).unwrap());
+            let r = rt.eval::<i32>(script);
+            if r.is_ok() {
+                // The chain really joined the document, and serializing it
+                // still works on this thread.
+                let html = rt.with_document(Document::to_html).unwrap();
+                assert_eq!(html.matches("<div>").count(), levels);
+            }
+            r
+        })
+        .unwrap()
+        .join()
+        .expect("no stack overflow")
+}
+
+/// The script that squeezes the stack: build a detached `<div>` chain of
+/// `levels`, recurse in JavaScript until the engine's stack limit throws,
+/// then append the chain to `<body>` from the deepest frame that can still
+/// make the call. Joining the document makes blitz-dom recurse once per
+/// level in Rust, in whatever stack the JavaScript left. Returns the
+/// JavaScript depth the append ran at.
+macro_rules! squeeze {
+    ($levels:expr) => {
+        concat!(
+            "const top = document.createElement('div'); let at = top;\n",
+            "for (let i = 1; i < ",
+            $levels,
+            "; i++) { const c = document.createElement('div'); at.appendChild(c); at = c; }\n",
+            r#"let done = -1;
+            function f(n) {
+              try { f(n + 1); } catch (e) {
+                if (!(e instanceof RangeError)) throw e;
+                // Too little stack left to make the call throws a
+                // RangeError again, and the next frame up retries.
+                if (done < 0) { document.body.appendChild(top); done = n; }
+              }
+            }
+            f(0);
+            done"#
+        )
+    };
+}
+
+#[test]
+fn append_at_max_depth_after_recursing_to_the_stack_limit() {
+    // <body> is at depth 2, so a chain of MAX_DEPTH - 2 divs (1,022) ends
+    // exactly at MAX_DEPTH: the deepest insertion the limits allow
+    // (review of #80).
+    let depth = on_a_tight_stack(squeeze!("1022"), 1_022).expect("the append succeeds");
+    assert!(depth > 100, "the append ran deep in the recursion: {depth}");
+}
+
+#[test]
+fn too_deep_append_after_recursing_to_the_stack_limit_is_a_typed_error() {
+    // One level more than the limit: refused before blitz-dom walks it.
+    let r = on_a_tight_stack(squeeze!("1023"), 1_023);
+    assert_eq!(
+        r,
+        Err(DomError::TreeTooDeep {
+            limit: DomLimits::MAX_DEPTH
+        })
+    );
 }
