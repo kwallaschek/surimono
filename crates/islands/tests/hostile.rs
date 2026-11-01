@@ -25,6 +25,9 @@ use serde::Deserialize;
 use surimono_islands::SandboxError;
 use surimono_islands::{IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions};
 
+mod common;
+use common::scaled;
+
 /// A case that fails today in a known way. Each one is also in
 /// docs/COMPAT.md; the expectation itself is never changed.
 struct KnownFailure {
@@ -56,6 +59,11 @@ fn known_failure<'a>(
 /// Time a child may take beyond the cases' own `max_wall_ms`: starting the
 /// process and the runner, and a debug build on a busy machine.
 const CHILD_SLACK: Duration = Duration::from_secs(20);
+
+// Under `SURIMONO_TEST_TIME_SCALE` (see `common::time_scale`), every
+// wall-clock bound here (`max_wall_ms`, `CHILD_SLACK`) is multiplied by the
+// scale, and so is the time limit of each case that doesn't accept
+// `TimeLimit` (see `Case::time_limit`). Expectations are never changed.
 
 /// Children running at once.
 const PARALLEL: usize = 2;
@@ -102,6 +110,23 @@ struct Step {
 }
 
 impl Case {
+    /// The time limit to render this case's steps with: the manifest's, or
+    /// that times the test time scale when no step accepts `TimeLimit`.
+    /// Such a case tests something else (a memory limit, a stack overflow,
+    /// a script that ends), and a slow build (AddressSanitizer) must not
+    /// turn it into a time-limit failure first. Cases that test the time
+    /// limit keep it as written.
+    fn time_limit(&self, manifest_ms: u64) -> Duration {
+        let limit = Duration::from_millis(manifest_ms);
+        let accepts_time = self.steps().iter().any(|(_, e)| {
+            e.expect.as_deref() == Some("TimeLimit")
+                || e.expect_any
+                    .as_ref()
+                    .is_some_and(|any| any.iter().any(|o| o == "TimeLimit"))
+        });
+        if accepts_time { limit } else { scaled(limit) }
+    }
+
     /// The files to render, with what each must give.
     fn steps(&self) -> Vec<(String, Expect)> {
         match (&self.steps, &self.file) {
@@ -179,7 +204,7 @@ fn hostile_child() {
     let case = m.case.iter().find(|c| c.id == id).unwrap();
     let limits = Limits::new(
         m.limits.memory_bytes,
-        Duration::from_millis(m.limits.time_ms),
+        case.time_limit(m.limits.time_ms),
         m.limits.stack_bytes,
     );
     // One worker, so `steps` render one after another in the same pool.
@@ -213,7 +238,7 @@ fn hostile_child() {
 /// Runs one case in a child process under a watchdog.
 fn run_case(exe: &Path, case: &Case, max_wall: Duration) -> Vec<Outcome> {
     let steps = case.steps().len();
-    let deadline = max_wall * u32::try_from(steps).unwrap() + CHILD_SLACK;
+    let deadline = max_wall * u32::try_from(steps).unwrap() + scaled(CHILD_SLACK);
     run_child(exe, "hostile_child", &case.id, steps, deadline, max_wall)
 }
 
@@ -386,7 +411,7 @@ fn check(o: &Outcome, want: &Expect) -> Result<(), String> {
 #[test]
 fn hostile_suite() {
     let m = manifest();
-    let max_wall = Duration::from_millis(m.limits.max_wall_ms);
+    let max_wall = scaled(Duration::from_millis(m.limits.max_wall_ms));
     let exe = std::env::current_exe().unwrap();
     let results: Mutex<BTreeMap<usize, Vec<Outcome>>> = Mutex::new(BTreeMap::new());
     let next = Mutex::new(0usize);

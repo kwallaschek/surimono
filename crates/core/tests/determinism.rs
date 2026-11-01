@@ -6,8 +6,19 @@ use std::time::Duration;
 
 use surimono_core::{Limits, Sandbox, SandboxError, SandboxOptions};
 
+mod common;
+use common::scaled;
+
+/// `options` with the time limit multiplied by the test time scale
+/// (`SURIMONO_TEST_TIME_SCALE`), so a slow build (AddressSanitizer) doesn't
+/// hit it early. Every outcome these tests check is the same at any limit.
+fn scaled_options(mut options: SandboxOptions) -> SandboxOptions {
+    options.limits.time = scaled(options.limits.time);
+    options
+}
+
 fn sandbox(options: SandboxOptions) -> Sandbox {
-    Sandbox::with_options(options).unwrap()
+    Sandbox::with_options(scaled_options(options)).unwrap()
 }
 
 fn default_sandbox() -> Sandbox {
@@ -459,6 +470,8 @@ fn eval_within(
     source: &'static str,
     within: Duration,
 ) -> Result<String, SandboxError> {
+    let options = scaled_options(options);
+    let within = scaled(within);
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::Builder::new()
         .stack_size(8 * 1024 * 1024)
