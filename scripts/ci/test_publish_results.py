@@ -306,6 +306,25 @@ class Publish(unittest.TestCase):
                 with open(self.outside) as f:
                     self.assertEqual(f.read(), "untouched\n")
 
+    def test_refuses_when_the_index_cannot_be_read(self):
+        # A git whose ls-files fails: the link check must not pass as
+        # "no such entry".
+        failing = os.path.join(self.tmp, "failing-bin")
+        os.makedirs(failing)
+        with open(os.path.join(failing, "git"), "w") as f:
+            f.write(
+                "#!/bin/sh\n"
+                'for a in "$@"; do [ "$a" = ls-files ] && exit 1; done\n'
+                f"exec {REAL_GIT} \"$@\"\n"
+            )
+        os.chmod(os.path.join(failing, "git"), 0o755)
+        os.makedirs(os.path.join(self.repo, "ci-out"))
+        r = self.run_script(PUBLISH, "success", PATH=failing + os.pathsep + os.environ["PATH"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("could not read the ci-results index", r.stderr)
+        self.assertNotIn("published", r.stdout)
+        self.assertEqual(git(self.origin, "branch", "--list", "ci-results"), "")
+
     def test_removes_its_worktree_on_exit(self):
         tmpdir = os.path.join(self.tmp, "tmpdir")
         os.makedirs(tmpdir)
