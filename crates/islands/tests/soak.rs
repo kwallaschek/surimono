@@ -10,6 +10,9 @@
 //! the runner, the sandbox or QuickJS shows up byte for byte. Resident
 //! memory (RSS) is printed, with only a loose bound: it depends on the
 //! system allocator's arenas and fragmentation, not just on our code.
+//! Objects the engine finds leaked when it frees a runtime (whose bytes
+//! come back with its arenas) are counted by `surimono_core::teardown_leaks`
+//! and must stay at zero.
 
 use std::alloc::System;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -179,6 +182,7 @@ static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn run_soak(soak: &Soak<'_>) {
     let name = soak.name;
     let start_rss = rss_kib();
+    let start_leaks = surimono_core::teardown_leaks();
     let rounds = soak.renders / soak.sample_every;
     let mut samples: Vec<Sample> = Vec::with_capacity(rounds + 1);
     let first_svg_len = AtomicUsize::new(0);
@@ -253,6 +257,17 @@ fn run_soak(soak: &Soak<'_>) {
     assert!(
         end - warm < MAX_LIVE_GROWTH && highest - warm < MAX_LIVE_GROWTH,
         "{name}: live heap grew from {warm} to {end} bytes (highest {highest}) after warm-up"
+    );
+
+    // Every runtime freed during the soak (each limit error replaces one;
+    // idle workers release theirs) gave back every object. The engine
+    // frees its small-block arenas whole, so a leaked object is invisible
+    // in the live heap; the engine counts it (review of #45).
+    let leaks = surimono_core::teardown_leaks();
+    eprintln!("{name}: teardown leaks {leaks:?} (before the soak {start_leaks:?})");
+    assert_eq!(
+        leaks, start_leaks,
+        "{name}: runtimes freed during the soak leaked objects or bytes"
     );
 
     // A loose bound on resident memory, from the settings: every worker's

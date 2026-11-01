@@ -1877,6 +1877,7 @@ const BoundPt = Pt.bind(null, 7);
                 );
                 // The limit error replaced the runtime already.
                 assert_eq!(state.used(), 0, "{source} leaked");
+                assert_eq!(state.leaked_objects(), 0, "{source} leaked objects");
                 assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42), "{source}");
             }
         }
@@ -1974,6 +1975,13 @@ const BoundPt = Pt.bind(null, 7);
             // error path leaked an object.
             drop(sb);
             assert_eq!(state.used(), 0, "leak after refusing allocation {n}");
+            // With the arena on, a leaked object's bytes go back with the
+            // arenas; the engine still counts it (review of #45).
+            assert_eq!(
+                state.leaked_objects(),
+                0,
+                "objects leaked after refusing allocation {n}"
+            );
             match result {
                 Ok(value) => {
                     assert_eq!(
