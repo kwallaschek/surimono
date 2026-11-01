@@ -49,15 +49,18 @@ fi
 grep -qx 'THIRD_PARTY_LICENSES.txt' "$out/contents.txt" \
   || { echo "native gem has no THIRD_PARTY_LICENSES.txt" >&2; exit 1; }
 
-# A gem for this runner's own platform can be installed and tested right here.
-# gem:verify also fails unless Surimono.precompiled_builtins equals the number
-# of built-in renderers: the cross-built library carries bytecode its own
-# engine accepts (SURIMONO_PRECOMPILE stays unset in this job).
+# Only a gem for this runner's own platform can be installed and run here, so
+# only that gem is installed, tested and checked for precompiled bytecode;
+# gems for other platforms get the content checks above and nothing more.
+# gem:verify fails unless the gem has built-in renderers and
+# Surimono.precompiled_builtins equals their number: the cross-built library
+# carries bytecode its own engine accepts (SURIMONO_PRECOMPILE stays unset in
+# this job).
 host="$(ruby -e 'print Gem::Platform.local.to_s')"
 case "$host" in
   "$platform"|"$platform"-gnu)
     step "install $gem_file and run the tests (Ruby $(ruby -e 'print RUBY_VERSION'))"
     bundle exec rake "gem:verify[$gem_dir/$gem_file]"
     ;;
-  *) echo "host platform $host: install test skipped for $platform" ;;
+  *) echo "host platform $host: $platform gem not installed, tested or checked for bytecode" ;;
 esac

@@ -7,8 +7,9 @@
 //! covers the runner underneath; this one covers the facade's per-process
 //! slots on top of it, with the built-in ECharts and Vega-Lite renderers.
 //!
-//! The forking needs `unsafe` (libc's `fork`, `waitpid`, `kill`, `_exit`);
-//! this test module is opted in, and every block has a `SAFETY:` comment.
+//! The forking needs `unsafe` (libc's `fork`, `waitpid`, `waitid`, `kill`,
+//! `_exit`); this test module is opted in, and every block has a `SAFETY:`
+//! comment.
 #![cfg(all(target_os = "linux", feature = "echarts", feature = "vega"))]
 #![allow(unsafe_code)]
 
@@ -350,27 +351,54 @@ fn forks_never_hang() {
         String::from_utf8_lossy(&out).into_owned()
     });
     let group = libc::pid_t::try_from(child.id()).unwrap_or_else(|e| panic!("{e}"));
+    // Wait for the helper to exit without reaping it (WNOWAIT): while it is
+    // an unreaped zombie its pid, which is also its process group's id,
+    // can't be reused, so the kill below can only reach the helper's own
+    // group. Reaping first would leave a stale group id.
     let started = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().unwrap_or_else(|e| panic!("{e}")) {
-            break status;
+    let exited = loop {
+        // SAFETY: an all-zero siginfo_t is a valid value (plain integers and
+        // unions of them).
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        // SAFETY: waitid only writes into `info`, which we own and which
+        // lives across the call; `group` is our own unreaped child's pid.
+        let r = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                libc::id_t::try_from(group).unwrap_or_else(|e| panic!("{e}")),
+                &mut info,
+                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+            )
+        };
+        if r != 0 {
+            let e = std::io::Error::last_os_error();
+            if e.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            // Fail only after the group kill below, so the helper can't
+            // outlive the test.
+            break Err(format!("waitid: {e}"));
+        }
+        // SAFETY: waitid succeeded and filled `info` for a WEXITED query;
+        // si_pid is 0 when the helper hasn't exited yet (WNOHANG).
+        if unsafe { info.si_pid() } != 0 {
+            break Ok(());
         }
         if started.elapsed() > Duration::from_secs(900) {
-            // SAFETY: the helper leads its own process group (process_group(0)),
-            // whose id is its pid; it isn't reaped yet, so the group still
-            // exists and holds only the helper and what it forked.
-            unsafe { libc::kill(-group, libc::SIGKILL) };
-            let _ = child.wait();
-            panic!("the fork stress run itself hung; killed its process group");
+            break Err("the fork stress run itself hung; killed its process group".to_owned());
         }
         std::thread::sleep(Duration::from_millis(20));
     };
-    if !status.success() {
-        // A helper that failed may have left forked children that still hold
-        // the pipe open; end them so the reader sees end of file.
-        // SAFETY: kill has no memory-safety preconditions; at worst the group
-        // is already gone (ESRCH).
-        unsafe { libc::kill(-group, libc::SIGKILL) };
+    // End whatever the helper forked and left behind, so the reader sees end
+    // of file even if a stray grandchild still holds the pipe; after a
+    // timeout or a waitid error this also ends the helper.
+    // SAFETY: kill has no memory-safety preconditions. The helper leads its
+    // own process group (process_group(0)), whose id is its pid, and it isn't
+    // reaped yet, so the group holds only the helper and its descendants.
+    unsafe { libc::kill(-group, libc::SIGKILL) };
+    let status = child.wait().unwrap_or_else(|e| panic!("{e}"));
+    if let Err(e) = exited {
+        panic!("{e}");
     }
     let out = reader
         .join()
