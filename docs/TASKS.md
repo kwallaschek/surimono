@@ -40,7 +40,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-19 · RT · done (#52) · macOS: the determinism test's own TZ probe read 1970, where macOS libc ignores POSIX-rule transitions; probe 2001 and run IANA zones
 - P1-RT-24 · RT · done (#57) · (#57) ASan: stack_available() reads a local on ASan's fake stack, so main's linux-extra-asan fails every sandbox test with "0 bytes of stack left" (since ccb6025)
 - P1-RT-25 · RT · todo · Measure gem RSS/PSS after a concurrent burst and idle release (does CRuby's malloc_trim reclaim it?); decide on malloc_trim FFI in the engine-binding module; add the idle-release path to a soak; alternate OOM shapes in the 10k soak
-- P1-RT-26 · RT · todo · (v0.1) A worker that dies outside guard hangs callers since #54 (one worker): live-worker count via a drop guard, replace a dead worker or fail callers with IslandError::Worker
+- P1-RT-26 · RT · done (#71) · (v0.1) A worker that dies outside guard hangs callers since #54 (one worker): live-worker count via a drop guard, replace a dead worker or fail callers with IslandError::Worker
 - P1-RT-27 · RT+PKG · todo · Test time-scale factor (env var set by scripts/ci/asan.sh) that multiplies wall-clock limits and bounds in core/islands tests; ASan runs determinism and hostile groups B/C past their bounds
 - P1-PKG-11 · PKG · done (#58) · #25/#26/#34 review follow-ups: drop the stale placeholder_style doc (prepass.rs:411-413); fixtures.rs asserts the island count; CLI docs say an existing read-only output is replaced; about.toml MPL list limited to normal deps (or commented) so real warnings show; root surimono-islands workspace entry default-features=false (ORC) and drop the web_atoms exact pin
 - P1-RT-28 · RT · done (#64) · #56 review follow-ups: native-gem jobs and the gem smoke test assert built-ins are precompiled (expose a count); measure the extra source-gem install time; guard test for native `class` in bundles (isESClass under stripping); core build.rs hashes quickjs/ recursively; #57 nit: assert SP vs local agree outside sanitizers
@@ -52,9 +52,11 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-32 · RT · done (#64) · core forks_never_hang flakes under load (busy thread eval("1") hits its 200 ms limit at load 3 on 2 cores): raise the limit; expire_races_arm_and_disarm asserts its second phase; fork_generation doc mentions _Fork/SYS_fork
 - P1-PKG-13 · PKG · done (#67) · Expose precompiled_builtins() in the facade and the gem; native-gem jobs and the gem smoke test assert it equals the built-in count; tests/fork.rs reads the helper's stdout on a thread and kills its process group on timeout; nested-fork case; Ruby gem test: render, Process.fork, render in the child; libc pin → workspace (ORC)
 - P1-DX-04 · DX · done (#66) · examples/README: CI now runs run.sh (#63); README Install line wrap; after Kay's engine decision, update install docs and CHANGELOG
-- P1-RT-33 · RT · todo · #64 review follow-ups: expire_races_arm_and_disarm hangs instead of failing if an assert fires inside thread::scope (drop guard sets mode=2); its 60 s wait equals the arm budget (arm longer); build.rs symlink cycle guard
-- P1-PKG-14 · PKG · todo · #67 review follow-ups: gem.rake aborts on an empty built-in list; fork.rs stale group-id comment or kill before reaping; native-gem.sh wording (only the runner-platform gem is checked); consider builtin_renderers -> &'static [&'static str] before v0.1; switch libc to workspace once ORC adds the pin
-- P1-DX-05 · DX · todo · CHANGELOG line for surimono::precompiled_builtins()/builtin_renderers() and Surimono.precompiled_builtins/builtin_renderers (#67); examples/README: macOS/aarch64 jobs run the Rust example tests, not run.sh
+- P1-RT-33 · RT · done (#71) · #64 review follow-ups: expire_races_arm_and_disarm hangs instead of failing if an assert fires inside thread::scope (drop guard sets mode=2); its 60 s wait equals the arm budget (arm longer); build.rs symlink cycle guard
+- P1-PKG-14 · PKG · review · (#69) #67 review follow-ups: gem.rake aborts on an empty built-in list; fork.rs stale group-id comment or kill before reaping; native-gem.sh wording (only the runner-platform gem is checked); consider builtin_renderers -> &'static [&'static str] before v0.1; switch libc to workspace once ORC adds the pin
+- P1-DX-05 · DX · done (#68) · CHANGELOG line for surimono::precompiled_builtins()/builtin_renderers() and Surimono.precompiled_builtins/builtin_renderers (#67); examples/README: macOS/aarch64 jobs run the Rust example tests, not run.sh
+- P1-DOM-03 · DOM · todo · #70 follow-ups: test that vendored IDL matches SOURCES.md checksums; parent-cycle check in generate_stubs (typed error); MAX_DEPTH vs small stacks; DESIGN.md says checkpoint 2, not 3
+- P1-RT-34 · RT · todo · #71 nits: pool_size() doc (live workers); runner test bound workers_lock().len() <= pool_size + 2; pub const built-in name list in islands for the facade to re-export
 - P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
 - P1-RT-22 · RT · done (#47) · (#47) Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
 - P1-RT-23 · RT · todo · Regex deadline gaps: js_regexp_Symbol_replace never polls ('a'.repeat(1<<25).replace(/(?:)/g,'') stops at 1,174 ms vs 250 ms); back-references checked in #47 review and fine
@@ -112,7 +114,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-DX-03 · DX · done (#23) · Examples that run in CI; wording of error messages reviewed
 
 ### DOM engineer (early phase 2 scaffolding; no public API merged before checkpoint 2)
-- P1-DOM-01 · DOM · todo · WebIDL fetch and parse from w3c/webref (pinned commit) and a code-generation skeleton producing binding stubs for a handful of interfaces
+- P1-DOM-01 · DOM · done (#70) · WebIDL fetch and parse from w3c/webref (pinned commit) and a code-generation skeleton producing binding stubs for a handful of interfaces
 - P1-DOM-02 · DOM · todo · Spike: id-based handles to blitz-dom 0.2.4 nodes from rquickjs, with a leak test
 
 ### Reviewer
