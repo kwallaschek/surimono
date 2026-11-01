@@ -120,7 +120,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 
 ### DOM engineer (early phase 2 scaffolding; no public API merged before checkpoint 2)
 - P1-DOM-01 · DOM · done (#70) · WebIDL fetch and parse from w3c/webref (pinned commit) and a code-generation skeleton producing binding stubs for a handful of interfaces
-- P1-DOM-02 · DOM · review · Spike: id-based handles to blitz-dom 0.2.4 nodes from rquickjs, with a leak test
+- P1-DOM-02 · DOM · done (#80) · Spike: id-based handles to blitz-dom 0.2.4 nodes from rquickjs, with a leak test
+- P1-DOM-04 · DOM · todo · #80 review nits: serializer keeps xlink:/xml:/xmlns: attribute prefixes; comment data gap (blitz 0.2.4) to COMPAT via CF; noscript raw-text comment; stack-squeeze regression test (JS recursion to the limit then a MAX_DEPTH append); trace the "ERROR: Unexpected token" stderr line in dom tests
 
 ### Reviewer
 - P1-REV-01 · REV · todo · Review every merge; pre-release checklist for v0.1
