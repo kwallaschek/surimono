@@ -1,0 +1,756 @@
+rustc 1.87.0 (17067e9ac 2025-05-09)
+binary: rustc
+commit-hash: 17067e9ac6d7ecb70e50f92c1944e545188d2359
+commit-date: 2025-05-09
+host: aarch64-unknown-linux-gnu
+release: 1.87.0
+LLVM version: 20.1.1
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.0.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-gfx v0.0.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m surimono-webidl v0.0.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-dom v0.0.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-islands v0.0.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.0.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
+[1m[32m   Compiling[0m surimono-ruby v0.0.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m   Compiling[0m surimono-cli v0.0.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 46.06s
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-0907fcc7ecd0fb69)
+
+running 66 tests
+test backend::tests::builtin_names_match_the_islands_crate ... ok
+test backend::tests::bundle_names_and_entries_are_checked ... ok
+test backend::tests::every_island_error_maps_to_a_public_error ... ok
+test backend::tests::fonts_must_be_fonts ... ok
+test charref::tests::named_references ... ok
+test charref::tests::plain_text_is_borrowed ... ok
+test error::tests::document_errors_have_no_island ... ok
+test error::tests::error_is_send_sync_static ... ok
+test error::tests::island_errors_name_the_island ... ok
+test charref::tests::numeric_references ... ok
+test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
+test options::tests::builder_sets_everything ... ok
+test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
+test options::tests::defaults ... ok
+test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
+test prepass::tests::attributes_in_any_order_and_quoting ... ok
+test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
+test prepass::tests::cancel_skips_the_remaining_islands_whatever_the_policy ... ok
+test prepass::tests::document_without_islands_is_unchanged ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::documents_without_the_island_type_are_not_parsed ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::html_escaped_json_gets_a_hint ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
+test prepass::tests::keeps_id_and_class ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
+test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
+test prepass::tests::placeholders_keep_the_island_size_and_style ... ok
+test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::other_scripts_are_left_alone ... ok
+test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
+test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::type_must_be_written_without_character_references ... ok
+test prepass::tests::utf8_text_around_and_inside_islands ... ok
+test prepass::tests::too_many_islands_fail_before_any_island_runs ... ok
+test prepass::tests::wrapper_keeps_accessibility_and_style_attributes_only ... ok
+test renderer::tests::an_island_is_clipped_to_its_declared_box ... ok
+test renderer::tests::builtins_come_first_then_bundles_in_order ... ok
+test renderer::tests::clock_options_reach_the_scripts ... ok
+test renderer::tests::a_forked_child_starts_its_own_runner_and_measurer ... ok
+test renderer::tests::hostile_svg_cannot_break_out_of_the_wrapper ... ok
+test renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process ... ok
+test renderer::tests::dropping_a_renderer_from_another_process_does_not_join_its_threads ... ok
+test renderer::tests::invalid_options ... ok
+test renderer::tests::many_threads_share_one_renderer ... ok
+test renderer::tests::many_threads_after_a_fork_share_one_new_slot ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test renderer::tests::text_is_measured_with_the_given_fonts ... ok
+test renderer::tests::too_many_fork_generations_is_an_error_not_a_hang ... ok
+test renderer::tests::unknown_and_disabled_renderers ... ok
+test svg::tests::markup_that_would_break_out_of_the_wrapper_is_an_error ... ok
+test svg::tests::outlining_text_without_fonts_says_what_to_do ... ok
+test svg::tests::scripts_and_handlers_are_removed_and_ids_prefixed ... ok
+test tests::every_builtin_is_precompiled ... ok
+test tests::version_is_set ... ok
+test renderer::tests::script_failures_become_typed_errors ... ok
+test renderer::tests::a_cancelled_render_skips_the_remaining_islands ... ok
+test renderer::tests::max_islands_caps_a_document ... ok
+
+test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+[1m[32m     Running[0m tests/breakout.rs (target/debug/deps/breakout-61f7ed461d885266)
+
+running 3 tests
+test the_check_catches_raw_breakouts ... ok
+test echarts_emphasis_colour_cannot_style_the_page ... ok
+test custom_bundle_svg_stays_in_its_box ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+[1m[32m     Running[0m tests/fixtures.rs (target/debug/deps/fixtures-716f6f6e2cc0f84d)
+
+running 4 tests
+test keep_mode_keeps_text_in_the_registered_font ... ok
+test echarts_bar_simple_latin_becomes_sanitised_svg ... ok
+test two_echarts_islands_share_no_ids ... ok
+test every_checkpoint_fixture_renders ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.33s
+
+[1m[32m     Running[0m tests/fork.rs (target/debug/deps/fork-54fd9fc52c42598d)
+
+running 2 tests
+test fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test forks_never_hang ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 5.10s
+
+[1m[32m     Running[0m unittests src/main.rs (target/debug/deps/surimono-5cff9ce47f9a92c1)
+
+running 6 tests
+test tests::dash_and_defaults ... ok
+test tests::parses_every_option ... ok
+test tests::usage_errors ... ok
+test tests::errors_map_to_exit_codes ... ok
+test tests::atomic_write_replaces_or_leaves_alone ... ok
+test tests::atomic_write_keeps_permissions_and_follows_links ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+[1m[32m     Running[0m tests/cli.rs (target/debug/deps/cli-3fd723008a280c7b)
+
+running 8 tests
+test a_failed_render_writes_no_output_file ... ok
+test help_and_version ... ok
+test bundles_renderers_and_island_cap ... ok
+test exit_codes_are_typed ... ok
+test stdin_to_stdout_leaves_a_document_without_islands_alone ... ok
+test same_input_same_output ... ok
+test a_failed_render_leaves_an_existing_output_alone ... ok
+test renders_an_echarts_island_from_file_to_file ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_core-7c357f08ad74e08f)
+
+running 92 tests
+test embed::tests::embedded_bytecode_is_stripped_and_smaller ... ok
+test embed::tests::compiling_for_embedding_is_deterministic ... ok
+test embed::tests::a_different_fingerprint_is_refused ... ok
+test embed::tests::embedded_bytecode_runs_like_compiled_bytecode ... ok
+test embed::tests::syntax_errors_are_reported ... ok
+test embed::tests::the_canary_compiles_and_the_fingerprint_is_stable ... ok
+test embed::tests::the_fingerprint_includes_the_engine_sources ... ok
+test embed::tests::the_version_is_readable ... ok
+test embed::tests::the_fingerprint_includes_the_patch_level ... ok
+test engine::tests::a_forked_child_has_a_newer_generation ... ok
+test engine::tests::a_refused_allocation_raises_the_flag ... ok
+test engine::tests::a_stale_expiry_never_stops_the_next_call ... ok
+test engine::tests::allocator_tracks_and_limits ... ok
+test embed::tests::stripping_hides_native_classes_from_to_string ... ok
+test engine::tests::bytecode_round_trip_across_runtimes ... ok
+test engine::tests::compile_does_not_run_the_script ... ok
+test engine::tests::compile_reports_syntax_errors ... ok
+test engine::tests::deadline_arms_and_disarms ... ok
+test engine::tests::fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test engine::tests::eval_bytecode_reports_exceptions ... ok
+test embed::tests::the_fingerprint_covers_the_format ... ok
+test engine::tests::pending_jobs_run_and_report_errors ... ok
+test engine::tests::stack_available_is_plausible ... ok
+test engine::tests::the_engine_is_patched ... ok
+test engine::tests::update_stack_top_is_harmless ... ok
+test engine::tests::one_watchdog_serves_every_sandbox ... ok
+test error::tests::limit_errors_are_flagged ... ok
+test fork_safe::tests::a_child_holds_its_own_election ... ok
+test fork_safe::tests::a_failed_init_is_retried ... ok
+test fork_safe::tests::a_panicking_init_is_retried ... ok
+test fork_safe::tests::failures_take_no_slot ... ok
+test engine::tests::watchdog_raises_the_flag_at_the_deadline ... ok
+test fork_safe::tests::out_of_slots_fails_without_running_init ... ok
+test limits::tests::defaults_match_the_spec ... ok
+test limits::tests::out_of_range_limits_are_rejected ... ok
+test limits::tests::setters_and_new_build_the_same_limits ... ok
+test fork_safe::tests::many_threads_init_once ... ok
+test sandbox::tests::allocation_bomb_hits_memory_limit ... ok
+test sandbox::tests::array_builtins_behave_normally ... ok
+test engine::tests::expire_races_arm_and_disarm ... ok
+test sandbox::tests::bound_functions_behave_normally ... ok
+test sandbox::tests::bytecode_compiles_once_and_runs_anywhere ... ok
+test sandbox::tests::call_json_parses_arguments ... ok
+test sandbox::tests::calls_global_functions ... ok
+test sandbox::tests::a_stale_deadline_fails_safe ... ok
+test sandbox::tests::async_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails ... ok
+test sandbox::tests::caught_stack_overflow_is_ordinary_js ... ok
+test sandbox::tests::compile_reports_syntax_errors ... ok
+test sandbox::tests::debug_of_a_deadline_records_nothing ... ok
+test sandbox::tests::deep_recursion_hits_stack_limit ... ok
+test sandbox::tests::caught_out_of_memory_still_reports_memory_limit ... ok
+test sandbox::tests::doubling_string_ends_with_a_typed_error ... ok
+test sandbox::tests::eval_and_function_constructor_stay_inside ... ok
+test sandbox::tests::evaluates_scripts ... ok
+test sandbox::tests::exceptions_carry_message_and_stack ... ok
+test sandbox::tests::deep_recursion_in_native_code_hits_stack_limit ... ok
+test sandbox::tests::heap_returns_to_baseline_after_reset ... ok
+test sandbox::tests::caught_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::huge_messages_are_truncated ... ok
+test sandbox::tests::exponential_microtask_flood_hits_a_limit ... ok
+test sandbox::tests::huge_typed_array_hits_memory_limit ... ok
+test sandbox::tests::huge_string_hits_memory_limit ... ok
+test sandbox::tests::host_functions_stop_at_the_deadline ... ok
+test sandbox::tests::infinite_loop_hits_time_limit ... ok
+test sandbox::tests::interrupt_skips_finally ... ok
+test sandbox::tests::limits_out_of_range_are_rejected ... ok
+test sandbox::tests::limit_errors_discard_state ... ok
+test sandbox::tests::microtasks_run_before_the_call_returns ... ok
+test sandbox::tests::no_host_access ... ok
+test sandbox::tests::oom_sweep_child ... ignored, helper: run in a child process by the out-of-memory sweeps
+test sandbox::tests::out_of_memory_full_sweep ... ignored, slow: every allocation of the compile-heavy script
+test sandbox::tests::microtask_flood_hits_a_limit ... ok
+test sandbox::tests::regex_backtracking_hits_time_limit ... ok
+test sandbox::tests::regexp_replace_results_are_unchanged ... ok
+test sandbox::tests::reset_discards_globals ... ok
+test sandbox::tests::reset_frees_contexts_that_used_rust_functions ... ok
+test sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime ... ok
+test sandbox::tests::run_await_settles_promises ... ok
+test sandbox::tests::run_gives_direct_context_access ... ok
+test sandbox::tests::sandboxes_are_independent ... ok
+test sandbox::tests::scripts_are_sloppy_like_classic_scripts ... ok
+test sandbox::tests::syntax_errors_are_exceptions ... ok
+test sandbox::tests::thrown_primitives_are_described ... ok
+test sandbox::tests::interrupted_natives_leak_nothing ... ok
+test sandbox::tests::too_little_thread_stack_is_refused ... ok
+test sandbox::tests::type_errors_on_conversion ... ok
+test sandbox::tests::works_from_a_deep_rust_stack ... ok
+test tests::version_is_set ... ok
+test sandbox::tests::time_limit_is_per_call ... ok
+test engine::tests::forks_never_hang ... ok
+test sandbox::tests::out_of_memory_never_aborts ... ok
+
+test result: ok. 89 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 37.02s
+
+[1m[32m     Running[0m tests/determinism.rs (target/debug/deps/determinism-e996254b0de43d83)
+
+running 20 tests
+test console_exists_and_is_silent ... ok
+test date_fields_are_clipped_after_the_offset ... ok
+test date_parse_matches_quickjs_child ... ignored, helper: run in a child process with TZ=UTC0
+test date_from_an_object_uses_the_sandbox_zone ... ok
+test date_shim_behaves_like_date ... ok
+test clock_is_fixed_and_configurable ... ok
+test invalid_options_are_rejected ... ok
+test every_context_restarts_the_sequence ... ok
+test date_parse_honours_named_zones ... ok
+test local_time_is_utc_by_default ... ok
+test local_time_follows_the_configured_offset ... ok
+test math_random_is_seeded ... ok
+test performance_is_virtual ... ok
+test stack_trace_api_is_off ... ok
+test two_runs_are_byte_identical ... ok
+test tz_child ... ignored, helper: run in a child process with TZ set
+test output_ignores_the_host_time_zone ... ok
+test weak_refs_are_strong_and_cleanup_never_runs ... ok
+test looping_prepare_stack_trace_hits_the_time_limit ... ok
+test date_parse_matches_quickjs_on_a_utc_host ... ok
+
+test result: ok. 18 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.73s
+
+[1m[32m     Running[0m tests/hostile.rs (target/debug/deps/hostile-ca3bb2df952d9dd3)
+
+running 7 tests
+test group_d_loops_around_expensive_native_calls_end ... ok
+test group_c_long_native_sorts_end ... ok
+test group_b_swallowed_interrupts_end ... ok
+test hostile_child ... ignored, helper: run in a child process by the hostile tests
+test group_e_superlinear_native_calls_end ... ok
+test group_f_regexp_per_match_loops_end ... ok
+test group_a_native_array_like_loops_end ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 7.14s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_dom-9dbcc8145df67101)
+
+running 1 test
+test tests::version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/handles.rs (target/debug/deps/handles-beb711de1003f32e)
+
+running 10 tests
+test no_document_loaded ... ok
+test get_element_by_id_and_text_content ... ok
+test create_and_append ... ok
+test parent_node_and_identity ... ok
+test node_and_depth_limits_are_typed_errors ... ok
+test text_content_setter_mutates_the_rust_document ... ok
+test removed_node_is_a_typed_error_not_wrong_data ... ok
+test wrapper_from_a_previous_document_is_stale ... ok
+test wrappers_cannot_be_forged ... ok
+test sandbox_limits_apply_and_bindings_survive_a_rebuild ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+[1m[32m     Running[0m tests/hostile.rs (target/debug/deps/hostile-2639a7b59be7e261)
+
+running 7 tests
+test limits_are_validated ... ok
+test tampering_after_use_cannot_read_or_forge_handles ... ok
+test tampering_before_first_use_cannot_read_or_forge_handles ... ok
+test handle_churn_hits_the_handle_limit ... ok
+test parse_enforces_depth_and_node_limits ... ok
+test deepest_allowed_tree_on_a_small_stack ... ok
+test wide_tree_drops_in_linear_time ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+[1m[32m     Running[0m tests/soak.rs (target/debug/deps/soak-f5c90e79bd8d2f01)
+
+running 2 tests
+test soak_dom_handles_2000_renders_flat_memory ... ignored, soak: 2,000 DOM renders; run in release with `--ignored soak`
+test handles_300_renders_flat_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.54s
+
+[1m[32m     Running[0m unittests src/main.rs (target/debug/deps/surimono_example_rust_islands-01094bef5dc40b70)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/example.rs (target/debug/deps/example-20f879e08ad339c1)
+
+running 4 tests
+test a_broken_island_names_itself ... ok
+test writes_to_a_file_when_asked ... ok
+test renders_every_island_and_keeps_the_rest ... ok
+test same_input_same_output_across_processes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_gfx-69042fbdb7dfb1d5)
+
+running 70 tests
+test css_font::tests::brief_examples ... ok
+test css_font::tests::family_names ... ok
+test css_font::tests::family_offset_points_at_the_list ... ok
+test css_font::tests::chrome_validity_and_sizes ... ok
+test css_font::tests::weights_and_styles ... ok
+test fonts::tests::rejects_non_fonts_without_panicking ... ok
+test fonts::tests::empty_set_resolves_to_nothing ... ok
+test fonts::tests::unknown_generic_target_is_an_error ... ok
+test measure::tests::empty_font_set_is_an_error ... ok
+test measure::tests::measurer_is_send_sync_clone ... ok
+test measure::tests::metrics_serialize_with_canvas_names ... ok
+test measure::tests::overlong_font_string_means_canvas_default ... ok
+test measure::tests::rounding_matches_skia ... ok
+test measure::tests::too_long_text_is_an_error ... ok
+test svg::css::tests::allowed_properties ... ok
+test svg::css::tests::css_string_escaping ... ok
+test svg::css::tests::declaration_pairs_and_removal ... ok
+test css_font::tests::hostile_input_never_panics ... ok
+test svg::css::tests::escapes_and_hidden_loads_drop_the_declaration ... ok
+test svg::css::tests::deep_nesting_is_an_error_not_a_crash ... ok
+test svg::css::tests::final_check_is_structure_free ... ok
+test svg::css::tests::inline_images ... ok
+test svg::css::tests::hostile_css_never_panics ... ok
+test svg::css::tests::newlines_end_strings_as_in_css ... ok
+test svg::css::tests::presentation_values ... ok
+test svg::css::tests::unquoted_urls_are_one_token ... ok
+test svg::css::tests::untouched_css_is_unchanged ... ok
+test svg::css::tests::urls_follow_the_url_parser ... ok
+test svg::css::tests::urls_in_declarations ... ok
+test svg::css::tokenizer::tests::comments ... ok
+test svg::css::tokenizer::tests::hostile_input_never_panics ... ok
+test svg::css::tokenizer::tests::names_and_escapes ... ok
+test svg::css::tokenizer::tests::preprocessing ... ok
+test svg::css::tokenizer::tests::strings_end_at_newlines ... ok
+test svg::css::tokenizer::tests::tokens_tile_the_input ... ok
+test svg::css::tokenizer::tests::url_tokens ... ok
+test svg::tests::css_attributes_are_written_as_checked ... ok
+test svg::tests::data_surimono_attributes_go ... ok
+test svg::css::tests::oversized_css_is_dropped ... ok
+test svg::tests::desc_and_title_keep_only_text ... ok
+test svg::tests::drops_prolog_comments_pis_and_cdata ... ok
+test svg::tests::escaping ... ok
+test svg::tests::id_lists_and_echarts_classes_are_prefixed ... ok
+test svg::tests::prefixes_ids_and_references ... ok
+test svg::tests::presentation_attributes_cannot_load ... ok
+test svg::tests::rejects_what_it_cannot_parse ... ok
+test svg::tests::removes_all_animation ... ok
+test svg::tests::removes_html_breakout_elements ... ok
+test svg::tests::root_keeps_only_box_safe_attributes ... ok
+test svg::tests::root_must_be_an_unprefixed_svg ... ok
+test svg::tests::strips_external_references ... ok
+test svg::tests::strips_scripts_handlers_and_script_urls ... ok
+test svg::tests::style_and_foreign_object_go ... ok
+test svg::tests::untouched_svg_is_byte_identical ... ok
+test svg::tests::urls_are_read_as_a_url_parser_reads_them ... ok
+test svg::tests::use_chains_are_cut ... ok
+test svg::text::tests::faces_used_are_recorded ... ok
+test svg::tests::deep_nesting_is_rejected_before_parsing ... ok
+test svg::text::tests::layout_matches_chrome ... ok
+test svg::text::tests::numbers_are_fixed_precision ... ok
+test svg::text::tests::outline_advance_equals_measure ... ok
+test svg::text::tests::output_keeps_structure_paint_and_meaning ... ok
+test svg::text::tests::path_bytes_are_budgeted_inside_the_pen ... ok
+test svg::text::tests::shaped_white_space_counts ... ok
+test svg::text::tests::styles_are_parsed_once_and_texts_are_capped ... ok
+test svg::text::tests::huge_coordinates_draw_nothing_and_numbers_stay_short ... ok
+test tests::version_is_set ... ok
+test measure::tests::large_texts_leave_no_large_buffers_behind ... ok
+test svg::text::tests::too_much_text_is_an_error_not_a_blowup ... ok
+test measure::tests::caches_stay_under_byte_budget_with_hostile_input ... ok
+
+test result: ok. 70 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.89s
+
+[1m[32m     Running[0m tests/fulgur_layout.rs (target/debug/deps/fulgur_layout-2f89d1b96f6efd45)
+
+running 2 tests
+test generic_families_find_no_font_in_blitz_without_system_fonts ... ok
+test measured_width_equals_blitz_layout_width ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+[1m[32m     Running[0m tests/fulgur_print.rs (target/debug/deps/fulgur_print-cb823ea5f6154f75)
+
+running 2 tests
+test outlined_island_text_prints_without_system_fonts ... ok
+test kept_island_text_prints_in_system_fonts_expected_failure ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/measure_text.rs (target/debug/deps/measure_text-b36636f9c66152dc)
+
+running 12 tests
+test errors ... ok
+test bad_font_strings_mean_canvas_default ... ok
+test generic_families_follow_the_mapping ... ok
+test font_files_are_returned_unchanged ... ok
+test japanese_falls_back_to_a_registered_cjk_font ... ok
+test deterministic_bits_across_measurers_and_order ... ok
+test matches_chrome_measure_text ... ok
+test measures_identically_from_many_threads ... ok
+test whitespace_and_empty_text ... ok
+test hostile_inputs_do_not_panic ... ok
+test reference_fonts_are_the_ones_chrome_used ... ok
+test timing_short_labels ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+[1m[32m     Running[0m tests/svg.rs (target/debug/deps/svg-6263795c658bf0d1)
+
+running 11 tests
+test errors_are_typed ... ok
+test font_shorthand_in_style_attributes ... ok
+test echarts_output_changes_only_ids_fonts_and_style ... ok
+test deterministic_and_unique_per_island ... ok
+test outlining_text_needs_fonts ... ok
+test hostile_svg_is_neutralised ... ok
+test rewritten_families_measure_like_the_original ... ok
+test every_id_and_reference_carries_the_island_prefix ... ok
+test vega_output_changes_only_fonts ... ok
+test real_charts_print_as_outlines ... ok
+test islands_stay_in_their_box ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_islands-e53458e0f2d03380)
+
+running 28 tests
+test builtins::tests::builtins_are_sorted_and_unique ... ok
+test builtins::tests::echarts_is_built_in ... ok
+test builtins::tests::every_listed_builtin_is_found ... ok
+test builtins::tests::the_class_scanner_finds_class_syntax ... ok
+test builtins::tests::vega_and_vega_lite_are_built_in ... ok
+test builtins::tests::the_constant_list_matches_the_builtins ... ok
+test builtins::tests::bundles_that_detect_classes_by_source_have_no_native_classes ... ok
+test embedded::tests::empty_bytecode_is_refused ... ok
+test builtins::tests::precompiled_builtins_counts_every_builtin ... ok
+test embedded::tests::bytecode_for_other_source_is_refused ... ok
+test embedded::tests::the_switch_is_zero_only ... ok
+test error::tests::wraps_sandbox_errors ... ok
+test embedded::tests::every_builtin_is_precompiled_for_this_engine ... ok
+test measure::tests::a_worker_measurer_measures_like_the_original ... ok
+test measure::tests::estimates_latin_and_cjk ... ok
+test measure::tests::no_fonts_is_its_own_error ... ok
+test measure::tests::parses_font_sizes ... ok
+test embedded::tests::another_engines_bytecode_is_refused ... ok
+test runner::tests::a_worker_that_dies_after_replying_is_replaced ... ok
+test runner::tests::a_worker_that_dies_holding_a_job_fails_only_that_job ... ok
+test runner::tests::measurer_errors_become_type_errors ... ok
+test runner::tests::measurer_panics_do_not_kill_the_pool ... ok
+test runner::tests::callers_fail_when_workers_die_at_start ... ok
+test runner::tests::waiting_callers_are_served_by_a_replacement ... ok
+test tests::version_is_set ... ok
+test runner::tests::repeated_deaths_do_not_grow_the_pool ... ok
+test embedded::tests::precompiled_bytecode_is_what_this_engine_writes ... ok
+test runner::tests::builtins_fall_back_to_source_for_another_engine ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+
+[1m[32m     Running[0m tests/bundles.rs (target/debug/deps/bundles-652d7f33fbedf4eb)
+
+running 2 tests
+test every_bundle_ships_its_licences ... ok
+test bundles_match_their_recorded_sha256 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[32m     Running[0m tests/echarts.rs (target/debug/deps/echarts-e13c1ca53c98031b)
+
+running 9 tests
+test echarts_is_a_builtin ... ok
+test bar_chart_is_valid_svg ... ok
+test bad_specs_are_typed_errors ... ok
+test japanese_labels_survive ... ok
+test a_preloaded_render_matches_a_cold_one ... ok
+test timing_echarts ... ignored, timing report; run explicitly in release mode
+test series_cannot_turn_animation_back_on ... ok
+test text_is_measured_by_the_host ... ok
+test every_option_renders_and_is_deterministic ... ok
+
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+[1m[32m     Running[0m tests/fixture_timing.rs (target/debug/deps/fixture_timing-798f9c60332a473a)
+
+running 3 tests
+test cold_child ... ignored, helper: run in a child process by timing_cold_processes
+test timing_cold_processes ... ignored, timing report; run explicitly in release mode
+test timing_fixture_islands ... ignored, timing report; run explicitly in release mode
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fork.rs (target/debug/deps/fork-0a9b444538fcac07)
+
+running 2 tests
+test fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test forks_never_hang ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.92s
+
+[1m[32m     Running[0m tests/hostile.rs (target/debug/deps/hostile-a80e9172bed0195a)
+
+running 6 tests
+test hostile_child ... ignored, helper: run in a child process by hostile_suite
+test hostile_child_ends_badly ... ignored, helper: run in a child process by the harness tests
+test every_way_a_child_ends_is_judged ... ok
+test known_failures_excuse_only_their_outcome ... ok
+test a_child_that_ends_badly_after_reporting_fails ... ok
+test hostile_suite ... ok
+
+test result: ok. 4 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 22.79s
+
+[1m[32m     Running[0m tests/memory_report.rs (target/debug/deps/memory_report-dc58530b30309efe)
+
+running 1 test
+test memory_report ... ignored, memory report; Linux, run explicitly in release mode
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/pool.rs (target/debug/deps/pool-83841b3fa4e85053)
+
+running 19 tests
+test an_entry_defined_in_a_microtask_is_refused_at_registration ... ok
+test a_bundle_that_queues_microtasks_is_never_preloaded ... ok
+test an_idle_worker_preloads_the_last_bundle ... ok
+test a_preloaded_bundle_never_leaks_into_another_renderer ... ok
+test idle_workers_are_counted ... ok
+test many_renders_on_a_small_pool_are_counted ... ok
+test no_state_leaks_across_renderers ... ok
+test heap_is_freed_after_every_render ... ok
+test no_state_leaks_between_renders ... ok
+test an_idle_worker_frees_its_runtime ... ok
+test preloaded_and_cold_renders_give_the_same_output ... ok
+test registration_never_sees_a_preloaded_bundle ... ok
+test renders_one_at_a_time_use_one_worker ... ok
+test replacing_a_bundle_drops_its_preloaded_copy ... ok
+test no_state_leaks_after_errors ... ok
+test stats_count_failures ... ok
+test overlapping_renders_grow_the_pool_up_to_its_size ... ok
+test runtimes_are_kept_without_an_idle_release ... ok
+test limit_errors_keep_the_pool_healthy ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+
+[1m[32m     Running[0m tests/runner.rs (target/debug/deps/runner-5e47bd2cd2864c75)
+
+running 20 tests
+test dropping_the_runner_stops_the_workers ... ok
+test bad_json_is_reported_with_position ... ok
+test async_entries_are_awaited ... ok
+test entry_exceptions_are_sandbox_errors ... ok
+test invalid_options_are_rejected ... ok
+test measure_text_returns_all_canvas_fields ... ok
+test lone_surrogates_become_replacement_characters ... ok
+test measuring_without_fonts_is_a_typed_error ... ok
+test non_string_output ... ok
+test pool_size_defaults_to_cpus_up_to_four ... ok
+test renders_concurrently_from_many_threads ... ok
+test renders_svg_with_measured_text ... ok
+test reregistering_replaces_the_bundle ... ok
+test runner_is_send_and_sync ... ok
+test same_request_same_svg ... ok
+test unknown_renderer ... ok
+test uses_the_configured_measurer ... ok
+test registration_checks_the_bundle ... ok
+test a_measure_text_loop_stops_at_the_time_limit ... ok
+test hostile_renderers_hit_limits_and_the_pool_recovers ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+
+[1m[32m     Running[0m tests/soak.rs (target/debug/deps/soak-18e90d9e6e7dde46)
+
+running 3 tests
+test soak_10000_renders_flat_memory ... ignored, soak: 10,000 renders; run in release with `--ignored soak`
+test soak_echarts_2000_renders_flat_memory ... ignored, soak: 2,000 ECharts renders; run in release with `--ignored soak`
+test soak_vega_lite_600_renders_flat_memory ... ignored, soak: 600 Vega-Lite renders; run in release with `--ignored soak`
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/vega.rs (target/debug/deps/vega-63e5334e61f8055d)
+
+running 17 tests
+test data_urls_are_refused ... ok
+test bad_specs_are_typed_errors ... ok
+test a_bundle_registered_during_a_builtin_compile_wins ... ok
+test japanese_labels_survive ... ok
+test dense_scatter_has_every_point ... ok
+test raster_features_fail_clearly ... ok
+test timing_vega ... ignored, timing report; run explicitly in release mode
+test vega_and_vega_lite_are_builtins ... ok
+test every_kind_of_load_is_refused_with_its_reason ... ok
+test text_is_measured_by_the_host ... ok
+test vega_bar_chart ... ok
+test vega_and_vega_lite_share_a_compile_and_render_alike ... ok
+test vega_lite_bar_chart ... ok
+test vega_soaks_up_no_state_between_specs ... ok
+test vega_lite_container_size_is_the_island ... ok
+test vega_and_vega_lite_share_a_preload ... ok
+test every_spec_renders_and_is_deterministic ... ok
+
+test result: ok. 16 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.87s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-e2d9ba4117d6cad4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_webidl-1f2ba610717d750b)
+
+running 15 tests
+test codegen::tests::rust_names ... ok
+test codegen::tests::const_values ... ok
+test lexer::tests::numbers ... ok
+test lexer::tests::identifiers_strings_comments ... ok
+test lexer::tests::unterminated ... ok
+test lexer::tests::positions ... ok
+test model::tests::errors_name_the_file ... ok
+test parser::tests::errors_have_positions ... ok
+test model::tests::merge_order_is_by_file_name_not_input_order ... ok
+test parser::tests::interface_with_every_member_kind ... ok
+test parser::tests::nesting_up_to_the_cap_parses ... ok
+test tests::version_is_set ... ok
+test parser::tests::other_definitions ... ok
+test parser::tests::deep_nesting_is_an_error_not_a_crash ... ok
+test codegen::tests::errors ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+[1m[32m     Running[0m tests/codegen.rs (target/debug/deps/codegen-69f6c48b3d03f921)
+
+running 5 tests
+test interface_table_matches_the_list ... ok
+test stubs_are_implementable_one_member_at_a_time ... ok
+test mini_golden_is_current ... ok
+test checked_in_stubs_are_current ... ok
+test generation_is_deterministic ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+[1m[32m     Running[0m tests/stack.rs (target/debug/deps/stack-c8e3856ebfad68f0)
+
+running 2 tests
+test deepest_accepted_idl_round_trips_and_generates_on_a_256_kib_stack ... ok
+test hostile_nesting_is_an_error_on_a_256_kib_stack ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+[1m[32m     Running[0m tests/vendored.rs (target/debug/deps/vendored-badeeaee70c114c8)
+
+running 9 tests
+test file_list_matches_the_idl_directory ... ok
+test no_name_is_defined_twice ... ok
+test sha256_matches_known_vectors ... ok
+test sources_md_names_the_pinned_commit_and_every_file ... ok
+test every_vendored_file_parses ... ok
+test parse_order_does_not_matter ... ok
+test printing_and_reparsing_gives_the_same_tree ... ok
+test vendored_files_match_the_checksums_in_sources_md ... ok
+test truncated_and_garbled_input_is_an_error_not_a_panic ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.91s
+
+[1m[32m   Doc-tests[0m surimono
+
+running 8 tests
+test crates/surimono/src/lib.rs - builtin_renderers (line 72) ... ok
+test crates/surimono/src/options.rs - options::Limits (line 25) ... ok
+test crates/surimono/src/lib.rs - (line 21) ... ok
+test crates/surimono/src/options.rs - options::Options (line 92) ... ok
+test crates/surimono/src/renderer.rs - renderer::Renderer (line 29) ... ok
+test crates/surimono/src/renderer.rs - renderer::Renderer::render_islands_cancellable (line 336) ... ok
+test crates/surimono/src/lib.rs - precompiled_builtins (line 91) ... ok
+test crates/surimono/src/options.rs - options::Options::bundle (line 220) ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[32m   Doc-tests[0m surimono_core
+
+running 3 tests
+test crates/core/src/limits.rs - limits::Limits (line 15) ... ok
+test crates/core/src/sandbox.rs - sandbox::SandboxOptions (line 49) ... ok
+test crates/core/src/lib.rs - (line 10) ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+[1m[32m   Doc-tests[0m surimono_dom
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_gfx
+
+running 1 test
+test crates/gfx/src/lib.rs - (line 12) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_islands
+
+running 1 test
+test crates/islands/src/lib.rs - (line 6) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[32m   Doc-tests[0m surimono_webidl
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
