@@ -37,6 +37,12 @@ pub use error::SandboxError;
 pub use limits::Limits;
 pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
 
+/// Not public API: timing hooks for surimono's own tests (feature
+/// `test-hooks`).
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub use sandbox::test_hooks;
+
 /// The rquickjs version surimono-core is built against, re-exported so
 /// dependent crates use the same one for [`Sandbox::run`] closures.
 pub use rquickjs;

@@ -11,9 +11,18 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[features]
+## Not public API: timing hooks for the crate's own hostile-script suite
+## (surimono_core::test_hooks).
+test-hooks = []
+
 [dependencies]
 rquickjs = { workspace = true, features = ["allocator"] }
 thiserror.workspace = true
+
+[dev-dependencies]
+# The hostile-script suite times a script's stop apart from the cleanup.
+surimono-core = { path = ".", features = ["test-hooks"] }
 
 [build-dependencies]
 # build.rs hashes the vendored engine sources for the bytecode fingerprint.
