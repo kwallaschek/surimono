@@ -830,7 +830,7 @@ impl IslandRunner {
     }
 
     /// Most worker threads this runner starts (see [`RunnerStats::workers`]
-    /// for how many it has started).
+    /// for how many are running).
     pub fn pool_size(&self) -> usize {
         self.shared.pool_size
     }
@@ -1615,7 +1615,10 @@ mod tests {
             );
             let _ = echo(&r, n);
             assert!(r.stats().workers <= 2, "{:?}", r.stats());
-            assert!(r.shared.workers_lock().len() <= 3);
+            // Live workers plus, at most, two dead ones whose threads
+            // haven't fully exited yet (each is pruned once finished).
+            let handles = r.shared.workers_lock().len();
+            assert!(handles <= r.pool_size() + 2, "{handles} handles");
         }
         set_fault(&r, Fault::None);
         assert_eq!(echo(&r, 99).unwrap(), "99");
