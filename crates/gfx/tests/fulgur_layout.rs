@@ -8,8 +8,21 @@
 //! `AssetBundle` font with `register_fonts(blob, None)`, hands it to
 //! `HtmlDocument::from_html` as `DocumentConfig::font_ctx`, then lays out with
 //! `doc.resolve(0.0)` (line 375). This test does the same with the same fonts.
+//!
+//! Every Blitz layout here runs on one worker thread that lives as long as
+//! the process (`on_blitz_thread`). Stylo 0.8.0 leaks two buffers per thread
+//! on purpose (`bloom.rs` `BLOOM_KEY`, 4104 bytes, and `sharing/mod.rs`
+//! `SHARING_CACHE_KEY`, 9496 bytes: `Box::leak` into a thread-local), so a
+//! style traversal on each short-lived libtest thread lost them and
+//! LeakSanitizer reported them. On a live thread they stay reachable from its
+//! thread-local storage, and only one pair is ever allocated.
 
 mod common;
+
+use std::panic::{self, AssertUnwindSafe};
+use std::sync::mpsc;
+use std::sync::{Mutex, OnceLock};
+use std::thread;
 
 use blitz_dom::{DocumentConfig, FontContext};
 use blitz_html::HtmlDocument;
@@ -17,10 +30,54 @@ use blitz_traits::shell::{ColorScheme, Viewport};
 use parley::fontique::{Blob, Collection, CollectionOptions, SourceCache};
 use surimono_gfx::{FontSet, TextMeasurer};
 
-/// Lays out `text` in an inline-block span. Returns the advance of its text
+type Job = Box<dyn FnOnce() + Send>;
+
+/// Runs `f` on the one Blitz worker thread and returns its result; a panic in
+/// `f` is re-raised here. The thread is never joined and its sender lives in a
+/// static, so it waits for work until the process exits (see the module docs
+/// for why).
+fn on_blitz_thread<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'static) -> R {
+    static WORKER: OnceLock<Mutex<mpsc::Sender<Job>>> = OnceLock::new();
+    let worker = WORKER.get_or_init(|| {
+        let (tx, rx) = mpsc::channel::<Job>();
+        thread::Builder::new()
+            .name("blitz".into())
+            .spawn(move || {
+                for job in rx {
+                    job();
+                }
+            })
+            .expect("spawn the Blitz worker thread");
+        Mutex::new(tx)
+    });
+    let (done_tx, done_rx) = mpsc::channel();
+    let job: Job = Box::new(move || {
+        // The worker outlives a panicking job; the receiver may be gone only if
+        // the calling test already panicked, so a failed send is ignored.
+        let _ = done_tx.send(panic::catch_unwind(AssertUnwindSafe(f)));
+    });
+    worker
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .send(job)
+        .expect("the Blitz worker thread is alive");
+    match done_rx.recv().expect("the Blitz worker returns a result") {
+        Ok(r) => r,
+        Err(p) => panic::resume_unwind(p),
+    }
+}
+
+/// Lays out `text` in an inline-block span on the Blitz worker thread
+/// (`on_blitz_thread`). Returns the advance of its text
 /// (the Parley line Blitz built), the span's unrounded box width, and the
 /// box width after Taffy's pixel snapping.
 fn blitz_layout(fonts: &FontSet, css_font: &str, text: &str) -> (f32, f32, f32) {
+    let fonts = fonts.clone();
+    let (css_font, text) = (css_font.to_owned(), text.to_owned());
+    on_blitz_thread(move || layout_here(&fonts, &css_font, &text))
+}
+
+fn layout_here(fonts: &FontSet, css_font: &str, text: &str) -> (f32, f32, f32) {
     let mut ctx = FontContext {
         collection: Collection::new(CollectionOptions {
             system_fonts: false,
