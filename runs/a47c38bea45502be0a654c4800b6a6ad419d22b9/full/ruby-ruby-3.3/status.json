@@ -1,1 +1,1 @@
-{"workflow":"full","job":"ruby","matrix":"ruby-3.3","status":"success","reported":"success","needs_result":"","reported_job":"ruby","sha":"a47c38bea45502be0a654c4800b6a6ad419d22b9","ref":"main","event":"push","run_id":"41723045733","attempt":"1","finished_at":"2026-11-03T21:39:19Z"}
+{"workflow":"full","job":"ruby","matrix":"ruby-3.3","status":"success","reported":"success","needs_result":"","reported_job":"ruby","sha":"a47c38bea45502be0a654c4800b6a6ad419d22b9","ref":"main","event":"schedule","run_id":"41727822253","attempt":"1","finished_at":"2026-11-03T22:13:42Z"}
