@@ -416,10 +416,10 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
     }
 }
 
-/// The lowest engine patch level the sandbox runs on: 4, the per-match
-/// polls in the regexp replace loops (P1-RT-23) on top of level 3 (see
-/// `vendor/rquickjs-sys/PATCHES.md`).
-pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 4;
+/// The lowest engine patch level the sandbox runs on: 5, the checks in
+/// `JS_NewObjectFromShape` and for destructured parameters (P1-RT-36) on
+/// top of level 4 (see `vendor/rquickjs-sys/PATCHES.md`).
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 5;
 
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse
