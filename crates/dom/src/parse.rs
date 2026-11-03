@@ -11,7 +11,7 @@
 //!   over [`DomLimits`](crate::DomLimits). html5ever walks its stack of open
 //!   elements for most start tags, so a very deep tree would also cost
 //!   quadratic time inside one call that can't be interrupted;
-//! - unusable URLs: see [`url_is_usable`].
+//! - style text: see [`stash_style_text`].
 
 use std::borrow::Cow;
 use std::cell::{Cell, Ref, RefCell};
@@ -24,39 +24,15 @@ use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::tokenizer::TokenizerOpts;
 use html5ever::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeBuilderOpts, TreeSink};
 use html5ever::{Attribute, QualName};
-use url::Url;
-
-/// The URL relative references resolve against. Nothing is ever fetched
-/// (the document has no net provider), but blitz-dom panics when it can't
-/// resolve an `<img src>` or `<link href>`, and its default base, a `data:`
-/// URL, can't resolve any relative reference.
-pub(crate) const BASE_URL: &str = "https://surimono.invalid/";
 
 /// Bytes of HTML fed between limit checks.
 const CHUNK: usize = 4096;
 
-/// Whether blitz-dom can resolve `raw` against [`BASE_URL`]. It panics on
-/// what can't be (`http://[`), when an `<img>` or a `<link>` joins the
-/// document, so such a value is hidden from it while the element joins, and
-/// put back after.
-pub(crate) fn url_is_usable(raw: &str) -> bool {
-    Url::parse(BASE_URL).and_then(|b| b.join(raw)).is_ok()
-}
-
-/// Whether blitz-dom resolves attribute `name` of an element called `tag`
-/// as it joins the document.
-pub(crate) fn is_loaded_url(tag: &str, name: &str) -> bool {
-    matches!((tag, name), ("img", "src") | ("link", "href"))
-}
-
 /// What the sink learned, beyond the tree.
 #[derive(Debug, Default)]
 pub(crate) struct Parsed {
-    /// (comment node, data).
-    pub comments: Vec<(usize, String)>,
-    /// `<img src>` / `<link href>` values hidden from blitz-dom: (node,
-    /// attribute, value), to write back.
-    pub hidden_urls: Vec<(usize, QualName, String)>,
+    /// (node, data): comment data, and the text of `<style>` elements.
+    pub strings: Vec<(usize, String)>,
     pub quirks: bool,
     /// Feeding stopped because the tree went over a limit.
     pub over_limit: bool,
@@ -86,6 +62,8 @@ struct Sink<'m, 'doc> {
     /// an element or comment, or is the only one.
     deepest: Rc<Cell<u32>>,
     created: Rc<Cell<usize>>,
+    /// Every `<style>` created; shared with the caller like the counters.
+    styles: Rc<RefCell<Vec<usize>>>,
 }
 
 impl Sink<'_, '_> {
@@ -128,24 +106,12 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         self.inner.elem_name(target)
     }
 
-    fn create_element(
-        &self,
-        name: QualName,
-        mut attrs: Vec<Attribute>,
-        flags: ElementFlags,
-    ) -> usize {
+    fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> usize {
         self.note_created();
-        let mut hidden = Vec::new();
-        for a in &mut attrs {
-            if is_loaded_url(&name.local, &a.name.local) && !url_is_usable(&a.value) {
-                hidden.push((a.name.clone(), a.value.to_string()));
-                a.value = StrTendril::new();
-            }
-        }
+        let is_style = name.local.as_ref() == "style";
         let id = self.inner.create_element(name, attrs, flags);
-        let mut parsed = self.parsed.borrow_mut();
-        for (name, value) in hidden {
-            parsed.hidden_urls.push((id, name, value));
+        if is_style {
+            self.styles.borrow_mut().push(id);
         }
         id
     }
@@ -155,7 +121,7 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         let id = self.inner.create_comment(text.clone());
         self.parsed
             .borrow_mut()
-            .comments
+            .strings
             .push((id, text.to_string()));
         id
     }
@@ -265,6 +231,7 @@ pub(crate) fn parse_fragment(
 ) -> Parsed {
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
+    let styles = Rc::new(RefCell::new(Vec::new()));
     let sink = Sink {
         inner: DocumentHtmlParser::new(mutr),
         document: holder,
@@ -272,12 +239,14 @@ pub(crate) fn parse_fragment(
         depths: RefCell::new(Vec::new()),
         deepest: deepest.clone(),
         created: created.clone(),
+        styles: styles.clone(),
     };
     let parser = driver::parse_fragment_for_element(sink, opts(), context, false, None);
     let (mut parsed, stopped) = feed(parser, html, || {
         stop() || created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
+    stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
     parsed
 }
 
@@ -289,6 +258,7 @@ pub(crate) fn parse_document(
 ) -> Parsed {
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
+    let styles = Rc::new(RefCell::new(Vec::new()));
     let sink = Sink {
         document: 0,
         inner: DocumentHtmlParser::new(mutr),
@@ -296,11 +266,41 @@ pub(crate) fn parse_document(
         depths: RefCell::new(Vec::new()),
         deepest: deepest.clone(),
         created: created.clone(),
+        styles: styles.clone(),
     };
     let parser = driver::parse_document(sink, opts());
     let (mut parsed, stopped) = feed(parser, html, || {
         created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
+    // Before `mutr` flushes, which is when blitz-dom reads style text.
+    stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
     parsed
+}
+
+/// Moves the text under `styles` out of blitz-dom, into `out`.
+///
+/// blitz-dom parses a `<style>`'s text whenever the element or its children
+/// change, attached or not, and panics on an `@import` whose URL can't be
+/// resolved (`import.url.url().unwrap()`, net.rs). Which text does that can
+/// only be told by parsing CSS, across node boundaries; so no style text
+/// reaches it. `Document` keeps it in its side table and reads it from there;
+/// blitz-dom sees empty text nodes and no stylesheets.
+fn stash_style_text(
+    mutr: &mut DocumentMutator<'_>,
+    styles: &[usize],
+    out: &mut Vec<(usize, String)>,
+) {
+    let mut stack = styles.to_vec();
+    while let Some(n) = stack.pop() {
+        let Some(node) = mutr.doc.get_node_mut(n) else {
+            continue;
+        };
+        if let Some(t) = node.text_data_mut() {
+            if !t.content.is_empty() {
+                out.push((n, std::mem::take(&mut t.content)));
+            }
+        }
+        stack.extend(node.children.iter().copied());
+    }
 }
