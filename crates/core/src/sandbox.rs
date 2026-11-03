@@ -2118,6 +2118,22 @@ const BoundPt = Pt.bind(null, 7);
         );
     }
 
+    /// For the sweeps: every path of the event loop, which also keeps one
+    /// JavaScript value in Rust (a leak of it shows as heap left over).
+    const EVENT_LOOP_SCRIPT: &str = r#"
+var log = [];
+setTimeout(function (a, b) { log.push(a + b); queueMicrotask(() => log.push('m')); }, 1, 'x', 'y');
+setTimeout("log.push('string')", 2);
+setTimeout(() => { throw new Error('reported'); }, 3);
+queueMicrotask(() => { throw new TypeError('reported too'); });
+var n = 0;
+var h = setInterval(() => { if (++n === 3) clearInterval(h); }, 0);
+clearTimeout(setTimeout(() => {}, 5));
+requestAnimationFrame((t) => log.push(t));
+cancelAnimationFrame(requestAnimationFrame(() => {}));
+setTimeout(() => {}, 1e9);
+"#;
+
     /// Child side of the out-of-memory sweeps. SURIMONO_OOM_SCRIPT picks the
     /// script, SURIMONO_OOM_MODE `eval` (compile and run) or `bytecode` (run
     /// precompiled bytecode), and SURIMONO_OOM_ARENA=off makes every
@@ -2128,11 +2144,16 @@ const BoundPt = Pt.bind(null, 7);
     #[ignore = "helper: run in a child process by the out-of-memory sweeps"]
     fn oom_sweep_child() {
         let limits = limits().with_time(Duration::from_secs(10));
+        let event_loop = std::env::var("SURIMONO_OOM_SCRIPT").as_deref() == Ok("event-loop");
         let script = match std::env::var("SURIMONO_OOM_SCRIPT").as_deref() {
             Ok("compiling") => COMPILING_SCRIPT,
             Ok("syntax") => SYNTAX_SCRIPT,
+            Ok("event-loop") => EVENT_LOOP_SCRIPT,
             _ => ALLOCATING_SCRIPT,
         };
+        let options = SandboxOptions::default()
+            .with_limits(limits)
+            .with_event_loop(event_loop);
         let bytecode = std::env::var("SURIMONO_OOM_MODE").as_deref() == Ok("bytecode");
         engine::fault::set_arena_off(std::env::var("SURIMONO_OOM_ARENA").as_deref() == Ok("off"));
         let compiled = bytecode.then(|| {
@@ -2143,10 +2164,13 @@ const BoundPt = Pt.bind(null, 7);
         });
         let run = |sb: &mut Sandbox| match &compiled {
             Some(bc) => sb.eval_bytecode(bc),
+            None if event_loop => sb
+                .eval::<()>(script)
+                .and_then(|()| sb.run_until_settled(&SettleOptions::default()).map(drop)),
             None => sb.eval::<String>(script).map(drop),
         };
         if std::env::var_os("SURIMONO_OOM_COUNT").is_some() {
-            let mut sb = Sandbox::new(limits).unwrap();
+            let mut sb = Sandbox::with_options(options.clone()).unwrap();
             engine::fault::refuse_nth(usize::MAX);
             run(&mut sb).unwrap();
             println!("OOM-COUNT {}", engine::fault::count());
@@ -2155,7 +2179,7 @@ const BoundPt = Pt.bind(null, 7);
         let ns = std::env::var("SURIMONO_OOM_NS").unwrap();
         let (mut ok, mut refused) = (0, 0);
         for n in ns.split(',').map(|n| n.parse::<usize>().unwrap()) {
-            let mut sb = Sandbox::new(limits).unwrap();
+            let mut sb = Sandbox::with_options(options.clone()).unwrap();
             let state = sb.state.clone();
             engine::fault::refuse_nth(n);
             let result = run(&mut sb);
@@ -2258,6 +2282,7 @@ const BoundPt = Pt.bind(null, 7);
                 oom_sweep(script, mode, "off", 1);
             }
         }
+        oom_sweep("event-loop", "eval", "off", 1);
         for mode in ["eval", "bytecode"] {
             oom_sweep("compiling", mode, "off", 13);
         }
