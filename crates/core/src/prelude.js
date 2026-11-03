@@ -856,7 +856,7 @@
   expose('clearTimeout', { clearTimeout() { clearTimer(arguments); } }.clearTimeout, 0);
   expose('clearInterval', { clearInterval() { clearTimer(arguments); } }.clearInterval, 0);
 
-  // HTML "run the animation frame callbacks": All of one frame get
+  // HTML "run the animation frame callbacks": all of one frame get
   // the same time; one set during a frame waits for the next.
   expose('requestAnimationFrame', {
     requestAnimationFrame(callback) {

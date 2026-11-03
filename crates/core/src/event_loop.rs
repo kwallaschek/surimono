@@ -357,6 +357,12 @@ impl LoopState {
 
     /// The end of a task, after its microtasks: an interval still live goes
     /// round again from the task's own nesting level; anything else is gone.
+    ///
+    /// Read literally, the standard's microtask checkpoint leaves "currently
+    /// running task" null, which would restart the level of an interval
+    /// that queued a microtask. Its note says the level covers repeating
+    /// timers, so the task's own level is kept; `setInterval(f, 0)` with a
+    /// promise inside still moves the clock.
     fn finish(&mut self, task: Task) {
         if !self.live.contains_key(&task.id) {
             return;
