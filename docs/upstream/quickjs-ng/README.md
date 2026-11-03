@@ -1,8 +1,14 @@
 # quickjs-ng issue drafts
 
-Public issue texts for Kay to file at https://github.com/quickjs-ng/quickjs/issues (P1-RT-20). The project's `SECURITY.md` takes no private reports and issues no CVEs: "Please file bug reports in the issue tracker". The fleet never files them. Each file starts with its title; paste the rest as the body.
+Public issue texts for Kay to file at https://github.com/quickjs-ng/quickjs/issues (P1-RT-20). The project's `SECURITY.md` takes no private reports and issues no CVEs: "Please file bug reports in the issue tracker". The fleet never files them.
 
-Before filing, run `./repro.sh` (5 to 10 minutes; needs git, cmake and a C compiler with AddressSanitizer). It clones current master into a temporary directory, builds it and prints one line per reproducer. Every line said REPRODUCED on e22ce4de (2 Nov 2026), apart from the `-` baseline, a plain loop that must stop on time. Reword or skip any finding that says "not reproduced" by then.
+**To file:**
+
+1. Run `./repro.sh` here (10 to 15 minutes; needs git, cmake and a C compiler with AddressSanitizer). It clones current master into a temporary directory, builds it and prints one line per reproducer, with what failed if a build step fails. Every line said REPRODUCED on e22ce4de (2 Nov 2026), apart from the `-` baseline, a plain loop that must stop on time. Reword or skip any finding that says "not reproduced" by then. `cases/time/string-raw.js` peaks at about 1.1 GB of memory, and `time-limit.c` sets no memory limit.
+2. Make the archive once: `tar czf quickjs-ng-repro.tar.gz repro.sh harness cases`.
+3. For each finding, use the file's first line as the title and the rest as the body, and attach `quickjs-ng-repro.tar.gz` to the issue. The bodies refer to that archive by name, and nothing in them points into this repository. GitHub accepts `.gz` attachments.
+
+The patch numbers below are for this repository only (`vendor/rquickjs-sys/PATCHES.md`).
 
 | # | Finding | Kind | surimono patch |
 |---|---|---|---|

@@ -3,7 +3,7 @@
 # temporary directory, builds it twice (ASan for the crashes, release for the
 # time limits) and prints one line per reproducer. Nothing outside the temporary
 # directory is touched. Needs git, cmake, a C compiler with AddressSanitizer
-# and about 5 minutes.
+# and 10 to 15 minutes.
 #
 #   ./repro.sh                 current master
 #   ./repro.sh <commit>        that commit
@@ -18,26 +18,37 @@ cc="${CC:-cc}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+# step WHAT COMMAND...: runs COMMAND; on failure says which step and why, and stops.
+step() {
+  local what="$1"; shift
+  if ! "$@" >"$work/step.log" 2>&1; then
+    echo "repro.sh: $what failed:" >&2
+    tail -n 30 "$work/step.log" >&2
+    exit 2
+  fi
+}
+
 if [ -n "${QUICKJS_DIR:-}" ]; then
   src="$QUICKJS_DIR"
 else
   src="$work/quickjs"
-  git clone -q https://github.com/quickjs-ng/quickjs.git "$src" || exit 2
-  git -C "$src" checkout -q "$ref" || exit 2
+  step "cloning quickjs-ng" git clone -q https://github.com/quickjs-ng/quickjs.git "$src"
+  step "checking out $ref" git -C "$src" checkout -q "$ref"
 fi
 echo "quickjs-ng $(git -C "$src" rev-parse HEAD) ($(git -C "$src" log -1 --format=%cs))"
 
 echo "building (ASan and release)..."
 jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
-cmake -S "$src" -B "$work/asan" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER="$cc" -DQJS_ENABLE_ASAN=ON \
-  -DCMAKE_C_FLAGS=-O1 >/dev/null || exit 2
-cmake --build "$work/asan" -j "$jobs" --target qjs >/dev/null 2>&1 || exit 2
-cmake -S "$src" -B "$work/rel" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="$cc" >/dev/null || exit 2
-cmake --build "$work/rel" -j "$jobs" --target qjs qjs_exe >/dev/null 2>&1 || exit 2
-"$cc" -g -O1 -fsanitize=address -I"$src" "$here/harness/fail-nth.c" "$work/asan/libqjs.a" \
-  -lm -lpthread -ldl -o "$work/fail-nth" 2>/dev/null || exit 2
-"$cc" -g -O2 -I"$src" "$here/harness/time-limit.c" "$work/rel/libqjs.a" \
-  -lm -lpthread -ldl -o "$work/time-limit" 2>/dev/null || exit 2
+step "configuring the ASan build" cmake -S "$src" -B "$work/asan" -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_COMPILER="$cc" -DQJS_ENABLE_ASAN=ON -DCMAKE_C_FLAGS=-O1
+step "the ASan build" cmake --build "$work/asan" -j "$jobs" --target qjs
+step "configuring the release build" cmake -S "$src" -B "$work/rel" -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER="$cc"
+step "the release build" cmake --build "$work/rel" -j "$jobs" --target qjs qjs_exe
+step "compiling harness/fail-nth.c" "$cc" -g -O1 -fsanitize=address -I"$src" "$here/harness/fail-nth.c" \
+  "$work/asan/libqjs.a" -lm -lpthread -ldl -o "$work/fail-nth"
+step "compiling harness/time-limit.c" "$cc" -g -O2 -I"$src" "$here/harness/time-limit.c" \
+  "$work/rel/libqjs.a" -lm -lpthread -ldl -o "$work/time-limit"
 
 export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=0
 
@@ -48,8 +59,9 @@ oom() {
   for n in $("$work/fail-nth" sweep "$script" 2>/dev/null); do
     report="$("$work/fail-nth" run "$n" "$script" 2>&1 || true)"
     if grep -Eq "$pattern" <<<"$report"; then
-      printf 'REPRODUCED      %-3s %-26s refused allocation %s: %s\n' "$finding" "$2" "$n" \
-        "$(grep -Em1 'ERROR: AddressSanitizer|Assertion' <<<"$report" | sed -E 's/^==[0-9]+==//; s/ on (unknown )?address.*//; s/.*(Assertion .*failed).*/\1/')"
+      printf 'REPRODUCED      %-3s %-26s refused allocation %s: %s %s\n' "$finding" "$2" "$n" \
+        "$(grep -Em1 'ERROR: AddressSanitizer|Assertion' <<<"$report" | sed -E 's/^==[0-9]+==//; s/ on (unknown )?address.*//; s/.*(Assertion .*failed).*/\1/')" \
+        "$(grep -Eom1 '^(READ|WRITE) of size [0-9]+|caused by a (READ|WRITE) memory access' <<<"$report" | sed -E 's/caused by a (READ|WRITE) memory access/\1/')"
       return
     fi
   done

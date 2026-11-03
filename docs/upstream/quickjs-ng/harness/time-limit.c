@@ -24,7 +24,7 @@ static double now_ms(void)
 
 static double deadline, limit_ms;
 
-static int handler(JSRuntime *rt, void *opaque)
+static int handler(JSContext *ctx, void *opaque)
 {
     return deadline > 0 && now_ms() > deadline;
 }

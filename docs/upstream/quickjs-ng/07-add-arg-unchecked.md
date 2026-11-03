@@ -13,7 +13,7 @@ emit_u16(s, idx);
 
 `add_arg` returns -1 when the argument table can't grow, and nothing checks it (the named-parameter path a few lines down does). `(uint16_t)-1` goes into the bytecode. The function compiles, and when it runs, `OP_get_arg` reads `arg_buf[0xffff]`, about 1 MiB past the frame, and dups whatever it finds there as a JSValue.
 
-**Reproduce.** `repro.sh` and `harness/fail-nth.c` reproduce this on master at e22ce4de (2 Nov 2026). The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/parameter-destructuring.js`:
+**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/parameter-destructuring.js`:
 
 ```js
 function f({ a }) { return a; }
@@ -34,4 +34,4 @@ if (idx < 0)
     goto fail;
 ```
 
-`add_var` has unchecked callers too (`add_arguments_var` and `add_func_var` in `js_parse_function_decl2`'s helpers, `_ret_` in the statement parser), worth the same look. We haven't tried to reproduce those.
+`add_var` has unchecked callers too (`add_arguments_var` and `add_func_var` from `add_eval_variables`, `_ret_` in the statement parser), worth the same look. We haven't tried to reproduce those.

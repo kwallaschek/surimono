@@ -24,6 +24,6 @@ for k in $(seq 5900000 16384 6400000); do
 done
 ```
 
-24 of the 31 pad sizes end in SIGSEGV on e22ce4de (2 Nov 2026). The window depends on the build. `repro.sh` runs this scan and a single-allocation version (`cases/oom/bind.js`).
+24 of the 31 pad sizes end in SIGSEGV on e22ce4de (2 Nov 2026). The window depends on the build. The `repro.sh` in `quickjs-ng-repro.tar.gz`, attached, runs this scan and a single-allocation version (`cases/oom/bind.js`).
 
-**Suggested fix.** Allocate the record before the object, or set `p->u.bound_function = NULL` first and return early from the finalizer and the mark function on NULL, as other finalizers do. This is patch 6 in `vendor/rquickjs-sys/PATCHES.md` in surimono.
+**Suggested fix.** Allocate the record before the object, or set `p->u.bound_function = NULL` first and return early from the finalizer and the mark function on NULL, as other finalizers do. surimono carries this fix in its patched copy of QuickJS, and we can send it as a pull request.

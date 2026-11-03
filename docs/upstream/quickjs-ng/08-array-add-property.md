@@ -18,7 +18,7 @@ pr->u.value = js_int32(0);
 
 The branch isn't only for the first array. `Array` called as a constructor with another `new.target` reaches it through `js_create_from_ctor` and `JS_NewObjectProtoClass`, and the shape found there is the empty one for that prototype, not `ctx->array_shape`. When that empty shape is shared and has no `length` successor yet, `add_property` goes through `js_clone_shape`, which allocates and can fail. Then `pr` is NULL.
 
-**Reproduce.** `repro.sh` and `harness/fail-nth.c` reproduce this on master at e22ce4de (2 Nov 2026). The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/array-subclass.js`:
+**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/array-subclass.js`:
 
 ```js
 class A extends Array {}
@@ -45,9 +45,9 @@ done
 
 ```c
 if (unlikely(!pr)) {
+    js_free_shape(ctx->rt, p->shape);
     js_free(ctx, p->prop);
     js_free(ctx, p);
-    js_free_shape(ctx->rt, sh);
     return JS_EXCEPTION;
 }
 ```
