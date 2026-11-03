@@ -3,15 +3,23 @@
 //! churn, and scripts that tamper with built-ins to read or forge handles
 //! (review of #80).
 
-use surimono_core::{Limits, Sandbox};
+mod common;
+
+use std::time::Duration;
+
+use common::{limits, scaled};
+use surimono_core::Sandbox;
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
-const PAGE: &str = r#"<html><body><p id="p">secret</p><div id="d">x</div></body></html>"#;
+// With a doctype: blitz-html prints every parse error on stdout, and a
+// missing doctype is one ("ERROR: Unexpected token").
+const PAGE: &str =
+    r#"<!doctype html><html><body><p id="p">secret</p><div id="d">x</div></body></html>"#;
 
 /// `n` nested `<div>`s inside `<body>`; the innermost is at depth `n + 2`.
 fn nested(n: usize) -> String {
     format!(
-        "<html><body>{}<i id=\"deep\">deep</i>{}</body></html>",
+        "<!doctype html><html><body>{}<i id=\"deep\">deep</i>{}</body></html>",
         "<div>".repeat(n),
         "</div>".repeat(n)
     )
@@ -30,7 +38,8 @@ fn parse_enforces_depth_and_node_limits() {
         max_nodes: 50,
         ..DomLimits::default()
     };
-    let r = Document::parse_with_limits(&"<b>x</b>".repeat(30), limits);
+    let r =
+        Document::parse_with_limits(&format!("<!doctype html>{}", "<b>x</b>".repeat(30)), limits);
     assert_eq!(r.unwrap_err(), DomError::NodeLimit { limit: 50 });
 }
 
@@ -78,7 +87,7 @@ fn deepest_allowed_tree_on_a_small_stack() {
             let html = doc.to_html();
             assert!(html.contains("<i id=\"deep\">deep</i>"));
             let mut rt =
-                DomRuntime::new(Limits::default().with_stack_bytes(256 * 1024)).unwrap();
+                DomRuntime::new(common::limits().with_stack_bytes(256 * 1024)).unwrap();
             rt.load(doc);
             let depth: i32 = rt
                 .eval(
@@ -125,7 +134,10 @@ fn deepest_allowed_tree_on_a_small_stack() {
 #[test]
 fn wide_tree_drops_in_linear_time() {
     // 50,000 siblings, each with a child: one drop, not 50,000 list scans.
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    // Building them is about a second of debug-build host calls and took
+    // over 2 s (the default limit) on a loaded machine or under ASan, so the
+    // limit here is well above the bound that the test is about.
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     let started = std::time::Instant::now();
     let _: () = rt
@@ -136,14 +148,14 @@ fn wide_tree_drops_in_linear_time() {
         d.textContent = '';"#,
         )
         .unwrap();
-    assert!(started.elapsed() < std::time::Duration::from_secs(10));
+    assert!(started.elapsed() < scaled(Duration::from_secs(30)));
     let doc = rt.take().unwrap();
     assert!(doc.node_count() < 20, "{}", doc.node_count());
 }
 
 #[test]
 fn handle_churn_hits_the_handle_limit() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(
         Document::parse_with_limits(
             PAGE,
@@ -212,7 +224,7 @@ TypeError,TypeError,TypeError,secret,true,true,BODY,true,[]";
 
 #[test]
 fn tampering_before_first_use_cannot_read_or_forge_handles() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     // The first eval installs the bindings, then runs the tampering script
     // before any wrapper exists.
@@ -224,7 +236,7 @@ fn tampering_before_first_use_cannot_read_or_forge_handles() {
 
 #[test]
 fn tampering_after_use_cannot_read_or_forge_handles() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     // Wrappers exist and are cached before the built-ins are replaced.
     let _: String = rt
@@ -251,7 +263,7 @@ fn on_a_tight_stack(script: &'static str, levels: usize) -> Result<i32, DomError
     // and the part of the requested size that isn't usable stack (32 KiB
     // was too little on Linux, debug build).
     const SLACK: usize = 64 * 1024;
-    let limits = Limits::default();
+    let limits = limits();
     let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + SLACK;
     std::thread::Builder::new()
         .stack_size(size)
