@@ -131,26 +131,41 @@ fn deepest_allowed_tree_on_a_small_stack() {
     worker.join().expect("no stack overflow");
 }
 
+/// Time to drop `n` siblings with one text child each, best of 3. Each
+/// trial builds in its own `eval`, outside the timer: the build loop is nearly
+/// all of the work, and would hide a slow drop.
+fn wide_drop_time(n: usize) -> Duration {
+    (0..3)
+        .map(|_| {
+            // The limit only has to let a slow build finish building.
+            let mut rt =
+                DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+            rt.load(Document::parse(PAGE).unwrap());
+            let build = format!(
+                "globalThis.d = document.getElementById('d');
+                for (let i = 0; i < {n}; i++) d.appendChild(document.createElement('b')).appendChild(document.createTextNode('t'));"
+            );
+            let _: () = rt.eval(&build).unwrap();
+            let started = std::time::Instant::now();
+            let _: () = rt.eval("d.textContent = ''").unwrap();
+            let took = started.elapsed();
+            let doc = rt.take().unwrap();
+            assert!(doc.node_count() < 20, "{}", doc.node_count());
+            took
+        })
+        .min()
+        .unwrap()
+}
+
+/// One drop of a wide tree, not one list scan per child. The drop is compared
+/// with itself, so machine speed and the time scale don't matter: four times
+/// the children must cost less than eight times the time. Measured in a debug
+/// build: linear about 4.5, quadratic (a scan per child) about 12.7.
 #[test]
 fn wide_tree_drops_in_linear_time() {
-    // 50,000 siblings, each with a child: one drop, not 50,000 list scans.
-    // Building them is about a second of debug-build host calls and took
-    // over 2 s (the default limit) on a loaded machine or under ASan, so the
-    // limit here is well above the bound that the test is about.
-    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
-    rt.load(Document::parse(PAGE).unwrap());
-    let started = std::time::Instant::now();
-    let _: () = rt
-        .eval(
-            r#"
-        const d = document.getElementById('d');
-        for (let i = 0; i < 25000; i++) d.appendChild(document.createElement('b')).appendChild(document.createTextNode('t'));
-        d.textContent = '';"#,
-        )
-        .unwrap();
-    assert!(started.elapsed() < scaled(Duration::from_secs(30)));
-    let doc = rt.take().unwrap();
-    assert!(doc.node_count() < 20, "{}", doc.node_count());
+    let small = wide_drop_time(6_250);
+    let large = wide_drop_time(25_000);
+    assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
 }
 
 #[test]
