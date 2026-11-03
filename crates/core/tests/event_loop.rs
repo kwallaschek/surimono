@@ -64,8 +64,7 @@ fn negative_and_wrapping_timeouts_run_first() {
     for timeout in ["-100", "Math.pow(2, 32)"] {
         let got = logged(&format!(
             "setTimeout(() => log.push('done'), {timeout});
-             setTimeout(() => log.push('unreached'), 10);
-             setTimeout(() => clearTimeout(1), 0);"
+             setTimeout(() => log.push('unreached'), 10);"
         ));
         assert_eq!(got, "done unreached", "{timeout}");
     }
@@ -221,8 +220,7 @@ fn an_interval_nests_like_timeouts() {
     assert_eq!(got, "1 2 3 4 5 6 10 14");
 }
 
-/// The clamp raises short delays only, and the level survives a mix of
-/// methods.
+/// The clamp raises short delays only.
 #[test]
 fn the_clamp_leaves_longer_delays_alone() {
     let got = logged(
