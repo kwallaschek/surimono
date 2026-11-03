@@ -104,6 +104,41 @@ class CompatTest(unittest.TestCase):
         p.write_text(json.dumps(data))
         return p
 
+    def wpt_tree(self):
+        (self.root / "wpt" / "baseline").mkdir(parents=True)
+        (self.root / "wpt" / "slices.toml").write_text(
+            'commit = "abc"\n[[slice]]\nid = "nodes"\narea = "dom/nodes"\nphase = 2\ntarget = 70\n'
+        )
+        self.write_json("wpt/baseline/chrome.json", {"wpt_commit": "abc", "tests": [{"slice": "nodes", "file": "a.html", "subtests": ["one", "two", "three", "four"]}]})
+
+    def test_wpt_not_run_says_so(self):
+        self.wpt_tree()
+        self.assertIn("Not run yet", "\n".join(compat.wpt_section(None)))
+
+    def test_wpt_subtest_never_reported_counts_as_failed(self):
+        self.wpt_tree()
+        results = self.write_json("results.json", {"wpt_commit": "abc", "tests": [{"file": "a.html", "subtests": [{"name": "one", "status": "Pass"}, {"name": "two", "status": "Pass"}, {"name": "three", "status": "Fail"}]}]})
+        text = "\n".join(compat.wpt_section(results))
+        self.assertIn("| dom/nodes | 2 | 2 | 4 | 50.0% | 70% | **below the target** |", text)
+
+    def test_wpt_subtest_outside_the_baseline_cannot_raise_the_rate(self):
+        self.wpt_tree()
+        subs = [{"name": n, "status": "Pass"} for n in ["one", "two", "extra-1", "extra-2"]]
+        results = self.write_json("results.json", {"wpt_commit": "abc", "tests": [{"file": "a.html", "subtests": subs}]})
+        self.assertIn("| 2 | 4 | 50.0%", "\n".join(compat.wpt_section(results)))
+
+    def test_wpt_target_met(self):
+        self.wpt_tree()
+        subs = [{"name": n, "status": "Pass"} for n in ["one", "two", "three"]]
+        results = self.write_json("results.json", {"wpt_commit": "abc", "tests": [{"file": "a.html", "subtests": subs}]})
+        self.assertIn("75.0% | 70% | meets the target", "\n".join(compat.wpt_section(results)))
+
+    def test_wpt_results_from_another_commit_are_refused(self):
+        self.wpt_tree()
+        results = self.write_json("results.json", {"wpt_commit": "other", "tests": []})
+        with self.assertRaises(SystemExit):
+            compat.wpt_section(results)
+
     def test_hand_written_sections_survive(self):
         existing = f"# old\n\n{compat.BEGIN}\n\n## Known gaps\n\nmy notes, kept\n\n{compat.END}\n"
         out = compat.generate([], None, None, "c", existing)

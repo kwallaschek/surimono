@@ -506,6 +506,38 @@ def real_world_section(fixture_status: dict[str, str], meta: dict[str, dict]) ->
     return lines
 
 
+def wpt_section(results_file: Path | None) -> list[str]:
+    """WPT pass rates per area. The denominator is what Chrome passes
+    (wpt/baseline/chrome.json), so a subtest we never reported counts as failed."""
+    lines = ["### Web Platform Tests", ""]
+    slices_file = ROOT / "wpt" / "slices.toml"
+    if not slices_file.exists():
+        return lines + ["The WPT slices (`wpt/`) are not in this checkout.", ""]
+    slices = tomllib.loads(slices_file.read_text(encoding="utf-8"))
+    baseline_file = ROOT / "wpt" / "baseline" / "chrome.json"
+    if not results_file or not baseline_file.exists():
+        return lines + ["Not run yet: the runner needs the DOM and the event loop, and the tests aren't vendored (`wpt/README.md`).", ""]
+    results = read_json(results_file)
+    baseline = read_json(baseline_file)
+    for name, data in (("results", results), ("baseline", baseline)):
+        if data.get("wpt_commit") != slices["commit"]:
+            raise SystemExit(f"WPT {name} are from {data.get('wpt_commit')}, wpt/slices.toml pins {slices['commit']}")
+    passed = {(t["file"], s["name"]) for t in results.get("tests", []) for s in t.get("subtests", []) if s.get("status") == "Pass"}
+    areas: dict[str, dict] = {}
+    for sl in slices["slice"]:
+        area = areas.setdefault(sl["area"], {"target": sl["target"], "phase": sl["phase"], "ids": set()})
+        area["ids"].add(sl["id"])
+    lines += ["| Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |", "|---|---|---|---|---|---|---|"]
+    for name, area in areas.items():
+        want = [(t["file"], s) for t in baseline.get("tests", []) if t.get("slice") in area["ids"] for s in t.get("subtests", [])]
+        got = sum(1 for w in want if w in passed)
+        rate = 100 * got / len(want) if want else 0.0
+        status = "meets the target" if want and rate >= area["target"] else "**below the target**"
+        lines.append(f"| {name} | {area['phase']} | {got} | {len(want)} | {rate:.1f}% | {area['target']}% | {status} |")
+    lines.append("")
+    return lines
+
+
 def bench_section(bench_file: Path | None) -> list[str]:
     lines = ["### Speed and memory against Grover", ""]
     if not bench_file:
@@ -551,7 +583,7 @@ def hand_written(existing: str | None) -> str:
     return DEFAULT_HAND_WRITTEN
 
 
-def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None) -> str:
+def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None, wpt: Path | None = None) -> str:
     meta = fixture_meta()
     producer = check_producers(scores + list((determinism or {}).values()))
     fx_lines, fx_status = fixtures_section(scores, meta, determinism)
@@ -577,6 +609,9 @@ def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commi
         *hostile_section(hostile),
         *real_world_section(fx_status, meta),
         *bench_section(bench),
+        "## Phase 2: scripts",
+        "",
+        *wpt_section(wpt),
         BEGIN,
         "",
         hand_written(existing).rstrip("\n"),
@@ -592,16 +627,17 @@ def main() -> int:
     ap.add_argument("--fixtures", type=Path)
     ap.add_argument("--hostile", type=Path)
     ap.add_argument("--bench", type=Path)
+    ap.add_argument("--wpt", type=Path)
     ap.add_argument("--commit", default="this checkout")
     ap.add_argument("--out", type=Path, default=ROOT / "docs" / "COMPAT.md")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
-    for p in (args.fixtures, args.hostile, args.bench):
+    for p in (args.fixtures, args.hostile, args.bench, args.wpt):
         if p and not p.exists():
             sys.exit(f"{p} does not exist")
     existing = args.out.read_text(encoding="utf-8") if args.out.exists() else None
     try:
-        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures))
+        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures), args.wpt)
     except CompatError as e:
         print(f"compat.py: {e}", file=sys.stderr)
         return 1
