@@ -44,6 +44,9 @@
   const TypeErrorCtor = TypeError;
   const symbolKeyFor = Symbol.keyFor;
   const nowMs = config.nowMs;
+  // Virtual milliseconds since the context started. Stays 0 without the
+  // event loop, whose dispatcher below is the only thing that moves it.
+  let clock = 0;
   const offsetMinutes = config.utcOffsetMinutes;
   const offsetMs = offsetMinutes * 60000;
 
@@ -668,11 +671,11 @@
   }
 
   const DateShim = function Date(year, month, date, hours, minutes, seconds, ms) {
-    if (new.target === undefined) return fullString(nowMs);
+    if (new.target === undefined) return fullString(nowMs + clock);
     const n = arguments.length;
     let v;
     if (n === 0) {
-      v = nowMs;
+      v = nowMs + clock;
     } else if (n === 1) {
       v = timeValueOf(year);
     } else {
@@ -695,7 +698,7 @@
   defineProperty(DateShim, 'prototype', {
     value: DP, writable: false, enumerable: false, configurable: false,
   });
-  replace(DateShim, 'now', { now() { return nowMs; } }.now, 0);
+  replace(DateShim, 'now', { now() { return nowMs + clock; } }.now, 0);
   replace(DateShim, 'parse', { parse(s) { return parse(s); } }.parse, 1);
   replace(DateShim, 'UTC', nativeUTC, nativeUTC.length);
   defineProperty(DP, 'constructor', {
@@ -705,10 +708,10 @@
     value: DateShim, writable: true, enumerable: false, configurable: true,
   });
 
-  // performance: a virtual clock that stands still (timers come with the
-  // phase-2 event loop).
+  // performance: the virtual clock, which stands still without the event
+  // loop.
   const performance = {};
-  replace(performance, 'now', { now() { return 0; } }.now, 0);
+  replace(performance, 'now', { now() { return clock; } }.now, 0);
   defineProperty(performance, 'timeOrigin', {
     value: nowMs, writable: false, enumerable: true, configurable: true,
   });
@@ -782,4 +785,128 @@
   defineProperty(globalThis, 'console', {
     value: console, writable: true, enumerable: false, configurable: true,
   });
+
+  // --- Event loop ------------------------------------------------------------
+  //
+  // Only when the sandbox has one (see event_loop.rs, which holds the queue):
+  // the natives in config.host stay in this closure, like the handlers, and
+  // the dispatcher goes back to Rust as the prelude's result. Everything used
+  // while a script runs was captured above or here, and reads no property a
+  // script can reach.
+
+  const host = config.host;
+  if (host === undefined) return undefined;
+  const schedule = host.schedule;
+  const cancel = host.cancel;
+  const report = host.report;
+  const global = globalThis;
+  const indirectEval = eval;
+  const arraySlice = Array.prototype.slice;
+  const mapGet = Map.prototype.get;
+  const mapSet = Map.prototype.set;
+  const mapDelete = Map.prototype.delete;
+  const promiseThen = Promise.prototype.then;
+  const KIND_TIMEOUT = 0;
+  const KIND_INTERVAL = 1;
+  const KIND_FRAME = 2;
+
+  // id -> { handler, args, repeat }, for every live timer and frame.
+  const callbacks = new Map();
+  function remember(id, handler, args, repeat) {
+    apply(mapSet, callbacks, [id, { __proto__: null, handler, args, repeat }]);
+    return id;
+  }
+
+  // WebIDL `Window` operations are enumerable.
+  function expose(name, fn, length) {
+    defineProperty(fn, 'length', { value: length, configurable: true });
+    defineProperty(global, name, {
+      value: fn, writable: true, enumerable: true, configurable: true,
+    });
+  }
+
+  // HTML §8.7: setTimeout(TimerHandler handler, optional long timeout = 0,
+  // any... arguments). Conversions run here, in argument order, before the
+  // timer is set: a `toString` that sets a timer of its own goes first. `| 0`
+  // is WebIDL's `long`, so NaN is 0 and 2^32 is 0. `args` is an `arguments`
+  // object, whose length is checked before an index that could read
+  // Object.prototype.
+  function setTimer(kind, name, args) {
+    if (args.length === 0) {
+      throw new TypeErrorCtor(`${name}: 1 argument required, but only 0 present`);
+    }
+    let handler = args[0];
+    if (typeof handler !== 'function') handler = `${handler}`;
+    const timeout = args.length > 1 ? args[1] | 0 : 0;
+    const rest = apply(arraySlice, args, [2]);
+    return remember(schedule(kind, timeout), handler, rest, kind === KIND_INTERVAL);
+  }
+  function clearTimer(args) {
+    if (args.length === 0) return;
+    const id = args[0] | 0;
+    if (cancel(id, false)) apply(mapDelete, callbacks, [id]);
+  }
+  expose('setTimeout', {
+    setTimeout() { return setTimer(KIND_TIMEOUT, 'setTimeout', arguments); },
+  }.setTimeout, 1);
+  expose('setInterval', {
+    setInterval() { return setTimer(KIND_INTERVAL, 'setInterval', arguments); },
+  }.setInterval, 1);
+  // One map of ids in the standard, so each clears the other's timers.
+  expose('clearTimeout', { clearTimeout() { clearTimer(arguments); } }.clearTimeout, 0);
+  expose('clearInterval', { clearInterval() { clearTimer(arguments); } }.clearInterval, 0);
+
+  // HTML "run the animation frame callbacks": All of one frame get
+  // the same time; one set during a frame waits for the next.
+  expose('requestAnimationFrame', {
+    requestAnimationFrame(callback) {
+      if (typeof callback !== 'function') {
+        throw new TypeErrorCtor('requestAnimationFrame: callback is not a function');
+      }
+      return remember(schedule(KIND_FRAME, 0), callback, undefined, false);
+    },
+  }.requestAnimationFrame, 1);
+  expose('cancelAnimationFrame', {
+    cancelAnimationFrame(handle) {
+      if (arguments.length === 0) {
+        throw new TypeErrorCtor('cancelAnimationFrame: 1 argument required, but only 0 present');
+      }
+      const id = handle >>> 0;
+      if (id <= 0x7fffffff && cancel(id, true)) apply(mapDelete, callbacks, [id]);
+    },
+  }.cancelAnimationFrame, 1);
+
+  // HTML §8.8: queue a microtask to invoke the callback with no arguments and
+  // report what it throws. An already resolved promise queues exactly one job
+  // in the Promise job queue, which is the microtask queue. `constructor` is
+  // shadowed so `then` looks up no species a script could have replaced.
+  const resolved = Promise.resolve();
+  defineProperty(resolved, 'constructor', { value: undefined });
+  expose('queueMicrotask', {
+    queueMicrotask(callback) {
+      if (typeof callback !== 'function') {
+        throw new TypeErrorCtor('queueMicrotask: callback is not a function');
+      }
+      apply(promiseThen, resolved, [() => {
+        try {
+          apply(callback, undefined, []);
+        } catch (e) {
+          report(e);
+        }
+      }]);
+    },
+  }.queueMicrotask, 1);
+
+  // Runs one task. Called only by the Rust loop, which handles what a handler
+  // throws. A timeout's record goes first, so a throw can't strand it.
+  return function fire(id, time, frame) {
+    clock = time;
+    const record = apply(mapGet, callbacks, [id]);
+    if (record === undefined) return;
+    if (!record.repeat) apply(mapDelete, callbacks, [id]);
+    const handler = record.handler;
+    if (frame) apply(handler, undefined, [time]);
+    else if (typeof handler === 'function') apply(handler, global, record.args);
+    else indirectEval(handler);
+  };
 })

@@ -260,6 +260,12 @@ impl LimitState {
         false
     }
 
+    /// Fails the running call as if an allocation had been refused, for
+    /// memory the sandbox keeps outside the JavaScript heap.
+    pub(crate) fn exceed_memory(&self) {
+        self.refuse();
+    }
+
     /// Reserves room for `extra` more bytes, or records an out-of-memory error.
     fn admit(&self, extra: usize) -> bool {
         #[cfg(test)]

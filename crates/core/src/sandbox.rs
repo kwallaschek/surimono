@@ -7,9 +7,10 @@ use rquickjs::context::EvalOptions;
 use rquickjs::context::intrinsic;
 use rquickjs::function::{IntoArgs, Rest};
 use rquickjs::promise::PromiseState;
-use rquickjs::{Context, Ctx, FromJs, Function, Object, Runtime, Value};
+use rquickjs::{Context, Ctx, FromJs, Function, Object, Persistent, Runtime, Value};
 
 use crate::engine::{self, LimitAllocator, LimitState};
+use crate::event_loop::{self, EventLoopHandle, SettleOptions, SettleReport};
 use crate::fork_safe::ForkSafeCell;
 use crate::{Limits, SandboxError};
 
@@ -67,6 +68,10 @@ pub struct SandboxOptions {
     /// Local time's offset from UTC in minutes, e.g. 540 for Japan. Affects
     /// `getHours()`, `toString()`, `new Date(2026, 0, 1)` and the like.
     pub utc_offset_minutes: i32,
+    /// Not public API: gives scripts timers and a clock that moves with
+    /// them, for [`Sandbox::run_until_settled`]. Off by default.
+    #[doc(hidden)]
+    pub event_loop: bool,
 }
 
 impl SandboxOptions {
@@ -109,6 +114,14 @@ impl SandboxOptions {
         self
     }
 
+    /// Not public API: these options with the event loop on or off.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn with_event_loop(mut self, on: bool) -> Self {
+        self.event_loop = on;
+        self
+    }
+
     /// Checks every option is in range.
     pub fn validate(&self) -> Result<(), SandboxError> {
         self.limits.validate()?;
@@ -145,6 +158,7 @@ impl Default for SandboxOptions {
             random_seed: Self::DEFAULT_RANDOM_SEED,
             now_ms: Self::DEFAULT_NOW_MS,
             utc_offset_minutes: 0,
+            event_loop: false,
         }
     }
 }
@@ -283,7 +297,8 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// gone. After an ordinary exception the script's state is kept.
 ///
 /// Scripts get the ECMAScript built-ins only: no modules or loader, no
-/// filesystem, network, timers or host helpers. The sandbox is tied to the
+/// filesystem, network, timers or host helpers. (The internal event loop
+/// option adds timers on a virtual clock.) The sandbox is tied to the
 /// thread that created it.
 ///
 /// That thread needs [`Limits::stack_bytes`] of stack free below the point
@@ -296,6 +311,9 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// [`std::thread::Builder::stack_size`] set from `stack_bytes`.
 pub struct Sandbox {
     options: SandboxOptions,
+    /// Declared before `ctx`: the dispatcher it holds keeps the context
+    /// alive and must go before the runtime does.
+    event_loop: Option<EventLoopHooks>,
     /// The context, which also keeps its runtime alive. Always `Some` except
     /// if a rebuild failed, in which case every call reports an engine error.
     ctx: Option<Context>,
@@ -355,9 +373,10 @@ impl Sandbox {
         rt.set_max_stack_size(options.limits.stack_bytes);
         let handler_state = state.clone();
         rt.set_interrupt_handler(Some(Box::new(move || handler_state.should_interrupt())));
-        let ctx = new_context(&rt, &state, &options)?;
+        let (ctx, event_loop) = new_context(&rt, &state, &options)?;
         Ok(Self {
             options,
+            event_loop,
             ctx: Some(ctx),
             state,
         })
@@ -513,11 +532,54 @@ impl Sandbox {
         })
     }
 
+    /// Not public API: runs the event loop until the page settles; see
+    /// the `event_loop` module for the rule. One call under one time
+    /// budget, with every callback and microtask inside it. Fails with a
+    /// limit error if a callback hits one, after which the sandbox has
+    /// rebuilt itself like after any other call, and with
+    /// [`SandboxError::InvalidOptions`] without the event loop option.
+    #[doc(hidden)]
+    pub fn run_until_settled(
+        &mut self,
+        options: &SettleOptions,
+    ) -> Result<SettleReport, SandboxError> {
+        event_loop::validate(options)?;
+        let Some(hooks) = &self.event_loop else {
+            return Err(SandboxError::InvalidOptions {
+                message: "this sandbox was created without the event loop".into(),
+            });
+        };
+        let shared = hooks.shared.clone();
+        let fire = hooks.fire.clone();
+        self.execute_classified(|ctx, state| {
+            let fire = fire.restore(ctx).map_err(|e| SandboxError::Engine {
+                message: e.to_string(),
+            })?;
+            event_loop::run(ctx, state, &shared, fire, options)
+        })
+    }
+
+    /// Not public API: a handle on the event loop, if the sandbox has one.
+    #[doc(hidden)]
+    pub fn event_loop(&self) -> Option<EventLoopHandle> {
+        self.event_loop.as_ref().map(|hooks| EventLoopHandle {
+            shared: hooks.shared.clone(),
+        })
+    }
+
     /// Enters the context with the deadline armed, runs `body`, classifies
     /// its error, and rebuilds the sandbox after a limit error.
     fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
     where
         B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
+    {
+        self.execute_classified(|ctx, state| body(ctx, state).map_err(|e| classify(ctx, state, e)))
+    }
+
+    /// [`execute`](Self::execute) for a body that classifies its own errors.
+    fn execute_classified<R, B>(&mut self, body: B) -> Result<R, SandboxError>
+    where
+        B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> Result<R, SandboxError>,
     {
         let Some(ctx) = self.ctx.clone() else {
             return Err(SandboxError::Engine {
@@ -534,7 +596,7 @@ impl Sandbox {
         let state = &*self.state;
         let result = ctx.with(|ctx| {
             engine::update_stack_top(&ctx);
-            body(&ctx, state).map_err(|e| classify(&ctx, state, e))
+            body(&ctx, state)
         });
         drop(armed);
         // Let go of this clone now, so a rebuild below really frees the old
@@ -562,6 +624,7 @@ impl Sandbox {
     fn rebuild(&mut self) -> Result<(), SandboxError> {
         // Deadlines taken so far belong to the old runtime.
         self.state.retire();
+        self.event_loop = None;
         // Drop the old context first, which frees most of the old heap before
         // the new runtime allocates. The old runtime itself (with anything its
         // job queue still holds) lives until `*self = fresh`. If building
@@ -688,30 +751,41 @@ const PRELUDE_SOURCE: &str = include_str!("prelude.js");
 /// locked (review of #47, finding 2).
 static PRELUDE: ForkSafeCell<Vec<u8>> = ForkSafeCell::shared();
 
+/// What Rust keeps of a context's event loop: the queue, and the prelude's
+/// dispatcher, the one JavaScript value held from Rust.
+struct EventLoopHooks {
+    shared: event_loop::Shared,
+    fire: Persistent<Function<'static>>,
+}
+
 /// Creates a context with the sandbox's built-ins and runs the prelude.
 fn new_context(
     rt: &Runtime,
     state: &Arc<LimitState>,
     options: &SandboxOptions,
-) -> Result<Context, SandboxError> {
+) -> Result<(Context, Option<EventLoopHooks>), SandboxError> {
     let ctx = Context::custom::<Intrinsics>(rt).map_err(|e| setup_error(state, e))?;
-    ctx.with(|ctx| {
+    let hooks = ctx.with(|ctx| {
         engine::update_stack_top(&ctx);
         engine::install_stop_flag(&ctx, state);
         #[cfg(test)]
         engine::fault::apply_arena_setting(&ctx);
-        install_prelude(&ctx, options).map_err(|e| match classify(&ctx, state, e) {
+        install_prelude(&ctx, state, options).map_err(|e| match classify(&ctx, state, e) {
             limit if limit.is_limit() => limit,
             other => SandboxError::Engine {
                 message: format!("the sandbox prelude failed: {other}"),
             },
         })
     })?;
-    Ok(ctx)
+    Ok((ctx, hooks))
 }
 
 /// Runs the prelude function with this sandbox's settings.
-fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<()> {
+fn install_prelude(
+    ctx: &Ctx<'_>,
+    state: &Arc<LimitState>,
+    options: &SandboxOptions,
+) -> rquickjs::Result<Option<EventLoopHooks>> {
     let bytes = PRELUDE.get_or_try_init(
         || engine::compile_script(ctx, PRELUDE_SOURCE, "surimono:prelude"),
         |why| rquickjs::Error::FromJs {
@@ -734,7 +808,15 @@ fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<
     config.set("seedHi", (options.random_seed >> 32) as f64)?;
     config.set("nowMs", options.now_ms as f64)?;
     config.set("utcOffsetMinutes", options.utc_offset_minutes)?;
-    prelude.call::<_, ()>((config,))
+    let shared = options.event_loop.then(event_loop::Shared::default);
+    if let Some(shared) = &shared {
+        config.set("host", event_loop::host_object(ctx, shared, state)?)?;
+    }
+    let fire: Option<Function<'_>> = prelude.call((config,))?;
+    Ok(shared.zip(fire).map(|(shared, fire)| EventLoopHooks {
+        shared,
+        fire: Persistent::save(ctx, fire),
+    }))
 }
 
 /// Fails if this thread has less stack left than the engine may use, so deep
@@ -816,7 +898,7 @@ fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
 }
 
 /// Runs queued microtasks until none are left or a limit is hit.
-fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
+pub(crate) fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
     loop {
         // Checked before every job: a flood of tiny jobs might never reach the
         // engine's own interrupt check, and an out-of-memory error the script
@@ -832,7 +914,7 @@ fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
 
 /// Turns an engine error into a [`SandboxError`], consuming any pending
 /// exception.
-fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) -> SandboxError {
+pub(crate) fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) -> SandboxError {
     let exception = matches!(e, rquickjs::Error::Exception).then(|| ctx.catch());
     if state.oom() {
         return SandboxError::MemoryLimit;
@@ -854,7 +936,7 @@ fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) -> SandboxErr
 }
 
 /// Describes a thrown value.
-fn exception_error(value: Value<'_>) -> SandboxError {
+pub(crate) fn exception_error(value: Value<'_>) -> SandboxError {
     let (name, message, stack) = match value.as_object() {
         Some(obj) => (
             string_prop(obj.get("name").ok()),
