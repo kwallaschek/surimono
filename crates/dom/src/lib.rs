@@ -20,7 +20,7 @@ mod tree;
 #[path = "generated/dispatch.rs"]
 mod dispatch;
 
-pub use document::{Document, DomLimits};
+pub use document::{ATTRIBUTE_COST, Document, DomLimits};
 pub use error::DomError;
 pub use runtime::DomRuntime;
 

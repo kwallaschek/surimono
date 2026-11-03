@@ -1377,8 +1377,8 @@ impl idl::Attr for Document {
     fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let (e, name, _) = self.attr_of(this)?;
         if self.attribute_value(e, &name).is_some() {
-            self.charge_text(value.len()).map_err(|e| self.fail(e))?;
-            self.write_attribute(e, name, &value);
+            self.write_attribute(e, name, &value)
+                .map_err(|e| self.fail(e))?;
         } else if let Ok(h) = Handle::try_from(this.0) {
             if let Some(Object::Attr(_, _, kept)) = self.object_mut(h) {
                 *kept = Some(value);

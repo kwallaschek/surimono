@@ -43,9 +43,9 @@ pub enum DomError {
         /// The limit that was reached.
         limit: usize,
     },
-    /// The document was given more than
+    /// The document would hold more string bytes than
     /// [`DomLimits::max_text_bytes`](crate::DomLimits::max_text_bytes).
-    #[error("the document was given more than its limit of {limit} bytes of text")]
+    #[error("the document reached its limit of {limit} bytes of strings")]
     TextLimit {
         /// The limit that was reached.
         limit: usize,

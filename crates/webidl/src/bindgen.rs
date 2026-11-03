@@ -495,10 +495,11 @@ impl Bound<'_, '_> {
         let mut all = vec![op.to_string(), "g".to_owned(), "root()".to_owned()];
         all.extend(js_args);
         Ok(format!(
-            "function {}({}) {{ if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return wrap(g, call({})); }}",
+            "function {}({}) {{ if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, call({})), new.target, {}); }}",
             self.iface.name,
             params.join(", "),
-            all.join(", ")
+            all.join(", "),
+            self.id
         ))
     }
 
@@ -615,6 +616,10 @@ impl Bound<'_, '_> {
             if !seen.insert(name) {
                 return Err(GenError::Duplicate(format!("{}.{name}", spec.name)));
             }
+            let (name, getter_only) = match name.strip_suffix(GETTER_ONLY) {
+                Some(n) => (n, true),
+                None => (name, false),
+            };
             if matches!(
                 name,
                 "constructor" | "named_getter" | "named_setter" | "named_deleter" | "iterable"
@@ -635,7 +640,9 @@ impl Bound<'_, '_> {
                     _ => None,
                 });
             match attr {
-                Some((ty, readonly, ext)) => self.attribute(name, &ty, readonly, &ext)?,
+                Some((ty, readonly, ext)) => {
+                    self.attribute(name, &ty, readonly || getter_only, &ext)?
+                }
                 None => self.operation(name)?,
             }
         }
@@ -758,6 +765,10 @@ pub fn generate_bindings(
     Ok(Bindings { js, rust })
 }
 
+/// After a writable attribute's name in a table: expose the getter only, for
+/// a member whose setter isn't implemented yet.
+const GETTER_ONLY: &str = ":getter";
+
 /// What `surimono-dom` exposes, parents first. Every name must be a member
 /// of the interface in the vendored IDL (including mixins and partials).
 pub const DOM_BINDINGS: &[BindInterface] = &[
@@ -852,7 +863,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &[
             "documentElement",
             "head",
-            "body",
+            "body:getter",
             "compatMode",
             "characterSet",
             "contentType",

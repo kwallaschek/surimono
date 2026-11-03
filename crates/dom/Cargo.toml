@@ -17,7 +17,6 @@ thiserror.workspace = true
 # The parser under blitz-html, driven directly for chunked feeding, comment
 # data and quiet parse errors (src/parse.rs). Same versions as blitz-dom's.
 html5ever = "=0.35.0"
-url = "=2.5.8"
 # element_matches for querySelector and friends; blitz-dom's own query runs in
 # one uninterruptible call. Package name as in blitz-dom; no new features.
 style = { package = "stylo", version = "=0.8.0", default-features = false }
