@@ -73,16 +73,40 @@ feature detection sees the truth. The hand-written glue is only infrastructure:
 
 `src/parse.rs` drives html5ever itself over blitz-html's `DocumentHtmlParser`,
 adding: comment data (`NodeData::Comment` has no room, so `Document` keeps it in
-a side table), the quirks mode, no `println!` of parse errors, chunked feeding
-that stops once the tree passes `max_nodes` or `max_depth` (html5ever walks its
-open-element stack per start tag, quadratic on a deep tree inside one
-uninterruptible call), and a real base URL. blitz-dom's `resolve_url` panics
-when it can't resolve an `<img src>` or `<link href>` as the element joins the
-document; its default `data:` base can't resolve any relative reference, so on
-main every `<img src="x.png">` panicked in `Document::parse`. With
-`https://surimono.invalid/` as base only values like `http://[` still fail;
-those are blanked while the element joins and written back after. Nothing is
-fetched: the document has no net provider.
+a side table), the quirks mode, no `println!` of parse errors, and chunked
+feeding that stops once the tree passes `max_nodes` or `max_depth` (html5ever
+walks its open-element stack per start tag, quadratic on a deep tree inside one
+uninterruptible call).
+
+## Staying out of blitz-dom's document behaviour
+
+blitz-dom is a browser engine's DOM: nodes joining the document load resources,
+`<style>` text becomes stylesheets, form controls grow children. Here it is a
+tree store, and those paths are where hostile input hurts it:
+
+- `resolve_url` panics on a URL it can't resolve, for `<img src>` and `<link
+  href>` as they join. With the default `data:` base that is every relative URL.
+- `process_button_input` gives `<input type=button value=x>` a text child each
+  time it joins, outside `max_nodes`.
+- `clear_attribute` hits `unreachable!` for a `<link>`'s `href` unless a
+  stylesheet was loaded.
+- A `<style>` whose text has an `@import` with an unresolvable URL panics in
+  `net.rs` (`import.url.url().unwrap()`), attached or not, because the mutator
+  parses style text whenever a style element or its children change.
+
+So, without patching blitz-dom (a `[patch]` wouldn't reach users of published
+crates):
+
+- The document node's `IS_IN_DOCUMENT` flag is cleared at parse. blitz-dom's
+  hooks run when a node's flag differs from its new parent's, so none ever do.
+- `link`'s `href` is removed directly, not through `clear_attribute`.
+- Text under a `<style>` lives in `side_data`, with empty text nodes in blitz-dom,
+  from the parse on and for any text joining a style element. `char_data` is the
+  one reader. Which text is dangerous can't be told without parsing CSS, across
+  node boundaries, so all of it stays out.
+
+Phase 3 needs both back, for layout: flags set over the tree and screened CSS
+given to blitz-dom, both done once before layout, not while scripts mutate.
 
 ## Errors
 
@@ -117,14 +141,16 @@ own limits (`DomLimits`), all fatal faults:
 - `max_handles` (default 1,000,000): handles are never reused, so a script
   that creates and drops nodes in a loop grows the handle table (16 bytes an
   entry) while the node count stays flat.
+- `max_text_bytes` (default 256 MiB): text, comment data, and attribute names and
+  values (plus `ATTRIBUTE_COST` each) held by the document. Charged before a
+  write and credited on overwrite and drop. These strings are outside the JS heap
+  limit, and one JS string can be stored on many nodes.
 
 Subtree drops don't use blitz-dom's recursive `remove_and_drop_all_children`
 on deep trees: `Document::drop_children` cuts every grandchild and below loose
 and drops it as a parentless leaf, then lets blitz drop the (now leaf)
 children for its restyle bookkeeping. Each node is visited once, so a wide
-tree is linear too. Text sizes are bounded only indirectly (the string must
-first exist in the JS heap); E2-02 should charge text bytes to a document
-budget too.
+tree is linear too.
 
 ## Measured
 

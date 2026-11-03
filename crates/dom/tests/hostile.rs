@@ -44,8 +44,8 @@ fn parse_enforces_depth_and_node_limits() {
 }
 
 /// blitz-dom panics when it can't resolve an `<img src>` or `<link href>`
-/// as the element joins the document; the base it defaults to can't resolve
-/// any relative reference.
+/// as the element joins the document; its default base can't resolve any
+/// relative reference. Parsed, set by a script, moved and removed.
 #[test]
 fn urls_blitz_cannot_resolve_are_harmless() {
     for url in ["x.png", "/a/b.css", "http://[", "http://a b/", "//["] {
@@ -76,6 +76,300 @@ fn urls_blitz_cannot_resolve_are_harmless() {
     }
 }
 
+/// blitz-dom's `clear_attribute` hits `unreachable!` for a `<link>`'s
+/// `href` unless a stylesheet was loaded (review of #93).
+#[test]
+fn removing_a_links_href() {
+    let page = r#"<!doctype html><head><link id="l" rel="stylesheet" href="a.css"></head>"#;
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(page).unwrap());
+    let r: String = rt
+        .eval(
+            r#"const made = document.createElement('link');
+            made.setAttribute('href', 'x');
+            made.removeAttribute('href');
+            const l = document.getElementById('l');
+            const gone = l.toggleAttribute('href');
+            l.setAttribute('href', 'y');
+            l.removeAttribute('href');
+            [made.hasAttribute('href'), gone, l.hasAttribute('href')].join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "false,false,false");
+}
+
+/// A CSS `@import` with an unresolvable URL panics in blitz-dom (net.rs)
+/// when it parses a `<style>`'s text, attached or not, from HTML or a
+/// script, whole or split over text nodes (review of #93).
+#[test]
+fn style_text_never_reaches_blitz() {
+    const IMPORTS: [&str; 3] = [
+        r#"@import "http://[";"#,
+        r#"@import url("http://[") print;"#,
+        r#"@\69mport "http://[";"#,
+    ];
+    for css in IMPORTS {
+        let doc = Document::parse(&format!(
+            "<!doctype html><head><style id=s>{css}</style></head><body>\
+             <svg><style id=t>{css}<g>{css}</g></style></svg><p id=p>x</p>"
+        ))
+        .unwrap();
+        // The text is all still there for scripts and for the output.
+        let html = doc.to_html();
+        assert!(
+            html.contains(&format!("<style id=\"s\">{css}</style>")),
+            "{html}"
+        );
+        assert_eq!(html.matches(css).count(), 3, "{html}");
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(doc);
+        let js = serde_free_quote(css);
+        let script = format!(
+            r#"const css = {js};
+            const s = document.getElementById('s');
+            const out = [s.textContent === css, s.firstChild.data === css];
+            // Detached; by textContent; by data; by nodeValue.
+            const d = document.createElement('style');
+            d.textContent = css;
+            d.firstChild.data = css + css;
+            d.firstChild.nodeValue = css;
+            // Split over two text nodes, and into a nested element.
+            const e = document.createElement('style');
+            e.appendChild(document.createTextNode(css.slice(0, 5)));
+            e.appendChild(document.createTextNode(css.slice(5)));
+            const b = e.appendChild(document.createElement('b'));
+            b.textContent = css;
+            b.firstChild.data = css;
+            // A text node written before it joins, and one that leaves.
+            const t = document.createTextNode(css);
+            d.appendChild(t);
+            document.body.appendChild(t);
+            out.push(t.data === css, e.textContent === css + css, d.textContent === css);
+            t.data = 'x'; out.push(t.data);
+            document.head.appendChild(e);
+            document.body.textContent = '';
+            out.join()"#
+        );
+        assert_eq!(
+            rt.eval::<String>(&script).unwrap(),
+            "true,true,true,true,true,x"
+        );
+        rt.take().unwrap().check_consistency().unwrap();
+    }
+}
+
+/// A JS string literal for `s`.
+fn serde_free_quote(s: &str) -> String {
+    let mut out = String::from("'");
+    for c in s.chars() {
+        if c == '\'' || c == '\\' {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out.push('\'');
+    out
+}
+
+/// blitz-dom's `append_children` removes the child from its old parent by
+/// id after adding it, so a move within one parent lost the node and left a
+/// parent link to it (review of #93).
+#[test]
+fn appending_a_child_to_its_own_parent() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse("<!doctype html><body><p id=p><b>1</b><i>2</i></p>").unwrap());
+    // DOM §4.2.3: appendChild moves it to the end.
+    let r: String = rt
+        .eval(
+            r#"const p = document.getElementById('p');
+            const b = p.firstChild;
+            p.appendChild(b);
+            [p.firstChild.tagName, p.lastChild === b, b.parentNode === p, b.previousSibling.tagName].join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "I,true,true,I");
+    // The dangling parent link: panicked with "invalid key", or named an
+    // unrelated node once the slab slot was reused.
+    let r: bool = rt
+        .eval(
+            r#"const q = document.createElement('div'), o = document.createElement('div');
+            const c = document.createElement('b');
+            o.appendChild(c); o.appendChild(c); q.appendChild(o);
+            q.textContent = '';
+            document.body.appendChild(document.createElement('u'));
+            false"#,
+        )
+        .unwrap();
+    assert!(!r);
+    assert_eq!(rt.eval::<()>("c.isConnected"), Err(DomError::NodeRemoved));
+    rt.take().unwrap().check_consistency().unwrap();
+}
+
+/// blitz-dom gives `<input type=button value=x>` a text child each time it
+/// joins or leaves the document, outside `max_nodes` (review of #93). An
+/// `<input>` has no children.
+#[test]
+fn inputs_grow_no_children() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let page = r#"<!doctype html><body><input id=i type=button value=parsed><div id=d></div>"#;
+    rt.load(
+        Document::parse_with_limits(
+            page,
+            DomLimits {
+                max_nodes: 50,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
+    let r: String = rt
+        .eval(
+            r#"const parsed = document.getElementById('i');
+            const i = document.createElement('input');
+            i.setAttribute('type', 'button');
+            i.setAttribute('value', 'v');
+            const d = document.getElementById('d');
+            for (let k = 0; k < 1000; k++) { document.body.appendChild(i); d.appendChild(i); }
+            [parsed.hasChildNodes(), parsed.textContent, i.hasChildNodes(), i.textContent].join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "false,,false,");
+    let doc = rt.take().unwrap();
+    assert!(doc.node_count() < 50, "{}", doc.node_count());
+    doc.check_consistency().unwrap();
+}
+
+/// Strings live in Rust, outside the JS heap limit: each write path is
+/// charged (review of #93).
+#[test]
+fn string_bytes_are_limited() {
+    const LIMIT: usize = 8 << 20;
+    let vars = "const s = 'x'.repeat(1 << 20); const b = document.body; const n = () => document.createElement('i');";
+    for script in [
+        "for (;;) document.createTextNode(s);",
+        "for (;;) new Text(s);",
+        "for (;;) document.createComment(s);",
+        "for (;;) new Comment(s);",
+        "for (let k = 0;; k++) b.setAttribute('a' + k, s);",
+        "for (let k = 0;; k++) b.setAttribute(s + k, '');",
+        "for (;;) n().setAttribute('a', s);",
+        "for (;;) n().id = s;",
+        "for (;;) n().className = s;",
+        "for (;;) n().title = s;",
+        "for (;;) n().textContent = s;",
+        "for (;;) document.createTextNode('').data = s;",
+        "for (;;) document.createComment('').data = s;",
+        "for (;;) document.createTextNode('').nodeValue = s;",
+        "for (;;) document.createElement('style').textContent = s;",
+    ] {
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(
+            Document::parse_with_limits(
+                PAGE,
+                DomLimits {
+                    max_text_bytes: LIMIT,
+                    ..DomLimits::default()
+                },
+            )
+            .unwrap(),
+        );
+        // Fatal even if the script catches it, like the other DOM limits.
+        let r = rt.eval::<()>(&format!("{vars} try {{ {script} }} catch (e) {{}}"));
+        assert_eq!(r, Err(DomError::TextLimit { limit: LIMIT }), "{script}");
+        rt.take().unwrap().check_consistency().unwrap();
+    }
+    // From the parser too.
+    let big = format!("<!doctype html><p title=\"{}\">", "x".repeat(1 << 20));
+    let small = DomLimits {
+        max_text_bytes: 1 << 20,
+        ..DomLimits::default()
+    };
+    assert_eq!(
+        Document::parse_with_limits(&big, small).unwrap_err(),
+        DomError::TextLimit { limit: 1 << 20 }
+    );
+}
+
+/// Overwrites and drops give the bytes back: a page rewriting a label stays
+/// well inside the budget however often it does.
+#[test]
+fn string_bytes_are_credited() {
+    const LIMIT: usize = 8 << 20;
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse_with_limits(
+            PAGE,
+            DomLimits {
+                max_text_bytes: LIMIT,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
+    let _: () = rt
+        .eval(
+            r#"const s = 'x'.repeat(1 << 20);
+            const d = document.getElementById('d');
+            const t = document.createTextNode('');
+            const c = document.createComment('');
+            for (let k = 0; k < 40; k++) {
+              d.textContent = s;
+              d.textContent = '';
+              d.setAttribute('a', s);
+              d.setAttribute('a', s + k);
+              d.removeAttribute('a');
+              t.data = s;
+              c.data = s;
+              const e = d.appendChild(document.createElement('b'));
+              e.setAttribute('b', s);
+              e.textContent = s;
+              d.textContent = '';
+            }"#,
+        )
+        .unwrap();
+    rt.take().unwrap().check_consistency().unwrap();
+}
+
+/// WebIDL §3.7.1: `new.target`'s prototype, for subclasses (review of #93).
+#[test]
+fn constructors_honour_new_target() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let r: String = rt
+        .eval(
+            r#"class T extends Text { hi() { return 'hi ' + this.data; } }
+            const t = new T('x');
+            [t instanceof T, t instanceof Text, t.hi(), t.nodeType, new Text('y') instanceof T].join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "true,true,hi x,3,false");
+}
+
+/// A setter that isn't implemented isn't generated (review of #93).
+#[test]
+fn document_body_has_no_unimplemented_setter() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let r: String = rt
+        .eval(
+            r#"const d = Object.getOwnPropertyDescriptor(Document.prototype, 'body');
+            String(d.set)"#,
+        )
+        .unwrap();
+    assert_eq!(r, "undefined");
+}
+
+/// §4.2.3 allows a comment under a document (review of #93).
+#[test]
+fn comments_go_under_the_document() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let r: bool = rt
+        .eval("const c = document.createComment('x'); document.appendChild(c).parentNode === document")
+        .unwrap();
+    assert!(r);
+}
+
 #[test]
 fn limits_are_validated() {
     for limits in [
@@ -89,6 +383,10 @@ fn limits_are_validated() {
         },
         DomLimits {
             max_handles: usize::MAX,
+            ..DomLimits::default()
+        },
+        DomLimits {
+            max_text_bytes: 0,
             ..DomLimits::default()
         },
     ] {

@@ -4,6 +4,7 @@ use std::cell::Cell;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
 
 use crate::DomError;
@@ -31,7 +32,17 @@ pub struct DomLimits {
     /// table (16 bytes a handle, outside the JavaScript heap limit) when a
     /// script creates and drops nodes in a loop.
     pub max_handles: usize,
+    /// Most bytes of strings the document may hold: text, comment data, and
+    /// attribute names and values (with [`ATTRIBUTE_COST`] each), parsed and
+    /// from scripts together. Counted on write and credited on overwrite and
+    /// on drop. These strings live in Rust, outside the JavaScript heap
+    /// limit, and one JavaScript string can be stored on many nodes.
+    pub max_text_bytes: usize,
 }
+
+/// Bytes charged per attribute beyond its name and value: what the entry
+/// itself takes, so empty attributes aren't free.
+pub const ATTRIBUTE_COST: usize = 64;
 
 impl DomLimits {
     /// 100,000 nodes: a large report page has a few thousand.
@@ -45,6 +56,9 @@ impl DomLimits {
     pub const MAX_DEPTH: usize = 1_024;
     /// 1,000,000 handles (16 MB of table at most).
     pub const DEFAULT_MAX_HANDLES: usize = 1_000_000;
+    /// 256 MiB: far above a real page, inline images included, and small
+    /// enough that a script hits this rather than the process's memory.
+    pub const DEFAULT_MAX_TEXT_BYTES: usize = 256 * 1024 * 1024;
 
     /// Checks the limits are in range: every limit at least 1, `max_depth`
     /// at most [`MAX_DEPTH`](Self::MAX_DEPTH), `max_handles` within `u32`.
@@ -54,7 +68,11 @@ impl DomLimits {
                 message: what.to_owned(),
             })
         };
-        if self.max_nodes == 0 || self.max_depth == 0 || self.max_handles == 0 {
+        if self.max_nodes == 0
+            || self.max_depth == 0
+            || self.max_handles == 0
+            || self.max_text_bytes == 0
+        {
             return bad("every DOM limit must be at least 1");
         }
         if self.max_depth > Self::MAX_DEPTH {
@@ -73,6 +91,7 @@ impl Default for DomLimits {
             max_nodes: Self::DEFAULT_MAX_NODES,
             max_depth: Self::DEFAULT_MAX_DEPTH,
             max_handles: Self::DEFAULT_MAX_HANDLES,
+            max_text_bytes: Self::DEFAULT_MAX_TEXT_BYTES,
         }
     }
 }
@@ -105,8 +124,13 @@ pub struct Document {
     handle_to_node: Vec<Option<usize>>,
     /// Blitz node id to its handle, 0 for none yet.
     node_to_handle: Vec<Handle>,
-    /// Comment data by node id: `NodeData::Comment` has no room for it.
-    comment_data: HashMap<usize, String>,
+    /// Strings blitz-dom doesn't hold, by node id: comment data
+    /// (`NodeData::Comment` has no room for it) and text under a `<style>`
+    /// (see [`parse`](crate::parse)). Only looked up, so hash order can't
+    /// reach any output.
+    side_data: HashMap<usize, String>,
+    /// Bytes held (see [`DomLimits::max_text_bytes`]).
+    held_bytes: usize,
     /// The document was parsed in quirks mode.
     quirks: bool,
     /// The last (parent, index in its children) a sibling step found, so
@@ -142,10 +166,15 @@ impl Document {
     /// tree is freed without recursing (blitz-dom keeps nodes in a slab).
     pub fn parse_with_limits(html: &str, limits: DomLimits) -> Result<Self, DomError> {
         limits.validate()?;
-        let mut inner = BaseDocument::new(DocumentConfig {
-            base_url: Some(parse::BASE_URL.to_owned()),
-            ..DocumentConfig::default()
-        });
+        let mut inner = BaseDocument::new(DocumentConfig::default());
+        // Nothing is "in the document" as far as blitz-dom can tell. Its
+        // hooks for elements joining the document have no use here (nothing
+        // loads, nothing lays out yet) and do harm: they panic on URLs they
+        // can't resolve, and add text children to <input> outside `max_nodes`.
+        inner
+            .root_node_mut()
+            .flags
+            .remove(NodeFlags::IS_IN_DOCUMENT);
         let parsed = parse::parse_document(
             &mut inner.mutate(),
             html,
@@ -160,37 +189,29 @@ impl Document {
             limits,
             handle_to_node: Vec::new(),
             node_to_handle: Vec::new(),
-            comment_data: parsed.comments.into_iter().collect(),
+            side_data: parsed.strings.into_iter().collect(),
+            held_bytes: 0,
             quirks: parsed.quirks,
             cursor: Cell::new((0, 0)),
             fault: None,
         };
-        doc.restore_urls(parsed.hidden_urls);
         if doc.node_count() > limits.max_nodes {
             return Err(DomError::NodeLimit {
                 limit: limits.max_nodes,
             });
         }
-        if doc.height(doc.root()) - 1 > limits.max_depth {
+        if doc.height(doc.root()) - 1 > limits.max_depth || parsed.over_limit {
             return Err(DomError::TreeTooDeep {
                 limit: limits.max_depth,
             });
         }
-        Ok(doc)
-    }
-
-    /// Writes back attribute values kept from blitz-dom while their element
-    /// joined the document (see [`parse::url_is_usable`]).
-    fn restore_urls(&mut self, hidden: Vec<(usize, QualName, String)>) {
-        for (id, name, value) in hidden {
-            if let Some(e) = self
-                .inner
-                .get_node_mut(id)
-                .and_then(|n| n.element_data_mut())
-            {
-                e.attrs.set(name, &value);
-            }
+        doc.held_bytes = doc.bytes_under(doc.root());
+        if doc.held_bytes > limits.max_text_bytes {
+            return Err(DomError::TextLimit {
+                limit: limits.max_text_bytes,
+            });
         }
+        Ok(doc)
     }
 
     /// The document's serialization: the `<html>` element's outer HTML, by
@@ -224,7 +245,7 @@ impl Document {
                 Step::Open(id) => {
                     let node = self.node(id);
                     match &node.data {
-                        NodeData::Text(t) => {
+                        NodeData::Text(_) => {
                             // §13.3: text is written unescaped when its
                             // parent is an HTML style, script, xmp, iframe,
                             // noembed, noframes or plaintext element (an SVG
@@ -253,15 +274,15 @@ impl Document {
                                         )
                                 });
                             if raw {
-                                out.push_str(&t.content);
+                                out.push_str(self.char_data(id));
                             } else {
-                                escape_into(&t.content, false, out);
+                                escape_into(self.char_data(id), false, out);
                             }
                         }
                         // §13.3: comment data goes out unescaped.
                         NodeData::Comment => {
                             out.push_str("<!--");
-                            out.push_str(self.comment_text(id));
+                            out.push_str(self.char_data(id));
                             out.push_str("-->");
                         }
                         NodeData::Document => {}
@@ -512,7 +533,12 @@ impl Document {
     }
 
     /// `setAttribute` on an element: `name` already validated.
-    pub(crate) fn set_attribute(&mut self, id: usize, name: &str, value: &str) {
+    pub(crate) fn set_attribute(
+        &mut self,
+        id: usize,
+        name: &str,
+        value: &str,
+    ) -> Result<(), DomError> {
         let qual = match self.find_attribute(id, name) {
             Some(a) => a.name.clone(),
             None => {
@@ -525,49 +551,160 @@ impl Document {
                 QualName::new(None, ns!(), LocalName::from(local))
             }
         };
-        self.write_attribute(id, qual, value);
+        self.write_attribute(id, qual, value)
     }
 
-    /// Writes one attribute through blitz-dom, except a URL it couldn't
-    /// resolve, which it must not see (see [`parse::url_is_usable`]).
-    fn write_attribute(&mut self, id: usize, name: QualName, value: &str) {
-        let tag = self.element_name(id).map(|n| n.local.clone());
-        let hide = tag.is_some_and(|t| parse::is_loaded_url(&t, &name.local))
-            && !parse::url_is_usable(value);
-        if hide {
-            self.inner.mutate().set_attribute(id, name.clone(), "");
-            self.restore_urls(vec![(id, name, value.to_owned())]);
-        } else {
-            self.inner.mutate().set_attribute(id, name, value);
+    /// Writes one attribute through blitz-dom, charging its bytes.
+    pub(crate) fn write_attribute(
+        &mut self,
+        id: usize,
+        name: QualName,
+        value: &str,
+    ) -> Result<(), DomError> {
+        let credit = self.attribute_bytes(id, &name);
+        let charge = attribute_cost(&name, value);
+        self.recharge(credit, charge)?;
+        self.inner.mutate().set_attribute(id, name, value);
+        Ok(())
+    }
+
+    /// What attribute `name` of `id` is charged at the moment.
+    fn attribute_bytes(&self, id: usize, name: &QualName) -> usize {
+        self.node(id)
+            .attrs()
+            .and_then(|l| l.iter().find(|a| a.name == *name))
+            .map_or(0, |a| attribute_cost(&a.name, &a.value))
+    }
+
+    /// Bytes `id` itself holds.
+    fn node_bytes(&self, id: usize) -> usize {
+        let node = self.node(id);
+        match &node.data {
+            NodeData::Text(_) | NodeData::Comment => self.char_data(id).len(),
+            NodeData::Element(e) | NodeData::AnonymousBlock(e) => e
+                .attrs()
+                .iter()
+                .map(|a| attribute_cost(&a.name, &a.value))
+                .sum(),
+            NodeData::Document => 0,
         }
+    }
+
+    /// Bytes the subtree at `top` holds, iteratively.
+    fn bytes_under(&self, top: usize) -> usize {
+        let mut total = 0usize;
+        let mut stack = vec![top];
+        while let Some(n) = stack.pop() {
+            total = total.saturating_add(self.node_bytes(n));
+            stack.extend(self.node(n).children.iter().copied());
+        }
+        total
+    }
+
+    /// Swaps `credit` held bytes for `charge`, failing with
+    /// [`DomError::TextLimit`] (and changing nothing) if that's over the
+    /// limit. Callers charge before they write.
+    fn recharge(&mut self, credit: usize, charge: usize) -> Result<(), DomError> {
+        let held = self
+            .held_bytes
+            .saturating_sub(credit)
+            .saturating_add(charge);
+        if charge > credit && held > self.limits.max_text_bytes {
+            return Err(DomError::TextLimit {
+                limit: self.limits.max_text_bytes,
+            });
+        }
+        self.held_bytes = held;
+        Ok(())
     }
 
     /// `removeAttribute`: false if there was no such attribute.
     pub(crate) fn remove_attribute(&mut self, id: usize, name: &str) -> bool {
         match self.find_attribute(id, name).map(|a| a.name.clone()) {
             Some(q) => {
-                self.inner.mutate().clear_attribute(id, q);
+                self.clear_attribute(id, q);
                 true
             }
             None => false,
         }
     }
 
-    /// A comment's data.
-    pub(crate) fn comment_text(&self, id: usize) -> &str {
-        self.comment_data.get(&id).map_or("", String::as_str)
+    pub(crate) fn clear_attribute(&mut self, id: usize, name: QualName) {
+        let credit = self.attribute_bytes(id, &name);
+        self.held_bytes = self.held_bytes.saturating_sub(credit);
+        let is_link_href = self
+            .element_name(id)
+            .is_some_and(|n| n.local.as_ref() == "link")
+            && name.local.as_ref() == "href";
+        if is_link_href {
+            // blitz-dom's clear_attribute unloads the link's stylesheet here
+            // and hits `unreachable!` if it has none, which it never does:
+            // nothing loads. Nothing else depends on this attribute.
+            if let Some(e) = self
+                .inner
+                .get_node_mut(id)
+                .and_then(|n| n.element_data_mut())
+            {
+                e.attrs.remove(&name);
+            }
+        } else {
+            self.inner.mutate().clear_attribute(id, name);
+        }
     }
 
-    pub(crate) fn set_comment_text(&mut self, id: usize, data: &str) {
-        self.comment_data.insert(id, data.to_owned());
+    /// A text node's or comment's data.
+    pub(crate) fn char_data(&self, id: usize) -> &str {
+        match (self.side_data.get(&id), &self.node(id).data) {
+            (Some(s), _) => s,
+            (None, NodeData::Text(t)) => &t.content,
+            _ => "",
+        }
+    }
+
+    /// Writes a comment's data, or a text node's that blitz-dom must not
+    /// see, to the side table.
+    fn set_side_data(&mut self, id: usize, data: &str) -> Result<(), DomError> {
+        self.recharge(self.char_data(id).len(), data.len())?;
+        self.side_data.insert(id, data.to_owned());
+        Ok(())
+    }
+
+    /// Whether `id` is under a `<style>` or is one, by blitz-dom's test: the
+    /// local name alone.
+    fn is_in_style(&self, id: usize) -> bool {
+        let mut at = Some(id);
+        while let Some(n) = at {
+            if self
+                .element_name(n)
+                .is_some_and(|q| q.local.as_ref() == "style")
+            {
+                return true;
+            }
+            at = self.parent(n);
+        }
+        false
+    }
+
+    /// Moves the data of text nodes under `top` to the side table.
+    fn stash_text(&mut self, top: usize) {
+        let mut stack = vec![top];
+        while let Some(n) = stack.pop() {
+            let Some(node) = self.inner.get_node_mut(n) else {
+                continue;
+            };
+            stack.extend(node.children.iter().copied());
+            if let Some(t) = node.text_data_mut() {
+                let text = std::mem::take(&mut t.content);
+                self.side_data.entry(n).or_insert(text);
+            }
+        }
     }
 
     /// `textContent`: `None` for the document (the DOM's null).
     pub(crate) fn text_content(&self, id: usize) -> Option<String> {
         match &self.node(id).data {
             NodeData::Document => None,
-            NodeData::Text(t) => Some(t.content.clone()),
-            NodeData::Comment => Some(self.comment_text(id).to_owned()),
+            NodeData::Text(_) | NodeData::Comment => Some(self.char_data(id).to_owned()),
             NodeData::Element(_) | NodeData::AnonymousBlock(_) => {
                 // Iterative, so a deep tree can't overflow the stack.
                 let mut out = String::new();
@@ -575,7 +712,7 @@ impl Document {
                 while let Some(n) = stack.pop() {
                     let node = self.node(n);
                     match &node.data {
-                        NodeData::Text(t) => out.push_str(&t.content),
+                        NodeData::Text(_) => out.push_str(self.char_data(n)),
                         NodeData::Element(_) | NodeData::AnonymousBlock(_) => {
                             stack.extend(node.children.iter().rev().copied());
                         }
@@ -593,24 +730,32 @@ impl Document {
     pub(crate) fn set_text_content(&mut self, id: usize, text: &str) -> Result<(), DomError> {
         match self.node(id).data {
             NodeData::Document => Ok(()),
-            NodeData::Text(_) => {
-                self.inner.mutate().set_node_text(id, text);
-                Ok(())
-            }
-            NodeData::Comment => {
-                self.set_comment_text(id, text);
-                Ok(())
-            }
+            NodeData::Text(_) => self.set_text_data(id, text),
+            NodeData::Comment => self.set_side_data(id, text),
             NodeData::AnonymousBlock(_) => Ok(()),
             NodeData::Element(_) => {
+                // Charged first: a refused write leaves the children alone.
+                let t = if text.is_empty() {
+                    None
+                } else {
+                    Some(self.create_text(text)?)
+                };
                 self.drop_children(id);
-                if !text.is_empty() {
-                    let t = self.create_text(text)?;
-                    self.inner.mutate().append_children(id, &[t]);
+                if let Some(t) = t {
+                    self.join(id, t);
                 }
                 Ok(())
             }
         }
+    }
+
+    pub(crate) fn set_text_data(&mut self, id: usize, text: &str) -> Result<(), DomError> {
+        if self.side_data.contains_key(&id) || self.is_in_style(id) {
+            return self.set_side_data(id, text);
+        }
+        self.recharge(self.char_data(id).len(), text.len())?;
+        self.inner.mutate().set_node_text(id, text);
+        Ok(())
     }
 
     /// Drops every descendant of `id`, retiring their handles.
@@ -650,7 +795,8 @@ impl Document {
 
     /// Retires node `id`'s handle, if it has one.
     fn retire(&mut self, id: usize) {
-        self.comment_data.remove(&id);
+        self.held_bytes = self.held_bytes.saturating_sub(self.node_bytes(id));
+        self.side_data.remove(&id);
         if let Some(h) = self.node_to_handle.get_mut(id) {
             if *h != 0 {
                 self.handle_to_node[*h as usize - 1] = None;
@@ -670,13 +816,15 @@ impl Document {
 
     pub(crate) fn create_text(&mut self, text: &str) -> Result<usize, DomError> {
         self.check_room()?;
+        self.recharge(0, text.len())?;
         Ok(self.inner.mutate().create_text_node(text))
     }
 
     pub(crate) fn create_comment(&mut self, data: &str) -> Result<usize, DomError> {
         self.check_room()?;
+        self.recharge(0, data.len())?;
         let id = self.inner.mutate().create_comment_node();
-        self.set_comment_text(id, data);
+        self.side_data.insert(id, data.to_owned());
         Ok(id)
     }
 
@@ -718,7 +866,13 @@ impl Document {
 
     /// `appendChild`. `Ok(false)` for the DOM's HierarchyRequestError.
     pub(crate) fn append_child(&mut self, parent: usize, child: usize) -> Result<bool, DomError> {
-        let parent_ok = matches!(self.node(parent).data, NodeData::Element(_));
+        // §4.2.3: a document takes comments here; `documentElement` already
+        // exists after a parse, so elements are refused either way.
+        let parent_ok = match self.kind(parent) {
+            Some(Kind::Element) => true,
+            Some(Kind::Document) => self.kind(child) == Some(Kind::Comment),
+            _ => false,
+        };
         let child_ok = matches!(
             self.node(child).data,
             NodeData::Element(_) | NodeData::Text(_) | NodeData::Comment
@@ -736,44 +890,51 @@ impl Document {
         Ok(true)
     }
 
-    /// Appends `child` to `parent`, with any URL blitz-dom couldn't resolve
-    /// in `child`'s subtree hidden meanwhile.
+    /// Appends `child` to `parent`. `child` leaves any old parent first:
+    /// blitz-dom's own move removes the node from the old parent's list by
+    /// id after adding it to the new one, so moving within one parent would
+    /// lose the node and leave a parent link nothing points back to.
     fn join(&mut self, parent: usize, child: usize) {
-        let hidden = self.hide_urls(child);
+        if self.node(child).parent.is_some() {
+            self.inner.mutate().remove_node(child);
+        }
+        if self.is_in_style(parent) {
+            self.stash_text(child);
+        }
         self.inner.mutate().append_children(parent, &[child]);
-        self.restore_urls(hidden);
     }
 
-    /// Blanks every `<img src>` and `<link href>` under `top` that blitz-dom
-    /// can't resolve, returning them for [`restore_urls`](Self::restore_urls).
-    fn hide_urls(&mut self, top: usize) -> Vec<(usize, QualName, String)> {
-        let mut hidden = Vec::new();
-        let mut stack = vec![top];
-        while let Some(n) = stack.pop() {
-            let node = self.node(n);
-            stack.extend(node.children.iter().copied());
-            let Some(e) = node.element_data() else {
-                continue;
-            };
-            for a in e.attrs() {
-                if parse::is_loaded_url(&e.name.local, &a.name.local)
-                    && !parse::url_is_usable(&a.value)
-                {
-                    hidden.push((n, a.name.clone(), a.value.clone()));
+    /// Checks the tree's links and the byte count; for tests. Returns what
+    /// is wrong, if anything.
+    #[doc(hidden)]
+    pub fn check_consistency(&self) -> Result<(), String> {
+        let mut held = 0usize;
+        for (id, node) in self.inner.tree().iter() {
+            held = held.saturating_add(self.node_bytes(id));
+            if let Some(p) = node.parent {
+                let Some(parent) = self.inner.get_node(p) else {
+                    return Err(format!("node {id} has a dropped parent {p}"));
+                };
+                if parent.children.iter().filter(|&&c| c == id).count() != 1 {
+                    return Err(format!("node {id} isn't once in its parent {p}'s children"));
+                }
+            }
+            for &c in &node.children {
+                if self.inner.get_node(c).and_then(|n| n.parent) != Some(id) {
+                    return Err(format!("child {c} of {id} doesn't point back"));
                 }
             }
         }
-        for (id, name, _) in &hidden {
-            if let Some(e) = self
-                .inner
-                .get_node_mut(*id)
-                .and_then(|n| n.element_data_mut())
-            {
-                e.attrs.set(name.clone(), "");
-            }
+        if held != self.held_bytes {
+            return Err(format!("{held} bytes held, {} counted", self.held_bytes));
         }
-        hidden
+        Ok(())
     }
+}
+
+/// What one attribute is charged.
+fn attribute_cost(name: &QualName, value: &str) -> usize {
+    ATTRIBUTE_COST + name.local.len() + value.len()
 }
 
 /// An element's or attribute's qualified name (`prefix:local`).

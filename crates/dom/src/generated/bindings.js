@@ -69,27 +69,27 @@ attr(3, "lang", function () { const s = self(this, 3); const r = call(39, s.g, s
 iface(4, "Document", 1, null);
 attr(4, "documentElement", function () { const s = self(this, 4); const r = call(41, s.g, s.h); return wrap(s.g, r); });
 attr(4, "head", function () { const s = self(this, 4); const r = call(42, s.g, s.h); return wrap(s.g, r); });
-attr(4, "body", function () { const s = self(this, 4); const r = call(43, s.g, s.h); return wrap(s.g, r); }, function (v) { const s = self(this, 4); call(44, s.g, s.h, (v === null || v === undefined ? 0 : obj(v, 3, s.g))); });
-attr(4, "compatMode", function () { const s = self(this, 4); const r = call(45, s.g, s.h); return r; });
-attr(4, "characterSet", function () { const s = self(this, 4); const r = call(46, s.g, s.h); return r; });
-attr(4, "contentType", function () { const s = self(this, 4); const r = call(47, s.g, s.h); return r; });
-op(4, "getElementById", function getElementById(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "getElementById"); const r = call(48, s.g, s.h, str(a0)); return wrap(s.g, r); });
-op(4, "createElement", function createElement(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "createElement"); const r = call(49, s.g, s.h, str(a0), (((o1) => o1 === undefined ? undefined : undefined)((argc > 1 ? arguments[1] : undefined)))); return wrap(s.g, r); });
-op(4, "createTextNode", function createTextNode(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "createTextNode"); const r = call(50, s.g, s.h, str(a0)); return wrap(s.g, r); });
-op(4, "createComment", function createComment(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "createComment"); const r = call(51, s.g, s.h, str(a0)); return wrap(s.g, r); });
-attr(4, "firstElementChild", function () { const s = self(this, 4); const r = call(52, s.g, s.h); return wrap(s.g, r); });
-attr(4, "lastElementChild", function () { const s = self(this, 4); const r = call(53, s.g, s.h); return wrap(s.g, r); });
-attr(4, "childElementCount", function () { const s = self(this, 4); const r = call(54, s.g, s.h); return r; });
+attr(4, "body", function () { const s = self(this, 4); const r = call(43, s.g, s.h); return wrap(s.g, r); });
+attr(4, "compatMode", function () { const s = self(this, 4); const r = call(44, s.g, s.h); return r; });
+attr(4, "characterSet", function () { const s = self(this, 4); const r = call(45, s.g, s.h); return r; });
+attr(4, "contentType", function () { const s = self(this, 4); const r = call(46, s.g, s.h); return r; });
+op(4, "getElementById", function getElementById(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "getElementById"); const r = call(47, s.g, s.h, str(a0)); return wrap(s.g, r); });
+op(4, "createElement", function createElement(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "createElement"); const r = call(48, s.g, s.h, str(a0), (((o1) => o1 === undefined ? undefined : undefined)((argc > 1 ? arguments[1] : undefined)))); return wrap(s.g, r); });
+op(4, "createTextNode", function createTextNode(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "createTextNode"); const r = call(49, s.g, s.h, str(a0)); return wrap(s.g, r); });
+op(4, "createComment", function createComment(a0) { const s = self(this, 4); const argc = arguments.length; need(argc, 1, "createComment"); const r = call(50, s.g, s.h, str(a0)); return wrap(s.g, r); });
+attr(4, "firstElementChild", function () { const s = self(this, 4); const r = call(51, s.g, s.h); return wrap(s.g, r); });
+attr(4, "lastElementChild", function () { const s = self(this, 4); const r = call(52, s.g, s.h); return wrap(s.g, r); });
+attr(4, "childElementCount", function () { const s = self(this, 4); const r = call(53, s.g, s.h); return r; });
 
 // CharacterData
 iface(5, "CharacterData", 1, null);
-attr(5, "data", function () { const s = self(this, 5); const r = call(55, s.g, s.h); return r; }, function (v) { const s = self(this, 5); call(56, s.g, s.h, (v === null ? '' : str(v))); });
-attr(5, "length", function () { const s = self(this, 5); const r = call(57, s.g, s.h); return r; });
-attr(5, "previousElementSibling", function () { const s = self(this, 5); const r = call(58, s.g, s.h); return wrap(s.g, r); });
-attr(5, "nextElementSibling", function () { const s = self(this, 5); const r = call(59, s.g, s.h); return wrap(s.g, r); });
+attr(5, "data", function () { const s = self(this, 5); const r = call(54, s.g, s.h); return r; }, function (v) { const s = self(this, 5); call(55, s.g, s.h, (v === null ? '' : str(v))); });
+attr(5, "length", function () { const s = self(this, 5); const r = call(56, s.g, s.h); return r; });
+attr(5, "previousElementSibling", function () { const s = self(this, 5); const r = call(57, s.g, s.h); return wrap(s.g, r); });
+attr(5, "nextElementSibling", function () { const s = self(this, 5); const r = call(58, s.g, s.h); return wrap(s.g, r); });
 
 // Text
-iface(6, "Text", 5, function Text() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return wrap(g, call(60, g, root(), (((o0) => o0 === undefined ? "" : str(o0))((argc > 0 ? arguments[0] : undefined))))); });
+iface(6, "Text", 5, function Text() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, call(59, g, root(), (((o0) => o0 === undefined ? "" : str(o0))((argc > 0 ? arguments[0] : undefined))))), new.target, 6); });
 
 // Comment
-iface(7, "Comment", 5, function Comment() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return wrap(g, call(61, g, root(), (((o0) => o0 === undefined ? "" : str(o0))((argc > 0 ? arguments[0] : undefined))))); });
+iface(7, "Comment", 5, function Comment() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, call(60, g, root(), (((o0) => o0 === undefined ? "" : str(o0))((argc > 0 ? arguments[0] : undefined))))), new.target, 7); });

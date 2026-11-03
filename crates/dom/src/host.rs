@@ -117,8 +117,7 @@ impl Document {
 
     fn reflect(&mut self, this: ObjectId, name: &str, value: &str) -> BindingResult<()> {
         let id = self.node_of(this)?;
-        self.set_attribute(id, name, value);
-        Ok(())
+        Document::set_attribute(self, id, name, value).map_err(|e| self.fail(e))
     }
 
     /// Operation 0: the handle's concrete interface, for `wrap`.
@@ -329,8 +328,8 @@ impl idl::Element for Document {
                 "setAttribute: the name is not a valid attribute name",
             ));
         }
-        Document::set_attribute(self, id, &qualified_name, &value_string(value));
-        Ok(())
+        Document::set_attribute(self, id, &qualified_name, &value_string(value))
+            .map_err(|e| self.fail(e))
     }
 
     fn remove_attribute(&mut self, this: ObjectId, qualified_name: String) -> BindingResult<()> {
@@ -355,7 +354,7 @@ impl idl::Element for Document {
         let has = self.attribute(id, &qualified_name).is_some();
         let want = force.unwrap_or(!has);
         if want && !has {
-            Document::set_attribute(self, id, &qualified_name, "");
+            Document::set_attribute(self, id, &qualified_name, "").map_err(|e| self.fail(e))?;
         } else if !want && has {
             Document::remove_attribute(self, id, &qualified_name);
         }
