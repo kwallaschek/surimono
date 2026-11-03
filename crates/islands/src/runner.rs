@@ -29,10 +29,10 @@ pub struct RunnerOptions {
     /// more than one. 0 picks the default: the number of CPUs, at most 4.
     pub pool_size: usize,
     /// How long a worker may sit idle before it frees its JavaScript
-    /// runtime (and the bundle preloaded in it). The next request on that
-    /// worker starts a runtime and loads its bundle itself (about 0.5 ms
-    /// plus the bundle's load time). `None` keeps runtimes for as long as
-    /// the runner lives. Default: 2 s.
+    /// runtime (and the bundle preloaded in it) and hands the freed memory
+    /// back to the OS. The next request on that worker starts a runtime and
+    /// loads its bundle itself (about 0.5 ms plus the bundle's load time).
+    /// `None` keeps runtimes for as long as the runner lives. Default: 2 s.
     pub release_idle_after: Option<Duration>,
     /// Seed for `Math.random`; every render starts the same sequence.
     pub seed: u64,
@@ -1065,9 +1065,12 @@ impl Worker {
     }
 
     /// Frees the runtime of a worker that has been idle for a while; the
-    /// next job starts a new one.
+    /// next job starts a new one. The allocator would keep the runtime's
+    /// pages; this happens at most once per idle spell, so the few
+    /// milliseconds of trimming fall when nothing is waiting on this worker.
     fn release(&mut self) {
         self.drop_sandbox();
+        surimono_core::release_free_memory();
     }
 
     /// Gives the sandbox a fresh context for the next job, freeing this

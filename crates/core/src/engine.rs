@@ -18,6 +18,8 @@
 //!   engine fails to link instead of shipping a sandbox that can hang;
 //! - [`install_stop_flag`], which points the patched engine at the
 //!   [`LimitState`]'s stop flag, read on every interrupt poll;
+//! - [`release_free_memory`], which hands the C allocator's free pages back
+//!   to the OS;
 //! - [`fork_generation`], which registers a `pthread_atfork` child handler
 //!   so a forked process can tell its own state from its ancestors'.
 //!
@@ -413,6 +415,23 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
     unsafe {
         let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
         surimono_set_interrupt_flag(rt, flag);
+    }
+}
+
+/// Hands memory the C allocator keeps free back to the OS.
+///
+/// A freed JavaScript heap stays in glibc's arenas, in pieces its automatic
+/// trimming can't return, so a process keeps its peak after a concurrent burst.
+/// This is `malloc_trim(0)`, for the whole process, and takes a few
+/// milliseconds during which allocating threads may wait on an arena. It
+/// changes no output. The island runner calls it when an idle worker frees its
+/// runtime. Does nothing on other C libraries (musl, macOS).
+pub fn release_free_memory() {
+    // SAFETY: malloc_trim takes no pointers, keeps the heap valid and locks
+    // each arena it visits, so any thread may call it at any time.
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    unsafe {
+        libc::malloc_trim(0);
     }
 }
 
