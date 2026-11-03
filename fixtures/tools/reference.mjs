@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Chrome reference renders for the visual fixtures.
 //
-//   node reference.mjs --out DIR [--update] [--kind islands] [fixture ...]
+//   node reference.mjs --out DIR [--update] [--kind islands|real-world] [fixture ...]
 //
 // For every fixture: Chrome renders the islands client-side with the pinned
 // libraries, prints the page to PDF (preferCSSPageSize, printBackground), and
@@ -14,6 +14,9 @@
 //                                       weight and style (lib/svgtext.mjs)
 //   prepass.html                        the source with markers replaced by Chrome's SVG
 //   render.json                         versions, fonts, island sizes, console output
+//
+// A real-world fixture has no islands: its own <script>s run in Chrome and the
+// page is printed once they settle. Its DOM after that is written as dom.html.
 //
 // Default (check) mode compares the fresh PNGs with the committed
 // <fixture>/reference/{chrome-<page>,island-<i>}.png and exits 1 if any changed.
@@ -31,6 +34,7 @@ import {
   TIMEZONE,
   checkInstalledVersions,
   launchChromium,
+  listAllFixtures,
   listFixtures,
   popplerVersion,
   prepassHtml,
@@ -48,11 +52,11 @@ const { values, positionals } = parseArgs({
   options: {
     out: { type: "string" },
     update: { type: "boolean", default: false },
-    kind: { type: "string", default: "islands" },
+    kind: { type: "string" },
   },
 });
 if (!values.out) {
-  console.error("usage: node reference.mjs --out DIR [--update] [--kind islands] [fixture ...]");
+  console.error("usage: node reference.mjs --out DIR [--update] [--kind islands|real-world] [fixture ...]");
   process.exit(2);
 }
 const outRoot = path.resolve(values.out);
@@ -139,7 +143,7 @@ function compareTextSets(expectedFiles, freshFiles, results) {
   return status;
 }
 
-function checkFixture(fixture, freshPages, freshIslands, freshTexts, env) {
+function checkFixture(fixture, freshPages, freshIslands, freshTexts, freshDom, env) {
   const metaFile = path.join(fixture.dir, "reference", "reference.toml");
   if (!fs.existsSync(metaFile)) return { status: "missing", detail: "no committed reference; run reference.sh --update" };
   const meta = readReferenceMeta(metaFile);
@@ -149,15 +153,21 @@ function checkFixture(fixture, freshPages, freshIslands, freshTexts, env) {
   const refs = referenceFiles(fixture.dir);
   const results = [];
   const statuses = [compareSet("page", refs.pages, freshPages, results), compareSet("island", refs.islands, freshIslands, results), compareTextSets(refs.texts, freshTexts, results)];
+  if (freshDom) {
+    const committed = path.join(fixture.dir, "reference", "dom.html");
+    const same = fs.existsSync(committed) && fs.readFileSync(committed, "utf8") === fs.readFileSync(freshDom, "utf8");
+    results.push({ name: "dom", result: same ? "identical" : "changed" });
+    statuses.push(same ? "identical" : "changed");
+  }
   const status = statuses.includes("changed") ? "changed" : statuses.includes("reproduced") ? "reproduced" : "identical";
   const changed = results.filter((r) => r.result === "changed").map((r) => r.name);
   return { status, detail: changed.length ? `changed: ${changed.join(", ")}` : undefined, results, notes };
 }
 
 const env = { versions: checkInstalledVersions(), poppler: popplerVersion() };
-const fixtures = listFixtures(values.kind, positionals);
+const fixtures = values.kind ? listFixtures(values.kind, positionals) : listAllFixtures(positionals);
 if (!fixtures.length) {
-  console.log(`no ${values.kind} fixtures yet`);
+  console.log(`no ${values.kind ?? ""} fixtures yet`);
   process.exit(0);
 }
 
@@ -183,6 +193,7 @@ try {
     }
     const source = fs.readFileSync(path.join(fixture.dir, "input.html"), "utf8");
     fs.writeFileSync(path.join(out, "prepass.html"), prepassHtml(source, rendered.islands.map((i) => i.svg)));
+    if (rendered.dom !== undefined) fs.writeFileSync(path.join(out, "dom.html"), rendered.dom);
     const pages = rasterise(pdf, out, "chrome");
     const islands = [];
     for (const isl of rendered.islands) {
@@ -227,6 +238,7 @@ try {
       fs.rmSync(refDir, { recursive: true, force: true });
       fs.mkdirSync(refDir, { recursive: true });
       for (const p of [...pages, ...islands.flatMap((i) => [i.png, i.texts])]) fs.copyFileSync(p, path.join(refDir, path.basename(p)));
+      if (rendered.dom !== undefined) fs.copyFileSync(path.join(out, "dom.html"), path.join(refDir, "dom.html"));
       fs.writeFileSync(
         path.join(refDir, "reference.toml"),
         referenceToml(
@@ -243,6 +255,7 @@ try {
         pages,
         islands.map((i) => i.png),
         islands.map((i) => i.texts),
+        rendered.dom !== undefined ? path.join(out, "dom.html") : undefined,
         env,
       );
       report.fixtures[fixture.name] = result;

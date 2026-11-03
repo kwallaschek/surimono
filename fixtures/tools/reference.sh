@@ -3,8 +3,8 @@
 #
 #   fixtures/tools/reference.sh [--update] <outdir> [fixture ...]
 #
-# Check mode (default, and what CI runs): render every fixture in the pinned
-# Chromium, rasterise at 96 dpi, and compare with the committed
+# Check mode (default, and what CI runs): render every fixture (islands and
+# real-world pages) in the pinned Chromium, rasterise at 96 dpi, and compare with the committed
 # fixtures/<kind>/<name>/reference/chrome-<page>.png. Exits 1 if a page changed
 # or a reference is missing. Results: <outdir>/reference-report.json, and for
 # each fixture <outdir>/<name>/ (chrome.pdf, chrome-N.png, prepass.html,

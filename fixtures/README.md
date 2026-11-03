@@ -7,6 +7,7 @@ or WPT, never from surimono's own output. Owned by the conformance researcher.
 |---|---|
 | `fonts/` | The pinned test fonts (Noto Sans, Noto Sans JP), used by Chrome and by surimono/fulgur alike. `fonts.toml` pins each file. |
 | `islands/<name>/` | Visual fixtures for phase 1: a page with chart islands, plus its Chrome references. |
+| `real-world/<name>/` | Phase 2 pages whose own scripts run (marked, highlight.js, KaTeX, Alpine.js, D3), plus their Chrome references. Libraries are vendored unmodified in `real-world/lib/` and pinned in `real-world/manifest.toml`. |
 | `tools/` | The Chrome reference pipeline, the comparison tool and the fixture generator (Node, pinned by `package-lock.json`). |
 
 ## Island fixture format
@@ -65,6 +66,31 @@ refuses other sizes.
   system font: the harness fails a fixture whose SVG names any family other
   than Noto Sans or Noto Sans JP.
 - Time zone UTC, locale en-US. Only inline data, with no network.
+
+## Real-world page format
+
+```
+fixtures/real-world/<name>/
+  input.html            the document: its own <script> and <link> tags load ../lib/<name>-<version>/
+  meta.toml             title, library, fonts, page size, what it tests, which tasks it needs
+  reference/
+    chrome-<page>.png   the page printed by Chrome after its scripts ran, 96 dpi
+    dom.html            the DOM those scripts left, as Chrome serializes it
+    reference.toml      Chromium, Playwright and poppler versions; size and sha256 of each PNG
+```
+
+`reference.mjs` loads the page offline, waits past `load` for two animation
+frames and a task, and prints. A page error, an error on the console, or any
+glyph drawn in a system font (Chrome's `CSS.getPlatformFontsForNode`, so glyph
+fallback counts) fails the fixture. `dom.html` is compared byte for byte in check mode. Page data is
+inline and fixed; pages call no clock or random source. The layout stays within
+what fulgur and Chrome agree on (see "Diff metric"), so these pages have flex
+rows and no `<table>`.
+
+surimono's side needs page scripts, so no real-world page is compared with
+surimono yet; `compare.sh <fixture> <pdf>` will compare the printed page, and
+`dom.html` is the expectation for serialized HTML. `meta.toml`'s `needs` says
+which tasks each page waits for.
 
 ## Pipeline
 

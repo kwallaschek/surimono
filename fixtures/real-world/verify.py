@@ -8,7 +8,9 @@ crates/islands embeds ([library.embedded]), check that file's sha256 and size
 too; a recorded file that is missing is an error. Needs network access to registry.npmjs.org;
 nothing is written outside a temporary directory.
 
---embedded-only checks only the embedded files, offline: what PR CI runs, so a
+Files vendored for page scripts ([[library.vendored]]) are checked in both modes.
+
+--embedded-only checks only the embedded and vendored files, offline: what PR CI runs, so a
 rebuilt bundle that no longer matches the manifest fails there. --root checks
 the embedded files of another checkout (a worktree of the renderer's branch).
 
@@ -75,6 +77,37 @@ def check(lib: dict, cache: pathlib.Path | None) -> list[str]:
         for lf in lib["license_files"]:
             if member(lf) is None:
                 errors.append(f"licence file {lf} missing")
+        for v in lib.get("vendored", []):
+            data = member(v["member"])
+            if data is None:
+                errors.append(f"vendored member {v['member']} is not in the tarball")
+            elif hashlib.sha256(data).hexdigest() != v["sha256"]:
+                errors.append(f"tarball's {v['member']} differs from the manifest")
+    return errors
+
+
+def check_vendored(lib: dict, root: pathlib.Path = ROOT) -> list[str]:
+    """Offline: each file vendored for a page script matches the manifest, and
+    the library keeps a licence file, or a note saying why it has none."""
+    vendored = lib.get("vendored", [])
+    errors = []
+    for v in vendored:
+        path = root / v["file"]
+        if not path.is_file():
+            errors.append(f"vendored {v['file']} is missing")
+            continue
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != v["sha256"]:
+            errors.append(f"vendored {v['file']} sha256 {hashlib.sha256(data).hexdigest()} differs from the manifest")
+        if len(data) != v["bytes"]:
+            errors.append(f"vendored {v['file']} is {len(data)} bytes")
+    if vendored:
+        files = {pathlib.PurePosixPath(v["member"]).name for v in vendored}
+        for lf in lib["license_files"]:
+            if pathlib.PurePosixPath(lf).name not in files:
+                errors.append(f"licence file {lf} isn't vendored")
+        if not lib["license_files"] and not lib.get("license_note"):
+            errors.append("no licence file and no license_note")
     return errors
 
 
@@ -121,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     for lib in libs:
         errors = [] if args.embedded_only else check(lib, args.cache)
         emb_errors, note = check_embedded(lib, args.root.resolve())
-        errors += emb_errors
+        errors += emb_errors + check_vendored(lib, args.root.resolve())
         failed += bool(errors)
         status = "ok  " if not errors else "FAIL"
         print(f"{status} {lib['name']} {lib['version']} ({lib['status']}, {lib['license']}){f'; {note}' if note else ''}" + "".join(f"\n     {e}" for e in errors))

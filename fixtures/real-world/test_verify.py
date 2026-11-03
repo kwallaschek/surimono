@@ -117,5 +117,47 @@ class RealManifest(unittest.TestCase):
                 self.assertIn("checked", note)
 
 
+class VendoredTests(unittest.TestCase):
+    def lib(self, data: bytes, **over) -> dict:
+        return {
+            "license_files": ["LICENSE"],
+            "vendored": [
+                {"file": "lib/x.js", "member": "dist/x.js", "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)},
+                {"file": "lib/LICENSE", "member": "LICENSE", "sha256": hashlib.sha256(b"L").hexdigest(), "bytes": 1},
+            ],
+            **over,
+        }
+
+    def tree(self, data: bytes) -> tempfile.TemporaryDirectory:
+        tmp = tempfile.TemporaryDirectory()
+        root = pathlib.Path(tmp.name)
+        (root / "lib").mkdir()
+        (root / "lib/x.js").write_bytes(data)
+        (root / "lib/LICENSE").write_bytes(b"L")
+        return tmp
+
+    def test_matching_files_pass(self):
+        with self.tree(b"js") as tmp:
+            self.assertEqual(verify.check_vendored(self.lib(b"js"), pathlib.Path(tmp)), [])
+
+    def test_changed_file_fails(self):
+        with self.tree(b"edited") as tmp:
+            errors = verify.check_vendored(self.lib(b"js"), pathlib.Path(tmp))
+        self.assertTrue(any("differs from the manifest" in e for e in errors), errors)
+
+    def test_missing_file_fails(self):
+        with self.tree(b"js") as tmp:
+            (pathlib.Path(tmp) / "lib/x.js").unlink()
+            errors = verify.check_vendored(self.lib(b"js"), pathlib.Path(tmp))
+        self.assertTrue(any("is missing" in e for e in errors), errors)
+
+    def test_licence_must_be_vendored_or_explained(self):
+        with self.tree(b"js") as tmp:
+            root = pathlib.Path(tmp)
+            self.assertTrue(verify.check_vendored(self.lib(b"js", license_files=["NOTICE"]), root))
+            self.assertEqual(verify.check_vendored(self.lib(b"js", license_files=[]), root), ["no licence file and no license_note"])
+            self.assertEqual(verify.check_vendored(self.lib(b"js", license_files=[], license_note="why"), root), [])
+
+
 if __name__ == "__main__":
     unittest.main()

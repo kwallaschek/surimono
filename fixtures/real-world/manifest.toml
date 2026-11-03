@@ -21,7 +21,7 @@
 # bundle (not the npm package's CLI-only dependencies).
 
 schema = 1
-phase = 1
+phase = 1 # the first entries; a later entry says its own phase
 
 [[library]]
 name = "echarts"
@@ -131,3 +131,293 @@ dist_format = "IIFE, global `mermaid`"
 source_repo = "https://github.com/mermaid-js/mermaid"
 source_commit = "unknown (npm metadata has no gitHead); tag mermaid@12.2.0"
 used_by = "P1-RT-08 Mermaid renderer (stretch, first to cut)"
+
+# Phase 2: libraries that run as page scripts, not as islands. Each is vendored
+# unmodified under fixtures/real-world/lib/<name>-<version>/ (test-only, never
+# compiled in), and its page is a fixture next to this manifest. [[library.vendored]]
+# pins every vendored file: `member` is its path in the tarball; verify.py checks
+# the committed copy offline and the tarball's copy online.
+
+[[library]]
+name = "marked"
+version = "18.1.3"
+phase = 2
+status = "required"
+license = "MIT"
+license_files = ["LICENSE"]
+npm_tarball = "https://registry.npmjs.org/marked/-/marked-18.1.3.tgz"
+integrity = "sha512-9ChMH8EVVgjgID49nsL6IWxWk5c6GtAsq/xw7U1ggkjkU5AGuv68oLTVlFRtvcUYZtpbNyjyvGo3YDu0fGapiw=="
+tarball_sha256 = "5ca94887c584f7a67b27acd6b08e0a19da651418b627295d82d57fe63a56c82b"
+dist_file = "lib/marked.umd.js"
+dist_sha256 = "c34a221dc89e91833a88822e7717b8a0cf27118f8c9a8779dffb48a6be31f97a"
+dist_bytes = 50548
+dist_format = "UMD, global `marked`"
+source_repo = "https://github.com/markedjs/marked"
+source_commit = "ba50aa95636ac8f97f46446bbfeb04592ed22216"
+used_by = "fixtures/real-world/marked-report (Chrome runs the vendored copy as a page script)"
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/marked-18.1.3/marked.umd.js"
+member = "lib/marked.umd.js"
+sha256 = "c34a221dc89e91833a88822e7717b8a0cf27118f8c9a8779dffb48a6be31f97a"
+bytes = 50548
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/marked-18.1.3/LICENSE"
+member = "LICENSE"
+sha256 = "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+bytes = 2942
+
+[[library]]
+name = "highlight.js"
+version = "11.12.0"
+phase = 2
+status = "required"
+license = "BSD-3-Clause"
+license_files = ["LICENSE"]
+npm_tarball = "https://registry.npmjs.org/@highlightjs/cdn-assets/-/cdn-assets-11.12.0.tgz"
+integrity = "sha512-KvOKXODaiFmId9xaq3xc5xCL66wVLUuOngDbO9B/kewbFTqdGbn2nJxNhN3H5R1cgDTVj6R8vH0zgiNDEGjpDw=="
+tarball_sha256 = "b8a006d30f45afe783072569f3d69c5b60c0e7b9ca28cd474e12f2584e2a3bd9"
+dist_file = "highlight.min.js"
+dist_sha256 = "8ab71eb09c51f501e5e25157d9cff100e46cc29bcbfc744d0b746d451fca7f53"
+dist_bytes = 129254
+dist_format = "IIFE, global `hljs`; the prebuilt browser bundle, published as @highlightjs/cdn-assets"
+source_repo = "https://github.com/highlightjs/highlight.js"
+source_commit = "dce7a3dab8f3fd586138ba6c5f29ecc19c02db9f"
+used_by = "fixtures/real-world/highlightjs-code (Chrome runs the vendored copy as a page script)"
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/highlight.js-11.12.0/highlight.min.js"
+member = "highlight.min.js"
+sha256 = "8ab71eb09c51f501e5e25157d9cff100e46cc29bcbfc744d0b746d451fca7f53"
+bytes = 129254
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/highlight.js-11.12.0/styles/github.min.css"
+member = "styles/github.min.css"
+sha256 = "3a9a5def8b9c311e5ae43abde85c63133185eed4f0d9f67fea4b00a8308cf066"
+bytes = 1309
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/highlight.js-11.12.0/LICENSE"
+member = "LICENSE"
+sha256 = "6c081431591d9df696c82dc598fe1423765b8a299b200ed00b281afd0f64c490"
+bytes = 1514
+
+[[library]]
+name = "katex"
+version = "0.19.1"
+phase = 2
+status = "required"
+license = "MIT"
+license_files = ["LICENSE"]
+npm_tarball = "https://registry.npmjs.org/katex/-/katex-0.19.1.tgz"
+integrity = "sha512-jG8uKntjSEcm2EpQOh0XturpPuuC9r3Sq5HLHdsFdWZT27E672SF19QEi+of0/YeOy15lDgRhKvr5614uRrEfA=="
+tarball_sha256 = "24da5a599eb2fcede2e270b99a6ff48bca816beecc95feeb84e8cccbd1bb34fd"
+dist_file = "dist/katex.min.js"
+dist_sha256 = "fa140498b8cfc8302cbe5e7cb1bdbc1f952bc38b3fa258ede09e73edbf9a74bc"
+dist_bytes = 273081
+dist_format = "UMD, global `katex`"
+source_repo = "https://github.com/KaTeX/KaTeX"
+source_commit = "8000fbd4e29cca2c0cb1e88b745af3ed2f436b66"
+used_by = "fixtures/real-world/katex-autorender (Chrome runs the vendored copy as a page script)"
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/katex.min.js"
+member = "dist/katex.min.js"
+sha256 = "fa140498b8cfc8302cbe5e7cb1bdbc1f952bc38b3fa258ede09e73edbf9a74bc"
+bytes = 273081
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/contrib/auto-render.min.js"
+member = "dist/contrib/auto-render.min.js"
+sha256 = "e5372d199bcdae8b4de71d0f7ceba72a4ba12774a27c60a6f1f77d03b3228ee4"
+bytes = 3486
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/katex.min.css"
+member = "dist/katex.min.css"
+sha256 = "00e0b094171b07f58422075f469b4feac2b2f7bce1aeec943c08da4d697f4dcf"
+bytes = 24793
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_AMS-Regular.woff2"
+member = "dist/fonts/KaTeX_AMS-Regular.woff2"
+sha256 = "0cdd387c9590a1a9f9794560022dbb59654a7d86f187aa0c81495ad42d3a7308"
+bytes = 28076
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Caligraphic-Bold.woff2"
+member = "dist/fonts/KaTeX_Caligraphic-Bold.woff2"
+sha256 = "de7701e42cf1f4cf0b766c03fb27977207eee2f4fd5d76fa82188406da43ea4c"
+bytes = 6912
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Caligraphic-Regular.woff2"
+member = "dist/fonts/KaTeX_Caligraphic-Regular.woff2"
+sha256 = "5d53e70ad607c2352162dec9e0923fb54ecdafaccbf604cd8dcf7d00facb989b"
+bytes = 6908
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Fraktur-Bold.woff2"
+member = "dist/fonts/KaTeX_Fraktur-Bold.woff2"
+sha256 = "74444efd593c005e3f4573b44524704c0af0a937fe911cca9e94068d0d140d3f"
+bytes = 11348
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Fraktur-Regular.woff2"
+member = "dist/fonts/KaTeX_Fraktur-Regular.woff2"
+sha256 = "51814d270d06ff0255dba0799994fa4d8c84d11f09951d47595f4abb1f3602dc"
+bytes = 11316
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Main-Bold.woff2"
+member = "dist/fonts/KaTeX_Main-Bold.woff2"
+sha256 = "0f60d1b897938ec918c8ce073092411baf9438f6739465693ff18b0f9d20b021"
+bytes = 25324
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Main-BoldItalic.woff2"
+member = "dist/fonts/KaTeX_Main-BoldItalic.woff2"
+sha256 = "99cd42a3c072d918f2f44984a807cf7aa16e13545fd0875fc07c6c65f99e715b"
+bytes = 16780
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Main-Italic.woff2"
+member = "dist/fonts/KaTeX_Main-Italic.woff2"
+sha256 = "97479ca6cce906abc961ecac96faa5f9ca2e61b8e7670d475826bcdee9a7c267"
+bytes = 16988
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Main-Regular.woff2"
+member = "dist/fonts/KaTeX_Main-Regular.woff2"
+sha256 = "c2342cd8b869e01752a9321dc17213fc40d4d04c79688c1d43f2cf316abd7866"
+bytes = 26272
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Math-BoldItalic.woff2"
+member = "dist/fonts/KaTeX_Math-BoldItalic.woff2"
+sha256 = "dc47344dbb6cb5b655c8460d561f4df5f501b90c804ad3c6cec65fe322351ab1"
+bytes = 16400
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Math-Italic.woff2"
+member = "dist/fonts/KaTeX_Math-Italic.woff2"
+sha256 = "7af58c5ec8f132a2ddde9027c6d7814decce4d3b822a11192a42a20e2e973264"
+bytes = 16440
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_SansSerif-Bold.woff2"
+member = "dist/fonts/KaTeX_SansSerif-Bold.woff2"
+sha256 = "e99ae51144bf1232efcc1bfe5add36262c6866b0faab24fa75740e1b98577a62"
+bytes = 12216
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_SansSerif-Italic.woff2"
+member = "dist/fonts/KaTeX_SansSerif-Italic.woff2"
+sha256 = "00b26ac825e2095056396e0553b8ac26d3f8ad158c3826e28b4c45b385c4714a"
+bytes = 12028
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_SansSerif-Regular.woff2"
+member = "dist/fonts/KaTeX_SansSerif-Regular.woff2"
+sha256 = "68e8c73ef42afd3ccec58bf0fba302cce448938e7fc020a5e31f8a952eee1342"
+bytes = 10344
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Script-Regular.woff2"
+member = "dist/fonts/KaTeX_Script-Regular.woff2"
+sha256 = "036d4e95149b69ff9bcc0cd55771efeb25ffa3947293e69acd78d5ac328c684b"
+bytes = 9644
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Size1-Regular.woff2"
+member = "dist/fonts/KaTeX_Size1-Regular.woff2"
+sha256 = "6b47c40166b6dbe21a5dfca7718413f2147fd2399be1ba605d8ad39cedf25dfe"
+bytes = 5468
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Size2-Regular.woff2"
+member = "dist/fonts/KaTeX_Size2-Regular.woff2"
+sha256 = "d04c54219f9eaec6d4d4fd42dfb28785975a4794d6b2fc71e566b9cd6db842dd"
+bytes = 5208
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Size3-Regular.woff2"
+member = "dist/fonts/KaTeX_Size3-Regular.woff2"
+sha256 = "73d591271b1604960cb10bb90fee021670af7297017e0e98480b332d11f51995"
+bytes = 3624
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Size4-Regular.woff2"
+member = "dist/fonts/KaTeX_Size4-Regular.woff2"
+sha256 = "a4af7d414440a1c1790825cfb700cf9cf43b0f2c4b04f0ebc523011ad9853ec0"
+bytes = 4928
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/KaTeX_Typewriter-Regular.woff2"
+member = "dist/fonts/KaTeX_Typewriter-Regular.woff2"
+sha256 = "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b"
+bytes = 13568
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/LICENSE"
+member = "LICENSE"
+sha256 = "766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3"
+bytes = 1107
+
+[[library]]
+name = "alpinejs"
+version = "3.17.5"
+phase = 2
+status = "second to cut in phase 2"
+license = "MIT"
+license_files = []
+npm_tarball = "https://registry.npmjs.org/alpinejs/-/alpinejs-3.17.5.tgz"
+integrity = "sha512-XewMqRC6zjy8iaUPn86dxjvooAsNai3hUtQbdn0A5H2w7Jt10xHGZ1SczN5+Dvp3UKkuSEt9moy/UaUWOwKdnQ=="
+tarball_sha256 = "fe3a5be16ef5d23edc188e8313ebbf6f3373cbed8b939c427060f3a5d2314c0b"
+dist_file = "dist/cdn.min.js"
+dist_sha256 = "b4036e9e9ac22fa6f6ae1ba292e015e1f3e9c85d0d79e73e4c8eb9bb139b522e"
+dist_bytes = 55935
+dist_format = "IIFE, global `Alpine`, starts itself"
+source_repo = "https://github.com/alpinejs/alpine"
+source_commit = "8d3d9a2f98385d4c879f4b5be080a0221279ed4d"
+used_by = "fixtures/real-world/alpine-invoice (Chrome runs the vendored copy as a page script)"
+
+license_note = "The npm tarball ships no licence file; see lib/alpinejs-3.17.5/LICENSE-NOTE.md"
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/alpinejs-3.17.5/cdn.min.js"
+member = "dist/cdn.min.js"
+sha256 = "b4036e9e9ac22fa6f6ae1ba292e015e1f3e9c85d0d79e73e4c8eb9bb139b522e"
+bytes = 55935
+
+[[library]]
+name = "d3"
+version = "7.9.1"
+phase = 2
+status = "required"
+license = "ISC"
+license_files = ["LICENSE"]
+npm_tarball = "https://registry.npmjs.org/d3/-/d3-7.9.1.tgz"
+integrity = "sha512-mz88VdFCKJXk3luX1GUmTBhidmxUIQpkq81Ms3y20/k+DvFJn9rF+VRVIbjHBbD5PD+KwlRAZ90sueprzawEyA=="
+tarball_sha256 = "6757e2b8c6c27fc78cb23a6eecace44202a89e33feab8a390c927ed21a5f1363"
+dist_file = "dist/d3.min.js"
+dist_sha256 = "31959f028dde7818dc1418ec3c50dbdb2774cfafadedbc1a2431d235867238f6"
+dist_bytes = 280493
+dist_format = "UMD, global `d3`"
+source_repo = "https://github.com/d3/d3"
+source_commit = "78db4998f838eb555548dfe8b44f3a5cb83e4695"
+used_by = "fixtures/real-world/d3-charts (Chrome runs the vendored copy as a page script)"
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/d3-7.9.1/d3.min.js"
+member = "dist/d3.min.js"
+sha256 = "31959f028dde7818dc1418ec3c50dbdb2774cfafadedbc1a2431d235867238f6"
+bytes = 280493
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/d3-7.9.1/LICENSE"
+member = "LICENSE"
+sha256 = "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+bytes = 731
