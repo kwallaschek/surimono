@@ -17,7 +17,8 @@
 //!   in `vendor/rquickjs-sys` defines, so a build against an unpatched
 //!   engine fails to link instead of shipping a sandbox that can hang;
 //! - [`install_stop_flag`], which points the patched engine at the
-//!   [`LimitState`]'s stop flag, read on every interrupt poll;
+//!   [`LimitState`]'s stop flag, read on every interrupt poll, and at its
+//!   leak count, which `JS_FreeRuntime` fills in (see [`teardown_leaks`]);
 //! - [`fork_generation`], which registers a `pthread_atfork` child handler
 //!   so a forked process can tell its own state from its ancestors'.
 //!
@@ -72,6 +73,10 @@ pub(crate) struct LimitState {
     /// on an [`EXPIRING`] bit that its parent's watchdog set: that thread
     /// doesn't exist here.
     armed_gen: AtomicU64,
+    /// Objects still alive when the runtime was freed, written by the
+    /// patched `JS_FreeRuntime` (see [`install_stop_flag`]) and read when
+    /// the allocator is dropped, after it returned.
+    leaked_objects: AtomicU32,
 }
 
 /// [`LimitState::call`] bit: the stop flag is being raised for this call.
@@ -94,6 +99,7 @@ impl LimitState {
             origin: Instant::now(),
             call: AtomicU64::new(0),
             armed_gen: AtomicU64::new(0),
+            leaked_objects: AtomicU32::new(0),
         })
     }
 
@@ -189,6 +195,13 @@ impl LimitState {
     /// Whether the running call passed its deadline.
     pub(crate) fn timed_out(&self) -> bool {
         self.stop.load(Ordering::Acquire) & STOP_TIME != 0
+    }
+
+    /// Objects the runtime's `JS_FreeRuntime` found still alive; zero
+    /// until it has run.
+    #[cfg(test)]
+    pub(crate) fn leaked_objects(&self) -> u32 {
+        self.leaked_objects.load(Ordering::Relaxed)
     }
 
     /// Bytes currently held by the engine.
@@ -299,6 +312,55 @@ impl LimitAllocator {
     }
 }
 
+/// Runtimes freed with something left behind, the objects left and the
+/// bytes left; see [`teardown_leaks`].
+static LEAKY_RUNTIMES: AtomicU64 = AtomicU64::new(0);
+static LEAKED_OBJECTS: AtomicU64 = AtomicU64::new(0);
+static LEAKED_BYTES: AtomicU64 = AtomicU64::new(0);
+
+impl Drop for LimitAllocator {
+    /// rquickjs drops the allocator after `JS_FreeRuntime` has returned, so
+    /// the runtime's teardown is complete here: whatever it still holds, or
+    /// reported as leaked, it will never give back.
+    fn drop(&mut self) {
+        let objects = self.state.leaked_objects.load(Ordering::Relaxed);
+        let bytes = self.state.used();
+        if objects != 0 || bytes != 0 {
+            LEAKY_RUNTIMES.fetch_add(1, Ordering::Relaxed);
+            LEAKED_OBJECTS.fetch_add(u64::from(objects), Ordering::Relaxed);
+            LEAKED_BYTES.fetch_add(bytes as u64, Ordering::Relaxed);
+        }
+    }
+}
+
+/// What sandbox runtimes left behind when they were freed, summed over the
+/// process. All zero unless an engine error path leaked a reference.
+///
+/// Not public API (hidden from the docs; it may change in any release): a
+/// debug counter for surimono's soak and sweep tests. Leaked objects are
+/// otherwise invisible: the engine frees its small-block arenas whole, so
+/// the bytes come back, but the leak was real (review of #45).
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TeardownLeaks {
+    /// Runtimes freed with leaked objects or bytes.
+    pub runtimes: u64,
+    /// Objects still alive at `JS_FreeRuntime`.
+    pub objects: u64,
+    /// Bytes the engine never gave back (large blocks such objects owned).
+    pub bytes: u64,
+}
+
+/// Reads the process-wide [`TeardownLeaks`] counters.
+#[doc(hidden)]
+pub fn teardown_leaks() -> TeardownLeaks {
+    TeardownLeaks {
+        runtimes: LEAKY_RUNTIMES.load(Ordering::Relaxed),
+        objects: LEAKED_OBJECTS.load(Ordering::Relaxed),
+        bytes: LEAKED_BYTES.load(Ordering::Relaxed),
+    }
+}
+
 // SAFETY: every method delegates the actual memory management to
 // `RustAllocator`, which upholds the trait's contract (null or a usize-aligned
 // region of at least the requested size; `usable_size` matches its own header).
@@ -395,13 +457,18 @@ unsafe extern "C" {
     /// poll of `rt`'s contexts also loads `*flag` (atomically, relaxed) and
     /// calls the interrupt handler while it is nonzero.
     fn surimono_set_interrupt_flag(rt: *mut qjs::JSRuntime, flag: *mut u32);
+    /// Defined only by the patched QuickJS (patch 22, level 5):
+    /// `JS_FreeRuntime` stores in `*count` how many objects were still alive.
+    fn surimono_set_leak_count(rt: *mut qjs::JSRuntime, count: *mut u32);
 }
 
 /// Makes every interrupt poll of `ctx`'s runtime read `state`'s stop flag,
 /// so a passed deadline or a refused allocation stops the script at its
-/// next poll instead of up to 10,000 polls later.
+/// next poll instead of up to 10,000 polls later, and has `JS_FreeRuntime`
+/// report leaked objects to `state`.
 pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
     let flag = state.stop.as_ptr();
+    let leaks = state.leaked_objects.as_ptr();
     // SAFETY: `ctx` is a live context and we are inside `Context::with`, so
     // the runtime is locked; the call only writes the flag pointer into the
     // runtime and its contexts. The pointer stays valid as long as the
@@ -413,13 +480,18 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
     unsafe {
         let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
         surimono_set_interrupt_flag(rt, flag);
+        // Same lifetime argument: `leaks` points into `state`, which
+        // outlives `JS_FreeRuntime`, the only writer. It writes once, on the
+        // thread freeing the runtime, and the allocator's `drop` reads it
+        // on that thread after `JS_FreeRuntime` returned.
+        surimono_set_leak_count(rt, leaks);
     }
 }
 
-/// The lowest engine patch level the sandbox runs on: 4, the per-match
-/// polls in the regexp replace loops (P1-RT-23) on top of level 3 (see
-/// `vendor/rquickjs-sys/PATCHES.md`).
-pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 4;
+/// The lowest engine patch level the sandbox runs on: 5, the leak count
+/// at teardown (P1-RT-18) on top of level 4, the per-match polls in the
+/// regexp replace loops (P1-RT-23) (see `vendor/rquickjs-sys/PATCHES.md`).
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 5;
 
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse
@@ -1321,6 +1393,54 @@ mod tests {
             assert!(!run_pending_job(&ctx).unwrap());
             assert_eq!(ctx.globals().get::<_, i32>("n").unwrap(), 1);
         });
+    }
+
+    /// Review of #45: an object leaked on some error path used to vanish
+    /// with the arenas at teardown, uncounted. A reference leaked on
+    /// purpose (a forgotten `Value`) now shows in the counters, and a large
+    /// block it owned in the bytes.
+    #[test]
+    fn teardown_counts_leaked_objects() {
+        let before = teardown_leaks();
+        let state = LimitState::new(usize::MAX);
+        {
+            let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone())).unwrap();
+            let ctx = Context::full(&rt).unwrap();
+            ctx.with(|ctx| {
+                install_stop_flag(&ctx, &state);
+                let v: Value<'_> = ctx.eval("({ big: new ArrayBuffer(1 << 20) })").unwrap();
+                // The leak under test: a reference never released.
+                #[allow(clippy::mem_forget)]
+                std::mem::forget(v);
+            });
+        }
+        // The object and its buffer, at least (the forgotten handle also
+        // pins the context).
+        assert!(state.leaked_objects() >= 2, "{}", state.leaked_objects());
+        assert!(state.used() >= 1 << 20, "{}", state.used());
+        let after = teardown_leaks();
+        assert!(after.runtimes > before.runtimes, "{before:?} {after:?}");
+        assert!(after.objects >= before.objects + 2, "{before:?} {after:?}");
+        assert!(
+            after.bytes >= before.bytes + (1 << 20),
+            "{before:?} {after:?}"
+        );
+    }
+
+    #[test]
+    fn a_clean_teardown_leaks_nothing() {
+        let state = LimitState::new(usize::MAX);
+        {
+            let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone())).unwrap();
+            let ctx = Context::full(&rt).unwrap();
+            ctx.with(|ctx| {
+                install_stop_flag(&ctx, &state);
+                let _: Value<'_> = ctx
+                    .eval("globalThis.c = { self: null, b: new ArrayBuffer(1 << 20) }; c.self = c")
+                    .unwrap();
+            });
+        }
+        assert_eq!((state.leaked_objects(), state.used()), (0, 0));
     }
 
     #[test]
