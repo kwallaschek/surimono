@@ -32,9 +32,9 @@ mod sandbox;
 mod watchdog;
 
 pub use embed::{compile_for_embedding, engine_fingerprint};
-pub use engine::fork_generation;
 #[doc(hidden)]
 pub use engine::{TeardownLeaks, teardown_leaks};
+pub use engine::{fork_generation, release_free_memory};
 pub use error::SandboxError;
 pub use limits::Limits;
 pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
