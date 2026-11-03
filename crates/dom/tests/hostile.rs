@@ -43,6 +43,39 @@ fn parse_enforces_depth_and_node_limits() {
     assert_eq!(r.unwrap_err(), DomError::NodeLimit { limit: 50 });
 }
 
+/// blitz-dom panics when it can't resolve an `<img src>` or `<link href>`
+/// as the element joins the document; the base it defaults to can't resolve
+/// any relative reference.
+#[test]
+fn urls_blitz_cannot_resolve_are_harmless() {
+    for url in ["x.png", "/a/b.css", "http://[", "http://a b/", "//["] {
+        let page = format!(
+            r#"<!doctype html><html><head><link rel="stylesheet" href="{url}"></head>
+            <body><img id="i" src="{url}"></body></html>"#
+        );
+        let doc = Document::parse(&page).unwrap();
+        let html = doc.to_html();
+        assert!(html.contains(&format!(r#"src="{url}""#)), "{html}");
+        assert!(html.contains(&format!(r#"href="{url}""#)), "{html}");
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(doc);
+        let script = format!(
+            r#"const i = document.getElementById('i');
+            const n = document.createElement('img');
+            n.setAttribute('src', '{url}');
+            document.body.appendChild(n);
+            i.setAttribute('src', '{url}');
+            const l = document.createElement('link');
+            l.setAttribute('rel', 'stylesheet');
+            document.head.appendChild(l);
+            l.setAttribute('href', '{url}');
+            n.getAttribute('src') + i.getAttribute('src') + l.getAttribute('href')"#
+        );
+        let got: String = rt.eval(&script).unwrap();
+        assert_eq!(got, url.repeat(3));
+    }
+}
+
 #[test]
 fn limits_are_validated() {
     for limits in [
@@ -109,8 +142,8 @@ fn deepest_allowed_tree_on_a_small_stack() {
             assert_eq!(depth as usize, DomLimits::MAX_DEPTH);
             let r = rt.eval::<()>("keep.textContent");
             assert_eq!(r, Err(DomError::NodeRemoved));
-            let r = rt.eval::<()>("document.body.appendChild(document.createElement('div')).appendChild(document.body.firstChild || document.createElement('b'))");
-            // No firstChild binding yet: the new <b> lands at depth 4.
+            let r = rt.eval::<()>("document.body.appendChild(document.createElement('div')).appendChild(document.createElement('b'))");
+            // The new <b> lands at depth 4.
             assert!(r.is_ok(), "{r:?}");
             let doc = rt.take().unwrap();
             assert_eq!(doc.to_html().matches("<div>").count(), 1024 - 3 + 1 + 1);

@@ -1,11 +1,13 @@
 //! A parsed document and the handle table that scripts address it through.
 
+use std::cell::Cell;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
-use blitz_html::HtmlDocument;
 
 use crate::DomError;
+use crate::parse::{self, ParseLimits};
 
 /// Generations are unique in the process, so a wrapper can never match a
 /// document other than its own. Starts at 1; 0 is never a generation.
@@ -103,6 +105,15 @@ pub struct Document {
     handle_to_node: Vec<Option<usize>>,
     /// Blitz node id to its handle, 0 for none yet.
     node_to_handle: Vec<Handle>,
+    /// Comment data by node id: `NodeData::Comment` has no room for it.
+    comment_data: HashMap<usize, String>,
+    /// The document was parsed in quirks mode.
+    quirks: bool,
+    /// The last (parent, index in its children) a sibling step found, so
+    /// walking a wide parent's children isn't quadratic. Checked on use.
+    cursor: Cell<(usize, usize)>,
+    /// A fatal error a binding met, for the native call to report.
+    pub(crate) fault: Option<DomError>,
 }
 
 impl std::fmt::Debug for Document {
@@ -131,14 +142,30 @@ impl Document {
     /// tree is freed without recursing (blitz-dom keeps nodes in a slab).
     pub fn parse_with_limits(html: &str, limits: DomLimits) -> Result<Self, DomError> {
         limits.validate()?;
-        let inner = HtmlDocument::from_html(html, DocumentConfig::default()).into_inner();
-        let doc = Self {
+        let mut inner = BaseDocument::new(DocumentConfig {
+            base_url: Some(parse::BASE_URL.to_owned()),
+            ..DocumentConfig::default()
+        });
+        let parsed = parse::parse_document(
+            &mut inner.mutate(),
+            html,
+            ParseLimits {
+                max_nodes: limits.max_nodes,
+                max_depth: limits.max_depth,
+            },
+        );
+        let mut doc = Self {
             inner,
             generation: NEXT_GENERATION.fetch_add(1, Ordering::Relaxed),
             limits,
             handle_to_node: Vec::new(),
             node_to_handle: Vec::new(),
+            comment_data: parsed.comments.into_iter().collect(),
+            quirks: parsed.quirks,
+            cursor: Cell::new((0, 0)),
+            fault: None,
         };
+        doc.restore_urls(parsed.hidden_urls);
         if doc.node_count() > limits.max_nodes {
             return Err(DomError::NodeLimit {
                 limit: limits.max_nodes,
@@ -152,12 +179,25 @@ impl Document {
         Ok(doc)
     }
 
+    /// Writes back attribute values kept from blitz-dom while their element
+    /// joined the document (see [`parse::url_is_usable`]).
+    fn restore_urls(&mut self, hidden: Vec<(usize, QualName, String)>) {
+        for (id, name, value) in hidden {
+            if let Some(e) = self
+                .inner
+                .get_node_mut(id)
+                .and_then(|n| n.element_data_mut())
+            {
+                e.attrs.set(name, &value);
+            }
+        }
+    }
+
     /// The document's serialization: the `<html>` element's outer HTML, by
     /// the HTML Standard's fragment serialization algorithm (§13.3) for
     /// elements (HTML, SVG and MathML) with their attributes, text and
     /// comments, with scripting disabled, as blitz-html parsed the
-    /// document. Comments come out empty: blitz-dom 0.2.4 keeps no comment
-    /// data. Iterative, so tree depth can't overflow the stack.
+    /// document. Iterative, so tree depth can't overflow the stack.
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         if let Some(id) = self.document_element() {
@@ -218,10 +258,12 @@ impl Document {
                                 escape_into(&t.content, false, out);
                             }
                         }
-                        // blitz-dom 0.2.4 keeps no comment data
-                        // (`NodeData::Comment` has no fields), so every
-                        // comment serializes empty: a known gap.
-                        NodeData::Comment => out.push_str("<!---->"),
+                        // §13.3: comment data goes out unescaped.
+                        NodeData::Comment => {
+                            out.push_str("<!--");
+                            out.push_str(self.comment_text(id));
+                            out.push_str("-->");
+                        }
                         NodeData::Document => {}
                         NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                             out.push('<');
@@ -276,7 +318,7 @@ impl Document {
         self.generation
     }
 
-    fn node(&self, id: usize) -> &blitz_dom::Node {
+    pub(crate) fn node(&self, id: usize) -> &blitz_dom::Node {
         // Ids come from `resolve`, the tree's own links or blitz-dom's id
         // map; all name live nodes because every drop goes through
         // `drop_children`, which updates the table first.
@@ -302,6 +344,11 @@ impl Document {
             self.node_to_handle[id] = Handle::try_from(self.handle_to_node.len()).unwrap_or(0);
         }
         Ok(self.node_to_handle[id])
+    }
+
+    /// Checks `(generation, handle)` names a node.
+    pub(crate) fn check(&self, generation: u64, handle: Handle) -> Result<(), DomError> {
+        self.resolve(generation, handle).map(|_| ())
     }
 
     /// The blitz node id that `(generation, handle)` names.
@@ -341,41 +388,178 @@ impl Document {
         self.inner.try_root_element().map(|n| n.id)
     }
 
-    pub(crate) fn body(&self) -> Option<usize> {
+    /// The first HTML child of `<html>` with this local name.
+    fn html_child(&self, local: &str) -> Option<usize> {
         let html = self.document_element()?;
         self.node(html).children.iter().copied().find(|&c| {
             self.node(c)
                 .element_data()
-                .is_some_and(|e| e.name.local.as_ref() == "body")
+                .is_some_and(|e| e.name.ns == ns!(html) && e.name.local.as_ref() == local)
         })
     }
 
+    pub(crate) fn head(&self) -> Option<usize> {
+        self.html_child("head")
+    }
+
+    pub(crate) fn body(&self) -> Option<usize> {
+        self.html_child("body")
+    }
+
+    /// The first element in tree order with this ID. blitz-dom's own map
+    /// keeps one node per ID and misses IDs set after insertion, so this
+    /// walks the tree.
     pub(crate) fn element_by_id(&self, id: &str) -> Option<usize> {
-        self.inner.get_element_by_id(id)
+        if id.is_empty() {
+            return None;
+        }
+        let mut stack = vec![self.root()];
+        while let Some(n) = stack.pop() {
+            let node = self.node(n);
+            if node
+                .element_data()
+                .is_some_and(|e| e.attr(blitz_dom::local_name!("id")) == Some(id))
+            {
+                return Some(n);
+            }
+            stack.extend(node.children.iter().rev().copied());
+        }
+        None
     }
 
     pub(crate) fn parent(&self, id: usize) -> Option<usize> {
         self.node(id).parent
     }
 
+    pub(crate) fn children(&self, id: usize) -> &[usize] {
+        &self.node(id).children
+    }
+
+    pub(crate) fn is_quirks(&self) -> bool {
+        self.quirks
+    }
+
+    /// The sibling `offset` (1 or -1) places from `id`.
+    pub(crate) fn sibling(&self, id: usize, forward: bool) -> Option<usize> {
+        let parent = self.node(id).parent?;
+        let list = &self.node(parent).children;
+        let (p, i) = self.cursor.get();
+        let at = if p == parent && list.get(i) == Some(&id) {
+            i
+        } else {
+            list.iter().position(|&c| c == id)?
+        };
+        let next = if forward {
+            at.checked_add(1)?
+        } else {
+            at.checked_sub(1)?
+        };
+        let found = *list.get(next)?;
+        self.cursor.set((parent, next));
+        Some(found)
+    }
+
+    /// Whether `id`'s tree is the document's.
+    pub(crate) fn is_connected(&self, id: usize) -> bool {
+        let mut at = id;
+        while let Some(p) = self.node(at).parent {
+            at = p;
+        }
+        at == self.root()
+    }
+
+    /// The node name for scripts: an HTML element's qualified name in upper
+    /// case (DOM §4.9 `tagName`), any other element's as it is.
     pub(crate) fn node_name(&self, id: usize) -> String {
         match &self.node(id).data {
             NodeData::Document => "#document".to_owned(),
             NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
-                e.name.local.as_ref().to_ascii_uppercase()
+                let mut name = qualified_name(&e.name);
+                if e.name.ns == ns!(html) {
+                    name.make_ascii_uppercase();
+                }
+                name
             }
             NodeData::Text(_) => "#text".to_owned(),
             NodeData::Comment => "#comment".to_owned(),
         }
     }
 
+    pub(crate) fn element_name(&self, id: usize) -> Option<&QualName> {
+        self.node(id).element_data().map(|e| &e.name)
+    }
+
+    /// The attribute named `name`, lower-cased first on HTML elements (DOM
+    /// "get an attribute by name").
+    fn find_attribute(&self, id: usize, name: &str) -> Option<&blitz_dom::Attribute> {
+        let e = self.node(id).element_data()?;
+        let lower;
+        let name = if e.name.ns == ns!(html) {
+            lower = name.to_ascii_lowercase();
+            lower.as_str()
+        } else {
+            name
+        };
+        e.attrs().iter().find(|a| qualified_is(&a.name, name))
+    }
+
     pub(crate) fn attribute(&self, id: usize, name: &str) -> Option<String> {
-        let name = name.to_ascii_lowercase();
-        self.node(id)
-            .attrs()?
-            .iter()
-            .find(|a| a.name.ns == ns!() && a.name.local.as_ref() == name)
-            .map(|a| a.value.clone())
+        self.find_attribute(id, name).map(|a| a.value.clone())
+    }
+
+    pub(crate) fn attribute_count(&self, id: usize) -> usize {
+        self.node(id).attrs().map_or(0, |a| a.len())
+    }
+
+    /// `setAttribute` on an element: `name` already validated.
+    pub(crate) fn set_attribute(&mut self, id: usize, name: &str, value: &str) {
+        let qual = match self.find_attribute(id, name) {
+            Some(a) => a.name.clone(),
+            None => {
+                let html = self.element_name(id).is_some_and(|n| n.ns == ns!(html));
+                let local = if html {
+                    name.to_ascii_lowercase()
+                } else {
+                    name.to_owned()
+                };
+                QualName::new(None, ns!(), LocalName::from(local))
+            }
+        };
+        self.write_attribute(id, qual, value);
+    }
+
+    /// Writes one attribute through blitz-dom, except a URL it couldn't
+    /// resolve, which it must not see (see [`parse::url_is_usable`]).
+    fn write_attribute(&mut self, id: usize, name: QualName, value: &str) {
+        let tag = self.element_name(id).map(|n| n.local.clone());
+        let hide = tag.is_some_and(|t| parse::is_loaded_url(&t, &name.local))
+            && !parse::url_is_usable(value);
+        if hide {
+            self.inner.mutate().set_attribute(id, name.clone(), "");
+            self.restore_urls(vec![(id, name, value.to_owned())]);
+        } else {
+            self.inner.mutate().set_attribute(id, name, value);
+        }
+    }
+
+    /// `removeAttribute`: false if there was no such attribute.
+    pub(crate) fn remove_attribute(&mut self, id: usize, name: &str) -> bool {
+        match self.find_attribute(id, name).map(|a| a.name.clone()) {
+            Some(q) => {
+                self.inner.mutate().clear_attribute(id, q);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// A comment's data.
+    pub(crate) fn comment_text(&self, id: usize) -> &str {
+        self.comment_data.get(&id).map_or("", String::as_str)
+    }
+
+    pub(crate) fn set_comment_text(&mut self, id: usize, data: &str) {
+        self.comment_data.insert(id, data.to_owned());
     }
 
     /// `textContent`: `None` for the document (the DOM's null).
@@ -383,7 +567,7 @@ impl Document {
         match &self.node(id).data {
             NodeData::Document => None,
             NodeData::Text(t) => Some(t.content.clone()),
-            NodeData::Comment => Some(String::new()),
+            NodeData::Comment => Some(self.comment_text(id).to_owned()),
             NodeData::Element(_) | NodeData::AnonymousBlock(_) => {
                 // Iterative, so a deep tree can't overflow the stack.
                 let mut out = String::new();
@@ -413,7 +597,11 @@ impl Document {
                 self.inner.mutate().set_node_text(id, text);
                 Ok(())
             }
-            NodeData::Comment | NodeData::AnonymousBlock(_) => Ok(()),
+            NodeData::Comment => {
+                self.set_comment_text(id, text);
+                Ok(())
+            }
+            NodeData::AnonymousBlock(_) => Ok(()),
             NodeData::Element(_) => {
                 self.drop_children(id);
                 if !text.is_empty() {
@@ -462,6 +650,7 @@ impl Document {
 
     /// Retires node `id`'s handle, if it has one.
     fn retire(&mut self, id: usize) {
+        self.comment_data.remove(&id);
         if let Some(h) = self.node_to_handle.get_mut(id) {
             if *h != 0 {
                 self.handle_to_node[*h as usize - 1] = None;
@@ -484,14 +673,17 @@ impl Document {
         Ok(self.inner.mutate().create_text_node(text))
     }
 
+    pub(crate) fn create_comment(&mut self, data: &str) -> Result<usize, DomError> {
+        self.check_room()?;
+        let id = self.inner.mutate().create_comment_node();
+        self.set_comment_text(id, data);
+        Ok(id)
+    }
+
     /// `createElement` for an HTML element; `None` for a name the DOM
     /// rejects with InvalidCharacterError.
     pub(crate) fn create_element(&mut self, name: &str) -> Result<Option<usize>, DomError> {
-        let valid = name.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
-            && name
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.');
-        if !valid {
+        if !is_valid_element_name(name) {
             return Ok(None);
         }
         self.check_room()?;
@@ -540,9 +732,88 @@ impl Document {
                 limit: self.limits.max_depth,
             });
         }
-        self.inner.mutate().append_children(parent, &[child]);
+        self.join(parent, child);
         Ok(true)
     }
+
+    /// Appends `child` to `parent`, with any URL blitz-dom couldn't resolve
+    /// in `child`'s subtree hidden meanwhile.
+    fn join(&mut self, parent: usize, child: usize) {
+        let hidden = self.hide_urls(child);
+        self.inner.mutate().append_children(parent, &[child]);
+        self.restore_urls(hidden);
+    }
+
+    /// Blanks every `<img src>` and `<link href>` under `top` that blitz-dom
+    /// can't resolve, returning them for [`restore_urls`](Self::restore_urls).
+    fn hide_urls(&mut self, top: usize) -> Vec<(usize, QualName, String)> {
+        let mut hidden = Vec::new();
+        let mut stack = vec![top];
+        while let Some(n) = stack.pop() {
+            let node = self.node(n);
+            stack.extend(node.children.iter().copied());
+            let Some(e) = node.element_data() else {
+                continue;
+            };
+            for a in e.attrs() {
+                if parse::is_loaded_url(&e.name.local, &a.name.local)
+                    && !parse::url_is_usable(&a.value)
+                {
+                    hidden.push((n, a.name.clone(), a.value.clone()));
+                }
+            }
+        }
+        for (id, name, _) in &hidden {
+            if let Some(e) = self
+                .inner
+                .get_node_mut(*id)
+                .and_then(|n| n.element_data_mut())
+            {
+                e.attrs.set(name.clone(), "");
+            }
+        }
+        hidden
+    }
+}
+
+/// An element's or attribute's qualified name (`prefix:local`).
+pub(crate) fn qualified_name(name: &QualName) -> String {
+    match &name.prefix {
+        Some(p) => format!("{p}:{}", name.local),
+        None => name.local.to_string(),
+    }
+}
+
+/// Whether `name`'s qualified name is `wanted`, without building it.
+fn qualified_is(name: &QualName, wanted: &str) -> bool {
+    match &name.prefix {
+        Some(p) => wanted
+            .strip_prefix(p.as_ref())
+            .and_then(|r| r.strip_prefix(':'))
+            .is_some_and(|r| r == name.local.as_ref()),
+        None => wanted == name.local.as_ref(),
+    }
+}
+
+/// DOM "valid element local name" (§1.5, namespaces).
+pub(crate) fn is_valid_element_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if first.is_ascii_alphabetic() {
+        !name.contains(['\t', '\n', '\u{c}', '\r', ' ', '\0', '/', '>'])
+    } else {
+        (first == ':' || first == '_' || first >= '\u{80}')
+            && chars.all(|c| {
+                c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':' | '_') || c >= '\u{80}'
+            })
+    }
+}
+
+/// DOM "valid attribute local name" (§1.5, namespaces).
+pub(crate) fn is_valid_attribute_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains(['\t', '\n', '\u{c}', '\r', ' ', '\0', '/', '=', '>'])
 }
 
 /// Writes an attribute's serialized name (HTML Standard §13.3, "serializing

@@ -8,9 +8,10 @@ or change.
 ## Handles, not pointers
 
 JavaScript never holds a pointer, an rquickjs class instance or a blitz node id.
-A node wrapper is a plain object carrying its `[generation, handle]` pair in
-private class fields (`#g`, `#h`, stamped on by a closure-private class in
-`src/glue.js`); the accessors brand-check with `#h in o`. Private fields can't
+A node wrapper is a plain object carrying a record `{ g, h, m }` (generation,
+handle, interface bits) in a private class field (`#s`, stamped on by a
+closure-private class in `src/glue_head.js`); members brand-check with
+`#s in o` and the interface bit. Private fields can't
 be read, written or intercepted through any prototype, Proxy or reflection, so
 a script can neither read nor forge a pair. Every accessor passes the pair to
 a native function, which resolves it through the loaded document on that call:
@@ -36,9 +37,8 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
   value keeps a document or node alive; dropping the `Document` frees the
   whole tree regardless of what the script still holds.
 - **No call-time lookups.** After install the glue uses only intrinsics it
-  captured then (`Object.create`, `Object.defineProperty`, `String`), a
-  null-prototype object as cache, and natives that return numbers and
-  strings, never arrays (rquickjs fills an array with ordinary sets, which a
+  captured then, null-prototype objects for records and caches, and natives
+  that take and return primitives, never arrays (rquickjs fills an array with ordinary sets, which a
   script's `Array.prototype` index setters would intercept). A first version
   kept the pair in a `WeakMap` and called `WeakMap.prototype.get` at call
   time, so a script that replaced it could read and forge pairs (review of
@@ -50,6 +50,39 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
   and lives in the JS heap, under the sandbox's memory limit, and goes with a
   reset. E2-02 may switch to `WeakRef` values once the sandbox's intrinsics
   are settled; not needed while every render resets the context.
+
+## Generated bindings
+
+`crates/webidl/src/bindgen.rs` turns the `DOM_BINDINGS` table (interface and
+member names, checked against the vendored IDL) into two checked-in files,
+`src/generated/bindings.js` and `src/generated/dispatch.rs`; `tests/generated.rs`
+fails when they are stale. Only listed members exist in JavaScript, so a page's
+feature detection sees the truth. The hand-written glue is only infrastructure:
+`glue_head.js` (brand, `wrap`, conversions, interface setup) and `glue_tail.js`.
+
+- **One native.** Every member is `call(op, generation, handle, ...args)`. The
+  glue applies the WebIDL conversions, so natives see primitives only;
+  interfaces cross as handle numbers, 0 for null. `dispatch` is one `match` from
+  `op` to a method of the generated traits, implemented on `Document` in
+  `src/host.rs`. Installing costs one Rust function, not one per member.
+- **Not generated.** Overloads, sequences and members with callback types make
+  the generator fail with a typed error; dictionaries are ignored (`options`
+  arguments). Add support when a listed member needs it.
+
+## Parsing
+
+`src/parse.rs` drives html5ever itself over blitz-html's `DocumentHtmlParser`,
+adding: comment data (`NodeData::Comment` has no room, so `Document` keeps it in
+a side table), the quirks mode, no `println!` of parse errors, chunked feeding
+that stops once the tree passes `max_nodes` or `max_depth` (html5ever walks its
+open-element stack per start tag, quadratic on a deep tree inside one
+uninterruptible call), and a real base URL. blitz-dom's `resolve_url` panics
+when it can't resolve an `<img src>` or `<link href>` as the element joins the
+document; its default `data:` base can't resolve any relative reference, so on
+main every `<img src="x.png">` panicked in `Document::parse`. With
+`https://surimono.invalid/` as base only values like `http://[` still fail;
+those are blanked while the element joins and written back after. Nothing is
+fetched: the document has no net provider.
 
 ## Errors
 
@@ -126,13 +159,3 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   that way (`scripting_enabled: false`): `<noscript>` content is markup, so
   its text is escaped, and a reparse (fulgur's included) gives the same
   tree. E2-02 adds `<template>` contents.
-- **Comments** carry no data in blitz-dom 0.2.4 (`NodeData::Comment`), so a
-  comment's `textContent` is always empty and it serializes as `<!---->`
-  (ignored spec test `comments_keep_their_data`).
-- **Parse errors on stdout.** blitz-html 0.2.0's `TreeSink::finish` prints
-  every html5ever parse error as `ERROR: <message>` with `println!` (e.g.
-  `ERROR: Unexpected token` for a document without `<!doctype html>`).
-  libtest captures it unless `--nocapture` (the soak script) or a test
-  fails. Fixing it needs a `[patch]` of blitz-html or our own `TreeSink`.
-- The prototypes are hand-written for the spike; E2-01 generates them from the
-  WebIDL in `crates/webidl/`.

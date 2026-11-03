@@ -1,0 +1,270 @@
+//! The HTML parser's tree sink: blitz-html's, with what it leaves out.
+//!
+//! [`Sink`] forwards tree building to blitz-html's `DocumentHtmlParser` and
+//! adds what blitz drops or does badly:
+//!
+//! - comment data, which `NodeData::Comment` has no room for;
+//! - the quirks mode, which blitz-html records but never hands on;
+//! - quiet parse errors: blitz-html's `TreeSink::finish` prints each one
+//!   with `println!`, so `finish` here doesn't call it;
+//! - limits: the input is fed in chunks and feeding stops once the tree is
+//!   over [`DomLimits`](crate::DomLimits). html5ever walks its stack of open
+//!   elements for most start tags, so a very deep tree would also cost
+//!   quadratic time inside one call that can't be interrupted;
+//! - unusable URLs: see [`url_is_usable`].
+
+use std::borrow::Cow;
+use std::cell::{Cell, Ref, RefCell};
+use std::rc::Rc;
+
+use blitz_dom::DocumentMutator;
+use blitz_html::DocumentHtmlParser;
+use html5ever::driver::{self, ParseOpts};
+use html5ever::tendril::{StrTendril, TendrilSink};
+use html5ever::tokenizer::TokenizerOpts;
+use html5ever::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeBuilderOpts, TreeSink};
+use html5ever::{Attribute, QualName};
+use url::Url;
+
+/// The URL relative references resolve against. Nothing is ever fetched
+/// (the document has no net provider), but blitz-dom panics when it can't
+/// resolve an `<img src>` or `<link href>`, and its default base, a `data:`
+/// URL, can't resolve any relative reference.
+pub(crate) const BASE_URL: &str = "https://surimono.invalid/";
+
+/// Bytes of HTML fed between limit checks.
+const CHUNK: usize = 4096;
+
+/// Whether blitz-dom can resolve `raw` against [`BASE_URL`]. It panics on
+/// what can't be (`http://[`), when an `<img>` or a `<link>` joins the
+/// document, so such a value is hidden from it while the element joins, and
+/// put back after.
+pub(crate) fn url_is_usable(raw: &str) -> bool {
+    Url::parse(BASE_URL).and_then(|b| b.join(raw)).is_ok()
+}
+
+/// Whether blitz-dom resolves attribute `name` of an element called `tag`
+/// as it joins the document.
+pub(crate) fn is_loaded_url(tag: &str, name: &str) -> bool {
+    matches!((tag, name), ("img", "src") | ("link", "href"))
+}
+
+/// What the sink learned, beyond the tree.
+#[derive(Debug, Default)]
+pub(crate) struct Parsed {
+    /// (comment node, data).
+    pub comments: Vec<(usize, String)>,
+    /// `<img src>` / `<link href>` values hidden from blitz-dom: (node,
+    /// attribute, value), to write back.
+    pub hidden_urls: Vec<(usize, QualName, String)>,
+    pub quirks: bool,
+    /// Feeding stopped because the tree went over a limit.
+    pub over_limit: bool,
+}
+
+/// Stops feeding the parser once `max_nodes` were created or an element
+/// sits at `max_depth`.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ParseLimits {
+    pub max_nodes: usize,
+    pub max_depth: usize,
+}
+
+struct Sink<'m, 'doc> {
+    inner: DocumentHtmlParser<'m, 'doc>,
+    parsed: RefCell<Parsed>,
+    /// Depth by node id for nodes the parser placed; 0 for others.
+    depths: RefCell<Vec<u32>>,
+    /// Greatest depth seen, and elements and comments created; shared with
+    /// the loop feeding the parser, which owns the sink. Text doesn't count:
+    /// one text node takes many appends, and every text node sits next to
+    /// an element or comment, or is the only one.
+    deepest: Rc<Cell<u32>>,
+    created: Rc<Cell<usize>>,
+}
+
+impl Sink<'_, '_> {
+    fn note_created(&self) {
+        self.created.set(self.created.get() + 1);
+    }
+
+    fn note_child(&self, parent: usize, child: usize) {
+        let mut d = self.depths.borrow_mut();
+        let need = parent.max(child) + 1;
+        if d.len() < need {
+            d.resize(need, 0);
+        }
+        let depth = d[parent].saturating_add(1);
+        d[child] = depth;
+        self.deepest.set(self.deepest.get().max(depth));
+    }
+}
+
+impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
+    type Output = Parsed;
+    type Handle = usize;
+    type ElemName<'a>
+        = Ref<'a, QualName>
+    where
+        Self: 'a;
+
+    /// Doesn't call the inner `finish`, which prints every parse error.
+    fn finish(self) -> Parsed {
+        self.parsed.into_inner()
+    }
+
+    fn parse_error(&self, _msg: Cow<'static, str>) {}
+
+    fn get_document(&self) -> usize {
+        self.inner.get_document()
+    }
+
+    fn elem_name<'a>(&'a self, target: &'a usize) -> Ref<'a, QualName> {
+        self.inner.elem_name(target)
+    }
+
+    fn create_element(
+        &self,
+        name: QualName,
+        mut attrs: Vec<Attribute>,
+        flags: ElementFlags,
+    ) -> usize {
+        self.note_created();
+        let mut hidden = Vec::new();
+        for a in &mut attrs {
+            if is_loaded_url(&name.local, &a.name.local) && !url_is_usable(&a.value) {
+                hidden.push((a.name.clone(), a.value.to_string()));
+                a.value = StrTendril::new();
+            }
+        }
+        let id = self.inner.create_element(name, attrs, flags);
+        let mut parsed = self.parsed.borrow_mut();
+        for (name, value) in hidden {
+            parsed.hidden_urls.push((id, name, value));
+        }
+        id
+    }
+
+    fn create_comment(&self, text: StrTendril) -> usize {
+        self.note_created();
+        let id = self.inner.create_comment(text.clone());
+        self.parsed
+            .borrow_mut()
+            .comments
+            .push((id, text.to_string()));
+        id
+    }
+
+    fn create_pi(&self, target: StrTendril, data: StrTendril) -> usize {
+        self.note_created();
+        self.inner.create_pi(target, data)
+    }
+
+    fn append(&self, parent: &usize, child: NodeOrText<usize>) {
+        if let NodeOrText::AppendNode(id) = &child {
+            self.note_child(*parent, *id);
+        }
+        self.inner.append(parent, child);
+    }
+
+    fn append_before_sibling(&self, sibling: &usize, new_node: NodeOrText<usize>) {
+        self.inner.append_before_sibling(sibling, new_node);
+    }
+
+    fn append_based_on_parent_node(
+        &self,
+        element: &usize,
+        prev_element: &usize,
+        child: NodeOrText<usize>,
+    ) {
+        self.inner
+            .append_based_on_parent_node(element, prev_element, child);
+    }
+
+    fn append_doctype_to_document(&self, name: StrTendril, public: StrTendril, system: StrTendril) {
+        self.inner.append_doctype_to_document(name, public, system);
+    }
+
+    fn get_template_contents(&self, target: &usize) -> usize {
+        self.inner.get_template_contents(target)
+    }
+
+    fn same_node(&self, x: &usize, y: &usize) -> bool {
+        x == y
+    }
+
+    fn set_quirks_mode(&self, mode: QuirksMode) {
+        self.parsed.borrow_mut().quirks = mode == QuirksMode::Quirks;
+    }
+
+    fn add_attrs_if_missing(&self, target: &usize, attrs: Vec<Attribute>) {
+        self.inner.add_attrs_if_missing(target, attrs);
+    }
+
+    fn remove_from_parent(&self, target: &usize) {
+        self.inner.remove_from_parent(target);
+    }
+
+    fn reparent_children(&self, node: &usize, new_parent: &usize) {
+        self.inner.reparent_children(node, new_parent);
+    }
+}
+
+fn opts() -> ParseOpts {
+    ParseOpts {
+        tokenizer: TokenizerOpts::default(),
+        tree_builder: TreeBuilderOpts {
+            exact_errors: false,
+            // As blitz-html: <noscript> content parses as markup.
+            scripting_enabled: false,
+            iframe_srcdoc: false,
+            drop_doctype: true,
+            quirks_mode: QuirksMode::NoQuirks,
+        },
+    }
+}
+
+/// Feeds `html` in chunks, stopping when `stop` says to.
+fn feed<S>(mut parser: S, html: &str, stop: impl Fn() -> bool) -> (S::Output, bool)
+where
+    S: TendrilSink<html5ever::tendril::fmt::UTF8>,
+{
+    let mut at = 0;
+    let mut stopped = false;
+    while at < html.len() {
+        if stop() {
+            stopped = true;
+            break;
+        }
+        let mut end = (at + CHUNK).min(html.len());
+        while !html.is_char_boundary(end) {
+            end += 1;
+        }
+        parser.process(StrTendril::from_slice(&html[at..end]));
+        at = end;
+    }
+    (parser.finish(), stopped)
+}
+
+/// Parses a whole document into `mutr`'s empty document.
+pub(crate) fn parse_document(
+    mutr: &mut DocumentMutator<'_>,
+    html: &str,
+    limits: ParseLimits,
+) -> Parsed {
+    let deepest = Rc::new(Cell::new(0u32));
+    let created = Rc::new(Cell::new(0usize));
+    let sink = Sink {
+        inner: DocumentHtmlParser::new(mutr),
+        parsed: RefCell::new(Parsed::default()),
+        depths: RefCell::new(Vec::new()),
+        deepest: deepest.clone(),
+        created: created.clone(),
+    };
+    let parser = driver::parse_document(sink, opts());
+    let (mut parsed, stopped) = feed(parser, html, || {
+        created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
+    });
+    parsed.over_limit = stopped;
+    parsed
+}

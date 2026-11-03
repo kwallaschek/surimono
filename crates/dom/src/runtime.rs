@@ -4,14 +4,22 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use surimono_core::rquickjs::context::EvalOptions;
-use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, IntoJs, Object, Value};
+use surimono_core::rquickjs::function::Rest;
+use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, Object, Value};
 use surimono_core::{Deadline, Limits, Sandbox, SandboxOptions};
+use surimono_webidl::runtime::{BindingError, ObjectId};
 
+use crate::bindings::Args;
+use crate::dispatch::dispatch;
 use crate::document::Handle;
 use crate::{Document, DomError};
 
-/// The JavaScript half of the bindings; see `glue.js`.
-const GLUE: &str = include_str!("glue.js");
+/// The JavaScript half of the bindings; see `glue_head.js`.
+const GLUE: &str = concat!(
+    include_str!("glue_head.js"),
+    include_str!("generated/bindings.js"),
+    include_str!("glue_tail.js"),
+);
 
 /// State the native functions share with [`DomRuntime`]. The functions
 /// hold an `Rc` to this slot, not to a document: the document is moved in
@@ -28,11 +36,10 @@ struct Host {
 
 type Shared = Rc<RefCell<Host>>;
 
-/// A [`Sandbox`] with `document` and a minimal `Node` / `Element` /
-/// `Document` binding, resolving every wrapper through the loaded
-/// [`Document`] on each call.
+/// A [`Sandbox`] with `document` and the bindings generated from WebIDL,
+/// resolving every wrapper through the loaded [`Document`] on each call.
 ///
-/// Internal phase-2 scaffolding (P1-DOM-02 spike); not part of the facade.
+/// Internal phase-2 scaffolding; not part of the facade.
 pub struct DomRuntime {
     sandbox: Sandbox,
     host: Shared,
@@ -142,188 +149,88 @@ impl DomRuntime {
 }
 
 /// Installs the bindings in `ctx`: builds the native functions and hands
-/// them to `glue.js`, which keeps them in a closure.
+/// them to the glue, which keeps them in a closure.
 fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<()> {
     let n = Object::new(ctx.clone())?;
+    n.set("call", native_call(ctx, host)?)?;
     n.set("current", native_current(ctx, host)?)?;
     n.set("currentRoot", native_current_root(ctx, host)?)?;
-    n.set(
-        "nodeType",
-        node_fn(ctx, host, "nodeType", |ctx, doc, id| {
-            // `kind` is None only for layout boxes, which no tree link
-            // reaches before layout; report them as plain nodes.
-            let t = doc.kind(id).map_or(0, |k| k as u32);
-            Ok(t.into_js(ctx))
-        })?,
-    )?;
-    n.set(
-        "nodeName",
-        node_fn(ctx, host, "nodeName", |ctx, doc, id| {
-            Ok(doc.node_name(id).into_js(ctx))
-        })?,
-    )?;
-    n.set(
-        "parentNode",
-        node_fn(ctx, host, "parentNode", |ctx, doc, id| {
-            let h = handle_or_null(doc, doc.parent(id))?;
-            Ok(h.into_js(ctx))
-        })?,
-    )?;
-    n.set(
-        "documentElement",
-        node_fn(ctx, host, "documentElement", |ctx, doc, _| {
-            let h = handle_or_null(doc, doc.document_element())?;
-            Ok(h.into_js(ctx))
-        })?,
-    )?;
-    n.set(
-        "body",
-        node_fn(ctx, host, "body", |ctx, doc, _| {
-            let h = handle_or_null(doc, doc.body())?;
-            Ok(h.into_js(ctx))
-        })?,
-    )?;
-    n.set(
-        "getTextContent",
-        node_fn(ctx, host, "textContent", |ctx, doc, id| {
-            Ok(match doc.text_content(id) {
-                Some(s) => s.into_js(ctx),
-                None => Ok(Value::new_null(ctx.clone())),
-            })
-        })?,
-    )?;
-    n.set(
-        "setTextContent",
-        node_arg_fn(ctx, host, "textContent", |ctx, doc, id, text| {
-            doc.set_text_content(id, &text)?;
-            Ok(Ok(Value::new_undefined(ctx.clone())))
-        })?,
-    )?;
-    n.set(
-        "getAttribute",
-        node_arg_fn(ctx, host, "getAttribute", |ctx, doc, id, name| {
-            Ok(match doc.attribute(id, &name) {
-                Some(v) => v.into_js(ctx),
-                None => Ok(Value::new_null(ctx.clone())),
-            })
-        })?,
-    )?;
-    n.set(
-        "getElementById",
-        node_arg_fn(ctx, host, "getElementById", |ctx, doc, _, id| {
-            let h = handle_or_null(doc, doc.element_by_id(&id))?;
-            Ok(h.into_js(ctx))
-        })?,
-    )?;
-    n.set(
-        "createElement",
-        node_arg_fn(ctx, host, "createElement", |ctx, doc, _, name| {
-            Ok(match doc.create_element(&name)? {
-                Some(e) => doc.handle_for(e)?.into_js(ctx),
-                None => Err(Exception::throw_dom(
-                    ctx,
-                    "InvalidCharacterError",
-                    "createElement: the name is not a valid element name",
-                )),
-            })
-        })?,
-    )?;
-    n.set(
-        "createTextNode",
-        node_arg_fn(ctx, host, "createTextNode", |ctx, doc, _, data| {
-            let t = doc.create_text(&data)?;
-            Ok(doc.handle_for(t)?.into_js(ctx))
-        })?,
-    )?;
-    n.set("appendChild", native_append_child(ctx, host)?)?;
-
+    n.set("stale", native_stale(ctx, host)?)?;
     let glue: Function<'js> = ctx.eval(GLUE)?;
     glue.call::<_, ()>((n,))
 }
 
-/// Resolves `(generation, handle)` and runs `f`, turning a [`DomError`]
-/// into a fatal fault and a thrown exception. `f`'s own `rquickjs` errors
-/// (ordinary DOM exceptions) pass through.
-fn resolve_and<'js, R>(
-    ctx: &Ctx<'js>,
-    host: &Shared,
-    what: &str,
-    generation: f64,
-    handle: Handle,
-    f: impl FnOnce(&mut Document, usize) -> Result<rquickjs::Result<R>, DomError>,
-) -> rquickjs::Result<R> {
-    let mut guard = host.borrow_mut();
-    let host = &mut *guard;
-    if host.deadline.as_ref().is_none_or(Deadline::passed) {
-        // No fault is recorded: the sandbox's interrupt handler sees the
-        // same passed deadline at the script's next check and stops it, so
-        // the call fails with TimeLimit even if the script catches this.
-        return Err(Exception::throw_internal(
-            ctx,
-            &format!("{what}: the time limit has passed"),
-        ));
-    }
-    let outcome = match host.doc.as_mut() {
-        None => Err(DomError::NoDocument),
-        // Generations are below 2^53, so the f64 round trip is exact.
-        Some(doc) => doc
-            .resolve(generation as u64, handle)
-            .and_then(|id| f(doc, id)),
-    };
-    match outcome {
-        Ok(r) => r,
-        Err(e) => Err(fault(ctx, &mut host.fault, what, e)),
+/// `call(op, generation, handle, ...args)`: every generated member. The
+/// glue has converted the arguments to primitives; `dispatch` reads them.
+fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>,
+              op: u32,
+              g: f64,
+              h: Handle,
+              rest: Rest<Value<'js>>|
+              -> rquickjs::Result<Value<'js>> {
+            let mut guard = host.borrow_mut();
+            let host = &mut *guard;
+            if host.deadline.as_ref().is_none_or(Deadline::passed) {
+                // No fault is recorded: the sandbox's interrupt handler sees
+                // the same passed deadline at the script's next check and
+                // stops it, so the call fails with TimeLimit even if the
+                // script catches this.
+                return Err(Exception::throw_internal(
+                    &ctx,
+                    "DOM call: the time limit has passed",
+                ));
+            }
+            let Some(doc) = host.doc.as_mut() else {
+                return Err(fault(&ctx, &mut host.fault, DomError::NoDocument));
+            };
+            // Generations are below 2^53, so the f64 round trip is exact.
+            if let Err(e) = doc.check(g as u64, h) {
+                return Err(fault(&ctx, &mut host.fault, e));
+            }
+            let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
+            if let Some(e) = doc.fault.take() {
+                return Err(fault(&ctx, &mut host.fault, e));
+            }
+            match outcome {
+                Ok(ret) => ret.into_js(&ctx),
+                Err(e) => Err(throw(&ctx, e)),
+            }
+        },
+    )
+}
+
+/// Turns a binding error into a JavaScript exception.
+fn throw(ctx: &Ctx<'_>, e: BindingError) -> rquickjs::Error {
+    match e {
+        BindingError::TypeError(m) => Exception::throw_type(ctx, &m),
+        BindingError::DomException { name, message } => Exception::throw_dom(ctx, name, &message),
+        BindingError::NotImplemented(what) => {
+            Exception::throw_type(ctx, &format!("{what} is not implemented"))
+        }
     }
 }
 
 /// Records `e` as the call's fault (the first one wins) and throws.
-fn fault(ctx: &Ctx<'_>, slot: &mut Option<DomError>, what: &str, e: DomError) -> rquickjs::Error {
-    let message = format!("{what}: {}", e.script_message());
+fn fault(ctx: &Ctx<'_>, slot: &mut Option<DomError>, e: DomError) -> rquickjs::Error {
+    let message = e.script_message();
     slot.get_or_insert(e);
     Exception::throw_internal(ctx, &message)
 }
 
-/// The handle for `id`, or 0 (the bindings' null) for `None`.
-fn handle_or_null(doc: &mut Document, id: Option<usize>) -> Result<Handle, DomError> {
-    id.map_or(Ok(0), |id| doc.handle_for(id))
-}
-
-/// A native `(generation, handle) -> value`.
-fn node_fn<'js>(
-    ctx: &Ctx<'js>,
-    host: &Shared,
-    what: &'static str,
-    f: impl Fn(&Ctx<'js>, &mut Document, usize) -> Result<rquickjs::Result<Value<'js>>, DomError> + 'js,
-) -> rquickjs::Result<Function<'js>> {
+/// `stale()`: a wrapper of another document was passed as an argument.
+fn native_stale<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
     let host = host.clone();
-    Function::new(
-        ctx.clone(),
-        move |ctx: Ctx<'js>, g: f64, h: Handle| -> rquickjs::Result<Value<'js>> {
-            resolve_and(&ctx, &host, what, g, h, |doc, id| f(&ctx, doc, id))
-        },
-    )
-}
-
-/// A native `(generation, handle, string) -> value`.
-fn node_arg_fn<'js>(
-    ctx: &Ctx<'js>,
-    host: &Shared,
-    what: &'static str,
-    f: impl Fn(
-        &Ctx<'js>,
-        &mut Document,
-        usize,
-        String,
-    ) -> Result<rquickjs::Result<Value<'js>>, DomError>
-    + 'js,
-) -> rquickjs::Result<Function<'js>> {
-    let host = host.clone();
-    Function::new(
-        ctx.clone(),
-        move |ctx: Ctx<'js>, g: f64, h: Handle, arg: String| -> rquickjs::Result<Value<'js>> {
-            resolve_and(&ctx, &host, what, g, h, |doc, id| f(&ctx, doc, id, arg))
-        },
-    )
+    Function::new(ctx.clone(), move |ctx: Ctx<'js>| -> rquickjs::Result<()> {
+        Err(fault(
+            &ctx,
+            &mut host.borrow_mut().fault,
+            DomError::StaleDocument,
+        ))
+    })
 }
 
 /// `current()`: the loaded document's generation, or 0 (never a
@@ -354,31 +261,9 @@ fn native_current_root<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<F
                 Some(doc) => {
                     let root = doc.root();
                     doc.handle_for(root)
-                        .map_err(|e| fault(&ctx, &mut host.fault, "document", e))
+                        .map_err(|e| fault(&ctx, &mut host.fault, e))
                 }
             }
-        },
-    )
-}
-
-/// `appendChild(g, parent, g, child)`.
-fn native_append_child<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
-    let host = host.clone();
-    Function::new(
-        ctx.clone(),
-        move |ctx: Ctx<'js>, g: f64, h: Handle, cg: f64, ch: Handle| -> rquickjs::Result<()> {
-            resolve_and(&ctx, &host, "appendChild", g, h, |doc, parent| {
-                let child = doc.resolve(cg as u64, ch)?;
-                Ok(if doc.append_child(parent, child)? {
-                    Ok(())
-                } else {
-                    Err(Exception::throw_dom(
-                        &ctx,
-                        "HierarchyRequestError",
-                        "appendChild: the node can't be inserted here",
-                    ))
-                })
-            })
         },
     )
 }
