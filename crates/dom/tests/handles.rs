@@ -131,7 +131,12 @@ fn wrapper_from_a_previous_document_is_stale() {
         .eval("globalThis.old = document.getElementById('chart')")
         .unwrap();
     let old = rt
-        .load(Document::parse(r#"<html><body><div id="chart">new</div></body></html>"#).unwrap())
+        .load(
+            Document::parse(
+                r#"<!doctype html><html><body><div id="chart">new</div></body></html>"#,
+            )
+            .unwrap(),
+        )
         .unwrap();
     // The old document's #chart is node-for-node where the new one's is.
     let r = rt.eval::<String>("old.textContent");

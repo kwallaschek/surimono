@@ -100,6 +100,15 @@
     return apply(call, undefined, l);
   }
 
+  // WebIDL §3.7.1: a subclass's instance gets the subclass's prototype.
+  function adopt(w, target, id) {
+    if (target !== ctors[id]) {
+      const p = target.prototype;
+      if ((typeof p === 'object' && p !== null) || typeof p === 'function') setPrototypeOf(w, p);
+    }
+    return w;
+  }
+
   function iface(id, name, parent, ctor) {
     const f = ctor === null ? function () { throw new TE('Illegal constructor'); } : ctor;
     const proto = f.prototype;

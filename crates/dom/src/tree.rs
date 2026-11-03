@@ -186,9 +186,9 @@ impl Document {
         Ok((frag, true))
     }
 
-    /// Frees a temporary fragment from [`nodes_into_node`] (empty by then,
-    /// and without a handle) so a loop of `append(a, b)` doesn't fill the
-    /// document with them.
+    /// Frees a temporary fragment from [`nodes_into_node`], so a loop of
+    /// `append(a, b)` doesn't fill the document with them. After a refused
+    /// insertion it still has its children; those a script holds stay alive.
     fn finish_nodes(&mut self, node: usize, temporary: bool) {
         if temporary {
             self.drop_subtree(node);
@@ -349,20 +349,18 @@ impl Document {
 
     fn clone_one(&mut self, id: usize) -> BindingResult<usize> {
         let made = match &self.node(id).data {
-            NodeData::Text(t) => {
-                let text = t.content.clone();
+            NodeData::Text(_) => {
+                let text = self.char_data(id).to_owned();
                 self.create_text(&text)
             }
             NodeData::Comment => {
-                let data = self.comment_text(id).to_owned();
+                let data = self.char_data(id).to_owned();
                 self.create_comment(&data)
             }
             NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                 let name = e.name.clone();
                 let attrs = e.attrs().to_vec();
-                let bytes = attrs.iter().map(|a| a.value.len()).sum();
-                self.charge_text(bytes)
-                    .and_then(|()| self.create_element_with(name, attrs))
+                self.create_element_with(name, attrs)
             }
             NodeData::Document => {
                 return Err(dom_error("NotSupportedError", "can't clone a document"));
@@ -377,9 +375,8 @@ impl Document {
         while let Some((x, y)) = stack.pop() {
             let (nx, ny) = (self.node(x), self.node(y));
             let same = match (&nx.data, &ny.data) {
-                (NodeData::Text(p), NodeData::Text(q)) => p.content == q.content,
-                (NodeData::Comment, NodeData::Comment) => {
-                    self.comment_text(x) == self.comment_text(y)
+                (NodeData::Text(_), NodeData::Text(_)) | (NodeData::Comment, NodeData::Comment) => {
+                    self.char_data(x) == self.char_data(y)
                 }
                 (NodeData::Element(p), NodeData::Element(q)) => {
                     p.name == q.name

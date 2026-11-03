@@ -393,3 +393,22 @@ fn id_lookup_follows_the_tree() {
     );
     assert_eq!(r, ",true");
 }
+
+#[test]
+fn a_refused_multi_node_insert_keeps_the_nodes() {
+    // §4.2.6: the nodes go into a fragment first, so they have left their
+    // parent when the insertion is refused, and they stay usable.
+    let (r, body) = with_vars(
+        r#"const t = i.firstChild;
+        let err = '';
+        try { t.append('x', b); } catch (e) { err = e.name; }
+        try { document.append(i, 'x'); } catch (e) { err += ' ' + e.name; }
+        p.appendChild(b); p.appendChild(i);
+        [err, b.textContent, i.textContent].join()"#,
+    );
+    assert_eq!(r, "TypeError HierarchyRequestError,2,1");
+    assert!(
+        body.ends_with(r#"<p id="p"><b id="b">2</b><i id="i">1</i></p>"#),
+        "{body}"
+    );
+}
