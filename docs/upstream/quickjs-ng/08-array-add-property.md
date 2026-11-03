@@ -1,0 +1,53 @@
+Title: Segfault: new on an Array subclass under a memory limit (add_property for length "cannot fail", but it can)
+
+Found by an automated tool (an AI agent working on surimono, an embedder of quickjs-ng, refusing allocations in a test harness), then reproduced on current master.
+
+**What happens.** In `JS_NewObjectFromShape`, case `JS_CLASS_ARRAY`:
+
+```c
+if (likely(sh == ctx->array_shape)) {
+    pr = &p->prop[0];
+} else {
+    /* only used for the first array */
+    /* cannot fail */
+    pr = add_property(ctx, p, JS_ATOM_length,
+                      JS_PROP_WRITABLE | JS_PROP_LENGTH);
+}
+pr->u.value = js_int32(0);
+```
+
+The branch isn't only for the first array. `Array` called as a constructor with another `new.target` reaches it through `js_create_from_ctor` and `JS_NewObjectProtoClass`, and the shape found there is the empty one for that prototype, not `ctx->array_shape`. When that empty shape is shared and has no `length` successor yet, `add_property` goes through `js_clone_shape`, which allocates and can fail. Then `pr` is NULL.
+
+**Reproduce.** `repro.sh` and `harness/fail-nth.c` reproduce this on master at e22ce4de (2 Nov 2026). The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/array-subclass.js`:
+
+```js
+class A extends Array {}
+const keep = Object.create(A.prototype);   // shares the empty shape
+new A();
+```
+
+```
+REPRODUCED 08 array-subclass  refused allocation 114: SEGV (JS_NewObjectFromShape < JS_NewObjectProtoClass < js_create_from_ctor)
+```
+
+**Reproduce from JavaScript, release build, no harness:**
+
+```sh
+for k in $(seq 6000000 5003 7900000); do
+  qjs --memory-limit 8M -e "const pad = new Uint8Array($k); const keep = [];
+    for (;;) { class A extends Array {} keep.push(Object.create(A.prototype), new A()); }"
+done
+```
+
+47 of the 380 pad sizes end in SIGSEGV on e22ce4de (2 Nov 2026), all in `JS_NewObjectFromShape`; with the fix below, none do.
+
+**Suggested fix.** Check `pr`. The object isn't on the GC list yet at this point, so free it by hand:
+
+```c
+if (unlikely(!pr)) {
+    js_free(ctx, p->prop);
+    js_free(ctx, p);
+    js_free_shape(ctx->rt, sh);
+    return JS_EXCEPTION;
+}
+```
