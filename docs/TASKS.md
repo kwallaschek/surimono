@@ -58,7 +58,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-DOM-03 · DOM · done (#74) · #70 follow-ups: test that vendored IDL matches SOURCES.md checksums; parent-cycle check in generate_stubs (typed error); MAX_DEPTH vs small stacks; DESIGN.md says checkpoint 2, not 3
 - P1-RT-34 · RT · done (#75) · #71 nits: pool_size() doc (live workers); runner test bound workers_lock().len() <= pool_size + 2; pub const built-in name list in islands for the facade to re-export
 - P1-RT-35 · RT · done (#72) · main's full.yml test (macos-14) fails since 4865d3bb: islands echarts a_preloaded_render_matches_a_cold_one sleeps 2 s then asserts preloaded_renders == 1 (got 0 on the slow runner); wait for the preload with a bounded poll instead of a fixed sleep
-- P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
+- P1-RT-21 · RT · done · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
 - P1-RT-22 · RT · done (#47) · (#47) Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
 - P1-RT-23 · RT · done (#81) · Regex deadline gaps: js_regexp_Symbol_replace never polls ('a'.repeat(1<<25).replace(/(?:)/g,'') stops at 1,174 ms vs 250 ms); back-references checked in #47 review and fine
 - P1-RT-18 · RT · done · Follow-ups from the #45 review: the sweep drops a successful run's result (compare it with the clean run's value); Date.parse with an explicit zone at the range end gives an out-of-range value where Chrome gives NaN (fix or COMPAT); memory left by leaked objects at teardown isn't counted (debug counter for the soak); musl fallback only compile-checked
@@ -139,13 +139,15 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-19 · PKG · todo · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
 - P1-CF-31 · CF · todo · COMPAT entries: Date.parse of non-ISO strings keeps the QuickJS port (V8 gives NaN for CET/CEST), style values not validated, no doctype node, template.content, Attr as a partial Node
 - P1-GFX-07 · GFX · todo · crates/gfx/tests/chrome/*.mjs launch with channel 'chromium' so the preload can go
+- P1-RT-39 · RT · todo · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
+- P1-RT-40 · RT · todo · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
 
 ## Phase 2: scripts (v0.2, checkpoint 3 on Sun 22 Nov ~11:00), epics
 
 > Internal scaffolding only until checkpoint 2 is signed off (DECISIONS 2026-11-04): nothing new in the facade, CLI or gem.
 - E2-01 · DOM · todo · Bindings generated from WebIDL for DOM core, events, HTML elements in scope
 - E2-02 · DOM · doing · Id-based bindings to blitz-dom: nodes, attributes, tree mutation, serialization
-- E2-03 · RT · doing · Event loop on a virtual clock: microtasks, timers fast-forwarded, settle rule (microtasks drained, no timer due in budget, fonts and images resolved)
+- E2-03 · RT · doing · (a merged #91; b: rAF frames grouped, external waits vs timers, classic-script string handlers) Event loop on a virtual clock: microtasks, timers fast-forwarded, settle rule (microtasks drained, no timer due in budget, fonts and images resolved)
 - E2-04 · DOM · todo · Events, MutationObserver, selectors, classList, dataset, template, URL, TextEncoder, console
 - E2-05 · DOM · todo · DOMParser (first to cut)
 - E2-06 · PKG · todo · Resource loader with allowlist, network off by default
