@@ -17,10 +17,16 @@ const script = path.resolve(here, "..", "reference.sh");
 // with $STUB_INLINE_EXIT / $STUB_OUTLINE_EXIT; `node -e` (reading cargo metadata) prints a target dir.
 const STUBS = {
   node: `#!/bin/bash
-case "$1" in
-  -e) cat >/dev/null; echo /nonexistent-target ;;
-  */svg_inline.mjs) echo svg_inline >> "$STUB_LOG"; exit "\${STUB_INLINE_EXIT:-0}" ;;
-  */svg_outline.mjs) echo svg_outline >> "$STUB_LOG"; exit "\${STUB_OUTLINE_EXIT:-0}" ;;
+args="$*"
+case "$args" in
+  -e*) cat >/dev/null; echo /nonexistent-target ;;
+  *svg_inline.mjs*|*svg_outline.mjs*)
+    # The gfx scripts must run with the preload, or they ask for the headless shell.
+    case "$args" in "--require "*"/lib/pinned-chromium.cjs "*) ;; *) echo no-preload >> "$STUB_LOG" ;; esac ;;
+esac
+case "$args" in
+  *svg_inline.mjs*) echo svg_inline >> "$STUB_LOG"; exit "\${STUB_INLINE_EXIT:-0}" ;;
+  *svg_outline.mjs*) echo svg_outline >> "$STUB_LOG"; exit "\${STUB_OUTLINE_EXIT:-0}" ;;
 esac
 exit 0
 `,
@@ -84,4 +90,31 @@ test("without cargo on a CI runner the run fails", () => {
   const r = run({ tools: ["node", "npm", "npx", "pdftoppm"], env: { CI: "true" } });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stderr, /cargo not found on a CI runner/);
+});
+
+test("the gfx scripts' launch() gets the references' Chromium, unless they name a browser", () => {
+  const preload = path.resolve(here, "..", "lib", "pinned-chromium.cjs");
+  const code = `
+    const { chromium } = require("playwright");
+    const seen = [];
+    chromium.launch = async function (options) { seen.push(options); };
+    require(${JSON.stringify(preload)});
+    (async () => {
+      await chromium.launch();
+      await chromium.launch({ args: ["--x"] });
+      await chromium.launch({ channel: "chrome" });
+      await chromium.launch({ executablePath: "/bin/true" });
+      console.log(JSON.stringify(seen));
+    })();`;
+  const r = spawnSync(process.execPath, ["-e", code], {
+    encoding: "utf8",
+    env: { ...process.env, NODE_PATH: path.resolve(here, "..", "node_modules") },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), [
+    { channel: "chromium" },
+    { args: ["--x"], channel: "chromium" },
+    { channel: "chrome" },
+    { executablePath: "/bin/true" },
+  ]);
 });
