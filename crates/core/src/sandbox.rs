@@ -2,6 +2,7 @@
 
 use std::fmt;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rquickjs::context::EvalOptions;
 use rquickjs::context::intrinsic;
@@ -156,9 +157,11 @@ pub struct Deadline {
 }
 
 impl Deadline {
-    /// Whether the running call has passed its time limit. Once this is
-    /// true the call is over: it fails with [`SandboxError::TimeLimit`] as
-    /// soon as control returns to the engine. False when no call is running.
+    /// Whether the running call has passed its time limit or was cancelled
+    /// ([`Sandbox::set_cancel_flag`]). Once this is true the call is over:
+    /// it fails with [`SandboxError::TimeLimit`] or
+    /// [`SandboxError::Cancelled`] as soon as control returns to the engine.
+    /// False when no call is running.
     ///
     /// It reads the same stop flag the engine polls, which the sandbox's
     /// watchdog raises at the deadline, so it costs an atomic load and,
@@ -171,7 +174,7 @@ impl Deadline {
     /// was dropped always reports `true`, so a host function holding a
     /// stale handle refuses work instead of running unbounded.
     pub fn passed(&self) -> bool {
-        self.state.retired() || self.state.deadline_passed()
+        self.state.retired() || self.state.cancelled() || self.state.deadline_passed()
     }
 }
 
@@ -278,9 +281,13 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// - **Stack**: recursion deeper than [`Limits::stack_bytes`] fails with
 ///   [`SandboxError::StackOverflow`] unless the script catches the `RangeError`.
 ///
-/// After a limit error the sandbox throws away its runtime and starts a fresh
-/// one, so it is ready for the next call but every global the script set is
-/// gone. After an ordinary exception the script's state is kept.
+/// A call can also be stopped from outside through a flag: see
+/// [`set_cancel_flag`](Self::set_cancel_flag).
+///
+/// After a limit error or a cancelled call the sandbox throws away its runtime
+/// and starts a fresh one, so it is ready for the next call but every global
+/// the script set is gone. After an ordinary exception the script's state is
+/// kept.
 ///
 /// Scripts get the ECMAScript built-ins only: no modules or loader, no
 /// filesystem, network, timers or host helpers. The sandbox is tied to the
@@ -303,6 +310,8 @@ pub struct Sandbox {
     /// interrupt polls read its stop flag (the runtime's allocator holds a
     /// reference too; see `engine::install_stop_flag`).
     state: Arc<LimitState>,
+    /// See [`set_cancel_flag`](Self::set_cancel_flag).
+    cancel: Option<Arc<AtomicBool>>,
 }
 
 impl fmt::Debug for Sandbox {
@@ -360,6 +369,7 @@ impl Sandbox {
             options,
             ctx: Some(ctx),
             state,
+            cancel: None,
         })
     }
 
@@ -395,6 +405,27 @@ impl Sandbox {
         Deadline {
             state: self.state.clone(),
         }
+    }
+
+    /// Sets the flag that stops this sandbox's calls from outside, or removes
+    /// it with `None`. Any thread may raise the flag.
+    ///
+    /// Raising it stops a running call like a time limit does (`try`/`catch`
+    /// can't hold it off, and the same interrupt checks apply), within a few
+    /// milliseconds of the next check: the call fails with
+    /// [`SandboxError::Cancelled`] and the sandbox discards the script's state.
+    /// While the flag stays up, every further call fails with
+    /// [`SandboxError::Cancelled`] without running anything or touching the
+    /// script's state, so give the sandbox a lowered or new flag to use it
+    /// again. A call that finished before the flag went up keeps its result.
+    ///
+    /// The flag stays set across a [`reset`](Self::reset) and a limit error.
+    /// It only ever decides whether to stop, so it can't change what a script
+    /// that runs to the end produces. The process's watchdog thread reads it
+    /// about every 5 ms while a call with a flag runs; calls without one
+    /// cost nothing extra.
+    pub fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
+        self.cancel = flag;
     }
 
     /// Discards all script state: the next call runs in a fresh runtime and
@@ -524,6 +555,9 @@ impl Sandbox {
                 message: "the sandbox has no context; a reset failed".into(),
             });
         };
+        if self.cancel_raised() {
+            return Err(SandboxError::Cancelled);
+        }
         check_stack(&self.options.limits)?;
         #[cfg(any(test, feature = "test-hooks"))]
         let started = test_hooks::begin_call();
@@ -531,6 +565,9 @@ impl Sandbox {
         // Disarms even if `body` panics (a host function can), so no timer
         // outlives the call.
         let armed = Armed(&self.state);
+        if let Some(flag) = &self.cancel {
+            self.state.watch_cancel(flag.clone())?;
+        }
         let state = &*self.state;
         let result = ctx.with(|ctx| {
             engine::update_stack_top(&ctx);
@@ -542,10 +579,11 @@ impl Sandbox {
         drop(ctx);
         #[cfg(any(test, feature = "test-hooks"))]
         let stopped = std::time::Instant::now();
-        let rebuild = matches!(&result, Err(e) if e.is_limit());
+        let rebuild = matches!(&result, Err(e) if e.is_limit() || *e == SandboxError::Cancelled);
         if rebuild {
-            // A limit can stop a script anywhere, leaving its state half
-            // updated and microtasks queued. Start over; if even that fails,
+            // A limit or a cancel can stop a script anywhere, leaving its
+            // state half updated, microtasks queued and the engine's interrupt
+            // sticky. Start over; if even that fails,
             // later calls report an engine error (see `rebuild`).
             let _ = self.rebuild();
         }
@@ -556,6 +594,12 @@ impl Sandbox {
             cleanup: rebuild.then(|| stopped.elapsed()),
         });
         result
+    }
+
+    fn cancel_raised(&self) -> bool {
+        self.cancel
+            .as_ref()
+            .is_some_and(|flag| flag.load(Ordering::Acquire))
     }
 
     /// Replaces the runtime and context with fresh ones.
@@ -570,7 +614,8 @@ impl Sandbox {
         self.ctx = None;
         #[cfg(test)]
         test_hooks::record_heap_before_rebuild(self.state.used());
-        let fresh = Self::with_options(self.options.clone())?;
+        let mut fresh = Self::with_options(self.options.clone())?;
+        fresh.cancel = self.cancel.take();
         *self = fresh;
         Ok(())
     }
@@ -834,6 +879,11 @@ fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
 /// exception.
 fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) -> SandboxError {
     let exception = matches!(e, rquickjs::Error::Exception).then(|| ctx.catch());
+    // First: whoever cancelled wants to know that, whatever else went wrong
+    // on the way down.
+    if state.cancelled() {
+        return SandboxError::Cancelled;
+    }
     if state.oom() {
         return SandboxError::MemoryLimit;
     }

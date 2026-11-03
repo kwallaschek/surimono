@@ -19,6 +19,13 @@ pub enum SandboxError {
     /// The script recursed deeper than [`Limits::stack_bytes`](crate::Limits::stack_bytes) allows.
     #[error("script exceeded the stack limit (too much recursion)")]
     StackOverflow,
+    /// The call was stopped because the flag given to
+    /// [`Sandbox::set_cancel_flag`](crate::Sandbox::set_cancel_flag) went up.
+    ///
+    /// Not a limit error, but just as terminal: the sandbox discards the
+    /// script's state.
+    #[error("the script was cancelled")]
+    Cancelled,
     /// The script threw an exception it did not catch.
     #[error("script threw {message}")]
     Exception {
@@ -73,6 +80,7 @@ mod tests {
             stack: None,
         };
         assert!(!e.is_limit());
+        assert!(!SandboxError::Cancelled.is_limit());
         assert_eq!(e.to_string(), "script threw Error: x");
     }
 }
