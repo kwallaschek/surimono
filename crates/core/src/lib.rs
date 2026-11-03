@@ -34,6 +34,8 @@ mod watchdog;
 
 pub use embed::{compile_for_embedding, engine_fingerprint};
 pub use engine::fork_generation;
+#[doc(hidden)]
+pub use engine::{TeardownLeaks, teardown_leaks};
 pub use error::SandboxError;
 /// Not public API: phase-2 scaffolding for `surimono-dom`.
 #[doc(hidden)]

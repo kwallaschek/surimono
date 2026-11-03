@@ -892,6 +892,33 @@ fn renders_leave_nothing_behind() {
     }
 }
 
+/// The engine's own count at `JS_FreeRuntime`: arenas hand bytes back
+/// whatever happened, so only this shows a leaked object. Covers a clean
+/// teardown with timers queued, and one forced by a limit in a callback.
+#[test]
+fn teardown_leaks_nothing() {
+    let before = surimono_core::teardown_leaks();
+    for script in [
+        "setTimeout((a) => a, 1e9, { big: new Array(100).fill(0) });
+         setInterval(() => {}, 5);
+         requestAnimationFrame(() => {});
+         queueMicrotask(() => {});",
+        "setTimeout(() => { setInterval(() => {}, 1); for (;;); });
+         setTimeout(() => {}, 1e9);",
+    ] {
+        for _ in 0..20 {
+            let mut sb = sandbox_with(limits().with_time(scaled(Duration::from_millis(50))));
+            sb.eval::<()>(script).unwrap();
+            let _ = sb.run_until_settled(&SettleOptions {
+                virtual_budget_ms: 20,
+                ..SettleOptions::default()
+            });
+            sb.reset().unwrap();
+        }
+    }
+    assert_eq!(surimono_core::teardown_leaks(), before);
+}
+
 /// Finished timers free their handlers while the context lives on, so a
 /// long-running page doesn't grow with the number of timers it has used.
 #[test]
