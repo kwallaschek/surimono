@@ -5,7 +5,15 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Sun 1 Nov 2026, 16:00)
+## Now (Wed 4 Nov 2026, 04:40)
+
+Session cse_011c8hfnWG3Q5HtHFaa21vge resumed the fleet after 55 h with no heartbeat. No reply from Kay
+to checkpoint 2 visible here (no comments or reviews from him on #38). #82 (P1-DOM-04) and #83 (P1-RT-29)
+were merged on Sun evening. main adfe71a7: 13 of 14 full.yml jobs green; asan red (P1-DOM-05, a test's
+2 s limit); reference red (P1-CF-30, no browser). Phase-2 internal scaffolding starts now under the
+DECISIONS 2026-11-04 rule; nothing public until sign-off. macos-14 still ran on 2 Nov.
+
+## Earlier (Sun 1 Nov 2026, 16:00)
 
 **Phase 1: islands. Checkpoint 2 message sent to Kay at 15:58 JST** (SendUserMessage + push), in session
 cse_011c8hfoBxyki5Uo3FJx7LZe. Waiting for his 5 answers: (1) engine distribution (recommend gem + CLI
@@ -43,6 +51,7 @@ green incl. asan and macos-14. #38 head f0d7091f has main up to abd31b70 (not #8
 | PR | Task | State |
 |---|---|---|
 | #38 | v0.1 release PR | waits for Kay; merge main in again (gets #81) before any merge |
+| #84 | P1-RT-18 | ci/linux green, in review |
 
 ### Blocked / waiting on Kay
 - Checkpoint 2 answers (above). Don't merge #38 or any phase-2 public API without them.

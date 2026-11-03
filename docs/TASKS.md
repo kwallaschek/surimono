@@ -44,7 +44,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-27 · RT+PKG · done (#73 #77; ASan green on main abd31b70) · Test time-scale factor (env var set by scripts/ci/asan.sh) that multiplies wall-clock limits and bounds in core/islands tests; ASan runs determinism and hostile groups B/C past their bounds; also engine::tests::stack_available_is_plausible fails under ASan (deeper()'s 4 KiB pads live on the fake stack) and hostile alloc-object-graph gets TimeLimit not MemoryLimit (main 8963d8c9)
 - P1-PKG-11 · PKG · done (#58) · #25/#26/#34 review follow-ups: drop the stale placeholder_style doc (prepass.rs:411-413); fixtures.rs asserts the island count; CLI docs say an existing read-only output is replaced; about.toml MPL list limited to normal deps (or commented) so real warnings show; root surimono-islands workspace entry default-features=false (ORC) and drop the web_atoms exact pin
 - P1-RT-28 · RT · done (#64) · #56 review follow-ups: native-gem jobs and the gem smoke test assert built-ins are precompiled (expose a count); measure the extra source-gem install time; guard test for native `class` in bundles (isESClass under stripping); core build.rs hashes quickjs/ recursively; #57 nit: assert SP vs local agree outside sanitizers
-- P1-RT-29 · RT · todo · (regexp poll done in #81; left: test-only hook) #47 review follow-ups: hostile.rs times the stop apart from the cleanup (test-only hook); poll per match in js_regexp_Symbol_replace (with P1-RT-23)
+- P1-RT-29 · RT · done · (regexp poll done in #81; left: test-only hook) #47 review follow-ups: hostile.rs times the stop apart from the cleanup (test-only hook); poll per match in js_regexp_Symbol_replace (with P1-RT-23)
 - P1-RT-30 · RT · done (#62) · (v0.1) Verify/fix that a forked child never touches the parent's IslandRunner locks (queue Mutex, bundles RwLock, workers Mutex in crates/islands/src/runner.rs) via the facade's pid-claimed slots; fork stress test through the facade; plus #47 review follow-ups: ForkSafeCell checks slot exhaustion before init (no thread leak), doc fix; pid reuse → fork-generation counter (pthread_atfork child handler); expire vs arm/disarm stress test
 - P1-RT-31 · RT+GFX · done (#60 #61) · (v0.1 release blocker) LICENSE-MIT/LICENSE-APACHE symlinks and repository/homepage/keywords/categories .workspace in crates/core, crates/islands, crates/gfx
 - P1-PKG-12 · PKG · done (#63) · examples/run.sh in CI; TooManyIslands wording; facade slots by fork generation; facade fork stress test; #58 nits
@@ -61,7 +61,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-21 · RT · todo · Cancel flag inside an island (Sandbox::set_cancel_flag, SandboxError::Cancelled, IslandRunner::render_cancellable), stacked on #47
 - P1-RT-22 · RT · done (#47) · (#47) Lock-free ForkSafeCell for PRELUDE and the watchdog registry; folded into #47 (v0.1 blocker: 21 of 29,300 forks hung on the watchdog lock)
 - P1-RT-23 · RT · done (#81) · Regex deadline gaps: js_regexp_Symbol_replace never polls ('a'.repeat(1<<25).replace(/(?:)/g,'') stops at 1,174 ms vs 250 ms); back-references checked in #47 review and fine
-- P1-RT-18 · RT · todo · Follow-ups from the #45 review: the sweep drops a successful run's result (compare it with the clean run's value); Date.parse with an explicit zone at the range end gives an out-of-range value where Chrome gives NaN (fix or COMPAT); memory left by leaked objects at teardown isn't counted (debug counter for the soak); musl fallback only compile-checked
+- P1-RT-18 · RT · review · Follow-ups from the #45 review: the sweep drops a successful run's result (compare it with the clean run's value); Date.parse with an explicit zone at the range end gives an out-of-range value where Chrome gives NaN (fix or COMPAT); memory left by leaked objects at teardown isn't counted (debug counter for the soak); musl fallback only compile-checked
 - P1-RT-13 · RT · done (#53) · (#53 for the ASan/flaky tests; interval work folded into P1-RT-14) Core (after #8/#32 merge): lower QuickJS's interrupt-check interval in the vendored engine so expensive built-ins in a loop (e.g. indexOf on a 4 MiB string: TimeLimit after 155 s at a 300 ms limit) end near the limit, with an upstream draft and a hostile case; test robustness: heap_returns_to_baseline_after_reset fails under nightly ASan (TimeLimit; give it a generous limit or relax under sanitizers); time_limit_is_per_call flaky under load; plus #8/#32 review follow-ups
 - P1-RT-16 · RT · done (#54) · Memory: measure and cut surimono's PSS overhead over fulgur (pool growth on demand, idle runtime release, shared bytecode, stacks)
 - P1-RT-17 · RT · done (#56) · Cold start: built-in bundles shipped as precompiled, version-checked QuickJS bytecode
@@ -121,7 +121,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 ### DOM engineer (early phase 2 scaffolding; no public API merged before checkpoint 2)
 - P1-DOM-01 · DOM · done (#70) · WebIDL fetch and parse from w3c/webref (pinned commit) and a code-generation skeleton producing binding stubs for a handful of interfaces
 - P1-DOM-02 · DOM · done (#80) · Spike: id-based handles to blitz-dom 0.2.4 nodes from rquickjs, with a leak test
-- P1-DOM-04 · DOM · todo · #80 review nits: serializer keeps xlink:/xml:/xmlns: attribute prefixes; comment data gap (blitz 0.2.4) to COMPAT via CF; noscript raw-text comment; stack-squeeze regression test (JS recursion to the limit then a MAX_DEPTH append); trace the "ERROR: Unexpected token" stderr line in dom tests
+- P1-DOM-04 · DOM · done · #80 review nits: serializer keeps xlink:/xml:/xmlns: attribute prefixes; comment data gap (blitz 0.2.4) to COMPAT via CF; noscript raw-text comment; stack-squeeze regression test (JS recursion to the limit then a MAX_DEPTH append); trace the "ERROR: Unexpected token" stderr line in dom tests
 
 ### Reviewer
 - P1-REV-01 · REV · todo · Review every merge; pre-release checklist for v0.1
@@ -129,18 +129,23 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 ### Checkpoint
 - P1-ORC-01 · ORC · todo · Checkpoint 2 package: 10 side-by-side fixtures, Grover table, hostile-script results, v0.1 release PR with dry-run
 
+### Follow-ups found on 4 Nov (main's nightly)
+- P1-DOM-05 · DOM · todo · `wide_tree_drops_in_linear_time` hits the default 2 s time limit under ASan: scale the limit with SURIMONO_TEST_TIME_SCALE, like the other time-bound tests (asan job red on main since #80)
+- P1-CF-30 · CF · todo · reference job red on main: gfx Chrome checks in fixtures/tools/reference.sh find no browser (Playwright chromium_headless_shell-1243 missing); COMPAT row for blitz comment data / serializer
+
 ## Phase 2: scripts (v0.2, checkpoint 3 on Sun 22 Nov ~11:00), epics
 
+> Internal scaffolding only until checkpoint 2 is signed off (DECISIONS 2026-11-04): nothing new in the facade, CLI or gem.
 - E2-01 · DOM · todo · Bindings generated from WebIDL for DOM core, events, HTML elements in scope
-- E2-02 · DOM · todo · Id-based bindings to blitz-dom: nodes, attributes, tree mutation, serialization
-- E2-03 · RT · todo · Event loop on a virtual clock: microtasks, timers fast-forwarded, settle rule (microtasks drained, no timer due in budget, fonts and images resolved)
+- E2-02 · DOM · doing · Id-based bindings to blitz-dom: nodes, attributes, tree mutation, serialization
+- E2-03 · RT · doing · Event loop on a virtual clock: microtasks, timers fast-forwarded, settle rule (microtasks drained, no timer due in budget, fonts and images resolved)
 - E2-04 · DOM · todo · Events, MutationObserver, selectors, classList, dataset, template, URL, TextEncoder, console
 - E2-05 · DOM · todo · DOMParser (first to cut)
 - E2-06 · PKG · todo · Resource loader with allowlist, network off by default
 - E2-07 · DOM · todo · Layout-query policy (zeros or throw)
 - E2-08 · PKG · todo · Output: serialized HTML, and the live Blitz document handed to fulgur behind a feature
-- E2-09 · CF · todo · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing
-- E2-10 · CF · todo · Real-world suite: marked, highlight.js, KaTeX auto-render, Alpine.js (second to cut), D3 without measuring
+- E2-09 · CF · doing · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing
+- E2-10 · CF · doing · Real-world suite: marked, highlight.js, KaTeX auto-render, Alpine.js (second to cut), D3 without measuring
 - E2-11 · PKG · todo · musl native gems (third to cut)
 - E2-12 · DX · todo · Rails guide for page scripts; checkpoint-3 checklist for Kay's own template
 
