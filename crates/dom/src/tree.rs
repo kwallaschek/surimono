@@ -9,10 +9,14 @@ use surimono_webidl::runtime::{BindingError, BindingResult, Value};
 
 use crate::Document;
 use crate::document::{Kind, is_valid_attribute_name, is_valid_element_name};
+use crate::select::Matcher;
 
 /// The XML and XMLNS namespaces, for "validate and extract" (§1.5).
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
 const XMLNS: &str = "http://www.w3.org/2000/xmlns/";
+
+/// Deepest bracket nesting accepted in a selector.
+const MAX_SELECTOR_NESTING: usize = 32;
 
 pub(crate) fn dom_error(name: &'static str, message: &str) -> BindingError {
     BindingError::DomException {
@@ -162,6 +166,107 @@ impl Document {
         }
         self.detach(child);
         Ok(())
+    }
+
+    /// Puts a parsed fragment's children under `parent`, before `before`,
+    /// and frees the fragment. The parse checked the limits.
+    pub(crate) fn insert_parsed(&mut self, parent: usize, frag: usize, before: Option<usize>) {
+        self.insert_checked(parent, frag, before);
+        self.drop_subtree(frag);
+    }
+
+    /// Selectors nest in brackets; the parser and the matcher recurse per
+    /// level. Refused here so that no script can reach the stack's end.
+    fn check_selector_depth(selectors: &str) -> BindingResult<()> {
+        let mut depth = 0usize;
+        for b in selectors.bytes() {
+            match b {
+                b'(' | b'[' => depth += 1,
+                b')' | b']' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+            if depth > MAX_SELECTOR_NESTING {
+                return Err(dom_error("SyntaxError", "the selector nests too deeply"));
+            }
+        }
+        Ok(())
+    }
+
+    fn parse_selectors(
+        &self,
+        selectors: &str,
+    ) -> BindingResult<selectors::SelectorList<style::selector_parser::SelectorImpl>> {
+        Self::check_selector_depth(selectors)?;
+        self.selector_list(selectors)
+            .ok_or_else(|| dom_error("SyntaxError", "the selector is not valid"))
+    }
+
+    fn matcher(&self) -> Matcher {
+        Matcher::new(self.quirks_mode(), self.deadline.clone())
+    }
+
+    /// `querySelector(All)` (DOM §4.2.6): descendants of `top`, in tree
+    /// order, matching the selectors against the whole tree. See
+    /// [`crate::select`] for why this isn't blitz-dom's query.
+    pub(crate) fn select(
+        &mut self,
+        top: usize,
+        selectors: &str,
+        first_only: bool,
+    ) -> BindingResult<Vec<usize>> {
+        let list = self.parse_selectors(selectors)?;
+        let mut matcher = self.matcher();
+        let mut out = Vec::new();
+        let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
+        while let Some(n) = stack.pop() {
+            if self.kind(n) == Some(Kind::Element)
+                && matcher.matches(self.node(n), self.node(top), &list)
+            {
+                out.push(n);
+                if first_only {
+                    break;
+                }
+            }
+            if matcher.stopped() {
+                return Err(timed_out());
+            }
+            stack.extend(self.children(n).iter().rev().copied());
+        }
+        Ok(out)
+    }
+
+    pub(crate) fn element_matches(&mut self, id: usize, selectors: &str) -> BindingResult<bool> {
+        let list = self.parse_selectors(selectors)?;
+        let mut matcher = self.matcher();
+        let node = self.node(id);
+        let found = matcher.matches(node, node, &list);
+        if matcher.stopped() {
+            return Err(timed_out());
+        }
+        Ok(found)
+    }
+
+    /// `closest`: `id` or its nearest matching ancestor element.
+    pub(crate) fn closest_match(
+        &mut self,
+        id: usize,
+        selectors: &str,
+    ) -> BindingResult<Option<usize>> {
+        let list = self.parse_selectors(selectors)?;
+        let mut matcher = self.matcher();
+        let mut at = Some(id);
+        while let Some(n) = at {
+            if self.kind(n) == Some(Kind::Element)
+                && matcher.matches(self.node(n), self.node(id), &list)
+            {
+                return Ok(Some(n));
+            }
+            if matcher.stopped() {
+                return Err(timed_out());
+            }
+            at = self.parent(n);
+        }
+        Ok(None)
     }
 
     /// §4.2.6 "convert nodes into a node": `values`' nodes, with strings as
@@ -649,6 +754,12 @@ impl Document {
         }
         Ok(true)
     }
+}
+
+/// The sandbox stops the script at its next check, so this is what the
+/// script never gets to see: the call fails with `TimeLimit`.
+fn timed_out() -> BindingError {
+    BindingError::TypeError("the time limit has passed".to_owned())
 }
 
 fn index_size() -> BindingError {

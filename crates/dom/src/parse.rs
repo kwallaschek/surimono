@@ -72,6 +72,11 @@ pub(crate) struct ParseLimits {
 
 struct Sink<'m, 'doc> {
     inner: DocumentHtmlParser<'m, 'doc>,
+    /// The node the tree builder sees as the document. For a fragment, a
+    /// holder outside the tree: blitz-html hangs the parser's root element
+    /// on the real document, where `<style>` and `<img>` would take effect
+    /// before the fragment is ever inserted.
+    document: usize,
     parsed: RefCell<Parsed>,
     /// Depth by node id for nodes the parser placed; 0 for others.
     depths: RefCell<Vec<u32>>,
@@ -116,7 +121,7 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
     fn parse_error(&self, _msg: Cow<'static, str>) {}
 
     fn get_document(&self) -> usize {
-        self.inner.get_document()
+        self.document
     }
 
     fn elem_name<'a>(&'a self, target: &'a usize) -> Ref<'a, QualName> {
@@ -246,6 +251,36 @@ where
     (parser.finish(), stopped)
 }
 
+/// Parses `html` as the content of element `context` (HTML §13.4, as
+/// html5ever does it) into the detached node `holder`: the parser's root
+/// element ends up as `holder`'s only child, and the content under it.
+/// `stop` is asked between chunks; `Parsed::over_limit` says if it stopped.
+pub(crate) fn parse_fragment(
+    mutr: &mut DocumentMutator<'_>,
+    context: usize,
+    holder: usize,
+    html: &str,
+    limits: ParseLimits,
+    stop: impl Fn() -> bool,
+) -> Parsed {
+    let deepest = Rc::new(Cell::new(0u32));
+    let created = Rc::new(Cell::new(0usize));
+    let sink = Sink {
+        inner: DocumentHtmlParser::new(mutr),
+        document: holder,
+        parsed: RefCell::new(Parsed::default()),
+        depths: RefCell::new(Vec::new()),
+        deepest: deepest.clone(),
+        created: created.clone(),
+    };
+    let parser = driver::parse_fragment_for_element(sink, opts(), context, false, None);
+    let (mut parsed, stopped) = feed(parser, html, || {
+        stop() || created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
+    });
+    parsed.over_limit = stopped;
+    parsed
+}
+
 /// Parses a whole document into `mutr`'s empty document.
 pub(crate) fn parse_document(
     mutr: &mut DocumentMutator<'_>,
@@ -255,6 +290,7 @@ pub(crate) fn parse_document(
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
     let sink = Sink {
+        document: 0,
         inner: DocumentHtmlParser::new(mutr),
         parsed: RefCell::new(Parsed::default()),
         depths: RefCell::new(Vec::new()),

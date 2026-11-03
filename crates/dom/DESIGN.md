@@ -84,6 +84,31 @@ main every `<img src="x.png">` panicked in `Document::parse`. With
 those are blanked while the element joins and written back after. Nothing is
 fetched: the document has no net provider.
 
+## Objects other than nodes
+
+The handle table holds `Object`s, not only nodes: live lists (`childNodes`,
+`children`, `getElementsBy*`), static lists, `classList`, `attributes`,
+`dataset`, `Attr`. Each is addressed through its owner node, which has a handle
+and so stays alive; `[SameObject]` members look their handle up in a
+`(node, key)` map. A live list is recomputed when the document's `version`
+moved, with one cached result (bounded memory; a `for (i…) list[i]` loop isn't
+quadratic). Static-list entries count against `8 × max_handles`, since they live
+outside the JS heap limit.
+
+Interfaces with indexed or named getters are generated as `exotic()` tables and
+wrapped in a `Proxy` whose handler lives in the glue (WebIDL §3.9). Target and
+proxy both carry the record in the private field, which proxy traps don't see.
+
+## Selectors
+
+`src/select.rs` matches element by element through `Guarded`, a delegating
+`selectors::Element`, instead of calling blitz-dom's query in one go. One match
+can be polynomial in a wide tree (`:not(:not(b ~ b) ~ b)`) and nothing could
+interrupt it; `Guarded` counts navigation steps and answers "no such element"
+once the deadline passes, so the match ends quickly. Bracket nesting over 32 is
+a `SyntaxError`: the parser and matcher recurse per level. The nth-child and
+`:has` caches live for the whole query.
+
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and

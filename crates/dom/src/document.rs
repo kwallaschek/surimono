@@ -106,6 +106,53 @@ pub(crate) enum Kind {
 /// crate sees it.
 const FRAGMENT_NAME: &str = "#document-fragment";
 
+/// Whether `name` is the marker of a fragment.
+pub(crate) fn is_fragment_name(name: &QualName) -> bool {
+    name.local.as_ref() == FRAGMENT_NAME
+}
+
+/// Which elements a live list holds.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum ListKind {
+    /// `childNodes`.
+    ChildNodes,
+    /// `children`.
+    Children,
+    /// `getElementsByTagName`.
+    ByTag(String),
+    /// `getElementsByClassName`.
+    ByClass(String),
+}
+
+/// One script-visible object behind a handle. Everything but `Node` is
+/// addressed by its owner node, which has a handle too and so stays alive.
+#[derive(Debug, Clone)]
+pub(crate) enum Object {
+    Node(usize),
+    /// A live `NodeList` or `HTMLCollection` under a node.
+    Live(usize, ListKind),
+    /// The static `NodeList` from `querySelectorAll`.
+    Static(Vec<usize>),
+    /// `classList`.
+    Tokens(usize),
+    /// `attributes`.
+    Attributes(usize),
+    /// `dataset`.
+    Dataset(usize),
+    /// An `Attr`: its element, its name, and its value if removed since.
+    Attr(usize, QualName, Option<String>),
+}
+
+/// A per-owner object: one handle each, for `[SameObject]`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum Owned {
+    List(ListKind),
+    Tokens,
+    Attributes,
+    Dataset,
+    Attr(QualName),
+}
+
 /// A handle as JavaScript holds it, with the document's generation. Neither
 /// is a pointer or a blitz node id.
 pub(crate) type Handle = u32;
@@ -120,8 +167,20 @@ pub struct Document {
     inner: BaseDocument,
     generation: u64,
     limits: DomLimits,
-    /// Handle (1-based) minus one to blitz node id.
-    handle_to_node: Vec<usize>,
+    /// Handle (1-based) minus one to its object.
+    objects: Vec<Object>,
+    /// The handles of per-owner objects. Only looked up, so its hash order
+    /// can't reach any output.
+    owned: HashMap<(usize, Owned), Handle>,
+    /// Bumped by every change a live list can see.
+    version: u64,
+    /// The last computed live list: (handle, version, nodes), so a loop
+    /// over `list[i]` isn't quadratic. One entry bounds what it holds.
+    list_cache: Option<(Handle, u64, Vec<usize>)>,
+    /// Entries in static lists so far, bounded by [`Self::static_limit`].
+    static_entries: usize,
+    /// The running call's time limit, for work inside one native call.
+    pub(crate) deadline: Option<surimono_core::Deadline>,
     /// Blitz node id to its handle, 0 for none yet.
     node_to_handle: Vec<Handle>,
     /// Comment data by node id: `NodeData::Comment` has no room for it.
@@ -142,7 +201,7 @@ impl std::fmt::Debug for Document {
         f.debug_struct("Document")
             .field("generation", &self.generation)
             .field("nodes", &self.inner.tree().len())
-            .field("handles", &self.handle_to_node.len())
+            .field("handles", &self.objects.len())
             .finish_non_exhaustive()
     }
 }
@@ -179,7 +238,12 @@ impl Document {
             inner,
             generation: NEXT_GENERATION.fetch_add(1, Ordering::Relaxed),
             limits,
-            handle_to_node: Vec::new(),
+            objects: Vec::new(),
+            owned: HashMap::new(),
+            version: 0,
+            list_cache: None,
+            static_entries: 0,
+            deadline: None,
             node_to_handle: Vec::new(),
             comment_data: parsed.comments.into_iter().collect(),
             quirks: parsed.quirks,
@@ -218,6 +282,91 @@ impl Document {
                 e.attrs.set(name, &value);
             }
         }
+    }
+
+    /// Parses `html` in the context of element `context` into a new
+    /// detached fragment, all of which fits the limits under `parent`.
+    /// `Ok(None)` if the time limit passed meanwhile.
+    pub(crate) fn parse_into_fragment(
+        &mut self,
+        context: usize,
+        parent: usize,
+        html: &str,
+    ) -> Result<Option<usize>, DomError> {
+        self.charge_text(html.len())?;
+        let holder = self.create_fragment()?;
+        let room = self.limits.max_nodes.saturating_sub(self.node_count());
+        // The parser's own root and holder add two levels.
+        let levels = self.limits.max_depth.saturating_sub(self.depth(parent)) + 2;
+        let deadline = self.deadline.clone();
+        let parsed = parse::parse_fragment(
+            &mut self.inner.mutate(),
+            context,
+            holder,
+            html,
+            ParseLimits {
+                max_nodes: room,
+                max_depth: levels,
+            },
+            || {
+                deadline
+                    .as_ref()
+                    .is_some_and(surimono_core::Deadline::passed)
+            },
+        );
+        self.comment_data.extend(parsed.comments);
+        self.restore_urls(parsed.hidden_urls);
+        // Holder → the parser's root → the content, without the root.
+        let root = self.take_children(holder);
+        let mut content = Vec::new();
+        for &r in &root {
+            self.set_parent(r, None);
+            content.extend(self.take_children(r));
+            self.drop_subtree(r);
+        }
+        for &c in &content {
+            self.set_parent(c, Some(holder));
+        }
+        if let Some(n) = self.inner.get_node_mut(holder) {
+            n.children = content;
+        }
+        let timed_out = deadline
+            .as_ref()
+            .is_some_and(surimono_core::Deadline::passed);
+        let limit = if self.node_count() > self.limits.max_nodes {
+            Some(DomError::NodeLimit {
+                limit: self.limits.max_nodes,
+            })
+        } else {
+            self.check_depth(parent, self.height(holder) - 1).err()
+        };
+        if limit.is_some() || timed_out || parsed.over_limit {
+            self.drop_subtree(holder);
+            return match limit {
+                Some(e) => Err(e),
+                None if timed_out => Ok(None),
+                None => Err(DomError::NodeLimit {
+                    limit: self.limits.max_nodes,
+                }),
+            };
+        }
+        Ok(Some(holder))
+    }
+
+    /// `id`'s children, serialized (HTML §13.3, `innerHTML`).
+    pub(crate) fn inner_html(&self, id: usize) -> String {
+        let mut out = String::new();
+        for &c in self.children(id) {
+            self.serialize(c, &mut out);
+        }
+        out
+    }
+
+    /// `id` itself, serialized (`outerHTML`).
+    pub(crate) fn outer_html(&self, id: usize) -> String {
+        let mut out = String::new();
+        self.serialize(id, &mut out);
+        out
     }
 
     /// The document's serialization: the `<html>` element's outer HTML, by
@@ -360,36 +509,143 @@ impl Document {
             self.node_to_handle.resize(id + 1, 0);
         }
         if self.node_to_handle[id] == 0 {
-            if self.handle_to_node.len() >= self.limits.max_handles {
-                return Err(DomError::HandleLimit {
-                    limit: self.limits.max_handles,
-                });
-            }
-            self.handle_to_node.push(id);
-            // `validate` keeps max_handles within u32, so this always fits;
-            // 0 (never a valid handle, resolves to NodeRemoved) otherwise.
-            self.node_to_handle[id] = Handle::try_from(self.handle_to_node.len()).unwrap_or(0);
+            self.node_to_handle[id] = self.new_handle(Object::Node(id))?;
         }
         Ok(self.node_to_handle[id])
     }
 
-    /// Checks `(generation, handle)` names a node.
+    fn new_handle(&mut self, object: Object) -> Result<Handle, DomError> {
+        if self.objects.len() >= self.limits.max_handles {
+            return Err(DomError::HandleLimit {
+                limit: self.limits.max_handles,
+            });
+        }
+        self.objects.push(object);
+        // `validate` keeps max_handles within u32, so this always fits; 0
+        // (never a valid handle) otherwise.
+        Ok(Handle::try_from(self.objects.len()).unwrap_or(0))
+    }
+
+    /// The handle of `owner`'s object `key`, made on first use.
+    pub(crate) fn owned_handle(
+        &mut self,
+        owner: usize,
+        key: Owned,
+        make: impl FnOnce() -> Object,
+    ) -> Result<Handle, DomError> {
+        if let Some(&h) = self.owned.get(&(owner, key.clone())) {
+            return Ok(h);
+        }
+        let h = self.new_handle(make())?;
+        self.owned.insert((owner, key), h);
+        Ok(h)
+    }
+
+    /// A new static list of `nodes`, which get handles so they stay alive.
+    /// Every entry counts: lists live in Rust, outside the JS heap limit.
+    pub(crate) fn static_list(&mut self, nodes: Vec<usize>) -> Result<Handle, DomError> {
+        self.static_entries = self.static_entries.saturating_add(nodes.len());
+        if self.static_entries > self.limits.max_handles.saturating_mul(8) {
+            return Err(DomError::HandleLimit {
+                limit: self.limits.max_handles,
+            });
+        }
+        for &n in &nodes {
+            self.handle_for(n)?;
+        }
+        self.new_handle(Object::Static(nodes))
+    }
+
+    /// Checks `(generation, handle)` names an object.
     pub(crate) fn check(&self, generation: u64, handle: Handle) -> Result<(), DomError> {
         self.resolve(generation, handle).map(|_| ())
     }
 
-    /// The blitz node id that `(generation, handle)` names.
-    pub(crate) fn resolve(&self, generation: u64, handle: Handle) -> Result<usize, DomError> {
+    /// The object that `(generation, handle)` names.
+    pub(crate) fn resolve(&self, generation: u64, handle: Handle) -> Result<&Object, DomError> {
         if generation != self.generation {
             return Err(DomError::StaleDocument);
         }
         handle
             .checked_sub(1)
-            .and_then(|i| self.handle_to_node.get(i as usize))
-            .copied()
-            // Handles only come from `handle_for`, so an unknown one can't
+            .and_then(|i| self.objects.get(i as usize))
+            // Handles only come from `new_handle`, so an unknown one can't
             // be this document's.
             .ok_or(DomError::StaleDocument)
+    }
+
+    pub(crate) fn object_mut(&mut self, handle: Handle) -> Option<&mut Object> {
+        self.objects.get_mut(handle.checked_sub(1)? as usize)
+    }
+
+    /// The nodes of live list `kind` under `owner`, cached for `handle`.
+    pub(crate) fn live_nodes(&mut self, handle: Handle, owner: usize, kind: &ListKind) -> &[usize] {
+        let fresh = self
+            .list_cache
+            .as_ref()
+            .is_some_and(|(h, v, _)| *h == handle && *v == self.version);
+        if !fresh {
+            let nodes = self.compute_list(owner, kind);
+            self.list_cache = Some((handle, self.version, nodes));
+        }
+        self.list_cache
+            .as_ref()
+            .map_or(&[], |(_, _, n)| n.as_slice())
+    }
+
+    /// Descendant elements of `top` in tree order that satisfy `keep`.
+    pub(crate) fn descendants(
+        &self,
+        top: usize,
+        mut keep: impl FnMut(usize) -> bool,
+    ) -> Vec<usize> {
+        let mut out = Vec::new();
+        let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
+        while let Some(n) = stack.pop() {
+            if self.kind(n) == Some(Kind::Element) && keep(n) {
+                out.push(n);
+            }
+            stack.extend(self.children(n).iter().rev().copied());
+        }
+        out
+    }
+
+    fn compute_list(&self, owner: usize, kind: &ListKind) -> Vec<usize> {
+        match kind {
+            ListKind::ChildNodes => self.children(owner).to_vec(),
+            ListKind::Children => self
+                .children(owner)
+                .iter()
+                .copied()
+                .filter(|&c| self.kind(c) == Some(Kind::Element))
+                .collect(),
+            ListKind::ByTag(name) => {
+                let lower = name.to_ascii_lowercase();
+                self.descendants(owner, |n| {
+                    let Some(e) = self.element_name(n) else {
+                        return false;
+                    };
+                    // DOM §4.2.6.2: lower-cased against HTML elements.
+                    let wanted = if e.ns == ns!(html) { &lower } else { name };
+                    name == "*" || qualified_is(e, wanted)
+                })
+            }
+            ListKind::ByClass(names) => {
+                let wanted: Vec<&str> = names.split_ascii_whitespace().collect();
+                if wanted.is_empty() {
+                    return Vec::new();
+                }
+                self.descendants(owner, |n| {
+                    let class = self.attribute(n, "class").unwrap_or_default();
+                    wanted.iter().all(|w| {
+                        class.split_ascii_whitespace().any(|c| {
+                            // Case-insensitive in quirks mode (DOM §4.2.6.2).
+                            c == *w || (self.quirks && c.eq_ignore_ascii_case(w))
+                        })
+                    })
+                })
+            }
+        }
     }
 
     pub(crate) fn kind(&self, id: usize) -> Option<Kind> {
@@ -465,6 +721,22 @@ impl Document {
 
     pub(crate) fn is_quirks(&self) -> bool {
         self.quirks
+    }
+
+    pub(crate) fn quirks_mode(&self) -> style::context::QuirksMode {
+        if self.quirks {
+            style::context::QuirksMode::Quirks
+        } else {
+            style::context::QuirksMode::NoQuirks
+        }
+    }
+
+    /// `selectors` parsed; `None` if it isn't valid.
+    pub(crate) fn selector_list(
+        &self,
+        selectors: &str,
+    ) -> Option<selectors::SelectorList<style::selector_parser::SelectorImpl>> {
+        self.inner.try_parse_selector_list(selectors).ok()
     }
 
     /// The sibling `offset` (1 or -1) places from `id`.
@@ -597,12 +869,26 @@ impl Document {
     }
 
     pub(crate) fn clear_attribute(&mut self, id: usize, name: QualName) {
+        self.keep_attr_value(id, &name);
+        self.version += 1;
         self.inner.mutate().clear_attribute(id, name);
+    }
+
+    /// An `Attr` object for an attribute about to go keeps its value.
+    fn keep_attr_value(&mut self, id: usize, name: &QualName) {
+        let Some(&h) = self.owned.get(&(id, Owned::Attr(name.clone()))) else {
+            return;
+        };
+        let value = self.attribute_value(id, name);
+        if let Some(Object::Attr(_, _, kept)) = self.object_mut(h) {
+            *kept = value;
+        }
     }
 
     /// Writes one attribute through blitz-dom, except a URL it couldn't
     /// resolve, which it must not see (see [`parse::url_is_usable`]).
     pub(crate) fn write_attribute(&mut self, id: usize, name: QualName, value: &str) {
+        self.version += 1;
         let tag = self.element_name(id).map(|n| n.local.clone());
         let hide = tag.is_some_and(|t| parse::is_loaded_url(&t, &name.local))
             && !parse::url_is_usable(value);
@@ -618,11 +904,27 @@ impl Document {
     pub(crate) fn remove_attribute(&mut self, id: usize, name: &str) -> bool {
         match self.find_attribute(id, name).map(|a| a.name.clone()) {
             Some(q) => {
-                self.inner.mutate().clear_attribute(id, q);
+                self.clear_attribute(id, q);
                 true
             }
             None => false,
         }
+    }
+
+    /// The qualified names of `id`'s attributes, in order.
+    pub(crate) fn attribute_names(&self, id: usize) -> Vec<String> {
+        self.node(id)
+            .attrs()
+            .map(|a| a.iter().map(|a| qualified_name(&a.name)).collect())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn attribute_name_at(&self, id: usize, i: usize) -> Option<QualName> {
+        self.node(id).attrs()?.get(i).map(|a| a.name.clone())
+    }
+
+    pub(crate) fn attribute_named(&self, id: usize, name: &str) -> Option<QualName> {
+        self.find_attribute(id, name).map(|a| a.name.clone())
     }
 
     /// A comment's data.
@@ -706,6 +1008,7 @@ impl Document {
     /// recurses per level, and removing children one at a time scans the
     /// parent's list each time.
     pub(crate) fn remove_all_children(&mut self, id: usize) {
+        self.version += 1;
         for c in self.take_children(id) {
             self.set_parent(c, None);
             if self.subtree_has_handle(c) {
@@ -860,6 +1163,7 @@ impl Document {
     /// Detaches `id` from its parent; the subtree stays alive.
     pub(crate) fn detach(&mut self, id: usize) {
         if self.node(id).parent.is_some() {
+            self.version += 1;
             self.inner.mutate().remove_node(id);
         }
     }
@@ -869,6 +1173,7 @@ impl Document {
     /// in-document flag right only for parentless nodes: moving a node
     /// within a parent through it would drop the node from the list.
     pub(crate) fn place(&mut self, parent: usize, nodes: &[usize], before: Option<usize>) {
+        self.version += 1;
         let mut hidden = Vec::new();
         for &n in nodes {
             hidden.extend(self.hide_urls(n));

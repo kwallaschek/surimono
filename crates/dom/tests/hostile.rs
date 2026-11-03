@@ -8,7 +8,7 @@ mod common;
 use std::time::Duration;
 
 use common::{limits, scaled};
-use surimono_core::Sandbox;
+use surimono_core::{Sandbox, SandboxError};
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
 // With a doctype: blitz-html prints every parse error on stdout, and a
@@ -207,6 +207,103 @@ fn removed_subtrees_scripts_cannot_reach_are_dropped() {
         .unwrap();
     let after = rt.with_document(Document::node_count).unwrap();
     assert_eq!(before - after, 2000);
+}
+
+#[test]
+fn inner_html_stays_inside_the_limits() {
+    let run = |limits_: DomLimits, script: &str| {
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(Document::parse_with_limits(PAGE, limits_).unwrap());
+        (rt.eval::<i32>(script), rt.take().unwrap())
+    };
+    // Deeper than the limit, and the tree stays as it was.
+    let (r, doc) = run(
+        DomLimits::default(),
+        "document.getElementById('d').innerHTML = '<div>'.repeat(100000); 0",
+    );
+    assert_eq!(r, Err(DomError::TreeTooDeep { limit: 512 }));
+    assert!(doc.to_html().contains(r#"<div id="d">x</div>"#));
+    // More nodes than the limit.
+    let few = DomLimits {
+        max_nodes: 100,
+        ..DomLimits::default()
+    };
+    let (r, doc) = run(
+        few,
+        "document.getElementById('d').innerHTML = '<b></b>'.repeat(1000); 0",
+    );
+    assert_eq!(r, Err(DomError::NodeLimit { limit: 100 }));
+    assert!(doc.node_count() < 20);
+    // A loop over a large fragment doesn't leave nodes behind.
+    let (r, doc) = run(
+        DomLimits {
+            max_nodes: 200,
+            ..DomLimits::default()
+        },
+        "const d = document.getElementById('d'); for (let i = 0; i < 50; i++) d.innerHTML = '<b></b>'.repeat(50); d.childNodes.length",
+    );
+    assert_eq!(r, Ok(50));
+    assert!(doc.node_count() < 70);
+}
+
+#[test]
+fn hostile_selectors_are_typed_errors() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let r: String = rt
+        .eval(
+            r#"const out = [];
+            for (const s of [':not('.repeat(100000), ':is('.repeat(100000) + 'a' + ')'.repeat(100000),
+                             ':has('.repeat(100000), '['.repeat(100000), ':nth-child(2n of '.repeat(100000)]) {
+              try { document.querySelector(s); out.push('none'); } catch (e) { out.push(e.name); }
+            }
+            out.join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, ["SyntaxError"; 5].join(","));
+}
+
+/// A selector that makes one element's match scan its siblings, for each
+/// sibling, still ends at the time limit. No `:nth-child` here: in debug
+/// builds the selectors crate re-walks the siblings in a `debug_assert`, and
+/// that walk can straddle the stop (see `src/select.rs`).
+#[test]
+fn a_slow_selector_stops_at_the_time_limit() {
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_millis(300)))).unwrap();
+    let page = format!(
+        "<!doctype html><body>{}",
+        "<b></b>".repeat(DomLimits::DEFAULT_MAX_NODES / 2)
+    );
+    rt.load(Document::parse(&page).unwrap());
+    let started = std::time::Instant::now();
+    let r = rt.eval::<()>(
+        "try { document.querySelectorAll(':not(:not(i ~ b) ~ b) ~ b'); } catch (e) {} for (;;) {}",
+    );
+    assert_eq!(r, Err(DomError::Sandbox(SandboxError::TimeLimit)));
+    assert!(started.elapsed() < scaled(Duration::from_secs(5)));
+}
+
+#[test]
+fn hostile_exotic_objects() {
+    // Tampering with what the traps use, then reading through them.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let r: String = rt
+        .eval(
+            r#"const list = document.body.childNodes;
+            const map = document.body.dataset;
+            for (const k of ['get', 'set', 'has', 'ownKeys', 'deleteProperty', 'defineProperty'])
+              Reflect[k] = () => { throw new Error('tampered ' + k); };
+            String.prototype.slice = String.prototype.indexOf = () => { throw new Error('tampered'); };
+            Array.prototype.forEach = () => { throw new Error('tampered'); };
+            Object.prototype.get = () => 1;
+            Object.prototype.value = 2;
+            map.a = '1';
+            [list.length, list[0].nodeName, Object.keys(list).join('+'), Object.keys(map).join('+'),
+             document.body.getAttributeNames().join('+'), map.a].join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "2,P,0+1,a,data-a,1");
 }
 
 #[test]
