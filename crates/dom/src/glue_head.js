@@ -218,27 +218,31 @@
       d.enumerable = indexKey(k) >= 0 || !ops.unenumerable;
       return d;
     };
+    // Whether a write to `k` goes to the named setter. With `knownOnly`,
+    // only names the getter knows do (CSS properties); others are expandos.
+    const settable = (t, k) =>
+      typeof k === 'string' && ops.set !== undefined && (ops.overrides || !rhas(t, k)) &&
+      (!ops.knownOnly || named(stateOf(t), t, k) !== undefined);
+    const store = (t, k, v) => {
+      const s = stateOf(t);
+      // CSSOM's attributes are [LegacyNullToEmptyString].
+      call(ops.set, s.g, s.h, str(k), ops.knownOnly && v === null ? '' : str(v));
+    };
     h.set = function (t, k, v, r) {
       if (indexKey(k) >= 0 && ops.item !== undefined) return false;
-      if (typeof k === 'string' && ops.set !== undefined && (ops.overrides || !rhas(t, k))) {
-        const s = stateOf(t);
-        call(ops.set, s.g, s.h, str(k), str(v));
-        return true;
-      }
+      if (settable(t, k)) { store(t, k, v); return true; }
       return rset(t, k, v, r);
     };
     h.defineProperty = function (t, k, d) {
       if (indexKey(k) >= 0 && ops.item !== undefined) return false;
-      if (typeof k === 'string' && ops.set !== undefined && (ops.overrides || !rhas(t, k))) {
-        const s = stateOf(t);
-        call(ops.set, s.g, s.h, str(k), str(d.value));
-        return true;
-      }
+      if (settable(t, k)) { store(t, k, d.value); return true; }
       return rdefine(t, k, d);
     };
     h.deleteProperty = function (t, k) {
       const present = lookup(t, k) !== undefined;
       if (!present) return rdelete(t, k);
+      // CSSOM's attributes live on a prototype: deleting does nothing.
+      if (ops.knownOnly && indexKey(k) < 0) return true;
       if (indexKey(k) >= 0 || ops.del === undefined) return false;
       const s = stateOf(t);
       call(ops.del, s.g, s.h, str(k));

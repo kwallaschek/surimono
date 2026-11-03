@@ -41,6 +41,12 @@ pub struct BindInterface {
     pub members: &'static [&'static str],
 }
 
+/// A member name that isn't in the IDL. CSSOM defines
+/// `CSSStyleProperties`' per-property attributes (`style.fontSize`) in prose,
+/// one for each CSS property, so they are generated as named properties
+/// answered by the host: `style_value` and `set_style_value`.
+const STYLE_PROPERTIES: &str = "style_properties";
+
 /// The generated glue.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bindings {
@@ -546,7 +552,8 @@ impl Bound<'_, '_> {
             let wraps = matches!(&return_type.kind, TypeKind::Named(n) if bound_id(self.table, n).is_some());
             *entry = Some((rust, rust_args, wraps, anonymous_getter));
         }
-        if index.is_none() && named.is_none() {
+        let style = listed.contains(&STYLE_PROPERTIES);
+        if index.is_none() && named.is_none() && !style {
             return Ok(None);
         }
         let length = self.iface.members.iter().any(
@@ -576,6 +583,15 @@ impl Bound<'_, '_> {
                     fields.push(format!("{key}Wraps: {wraps}"));
                 }
             }
+        }
+        if style {
+            let get = self.out.op("h.style_value(this, a.string(0)?)");
+            let set = self
+                .out
+                .op("h.set_style_value(this, a.string(0)?, a.string(1)?)");
+            fields.push(format!(
+                "named: {get}, namedWraps: false, set: {set}, knownOnly: true"
+            ));
         }
         if has_ext(&self.iface.ext_attrs, "LegacyOverrideBuiltIns") {
             fields.push("overrides: true".to_owned());
@@ -617,7 +633,12 @@ impl Bound<'_, '_> {
             }
             if matches!(
                 name,
-                "constructor" | "named_getter" | "named_setter" | "named_deleter" | "iterable"
+                "constructor"
+                    | "named_getter"
+                    | "named_setter"
+                    | "named_deleter"
+                    | "iterable"
+                    | STYLE_PROPERTIES
             ) {
                 continue;
             }
@@ -845,7 +866,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLElement",
-        members: &["title", "lang", "dataset"],
+        members: &["title", "lang", "dataset", "style"],
     },
     BindInterface {
         name: "Document",
@@ -959,6 +980,19 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "DOMStringMap",
         members: &["named_getter", "named_setter", "named_deleter"],
+    },
+    BindInterface {
+        name: "CSSStyleDeclaration",
+        members: &[
+            "cssText",
+            "length",
+            "item",
+            "getPropertyValue",
+            "getPropertyPriority",
+            "setProperty",
+            "removeProperty",
+            STYLE_PROPERTIES,
+        ],
     },
 ];
 

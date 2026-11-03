@@ -338,3 +338,40 @@ fn what_the_libraries_do() {
         "{body}"
     );
 }
+
+#[test]
+fn inline_style() {
+    // CSSOM §6.6 CSSStyleDeclaration, §6.7 CSSStyleProperties; WPT
+    // css/cssom/cssstyledeclaration-*.html.
+    let (r, body) = eval_body(
+        r#"const s = p.style;
+        const out = [s === p.style, s.length, s.color, s.cssText, s instanceof CSSStyleDeclaration];
+        s.color = 'red'; s.fontSize = '1.2em'; s.cssFloat = 'left';
+        out.push(s.length, s[0], s[1], s[2], s[3], s.item(1), s.item(9), s.color, s.fontSize);
+        out.push(s.getPropertyValue('font-size'), s.getPropertyValue('FONT-SIZE'), s['font-size']);
+        s.setProperty('margin-top', '1px', 'important');
+        out.push(s.getPropertyPriority('margin-top'), s.marginTop, s.cssText);
+        out.push(s.removeProperty('color'), s.color, s.removeProperty('color'));
+        s.setProperty('height', '2px', 'bogus'); out.push(s.height);
+        s.setProperty('--My-Var', '1'); out.push(s.getPropertyValue('--My-Var'));
+        s.fontSize = ''; s.marginTop = null; out.push(s.fontSize, s.marginTop);
+        s.expando = 'kept'; out.push(s.expando, p.getAttribute('style'));
+        out.push(delete s.cssFloat, s.cssFloat);
+        l1.style = 'color: blue'; out.push(l1.style.color, l1.getAttribute('style'));
+        l2.style.cssText = 'width: 1px; width: 2px'; out.push(l2.style.width, l2.style.length);
+        l2.setAttribute('style', 'top: 0'); out.push(l2.style.top);
+        out.push(Object.keys(l2.style).join('+'));
+        out.join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "true|0|||true|3|color|font-size|float||font-size||red|1.2em|1.2em|1.2em|1.2em|\
+         important|1px|color: red; font-size: 1.2em; float: left; margin-top: 1px !important;|\
+         red||||1|||kept|float: left; --My-Var: 1;|true|left|\
+         blue|color: blue;|2px|1|0|0"
+    );
+    assert!(
+        body.contains(r#"style="float: left; --My-Var: 1;""#),
+        "{body}"
+    );
+}

@@ -626,6 +626,21 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "", rust_name: "named_deleter", kind: MemberInfoKind::Special },
         ],
     },
+    InterfaceInfo {
+        name: "CSSStyleDeclaration",
+        parent: None,
+        files: &["cssom.idl"],
+        members: &[
+            MemberInfo { idl_name: "cssText", rust_name: "css_text", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "length", rust_name: "length", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "item", rust_name: "item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "getPropertyValue", rust_name: "get_property_value", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "getPropertyPriority", rust_name: "get_property_priority", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setProperty", rust_name: "set_property", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "removeProperty", rust_name: "remove_property", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "parentRule", rust_name: "parent_rule", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+        ],
+    },
 ];
 
 /// IDL `interface EventTarget` (dom.idl).
@@ -4939,5 +4954,62 @@ pub trait DOMStringMap {
     fn named_deleter(&mut self, this: ObjectId, name: String) -> BindingResult<()> {
         let _ = (this, name);
         Err(BindingError::NotImplemented("DOMStringMap named_deleter"))
+    }
+}
+
+/// IDL `interface CSSStyleDeclaration` (cssom.idl).
+pub trait CSSStyleDeclaration {
+    /// `[CEReactions] attribute CSSOMString cssText;` (cssom.idl)
+    fn css_text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.cssText"))
+    }
+
+    /// `[CEReactions] attribute CSSOMString cssText;` (cssom.idl)
+    fn set_css_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.cssText"))
+    }
+
+    /// `readonly attribute unsigned long length;` (cssom.idl)
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.length"))
+    }
+
+    /// `getter CSSOMString item(unsigned long index);` (cssom.idl)
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<String> {
+        let _ = (this, index);
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.item"))
+    }
+
+    /// `CSSOMString getPropertyValue(CSSOMString property);` (cssom.idl)
+    fn get_property_value(&mut self, this: ObjectId, property: String) -> BindingResult<String> {
+        let _ = (this, property);
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.getPropertyValue"))
+    }
+
+    /// `CSSOMString getPropertyPriority(CSSOMString property);` (cssom.idl)
+    fn get_property_priority(&mut self, this: ObjectId, property: String) -> BindingResult<String> {
+        let _ = (this, property);
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.getPropertyPriority"))
+    }
+
+    /// `[CEReactions] undefined setProperty(CSSOMString property, [LegacyNullToEmptyString] CSSOMString value, optional [LegacyNullToEmptyString] CSSOMString priority = "");` (cssom.idl)
+    fn set_property(&mut self, this: ObjectId, property: String, value: String, priority: String) -> BindingResult<()> {
+        let _ = (this, property, value, priority);
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.setProperty"))
+    }
+
+    /// `[CEReactions] CSSOMString removeProperty(CSSOMString property);` (cssom.idl)
+    fn remove_property(&mut self, this: ObjectId, property: String) -> BindingResult<String> {
+        let _ = (this, property);
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.removeProperty"))
+    }
+
+    /// `readonly attribute CSSRule? parentRule;` (cssom.idl)
+    fn parent_rule(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CSSStyleDeclaration.parentRule"))
     }
 }

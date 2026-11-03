@@ -139,6 +139,8 @@ pub(crate) enum Object {
     Attributes(usize),
     /// `dataset`.
     Dataset(usize),
+    /// `style`.
+    Style(usize),
     /// An `Attr`: its element, its name, and its value if removed since.
     Attr(usize, QualName, Option<String>),
 }
@@ -150,6 +152,7 @@ pub(crate) enum Owned {
     Tokens,
     Attributes,
     Dataset,
+    Style,
     Attr(QualName),
 }
 

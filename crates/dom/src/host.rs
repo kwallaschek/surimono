@@ -14,6 +14,7 @@ use crate::dispatch::interface;
 use blitz_dom::QualName;
 
 use crate::document::{self, Handle, Kind, ListKind, Object, Owned};
+use crate::style_attr::{self, Declaration};
 use crate::tree::dom_error;
 use crate::{Document, DomError};
 
@@ -56,7 +57,9 @@ impl Document {
 
     fn owner_of(&mut self, this: ObjectId) -> BindingResult<usize> {
         match self.object_at(this)? {
-            Object::Tokens(n) | Object::Attributes(n) | Object::Dataset(n) => Ok(n),
+            Object::Tokens(n) | Object::Attributes(n) | Object::Dataset(n) | Object::Style(n) => {
+                Ok(n)
+            }
             _ => Err(BindingError::TypeError("wrong object".to_owned())),
         }
     }
@@ -248,6 +251,45 @@ impl Document {
         Some(out)
     }
 
+    fn style_list(&mut self, this: ObjectId) -> BindingResult<(usize, Vec<Declaration>)> {
+        let id = self.owner_of(this)?;
+        let text = self.attribute(id, "style").unwrap_or_default();
+        Ok((id, style_attr::parse(&text)))
+    }
+
+    fn store_style(&mut self, id: usize, list: &[Declaration]) -> BindingResult<()> {
+        Document::set_attribute(self, id, "style", &style_attr::serialize(list))
+            .map_err(|e| self.fail(e))
+    }
+
+    /// `style.fontSize`: the value, empty if unset; `None` if the name
+    /// isn't a CSS property, so it stays an ordinary property.
+    pub(crate) fn style_value(
+        &mut self,
+        this: ObjectId,
+        name: String,
+    ) -> BindingResult<Option<String>> {
+        let Some(property) = style_attr::property_for_attribute(&name) else {
+            return Ok(None);
+        };
+        let (_, list) = self.style_list(this)?;
+        Ok(Some(style_attr::value(&list, &property)))
+    }
+
+    pub(crate) fn set_style_value(
+        &mut self,
+        this: ObjectId,
+        name: String,
+        value: String,
+    ) -> BindingResult<()> {
+        match style_attr::property_for_attribute(&name) {
+            Some(property) => {
+                idl::CSSStyleDeclaration::set_property(self, this, property, value, String::new())
+            }
+            None => Ok(()),
+        }
+    }
+
     /// The getter of a legacy platform object with an anonymous named
     /// getter (`DOMStringMap`): `None` for no such property.
     pub(crate) fn named_value(
@@ -355,6 +397,7 @@ impl Document {
             Object::Tokens(_) => return Ok(interface::DOM_TOKEN_LIST),
             Object::Attributes(_) => return Ok(interface::NAMED_NODE_MAP),
             Object::Dataset(_) => return Ok(interface::DOM_STRING_MAP),
+            Object::Style(_) => return Ok(interface::CSS_STYLE_DECLARATION),
             Object::Attr(..) => return Ok(interface::ATTR),
         };
         Ok(match self.kind(id) {
@@ -1024,6 +1067,11 @@ impl idl::HTMLElement for Document {
         let id = self.node_of(this)?;
         self.owned_object(id, Owned::Dataset, move || Object::Dataset(id))
     }
+
+    fn style(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        self.owned_object(id, Owned::Style, move || Object::Style(id))
+    }
 }
 
 impl idl::Document for Document {
@@ -1645,5 +1693,79 @@ impl idl::DOMStringMap for Document {
             Document::remove_attribute(self, id, &attribute);
         }
         Ok(())
+    }
+}
+
+impl idl::CSSStyleDeclaration for Document {
+    fn css_text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let (_, list) = self.style_list(this)?;
+        Ok(style_attr::serialize(&list))
+    }
+
+    fn set_css_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let id = self.owner_of(this)?;
+        self.store_style(id, &style_attr::parse(&value))
+    }
+
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let (_, list) = self.style_list(this)?;
+        Ok(u32::try_from(list.len()).unwrap_or(u32::MAX))
+    }
+
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<String> {
+        let (_, list) = self.style_list(this)?;
+        Ok(list
+            .get(index as usize)
+            .map(|d| d.name.clone())
+            .unwrap_or_default())
+    }
+
+    fn get_property_value(&mut self, this: ObjectId, property: String) -> BindingResult<String> {
+        let (_, list) = self.style_list(this)?;
+        Ok(style_attr::value(&list, &style_attr::normalized(&property)))
+    }
+
+    fn get_property_priority(&mut self, this: ObjectId, property: String) -> BindingResult<String> {
+        let (_, list) = self.style_list(this)?;
+        let name = style_attr::normalized(&property);
+        let important = list.iter().any(|d| d.name == name && d.important);
+        Ok(if important { "important" } else { "" }.to_owned())
+    }
+
+    fn set_property(
+        &mut self,
+        this: ObjectId,
+        property: String,
+        value: String,
+        priority: String,
+    ) -> BindingResult<()> {
+        // CSSOM §6.6 setProperty: an empty value removes; an unknown
+        // priority does nothing.
+        if value.is_empty() {
+            return idl::CSSStyleDeclaration::remove_property(self, this, property).map(|_| ());
+        }
+        let important = priority.eq_ignore_ascii_case("important");
+        if !priority.is_empty() && !important {
+            return Ok(());
+        }
+        let (id, mut list) = self.style_list(this)?;
+        style_attr::set(
+            &mut list,
+            style_attr::normalized(&property),
+            value,
+            important,
+        );
+        self.store_style(id, &list)
+    }
+
+    fn remove_property(&mut self, this: ObjectId, property: String) -> BindingResult<String> {
+        let (id, mut list) = self.style_list(this)?;
+        let name = style_attr::normalized(&property);
+        let old = style_attr::value(&list, &name);
+        if list.iter().any(|d| d.name == name) {
+            list.retain(|d| d.name != name);
+            self.store_style(id, &list)?;
+        }
+        Ok(old)
     }
 }

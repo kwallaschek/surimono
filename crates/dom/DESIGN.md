@@ -109,6 +109,16 @@ once the deadline passes, so the match ends quickly. Bracket nesting over 32 is
 a `SyntaxError`: the parser and matcher recurse per level. The nth-child and
 `:has` caches live for the whole query.
 
+## Inline style
+
+`element.style` is a `CSSStyleDeclaration` over the `style` attribute's text
+(`src/style_attr.rs`): declarations are split, not validated, so an invalid
+value or a shorthand stays as written where a browser would drop or expand it.
+The printing engine parses the attribute and ignores what it can't use. CSSOM
+defines the per-property attributes (`style.fontSize`) in prose, so the generator
+has a pseudo member for them: names stylo knows as properties go to the host,
+others are ordinary expandos. `getComputedStyle` is phase 3.
+
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and
