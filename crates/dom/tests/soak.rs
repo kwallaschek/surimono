@@ -17,6 +17,7 @@ mod common;
 use std::alloc::System;
 
 use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
+use surimono_core::SandboxError;
 use surimono_dom::{Document, DomError, DomRuntime};
 
 #[global_allocator]
@@ -44,8 +45,8 @@ fn page(i: usize) -> String {
 
 /// Wraps every row repeatedly, reads through wrappers, builds a list of new
 /// nodes and drops it again, and replaces the table's content (dropping
-/// nodes that wrappers still reference). Every 50th render also uses a
-/// stale wrapper on purpose, so that error path is soaked too.
+/// nodes that wrappers still reference). Every 50th render also ends in an
+/// exception on purpose, so that error path is soaked too.
 const SCRIPT: &str = r#"
 (function (i) {
   let sum = 0;
@@ -69,7 +70,7 @@ const SCRIPT: &str = r#"
   }
   const kept = document.getElementById('r3');
   document.getElementById('t').textContent = 'cleared ' + i;
-  if (i % 50 === 49) { try { kept.textContent; } catch (e) {} }
+  if (i % 50 === 49) document.body.appendChild(kept).appendChild(document);
   document.getElementById('title').textContent = 'sum ' + sum;
   return document.body.textContent.length;
 })
@@ -96,7 +97,10 @@ fn render(rt: &mut DomRuntime, i: usize) {
     let r = rt.eval::<i32>(&format!("({SCRIPT})({i})"));
     let doc = rt.take().unwrap();
     if i % 50 == 49 {
-        assert_eq!(r, Err(DomError::NodeRemoved), "render {i}");
+        assert!(
+            matches!(r, Err(DomError::Sandbox(SandboxError::Exception { .. }))),
+            "render {i}: {r:?}"
+        );
     } else {
         let len = r.unwrap_or_else(|e| panic!("render {i}: {e:?}"));
         assert!(len > 0, "render {i}");

@@ -118,13 +118,23 @@ own limits (`DomLimits`), all fatal faults:
   that creates and drops nodes in a loop grows the handle table (16 bytes an
   entry) while the node count stays flat.
 
-Subtree drops don't use blitz-dom's recursive `remove_and_drop_all_children`
-on deep trees: `Document::drop_children` cuts every grandchild and below loose
-and drops it as a parentless leaf, then lets blitz drop the (now leaf)
-children for its restyle bookkeeping. Each node is visited once, so a wide
-tree is linear too. Text sizes are bounded only indirectly (the string must
-first exist in the JS heap); E2-02 should charge text bytes to a document
-budget too.
+- `max_text_bytes` (default 512 MiB): text, comment and attribute data as
+  written, parsed and from scripts. Strings stored in Rust are outside the JS
+  heap, and one string can be stored on many nodes. Counted as written, not as
+  kept, so it needs no per-string bookkeeping.
+
+**Node lifetime.** A node with a handle lives until the document drops: a script
+may still hold it, and the DOM keeps removed nodes usable (`removeChild` then
+`appendChild`). A removed subtree with no handle in it can't be reached again and
+is dropped at once, iteratively (`Document::remove_all_children`,
+`drop_subtree`): blitz-dom's own subtree drop recurses per level, and removing
+children one at a time rescans the parent's list. A script that keeps wrapping
+and discarding nodes therefore counts them against `max_nodes` until the render
+ends; wrappers have no weak references yet.
+
+blitz-dom's insertion is only used for parentless nodes (`Document::place`): given
+a node that already has a parent, it scans the old parent's list by node id after
+adding to the new one, so a move within one parent would delete the node.
 
 ## Measured
 
@@ -144,12 +154,6 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 
 ## Deviations and gaps for E2-02
 
-- **Removal drops nodes.** In the DOM a removed node lives on while referenced
-  and can be reinserted. Here the `textContent` setter drops the old children
-  (blitz `remove_and_drop_all_children`) and their wrappers fail with
-  `NodeRemoved`. E2-02 needs detached-but-alive nodes (blitz `remove_node`
-  keeps them in the slab) with their lifetime tied to the document, all freed
-  when the document drops; the handle table already supports that.
 - **Serialization.** blitz-dom 0.2.4's `outer_html` doesn't escape text
   (`<` stays `<`) and recurses per level, so `Document::to_html` has its own
   iterative serializer (HTML §13.3): HTML, SVG and MathML elements, attribute

@@ -5,13 +5,13 @@ use surimono_core::SandboxError;
 /// Why a script running against a [`Document`](crate::Document) did not
 /// complete.
 ///
-/// The `StaleDocument`, `NodeRemoved`, `NoDocument`, `NodeLimit`,
-/// `TreeTooDeep` and `HandleLimit` variants are *fatal to the
-/// call*: the binding throws into the script (so it stops where it is), and
-/// the call fails with this error even if the script caught the exception.
-/// Each means the script used a handle that no longer names a node, or hit
-/// a DOM resource limit; carrying on would give wrong data or unbounded
-/// growth outside the JavaScript heap limit.
+/// The `StaleDocument`, `NoDocument`, `NodeLimit`, `TreeTooDeep`,
+/// `HandleLimit` and `TextLimit` variants are *fatal to the call*: the
+/// binding throws into the script (so it stops where it is), and the call
+/// fails with this error even if the script caught the exception. Each means
+/// the script used a wrapper with no document behind it, or hit a DOM
+/// resource limit; carrying on would give wrong data or unbounded growth
+/// outside the JavaScript heap limit.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum DomError {
@@ -23,9 +23,6 @@ pub enum DomError {
     /// since replaced) was used.
     #[error("a node wrapper from another document was used")]
     StaleDocument,
-    /// A wrapper whose node has since been removed and dropped was used.
-    #[error("a node wrapper for a removed node was used")]
-    NodeRemoved,
     /// The document reached [`DomLimits::max_nodes`](crate::DomLimits::max_nodes).
     #[error("the document reached its limit of {limit} nodes")]
     NodeLimit {
@@ -43,6 +40,13 @@ pub enum DomError {
     /// [`DomLimits::max_handles`](crate::DomLimits::max_handles) handles.
     #[error("the document gave out its limit of {limit} node handles")]
     HandleLimit {
+        /// The limit that was reached.
+        limit: usize,
+    },
+    /// The document was given more than
+    /// [`DomLimits::max_text_bytes`](crate::DomLimits::max_text_bytes).
+    #[error("the document was given more than its limit of {limit} bytes of text")]
+    TextLimit {
         /// The limit that was reached.
         limit: usize,
     },

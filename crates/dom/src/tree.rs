@@ -1,0 +1,656 @@
+//! The DOM Standard's tree algorithms (§4.2.3 mutation algorithms, §4.2.6
+//! mixin ParentNode, §4.2.8 mixin ChildNode, §4.4 clone and compare, §4.11
+//! CharacterData) on top of the document's primitives. Offsets are UTF-16
+//! code units, as in the spec.
+
+use blitz_dom::{LocalName, NodeData, QualName, ns};
+use html5ever::{Namespace, Prefix};
+use surimono_webidl::runtime::{BindingError, BindingResult, Value};
+
+use crate::Document;
+use crate::document::{Kind, is_valid_attribute_name, is_valid_element_name};
+
+/// The XML and XMLNS namespaces, for "validate and extract" (§1.5).
+const XML: &str = "http://www.w3.org/XML/1998/namespace";
+const XMLNS: &str = "http://www.w3.org/2000/xmlns/";
+
+pub(crate) fn dom_error(name: &'static str, message: &str) -> BindingError {
+    BindingError::DomException {
+        name,
+        message: message.to_owned(),
+    }
+}
+
+fn hierarchy() -> BindingError {
+    dom_error(
+        "HierarchyRequestError",
+        "the node can't be inserted at that position",
+    )
+}
+
+fn not_found() -> BindingError {
+    dom_error("NotFoundError", "the node is not a child of this node")
+}
+
+fn utf16(s: &str) -> Vec<u16> {
+    s.encode_utf16().collect()
+}
+
+impl Document {
+    fn element_children(&self, id: usize) -> usize {
+        self.children(id)
+            .iter()
+            .filter(|&&c| self.kind(c) == Some(Kind::Element))
+            .count()
+    }
+
+    /// §4.2.3 "ensure pre-insert validity" and the steps "replace" shares.
+    /// `replacing` is the child being replaced, for the document checks.
+    fn check_insert(
+        &mut self,
+        parent: usize,
+        node: usize,
+        replacing: Option<usize>,
+    ) -> BindingResult<()> {
+        let parent_kind = self.kind(parent);
+        if !matches!(
+            parent_kind,
+            Some(Kind::Document | Kind::DocumentFragment | Kind::Element)
+        ) || self.is_inclusive_ancestor(node, parent)
+        {
+            return Err(hierarchy());
+        }
+        let kind = self.kind(node);
+        if !matches!(
+            kind,
+            Some(Kind::DocumentFragment | Kind::Element | Kind::Text | Kind::Comment)
+        ) {
+            return Err(hierarchy());
+        }
+        if parent_kind == Some(Kind::Document) {
+            // Another element than the one being replaced.
+            let other_element = self
+                .children(parent)
+                .iter()
+                .any(|&c| self.kind(c) == Some(Kind::Element) && Some(c) != replacing);
+            let bad = match kind {
+                Some(Kind::Text) => true,
+                Some(Kind::Element) => other_element,
+                Some(Kind::DocumentFragment) => {
+                    let elements = self.element_children(node);
+                    let text = self
+                        .children(node)
+                        .iter()
+                        .any(|&c| self.kind(c) == Some(Kind::Text));
+                    text || elements > 1 || (elements == 1 && other_element)
+                }
+                _ => false,
+            };
+            if bad {
+                return Err(hierarchy());
+            }
+        }
+        let height = if kind == Some(Kind::DocumentFragment) {
+            self.height(node) - 1
+        } else {
+            self.height(node)
+        };
+        self.check_depth(parent, height).map_err(|e| self.fail(e))
+    }
+
+    /// §4.2.3 "insert", after validity: `node`, or a fragment's children,
+    /// before `before`.
+    fn insert_checked(&mut self, parent: usize, node: usize, before: Option<usize>) {
+        let nodes = if self.kind(node) == Some(Kind::DocumentFragment) {
+            let children = self.take_children(node);
+            for &c in &children {
+                self.set_parent(c, None);
+            }
+            children
+        } else {
+            self.detach(node);
+            vec![node]
+        };
+        self.place(parent, &nodes, before);
+    }
+
+    /// §4.2.3 "pre-insert".
+    pub(crate) fn pre_insert(
+        &mut self,
+        parent: usize,
+        node: usize,
+        child: Option<usize>,
+    ) -> BindingResult<()> {
+        self.check_insert(parent, node, None)?;
+        if child.is_some_and(|c| self.parent(c) != Some(parent)) {
+            return Err(not_found());
+        }
+        // "If referenceChild is node, set it to node's next sibling."
+        let before = if child == Some(node) {
+            self.sibling(node, true)
+        } else {
+            child
+        };
+        self.insert_checked(parent, node, before);
+        Ok(())
+    }
+
+    /// §4.2.3 "replace".
+    pub(crate) fn replace(
+        &mut self,
+        parent: usize,
+        node: usize,
+        child: usize,
+    ) -> BindingResult<()> {
+        self.check_insert(parent, node, Some(child))?;
+        if self.parent(child) != Some(parent) {
+            return Err(not_found());
+        }
+        let mut before = self.sibling(child, true);
+        if before == Some(node) {
+            before = self.sibling(node, true);
+        }
+        self.detach(child);
+        self.insert_checked(parent, node, before);
+        Ok(())
+    }
+
+    /// §4.2.3 "pre-remove".
+    pub(crate) fn pre_remove(&mut self, parent: usize, child: usize) -> BindingResult<()> {
+        if self.parent(child) != Some(parent) {
+            return Err(not_found());
+        }
+        self.detach(child);
+        Ok(())
+    }
+
+    /// §4.2.6 "convert nodes into a node": `values`' nodes, with strings as
+    /// new text nodes, as one node (a new fragment if not exactly one).
+    /// Returns the node, and whether it is a temporary fragment.
+    fn nodes_into_node(&mut self, values: Vec<Value>) -> BindingResult<(usize, bool)> {
+        let mut nodes = Vec::with_capacity(values.len());
+        for v in values {
+            nodes.push(match v {
+                Value::Object(id) => self.node_of(id)?,
+                Value::String(s) => self.create_text(&s).map_err(|e| self.fail(e))?,
+                _ => return Err(BindingError::TypeError("expected a node or string".into())),
+            });
+        }
+        if let [one] = nodes.as_slice() {
+            return Ok((*one, false));
+        }
+        let frag = self.create_fragment().map_err(|e| self.fail(e))?;
+        for n in nodes {
+            self.pre_insert(frag, n, None)?;
+        }
+        Ok((frag, true))
+    }
+
+    /// Frees a temporary fragment from [`nodes_into_node`] (empty by then,
+    /// and without a handle) so a loop of `append(a, b)` doesn't fill the
+    /// document with them.
+    fn finish_nodes(&mut self, node: usize, temporary: bool) {
+        if temporary {
+            self.drop_subtree(node);
+        }
+    }
+
+    /// The `Object` ids in `values`, as nodes.
+    fn node_ids(&mut self, values: &[Value]) -> BindingResult<Vec<usize>> {
+        let mut out = Vec::new();
+        for v in values {
+            if let Value::Object(id) = v {
+                out.push(self.node_of(*id)?);
+            }
+        }
+        Ok(out)
+    }
+
+    pub(crate) fn prepend_nodes(&mut self, parent: usize, nodes: Vec<Value>) -> BindingResult<()> {
+        let (node, temporary) = self.nodes_into_node(nodes)?;
+        let first = self.children(parent).first().copied();
+        let r = self.pre_insert(parent, node, first);
+        self.finish_nodes(node, temporary);
+        r
+    }
+
+    pub(crate) fn append_nodes(&mut self, parent: usize, nodes: Vec<Value>) -> BindingResult<()> {
+        let (node, temporary) = self.nodes_into_node(nodes)?;
+        let r = self.pre_insert(parent, node, None);
+        self.finish_nodes(node, temporary);
+        r
+    }
+
+    pub(crate) fn replace_children_with(
+        &mut self,
+        parent: usize,
+        nodes: Vec<Value>,
+    ) -> BindingResult<()> {
+        let (node, temporary) = self.nodes_into_node(nodes)?;
+        let r = self.check_insert(parent, node, None).or_else(|e| {
+            // "replace all" drops the old children first, so a document
+            // may swap its element; only a real problem remains.
+            if self.kind(parent) == Some(Kind::Document) {
+                let old = self
+                    .children(parent)
+                    .iter()
+                    .copied()
+                    .find(|&c| self.kind(c) == Some(Kind::Element));
+                self.check_insert(parent, node, old)
+            } else {
+                Err(e)
+            }
+        });
+        if r.is_ok() {
+            self.remove_all_children(parent);
+            self.insert_checked(parent, node, None);
+        }
+        self.finish_nodes(node, temporary);
+        r
+    }
+
+    /// §4.2.8 `before`.
+    pub(crate) fn before_nodes(&mut self, this: usize, nodes: Vec<Value>) -> BindingResult<()> {
+        let Some(parent) = self.parent(this) else {
+            return Ok(());
+        };
+        let listed = self.node_ids(&nodes)?;
+        let mut viable = self.sibling(this, false);
+        while let Some(s) = viable.filter(|s| listed.contains(s)) {
+            viable = self.sibling(s, false);
+        }
+        let (node, temporary) = self.nodes_into_node(nodes)?;
+        let before = match viable {
+            None => self.children(parent).first().copied(),
+            Some(v) => self.sibling(v, true),
+        };
+        let r = self.pre_insert(parent, node, before);
+        self.finish_nodes(node, temporary);
+        r
+    }
+
+    fn viable_next(&self, this: usize, listed: &[usize]) -> Option<usize> {
+        let mut viable = self.sibling(this, true);
+        while let Some(s) = viable.filter(|s| listed.contains(s)) {
+            viable = self.sibling(s, true);
+        }
+        viable
+    }
+
+    /// §4.2.8 `after`.
+    pub(crate) fn after_nodes(&mut self, this: usize, nodes: Vec<Value>) -> BindingResult<()> {
+        let Some(parent) = self.parent(this) else {
+            return Ok(());
+        };
+        let listed = self.node_ids(&nodes)?;
+        let next = self.viable_next(this, &listed);
+        let (node, temporary) = self.nodes_into_node(nodes)?;
+        let r = self.pre_insert(parent, node, next);
+        self.finish_nodes(node, temporary);
+        r
+    }
+
+    /// §4.2.8 `replaceWith`.
+    pub(crate) fn replace_with_nodes(
+        &mut self,
+        this: usize,
+        nodes: Vec<Value>,
+    ) -> BindingResult<()> {
+        let Some(parent) = self.parent(this) else {
+            return Ok(());
+        };
+        let listed = self.node_ids(&nodes)?;
+        let next = self.viable_next(this, &listed);
+        let (node, temporary) = self.nodes_into_node(nodes)?;
+        let r = if self.parent(this) == Some(parent) {
+            self.replace(parent, node, this)
+        } else {
+            self.pre_insert(parent, node, next)
+        };
+        self.finish_nodes(node, temporary);
+        r
+    }
+
+    /// §4.4 `cloneNode`. Iterative, and refuses up front if the copy
+    /// wouldn't fit.
+    pub(crate) fn clone_tree(&mut self, top: usize, deep: bool) -> BindingResult<usize> {
+        if self.kind(top) == Some(Kind::Document) {
+            return Err(dom_error(
+                "NotSupportedError",
+                "cloneNode: documents can't be cloned",
+            ));
+        }
+        let mut size = 1;
+        if deep {
+            let mut stack = vec![top];
+            while let Some(n) = stack.pop() {
+                let c = self.children(n);
+                size += c.len();
+                stack.extend_from_slice(c);
+            }
+        }
+        self.check_room_for(size).map_err(|e| self.fail(e))?;
+        let copy = self.clone_one(top)?;
+        if deep {
+            let mut stack: Vec<(usize, usize)> = vec![(top, copy)];
+            while let Some((from, to)) = stack.pop() {
+                let children: Vec<usize> = self.children(from).to_vec();
+                let mut made = Vec::with_capacity(children.len());
+                for c in children {
+                    let n = self.clone_one(c)?;
+                    made.push(n);
+                    stack.push((c, n));
+                }
+                self.place(to, &made, None);
+            }
+        }
+        Ok(copy)
+    }
+
+    fn clone_one(&mut self, id: usize) -> BindingResult<usize> {
+        let made = match &self.node(id).data {
+            NodeData::Text(t) => {
+                let text = t.content.clone();
+                self.create_text(&text)
+            }
+            NodeData::Comment => {
+                let data = self.comment_text(id).to_owned();
+                self.create_comment(&data)
+            }
+            NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
+                let name = e.name.clone();
+                let attrs = e.attrs().to_vec();
+                let bytes = attrs.iter().map(|a| a.value.len()).sum();
+                self.charge_text(bytes)
+                    .and_then(|()| self.create_element_with(name, attrs))
+            }
+            NodeData::Document => {
+                return Err(dom_error("NotSupportedError", "can't clone a document"));
+            }
+        };
+        made.map_err(|e| self.fail(e))
+    }
+
+    /// §4.4 `isEqualNode`, iteratively.
+    pub(crate) fn nodes_equal(&self, a: usize, b: usize) -> bool {
+        let mut stack = vec![(a, b)];
+        while let Some((x, y)) = stack.pop() {
+            let (nx, ny) = (self.node(x), self.node(y));
+            let same = match (&nx.data, &ny.data) {
+                (NodeData::Text(p), NodeData::Text(q)) => p.content == q.content,
+                (NodeData::Comment, NodeData::Comment) => {
+                    self.comment_text(x) == self.comment_text(y)
+                }
+                (NodeData::Element(p), NodeData::Element(q)) => {
+                    p.name == q.name
+                        && p.attrs().len() == q.attrs().len()
+                        && p.attrs().iter().all(|a| {
+                            q.attrs()
+                                .iter()
+                                .any(|o| o.name == a.name && o.value == a.value)
+                        })
+                }
+                (NodeData::Document, NodeData::Document) => true,
+                _ => false,
+            };
+            if !same || nx.children.len() != ny.children.len() {
+                return false;
+            }
+            stack.extend(nx.children.iter().copied().zip(ny.children.iter().copied()));
+        }
+        true
+    }
+
+    /// `id` and its ancestors, root first.
+    fn path(&self, id: usize) -> Vec<usize> {
+        let mut out = vec![id];
+        let mut at = id;
+        while let Some(p) = self.parent(at) {
+            out.push(p);
+            at = p;
+        }
+        out.reverse();
+        out
+    }
+
+    /// §4.4 `compareDocumentPosition`: the position of `other` relative to
+    /// `this`.
+    pub(crate) fn compare_position(&self, this: usize, other: usize) -> u16 {
+        const DISCONNECTED: u16 = 1;
+        const PRECEDING: u16 = 2;
+        const FOLLOWING: u16 = 4;
+        const CONTAINS: u16 = 8;
+        const CONTAINED_BY: u16 = 16;
+        const IMPLEMENTATION_SPECIFIC: u16 = 32;
+        if this == other {
+            return 0;
+        }
+        let (p, q) = (self.path(this), self.path(other));
+        if p[0] != q[0] {
+            // "Consistent" between the two calls: by node number.
+            let order = if other < this { PRECEDING } else { FOLLOWING };
+            return DISCONNECTED | IMPLEMENTATION_SPECIFIC | order;
+        }
+        let shared = p.iter().zip(&q).take_while(|(a, b)| a == b).count();
+        if shared == p.len() {
+            return CONTAINED_BY | FOLLOWING;
+        }
+        if shared == q.len() {
+            return CONTAINS | PRECEDING;
+        }
+        let parent = p[shared - 1];
+        let list = self.children(parent);
+        let at = |n| list.iter().position(|&c| c == n);
+        if at(q[shared]) < at(p[shared]) {
+            PRECEDING
+        } else {
+            FOLLOWING
+        }
+    }
+
+    /// §4.4 `normalize`: below `top`, no empty text nodes and no adjacent
+    /// text nodes.
+    pub(crate) fn normalize_tree(&mut self, top: usize) -> BindingResult<()> {
+        let mut stack = vec![top];
+        while let Some(n) = stack.pop() {
+            let children: Vec<usize> = self.children(n).to_vec();
+            let mut run: Option<(usize, String)> = None;
+            let mut remove = Vec::new();
+            for c in children {
+                if self.kind(c) == Some(Kind::Text) {
+                    let text = self.text_content(c).unwrap_or_default();
+                    match &mut run {
+                        Some((_, joined)) => {
+                            joined.push_str(&text);
+                            remove.push(c);
+                        }
+                        None if text.is_empty() => remove.push(c),
+                        None => run = Some((c, text)),
+                    }
+                } else {
+                    self.flush_run(run.take())?;
+                    stack.push(c);
+                }
+            }
+            self.flush_run(run.take())?;
+            for c in remove {
+                self.detach(c);
+            }
+        }
+        Ok(())
+    }
+
+    fn flush_run(&mut self, run: Option<(usize, String)>) -> BindingResult<()> {
+        if let Some((id, text)) = run {
+            if self.text_content(id).as_deref() != Some(text.as_str()) {
+                self.set_text_data(id, &text).map_err(|e| self.fail(e))?;
+            }
+        }
+        Ok(())
+    }
+
+    fn character_data(&self, id: usize) -> Vec<u16> {
+        utf16(&self.text_content(id).unwrap_or_default())
+    }
+
+    /// §4.11 "replace data". An offset inside a surrogate pair leaves half a
+    /// pair, which UTF-8 storage can't hold; it becomes U+FFFD.
+    pub(crate) fn replace_data(
+        &mut self,
+        id: usize,
+        offset: u32,
+        count: u32,
+        data: &str,
+    ) -> BindingResult<()> {
+        let units = self.character_data(id);
+        let offset = offset as usize;
+        if offset > units.len() {
+            return Err(index_size());
+        }
+        let end = offset.saturating_add(count as usize).min(units.len());
+        let mut out = String::from_utf16_lossy(&units[..offset]);
+        out.push_str(data);
+        out.push_str(&String::from_utf16_lossy(&units[end..]));
+        self.set_text_content(id, &out).map_err(|e| self.fail(e))
+    }
+
+    /// §4.11 "substring data".
+    pub(crate) fn substring_data(
+        &self,
+        id: usize,
+        offset: u32,
+        count: u32,
+    ) -> BindingResult<String> {
+        let units = self.character_data(id);
+        let offset = offset as usize;
+        if offset > units.len() {
+            return Err(index_size());
+        }
+        let end = offset.saturating_add(count as usize).min(units.len());
+        Ok(String::from_utf16_lossy(&units[offset..end]))
+    }
+
+    /// §4.12 "split".
+    pub(crate) fn split_text(&mut self, id: usize, offset: u32) -> BindingResult<usize> {
+        let units = self.character_data(id);
+        let at = offset as usize;
+        if at > units.len() {
+            return Err(index_size());
+        }
+        let tail = String::from_utf16_lossy(&units[at..]);
+        let new = self.create_text(&tail).map_err(|e| self.fail(e))?;
+        if let Some(parent) = self.parent(id) {
+            let next = self.sibling(id, true);
+            self.pre_insert(parent, new, next)?;
+        }
+        let head = String::from_utf16_lossy(&units[..at]);
+        self.set_text_data(id, &head).map_err(|e| self.fail(e))?;
+        Ok(new)
+    }
+
+    /// §4.12 `wholeText`: the data of the contiguous text nodes around `id`.
+    pub(crate) fn whole_text(&self, id: usize) -> String {
+        let mut first = id;
+        while let Some(p) = self
+            .sibling(first, false)
+            .filter(|&s| self.kind(s) == Some(Kind::Text))
+        {
+            first = p;
+        }
+        let mut out = self.text_content(first).unwrap_or_default();
+        let mut at = first;
+        while let Some(n) = self
+            .sibling(at, true)
+            .filter(|&s| self.kind(s) == Some(Kind::Text))
+        {
+            out.push_str(&self.text_content(n).unwrap_or_default());
+            at = n;
+        }
+        out
+    }
+
+    /// §1.5 "validate and extract": the name for `createElementNS` and
+    /// `setAttributeNS`.
+    pub(crate) fn validate_and_extract(
+        namespace: Option<&str>,
+        qualified: &str,
+        element: bool,
+    ) -> BindingResult<QualName> {
+        let namespace = namespace.filter(|n| !n.is_empty());
+        let (prefix, local) = match qualified.split_once(':') {
+            Some((p, l)) => (Some(p), l),
+            None => (None, qualified),
+        };
+        let prefix_ok = prefix.is_none_or(|p| {
+            !p.is_empty() && !p.contains(['\t', '\n', '\u{c}', '\r', ' ', '\0', '/', '>'])
+        });
+        let local_ok = if element {
+            is_valid_element_name(local)
+        } else {
+            is_valid_attribute_name(local)
+        };
+        if !prefix_ok || !local_ok {
+            return Err(dom_error(
+                "InvalidCharacterError",
+                "the qualified name is not valid",
+            ));
+        }
+        let namespace_error = || dom_error("NamespaceError", "prefix and namespace don't match");
+        if prefix.is_some() && namespace.is_none() {
+            return Err(namespace_error());
+        }
+        if prefix == Some("xml") && namespace != Some(XML) {
+            return Err(namespace_error());
+        }
+        let xmlns_name = qualified == "xmlns" || prefix == Some("xmlns");
+        if xmlns_name != (namespace == Some(XMLNS)) {
+            return Err(namespace_error());
+        }
+        Ok(QualName::new(
+            prefix.map(Prefix::from),
+            namespace.map_or(ns!(), Namespace::from),
+            LocalName::from(local),
+        ))
+    }
+
+    /// `insertAdjacentElement`/`Text` (§4.9 "insert adjacent"): the node to
+    /// insert `node` under and before, or `None` for no parent.
+    pub(crate) fn insert_adjacent(
+        &mut self,
+        this: usize,
+        place: &str,
+        node: usize,
+    ) -> BindingResult<bool> {
+        match place.to_ascii_lowercase().as_str() {
+            "beforebegin" => {
+                let Some(parent) = self.parent(this) else {
+                    return Ok(false);
+                };
+                self.pre_insert(parent, node, Some(this))?;
+            }
+            "afterbegin" => {
+                let first = self.children(this).first().copied();
+                self.pre_insert(this, node, first)?;
+            }
+            "beforeend" => self.pre_insert(this, node, None)?,
+            "afterend" => {
+                let Some(parent) = self.parent(this) else {
+                    return Ok(false);
+                };
+                let next = self.sibling(this, true);
+                self.pre_insert(parent, node, next)?;
+            }
+            _ => {
+                return Err(dom_error(
+                    "SyntaxError",
+                    "the position must be beforebegin, afterbegin, beforeend or afterend",
+                ));
+            }
+        }
+        Ok(true)
+    }
+}
+
+fn index_size() -> BindingError {
+    dom_error("IndexSizeError", "the offset is past the end of the data")
+}

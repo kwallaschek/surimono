@@ -91,6 +91,10 @@ fn limits_are_validated() {
             max_handles: usize::MAX,
             ..DomLimits::default()
         },
+        DomLimits {
+            max_text_bytes: 0,
+            ..DomLimits::default()
+        },
     ] {
         assert!(
             matches!(
@@ -140,8 +144,9 @@ fn deepest_allowed_tree_on_a_small_stack() {
                 .unwrap();
             // <i> plus its ancestors up to and including the document node.
             assert_eq!(depth as usize, DomLimits::MAX_DEPTH);
-            let r = rt.eval::<()>("keep.textContent");
-            assert_eq!(r, Err(DomError::NodeRemoved));
+            // The removed <i> stays usable (DOM §4.4 "replace all").
+            let kept: String = rt.eval("keep.textContent").unwrap();
+            assert_eq!(kept, "deep");
             let r = rt.eval::<()>("document.body.appendChild(document.createElement('div')).appendChild(document.createElement('b'))");
             // The new <b> lands at depth 4.
             assert!(r.is_ok(), "{r:?}");
@@ -183,7 +188,54 @@ fn wide_tree_drops_in_linear_time() {
         .unwrap();
     assert!(started.elapsed() < scaled(Duration::from_secs(30)));
     let doc = rt.take().unwrap();
-    assert!(doc.node_count() < 20, "{}", doc.node_count());
+    assert!(!doc.to_html().contains("<b>"));
+}
+
+#[test]
+fn removed_subtrees_scripts_cannot_reach_are_dropped() {
+    // Nothing in the old subtree has a handle: the nodes go at once, so
+    // replacing content in a loop doesn't fill the document.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let page = format!(
+        "<!doctype html><body><div id=d>{}</div>",
+        "<b>x</b>".repeat(1000)
+    );
+    rt.load(Document::parse(&page).unwrap());
+    let before = rt.with_document(Document::node_count).unwrap();
+    let _: () = rt
+        .eval("document.getElementById('d').textContent = ''")
+        .unwrap();
+    let after = rt.with_document(Document::node_count).unwrap();
+    assert_eq!(before - after, 2000);
+}
+
+#[test]
+fn text_is_charged_to_the_document() {
+    // Each string is small enough for the JS heap, but the copies in Rust
+    // aren't under it.
+    for script in [
+        "for (const s = 'x'.repeat(1 << 20);;) document.body.appendChild(document.createTextNode(s));",
+        "for (const s = 'x'.repeat(1 << 20);;) document.body.setAttribute('a', s);",
+        "for (const s = 'x'.repeat(1 << 20);;) document.body.textContent = s;",
+        "const t = document.createComment('');for (const s = 'x'.repeat(1 << 20);;) t.data = s;",
+    ] {
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(
+            Document::parse_with_limits(
+                PAGE,
+                DomLimits {
+                    max_text_bytes: 16 << 20,
+                    ..DomLimits::default()
+                },
+            )
+            .unwrap(),
+        );
+        assert_eq!(
+            rt.eval::<()>(script),
+            Err(DomError::TextLimit { limit: 16 << 20 }),
+            "{script}"
+        );
+    }
 }
 
 #[test]

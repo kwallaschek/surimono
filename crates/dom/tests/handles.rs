@@ -100,26 +100,28 @@ fn text_content_setter_mutates_the_rust_document() {
 }
 
 #[test]
-fn removed_node_is_a_typed_error_not_wrong_data() {
+fn removed_nodes_stay_usable_and_slots_are_not_confused() {
+    // DOM §4.4 textContent: "replace all" removes the children; a removed
+    // node is an ordinary node without a parent, and can come back.
     let mut rt = runtime_with(PAGE);
     let _: () = rt
         .eval(
             r#"
         globalThis.label = document.getElementById('label');
         document.getElementById('chart').textContent = '';
-        // New nodes may reuse the dropped node's blitz slot.
+        // New nodes must not take over a slot a wrapper still names.
         for (let i = 0; i < 20; i++) document.body.appendChild(document.createElement('i'));
         "#,
         )
         .unwrap();
-    let r = rt.eval::<String>("label.textContent");
-    assert_eq!(r, Err(DomError::NodeRemoved));
-    // Fatal even when the script catches the exception.
-    let r = rt.eval::<String>("try { label.parentNode; 'caught' } catch (e) { 'caught' }");
-    assert_eq!(r, Err(DomError::NodeRemoved));
-    // The runtime carries on; live nodes still work.
-    let p: String = rt.eval("document.getElementById('p').textContent").unwrap();
-    assert_eq!(p, "x");
+    assert_eq!(rt.eval::<String>("label.textContent").unwrap(), "Sales");
+    assert!(rt.eval::<bool>("label.parentNode === null").unwrap());
+    let _: () = rt.eval("document.body.appendChild(label)").unwrap();
+    let html = rt.with_document(Document::to_html).unwrap();
+    assert!(
+        html.contains(r#"<span id="label">Sales</span></body>"#),
+        "{html}"
+    );
 }
 
 #[test]
@@ -183,7 +185,7 @@ fn create_and_append() {
         document.body.appendChild(ul);
         const out = [ul.tagName, ul.textContent, String(ul.parentNode === document.body)];
         // DOM §4.2.3 pre-insert validity: HierarchyRequestError.
-        try { ul.firstChildLi = ul.appendChild(document.body); } catch (e) { out.push(e.name); }
+        try { ul.appendChild(document.body); } catch (e) { out.push(e.name); }
         try { document.body.appendChild(document); } catch (e) { out.push(e.name); }
         // DOM §4.5 createElement: InvalidCharacterError.
         try { document.createElement('1x'); } catch (e) { out.push(e.name); }

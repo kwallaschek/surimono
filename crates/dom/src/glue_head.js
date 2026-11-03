@@ -82,6 +82,24 @@
     return s.h;
   }
 
+  // `(Node or DOMString)`: a handle or a string. Rust tells them by type.
+  function nodeOrStr(x, g) {
+    const s = stateOf(x);
+    if (s === null || (s.m & nodeBit) === 0) return str(x);
+    if (s.g !== g) stale();
+    return s.h;
+  }
+  // A call with a variadic argument list. Reflect.apply reads a
+  // null-prototype list, so no Array method or setter is involved.
+  function vcall(op, s, args, conv) {
+    const n = args.length;
+    const l = create(null);
+    l.length = n + 3;
+    l[0] = op; l[1] = s.g; l[2] = s.h;
+    for (let i = 0; i < n; i++) l[i + 3] = conv(args[i], s.g);
+    return apply(call, undefined, l);
+  }
+
   function iface(id, name, parent, ctor) {
     const f = ctor === null ? function () { throw new TE('Illegal constructor'); } : ctor;
     const proto = f.prototype;
