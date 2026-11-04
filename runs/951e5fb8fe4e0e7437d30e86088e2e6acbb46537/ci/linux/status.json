@@ -1,0 +1,1 @@
+{"workflow":"ci","job":"linux","matrix":"","status":"failure","reported":"failure","needs_result":"","reported_job":"linux","sha":"951e5fb8fe4e0e7437d30e86088e2e6acbb46537","ref":"e2-04a","event":"pull_request","run_id":"41848207332","attempt":"1","finished_at":"2026-11-04T14:33:35Z"}
