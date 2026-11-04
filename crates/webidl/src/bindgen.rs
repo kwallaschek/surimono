@@ -41,6 +41,21 @@ pub struct BindInterface {
     pub members: &'static [&'static str],
 }
 
+/// Interfaces with no state in Rust. An event exists to call script
+/// listeners, and those are JavaScript values: its fields and the dispatch
+/// algorithm live in `crates/dom/src/glue_events.js`, under the memory limit,
+/// in the wrapper's private record. The generator still writes the interface
+/// from the IDL (names, constants, brand checks, conversions), and each member
+/// calls `H.<Interface>_<member>(record, ...)`, with `H.set_...` for setters
+/// and `H.new_<Interface>(new.target, ...)` for constructors.
+const JS_INTERFACES: &[&str] = &[
+    "EventTarget",
+    "Event",
+    "CustomEvent",
+    "ErrorEvent",
+    "Window",
+];
+
 /// A member name that isn't in the IDL. CSSOM defines
 /// `CSSStyleProperties`' per-property attributes (`style.fontSize`) in prose,
 /// one for each CSS property, so they are generated as named properties
@@ -60,14 +75,18 @@ pub struct Bindings {
 const OP_INTERFACE: u32 = 0;
 /// Operation 1: an exotic object's supported property names.
 const OP_NAMES: u32 = 1;
+/// Operation 2: the page lifecycle moves `document.readyState`.
+const OP_SET_READY_STATE: u32 = 2;
 /// The first operation number for generated members.
-const OP_FIRST: u32 = 2;
+const OP_FIRST: u32 = 3;
 
 /// Everything for one member's two halves.
 struct Out {
     js: String,
     arms: String,
     next_op: u32,
+    /// `Node.parentNode`'s operation, for event paths in the glue.
+    parent_node_op: u32,
 }
 
 impl Out {
@@ -262,6 +281,8 @@ struct Bound<'a, 'g> {
     iface: &'a MergedInterface,
     id: usize,
     out: &'a mut Out,
+    /// The members are hand-written in the glue (see [`JS_INTERFACES`]).
+    js_impl: bool,
 }
 
 /// Operations sharing `name` in `m`, for the overload check.
@@ -316,6 +337,9 @@ impl Bound<'_, '_> {
             {
                 Ok(r.to_owned())
             }
+            TypeKind::Named(n) if self.gen_.names.get(n.as_str()) == Some(&NameKind::Enum) => {
+                Ok(r.to_owned())
+            }
             TypeKind::Sequence(e) if matches!(&e.kind, TypeKind::Named(n) if is_string(n)) => {
                 Ok(format!("nameArray({r})"))
             }
@@ -335,9 +359,15 @@ impl Bound<'_, '_> {
         ext_attrs: &[ExtAttr],
     ) -> Result<(), GenError> {
         let id = self.id;
+        if self.js_impl {
+            return self.js_attribute(name, ty, readonly);
+        }
         let rust = rust_name(name);
         let getter = self.trait_call(&rust, &[], true);
         let op = self.out.op(&getter);
+        if self.iface.name == "Node" && name == "parentNode" {
+            self.out.parent_node_op = op;
+        }
         let ret = self.js_return(name, ty, "r", "s.g")?;
         let _ = write!(
             self.out.js,
@@ -417,6 +447,83 @@ impl Bound<'_, '_> {
         })
     }
 
+    /// A member of a [`JS_INTERFACES`] interface: the IDL's name and
+    /// conversion, the glue's body.
+    fn js_attribute(&mut self, name: &str, ty: &Type, readonly: bool) -> Result<(), GenError> {
+        let (id, iface) = (self.id, self.iface.name.clone());
+        let _ = write!(
+            self.out.js,
+            "attr({id}, {}, function () {{ return H.{iface}_{name}(self(this, {id})); }}",
+            js_string(name)
+        );
+        if !readonly {
+            let x = self.js_impl_arg(ty, "v");
+            let _ = write!(
+                self.out.js,
+                ", function (v) {{ H.set_{iface}_{name}(self(this, {id}), {x}); }}"
+            );
+        }
+        self.out.js.push_str(");\n");
+        Ok(())
+    }
+
+    /// `x` converted for a hand-written member: as for a native one, except
+    /// that bound objects stay records and what `conv` leaves alone
+    /// (dictionaries, callbacks, `any`) arrives as it came.
+    fn js_impl_arg(&self, ty: &Type, x: &str) -> String {
+        match conv(self.gen_, self.table, ty, 0) {
+            Some(Conv::Obj(id)) if ty.nullable => {
+                format!("({x} === null || {x} === undefined ? null : self({x}, {id}))")
+            }
+            Some(Conv::Obj(id)) => format!("self({x}, {id})"),
+            Some(c @ (Conv::Str(_) | Conv::Bool | Conv::Int(_))) => js_arg(&c, ty, x, ""),
+            _ => x.to_owned(),
+        }
+    }
+
+    /// Declared parameters and argument expressions of a hand-written
+    /// member. An omitted optional argument takes its default, undefined
+    /// for a dictionary; the glue reads dictionaries itself.
+    fn js_impl_arguments(&self, args: &[Argument]) -> (Vec<String>, Vec<String>) {
+        let mut params = Vec::new();
+        let mut exprs = Vec::new();
+        for (i, a) in args.iter().enumerate() {
+            if a.optional {
+                let v = format!("o{i}");
+                let x = format!("(argc > {i} ? arguments[{i}] : undefined)");
+                let converted = self.js_impl_arg(&a.ty, &v);
+                let default = js_default(&a.default);
+                exprs.push(format!(
+                    "((({v}) => {v} === undefined ? {default} : {converted})({x}))"
+                ));
+            } else {
+                let p = format!("a{i}");
+                exprs.push(self.js_impl_arg(&a.ty, &p));
+                params.push(p);
+            }
+        }
+        (params, exprs)
+    }
+
+    fn js_operation(&mut self, name: &str, args: &[Argument]) {
+        let (id, iface) = (self.id, self.iface.name.clone());
+        let (params, exprs) = self.js_impl_arguments(args);
+        let required = params.len();
+        let mut body = format!("const s = self(this, {id}); const argc = arguments.length; ");
+        if required > 0 {
+            let _ = write!(body, "need(argc, {required}, {}); ", js_string(name));
+        }
+        let mut all = vec!["s".to_owned()];
+        all.extend(exprs);
+        let _ = writeln!(
+            self.out.js,
+            "op({id}, {}, function {name}({}) {{ {body}return H.{iface}_{name}({}); }});",
+            js_string(name),
+            params.join(", "),
+            all.join(", ")
+        );
+    }
+
     fn operation(&mut self, name: &str) -> Result<(), GenError> {
         let found = overloads(self.iface, name);
         let [mm] = found.as_slice() else {
@@ -435,6 +542,10 @@ impl Bound<'_, '_> {
             return Err(self.unknown(name));
         };
         let id = self.id;
+        if self.js_impl {
+            self.js_operation(name, args);
+            return Ok(());
+        }
         let ArgCode {
             params,
             js: js_args,
@@ -490,6 +601,23 @@ impl Bound<'_, '_> {
         let [args] = ctors.as_slice() else {
             return Err(self.unknown("constructor"));
         };
+        if self.js_impl {
+            let (params, exprs) = self.js_impl_arguments(args);
+            let required = params.len();
+            let name = &self.iface.name;
+            let check = if required > 0 {
+                format!("need(argc, {required}, {}); ", js_string(name))
+            } else {
+                String::new()
+            };
+            let mut all = vec!["new.target".to_owned()];
+            all.extend(exprs);
+            return Ok(format!(
+                "function {name}({}) {{ if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; {check}return H.new_{name}({}); }}",
+                params.join(", "),
+                all.join(", ")
+            ));
+        }
         let ArgCode {
             params,
             js: js_args,
@@ -719,6 +847,7 @@ pub fn generate_bindings(
         js: String::new(),
         arms: String::new(),
         next_op: OP_FIRST,
+        parent_node_op: 0,
     };
     for (id, spec) in table.iter().enumerate() {
         if bound_id(table, spec.name) != Some(id) {
@@ -733,6 +862,7 @@ pub fn generate_bindings(
             iface: &iface,
             id,
             out: &mut out,
+            js_impl: JS_INTERFACES.contains(&spec.name),
         }
         .interface(spec)?;
     }
@@ -753,8 +883,15 @@ pub fn generate_bindings(
     if let Some(id) = bound_id(table, "Node") {
         let _ = writeln!(js, "const nodeBit = 1 << {id};");
     }
+    for name in JS_INTERFACES {
+        if let Some(id) = bound_id(table, name) {
+            let _ = writeln!(js, "const I_{name} = {id};");
+        }
+    }
     js.push_str(&out.js);
 
+    let _ = writeln!(js, "const OP_setReadyState = {OP_SET_READY_STATE};");
+    let _ = writeln!(js, "const OP_parentNode = {};", out.parent_node_op);
     let mut rust = note("//");
     rust.push_str("\nuse surimono_webidl::runtime::{BindingError, BindingResult, ObjectId};\n");
     if out.arms.contains("Value::Undefined") {
@@ -779,6 +916,10 @@ pub fn generate_bindings(
         rust,
         "        {OP_NAMES} => h.supported_names(this).map(Ret::from),"
     );
+    let _ = writeln!(
+        rust,
+        "        {OP_SET_READY_STATE} => h.set_ready_state(a.uint(0)?).map(Ret::from),"
+    );
     rust.push_str(&out.arms);
     rust.push_str(
         "        _ => Err(BindingError::TypeError(\"unknown operation\".to_owned())),\n    }\n}\n",
@@ -795,7 +936,55 @@ const GETTER_ONLY: &str = ":getter";
 pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "EventTarget",
-        members: &[],
+        members: &[
+            "constructor",
+            "addEventListener",
+            "removeEventListener",
+            "dispatchEvent",
+        ],
+    },
+    BindInterface {
+        name: "Event",
+        members: &[
+            "constructor",
+            "type",
+            "target",
+            "srcElement",
+            "currentTarget",
+            "composedPath",
+            "eventPhase",
+            "stopPropagation",
+            "cancelBubble",
+            "stopImmediatePropagation",
+            "bubbles",
+            "cancelable",
+            "returnValue",
+            "preventDefault",
+            "defaultPrevented",
+            "composed",
+            "isTrusted",
+            "timeStamp",
+            "initEvent",
+        ],
+    },
+    BindInterface {
+        name: "CustomEvent",
+        members: &["constructor", "detail", "initCustomEvent"],
+    },
+    BindInterface {
+        name: "ErrorEvent",
+        members: &[
+            "constructor",
+            "message",
+            "filename",
+            "lineno",
+            "colno",
+            "error",
+        ],
+    },
+    BindInterface {
+        name: "Window",
+        members: &["devicePixelRatio"],
     },
     BindInterface {
         name: "Node",
@@ -885,6 +1074,8 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "documentElement",
             "head",
             "body:getter",
+            "title",
+            "readyState",
             "compatMode",
             "characterSet",
             "contentType",
@@ -1033,13 +1224,13 @@ mod tests {
         assert!(b.js.contains(r#"op(0, "z", function z(a0) {"#), "{}", b.js);
         assert!(!b.js.contains('x') || !b.js.contains(r#""x""#));
         assert!(
-            b.rust.contains("2 => idl::A::y(h, this).map(Ret::from),"),
+            b.rust.contains("3 => idl::A::y(h, this).map(Ret::from),"),
             "{}",
             b.rust
         );
         assert!(
             b.rust
-                .contains("3 => idl::A::z(h, this, a.string(0)?, a.boolean(1)?).map(Ret::from),"),
+                .contains("4 => idl::A::z(h, this, a.string(0)?, a.boolean(1)?).map(Ret::from),"),
             "{}",
             b.rust
         );

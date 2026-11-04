@@ -143,6 +143,26 @@ defines the per-property attributes (`style.fontSize`) in prose, so the generato
 has a pseudo member for them: names stylo knows as properties go to the host,
 others are ordinary expandos. `getComputedStyle` is phase 3.
 
+## Events and the page's life
+
+Listeners are JavaScript values, so events live in the glue (`glue_events.js`),
+as timers' handlers do in the prelude: in private records, under the memory
+limit, with no Rust state. The generator still writes these interfaces from the
+IDL (`JS_INTERFACES`): names, constants, brand checks and conversions come from
+WebIDL; each member calls a hand-written `H.<Interface>_<member>`. Lists are
+null-prototype objects, so `Array.prototype` setters see nothing.
+
+The global object is the window: it is branded, inherits from
+`Window.prototype`, and an undefined `this` means it (WebIDL §3.7.6).
+
+`DomRuntime::run_page` queues every lifecycle step as a zero-delay timer before
+any page script runs, so they keep their order ahead of the page's own timers,
+each is a task with a microtask checkpoint after it, and all run in one
+`run_until_settled` call under one time limit. The order is in its doc comment.
+The parser has finished before the first script runs, so a script sees the whole
+tree: `document.write` has no meaning here (not bound), and a script can't
+observe the parse. A `<script>` a script inserts doesn't run yet.
+
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and

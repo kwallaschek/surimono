@@ -5,8 +5,10 @@ use std::rc::Rc;
 
 use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
-use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, Object, Value};
-use surimono_core::{Deadline, Limits, Sandbox, SandboxOptions};
+use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, IntoJs, Object, Value};
+use surimono_core::{
+    Deadline, Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport,
+};
 use surimono_webidl::runtime::{BindingError, ObjectId};
 
 use crate::bindings::Args;
@@ -17,6 +19,7 @@ use crate::{Document, DomError};
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
     include_str!("glue_head.js"),
+    include_str!("glue_events.js"),
     include_str!("generated/bindings.js"),
     include_str!("glue_tail.js"),
 );
@@ -32,6 +35,38 @@ struct Host {
     fault: Option<DomError>,
     /// The current call's deadline; host functions refuse to work after it.
     deadline: Option<Deadline>,
+    /// The page's scripts, for [`DomRuntime::run_page`].
+    scripts: Vec<PageScript>,
+    /// Exceptions reported since the last report, and the first few.
+    uncaught: u64,
+    errors: Vec<String>,
+}
+
+/// Most reported exception messages kept; the rest are only counted.
+const MAX_KEPT_ERRORS: usize = 8;
+
+/// One `<script>` of the page.
+struct PageScript {
+    node: Handle,
+    /// `None` for a script whose source couldn't be had.
+    source: Option<String>,
+    name: String,
+    external: bool,
+    deferred: bool,
+}
+
+/// What [`DomRuntime::run_page`] found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PageReport {
+    /// The event loop's report.
+    pub settle: SettleReport,
+    /// Exceptions no script caught in scripts, event listeners and callbacks
+    /// of timers.
+    pub uncaught: u64,
+    /// The first few, as messages.
+    pub errors: Vec<String>,
+    /// `src` values of external scripts the resolver had no source for.
+    pub missing_scripts: Vec<String>,
 }
 
 type Shared = Rc<RefCell<Host>>;
@@ -66,7 +101,7 @@ impl DomRuntime {
     /// A runtime from full sandbox options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, DomError> {
         Ok(Self {
-            sandbox: Sandbox::with_options(options)?,
+            sandbox: Sandbox::with_options(options.with_event_loop(true))?,
             host: Shared::default(),
             installed: false,
         })
@@ -109,11 +144,7 @@ impl DomRuntime {
     where
         T: for<'js> FromJs<'js>,
     {
-        {
-            let mut host = self.host.borrow_mut();
-            host.fault = None;
-            host.deadline = Some(self.sandbox.deadline());
-        }
+        self.begin_call();
         let Self {
             sandbox,
             host,
@@ -130,6 +161,113 @@ impl DomRuntime {
             opts.filename = Some("<script>".to_owned());
             ctx.eval_with_options(source, opts)
         });
+        self.finish_call(result)
+    }
+
+    /// Runs timers, frames and microtasks until the page settles (see
+    /// `surimono_core`'s event loop), with the bindings in place.
+    pub fn run_until_settled(&mut self, options: &SettleOptions) -> Result<SettleReport, DomError> {
+        // Installs the bindings if no script ran yet.
+        self.eval::<()>("")?;
+        self.begin_call();
+        let result = self.sandbox.run_until_settled(options);
+        self.finish_call(result)
+    }
+
+    /// Runs the loaded document as a page, in a fresh context: its scripts in order, then
+    /// `DOMContentLoaded` and `load`, then the event loop until it settles;
+    /// all under one time limit. The order, all at virtual time 0 and before
+    /// any of the page's own timers, each step a task (HTML §13.2.7):
+    ///
+    /// 1. `readyState` is `loading`. Scripts in tree order, except `defer`.
+    ///    An external script is followed by `load` at its element, or
+    ///    `error` if `resolve` had no source for it. The whole tree is there
+    ///    from the start: the parser has finished before any script runs.
+    /// 2. `readyState` is `interactive`, with `readystatechange`.
+    /// 3. `defer` scripts in tree order.
+    /// 4. `DOMContentLoaded` at the document; it bubbles to the window.
+    /// 5. `readyState` is `complete`, with `readystatechange`.
+    /// 6. `load` at the window, with the document as its target.
+    ///
+    /// An uncaught exception doesn't stop the page: it is an `error` event
+    /// at the window, and is counted in the report unless a listener
+    /// cancels that event.
+    ///
+    /// `resolve` gives the source of an external script from its `src`
+    /// value. No network and no files unless the caller's closure reads them.
+    pub fn run_page(
+        &mut self,
+        options: &SettleOptions,
+        mut resolve: impl FnMut(&str) -> Option<String>,
+    ) -> Result<PageReport, DomError> {
+        let mut missing_scripts = Vec::new();
+        {
+            let mut guard = self.host.borrow_mut();
+            let host = &mut *guard;
+            let doc = host.doc.as_mut().ok_or(DomError::NoDocument)?;
+            doc.set_ready(0);
+            let mut scripts = Vec::new();
+            for (node, src, text, deferred) in doc.scripts() {
+                let source = match &src {
+                    Some(url) => {
+                        let got = resolve(url);
+                        if got.is_none() {
+                            missing_scripts.push(url.clone());
+                        }
+                        got
+                    }
+                    None => Some(text),
+                };
+                scripts.push(PageScript {
+                    node: doc.handle_for(node)?,
+                    source,
+                    name: src.clone().unwrap_or_else(|| "<script>".to_owned()),
+                    external: src.is_some(),
+                    deferred,
+                });
+            }
+            host.scripts = scripts;
+            host.uncaught = 0;
+            host.errors.clear();
+        }
+        self.reset()?;
+        self.begin_call();
+        let Self {
+            sandbox,
+            host,
+            installed,
+        } = self;
+        let started = sandbox.run(|ctx| {
+            let start = install(ctx, host)?;
+            *installed = true;
+            let g = host
+                .borrow()
+                .doc
+                .as_ref()
+                .map_or(0.0, |d| d.generation() as f64);
+            start.call::<_, ()>((g,))
+        });
+        self.finish_call(started)?;
+        self.begin_call();
+        let result = self.sandbox.run_until_settled(options);
+        let settle = self.finish_call(result)?;
+        let mut host = self.host.borrow_mut();
+        host.scripts.clear();
+        Ok(PageReport {
+            uncaught: settle.uncaught + host.uncaught,
+            errors: std::mem::take(&mut host.errors),
+            settle,
+            missing_scripts,
+        })
+    }
+
+    fn begin_call(&mut self) {
+        let mut host = self.host.borrow_mut();
+        host.fault = None;
+        host.deadline = Some(self.sandbox.deadline());
+    }
+
+    fn finish_call<T>(&mut self, result: Result<T, SandboxError>) -> Result<T, DomError> {
         if matches!(&result, Err(e) if e.is_limit()) {
             // The sandbox rebuilt its context; the bindings went with it.
             self.installed = false;
@@ -149,15 +287,94 @@ impl DomRuntime {
 }
 
 /// Installs the bindings in `ctx`: builds the native functions and hands
-/// them to the glue, which keeps them in a closure.
-fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<()> {
+/// them to the glue, which keeps them in a closure. Returns the glue's
+/// function that queues a page's lifecycle.
+fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
     let n = Object::new(ctx.clone())?;
     n.set("call", native_call(ctx, host)?)?;
     n.set("current", native_current(ctx, host)?)?;
     n.set("currentRoot", native_current_root(ctx, host)?)?;
     n.set("stale", native_stale(ctx, host)?)?;
+    n.set("report", native_report(ctx, host)?)?;
+    n.set("throwDom", native_throw_dom(ctx)?)?;
+    n.set("scriptCount", {
+        let host = host.clone();
+        Function::new(ctx.clone(), move || host.borrow().scripts.len() as u32)?
+    })?;
+    n.set("scriptNode", script_field(ctx, host, |s| s.node)?)?;
+    n.set("scriptDeferred", script_field(ctx, host, |s| s.deferred)?)?;
+    n.set("scriptExternal", script_field(ctx, host, |s| s.external)?)?;
+    n.set(
+        "scriptFailed",
+        script_field(ctx, host, |s| s.source.is_none())?,
+    )?;
+    n.set("runScript", native_run_script(ctx, host)?)?;
     let glue: Function<'js> = ctx.eval(GLUE)?;
-    glue.call::<_, ()>((n,))
+    glue.call((n,))
+}
+
+/// A native reading one field of script `i`.
+fn script_field<'js, R>(
+    ctx: &Ctx<'js>,
+    host: &Shared,
+    f: impl Fn(&PageScript) -> R + 'js,
+) -> rquickjs::Result<Function<'js>>
+where
+    R: IntoJs<'js> + Default + 'js,
+{
+    let host = host.clone();
+    Function::new(ctx.clone(), move |i: u32| -> R {
+        host.borrow()
+            .scripts
+            .get(i as usize)
+            .map_or_else(R::default, &f)
+    })
+}
+
+/// `runScript(i)`: evaluates script `i` as a classic global script. Its
+/// exceptions reach the glue, which reports them.
+fn native_run_script<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, i: u32| -> rquickjs::Result<()> {
+            let (source, name) = {
+                // Not held across the eval: the script calls natives.
+                let mut guard = host.borrow_mut();
+                let Some(s) = guard.scripts.get_mut(i as usize) else {
+                    return Ok(());
+                };
+                (s.source.take().unwrap_or_default(), s.name.clone())
+            };
+            let mut opts = EvalOptions::default();
+            opts.global = true;
+            opts.strict = false;
+            opts.filename = Some(name);
+            ctx.eval_with_options::<(), _>(source, opts)
+        },
+    )
+}
+
+/// `report(message)`: an exception nothing handled.
+fn native_report<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(ctx.clone(), move |message: String| {
+        let mut host = host.borrow_mut();
+        host.uncaught += 1;
+        if host.errors.len() < MAX_KEPT_ERRORS {
+            host.errors.push(message);
+        }
+    })
+}
+
+/// `throwDom(name, message)`: throws a DOMException.
+fn native_throw_dom<'js>(ctx: &Ctx<'js>) -> rquickjs::Result<Function<'js>> {
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, name: String, message: String| -> rquickjs::Result<()> {
+            Err(Exception::throw_dom(&ctx, &name, &message))
+        },
+    )
 }
 
 /// `call(op, generation, handle, ...args)`: every generated member. The

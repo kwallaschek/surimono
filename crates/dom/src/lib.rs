@@ -23,7 +23,7 @@ mod dispatch;
 
 pub use document::{ATTRIBUTE_COST, Document, DomLimits};
 pub use error::DomError;
-pub use runtime::DomRuntime;
+pub use runtime::{DomRuntime, PageReport};
 
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

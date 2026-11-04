@@ -6,7 +6,7 @@
 // A wrapper is an ordinary object carrying a state record { g, h, m } in a
 // private class field (#s), stamped on by `Brand`: g is the document's
 // generation, h the handle, m the interface bits (the concrete interface and
-// its ancestors). Private fields can't be read, written, listed or
+// its ancestors), w the wrapper, plus what glue_events.js keeps there. Private fields can't be read, written, listed or
 // intercepted through any prototype, Proxy or reflection, so scripts can
 // neither read nor forge a handle; `#s in o` is the brand check. Every
 // member passes the pair to Rust, which resolves it through the document on
@@ -21,6 +21,14 @@
 (function (n) {
   'use strict';
   const call = n.call, current = n.current, root = n.currentRoot, stale = n.stale;
+  const report = n.report, throwDom = n.throwDom;
+  const G = globalThis;
+  // Scheduled before any script can replace them. The prelude's timers.
+  const setTimeoutReal = G.setTimeout;
+  const schedule = (f, ms) => setTimeoutReal(f, ms);
+  const performanceNow = G.performance === undefined ? undefined : G.performance.now;
+  const performanceObject = G.performance;
+  const now = () => (performanceNow === undefined ? 0 : apply(performanceNow, performanceObject, []));
   const create = Object.create;
   const defineProperty = Object.defineProperty;
   const setPrototypeOf = Object.setPrototypeOf;
@@ -53,6 +61,9 @@
   const ctors = create(null), protos = create(null), masks = create(null), names = create(null);
   // Proxy handlers of legacy platform objects, by interface number.
   const exotics = create(null);
+  // Bodies of hand-written members (glue_events.js); the window's record.
+  const H = create(null);
+  let windowState = null;
 
   // Same node, same wrapper (DOM identity), within one document generation.
   let cacheGeneration = -1;
@@ -67,18 +78,20 @@
       const s = create(null);
       s.g = g; s.h = h; s.m = masks[i];
       w = new Brand(create(protos[i]), s);
+      s.w = w;
       const handler = exotics[i];
       // Both the target (for the traps) and the proxy (for members) carry
       // the record; private fields don't go through proxy traps.
-      if (handler !== undefined) w = new Brand(new ProxyCtor(w, handler), s);
+      if (handler !== undefined) { w = new Brand(new ProxyCtor(w, handler), s); s.w = w; }
       cache[h] = w;
     }
     return w;
   }
 
-  // The state of `this` for a member of interface `id`.
+  // The record of `this` for a member of interface `id`. An undefined `this`
+  // is the global object (WebIDL §3.7.6), for `addEventListener(...)`.
   function self(o, id) {
-    const s = stateOf(o);
+    const s = stateOf(o === undefined ? G : o);
     if (s === null || (s.m & (1 << id)) === 0) throw new TE('Illegal invocation');
     return s;
   }

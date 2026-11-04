@@ -118,7 +118,7 @@ fn operation(r: &mut Rng) -> String {
     let tag = quoted(r.pick(TAGS));
     let attr = quoted(r.pick(ATTRS));
     let value = quoted(r.pick(VALUES));
-    let body = match r.below(38) {
+    let body = match r.below(40) {
         0 => format!("keep(document.createElement({tag}))"),
         1 => format!("keep(document.createTextNode({value}))"),
         2 => format!("keep(document.createComment({value}))"),
@@ -166,6 +166,10 @@ fn operation(r: &mut Rng) -> String {
         36 => format!(
             "at({a}).style.setProperty('margin', {value}); at({b}).style.removeProperty('color')"
         ),
+        37 => format!(
+            "at({a}).addEventListener('e', () => {{ at({b}).remove(); at({c}).appendChild(at({a})); }})"
+        ),
+        38 => format!("at({a}).dispatchEvent(new Event('e', {{ bubbles: true }}))"),
         // Reads: every node type, whatever state it reached.
         _ => format!(
             "[at({a}).textContent, at({b}).nodeName, at({c}).isConnected, document.getElementById({value})]"

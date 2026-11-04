@@ -201,6 +201,9 @@ pub struct Document {
     held_bytes: usize,
     /// The document was parsed in quirks mode.
     quirks: bool,
+    /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
+    /// page lifecycle has run on is complete.
+    ready_state: u32,
     /// The last (parent, index in its children) a sibling step found, so
     /// walking a wide parent's children isn't quadratic. Checked on use.
     cursor: Cell<(usize, usize)>,
@@ -265,6 +268,7 @@ impl Document {
             side_data: parsed.strings.into_iter().collect(),
             held_bytes: 0,
             quirks: parsed.quirks,
+            ready_state: 2,
             cursor: Cell::new((0, 0)),
             fault: None,
         };
@@ -724,6 +728,99 @@ impl Document {
 
     pub(crate) fn children(&self, id: usize) -> &[usize] {
         &self.node(id).children
+    }
+
+    pub(crate) fn ready_state(&self) -> u32 {
+        self.ready_state
+    }
+
+    pub(crate) fn set_ready(&mut self, state: u32) {
+        self.ready_state = state;
+    }
+
+    /// Classic scripts in tree order, for the page lifecycle: (node, `src`
+    /// value, text, defer). `module` and other types aren't run (HTML
+    /// §4.12.1.1); a parser-inserted `async` script keeps its tree position,
+    /// which is one of the orders the spec allows and the deterministic one.
+    pub(crate) fn scripts(&self) -> Vec<(usize, Option<String>, String, bool)> {
+        let mut out = Vec::new();
+        let mut stack = vec![self.root()];
+        while let Some(n) = stack.pop() {
+            stack.extend(self.children(n).iter().rev().copied());
+            let is_script = self
+                .element_name(n)
+                .is_some_and(|q| q.ns == ns!(html) && q.local.as_ref() == "script");
+            if !is_script || !self.is_classic_script(n) {
+                continue;
+            }
+            let src = self.attribute(n, "src");
+            let defer = src.is_some() && self.attribute(n, "defer").is_some();
+            out.push((n, src, self.text_content(n).unwrap_or_default(), defer));
+        }
+        out
+    }
+
+    /// HTML §4.12.1.1: no `type` or a JavaScript MIME type, or `language`
+    /// in the old way. `nomodule` is ignored: modules don't run here, so the
+    /// fallback is what a page has for us.
+    fn is_classic_script(&self, id: usize) -> bool {
+        let ty = self.attribute(id, "type");
+        match ty.as_deref().map(str::trim) {
+            None | Some("") => true,
+            Some(t) => {
+                let t = t.to_ascii_lowercase();
+                matches!(
+                    t.as_str(),
+                    "text/javascript"
+                        | "application/javascript"
+                        | "application/x-javascript"
+                        | "text/ecmascript"
+                        | "application/ecmascript"
+                        | "text/jscript"
+                        | "text/x-javascript"
+                        | "text/x-ecmascript"
+                )
+            }
+        }
+    }
+
+    /// The `<title>` element: the first in tree order (HTML §3.1.3).
+    fn title_element(&self) -> Option<usize> {
+        let top = self.document_element()?;
+        let is_title = |n: usize| {
+            self.element_name(n)
+                .is_some_and(|q| q.ns == ns!(html) && q.local.as_ref() == "title")
+        };
+        if is_title(top) {
+            return Some(top);
+        }
+        self.descendants(top, is_title).first().copied()
+    }
+
+    /// `document.title`: the title's text, with whitespace stripped and
+    /// collapsed.
+    pub(crate) fn title(&self) -> String {
+        self.title_element()
+            .and_then(|t| self.text_content(t))
+            .map(|t| t.split_ascii_whitespace().collect::<Vec<_>>().join(" "))
+            .unwrap_or_default()
+    }
+
+    /// `document.title` set: the title's content, a new `<title>` in the
+    /// head if there is none; nothing without a head.
+    pub(crate) fn set_title(&mut self, value: &str) -> Result<(), DomError> {
+        let title = match self.title_element() {
+            Some(t) => t,
+            None => {
+                let Some(head) = self.head() else {
+                    return Ok(());
+                };
+                let t = self.create_element("title")?.ok_or(DomError::NoDocument)?;
+                self.place(head, &[t], None);
+                t
+            }
+        };
+        self.set_text_content(title, value)
     }
 
     pub(crate) fn is_quirks(&self) -> bool {
