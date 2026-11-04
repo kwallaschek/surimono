@@ -114,7 +114,476 @@ Not run yet (`bench/run.sh`).
 
 ### Web Platform Tests
 
-Not run yet: the runner needs the DOM and the event loop, and the tests aren't vendored (`wpt/README.md`).
+| Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |
+|---|---|---|---|---|---|---|
+| html/webappapis timers and microtask queuing | 2 | 25 | 34 | 73.5% | 90% | **below the target** |
+| dom/nodes | 2 | 2860 | 15253 | 18.8% | 70% | **below the target** |
+| dom/events | 2 | 81 | 748 | 10.8% | 70% | **below the target** |
+| domparsing | 2 | 123 | 909 | 13.5% | 60% | **below the target** |
+
+WPT 8b4b06ff53, 722 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono c648551f1a (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
+
+The most common causes, in subtests Chrome passes:
+
+| Subtests | Cause |
+|---|---|
+| 3727 | ERROR: TypeError: Illegal constructor |
+| 3355 | harness timed out before it |
+| 2133 | ERROR: needs an XML parser, which surimono-dom doesn't have |
+| 1015 | FAIL: cannot read property … of undefined |
+| 764 | NOTRUN: NOTRUN |
+| 509 | FAIL: not a function |
+| 509 | not reported |
+| 278 | ERROR: ReferenceError: trustedTypes is not defined |
+| 178 | FAIL: DOMParser is not defined |
+| 150 | FAIL: assert_throws_dom: function "function () { |
+| 127 | ERROR: TypeError: cannot read property 'createDocument' of undefined |
+| 120 | ERROR: 21 duplicate test names: "When clicking child <INPUT type=checkbox></INPUT> of parent <FORM><BUTTON></BUTTON></FORM>, only child should be activated.", "When clicking child <INPUT type=radio></INPUT>  |
+| 92 | TIMEOUT: Test timed out |
+| 90 | ERROR: ReferenceError: history is not defined |
+| 88 | ERROR: 20 duplicate test names: "touchstart listener is passive by default for HTMLElement", "touchstart listener is passive with {passive:undefined} for HTMLElement", "touchstart listener is non-passive wit |
+| 52 | ERROR: TypeError: cannot read property 'insertRule' of undefined |
+| 50 | ERROR: TypeError: not a function |
+| 48 | ERROR: ReferenceError: HTMLBodyElement is not defined |
+| 43 | FAIL: assert_equals: expected … but got … |
+| 39 | FAIL: promise_test: Unhandled rejection with value: object … |
+| 30 | FAIL: MouseEvent is not defined |
+| 18 | FAIL: Illegal constructor |
+| 16 | ERROR: ReferenceError: targetDiv is not defined |
+| 14 | ERROR: ReferenceError: DOMParser is not defined |
+| 14 | FAIL: assert_throws_dom: function "function() { |
+
+<details><summary>Every test that doesn't pass in full</summary>
+
+| Test | Passed | Of | Status |
+|---|---|---|---|
+| html/webappapis/timers/errors.html | 0 | 4 | TIMEOUT |
+| html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| html/webappapis/timers/settimeout-detached-iframe.html | 0 | 1 | OK |
+| html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| html/webappapis/microtask-queuing/queue-microtask-exceptions.any.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Attr-prefix-xhtml.xhtml | 0 | 2 | ERROR |
+| dom/nodes/Attr-prefix.html | 0 | 6 | OK |
+| dom/nodes/CharacterData-appendChild.html | 4 | 9 | OK |
+| dom/nodes/CharacterData-remove.html | 0 | 12 | ERROR |
+| dom/nodes/CharacterData-surrogates.html | 0 | 8 | OK |
+| dom/nodes/Comment-constructor.html | 15 | 16 | TIMEOUT |
+| dom/nodes/DOMImplementation-createDocument-no-browsing-context.html | 0 | 5 | OK |
+| dom/nodes/DOMImplementation-createDocument.html | 1 | 426 | OK |
+| dom/nodes/DOMImplementation-createDocumentType.html | 0 | 82 | OK |
+| dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html | 0 | 1 | OK |
+| dom/nodes/DOMImplementation-createHTMLDocument.html | 0 | 13 | OK |
+| dom/nodes/DOMImplementation-hasFeature.html | 1 | 137 | OK |
+| dom/nodes/Document-adoptNode-DocumentFragment-with-host.window.html | 0 | 7 | OK |
+| dom/nodes/Document-adoptNode.html | 0 | 7 | OK |
+| dom/nodes/Document-base-url-not-live.window.html | 0 | 2 | TIMEOUT |
+| dom/nodes/Document-characterSet-normalization-1.html | 0 | 303 | TIMEOUT |
+| dom/nodes/Document-characterSet-normalization-2.html | 0 | 339 | TIMEOUT |
+| dom/nodes/Document-cloneNode-about-base-url-relative.window.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-cloneNode-about-base-url.window.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-cloneNode-base-url-xml.window.html | 0 | 2 | OK |
+| dom/nodes/Document-cloneNode-base-url.window.html | 0 | 5 | OK |
+| dom/nodes/Document-cloneNode-srcdoc-base-url.window.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-constructor-svg.svg | 0 | 4 | ERROR |
+| dom/nodes/Document-constructor.html | 0 | 5 | OK |
+| dom/nodes/Document-contentType/contentType/contenttype_css.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_datauri_02.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_gif.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_html.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_javascripturi.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_jpg.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_mimeheader_01.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_mimeheader_02.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_mimeheader_03.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_png.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_txt.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_xml.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/createDocument.html | 0 | 1 | OK |
+| dom/nodes/Document-contentType/contentType/createHTMLDocument.html | 0 | 1 | OK |
+| dom/nodes/Document-contentType/contentType/xhr_responseType_document.html | 0 | 1 | OK |
+| dom/nodes/Document-createAttribute.html | 0 | 36 | ERROR |
+| dom/nodes/Document-createCDATASection-xhtml.xhtml | 0 | 7 | ERROR |
+| dom/nodes/Document-createCDATASection.html | 0 | 1 | OK |
+| dom/nodes/Document-createElement-namespace.html | 1 | 51 | TIMEOUT |
+| dom/nodes/Document-createElement.html | 49 | 147 | OK |
+| dom/nodes/Document-createElementNS.html | 82 | 584 | OK |
+| dom/nodes/Document-createEvent-touchevent.window.html | 0 | 3 | OK |
+| dom/nodes/Document-createEvent.https.html | 0 | 265 | OK |
+| dom/nodes/Document-createProcessingInstruction-xhtml.xhtml | 0 | 12 | ERROR |
+| dom/nodes/Document-createProcessingInstruction.html | 1 | 12 | OK |
+| dom/nodes/Document-createTreeWalker.html | 1 | 5 | OK |
+| dom/nodes/Document-doctype.html | 0 | 2 | OK |
+| dom/nodes/Document-getElementById.html | 14 | 18 | OK |
+| dom/nodes/Document-getElementsByTagName-xhtml.xhtml | 0 | 10 | ERROR |
+| dom/nodes/Document-getElementsByTagNameNS.html | 0 | 14 | OK |
+| dom/nodes/Document-implementation.html | 0 | 2 | OK |
+| dom/nodes/Document-importNode.html | 0 | 5 | OK |
+| dom/nodes/DocumentType-literal-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/DocumentType-literal.html | 0 | 1 | OK |
+| dom/nodes/DocumentType-remove.html | 0 | 4 | ERROR |
+| dom/nodes/Element-childElement-null-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElement-null-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-add-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-add-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-remove-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-remove-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-nochild-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-nochild-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-classlist.html | 1415 | 1420 | OK |
+| dom/nodes/Element-closest.html | 27 | 29 | OK |
+| dom/nodes/Element-firstElementChild-entity-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-entity.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-namespace-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-namespace-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Element-getElementsByTagNameNS.html | 0 | 16 | OK |
+| dom/nodes/Element-lastElementChild-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-lastElementChild-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-matches-disabled-pseudo-class.html | 0 | 11 | OK |
+| dom/nodes/Element-matches-namespaced-elements.html | 3 | 6 | OK |
+| dom/nodes/Element-matches.html | 0 | 669 | TIMEOUT |
+| dom/nodes/Element-nextElementSibling-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-nextElementSibling-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-previousElementSibling-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-previousElementSibling-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-siblingElement-null-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-siblingElement-null-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-tagName-adopt.html | 0 | 1 | OK |
+| dom/nodes/Element-tagName.html | 4 | 6 | OK |
+| dom/nodes/Element-webkitMatchesSelector.html | 0 | 669 | TIMEOUT |
+| dom/nodes/MutationObserver-callback-order.window.html | 2 | 3 | OK |
+| dom/nodes/MutationObserver-characterData.html | 0 | 23 | ERROR |
+| dom/nodes/MutationObserver-childList.html | 19 | 40 | TIMEOUT |
+| dom/nodes/MutationObserver-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| dom/nodes/MutationObserver-document.html | 1 | 4 | OK |
+| dom/nodes/MutationObserver-inner-outer.html | 0 | 3 | OK |
+| dom/nodes/MutationObserver-textContent.html | 1 | 4 | TIMEOUT |
+| dom/nodes/MutationObserver-transient-registered-observers.window.html | 5 | 15 | OK |
+| dom/nodes/MutationObserver-xml-parser.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Node-appendChild-cereactions-vs-script.window.html | 0 | 1 | OK |
+| dom/nodes/Node-appendChild.html | 7 | 11 | OK |
+| dom/nodes/Node-baseURI.html | 4 | 9 | OK |
+| dom/nodes/Node-childNodes.html | 5 | 6 | OK |
+| dom/nodes/Node-cloneNode-XMLDocument.html | 0 | 1 | OK |
+| dom/nodes/Node-cloneNode-document-allow-declarative-shadow-roots.window.html | 0 | 1 | OK |
+| dom/nodes/Node-cloneNode-document-with-doctype.html | 0 | 3 | OK |
+| dom/nodes/Node-cloneNode-external-stylesheet-no-bc.sub.html | 0 | 1 | OK |
+| dom/nodes/Node-cloneNode.html | 60 | 135 | OK |
+| dom/nodes/Node-compareDocumentPosition.html | 0 | 1444 | ERROR |
+| dom/nodes/Node-contains.html | 0 | 1482 | ERROR |
+| dom/nodes/Node-insertBefore.html | 11 | 40 | OK |
+| dom/nodes/Node-isConnected-shadow-dom.html | 0 | 2 | OK |
+| dom/nodes/Node-isConnected.html | 1 | 2 | OK |
+| dom/nodes/Node-isEqualNode-xhtml.xhtml | 0 | 14 | ERROR |
+| dom/nodes/Node-isEqualNode.html | 4 | 9 | OK |
+| dom/nodes/Node-isSameNode.html | 5 | 9 | OK |
+| dom/nodes/Node-lookupNamespaceURI.html | 0 | 75 | ERROR |
+| dom/nodes/Node-lookupPrefix.xhtml | 0 | 11 | ERROR |
+| dom/nodes/Node-mutation-adoptNode.html | 0 | 2 | OK |
+| dom/nodes/Node-nodeName-xhtml.xhtml | 0 | 7 | ERROR |
+| dom/nodes/Node-nodeName.html | 5 | 6 | OK |
+| dom/nodes/Node-nodeValue.html | 5 | 7 | OK |
+| dom/nodes/Node-normalize-2.html | 0 | 2 | OK |
+| dom/nodes/Node-normalize.html | 3 | 4 | OK |
+| dom/nodes/Node-parentElement.html | 11 | 12 | OK |
+| dom/nodes/Node-parentNode.html | 3 | 5 | TIMEOUT |
+| dom/nodes/Node-properties.html | 0 | 726 | ERROR |
+| dom/nodes/Node-removeChild.html | 10 | 28 | OK |
+| dom/nodes/Node-replaceChild.html | 9 | 29 | OK |
+| dom/nodes/Node-textContent.html | 0 | 81 | ERROR |
+| dom/nodes/NodeList-static-length-getter-tampered-1.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-2.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-3.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-indexOf-3.html | 0 | 1 | LIMIT |
+| dom/nodes/ParentNode-append.html | 16 | 25 | OK |
+| dom/nodes/ParentNode-prepend.html | 14 | 22 | OK |
+| dom/nodes/ParentNode-querySelector-All-scope.html | 6 | 8 | OK |
+| dom/nodes/ParentNode-querySelector-All-xht.xht | 0 | 1975 | ERROR |
+| dom/nodes/ParentNode-querySelector-All.html | 0 | 1975 | TIMEOUT |
+| dom/nodes/ParentNode-querySelector-basic-has.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelector-case-insensitive.html | 0 | 2 | OK |
+| dom/nodes/ParentNode-querySelector-dupe-id.html | 0 | 2 | OK |
+| dom/nodes/ParentNode-querySelector-escapes.html | 66 | 68 | OK |
+| dom/nodes/ParentNode-querySelector-host-pseudo-class.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelector-multiple-attributes-xml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelector-namespace-tagname-attribute.html | 0 | 8 | ERROR |
+| dom/nodes/ParentNode-querySelector-scope-numeric-id.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelector-shadowroot-nth-child.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelector-underscore-local-name.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelector-xml-capitalization.window.html | 0 | 3 | OK |
+| dom/nodes/ParentNode-querySelectorAll-namespace.html | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelectorAll-nested-not-has.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelectorAll-scope-change.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-replaceChildren.html | 0 | 28 | ERROR |
+| dom/nodes/ProcessingInstruction-escapes-1.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ProcessingInstruction-literal-1.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ProcessingInstruction-literal-2.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Text-constructor.html | 15 | 16 | TIMEOUT |
+| dom/nodes/adoption.window.html | 0 | 6 | OK |
+| dom/nodes/append-on-Document.html | 0 | 5 | ERROR |
+| dom/nodes/attach-shadow-realm-after-adoption.html | 0 | 3 | ERROR |
+| dom/nodes/attributes-namednodemap-cross-document.window.html | 0 | 2 | OK |
+| dom/nodes/attributes-namednodemap.html | 5 | 8 | OK |
+| dom/nodes/attributes.html | 50 | 67 | OK |
+| dom/nodes/case.html | 265 | 285 | OK |
+| dom/nodes/create-element-realm-after-adoption.html | 0 | 3 | ERROR |
+| dom/nodes/getElementById-namespaced-id.html | 0 | 4 | OK |
+| dom/nodes/getElementsByClassName-20.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-21.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-22.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-25.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-31.htm | 0 | 1 | TIMEOUT |
+| dom/nodes/insert-adjacent.html | 8 | 14 | OK |
+| dom/nodes/insertion-removing-steps/Node-append-form-and-script-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-button-from-div.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-custom-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-default-style-meta-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-div-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-iframe.html | 0 | 4 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-source-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-style.html | 0 | 5 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-in-script.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-with-mutation-observer-takeRecords.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-text-and-script-in-style.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-text-in-script.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/frame-post-connection-steps.html | 0 | 4 | OK |
+| dom/nodes/insertion-removing-steps/insertion-removing-steps-iframe.window.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/insertion-removing-steps-script.window.html | 0 | 1 | OK |
+| dom/nodes/live-collections-batched-mutations.window.html | 1 | 2 | OK |
+| dom/nodes/moveBefore/Node-moveBefore.html | 2 | 32 | OK |
+| dom/nodes/moveBefore/child-style-preserve.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-animation-left.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/continue-css-animation-transform.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/continue-css-transition-left-pseudo.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-transition-left.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-transition-transform-pseudo.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-transition-transform.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/css-animation-commit-styles.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/css-transition-cross-document.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/css-transition-cross-shadow.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/css-transition-to-disconnected-document.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/css-transition-trigger.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/custom-element-move-reactions.html | 0 | 7 | OK |
+| dom/nodes/moveBefore/fieldset-child-blur-event.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/fieldset-child-date-input-blur-event.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/fire-focusin-focusout.html | 0 | 5 | OK |
+| dom/nodes/moveBefore/focus-preserve.html | 0 | 5 | OK |
+| dom/nodes/moveBefore/focus-within.html | 0 | 5 | OK |
+| dom/nodes/moveBefore/iframe-document-preserve.window.html | 0 | 7 | TIMEOUT |
+| dom/nodes/moveBefore/listed-form-element-reset.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/live-range-updates.html | 0 | 3 | OK |
+| dom/nodes/moveBefore/modal-dialog.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-child-list-selector-invalidation.html | 0 | 9 | OK |
+| dom/nodes/moveBefore/moveBefore-dir.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-disconnected-id-map.html | 0 | 4 | OK |
+| dom/nodes/moveBefore/moveBefore-from-light-to-shadow.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-id-map.html | 0 | 4 | OK |
+| dom/nodes/moveBefore/moveBefore-into-display-none.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-lang.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-name-map.html | 0 | 3 | OK |
+| dom/nodes/moveBefore/moveBefore-nodeiterator.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-optgroup.html | 0 | 3 | OK |
+| dom/nodes/moveBefore/moveBefore-option-recalc-style.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-selector-matching.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-shadow-boundary-id-change.html | 0 | 2 | ERROR |
+| dom/nodes/moveBefore/moveBefore-shadow-host-id-map.html | 0 | 4 | OK |
+| dom/nodes/moveBefore/moveBefore-shadow-inside.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-shadow-root.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-size-query.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/mutation-observer-moved-subtree.window.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/mutation-observer.html | 0 | 2 | OK |
+| dom/nodes/moveBefore/nonce.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/object-crash-regression.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/popover-preserve.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/preserve-render-blocking-script.html | 0 | 1 | ERROR |
+| dom/nodes/moveBefore/preserve-render-blocking-style.html | 0 | 1 | ERROR |
+| dom/nodes/moveBefore/relevant-mutations.html | 0 | 2 | TIMEOUT |
+| dom/nodes/moveBefore/script-move-before.html | 0 | 2 | OK |
+| dom/nodes/moveBefore/select-option-optgroup.html | 0 | 2 | OK |
+| dom/nodes/moveBefore/slotchange-events.html | 0 | 4 | ERROR |
+| dom/nodes/moveBefore/style-applies.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/throws-exception.html | 0 | 1 | OK |
+| dom/nodes/name-validation.html | 1 | 5 | OK |
+| dom/nodes/namespaced-attribute-mutations.html | 5 | 24 | OK |
+| dom/nodes/node-creation-realm.html | 0 | 12 | OK |
+| dom/nodes/node-realm-adoption-after-frame-removal.html | 0 | 2 | OK |
+| dom/nodes/node-realm-mixed-across-adoption.html | 0 | 2 | OK |
+| dom/nodes/node-realm-preserved-across-adoption.html | 0 | 5 | OK |
+| dom/nodes/node-realm-preserved-across-frameless-adoption.html | 0 | 4 | OK |
+| dom/nodes/post-connection-steps-shadow-tree.html | 0 | 1 | OK |
+| dom/nodes/prepend-on-Document.html | 0 | 5 | ERROR |
+| dom/nodes/processing-instruction-attributes.html | 0 | 140 | OK |
+| dom/nodes/query-target-in-load-event.html | 0 | 1 | TIMEOUT |
+| dom/nodes/querySelector-empty-id.html | 0 | 1 | OK |
+| dom/nodes/querySelector-id-nth-child.html | 1 | 2 | OK |
+| dom/nodes/remove-and-adopt-thcrash.html | 0 | 1 | OK |
+| dom/nodes/remove-next-sibling-during-replace-with.html | 0 | 1 | OK |
+| dom/nodes/remove-unscopable.html | 0 | 6 | OK |
+| dom/nodes/rootNode.html | 0 | 5 | OK |
+| dom/events/AddEventListenerOptions-signal.any.html | 0 | 11 | OK |
+| dom/events/Body-FrameSet-Event-Handlers.html | 0 | 48 | ERROR |
+| dom/events/CustomEvent.html | 0 | 3 | OK |
+| dom/events/Event-cancelBubble.html | 0 | 8 | OK |
+| dom/events/Event-constants.html | 0 | 4 | ERROR |
+| dom/events/Event-constructors.any.html | 12 | 14 | OK |
+| dom/events/Event-defaultPrevented-after-dispatch.html | 0 | 2 | OK |
+| dom/events/Event-defaultPrevented.html | 0 | 8 | OK |
+| dom/events/Event-dispatch-bubble-canceled.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-bubbles-false.html | 0 | 5 | OK |
+| dom/events/Event-dispatch-bubbles-true.html | 0 | 5 | OK |
+| dom/events/Event-dispatch-click.html | 0 | 33 | TIMEOUT |
+| dom/events/Event-dispatch-click.tentative.html | 0 | 4 | OK |
+| dom/events/Event-dispatch-detached-click.html | 0 | 2 | TIMEOUT |
+| dom/events/Event-dispatch-detached-input-and-change.html | 0 | 12 | OK |
+| dom/events/Event-dispatch-handlers-changed.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-listener-order.window.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-multiple-cancelBubble.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-multiple-stopPropagation.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-omitted-capture.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-other-document.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-propagation-stopped.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-reenter.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-single-activation-behavior.html | 0 | 120 | ERROR |
+| dom/events/Event-dispatch-target-moved.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-target-removed.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-throwing-multiple-globals.html | 0 | 2 | TIMEOUT |
+| dom/events/Event-dispatch-throwing.html | 0 | 2 | OK |
+| dom/events/Event-init-while-dispatching.html | 2 | 5 | OK |
+| dom/events/Event-initEvent.html | 0 | 12 | OK |
+| dom/events/Event-isTrusted.any.html | 0 | 1 | OK |
+| dom/events/Event-propagation.html | 0 | 7 | ERROR |
+| dom/events/Event-returnValue.html | 6 | 7 | OK |
+| dom/events/Event-stopPropagation-cancel-bubbling.html | 0 | 1 | OK |
+| dom/events/Event-subclasses-constructors.html | 12 | 49 | OK |
+| dom/events/Event-timestamp-cross-realm-getter.html | 0 | 1 | TIMEOUT |
+| dom/events/Event-timestamp-high-resolution.html | 0 | 4 | OK |
+| dom/events/Event-timestamp-high-resolution.https.html | 0 | 1 | OK |
+| dom/events/Event-timestamp-safe-resolution.html | 0 | 1 | OK |
+| dom/events/Event-type-empty.html | 1 | 2 | OK |
+| dom/events/Event-type.html | 1 | 3 | OK |
+| dom/events/EventListener-addEventListener.sub.window.html | 0 | 1 | TIMEOUT |
+| dom/events/EventListener-handleEvent-cross-realm.html | 0 | 2 | OK |
+| dom/events/EventListener-incumbent-global-1.sub.html | 0 | 1 | TIMEOUT |
+| dom/events/EventListener-incumbent-global-2.sub.html | 0 | 1 | TIMEOUT |
+| dom/events/EventListener-invoke-legacy.html | 0 | 6 | TIMEOUT |
+| dom/events/EventTarget-add-listener-platform-object.html | 0 | 1 | OK |
+| dom/events/EventTarget-dispatchEvent-returnvalue.html | 0 | 2 | OK |
+| dom/events/EventTarget-dispatchEvent.html | 3 | 25 | OK |
+| dom/events/EventTarget-this-of-listener.html | 0 | 6 | OK |
+| dom/events/KeyEvent-initKeyEvent.html | 0 | 3 | OK |
+| dom/events/element-click.html | 0 | 3 | OK |
+| dom/events/event-disabled-dynamic.html | 0 | 1 | OK |
+| dom/events/event-global-event-targets.html | 0 | 5 | OK |
+| dom/events/event-global-extra.window.html | 0 | 6 | TIMEOUT |
+| dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html | 0 | 1 | TIMEOUT |
+| dom/events/event-global-is-still-set-when-reporting-exception-onerror.html | 0 | 1 | TIMEOUT |
+| dom/events/event-global-set-before-handleEvent-lookup.window.html | 0 | 1 | OK |
+| dom/events/event-global.html | 0 | 8 | OK |
+| dom/events/event-listener-not-fully-active-adopted-node.html | 0 | 5 | TIMEOUT |
+| dom/events/event-listener-not-fully-active-callback.html | 0 | 3 | TIMEOUT |
+| dom/events/event-listener-not-fully-active-navigated.html | 0 | 3 | TIMEOUT |
+| dom/events/event-listener-not-fully-active-target.html | 0 | 14 | TIMEOUT |
+| dom/events/label-default-action.html | 0 | 1 | OK |
+| dom/events/legacy-pre-activation-behavior.window.html | 0 | 1 | OK |
+| dom/events/mouse-event-retarget.html | 0 | 1 | OK |
+| dom/events/non-cancelable-when-passive/synthetic-events-cancelable.html | 6 | 12 | OK |
+| dom/events/passive-by-default-non-node.html | 1 | 2 | OK |
+| dom/events/passive-by-default.html | 0 | 100 | ERROR |
+| dom/events/preventDefault-during-activation-behavior.html | 0 | 1 | OK |
+| dom/events/relatedTarget.window.html | 0 | 3 | ERROR |
+| dom/events/scrolling/save-iframe-scroll-offset-when-display-none.html | 0 | 2 | TIMEOUT |
+| dom/events/scrolling/scroll-event-fired-to-element.html | 1 | 4 | OK |
+| dom/events/scrolling/scroll-event-fired-to-iframe.html | 0 | 4 | TIMEOUT |
+| dom/events/scrolling/scroll-event-not-fired-on-ancestor-style-change.html | 0 | 1 | OK |
+| dom/events/scrolling/scroll-events-fired-once-per-frame-across-display-none.html | 0 | 2 | OK |
+| dom/events/scrolling/scrollend-event-fired-after-instant-scroll-in-microtask.html | 0 | 1 | OK |
+| dom/events/scrolling/scrollend-event-fired-for-mandatory-snap-point-after-load.html | 0 | 1 | TIMEOUT |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollTo-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollTo-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollBy-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollBy-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollTo-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollTo-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollLeft-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollLeft-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollTop-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollTop-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollLeft-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollLeft-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollTop-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollTop-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=nested-scrollIntoView | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-end-block-end-behavior-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-end-block-end-behavior-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-handler-content-attributes.html | 0 | 4 | TIMEOUT |
+| dom/events/scrolling/scrollend-event-not-fired-after-removing-scroller.tentative.html | 0 | 3 | TIMEOUT |
+| dom/events/scrolling/scrollend-fires-to-text-input.html | 0 | 5 | ERROR |
+| dom/events/scrolling/scrollend-with-snap-on-fractional-offset.html | 0 | 1 | ERROR |
+| dom/events/shadow-relatedTarget.html | 0 | 2 | ERROR |
+| dom/events/webkit-animation-end-event.html | 0 | 13 | ERROR |
+| dom/events/webkit-animation-iteration-event.html | 0 | 13 | ERROR |
+| dom/events/webkit-animation-start-event.html | 0 | 13 | ERROR |
+| dom/events/webkit-transition-end-event.html | 0 | 13 | ERROR |
+| dom/events/window-event-restored-after-throwing-onerror.html | 0 | 1 | OK |
+| domparsing/DOMParser-parseFromString-encoding.html | 0 | 4 | ERROR |
+| domparsing/DOMParser-parseFromString-html.html | 0 | 10 | ERROR |
+| domparsing/DOMParser-parseFromString-stylesheets.html | 0 | 6 | OK |
+| domparsing/DOMParser-parseFromString-url-base-about.window.html | 0 | 2 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-url-base-pushstate.html | 0 | 45 | ERROR |
+| domparsing/DOMParser-parseFromString-url-base.html | 0 | 45 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-url-moretests.html | 0 | 31 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-url-pushstate.html | 0 | 45 | ERROR |
+| domparsing/DOMParser-parseFromString-url.html | 0 | 45 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-xml-CDATA.html | 0 | 8 | OK |
+| domparsing/DOMParser-parseFromString-xml-doctype.html | 0 | 3 | OK |
+| domparsing/DOMParser-parseFromString-xml-empty-nodes.html | 0 | 8 | OK |
+| domparsing/DOMParser-parseFromString-xml-internal-subset.html | 0 | 1 | OK |
+| domparsing/DOMParser-parseFromString-xml-parsererror.html | 0 | 23 | OK |
+| domparsing/DOMParser-parseFromString-xml-scripting-support-disabled.html | 0 | 12 | OK |
+| domparsing/DOMParser-parseFromString-xml.html | 0 | 8 | OK |
+| domparsing/DOMParser-xml-character-entities.html | 0 | 4 | OK |
+| domparsing/XMLSerializer-serializeToString.html | 0 | 27 | OK |
+| domparsing/createContextualFragment-xhtml.xhtml | 0 | 4 | ERROR |
+| domparsing/createContextualFragment.html | 0 | 35 | OK |
+| domparsing/domparser-spurious-attributes.html | 0 | 2 | OK |
+| domparsing/html-insertion-methods-html-element.html | 0 | 2 | TIMEOUT |
+| domparsing/innerhtml-03.xhtml | 0 | 8 | ERROR |
+| domparsing/innerhtml-empty-document-element.html | 0 | 1 | OK |
+| domparsing/innerhtml-mxss.sub.html | 30 | 60 | OK |
+| domparsing/insert_adjacent_html-xhtml.xhtml | 0 | 30 | ERROR |
+| domparsing/insert_adjacent_html.html | 30 | 31 | OK |
+| domparsing/outerhtml-03.html | 3 | 4 | TIMEOUT |
+| domparsing/parsed-document-origin.window.html | 1 | 7 | OK |
+| domparsing/positional-html-into-script-safe.html | 0 | 13 | OK |
+| domparsing/positional-methods-with-parser-options.html | 0 | 105 | ERROR |
+| domparsing/positional-methods-with-trusted-types-no-createParserOptions.html | 0 | 120 | ERROR |
+| domparsing/positional-methods-with-trusted-types.html | 0 | 42 | ERROR |
+| domparsing/positional-methods.html | 0 | 8 | OK |
+| domparsing/style_attribute_html.html | 0 | 4 | ERROR |
+| domparsing/svg-template.html | 0 | 2 | OK |
+| domparsing/tentative/stream-html-with-trusted-types-adopt.html | 0 | 6 | ERROR |
+| domparsing/tentative/stream-html-with-trusted-types-from-non-tt.html | 0 | 6 | TIMEOUT |
+| domparsing/tentative/stream-html-with-trusted-types-no-createParserOptions.html | 0 | 5 | ERROR |
+| domparsing/tentative/stream-positional.html | 0 | 6 | OK |
+| domparsing/tentative/unclosed-script-already-started.html | 0 | 2 | ERROR |
+| domparsing/xml-parse-serialize-roundtrip.html | 0 | 2 | OK |
+| domparsing/xml-serialization.xhtml | 0 | 17 | ERROR |
+| domparsing/xmldomparser.html | 0 | 1 | OK |
+
+</details>
 
 <!-- hand-written: begin -->
 
@@ -136,6 +605,8 @@ Not run yet: the runner needs the DOM and the event loop, and the tests aren't v
 | There is no doctype node: `drop_doctype: true` in the parser, and `Document` binds no `doctype`. `document.doctype` is `undefined`, `document.firstChild` is `<html>` and `document.childNodes.length` is 1. Chromium 153.0.8010.12 gives a `DocumentType` (`nodeType` 10), and `childNodes.length` 2. Quirks mode is still read from the source, so `compatMode` is right | `crates/dom/src/parse.rs`, `crates/webidl/src/bindgen.rs` (branch `e2-02d`, not on main yet); `Document::to_html` starts at `<html>`. DOM §4.5, §4.6 | Scripts that read `document.doctype` or walk from `document.firstChild` see one node fewer. Serialized HTML has no doctype, so a reparse would be in quirks mode unless E2-08 adds one |
 | `<template>` has no `content`: blitz-html 0.2.0's sink returns the element itself as its contents, so a template's children are ordinary children, and `HTMLTemplateElement` isn't bound. `t.content` is `undefined`, `t.childNodes.length` counts the children, and `querySelector` finds nodes inside. In Chromium 153.0.8010.12, `t.content` is a `DocumentFragment` holding them and `t.childNodes.length` is 0 | `get_template_contents` in blitz-html 0.2.0 (`src/html_sink.rs`, marked TODO), `crates/dom/src/parse.rs` (branch `e2-02d`, not on main yet). HTML §4.12.3 | Libraries that clone `template.content` fail: Alpine's `x-for` and `x-if` do, so `fixtures/real-world/alpine-invoice` needs this (E2-04). Selectors also match template contents, which Chrome keeps out of the document tree |
 | `Attr` is a partial `Node`: `nodeType`, `nodeName`, `nodeValue`, `textContent` and `parentNode` answer, but other `Node` members throw a `TypeError`, "the member isn't available on this object". In Chromium 153.0.8010.12 `Attr` is a full `Node` | `Document::node_of` in `crates/dom/src/host.rs`, `crates/dom/tests/collections.rs`, `attributes_map` (branch `e2-02d`, not on main yet). DOM §4.9.2 | A script that calls a tree method on an `Attr` stops with an exception. Rare outside WPT, where dom/nodes tests of `Attr` will fail |
+| `window.parent`, `top`, `opener` and `location` don't exist in surimono-dom: `location.href` throws a `ReferenceError`, and `testharness.js` can't start without them. In Chrome each page has them. The WPT runner defines the missing names at the start of `testharness.js`'s script, `location` as plain data, so its rates don't depend on this gap and don't measure it either | `wpt/runner/src/main.rs`, `ENVIRONMENT`; `wpt/README.md`, "Harness environment". HTML, the `Window` object and `Location` | A page or library that reads `location` or `window.top` stops with an exception |
+| The WPT denominator is a little small: the Chrome baseline runs on a static server, not wptserve, so subtests that need its Python handlers, or a real browser's input and scrolling, aren't in it. A subtest we fail there can't lower a rate | `wpt/README.md`, "Baseline". Chrome's passes in the baseline against wpt.fyi's Chrome 156 run at the same commit: dom/nodes 15253 of 15286, dom/events 748 of 848, domparsing 909 of 913, timers and microtasks 34 of 34 | dom/events's rate is the most flattered: 10.8% would be 9.6% on wpt.fyi's count. The rest differ by under 1% |
 
 ## Printing gaps in fulgur 0.40.0 seen by the fixtures
 
