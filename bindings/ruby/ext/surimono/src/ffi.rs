@@ -6,6 +6,8 @@
 //! (the GVL really is released), `test_interrupted_renders_raise_and_free_memory`
 //! and `test_interrupt_around_renderer_new` (an interrupt never jumps over Rust
 //! frames), `test_timeout_cancels_the_rest_of_the_document`,
+//! `test_timeout_stops_the_running_island`,
+//! `test_kill_stops_the_running_island`,
 //! `test_signal_cancels_the_rest_of_the_document` and
 //! `test_wakeup_renders_again` (the unblock function), `test_fonts_from_paths_and_data`
 //! (byte copies), and the error tests (errors come back through the GVL
