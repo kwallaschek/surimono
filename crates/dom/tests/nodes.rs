@@ -235,3 +235,35 @@ fn head_body_and_document_properties() {
     );
     assert_eq!(eval("<p>no doctype", "document.compatMode"), "BackCompat");
 }
+
+#[test]
+fn the_body_element_is_the_first_body_or_frameset_child_of_html() {
+    // HTML §3.1.3 "the body element".
+    assert_eq!(
+        eval(
+            "<!doctype html><frameset><frame></frameset>",
+            "document.body.tagName"
+        ),
+        "FRAMESET"
+    );
+    let r = eval(
+        PAGE,
+        r#"const html = document.documentElement;
+        const out = [];
+        const first = document.createElement('frameset');
+        html.insertBefore(first, document.body);
+        out.push(document.body === first);
+        // An element of another namespace isn't one, whatever its name.
+        html.insertBefore(document.createElementNS('urn:x', 'body'), first);
+        out.push(document.body === first);
+        html.remove();
+        // Without an html element there is no body element either.
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.appendChild(document.createElement('body'));
+        svg.appendChild(document.createElement('head'));
+        document.appendChild(svg);
+        out.push(document.body, document.head);
+        out.join()"#,
+    );
+    assert_eq!(r, "true,true,,");
+}
