@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "open3"
 require "pathname"
+require "rbconfig"
 require "timeout"
 require "tmpdir"
 require "surimono"
@@ -473,6 +475,11 @@ class SurimonoTest < Minitest::Test
     assert_equal stub_svg, r.render(island), "the renderer still works"
   end
 
+  # Another Ruby thread sends the signal and exits. On Ruby 3.2 nothing then
+  # passed the signal on to the render on the main thread (P1-PKG-20): it
+  # waited for the whole document unless some other thread happened to drain
+  # Ruby's signal pipe (minitest's idle threads usually did, so this test
+  # failed only now and then). The signal pump makes it deterministic.
   def test_signal_cancels_the_rest_of_the_document
     skip "no SIGUSR2 on this platform" unless Signal.list.key?("USR2")
 
@@ -486,9 +493,90 @@ class SurimonoTest < Minitest::Test
       took = elapsed { assert_raises(Stop) { r.render(slow_document) } }
       sender.join
       assert_operator took, :<, 1.5, "the signal waited #{took.round(2)} s for a 4 s document"
+      assert_no_signal_pump
     ensure
       trap("USR2", previous)
     end
+  end
+
+  # Signals in a fresh process, where only the scenario's own threads exist
+  # (in this test process minitest's idle threads drain Ruby's signal pipe,
+  # which hid the bug). On Ruby 3.2 both cases waited for the whole document
+  # every time, 4.04 to 4.20 s (P1-PKG-20); Ruby 3.3 and later, and 3.2
+  # with the signal pump, stop it before the next island.
+  #   thread: another Ruby thread calls Process.kill and exits;
+  #   outside: another process sends it (Ctrl-C, a supervisor's SIGTERM)
+  #            while a Ruby thread is busy.
+  SIGNAL_CHILD = <<~'RUBY'
+    require "surimono"
+    font, bundle, doc = ARGV.map { |f| File.binread(f) }
+    r = Surimono::Renderer.new(fonts: [font], limits: { time_ms: 200 }, error_policy: :placeholder,
+                               bundles: { "t" => { source: bundle.force_encoding("UTF-8") } }, pool_size: 2)
+    doc.force_encoding("UTF-8")
+    stop = Class.new(StandardError)
+    trap("USR2") { raise stop, "signal" }
+    run = lambda do |name|
+      t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      outcome = begin
+        r.render(doc)
+        "finished"
+      rescue stop
+        "stopped"
+      end
+      took = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0
+      pumps = Thread.list.count { |t| t.name == "surimono-signal-pump" }
+      puts "#{name} #{outcome} #{took.round(3)} #{pumps}"
+    end
+
+    sender = Thread.new { sleep 0.3; Process.kill(:USR2, Process.pid) }
+    run.call("thread")
+    sender.join
+
+    busy = Thread.new { x = 0; loop { x += 1 } }
+    pid = spawn("sh", "-c", "sleep 0.3; kill -USR2 #{Process.pid}")
+    run.call("outside")
+    Process.wait(pid)
+    busy.kill
+  RUBY
+
+  def test_signals_reach_a_main_thread_render_in_a_fresh_process
+    skip "no SIGUSR2 on this platform" unless Signal.list.key?("USR2")
+
+    lib = File.dirname($LOADED_FEATURES.grep(%r{/surimono\.rb\z}).first)
+    Dir.mktmpdir do |dir|
+      files = { "bundle.js" => BUNDLE, "doc.html" => slow_document }.map do |name, text|
+        File.join(dir, name).tap { |f| File.write(f, text) }
+      end
+      out, err, status = Open3.capture3(RbConfig.ruby, "-I", lib, "-e", SIGNAL_CHILD, REPO_FONT, *files)
+      assert status.success?, "the child failed: #{err}"
+      results = out.lines.to_h { |l| name, outcome, took, pumps = l.split; [name, [outcome, Float(took), Integer(pumps)]] }
+      %w[thread outside].each do |name|
+        outcome, took, pumps = results.fetch(name)
+        assert_equal "stopped", outcome, "#{name}: the signal didn't stop the render"
+        assert_operator took, :<, 1.5, "#{name}: the signal waited #{took} s for a 4 s document"
+        assert_equal 0, pumps, "#{name}: a signal pump outlived the render"
+      end
+    end
+  end
+
+  # A render on the main thread with other threads alive, finished or
+  # failed, leaves no signal pump behind (Ruby 3.2 starts one per render).
+  def test_signal_pump_never_outlives_a_render
+    skip "renders on the main thread only" unless Thread.current.equal?(Thread.main)
+
+    other = Thread.new { sleep }
+    before = Thread.list.size
+    assert_equal stub_svg, renderer.render(island)
+    assert_raises(Surimono::Error) { renderer.render(island('{"throw": "x"}')) }
+    assert_no_signal_pump
+    assert_equal before, Thread.list.size
+  ensure
+    other&.kill&.join
+  end
+
+  def assert_no_signal_pump
+    pumps = Thread.list.select { |t| t.name == "surimono-signal-pump" }
+    assert_empty pumps, "a signal pump outlived the render"
   end
 
   # An unblock without an exception to raise (Thread#wakeup) renders the
