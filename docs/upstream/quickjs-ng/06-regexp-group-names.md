@@ -4,7 +4,7 @@ Found by an automated tool (an AI agent working on surimono, an embedder of quic
 
 **What happens.** `re_parse_term` appends capture-group names to a `dbuf`. A failed write is ignored, parsing goes on, and `lre_compile` doesn't check that buffer the way it checks the bytecode buffer. The compiled regexp then holds a truncated name table, and `js_regexp_exec` runs off its end: `JS_NewAtom` calls `strlen` on a pointer past the buffer while it builds the `groups` object.
 
-**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/regexp-groups.js` is a named-groups regexp in one line:
+**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build with `__SANITIZE_ADDRESS__` defined, which turns the small-block arena off so every allocation reaches it. gcc predefines that macro under `-fsanitize=address` and clang 18 doesn't, so `repro.sh` passes it on the command line and stops if the arena is still on. `cases/oom/regexp-groups.js` is a named-groups regexp in one line:
 
 ```
 REPRODUCED 06 regexp-groups  refused allocation 27: heap-buffer-overflow (strlen < JS_NewAtom < js_regexp_exec)

@@ -6,10 +6,12 @@
  *   fail-nth run N script.js   run it with allocation N refused
  *   fail-nth sweep script.js   run every N in a child; print those that crash
  *
- * Link against libqjs built with ASan, which also turns the small-block arena
- * off, so every allocation reaches this allocator. Allocations made while the
- * runtime and context start are not counted. With FAIL_NTH_TRACE set, `run`
- * prints the stack of the refused allocation.
+ * Link against libqjs built with ASan and with __SANITIZE_ADDRESS__ defined,
+ * which turns the small-block arena off, so every allocation reaches this
+ * allocator. gcc predefines that macro under -fsanitize=address; clang 18
+ * doesn't, so pass -D__SANITIZE_ADDRESS__ when building libqjs. Allocations made
+ * while the runtime and context start are not counted. With FAIL_NTH_TRACE set,
+ * `run` prints the stack of the refused allocation.
  */
 #include <stdio.h>
 #include <stdlib.h>

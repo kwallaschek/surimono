@@ -40,7 +40,7 @@ echo "quickjs-ng $(git -C "$src" rev-parse HEAD) ($(git -C "$src" log -1 --forma
 echo "building (ASan and release)..."
 jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
 step "configuring the ASan build" cmake -S "$src" -B "$work/asan" -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_C_COMPILER="$cc" -DQJS_ENABLE_ASAN=ON -DCMAKE_C_FLAGS=-O1
+  -DCMAKE_C_COMPILER="$cc" -DQJS_ENABLE_ASAN=ON -DCMAKE_C_FLAGS="-O1 -D__SANITIZE_ADDRESS__"
 step "the ASan build" cmake --build "$work/asan" -j "$jobs" --target qjs
 step "configuring the release build" cmake -S "$src" -B "$work/rel" -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_C_COMPILER="$cc"
@@ -51,6 +51,17 @@ step "compiling harness/time-limit.c" "$cc" -g -O2 -I"$src" "$here/harness/time-
   "$work/rel/libqjs.a" -lm -lpthread -ldl -o "$work/time-limit"
 
 export ASAN_OPTIONS=detect_leaks=0:allocator_may_return_null=1:abort_on_error=0
+
+# quickjs.c keeps a small-block arena unless __SANITIZE_ADDRESS__ is defined. gcc
+# predefines it under -fsanitize=address and clang doesn't, so the ASan build above
+# defines it. With the arena on, most allocations never reach the harness and the
+# sweeps below would find nothing, which would read as "bug gone". syntax.js makes
+# about 3,000 allocations with the arena off and 140 with it on.
+allocs="$("$work/fail-nth" count "$here/cases/oom/syntax.js" 2>/dev/null || true)"
+if ! [[ "$allocs" =~ ^[0-9]+$ ]] || [ "$allocs" -lt 600 ]; then
+  echo "repro.sh: the ASan build still has the small-block arena on: cases/oom/syntax.js made '$allocs' allocations through the harness, expected at least 600. The results would be meaningless." >&2
+  exit 2
+fi
 
 # oom FINDING CASE PATTERN: refuses each allocation of cases/oom/CASE.js in turn
 # and looks for PATTERN (a sanitizer frame or an assertion) in a crash report.
@@ -117,6 +128,21 @@ js_scan 01 bind-from-js 5900000 16384 6400000 \
   'const pad = new Uint8Array($k); const args = new Array(30000).fill(0); (function () {}).bind(null, ...args)'
 js_scan 08 array-subclass-from-js 6000000 5003 6800000 \
   'const pad = new Uint8Array($k); const keep = []; for (;;) { class A extends Array {} keep.push(Object.create(A.prototype), new A()); }'
+
+echo
+echo "from JavaScript alone (release build, qjs with default limits)"
+# js_once FINDING CASE: runs cases/js/CASE.js and looks for a signal.
+js_once() {
+  local rc
+  "$work/rel/qjs" "$here/cases/js/$2.js" >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" -ge 128 ]; then
+    printf 'REPRODUCED      %-3s %-26s ended in signal %s\n' "$1" "$2" "$((rc - 128))"
+  else
+    printf 'not reproduced  %-3s %-26s exit %s\n' "$1" "$2" "$rc"
+  fi
+} 2>/dev/null
+js_once 07 generator-parameters
 
 echo
 echo "time limits, 250 ms unless noted; the handler is written to answer at once"

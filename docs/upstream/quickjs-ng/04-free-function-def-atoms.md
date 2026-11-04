@@ -4,7 +4,7 @@ Found by an automated tool (an AI agent working on surimono, an embedder of quic
 
 **What happens.** When a compile fails, `js_free_function_def` walks `fd->byte_code` with `free_bytecode_atoms` to release the atoms its opcodes hold. If the buffer failed to grow, or `resolve_labels` left it half converted, the walk decodes a truncated stream and calls `JS_FreeAtom` on whatever it reads: SEGV in `__JS_FreeAtom`, or the wrong atom's reference count dropping.
 
-**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/atoms.js` is one function with a few dozen property names:
+**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build with `__SANITIZE_ADDRESS__` defined, which turns the small-block arena off so every allocation reaches it. gcc predefines that macro under `-fsanitize=address` and clang 18 doesn't, so `repro.sh` passes it on the command line and stops if the arena is still on. `cases/oom/atoms.js` is one function with a few dozen property names:
 
 ```
 REPRODUCED 04 atoms  SEGV (__JS_FreeAtom < free_bytecode_atoms < js_free_function_def)

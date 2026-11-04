@@ -8,7 +8,7 @@ Found by an automated tool (an AI agent working on surimono, an embedder of quic
 - a `memmove` gets a negative size;
 - on the way out, `assert(label_slots[i].first_reloc == NULL)` aborts a build with assertions on, because pending relocations weren't freed. With `NDEBUG` the check is gone and those `RelocEntry` blocks leak.
 
-**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/resolve-labels.js` is a small function with a loop and try/finally:
+**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build with `__SANITIZE_ADDRESS__` defined, which turns the small-block arena off so every allocation reaches it. gcc predefines that macro under `-fsanitize=address` and clang 18 doesn't, so `repro.sh` passes it on the command line and stops if the arena is still on. `cases/oom/resolve-labels.js` is a small function with a loop and try/finally:
 
 ```
 REPRODUCED 02 resolve-labels  refused allocation 89: SEGV (put_u32 < resolve_labels)

@@ -18,7 +18,7 @@ pr->u.value = js_int32(0);
 
 The branch isn't only for the first array. `Array` called as a constructor with another `new.target` reaches it through `js_create_from_ctor` and `JS_NewObjectProtoClass`, and the shape found there is the empty one for that prototype, not `ctx->array_shape`. When that empty shape is shared and has no `length` successor yet, `add_property` goes through `js_clone_shape`, which allocates and can fail. Then `pr` is NULL.
 
-**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/array-subclass.js`:
+**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build with `__SANITIZE_ADDRESS__` defined, which turns the small-block arena off so every allocation reaches it. gcc predefines that macro under `-fsanitize=address` and clang 18 doesn't, so `repro.sh` passes it on the command line and stops if the arena is still on. `cases/oom/array-subclass.js`:
 
 ```js
 class A extends Array {}
@@ -39,7 +39,7 @@ for k in $(seq 6000000 5003 7900000); do
 done
 ```
 
-47 of the 380 pad sizes end in SIGSEGV on e22ce4de (2 Nov 2026), all in `JS_NewObjectFromShape`; with the fix below, none do.
+47 of the 380 pad sizes end in SIGSEGV on e22ce4de (2 Nov 2026) in a gcc 13 release build, all in `JS_NewObjectFromShape`; with the fix below, none do. The window depends on the build: another release build gave 40 of 380. The `repro.sh` in `quickjs-ng-repro.tar.gz` scans a shorter range and printed 21 of 160.
 
 **Suggested fix.** Check `pr`. The object isn't on the GC list yet at this point, so free it by hand:
 

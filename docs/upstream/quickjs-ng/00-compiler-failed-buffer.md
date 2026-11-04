@@ -7,7 +7,7 @@ Found by an automated tool (an AI agent working on surimono, an embedder of quic
 - `resolve_variables` reads the truncated buffer past its end (`get_u32`, `get_u16`, a `dbuf_put` of an operand): ASan reports heap-buffer-overflow reads.
 - With the constant pool refused, `assert(cpool_idx >= 0)` in `js_create_function` aborts the process in a build with assertions on. With `NDEBUG` (CMake's Release type) the check is gone and the next line writes `fd->cpool[-1]`.
 
-**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build, which turns the small-block arena off so every allocation reaches it. `cases/oom/compiler.js` is two lines of arrow functions:
+**Reproduce.** `quickjs-ng-repro.tar.gz`, attached, reproduces this on master at e22ce4de (2 Nov 2026): run its `repro.sh`, or see `harness/fail-nth.c` and the case named here. The harness gives a runtime an allocator through `JS_NewRuntime2` that returns NULL for the Nth allocation of a script run and then carries on, in an ASan build with `__SANITIZE_ADDRESS__` defined, which turns the small-block arena off so every allocation reaches it. gcc predefines that macro under `-fsanitize=address` and clang 18 doesn't, so `repro.sh` passes it on the command line and stops if the arena is still on. `cases/oom/compiler.js` is two lines of arrow functions:
 
 ```
 REPRODUCED 00 compiler  refused allocation 4: heap-buffer-overflow (resolve_variables)
