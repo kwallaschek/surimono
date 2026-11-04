@@ -45,6 +45,26 @@ if grep -rq 'fn out_of_memory_full_sweep' crates/core/src 2>/dev/null; then
   step "core: out-of-memory full sweep (ignored test)"
   cargo test -p surimono-core --lib --locked -- --ignored out_of_memory_full_sweep; ran=$((ran + 1))
 fi
+# The stack check on the main thread under musl (#45), where it falls back to
+# RLIMIT_STACK. musl-gcc builds quickjs.c. The test skips itself on a small or
+# unlimited stack, so set the limit it needs and insist it says "ok": a skip
+# here would turn the job green without having checked anything.
+if [ -f crates/core/tests/main_thread_stack.rs ] && [ "$(uname -m)" = x86_64 ]; then
+  step "core: main thread stack on x86_64-unknown-linux-musl"
+  if ! command -v musl-gcc >/dev/null && [ -n "${GITHUB_ACTIONS:-}" ]; then
+    sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq musl-tools
+  fi
+  rustup target add x86_64-unknown-linux-musl
+  # Print the test's stdout before acting on its status, or set -e loses it.
+  musl_status=0
+  musl_out="$(ulimit -s 8192 && cargo test -p surimono-core --test main_thread_stack \
+    --target x86_64-unknown-linux-musl --locked)" || musl_status=$?
+  printf '%s\n' "$musl_out"
+  [ "$musl_status" -eq 0 ] || exit "$musl_status"
+  printf '%s\n' "$musl_out" | grep -q '^main_thread_stack: ok' \
+    || { echo "main_thread_stack didn't run its checks" >&2; exit 1; }
+  ran=$((ran + 1))
+fi
 # The Rust git-dependency + [patch] recipe the README gives: a program outside
 # the workspace builds and renders with it, and doesn't link without the patch.
 step "git dependency recipe"; scripts/ci/git-dep-recipe.sh; ran=$((ran + 1))

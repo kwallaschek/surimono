@@ -19,7 +19,7 @@ surimono supports CRuby 3.2 to 4.0, and fulgur's gem 0.40.0 supports Ruby 3.1 to
 3.4, so use Ruby 3.2, 3.3 or 3.4. surimono ships precompiled native gems for
 Linux (x86_64 and aarch64, glibc) and macOS (x86_64 and arm64), so
 `bundle install` needs no Rust toolchain there. On other platforms the gem
-builds from source and needs Rust 1.87 or later, a C compiler and libclang
+builds from source and needs Rust 1.89 or later, a C compiler and libclang
 (rb-sys generates its Ruby bindings with bindgen). fulgur publishes
 precompiled gems too; check that yours is among them.
 
@@ -329,12 +329,18 @@ to 20 times as long. Two options bound a whole document:
   Then one document spends at most about 20 seconds running chart scripts.
 - **Timeouts cancel.** `Timeout.timeout`, `Rack::Timeout`, `Thread#raise`,
   `Thread#kill` or an exception a signal handler raises in the rendering thread
-  stop a render before its next island and raise as usual (for example `Timeout::Error`); the island already
-  running ends within its own `time_ms`. So a timeout around the call works:
+  stop a render, its running island included, and raise as usual (for example
+  `Timeout::Error`). So a timeout around the call works:
 
   ```ruby
   html = Timeout.timeout(10) { PdfRenderer.islands(html) }
   ```
+
+  Loading a bundle is the exception: it isn't interrupted, and the interrupt
+  lands when the load ends. Precompiled built-ins load in place. A built-in
+  compiled from source on first use, or your own bundle compiled at a forked
+  worker's first render, can take up to twice `time_ms` (one limit to compile,
+  one to run it once), plus any wait for a free runtime.
 
 ## Testing
 

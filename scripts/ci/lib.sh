@@ -67,9 +67,9 @@ ensure_toolchain() {
   fi
 }
 
-# cargo-about, pinned, for THIRD_PARTY_LICENSES.txt. It needs rustc 1.88, newer
-# than the workspace's pinned toolchain, so it is built with stable; it's a
-# tool, not part of what we ship.
+# cargo-about, pinned, for THIRD_PARTY_LICENSES.txt. It needs rustc 1.88 and is
+# built with stable: it's a tool, not part of what we ship, so it doesn't follow
+# the workspace's pinned toolchain.
 CARGO_ABOUT_VERSION=0.9.3
 ensure_cargo_about() {
   if cargo about --version 2>/dev/null | grep -qx "cargo-about $CARGO_ABOUT_VERSION"; then return 0; fi
