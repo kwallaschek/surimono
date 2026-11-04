@@ -1,6 +1,7 @@
 //! The QuickJS sandbox: one runtime and one context under resource limits.
 
 use std::fmt;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -189,6 +190,46 @@ impl Deadline {
     /// stale handle refuses work instead of running unbounded.
     pub fn passed(&self) -> bool {
         self.state.retired() || self.state.cancelled() || self.state.deadline_passed()
+    }
+}
+
+impl Deadline {
+    /// Runs the body of a host function. rquickjs turns a panic in a host
+    /// function into an exception a script can catch, and finishes the panic
+    /// only if the exception gets back to Rust, so a `try` would hide it and
+    /// the script would carry on over whatever the panic left half done.
+    /// Here a panic in `f` becomes that exception and also ends the call: it
+    /// fails with [`SandboxError::HostPanic`] however the script handles the
+    /// exception. Wrap every host function's body in this.
+    pub fn guard<'js, R>(
+        &self,
+        ctx: &Ctx<'js>,
+        f: impl FnOnce() -> rquickjs::Result<R>,
+    ) -> rquickjs::Result<R> {
+        guard_native(&self.state, ctx, f)
+    }
+}
+
+/// See [`Deadline::guard`].
+pub(crate) fn guard_native<'js, R>(
+    state: &LimitState,
+    ctx: &Ctx<'js>,
+    f: impl FnOnce() -> rquickjs::Result<R>,
+) -> rquickjs::Result<R> {
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(result) => result,
+        Err(panic) => {
+            let message = panic
+                .downcast_ref::<&str>()
+                .map(|s| (*s).to_owned())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "a panic with no message".to_owned());
+            state.note_panic(message);
+            Err(rquickjs::Exception::throw_internal(
+                ctx,
+                "a host function failed",
+            ))
+        }
     }
 }
 
@@ -641,9 +682,9 @@ impl Sandbox {
         drop(ctx);
         #[cfg(any(test, feature = "test-hooks"))]
         let stopped = std::time::Instant::now();
-        let rebuild = matches!(&result, Err(e) if e.is_limit() || *e == SandboxError::Cancelled);
+        let rebuild = matches!(&result, Err(e) if e.discards_state());
         if rebuild {
-            // A limit or a cancel can stop a script anywhere, leaving its
+            // A limit, a cancel or a panic stops a script anywhere, leaving its
             // state half updated, microtasks queued and the engine's interrupt
             // sticky. Start over; if even that fails,
             // later calls report an engine error (see `rebuild`).
@@ -965,6 +1006,11 @@ pub(crate) fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) ->
     // on the way down.
     if state.cancelled() {
         return SandboxError::Cancelled;
+    }
+    if state.panicked() {
+        return SandboxError::HostPanic {
+            message: state.panic_message(),
+        };
     }
     if state.oom() {
         return SandboxError::MemoryLimit;
