@@ -25,6 +25,6 @@ is pinned by sha256 in `fixtures/real-world/manifest.toml`.
 | highlight.js (@highlightjs/cdn-assets) | 11.12.0 | BSD-3-Clause | https://github.com/highlightjs/highlight.js at dce7a3dab8f3fd586138ba6c5f29ecc19c02db9f | `lib/highlight.js-11.12.0/LICENSE` |
 | KaTeX | 0.19.1 | MIT | https://github.com/KaTeX/KaTeX at 8000fbd4e29cca2c0cb1e88b745af3ed2f436b66 | `lib/katex-0.19.1/LICENSE` |
 | KaTeX fonts (20 woff2 files) | 0.19.1 | OFL-1.1, with Reserved Font Names | same, npm tarball `dist/fonts/` | `lib/katex-0.19.1/fonts/OFL.txt` |
-| Alpine.js | 3.17.5 | MIT | https://github.com/alpinejs/alpine at 8d3d9a2f98385d4c879f4b5be080a0221279ed4d | pending (P1-CF-32): the npm tarball has none, see `lib/alpinejs-3.17.5/LICENSE-NOTE.md` |
+| Alpine.js | 3.17.5 | MIT | https://github.com/alpinejs/alpine at 8d3d9a2f98385d4c879f4b5be080a0221279ed4d | `lib/alpinejs-3.17.5/LICENSE.md`, from that commit: the npm tarball has none (`LICENSE-NOTE.md` there) |
 | @vue/reactivity and @vue/shared, inlined in Alpine's `cdn.min.js` | range ~3.5.40 | MIT | https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.40.tgz | `lib/alpinejs-3.17.5/LICENSE-vue-reactivity` |
 | D3 | 7.9.1 | ISC | https://github.com/d3/d3 at 78db4998f838eb555548dfe8b44f3a5cb83e4695 | `lib/d3-7.9.1/LICENSE` |

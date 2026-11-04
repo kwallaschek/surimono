@@ -6,7 +6,7 @@ use surimono_core::SandboxError;
 /// complete.
 ///
 /// The `StaleDocument`, `NodeRemoved`, `NoDocument`, `NodeLimit`,
-/// `TreeTooDeep` and `HandleLimit` variants are *fatal to the
+/// `TreeTooDeep`, `HandleLimit` and `TextLimit` variants are *fatal to the
 /// call*: the binding throws into the script (so it stops where it is), and
 /// the call fails with this error even if the script caught the exception.
 /// Each means the script used a handle that no longer names a node, or hit
@@ -43,6 +43,13 @@ pub enum DomError {
     /// [`DomLimits::max_handles`](crate::DomLimits::max_handles) handles.
     #[error("the document gave out its limit of {limit} node handles")]
     HandleLimit {
+        /// The limit that was reached.
+        limit: usize,
+    },
+    /// The document would hold more string bytes than
+    /// [`DomLimits::max_text_bytes`](crate::DomLimits::max_text_bytes).
+    #[error("the document reached its limit of {limit} bytes of strings")]
+    TextLimit {
         /// The limit that was reached.
         limit: usize,
     },
