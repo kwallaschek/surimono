@@ -1,0 +1,36 @@
+
+==> stage the gem
+staged 4 crates (crates/core, crates/gfx, crates/islands, crates/surimono) and patched vendor/rquickjs-sys in /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage
+
+==> rb-sys-dock: aarch64-linux, Ruby 3.2,3.3,3.4,4.0
+::info::🐳 Building for Ruby requested versions: 4.0.2:3.4.9:3.3.11:3.2.11
+::info::🐳 Downloading container "rbsys/aarch64-linux:0.9.130", this might take awhile...
+Fetching gem metadata from https://rubygems.org/...
+Resolving dependencies...
+Fetching rake 13.4.2
+Installing rake 13.4.2
+Fetching minitest 5.27.0
+Fetching rake-compiler 1.3.2
+Fetching rake-compiler-dock 1.12.0
+Installing minitest 5.27.0
+Installing rake-compiler 1.3.2
+Installing rake-compiler-dock 1.12.0
+Fetching rb_sys 0.9.130
+Installing rb_sys 0.9.130
+Bundle complete! 5 Gemfile dependencies, 7 gems now installed.
+Bundled gems are installed into `/tmp/rb-sys-dock/bundle`
+Post-install message from minitest:
+NOTE: minitest 5 will be the last in the minitest family to support
+      ruby 1.8 to 2.7. If you need to keep using these versions,
+      you need to pin your dependency to minitest with something
+      like "~> 5.0". See History.rdoc to locate compatible
+      versions.
+
+      Further, minitest 6 will be dropping the following:
+
+      + MiniTest (it's been Minitest for >10 years)
+      + MiniTest::Unit
+      + MiniTest::Unit::TestCase
+      + assert_send (unless you argue for it well)
+      + assert_equal nil, obj
+      + mocks and stubs: moving minitest/mock.rb to its own gem
