@@ -1,0 +1,8 @@
+title = "Regional sales"
+renderer = "d3"
+library_version = "d3 7.9.1"
+lang = "en"
+fonts = ["Noto Sans 400", "Noto Sans 700"]
+page_size = "A4 (210mm x 297mm), 15mm margins"
+tests = "D3 without measuring: selections, joins, band, linear and ordinal scales, axes, area, line, pie and arc; no getBBox and no text measuring. Axes are given the page's font because d3-axis defaults to sans-serif."
+needs = "E2-02 SVG elements in the tree, attributes; E2-04 querySelector, and window.devicePixelRatio 1 or undefined: d3-axis offsets by 0.5 unless the ratio is above 1, and dom.html holds that offset"

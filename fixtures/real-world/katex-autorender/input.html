@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Formula sheet</title>
+<link rel="stylesheet" href="../lib/katex-0.19.1/katex.min.css">
+<style>
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; padding: 0; background: #ffffff; color: #1f2933; }
+body { font-family: "Noto Sans", "Noto Sans JP"; font-size: 14px; line-height: 22px; }
+h1 { font-size: 26px; line-height: 34px; margin: 0 0 12px; }
+h2 { font-size: 16px; line-height: 24px; margin: 16px 0 6px; }
+p { margin: 0 0 10px; }
+pre { font-family: "Noto Sans", "Noto Sans JP"; }
+</style>
+</head>
+<body>
+<h1>Formula sheet</h1>
+<p>Inline maths with the backslash delimiters, \(E = mc^2\), sits on the line, and a literal $5 stays a dollar sign.</p>
+<h2>Display</h2>
+<p>$$\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}$$</p>
+<p>\[\sum_{k=1}^{n} k = \frac{n(n+1)}{2}\]</p>
+<h2>Structures</h2>
+<p>$$\begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix}^{-1} = \frac{1}{ad-bc}\begin{pmatrix} d &amp; -b \\ -c &amp; a \end{pmatrix}$$</p>
+<p>$$f(x) = \begin{cases} x^2 &amp; x \ge 0 \\ -x &amp; x &lt; 0 \end{cases}$$</p>
+<h2>Fonts</h2>
+<p>\(\mathbb{R}\), \(\mathcal{L}\), \(\mathfrak{g}\), \(\mathrm{d}x\), \(\hat{\theta}\), \(\overline{AB}\), \(\sqrt[3]{x}\).</p>
+<pre class="skip">\(not maths: inside pre\)</pre>
+<script src="../lib/katex-0.19.1/katex.min.js"></script>
+<script src="../lib/katex-0.19.1/contrib/auto-render.min.js"></script>
+<script>renderMathInElement(document.body, { throwOnError: true });</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>請求書</title>
+<style>
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; padding: 0; background: #ffffff; color: #1f2933; }
+body { font-family: "Noto Sans JP", "Noto Sans"; font-size: 14px; line-height: 22px; text-spacing-trim: space-all; }
+h1 { font-size: 26px; line-height: 34px; margin: 0 0 12px; }
+p { margin: 0 0 10px; }
+.row { display: flex; padding: 4px 0; }
+.row.head { background: #eef2f6; font-weight: 700; }
+.row.odd { background: #f7f9fb; }
+.name { flex: 0 0 340px; padding-left: 8px; }
+.qty { flex: 0 0 80px; text-align: right; }
+.amount { flex: 0 0 200px; text-align: right; padding-right: 8px; }
+.total { font-weight: 700; }
+.discount { color: #b03a2e; }
+</style>
+<script defer src="../lib/alpinejs-3.17.5/cdn.min.js"></script>
+</head>
+<body>
+<div x-data="invoice()" x-init="applyDiscount()">
+  <h1 x-text="title"></h1>
+  <p>発行先: <span x-text="customer"></span> 様 (<span x-text="lines.length"></span> 件)</p>
+  <p class="hidden-note" x-show="draft">下書きのため無効です。</p>
+  <div class="row head"><div class="name">品目</div><div class="qty">数量</div><div class="amount">金額</div></div>
+  <template x-for="(line, i) in lines" :key="line.id">
+    <div class="row" :class="{ odd: i % 2 === 1 }" :data-line="line.id">
+      <div class="name" x-text="line.name"></div>
+      <div class="qty" x-text="line.qty"></div>
+      <div class="amount" x-text="yen(line.qty * line.unit)"></div>
+    </div>
+  </template>
+  <template x-if="discount > 0">
+    <div class="row discount"><div class="name">値引き</div><div class="qty"></div><div class="amount" x-text="'-' + yen(discount)"></div></div>
+  </template>
+  <div class="row total"><div class="name">合計</div><div class="qty"></div><div class="amount" x-text="yen(total)"></div></div>
+</div>
+<script>
+function invoice() {
+  return {
+    title: "請求書 2026-11",
+    customer: "摺物印刷株式会社",
+    draft: false,
+    discount: 0,
+    lines: [
+      { id: 1, name: "帳票テンプレート設計", qty: 2, unit: 120000 },
+      { id: 2, name: "Chart rendering", qty: 12, unit: 8500 },
+      { id: 3, name: "保守サポート", qty: 3, unit: 45000 },
+      { id: 4, name: "Font licensing review", qty: 1, unit: 30000 },
+    ],
+    yen(n) { return "¥" + String(n).replace(/\B(?=(\d{3})+$)/g, ","); },
+    get subtotal() { return this.lines.reduce((s, l) => s + l.qty * l.unit, 0); },
+    get total() { return this.subtotal - this.discount; },
+    applyDiscount() { this.$nextTick(() => { this.discount = Math.floor(this.subtotal / 20); }); },
+  };
+}
+</script>
+</body>
+</html>
