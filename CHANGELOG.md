@@ -14,6 +14,17 @@ The Rust crates and the Ruby gem share one version number.
 
 The first release: chart islands.
 
+### Distribution
+
+- **Ruby gem** `surimono` on RubyGems: `gem install surimono`, or
+  `gem "surimono"` in a Gemfile.
+- **CLI** built from a clone of the repository:
+  `cargo install --locked --path crates/cli`.
+- **The Rust crates are not on crates.io in v0.1**: they need a patched
+  QuickJS engine, which a published crate can't carry yet (Cargo's `[patch]`
+  doesn't travel with it). Rust projects can depend on the repository with
+  git, as the [Rust guide](docs/guide/rust.md#add-the-crates) shows.
+
 ### Added
 
 - **Island markers.** `<script type="application/vnd.surimono+json"
@@ -22,15 +33,17 @@ The first release: chart islands.
   `<div class="surimono-island …" id="…" data-renderer="…" style="width:Wpx;height:Hpx;overflow:hidden">`
   holding the SVG: a box of the island's declared size (default 600 × 400 CSS
   pixels) that clips anything drawn outside it. The marker's `id`, `class`,
-  `style`, `title`, `lang`, `dir`, `role` and `aria-*` attributes are kept.
-  Everything else in the document is left byte for byte as it was. A malformed
-  marker (no `data-renderer`, a bad size, JSON that doesn't parse) is an
-  `invalid-island` error that names the island.
+  `style`, `title`, `lang`, `dir`, `role` and `aria-*` attributes are kept;
+  its `style` comes after the box's size. Everything else in the document is
+  left byte for byte as it was. A malformed marker (no `data-renderer`, a bad
+  size, JSON that doesn't parse) is an `invalid-island` error that names the
+  island.
 - **Built-in renderers**, precompiled to QuickJS bytecode at build time and
-  checked against the engine and the bundle source before use
-  (`SURIMONO_PRECOMPILE=0` compiles from source instead). `builtin_renderers()`
-  lists the built-ins in a build and `precompiled_builtins()` says how many of
-  them loaded precompiled bytecode, for checking a build or a packaged gem:
+  checked against the engine and the bundle source before use. Bytecode that
+  doesn't match is compiled from source instead, with the same output, as
+  with `SURIMONO_PRECOMPILE=0`. `builtin_renderers()` lists the built-ins in
+  a build and `precompiled_builtins()` says how many of them loaded
+  precompiled bytecode, for checking a build or a packaged gem:
   - `echarts`: Apache ECharts 6.1.0, server-side SVG, at the island's size,
     animation off (Cargo feature `echarts`);
   - `vega` and `vega-lite`: Vega 6.4.0 and Vega-Lite 6.5.0, headless view to
@@ -71,26 +84,28 @@ The first release: chart islands.
 - **Error policy** `fail` (default) or `placeholder`, which leaves an empty
   `<div class="surimono-island surimono-island-error" data-error="<kind>">` of
   the island's size, with the message in a comment, and renders the rest.
-- **Rust API** in the `surimono` crate: `Renderer::new(Options)`,
-  `Renderer::render_islands`, `Renderer::render_islands_cancellable`;
+- **Rust API** in the `surimono` crate (from the repository; see
+  Distribution): `Renderer::new(Options)`, `Renderer::render_islands`,
+  `Renderer::render_islands_cancellable`, `Renderer::renderers`;
   `Options` (`font`, `limits`, `seed`, `error_policy`, `renderers`, `bundle`,
   `pool_size`, `now_ms`, `utc_offset_minutes`, `text_mode`, `max_islands`);
-  `Limits`, `ErrorPolicy`, `TextMode`, `DEFAULT_NOW_MS`;
+  `Limits`, `ErrorPolicy`, `TextMode`, `DEFAULT_NOW_MS`, `VERSION`;
   `surimono::builtin_renderers()` (the built-in renderer names, sorted) and
   `surimono::precompiled_builtins()` (how many of them loaded precompiled
-  bytecode in this process); one
-  `#[non_exhaustive]` `Error` enum with `island()` and a stable `kind()`.
-  `Renderer` is `Send + Sync`.
+  bytecode in this process); one `#[non_exhaustive]` `Error` enum with
+  `island()` (an `IslandRef`) and a stable `kind()`. `Renderer` is
+  `Send + Sync`.
 - **Fork safety.** A `Renderer` built before a fork (Puma `preload_app!` or
   `fork_worker`, Unicorn, Resque) starts its runtime pool and text measurer
   again in the child on first use, without touching any lock a parent thread
   may have held.
 - **Runtime pool** that starts with one runtime and grows to `pool_size`
   (default: the number of CPUs, at most 4; at most 64) only when renders
-  overlap; idle runtimes free their memory.
+  overlap; a runtime idle for 2 s frees its memory, and on Linux (glibc) the
+  freed memory goes back to the system.
 - **Ruby gem** `surimono`: `Surimono::Renderer.new(fonts:, limits:, seed:,
   now:, utc_offset_minutes:, error_policy:, renderers:, bundles:, text:,
-  pool_size:, max_islands:)`, `Renderer#render`, and
+  pool_size:, max_islands:)`, `Renderer#render`, `Renderer#renderers`, and
   `Surimono.render(html, **options)`, which keeps up to 4 renderers;
   `Surimono.builtin_renderers` and `Surimono.precompiled_builtins`. Errors
   are `Surimono::Error` subclasses (`MemoryLimitError`, `TimeLimitError`,
@@ -100,9 +115,10 @@ The first release: chart islands.
   precompiled gems for x86_64 and aarch64 Linux (glibc) and x86_64 and arm64
   macOS.
 - **CLI** `surimono render <in.html> -o <out.html> --font <file>…` (crate
-  `surimono-cli`) with the facade's options and typed exit codes: 0 success,
-  1 island failed, 2 usage, 3 limit, 4 configuration, 5 I/O. Output is written
-  through a temporary file and renamed into place only after success.
+  `surimono-cli`, built from a clone) with the facade's options and typed
+  exit codes: 0 success, 1 island failed, 2 usage, 3 limit, 4 configuration,
+  5 I/O. Output is written through a temporary file and renamed into place
+  only after success.
 - **Licence notices.** Every gem includes `THIRD_PARTY_LICENSES.txt` with the
   licences of all Rust crates and JavaScript libraries built into it.
 
