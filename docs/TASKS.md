@@ -135,8 +135,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-36 · RT · done · Engine patch level 6: segfault on Array subclasses under a memory limit, add_arg check (#95; v0.1 blocker)
 - P1-RT-37 · RT · done · Hostile vector B Array.fromAsync accepts either limit (#98)
 - P1-RT-38 · RT · done · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
-- P1-PKG-20 · PKG · doing · Ruby 3.2 only: a signal to a main-thread render waits for the whole render when another Ruby thread exists (Ruby 3.2 starts no signal-pipe drainer then; measured 4.04 s vs 0.41 s). Fix A: short-lived pump thread during such renders on 3.2; deterministic test
-- P1-DX-06 · DX · review · (#110) v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
+- P1-PKG-20 · PKG · done (#114) · Ruby 3.2 only: a signal to a main-thread render waits for the whole render when another Ruby thread exists (Ruby 3.2 starts no signal-pipe drainer then; measured 4.04 s vs 0.41 s). Fix A: short-lived pump thread during such renders on 3.2; deterministic test
+- P1-DX-06 · DX · done (#110, #113) · (#110) v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
+- P1-PKG-22 · PKG · todo · #114 nits: rescue inside the Ruby 3.2 signal pump; fall back to no pump if Thread.new raises ThreadError; name the pump before it first runs; mention the pump in ffi.rs unblock docs
 - P1-DX-07 · DX · todo · After Kay tags v0.1.0: pin README, CHANGELOG and the Rust guide to tag = "v0.1.0" / git clone --branch v0.1.0 (main moves to phase 2)
 - P1-PKG-21 · PKG · todo · CLI users get no THIRD_PARTY_LICENSES.txt with cargo install: add a `surimono licenses` subcommand (embedded notices) or document where to get them
 - P1-PKG-18 · PKG · todo · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
@@ -146,8 +147,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-39 · RT · todo · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
 - P1-RT-40 · RT · done · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
 - P1-CF-33 · CF · todo · COMPAT.md memory note: target is now ≥5× PSS vs Grover (Kay, checkpoint 2); state the measured 5.8× Ruby / 8.0× Rust and fulgur's own ~8.7× floor
-- P1-RT-42 · RT · review · (#111) Main's linux-extra-asan: LeakSanitizer reports 1,108,992 bytes in 492 indirect leaks at exit of the surimono-core lib test binary (since at least 88cb0ee9); symbolize locally, find and fix
-- P1-RT-43 · RT · review · (#112) Main's test-macos-14 timing flakes: cancel.rs stops_a_microtask_flood (MemoryLimit before Cancelled), hostile.rs group_b_swallowed_interrupts_end; make robust without weakening
+- P1-RT-42 · RT · done (#111) · (#111) Main's linux-extra-asan: LeakSanitizer reports 1,108,992 bytes in 492 indirect leaks at exit of the surimono-core lib test binary (since at least 88cb0ee9); symbolize locally, find and fix
+- P1-RT-43 · RT · done (#112) · (#112) Main's test-macos-14 timing flakes: cancel.rs stops_a_microtask_flood (MemoryLimit before Cancelled), hostile.rs group_b_swallowed_interrupts_end; make robust without weakening
 - P1-RT-41 · RT · todo · #100 follow-up: first idle worker of a burst must not trim while others hold runtimes (reset last_trim_ms on 0→1 runtimes); #95 follow-ups: add_arg over the parameter limit gives a SyntaxError with a test, PATCHES.md wording, draft 07 reachability; HostPanic message truncated; doc lines from #102's review
 - P1-DOM-06 · DOM · todo · Guard every native in crates/dom with Deadline::guard and discards_state (#102 finding 1); required before DOM reaches the facade
 - P1-CF-32 · CF · todo · Alpine LICENSE.md in fixtures/real-world/lib once alpinejs/alpine is readable

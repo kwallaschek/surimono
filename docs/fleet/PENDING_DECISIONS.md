@@ -80,6 +80,4 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 ## PKG (#107, #38), add on merge
 - 2026-11-04 · The v0.1 release dry-run checks that no crate is publishable, shipped crates match the gem's version, the CHANGELOG has a dated entry, `cargo install --locked --path crates/cli` works and renders two islands, and the source gem carries the patched engine; root publish = false stays (#38) · Kay, checkpoint 2: gem and CLI only.
 
-## RT main-green (#111 #112), add on merge
-- 2026-11-04 · A test that leaks on purpose frees what it leaked afterwards (test-only reclaiming allocator) rather than adding an LSan suppression, so LeakSanitizer stays strict for the whole suite (#111) · The 1.1 MB ASan report was teardown_counts_leaked_objects's deliberate leak (#84), not a per-render leak.
-- 2026-11-04 · When a test races a stop against a script that keeps allocating, the script gets a heap the stop beats by a measured margin (1 GiB for the microtask flood and Array.fromAsync) instead of accepting either limit; hostile vectors can set their own heap (#112) · macos-14 filled 64–128 MiB before the cancel or deadline was seen.
+## RT main-green (#111 #112): merged 14:20, lines moved
