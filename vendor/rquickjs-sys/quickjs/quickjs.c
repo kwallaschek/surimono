@@ -6268,10 +6268,19 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
                 if (likely(sh == ctx->array_shape)) {
                     pr = &p->prop[0];
                 } else {
-                    /* only used for the first array */
-                    /* cannot fail */
+                    /* surimono: not only the first array: any Array subclass
+                       or other new.target lands here. When the prototype's
+                       empty shape is shared, add_property clones it, which
+                       can fail: `new A()` crashed on a NULL `pr` under a
+                       memory limit. p isn't on the GC list yet. */
                     pr = add_property(ctx, p, JS_ATOM_length,
                                       JS_PROP_WRITABLE | JS_PROP_LENGTH);
+                    if (unlikely(!pr)) {
+                        js_free_shape(ctx->rt, p->shape);
+                        js_free(ctx, p->prop);
+                        js_free(ctx, p);
+                        return JS_EXCEPTION;
+                    }
                 }
                 pr->u.value = js_int32(0);
             }
@@ -8762,10 +8771,12 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
    3: both the allocation-failure hardening (p1-rt-15) and the interrupt
    flag (p1-rt-14), each of which was level 2 on its own branch.
    4: also the per-match polls in the regexp replace loops (p1-rt-23).
-   5: also the leak count at teardown (p1-rt-18). */
+   5: also the leak count at teardown (p1-rt-18).
+   6: also the failed length property of a new array and the unchecked
+   add_arg (p1-rt-36). */
 int surimono_quickjs_patch_level(void)
 {
-    return 5;
+    return 6;
 }
 
 /* surimono: with enabled = 0, every later allocation of this runtime goes
@@ -37854,6 +37865,10 @@ static __exception int js_parse_function_decl2(JSParseState *s,
                 } else {
                     /* unnamed arg for destructuring */
                     idx = add_arg(ctx, fd, JS_ATOM_NULL);
+                    /* surimono: -1 would become OP_get_arg 0xffff, a read
+                       about 1 MiB past the frame when the function runs. */
+                    if (idx < 0)
+                        goto fail;
                     emit_op(s, OP_get_arg);
                     emit_u16(s, idx);
                 }

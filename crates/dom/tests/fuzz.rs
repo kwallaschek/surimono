@@ -129,6 +129,7 @@ fn operation(r: &mut Rng) -> String {
         9 => format!("small({a}).textContent = {value}"),
         10 => format!("at({a}).data = {value}"),
         11 => format!("at({a}).nodeValue = {value}"),
+        12 if a % 8 == 0 => format!("keep(document.createElement('n'.repeat({b} + 1)))"),
         12 => format!("keep(at({a}).firstChild); keep(at({b}).lastChild)"),
         13 => format!("keep(at({a}).nextSibling); keep(at({b}).parentNode)"),
         14 => format!("at({a}).id = {value}; at({b}).className = {value}"),
@@ -145,6 +146,9 @@ fn operation(r: &mut Rng) -> String {
             "const f = keep(document.createDocumentFragment()); f.append(at({a}), {value}); at({b}).appendChild(f)"
         ),
         25 => format!("at({a}).innerHTML = {value} + '<style>' + {value} + '</style><b>x</b>'"),
+        26 if a % 4 == 0 => {
+            format!("at({a}).innerHTML = '<body>' + {value} + '</body><frameset></frameset>'")
+        }
         26 => format!("at({a}).outerHTML = '<i>' + {value} + '</i>'"),
         27 => format!(
             "small({a}).insertAdjacentHTML('beforeend', '<svg><style>' + {value} + '</style></svg>')"
