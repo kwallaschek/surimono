@@ -34,9 +34,11 @@ license = "MIT OR Apache-2.0"
 description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
 keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
 categories = ["rendering", "web-programming"]
-# The release PR sets this; crates that must never be published say
-# `publish = false` themselves (surimono-ruby, surimono-webidl, surimono-dom).
-publish = true
+# v0.1 ships the Ruby gem and the CLI (built from a clone) only; no crate goes
+# to crates.io until the patched engine can be published under our own crate
+# names (Kay, checkpoint 2): a published crate would link the unpatched
+# rquickjs-sys. scripts/ci/release-dry-run.sh fails on any publishable crate.
+publish = false
 repository = "https://github.com/kwallaschek/surimono"
 homepage = "https://github.com/kwallaschek/surimono"
 

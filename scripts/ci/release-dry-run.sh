@@ -1,140 +1,126 @@
 #!/usr/bin/env bash
-# Release dry-run: everything `cargo publish` and `gem push` would do, except
-# publishing. Never publishes, never tags. Run on the release PR's branch
-# (release/v*, where full.yml runs it through nightly-extra or by hand).
+# Release dry-run: everything a release does, except publishing. Never
+# publishes, never tags. Run on the release PR's branch (release/v*, where
+# full.yml runs it through nightly-extra, or by hand).
+#
+# v0.1's release artifacts are the Ruby gem and the CLI built from a clone of
+# the repository (Kay, checkpoint 2). No crate goes to crates.io: [patch]
+# doesn't travel with a published crate, so its users would link the
+# unpatched rquickjs-sys. This script checks that no crate is publishable and
+# that every version and the CHANGELOG agree, builds and runs the CLI the way
+# README.md tells users to, and builds the source gem with the patched engine
+# in it. full.yml's ruby jobs install and test the source gem on Ruby 3.2 to
+# 4.0, and its native-gems jobs build and check the precompiled gems.
 # Usage: scripts/ci/release-dry-run.sh
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 . scripts/ci/lib.sh
 out="${CI_JOB_OUT:-ci-out/release-dry-run}"
 mkdir -p "$out"
+out="$(cd "$out" && pwd)"
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
 
-# Crates published to crates.io, in dependency order; and those never published.
-PUBLISHED=(surimono-core surimono-gfx surimono-islands surimono surimono-cli)
-NEVER=(surimono-ruby surimono-webidl surimono-dom)
+# Release blockers found below; reported together at the end, so one run
+# shows all of them.
+blockers=()
 
 step "no stand-in renderer left"
 if git grep -n 'surimono-stub' -- crates bindings; then
   echo "surimono-stub is still in crates/ or bindings/" >&2; exit 1
 fi
 
-step "versions and publish flags"
+version="$(ruby -e 'load "bindings/ruby/lib/surimono/version.rb"; print Surimono::VERSION')"
+echo "release version (the gem's VERSION): $version"
+
+step "no crate is publishable; every crate is at $version"
 cargo metadata --format-version 1 --no-deps --locked > "$out/metadata.json"
-python3 -I - "$out/metadata.json" "$(ruby -e 'load "bindings/ruby/lib/surimono/version.rb"; print Surimono::VERSION')" \
-  "${PUBLISHED[*]}" "${NEVER[*]}" <<'PY'
+if ! python3 -I - "$out/metadata.json" "$version" <<'PY'
 import json, sys
-meta, gem_version, published, never = sys.argv[1], sys.argv[2], sys.argv[3].split(), sys.argv[4].split()
-pkgs = {p["name"]: p for p in json.load(open(meta))["packages"]}
+meta, version = sys.argv[1], sys.argv[2]
 errors = []
-for name in published:
-    p = pkgs.get(name)
-    if p is None:
-        errors.append(f"{name}: not in the workspace"); continue
-    if p["publish"] == []:
-        errors.append(f"{name}: publish = false, but it is released")
-    if p["version"] != gem_version:
-        errors.append(f"{name}: version {p['version']}, the gem says {gem_version}")
-    if p["version"] == "0.0.0":
-        errors.append(f"{name}: still version 0.0.0")
-    for d in p["dependencies"]:
-        if d.get("path") and d["kind"] in (None, "build") and d["name"] not in published:
-            errors.append(f"{name}: depends on unreleased {d['name']}")
-for name in never:
-    if pkgs.get(name, {}).get("publish") != []:
-        errors.append(f"{name}: must say publish = false")
-others = sorted(n for n, p in pkgs.items() if n not in published + never and p["publish"] != [])
-for name in others:
-    errors.append(f"{name} is publishable but not part of this release; set publish = false until it is")
+for p in sorted(json.load(open(meta))["packages"], key=lambda p: p["name"]):
+    name = p["name"]
+    # cargo metadata says [] for publish = false, null for publishable.
+    if p["publish"] != []:
+        errors.append(f"{name} is publishable; v0.1 publishes no crate (Kay, checkpoint 2): "
+                      "set publish = false")
+    if p["version"] != version:
+        errors.append(f"{name}: version {p['version']}, the gem says {version}")
+    print(f"{name} {p['version']} publish={'false' if p['publish'] == [] else p['publish']}")
 for e in errors:
     print("error:", e)
 sys.exit(1 if errors else 0)
 PY
+then
+  blockers+=("crate versions or publish flags (see above)")
+fi
+[ "$version" != 0.0.0 ] || blockers+=("the version is still 0.0.0")
 
-step "cargo package (all released crates at once, so they resolve each other)"
-# Packaging crates that depend on not-yet-published workspace crates needs
-# Cargo 1.90 or later (it resolves them against a local overlay); the pinned
-# MSRV toolchain's Cargo can't, so this one step uses stable Cargo. Nothing is
-# compiled here (--no-verify): the workspace build and tests on the MSRV cover
-# the code, and surimono-core gets a verified dry-run below.
-rustup toolchain list | grep -q '^stable' || rustup toolchain install stable --profile minimal
-pkgs=(); for c in "${PUBLISHED[@]}"; do pkgs+=(-p "$c"); done
-RUSTUP_TOOLCHAIN=stable cargo package --locked --no-verify --allow-dirty "${pkgs[@]}" 2>&1 | tee "$out/package.log"
-for c in "${PUBLISHED[@]}"; do
-  RUSTUP_TOOLCHAIN=stable cargo package --locked --list --allow-dirty -p "$c" > "$out/$c.files"
-  f="$(ls "${CARGO_TARGET_DIR:-target}/package/$c-"[0-9]*.crate | tail -n1)"
-  size=$(wc -c < "$f")
-  echo "$c: $(wc -l < "$out/$c.files") files, $size bytes ($f)"
-  [ "$size" -lt $((10 * 1024 * 1024)) ] || { echo "$c is over crates.io's 10 MB limit" >&2; exit 1; }
-done
+step "CHANGELOG.md has a dated entry for $version"
+heading="$(grep -m1 -E "^## \[$version\]" CHANGELOG.md || true)"
+echo "${heading:-(no heading for $version)}"
+if [ -z "$heading" ]; then
+  blockers+=("CHANGELOG.md has no '## [$version]' entry")
+elif ! printf '%s\n' "$heading" | grep -Eq "^## \[$version\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$"; then
+  blockers+=("CHANGELOG.md: '$heading' has no release date (YYYY-MM-DD)")
+fi
+grep -q "^\[$version\]: .*/releases/tag/v$version\$" CHANGELOG.md \
+  || blockers+=("CHANGELOG.md has no [$version] link to the v$version tag")
 
-# Release blockers found below; reported together at the end, so one run
-# shows all of them and still builds the gem.
-blockers=()
-
-step "licence texts in every crate"
-# MIT and Apache-2.0 both want their text shipped with the code; crates.io
-# packages only files inside the crate directory (symlinks are followed).
-for c in "${PUBLISHED[@]}"; do
-  for f in LICENSE-MIT LICENSE-APACHE; do
-    grep -qx "$f" "$out/$c.files" || blockers+=("$c: the .crate has no $f (add a symlink to ../../$f)")
-  done
-done
-printf '%s\n' "${blockers[@]:-all crates carry LICENSE-MIT and LICENSE-APACHE}"
-
-step "cargo publish --dry-run (first crate; the others need it on crates.io first)"
-# Verified: built from its .crate alone, as crates.io users get it. It only
-# builds the library (an rlib, never linked), so it can't see that the engine
-# from crates.io is the unpatched one: the next step links a program.
-cargo publish --dry-run --locked --allow-dirty -p "${PUBLISHED[0]}" 2>&1 | tee "$out/publish-dry-run.log"
-
-step "a crates.io user's program links against ${PUBLISHED[0]}"
-# [patch] doesn't travel with a published crate: a user gets rquickjs-sys
-# from crates.io, not vendor/rquickjs-sys. surimono-core refuses to link
-# without the patched engine's marker symbol (docs/DECISIONS.md, #32), so a
-# program using the packaged crate shows whether crates.io users can build it.
-consumer="$(mktemp -d)"
-trap 'rm -rf "$consumer"' EXIT
-mkdir -p "$consumer/src"
-core_pkg="$(ls -d "${CARGO_TARGET_DIR:-target}/package/${PUBLISHED[0]}-"[0-9]* | grep -v '\.crate$' | tail -n1)"
-cat > "$consumer/Cargo.toml" <<TOML
-[package]
-name = "release-consumer"
-version = "0.0.0"
-edition = "2024"
-publish = false
-
-[dependencies]
-${PUBLISHED[0]} = { path = "$(realpath "$core_pkg")" }
-
-[workspace]
-TOML
-cat > "$consumer/src/main.rs" <<'RS'
-fn main() {
-    let mut sandbox = surimono_core::Sandbox::new(surimono_core::Limits::default()).expect("sandbox");
-    let answer: i32 = sandbox.eval("6 * 7").expect("eval");
-    assert_eq!(answer, 42);
-}
-RS
-cp Cargo.lock "$consumer/Cargo.lock"
-toolchain="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
-if (cd "$consumer" && RUSTUP_TOOLCHAIN="$toolchain" cargo run --quiet) > "$out/consumer.log" 2>&1; then
-  echo "a program using the packaged ${PUBLISHED[0]} builds and runs"
-else
-  grep -E 'undefined reference|error(\[|:)' "$out/consumer.log" | head -n 5
-  if grep -q surimono_quickjs_patch_level "$out/consumer.log"; then
-    blockers+=("${PUBLISHED[0]}: a crates.io user gets the unpatched rquickjs-sys 0.14.0 ([patch] doesn't travel); linking fails on surimono_quickjs_patch_level (see consumer.log)")
+step "CLI: cargo install --locked --path crates/cli (as README.md tells users)"
+# A clone has the workspace's [patch], so the CLI links the patched engine;
+# surimono-core refuses to link without its marker symbol (DECISIONS, #32).
+# Release profile, as users get it; the shared target dir keeps it cached.
+if cargo install --locked --path crates/cli --root "$scratch/cli" > "$out/cli-install.log" 2>&1; then
+  tail -n 2 "$out/cli-install.log"
+  cli="$scratch/cli/bin/surimono"
+  got="$("$cli" --version)"
+  echo "$got"
+  [ "$got" = "surimono $version" ] || blockers+=("the CLI says '$got', expected 'surimono $version'")
+  # One island per built-in renderer family, rendered with the fixtures' font.
+  cat > "$scratch/in.html" <<'HTML'
+<!doctype html><html><body>
+<script type="application/vnd.surimono+json" data-renderer="echarts" data-width="320" data-height="200">
+{"xAxis":{"type":"category","data":["a","b"]},"yAxis":{"type":"value"},"series":[{"type":"bar","data":[1,2]}]}
+</script>
+<script type="application/vnd.surimono+json" data-renderer="vega-lite" data-width="320" data-height="200">
+{"data":{"values":[{"x":"a","y":1},{"x":"b","y":2}]},"mark":"bar","encoding":{"x":{"field":"x","type":"nominal"},"y":{"field":"y","type":"quantitative"}}}
+</script>
+</body></html>
+HTML
+  if "$cli" render "$scratch/in.html" -o "$out/cli-render.html" \
+      --font fixtures/fonts/NotoSans-Regular.ttf > "$out/cli-render.log" 2>&1; then
+    islands="$(grep -o 'class="surimono-island' "$out/cli-render.html" | wc -l)"
+    svgs="$(grep -o '<svg' "$out/cli-render.html" | wc -l)"
+    echo "surimono render: exit 0, $islands islands, $svgs <svg> elements"
+    [ "$islands" -eq 2 ] && [ "$svgs" -ge 2 ] \
+      || blockers+=("the CLI rendered $islands islands and $svgs SVGs, expected 2 and at least 2")
   else
-    blockers+=("${PUBLISHED[0]}: a program using the packaged crate doesn't build (see consumer.log)")
+    cat "$out/cli-render.log"
+    blockers+=("surimono render failed on a two-island document (see cli-render.log)")
   fi
+else
+  grep -E 'undefined reference|error(\[|:)' "$out/cli-install.log" | head -n 5 || tail -n 20 "$out/cli-install.log"
+  blockers+=("cargo install --locked --path crates/cli failed (see cli-install.log)")
 fi
 
 step "source gem"
 ruby_path
 (cd bindings/ruby && bundle install --quiet && bundle exec rake gem:source) | tee "$out/gem.log"
-gem_file="$(ls bindings/ruby/pkg/surimono-*.gem | grep -v -- '-x86\|-arm\|-aarch' | tail -n1)"
+gem_file="$(ls bindings/ruby/pkg/surimono-"$version".gem)"
 tar -xOf "$gem_file" data.tar.gz | tar -tzf - | sort > "$out/gem-contents.txt"
-grep -qx THIRD_PARTY_LICENSES.txt "$out/gem-contents.txt" || { echo "the gem has no THIRD_PARTY_LICENSES.txt" >&2; exit 1; }
 echo "built $gem_file ($(wc -l < "$out/gem-contents.txt") files)"
+grep -qx THIRD_PARTY_LICENSES.txt "$out/gem-contents.txt" \
+  || blockers+=("the gem has no THIRD_PARTY_LICENSES.txt")
+# The patched engine: the vendored rquickjs-sys and the [patch] that selects it.
+tar -xOf "$gem_file" data.tar.gz | tar -xzOf - Cargo.toml > "$out/gem-Cargo.toml"
+if grep -qx 'vendor/rquickjs-sys/Cargo.toml' "$out/gem-contents.txt" \
+    && grep -Eq '^rquickjs-sys *= *\{ *path *= *"vendor/rquickjs-sys"' "$out/gem-Cargo.toml"; then
+  echo "the gem carries vendor/rquickjs-sys and its [patch.crates-io] entry"
+else
+  blockers+=("the gem doesn't carry the patched engine (vendor/rquickjs-sys plus its [patch] entry)")
+fi
 
 if [ ${#blockers[@]} -gt 0 ]; then
   step "release blockers (nothing was published)"
