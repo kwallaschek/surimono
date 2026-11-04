@@ -1103,6 +1103,7 @@ fn too_deep_append_after_recursing_to_the_stack_limit_is_a_typed_error() {
 fn a_huge_style_attribute_ends_typed() {
     let limit = DomError::StyleLimit {
         declarations: 4096,
+        tokens: 1 << 16,
         bytes: 8 << 20,
     };
     let unique = "s += 'x' + i + ': 1; '";

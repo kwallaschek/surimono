@@ -134,3 +134,107 @@ fn repeated_tests_of_one_elements_children_and_attributes() {
         bounded(&page, &script);
     }
 }
+
+/// [`bounded`] for what must end in `DomError::StyleLimit`, before stylo: the
+/// caps don't wait for the deadline, so the call is over well within it.
+fn style_refused(page: &str, script: &str) {
+    let mut rt = DomRuntime::new(limits().with_time(scaled(LIMIT))).unwrap();
+    rt.load(Document::parse(page).unwrap());
+    let _: () = rt.eval("0").unwrap();
+    let started = Instant::now();
+    let r = rt.eval::<()>(script);
+    let took = started.elapsed();
+    assert!(
+        matches!(r, Err(DomError::StyleLimit { .. })),
+        "{script}: {r:?}"
+    );
+    assert!(took < scaled(Duration::from_secs(2)), "{script}: {took:?}");
+}
+
+const STYLED: &str = r#"<!doctype html><body><p id="p"></p>"#;
+
+#[test]
+fn a_huge_font_family_through_set_property() {
+    // 8 MiB of tokens took 1.12 s in a release build, 2.78 s in a debug one,
+    // under a 300 ms limit (review of #97).
+    style_refused(
+        STYLED,
+        "document.getElementById('p').style.setProperty('font-family', 'a,'.repeat(4e6) + 'a')",
+    );
+}
+
+#[test]
+fn a_huge_style_through_set_attribute() {
+    let p = "document.getElementById('p')";
+    // 20 MB took 1.8 s in a release build under 100 ms (review of #97).
+    for value in [
+        "'font-family:' + 'a,'.repeat(1e7) + 'a'",
+        "'font-family:' + 'a,'.repeat(4e6 - 8) + 'a'",
+        "'x'.repeat(2e7)",
+    ] {
+        style_refused(STYLED, &format!("{p}.setAttribute('style', {value})"));
+        style_refused(
+            STYLED,
+            &format!("{p}.setAttributeNS('urn:x', 'style', {value})"),
+        );
+    }
+    // Just over the cap, or feeding the parser itself runs into the limit.
+    let value = "'font-family:' + 'a,'.repeat(40000) + 'a'";
+    for html in [
+        format!("'<b style=\"' + {value} + '\">'"),
+        format!("'<template><b style=\"' + {value} + '\"></template>'"),
+    ] {
+        style_refused(STYLED, &format!("{p}.innerHTML = {html}"));
+    }
+}
+
+#[test]
+fn deep_brackets_in_a_style_attribute() {
+    let p = "document.getElementById('p')";
+    let value = "'background: ' + 'a('.repeat(33)";
+    style_refused(STYLED, &format!("{p}.setAttribute('style', {value})"));
+    style_refused(
+        STYLED,
+        &format!("{p}.innerHTML = '<b style=\"' + {value} + '\">'"),
+    );
+    let value = "background: ".to_owned() + &"a(".repeat(32);
+    let page = format!(r#"<!doctype html><p style="{value}">"#);
+    assert!(Document::parse(&page).is_ok());
+}
+
+/// A page is refused like a script: stylo runs on its attributes at the parse.
+#[test]
+fn a_page_with_a_style_attribute_over_the_limits() {
+    let value = "background: ".to_owned() + &"a(".repeat(33);
+    let long = format!("font-family: {}a", "a,".repeat(1 << 16));
+    for page in [
+        format!(r#"<!doctype html><p style="{value}">"#),
+        format!(r#"<!doctype html><p style="{long}">"#),
+        format!(r#"<!doctype html><body><p><body style="{long}">"#),
+        format!(r#"<!doctype html><html><p><html style="{long}">"#),
+        format!(r#"<!doctype html><svg style="{long}">"#),
+    ] {
+        assert!(matches!(
+            Document::parse(&page),
+            Err(DomError::StyleLimit { .. })
+        ));
+    }
+}
+
+#[test]
+fn a_style_attribute_at_the_cap_stays_near_the_limit() {
+    let script = "const p = document.getElementById('p');
+        p.setAttribute('style', 'font-family:' + 'a,'.repeat(32000) + 'a');
+        p.setAttribute('style', 'font-family:' + 'a,'.repeat(32000) + 'b');
+        String(p.getAttribute('style').length)";
+    assert!(bounded(STYLED, script).is_none_or(|n| n == "64013"));
+}
+
+#[test]
+fn a_large_data_url_is_one_token() {
+    let script = "const p = document.getElementById('p');
+        const url = 'url(data:image/png;base64,' + 'A'.repeat(6 << 20) + ')';
+        p.setAttribute('style', 'background-image:' + url);
+        String(p.getAttribute('style').length > 6e6)";
+    assert!(bounded(STYLED, script).is_none_or(|n| n == "true"));
+}
