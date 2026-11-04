@@ -329,12 +329,18 @@ to 20 times as long. Two options bound a whole document:
   Then one document spends at most about 20 seconds running chart scripts.
 - **Timeouts cancel.** `Timeout.timeout`, `Rack::Timeout`, `Thread#raise`,
   `Thread#kill` or an exception a signal handler raises in the rendering thread
-  stop a render before its next island and raise as usual (for example `Timeout::Error`); the island already
-  running ends within its own `time_ms`. So a timeout around the call works:
+  stop a render, its running island included, and raise as usual (for example
+  `Timeout::Error`). So a timeout around the call works:
 
   ```ruby
   html = Timeout.timeout(10) { PdfRenderer.islands(html) }
   ```
+
+  Loading a bundle is the exception: it isn't interrupted, and the interrupt
+  lands when the load ends. Precompiled built-ins load in place. A built-in
+  compiled from source on first use, or your own bundle compiled at a forked
+  worker's first render, can take up to twice `time_ms` (one limit to compile,
+  one to run it once), plus any wait for a free runtime.
 
 ## Testing
 

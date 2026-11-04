@@ -189,10 +189,11 @@ can take up to N × `time`. `max_islands` caps N.
 
 ## Cancelling a render
 
-`render_islands_cancellable` takes an `AtomicBool` and checks it before each
-island; once it is true, the rest are skipped with `Error::Cancelled`, whatever
-the error policy. An island already running ends at its own time limit. Set the
-flag from another thread, a timer or a signal handler:
+`render_islands_cancellable` takes an `AtomicBool` and reads it about every
+5 ms while an island runs. Once it is true, the running island's script stops
+within milliseconds, the islands not yet started are skipped, and the render
+ends with `Error::Cancelled`, whatever the error policy. Leave the flag set
+until the call returns. Set it from another thread, a timer or a signal handler:
 
 ```rust
 use std::sync::Arc;
@@ -207,6 +208,12 @@ std::thread::spawn(move || {
 });
 let result = renderer.render_islands_cancellable(&html, &cancel);
 ```
+
+Loading a bundle isn't interrupted: a cancel takes effect when the load ends.
+Precompiled built-ins load in place. A built-in compiled from source on first
+use, or your own bundle compiled at a forked process's first render, can take
+up to twice `time` (one limit to compile, one to run it once), plus any wait
+for a free runtime.
 
 ## Errors
 
