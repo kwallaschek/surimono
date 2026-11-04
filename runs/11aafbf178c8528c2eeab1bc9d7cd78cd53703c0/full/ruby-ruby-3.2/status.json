@@ -1,0 +1,1 @@
+{"workflow":"full","job":"ruby","matrix":"ruby-3.2","status":"success","reported":"success","needs_result":"","reported_job":"ruby","sha":"11aafbf178c8528c2eeab1bc9d7cd78cd53703c0","ref":"main","event":"push","run_id":"41777040279","attempt":"1","finished_at":"2026-11-04T05:09:43Z"}
