@@ -6,6 +6,14 @@ cd "$(dirname "$0")/../.."
 . scripts/ci/lib.sh
 
 ran=0
+# The WPT slices, once wpt/runner is on the branch: first, so an unrelated
+# failure below can't lose the results, and a failure here is reported only
+# after the other checks have run. It publishes results and judges no rates.
+wpt_status=0
+if [ -f wpt/runner/Cargo.toml ]; then
+  step "wpt: run the slices, publish wpt-results.json"
+  scripts/ci/wpt.sh || wpt_status=$?; ran=$((ran + 1))
+fi
 # The fixture tooling's JavaScript tests need its npm dependencies.
 if ls fixtures/tools/test/*.test.mjs >/dev/null 2>&1; then
   step "fixtures: tool tests (node, after npm ci)"
@@ -76,3 +84,4 @@ case "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}" in
     step "release dry-run"; scripts/ci/release-dry-run.sh; ran=$((ran + 1)) ;;
 esac
 echo "nightly extra checks run: $ran"
+exit "$wpt_status"

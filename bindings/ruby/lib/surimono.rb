@@ -124,13 +124,20 @@ module Surimono
     #
     # A Renderer survives fork: built before Puma's preload_app! (or
     # fork_worker), Unicorn or Resque forks, it starts its runtimes and text
-    # measurer again in each child on first use.
+    # measurer and compiles your bundles again in each child on first use.
     #
     # Interrupts (Timeout.timeout, Rack::Timeout, Thread#raise, Thread#kill,
     # SIGTERM) stop a render, its running island included, and raise as usual.
     # On Ruby 3.2, a render on the main thread while other threads exist runs a
     # sleeping helper thread, "surimono-signal-pump", for its length, so that
     # signals reach it; Ruby 3.3 and later need none.
+    #
+    # An interrupt doesn't stop a bundle while it loads; it takes effect right
+    # after, so that render can outlast your timeout. This matters on the first
+    # render in a forked child, which compiles every bundle: each can take
+    # twice time_ms (a compile, then a check run), and one too large to compile
+    # within time_ms takes as long as its size needs before it fails. The
+    # built-in renderers are precompiled and load quickly.
     #
     # Bad argument types or values raise ArgumentError; a font path that
     # can't be read raises the usual Errno error; options the native side
