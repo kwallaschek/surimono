@@ -546,8 +546,8 @@ impl Sandbox {
     /// promise is replaced by its value and a rejected one fails like a thrown
     /// exception. `then` converts the final value. One time budget covers
     /// all of it. A promise still pending once nothing is left to run fails
-    /// with [`SandboxError::Type`] (the sandbox has no timers or I/O, so it
-    /// would never settle).
+    /// with [`SandboxError::Type`]: this call runs microtasks only, no timers
+    /// or external waits, so it can't settle such a promise.
     pub fn run_await<R, F, G>(&mut self, f: F, then: G) -> Result<R, SandboxError>
     where
         F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<Value<'js>>,
@@ -780,7 +780,7 @@ impl Drop for Armed<'_> {
     }
 }
 
-fn eval_options(filename: &str) -> EvalOptions {
+pub(crate) fn eval_options(filename: &str) -> EvalOptions {
     let mut opts = EvalOptions::default();
     opts.global = true;
     opts.strict = false;
@@ -935,7 +935,7 @@ fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
             from: "pending promise",
             to: "value",
             message: Some(
-                "the promise never settled: nothing was left to run (the sandbox has no timers or I/O)"
+                "the promise is still pending: this call runs microtasks only, not timers or I/O"
                     .into(),
             ),
         }),
@@ -1848,7 +1848,7 @@ mod tests {
             .run_await(|ctx| ctx.eval("new Promise(() => {})"), to_string)
             .unwrap_err()
         {
-            SandboxError::Type { message } => assert!(message.contains("never settled")),
+            SandboxError::Type { message } => assert!(message.contains("still pending")),
             other => panic!("{other:?}"),
         }
         // Limits still apply, and the budget covers the awaiting.

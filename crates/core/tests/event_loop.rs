@@ -248,6 +248,32 @@ fn a_microtask_is_not_a_timer_task() {
     assert_eq!(got, "0 0 0 0 0 0 0 0 0");
 }
 
+/// The same rule for `while (...) await sleep(0)`. The continuation is a
+/// microtask, so by the standard each timer starts at level 0, no clamp
+/// applies and the clock stays put until the task limit. Chrome 153 differs:
+/// it keeps the level through microtasks, and clamps this loop to 4 ms from
+/// the seventh round (logged in COMPAT.md; the standard wins for DOM
+/// behaviour).
+#[test]
+fn awaiting_a_zero_timer_does_not_move_the_clock() {
+    let mut sb = sandbox();
+    sb.eval::<()>(
+        "var sleep = ms => new Promise(r => setTimeout(r, ms));
+         var n = 0, ready = false;
+         setTimeout(() => ready = true, 100);
+         (async () => { while (!ready) { n++; await sleep(0); } log.push('ready'); })();",
+    )
+    .unwrap();
+    let options = SettleOptions {
+        max_tasks: 1000,
+        ..SettleOptions::default()
+    };
+    let r = sb.run_until_settled(&options).unwrap();
+    assert_eq!(r.outcome, SettleOutcome::TaskLimit);
+    assert_eq!((r.virtual_now_ms, r.tasks_run), (0, 1000));
+    assert_eq!(sb.eval::<i32>("log.length").unwrap(), 0);
+}
+
 /// "run steps after a timeout": same due time, set earlier, runs first;
 /// and a shorter timer overtakes a longer one set earlier.
 #[test]
@@ -278,6 +304,51 @@ fn handlers_get_arguments_and_the_global() {
          var h = setInterval(function (a) { clearInterval(h); log.push(a); }, 0, 'kept');",
     );
     assert_eq!(got, "x y 2 true number kept");
+}
+
+/// HTML §8.7: a string handler is "creating a classic script" then "run the
+/// classic script", so it behaves as a `<script>` would: `let` and `const`
+/// land in the global lexical scope for later scripts, `var` makes a global
+/// that can't be deleted, and redeclaring is an early error, reported.
+#[test]
+fn string_handlers_are_classic_scripts() {
+    let mut sb = sandbox();
+    sb.eval::<()>(
+        "setTimeout('let lexical = 1; const fixed = 2; var global = 3;', 0);
+         setTimeout('log.push(typeof lexical, typeof fixed, delete globalThis.global)', 1);
+         setTimeout(() => log.push(typeof lexical, 'lexical' in globalThis), 2);
+         setTimeout('let lexical = 4;', 3);
+         setTimeout(() => log.push(lexical), 4);
+         setTimeout('log.push(this === globalThis)', 5);",
+    )
+    .unwrap();
+    let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!(
+        sb.eval::<String>("log.join()").unwrap(),
+        "number,number,false,number,false,1,true"
+    );
+    assert_eq!(r.uncaught, 1);
+    assert!(matches!(
+        &r.errors[..],
+        [SandboxError::Exception { message, .. }] if message.starts_with("SyntaxError")
+    ));
+    assert_eq!(sb.eval::<i32>("lexical").unwrap(), 1);
+}
+
+/// Sources a C string can't hold, and strings that aren't well formed, end
+/// as a reported error or a run, never a failed call.
+#[test]
+fn odd_string_handlers() {
+    let mut sb = sandbox();
+    sb.eval::<()>(
+        r"setTimeout('log.push(1)\0log.push(2)');
+          setTimeout('log.push(\'\ud800\'.length)');
+          setTimeout('');",
+    )
+    .unwrap();
+    let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!((r.outcome, r.uncaught), (SettleOutcome::Settled, 1));
+    assert_eq!(sb.eval::<String>("log.join()").unwrap(), "1");
 }
 
 /// A task's microtasks run before the next task (§8.1.7.3), and an
@@ -470,6 +541,56 @@ fn frames_share_a_time_and_nest_into_the_next() {
     assert_eq!(got, "16 16 32 32 late 32");
 }
 
+/// HTML §8.1.7.3, the "update the rendering" steps: "run the animation frame
+/// callbacks" is one step of one task, so nothing but microtask checkpoints
+/// (from invoking each callback) comes between a frame's callbacks. Timers
+/// due on the frame's tick wait, whenever they were set. Which of the two
+/// goes first at the same tick is ours; the grouping is the standard's.
+#[test]
+fn a_timer_cannot_land_inside_a_frame() {
+    let got = logged(
+        "setTimeout(() => log.push('before'), 16);
+         requestAnimationFrame(() => {
+           log.push('a');
+           queueMicrotask(() => log.push('micro'));
+         });
+         setTimeout(() => log.push('t'), 16);
+         requestAnimationFrame(() => log.push('b'));",
+    );
+    assert_eq!(got, "a micro b before t");
+}
+
+/// The same steps: the task limit can't stop between a frame's callbacks,
+/// only before a frame or a timer.
+#[test]
+fn the_task_limit_does_not_split_a_frame() {
+    let mut sb = sandbox();
+    sb.eval::<()>(
+        "for (const tag of ['a', 'b', 'c']) requestAnimationFrame(() => log.push(tag));
+         setTimeout(() => log.push('t'), 16);
+         requestAnimationFrame(() => log.push('next'));",
+    )
+    .unwrap();
+    let options = SettleOptions {
+        max_tasks: 1,
+        ..SettleOptions::default()
+    };
+    let r = sb.run_until_settled(&options).unwrap();
+    assert_eq!(r.outcome, SettleOutcome::TaskLimit);
+    assert_eq!((r.tasks_run, r.timers_left), (4, 1));
+    assert_eq!(sb.eval::<String>("log.join()").unwrap(), "a,b,c,next");
+    // With no room at all, the frame never starts.
+    let mut sb = sandbox();
+    sb.eval::<()>("requestAnimationFrame(() => log.push('a'))")
+        .unwrap();
+    let options = SettleOptions {
+        max_tasks: 0,
+        ..SettleOptions::default()
+    };
+    let r = sb.run_until_settled(&options).unwrap();
+    assert_eq!((r.outcome, r.tasks_run), (SettleOutcome::TaskLimit, 0));
+}
+
 #[test]
 fn frames_cancel_apart_from_timers() {
     let got = logged(
@@ -573,19 +694,24 @@ fn the_task_limit_stops_cleanly_and_holds_across_calls() {
     assert_eq!(sb.eval::<i32>("6 * 7").unwrap(), 42);
 }
 
+/// Our rule: external work takes no virtual time. Only tasks due now run
+/// while a wait is pending; the clock moves again when none is.
 #[test]
-fn external_waits_hold_the_page_open() {
+fn external_waits_hold_the_clock() {
     let mut sb = sandbox();
     let handle = sb.event_loop().unwrap();
     handle.external_begin();
     handle.external_begin();
-    sb.eval::<()>("setTimeout(() => log.push('timer'), 5)")
-        .unwrap();
-    // Timers still run; the page isn't settled while something is pending.
+    sb.eval::<()>(
+        "setTimeout(() => log.push('now'));
+         setTimeout(() => log.push('later'), 5);
+         requestAnimationFrame(() => log.push('frame'));",
+    )
+    .unwrap();
     let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
     assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
-    assert_eq!((r.external_pending, r.tasks_run), (2, 1));
-    assert_eq!(handle.virtual_now_ms(), 5);
+    assert_eq!((r.external_pending, r.tasks_run, r.timers_left), (2, 1, 2));
+    assert_eq!(handle.virtual_now_ms(), 0);
     handle.external_end();
     let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
     assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
@@ -595,6 +721,53 @@ fn external_waits_hold_the_page_open() {
     let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
     assert_eq!(r.outcome, SettleOutcome::Settled);
     assert_eq!(r.external_pending, 0);
+    assert_eq!(sb.eval::<String>("log.join()").unwrap(), "now,later,frame");
+}
+
+/// The case the rule is for: a fallback timer and a polling interval can't
+/// run the clock to the budget ahead of a pending image, and what the page
+/// schedules once it has loaded still fits in the budget.
+#[test]
+fn a_fallback_timer_cannot_overtake_a_pending_load() {
+    let mut sb = sandbox();
+    let handle = sb.event_loop().unwrap();
+    handle.external_begin();
+    sb.eval::<()>(
+        "setTimeout(() => log.push('fallback', performance.now()), 3000);
+         var polls = 0;
+         var poll = setInterval(() => polls++, 100);",
+    )
+    .unwrap();
+    let options = SettleOptions::default();
+    let r = sb.run_until_settled(&options).unwrap();
+    assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
+    assert_eq!((r.virtual_now_ms, r.tasks_run), (0, 0));
+    // The loader resolves: the page's load handler runs at the same time.
+    sb.eval::<()>(
+        "clearInterval(poll);
+         setTimeout(() => log.push('after load', performance.now()), 9000);",
+    )
+    .unwrap();
+    handle.external_end();
+    let r = sb.run_until_settled(&options).unwrap();
+    assert_eq!(r.outcome, SettleOutcome::Settled);
+    assert_eq!(
+        sb.eval::<String>("log.join()").unwrap(),
+        "fallback,3000,after load,9000"
+    );
+}
+
+/// A wait doesn't stop what's due now, which stays bounded: an interval
+/// runs its six rounds at 0 ms and stops at the clamp.
+#[test]
+fn zero_delay_work_runs_during_a_wait() {
+    let mut sb = sandbox();
+    sb.event_loop().unwrap().external_begin();
+    sb.eval::<()>("var n = 0; setInterval(() => n++, 0)")
+        .unwrap();
+    let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
+    assert_eq!((r.virtual_now_ms, r.tasks_run), (0, 6));
 }
 
 // --- Hostile scripts -----------------------------------------------------
@@ -775,6 +948,7 @@ fn tampering_with_built_ins_changes_nothing() {
          function evil() { out += 'LEAK '; throw new Error('evil'); }
          Map.prototype.get = Map.prototype.set = Map.prototype.delete = evil;
          Array.prototype.slice = evil;
+         String.prototype.toWellFormed = evil;
          Reflect.apply = evil;
          Promise.prototype.then = evil;
          Promise.prototype.constructor = evil;

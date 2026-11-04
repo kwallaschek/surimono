@@ -12,7 +12,8 @@
 //! (defined in `prelude.js`), behaving as the HTML standard says except that
 //! no real time passes: the clock jumps to the next timer's due time.
 //! `Date` and `performance.now()` read that clock, so they stand still
-//! during a task and move only when the next one starts.
+//! during a task and move only when the next one starts. All of an animation
+//! frame's callbacks run as one group, ahead of timers due on the same tick.
 //!
 //! # Where things live
 //!
@@ -27,19 +28,21 @@
 //!
 //! # The settle rule
 //!
-//! [`run`] loops: drain the microtasks, take the first timer by (due time,
-//! sequence), run it, and again. It stops between tasks, with the microtasks
-//! drained, as soon as one of these holds:
+//! [`run`] loops: drain the microtasks, take the first task by (due time,
+//! frames before timers, sequence), run it, and again. It stops between
+//! tasks, with the microtasks drained, as soon as one of these holds:
 //!
-//! - no timer is due within the budget and no external wait is pending:
-//!   [`SettleOutcome::Settled`] (`timers_left > 0` means "settled by
-//!   budget": a timer exists but is due later, as with an interval nobody
-//!   clears);
-//! - no timer is due within the budget and an external wait is pending:
-//!   [`SettleOutcome::WaitingExternal`]. The caller resolves its waits and
-//!   calls again;
-//! - a timer is due but [`SettleOptions::max_tasks`] tasks have run:
-//!   [`SettleOutcome::TaskLimit`].
+//! - an external wait is pending and the next task would move the clock
+//!   (or there is none): [`SettleOutcome::WaitingExternal`]. The caller
+//!   resolves its waits and calls again. External work takes no virtual
+//!   time, so a pending image or font finishes before any later timer,
+//!   whatever real time it took, and a fallback `setTimeout(f, 3000)` can't
+//!   overtake it. Tasks due at the current time still run;
+//! - no timer is due within the budget: [`SettleOutcome::Settled`]
+//!   (`timers_left > 0` means "settled by budget": a timer exists but is
+//!   due later, as with an interval nobody clears);
+//! - a task is due but [`SettleOptions::max_tasks`] tasks have run:
+//!   [`SettleOutcome::TaskLimit`]. A frame already started finishes first.
 //!
 //! The virtual budget and the task count are measured from the start of the
 //! context, not of the call, so calling again can't extend them. The real
@@ -58,7 +61,7 @@ use rquickjs::{Ctx, Exception, Function, Object, Value};
 
 use crate::SandboxError;
 use crate::engine::LimitState;
-use crate::sandbox::{classify, drain_jobs, exception_error};
+use crate::sandbox::{classify, drain_jobs, eval_options, exception_error};
 
 /// Most timers alive at once. Their Rust entries aren't in the JavaScript
 /// heap, so this is what bounds them; far above what real pages use.
@@ -88,7 +91,9 @@ pub struct SettleOptions {
     /// of the context don't run; one due exactly then does.
     pub virtual_budget_ms: u64,
     /// Most tasks (timer and animation-frame callbacks) to run in the life
-    /// of the context. Microtasks don't count; the time limit stops those.
+    /// of the context. The limit is checked between frames, so the rest of
+    /// a frame already started can pass it. Microtasks don't count; the time
+    /// limit stops those.
     pub max_tasks: u64,
 }
 
@@ -117,7 +122,9 @@ pub enum SettleOutcome {
     Settled,
     /// Timers were still due when the task limit was reached.
     TaskLimit,
-    /// Only external waits are left; resolve them and call again.
+    /// External waits are pending and the clock can't move until they end;
+    /// resolve them and call again. Timers may be waiting too
+    /// ([`SettleReport::timers_left`]).
     WaitingExternal,
 }
 
@@ -203,10 +210,17 @@ impl Kind {
     }
 }
 
-/// Queue order: due time, then the order timers were set (the HTML
-/// standard's "run steps after a timeout" gives the same order for timers
-/// of one ordering identifier).
-type Key = (u64, u64);
+/// [`Key`] class of an animation frame's callbacks.
+const CLASS_FRAME: u8 = 0;
+/// [`Key`] class of timers.
+const CLASS_TIMER: u8 = 1;
+
+/// Queue order: due time; frames before timers, so no timer due on a frame's
+/// tick can land inside the frame (HTML runs a frame's callbacks in one step
+/// of "update the rendering"); then the order they were set (the standard's
+/// "run steps after a timeout" gives the same order for timers of one
+/// ordering identifier).
+type Key = (u64, u8, u64);
 
 /// One queued run of a timer.
 #[derive(Debug, Clone, Copy)]
@@ -246,6 +260,9 @@ pub(crate) struct LoopState {
     /// Nesting level of the running timer task; 0 outside one (including
     /// during its microtasks, each a task of its own in the standard).
     nesting: u32,
+    /// Due time of the last frame started: more frame callbacks at this time
+    /// are the rest of that frame.
+    open_frame: Option<u64>,
     tasks_run: u64,
     external: usize,
     uncaught: u64,
@@ -267,18 +284,19 @@ impl LoopState {
     /// §8.7): clamps, picks the time and queues the task. `id` is given
     /// when an interval goes round again.
     fn arm(&mut self, kind: Kind, timeout: u32, nesting: u32, id: i32) {
-        let due = match kind {
-            Kind::Frame => (self.now / FRAME_MS + 1) * FRAME_MS,
+        let (due, class) = match kind {
+            // Strictly later: one set during a frame waits for the next.
+            Kind::Frame => ((self.now / FRAME_MS + 1) * FRAME_MS, CLASS_FRAME),
             Kind::Timeout | Kind::Interval => {
                 let wait = if nesting > CLAMP_NESTING {
                     timeout.max(CLAMP_MS)
                 } else {
                     timeout
                 };
-                self.now + u64::from(wait)
+                (self.now + u64::from(wait), CLASS_TIMER)
             }
         };
-        let key = (due, self.next_seq);
+        let key = (due, class, self.next_seq);
         self.next_seq += 1;
         self.queue.insert(
             key,
@@ -328,28 +346,36 @@ impl LoopState {
 
     /// Applies the settle rule: the next task, or why there is none.
     fn step(&mut self, options: &SettleOptions) -> Step {
+        let budget = options.virtual_budget_ms;
+        let waiting = self.external > 0;
+        let now = self.now;
         let Some(entry) = self
             .queue
             .first_entry()
-            .filter(|e| e.key().0 <= options.virtual_budget_ms)
+            .filter(|e| e.key().0 <= budget && !(waiting && e.key().0 > now))
         else {
-            return Step::Stop(if self.external > 0 {
+            return Step::Stop(if waiting {
                 SettleOutcome::WaitingExternal
             } else {
                 SettleOutcome::Settled
             });
         };
-        if self.tasks_run >= options.max_tasks {
+        let (due, class, _) = *entry.key();
+        let mid_frame = class == CLASS_FRAME && self.open_frame == Some(due);
+        if self.tasks_run >= options.max_tasks && !mid_frame {
             return Step::Stop(SettleOutcome::TaskLimit);
         }
-        let ((due, _), task) = entry.remove_entry();
+        let task = entry.remove();
         self.now = due;
         self.tasks_run += 1;
         if let Some(slot) = self.live.get_mut(&task.id) {
             slot.key = None;
         }
         self.nesting = match task.kind {
-            Kind::Frame => 0,
+            Kind::Frame => {
+                self.open_frame = Some(due);
+                0
+            }
             Kind::Timeout | Kind::Interval => task.nesting,
         };
         Step::Run(task, due)
@@ -452,6 +478,22 @@ pub(crate) fn host_object<'js>(
             let _ = ctx.catch();
             st.borrow_mut().note(error);
         })?,
+    )?;
+    host.set(
+        "runScript",
+        Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>, source: String| -> rquickjs::Result<()> {
+                let options = eval_options("<timer>");
+                match ctx.eval_with_options::<Value<'js>, _>(source, options) {
+                    Ok(_) => Ok(()),
+                    Err(rquickjs::Error::Exception) => Err(rquickjs::Error::Exception),
+                    // rquickjs takes a C string, so a NUL can't reach the
+                    // parser, which is all that ends up here.
+                    Err(_) => Err(Exception::throw_syntax(&ctx, "invalid character in script")),
+                }
+            },
+        )?,
     )?;
     Ok(host)
 }
