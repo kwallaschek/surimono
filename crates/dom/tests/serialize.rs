@@ -77,11 +77,7 @@ fn void_elements_are_only_html_elements() {
     );
 }
 
-/// Comment data is lost: blitz-dom 0.2.4's `NodeData::Comment` has no
-/// fields, so every comment serializes as `<!---->`. Recorded as a known
-/// gap; this test holds the spec's answer for when blitz keeps the data.
 #[test]
-#[ignore = "known gap: blitz-dom 0.2.4 keeps no comment data"]
 fn comments_keep_their_data() {
     // §13.3: `<!--`, the comment's data, `-->`.
     assert_eq!(body_html("<p><!-- 売上 --></p>"), "<p><!-- 売上 --></p>");

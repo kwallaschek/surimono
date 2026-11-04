@@ -25,8 +25,23 @@ use crate::ast::*;
 use crate::model::{MergedInterface, MergedMember, NameKind};
 
 /// The interfaces [`crate::stubs`] is generated for, parents first.
-pub const STUB_INTERFACES: &[&str] =
-    &["EventTarget", "Node", "Element", "Document", "DOMTokenList"];
+pub const STUB_INTERFACES: &[&str] = &[
+    "EventTarget",
+    "Node",
+    "Element",
+    "HTMLElement",
+    "Document",
+    "DocumentFragment",
+    "CharacterData",
+    "Text",
+    "Comment",
+    "Attr",
+    "NodeList",
+    "HTMLCollection",
+    "NamedNodeMap",
+    "DOMTokenList",
+    "DOMStringMap",
+];
 
 /// Typedefs and nested types deeper than this are an error (a typedef cycle).
 const MAX_TYPE_DEPTH: u32 = 32;
@@ -77,6 +92,36 @@ pub enum GenError {
     /// The interface is listed twice.
     #[error("`{0}` listed twice")]
     Duplicate(String),
+    /// A listed member isn't in the interface.
+    #[error("`{interface}` has no member `{member}`")]
+    UnknownMember {
+        /// The interface.
+        interface: String,
+        /// The member.
+        member: String,
+    },
+    /// A listed member has several overloads, which the bindings don't
+    /// resolve yet.
+    #[error("`{interface}.{member}` is overloaded")]
+    Overloaded {
+        /// The interface.
+        interface: String,
+        /// The member.
+        member: String,
+    },
+    /// A listed member has a type the bindings can't convert.
+    #[error("`{interface}.{member}`: can't convert `{ty}`")]
+    UnsupportedType {
+        /// The interface.
+        interface: String,
+        /// The member.
+        member: String,
+        /// The type as written.
+        ty: String,
+    },
+    /// More interfaces than the wrappers' 31-bit brand mask can name.
+    #[error("too many bound interfaces")]
+    TooManyInterfaces,
     /// The interface's parent chain leads back to an interface already on it
     /// (`interface J : J`, or `A : B` and `B : A`).
     #[error("`{interface}` has an inheritance cycle: {}", chain.join(" : "))]
@@ -202,10 +247,10 @@ pub fn generate_stubs(set: &IdlSet, interfaces: &[&str], header: &str) -> Result
     Ok(out)
 }
 
-struct Gen<'a> {
-    set: &'a IdlSet,
-    names: std::collections::BTreeMap<String, NameKind>,
-    used_value: bool,
+pub(crate) struct Gen<'a> {
+    pub(crate) set: &'a IdlSet,
+    pub(crate) names: std::collections::BTreeMap<String, NameKind>,
+    pub(crate) used_value: bool,
 }
 
 /// A Rust method to emit.
@@ -236,7 +281,7 @@ impl Gen<'_> {
         "Value".to_owned()
     }
 
-    fn rust_type(&mut self, t: &Type, depth: u32) -> Result<String, GenError> {
+    pub(crate) fn rust_type(&mut self, t: &Type, depth: u32) -> Result<String, GenError> {
         if depth > MAX_TYPE_DEPTH {
             return Err(GenError::TooDeep(t.to_string()));
         }
@@ -300,7 +345,7 @@ impl Gen<'_> {
         })
     }
 
-    fn params(&mut self, args: &[Argument]) -> Result<Vec<(String, String)>, GenError> {
+    pub(crate) fn params(&mut self, args: &[Argument]) -> Result<Vec<(String, String)>, GenError> {
         let mut out = Vec::new();
         for a in args {
             let t = self.rust_type(&a.ty, 0)?;
