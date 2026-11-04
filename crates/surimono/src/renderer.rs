@@ -23,8 +23,8 @@ use crate::svg::SanitizedSvg;
 /// A renderer survives `fork` (Puma's `preload_app!` and `fork_worker`,
 /// Unicorn, Resque): worker threads don't, so the first render in a forked
 /// process starts a new pool and text measurer there, sharing the font data
-/// with the parent. Nothing it needs in the child is a lock a parent thread
-/// could have held at the moment of the fork.
+/// with the parent, and compiles your bundles again. Nothing it needs in the
+/// child is a lock a parent thread could have held at the moment of the fork.
 ///
 /// ```
 /// use surimono::{Options, Renderer};
@@ -325,9 +325,21 @@ impl Renderer {
     /// [`render_islands`](Self::render_islands) that stops early once `cancel`
     /// is true: a running island's script stops within milliseconds, the
     /// islands not yet started are skipped, and the render ends with
-    /// [`Error::Cancelled`] whatever the error policy. The first use of a
-    /// built-in renderer isn't interrupted while it loads (at most its time
-    /// limit); the flag is checked again right after.
+    /// [`Error::Cancelled`] whatever the error policy.
+    ///
+    /// Loading a bundle isn't interrupted; the flag is checked again right
+    /// after. A built-in renderer's precompiled bytecode loads quickly on first
+    /// use. Two cases load from source: a built-in whose bytecode this engine
+    /// can't read, on its first use, and every bundle you added, one after
+    /// another, on the first render in a forked process (the first island
+    /// waits for them all).
+    ///
+    /// From source, a bundle is compiled and then run once to check its entry
+    /// function, and each step has its own time limit, so a load can take twice
+    /// [`Limits::time`](crate::Limits::time). The run stops at its limit. The
+    /// compile doesn't: the engine's parser never checks the time, so a source
+    /// too large to compile within the limit takes as long as its size needs
+    /// (memory limit permitting) and only then fails with the time limit error.
     ///
     /// Set it from another thread, a timer or a signal handler (storing to an
     /// `AtomicBool` is async-signal-safe). The Ruby gem sets it when the
@@ -1027,7 +1039,10 @@ mod tests {
                 ..Limits::default()
             }));
             // Loaded first, so the cancel lands in the script.
-            assert!(r.render_islands(&island("{}")).is_ok());
+            let rendered = r
+                .render_islands(&island("{}"))
+                .unwrap_or_else(|e| panic!("{policy:?}: {e}"));
+            assert!(rendered.contains("<svg"), "{policy:?}: {rendered}");
             let cancel = Arc::new(AtomicBool::new(false));
             let setter = {
                 let cancel = Arc::clone(&cancel);
@@ -1045,10 +1060,10 @@ mod tests {
 
             // The renderer carries on, and the same flag down renders.
             cancel.store(false, Ordering::Release);
-            assert_eq!(
-                r.render_islands_cancellable(&island("{}"), &cancel).ok(),
-                r.render_islands(&island("{}")).ok()
-            );
+            let again = r
+                .render_islands_cancellable(&island("{}"), &cancel)
+                .unwrap_or_else(|e| panic!("{policy:?}: {e}"));
+            assert_eq!(again, rendered, "{policy:?}");
         }
     }
 }
