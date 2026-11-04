@@ -19,6 +19,8 @@
 //! - [`install_stop_flag`], which points the patched engine at the
 //!   [`LimitState`]'s stop flag, read on every interrupt poll, and at its
 //!   leak count, which `JS_FreeRuntime` fills in (see [`teardown_leaks`]);
+//! - [`release_free_memory`], which hands the C allocator's free pages back
+//!   to the OS;
 //! - [`fork_generation`], which registers a `pthread_atfork` child handler
 //!   so a forked process can tell its own state from its ancestors'.
 //!
@@ -49,8 +51,8 @@ pub(crate) struct LimitState {
     used: AtomicUsize,
     /// Maximum bytes the engine may hold.
     limit: AtomicUsize,
-    /// Why the running call must stop: [`STOP_TIME`] and [`STOP_MEMORY`]
-    /// bits, zero while it may go on. The patched engine reads it on every
+    /// Why the running call must stop: [`STOP_TIME`], [`STOP_MEMORY`] and
+    /// [`STOP_CANCEL`] bits, zero while it may go on. The patched engine reads it on every
     /// interrupt poll and asks the handler as soon as it is nonzero (see
     /// [`install_stop_flag`]). Cleared when a call is armed and disarmed.
     stop: AtomicU32,
@@ -73,6 +75,9 @@ pub(crate) struct LimitState {
     /// on an [`EXPIRING`] bit that its parent's watchdog set: that thread
     /// doesn't exist here.
     armed_gen: AtomicU64,
+    /// Whether the watchdog is watching a cancel flag for the running call
+    /// ([`LimitState::watch_cancel`]).
+    cancel_watched: AtomicBool,
     /// Objects still alive when the runtime was freed, written by the
     /// patched `JS_FreeRuntime` (see [`install_stop_flag`]) and read when
     /// the allocator is dropped, after it returned.
@@ -87,6 +92,8 @@ const DISARMED: u64 = u64::MAX;
 const STOP_TIME: u32 = 1;
 /// [`LimitState::stop`] bit: an allocation was refused.
 const STOP_MEMORY: u32 = 2;
+/// [`LimitState::stop`] bit: the caller's cancel flag was raised.
+const STOP_CANCEL: u32 = 4;
 
 impl LimitState {
     pub(crate) fn new(memory_limit: usize) -> Arc<Self> {
@@ -99,6 +106,7 @@ impl LimitState {
             origin: Instant::now(),
             call: AtomicU64::new(0),
             armed_gen: AtomicU64::new(0),
+            cancel_watched: AtomicBool::new(false),
             leaked_objects: AtomicU32::new(0),
         })
     }
@@ -132,6 +140,18 @@ impl LimitState {
         Ok(())
     }
 
+    /// Asks the watchdog to stop the call just armed once `flag` is raised.
+    /// [`disarm`](Self::disarm) ends the watch.
+    pub(crate) fn watch_cancel(
+        self: &Arc<Self>,
+        flag: Arc<AtomicBool>,
+    ) -> Result<(), SandboxError> {
+        let seq = self.call.load(Ordering::Acquire) & !EXPIRING;
+        watchdog::registry()?.watch_cancel(seq, Arc::downgrade(self), flag);
+        self.cancel_watched.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
     /// The watchdog key of call `seq` with deadline `deadline`.
     fn timer_key(&self, deadline: u64, seq: u64) -> Option<TimerKey> {
         let at = self.origin.checked_add(Duration::from_nanos(deadline))?;
@@ -162,11 +182,16 @@ impl LimitState {
                 break call & !EXPIRING;
             }
         };
+        let watched = self.cancel_watched.swap(false, Ordering::Relaxed);
         if ended != 0 {
             let armed_in = self.armed_gen.load(Ordering::Relaxed);
-            let registry = watchdog::current().filter(|r| r.generation() == armed_in);
-            if let (Some(registry), Some(key)) = (registry, self.timer_key(deadline, ended)) {
-                registry.remove(key);
+            if let Some(registry) = watchdog::current().filter(|r| r.generation() == armed_in) {
+                if let Some(key) = self.timer_key(deadline, ended) {
+                    registry.remove(key);
+                }
+                if watched {
+                    registry.unwatch_cancel(ended);
+                }
             }
         }
         self.deadline.store(DISARMED, Ordering::Relaxed);
@@ -176,12 +201,25 @@ impl LimitState {
     /// Raises the stop flag if call `seq` is still running. Called by the
     /// watchdog when that call's timer is due, and by the clock backstop.
     pub(crate) fn expire(&self, seq: u64) {
+        self.raise(seq, STOP_TIME);
+    }
+
+    /// Raises the stop flag if call `seq` is still running, because its
+    /// cancel flag is up. The watchdog calls this on every pass while the
+    /// flag stays up, so losing a race to [`expire`](Self::expire) only
+    /// delays it to the next pass.
+    pub(crate) fn cancel(&self, seq: u64) {
+        self.raise(seq, STOP_CANCEL);
+    }
+
+    /// Sets `bit` in the stop flag if call `seq` is still running.
+    fn raise(&self, seq: u64, bit: u32) {
         if self
             .call
             .compare_exchange(seq, seq | EXPIRING, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
-            self.stop.fetch_or(STOP_TIME, Ordering::Release);
+            self.stop.fetch_or(bit, Ordering::Release);
             // Only this thread changes `call` while EXPIRING is set.
             self.call.store(seq, Ordering::Release);
         }
@@ -195,6 +233,11 @@ impl LimitState {
     /// Whether the running call passed its deadline.
     pub(crate) fn timed_out(&self) -> bool {
         self.stop.load(Ordering::Acquire) & STOP_TIME != 0
+    }
+
+    /// Whether the running call was cancelled.
+    pub(crate) fn cancelled(&self) -> bool {
+        self.stop.load(Ordering::Acquire) & STOP_CANCEL != 0
     }
 
     /// Objects the runtime's `JS_FreeRuntime` found still alive; zero
@@ -250,11 +293,11 @@ impl LimitState {
         true
     }
 
-    /// The interrupt handler's answer: stop on a passed deadline, and stop at
-    /// once after an out-of-memory error so a script that catches it cannot
-    /// keep going.
+    /// The interrupt handler's answer: stop on a passed deadline or a
+    /// cancelled call, and stop at once after an out-of-memory error so a
+    /// script that catches it cannot keep going.
     pub(crate) fn should_interrupt(&self) -> bool {
-        let stop = self.oom() || self.deadline_passed();
+        let stop = self.oom() || self.cancelled() || self.deadline_passed();
         #[cfg(any(test, feature = "test-hooks"))]
         if stop {
             crate::sandbox::test_hooks::note_stop_answer();
@@ -271,6 +314,12 @@ impl LimitState {
     fn refuse(&self) -> bool {
         self.stop.fetch_or(STOP_MEMORY, Ordering::Release);
         false
+    }
+
+    /// Fails the running call as if an allocation had been refused, for
+    /// memory the sandbox keeps outside the JavaScript heap.
+    pub(crate) fn exceed_memory(&self) {
+        self.refuse();
     }
 
     /// Reserves room for `extra` more bytes, or records an out-of-memory error.
@@ -485,6 +534,23 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
         // thread freeing the runtime, and the allocator's `drop` reads it
         // on that thread after `JS_FreeRuntime` returned.
         surimono_set_leak_count(rt, leaks);
+    }
+}
+
+/// Hands memory the C allocator keeps free back to the OS.
+///
+/// A freed JavaScript heap stays in glibc's arenas, in pieces its automatic
+/// trimming can't return, so a process keeps its peak after a concurrent burst.
+/// This is `malloc_trim(0)`, for the whole process, and takes a few
+/// milliseconds during which allocating threads may wait on an arena. It
+/// changes no output. The island runner calls it when an idle worker frees its
+/// runtime. Does nothing on other C libraries (musl, macOS).
+pub fn release_free_memory() {
+    // SAFETY: malloc_trim takes no pointers, keeps the heap valid and locks
+    // each arena it visits, so any thread may call it at any time.
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    unsafe {
+        libc::malloc_trim(0);
     }
 }
 
@@ -1001,6 +1067,45 @@ mod tests {
     /// A late timer can't stop the next call: the watchdog (or the clock
     /// backstop) raises the flag only for the call whose sequence number it
     /// holds, and ending a call waits out a raise in progress.
+    #[test]
+    fn a_watched_cancel_flag_raises_the_stop_flag_and_the_watch_ends_with_the_call() {
+        let state = LimitState::new(usize::MAX);
+        let flag = Arc::new(AtomicBool::new(false));
+        state.arm(Duration::from_secs(60)).unwrap();
+        state.watch_cancel(flag.clone()).unwrap();
+        let seq = state.call.load(Ordering::Acquire);
+        let registry = watchdog::current().unwrap();
+        assert!(registry.watching_cancel(seq));
+        std::thread::sleep(watchdog::CANCEL_POLL * 2);
+        assert!(!state.should_interrupt(), "the flag is down");
+
+        flag.store(true, Ordering::Release);
+        let until = Instant::now() + Duration::from_secs(10);
+        while !state.should_interrupt() {
+            assert!(Instant::now() < until, "the watchdog never saw the flag");
+            std::thread::yield_now();
+        }
+        assert!(state.cancelled());
+        assert!(!state.timed_out());
+
+        state.disarm();
+        assert!(!registry.watching_cancel(seq));
+        assert!(!state.cancelled(), "disarm clears the stop flag");
+    }
+
+    #[test]
+    fn a_stale_cancel_never_stops_the_next_call() {
+        let state = LimitState::new(usize::MAX);
+        state.arm(Duration::from_secs(60)).unwrap();
+        let old = state.call.load(Ordering::Acquire);
+        state.disarm();
+        state.arm(Duration::from_secs(60)).unwrap();
+        state.cancel(old);
+        assert!(!state.cancelled());
+        assert!(!state.should_interrupt());
+        state.disarm();
+    }
+
     #[test]
     fn a_stale_expiry_never_stops_the_next_call() {
         let state = LimitState::new(usize::MAX);
