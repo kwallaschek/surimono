@@ -44,19 +44,19 @@
 
   H.new_EventTarget = (target) => make(I_EventTarget, target).w;
 
-  function flatten(options) {
-    if (typeof options === 'object' && options !== null) return !!options.capture;
-    return !!options;
-  }
+  // WebIDL's `(EventListenerOptions or boolean)`: a function is an object,
+  // so it is a dictionary.
+  const isObject = (x) => (typeof x === 'object' && x !== null) || typeof x === 'function';
+  function flatten(options) { return isObject(options) ? !!options.capture : !!options; }
   function listenersOf(s, create_) {
     if (s.l === undefined && create_) s.l = list();
     return s.l;
   }
   H.EventTarget_addEventListener = (s, type, callback, options) => {
-    // §2.7.3 "flatten more". An aborted signal adds nothing.
+    // §2.7.3 "flatten more". `signal` isn't read: AbortSignal isn't bound.
     const capture = flatten(options);
     let once = false, passive = false;
-    if (typeof options === 'object' && options !== null) {
+    if (isObject(options)) {
       once = !!options.once;
       passive = !!options.passive;
     }
@@ -64,16 +64,21 @@
     if (typeof callback !== 'object' && typeof callback !== 'function') {
       throw new TE('addEventListener: the listener is not an object');
     }
+    syncHandlers(s);
     const l = listenersOf(s, true);
     for (let i = 0; i < l.n; i++) {
       const e = l[i];
       if (e.type === type && e.callback === callback && e.capture === capture) return;
     }
+    addListener(l, type, callback, capture, once, passive);
+  };
+  function addListener(l, type, callback, capture, once, passive) {
     const e = create(null);
     e.type = type; e.callback = callback; e.capture = capture;
     e.once = once; e.passive = passive; e.removed = false;
     add(l, e);
-  };
+    return e;
+  }
   function removeAt(l, at) {
     l[at].removed = true;
     for (let i = at + 1; i < l.n; i++) l[i - 1] = l[i];
@@ -140,6 +145,7 @@
   function invoke(target, event, capturing) {
     if (event.stop) return;
     event.currentTarget = target.w;
+    syncHandlers(target);
     const all = target.l;
     if (all === undefined) return;
     const l = copy(all);
@@ -169,11 +175,18 @@
 
   // ------ Event (DOM §2.2) ------
 
+  // §2.5 "initialize": what `initEvent` resets; it leaves `composed` and
+  // `timeStamp` alone.
+  function initialize(s, type, bubbles, cancelable) {
+    s.initialized = true; s.stop = false; s.stopNow = false; s.canceled = false;
+    s.isTrusted = false; s.target = null;
+    s.type = type; s.bubbles = bubbles; s.cancelable = cancelable;
+  }
+  // A new event's fields.
   function initEvent(s, type, bubbles, cancelable) {
-    s.type = type; s.bubbles = bubbles; s.cancelable = cancelable; s.composed = false;
-    s.initialized = true; s.dispatching = false; s.stop = false; s.stopNow = false;
-    s.canceled = false; s.passive = false; s.isTrusted = false;
-    s.target = null; s.currentTarget = null; s.eventPhase = 0;
+    initialize(s, type, bubbles, cancelable);
+    s.composed = false; s.dispatching = false; s.passive = false;
+    s.currentTarget = null; s.eventPhase = 0;
     s.timeStamp = now();
   }
   function eventInit(s, type, d, what) {
@@ -213,7 +226,7 @@
   H.Event_isTrusted = (s) => s.isTrusted;
   H.Event_timeStamp = (s) => s.timeStamp;
   H.Event_initEvent = (s, type, bubbles, cancelable) => {
-    if (!s.dispatching) initEvent(s, type, bubbles, cancelable);
+    if (!s.dispatching) initialize(s, type, bubbles, cancelable);
   };
 
   H.new_CustomEvent = (target, type, d) => {
@@ -226,7 +239,7 @@
   H.CustomEvent_detail = (s) => s.detail;
   H.CustomEvent_initCustomEvent = (s, type, bubbles, cancelable, detail) => {
     if (s.dispatching) return;
-    initEvent(s, type, bubbles, cancelable);
+    initialize(s, type, bubbles, cancelable);
     s.detail = detail === undefined ? null : detail;
   };
 
@@ -339,15 +352,192 @@
     return dispatch(target, s);
   }
 
+  // What the sandbox makes of a thrown value (`exception_error` in
+  // crates/core), as number for `n.limit`, or -1. Asked before any event
+  // fires: no listener may see, or cancel, a limit.
+  const LIMIT_STACK = 0, LIMIT_MEMORY = 1, LIMIT_TIME = 2;
+  function limitOf(x) {
+    if (!isObject(x)) return -1;
+    let name, message;
+    try {
+      name = x.name; message = x.message;
+    } catch (e) {
+      return -1;
+    }
+    if (name === 'RangeError' && message === 'Maximum call stack size exceeded') return LIMIT_STACK;
+    if (name === 'InternalError' && message === 'out of memory') return LIMIT_MEMORY;
+    if (name === 'InternalError' && message === 'interrupted') return LIMIT_TIME;
+    return -1;
+  }
+
   // HTML §8.1.6.2 "report an exception": an `error` event at the window,
   // and the exception counted for the caller unless a listener cancels it.
+  // While the window is in error reporting mode no event fires, so an
+  // `error` listener that throws is counted and doesn't recurse. A limit
+  // isn't an exception to report: it ends the call, as in a timer.
+  let reporting = false;
   function reportException(x) {
+    const limit = limitOf(x);
+    if (limit >= 0) { n.limit(limit); return; }
     let message;
     try { message = `${x}`; } catch (e) { message = 'exception'; }
-    if (windowState === null) { report(message); return; }
+    if (windowState === null || reporting) { report(message); return; }
     const s = make(I_ErrorEvent);
     initEvent(s, 'error', false, true);
     s.isTrusted = true;
     s.message = message; s.filename = ''; s.lineno = 0; s.colno = 0; s.error = x;
-    if (dispatch(windowState, s)) report(message);
+    reporting = true;
+    let notHandled;
+    try {
+      notHandled = dispatch(windowState, s);
+    } finally {
+      reporting = false;
+    }
+    if (notHandled) report(message);
+  }
+
+  // ------ Event handlers (HTML §8.1.7) ------
+  //
+  // A record's `hm` maps an event handler's name to its state:
+  // `value` (a callback, or null), `pending` (`raw` waits to be compiled, in
+  // the scope of `scope`), `attr` (the content attribute's text as last
+  // seen, or null), `entry` (its listener, or null).
+  // Content attributes are read when an event reaches the target and when
+  // a listener is added or the handler read, not when they change: all
+  // writes to them are in Rust, and a page can't tell the difference, since
+  // a listener's place is only observable from those same points.
+
+  // handlerNames[id]: names of interface `id`'s handlers, as a set.
+  const handlerNames = create(null);
+  // HTML §8.1.7.1, "Window-reflecting body element event handler set": on
+  // a body or frameset element these are the window's handlers. The ones
+  // only Window has come from the IDL (`handlers`).
+  const reflected = create(null);
+  for (const name of ['onblur', 'onerror', 'onfocus', 'onload', 'onresize', 'onscroll']) reflected[name] = true;
+  function reflects(s, name) {
+    if (reflected[name] !== true) return false;
+    const local = call(OP_localName, s.g, s.h);
+    return local === 'body' || local === 'frameset';
+  }
+
+  function handlerState(s, name) {
+    if (s.hm === undefined) s.hm = create(null);
+    let e = s.hm[name];
+    if (e === undefined) {
+      e = create(null);
+      e.value = null; e.pending = false; e.raw = null; e.scope = null;
+      e.attr = null; e.entry = null;
+      s.hm[name] = e;
+    }
+    return e;
+  }
+  function activate(s, name, e) {
+    if (e.entry !== null) return;
+    const callback = function (event) { processHandler(s, name, e, event); };
+    e.entry = addListener(listenersOf(s, true), apply(slice, name, [2]), callback, false, false, false);
+  }
+  function deactivate(s, e) {
+    e.value = null; e.pending = false;
+    if (e.entry === null) return;
+    const l = s.l;
+    for (let i = 0; i < l.n; i++) if (l[i] === e.entry) { removeAt(l, i); break; }
+    e.entry = null;
+  }
+
+  // The content attributes of element (g, h) into `s`'s handlers: `s` is
+  // the element, or the window for a body element's reflected ones.
+  function syncFrom(s, g, h, wanted) {
+    const seen = create(null);
+    nameList(call(OP_getAttributeNames, g, h), (name) => {
+      if (wanted(name) !== true) return;
+      seen[name] = true;
+      const raw = call(OP_getAttribute, g, h, name);
+      const e = handlerState(s, name);
+      if (e.attr === raw) return;
+      e.attr = raw; e.raw = raw; e.value = null; e.pending = true; e.scope = wrap(g, h);
+      activate(s, name, e);
+    });
+    if (s.hm === undefined) return;
+    for (const name in s.hm) {
+      const e = s.hm[name];
+      if (e.attr !== null && seen[name] !== true) { e.attr = null; deactivate(s, e); }
+    }
+  }
+  function syncHandlers(s) {
+    if (s === windowState) {
+      const g = current();
+      if (g === 0) return;
+      const body = call(OP_body, g, root());
+      if (body === 0 || body === null) return;
+      syncFrom(s, g, body, (name) => reflected[name]);
+    } else if ((s.m & (1 << I_HTMLElement)) !== 0) {
+      const known = handlerNames[I_HTMLElement];
+      syncFrom(s, s.g, s.h, (name) => known[name] === true && !reflects(s, name));
+    }
+  }
+
+  // HTML §8.1.7.1 "getting the current value of the event handler": a
+  // pending attribute compiles once. A syntax error is reported and leaves
+  // null. `with` gives the handler its scope: the element, then the document
+  // (no form owner yet); neither can name a variable of this wrapper, since
+  // `arguments` is all it has. The body is parsed alone first, so most text
+  // that would close the wrapper is a syntax error; QuickJS's constructor
+  // pastes source together, so `}, function () {` isn't, which gets a page
+  // nothing it hasn't got in a script.
+  function compile(s, name, e) {
+    const params = s === windowState && name === 'onerror' ? 'event,source,lineno,colno,error' : 'event';
+    try {
+      new FunctionCtor(params, e.raw);
+      const build = new FunctionCtor(
+        `with (arguments[0]) with (arguments[1]) return function ${name}(${params}) {\n${e.raw}\n};`);
+      return apply(build, undefined, [wrap(current(), root()), e.scope]);
+    } catch (x) {
+      reportException(x);
+      return null;
+    }
+  }
+  function handlerValue(s, name) {
+    syncHandlers(s);
+    if (s.hm === undefined) return null;
+    const e = s.hm[name];
+    if (e === undefined) return null;
+    if (e.pending) { e.pending = false; e.value = compile(s, name, e); e.scope = null; }
+    return e.value;
+  }
+
+  // HTML §8.1.7.1 "the event handler processing algorithm". What it throws
+  // goes to `invoke`, like any listener's.
+  function processHandler(s, name, e, event) {
+    const callback = handlerValue(s, name);
+    // [LegacyTreatNonObjectAsNull]: an object that can't be called is kept
+    // and does nothing.
+    if (typeof callback !== 'function') return;
+    const v = stateOf(event);
+    const special = s === windowState && v.type === 'error' && (v.m & (1 << I_ErrorEvent)) !== 0;
+    const result = special
+      ? apply(callback, s.w, [v.message, v.filename, v.lineno, v.colno, v.error])
+      : apply(callback, s.w, [event]);
+    if (result === special) v.canceled = true;
+  }
+
+  // The event handler IDL attributes of interface `id`.
+  function handlers(id, list_) {
+    const known = create(null);
+    handlerNames[id] = known;
+    for (let i = 0; i < list_.length; i++) {
+      const name = list_[i];
+      known[name] = true;
+      // The body element's are the window's.
+      const owner = (s) => (id === I_HTMLElement && reflects(s, name) ? windowState : s);
+      attr(id, name, function () {
+        return handlerValue(owner(self(this, id)), name);
+      }, function (v) {
+        const s = owner(self(this, id));
+        syncHandlers(s);
+        if (!isObject(v)) { deactivate(s, handlerState(s, name)); return; }
+        const e = handlerState(s, name);
+        e.value = v; e.pending = false; e.scope = null;
+        activate(s, name, e);
+      });
+    }
   }

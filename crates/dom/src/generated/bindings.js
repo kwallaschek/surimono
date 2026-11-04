@@ -8,6 +8,8 @@ const I_CustomEvent = 2;
 const I_ErrorEvent = 3;
 const I_Window = 4;
 const I_MutationObserver = 20;
+const I_HTMLElement = 7;
+const I_Document = 8;
 
 // EventTarget
 iface(0, "EventTarget", -1, function EventTarget() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_EventTarget(new.target); });
@@ -56,6 +58,7 @@ attr(3, "error", function () { return H.ErrorEvent_error(self(this, 3)); });
 // Window
 iface(4, "Window", 0, null);
 attr(4, "devicePixelRatio", function () { return H.Window_devicePixelRatio(self(this, 4)); });
+handlers(4, ["onabort", "onauxclick", "onbeforeinput", "onbeforematch", "onbeforetoggle", "onblur", "oncancel", "oncanplay", "oncanplaythrough", "onchange", "onclick", "onclose", "oncommand", "oncontextlost", "oncontextmenu", "oncontextrestored", "oncopy", "oncuechange", "oncut", "ondblclick", "ondrag", "ondragend", "ondragenter", "ondragleave", "ondragover", "ondragstart", "ondrop", "ondurationchange", "onemptied", "onended", "onerror", "onfocus", "onformdata", "oninput", "oninvalid", "onkeydown", "onkeypress", "onkeyup", "onload", "onloadeddata", "onloadedmetadata", "onloadstart", "onmousedown", "onmouseenter", "onmouseleave", "onmousemove", "onmouseout", "onmouseover", "onmouseup", "onpaste", "onpause", "onplay", "onplaying", "onprogress", "onratechange", "onreset", "onresize", "onscroll", "onscrollend", "onsecuritypolicyviolation", "onseeked", "onseeking", "onselect", "onslotchange", "onstalled", "onsubmit", "onsuspend", "ontimeupdate", "ontoggle", "onvolumechange", "onwaiting", "onwebkitanimationend", "onwebkitanimationiteration", "onwebkitanimationstart", "onwebkittransitionend", "onwheel", "onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
 
 // Node
 iface(5, "Node", 0, null);
@@ -155,6 +158,7 @@ attr(7, "title", function () { const s = self(this, 7); const r = call(82, s.g, 
 attr(7, "lang", function () { const s = self(this, 7); const r = call(84, s.g, s.h); return r; }, function (v) { const s = self(this, 7); call(85, s.g, s.h, str(v)); });
 attr(7, "dataset", function () { const s = self(this, 7); const r = call(86, s.g, s.h); return wrap(s.g, r); });
 attr(7, "style", function () { const s = self(this, 7); const r = call(87, s.g, s.h); return wrap(s.g, r); }, function (v) { self(this, 7); this.style.cssText = v; });
+handlers(7, ["onabort", "onauxclick", "onbeforeinput", "onbeforematch", "onbeforetoggle", "onblur", "oncancel", "oncanplay", "oncanplaythrough", "onchange", "onclick", "onclose", "oncommand", "oncontextlost", "oncontextmenu", "oncontextrestored", "oncopy", "oncuechange", "oncut", "ondblclick", "ondrag", "ondragend", "ondragenter", "ondragleave", "ondragover", "ondragstart", "ondrop", "ondurationchange", "onemptied", "onended", "onerror", "onfocus", "onformdata", "oninput", "oninvalid", "onkeydown", "onkeypress", "onkeyup", "onload", "onloadeddata", "onloadedmetadata", "onloadstart", "onmousedown", "onmouseenter", "onmouseleave", "onmousemove", "onmouseout", "onmouseover", "onmouseup", "onpaste", "onpause", "onplay", "onplaying", "onprogress", "onratechange", "onreset", "onresize", "onscroll", "onscrollend", "onsecuritypolicyviolation", "onseeked", "onseeking", "onselect", "onslotchange", "onstalled", "onsubmit", "onsuspend", "ontimeupdate", "ontoggle", "onvolumechange", "onwaiting", "onwebkitanimationend", "onwebkitanimationiteration", "onwebkitanimationstart", "onwebkittransitionend", "onwheel"]);
 
 // Document
 iface(8, "Document", 5, null);
@@ -185,6 +189,7 @@ attr(8, "childElementCount", function () { const s = self(this, 8); const r = ca
 op(8, "prepend", function prepend() { const s = self(this, 8); const argc = arguments.length; const r = vcall(113, s, arguments, nodeOrStr); return r; });
 op(8, "append", function append() { const s = self(this, 8); const argc = arguments.length; const r = vcall(114, s, arguments, nodeOrStr); return r; });
 op(8, "replaceChildren", function replaceChildren() { const s = self(this, 8); const argc = arguments.length; const r = vcall(115, s, arguments, nodeOrStr); return r; });
+handlers(8, ["onreadystatechange", "onvisibilitychange", "onabort", "onauxclick", "onbeforeinput", "onbeforematch", "onbeforetoggle", "onblur", "oncancel", "oncanplay", "oncanplaythrough", "onchange", "onclick", "onclose", "oncommand", "oncontextlost", "oncontextmenu", "oncontextrestored", "oncopy", "oncuechange", "oncut", "ondblclick", "ondrag", "ondragend", "ondragenter", "ondragleave", "ondragover", "ondragstart", "ondrop", "ondurationchange", "onemptied", "onended", "onerror", "onfocus", "onformdata", "oninput", "oninvalid", "onkeydown", "onkeypress", "onkeyup", "onload", "onloadeddata", "onloadedmetadata", "onloadstart", "onmousedown", "onmouseenter", "onmouseleave", "onmousemove", "onmouseout", "onmouseover", "onmouseup", "onpaste", "onpause", "onplay", "onplaying", "onprogress", "onratechange", "onreset", "onresize", "onscroll", "onscrollend", "onsecuritypolicyviolation", "onseeked", "onseeking", "onselect", "onslotchange", "onstalled", "onsubmit", "onsuspend", "ontimeupdate", "ontoggle", "onvolumechange", "onwaiting", "onwebkitanimationend", "onwebkitanimationiteration", "onwebkitanimationstart", "onwebkittransitionend", "onwheel"]);
 
 // DocumentFragment
 iface(9, "DocumentFragment", 5, function DocumentFragment() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, call(116, g, root())), new.target, 9); });
@@ -201,6 +206,7 @@ op(9, "replaceChildren", function replaceChildren() { const s = self(this, 9); c
 
 // ShadowRoot
 iface(10, "ShadowRoot", 9, null);
+handlers(10, ["onslotchange"]);
 
 // CharacterData
 iface(11, "CharacterData", 5, null);
@@ -346,3 +352,7 @@ const OP_observerDisconnect = 5;
 const OP_observerTake = 6;
 const OP_recordsPending = 7;
 const OP_parentNode = 12;
+const OP_localName = 37;
+const OP_getAttributeNames = 46;
+const OP_getAttribute = 47;
+const OP_body = 90;

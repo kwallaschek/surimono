@@ -204,8 +204,11 @@ fn opts() -> ParseOpts {
         tokenizer: TokenizerOpts::default(),
         tree_builder: TreeBuilderOpts {
             exact_errors: false,
-            // As blitz-html: <noscript> content parses as markup.
-            scripting_enabled: false,
+            // Scripts run on this tree, so its scripting flag is set, as in
+            // a browser: <noscript> content is raw text (HTML §13.2.6.4.4).
+            // blitz-html parses with it off, where a `<script>` in a head
+            // `<noscript>` ends the noscript and lands in the head.
+            scripting_enabled: true,
             iframe_srcdoc: false,
             drop_doctype: true,
             quirks_mode: QuirksMode::NoQuirks,

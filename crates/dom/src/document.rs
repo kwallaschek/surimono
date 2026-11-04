@@ -10,6 +10,33 @@ use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns}
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
 
+/// Infra's ASCII whitespace.
+const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
+
+/// Whether `s` is a JavaScript MIME type essence string (MIME Sniffing §4.6:
+/// "JavaScript MIME type essence match"), ignoring ASCII case.
+fn is_javascript_mime_essence(s: &str) -> bool {
+    const ESSENCES: [&str; 16] = [
+        "application/ecmascript",
+        "application/javascript",
+        "application/x-ecmascript",
+        "application/x-javascript",
+        "text/ecmascript",
+        "text/javascript",
+        "text/javascript1.0",
+        "text/javascript1.1",
+        "text/javascript1.2",
+        "text/javascript1.3",
+        "text/javascript1.4",
+        "text/javascript1.5",
+        "text/jscript",
+        "text/livescript",
+        "text/x-ecmascript",
+        "text/x-javascript",
+    ];
+    ESSENCES.iter().any(|e| e.eq_ignore_ascii_case(s))
+}
+
 /// Generations are unique in the process, so a wrapper can never match a
 /// document other than its own. Starts at 1; 0 is never a generation.
 static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
@@ -451,8 +478,8 @@ impl Document {
     /// The document's serialization: the `<html>` element's outer HTML, by
     /// the HTML Standard's fragment serialization algorithm (§13.3) for
     /// elements (HTML, SVG and MathML) with their attributes, text and
-    /// comments, with scripting disabled, as blitz-html parsed the
-    /// document. Iterative, so tree depth can't overflow the stack.
+    /// comments, with scripting enabled, as the document was parsed.
+    /// Iterative, so tree depth can't overflow the stack.
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         if let Some(id) = self.document_element() {
@@ -485,12 +512,7 @@ impl Document {
                             // noembed, noframes or plaintext element (an SVG
                             // <style> or <script> is escaped), or a noscript
                             // element when scripting is enabled for the
-                            // node. It isn't here: blitz-html 0.2.0 parses
-                            // with `scripting_enabled: false`, so noscript
-                            // content is parsed as markup and its text must
-                            // be escaped to survive a reparse. Written raw,
-                            // `<noscript>&lt;b&gt;</noscript>` would come
-                            // back as a real <b> element.
+                            // node, as it always is here (see `parse::opts`).
                             let raw = node
                                 .parent
                                 .and_then(|p| self.node(p).element_data())
@@ -505,6 +527,7 @@ impl Document {
                                                 | "noembed"
                                                 | "noframes"
                                                 | "plaintext"
+                                                | "noscript"
                                         )
                                 });
                             if raw {
@@ -814,49 +837,61 @@ impl Document {
     }
 
     /// Classic scripts in tree order, for the page lifecycle: (node, `src`
-    /// value, text, defer). `module` and other types aren't run (HTML
-    /// §4.12.1.1); a parser-inserted `async` script keeps its tree position,
-    /// which is one of the orders the spec allows and the deterministic one.
+    /// value, text, defer), as HTML §4.12.1.1 "prepare the script element"
+    /// picks them. `module` and other types don't run. A parser-inserted
+    /// `async` script keeps its tree position, which is one of the orders
+    /// the spec allows and the deterministic one. Nothing inside `<template>`
+    /// runs: its contents are inert. `<noscript>` needs no such care: with
+    /// scripting on it is raw text, so the parser makes no script there.
     pub(crate) fn scripts(&self) -> Vec<(usize, Option<String>, String, bool)> {
         let mut out = Vec::new();
         let mut stack = vec![self.root()];
         while let Some(n) = stack.pop() {
-            stack.extend(self.children(n).iter().rev().copied());
-            let is_script = self
+            let html_name = self
                 .element_name(n)
-                .is_some_and(|q| q.ns == ns!(html) && q.local.as_ref() == "script");
-            if !is_script || !self.is_classic_script(n) {
+                .filter(|q| q.ns == ns!(html))
+                .map(|q| &*q.local);
+            if html_name == Some("template") {
+                continue;
+            }
+            stack.extend(self.children(n).iter().rev().copied());
+            if html_name != Some("script") || !self.is_classic_script(n) {
                 continue;
             }
             let src = self.attribute(n, "src");
-            let defer = src.is_some() && self.attribute(n, "defer").is_some();
-            out.push((n, src, self.text_content(n).unwrap_or_default(), defer));
+            let text = self.child_text(n);
+            if src.is_none() && text.is_empty() {
+                continue;
+            }
+            let defer = src.is_some()
+                && self.attribute(n, "defer").is_some()
+                && self.attribute(n, "async").is_none();
+            out.push((n, src, text, defer));
         }
         out
     }
 
-    /// HTML §4.12.1.1: no `type` or a JavaScript MIME type, or `language`
-    /// in the old way. `nomodule` is ignored: modules don't run here, so the
-    /// fallback is what a page has for us.
+    /// HTML §4.12.1.1 "prepare the script element", the steps that give the
+    /// type string, for a classic script. `nomodule` is ignored, unlike the
+    /// standard: modules don't run here, so the fallback is what a page has
+    /// for us (a recorded departure).
     fn is_classic_script(&self, id: usize) -> bool {
         let ty = self.attribute(id, "type");
-        match ty.as_deref().map(str::trim) {
-            None | Some("") => true,
-            Some(t) => {
-                let t = t.to_ascii_lowercase();
-                matches!(
-                    t.as_str(),
-                    "text/javascript"
-                        | "application/javascript"
-                        | "application/x-javascript"
-                        | "text/ecmascript"
-                        | "application/ecmascript"
-                        | "text/jscript"
-                        | "text/x-javascript"
-                        | "text/x-ecmascript"
-                )
-            }
+        let language = self.attribute(id, "language");
+        match (ty.as_deref(), language.as_deref()) {
+            (Some(""), _) | (None, None | Some("")) => true,
+            (Some(ty), _) => is_javascript_mime_essence(ty.trim_matches(ASCII_WHITESPACE)),
+            (None, Some(language)) => is_javascript_mime_essence(&format!("text/{language}")),
         }
+    }
+
+    /// A node's child text content (DOM §4.2.5): its Text children, joined.
+    fn child_text(&self, id: usize) -> String {
+        self.children(id)
+            .iter()
+            .filter(|&&c| matches!(self.node(c).data, NodeData::Text(_)))
+            .map(|&c| self.char_data(c))
+            .collect()
     }
 
     /// The `<title>` element: the first in tree order (HTML §3.1.3).
@@ -872,11 +907,11 @@ impl Document {
         self.descendants(top, is_title).first().copied()
     }
 
-    /// `document.title`: the title's text, with whitespace stripped and
-    /// collapsed.
+    /// `document.title`: the title's child text content, with whitespace
+    /// stripped and collapsed (HTML §3.1.3).
     pub(crate) fn title(&self) -> String {
         self.title_element()
-            .and_then(|t| self.text_content(t))
+            .map(|t| self.child_text(t))
             .map(|t| t.split_ascii_whitespace().collect::<Vec<_>>().join(" "))
             .unwrap_or_default()
     }
