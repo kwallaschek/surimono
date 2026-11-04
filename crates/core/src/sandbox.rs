@@ -2141,6 +2141,7 @@ const o = { a: { b: [1, { c: 2 }] }, get g() { return 7; }, set s(v) { this._s =
 const { a: { b: [, { c } = {}] } = {}, ...rest } = o;
 let x1 = null; x1 ??= 4; let x2 = 0; x2 ||= 5; let x3 = 1; x3 &&= 6;
 const re = /(?<year>\d{4})-(?<m>\d\d)/gu;
+const classes = new RegExp('[\\q{abc|d}--\\q{d}][[\\q{e}][\\q{f}]]', 'iv');
 const dates = [...'2026-10 2027-01'.matchAll(re)].map((mm) => mm.groups.year + mm.groups.m);
 const fns = [];
 for (let i = 0; i < 3; i++) fns.push(() => i);
@@ -2257,25 +2258,98 @@ function f(a, { b, c: [d = 2] = [] } = {}, ...rest) {
 }
 }"#
         .repeat(1500);
+        // Stopped inside add_eval_variables and the jump shrinking pass.
+        let vars: String = (0..1 << 13).map(|i| format!("var a{i};")).collect();
+        let eval = format!("function f(){{{vars}return ()=>()=>()=>eval('')}}");
+        let jumps = format!(
+            "function f(a){{{}}}",
+            format!("if(a){{{}}}", "a();".repeat(12)).repeat(4000)
+        );
         let limits = |ms| {
             Limits::default()
                 .with_time(Duration::from_millis(ms))
                 .with_memory_bytes(512 * 1024 * 1024)
         };
-        let started = std::time::Instant::now();
-        Sandbox::new(limits(120_000))
-            .unwrap()
-            .compile(&source, "c.js")
-            .unwrap();
-        let full = started.elapsed().as_millis() as u64;
-        for percent in (5..100).step_by(5) {
-            let mut sb = Sandbox::new(limits((full * percent / 100).max(1))).unwrap();
-            let state = sb.state.clone();
-            // A busy machine can make it finish or not: both must hold.
-            let _ = sb.compile(&source, "c.js");
-            sb.reset().unwrap();
-            assert_eq!(state.used(), 0, "stopped at {percent}%: leaked");
-            assert_eq!(state.leaked_objects(), 0, "stopped at {percent}%");
+        for source in [source, eval, jumps] {
+            let started = std::time::Instant::now();
+            Sandbox::new(limits(120_000))
+                .unwrap()
+                .compile(&source, "c.js")
+                .unwrap();
+            let full = started.elapsed().as_millis() as u64;
+            for percent in (5..100).step_by(5) {
+                let mut sb = Sandbox::new(limits((full * percent / 100).max(1))).unwrap();
+                let state = sb.state.clone();
+                // A busy machine can make it finish or not: both must hold.
+                let _ = sb.compile(&source, "c.js");
+                sb.reset().unwrap();
+                assert_eq!(state.used(), 0, "stopped at {percent}%: leaked");
+                assert_eq!(state.leaked_objects(), 0, "stopped at {percent}%");
+            }
+        }
+    }
+
+    /// The same for a class's `\q{}` strings, stopped in the parse, in a list
+    /// operation or while writing the bytecode.
+    #[test]
+    fn interrupted_class_strings_leak_nothing() {
+        let list: String = (0..1 << 17).map(|i| format!("a{i}|")).collect();
+        let cases = [
+            (format!("[\\q{{{list}b}}]"), "v"),
+            (format!("[\\q{{{list}b}}]"), "iv"),
+            (format!("[[\\q{{{list}b}}][\\q{{{list}c}}]]"), "v"),
+            (format!("[\\q{{{list}b}}&&\\q{{{list}c}}]"), "v"),
+            (format!("[\\q{{{list}b}}--\\q{{{list}c}}]"), "v"),
+        ];
+        let limits = |ms| {
+            Limits::default()
+                .with_time(Duration::from_millis(ms))
+                .with_memory_bytes(512 * 1024 * 1024)
+        };
+        let compile = |sb: &mut Sandbox, pattern: &str, flags: &str| {
+            sb.run(|ctx| {
+                ctx.globals()
+                    .set("s", rquickjs::String::from_str(ctx.clone(), pattern)?)?;
+                ctx.globals()
+                    .set("f", rquickjs::String::from_str(ctx.clone(), flags)?)?;
+                ctx.eval::<(), _>("new RegExp(s, f)")
+            })
+        };
+        for (pattern, flags) in &cases {
+            let started = std::time::Instant::now();
+            let mut sb = Sandbox::new(limits(120_000)).unwrap();
+            compile(&mut sb, pattern, flags).unwrap();
+            let full = started.elapsed().as_millis() as u64;
+            for percent in (10..100).step_by(10) {
+                let mut sb = Sandbox::new(limits((full * percent / 100).max(1))).unwrap();
+                let state = sb.state.clone();
+                // A busy machine can make it finish or not: both must hold.
+                let _ = compile(&mut sb, pattern, flags);
+                sb.reset().unwrap();
+                assert_eq!(state.used(), 0, "stopped at {percent}%: leaked");
+                assert_eq!(state.leaked_objects(), 0, "stopped at {percent}%");
+            }
+        }
+    }
+
+    /// The polls in the string list code of patch 30 change no match.
+    #[test]
+    fn class_strings_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let cases = [
+            (r"^[\q{abc|d}x]$", "v", "abc", true),
+            (r"^[\q{abc|d}x]$", "v", "x", true),
+            (r"^[\q{abc|d}x]$", "v", "ab", false),
+            (r"^[[\q{abc}][\q{d}]]$", "v", "d", true),
+            (r"^[\q{abc|d}&&\q{d|e}]$", "v", "d", true),
+            (r"^[\q{abc|d}&&\q{d|e}]$", "v", "abc", false),
+            (r"^[\q{abc|d}--\q{d}]$", "v", "abc", true),
+            (r"^[\q{abc|d}--\q{d}]$", "v", "d", false),
+            (r"^[\q{ABC}]$", "iv", "abc", true),
+        ];
+        for (pattern, flags, text, want) in cases {
+            let source = format!(r"new RegExp(String.raw`{pattern}`, '{flags}').test('{text}')");
+            assert_eq!(sb.eval::<bool>(&source), Ok(want), "{source}");
         }
     }
 

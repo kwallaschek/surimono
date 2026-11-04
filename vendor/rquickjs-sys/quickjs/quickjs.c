@@ -26856,6 +26856,10 @@ static int js_parse_check_duplicate_parameter(JSParseState *s, JSAtom name)
     /* Check for duplicate parameter names */
     JSFunctionDef *fd = s->cur_func;
     int i;
+    /* surimono: walks every parameter so far, per parameter. See
+       js_parse_function_check_names. */
+    if (js_poll_interrupts(s->ctx))
+        return -1;
     for (i = 0; i < fd->arg_count; i++) {
         if (fd->args[i].var_name == name)
             goto duplicate;
@@ -34847,7 +34851,12 @@ static bool is_var_in_arg_scope(const JSVarDef *vd)
             vd->var_kind == JS_VAR_FUNCTION_NAME);
 }
 
-static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+/* surimono: for a direct eval, every variable of every enclosing function goes
+   through get_closure_var, which walks the closure variables so far in each
+   function on the way, so this is quadratic in the variables and linear in the
+   nesting, all between two tokens: 32,768 `var`s and eight nested arrows took
+   3.4 s. Polls per variable; returns -1 after an interrupt. */
+static __exception int add_eval_variables(JSContext *ctx, JSFunctionDef *s)
 {
     JSFunctionDef *fd;
     JSVarDef *vd;
@@ -34936,6 +34945,8 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
         /* add lexical variables */
         scope_idx = fd->scopes[scope_level].first;
         while (scope_idx >= 0) {
+            if (js_poll_interrupts(ctx)) /* surimono */
+                return -1;
             vd = &fd->vars[scope_idx];
             capture_var(fd, vd);
             get_closure_var(ctx, s, fd, JS_CLOSURE_LOCAL, scope_idx,
@@ -34947,6 +34958,8 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
             /* add unscoped variables */
             /* XXX: propagate is_const and var_kind too ? */
             for(i = 0; i < fd->arg_count; i++) {
+                if (js_poll_interrupts(ctx)) /* surimono */
+                    return -1;
                 vd = &fd->args[i];
                 if (vd->var_name != JS_ATOM_NULL) {
                     capture_var(fd, vd);
@@ -34956,6 +34969,8 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
                 }
             }
             for(i = 0; i < fd->var_count; i++) {
+                if (js_poll_interrupts(ctx)) /* surimono */
+                    return -1;
                 vd = &fd->vars[i];
                 /* do not close top level last result */
                 if (vd->scope_level == 0 &&
@@ -34969,6 +34984,8 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
             }
         } else {
             for(i = 0; i < fd->var_count; i++) {
+                if (js_poll_interrupts(ctx)) /* surimono */
+                    return -1;
                 vd = &fd->vars[i];
                 /* do not close top level last result */
                 if (vd->scope_level == 0 && is_var_in_arg_scope(vd)) {
@@ -34985,6 +35002,8 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
                top level) */
             for (idx = 0; idx < fd->closure_var_count; idx++) {
                 JSClosureVar *cv = &fd->closure_var[idx];
+                if (js_poll_interrupts(ctx)) /* surimono */
+                    return -1;
                 get_closure_var(ctx, s, fd,
                                 JS_CLOSURE_REF,
                                 idx, cv->var_name, cv->is_const,
@@ -34992,6 +35011,7 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
             }
         }
     }
+    return 0;
 }
 
 static void set_closure_from_var(JSContext *ctx, JSClosureVar *cv,
@@ -36913,6 +36933,12 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
         JumpSlot *jp1;
         int j, pos, diff, delta;
 
+        /* surimono: each shrunk jump moves the rest of the bytecode and walks
+           every label, later jump and source location, so this loop is
+           quadratic in a small input: 1.8 MiB of `if(a){...}` took 24 s. No
+           relocation is pending here, so the failure path above is safe. */
+        if (js_poll_interrupts(ctx))
+            goto fail;
         delta = 3;
         switch (op = jp->op) {
         case OP_goto16:
@@ -37356,8 +37382,8 @@ static JSValue js_create_function(JSContext *ctx, JSFunctionDef *fd)
        so it is necessary to create the closure variables before any
        other variable lookup is done. */
 #ifndef QJS_DISABLE_PARSER
-    if (fd->has_eval_call)
-        add_eval_variables(ctx, fd);
+    if (fd->has_eval_call && add_eval_variables(ctx, fd))
+        goto fail;
 #endif // QJS_DISABLE_PARSER
 
     /* add the module global variables in the closure */
@@ -37696,6 +37722,10 @@ static int js_parse_function_check_names(JSParseState *s, JSFunctionDef *fd,
     ||  fd->func_type == JS_PARSE_FUNC_ARROW
     ||  fd->func_type == JS_PARSE_FUNC_METHOD) {
         for (idx = 0; idx < fd->arg_count; idx++) {
+            /* surimono: quadratic in the parameters, and it runs between two
+               tokens: 65,000 strict parameters took 0.9 s with no poll. */
+            if (js_poll_interrupts(s->ctx))
+                return -1;
             name = fd->args[idx].var_name;
             if (name != JS_ATOM_NULL) {
                 for (i = 0; i < idx; i++) {

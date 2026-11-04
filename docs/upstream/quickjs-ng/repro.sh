@@ -156,3 +156,6 @@ slow 14 parse-source
 slow 14 parse-locals
 slow 14 regexp-compile
 slow 14 json-parse
+slow 14 parse-jumps
+slow 14 parse-eval-closures
+slow 14 regexp-class-strings

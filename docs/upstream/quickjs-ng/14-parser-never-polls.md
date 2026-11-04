@@ -2,11 +2,13 @@ Title: The parser, the compiler passes, JSON.parse and the RegExp compiler never
 
 Found by an automated tool (an AI agent working on surimono, an embedder of quickjs-ng, running hostile scripts under a time limit), then reproduced on current master.
 
-**What happens.** A script under a time limit can spend it all in one native call that takes a string: `eval`, `new Function`, `new RegExp` or `JSON.parse`. `JS_SetInterruptHandler` is only asked from the bytecode interpreter and a few native loops, and none of these run bytecode. Bytecode compiled from the string doesn't help either when it never runs: the time goes before the first instruction. Size is not the only problem, because three of these are quadratic in small inputs:
+**What happens.** A script under a time limit can spend it all in one native call that takes a string: `eval`, `new Function`, `new RegExp` or `JSON.parse`. `JS_SetInterruptHandler` is only asked from the bytecode interpreter and a few native loops, and none of these run bytecode. Bytecode compiled from the string doesn't help either when it never runs: the time goes before the first instruction. Size is not the only problem, because these are quadratic in small inputs:
 
 - `resolve_variables` looks up each name through every variable in scope: a function of 60,000 `let` declarations, about 1 MiB of source, takes about 25 s.
 - `re_parse_disjunction` moves the bytecode written so far for each alternative, so `'x|'.repeat(1 << 22)` runs for minutes.
 - A character class merges each item into a sorted table.
+- The "more jump optimizations" loop at the end of `resolve_labels` moves the rest of the bytecode and walks every label, later jump and source location for each jump it shrinks: `'function f(a){' + ('if(a){' + 'a();'.repeat(12) + '}').repeat(32000) + '}'`, 1.8 MiB, takes about 24 s.
+- `add_eval_variables` puts every variable of every enclosing function through `get_closure_var` for a direct eval, before the first pass over the code, so it is quadratic in the variables and linear in the nesting: 32,768 `var`s around eight nested arrows take 3.4 s.
 
 **Reproduce.**
 
@@ -28,12 +30,17 @@ The `repro.sh` in `quickjs-ng-repro.tar.gz`, attached, runs these with `harness/
 | `regexp-compile` | `'x\|'.repeat(1 << 22)`, 8 MiB | still running after 60 s |
 | `json-parse` | 67 MiB of `{"a":1},` | 6,228 ms |
 
+The `parse-jumps`, `parse-eval-closures` and `regexp-class-strings` cases were found later and measured on the same code in our vendored quickjs-ng 0.16.2, through our embedder: 24 s, 3.4 s and 2.8 s past a deadline. `repro.sh` runs them too.
+
 **Suggested fix.** Call `js_poll_interrupts` where these loops turn. On the paths below every failure label exists already, so each poll is two lines:
 
 - `next_token` and `json_next_token`: at `redo:`, which covers each token and each skipped white space character, not by source position, because `js_parse_skip_parens_token` scans tokens again.
 - The loops that scan one token: `js_parse_string`, `js_parse_template_part`, `js_parse_regexp`, `parse_ident`, the comment loops of `next_token`, `json_parse_string`, `json_parse_number`, `json_parse_ident`, and the digit loops of `js_atof`.
 - `resolve_variables`, `resolve_labels` and `compute_stack_size`: once per instruction.
-- libregexp: per term, class item and alternative, through `lre_check_timeout`. `lre_compile` has no way to return "interrupted" today, so it needs one, or the interrupt comes back as a catchable `SyntaxError`. We use a reserved error message that `js_compile_regexp` turns into `JS_ThrowInterrupted`. These polls have no counter, because one step can cost milliseconds.
+- The "more jump optimizations" loop of `resolve_labels`: once per jump, or the per-instruction polls above all pass and the quadratic part runs after them.
+- `add_eval_variables`: once per variable. It returns nothing today, so it has to return an error, which `js_create_function` checks.
+- The parameter name checks, `js_parse_function_check_names` and `js_parse_check_duplicate_parameter`: once per parameter. They run between two tokens, and 65,000 strict parameters take about 0.9 s.
+- libregexp: per term, class item and alternative, through `lre_check_timeout`, and per string in the class string list code (`parse_class_string_disjunction`, `re_string_list_op`, `re_string_list_canonicalize`, `re_emit_string_list`): 35 MiB of `\q{}` alternatives is one class item. `lre_compile` has no way to return "interrupted" today, so it needs one, or the interrupt comes back as a catchable `SyntaxError`. We use a reserved error message that `js_compile_regexp` turns into `JS_ThrowInterrupted`. These polls have no counter, because one step can cost milliseconds.
 
 Two details need care:
 

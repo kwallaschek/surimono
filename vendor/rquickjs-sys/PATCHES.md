@@ -1168,6 +1168,9 @@ touches, so a load gets no slower.
     - If a parse error replaces the interrupt, the sandbox still reports
       `TimeLimit` (`classify` asks the limit state first), and a script that
       catches the error is stopped at its next poll.
+    - The parameter name checks poll once per parameter:
+      `js_parse_function_check_names` and `js_parse_check_duplicate_parameter`.
+      They run between two tokens, and 65,000 strict parameters took 803 ms.
 28. **`JSON.parse` polls.** `json_next_token` at `redo:`, `json_parse_ident` and
     the digit loops of `json_parse_number`. `json_parse_string` polls per batch
     and caps its ASCII fast path at 64 KiB a batch.
@@ -1177,6 +1180,16 @@ touches, so a load gets no slower.
     about as much as parsing, and `resolve_scope_var` walks every variable in
     scope for each name. The cleanup after a stop here is proportional to the
     function: about half the time spent so far at worst.
+    - The "more jump optimizations" loop of `resolve_labels` polls once per
+      jump. It runs after that pass, and each jump it shrinks moves the rest of
+      the bytecode and walks every label, later jump and source location, so a
+      small input is quadratic there and only there. Review of #125:
+      `if(a){...}` blocks, 1.76 MiB, took 23.7 s against a 2 s limit.
+    - `add_eval_variables` returns an error and polls once per variable, and
+      `js_create_function` checks it. For a direct eval, every variable of every
+      enclosing function goes through `get_closure_var`, which walks the
+      closure variables of each function in between, all before the first pass
+      over the code.
 30. **The regexp compiler polls.** `re_parse_poll` calls `lre_check_timeout` per
     term, class item and alternative, with no counter, since one step can cost
     milliseconds (a `memmove` of the bytecode written so far, a merge into a
@@ -1184,12 +1197,21 @@ touches, so a load gets no slower.
     `js_compile_regexp` turns into the uncatchable `JS_ThrowInterrupted`
     instead of a `SyntaxError`. This also covers regexp literals, which the
     parser compiles.
+    - The string lists of `v` classes poll per string, since `\q{a|b|...}` is
+      one class item however long it is: `parse_class_string_disjunction` (per
+      alternative and per character), `re_string_list_op`,
+      `re_string_list_canonicalize` and `re_emit_string_list`. The two list
+      helpers report failure like an allocation that failed, so
+      `REParseState.interrupted` tells `re_parse_out_of_memory` to keep the
+      error.
 31. **`surimono_quickjs_patch_level()` returns 7**, and surimono-core requires 7.
 
 Left, all linear in data the memory limit bounds: the conversion in `js_atof`
 after its digit loops (`js_atod` on 64 MiB of digits, about 100 to 200 ms),
-`strtod` in `json_parse_number`, `JS_WriteObject` in `Sandbox::compile`, and
-straight-line bytecode, which has no back-edge to poll at.
+`strtod` in `json_parse_number`, `JS_WriteObject` in `Sandbox::compile`, the
+sort in `re_emit_string_list` (at most 350 to 450 ms past a 3 to 4 s limit on 35
+MiB of `\q{}` strings, with the cleanup), and straight-line bytecode, which has
+no back-edge to poll at.
 
 Timings, release build, 50 ms limit, `TimeLimit` in all of the "after" column
 (`Sandbox::compile`, or a call with the string already set):
@@ -1205,15 +1227,30 @@ Timings, release build, 50 ms limit, `TimeLimit` in all of the "after" column
 | 60 MiB regexp literal | 1,865 ms | 50 ms |
 | `new RegExp`, 60 MiB of literals | 1,207 ms | 50 ms |
 | `new RegExp('x\|'.repeat(8 << 20))` | stopped by hand after minutes | 50 ms |
+| `if(a){...}` blocks, 1.76 MiB | 23,700 ms (2 s limit) | 2,001 ms (2 s limit), 59 ms |
+| 65,000 strict parameters, 444 KiB | 803 ms | 51 ms |
+| 32,768 `var`s around 8 nested arrows and a direct `eval` | 3,388 ms | 51 ms |
+| 4M `\q{}` strings, 35 MiB | 2,764 ms | 54 ms |
 
 The stop itself is prompt; the time after it is unwinding. Past 1 s, for a
 16 MiB source, unwinding takes 100 to 700 ms, still under twice the limit.
 Compiling the 1 MiB ECharts bundle: best of 15, three runs each, 142 to 153 ms
 before, 139 to 144 ms after.
 
-Tests: group G in `crates/core/tests/hostile.rs` (39 vectors, and
-`group_g_compile_interrupts_are_uncatchable`); `interrupted_natives_leak_nothing`
+Other compile passes: 197 program shapes (jumps, `switch`, `try`, labels, scopes,
+closures, direct `eval`, `with`, classes, destructuring, templates, literals,
+generators, regexps, `JSON.parse`), each doubled in size until it took 6 s or
+hit an engine cap, then run at that size under a 50 ms limit. About a fifth are
+quadratic or worse when run to their end (a ratio of 4 per doubling, up to 8.9
+for many closures with a direct `eval`), the rest linear. That found
+`add_eval_variables` and the `v` class strings above; with those polled, every
+shape stopped within 112 ms.
+
+Tests: group G in `crates/core/tests/hostile.rs` (44 vectors,
+`group_g_compile_interrupts_are_uncatchable` and
+`group_g_parameter_checks_stop`); `interrupted_natives_leak_nothing`
 (six group G vectors), `interrupted_compiles_leak_nothing`,
+`interrupted_class_strings_leak_nothing`, `class_strings_are_unchanged`,
 `json_strings_are_unchanged_around_a_batch` and `compile_errors_are_unchanged` in
 `crates/core/src/sandbox.rs`. The out-of-memory sweeps now stop at the poll after
 each refused allocation inside the parser and the passes.
@@ -1223,7 +1260,51 @@ each refused allocation inside the parser and the passes.
 ```diff
 --- a/quickjs/libregexp.c
 +++ b/quickjs/libregexp.c
-@@ -699,4 +699,18 @@ static int JS_PRINTF_FORMAT_ATTR(2, 3) re_parse_error(REParseState *s, JS_PRINTF
+@@ -99,4 +99,5 @@ typedef struct {
+     void *opaque;
+     DynBuf group_names;
++    bool interrupted; /* surimono: see re_parse_poll */
+     union {
+         char error_msg[TMP_BUF_SIZE];
+@@ -320,5 +321,10 @@ static int re_string_add(REStringList *s, int len, const uint32_t *buf)
+ 
+ /* a = a op b */
+-static int re_string_list_op(REStringList *a, REStringList *b, int op)
++/* surimono: see re_parse_poll; a class's string list has one entry per
++   \q{} alternative, up to one per two bytes of the pattern. */
++static int re_parse_poll(REParseState *s);
++
++static int re_string_list_op(REParseState *s, REStringList *a, REStringList *b,
++                             int op)
+ {
+     int i, ret;
+@@ -333,4 +339,7 @@ static int re_string_list_op(REStringList *a, REStringList *b, int op)
+             for(i = 0; i < b->hash_size; i++) {
+                 for(p = b->hash_table[i]; p != NULL; p = p->next) {
++                    /* surimono */
++                    if (re_parse_poll(s))
++                        return -1;
+                     if (re_string_find2(a, p->len, p->buf, p->hash, true) < 0)
+                         return -1;
+@@ -347,4 +356,7 @@ static int re_string_list_op(REStringList *a, REStringList *b, int op)
+                 if (p == NULL)
+                     break;
++                /* surimono */
++                if (re_parse_poll(s))
++                    return -1;
+                 ret = re_string_find2(b, p->len, p->buf, p->hash, false);
+                 if (op == CR_OP_SUB)
+@@ -393,4 +405,9 @@ static int re_string_list_canonicalize(REParseState *s1,
+         for(i = 0; i < a->hash_size; i++) {
+             for(p = a->hash_table[i]; p != NULL; p = p->next) {
++                /* surimono */
++                if (re_parse_poll(s1)) {
++                    re_string_list_free(a);
++                    return -1;
++                }
+                 for(j = 0; j < p->len; j++) {
+                     p->buf[j] = lre_canonicalize(p->buf[j], is_unicode);
+@@ -699,6 +716,26 @@ static int JS_PRINTF_FORMAT_ATTR(2, 3) re_parse_error(REParseState *s, JS_PRINTF
  }
  
 +/* surimono: compiling a pattern is quadratic in places (each alternative and
@@ -1235,14 +1316,42 @@ each refused allocation inside the parser and the passes.
 +   js_compile_regexp. */
 +static int re_parse_poll(REParseState *s)
 +{
-+    if (lre_check_timeout(s->opaque))
++    if (lre_check_timeout(s->opaque)) {
++        s->interrupted = true;
 +        return re_parse_error(s, "%s", LRE_INTERRUPTED);
++    }
 +    return 0;
 +}
 +
  static int re_parse_out_of_memory(REParseState *s)
  {
-@@ -1448,4 +1462,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
++    /* surimono: re_string_list_op and re_string_list_canonicalize fail the
++       same way after an interrupt, with the error already set. */
++    if (s->interrupted)
++        return -1;
+     return re_parse_error(s, "out of memory");
+ }
+@@ -1025,5 +1062,11 @@ static int parse_class_string_disjunction(REParseState *s, REStringList *cr,
+     for(;;) {
+         str.size = 0;
++        /* surimono */
++        if (re_parse_poll(s))
++            goto fail;
+         while (*p != '}' && *p != '|') {
++            /* surimono */
++            if (re_parse_poll(s))
++                goto fail;
+             c = get_class_atom(s, NULL, &p, true);
+             if (c < 0)
+@@ -1342,4 +1385,7 @@ static int re_emit_string_list(REParseState *s, const REStringList *sl)
+         last_match_pos = -1;
+         for(i = 0; i < n; i++) {
++            /* surimono */
++            if (re_parse_poll(s))
++                goto fail;
+             p = tab[i];
+             is_last = !has_empty_string && sl->cr.len == 0 && i == (n - 1);
+@@ -1448,4 +1494,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
      is_first = true;
      for(;;) {
 +        /* surimono */
@@ -1250,7 +1359,14 @@ each refused allocation inside the parser and the passes.
 +            goto fail;
          if (*p == ']')
              break;
-@@ -1522,4 +1539,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+@@ -1506,5 +1555,5 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+                 if (c1 >= CLASS_RANGE_BASE) {
+                 class_union:
+-                    ret = re_string_list_op(cr, cr1, CR_OP_UNION);
++                    ret = re_string_list_op(s, cr, cr1, CR_OP_UNION);
+                     re_string_list_free(cr1);
+                     if (ret)
+@@ -1522,4 +1571,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
                  /* handle '&&' */
                  for(;;) {
 +                    /* surimono */
@@ -1258,7 +1374,14 @@ each refused allocation inside the parser and the passes.
 +                        goto fail;
                      if (*p == ']') {
                          break;
-@@ -1539,4 +1559,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+@@ -1531,5 +1583,5 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+                     if (re_parse_class_set_operand(s, cr1, &p))
+                         goto fail;
+-                    ret = re_string_list_op(cr, cr1, CR_OP_INTER);
++                    ret = re_string_list_op(s, cr, cr1, CR_OP_INTER);
+                     re_string_list_free(cr1);
+                     if (ret)
+@@ -1539,4 +1591,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
                  /* handle '--' */
                  for(;;) {
 +                    /* surimono */
@@ -1266,7 +1389,14 @@ each refused allocation inside the parser and the passes.
 +                        goto fail;
                      if (*p == ']') {
                          break;
-@@ -2440,4 +2463,7 @@ static int re_parse_alternative(REParseState *s, bool is_backward_dir)
+@@ -1550,5 +1605,5 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+                     if (re_parse_class_set_operand(s, cr1, &p))
+                         goto fail;
+-                    ret = re_string_list_op(cr, cr1, CR_OP_SUB);
++                    ret = re_string_list_op(s, cr, cr1, CR_OP_SUB);
+                     re_string_list_free(cr1);
+                     if (ret)
+@@ -2440,4 +2495,7 @@ static int re_parse_alternative(REParseState *s, bool is_backward_dir)
          if (*p == '|' || *p == ')')
              break;
 +        /* surimono */
@@ -1274,7 +1404,7 @@ each refused allocation inside the parser and the passes.
 +            return -1;
          term_start = s->byte_code.size;
          ret = re_parse_term(s, is_backward_dir);
-@@ -2472,4 +2498,7 @@ static int re_parse_disjunction(REParseState *s, bool is_backward_dir)
+@@ -2472,4 +2530,7 @@ static int re_parse_disjunction(REParseState *s, bool is_backward_dir)
          return -1;
      while (*s->buf_ptr == '|') {
 +        /* surimono */
@@ -1554,7 +1684,69 @@ each refused allocation inside the parser and the passes.
 +                    return -1;
                  cooked.u.str.str = JS_UNDEFINED;
              }
-@@ -35355,4 +35449,11 @@ static __exception int resolve_variables(JSContext *ctx, JSFunctionDef *s)
+@@ -26763,4 +26857,8 @@ static int js_parse_check_duplicate_parameter(JSParseState *s, JSAtom name)
+     JSFunctionDef *fd = s->cur_func;
+     int i;
++    /* surimono: walks every parameter so far, per parameter. See
++       js_parse_function_check_names. */
++    if (js_poll_interrupts(s->ctx))
++        return -1;
+     for (i = 0; i < fd->arg_count; i++) {
+         if (fd->args[i].var_name == name)
+@@ -34754,5 +34852,10 @@ static bool is_var_in_arg_scope(const JSVarDef *vd)
+ }
+ 
+-static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
++/* surimono: for a direct eval, every variable of every enclosing function goes
++   through get_closure_var, which walks the closure variables so far in each
++   function on the way, so this is quadratic in the variables and linear in the
++   nesting, all between two tokens: 32,768 `var`s and eight nested arrows took
++   3.4 s. Polls per variable; returns -1 after an interrupt. */
++static __exception int add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+ {
+     JSFunctionDef *fd;
+@@ -34843,4 +34946,6 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+         scope_idx = fd->scopes[scope_level].first;
+         while (scope_idx >= 0) {
++            if (js_poll_interrupts(ctx)) /* surimono */
++                return -1;
+             vd = &fd->vars[scope_idx];
+             capture_var(fd, vd);
+@@ -34854,4 +34959,6 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+             /* XXX: propagate is_const and var_kind too ? */
+             for(i = 0; i < fd->arg_count; i++) {
++                if (js_poll_interrupts(ctx)) /* surimono */
++                    return -1;
+                 vd = &fd->args[i];
+                 if (vd->var_name != JS_ATOM_NULL) {
+@@ -34863,4 +34970,6 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+             }
+             for(i = 0; i < fd->var_count; i++) {
++                if (js_poll_interrupts(ctx)) /* surimono */
++                    return -1;
+                 vd = &fd->vars[i];
+                 /* do not close top level last result */
+@@ -34876,4 +34985,6 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+         } else {
+             for(i = 0; i < fd->var_count; i++) {
++                if (js_poll_interrupts(ctx)) /* surimono */
++                    return -1;
+                 vd = &fd->vars[i];
+                 /* do not close top level last result */
+@@ -34892,4 +35003,6 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+             for (idx = 0; idx < fd->closure_var_count; idx++) {
+                 JSClosureVar *cv = &fd->closure_var[idx];
++                if (js_poll_interrupts(ctx)) /* surimono */
++                    return -1;
+                 get_closure_var(ctx, s, fd,
+                                 JS_CLOSURE_REF,
+@@ -34899,4 +35012,5 @@ static void add_eval_variables(JSContext *ctx, JSFunctionDef *s)
+         }
+     }
++    return 0;
+ }
+ 
+@@ -35355,4 +35469,11 @@ static __exception int resolve_variables(JSContext *ctx, JSFunctionDef *s)
          int flags;
  
 +        /* surimono: see the poll in the loop below; pos is 0, so the path
@@ -1566,7 +1758,7 @@ each refused allocation inside the parser and the passes.
 +
          /* check if global variable (XXX: simplify) */
          for(idx = 0; idx < s->closure_var_count; idx++) {
-@@ -35391,4 +35492,9 @@ static __exception int resolve_variables(JSContext *ctx, JSFunctionDef *s)
+@@ -35391,4 +35512,9 @@ static __exception int resolve_variables(JSContext *ctx, JSFunctionDef *s)
      col_num = 0;
      for (pos = 0; pos < bc_len; pos = pos_next) {
 +        /* surimono: this pass costs as much as the parser and its name
@@ -1576,7 +1768,7 @@ each refused allocation inside the parser and the passes.
 +            goto fail;
          op = bc_buf[pos];
          len = opcode_info[op].size;
-@@ -36075,4 +36181,7 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
+@@ -36075,4 +36201,7 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
              goto fail;
          }
 +        /* surimono: see resolve_variables. */
@@ -1584,7 +1776,18 @@ each refused allocation inside the parser and the passes.
 +            goto fail;
          op = bc_buf[pos];
          len = opcode_info[op].size;
-@@ -36995,4 +37104,7 @@ static __exception int compute_stack_size(JSContext *ctx,
+@@ -36805,4 +36934,10 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
+         int j, pos, diff, delta;
+ 
++        /* surimono: each shrunk jump moves the rest of the bytecode and walks
++           every label, later jump and source location, so this loop is
++           quadratic in a small input: 1.8 MiB of `if(a){...}` took 24 s. No
++           relocation is pending here, so the failure path above is safe. */
++        if (js_poll_interrupts(ctx))
++            goto fail;
+         delta = 3;
+         switch (op = jp->op) {
+@@ -36995,4 +37130,7 @@ static __exception int compute_stack_size(JSContext *ctx,
  
      while (s->pc_stack_len > 0) {
 +        /* surimono: see resolve_variables. */
@@ -1592,14 +1795,32 @@ each refused allocation inside the parser and the passes.
 +            goto fail;
          pos = s->pc_stack[--s->pc_stack_len];
          stack_len = s->stack_level_tab[pos];
-@@ -38424,5 +38536,5 @@ static JSValue __JS_EvalInternal(JSContext *ctx, JSValueConst this_obj,
+@@ -37245,6 +37383,6 @@ static JSValue js_create_function(JSContext *ctx, JSFunctionDef *fd)
+        other variable lookup is done. */
+ #ifndef QJS_DISABLE_PARSER
+-    if (fd->has_eval_call)
+-        add_eval_variables(ctx, fd);
++    if (fd->has_eval_call && add_eval_variables(ctx, fd))
++        goto fail;
+ #endif // QJS_DISABLE_PARSER
+ 
+@@ -37585,4 +37723,8 @@ static int js_parse_function_check_names(JSParseState *s, JSFunctionDef *fd,
+     ||  fd->func_type == JS_PARSE_FUNC_METHOD) {
+         for (idx = 0; idx < fd->arg_count; idx++) {
++            /* surimono: quadratic in the parameters, and it runs between two
++               tokens: 65,000 strict parameters took 0.9 s with no poll. */
++            if (js_poll_interrupts(s->ctx))
++                return -1;
+             name = fd->args[idx].var_name;
+             if (name != JS_ATOM_NULL) {
+@@ -38424,5 +38566,5 @@ static JSValue __JS_EvalInternal(JSContext *ctx, JSValueConst this_obj,
  
      js_parse_init(ctx, s, input, input_len, filename, line);
 -    skip_shebang(&s->buf_ptr, s->buf_end);
 +    skip_shebang(ctx, &s->buf_ptr, s->buf_end);
  
      eval_type = flags & JS_EVAL_TYPE_MASK;
-@@ -49557,4 +49669,9 @@ static JSValue js_compile_regexp(JSContext *ctx, JSValueConst pattern,
+@@ -49557,4 +49699,9 @@ static JSValue js_compile_regexp(JSContext *ctx, JSValueConst pattern,
      JS_FreeCString(ctx, str);
      if (!re_bytecode_buf) {
 +        /* surimono: lre_compile polls; see re_parse_poll. */
