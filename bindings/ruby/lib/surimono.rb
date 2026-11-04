@@ -189,15 +189,31 @@ module Surimono
     # Runs the block with the signal pump. The pump only sleeps; it stops on its
     # own once `done` is set, so even an interrupt that lands between
     # Thread.new and the assignment can't leave it running, and the ensure
-    # wakes and joins it so it never outlives the render.
+    # wakes and joins it so it never outlives the render. It is a convenience:
+    # an exception raised into it is dropped (pump.join would raise it out of
+    # render, after the whole document), and with no thread to be had the
+    # render goes ahead without it, so signals wait as they would on any
+    # blocking C call.
     def with_signal_pump
       done = false
       pump = nil
       begin
-        pump = Thread.new do
-          Thread.current.name = "surimono-signal-pump"
-          Thread.current.report_on_exception = false
-          sleep SIGNAL_PUMP_INTERVAL until done
+        begin
+          pump = Thread.new do
+            begin
+              sleep SIGNAL_PUMP_INTERVAL until done
+            rescue Exception # rubocop:disable Lint/RescueException
+              retry # Thread#raise from outside; Thread#kill can't be rescued
+            end
+          end
+        rescue ThreadError
+          pump = nil # a thread limit, or a frozen ThreadGroup
+        end
+        if pump
+          # From here, not from its block: Ruby runs a new thread only once
+          # this one lets it, so it never shows up unnamed.
+          pump.name = "surimono-signal-pump"
+          pump.report_on_exception = false
         end
         yield
       ensure

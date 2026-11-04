@@ -466,9 +466,9 @@ impl Sandbox {
     /// host function should check [`Deadline::passed`] before expensive
     /// work and throw if it has: the call then fails with
     /// [`SandboxError::TimeLimit`] or [`SandboxError::Cancelled`], however the
-    /// script handles the exception. The handle belongs to this sandbox's current runtime;
-    /// take a new one after a [`reset`](Self::reset) or a limit error (an
-    /// old handle then always reports passed).
+    /// script handles the exception. The handle belongs to this sandbox's
+    /// current runtime; take a new one after a [`reset`](Self::reset) or a
+    /// limit error (an old handle then always reports passed).
     pub fn deadline(&self) -> Deadline {
         Deadline {
             state: self.state.clone(),
@@ -1128,16 +1128,26 @@ mod tests {
     fn too_many_destructured_parameters_is_a_syntax_error() {
         // Past JS_MAX_LOCAL_VARS (65,535) add_arg fails with no allocation
         // refused, so no stop flag is up; the function is only compiled.
-        let source = format!("function f({}) {{}}", "{},".repeat(70_000));
+        let plain = format!("function f({}) {{}}", "{},".repeat(70_000));
+        // The form that crashed the unpatched engine when called with no
+        // arguments (PATCHES.md, item 25). The call never compiles here.
+        let params = "{} = {},".repeat(65_536);
+        let mut sources = vec![plain];
+        for head in ["function* f", "async function f", "async function* f"] {
+            sources.push(format!("{head}({params}) {{}}\nf()"));
+        }
         let mut sb = Sandbox::new(limits().with_time(Duration::from_secs(60))).unwrap();
-        match sb.compile(&source, "params.js") {
-            Err(SandboxError::Exception { message, .. }) => {
-                assert!(
-                    message.starts_with("SyntaxError: too many parameters"),
-                    "{message}"
-                )
+        for source in &sources {
+            let head = &source[..source.len().min(20)];
+            match sb.compile(source, "params.js") {
+                Err(SandboxError::Exception { message, .. }) => {
+                    assert!(
+                        message.starts_with("SyntaxError: too many parameters"),
+                        "{head}: {message}"
+                    )
+                }
+                other => panic!("{head}: {other:?}"),
             }
-            other => panic!("{other:?}"),
         }
     }
 

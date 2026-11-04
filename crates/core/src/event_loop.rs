@@ -46,22 +46,25 @@
 //!
 //! # External waits: what the host must do
 //!
-//! `WaitingExternal` is not an end. Each call returns at once, but the page
-//! has not finished: with the clock held, no later timer has run, so
-//! printing it now would print a page that never got to run them. The
-//! virtual budget and the task limit can't end a wait, because neither moves
-//! while the clock is held. Calling again without ending a wait gives the
-//! same report for ever. So the host, and only the host, ends every wait:
+//! `WaitingExternal` is not an end. Tasks already due run first, up to the
+//! task limit, and then the call returns, but the page has not finished:
+//! with the clock held, no later timer has run, so printing it now would
+//! print a page that never got to run them. The virtual budget and the task
+//! limit can't end a wait, because neither moves while the clock is held.
+//! Calling again without ending a wait gives the same report for ever. So
+//! the host, and only the host, ends every wait:
 //!
 //! 1. [`EventLoopHandle::external_begin`] returns an [`ExternalWait`] for
 //!    each thing the page waits on. [`EventLoopHandle::external_end`] closes
 //!    that one and says whether it was still open.
 //! 2. To give up, [`EventLoopHandle::external_abandon_all`] closes every
 //!    open wait. A result that arrives later finds `external_end` returning
-//!    false: drop it. It can't close a newer wait.
+//!    false: drop it. It can't close a newer wait, even one in the next
+//!    render of a reset or pooled sandbox: an [`ExternalWait`] is unique in
+//!    the process.
 //! 3. Call [`Sandbox::run_until_settled`](crate::Sandbox) again. The timers
-//!    then run to the budget, with the budget as a whole still ahead of
-//!    them, since the clock didn't move.
+//!    then run to the budget. The time a wait held is not taken from the
+//!    budget, since the clock didn't move.
 //!
 //! When the host gives up doesn't change the output: the clock didn't move
 //! and no task ran meanwhile, so giving up after no calls or after many
@@ -88,6 +91,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use rquickjs::{Ctx, Exception, Function, Object, Value};
 
@@ -196,7 +200,8 @@ impl SettleReport {
 /// the page is waiting on (fonts, images) that the settle rule must see.
 ///
 /// It belongs to the sandbox's current runtime: take a new one after a
-/// reset or a limit error (an old one counts on a loop that is gone).
+/// reset or a limit error (an old one counts on a loop that is gone). An
+/// [`ExternalWait`] from before that closes nothing on the new one.
 #[derive(Debug, Clone)]
 pub struct EventLoopHandle {
     pub(crate) shared: Shared,
@@ -205,10 +210,10 @@ pub struct EventLoopHandle {
 impl EventLoopHandle {
     /// Records that the page now waits on one more external thing.
     pub fn external_begin(&self) -> ExternalWait {
-        let mut st = self.shared.borrow_mut();
-        let id = st.next_wait;
-        st.next_wait += 1;
-        st.external.insert(id);
+        // Never reaches the page, so sharing it across sandboxes can't make
+        // one render depend on another.
+        let id = NEXT_WAIT.fetch_add(1, Ordering::Relaxed);
+        self.shared.borrow_mut().external.insert(id);
         ExternalWait(id)
     }
 
@@ -239,8 +244,13 @@ impl EventLoopHandle {
     }
 }
 
+/// The id of the next [`ExternalWait`], over the whole process: a token
+/// outlives the runtime it came from, and may cross to another thread.
+static NEXT_WAIT: AtomicU64 = AtomicU64::new(0);
+
 /// One external wait, from [`EventLoopHandle::external_begin`]. Ids are never
-/// reused, so a late end can only find its own wait.
+/// reused in the process, by any sandbox or after any reset, so a late end
+/// can only find its own wait.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExternalWait(u64);
 
@@ -319,7 +329,6 @@ pub(crate) struct LoopState {
     tasks_run: u64,
     /// Open external waits.
     external: BTreeSet<u64>,
-    next_wait: u64,
     uncaught: u64,
     errors: Vec<SandboxError>,
     /// A limit error found in a callback's report: the call must end.
