@@ -18,8 +18,10 @@ gem "fulgur"
 surimono supports CRuby 3.2 to 4.0, and fulgur's gem 0.40.0 supports Ruby 3.1 to
 3.4, so use Ruby 3.2, 3.3 or 3.4. surimono ships precompiled native gems for
 Linux (x86_64 and aarch64, glibc) and macOS (x86_64 and arm64), so
-`bundle install` needs no Rust toolchain there. fulgur publishes precompiled
-gems too; check that yours is among them.
+`bundle install` needs no Rust toolchain there. On other platforms the gem
+builds from source and needs Rust 1.87 or later, a C compiler and libclang
+(rb-sys generates its Ruby bindings with bindgen). fulgur publishes
+precompiled gems too; check that yours is among them.
 
 ## Fonts
 

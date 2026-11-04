@@ -83,6 +83,17 @@ export function listFixtures(kind = "islands", only = []) {
   }));
 }
 
+/** Fixture kinds reference.mjs walks: islands, and pages whose own scripts run (real-world). */
+export const KINDS = ["islands", "real-world"];
+
+/** Fixtures of every kind, or the named ones wherever they live. */
+export function listAllFixtures(only = []) {
+  const all = KINDS.flatMap((kind) => listFixtures(kind));
+  const missing = only.filter((n) => !all.some((f) => f.name === n));
+  if (missing.length) throw new Error(`no such fixture: ${missing.join(", ")}`);
+  return only.length ? all.filter((f) => only.includes(f.name)) : all;
+}
+
 /**
  * Serves fixtures/ at ORIGIN from disk and aborts every other request, so a
  * fixture can never reach the network.
@@ -204,8 +215,16 @@ export async function renderFixtureInChrome(browser, fixture, pdfPath) {
     page.on("pageerror", (e) => messages.push(`pageerror: ${e.message}`));
     const response = await page.goto(fixture.url, { waitUntil: "load" });
     if (!response || !response.ok()) throw new Error(`${fixture.name}: could not load ${fixture.url}`);
-    for (const script of libraryScripts()) await page.addScriptTag({ path: script });
-    const result = await page.evaluate(() => window.__surimonoRenderIslands());
+    let result;
+    if (fixture.kind === "islands") {
+      for (const script of libraryScripts()) await page.addScriptTag({ path: script });
+      result = await page.evaluate(() => window.__surimonoRenderIslands());
+    } else {
+      result = await settlePageScripts(page);
+      const system = await systemFontsUsed(context, page);
+      if (system.length) throw new Error(`text drawn in a system font: ${system.join(", ")}`);
+      if (messages.some((m) => m.startsWith("pageerror:") || m.startsWith("error:"))) throw new Error("the page's script failed");
+    }
     await loadFontsAndPrint(page, pdfPath);
     return { ...result, console: messages };
   } catch (e) {
@@ -214,6 +233,40 @@ export async function renderFixtureInChrome(browser, fixture, pdfPath) {
   } finally {
     await context.close();
   }
+}
+
+/**
+ * A page whose own scripts run: waits past load for two animation frames and a
+ * task, so microtasks and work queued at load are done, then returns the DOM
+ * the scripts left (the outside truth for surimono's serialized HTML) and the
+ * faces the page loaded. A page with a marker would be an island fixture.
+ */
+async function settlePageScripts(page) {
+  return page.evaluate(async () => {
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done, 0))));
+    await document.fonts.ready;
+    const faces = [...document.fonts].filter((f) => f.status === "loaded").map((f) => `${f.family.replace(/"/g, "")} ${f.weight} ${f.style}`);
+    return { islands: [], fonts: [...new Set(faces)].sort(), dom: `<!doctype html>${document.documentElement.outerHTML}\n` };
+  });
+}
+
+/**
+ * Like the island harness, a page may not fall back to a system font. Chrome
+ * reports the fonts each node was really drawn with, glyph fallback included;
+ * every one must be a web font. KaTeX's MathML copy is clipped out of sight.
+ */
+async function systemFontsUsed(context, page) {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("DOM.enable");
+  await cdp.send("CSS.enable");
+  const { root } = await cdp.send("DOM.getDocument", { depth: 0 });
+  const { nodeIds } = await cdp.send("DOM.querySelectorAll", { nodeId: root.nodeId, selector: "body *:not(.katex-mathml, .katex-mathml *)" });
+  const system = new Set();
+  for (const nodeId of nodeIds) {
+    const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
+    for (const f of fonts) if (!f.isCustomFont) system.add(f.familyName);
+  }
+  return [...system].sort();
 }
 
 /** An attribute's value as written in a start tag (double, single or no quotes), or undefined. */
