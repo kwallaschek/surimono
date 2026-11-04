@@ -12,6 +12,7 @@ use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
+use crate::style_attr;
 
 /// Infra's ASCII whitespace.
 const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
@@ -391,6 +392,9 @@ impl Document {
                 limit: limits.max_nodes,
             });
         }
+        if parsed.over_style {
+            return Err(style_attr::limit_error());
+        }
         if doc.height(doc.root()) - 1 > limits.max_depth || parsed.over_limit {
             return Err(DomError::TreeTooDeep {
                 limit: limits.max_depth,
@@ -478,6 +482,10 @@ impl Document {
         } else {
             self.check_depth(parent, self.height(holder) - 1).err()
         };
+        if parsed.over_style {
+            self.drop_subtree(holder);
+            return Err(style_attr::limit_error());
+        }
         if limit.is_some() || timed_out || parsed.over_limit {
             self.drop_subtree(holder);
             return match limit {
@@ -1204,6 +1212,10 @@ impl Document {
         name: QualName,
         value: &str,
     ) -> Result<(), DomError> {
+        // Any namespace: blitz-dom goes by the local name.
+        if name.local.as_ref() == "style" && !style_attr::fits(value) {
+            return Err(style_attr::limit_error());
+        }
         let credit = self.attribute_bytes(id, &name);
         let charge = attribute_cost(&name, value);
         self.recharge(credit, charge)?;

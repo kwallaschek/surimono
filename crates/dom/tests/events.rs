@@ -861,9 +861,43 @@ fn current_script() {
     );
     rt.run_page(&SettleOptions::default(), |_| Some("see();".to_owned()))
         .unwrap();
-    assert_eq!(log_of(&mut rt), "a,null,b,c,null,null,null");
+    assert_eq!(log_of(&mut rt), "a,a,b,c,null,null,null");
     // No page is running: `eval` has no current script.
     assert!(rt.eval::<bool>("document.currentScript === null").unwrap());
+}
+
+/// HTML §8.1.4.4 "run a classic script" and "clean up after running script":
+/// the microtask checkpoint comes before `currentScript` is restored and
+/// before the element's `load`, however long the chain.
+#[test]
+fn a_scripts_microtasks_are_part_of_its_run() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse(
+            r#"<!doctype html><script id=a>globalThis.log = [];
+            globalThis.see = (at) => () => {
+                const s = document.currentScript;
+                log.push(at + ':' + (s === null ? 'null' : s.id));
+            };
+            (async () => {
+                await null;
+                see('await')();
+                await null;
+                Promise.resolve().then(see('then')).then(see('chained'));
+            })();
+            </script><script id=b src=e.js onload="see('load')()"></script>
+            <script id=c>addEventListener('error', see('error')); throw 1;</script>"#,
+        )
+        .unwrap(),
+    );
+    rt.run_page(&SettleOptions::default(), |_| {
+        Some("queueMicrotask(see('external'));".to_owned())
+    })
+    .unwrap();
+    assert_eq!(
+        log_of(&mut rt),
+        "await:a,then:a,chained:a,external:b,load:null,error:c"
+    );
 }
 
 /// DOM §2.5, §2.7.3; WebIDL §3.2.17, §3.7.6; HTML §3.1.3.

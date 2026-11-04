@@ -302,10 +302,7 @@ impl Document {
 
     fn style_stopped(&mut self, stop: style_attr::Stop) -> BindingError {
         match stop {
-            style_attr::Stop::TooLarge => self.fail(DomError::StyleLimit {
-                declarations: style_attr::MAX_DECLARATIONS,
-                bytes: style_attr::MAX_BYTES,
-            }),
+            style_attr::Stop::TooLarge => self.fail(style_attr::limit_error()),
             style_attr::Stop::TimeLimit => timed_out(),
         }
     }

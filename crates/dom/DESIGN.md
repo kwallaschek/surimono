@@ -161,8 +161,13 @@ live and nothing is kept per element.
   values over 64 KiB, are checked as tokens. A stored value stays as written,
   apart from comments, whitespace runs and string quotes: no computed forms
   (`#F00`), no shorthand expansion.
-- **Bounds.** One attribute may have 4,096 declarations and 8 MiB
-  (`DomError::StyleLimit`, fatal, because a read that fails can't be answered).
+- **Bounds.** One attribute may have 4,096 declarations, 65,536 CSS tokens and
+  8 MiB (`DomError::StyleLimit`, fatal, because a read that fails can't be
+  answered). blitz-dom gives stylo the whole attribute each time it is set, in
+  a call that can't be interrupted, so nothing goes in over the tokens, bytes or
+  bracket depth (`style_attr::fits`): not `setAttribute`, `setProperty`, any
+  namespace's `style`, `innerHTML`, nor the page's own parse. Tokens, because
+  stylo's cost follows them: a `data:` URL is one.
   Parsing is linear, looks at the deadline per declaration, and nests at most
   32 brackets, for the recursion here and in stylo's `calc()`.
 
@@ -229,7 +234,8 @@ Content attributes live in Rust, so `syncHandlers` compares them when an event
 reaches the target, a listener is added or the handler is read, which are the
 only points a page can observe a listener's place from. Raw text compiles once,
 on first use. On a body or frameset element the Window-reflecting set is the
-window's. `document.currentScript` is the glue's, set around a script's run.
+window's. `document.currentScript` is the glue's, set from a script's run until
+a separate lifecycle step after its microtasks, which then fires its `load`.
 
 **Gaps** (each for docs/COMPAT.md): no `window.event`; `isTrusted` is an
 ordinary accessor, not [LegacyUnforgeable]; no microtask checkpoint between the
