@@ -58,7 +58,7 @@ use rquickjs::{Ctx, Exception, Function, Object, Value};
 
 use crate::SandboxError;
 use crate::engine::LimitState;
-use crate::sandbox::{classify, drain_jobs, exception_error};
+use crate::sandbox::{classify, drain_jobs, exception_error, guard_native};
 
 /// Most timers alive at once. Their Rust entries aren't in the JavaScript
 /// heap, so this is what bounds them; far above what real pages use.
@@ -426,31 +426,36 @@ pub(crate) fn host_object<'js>(
         Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>, kind: u32, timeout: i32| -> rquickjs::Result<i32> {
-                let id = st.borrow_mut().schedule(Kind::from_js(kind), timeout);
-                id.ok_or_else(|| {
-                    // Sticky, like a refused allocation: catching this
-                    // doesn't save the call.
-                    stop.exceed_memory();
-                    Exception::throw_internal(&ctx, "too many timers")
+                guard_native(&stop, &ctx, || {
+                    let id = st.borrow_mut().schedule(Kind::from_js(kind), timeout);
+                    id.ok_or_else(|| {
+                        // Sticky, like a refused allocation: catching this
+                        // doesn't save the call.
+                        stop.exceed_memory();
+                        Exception::throw_internal(&ctx, "too many timers")
+                    })
                 })
             },
         )?,
     )?;
-    let st = shared.clone();
+    let (st, stop) = (shared.clone(), limit.clone());
     host.set(
         "cancel",
-        Function::new(ctx.clone(), move |id: i32, frame: bool| {
-            st.borrow_mut().cancel(id, frame)
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, id: i32, frame: bool| {
+            guard_native(&stop, &ctx, || Ok(st.borrow_mut().cancel(id, frame)))
         })?,
     )?;
-    let st = shared.clone();
+    let (st, stop) = (shared.clone(), limit.clone());
     host.set(
         "report",
         Function::new(ctx.clone(), move |ctx: Ctx<'js>, thrown: Value<'js>| {
-            // Reading the exception can run its getters, so no borrow yet.
-            let error = exception_error(thrown);
-            let _ = ctx.catch();
-            st.borrow_mut().note(error);
+            guard_native(&stop, &ctx, || {
+                // Reading the exception can run its getters, so no borrow yet.
+                let error = exception_error(thrown);
+                let _ = ctx.catch();
+                st.borrow_mut().note(error);
+                Ok(())
+            })
         })?,
     )?;
     Ok(host)
