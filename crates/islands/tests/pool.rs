@@ -376,7 +376,11 @@ fn an_idle_worker_frees_its_runtime() {
 fn workers_going_idle_together_trim_once() {
     let r = std::sync::Arc::new(
         IslandRunner::with_estimated_text_metrics(RunnerOptions {
-            release_idle_after: Some(Duration::from_millis(50)),
+            // Long enough that a slow caller still joins the same busy
+            // period; a_burst_after_a_long_gap_trims_once drives them exactly.
+            release_idle_after: Some(Duration::from_millis(500)),
+            // Its loop must not reach the time limit on a loaded machine.
+            limits: options(3).limits.with_time(Duration::from_secs(60)),
             ..options(3)
         })
         .unwrap(),
