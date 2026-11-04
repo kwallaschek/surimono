@@ -133,9 +133,9 @@ proxy both carry the record in the private field, which proxy traps don't see.
 `src/select.rs` matches element by element through `Guarded`, a delegating
 `selectors::Element`, instead of calling blitz-dom's query in one go. One match
 can be polynomial in a wide tree (`:not(:not(b ~ b) ~ b)`) and nothing could
-interrupt it; `Guarded` charges a clock for work (each element's match for the
-list's length, each sibling scanned, children `:empty` reads, attributes
-tested) and answers "no such element" once the deadline passes, so the match
+interrupt it; `Guarded` charges a clock for work (each element reached for the
+selector's byte length, which also counts what `:is()` nests, each sibling
+scanned, children `:empty` reads, attributes tested) and answers "no such element" once the deadline passes, so the match
 ends quickly. blitz-dom's sibling lookups scan the parent per step, so `Guarded`
 has its own, which search out from the last index found. The parser and matcher
 recurse per bracket level and the matcher per combinator, on the stack, so

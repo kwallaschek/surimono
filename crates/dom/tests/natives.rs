@@ -105,6 +105,23 @@ fn a_long_comma_list_on_many_elements() {
 }
 
 #[test]
+fn a_long_list_inside_is_on_many_elements() {
+    // The top-level list has one entry; the work is in the nested one.
+    let page = format!("<!doctype html>{}", "<b></b>".repeat(20_000));
+    let script = "String(document.querySelectorAll(':is(' + 'x,'.repeat(65000) + 'x)').length)";
+    assert_eq!(bounded(&page, script), None, "20,000 × 65,000 can't finish");
+}
+
+#[test]
+fn a_long_list_inside_is_tested_on_each_sibling() {
+    // One element's match, so the work is all in the steps to its siblings.
+    let page = format!("<!doctype html><body>{}", "<b></b>".repeat(20_000));
+    let script = "String(document.body.lastChild.matches(
+        ':is(' + 'x,'.repeat(65000) + 'x) ~ b'))";
+    assert_eq!(bounded(&page, script), None, "20,000 × 65,000 can't finish");
+}
+
+#[test]
 fn sibling_combinators_across_many_comments() {
     let page = format!(
         "<!doctype html><body><b></b>{}<b></b>",

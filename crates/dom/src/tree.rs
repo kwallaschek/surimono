@@ -228,8 +228,8 @@ impl Document {
         Ok(list)
     }
 
-    fn matcher(&self) -> Matcher {
-        Matcher::new(self.quirks_mode(), self.deadline.clone())
+    fn matcher(&self, selectors: &str) -> Matcher {
+        Matcher::new(self.quirks_mode(), self.deadline.clone(), selectors)
     }
 
     /// `querySelector(All)` (DOM §4.2.6): descendants of `top`, in tree
@@ -242,7 +242,7 @@ impl Document {
         first_only: bool,
     ) -> BindingResult<Vec<usize>> {
         let list = self.parse_selectors(selectors)?;
-        let mut matcher = self.matcher();
+        let mut matcher = self.matcher(selectors);
         let mut out = Vec::new();
         let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
         // A document has no scope element; a fragment should be one, a gap
@@ -265,7 +265,7 @@ impl Document {
 
     pub(crate) fn element_matches(&mut self, id: usize, selectors: &str) -> BindingResult<bool> {
         let list = self.parse_selectors(selectors)?;
-        let mut matcher = self.matcher();
+        let mut matcher = self.matcher(selectors);
         let node = self.node(id);
         let found = matcher.matches(node, Some(node), &list);
         if matcher.stopped() {
@@ -281,7 +281,7 @@ impl Document {
         selectors: &str,
     ) -> BindingResult<Option<usize>> {
         let list = self.parse_selectors(selectors)?;
-        let mut matcher = self.matcher();
+        let mut matcher = self.matcher(selectors);
         let mut at = Some(id);
         while let Some(n) = at {
             if self.kind(n) == Some(Kind::Element)
@@ -838,4 +838,32 @@ fn same_attribute_name(a: &QualName, b: &QualName) -> bool {
 
 fn index_size() -> BindingError {
     dom_error("IndexSizeError", "the offset is past the end of the data")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// What one element's match of a long `:is()` list is charged, with
+    /// `combinator` taking it to `reached` other elements. Each of those can
+    /// test the whole list, so each must pay for it: the clock would
+    /// otherwise wait for thousands of list tests (natives.rs has the timed
+    /// case, with too much slack to see this).
+    fn charged(combinator: &str) -> usize {
+        let doc =
+            Document::parse("<!doctype html><body><i><b></b><b></b><b id=l></b></i>").unwrap();
+        let id = doc.element_by_id(doc.body().unwrap(), "l").unwrap();
+        let selector = format!(":is({}x){combinator}b", "x,".repeat(1000));
+        let list = doc.parse_selectors(&selector).unwrap();
+        let mut matcher = doc.matcher(&selector);
+        assert!(!matcher.matches(doc.node(id), None, &list));
+        matcher.steps()
+    }
+
+    #[test]
+    fn every_element_a_match_reaches_pays_for_the_selector() {
+        let weight = 1000;
+        assert!(charged(" ~ ") >= 3 * weight, "{}", charged(" ~ "));
+        assert!(charged(" ") >= 4 * weight, "{}", charged(" "));
+    }
 }
