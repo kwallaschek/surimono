@@ -1,11 +1,14 @@
 //! A parsed document and the handle table that scripts address it through.
 
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
+use surimono_core::Deadline;
+use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
@@ -34,7 +37,9 @@ pub struct DomLimits {
     pub max_handles: usize,
     /// Most bytes of strings the document may hold: text, comment data,
     /// element names, and attribute names and values (with
-    /// [`ATTRIBUTE_COST`] each), parsed and from scripts together. Counted on write and credited on overwrite and
+    /// [`ATTRIBUTE_COST`] each), parsed and from scripts together, and the
+    /// names and values script objects keep (live lists' names, removed
+    /// `Attr`s). Counted on write and credited on overwrite and
     /// on drop. These strings live in Rust, outside the JavaScript heap
     /// limit, and one JavaScript string can be stored on many nodes.
     pub max_text_bytes: usize,
@@ -147,7 +152,8 @@ pub(crate) enum Object {
     Dataset(usize),
     /// `style`.
     Style(usize),
-    /// An `Attr`: its element, its name, and its value if removed since.
+    /// An `Attr`: its element, its name, and, once it has left the element,
+    /// its value (charged, see [`Document::retained_bytes`]).
     Attr(usize, QualName, Option<String>),
 }
 
@@ -161,6 +167,9 @@ pub(crate) enum Owned {
     Style,
     Attr(QualName),
 }
+
+/// Steps of a native's loop between looks at the clock.
+const POLL_EVERY: u32 = 256;
 
 /// A handle as JavaScript holds it, with the document's generation. Neither
 /// is a pointer or a blitz node id.
@@ -188,8 +197,10 @@ pub struct Document {
     list_cache: Option<(Handle, u64, Vec<usize>)>,
     /// Entries in static lists so far, bounded by [`Self::static_limit`].
     static_entries: usize,
-    /// The running call's time limit, for work inside one native call.
-    pub(crate) deadline: Option<surimono_core::Deadline>,
+    /// Bytes held in `objects` and `owned` rather than in nodes: list names
+    /// (kept as long as the document, for `[SameObject]`-style identity) and
+    /// the values of removed `Attr`s. Part of `held_bytes`.
+    retained_bytes: usize,
     /// Blitz node id to its handle, 0 for none yet.
     node_to_handle: Vec<Handle>,
     /// Strings blitz-dom doesn't hold, by node id: comment data
@@ -206,6 +217,10 @@ pub struct Document {
     cursor: Cell<(usize, usize)>,
     /// A fatal error a binding met, for the native call to report.
     pub(crate) fault: Option<DomError>,
+    /// The running call's deadline, set for each native call.
+    pub(crate) deadline: Option<Deadline>,
+    /// Steps since the last look at the clock (see [`Document::poll`]).
+    ticks: Cell<u32>,
 }
 
 impl std::fmt::Debug for Document {
@@ -260,13 +275,15 @@ impl Document {
             version: 0,
             list_cache: None,
             static_entries: 0,
-            deadline: None,
+            retained_bytes: 0,
             node_to_handle: Vec::new(),
             side_data: parsed.strings.into_iter().collect(),
             held_bytes: 0,
             quirks: parsed.quirks,
             cursor: Cell::new((0, 0)),
             fault: None,
+            deadline: None,
+            ticks: Cell::new(0),
         };
         if doc.node_count() > limits.max_nodes {
             return Err(DomError::NodeLimit {
@@ -315,11 +332,7 @@ impl Document {
                 max_nodes: room,
                 max_depth: levels,
             },
-            || {
-                deadline
-                    .as_ref()
-                    .is_some_and(surimono_core::Deadline::passed)
-            },
+            || deadline.as_ref().is_some_and(Deadline::passed),
         );
         self.side_data.extend(parsed.strings);
         // Charged here and credited by the drops below if it is refused. The
@@ -350,9 +363,7 @@ impl Document {
         if let Some(n) = self.inner.get_node_mut(holder) {
             n.children = content;
         }
-        let timed_out = deadline
-            .as_ref()
-            .is_some_and(surimono_core::Deadline::passed);
+        let timed_out = deadline.as_ref().is_some_and(Deadline::passed);
         let limit = if self.node_count() > self.limits.max_nodes {
             Some(DomError::NodeLimit {
                 limit: self.limits.max_nodes,
@@ -391,6 +402,32 @@ impl Document {
         let mut out = String::new();
         self.serialize(id, &mut out);
         out
+    }
+
+    /// One step of a loop whose length a script controls, inside a native.
+    /// The sandbox can't interrupt a native, so such a loop ends itself:
+    /// past the deadline this is an exception. As at the start of a native,
+    /// no fault is recorded: the engine stops the script at its next check,
+    /// so the call fails with `TimeLimit` even if the script catches this.
+    pub(crate) fn poll(&self) -> BindingResult<()> {
+        self.poll_by(1)
+    }
+
+    /// [`poll`](Self::poll) for a step that does `work` units of work.
+    pub(crate) fn poll_by(&self, work: usize) -> BindingResult<()> {
+        let work = u32::try_from(work).unwrap_or(u32::MAX);
+        let ticks = self.ticks.get().saturating_add(work);
+        if ticks < POLL_EVERY {
+            self.ticks.set(ticks);
+            return Ok(());
+        }
+        self.ticks.set(0);
+        if self.deadline.as_ref().is_some_and(Deadline::passed) {
+            return Err(BindingError::TypeError(
+                "surimono: the time limit has passed".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     /// The document's serialization: the `<html>` element's outer HTML, by
@@ -560,6 +597,15 @@ impl Document {
         if let Some(&h) = self.owned.get(&(owner, key.clone())) {
             return Ok(h);
         }
+        // Lists and `Attr`s keep their names for the document's life, here
+        // and in the object: strings a script picks, outside the JS heap.
+        let bytes = match &key {
+            Owned::List(ListKind::ByTag(s) | ListKind::ByClass(s)) => s.len().saturating_mul(2),
+            Owned::Attr(name) => name_cost(name),
+            _ => 0,
+        };
+        self.recharge(0, bytes)?;
+        self.retained_bytes += bytes;
         let h = self.new_handle(make())?;
         self.owned.insert((owner, key), h);
         Ok(h)
@@ -603,39 +649,46 @@ impl Document {
     }
 
     /// The nodes of live list `kind` under `owner`, cached for `handle`.
-    pub(crate) fn live_nodes(&mut self, handle: Handle, owner: usize, kind: &ListKind) -> &[usize] {
+    pub(crate) fn live_nodes(
+        &mut self,
+        handle: Handle,
+        owner: usize,
+        kind: &ListKind,
+    ) -> BindingResult<&[usize]> {
         let fresh = self
             .list_cache
             .as_ref()
             .is_some_and(|(h, v, _)| *h == handle && *v == self.version);
         if !fresh {
-            let nodes = self.compute_list(owner, kind);
+            let nodes = self.compute_list(owner, kind)?;
             self.list_cache = Some((handle, self.version, nodes));
         }
-        self.list_cache
+        Ok(self
+            .list_cache
             .as_ref()
-            .map_or(&[], |(_, _, n)| n.as_slice())
+            .map_or(&[], |(_, _, n)| n.as_slice()))
     }
 
     /// Descendant elements of `top` in tree order that satisfy `keep`.
     pub(crate) fn descendants(
         &self,
         top: usize,
-        mut keep: impl FnMut(usize) -> bool,
-    ) -> Vec<usize> {
+        mut keep: impl FnMut(usize) -> BindingResult<bool>,
+    ) -> BindingResult<Vec<usize>> {
         let mut out = Vec::new();
         let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
         while let Some(n) = stack.pop() {
-            if self.kind(n) == Some(Kind::Element) && keep(n) {
+            self.poll()?;
+            if self.kind(n) == Some(Kind::Element) && keep(n)? {
                 out.push(n);
             }
             stack.extend(self.children(n).iter().rev().copied());
         }
-        out
+        Ok(out)
     }
 
-    fn compute_list(&self, owner: usize, kind: &ListKind) -> Vec<usize> {
-        match kind {
+    fn compute_list(&self, owner: usize, kind: &ListKind) -> BindingResult<Vec<usize>> {
+        Ok(match kind {
             ListKind::ChildNodes => self.children(owner).to_vec(),
             ListKind::Children => self
                 .children(owner)
@@ -647,29 +700,59 @@ impl Document {
                 let lower = name.to_ascii_lowercase();
                 self.descendants(owner, |n| {
                     let Some(e) = self.element_name(n) else {
-                        return false;
+                        return Ok(false);
                     };
                     // DOM §4.2.6.2: lower-cased against HTML elements.
                     let wanted = if e.ns == ns!(html) { &lower } else { name };
-                    name == "*" || qualified_is(e, wanted)
-                })
+                    Ok(name == "*" || qualified_is(e, wanted))
+                })?
             }
-            ListKind::ByClass(names) => {
-                let wanted: Vec<&str> = names.split_ascii_whitespace().collect();
-                if wanted.is_empty() {
-                    return Vec::new();
-                }
-                self.descendants(owner, |n| {
-                    let class = self.attribute(n, "class").unwrap_or_default();
-                    wanted.iter().all(|w| {
-                        class.split_ascii_whitespace().any(|c| {
-                            // Case-insensitive in quirks mode (DOM §4.2.6.2).
-                            c == *w || (self.quirks && c.eq_ignore_ascii_case(w))
-                        })
-                    })
-                })
+            ListKind::ByClass(names) => self.elements_with_classes(owner, names)?,
+        })
+    }
+
+    /// `getElementsByClassName`: linear in the names and in the classes
+    /// read, however many of each there are. Only looked up, so hash order
+    /// can't reach any output.
+    fn elements_with_classes(&self, owner: usize, names: &str) -> BindingResult<Vec<usize>> {
+        // Case-insensitive in quirks mode (DOM §4.2.6.2).
+        let folded = |s| {
+            if self.quirks {
+                Cow::Owned(str::to_ascii_lowercase(s))
+            } else {
+                Cow::Borrowed(s)
             }
+        };
+        let mut wanted: HashMap<Cow<'_, str>, usize> = HashMap::new();
+        for name in names.split_ascii_whitespace() {
+            self.poll()?;
+            let next = wanted.len();
+            wanted.entry(folded(name)).or_insert(next);
         }
+        if wanted.is_empty() {
+            return Ok(Vec::new());
+        }
+        // The last element each name was seen on, as a count, so a name
+        // repeated in one `class` isn't counted twice.
+        let mut seen = vec![0usize; wanted.len()];
+        let mut element = 0;
+        self.descendants(owner, |n| {
+            let Some(class) = self.find_attribute(n, "class") else {
+                return Ok(false);
+            };
+            self.poll_by(class.value.len() / 16)?;
+            element += 1;
+            let mut found = 0;
+            for token in class.value.split_ascii_whitespace() {
+                if let Some(&i) = wanted.get(folded(token).as_ref())
+                    && seen[i] != element
+                {
+                    seen[i] = element;
+                    found += 1;
+                }
+            }
+            Ok(found == wanted.len())
+        })
     }
 
     pub(crate) fn kind(&self, id: usize) -> Option<Kind> {
@@ -905,13 +988,31 @@ impl Document {
 
     /// An `Attr` object for an attribute about to go keeps its value.
     fn keep_attr_value(&mut self, id: usize, name: &QualName) {
-        let Some(&h) = self.owned.get(&(id, Owned::Attr(name.clone()))) else {
+        // Out of the map: if the name comes back, it's a new attribute.
+        let Some(h) = self.owned.remove(&(id, Owned::Attr(name.clone()))) else {
             return;
         };
-        let value = self.attribute_value(id, name);
+        let value = self.attribute_value(id, name).unwrap_or_default();
+        // The attribute's own charge is credited next and covers this.
+        self.held_bytes = self.held_bytes.saturating_add(value.len());
+        self.retained_bytes += value.len();
         if let Some(Object::Attr(_, _, kept)) = self.object_mut(h) {
-            *kept = value;
+            *kept = Some(value);
         }
+    }
+
+    /// Writes the value of `handle`, an `Attr` no longer on its element.
+    pub(crate) fn set_kept_value(&mut self, handle: Handle, value: String) -> Result<(), DomError> {
+        let Some(Object::Attr(_, _, Some(kept))) = self.object_mut(handle) else {
+            return Ok(());
+        };
+        let old = kept.len();
+        self.recharge(old, value.len())?;
+        self.retained_bytes = self.retained_bytes - old + value.len();
+        if let Some(Object::Attr(_, _, kept)) = self.object_mut(handle) {
+            *kept = Some(value);
+        }
+        Ok(())
     }
 
     /// What attribute `name` of `id` is charged at the moment.
@@ -937,12 +1038,14 @@ impl Document {
         }
     }
 
-    /// Bytes every node holds, reachable or not.
+    /// Bytes every node holds, reachable or not, and the script objects'.
     fn bytes_held(&self) -> usize {
         self.inner
             .tree()
             .iter()
-            .fold(0, |sum, (id, _)| sum.saturating_add(self.node_bytes(id)))
+            .fold(self.retained_bytes, |sum, (id, _)| {
+                sum.saturating_add(self.node_bytes(id))
+            })
     }
 
     /// Bytes the subtree at `top` holds, iteratively.
@@ -1150,8 +1253,17 @@ impl Document {
     /// recurses per level, and removing children one at a time scans the
     /// parent's list each time.
     pub(crate) fn remove_all_children(&mut self, id: usize) {
+        let gone = self.children(id).to_vec();
+        self.replace_child_list(id, Vec::new(), gone);
+    }
+
+    /// Makes `kept` the children of `id` and removes `gone`, its other
+    /// children, as [`remove_all_children`](Self::remove_all_children) does:
+    /// one pass, however wide the list.
+    pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
         self.version += 1;
-        for c in self.take_children(id) {
+        self.take_children(id);
+        for c in gone {
             self.set_parent(c, None);
             if self.subtree_has_handle(c) {
                 // No parent to update: this only updates blitz-dom's
@@ -1161,9 +1273,12 @@ impl Document {
                 self.drop_subtree(c);
             }
         }
-        // `id` has no children left; this does blitz-dom's restyle
+        // `id` has no children yet; this does blitz-dom's restyle
         // bookkeeping for it.
         self.inner.mutate().remove_and_drop_all_children(id);
+        if let Some(node) = self.inner.get_node_mut(id) {
+            node.children = kept;
+        }
     }
 
     fn subtree_has_handle(&self, top: usize) -> bool {

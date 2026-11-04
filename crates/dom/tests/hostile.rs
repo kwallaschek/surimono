@@ -554,6 +554,75 @@ fn wide_tree_drops_in_linear_time() {
     assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
 }
 
+/// Time for one `normalize()` of `n` adjacent text nodes, best of 3. As in
+/// [`wide_drop_time`], the build is a separate `eval`.
+fn wide_normalize_time(n: usize) -> Duration {
+    (0..3)
+        .map(|_| {
+            let mut rt =
+                DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+            rt.load(Document::parse(PAGE).unwrap());
+            let build = format!(
+                "globalThis.d = document.getElementById('d');
+                for (let i = 0; i < {n}; i++) d.appendChild(document.createTextNode('t'));"
+            );
+            let _: () = rt.eval(&build).unwrap();
+            let started = std::time::Instant::now();
+            let _: () = rt.eval("d.normalize()").unwrap();
+            let took = started.elapsed();
+            let data: usize = rt.eval("d.firstChild.data.length").unwrap();
+            assert_eq!(data, n + 1, "the page's x and the new nodes");
+            assert!(rt.eval::<bool>("d.firstChild === d.lastChild").unwrap());
+            rt.with_document(Document::check_consistency)
+                .unwrap()
+                .unwrap();
+            took
+        })
+        .min()
+        .unwrap()
+}
+
+/// `normalize` rebuilds the parent's list once, not per merged node. As in
+/// `wide_tree_drops_in_linear_time`: four times the nodes must cost less than
+/// eight times the time.
+#[test]
+fn wide_normalize_is_linear() {
+    let small = wide_normalize_time(20_000);
+    let large = wide_normalize_time(80_000);
+    assert!(large < small * 8, "20,000: {small:?}; 80,000: {large:?}");
+}
+
+/// The largest run a page can have, under a short limit: done, or stopped by
+/// the deadline near the limit, never a native running on past it.
+#[test]
+fn wide_normalize_stops_near_the_limit() {
+    let mut build = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+    build.load(Document::parse(PAGE).unwrap());
+    let _: () = build
+        .eval(
+            "const d = document.getElementById('d');
+            for (let i = 0; i < 99000; i++) d.appendChild(document.createTextNode('t'));",
+        )
+        .unwrap();
+    let doc = build.take().unwrap();
+    let limit = scaled(Duration::from_millis(100));
+    let mut rt = DomRuntime::new(limits().with_time(limit)).unwrap();
+    rt.load(doc);
+    let started = std::time::Instant::now();
+    let r = rt.eval::<()>("document.getElementById('d').normalize()");
+    let took = started.elapsed();
+    assert!(
+        matches!(r, Ok(()) | Err(DomError::Sandbox(SandboxError::TimeLimit))),
+        "{r:?}"
+    );
+    assert!(
+        took < limit + scaled(Duration::from_millis(500)),
+        "{took:?}"
+    );
+    let doc = rt.take().unwrap();
+    doc.check_consistency().unwrap();
+}
+
 #[test]
 fn removed_subtrees_scripts_cannot_reach_are_dropped() {
     // Nothing in the old subtree has a handle: the nodes go at once, so
@@ -640,6 +709,146 @@ fn fragments_are_charged_and_their_orphans_freed() {
         Err(DomError::TextLimit { limit: LIMIT })
     );
     rt.take().unwrap().check_consistency().unwrap();
+}
+
+#[test]
+fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
+    // `selectors` recurses once per combinator: this aborted the process.
+    let page = format!("<!doctype html><body>{}", "<b></b>".repeat(49_000));
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(&page).unwrap());
+    for combinator in ['+', '~', '>', ' '] {
+        let script = format!(
+            r#"try {{ document.body.lastElementChild.matches('b' + '{combinator}b'.repeat(48000)); 'none'; }}
+            catch (e) {{ e.name; }}"#
+        );
+        assert_eq!(rt.eval::<String>(&script).unwrap(), "SyntaxError");
+    }
+    // Spread over nested lists, the path still counts.
+    let r: String = rt
+        .eval(
+            r#"{ let s = 'b';
+            for (let i = 0; i < 20; i++) s = ':is(' + s + '+b+b+b+b+b+b+b)';
+            try { document.body.lastElementChild.matches(s); 'none'; } catch (e) { e.name; } }"#,
+        )
+        .unwrap();
+    assert_eq!(r, "SyntaxError");
+    // Long selectors are refused before they are parsed; short ones aren't.
+    let r: String = rt
+        .eval(
+            r#"{ let name = 'none';
+            try { document.querySelector('x,'.repeat(70000) + 'x'); } catch (e) { name = e.name; }
+            const fine = Array(40).fill('b').join(' + ');
+            name + document.querySelectorAll(fine).length; }"#,
+        )
+        .unwrap();
+    assert_eq!(r, "SyntaxError48961");
+}
+
+#[test]
+fn the_worst_selector_allowed_fits_the_stack_headroom() {
+    // 32 levels of nesting and 128 combinators on the path, every combinator
+    // matching, called from the deepest frame that can still make the call.
+    const SCRIPT: &str = r#"
+        const own = 128 - 4 * 30;
+        let s = 'b' + '+b'.repeat(4);
+        for (let i = 1; i < 30; i++) s = ':is(' + s + ')' + '+b'.repeat(4);
+        s = s + '+b'.repeat(own);
+        const last = document.body.lastElementChild;
+        let done = -1, hit = false;
+        function f(n) {
+          try { f(n + 1); } catch (e) {
+            if (!(e instanceof RangeError)) throw e;
+            if (done < 0) { hit = last.matches(s); done = n; }
+          }
+        }
+        f(0);
+        done > 100 && hit"#;
+    let limits = limits();
+    let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + 64 * 1024;
+    let page = format!("<!doctype html><body>{}", "<b></b>".repeat(400));
+    let r = std::thread::Builder::new()
+        .stack_size(size)
+        .spawn(move || {
+            let mut rt = DomRuntime::new(limits).unwrap();
+            rt.load(Document::parse(&page).unwrap());
+            rt.eval::<bool>(SCRIPT)
+        })
+        .unwrap()
+        .join()
+        .expect("no stack overflow");
+    assert_eq!(r, Ok(true));
+}
+
+#[test]
+fn list_names_a_script_picks_are_charged() {
+    // A list keeps its name for the document's life, in Rust.
+    for call in ["getElementsByClassName", "getElementsByTagName"] {
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(
+            Document::parse_with_limits(
+                PAGE,
+                DomLimits {
+                    max_text_bytes: 1024 * 1024,
+                    ..DomLimits::default()
+                },
+            )
+            .unwrap(),
+        );
+        let script = format!(
+            "const s = 'x'.repeat(64 * 1024);
+            for (let i = 0; i < 100; i++) document.{call}(s + i);"
+        );
+        assert_eq!(
+            rt.eval::<()>(&script),
+            Err(DomError::TextLimit { limit: 1024 * 1024 }),
+            "{call}"
+        );
+    }
+}
+
+#[test]
+fn values_of_removed_attrs_are_charged() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse_with_limits(
+            PAGE,
+            DomLimits {
+                max_text_bytes: 1024 * 1024,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
+    assert_eq!(
+        rt.eval::<()>(
+            "const p = document.getElementById('p'), s = 'x'.repeat(64 * 1024);
+            for (let i = 0; i < 100; i++) {
+              p.setAttribute('z' + i, s + i);
+              const a = p.attributes.getNamedItem('z' + i);
+              p.attributes.removeNamedItem('z' + i);
+            }"
+        ),
+        Err(DomError::TextLimit { limit: 1024 * 1024 })
+    );
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let _: () = rt
+        .eval(
+            "const p = document.getElementById('p');
+            document.getElementsByClassName('a b');
+            document.getElementsByTagName('b');
+            p.setAttribute('z', 'value');
+            const a = p.attributes.getNamedItem('z');
+            p.attributes.removeNamedItem('z');
+            a.value = 'longer value';
+            a.value = '';
+            p.attributes.getNamedItem('id');",
+        )
+        .unwrap();
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
 }
 
 #[test]

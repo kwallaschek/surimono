@@ -19,7 +19,7 @@ a native function, which resolves it through the loaded document on that call:
 ```
 JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ Document::resolve
                                                                 │ generation ≠ doc's → StaleDocument
-                                                                │ handle retired     → NodeRemoved
+                                                                │ unknown handle     → StaleDocument
                                                                 ▼
                                                      blitz node id (slab slot)
 ```
@@ -30,8 +30,9 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
 - **Handle**: a per-document number from `Document`'s handle table, never
   reused. Blitz-dom's node ids are slab slots and *are* reused after a drop,
   so exposing them would let a wrapper for a dropped node silently resolve to
-  a new node. The table maps handle → node id (`None` once dropped) and node
-  id → handle; it is dropped with the document.
+  a new node. The table maps handle → node id and node id → handle; a node
+  with a handle lives as long as the document, so an entry never goes stale,
+  and the table is dropped with the document.
 - **Ownership**: the native functions hold an `Rc` to a slot (`Host`) that the
   document is moved into by `DomRuntime::load` and out of by `take`. No JS
   value keeps a document or node alive; dropping the `Document` frees the
@@ -132,10 +133,14 @@ proxy both carry the record in the private field, which proxy traps don't see.
 `src/select.rs` matches element by element through `Guarded`, a delegating
 `selectors::Element`, instead of calling blitz-dom's query in one go. One match
 can be polynomial in a wide tree (`:not(:not(b ~ b) ~ b)`) and nothing could
-interrupt it; `Guarded` counts navigation steps and answers "no such element"
-once the deadline passes, so the match ends quickly. Bracket nesting over 32 is
-a `SyntaxError`: the parser and matcher recurse per level. The nth-child and
-`:has` caches live for the whole query.
+interrupt it; `Guarded` charges a clock for work (each element's match for the
+list's length, each sibling scanned, children `:empty` reads, attributes
+tested) and answers "no such element" once the deadline passes, so the match
+ends quickly. blitz-dom's sibling lookups scan the parent per step, so `Guarded`
+has its own, which search out from the last index found. The parser and matcher
+recurse per bracket level and the matcher per combinator, on the stack, so
+`parse_selectors` caps both, and the length (see the gaps below). The
+nth-child cache lives for the whole query.
 
 ## Inline style
 
@@ -168,10 +173,12 @@ ordinary expandos. `getComputedStyle` is phase 3.
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and
-records a fault; the call then fails with `DomError::StaleDocument`,
-`NodeRemoved` or `NoDocument` **even if the script caught the exception**:
-continuing would mean computing with data that no longer exists. The same
-applies to the DOM resource limits (below). Ordinary DOM errors
+records a fault; the call then fails with `DomError::StaleDocument` or
+`NoDocument` **even if the script caught the exception**: continuing would mean
+computing with data that no longer exists. The same applies to the DOM resource
+limits (below) and to `DomError::Unsupported`, for what the DOM defines and this
+crate doesn't do yet, so a script can't take a refusal for the standard's
+answer. Ordinary DOM errors
 (`HierarchyRequestError`, `InvalidCharacterError`) are DOMExceptions the script
 may catch, as in a browser. Sandbox limits outrank faults: a script stopped by
 the time, memory or stack limit reports that limit.
@@ -190,7 +197,9 @@ needed nothing new from core. Bindings are installed inside the first call on
 a context (`glue.js` plus the natives) and again after the sandbox rebuilds
 itself following a limit error or a reset. Every native checks the call's
 `Deadline` first, as the islands' `measureText` does, so a loop of host calls
-still ends with `TimeLimit`.
+still ends with `TimeLimit`. The engine can't interrupt a native, so a native's
+own loop whose length a script controls either is linear in something a limit
+bounds or calls `Document::poll` (a look at the clock every 256 steps).
 
 Nodes live in Rust, outside the JavaScript heap limit, so the document has its
 own limits (`DomLimits`), all fatal faults:
@@ -207,7 +216,9 @@ own limits (`DomLimits`), all fatal faults:
 - `max_text_bytes` (default 256 MiB): text, comment data, element names, and
   attribute names and values (plus `ATTRIBUTE_COST` each) held by the document;
   names with their namespace and prefix, which a script can make any size. Charged before a
-  write and credited on overwrite and drop. These strings are outside the JS heap
+  write and credited on overwrite and drop. Also what script objects keep: the
+  names of `getElementsBy*` lists and `Attr`s, and the values of removed `Attr`s,
+  until the document drops. These strings are outside the JS heap
   limit, and one JS string can be stored on many nodes.
 
 **Node lifetime.** A node with a handle lives until the document drops: a script
@@ -241,6 +252,29 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 
 ## Deviations and gaps for E2-02
 
+- **Selectors.** `:has()`, `:nth-child(… of S)` and `:dir()` are refused with
+  a `SyntaxError`, as blitz-dom's parser configuration has them. `:enabled`,
+  `:disabled`, `:checked`, `:required`, `:optional`, `:lang()`, `:defined` and
+  `:read-only` parse and match nothing. `[a=b i]` is case-sensitive, and
+  attribute selectors don't look at the namespace. `:scope` in a
+  `DocumentFragment` query matches nothing (Selectors 4 makes the fragment's
+  top-level elements its children). WPT dom/nodes/selectors.js covers several.
+- **Selector limits.** To keep hostile selectors off the stack and out of Rust's
+  heap, these valid selectors are a `SyntaxError`: longer than 128 KiB, more
+  than 128 combinators on one path through the nested lists, or nesting more
+  than 32 brackets, counted with those in strings (`[a="(((…"]`) and comments.
+  Telling those apart needs the CSS tokenizer's every rule, and a wrong guess
+  would let real nesting reach the parser's recursion, so the count stays
+  conservative. `tests/hostile.rs` runs the worst allowed selector on the
+  stack headroom alone.
+- **`document.cloneNode()`.** §4.4 and WPT Node-cloneNode.html give a new
+  `Document`; a runtime holds one document and blitz-dom can't make a second
+  document node, so the call ends with `DomError::Unsupported`. That is a gap,
+  not conformance (`tests/mutation.rs`, `cloning_a_document_is_a_known_gap`).
+  Comes with `DOMImplementation`.
+- **Half a surrogate pair.** Text is stored as UTF-8, which can't hold a lone
+  surrogate, so a CharacterData offset inside a pair (`deleteData(0, 1)` on an
+  emoji) leaves U+FFFD. The DOM keeps the lone code unit.
 - **Serialization.** blitz-dom 0.2.4's `outer_html` doesn't escape text
   (`<` stays `<`) and recurses per level, so `Document::to_html` has its own
   iterative serializer (HTML §13.3): HTML, SVG and MathML elements, attribute
