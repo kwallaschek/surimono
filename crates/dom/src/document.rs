@@ -462,11 +462,11 @@ impl Document {
 
     /// Retires node `id`'s handle, if it has one.
     fn retire(&mut self, id: usize) {
-        if let Some(h) = self.node_to_handle.get_mut(id) {
-            if *h != 0 {
-                self.handle_to_node[*h as usize - 1] = None;
-                *h = 0;
-            }
+        if let Some(h) = self.node_to_handle.get_mut(id)
+            && *h != 0
+        {
+            self.handle_to_node[*h as usize - 1] = None;
+            *h = 0;
         }
     }
 

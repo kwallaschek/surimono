@@ -111,10 +111,11 @@ fn font_size_px(css_font: &str) -> f64 {
         } else {
             continue;
         };
-        if let Ok(v) = number.parse::<f64>() {
-            if v.is_finite() && v >= 0.0 {
-                return v * factor;
-            }
+        if let Ok(v) = number.parse::<f64>()
+            && v.is_finite()
+            && v >= 0.0
+        {
+            return v * factor;
         }
     }
     DEFAULT_FONT_PX

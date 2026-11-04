@@ -56,20 +56,20 @@ pub fn islands_in(source: &str, html: &str) -> Vec<Island> {
         let Some(close) = after[body_start..].find("</script>") else {
             break;
         };
-        if tag.contains(MARKER) {
-            if let (Some(renderer), Some(w), Some(h)) = (
+        if tag.contains(MARKER)
+            && let (Some(renderer), Some(w), Some(h)) = (
                 attribute(tag, "data-renderer"),
                 attribute(tag, "data-width"),
                 attribute(tag, "data-height"),
-            ) {
-                out.push(Island {
-                    source: source.to_owned(),
-                    renderer,
-                    width: w.parse().unwrap_or(0),
-                    height: h.parse().unwrap_or(0),
-                    spec: after[body_start..body_start + close].trim().to_owned(),
-                });
-            }
+            )
+        {
+            out.push(Island {
+                source: source.to_owned(),
+                renderer,
+                width: w.parse().unwrap_or(0),
+                height: h.parse().unwrap_or(0),
+                spec: after[body_start..body_start + close].trim().to_owned(),
+            });
         }
         rest = &after[body_start + close..];
     }
