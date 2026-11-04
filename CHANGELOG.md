@@ -7,6 +7,26 @@ release (0.x.0) may change the public API, and every such change is listed here.
 
 The Rust crates and the Ruby gem share one version number.
 
+## [Unreleased]
+
+### Changed
+
+- **Rust 1.89 is the minimum supported version**, up from 1.87 (#117). fulgur
+  0.40 needs it too.
+- **A cancel stops the running island**, not only the islands after it (#108):
+  `Renderer::render_islands_cancellable` in Rust; in Ruby, `Timeout`,
+  `Thread#raise`, `Thread#kill` and signals. Loading a bundle still isn't
+  interrupted, so a cancel during a built-in renderer's compile from source,
+  or a bundle's compile at a forked process's first render, takes effect when
+  the load ends.
+
+### Fixed
+
+- **Ruby 3.2:** a signal now reaches a render on the main thread while other
+  Ruby threads exist, instead of waiting for the render to end (#114). The gem
+  runs a sleeping helper thread, `surimono-signal-pump`, for the length of such
+  a render. Ruby 3.3 and later need none.
+
 ## [0.1.0] - 2026-11-04
 
 The first release: chart islands.
@@ -120,4 +140,5 @@ The first release: chart islands.
 - **Licence notices.** Every gem includes `THIRD_PARTY_LICENSES.txt` with the
   licences of all Rust crates and JavaScript libraries built into it.
 
+[Unreleased]: https://github.com/kwallaschek/surimono/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/kwallaschek/surimono/releases/tag/v0.1.0
