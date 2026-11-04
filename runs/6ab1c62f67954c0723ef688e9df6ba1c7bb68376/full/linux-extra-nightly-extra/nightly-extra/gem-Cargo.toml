@@ -1,0 +1,90 @@
+# Generated from the surimono repository's Cargo.toml by bindings/ruby/tasks/gem.rake.
+# It lists only the crates the Ruby extension needs.
+
+[workspace]
+resolver = "3"
+members = [
+    "ext/surimono",
+    "crates/core",
+    "crates/gfx",
+    "crates/islands",
+    "crates/surimono",
+]
+# Vendored third-party crates are patched dependencies, not members.
+exclude = ["vendor"]
+# The Ruby extension needs Ruby headers and libclang; keep plain `cargo build`
+# fast and toolchain-only. CI builds it explicitly with `--workspace`.
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.87"
+license = "MIT OR Apache-2.0"
+description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+keywords = ["pdf", "javascript", "quickjs", "html", "charts"]
+categories = ["rendering", "web-programming"]
+# v0.1 ships the Ruby gem and the CLI (built from a clone) only; no crate goes
+# to crates.io until the patched engine can be published under our own crate
+# names (Kay, checkpoint 2): a published crate would link the unpatched
+# rquickjs-sys. scripts/ci/release-dry-run.sh fails on any publishable crate.
+publish = false
+repository = "https://github.com/kwallaschek/surimono"
+homepage = "https://github.com/kwallaschek/surimono"
+
+[workspace.dependencies]
+# Internal crates
+surimono-core = { path = "crates/core", version = "0.1.0" }
+surimono-webidl = { path = "crates/webidl", version = "0.1.0" }
+surimono-dom = { path = "crates/dom", version = "0.1.0" }
+surimono-gfx = { path = "crates/gfx", version = "0.1.0" }
+surimono-islands = { path = "crates/islands", version = "0.1.0", default-features = false }
+surimono = { path = "crates/surimono", version = "0.1.0" }
+
+# JS engine: QuickJS-ng through rquickjs. Exact pin; upgrades are planned tasks.
+rquickjs = { version = "=0.14.0", default-features = false, features = ["std", "classes", "properties", "array-buffer"] }
+
+# DOM and layout: exact versions from fulgur 0.40.0's Cargo.lock (fulgur-cli 0.40.0).
+# Bump only together with fulgur. See docs/DECISIONS.md.
+blitz-dom = { version = "=0.2.4", default-features = false }
+blitz-html = { version = "=0.2.0" }
+blitz-traits = { version = "=0.2.0" }
+
+# Shared by more than one crate: pin once here and use `<dep>.workspace = true`.
+roxmltree = "=0.21.2"
+sha2 = "=0.10.9"
+# Unix process and thread calls (core: stack bounds; fork tests in islands and surimono).
+libc = "=0.2.191"
+
+# Common
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# QuickJS with surimono's sandbox patches (sticky interrupt, interrupt polls
+# in native loops); see vendor/rquickjs-sys/PATCHES.md. Drop once upstream
+# quickjs-ng and rquickjs ship them (drafts in docs/upstream/).
+[patch.crates-io]
+rquickjs-sys = { path = "vendor/rquickjs-sys" }
+
+[workspace.lints.rust]
+# unsafe is allowed only in engine-binding modules, each opted in with
+# #[allow(unsafe_code)], a SAFETY comment per block, and a test.
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+undocumented_unsafe_blocks = "warn"
+mem_forget = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+[profile.dev.package."*"]
+# Dependencies (QuickJS, Stylo) are slow unoptimised; tests run faster this way.
+opt-level = 1
