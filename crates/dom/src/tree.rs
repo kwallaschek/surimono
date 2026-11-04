@@ -103,9 +103,21 @@ impl Document {
     }
 
     /// §4.2.3 "insert", after validity: `node`, or a fragment's children,
-    /// before `before`.
-    fn insert_checked(&mut self, parent: usize, node: usize, before: Option<usize>) {
+    /// before `before`; returns what went in. A fragment queues its own
+    /// record, and a node leaving another parent its, whatever `quiet` (the
+    /// "suppress observers" flag) says: that only covers the insertion.
+    fn insert_checked(
+        &mut self,
+        parent: usize,
+        node: usize,
+        before: Option<usize>,
+        quiet: bool,
+    ) -> Vec<usize> {
         let nodes = if self.kind(node) == Some(Kind::DocumentFragment) {
+            if self.is_observed() && !self.children(node).is_empty() {
+                let children = self.children(node).to_vec();
+                self.note_child_list(node, &[], &children, None, None);
+            }
             let children = self.take_children(node);
             for &c in &children {
                 self.set_parent(c, None);
@@ -115,7 +127,12 @@ impl Document {
             self.detach(node);
             vec![node]
         };
-        self.place(parent, &nodes, before);
+        if quiet {
+            self.place_quietly(parent, &nodes, before);
+        } else {
+            self.place(parent, &nodes, before);
+        }
+        nodes
     }
 
     /// §4.2.3 "pre-insert".
@@ -135,11 +152,11 @@ impl Document {
         } else {
             child
         };
-        self.insert_checked(parent, node, before);
+        self.insert_checked(parent, node, before, false);
         Ok(())
     }
 
-    /// §4.2.3 "replace".
+    /// §4.2.3 "replace": one record, with both the added and removed nodes.
     pub(crate) fn replace(
         &mut self,
         parent: usize,
@@ -154,9 +171,44 @@ impl Document {
         if before == Some(node) {
             before = self.sibling(node, true);
         }
-        self.detach(child);
-        self.insert_checked(parent, node, before);
+        let previous = self.sibling(child, false);
+        // "Adopt" comes first and isn't suppressed. It takes `child` itself
+        // away when the two are one, which leaves no one to remove.
+        self.detach(node);
+        let removed = if self.parent(child) == Some(parent) {
+            self.detach_quietly(child);
+            Some(child)
+        } else {
+            None
+        };
+        let added = self.insert_checked(parent, node, before, true);
+        if self.is_observed() {
+            let removed = removed.as_slice();
+            self.note_child_list(parent, &added, removed, previous, before);
+        }
         Ok(())
+    }
+
+    /// §4.2.3 "replace all": `parent`'s children go, `node` (which fits, and
+    /// may be a fragment) comes in, and one record tells both.
+    pub(crate) fn replace_all(&mut self, parent: usize, node: Option<usize>) {
+        let removed = if self.is_observed() {
+            let children = self.children(parent).to_vec();
+            // The record, queued last, must find them alive.
+            for &c in &children {
+                if let Err(e) = self.handle_for(c) {
+                    self.fault.get_or_insert(e);
+                }
+            }
+            children
+        } else {
+            Vec::new()
+        };
+        self.remove_children_quietly(parent);
+        let added = node.map_or_else(Vec::new, |n| self.insert_checked(parent, n, None, true));
+        if self.is_observed() && !(added.is_empty() && removed.is_empty()) {
+            self.note_child_list(parent, &added, &removed, None, None);
+        }
     }
 
     /// §4.2.3 "pre-remove".
@@ -171,8 +223,26 @@ impl Document {
     /// Puts a parsed fragment's children under `parent`, before `before`,
     /// and frees the fragment. The parse checked the limits.
     pub(crate) fn insert_parsed(&mut self, parent: usize, frag: usize, before: Option<usize>) {
-        self.insert_checked(parent, frag, before);
+        self.insert_checked(parent, frag, before, false);
         self.drop_subtree(frag);
+    }
+
+    /// `innerHTML` set: a parsed fragment replaces `parent`'s children.
+    pub(crate) fn replace_all_parsed(&mut self, parent: usize, frag: usize) {
+        self.replace_all(parent, Some(frag));
+        self.drop_subtree(frag);
+    }
+
+    /// `outerHTML` set: a parsed fragment replaces `child`.
+    pub(crate) fn replace_with_parsed(
+        &mut self,
+        parent: usize,
+        frag: usize,
+        child: usize,
+    ) -> BindingResult<()> {
+        let r = self.replace(parent, frag, child);
+        self.drop_subtree(frag);
+        r
     }
 
     /// Selectors nest in brackets; the parser and the matcher recurse per
@@ -347,8 +417,7 @@ impl Document {
             }
         });
         if r.is_ok() {
-            self.remove_all_children(parent);
-            self.insert_checked(parent, node, None);
+            self.replace_all(parent, Some(node));
         }
         self.finish_nodes(node, temporary);
         r

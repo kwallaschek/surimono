@@ -1,7 +1,7 @@
 //! A parsed document and the handle table that scripts address it through.
 
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
@@ -207,6 +207,17 @@ struct Registration {
     filter: Vec<String>,
 }
 
+impl Registration {
+    /// What it is charged; see [`Document::add_registration`].
+    fn cost(&self) -> usize {
+        REGISTRATION_COST + self.filter.iter().map(String::len).sum::<usize>()
+    }
+}
+
+/// What one registration is charged beyond its filter's strings: they live
+/// in Rust, and one observer can be registered on every node.
+pub const REGISTRATION_COST: usize = 64;
+
 const CHILD_LIST: u32 = 1;
 const ATTRIBUTES: u32 = 2;
 const CHARACTER_DATA: u32 = 4;
@@ -256,7 +267,14 @@ pub struct Document {
     /// of record handles, by observer number. Empty until a page observes,
     /// and mutations check that first.
     registrations: HashMap<usize, Vec<Registration>>,
-    record_queues: Vec<Vec<Handle>>,
+    record_queues: Vec<VecDeque<Handle>>,
+    /// Records in all queues: asked after every native call once a page
+    /// observes, so it can't walk them.
+    queued_records: usize,
+    /// The part of `held_bytes` no node accounts for: registrations, and
+    /// strings in mutation records. Records last as long as their handles,
+    /// which is the document's life.
+    observer_bytes: usize,
     /// See [`Document::empty_list`]; 0 until made.
     empty_list: Handle,
     /// `<template>` to its content fragment.
@@ -338,6 +356,8 @@ impl Document {
             static_entries: 0,
             registrations: HashMap::new(),
             record_queues: Vec::new(),
+            queued_records: 0,
+            observer_bytes: 0,
             empty_list: 0,
             templates: parsed.templates.into_iter().collect(),
             deadline: None,
@@ -403,6 +423,8 @@ impl Document {
             },
         );
         self.side_data.extend(parsed.strings);
+        // Before the count: a walk goes through a template to its content.
+        self.templates.extend(parsed.templates);
         // Charged here and credited by the drops below if it is refused. The
         // holder is charged already. Orphans count until they go.
         let bytes = self.bytes_under(holder) - self.node_bytes(holder);
@@ -461,8 +483,12 @@ impl Document {
     /// `id`'s children, serialized (HTML §13.3, `innerHTML`).
     pub(crate) fn inner_html(&self, id: usize) -> String {
         let mut out = String::new();
-        let top = self.templates.get(&id).copied().unwrap_or(id);
-        for &c in self.children(top) {
+        let top = if self.is_html_template(id) {
+            self.template_of(id)
+        } else {
+            Some(id)
+        };
+        for &c in top.iter().flat_map(|&t| self.children(t)) {
             self.serialize(c, &mut out);
         }
         out
@@ -579,13 +605,15 @@ impl Document {
                             if !void {
                                 stack.push(Step::Close(id));
                                 // §13.3: a template's content, not its
-                                // children, of which it has none when parsed.
-                                let content = self.templates.get(&id).copied();
-                                if let Some(c) = content {
-                                    let kids = &self.node(c).children;
-                                    stack.extend(kids.iter().rev().map(|&k| Step::Open(k)));
-                                }
-                                stack.extend(node.children.iter().rev().map(|&c| Step::Open(c)));
+                                // children, of which a script can give it
+                                // some; one a script made may have no
+                                // content yet.
+                                let kids: &[usize] = if self.is_html_template(id) {
+                                    self.template_of(id).map_or(&[], |c| &self.node(c).children)
+                                } else {
+                                    &node.children
+                                };
+                                stack.extend(kids.iter().rev().map(|&k| Step::Open(k)));
                             }
                         }
                     }
@@ -1325,10 +1353,7 @@ impl Document {
                 } else {
                     Some(self.create_text(text)?)
                 };
-                self.remove_all_children(id);
-                if let Some(t) = t {
-                    self.place(id, &[t], None);
-                }
+                self.replace_all(id, t);
                 Ok(())
             }
             _ => Ok(()),
@@ -1345,18 +1370,13 @@ impl Document {
         Ok(())
     }
 
-    /// Removes every child of `id` (DOM "replace all" with nothing). A child
-    /// whose subtree holds a handle stays alive, detached; any other is
-    /// dropped.
+    /// Removes every child of `id`, with no mutation record. A child whose
+    /// subtree holds a handle stays alive, detached; any other is dropped.
     ///
     /// Iterative, and linear in the subtree: blitz-dom's own subtree drop
     /// recurses per level, and removing children one at a time scans the
     /// parent's list each time.
-    pub(crate) fn remove_all_children(&mut self, id: usize) {
-        if self.is_observed() && !self.children(id).is_empty() {
-            let removed = self.children(id).to_vec();
-            self.note_child_list(id, &[], &removed, None, None);
-        }
+    pub(crate) fn remove_children_quietly(&mut self, id: usize) {
         self.version += 1;
         for c in self.take_children(id) {
             self.set_parent(c, None);
@@ -1538,6 +1558,14 @@ impl Document {
                 let next = self.sibling(id, true);
                 self.note_child_list(parent, &[], &[id], previous, next);
             }
+            self.detach_quietly(id);
+        }
+    }
+
+    /// [`detach`](Self::detach) with the "suppress observers" flag of DOM
+    /// §4.2.3 "remove".
+    pub(crate) fn detach_quietly(&mut self, id: usize) {
+        if self.node(id).parent.is_some() {
             self.version += 1;
             self.inner.mutate().remove_node(id);
         }
@@ -1556,6 +1584,12 @@ impl Document {
             };
             self.note_child_list(parent, nodes, &[], previous, before);
         }
+        self.place_quietly(parent, nodes, before);
+    }
+
+    /// [`place`](Self::place) with the "suppress observers" flag of DOM
+    /// §4.2.3 "insert".
+    pub(crate) fn place_quietly(&mut self, parent: usize, nodes: &[usize], before: Option<usize>) {
         self.version += 1;
         if self.is_in_style(parent) {
             for &n in nodes {
@@ -1568,14 +1602,14 @@ impl Document {
         }
     }
 
-    fn is_observed(&self) -> bool {
+    pub(crate) fn is_observed(&self) -> bool {
         !self.registrations.is_empty()
     }
 
     /// DOM §4.3 "queue a mutation record": `wanted` picks the registrations
     /// on `target` and its ancestors that are interested; each observer once,
-    /// with the old value if any of its registrations asked. `old_value`
-    /// runs only if one did.
+    /// with the old value if any of its registrations asked; `record` is told
+    /// whether to copy it.
     fn queue_record(
         &mut self,
         target: usize,
@@ -1600,18 +1634,35 @@ impl Document {
             at = self.node(n).parent;
         }
         for (observer, old) in interested {
-            let Some(mut r) = record(self, old) else {
+            let Some(r) = record(self, old) else {
                 return;
             };
-            if !old {
-                r.old_value = None;
-            }
             match self.new_handle(Object::Record(Box::new(r))) {
-                Ok(h) => self.record_queues[observer as usize].push(h),
+                Ok(h) => {
+                    if let Some(q) = self.record_queues.get_mut(observer as usize) {
+                        q.push_back(h);
+                        self.queued_records += 1;
+                    }
+                }
                 Err(e) => {
                     self.fault.get_or_insert(e);
                     return;
                 }
+            }
+        }
+    }
+
+    /// Charges `bytes` of a record's strings to the document, for its life.
+    /// `None` and the call's fault if they don't fit.
+    fn charge_record(&mut self, bytes: usize) -> Option<()> {
+        match self.recharge(0, bytes) {
+            Ok(()) => {
+                self.observer_bytes += bytes;
+                Some(())
+            }
+            Err(e) => {
+                self.fault.get_or_insert(e);
+                None
             }
         }
     }
@@ -1640,7 +1691,7 @@ impl Document {
         id
     }
 
-    fn note_child_list(
+    pub(crate) fn note_child_list(
         &mut self,
         parent: usize,
         added: &[usize],
@@ -1691,7 +1742,17 @@ impl Document {
                     r.flags & HAS_FILTER == 0 || (name.ns == ns!() && r.filter.contains(&local));
                 (r.flags & ATTRIBUTES != 0 && listed).then_some(r.flags & ATTRIBUTE_OLD != 0)
             },
-            |doc, _| {
+            |doc, old| {
+                let namespace = Some(name.ns.to_string()).filter(|n| !n.is_empty());
+                let old_value = if old {
+                    doc.attribute_value(id, name)
+                } else {
+                    None
+                };
+                let strings = local.len()
+                    + namespace.as_ref().map_or(0, String::len)
+                    + old_value.as_ref().map_or(0, String::len);
+                doc.charge_record(strings)?;
                 let empty = doc.empty_list()?;
                 let target = doc.pin(Some(id))?;
                 Some(MutationRecord {
@@ -1702,8 +1763,8 @@ impl Document {
                     previous: None,
                     next: None,
                     attribute: Some(local.clone()),
-                    namespace: Some(name.ns.to_string()).filter(|n| !n.is_empty()),
-                    old_value: doc.attribute_value(id, name),
+                    namespace,
+                    old_value,
                 })
             },
         );
@@ -1716,7 +1777,9 @@ impl Document {
         self.queue_record(
             id,
             |r| (r.flags & CHARACTER_DATA != 0).then_some(r.flags & CHARACTER_OLD != 0),
-            |doc, _| {
+            |doc, old| {
+                let old_value = old.then(|| doc.char_data(id).to_owned());
+                doc.charge_record(old_value.as_ref().map_or(0, String::len))?;
                 let empty = doc.empty_list()?;
                 let target = doc.pin(Some(id))?;
                 Some(MutationRecord {
@@ -1728,61 +1791,91 @@ impl Document {
                     next: None,
                     attribute: None,
                     namespace: None,
-                    old_value: Some(doc.char_data(id).to_owned()),
+                    old_value,
                 })
             },
         );
     }
 
     pub(crate) fn new_observer(&mut self) -> u32 {
-        self.record_queues.push(Vec::new());
+        self.record_queues.push(VecDeque::new());
         u32::try_from(self.record_queues.len() - 1).unwrap_or(u32::MAX)
     }
 
     /// `observe`: a second call on one node replaces the first (§4.3.1).
+    /// Charged to [`DomLimits::max_text_bytes`]: filters are copies of
+    /// strings of any size, and registrations grow as observers × nodes.
     pub(crate) fn add_registration(
         &mut self,
         observer: u32,
         target: usize,
         flags: u32,
         names: &str,
-    ) {
-        let filter = if names.is_empty() {
+    ) -> Result<(), DomError> {
+        let credit = self
+            .registrations
+            .get(&target)
+            .into_iter()
+            .flatten()
+            .find(|x| x.observer == observer)
+            .map_or(0, Registration::cost);
+        let filter: Vec<String> = if names.is_empty() {
             Vec::new()
         } else {
             names.split('\n').map(str::to_owned).collect()
         };
-        let list = self.registrations.entry(target).or_default();
         let r = Registration {
             observer,
             flags,
             filter,
         };
+        let charge = r.cost();
+        self.recharge(credit, charge)?;
+        self.observer_bytes = (self.observer_bytes + charge).saturating_sub(credit);
+        let list = self.registrations.entry(target).or_default();
         match list.iter_mut().find(|x| x.observer == observer) {
             Some(old) => *old = r,
             None => list.push(r),
         }
+        Ok(())
     }
 
     /// `disconnect`: no registrations, no queued records.
     pub(crate) fn remove_registrations(&mut self, observer: u32) {
+        let mut freed = 0;
         self.registrations.retain(|_, list| {
-            list.retain(|r| r.observer != observer);
+            list.retain(|r| {
+                let keep = r.observer != observer;
+                if !keep {
+                    freed += r.cost();
+                }
+                keep
+            });
             !list.is_empty()
         });
+        self.credit(freed);
+        self.observer_bytes = self.observer_bytes.saturating_sub(freed);
         if let Some(q) = self.record_queues.get_mut(observer as usize) {
+            self.queued_records -= q.len();
             q.clear();
         }
     }
 
     /// The observer's oldest queued record, if any.
     pub(crate) fn next_record(&mut self, observer: u32) -> Option<Handle> {
-        let q = self.record_queues.get_mut(observer as usize)?;
-        (!q.is_empty()).then(|| q.remove(0))
+        let h = self.record_queues.get_mut(observer as usize)?.pop_front()?;
+        self.queued_records -= 1;
+        Some(h)
     }
 
     pub(crate) fn has_records(&self) -> bool {
-        self.record_queues.iter().any(|q| !q.is_empty())
+        self.queued_records > 0
+    }
+
+    /// Whether `id` is an HTML `<template>`.
+    pub(crate) fn is_html_template(&self, id: usize) -> bool {
+        self.element_name(id)
+            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "template")
     }
 
     /// `<template>`'s content, if it has one yet.
@@ -1804,7 +1897,7 @@ impl Document {
     /// is wrong, if anything.
     #[doc(hidden)]
     pub fn check_consistency(&self) -> Result<(), String> {
-        let held = self.bytes_held();
+        let held = self.bytes_held() + self.observer_bytes;
         for (id, node) in self.inner.tree().iter() {
             if let Some(p) = node.parent {
                 let Some(parent) = self.inner.get_node(p) else {

@@ -256,3 +256,333 @@ fn records_are_bounded_when_nothing_yields() {
     );
     assert_eq!(r, Err(DomError::HandleLimit { limit: 2_000 }));
 }
+
+/// A runtime on `PAGE` with `max_text_bytes` of `cap`.
+fn capped(cap: usize) -> DomRuntime {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse_with_limits(
+            PAGE,
+            DomLimits {
+                max_text_bytes: cap,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
+    rt
+}
+
+const CAP: usize = 1 << 20;
+const TEXT_LIMIT: DomError = DomError::TextLimit { limit: CAP };
+/// Bigger than `CAP` over 64 rounds, far smaller alone.
+const BIG: &str = "const big = 'x'.repeat(64 * 1024); const a = document.getElementById('a');\n";
+
+fn assert_consistent(rt: &DomRuntime) {
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn a_parsed_template_keeps_its_content() {
+    // HTML §4.12.3, §8.5, §13.2: `innerHTML` and `insertAdjacentHTML`.
+    let mut rt = runtime();
+    let r: String = rt
+        .eval(
+            r#"const d = document.getElementById('a'), out = [];
+            d.innerHTML = '<template id=t><p>in</p><template id=u><i>n</i></template></template>';
+            const t = d.firstChild;
+            out.push(t.childNodes.length, t.content.childNodes.length, d.innerHTML);
+            const u = t.content.lastChild;
+            out.push(u.content.firstChild.nodeName, t.innerHTML);
+            t.innerHTML = '<template><b>x</b></template>';
+            out.push(t.content.firstChild.content.childNodes.length, t.innerHTML);
+            d.insertAdjacentHTML('beforeend', '<template><s></s></template>');
+            out.push(d.lastChild.content.firstChild.nodeName);
+            out.join('|')"#,
+        )
+        .unwrap();
+    assert_eq!(
+        r,
+        "0|2|<template id=\"t\"><p>in</p><template id=\"u\"><i>n</i></template></template>|\
+         I|<p>in</p><template id=\"u\"><i>n</i></template>|\
+         1|<template><b>x</b></template>|S"
+    );
+    assert_consistent(&rt);
+}
+
+#[test]
+fn template_markup_counts_against_the_text_limit() {
+    for add in [
+        "a.insertAdjacentHTML('beforeend', '<template>' + big + '</template>');",
+        "a.lastChild.after(document.createElement('div')); a.lastChild.innerHTML = '<template>' + big + '</template>';",
+    ] {
+        let mut rt = capped(CAP);
+        let r = rt.eval::<()>(&format!("{BIG} for (let i = 0; i < 64; i++) {{ {add} }}"));
+        assert_eq!(r, Err(TEXT_LIMIT), "{add}");
+    }
+    // Replacing frees what it replaced: the credit reaches template content.
+    let mut rt = capped(CAP);
+    let _: () = rt
+        .eval(&format!(
+            "{BIG} for (let i = 0; i < 64; i++) a.innerHTML = '<template><template>' + big + '</template></template>';"
+        ))
+        .unwrap();
+    assert_consistent(&rt);
+}
+
+#[test]
+fn old_values_count_against_the_text_limit() {
+    for (options, write) in [
+        ("{ attributeOldValue: true }", "a.title = big + i;"),
+        (
+            "{ characterDataOldValue: true, subtree: true }",
+            "b.firstChild.data = big + i;",
+        ),
+    ] {
+        let mut rt = capped(CAP);
+        let r = rt.eval::<()>(&format!(
+            "{BIG} const b = document.getElementById('b');
+             new MutationObserver(() => {{}}).observe(a, {options});
+             try {{ for (let i = 0; i < 64; i++) {write} }} catch (e) {{}}"
+        ));
+        assert_eq!(r, Err(TEXT_LIMIT), "{options}");
+    }
+}
+
+#[test]
+fn old_values_are_only_copied_when_asked_for() {
+    // Without the flag nothing is kept, so writes past the cap in total pass;
+    // the second observer's flag only reaches its own records.
+    let mut rt = capped(CAP);
+    let r: String = rt
+        .eval(&format!(
+            "{BIG} const b = document.getElementById('b');
+             const o = new MutationObserver(() => {{}});
+             o.observe(a, {{ attributes: true, characterData: true, subtree: true }});
+             const keep = new MutationObserver(() => {{}});
+             keep.observe(b, {{ attributes: true, attributeOldValue: true }});
+             a.title = 'old'; a.title = 'new';
+             b.title = 'old'; b.title = 'new';
+             for (let i = 0; i < 64; i++) {{ a.title = big + i; b.firstChild.data = big + i; }}
+             const j = (rs) => rs.map((r) => r.oldValue).join();
+             o.takeRecords().filter((r) => r.target === b).length + j(keep.takeRecords())"
+        ))
+        .unwrap();
+    assert_eq!(r, "2,old");
+    assert_consistent(&rt);
+}
+
+#[test]
+fn registrations_count_against_the_text_limit() {
+    // A filter is copied per `observe`.
+    let mut rt = capped(CAP);
+    let r = rt.eval::<()>(&format!(
+        "{BIG} const o = new MutationObserver(() => {{}});
+         try {{ for (let i = 0; i < 64; i++)
+           o.observe(document.createElement('i'), {{ attributes: true, attributeFilter: [big] }});
+         }} catch (e) {{}}"
+    ));
+    assert_eq!(r, Err(TEXT_LIMIT));
+    // Plain registrations too: many observers on one node, no JS heap to show.
+    const SMALL: usize = 32 * 1024;
+    let mut rt = capped(SMALL);
+    let r = rt.eval::<()>(&format!(
+        "{BIG} try {{ for (;;) new MutationObserver(() => {{}}).observe(a, {{ attributes: true }}); }}
+         catch (e) {{}}"
+    ));
+    assert_eq!(r, Err(DomError::TextLimit { limit: SMALL }));
+}
+
+#[test]
+fn registrations_are_credited_on_replace_and_disconnect() {
+    let mut rt = capped(CAP);
+    let _: () = rt
+        .eval(&format!(
+            "{BIG} const o = new MutationObserver(() => {{}});
+             const options = {{ attributes: true, attributeFilter: [big] }};
+             for (let i = 0; i < 64; i++) o.observe(a, options);
+             for (let i = 0; i < 64; i++) {{ o.observe(document.createElement('i'), options); o.disconnect(); }}"
+        ))
+        .unwrap();
+    assert_consistent(&rt);
+}
+
+#[test]
+fn observers_belong_to_their_document() {
+    // DomRuntime::load: the old document's wrappers fail with StaleDocument.
+    for call in [
+        "o.observe(document.body, { attributes: true });",
+        "o.disconnect();",
+        "o.takeRecords();",
+    ] {
+        let mut rt = runtime();
+        let _: () = rt
+            .eval("globalThis.o = new MutationObserver(() => {});")
+            .unwrap();
+        rt.load(Document::parse(PAGE).unwrap());
+        let script = format!("try {{ {call} }} catch (e) {{}}; document.body.id = 'q';");
+        assert_eq!(
+            rt.eval::<()>(&script),
+            Err(DomError::StaleDocument),
+            "{call}"
+        );
+    }
+}
+
+#[test]
+fn a_new_documents_records_go_to_its_own_observer() {
+    let mut rt = runtime();
+    let _: () = rt
+        .eval(
+            "globalThis.log = [];
+             globalThis.old = new MutationObserver(() => log.push('A'));
+             old.observe(document.body, { attributes: true });
+             document.body.id = 'p';",
+        )
+        .unwrap();
+    rt.run_until_settled(&SettleOptions::default()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let _: () = rt
+        .eval(
+            "const b = new MutationObserver((rs) => log.push('B', rs.length));
+             b.observe(document.body, { attributes: true });
+             document.body.id = 'q';",
+        )
+        .unwrap();
+    rt.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!(rt.eval::<String>("log.join()").unwrap(), "A,B,1");
+}
+
+const REPLACE: &str = r#"const seen = (o) => o.takeRecords().map((r) =>
+    [r.type, [...r.addedNodes].map((n) => n.nodeName).join('+'), [...r.removedNodes].map((n) => n.nodeName).join('+'),
+     r.previousSibling && r.previousSibling.nodeName, r.nextSibling && r.nextSibling.nodeName].join()).join(' ');
+  const o = new MutationObserver(() => {});
+  o.observe(a, { childList: true });
+  const u = document.createElement('u'), s = document.createElement('s');
+  "#;
+
+#[test]
+fn replacing_queues_one_record() {
+    // DOM §4.2.3 "replace" and "replace all"; WPT MutationObserver-childList,
+    // -inner-outer, -textContent.
+    for (write, expected) in [
+        ("a.replaceChild(u, b);", "childList,U,P,,"),
+        ("b.replaceWith(u);", "childList,U,P,,"),
+        ("b.replaceWith(u, s);", "childList,U+S,P,,"),
+        ("b.outerHTML = '<i></i><b></b>';", "childList,I+B,P,,"),
+        ("b.outerHTML = '';", "childList,,P,,"),
+        ("a.replaceChildren(u);", "childList,U,P,,"),
+        ("a.replaceChildren();", "childList,,P,,"),
+        ("a.replaceChildren(b);", "childList,P,P,,"),
+        ("a.textContent = 'x';", "childList,#text,P,,"),
+        ("a.textContent = '';", "childList,,P,,"),
+        ("a.innerHTML = '<i></i><b></b>';", "childList,I+B,P,,"),
+        ("a.innerHTML = '';", "childList,,P,,"),
+        (
+            "u.textContent = 'x'; a.append(u); a.removeChild(u);",
+            "childList,U,,P, childList,,U,P,",
+        ),
+        (
+            "a.append(u); a.replaceChild(a.lastChild, a.firstChild);",
+            "childList,U,,P, childList,,U,P, childList,U,P,,",
+        ),
+        ("a.replaceChild(b, b);", "childList,,P,, childList,P,,,"),
+    ] {
+        let mut rt = runtime();
+        let r: String = rt
+            .eval(&format!(
+                "{VARS}{REPLACE}{write} a.textContent === null; seen(o)"
+            ))
+            .unwrap();
+        assert_eq!(r, expected, "{write}");
+    }
+}
+
+#[test]
+fn inserting_a_fragment_tells_the_fragment() {
+    // DOM §4.2.3 "insert": a record on the fragment with its children removed,
+    // whatever suppressObservers says (it also holds in "replace").
+    let mut rt = runtime();
+    let r: String = rt
+        .eval(&format!(
+            r#"{VARS}{REPLACE}
+            const f = document.createDocumentFragment();
+            f.append(u, s);
+            const fo = new MutationObserver(() => {{}});
+            fo.observe(f, {{ childList: true }});
+            a.appendChild(f);
+            const first = seen(fo) + ' / ' + seen(o);
+            f.append(u, s);
+            seen(fo); seen(o);
+            a.replaceChild(f, b);
+            [first, seen(fo), seen(o)].join(' / ')"#
+        ))
+        .unwrap();
+    assert_eq!(
+        r,
+        "childList,,U+S,, / childList,U+S,,P, / \
+         childList,,U+S,, / childList,U+S,P,,"
+    );
+}
+
+#[test]
+fn template_serialization_is_content_only() {
+    // HTML §13.3: a template's content, never children a script gave it.
+    let mut rt = runtime();
+    let r: String = rt
+        .eval(
+            r#"const t = document.createElement('template');
+            t.appendChild(document.createElement('u'));
+            const empty = [t.innerHTML, t.outerHTML];
+            t.content.appendChild(document.createElement('s'));
+            [...empty, t.innerHTML, t.outerHTML].join('|')"#,
+        )
+        .unwrap();
+    assert_eq!(
+        r,
+        "|<template></template>|<s></s>|<template><s></s></template>"
+    );
+}
+
+#[test]
+fn input_value_default_on() {
+    // HTML §4.10.5.1 "default/on" mode: checkbox and radio.
+    let mut rt = runtime();
+    let r: String = rt
+        .eval(
+            r#"const v = (t) => { const i = document.createElement('input'); if (t) i.type = t; return i; };
+            const c = v('checkbox'); c.value = 'x';
+            [v('checkbox').value, v('RADIO').value, v('text').value, v().value, v('hidden').value, c.value].join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "on,on,,,,x");
+}
+
+#[test]
+fn union_and_sequence_conversions() {
+    // WebIDL §3.2.21 sequence; §3.2.24 union: null is the dictionary.
+    let r = observed(
+        r#"const out = [];
+        const f = (x) => { try { new MutationObserver(() => {}).observe(a, { attributeFilter: x }); out.push('ok'); }
+                           catch (e) { out.push(e.name); } };
+        f(5); f(null); f('id'); f({}); f(['id']); f(new Set(['id']));
+        const o = new MutationObserver((rs) => log.push(rs.length, rs[0].attributeName));
+        o.observe(a, { attributeFilter: new Set(['title']) });
+        a.id = 'n'; a.title = 't';
+        const seen = [];
+        const d = {};
+        for (const k of ['subtree', 'characterData', 'attributes']) Object.defineProperty(d, k, { get() { seen.push(k); return true; } });
+        new MutationObserver(() => {}).observe(a, d);
+        out.push(seen.join('+'));
+        const p = document.createElement('p'); p.innerHTML = '<i></i>';
+        const count = (x) => document.importNode(p, x).childNodes.length;
+        out.push(count(), count(null), count(false), count(true), count({}), count(() => {}), count({ selfOnly: true }));
+        log.push(out.join());"#,
+    );
+    assert_eq!(
+        r,
+        "TypeError,TypeError,TypeError,TypeError,ok,ok,attributes+characterData+subtree,0,1,0,1,1,1,0|1|title"
+    );
+}

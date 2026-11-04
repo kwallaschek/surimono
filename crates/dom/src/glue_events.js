@@ -269,7 +269,16 @@
   // `observedCall`, which queues the notify microtask when a record is
   // waiting. A page without observers pays nothing.
 
-  const observers = list();
+  // Observer numbers belong to one document, as handles do: an observer
+  // carries its generation (`og`) and only its own document's list has it,
+  // so loading another neither reaches old observers nor keeps them.
+  let observers = list();
+  let observersGeneration = 0;
+  function liveObservers() {
+    const g = current();
+    if (g !== observersGeneration) { observers = list(); observersGeneration = g; }
+    return observers;
+  }
   let notifyQueued = false;
   const nativeCall = n.call;
   function observedCall() {
@@ -293,7 +302,7 @@
   // §4.3.2 "notify mutation observers".
   function notify() {
     notifyQueued = false;
-    const all = copy(observers);
+    const all = copy(liveObservers());
     for (let i = 0; i < all.n; i++) {
       const s = all[i];
       const records = takeRecords(s);
@@ -309,17 +318,23 @@
     if (typeof callback !== 'function') throw new TE('MutationObserver: the callback is not a function');
     const s = make(I_MutationObserver, target);
     s.callback = callback;
-    s.observer = call(OP_observerNew, current(), root());
-    add(observers, s);
+    s.og = current();
+    s.observer = call(OP_observerNew, s.og, root());
+    add(liveObservers(), s);
     call = observedCall;
     return s.w;
   };
   // §4.3.1 observe.
   H.MutationObserver_observe = (s, target, d) => {
+    if (s.og !== current()) stale();
     d = dictionary(d, 'observe');
-    const childList = !!d.childList, subtree = !!d.subtree;
-    const attributeOld = d.attributeOldValue, filter = d.attributeFilter, characterOld = d.characterDataOldValue;
+    // In WebIDL's order for a dictionary: lexicographic.
+    const filterGiven = d.attributeFilter;
+    const filter = filterGiven === undefined ? undefined : stringSequence(filterGiven, 'attributeFilter');
+    const attributeOld = d.attributeOldValue;
     let attributes = d.attributes, characterData = d.characterData;
+    const characterOld = d.characterDataOldValue;
+    const childList = !!d.childList, subtree = !!d.subtree;
     if (attributes === undefined && (attributeOld !== undefined || filter !== undefined)) attributes = true;
     if (characterData === undefined && characterOld !== undefined) characterData = true;
     attributes = !!attributes; characterData = !!characterData;
@@ -331,16 +346,37 @@
     if (!!characterOld && !characterData) throw new TE('observe: characterDataOldValue needs characterData');
     let names = '';
     if (filter !== undefined) {
-      const m = filter.length >>> 0;
-      for (let i = 0; i < m; i++) names += (i === 0 ? '' : '\n') + str(filter[i]);
+      for (let i = 0; i < filter.n; i++) names += (i === 0 ? '' : '\n') + filter[i];
     }
     const flags = (childList ? 1 : 0) | (attributes ? 2 : 0) | (characterData ? 4 : 0) | (subtree ? 8 : 0) |
       (attributeOld ? 16 : 0) | (characterOld ? 32 : 0) | (filter !== undefined ? 64 : 0);
     if (target.g !== current()) stale();
     call(OP_observe, target.g, target.h, s.observer, target.h, flags, names);
   };
-  H.MutationObserver_disconnect = (s) => { call(OP_observerDisconnect, current(), root(), s.observer); };
-  H.MutationObserver_takeRecords = (s) => realArray(takeRecords(s));
+  // WebIDL §3.2.21 `sequence<DOMString>`, as a list.
+  function stringSequence(x, what) {
+    if (!isObject(x)) throw new TE(what + ': not a sequence');
+    const method = x[symbolIterator];
+    if (typeof method !== 'function') throw new TE(what + ': not iterable');
+    const it = apply(method, x, []);
+    if (!isObject(it)) throw new TE(what + ': the iterator is not an object');
+    const next = it.next;
+    const out = list();
+    for (;;) {
+      const r = apply(next, it, []);
+      if (!isObject(r)) throw new TE(what + ': the iterator result is not an object');
+      if (r.done) return out;
+      add(out, str(r.value));
+    }
+  }
+  H.MutationObserver_disconnect = (s) => {
+    if (s.og !== current()) stale();
+    call(OP_observerDisconnect, current(), root(), s.observer);
+  };
+  H.MutationObserver_takeRecords = (s) => {
+    if (s.og !== current()) stale();
+    return realArray(takeRecords(s));
+  };
 
   // ------ Firing, and the page's life (HTML §13.2.7 "the end") ------
 

@@ -226,9 +226,24 @@ Registrations and record queues are in Rust, which sees the mutations
 against `max_handles` and a script that never yields ends in `HandleLimit`. The
 callback is in the glue. Once an observer exists the glue's `call` binding
 becomes `observedCall`, which queues the notify microtask when a record waits; a
-page without observers pays nothing. Gaps: no transient registrations for removed
-subtrees, and `textContent`/`innerHTML` on an element give a removal and an
-addition record, where the spec's "replace all" gives one.
+page without observers pays nothing.
+
+Strings in Rust are charged to `max_text_bytes`: a registration's filter plus
+`REGISTRATION_COST` (credited on replace and `disconnect`), and a record's old
+value and attribute name, for the document's life, because handles are never
+released. An old value is copied only if an observer asked, and `check_consistency`
+counts all of this as `observer_bytes`.
+
+An observer's number belongs to one document. The glue keeps the observers of
+the current generation only, so another document's records never reach an old
+observer, and `observe`, `disconnect` and `takeRecords` on one call `stale()`.
+
+"Replace" and "replace all" (DOM §4.2.3) queue one record: `replaceChild`,
+`replaceWith`, `outerHTML`, `replaceChildren`, `textContent`, `innerHTML`.
+Adopting a node from elsewhere still queues its own, as does a fragment for the
+children it loses.
+
+Gap: no transient registrations for removed subtrees.
 
 ## Templates and reflected attributes
 

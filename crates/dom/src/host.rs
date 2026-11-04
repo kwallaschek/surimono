@@ -166,20 +166,14 @@ impl Document {
         let context = self.parse_context(id);
         if let Some(frag) = self.parse_fragment_in(context, id, html)? {
             // HTML §8.5: a template's innerHTML is its content.
-            let top = if self.is_template(id) {
+            let top = if self.is_html_template(id) {
                 self.template_content(id).map_err(|e| self.fail(e))?
             } else {
                 id
             };
-            self.remove_all_children(top);
-            self.insert_parsed(top, frag, None);
+            self.replace_all_parsed(top, frag);
         }
         Ok(())
-    }
-
-    fn is_template(&self, id: usize) -> bool {
-        self.element_name(id)
-            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "template")
     }
 
     /// The context element `id` gives the fragment parser: itself, or a new
@@ -457,8 +451,8 @@ impl Document {
         names: String,
     ) -> BindingResult<()> {
         let id = self.node_of(target)?;
-        self.add_registration(observer, id, flags, &names);
-        Ok(())
+        self.add_registration(observer, id, flags, &names)
+            .map_err(|e| self.fail(e))
     }
 
     pub(crate) fn observer_disconnect(&mut self, observer: u32) -> BindingResult<()> {
@@ -869,9 +863,7 @@ impl idl::Element for Document {
         }
         let context = self.parse_context(parent);
         if let Some(frag) = self.parse_fragment_in(context, parent, &value_string(value))? {
-            let next = self.sibling(id, true);
-            self.detach(id);
-            self.insert_parsed(parent, frag, next);
+            self.replace_with_parsed(parent, frag, id)?;
         }
         Ok(())
     }
@@ -2000,7 +1992,15 @@ impl idl::HTMLScriptElement for Document {
 /// serialized HTML is what gets printed.
 impl idl::HTMLInputElement for Document {
     fn value(&mut self, this: ObjectId) -> BindingResult<String> {
-        self.reflected(this, "value")
+        let value = self.reflected(this, "value")?;
+        // "default/on" mode: no attribute reads as `on`.
+        let id = self.node_of(this)?;
+        let on = self.attribute(id, "value").is_none()
+            && matches!(
+                idl::HTMLInputElement::type_(self, this)?.as_str(),
+                "checkbox" | "radio"
+            );
+        Ok(if on { "on".to_owned() } else { value })
     }
 
     fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {

@@ -168,7 +168,9 @@
 
   // `(boolean or ImportNodeOptions)`.
   function deepFlag(x) {
-    if (typeof x === 'object' && x !== null) return !x.selfOnly;
+    // null isn't a boolean, so it is an empty dictionary: deep.
+    if (x === null) return true;
+    if (isObject(x)) return !x.selfOnly;
     return !!x;
   }
 

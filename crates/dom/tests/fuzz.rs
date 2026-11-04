@@ -76,6 +76,7 @@ const VALUES: &[&str] = &[
     "<b>",
     "</style><style>@import 'http://[';",
     "\u{fffd}",
+    "<template><i>in</i><template><b>x</b></template></template>",
 ];
 
 /// xorshift64*: enough to pick operations; the seed fixes the sequence.
