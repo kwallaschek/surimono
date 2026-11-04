@@ -74,19 +74,19 @@ fn mappings() -> Vec<Mapping> {
     let mut out: Vec<Mapping> = Vec::new();
     for line in smaps.lines() {
         let first = line.split_whitespace().next().unwrap_or("");
-        if let Some((a, b)) = first.split_once('-') {
-            if let (Ok(start), Ok(end)) = (u64::from_str_radix(a, 16), u64::from_str_radix(b, 16)) {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                out.push(Mapping {
-                    start,
-                    end,
-                    perms: parts.get(1).unwrap_or(&"").to_string(),
-                    path: parts.get(5..).map(|p| p.join(" ")).unwrap_or_default(),
-                    rss: 0,
-                    anon: 0,
-                });
-                continue;
-            }
+        if let Some((a, b)) = first.split_once('-')
+            && let (Ok(start), Ok(end)) = (u64::from_str_radix(a, 16), u64::from_str_radix(b, 16))
+        {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            out.push(Mapping {
+                start,
+                end,
+                perms: parts.get(1).unwrap_or(&"").to_string(),
+                path: parts.get(5..).map(|p| p.join(" ")).unwrap_or_default(),
+                rss: 0,
+                anon: 0,
+            });
+            continue;
         }
         if let Some(m) = out.last_mut() {
             if let Some(v) = field_kib(line, "Rss:") {

@@ -814,11 +814,11 @@ impl Document {
     fn retire(&mut self, id: usize) {
         self.credit(self.node_bytes(id));
         self.side_data.remove(&id);
-        if let Some(h) = self.node_to_handle.get_mut(id) {
-            if *h != 0 {
-                self.handle_to_node[*h as usize - 1] = None;
-                *h = 0;
-            }
+        if let Some(h) = self.node_to_handle.get_mut(id)
+            && *h != 0
+        {
+            self.handle_to_node[*h as usize - 1] = None;
+            *h = 0;
         }
     }
 
