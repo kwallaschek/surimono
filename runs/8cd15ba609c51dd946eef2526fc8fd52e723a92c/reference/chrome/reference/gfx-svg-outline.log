@@ -1,0 +1,4 @@
+echarts-5: outlined vs Chrome text 0.49% of 97108 ink px differ; control (system serif) 3.37%; ok
+echarts-6: outlined vs Chrome text 1.09% of 169006 ink px differ; control (system serif) 6.07%; ok
+vega: outlined vs Chrome text 4.87% of 41912 ink px differ; control (system serif) 9.41%; FAIL
+FAIL

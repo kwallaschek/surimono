@@ -1,0 +1,31 @@
+{
+  "fixture": "vegalite-layered-dense-ja",
+  "chromium": "153.0.8010.12",
+  "echarts": "6.1.0",
+  "pixelmatch": "8.0.0",
+  "playwright": "1.63.0",
+  "pngjs": "7.0.0",
+  "vega": "6.4.0",
+  "vega-lite": "6.5.0",
+  "poppler": "24.02.0",
+  "fonts": [
+    "Noto Sans 400 normal",
+    "Noto Sans 700 normal",
+    "Noto Sans JP 400 normal",
+    "Noto Sans JP 700 normal"
+  ],
+  "islands": [
+    {
+      "index": 0,
+      "renderer": "vega-lite",
+      "width": 680,
+      "height": 344,
+      "svg_bytes": 81897,
+      "svg_sha256": "5e6a55672d21c76baff715af7f316477751eb537f7ad4ac24d43821e7b017d38"
+    }
+  ],
+  "console": [],
+  "pages": [
+    "chrome-1.png"
+  ]
+}
