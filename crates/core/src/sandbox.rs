@@ -201,6 +201,13 @@ impl Deadline {
     /// Here a panic in `f` becomes that exception and also ends the call: it
     /// fails with [`SandboxError::HostPanic`] however the script handles the
     /// exception. Wrap every host function's body in this.
+    ///
+    /// With `panic = "abort"` there is nothing to catch: a host panic aborts
+    /// the process and no typed error is returned. Like
+    /// [`passed`](Self::passed), this belongs to the runtime the handle was
+    /// taken from, but it doesn't fail safe: a panic under a handle from
+    /// before a [`reset`](Sandbox::reset) doesn't stop the current call, so
+    /// take a fresh handle for each call.
     pub fn guard<'js, R>(
         &self,
         ctx: &Ctx<'js>,
@@ -224,7 +231,7 @@ pub(crate) fn guard_native<'js, R>(
                 .map(|s| (*s).to_owned())
                 .or_else(|| panic.downcast_ref::<String>().cloned())
                 .unwrap_or_else(|| "a panic with no message".to_owned());
-            state.note_panic(message);
+            state.note_panic(truncate(message, MAX_MESSAGE_BYTES));
             Err(rquickjs::Exception::throw_internal(
                 ctx,
                 "a host function failed",
@@ -1113,6 +1120,23 @@ mod tests {
 
     fn sandbox() -> Sandbox {
         Sandbox::new(limits()).unwrap()
+    }
+
+    #[test]
+    fn too_many_destructured_parameters_is_a_syntax_error() {
+        // Past JS_MAX_LOCAL_VARS (65,535) add_arg fails with no allocation
+        // refused, so no stop flag is up; the function is only compiled.
+        let source = format!("function f({}) {{}}", "{},".repeat(70_000));
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_secs(60))).unwrap();
+        match sb.compile(&source, "params.js") {
+            Err(SandboxError::Exception { message, .. }) => {
+                assert!(
+                    message.starts_with("SyntaxError: too many parameters"),
+                    "{message}"
+                )
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
