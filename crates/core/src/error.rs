@@ -19,6 +19,22 @@ pub enum SandboxError {
     /// The script recursed deeper than [`Limits::stack_bytes`](crate::Limits::stack_bytes) allows.
     #[error("script exceeded the stack limit (too much recursion)")]
     StackOverflow,
+    /// The call was stopped because the flag given to
+    /// [`Sandbox::set_cancel_flag`](crate::Sandbox::set_cancel_flag) went up.
+    ///
+    /// Not a limit error, but just as terminal: the sandbox discards the
+    /// script's state.
+    #[error("the script was cancelled")]
+    Cancelled,
+    /// A Rust host function panicked inside
+    /// [`Deadline::guard`](crate::Deadline::guard). A bug in the host, not the
+    /// script's fault, and terminal however the script handles the exception
+    /// it saw: the sandbox discards the script's state.
+    #[error("a host function panicked: {message}")]
+    HostPanic {
+        /// The panic's message.
+        message: String,
+    },
     /// The script threw an exception it did not catch.
     #[error("script threw {message}")]
     Exception {
@@ -57,6 +73,13 @@ impl SandboxError {
             Self::MemoryLimit | Self::TimeLimit | Self::StackOverflow
         )
     }
+
+    /// Whether the sandbox threw away the script's state after this error,
+    /// because the script stopped at an arbitrary point: the limit errors,
+    /// [`Cancelled`](Self::Cancelled) and [`HostPanic`](Self::HostPanic).
+    pub fn discards_state(&self) -> bool {
+        self.is_limit() || matches!(self, Self::Cancelled | Self::HostPanic { .. })
+    }
 }
 
 #[cfg(test)]
@@ -73,6 +96,15 @@ mod tests {
             stack: None,
         };
         assert!(!e.is_limit());
+        assert!(!SandboxError::Cancelled.is_limit());
+        assert!(SandboxError::Cancelled.discards_state());
+        assert!(SandboxError::TimeLimit.discards_state());
+        assert!(!e.discards_state());
+        let panic = SandboxError::HostPanic {
+            message: "boom".into(),
+        };
+        assert!(!panic.is_limit() && panic.discards_state());
+        assert_eq!(panic.to_string(), "a host function panicked: boom");
         assert_eq!(e.to_string(), "script threw Error: x");
     }
 }

@@ -341,7 +341,11 @@ const GROUP_B: &[Vector] = &[
     v(
         "B Array.fromAsync",
         "for (;;) { Array.fromAsync({ length: 1, 0: 1 }, () => { for (;;) {} }) }",
-        Want::Time,
+        // The callback only runs in a microtask, so the outer loop just piles
+        // up pending promises: on a fast machine the 128 MiB heap can fill
+        // before the 250 ms limit (macos-14: MemoryLimit at 239 ms). Either
+        // limit ends it with a typed error.
+        Want::AnyLimit,
     ),
     v(
         "B swallowed, then straight-line code",
