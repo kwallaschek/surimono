@@ -230,6 +230,8 @@ pub struct Document {
     /// and mutations check that first.
     registrations: HashMap<usize, Vec<Registration>>,
     record_queues: Vec<Vec<Handle>>,
+    /// See [`Document::empty_list`]; 0 until made.
+    empty_list: Handle,
     /// `<template>` to its content fragment.
     templates: HashMap<usize, usize>,
     /// The running call's time limit, for work inside one native call.
@@ -309,6 +311,7 @@ impl Document {
             static_entries: 0,
             registrations: HashMap::new(),
             record_queues: Vec::new(),
+            empty_list: 0,
             templates: parsed.templates.into_iter().collect(),
             deadline: None,
             node_to_handle: Vec::new(),
@@ -1536,6 +1539,21 @@ impl Document {
         }
     }
 
+    /// The one empty static list records share. A failure is the call's
+    /// fault, like every other record allocation.
+    fn empty_list(&mut self) -> Option<Handle> {
+        if self.empty_list == 0 {
+            match self.static_list(Vec::new()) {
+                Ok(h) => self.empty_list = h,
+                Err(e) => {
+                    self.fault.get_or_insert(e);
+                    return None;
+                }
+            }
+        }
+        Some(self.empty_list)
+    }
+
     fn pin(&mut self, id: Option<usize>) -> Option<usize> {
         if let Some(n) = id {
             if let Err(e) = self.handle_for(n) {
@@ -1597,7 +1615,7 @@ impl Document {
                 (r.flags & ATTRIBUTES != 0 && listed).then_some(r.flags & ATTRIBUTE_OLD != 0)
             },
             |doc, _| {
-                let empty = doc.static_list(Vec::new()).ok()?;
+                let empty = doc.empty_list()?;
                 let target = doc.pin(Some(id))?;
                 Some(MutationRecord {
                     kind: "attributes",
@@ -1622,7 +1640,7 @@ impl Document {
             id,
             |r| (r.flags & CHARACTER_DATA != 0).then_some(r.flags & CHARACTER_OLD != 0),
             |doc, _| {
-                let empty = doc.static_list(Vec::new()).ok()?;
+                let empty = doc.empty_list()?;
                 let target = doc.pin(Some(id))?;
                 Some(MutationRecord {
                     kind: "characterData",

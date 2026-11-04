@@ -252,7 +252,7 @@ fn records_are_bounded_when_nothing_yields() {
     let r = rt.eval::<()>(
         r#"const a = document.getElementById('a');
         new MutationObserver(() => {}).observe(a, { attributes: true });
-        for (;;) { try { a.id = 'x'; } catch (e) {} }"#,
+        try { for (;;) a.id = 'x'; } catch (e) {}"#,
     );
     assert_eq!(r, Err(DomError::HandleLimit { limit: 2_000 }));
 }
