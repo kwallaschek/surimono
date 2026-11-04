@@ -62,4 +62,11 @@ if [ -f crates/core/tests/main_thread_stack.rs ] && [ "$(uname -m)" = x86_64 ]; 
     || { echo "main_thread_stack didn't run its checks" >&2; exit 1; }
   ran=$((ran + 1))
 fi
+# On a release branch (release/v*, the release PR): the release dry-run.
+# Checks no crate is publishable, builds and runs the CLI from source and
+# builds the source gem; never publishes or tags.
+case "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}" in
+  release/v*)
+    step "release dry-run"; scripts/ci/release-dry-run.sh; ran=$((ran + 1)) ;;
+esac
 echo "nightly extra checks run: $ran"

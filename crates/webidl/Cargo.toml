@@ -5,7 +5,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-publish.workspace = true
+# Not in v0.1 (phase 2); released once the phase-2 API is signed off.
+publish = false
 
 [dependencies]
 thiserror.workspace = true
