@@ -1,0 +1,115 @@
+<svg width="640" height="360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 640 360">
+<rect width="640" height="360" x="0" y="0" fill="none"></rect>
+<polyline points="362.9 155 374.4 151.6 384.4 151.6" fill="none" pointer-events="visible" stroke="#2f6fb0" class="zr0-cls-0"></polyline>
+<polyline points="254.8 298.8 254.7 310.8 244.7 310.8" fill="none" pointer-events="visible" stroke="#e07b39" class="zr0-cls-0"></polyline>
+<polyline points="162.7 248.4 157.6 255 147.6 255" fill="none" pointer-events="visible" stroke="#3a9b6a" class="zr0-cls-0"></polyline>
+<polyline points="144.7 178.4 137.6 194.6 127.6 194.6" fill="none" pointer-events="visible" stroke="#c2455a" class="zr0-cls-0"></polyline>
+<polyline points="159.1 131.8 139.8 162.6 129.8 162.6" fill="none" pointer-events="visible" stroke="#7a5cb8" class="zr0-cls-0"></polyline>
+<polyline points="179.1 106.3 150.8 130.6 140.8 130.6" fill="none" pointer-events="visible" stroke="#8c8c8c" class="zr0-cls-0"></polyline>
+<polyline points="198.8 91.4 173.9 98.6 163.9 98.6" fill="none" pointer-events="visible" stroke="#d4a72c" class="zr0-cls-0"></polyline>
+<polyline points="231.5 78.3 228.9 66.6 218.9 66.6" fill="none" pointer-events="visible" stroke="#4bb3c4" class="zr0-cls-0"></polyline>
+<path d="M256 75.6A111.6 111.6 0 0 1 317.6 280.3L256 187.2Z" fill="#2f6fb0" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="chart" class="zr0-cls-1"></path>
+<path d="M317.6 280.3A111.6 111.6 0 0 1 192.4 278.9L256 187.2Z" fill="#e07b39" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="chart" class="zr0-cls-2"></path>
+<path d="M192.4 278.9A111.6 111.6 0 0 1 146.6 209.1L256 187.2Z" fill="#3a9b6a" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="chart" class="zr0-cls-3"></path>
+<path d="M146.6 209.1A111.6 111.6 0 0 1 151.3 148.5L256 187.2Z" fill="#c2455a" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="chart" class="zr0-cls-4"></path>
+<path d="M151.3 148.5A111.6 111.6 0 0 1 169.6 116.6L256 187.2Z" fill="#7a5cb8" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="chart" class="zr0-cls-5"></path>
+<path d="M169.6 116.6A111.6 111.6 0 0 1 189.9 97.3L256 187.2Z" fill="#8c8c8c" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="5" ecmeta_ssr_type="chart" class="zr0-cls-6"></path>
+<path d="M189.9 97.3A111.6 111.6 0 0 1 208.3 86.3L256 187.2Z" fill="#d4a72c" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="6" ecmeta_ssr_type="chart" class="zr0-cls-7"></path>
+<path d="M208.3 86.3A111.6 111.6 0 0 1 256 75.6L256 187.2Z" fill="#4bb3c4" stroke="#ffffff" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="7" ecmeta_ssr_type="chart" class="zr0-cls-8"></path>
+<path d="M0 -15l37.6 0l0 30l-37.6 0Z" transform="translate(389.3532 151.5703)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(389.3532 151.5703)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">人件費</text>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(389.3532 151.5703)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">40.69%</text>
+<path d="M-37.6 -15l37.6 0l0 30l-37.6 0Z" transform="translate(239.6752 310.7929)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(239.6752 310.7929)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">外注費</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(239.6752 310.7929)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">18.96%</text>
+<path d="M-44 -15l44 0l0 30l-44 0Z" transform="translate(142.6158 255.0247)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(142.6158 255.0247)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">地代家賃</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(142.6158 255.0247)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">12.21%</text>
+<path d="M-55 -15l55 0l0 30l-55 0Z" transform="translate(122.6214 194.6046)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(122.6214 194.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">広告宣伝費</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(122.6214 194.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">8.77%</text>
+<path d="M-33 -15l33 0l0 30l-33 0Z" transform="translate(124.8211 162.6046)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(124.8211 162.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">通信費</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(124.8211 162.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">5.27%</text>
+<path d="M-55 -15l55 0l0 30l-55 0Z" transform="translate(135.8225 130.6046)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(135.8225 130.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">旅費交通費</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(135.8225 130.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">4.01%</text>
+<path d="M-44 -15l44 0l0 30l-44 0Z" transform="translate(158.8938 98.6046)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(158.8938 98.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">消耗品費</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(158.8938 98.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">3.06%</text>
+<path d="M-33 -15l33 0l0 30l-33 0Z" transform="translate(213.9131 66.6046)" fill="none" pointer-events="visible" class="zr0-cls-0"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="-7.5" transform="translate(213.9131 66.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">その他</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:11px;font-family:'Noto Sans JP';" y="7.5" transform="translate(213.9131 66.6046)" fill="#333" stroke="rgb(255,255,255)" stroke-width="2" paint-order="stroke" stroke-miterlimit="2">7.03%</text>
+<path d="M-5 -5l83 0l0 178l-83 0Z" transform="translate(562.0004 96)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#b7b9be" stroke-width="0" class="zr0-cls-9"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 97)" fill="#2f6fb0" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 97)" fill="#54555a">人件費</text>
+<path d="M-1 -1l51 0l0 14l-51 0Z" transform="translate(563.0004 97)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="0" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 119)" fill="#e07b39" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 119)" fill="#54555a">外注費</text>
+<path d="M-1 -1l51 0l0 14l-51 0Z" transform="translate(563.0004 119)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="1" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 141)" fill="#3a9b6a" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 141)" fill="#54555a">地代家賃</text>
+<path d="M-1 -1l62 0l0 14l-62 0Z" transform="translate(563.0004 141)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="2" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 163)" fill="#c2455a" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 163)" fill="#54555a">広告宣伝費</text>
+<path d="M-1 -1l73 0l0 14l-73 0Z" transform="translate(563.0004 163)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="3" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 185)" fill="#7a5cb8" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 185)" fill="#54555a">通信費</text>
+<path d="M-1 -1l51 0l0 14l-51 0Z" transform="translate(563.0004 185)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="4" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 207)" fill="#8c8c8c" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="5" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 207)" fill="#54555a">旅費交通費</text>
+<path d="M-1 -1l73 0l0 14l-73 0Z" transform="translate(563.0004 207)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="5" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 229)" fill="#d4a72c" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="6" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 229)" fill="#54555a">消耗品費</text>
+<path d="M-1 -1l62 0l0 14l-62 0Z" transform="translate(563.0004 229)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="6" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<path d="M3 0L9 0A3 3 0 0 1 12 3L12 9A3 3 0 0 1 9 12L3 12A3 3 0 0 1 0 9L0 3A3 3 0 0 1 3 0Z" transform="translate(563.0004 251)" fill="#4bb3c4" stroke="#ffffff" stroke-width="2" stroke-linecap="butt" stroke-miterlimit="10" stroke-linejoin="round" ecmeta_series_index="0" ecmeta_data_index="7" ecmeta_ssr_type="legend" ecmeta_silent="true" class="zr0-cls-9"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:11px;font-family:'Noto Sans JP';" x="17" y="6" transform="translate(563.0004 251)" fill="#54555a">その他</text>
+<path d="M-1 -1l51 0l0 14l-51 0Z" transform="translate(563.0004 251)" fill="none" pointer-events="visible" ecmeta_series_index="0" ecmeta_data_index="7" ecmeta_ssr_type="legend" class="zr0-cls-10"></path>
+<style ><![CDATA[
+.zr0-cls-0:hover {
+cursor:pointer;
+}
+.zr0-cls-1:hover {
+cursor:pointer;
+fill:rgba(51,122,193,1);
+}
+.zr0-cls-2:hover {
+cursor:pointer;
+fill:rgba(246,135,62,1);
+}
+.zr0-cls-3:hover {
+cursor:pointer;
+fill:rgba(63,170,116,1);
+}
+.zr0-cls-4:hover {
+cursor:pointer;
+fill:rgba(213,75,99,1);
+}
+.zr0-cls-5:hover {
+cursor:pointer;
+fill:rgba(134,101,202,1);
+}
+.zr0-cls-6:hover {
+cursor:pointer;
+fill:rgba(154,154,154,1);
+}
+.zr0-cls-7:hover {
+cursor:pointer;
+fill:rgba(233,183,48,1);
+}
+.zr0-cls-8:hover {
+cursor:pointer;
+fill:rgba(82,196,215,1);
+}
+.zr0-cls-9:hover {
+pointer-events:none;
+}
+.zr0-cls-10:hover {
+cursor:pointer;
+fill:rgba(0,0,0,0);
+}
+
+]]>
+
+</style>
+</svg>
