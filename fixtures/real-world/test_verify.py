@@ -158,6 +158,12 @@ class VendoredTests(unittest.TestCase):
             self.assertEqual(verify.check_vendored(self.lib(b"js", license_files=[]), root), ["no licence file and no license_pending"])
             self.assertEqual(verify.check_vendored(self.lib(b"js", license_files=[], license_pending={"task": "T"}), root), [])
 
+    def test_licence_vendored_from_the_source_repo_counts(self):
+        with self.tree(b"js") as tmp:
+            lib = self.lib(b"js", license_files=[])
+            lib["vendored"][0]["license"] = True
+            self.assertEqual(verify.check_vendored(lib, pathlib.Path(tmp)), [])
+
     def test_fonts_licence_must_be_vendored(self):
         with self.tree(b"js") as tmp:
             errors = verify.check_vendored(self.lib(b"js", fonts_license_files=["fonts/OFL.txt"]), pathlib.Path(tmp))
