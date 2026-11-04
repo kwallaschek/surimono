@@ -105,6 +105,10 @@ crates):
   one reader. Which text is dangerous can't be told without parsing CSS, across
   node boundaries, so all of it stays out.
 
+`to_html` writes style text out unchanged, so `<style>@import "http://[";</style>`
+reaches the printing engine's blitz-dom, where the panic lives: the fulgur hand-off
+(E2-08) has to deal with that before it goes live.
+
 Phase 3 needs both back, for layout: flags set over the tree and screened CSS
 given to blitz-dom, both done once before layout, not while scripts mutate.
 
@@ -120,6 +124,12 @@ may catch, as in a browser. Sandbox limits outrank faults: a script stopped by
 the time, memory or stack limit reports that limit.
 
 ## Sandbox and limits
+
+Every native's body runs under `Deadline::guard` through `guarded`, so a panic
+ends the call with `HostPanic` however the script handles the exception, and
+rquickjs doesn't leave it stored for a later call (#102). A panic may have
+stopped a change to the tree halfway, so the document goes with the script's
+state. `every_native_is_guarded` reads this file and fails on a native without it.
 
 Every script runs through `surimono_core::Sandbox::run`, so the memory, time
 and stack limits, determinism and the no-I/O rule apply unchanged; crates/dom
@@ -141,8 +151,9 @@ own limits (`DomLimits`), all fatal faults:
 - `max_handles` (default 1,000,000): handles are never reused, so a script
   that creates and drops nodes in a loop grows the handle table (16 bytes an
   entry) while the node count stays flat.
-- `max_text_bytes` (default 256 MiB): text, comment data, and attribute names and
-  values (plus `ATTRIBUTE_COST` each) held by the document. Charged before a
+- `max_text_bytes` (default 256 MiB): text, comment data, element names, and
+  attribute names and values (plus `ATTRIBUTE_COST` each) held by the document;
+  names with their namespace and prefix, which a script can make any size. Charged before a
   write and credited on overwrite and drop. These strings are outside the JS heap
   limit, and one JS string can be stored on many nodes.
 

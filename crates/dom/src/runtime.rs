@@ -6,7 +6,7 @@ use std::rc::Rc;
 use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
 use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, Object, Value};
-use surimono_core::{Deadline, Limits, Sandbox, SandboxOptions};
+use surimono_core::{Deadline, Limits, Sandbox, SandboxError, SandboxOptions};
 use surimono_webidl::runtime::{BindingError, ObjectId};
 
 use crate::bindings::Args;
@@ -130,9 +130,16 @@ impl DomRuntime {
             opts.filename = Some("<script>".to_owned());
             ctx.eval_with_options(source, opts)
         });
-        if matches!(&result, Err(e) if e.is_limit()) {
+        let discarded = matches!(&result, Err(e) if e.discards_state());
+        if discarded {
             // The sandbox rebuilt its context; the bindings went with it.
             self.installed = false;
+        }
+        if matches!(&result, Err(SandboxError::HostPanic { .. })) {
+            // The panic stopped a native halfway through a change to the
+            // tree, so the document is no more to be trusted than the
+            // script's state. Its links may be wrong, but a slab drops whole.
+            self.host.borrow_mut().doc = None;
         }
         let fault = {
             let mut host = self.host.borrow_mut();
@@ -140,8 +147,8 @@ impl DomRuntime {
             host.fault.take()
         };
         match (fault, result) {
-            // A limit error outranks a fault (the script was stopped anyway).
-            (_, Err(e)) if e.is_limit() => Err(e.into()),
+            // These outrank a fault: the script was stopped anyway.
+            (_, Err(e)) if e.discards_state() => Err(e.into()),
             (Some(fault), _) => Err(fault),
             (None, r) => r.map_err(DomError::from),
         }
@@ -160,6 +167,26 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<()> {
     glue.call::<_, ()>((n,))
 }
 
+/// Runs a native's body under [`Deadline::guard`]: a panic in it ends the
+/// call with `SandboxError::HostPanic`, however the script handles the
+/// exception it sees. Every native's body goes through this; a test in this
+/// file checks.
+fn guarded<'js, R>(
+    host: &Shared,
+    ctx: &Ctx<'js>,
+    f: impl FnOnce() -> rquickjs::Result<R>,
+) -> rquickjs::Result<R> {
+    let deadline = host.try_borrow().ok().and_then(|h| h.deadline.clone());
+    let Some(deadline) = deadline else {
+        return Err(Exception::throw_internal(ctx, "no call is running"));
+    };
+    deadline.guard(ctx, || {
+        #[cfg(test)]
+        tests::panic_if_due();
+        f()
+    })
+}
+
 /// `call(op, generation, handle, ...args)`: every generated member. The
 /// glue has converted the arguments to primitives; `dispatch` reads them.
 fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
@@ -172,33 +199,35 @@ fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<
               h: Handle,
               rest: Rest<Value<'js>>|
               -> rquickjs::Result<Value<'js>> {
-            let mut guard = host.borrow_mut();
-            let host = &mut *guard;
-            if host.deadline.as_ref().is_none_or(Deadline::passed) {
-                // No fault is recorded: the sandbox's interrupt handler sees
-                // the same passed deadline at the script's next check and
-                // stops it, so the call fails with TimeLimit even if the
-                // script catches this.
-                return Err(Exception::throw_internal(
-                    &ctx,
-                    "DOM call: the time limit has passed",
-                ));
-            }
-            let Some(doc) = host.doc.as_mut() else {
-                return Err(fault(&ctx, &mut host.fault, DomError::NoDocument));
-            };
-            // Generations are below 2^53, so the f64 round trip is exact.
-            if let Err(e) = doc.check(g as u64, h) {
-                return Err(fault(&ctx, &mut host.fault, e));
-            }
-            let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
-            if let Some(e) = doc.fault.take() {
-                return Err(fault(&ctx, &mut host.fault, e));
-            }
-            match outcome {
-                Ok(ret) => ret.into_js(&ctx),
-                Err(e) => Err(throw(&ctx, e)),
-            }
+            guarded(&host, &ctx, || {
+                let mut guard = host.borrow_mut();
+                let host = &mut *guard;
+                if host.deadline.as_ref().is_none_or(Deadline::passed) {
+                    // No fault is recorded: the sandbox's interrupt handler
+                    // sees the same passed deadline at the script's next
+                    // check and stops it, so the call fails with TimeLimit
+                    // even if the script catches this.
+                    return Err(Exception::throw_internal(
+                        &ctx,
+                        "DOM call: the time limit has passed",
+                    ));
+                }
+                let Some(doc) = host.doc.as_mut() else {
+                    return Err(fault(&ctx, &mut host.fault, DomError::NoDocument));
+                };
+                // Generations are below 2^53, so the f64 round trip is exact.
+                if let Err(e) = doc.check(g as u64, h) {
+                    return Err(fault(&ctx, &mut host.fault, e));
+                }
+                let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
+                if let Some(e) = doc.fault.take() {
+                    return Err(fault(&ctx, &mut host.fault, e));
+                }
+                match outcome {
+                    Ok(ret) => ret.into_js(&ctx),
+                    Err(e) => Err(throw(&ctx, e)),
+                }
+            })
         },
     )
 }
@@ -225,11 +254,13 @@ fn fault(ctx: &Ctx<'_>, slot: &mut Option<DomError>, e: DomError) -> rquickjs::E
 fn native_stale<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
     let host = host.clone();
     Function::new(ctx.clone(), move |ctx: Ctx<'js>| -> rquickjs::Result<()> {
-        Err(fault(
-            &ctx,
-            &mut host.borrow_mut().fault,
-            DomError::StaleDocument,
-        ))
+        guarded(&host, &ctx, || {
+            Err(fault(
+                &ctx,
+                &mut host.borrow_mut().fault,
+                DomError::StaleDocument,
+            ))
+        })
     })
 }
 
@@ -240,12 +271,15 @@ fn native_stale<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function
 /// setters would intercept.
 fn native_current<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
     let host = host.clone();
-    Function::new(ctx.clone(), move || -> f64 {
-        // Generations are below 2^53, so the f64 is exact.
-        host.borrow()
-            .doc
-            .as_ref()
-            .map_or(0.0, |d| d.generation() as f64)
+    Function::new(ctx.clone(), move |ctx: Ctx<'js>| -> rquickjs::Result<f64> {
+        guarded(&host, &ctx, || {
+            // Generations are below 2^53, so the f64 is exact.
+            Ok(host
+                .borrow()
+                .doc
+                .as_ref()
+                .map_or(0.0, |d| d.generation() as f64))
+        })
     })
 }
 
@@ -254,16 +288,105 @@ fn native_current_root<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<F
     Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>| -> rquickjs::Result<Handle> {
-            let mut guard = host.borrow_mut();
-            let host = &mut *guard;
-            match host.doc.as_mut() {
-                None => Ok(0),
-                Some(doc) => {
-                    let root = doc.root();
-                    doc.handle_for(root)
-                        .map_err(|e| fault(&ctx, &mut host.fault, e))
+            guarded(&host, &ctx, || {
+                let mut guard = host.borrow_mut();
+                let host = &mut *guard;
+                match host.doc.as_mut() {
+                    None => Ok(0),
+                    Some(doc) => {
+                        let root = doc.root();
+                        doc.handle_for(root)
+                            .map_err(|e| fault(&ctx, &mut host.fault, e))
+                    }
                 }
-            }
+            })
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+
+    use super::*;
+
+    thread_local! {
+        /// How many guarded natives may still run before one panics.
+        static PANIC_AFTER: Cell<Option<u32>> = const { Cell::new(None) };
+    }
+
+    pub(super) fn panic_if_due() {
+        match PANIC_AFTER.get() {
+            Some(0) => {
+                PANIC_AFTER.set(None);
+                panic!("native exploded");
+            }
+            Some(n) => PANIC_AFTER.set(Some(n - 1)),
+            None => {}
+        }
+    }
+
+    /// A new native without the guard would keep rquickjs's behaviour: a
+    /// `try` hides the panic and the script carries on (#102).
+    #[test]
+    fn every_native_is_guarded() {
+        // Split so this test's own text doesn't count.
+        let needle = concat!("Function", "::new(");
+        let source = include_str!("runtime.rs");
+        let body = &source[..source.find("#[cfg(test)]\nmod tests").unwrap()];
+        let mut parts = body.split(needle);
+        parts.next();
+        let mut seen = 0;
+        for part in parts {
+            seen += 1;
+            let head: String = part.chars().take(420).collect();
+            assert!(head.contains("guarded(&host, &ctx"), "not guarded: {head}");
+        }
+        assert!(seen >= 4, "{seen}");
+    }
+
+    const WALK: &str = "try {
+        const d = document.getElementById('a');
+        d.textContent = 'x'; d.setAttribute('t', 'u');
+        d.appendChild(document.createElement('b'));
+        try { d.appendChild(0); } catch (e) {}
+        document.body.parentNode.firstChild;
+      } catch (e) {}
+      'carried on'";
+
+    /// A panic in any of the natives this walk reaches fails the call
+    /// though the script catches it, and leaves nothing to carry on from.
+    #[test]
+    fn a_panic_in_a_native_ends_the_call_and_discards_the_document() {
+        let page = "<!doctype html><body><div id=a>y</div>";
+        let mut rt = DomRuntime::new(Limits::default()).unwrap();
+        rt.load(Document::parse(page).unwrap());
+        // Installs the bindings; without a panic the walk just works.
+        assert_eq!(rt.eval::<String>(WALK).unwrap(), "carried on");
+        let mut panicked = 0;
+        for n in 0..30 {
+            rt.load(Document::parse(page).unwrap());
+            let _: () = rt.eval("globalThis.kept = 1").unwrap();
+            PANIC_AFTER.set(Some(n));
+            match rt.eval::<String>(WALK) {
+                Ok(_) => {
+                    // The walk has fewer native calls than `n`.
+                    PANIC_AFTER.set(None);
+                    assert!(panicked > 0);
+                    break;
+                }
+                Err(DomError::Sandbox(SandboxError::HostPanic { message })) => {
+                    assert_eq!(message, "native exploded");
+                    panicked += 1;
+                }
+                Err(e) => panic!("after {n} calls: {e:?}"),
+            }
+            assert!(rt.take().is_none(), "the document is discarded");
+            rt.load(Document::parse(page).unwrap());
+            let kept: String = rt.eval("typeof kept").unwrap();
+            assert_eq!(kept, "undefined", "the script's state is discarded");
+            assert_eq!(rt.eval::<String>("document.body.tagName").unwrap(), "BODY");
+        }
+        assert!(panicked > 5, "{panicked}");
+    }
 }
