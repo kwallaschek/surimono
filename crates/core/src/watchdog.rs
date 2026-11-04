@@ -191,10 +191,10 @@ impl Registry {
             // A few atomics per running call, and dropping an upgraded state
             // here can't reach this lock, so the check stays under it.
             for (&seq, (state, flag)) in &inner.cancels {
-                if flag.load(Ordering::Acquire) {
-                    if let Some(state) = state.upgrade() {
-                        state.cancel(seq);
-                    }
+                if flag.load(Ordering::Acquire)
+                    && let Some(state) = state.upgrade()
+                {
+                    state.cancel(seq);
                 }
             }
             let next_timer = inner

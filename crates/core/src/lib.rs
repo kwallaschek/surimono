@@ -39,7 +39,7 @@ pub use engine::{fork_generation, release_free_memory};
 pub use error::SandboxError;
 /// Not public API: phase-2 scaffolding for `surimono-dom`.
 #[doc(hidden)]
-pub use event_loop::{EventLoopHandle, SettleOptions, SettleOutcome, SettleReport};
+pub use event_loop::{EventLoopHandle, ExternalWait, SettleOptions, SettleOutcome, SettleReport};
 pub use limits::Limits;
 pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
 
