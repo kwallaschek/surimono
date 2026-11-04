@@ -4,7 +4,7 @@
 //! `Surimono::Renderer._native_new` with plain values. Rendering copies the HTML
 //! into Rust and releases the GVL, so other Ruby threads keep running; an
 //! interrupt (`Timeout`, `Thread#raise`, `Thread#kill`, a signal) stops the
-//! render before its next island.
+//! render, its running island included.
 
 // A library never writes to stdout or stderr; tests may.
 #![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]

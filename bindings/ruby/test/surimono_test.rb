@@ -451,7 +451,7 @@ class SurimonoTest < Minitest::Test
   end
 
   # Twenty islands that each run into a 200 ms time limit: 4 s for the
-  # document. An interrupt stops it before the next island.
+  # document. An interrupt stops it in the island that is running.
   def slow_document
     island('{"limit": "time"}') * 20
   end
@@ -527,7 +527,7 @@ class SurimonoTest < Minitest::Test
   # (in this test process minitest's idle threads drain Ruby's signal pipe,
   # which hid the bug). On Ruby 3.2 both cases waited for the whole document
   # every time, 4.04 to 4.20 s (P1-PKG-20); Ruby 3.3 and later, and 3.2
-  # with the signal pump, stop it before the next island.
+  # with the signal pump, stop it in the island that is running.
   #   thread: another Ruby thread calls Process.kill and exits;
   #   outside: another process sends it (Ctrl-C, a supervisor's SIGTERM)
   #            while a Ruby thread is busy.

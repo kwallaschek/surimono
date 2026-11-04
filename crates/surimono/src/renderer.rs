@@ -990,7 +990,7 @@ mod tests {
         );
 
         // Twenty islands that each run into a 100 ms time limit take 2 s;
-        // cancelled after the first, the render ends at the next island.
+        // cancelled during the second, the rest never start.
         let slow = renderer(
             options()
                 .error_policy(ErrorPolicy::Placeholder)
