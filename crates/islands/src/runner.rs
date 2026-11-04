@@ -1286,6 +1286,13 @@ impl Worker {
                 renderer: bundle.name.clone(),
             });
         }
+        let outcome = outcome.map_err(|e| match e {
+            // As when a panic reaches the worker's guard.
+            SandboxError::HostPanic { message } => IslandError::Worker {
+                message: format!("panicked: {message}"),
+            },
+            other => other.into(),
+        });
         outcome?.map_err(|found| IslandError::NotAString {
             renderer: bundle.name.clone(),
             found,
@@ -1369,26 +1376,28 @@ fn measure_function<'js>(
                     "measureText: the time limit has passed",
                 ));
             }
-            let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
-            let m = measurer.measure(&text.0, &font).map_err(|e| {
-                let msg = match e {
-                    MeasureError::NoFonts => {
-                        no_fonts.store(true, Ordering::Relaxed);
-                        "no fonts were given to measure text with".to_owned()
-                    }
-                    MeasureError::Other(msg) => msg,
-                };
-                Exception::throw_type(&ctx, &format!("measureText: {msg}"))
-            })?;
-            let o = Object::new(ctx)?;
-            o.set("width", m.width)?;
-            o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;
-            o.set("actualBoundingBoxRight", m.actual_bounding_box_right)?;
-            o.set("actualBoundingBoxAscent", m.actual_bounding_box_ascent)?;
-            o.set("actualBoundingBoxDescent", m.actual_bounding_box_descent)?;
-            o.set("fontBoundingBoxAscent", m.font_bounding_box_ascent)?;
-            o.set("fontBoundingBoxDescent", m.font_bounding_box_descent)?;
-            Ok(o)
+            deadline.guard(&ctx.clone(), || {
+                let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
+                let m = measurer.measure(&text.0, &font).map_err(|e| {
+                    let msg = match e {
+                        MeasureError::NoFonts => {
+                            no_fonts.store(true, Ordering::Relaxed);
+                            "no fonts were given to measure text with".to_owned()
+                        }
+                        MeasureError::Other(msg) => msg,
+                    };
+                    Exception::throw_type(&ctx, &format!("measureText: {msg}"))
+                })?;
+                let o = Object::new(ctx)?;
+                o.set("width", m.width)?;
+                o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;
+                o.set("actualBoundingBoxRight", m.actual_bounding_box_right)?;
+                o.set("actualBoundingBoxAscent", m.actual_bounding_box_ascent)?;
+                o.set("actualBoundingBoxDescent", m.actual_bounding_box_descent)?;
+                o.set("fontBoundingBoxAscent", m.font_bounding_box_ascent)?;
+                o.set("fontBoundingBoxDescent", m.font_bounding_box_descent)?;
+                Ok(o)
+            })
         },
     )?
     .with_name("measureText")
@@ -1447,6 +1456,33 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    #[test]
+    fn a_script_cannot_swallow_a_measurer_panic() {
+        let r = runner_with_odd_measurer();
+        r.register_bundle(
+            "swallow",
+            "function entry(s, ctx) {
+               try { ctx.measureText('boom') } catch (e) {}
+               return 'carried on'
+             }",
+            "entry",
+        )
+        .unwrap();
+        let out = r.render(&IslandRequest {
+            renderer: "swallow",
+            spec_json: "{}",
+            width: 1,
+            height: 1,
+        });
+        match out.unwrap_err() {
+            IslandError::Worker { message } => {
+                assert!(message.contains("measurer exploded"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(measure(&r, "abcd").unwrap(), "4");
     }
 
     #[test]

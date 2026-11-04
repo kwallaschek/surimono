@@ -30,8 +30,8 @@
 
 use std::ffi::CString;
 use std::ptr;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use rquickjs::allocator::{Allocator, RustAllocator};
@@ -51,8 +51,8 @@ pub(crate) struct LimitState {
     used: AtomicUsize,
     /// Maximum bytes the engine may hold.
     limit: AtomicUsize,
-    /// Why the running call must stop: [`STOP_TIME`], [`STOP_MEMORY`] and
-    /// [`STOP_CANCEL`] bits, zero while it may go on. The patched engine reads it on every
+    /// Why the running call must stop: [`STOP_TIME`], [`STOP_MEMORY`],
+    /// [`STOP_CANCEL`] and [`STOP_PANIC`] bits, zero while it may go on. The patched engine reads it on every
     /// interrupt poll and asks the handler as soon as it is nonzero (see
     /// [`install_stop_flag`]). Cleared when a call is armed and disarmed.
     stop: AtomicU32,
@@ -82,6 +82,9 @@ pub(crate) struct LimitState {
     /// patched `JS_FreeRuntime` (see [`install_stop_flag`]) and read when
     /// the allocator is dropped, after it returned.
     leaked_objects: AtomicU32,
+    /// The message of a panic caught in a host function; see
+    /// [`LimitState::note_panic`]. Only this runtime's thread locks it.
+    panic: Mutex<Option<String>>,
 }
 
 /// [`LimitState::call`] bit: the stop flag is being raised for this call.
@@ -94,6 +97,8 @@ const STOP_TIME: u32 = 1;
 const STOP_MEMORY: u32 = 2;
 /// [`LimitState::stop`] bit: the caller's cancel flag was raised.
 const STOP_CANCEL: u32 = 4;
+/// [`LimitState::stop`] bit: a host function panicked.
+const STOP_PANIC: u32 = 8;
 
 impl LimitState {
     pub(crate) fn new(memory_limit: usize) -> Arc<Self> {
@@ -108,6 +113,7 @@ impl LimitState {
             armed_gen: AtomicU64::new(0),
             cancel_watched: AtomicBool::new(false),
             leaked_objects: AtomicU32::new(0),
+            panic: Mutex::new(None),
         })
     }
 
@@ -235,6 +241,28 @@ impl LimitState {
         self.stop.load(Ordering::Acquire) & STOP_TIME != 0
     }
 
+    /// Records a panic caught in a host function. Sticky like a refused
+    /// allocation: the engine stops the script at its next poll, and the end
+    /// of the call fails with it even if the script caught the exception.
+    pub(crate) fn note_panic(&self, message: String) {
+        *self.panic.lock().unwrap_or_else(PoisonError::into_inner) = Some(message);
+        self.stop.fetch_or(STOP_PANIC, Ordering::Release);
+    }
+
+    /// Whether a host function panicked in the running call.
+    pub(crate) fn panicked(&self) -> bool {
+        self.stop.load(Ordering::Acquire) & STOP_PANIC != 0
+    }
+
+    /// The panic [`note_panic`](Self::note_panic) recorded.
+    pub(crate) fn panic_message(&self) -> String {
+        self.panic
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .unwrap_or_default()
+    }
+
     /// Whether the running call was cancelled.
     pub(crate) fn cancelled(&self) -> bool {
         self.stop.load(Ordering::Acquire) & STOP_CANCEL != 0
@@ -294,10 +322,10 @@ impl LimitState {
     }
 
     /// The interrupt handler's answer: stop on a passed deadline or a
-    /// cancelled call, and stop at once after an out-of-memory error so a
-    /// script that catches it cannot keep going.
+    /// cancelled call, and stop at once after an out-of-memory error or a
+    /// host function's panic so a script that catches it cannot keep going.
     pub(crate) fn should_interrupt(&self) -> bool {
-        let stop = self.oom() || self.cancelled() || self.deadline_passed();
+        let stop = self.oom() || self.cancelled() || self.panicked() || self.deadline_passed();
         #[cfg(any(test, feature = "test-hooks"))]
         if stop {
             crate::sandbox::test_hooks::note_stop_answer();
