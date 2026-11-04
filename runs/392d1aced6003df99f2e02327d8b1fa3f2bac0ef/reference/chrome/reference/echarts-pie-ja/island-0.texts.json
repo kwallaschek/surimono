@@ -1,0 +1,151 @@
+{
+ "text": [
+  "12.21%",
+  "18.96%",
+  "3.06%",
+  "4.01%",
+  "40.69%",
+  "5.27%",
+  "7.03%",
+  "8.77%",
+  "その他",
+  "その他",
+  "人件費",
+  "人件費",
+  "地代家賃",
+  "地代家賃",
+  "外注費",
+  "外注費",
+  "広告宣伝費",
+  "広告宣伝費",
+  "旅費交通費",
+  "旅費交通費",
+  "消耗品費",
+  "消耗品費",
+  "通信費",
+  "通信費"
+ ],
+ "labels": [],
+ "styles": [
+  {
+   "key": "12.21%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "18.96%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "3.06%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "4.01%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "40.69%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "5.27%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "7.03%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "8.77%",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "その他",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "その他",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "人件費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "人件費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "地代家賃",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "地代家賃",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "外注費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "外注費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "広告宣伝費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "広告宣伝費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "旅費交通費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "旅費交通費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "消耗品費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "消耗品費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "通信費",
+   "weight": 400,
+   "style": "normal"
+  },
+  {
+   "key": "通信費",
+   "weight": 400,
+   "style": "normal"
+  }
+ ]
+}

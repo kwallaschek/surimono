@@ -1,0 +1,50 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<title>Code samples</title>
+<link rel="stylesheet" href="../lib/highlight.js-11.12.0/styles/github.min.css">
+<style>
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; padding: 0; background: #ffffff; color: #1f2933; }
+body { font-family: "Noto Sans", "Noto Sans JP"; font-size: 14px; line-height: 22px; }
+h1 { font-size: 26px; line-height: 34px; margin: 0 0 12px; }
+h2 { font-size: 16px; line-height: 24px; margin: 16px 0 6px; }
+pre { margin: 0 0 8px; }
+pre, code { font-family: "Noto Sans", "Noto Sans JP"; }
+pre code.hljs { font-family: "Noto Sans", "Noto Sans JP"; font-size: 13px; line-height: 20px; overflow: visible; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Code samples</h1>
+<h2>Ruby</h2>
+<pre><code class="language-ruby hljs" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Invoice</span>
+  <span class="hljs-comment"># Sums the lines, in cents.</span>
+  <span class="hljs-keyword">def</span> <span class="hljs-title function_">total</span>(<span class="hljs-params">lines</span>)
+    lines.sum { |<span class="hljs-params">l</span>| l.quantity * l.unit_cents }
+  <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+puts <span class="hljs-string">"Total: <span class="hljs-subst">#{<span class="hljs-title class_">Invoice</span>.new.total([])}</span>"</span></code></pre>
+<h2>Rust</h2>
+<pre><code class="language-rust hljs" data-highlighted="yes"><span class="hljs-comment">/// Renders a document to PDF bytes.</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">fn</span> <span class="hljs-title function_">render</span>(html: &amp;<span class="hljs-type">str</span>) <span class="hljs-punctuation">-&gt;</span> <span class="hljs-type">Result</span>&lt;<span class="hljs-type">Vec</span>&lt;<span class="hljs-type">u8</span>&gt;, Error&gt; {
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">doc</span> = Document::<span class="hljs-title function_ invoke__">parse</span>(html)?;
+    <span class="hljs-title function_ invoke__">Ok</span>(doc.<span class="hljs-title function_ invoke__">print</span>())
+}</code></pre>
+<h2>JavaScript</h2>
+<pre><code class="language-javascript hljs" data-highlighted="yes"><span class="hljs-keyword">const</span> rows = [<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>].<span class="hljs-title function_">map</span>(<span class="hljs-function">(<span class="hljs-params">n</span>) =&gt;</span> ({ <span class="hljs-attr">id</span>: n, <span class="hljs-attr">label</span>: <span class="hljs-string">`row <span class="hljs-subst">${n}</span>`</span> }));
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">load</span>(<span class="hljs-params">url</span>) {
+  <span class="hljs-keyword">return</span> rows.<span class="hljs-title function_">filter</span>(<span class="hljs-function">(<span class="hljs-params">r</span>) =&gt;</span> r.<span class="hljs-property">id</span> !== <span class="hljs-number">2</span>);
+}</code></pre>
+<h2>SQL, HTML and an unnamed block</h2>
+<pre><code class="language-sql hljs" data-highlighted="yes"><span class="hljs-keyword">SELECT</span> customer, <span class="hljs-built_in">SUM</span>(amount) <span class="hljs-keyword">AS</span> total <span class="hljs-keyword">FROM</span> invoices
+<span class="hljs-keyword">WHERE</span> issued_on <span class="hljs-operator">&gt;=</span> <span class="hljs-string">'2026-01-01'</span> <span class="hljs-keyword">GROUP</span> <span class="hljs-keyword">BY</span> customer;</code></pre>
+<pre><code class="language-xml hljs" data-highlighted="yes"><span class="hljs-tag">&lt;<span class="hljs-name">figure</span> <span class="hljs-attr">class</span>=<span class="hljs-string">"island"</span>&gt;</span><span class="hljs-tag">&lt;<span class="hljs-name">img</span> <span class="hljs-attr">src</span>=<span class="hljs-string">"chart.png"</span> <span class="hljs-attr">alt</span>=<span class="hljs-string">"Chart"</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-name">figure</span>&gt;</span></code></pre>
+<pre><code class="nohighlight">plain text stays plain: 1 + 1 = 2</code></pre>
+<script src="../lib/highlight.js-11.12.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+
+
+</body></html>
