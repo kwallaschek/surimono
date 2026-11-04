@@ -12,14 +12,8 @@ use surimono_webidl::stubs as idl;
 
 use crate::dispatch::interface;
 use crate::document::{self, Handle, Kind};
+use crate::tree::dom_error;
 use crate::{Document, DomError};
-
-fn dom_error(name: &'static str, message: &str) -> BindingError {
-    BindingError::DomException {
-        name,
-        message: message.to_owned(),
-    }
-}
 
 /// `(TrustedHTML or DOMString)` and the like: the glue always sends a string.
 fn value_string(v: Value) -> String {
@@ -31,7 +25,7 @@ fn value_string(v: Value) -> String {
 
 impl Document {
     /// Records a fatal error; the returned exception stops the script.
-    fn fail(&mut self, e: DomError) -> BindingError {
+    pub(crate) fn fail(&mut self, e: DomError) -> BindingError {
         let message = e.script_message();
         self.fault.get_or_insert(e);
         BindingError::TypeError(message)
@@ -44,7 +38,7 @@ impl Document {
         self.resolve(generation, handle).map_err(|e| self.fail(e))
     }
 
-    fn object(&mut self, id: usize) -> BindingResult<ObjectId> {
+    pub(crate) fn object(&mut self, id: usize) -> BindingResult<ObjectId> {
         match self.handle_for(id) {
             Ok(h) => Ok(ObjectId(u64::from(h))),
             Err(e) => Err(self.fail(e)),
@@ -120,11 +114,21 @@ impl Document {
         Document::set_attribute(self, id, name, value).map_err(|e| self.fail(e))
     }
 
+    fn opt_node(&mut self, id: Option<ObjectId>) -> BindingResult<Option<usize>> {
+        id.map(|i| self.node_of(i)).transpose()
+    }
+
+    fn utf16_length(&self, id: usize) -> u32 {
+        let text = Document::text_content(self, id).unwrap_or_default();
+        u32::try_from(text.encode_utf16().count()).unwrap_or(u32::MAX)
+    }
+
     /// Operation 0: the handle's concrete interface, for `wrap`.
     pub(crate) fn interface_of(&mut self, this: ObjectId) -> BindingResult<u32> {
         let id = self.node_of(this)?;
         Ok(match self.kind(id) {
             Some(Kind::Document) => interface::DOCUMENT,
+            Some(Kind::DocumentFragment) => interface::DOCUMENT_FRAGMENT,
             Some(Kind::Text) => interface::TEXT,
             Some(Kind::Comment) => interface::COMMENT,
             Some(Kind::Element) if self.element_name(id).is_some_and(|n| n.ns == ns!(html)) => {
@@ -236,17 +240,97 @@ impl idl::Node for Document {
         Document::set_text_content(self, id, &value.unwrap_or_default()).map_err(|e| self.fail(e))
     }
 
+    fn get_root_node(&mut self, this: ObjectId, _options: Value) -> BindingResult<ObjectId> {
+        let mut at = self.node_of(this)?;
+        while let Some(p) = self.parent(at) {
+            at = p;
+        }
+        self.object(at)
+    }
+
+    fn normalize(&mut self, this: ObjectId) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.normalize_tree(id)
+    }
+
+    fn clone_node(&mut self, this: ObjectId, subtree: bool) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        let copy = self.clone_tree(id, subtree)?;
+        self.object(copy)
+    }
+
+    fn is_equal_node(
+        &mut self,
+        this: ObjectId,
+        other_node: Option<ObjectId>,
+    ) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(match self.opt_node(other_node)? {
+            Some(other) => self.nodes_equal(id, other),
+            None => false,
+        })
+    }
+
+    fn is_same_node(
+        &mut self,
+        this: ObjectId,
+        other_node: Option<ObjectId>,
+    ) -> BindingResult<bool> {
+        Ok(other_node == Some(this))
+    }
+
+    fn compare_document_position(&mut self, this: ObjectId, other: ObjectId) -> BindingResult<u16> {
+        let id = self.node_of(this)?;
+        let other = self.node_of(other)?;
+        Ok(self.compare_position(id, other))
+    }
+
+    fn contains(&mut self, this: ObjectId, other: Option<ObjectId>) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(match self.opt_node(other)? {
+            Some(other) => self.is_inclusive_ancestor(id, other),
+            None => false,
+        })
+    }
+
+    fn insert_before(
+        &mut self,
+        this: ObjectId,
+        node: ObjectId,
+        child: Option<ObjectId>,
+    ) -> BindingResult<ObjectId> {
+        let parent = self.node_of(this)?;
+        let n = self.node_of(node)?;
+        let child = self.opt_node(child)?;
+        self.pre_insert(parent, n, child)?;
+        Ok(node)
+    }
+
     fn append_child(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<ObjectId> {
         let parent = self.node_of(this)?;
-        let child = self.node_of(node)?;
-        match Document::append_child(self, parent, child) {
-            Ok(true) => Ok(node),
-            Ok(false) => Err(dom_error(
-                "HierarchyRequestError",
-                "appendChild: the node can't be inserted here",
-            )),
-            Err(e) => Err(self.fail(e)),
-        }
+        let n = self.node_of(node)?;
+        self.pre_insert(parent, n, None)?;
+        Ok(node)
+    }
+
+    fn replace_child(
+        &mut self,
+        this: ObjectId,
+        node: ObjectId,
+        child: ObjectId,
+    ) -> BindingResult<ObjectId> {
+        let parent = self.node_of(this)?;
+        let n = self.node_of(node)?;
+        let c = self.node_of(child)?;
+        self.replace(parent, n, c)?;
+        Ok(child)
+    }
+
+    fn remove_child(&mut self, this: ObjectId, child: ObjectId) -> BindingResult<ObjectId> {
+        let parent = self.node_of(this)?;
+        let c = self.node_of(child)?;
+        self.pre_remove(parent, c)?;
+        Ok(child)
     }
 }
 
@@ -330,6 +414,116 @@ impl idl::Element for Document {
         }
         Document::set_attribute(self, id, &qualified_name, &value_string(value))
             .map_err(|e| self.fail(e))
+    }
+
+    fn get_attribute_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<Option<String>> {
+        let id = self.node_of(this)?;
+        let ns_uri = namespace.unwrap_or_default();
+        let name = self.attribute_ns(id, &ns_uri, &local_name);
+        Ok(name.and_then(|n| self.attribute_value(id, &n)))
+    }
+
+    fn has_attribute_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        let ns_uri = namespace.unwrap_or_default();
+        Ok(self.attribute_ns(id, &ns_uri, &local_name).is_some())
+    }
+
+    fn set_attribute_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        qualified_name: String,
+        value: Value,
+    ) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        let name = Document::validate_and_extract(namespace.as_deref(), &qualified_name, false)?;
+        Document::set_attribute_ns(self, id, name, &value_string(value)).map_err(|e| self.fail(e))
+    }
+
+    fn remove_attribute_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        let ns_uri = namespace.unwrap_or_default();
+        if let Some(name) = self.attribute_ns(id, &ns_uri, &local_name) {
+            self.clear_attribute(id, name);
+        }
+        Ok(())
+    }
+
+    fn insert_adjacent_element(
+        &mut self,
+        this: ObjectId,
+        where_: String,
+        element: ObjectId,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let e = self.node_of(element)?;
+        Ok(self.insert_adjacent(id, &where_, e)?.then_some(element))
+    }
+
+    fn insert_adjacent_text(
+        &mut self,
+        this: ObjectId,
+        where_: String,
+        data: String,
+    ) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        let t = self.create_text(&data).map_err(|e| self.fail(e))?;
+        if !self.insert_adjacent(id, &where_, t)? {
+            self.drop_subtree(t);
+        }
+        Ok(())
+    }
+
+    fn prepend(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.prepend_nodes(id, nodes)
+    }
+
+    fn append(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.append_nodes(id, nodes)
+    }
+
+    fn replace_children(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.replace_children_with(id, nodes)
+    }
+
+    fn before(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.before_nodes(id, nodes)
+    }
+
+    fn after(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.after_nodes(id, nodes)
+    }
+
+    fn replace_with(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.replace_with_nodes(id, nodes)
+    }
+
+    fn remove(&mut self, this: ObjectId) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.detach(id);
+        Ok(())
     }
 
     fn remove_attribute(&mut self, this: ObjectId, qualified_name: String) -> BindingResult<()> {
@@ -438,8 +632,55 @@ impl idl::Document for Document {
         _this: ObjectId,
         element_id: String,
     ) -> BindingResult<Option<ObjectId>> {
-        let e = self.element_by_id(&element_id);
+        let root = self.root();
+        let e = self.element_by_id(root, &element_id);
         self.opt_object(e)
+    }
+
+    fn create_element_ns(
+        &mut self,
+        _this: ObjectId,
+        namespace: Option<String>,
+        qualified_name: String,
+        _options: Value,
+    ) -> BindingResult<ObjectId> {
+        let name = Document::validate_and_extract(namespace.as_deref(), &qualified_name, true)?;
+        let r = self.create_element_with(name, Vec::new());
+        self.created(r)
+    }
+
+    fn create_document_fragment(&mut self, _this: ObjectId) -> BindingResult<ObjectId> {
+        let r = self.create_fragment();
+        self.created(r)
+    }
+
+    fn adopt_node(&mut self, _this: ObjectId, node: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(node)?;
+        match self.kind(id) {
+            Some(Kind::Document) => Err(dom_error(
+                "NotSupportedError",
+                "adoptNode: a document can't be adopted",
+            )),
+            _ => {
+                self.detach(id);
+                Ok(node)
+            }
+        }
+    }
+
+    fn prepend(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.prepend_nodes(id, nodes)
+    }
+
+    fn append(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.append_nodes(id, nodes)
+    }
+
+    fn replace_children(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.replace_children_with(id, nodes)
     }
 
     fn create_element(
@@ -481,6 +722,50 @@ impl idl::Document for Document {
     }
 }
 
+impl idl::DocumentFragment for Document {
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        let r = self.create_fragment();
+        self.created(r)
+    }
+
+    fn get_element_by_id(
+        &mut self,
+        this: ObjectId,
+        element_id: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let e = self.element_by_id(id, &element_id);
+        self.opt_object(e)
+    }
+
+    fn first_element_child(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        self.first_element_child_of(this)
+    }
+
+    fn last_element_child(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        self.last_element_child_of(this)
+    }
+
+    fn child_element_count(&mut self, this: ObjectId) -> BindingResult<u32> {
+        self.child_element_count_of(this)
+    }
+
+    fn prepend(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.prepend_nodes(id, nodes)
+    }
+
+    fn append(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.append_nodes(id, nodes)
+    }
+
+    fn replace_children(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.replace_children_with(id, nodes)
+    }
+}
+
 impl idl::CharacterData for Document {
     fn data(&mut self, this: ObjectId) -> BindingResult<String> {
         let id = self.node_of(this)?;
@@ -494,8 +779,39 @@ impl idl::CharacterData for Document {
 
     fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
         let id = self.node_of(this)?;
-        let text = Document::text_content(self, id).unwrap_or_default();
-        Ok(u32::try_from(text.encode_utf16().count()).unwrap_or(u32::MAX))
+        Ok(self.utf16_length(id))
+    }
+
+    fn substring_data(&mut self, this: ObjectId, offset: u32, count: u32) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Document::substring_data(self, id, offset, count)
+    }
+
+    fn append_data(&mut self, this: ObjectId, data: String) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        let end = self.utf16_length(id);
+        Document::replace_data(self, id, end, 0, &data)
+    }
+
+    fn insert_data(&mut self, this: ObjectId, offset: u32, data: String) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        Document::replace_data(self, id, offset, 0, &data)
+    }
+
+    fn delete_data(&mut self, this: ObjectId, offset: u32, count: u32) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        Document::replace_data(self, id, offset, count, "")
+    }
+
+    fn replace_data(
+        &mut self,
+        this: ObjectId,
+        offset: u32,
+        count: u32,
+        data: String,
+    ) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        Document::replace_data(self, id, offset, count, &data)
     }
 
     fn previous_element_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
@@ -505,12 +821,44 @@ impl idl::CharacterData for Document {
     fn next_element_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
         self.sibling_element_of(this, true)
     }
+
+    fn before(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.before_nodes(id, nodes)
+    }
+
+    fn after(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.after_nodes(id, nodes)
+    }
+
+    fn replace_with(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.replace_with_nodes(id, nodes)
+    }
+
+    fn remove(&mut self, this: ObjectId) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.detach(id);
+        Ok(())
+    }
 }
 
 impl idl::Text for Document {
     fn constructor(&mut self, data: String) -> BindingResult<ObjectId> {
         let r = self.create_text(&data);
         self.created(r)
+    }
+
+    fn split_text(&mut self, this: ObjectId, offset: u32) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        let new = Document::split_text(self, id, offset)?;
+        self.object(new)
+    }
+
+    fn whole_text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Ok(Document::whole_text(self, id))
     }
 }
 

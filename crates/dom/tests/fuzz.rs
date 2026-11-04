@@ -119,15 +119,13 @@ globalThis.keep = (n) => { if (n && pool.length < 400) pool.push(n); return n; }
 globalThis.op = (f) => { try { f(); } catch (e) {} };
 "#;
 
-/// One random operation, as source. Replacing an element's content retires
-/// the wrappers in it, which would soon leave little to operate on; `replaces`
-/// says whether this seed may.
-fn operation(r: &mut Rng, replaces: bool) -> String {
+/// One random operation, as source.
+fn operation(r: &mut Rng) -> String {
     let (a, b, c) = (r.below(1000), r.below(1000), r.below(1000));
     let tag = quoted(r.pick(TAGS));
     let attr = quoted(r.pick(ATTRS));
     let value = quoted(r.pick(VALUES));
-    let body = match r.below(16) {
+    let body = match r.below(26) {
         0 => format!("keep(document.createElement({tag}))"),
         1 => format!("keep(document.createTextNode({value}))"),
         2 => format!("keep(document.createComment({value}))"),
@@ -135,14 +133,26 @@ fn operation(r: &mut Rng, replaces: bool) -> String {
         6 => format!("at({a}).setAttribute({attr}, {value})"),
         7 => format!("at({a}).removeAttribute({attr})"),
         8 => format!("at({a}).toggleAttribute({attr})"),
-        9 if replaces => format!("small({a}).textContent = {value}"),
-        9 => format!("at({a}).removeAttribute(\"href\")"),
+        9 => format!("small({a}).textContent = {value}"),
         10 => format!("at({a}).data = {value}"),
         11 => format!("at({a}).nodeValue = {value}"),
         12 if a % 8 == 0 => format!("keep(document.createElement('n'.repeat({b} + 1)))"),
         12 => format!("keep(at({a}).firstChild); keep(at({b}).lastChild)"),
         13 => format!("keep(at({a}).nextSibling); keep(at({b}).parentNode)"),
         14 => format!("at({a}).id = {value}; at({b}).className = {value}"),
+        15 => format!("at({a}).insertBefore(at({b}), at({c}))"),
+        16 => format!("at({a}).insertBefore(at({b}), at({a}).firstChild)"),
+        17 => format!("at({a}).replaceChild(at({b}), at({a}).firstChild)"),
+        18 => format!("at({a}).removeChild(at({a}).lastChild)"),
+        // Cloning a document is fatal, a known gap; it would end the run here.
+        19 => format!("if (at({a}) !== document) keep(at({a}).cloneNode(true))"),
+        20 => format!("at({a}).append({value}, at({b}))"),
+        21 => format!("at({a}).before(at({b}), {value})"),
+        22 => format!("at({a}).replaceWith(at({b}), {value})"),
+        23 => format!("at({a}).remove(); at({b}).normalize()"),
+        24 => format!(
+            "const f = keep(document.createDocumentFragment()); f.append(at({a}), {value}); at({b}).appendChild(f)"
+        ),
         // Reads: every node type, whatever state it reached.
         _ => format!(
             "[at({a}).textContent, at({b}).nodeName, at({c}).isConnected, document.getElementById({value})]"
@@ -166,16 +176,13 @@ fn run_seed(seed: u64, page: &str) {
         .unwrap();
     let mut script = String::new();
     for _ in 0..OPS {
-        script.push_str(&operation(&mut rng, seed % 2 == 0));
+        script.push_str(&operation(&mut rng));
     }
     match rt.eval::<()>(&script) {
         Ok(()) => {}
-        // A removed node's wrapper, or a limit: fatal to the script, no more.
+        // A limit: fatal to the script, no more.
         Err(
-            DomError::NodeRemoved
-            | DomError::NodeLimit { .. }
-            | DomError::TreeTooDeep { .. }
-            | DomError::TextLimit { .. },
+            DomError::NodeLimit { .. } | DomError::TreeTooDeep { .. } | DomError::TextLimit { .. },
         ) => {}
         Err(e) => panic!("seed {seed}: {e:?}"),
     }

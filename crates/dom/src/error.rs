@@ -5,13 +5,14 @@ use surimono_core::SandboxError;
 /// Why a script running against a [`Document`](crate::Document) did not
 /// complete.
 ///
-/// The `StaleDocument`, `NodeRemoved`, `NoDocument`, `NodeLimit`,
-/// `TreeTooDeep`, `HandleLimit` and `TextLimit` variants are *fatal to the
+/// The `StaleDocument`, `NoDocument`, `NodeLimit`, `TreeTooDeep`,
+/// `HandleLimit`, `TextLimit` and `Unsupported` variants are *fatal to the
 /// call*: the binding throws into the script (so it stops where it is), and
 /// the call fails with this error even if the script caught the exception.
-/// Each means the script used a handle that no longer names a node, or hit
-/// a DOM resource limit; carrying on would give wrong data or unbounded
-/// growth outside the JavaScript heap limit.
+/// Each means the script used a wrapper with no document behind it, hit a DOM
+/// resource limit, or asked for something the DOM defines and this crate
+/// doesn't do yet; carrying on would give wrong data or unbounded growth
+/// outside the JavaScript heap limit.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum DomError {
@@ -23,9 +24,6 @@ pub enum DomError {
     /// since replaced) was used.
     #[error("a node wrapper from another document was used")]
     StaleDocument,
-    /// A wrapper whose node has since been removed and dropped was used.
-    #[error("a node wrapper for a removed node was used")]
-    NodeRemoved,
     /// The document reached [`DomLimits::max_nodes`](crate::DomLimits::max_nodes).
     #[error("the document reached its limit of {limit} nodes")]
     NodeLimit {
@@ -58,6 +56,14 @@ pub enum DomError {
     InvalidLimits {
         /// Which limit and the allowed range.
         message: String,
+    },
+    /// The script asked for something the DOM Standard defines that this
+    /// crate doesn't do yet. Fatal, not a DOM exception, so a script can't
+    /// take it for the standard's answer.
+    #[error("{feature} is not supported yet")]
+    Unsupported {
+        /// What the script asked for.
+        feature: &'static str,
     },
     /// The runtime has no document loaded.
     #[error("no document is loaded")]

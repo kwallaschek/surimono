@@ -219,6 +219,7 @@ fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<
                 if let Err(e) = doc.check(g as u64, h) {
                     return Err(fault(&ctx, &mut host.fault, e));
                 }
+                doc.deadline.clone_from(&host.deadline);
                 let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
                 if let Some(e) = doc.fault.take() {
                     return Err(fault(&ctx, &mut host.fault, e));

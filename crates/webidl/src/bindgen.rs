@@ -719,6 +719,9 @@ pub fn generate_bindings(
     };
 
     let mut js = note("//");
+    if let Some(id) = bound_id(table, "Node") {
+        let _ = writeln!(js, "const nodeBit = 1 << {id};");
+    }
     js.push_str(&out.js);
 
     let mut rust = note("//");
@@ -779,7 +782,17 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "nextSibling",
             "nodeValue",
             "textContent",
+            "getRootNode",
+            "normalize",
+            "cloneNode",
+            "isEqualNode",
+            "isSameNode",
+            "compareDocumentPosition",
+            "contains",
+            "insertBefore",
             "appendChild",
+            "replaceChild",
+            "removeChild",
         ],
     },
     BindInterface {
@@ -797,11 +810,24 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "removeAttribute",
             "toggleAttribute",
             "hasAttribute",
+            "getAttributeNS",
+            "setAttributeNS",
+            "removeAttributeNS",
+            "hasAttributeNS",
+            "insertAdjacentElement",
+            "insertAdjacentText",
             "firstElementChild",
             "lastElementChild",
             "childElementCount",
+            "prepend",
+            "append",
+            "replaceChildren",
             "previousElementSibling",
             "nextElementSibling",
+            "before",
+            "after",
+            "replaceWith",
+            "remove",
         ],
     },
     BindInterface {
@@ -819,11 +845,30 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "contentType",
             "getElementById",
             "createElement",
+            "createElementNS",
+            "createDocumentFragment",
             "createTextNode",
             "createComment",
+            "adoptNode",
             "firstElementChild",
             "lastElementChild",
             "childElementCount",
+            "prepend",
+            "append",
+            "replaceChildren",
+        ],
+    },
+    BindInterface {
+        name: "DocumentFragment",
+        members: &[
+            "constructor",
+            "getElementById",
+            "firstElementChild",
+            "lastElementChild",
+            "childElementCount",
+            "prepend",
+            "append",
+            "replaceChildren",
         ],
     },
     BindInterface {
@@ -831,13 +876,22 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &[
             "data",
             "length",
+            "substringData",
+            "appendData",
+            "insertData",
+            "deleteData",
+            "replaceData",
             "previousElementSibling",
             "nextElementSibling",
+            "before",
+            "after",
+            "replaceWith",
+            "remove",
         ],
     },
     BindInterface {
         name: "Text",
-        members: &["constructor"],
+        members: &["constructor", "splitText", "wholeText"],
     },
     BindInterface {
         name: "Comment",

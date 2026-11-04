@@ -8,7 +8,7 @@ mod common;
 use std::time::Duration;
 
 use common::{limits, scaled};
-use surimono_core::Sandbox;
+use surimono_core::{Sandbox, SandboxError};
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
 // With a doctype: blitz-html prints every parse error on stdout, and a
@@ -201,7 +201,7 @@ fn appending_a_child_to_its_own_parent() {
         )
         .unwrap();
     assert!(!r);
-    assert_eq!(rt.eval::<()>("c.isConnected"), Err(DomError::NodeRemoved));
+    assert_eq!(rt.eval::<bool>("c.isConnected"), Ok(false));
     rt.take().unwrap().check_consistency().unwrap();
 }
 
@@ -251,6 +251,10 @@ fn string_bytes_are_limited() {
         "for (;;) document.createComment(s);",
         "for (;;) new Comment(s);",
         "for (let k = 0;; k++) document.createElement(s + k);",
+        "for (let k = 0;; k++) document.createElementNS(s + k, 'a');",
+        "for (let k = 0;; k++) document.createElementNS('urn:x', s + k + ':a');",
+        "for (let k = 0;; k++) b.setAttributeNS(s + k, 'a', '');",
+        "const c = n(); c.setAttribute('a', s); for (;;) c.cloneNode();",
         "for (let k = 0;; k++) b.setAttribute('a' + k, s);",
         "for (let k = 0;; k++) b.setAttribute(s + k, '');",
         "for (;;) n().setAttribute('a', s);",
@@ -370,10 +374,10 @@ fn string_bytes_are_credited() {
               d.removeAttribute('a');
               t.data = s;
               c.data = s;
-              const e = d.appendChild(document.createElement('b'));
-              e.setAttribute('b', s);
-              e.textContent = s;
-              d.textContent = '';
+              // Content no script reached goes when it is replaced. (A node a
+              // script holds stays alive, and charged, until the end.)
+              d.textContent = s;
+              d.textContent = s;
             }"#,
         )
         .unwrap();
@@ -488,8 +492,9 @@ fn deepest_allowed_tree_on_a_small_stack() {
                 .unwrap();
             // <i> plus its ancestors up to and including the document node.
             assert_eq!(depth as usize, DomLimits::MAX_DEPTH);
-            let r = rt.eval::<()>("keep.textContent");
-            assert_eq!(r, Err(DomError::NodeRemoved));
+            // The removed <i> stays usable (DOM §4.4 "replace all").
+            let kept: String = rt.eval("keep.textContent").unwrap();
+            assert_eq!(kept, "deep");
             let r = rt.eval::<()>("document.body.appendChild(document.createElement('div')).appendChild(document.createElement('b'))");
             // The new <b> lands at depth 4.
             assert!(r.is_ok(), "{r:?}");
@@ -531,7 +536,7 @@ fn wide_drop_time(n: usize) -> Duration {
             let _: () = rt.eval("d.textContent = ''").unwrap();
             let took = started.elapsed();
             let doc = rt.take().unwrap();
-            assert!(doc.node_count() < 20, "{}", doc.node_count());
+            assert!(!doc.to_html().contains("<b>"));
             took
         })
         .min()
@@ -547,6 +552,93 @@ fn wide_tree_drops_in_linear_time() {
     let small = wide_drop_time(6_250);
     let large = wide_drop_time(25_000);
     assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
+}
+
+/// Time for one `normalize()` of `n` adjacent text nodes, best of 3. As in
+/// [`wide_drop_time`], the build is a separate `eval`.
+fn wide_normalize_time(n: usize) -> Duration {
+    (0..3)
+        .map(|_| {
+            let mut rt =
+                DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+            rt.load(Document::parse(PAGE).unwrap());
+            let build = format!(
+                "globalThis.d = document.getElementById('d');
+                for (let i = 0; i < {n}; i++) d.appendChild(document.createTextNode('t'));"
+            );
+            let _: () = rt.eval(&build).unwrap();
+            let started = std::time::Instant::now();
+            let _: () = rt.eval("d.normalize()").unwrap();
+            let took = started.elapsed();
+            let data: usize = rt.eval("d.firstChild.data.length").unwrap();
+            assert_eq!(data, n + 1, "the page's x and the new nodes");
+            assert!(rt.eval::<bool>("d.firstChild === d.lastChild").unwrap());
+            rt.with_document(Document::check_consistency)
+                .unwrap()
+                .unwrap();
+            took
+        })
+        .min()
+        .unwrap()
+}
+
+/// `normalize` rebuilds the parent's list once, not per merged node. As in
+/// `wide_tree_drops_in_linear_time`: four times the nodes must cost less than
+/// eight times the time.
+#[test]
+fn wide_normalize_is_linear() {
+    let small = wide_normalize_time(20_000);
+    let large = wide_normalize_time(80_000);
+    assert!(large < small * 8, "20,000: {small:?}; 80,000: {large:?}");
+}
+
+/// The largest run a page can have, under a short limit: done, or stopped by
+/// the deadline near the limit, never a native running on past it.
+#[test]
+fn wide_normalize_stops_near_the_limit() {
+    let mut build = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+    build.load(Document::parse(PAGE).unwrap());
+    let _: () = build
+        .eval(
+            "const d = document.getElementById('d');
+            for (let i = 0; i < 99000; i++) d.appendChild(document.createTextNode('t'));",
+        )
+        .unwrap();
+    let doc = build.take().unwrap();
+    let limit = scaled(Duration::from_millis(100));
+    let mut rt = DomRuntime::new(limits().with_time(limit)).unwrap();
+    rt.load(doc);
+    let started = std::time::Instant::now();
+    let r = rt.eval::<()>("document.getElementById('d').normalize()");
+    let took = started.elapsed();
+    assert!(
+        matches!(r, Ok(()) | Err(DomError::Sandbox(SandboxError::TimeLimit))),
+        "{r:?}"
+    );
+    assert!(
+        took < limit + scaled(Duration::from_millis(500)),
+        "{took:?}"
+    );
+    let doc = rt.take().unwrap();
+    doc.check_consistency().unwrap();
+}
+
+#[test]
+fn removed_subtrees_scripts_cannot_reach_are_dropped() {
+    // Nothing in the old subtree has a handle: the nodes go at once, so
+    // replacing content in a loop doesn't fill the document.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let page = format!(
+        "<!doctype html><body><div id=d>{}</div>",
+        "<b>x</b>".repeat(1000)
+    );
+    rt.load(Document::parse(&page).unwrap());
+    let before = rt.with_document(Document::node_count).unwrap();
+    let _: () = rt
+        .eval("document.getElementById('d').textContent = ''")
+        .unwrap();
+    let after = rt.with_document(Document::node_count).unwrap();
+    assert_eq!(before - after, 2000);
 }
 
 #[test]
