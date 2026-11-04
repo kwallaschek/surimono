@@ -75,9 +75,11 @@ fn sort_unwind_bound() -> Duration {
 }
 
 /// Allowed time for the whole call: the stop plus the rebuild after the
-/// limit error, which frees the vector's heap (up to 128 MiB); process
-/// start and setup are not included. On the fleet's shared machine (a load
-/// of 7 to 10 on 2 cores) the 12M-element sort took 440 to 780 ms in all.
+/// limit error, which frees the vector's heap (up to [`HEAP`]; the one
+/// vector with a larger limit is stopped by time long before it fills it);
+/// process start and setup are not included. On the fleet's shared machine
+/// (a load of 7 to 10 on 2 cores) the 12M-element sort took 440 to 780 ms in
+/// all.
 fn bound() -> Duration {
     let slack = if asan() {
         Duration::from_millis(2500)
@@ -109,11 +111,16 @@ enum Setup {
     RandomInt32(usize),
 }
 
+/// Heap limit of every vector that doesn't set its own.
+const HEAP: usize = 128 * 1024 * 1024;
+
 struct Vector {
     name: &'static str,
     source: &'static str,
     want: Want,
     setup: Setup,
+    /// Heap limit in bytes.
+    heap: usize,
 }
 
 const fn v(name: &'static str, source: &'static str, want: Want) -> Vector {
@@ -122,6 +129,15 @@ const fn v(name: &'static str, source: &'static str, want: Want) -> Vector {
         source,
         want,
         setup: Setup::None,
+        heap: HEAP,
+    }
+}
+
+impl Vector {
+    /// This vector with a heap limit of `bytes` instead of [`HEAP`].
+    const fn with_heap(mut self, bytes: usize) -> Self {
+        self.heap = bytes;
+        self
     }
 }
 
@@ -342,11 +358,16 @@ const GROUP_B: &[Vector] = &[
         "B Array.fromAsync",
         "for (;;) { Array.fromAsync({ length: 1, 0: 1 }, () => { for (;;) {} }) }",
         // The callback only runs in a microtask, so the outer loop just piles
-        // up pending promises: on a fast machine the 128 MiB heap can fill
-        // before the 250 ms limit (macos-14: MemoryLimit at 239 ms). Either
-        // limit ends it with a typed error.
-        Want::AnyLimit,
-    ),
+        // up pending promises: a fast machine filled the 128 MiB heap before
+        // the 250 ms limit (macos-14: MemoryLimit, stopped at 219 ms). In a
+        // debug build on the fleet's machine the pile fills 128 MiB in 0.68 s
+        // and 1 GiB in 4.2 s, so 1 GiB takes macos-14 over 1.3 s: the time
+        // limit must end it first (P1-RT-43). The interrupt handler also
+        // checks the clock on the script's own thread, so a starved watchdog
+        // can't let the pile win; a MemoryLimit here is a regression.
+        Want::Time,
+    )
+    .with_heap(1 << 30),
     v(
         "B swallowed, then straight-line code",
         "new Promise(() => { for (;;) {} }); 'finished after the swallow'",
@@ -362,24 +383,28 @@ const GROUP_C: &[Vector] = &[
         source: "new Int32Array(buf).sort().length",
         want: Want::Time,
         setup: Setup::RandomInt32(12_000_000),
+        heap: HEAP,
     },
     Vector {
         name: "C Float64Array sort, 6M random",
         source: "new Float64Array(buf).sort().length",
         want: Want::Time,
         setup: Setup::RandomInt32(12_000_000),
+        heap: HEAP,
     },
     Vector {
         name: "C Int32Array sort with a comparator (control)",
         source: "new Int32Array(buf).sort((a, b) => a - b).length",
         want: Want::Time,
         setup: Setup::RandomInt32(12_000_000),
+        heap: HEAP,
     },
     Vector {
         name: "C Array sort, 1M numbers as strings",
         source: "Array.prototype.slice.call(new Int32Array(buf)).sort().length",
         want: Want::AnyLimit,
         setup: Setup::RandomInt32(1_000_000),
+        heap: HEAP,
     },
 ];
 
@@ -581,7 +606,7 @@ fn hostile_child() {
     let vector = all_vectors().find(|v| v.name == name).unwrap();
     let limits = Limits::default()
         .with_time(LIMIT)
-        .with_memory_bytes(128 * 1024 * 1024);
+        .with_memory_bytes(vector.heap);
     let mut sb = Sandbox::new(limits).unwrap();
     // Setup gets a call of its own, so copying the data doesn't count.
     if let Setup::RandomInt32(n) = vector.setup {

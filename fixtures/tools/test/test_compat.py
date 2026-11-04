@@ -104,6 +104,97 @@ class CompatTest(unittest.TestCase):
         p.write_text(json.dumps(data))
         return p
 
+    def wpt_tree(self, subtests=("one", "two", "three", "four"), status="OK", extra=()):
+        (self.root / "wpt" / "baseline").mkdir(parents=True, exist_ok=True)
+        (self.root / "wpt" / "slices.toml").write_text(
+            'commit = "abc"\n'
+            '[[slice]]\nid = "nodes"\narea = "dom/nodes"\nphase = 2\ntarget = 70\n'
+            '[[slice]]\nid = "more"\narea = "dom/nodes"\nphase = 2\ntarget = 70\n'
+        )
+        subs = [{"name": n, "status": "PASS"} for n in subtests]
+        tests = [{"slice": "nodes", "test": "a.html", "file": "a.html", "status": status, "subtests": subs}]
+        tests.append({"slice": "more", "test": "b.html", "file": "b.html", "status": "OK", "subtests": [{"name": "m", "status": "FAIL"}]})
+        self.write_json("wpt/baseline/chrome.json", {"wpt_commit": "abc", "tests": tests + list(extra)})
+
+    def wpt_results(self, names, status="OK", test="a.html"):
+        subs = [{"name": n, "status": "PASS"} for n in names]
+        return self.write_json("results.json", {"wpt_commit": "abc", "tests": [{"test": test, "status": status, "subtests": subs}]})
+
+    def wpt_table(self, results):
+        return "\n".join(compat.wpt_section(results))
+
+    def test_wpt_not_run_says_so(self):
+        self.wpt_tree()
+        self.assertIn("Not run yet", self.wpt_table(None))
+
+    def test_wpt_results_without_a_baseline_are_an_error(self):
+        self.wpt_tree()
+        (self.root / "wpt" / "baseline" / "chrome.json").unlink()
+        with self.assertRaises(SystemExit):
+            compat.wpt_section(self.wpt_results(["one"]))
+
+    def test_wpt_subtest_never_reported_counts_as_failed(self):
+        self.wpt_tree()
+        self.assertIn("| dom/nodes | 2 | 2 | 4 | 50.0% | 70% | **below the target** |", self.wpt_table(self.wpt_results(["one", "two"])))
+
+    def test_wpt_subtest_outside_the_baseline_cannot_raise_the_rate(self):
+        self.wpt_tree()
+        self.assertIn("| 2 | 4 | 50.0%", self.wpt_table(self.wpt_results(["one", "two", "extra-1", "extra-2"])))
+
+    def test_wpt_subtest_chrome_fails_is_left_out(self):
+        self.wpt_tree()
+        self.assertIn("100.0% | 70% | meets the target", self.wpt_table(self.wpt_results(["one", "two", "three", "four"])))
+
+    def test_wpt_failed_file_fails_all_its_subtests(self):
+        for status in ("ERROR", "CRASH", "LIMIT"):
+            self.wpt_tree()
+            self.assertIn("| 0 | 4 | 0.0%", self.wpt_table(self.wpt_results(["one", "two", "three", "four"], status)), status)
+
+    def test_wpt_timeout_keeps_finished_subtests(self):
+        self.wpt_tree()
+        self.assertIn("| 3 | 4 | 75.0%", self.wpt_table(self.wpt_results(["one", "two", "three"], "TIMEOUT")))
+
+    def test_wpt_timeout_with_every_subtest_passed_is_a_failure(self):
+        self.wpt_tree()
+        self.assertIn("| 0 | 4 | 0.0%", self.wpt_table(self.wpt_results(["one", "two", "three", "four"], "TIMEOUT")))
+
+    def test_wpt_test_with_no_subtests_counts_once(self):
+        self.wpt_tree(subtests=())
+        self.assertIn("| 1 | 1 | 100.0%", self.wpt_table(self.wpt_results([])))
+        self.assertIn("| 0 | 1 | 0.0%", self.wpt_table(self.wpt_results([], "ERROR")))
+
+    def test_wpt_test_chrome_did_not_finish_is_left_out(self):
+        self.wpt_tree(status="TIMEOUT", extra=[{"slice": "nodes", "test": "c.html", "file": "c.html", "status": "OK", "subtests": [{"name": "c", "status": "PASS"}]}])
+        self.assertIn("| 1 | 1 | 100.0%", self.wpt_table(self.wpt_results(["c"], test="c.html")))
+
+    def test_wpt_variants_are_separate_tests(self):
+        extra = [{"slice": "nodes", "test": "a.html?x", "file": "a.html", "status": "OK", "subtests": [{"name": "one", "status": "PASS"}]}]
+        self.wpt_tree(subtests=("one",), extra=extra)
+        self.assertIn("| 1 | 2 | 50.0%", self.wpt_table(self.wpt_results(["one"])))
+
+    def test_wpt_baseline_missing_a_slice_is_an_error(self):
+        self.wpt_tree()
+        path = self.root / "wpt" / "baseline" / "chrome.json"
+        data = json.loads(path.read_text())
+        data["tests"] = [t for t in data["tests"] if t["slice"] != "more"]
+        path.write_text(json.dumps(data))
+        with self.assertRaises(SystemExit) as e:
+            compat.wpt_section(self.wpt_results(["one"]))
+        self.assertIn("more", str(e.exception))
+
+    def test_wpt_baseline_missing_a_vendored_test_is_an_error(self):
+        self.wpt_tree()
+        (self.root / "wpt" / "manifest.toml").write_text('[[test]]\nslice = "nodes"\nfile = "z.html"\nurls = ["z.html"]\nneeds = []\n')
+        with self.assertRaises(SystemExit) as e:
+            compat.wpt_section(self.wpt_results(["one"]))
+        self.assertIn("z.html", str(e.exception))
+
+    def test_wpt_results_from_another_commit_are_refused(self):
+        self.wpt_tree()
+        results = self.write_json("results.json", {"wpt_commit": "other", "tests": []})
+        with self.assertRaises(SystemExit):
+            compat.wpt_section(results)
+
     def test_hand_written_sections_survive(self):
         existing = f"# old\n\n{compat.BEGIN}\n\n## Known gaps\n\nmy notes, kept\n\n{compat.END}\n"
         out = compat.generate([], None, None, "c", existing)
