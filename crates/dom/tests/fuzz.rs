@@ -42,7 +42,7 @@ const PAGE: &str = r#"<!doctype html><html><head><title>t</title><style>b{color:
 
 const TAGS: &[&str] = &[
     "style", "link", "img", "input", "button", "form", "select", "textarea", "canvas", "title",
-    "table", "div", "svg", "object", "output", "fieldset",
+    "table", "div", "svg", "object", "output", "fieldset", "template",
 ];
 
 const ATTRS: &[&str] = &[
@@ -118,7 +118,7 @@ fn operation(r: &mut Rng) -> String {
     let tag = quoted(r.pick(TAGS));
     let attr = quoted(r.pick(ATTRS));
     let value = quoted(r.pick(VALUES));
-    let body = match r.below(40) {
+    let body = match r.below(43) {
         0 => format!("keep(document.createElement({tag}))"),
         1 => format!("keep(document.createTextNode({value}))"),
         2 => format!("keep(document.createComment({value}))"),
@@ -170,6 +170,13 @@ fn operation(r: &mut Rng) -> String {
             "at({a}).addEventListener('e', () => {{ at({b}).remove(); at({c}).appendChild(at({a})); }})"
         ),
         38 => format!("at({a}).dispatchEvent(new Event('e', {{ bubbles: true }}))"),
+        39 => format!(
+            "new MutationObserver((rs) => {{ for (const r of rs) keep(r.target); if ((globalThis.turns = (globalThis.turns || 0) + 1) < 200) at({a}).id = 'm'; }}).observe(at({b}), {{ subtree: true, childList: true, attributes: true, characterData: true }})"
+        ),
+        40 => format!(
+            "const t = keep(document.createElement('template')); t.innerHTML = {value}; at({a}).appendChild(t.content.cloneNode(true)); at({b}).appendChild(t)"
+        ),
+        41 => format!("keep(document.importNode(at({a}), true))"),
         // Reads: every node type, whatever state it reached.
         _ => format!(
             "[at({a}).textContent, at({b}).nodeName, at({c}).isConnected, document.getElementById({value})]"

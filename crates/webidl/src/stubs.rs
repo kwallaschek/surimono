@@ -641,6 +641,228 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "parentRule", rust_name: "parent_rule", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
         ],
     },
+    InterfaceInfo {
+        name: "MutationRecord",
+        parent: None,
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "type", rust_name: "type_", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "target", rust_name: "target", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "addedNodes", rust_name: "added_nodes", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "removedNodes", rust_name: "removed_nodes", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "previousSibling", rust_name: "previous_sibling", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "nextSibling", rust_name: "next_sibling", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "attributeName", rust_name: "attribute_name", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "attributeNamespace", rust_name: "attribute_namespace", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "oldValue", rust_name: "old_value", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLTemplateElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "content", rust_name: "content", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "htmlFor", rust_name: "html_for", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shadowRootMode", rust_name: "shadow_root_mode", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shadowRootDelegatesFocus", rust_name: "shadow_root_delegates_focus", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shadowRootSerializable", rust_name: "shadow_root_serializable", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shadowRootSlotAssignment", rust_name: "shadow_root_slot_assignment", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shadowRootClonable", rust_name: "shadow_root_clonable", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shadowRootCustomElementRegistry", rust_name: "shadow_root_custom_element_registry", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLAnchorElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "download", rust_name: "download", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ping", rust_name: "ping", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "rel", rust_name: "rel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "relList", rust_name: "rel_list", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "text", rust_name: "text", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "referrerPolicy", rust_name: "referrer_policy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "coords", rust_name: "coords", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "charset", rust_name: "charset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "name", rust_name: "name", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "rev", rust_name: "rev", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shape", rust_name: "shape", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "origin", rust_name: "origin", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "protocol", rust_name: "protocol", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "username", rust_name: "username", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "password", rust_name: "password", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "host", rust_name: "host", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hostname", rust_name: "hostname", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "port", rust_name: "port", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "pathname", rust_name: "pathname", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "search", rust_name: "search", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hash", rust_name: "hash", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hreflang", rust_name: "hreflang", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "type", rust_name: "type_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "href", rust_name: "href", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "target", rust_name: "target", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLImageElement",
+        parent: Some("HTMLElement"),
+        files: &["cssom-view.idl", "html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "alt", rust_name: "alt", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "src", rust_name: "src", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "srcset", rust_name: "srcset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "sizes", rust_name: "sizes", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "crossOrigin", rust_name: "cross_origin", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "useMap", rust_name: "use_map", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "isMap", rust_name: "is_map", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "controls", rust_name: "controls", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "width", rust_name: "width", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "height", rust_name: "height", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "naturalWidth", rust_name: "natural_width", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "naturalHeight", rust_name: "natural_height", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "complete", rust_name: "complete", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "currentSrc", rust_name: "current_src", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "referrerPolicy", rust_name: "referrer_policy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "decoding", rust_name: "decoding", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "loading", rust_name: "loading", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "fetchPriority", rust_name: "fetch_priority", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "decode", rust_name: "decode", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "x", rust_name: "x", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "y", rust_name: "y", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "name", rust_name: "name", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "lowsrc", rust_name: "lowsrc", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "align", rust_name: "align", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hspace", rust_name: "hspace", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "vspace", rust_name: "vspace", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "longDesc", rust_name: "long_desc", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "border", rust_name: "border", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLLinkElement",
+        parent: Some("HTMLElement"),
+        files: &["cssom.idl", "html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "href", rust_name: "href", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "crossOrigin", rust_name: "cross_origin", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "rel", rust_name: "rel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "as", rust_name: "as_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "relList", rust_name: "rel_list", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "media", rust_name: "media", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "integrity", rust_name: "integrity", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hreflang", rust_name: "hreflang", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "type", rust_name: "type_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "sizes", rust_name: "sizes", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "imageSrcset", rust_name: "image_srcset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "imageSizes", rust_name: "image_sizes", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "referrerPolicy", rust_name: "referrer_policy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "blocking", rust_name: "blocking", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "disabled", rust_name: "disabled", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "fetchPriority", rust_name: "fetch_priority", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "charset", rust_name: "charset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "rev", rust_name: "rev", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "target", rust_name: "target", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "sheet", rust_name: "sheet", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLScriptElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "type", rust_name: "type_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "src", rust_name: "src", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "noModule", rust_name: "no_module", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "async", rust_name: "async_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "defer", rust_name: "defer", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "blocking", rust_name: "blocking", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "crossOrigin", rust_name: "cross_origin", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "referrerPolicy", rust_name: "referrer_policy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "integrity", rust_name: "integrity", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "fetchPriority", rust_name: "fetch_priority", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "innerText", rust_name: "inner_text", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "textContent", rust_name: "text_content", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "text", rust_name: "text", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "supports", rust_name: "supports", kind: MemberInfoKind::Operation { is_static: true, overloads: 1 } },
+            MemberInfo { idl_name: "charset", rust_name: "charset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "event", rust_name: "event", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "htmlFor", rust_name: "html_for", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLInputElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "accept", rust_name: "accept", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "alpha", rust_name: "alpha", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "alt", rust_name: "alt", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "autocomplete", rust_name: "autocomplete", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "defaultChecked", rust_name: "default_checked", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "checked", rust_name: "checked", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "colorSpace", rust_name: "color_space", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "dirName", rust_name: "dir_name", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "disabled", rust_name: "disabled", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "form", rust_name: "form", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "files", rust_name: "files", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "formAction", rust_name: "form_action", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "formEnctype", rust_name: "form_enctype", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "formMethod", rust_name: "form_method", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "formNoValidate", rust_name: "form_no_validate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "formTarget", rust_name: "form_target", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "height", rust_name: "height", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "indeterminate", rust_name: "indeterminate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "list", rust_name: "list", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "max", rust_name: "max", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "maxLength", rust_name: "max_length", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "min", rust_name: "min", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "minLength", rust_name: "min_length", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "multiple", rust_name: "multiple", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "name", rust_name: "name", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "pattern", rust_name: "pattern", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "placeholder", rust_name: "placeholder", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "readOnly", rust_name: "read_only", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "required", rust_name: "required", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "size", rust_name: "size", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "src", rust_name: "src", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "step", rust_name: "step", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "type", rust_name: "type_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "defaultValue", rust_name: "default_value", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "value", rust_name: "value", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "valueAsDate", rust_name: "value_as_date", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "valueAsNumber", rust_name: "value_as_number", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "width", rust_name: "width", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "stepUp", rust_name: "step_up", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "stepDown", rust_name: "step_down", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "willValidate", rust_name: "will_validate", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "validity", rust_name: "validity", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "validationMessage", rust_name: "validation_message", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "checkValidity", rust_name: "check_validity", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "reportValidity", rust_name: "report_validity", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setCustomValidity", rust_name: "set_custom_validity", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "labels", rust_name: "labels", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "select", rust_name: "select", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "selectionStart", rust_name: "selection_start", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "selectionEnd", rust_name: "selection_end", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "selectionDirection", rust_name: "selection_direction", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "setRangeText", rust_name: "set_range_text", kind: MemberInfoKind::Operation { is_static: false, overloads: 2 } },
+            MemberInfo { idl_name: "setSelectionRange", rust_name: "set_selection_range", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "showPicker", rust_name: "show_picker", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "align", rust_name: "align", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "useMap", rust_name: "use_map", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hspace", rust_name: "hspace", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "vspace", rust_name: "vspace", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "popoverTargetElement", rust_name: "popover_target_element", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "popoverTargetAction", rust_name: "popover_target_action", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
 ];
 
 /// IDL `interface EventTarget` (dom.idl).
@@ -5011,5 +5233,1836 @@ pub trait CSSStyleDeclaration {
     fn parent_rule(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
         let _ = this;
         Err(BindingError::NotImplemented("CSSStyleDeclaration.parentRule"))
+    }
+}
+
+/// IDL `interface MutationRecord` (dom.idl).
+pub trait MutationRecord {
+    /// `readonly attribute DOMString type;` (dom.idl)
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.type"))
+    }
+
+    /// `[SameObject] readonly attribute Node target;` (dom.idl)
+    fn target(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.target"))
+    }
+
+    /// `[SameObject] readonly attribute NodeList addedNodes;` (dom.idl)
+    fn added_nodes(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.addedNodes"))
+    }
+
+    /// `[SameObject] readonly attribute NodeList removedNodes;` (dom.idl)
+    fn removed_nodes(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.removedNodes"))
+    }
+
+    /// `readonly attribute Node? previousSibling;` (dom.idl)
+    fn previous_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.previousSibling"))
+    }
+
+    /// `readonly attribute Node? nextSibling;` (dom.idl)
+    fn next_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.nextSibling"))
+    }
+
+    /// `readonly attribute DOMString? attributeName;` (dom.idl)
+    fn attribute_name(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.attributeName"))
+    }
+
+    /// `readonly attribute DOMString? attributeNamespace;` (dom.idl)
+    fn attribute_namespace(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.attributeNamespace"))
+    }
+
+    /// `readonly attribute DOMString? oldValue;` (dom.idl)
+    fn old_value(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("MutationRecord.oldValue"))
+    }
+}
+
+/// IDL `interface HTMLTemplateElement : HTMLElement` (html.idl).
+pub trait HTMLTemplateElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLTemplateElement"))
+    }
+
+    /// `readonly attribute DocumentFragment content;` (html.idl)
+    fn content(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.content"))
+    }
+
+    /// `[CEReactions, Reflect="for"] attribute DOMString htmlFor;` (html.idl)
+    fn html_for(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.htmlFor"))
+    }
+
+    /// `[CEReactions, Reflect="for"] attribute DOMString htmlFor;` (html.idl)
+    fn set_html_for(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLTemplateElement.htmlFor"))
+    }
+
+    /// `[CEReactions] attribute DOMString shadowRootMode;` (html.idl)
+    fn shadow_root_mode(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootMode"))
+    }
+
+    /// `[CEReactions] attribute DOMString shadowRootMode;` (html.idl)
+    fn set_shadow_root_mode(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootMode"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean shadowRootDelegatesFocus;` (html.idl)
+    fn shadow_root_delegates_focus(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootDelegatesFocus"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean shadowRootDelegatesFocus;` (html.idl)
+    fn set_shadow_root_delegates_focus(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootDelegatesFocus"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean shadowRootSerializable;` (html.idl)
+    fn shadow_root_serializable(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootSerializable"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean shadowRootSerializable;` (html.idl)
+    fn set_shadow_root_serializable(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootSerializable"))
+    }
+
+    /// `[CEReactions] attribute DOMString shadowRootSlotAssignment;` (html.idl)
+    fn shadow_root_slot_assignment(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootSlotAssignment"))
+    }
+
+    /// `[CEReactions] attribute DOMString shadowRootSlotAssignment;` (html.idl)
+    fn set_shadow_root_slot_assignment(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootSlotAssignment"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean shadowRootClonable;` (html.idl)
+    fn shadow_root_clonable(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootClonable"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean shadowRootClonable;` (html.idl)
+    fn set_shadow_root_clonable(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootClonable"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shadowRootCustomElementRegistry;` (html.idl)
+    fn shadow_root_custom_element_registry(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootCustomElementRegistry"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shadowRootCustomElementRegistry;` (html.idl)
+    fn set_shadow_root_custom_element_registry(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLTemplateElement.shadowRootCustomElementRegistry"))
+    }
+}
+
+/// IDL `interface HTMLAnchorElement : HTMLElement` (html.idl).
+///
+/// Includes: HyperlinkElementUtils, HTMLHyperlinkElementUtils.
+pub trait HTMLAnchorElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLAnchorElement"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString download;` (html.idl)
+    fn download(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.download"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString download;` (html.idl)
+    fn set_download(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.download"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString ping;` (html.idl)
+    fn ping(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.ping"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString ping;` (html.idl)
+    fn set_ping(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.ping"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.rel"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.rel"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect="rel"] readonly attribute DOMTokenList relList;` (html.idl)
+    fn rel_list(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.relList"))
+    }
+
+    /// `[CEReactions] attribute DOMString text;` (html.idl)
+    fn text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.text"))
+    }
+
+    /// `[CEReactions] attribute DOMString text;` (html.idl)
+    fn set_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.text"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn referrer_policy(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn set_referrer_policy(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString coords;` (html.idl)
+    fn coords(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.coords"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString coords;` (html.idl)
+    fn set_coords(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.coords"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString charset;` (html.idl)
+    fn charset(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.charset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString charset;` (html.idl)
+    fn set_charset(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.charset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.name"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn set_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.name"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rev;` (html.idl)
+    fn rev(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.rev"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rev;` (html.idl)
+    fn set_rev(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.rev"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shape;` (html.idl)
+    fn shape(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.shape"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shape;` (html.idl)
+    fn set_shape(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.shape"))
+    }
+
+    /// `readonly attribute USVString origin;` (HyperlinkElementUtils, html.idl)
+    fn origin(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.origin"))
+    }
+
+    /// `[CEReactions] attribute USVString protocol;` (HyperlinkElementUtils, html.idl)
+    fn protocol(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.protocol"))
+    }
+
+    /// `[CEReactions] attribute USVString protocol;` (HyperlinkElementUtils, html.idl)
+    fn set_protocol(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.protocol"))
+    }
+
+    /// `[CEReactions] attribute USVString username;` (HyperlinkElementUtils, html.idl)
+    fn username(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.username"))
+    }
+
+    /// `[CEReactions] attribute USVString username;` (HyperlinkElementUtils, html.idl)
+    fn set_username(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.username"))
+    }
+
+    /// `[CEReactions] attribute USVString password;` (HyperlinkElementUtils, html.idl)
+    fn password(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.password"))
+    }
+
+    /// `[CEReactions] attribute USVString password;` (HyperlinkElementUtils, html.idl)
+    fn set_password(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.password"))
+    }
+
+    /// `[CEReactions] attribute USVString host;` (HyperlinkElementUtils, html.idl)
+    fn host(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.host"))
+    }
+
+    /// `[CEReactions] attribute USVString host;` (HyperlinkElementUtils, html.idl)
+    fn set_host(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.host"))
+    }
+
+    /// `[CEReactions] attribute USVString hostname;` (HyperlinkElementUtils, html.idl)
+    fn hostname(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.hostname"))
+    }
+
+    /// `[CEReactions] attribute USVString hostname;` (HyperlinkElementUtils, html.idl)
+    fn set_hostname(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.hostname"))
+    }
+
+    /// `[CEReactions] attribute USVString port;` (HyperlinkElementUtils, html.idl)
+    fn port(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.port"))
+    }
+
+    /// `[CEReactions] attribute USVString port;` (HyperlinkElementUtils, html.idl)
+    fn set_port(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.port"))
+    }
+
+    /// `[CEReactions] attribute USVString pathname;` (HyperlinkElementUtils, html.idl)
+    fn pathname(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.pathname"))
+    }
+
+    /// `[CEReactions] attribute USVString pathname;` (HyperlinkElementUtils, html.idl)
+    fn set_pathname(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.pathname"))
+    }
+
+    /// `[CEReactions] attribute USVString search;` (HyperlinkElementUtils, html.idl)
+    fn search(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.search"))
+    }
+
+    /// `[CEReactions] attribute USVString search;` (HyperlinkElementUtils, html.idl)
+    fn set_search(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.search"))
+    }
+
+    /// `[CEReactions] attribute USVString hash;` (HyperlinkElementUtils, html.idl)
+    fn hash(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.hash"))
+    }
+
+    /// `[CEReactions] attribute USVString hash;` (HyperlinkElementUtils, html.idl)
+    fn set_hash(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.hash"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (HyperlinkElementUtils, html.idl)
+    fn hreflang(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (HyperlinkElementUtils, html.idl)
+    fn set_hreflang(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (HyperlinkElementUtils, html.idl)
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.type"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (HyperlinkElementUtils, html.idl)
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.type"))
+    }
+
+    /// `[CEReactions, ReflectSetter] stringifier attribute USVString href;` (HTMLHyperlinkElementUtils, html.idl)
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.href"))
+    }
+
+    /// `[CEReactions, ReflectSetter] stringifier attribute USVString href;` (HTMLHyperlinkElementUtils, html.idl)
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.href"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (HTMLHyperlinkElementUtils, html.idl)
+    fn target(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAnchorElement.target"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (HTMLHyperlinkElementUtils, html.idl)
+    fn set_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAnchorElement.target"))
+    }
+}
+
+/// IDL `interface HTMLImageElement : HTMLElement` (html.idl).
+///
+/// Members also from: cssom-view.idl.
+pub trait HTMLImageElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLImageElement"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn alt(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.alt"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn set_alt(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.alt"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString src;` (html.idl)
+    fn src(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.src"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString src;` (html.idl)
+    fn set_src(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.src"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString srcset;` (html.idl)
+    fn srcset(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.srcset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString srcset;` (html.idl)
+    fn set_srcset(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.srcset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString sizes;` (html.idl)
+    fn sizes(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.sizes"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString sizes;` (html.idl)
+    fn set_sizes(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.sizes"))
+    }
+
+    /// `[CEReactions] attribute DOMString? crossOrigin;` (html.idl)
+    fn cross_origin(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.crossOrigin"))
+    }
+
+    /// `[CEReactions] attribute DOMString? crossOrigin;` (html.idl)
+    fn set_cross_origin(&mut self, this: ObjectId, value: Option<String>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.crossOrigin"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString useMap;` (html.idl)
+    fn use_map(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.useMap"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString useMap;` (html.idl)
+    fn set_use_map(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.useMap"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean isMap;` (html.idl)
+    fn is_map(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.isMap"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean isMap;` (html.idl)
+    fn set_is_map(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.isMap"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean controls;` (html.idl)
+    fn controls(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.controls"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean controls;` (html.idl)
+    fn set_controls(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.controls"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long width;` (html.idl)
+    fn width(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.width"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long width;` (html.idl)
+    fn set_width(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.width"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long height;` (html.idl)
+    fn height(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.height"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long height;` (html.idl)
+    fn set_height(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.height"))
+    }
+
+    /// `readonly attribute unsigned long naturalWidth;` (html.idl)
+    fn natural_width(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.naturalWidth"))
+    }
+
+    /// `readonly attribute unsigned long naturalHeight;` (html.idl)
+    fn natural_height(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.naturalHeight"))
+    }
+
+    /// `readonly attribute boolean complete;` (html.idl)
+    fn complete(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.complete"))
+    }
+
+    /// `readonly attribute USVString currentSrc;` (html.idl)
+    fn current_src(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.currentSrc"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn referrer_policy(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn set_referrer_policy(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString decoding;` (html.idl)
+    fn decoding(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.decoding"))
+    }
+
+    /// `[CEReactions] attribute DOMString decoding;` (html.idl)
+    fn set_decoding(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.decoding"))
+    }
+
+    /// `[CEReactions] attribute DOMString loading;` (html.idl)
+    fn loading(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.loading"))
+    }
+
+    /// `[CEReactions] attribute DOMString loading;` (html.idl)
+    fn set_loading(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.loading"))
+    }
+
+    /// `[CEReactions] attribute DOMString fetchPriority;` (html.idl)
+    fn fetch_priority(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.fetchPriority"))
+    }
+
+    /// `[CEReactions] attribute DOMString fetchPriority;` (html.idl)
+    fn set_fetch_priority(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.fetchPriority"))
+    }
+
+    /// `Promise<undefined> decode();` (html.idl)
+    fn decode(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.decode"))
+    }
+
+    /// `readonly attribute long x;` (cssom-view.idl)
+    fn x(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.x"))
+    }
+
+    /// `readonly attribute long y;` (cssom-view.idl)
+    fn y(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.y"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.name"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn set_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.name"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString lowsrc;` (html.idl)
+    fn lowsrc(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.lowsrc"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString lowsrc;` (html.idl)
+    fn set_lowsrc(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.lowsrc"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString align;` (html.idl)
+    fn align(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.align"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString align;` (html.idl)
+    fn set_align(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.align"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long hspace;` (html.idl)
+    fn hspace(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.hspace"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long hspace;` (html.idl)
+    fn set_hspace(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.hspace"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long vspace;` (html.idl)
+    fn vspace(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.vspace"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long vspace;` (html.idl)
+    fn set_vspace(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.vspace"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString longDesc;` (html.idl)
+    fn long_desc(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.longDesc"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString longDesc;` (html.idl)
+    fn set_long_desc(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.longDesc"))
+    }
+
+    /// `[CEReactions, Reflect] attribute [LegacyNullToEmptyString] DOMString border;` (html.idl)
+    fn border(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLImageElement.border"))
+    }
+
+    /// `[CEReactions, Reflect] attribute [LegacyNullToEmptyString] DOMString border;` (html.idl)
+    fn set_border(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLImageElement.border"))
+    }
+}
+
+/// IDL `interface HTMLLinkElement : HTMLElement` (html.idl).
+///
+/// Includes: LinkStyle.
+///
+/// Members also from: cssom.idl.
+pub trait HTMLLinkElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLLinkElement"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString href;` (html.idl)
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.href"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString href;` (html.idl)
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.href"))
+    }
+
+    /// `[CEReactions] attribute DOMString? crossOrigin;` (html.idl)
+    fn cross_origin(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.crossOrigin"))
+    }
+
+    /// `[CEReactions] attribute DOMString? crossOrigin;` (html.idl)
+    fn set_cross_origin(&mut self, this: ObjectId, value: Option<String>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.crossOrigin"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.rel"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.rel"))
+    }
+
+    /// `[CEReactions] attribute DOMString as;` (html.idl)
+    fn as_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.as"))
+    }
+
+    /// `[CEReactions] attribute DOMString as;` (html.idl)
+    fn set_as(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.as"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect="rel"] readonly attribute DOMTokenList relList;` (html.idl)
+    fn rel_list(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.relList"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString media;` (html.idl)
+    fn media(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.media"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString media;` (html.idl)
+    fn set_media(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.media"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString integrity;` (html.idl)
+    fn integrity(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.integrity"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString integrity;` (html.idl)
+    fn set_integrity(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.integrity"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (html.idl)
+    fn hreflang(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (html.idl)
+    fn set_hreflang(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (html.idl)
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.type"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (html.idl)
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.type"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect] readonly attribute DOMTokenList sizes;` (html.idl)
+    fn sizes(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.sizes"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString imageSrcset;` (html.idl)
+    fn image_srcset(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.imageSrcset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString imageSrcset;` (html.idl)
+    fn set_image_srcset(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.imageSrcset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString imageSizes;` (html.idl)
+    fn image_sizes(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.imageSizes"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString imageSizes;` (html.idl)
+    fn set_image_sizes(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.imageSizes"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn referrer_policy(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn set_referrer_policy(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.referrerPolicy"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect] readonly attribute DOMTokenList blocking;` (html.idl)
+    fn blocking(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.blocking"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean disabled;` (html.idl)
+    fn disabled(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.disabled"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean disabled;` (html.idl)
+    fn set_disabled(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.disabled"))
+    }
+
+    /// `[CEReactions] attribute DOMString fetchPriority;` (html.idl)
+    fn fetch_priority(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.fetchPriority"))
+    }
+
+    /// `[CEReactions] attribute DOMString fetchPriority;` (html.idl)
+    fn set_fetch_priority(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.fetchPriority"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString charset;` (html.idl)
+    fn charset(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.charset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString charset;` (html.idl)
+    fn set_charset(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.charset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rev;` (html.idl)
+    fn rev(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.rev"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rev;` (html.idl)
+    fn set_rev(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.rev"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (html.idl)
+    fn target(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.target"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (html.idl)
+    fn set_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLLinkElement.target"))
+    }
+
+    /// `readonly attribute CSSStyleSheet? sheet;` (LinkStyle, cssom.idl)
+    fn sheet(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLLinkElement.sheet"))
+    }
+}
+
+/// IDL `interface HTMLScriptElement : HTMLElement` (html.idl).
+pub trait HTMLScriptElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLScriptElement"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (html.idl)
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.type"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (html.idl)
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.type"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScriptURL or USVString) src;` (html.idl)
+    fn src(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.src"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScriptURL or USVString) src;` (html.idl)
+    fn set_src(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.src"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean noModule;` (html.idl)
+    fn no_module(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.noModule"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean noModule;` (html.idl)
+    fn set_no_module(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.noModule"))
+    }
+
+    /// `[CEReactions] attribute boolean _async;` (html.idl)
+    fn async_(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.async"))
+    }
+
+    /// `[CEReactions] attribute boolean _async;` (html.idl)
+    fn set_async(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.async"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean defer;` (html.idl)
+    fn defer(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.defer"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean defer;` (html.idl)
+    fn set_defer(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.defer"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect] readonly attribute DOMTokenList blocking;` (html.idl)
+    fn blocking(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.blocking"))
+    }
+
+    /// `[CEReactions] attribute DOMString? crossOrigin;` (html.idl)
+    fn cross_origin(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.crossOrigin"))
+    }
+
+    /// `[CEReactions] attribute DOMString? crossOrigin;` (html.idl)
+    fn set_cross_origin(&mut self, this: ObjectId, value: Option<String>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.crossOrigin"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn referrer_policy(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn set_referrer_policy(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString integrity;` (html.idl)
+    fn integrity(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.integrity"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString integrity;` (html.idl)
+    fn set_integrity(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.integrity"))
+    }
+
+    /// `[CEReactions] attribute DOMString fetchPriority;` (html.idl)
+    fn fetch_priority(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.fetchPriority"))
+    }
+
+    /// `[CEReactions] attribute DOMString fetchPriority;` (html.idl)
+    fn set_fetch_priority(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.fetchPriority"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScript or [LegacyNullToEmptyString] DOMString) innerText;` (html.idl)
+    fn inner_text(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.innerText"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScript or [LegacyNullToEmptyString] DOMString) innerText;` (html.idl)
+    fn set_inner_text(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.innerText"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScript or DOMString)? textContent;` (html.idl)
+    fn text_content(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.textContent"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScript or DOMString)? textContent;` (html.idl)
+    fn set_text_content(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.textContent"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScript or DOMString) text;` (html.idl)
+    fn text(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.text"))
+    }
+
+    /// `[CEReactions] attribute (TrustedScript or DOMString) text;` (html.idl)
+    fn set_text(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.text"))
+    }
+
+    /// `static boolean supports(DOMString type);` (html.idl)
+    fn supports(&mut self, type_: String) -> BindingResult<bool> {
+        let _ = type_;
+        Err(BindingError::NotImplemented("HTMLScriptElement.supports"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString charset;` (html.idl)
+    fn charset(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.charset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString charset;` (html.idl)
+    fn set_charset(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.charset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString event;` (html.idl)
+    fn event(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.event"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString event;` (html.idl)
+    fn set_event(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.event"))
+    }
+
+    /// `[CEReactions, Reflect="for"] attribute DOMString htmlFor;` (html.idl)
+    fn html_for(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLScriptElement.htmlFor"))
+    }
+
+    /// `[CEReactions, Reflect="for"] attribute DOMString htmlFor;` (html.idl)
+    fn set_html_for(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLScriptElement.htmlFor"))
+    }
+}
+
+/// IDL `interface HTMLInputElement : HTMLElement` (html.idl).
+///
+/// Includes: PopoverTargetAttributes.
+pub trait HTMLInputElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLInputElement"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString accept;` (html.idl)
+    fn accept(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.accept"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString accept;` (html.idl)
+    fn set_accept(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.accept"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean alpha;` (html.idl)
+    fn alpha(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.alpha"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean alpha;` (html.idl)
+    fn set_alpha(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.alpha"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn alt(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.alt"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn set_alt(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.alt"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute DOMString autocomplete;` (html.idl)
+    fn autocomplete(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.autocomplete"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute DOMString autocomplete;` (html.idl)
+    fn set_autocomplete(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.autocomplete"))
+    }
+
+    /// `[CEReactions, Reflect="checked"] attribute boolean defaultChecked;` (html.idl)
+    fn default_checked(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.defaultChecked"))
+    }
+
+    /// `[CEReactions, Reflect="checked"] attribute boolean defaultChecked;` (html.idl)
+    fn set_default_checked(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.defaultChecked"))
+    }
+
+    /// `attribute boolean checked;` (html.idl)
+    fn checked(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.checked"))
+    }
+
+    /// `attribute boolean checked;` (html.idl)
+    fn set_checked(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.checked"))
+    }
+
+    /// `[CEReactions] attribute DOMString colorSpace;` (html.idl)
+    fn color_space(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.colorSpace"))
+    }
+
+    /// `[CEReactions] attribute DOMString colorSpace;` (html.idl)
+    fn set_color_space(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.colorSpace"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString dirName;` (html.idl)
+    fn dir_name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.dirName"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString dirName;` (html.idl)
+    fn set_dir_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.dirName"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean disabled;` (html.idl)
+    fn disabled(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.disabled"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean disabled;` (html.idl)
+    fn set_disabled(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.disabled"))
+    }
+
+    /// `readonly attribute HTMLFormElement? form;` (html.idl)
+    fn form(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.form"))
+    }
+
+    /// `attribute FileList? files;` (html.idl)
+    fn files(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.files"))
+    }
+
+    /// `attribute FileList? files;` (html.idl)
+    fn set_files(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.files"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute USVString formAction;` (html.idl)
+    fn form_action(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.formAction"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute USVString formAction;` (html.idl)
+    fn set_form_action(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.formAction"))
+    }
+
+    /// `[CEReactions] attribute DOMString formEnctype;` (html.idl)
+    fn form_enctype(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.formEnctype"))
+    }
+
+    /// `[CEReactions] attribute DOMString formEnctype;` (html.idl)
+    fn set_form_enctype(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.formEnctype"))
+    }
+
+    /// `[CEReactions] attribute DOMString formMethod;` (html.idl)
+    fn form_method(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.formMethod"))
+    }
+
+    /// `[CEReactions] attribute DOMString formMethod;` (html.idl)
+    fn set_form_method(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.formMethod"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean formNoValidate;` (html.idl)
+    fn form_no_validate(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.formNoValidate"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean formNoValidate;` (html.idl)
+    fn set_form_no_validate(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.formNoValidate"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString formTarget;` (html.idl)
+    fn form_target(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.formTarget"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString formTarget;` (html.idl)
+    fn set_form_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.formTarget"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long height;` (html.idl)
+    fn height(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.height"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long height;` (html.idl)
+    fn set_height(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.height"))
+    }
+
+    /// `attribute boolean indeterminate;` (html.idl)
+    fn indeterminate(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.indeterminate"))
+    }
+
+    /// `attribute boolean indeterminate;` (html.idl)
+    fn set_indeterminate(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.indeterminate"))
+    }
+
+    /// `readonly attribute HTMLDataListElement? list;` (html.idl)
+    fn list(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.list"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString max;` (html.idl)
+    fn max(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.max"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString max;` (html.idl)
+    fn set_max(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.max"))
+    }
+
+    /// `[CEReactions, ReflectNonNegative] attribute long maxLength;` (html.idl)
+    fn max_length(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.maxLength"))
+    }
+
+    /// `[CEReactions, ReflectNonNegative] attribute long maxLength;` (html.idl)
+    fn set_max_length(&mut self, this: ObjectId, value: i32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.maxLength"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString min;` (html.idl)
+    fn min(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.min"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString min;` (html.idl)
+    fn set_min(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.min"))
+    }
+
+    /// `[CEReactions, ReflectNonNegative] attribute long minLength;` (html.idl)
+    fn min_length(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.minLength"))
+    }
+
+    /// `[CEReactions, ReflectNonNegative] attribute long minLength;` (html.idl)
+    fn set_min_length(&mut self, this: ObjectId, value: i32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.minLength"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean multiple;` (html.idl)
+    fn multiple(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.multiple"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean multiple;` (html.idl)
+    fn set_multiple(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.multiple"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.name"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn set_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.name"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString pattern;` (html.idl)
+    fn pattern(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.pattern"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString pattern;` (html.idl)
+    fn set_pattern(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.pattern"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString placeholder;` (html.idl)
+    fn placeholder(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.placeholder"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString placeholder;` (html.idl)
+    fn set_placeholder(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.placeholder"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean readOnly;` (html.idl)
+    fn read_only(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.readOnly"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean readOnly;` (html.idl)
+    fn set_read_only(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.readOnly"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean _required;` (html.idl)
+    fn required(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.required"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean _required;` (html.idl)
+    fn set_required(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.required"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long size;` (html.idl)
+    fn size(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.size"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long size;` (html.idl)
+    fn set_size(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.size"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString src;` (html.idl)
+    fn src(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.src"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString src;` (html.idl)
+    fn set_src(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.src"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString step;` (html.idl)
+    fn step(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.step"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString step;` (html.idl)
+    fn set_step(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.step"))
+    }
+
+    /// `[CEReactions] attribute DOMString type;` (html.idl)
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.type"))
+    }
+
+    /// `[CEReactions] attribute DOMString type;` (html.idl)
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.type"))
+    }
+
+    /// `[CEReactions, Reflect="value"] attribute DOMString defaultValue;` (html.idl)
+    fn default_value(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.defaultValue"))
+    }
+
+    /// `[CEReactions, Reflect="value"] attribute DOMString defaultValue;` (html.idl)
+    fn set_default_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.defaultValue"))
+    }
+
+    /// `[CEReactions] attribute [LegacyNullToEmptyString] DOMString value;` (html.idl)
+    fn value(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.value"))
+    }
+
+    /// `[CEReactions] attribute [LegacyNullToEmptyString] DOMString value;` (html.idl)
+    fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.value"))
+    }
+
+    /// `attribute object? valueAsDate;` (html.idl)
+    fn value_as_date(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.valueAsDate"))
+    }
+
+    /// `attribute object? valueAsDate;` (html.idl)
+    fn set_value_as_date(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.valueAsDate"))
+    }
+
+    /// `attribute unrestricted double valueAsNumber;` (html.idl)
+    fn value_as_number(&mut self, this: ObjectId) -> BindingResult<f64> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.valueAsNumber"))
+    }
+
+    /// `attribute unrestricted double valueAsNumber;` (html.idl)
+    fn set_value_as_number(&mut self, this: ObjectId, value: f64) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.valueAsNumber"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long width;` (html.idl)
+    fn width(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.width"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute unsigned long width;` (html.idl)
+    fn set_width(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.width"))
+    }
+
+    /// `undefined stepUp(optional long n = 1);` (html.idl)
+    fn step_up(&mut self, this: ObjectId, n: i32) -> BindingResult<()> {
+        let _ = (this, n);
+        Err(BindingError::NotImplemented("HTMLInputElement.stepUp"))
+    }
+
+    /// `undefined stepDown(optional long n = 1);` (html.idl)
+    fn step_down(&mut self, this: ObjectId, n: i32) -> BindingResult<()> {
+        let _ = (this, n);
+        Err(BindingError::NotImplemented("HTMLInputElement.stepDown"))
+    }
+
+    /// `readonly attribute boolean willValidate;` (html.idl)
+    fn will_validate(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.willValidate"))
+    }
+
+    /// `readonly attribute ValidityState validity;` (html.idl)
+    fn validity(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.validity"))
+    }
+
+    /// `readonly attribute DOMString validationMessage;` (html.idl)
+    fn validation_message(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.validationMessage"))
+    }
+
+    /// `boolean checkValidity();` (html.idl)
+    fn check_validity(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.checkValidity"))
+    }
+
+    /// `boolean reportValidity();` (html.idl)
+    fn report_validity(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.reportValidity"))
+    }
+
+    /// `undefined setCustomValidity(DOMString error);` (html.idl)
+    fn set_custom_validity(&mut self, this: ObjectId, error: String) -> BindingResult<()> {
+        let _ = (this, error);
+        Err(BindingError::NotImplemented("HTMLInputElement.setCustomValidity"))
+    }
+
+    /// `readonly attribute NodeList? labels;` (html.idl)
+    fn labels(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.labels"))
+    }
+
+    /// `undefined select();` (html.idl)
+    fn select(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.select"))
+    }
+
+    /// `attribute unsigned long? selectionStart;` (html.idl)
+    fn selection_start(&mut self, this: ObjectId) -> BindingResult<Option<u32>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.selectionStart"))
+    }
+
+    /// `attribute unsigned long? selectionStart;` (html.idl)
+    fn set_selection_start(&mut self, this: ObjectId, value: Option<u32>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.selectionStart"))
+    }
+
+    /// `attribute unsigned long? selectionEnd;` (html.idl)
+    fn selection_end(&mut self, this: ObjectId) -> BindingResult<Option<u32>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.selectionEnd"))
+    }
+
+    /// `attribute unsigned long? selectionEnd;` (html.idl)
+    fn set_selection_end(&mut self, this: ObjectId, value: Option<u32>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.selectionEnd"))
+    }
+
+    /// `attribute DOMString? selectionDirection;` (html.idl)
+    fn selection_direction(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.selectionDirection"))
+    }
+
+    /// `attribute DOMString? selectionDirection;` (html.idl)
+    fn set_selection_direction(&mut self, this: ObjectId, value: Option<String>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.selectionDirection"))
+    }
+
+    /// `undefined setRangeText(DOMString replacement);` (html.idl)
+    fn set_range_text(&mut self, this: ObjectId, replacement: String) -> BindingResult<()> {
+        let _ = (this, replacement);
+        Err(BindingError::NotImplemented("HTMLInputElement.setRangeText"))
+    }
+
+    /// `undefined setRangeText(DOMString replacement, unsigned long start, unsigned long end, optional SelectionMode selectionMode = "preserve");` (html.idl)
+    fn set_range_text_2(&mut self, this: ObjectId, replacement: String, start: u32, end: u32, selection_mode: String) -> BindingResult<()> {
+        let _ = (this, replacement, start, end, selection_mode);
+        Err(BindingError::NotImplemented("HTMLInputElement.setRangeText"))
+    }
+
+    /// `undefined setSelectionRange(unsigned long start, unsigned long end, optional DOMString direction);` (html.idl)
+    fn set_selection_range(&mut self, this: ObjectId, start: u32, end: u32, direction: Option<String>) -> BindingResult<()> {
+        let _ = (this, start, end, direction);
+        Err(BindingError::NotImplemented("HTMLInputElement.setSelectionRange"))
+    }
+
+    /// `undefined showPicker();` (html.idl)
+    fn show_picker(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.showPicker"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString align;` (html.idl)
+    fn align(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.align"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString align;` (html.idl)
+    fn set_align(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.align"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString useMap;` (html.idl)
+    fn use_map(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.useMap"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString useMap;` (html.idl)
+    fn set_use_map(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.useMap"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long hspace;` (html.idl)
+    fn hspace(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.hspace"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long hspace;` (html.idl)
+    fn set_hspace(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.hspace"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long vspace;` (html.idl)
+    fn vspace(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.vspace"))
+    }
+
+    /// `[CEReactions, Reflect] attribute unsigned long vspace;` (html.idl)
+    fn set_vspace(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.vspace"))
+    }
+
+    /// `[CEReactions, Reflect="popovertarget"] attribute Element? popoverTargetElement;` (PopoverTargetAttributes, html.idl)
+    fn popover_target_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.popoverTargetElement"))
+    }
+
+    /// `[CEReactions, Reflect="popovertarget"] attribute Element? popoverTargetElement;` (PopoverTargetAttributes, html.idl)
+    fn set_popover_target_element(&mut self, this: ObjectId, value: Option<ObjectId>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.popoverTargetElement"))
+    }
+
+    /// `[CEReactions] attribute DOMString popoverTargetAction;` (PopoverTargetAttributes, html.idl)
+    fn popover_target_action(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLInputElement.popoverTargetAction"))
+    }
+
+    /// `[CEReactions] attribute DOMString popoverTargetAction;` (PopoverTargetAttributes, html.idl)
+    fn set_popover_target_action(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLInputElement.popoverTargetAction"))
     }
 }

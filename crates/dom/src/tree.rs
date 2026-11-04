@@ -432,6 +432,7 @@ impl Document {
                 let c = self.children(n);
                 size += c.len();
                 stack.extend_from_slice(c);
+                stack.extend(self.template_of(n));
             }
         }
         self.check_room_for(size).map_err(|e| self.fail(e))?;
@@ -439,6 +440,11 @@ impl Document {
         if deep {
             let mut stack: Vec<(usize, usize)> = vec![(top, copy)];
             while let Some((from, to)) = stack.pop() {
+                // HTML §4.12.3 cloning steps: a template's content too.
+                if let Some(content) = self.template_of(from) {
+                    let new_content = self.template_content(to).map_err(|e| self.fail(e))?;
+                    stack.push((content, new_content));
+                }
                 let children: Vec<usize> = self.children(from).to_vec();
                 let mut made = Vec::with_capacity(children.len());
                 for c in children {

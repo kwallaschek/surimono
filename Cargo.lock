@@ -1838,6 +1838,7 @@ dependencies = [
  "surimono-core",
  "surimono-webidl",
  "thiserror",
+ "url",
 ]
 
 [[package]]

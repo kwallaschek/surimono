@@ -13,7 +13,7 @@ use surimono_webidl::stubs as idl;
 use crate::dispatch::interface;
 use blitz_dom::QualName;
 
-use crate::document::{self, Handle, Kind, ListKind, Object, Owned};
+use crate::document::{self, Handle, Kind, ListKind, MutationRecord, Object, Owned};
 use crate::style_attr::{self, Declaration};
 use crate::tree::dom_error;
 use crate::{Document, DomError};
@@ -165,10 +165,21 @@ impl Document {
     fn set_inner(&mut self, id: usize, html: &str) -> BindingResult<()> {
         let context = self.parse_context(id);
         if let Some(frag) = self.parse_fragment_in(context, id, html)? {
-            self.remove_all_children(id);
-            self.insert_parsed(id, frag, None);
+            // HTML §8.5: a template's innerHTML is its content.
+            let top = if self.is_template(id) {
+                self.template_content(id).map_err(|e| self.fail(e))?
+            } else {
+                id
+            };
+            self.remove_all_children(top);
+            self.insert_parsed(top, frag, None);
         }
         Ok(())
+    }
+
+    fn is_template(&self, id: usize) -> bool {
+        self.element_name(id)
+            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "template")
     }
 
     /// The context element `id` gives the fragment parser: itself, or a new
@@ -377,6 +388,17 @@ impl Document {
         Document::set_attribute(self, id, name, value).map_err(|e| self.fail(e))
     }
 
+    /// A reflected URL attribute (HTML §2.6.1): the value parsed, or as
+    /// written if that fails. There is no document base, so a relative URL
+    /// is one that fails.
+    fn reflected_url(&mut self, this: ObjectId, name: &str) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        let Some(value) = self.attribute(id, name) else {
+            return Ok(String::new());
+        };
+        Ok(url::Url::parse(&value).map_or(value, String::from))
+    }
+
     fn opt_node(&mut self, id: Option<ObjectId>) -> BindingResult<Option<usize>> {
         id.map(|i| self.node_of(i)).transpose()
     }
@@ -398,6 +420,7 @@ impl Document {
             Object::Attributes(_) => return Ok(interface::NAMED_NODE_MAP),
             Object::Dataset(_) => return Ok(interface::DOM_STRING_MAP),
             Object::Style(_) => return Ok(interface::CSS_STYLE_DECLARATION),
+            Object::Record(_) => return Ok(interface::MUTATION_RECORD),
             Object::Attr(..) => return Ok(interface::ATTR),
         };
         Ok(match self.kind(id) {
@@ -405,13 +428,58 @@ impl Document {
             Some(Kind::DocumentFragment) => interface::DOCUMENT_FRAGMENT,
             Some(Kind::Text) => interface::TEXT,
             Some(Kind::Comment) => interface::COMMENT,
-            Some(Kind::Element) if self.element_name(id).is_some_and(|n| n.ns == ns!(html)) => {
-                interface::HTML_ELEMENT
-            }
-            Some(Kind::Element) => interface::ELEMENT,
+            Some(Kind::Element) => match self.element_name(id) {
+                Some(n) if n.ns == ns!(html) => match n.local.as_ref() {
+                    "a" => interface::HTML_ANCHOR_ELEMENT,
+                    "img" => interface::HTML_IMAGE_ELEMENT,
+                    "input" => interface::HTML_INPUT_ELEMENT,
+                    "link" => interface::HTML_LINK_ELEMENT,
+                    "script" => interface::HTML_SCRIPT_ELEMENT,
+                    "template" => interface::HTML_TEMPLATE_ELEMENT,
+                    _ => interface::HTML_ELEMENT,
+                },
+                _ => interface::ELEMENT,
+            },
             // Layout boxes, which no tree link reaches before layout.
             None => interface::NODE,
         })
+    }
+
+    pub(crate) fn observer_new(&mut self) -> BindingResult<u32> {
+        Ok(self.new_observer())
+    }
+
+    pub(crate) fn observe(
+        &mut self,
+        observer: u32,
+        target: ObjectId,
+        flags: u32,
+        names: String,
+    ) -> BindingResult<()> {
+        let id = self.node_of(target)?;
+        self.add_registration(observer, id, flags, &names);
+        Ok(())
+    }
+
+    pub(crate) fn observer_disconnect(&mut self, observer: u32) -> BindingResult<()> {
+        self.remove_registrations(observer);
+        Ok(())
+    }
+
+    /// The observer's next record's handle, 0 for none.
+    pub(crate) fn observer_take(&mut self, observer: u32) -> BindingResult<u32> {
+        Ok(self.next_record(observer).unwrap_or(0))
+    }
+
+    pub(crate) fn records_pending(&mut self) -> BindingResult<bool> {
+        Ok(self.has_records())
+    }
+
+    fn record_of(&mut self, this: ObjectId) -> BindingResult<Box<MutationRecord>> {
+        match self.object_at(this)? {
+            Object::Record(r) => Ok(r),
+            _ => Err(BindingError::TypeError("not a MutationRecord".to_owned())),
+        }
     }
 
     /// Operation 2: the page lifecycle moves `readyState`.
@@ -1180,6 +1248,17 @@ impl idl::Document for Document {
         self.created(r)
     }
 
+    fn import_node(
+        &mut self,
+        _this: ObjectId,
+        node: ObjectId,
+        options: Value,
+    ) -> BindingResult<ObjectId> {
+        let id = self.node_of(node)?;
+        let copy = self.clone_tree(id, matches!(options, Value::Bool(true)))?;
+        self.object(copy)
+    }
+
     fn create_document_fragment(&mut self, _this: ObjectId) -> BindingResult<ObjectId> {
         let r = self.create_fragment();
         self.created(r)
@@ -1790,5 +1869,202 @@ impl idl::CSSStyleDeclaration for Document {
             self.store_style(id, &list)?;
         }
         Ok(old)
+    }
+}
+
+impl idl::MutationRecord for Document {
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        Ok(self.record_of(this)?.kind.to_owned())
+    }
+
+    fn target(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let t = self.record_of(this)?.target;
+        self.object(t)
+    }
+
+    fn added_nodes(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        Ok(ObjectId(u64::from(self.record_of(this)?.added)))
+    }
+
+    fn removed_nodes(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        Ok(ObjectId(u64::from(self.record_of(this)?.removed)))
+    }
+
+    fn previous_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let n = self.record_of(this)?.previous;
+        self.opt_object(n)
+    }
+
+    fn next_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let n = self.record_of(this)?.next;
+        self.opt_object(n)
+    }
+
+    fn attribute_name(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        Ok(self.record_of(this)?.attribute)
+    }
+
+    fn attribute_namespace(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        Ok(self.record_of(this)?.namespace)
+    }
+
+    fn old_value(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        Ok(self.record_of(this)?.old_value)
+    }
+}
+
+impl idl::HTMLTemplateElement for Document {
+    fn content(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        match self.template_content(id) {
+            Ok(c) => self.object(c),
+            Err(e) => Err(self.fail(e)),
+        }
+    }
+}
+
+impl idl::HTMLAnchorElement for Document {
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected_url(this, "href")
+    }
+
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "href", &value)
+    }
+
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "rel")
+    }
+
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "rel", &value)
+    }
+}
+
+impl idl::HTMLImageElement for Document {
+    fn src(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected_url(this, "src")
+    }
+
+    fn set_src(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "src", &value)
+    }
+
+    fn alt(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "alt")
+    }
+
+    fn set_alt(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "alt", &value)
+    }
+}
+
+impl idl::HTMLLinkElement for Document {
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected_url(this, "href")
+    }
+
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "href", &value)
+    }
+
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "rel")
+    }
+
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "rel", &value)
+    }
+}
+
+impl idl::HTMLScriptElement for Document {
+    fn src(&mut self, this: ObjectId) -> BindingResult<Value> {
+        self.reflected_url(this, "src").map(Value::String)
+    }
+
+    fn set_src(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        self.reflect(this, "src", &value_string(value))
+    }
+
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "type")
+    }
+
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "type", &value)
+    }
+}
+
+/// `value` and `checked` write the attribute, not the element's dirty state
+/// (HTML §4.10.5): what a script fills in has to reach the printed page, and
+/// serialized HTML is what gets printed.
+impl idl::HTMLInputElement for Document {
+    fn value(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "value")
+    }
+
+    fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "value", &value)
+    }
+
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        // HTML §4.10.5: limited to known values, else text.
+        let t = self.reflected(this, "type")?.to_ascii_lowercase();
+        const KNOWN: &[&str] = &[
+            "hidden",
+            "text",
+            "search",
+            "tel",
+            "url",
+            "email",
+            "password",
+            "date",
+            "month",
+            "week",
+            "time",
+            "datetime-local",
+            "number",
+            "range",
+            "color",
+            "checkbox",
+            "radio",
+            "file",
+            "submit",
+            "image",
+            "reset",
+            "button",
+        ];
+        Ok(if KNOWN.contains(&t.as_str()) {
+            t
+        } else {
+            "text".to_owned()
+        })
+    }
+
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "type", &value)
+    }
+
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "name")
+    }
+
+    fn set_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "name", &value)
+    }
+
+    fn checked(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(self.attribute(id, "checked").is_some())
+    }
+
+    fn set_checked(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        if value {
+            Document::set_attribute(self, id, "checked", "").map_err(|e| self.fail(e))
+        } else {
+            Document::remove_attribute(self, id, "checked");
+            Ok(())
+        }
     }
 }

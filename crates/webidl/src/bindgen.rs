@@ -54,6 +54,21 @@ const JS_INTERFACES: &[&str] = &[
     "CustomEvent",
     "ErrorEvent",
     "Window",
+    "MutationObserver",
+];
+
+/// Operations for the glue that aren't IDL members: the name its `OP_<name>`
+/// constant takes, and the call on the host.
+const HOST_OPS: &[(&str, &str)] = &[
+    ("setReadyState", "h.set_ready_state(a.uint(0)?)"),
+    ("observerNew", "h.observer_new()"),
+    (
+        "observe",
+        "h.observe(a.uint(0)?, a.id(1)?, a.uint(2)?, a.string(3)?)",
+    ),
+    ("observerDisconnect", "h.observer_disconnect(a.uint(0)?)"),
+    ("observerTake", "h.observer_take(a.uint(0)?)"),
+    ("recordsPending", "h.records_pending()"),
 ];
 
 /// A member name that isn't in the IDL. CSSOM defines
@@ -75,10 +90,10 @@ pub struct Bindings {
 const OP_INTERFACE: u32 = 0;
 /// Operation 1: an exotic object's supported property names.
 const OP_NAMES: u32 = 1;
-/// Operation 2: the page lifecycle moves `document.readyState`.
-const OP_SET_READY_STATE: u32 = 2;
+/// The operations from [`HOST_OPS`] start here.
+const OP_HOST: u32 = 2;
 /// The first operation number for generated members.
-const OP_FIRST: u32 = 3;
+const OP_FIRST: u32 = OP_HOST + HOST_OPS.len() as u32;
 
 /// Everything for one member's two halves.
 struct Out {
@@ -137,6 +152,8 @@ enum Conv {
     Obj(usize),
     /// `(Node or DOMString)`, for the variadic node methods.
     NodeOrStr,
+    /// `(boolean or ImportNodeOptions)`: whether the whole subtree is meant.
+    DeepFlag,
     /// Not converted: passed as `undefined` (dictionaries, callbacks).
     Skip,
 }
@@ -174,7 +191,10 @@ fn conv(gen_: &Gen<'_>, table: &[BindInterface], t: &Type, depth: u32) -> Option
                     if gen_.names.get(n.as_str()) == Some(&NameKind::Dictionary))
             });
             if dictionary {
-                return Some(Conv::Skip);
+                let boolean = ts
+                    .iter()
+                    .any(|b| matches!(&b.kind, TypeKind::Named(n) if n == "boolean"));
+                return Some(if boolean { Conv::DeepFlag } else { Conv::Skip });
             }
             // `(TrustedHTML or DOMString)` and the like: Trusted Types aren't
             // in scope, so the string branch is the type.
@@ -216,6 +236,7 @@ fn js_arg(c: &Conv, t: &Type, x: &str, g: &str) -> String {
         Conv::Int(e) => format!("({})", e.replace('x', x)),
         Conv::Obj(id) => format!("obj({x}, {id}, {g})"),
         Conv::NodeOrStr => format!("nodeOrStr({x}, {g})"),
+        Conv::DeepFlag => format!("deepFlag({x})"),
         Conv::Skip => return "undefined".to_owned(),
     };
     if let Conv::Str(true) = c {
@@ -890,7 +911,9 @@ pub fn generate_bindings(
     }
     js.push_str(&out.js);
 
-    let _ = writeln!(js, "const OP_setReadyState = {OP_SET_READY_STATE};");
+    for (i, (name, _)) in HOST_OPS.iter().enumerate() {
+        let _ = writeln!(js, "const OP_{name} = {};", OP_HOST + i as u32);
+    }
     let _ = writeln!(js, "const OP_parentNode = {};", out.parent_node_op);
     let mut rust = note("//");
     rust.push_str("\nuse surimono_webidl::runtime::{BindingError, BindingResult, ObjectId};\n");
@@ -916,10 +939,13 @@ pub fn generate_bindings(
         rust,
         "        {OP_NAMES} => h.supported_names(this).map(Ret::from),"
     );
-    let _ = writeln!(
-        rust,
-        "        {OP_SET_READY_STATE} => h.set_ready_state(a.uint(0)?).map(Ret::from),"
-    );
+    for (i, (_, call)) in HOST_OPS.iter().enumerate() {
+        let _ = writeln!(
+            rust,
+            "        {} => {call}.map(Ret::from),",
+            OP_HOST + i as u32
+        );
+    }
     rust.push_str(&out.arms);
     rust.push_str(
         "        _ => Err(BindingError::TypeError(\"unknown operation\".to_owned())),\n    }\n}\n",
@@ -1089,6 +1115,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "createDocumentFragment",
             "createTextNode",
             "createComment",
+            "importNode",
             "adoptNode",
             "children",
             "firstElementChild",
@@ -1114,6 +1141,11 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "append",
             "replaceChildren",
         ],
+    },
+    // Shadow trees are out of scope, but libraries test `instanceof ShadowRoot`.
+    BindInterface {
+        name: "ShadowRoot",
+        members: &[],
     },
     BindInterface {
         name: "CharacterData",
@@ -1184,6 +1216,48 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &["named_getter", "named_setter", "named_deleter"],
     },
     BindInterface {
+        name: "MutationObserver",
+        members: &["constructor", "observe", "disconnect", "takeRecords"],
+    },
+    BindInterface {
+        name: "MutationRecord",
+        members: &[
+            "type",
+            "target",
+            "addedNodes",
+            "removedNodes",
+            "previousSibling",
+            "nextSibling",
+            "attributeName",
+            "attributeNamespace",
+            "oldValue",
+        ],
+    },
+    BindInterface {
+        name: "HTMLTemplateElement",
+        members: &["content"],
+    },
+    BindInterface {
+        name: "HTMLAnchorElement",
+        members: &["href", "rel"],
+    },
+    BindInterface {
+        name: "HTMLImageElement",
+        members: &["src", "alt"],
+    },
+    BindInterface {
+        name: "HTMLLinkElement",
+        members: &["href", "rel"],
+    },
+    BindInterface {
+        name: "HTMLScriptElement",
+        members: &["src", "type"],
+    },
+    BindInterface {
+        name: "HTMLInputElement",
+        members: &["value", "type", "name", "checked"],
+    },
+    BindInterface {
         name: "CSSStyleDeclaration",
         members: &[
             "cssText",
@@ -1224,13 +1298,16 @@ mod tests {
         assert!(b.js.contains(r#"op(0, "z", function z(a0) {"#), "{}", b.js);
         assert!(!b.js.contains('x') || !b.js.contains(r#""x""#));
         assert!(
-            b.rust.contains("3 => idl::A::y(h, this).map(Ret::from),"),
+            b.rust
+                .contains(&format!("{OP_FIRST} => idl::A::y(h, this).map(Ret::from),")),
             "{}",
             b.rust
         );
         assert!(
-            b.rust
-                .contains("4 => idl::A::z(h, this, a.string(0)?, a.boolean(1)?).map(Ret::from),"),
+            b.rust.contains(&format!(
+                "{} => idl::A::z(h, this, a.string(0)?, a.boolean(1)?).map(Ret::from),",
+                OP_FIRST + 1
+            )),
             "{}",
             b.rust
         );

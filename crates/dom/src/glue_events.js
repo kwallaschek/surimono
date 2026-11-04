@@ -249,6 +249,86 @@
 
   H.Window_devicePixelRatio = () => 1;
 
+  // ------ MutationObserver (DOM §4.3) ------
+  //
+  // Registrations and records are in Rust, which sees the mutations; the
+  // callback is here. Once an observer exists, every native call goes through
+  // `observedCall`, which queues the notify microtask when a record is
+  // waiting. A page without observers pays nothing.
+
+  const observers = list();
+  let notifyQueued = false;
+  const nativeCall = n.call;
+  function observedCall() {
+    const r = apply(nativeCall, undefined, arguments);
+    if (!notifyQueued && nativeCall(OP_recordsPending, current(), root())) {
+      notifyQueued = true;
+      queueMicrotaskReal(notify);
+    }
+    return r;
+  }
+  function takeRecords(s) {
+    const records = list();
+    const g = current();
+    for (;;) {
+      const h = call(OP_observerTake, g, root(), s.observer);
+      if (h === 0) break;
+      add(records, wrap(g, h));
+    }
+    return records;
+  }
+  // §4.3.2 "notify mutation observers".
+  function notify() {
+    notifyQueued = false;
+    const all = copy(observers);
+    for (let i = 0; i < all.n; i++) {
+      const s = all[i];
+      const records = takeRecords(s);
+      if (records.n === 0) continue;
+      try {
+        apply(s.callback, s.w, [realArray(records), s.w]);
+      } catch (x) {
+        reportException(x);
+      }
+    }
+  }
+  H.new_MutationObserver = (target, callback) => {
+    if (typeof callback !== 'function') throw new TE('MutationObserver: the callback is not a function');
+    const s = make(I_MutationObserver, target);
+    s.callback = callback;
+    s.observer = call(OP_observerNew, current(), root());
+    add(observers, s);
+    call = observedCall;
+    return s.w;
+  };
+  // §4.3.1 observe.
+  H.MutationObserver_observe = (s, target, d) => {
+    d = dictionary(d, 'observe');
+    const childList = !!d.childList, subtree = !!d.subtree;
+    const attributeOld = d.attributeOldValue, filter = d.attributeFilter, characterOld = d.characterDataOldValue;
+    let attributes = d.attributes, characterData = d.characterData;
+    if (attributes === undefined && (attributeOld !== undefined || filter !== undefined)) attributes = true;
+    if (characterData === undefined && characterOld !== undefined) characterData = true;
+    attributes = !!attributes; characterData = !!characterData;
+    if (!childList && !attributes && !characterData) {
+      throw new TE('observe: one of childList, attributes or characterData is required');
+    }
+    if (!!attributeOld && !attributes) throw new TE('observe: attributeOldValue needs attributes');
+    if (filter !== undefined && !attributes) throw new TE('observe: attributeFilter needs attributes');
+    if (!!characterOld && !characterData) throw new TE('observe: characterDataOldValue needs characterData');
+    let names = '';
+    if (filter !== undefined) {
+      const m = filter.length >>> 0;
+      for (let i = 0; i < m; i++) names += (i === 0 ? '' : '\n') + str(filter[i]);
+    }
+    const flags = (childList ? 1 : 0) | (attributes ? 2 : 0) | (characterData ? 4 : 0) | (subtree ? 8 : 0) |
+      (attributeOld ? 16 : 0) | (characterOld ? 32 : 0) | (filter !== undefined ? 64 : 0);
+    if (target.g !== current()) stale();
+    call(OP_observe, target.g, target.h, s.observer, target.h, flags, names);
+  };
+  H.MutationObserver_disconnect = (s) => { call(OP_observerDisconnect, current(), root(), s.observer); };
+  H.MutationObserver_takeRecords = (s) => realArray(takeRecords(s));
+
   // ------ Firing, and the page's life (HTML §13.2.7 "the end") ------
 
   // §2.10 "fire an event".

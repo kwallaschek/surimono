@@ -163,6 +163,25 @@ The parser has finished before the first script runs, so a script sees the whole
 tree: `document.write` has no meaning here (not bound), and a script can't
 observe the parse. A `<script>` a script inserts doesn't run yet.
 
+## MutationObserver
+
+Registrations and record queues are in Rust, which sees the mutations
+(`Document::queue_record`); records are objects behind handles, so they count
+against `max_handles` and a script that never yields ends in `HandleLimit`. The
+callback is in the glue. Once an observer exists the glue's `call` binding
+becomes `observedCall`, which queues the notify microtask when a record waits; a
+page without observers pays nothing. Gaps: no transient registrations for removed
+subtrees, and `textContent`/`innerHTML` on an element give a removal and an
+addition record, where the spec's "replace all" gives one.
+
+## Templates and reflected attributes
+
+A `<template>`'s content is a fragment outside the tree, in `Document::templates`.
+Everything that walks what a node owns goes through `push_owned`, so limits,
+bytes and drops see it. `input.value` and `checked` write the attribute rather
+than a dirty state: what a script fills in has to reach the printed page. URL
+attributes parse without a base, so a relative one reads back as written.
+
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and
