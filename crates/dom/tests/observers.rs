@@ -53,6 +53,36 @@ fn child_list() {
 }
 
 #[test]
+fn normalize_queues_its_records_in_tree_order() {
+    // DOM §4.4 normalize: the joined text ("replace data"), then one removal
+    // per merged node; an empty node just goes. Linear normalize must not
+    // lose these (merge of #96 and #105).
+    let r = observed(&format!(
+        r#"{SHOW}
+        const t = (s) => document.createTextNode(s);
+        const i = document.createElement('i');
+        a.textContent = '';
+        a.append(t(''), t('x'), t(''), t('y'), i, t(''), t('z'));
+        i.append(t('p'), t('q'));
+        const o = new MutationObserver(show);
+        o.observe(a, {{ childList: true, characterData: true, characterDataOldValue: true, subtree: true }});
+        a.normalize();
+        log.push(a.textContent, a.childNodes.length, i.childNodes.length);"#
+    ));
+    assert_eq!(
+        r,
+        "xypqz|3|1\
+         |childList,a,0,1,,,,,#text\
+         |characterData,#text,0,0,,,x,,\
+         |childList,a,0,1,,,,#text,#text\
+         |childList,a,0,1,,,,#text,I\
+         |characterData,#text,0,0,,,p,,\
+         |childList,I,0,1,,,,#text,\
+         |childList,a,0,1,,,,I,#text"
+    );
+}
+
+#[test]
 fn delivered_as_one_microtask_after_the_script() {
     // §4.3.2: one microtask, records in order; observers in creation order.
     let r = observed(

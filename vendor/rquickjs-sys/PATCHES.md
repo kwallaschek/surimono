@@ -1093,10 +1093,12 @@ this sandbox's stop flag around it. Drafts:
     bytecode as `OP_get_arg 0xffff`, a read of the C stack about 1 MiB past the
     frame when the function ran. `add_arg` fails two ways. A refused
     allocation raises the sandbox's stop flag, which ends the script at the
-    call's own poll. Going past `JS_MAX_LOCAL_VARS` raises no flag, so from
-    reading the code a function with that many destructured parameters
-    reached the read in the sandbox before this patch (not run). It is now
-    the `SyntaxError` the code always meant to throw.
+    call's own poll. Going past `JS_MAX_LOCAL_VARS` raises no flag, so a
+    function with that many destructured parameters reached the read. Run on
+    unpatched quickjs-ng e22ce4de, a generator or async function with 65,536
+    `{} = {}` parameters called with no arguments crashes (SIGSEGV;
+    heap-use-after-free READ in `js_dup` from `OP_get_arg` under ASan). It is
+    now the `SyntaxError` the code always meant to throw.
 26. **`surimono_quickjs_patch_level()` returns 6**, and surimono-core
     requires 6. The level is part of the bytecode fingerprint, so bytecode
     cached by an older engine is refused.

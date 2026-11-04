@@ -5,11 +5,13 @@
 
 use blitz_dom::{LocalName, NodeData, QualName, ns};
 use html5ever::{Namespace, Prefix};
+use selectors::parser::{Component, Selector};
+use style::selector_parser::SelectorImpl;
 use surimono_webidl::runtime::{BindingError, BindingResult, Value};
 
-use crate::Document;
 use crate::document::{Kind, is_valid_attribute_name, is_valid_element_name};
 use crate::select::Matcher;
+use crate::{Document, DomError};
 
 /// The XML and XMLNS namespaces, for "validate and extract" (§1.5).
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
@@ -17,6 +19,17 @@ const XMLNS: &str = "http://www.w3.org/2000/xmlns/";
 
 /// Deepest bracket nesting accepted in a selector.
 const MAX_SELECTOR_NESTING: usize = 32;
+
+/// Longest selector a query takes. The parser can't be stopped, and holds a
+/// few dozen bytes per selector in a comma list, in Rust. No real selector
+/// is close; a longer one is a `SyntaxError` (a gap, see DESIGN.md).
+const MAX_SELECTOR_BYTES: usize = 128 * 1024;
+
+/// Most combinators on any path through a selector, nested ones included:
+/// the matcher recurses once per combinator, on the stack. Real selectors
+/// have a dozen. Fits the stack with [`MAX_SELECTOR_NESTING`] levels on a
+/// 1 MiB thread (`tests/hostile.rs`).
+const MAX_SELECTOR_COMBINATORS: usize = 128;
 
 pub(crate) fn dom_error(name: &'static str, message: &str) -> BindingError {
     BindingError::DomException {
@@ -48,12 +61,17 @@ impl Document {
             .count()
     }
 
-    /// §4.2.3 "ensure pre-insert validity" and the steps "replace" shares.
-    /// `replacing` is the child being replaced, for the document checks.
+    /// §4.2.3 "ensure pre-insert validity" and the steps "replace" shares,
+    /// in the spec's order: WPT pre-insertion-validation-notfound.js checks
+    /// that `child` (the reference child, or the child being replaced) is
+    /// tested after the ancestor check and before anything about `node`'s
+    /// type. `replacing` is the child being replaced, for the document
+    /// checks.
     fn check_insert(
         &mut self,
         parent: usize,
         node: usize,
+        child: Option<usize>,
         replacing: Option<usize>,
     ) -> BindingResult<()> {
         let parent_kind = self.kind(parent);
@@ -63,6 +81,9 @@ impl Document {
         ) || self.is_inclusive_ancestor(node, parent)
         {
             return Err(hierarchy());
+        }
+        if child.is_some_and(|c| self.parent(c) != Some(parent)) {
+            return Err(not_found());
         }
         let kind = self.kind(node);
         if !matches!(
@@ -142,10 +163,7 @@ impl Document {
         node: usize,
         child: Option<usize>,
     ) -> BindingResult<()> {
-        self.check_insert(parent, node, None)?;
-        if child.is_some_and(|c| self.parent(c) != Some(parent)) {
-            return Err(not_found());
-        }
+        self.check_insert(parent, node, child, None)?;
         // "If referenceChild is node, set it to node's next sibling."
         let before = if child == Some(node) {
             self.sibling(node, true)
@@ -163,10 +181,7 @@ impl Document {
         node: usize,
         child: usize,
     ) -> BindingResult<()> {
-        self.check_insert(parent, node, Some(child))?;
-        if self.parent(child) != Some(parent) {
-            return Err(not_found());
-        }
+        self.check_insert(parent, node, Some(child), Some(child))?;
         let mut before = self.sibling(child, true);
         if before == Some(node) {
             before = self.sibling(node, true);
@@ -247,7 +262,14 @@ impl Document {
 
     /// Selectors nest in brackets; the parser and the matcher recurse per
     /// level. Refused here so that no script can reach the stack's end.
-    fn check_selector_depth(selectors: &str) -> BindingResult<()> {
+    /// Brackets in strings count, on purpose: telling them apart needs the
+    /// CSS tokenizer's every rule (a `"` in an unquoted `url(` starts no
+    /// string, and `:is()` recovers from that token), and a wrong guess here
+    /// would let real nesting through. See "Deviations and gaps" in DESIGN.md.
+    fn check_selector_text(selectors: &str) -> BindingResult<()> {
+        if selectors.len() > MAX_SELECTOR_BYTES {
+            return Err(dom_error("SyntaxError", "the selector is too long"));
+        }
         let mut depth = 0usize;
         for b in selectors.bytes() {
             match b {
@@ -265,10 +287,15 @@ impl Document {
     fn parse_selectors(
         &self,
         selectors: &str,
-    ) -> BindingResult<selectors::SelectorList<style::selector_parser::SelectorImpl>> {
-        Self::check_selector_depth(selectors)?;
-        self.selector_list(selectors)
-            .ok_or_else(|| dom_error("SyntaxError", "the selector is not valid"))
+    ) -> BindingResult<selectors::SelectorList<SelectorImpl>> {
+        Self::check_selector_text(selectors)?;
+        let list = self
+            .selector_list(selectors)
+            .ok_or_else(|| dom_error("SyntaxError", "the selector is not valid"))?;
+        if combinator_depth(list.slice()) > MAX_SELECTOR_COMBINATORS {
+            return Err(dom_error("SyntaxError", "the selector is too complex"));
+        }
+        Ok(list)
     }
 
     fn matcher(&self) -> Matcher {
@@ -288,10 +315,11 @@ impl Document {
         let mut matcher = self.matcher();
         let mut out = Vec::new();
         let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
+        // A document has no scope element; a fragment should be one, a gap
+        // in DESIGN.md.
+        let scope = (self.kind(top) == Some(Kind::Element)).then(|| self.node(top));
         while let Some(n) = stack.pop() {
-            if self.kind(n) == Some(Kind::Element)
-                && matcher.matches(self.node(n), self.node(top), &list)
-            {
+            if self.kind(n) == Some(Kind::Element) && matcher.matches(self.node(n), scope, &list) {
                 out.push(n);
                 if first_only {
                     break;
@@ -309,7 +337,7 @@ impl Document {
         let list = self.parse_selectors(selectors)?;
         let mut matcher = self.matcher();
         let node = self.node(id);
-        let found = matcher.matches(node, node, &list);
+        let found = matcher.matches(node, Some(node), &list);
         if matcher.stopped() {
             return Err(timed_out());
         }
@@ -327,7 +355,7 @@ impl Document {
         let mut at = Some(id);
         while let Some(n) = at {
             if self.kind(n) == Some(Kind::Element)
-                && matcher.matches(self.node(n), self.node(id), &list)
+                && matcher.matches(self.node(n), Some(self.node(id)), &list)
             {
                 return Ok(Some(n));
             }
@@ -402,7 +430,7 @@ impl Document {
         nodes: Vec<Value>,
     ) -> BindingResult<()> {
         let (node, temporary) = self.nodes_into_node(nodes)?;
-        let r = self.check_insert(parent, node, None).or_else(|e| {
+        let r = self.check_insert(parent, node, None, None).or_else(|e| {
             // "replace all" drops the old children first, so a document
             // may swap its element; only a real problem remains.
             if self.kind(parent) == Some(Kind::Document) {
@@ -411,7 +439,7 @@ impl Document {
                     .iter()
                     .copied()
                     .find(|&c| self.kind(c) == Some(Kind::Element));
-                self.check_insert(parent, node, old)
+                self.check_insert(parent, node, None, old)
             } else {
                 Err(e)
             }
@@ -486,16 +514,13 @@ impl Document {
     }
 
     /// §4.4 `cloneNode`. Iterative, and refuses up front if the copy
-    /// wouldn't fit.
+    /// wouldn't fit. A document can't be cloned yet: a runtime holds one
+    /// (see "Deviations and gaps" in DESIGN.md), so `clone_one` ends the
+    /// script with [`DomError::Unsupported`], never a DOM exception.
     pub(crate) fn clone_tree(&mut self, top: usize, deep: bool) -> BindingResult<usize> {
-        if self.kind(top) == Some(Kind::Document) {
-            return Err(dom_error(
-                "NotSupportedError",
-                "cloneNode: documents can't be cloned",
-            ));
-        }
-        let mut size = 1;
+        let copy = self.clone_one(top)?;
         if deep {
+            let mut size = 0;
             let mut stack = vec![top];
             while let Some(n) = stack.pop() {
                 let c = self.children(n);
@@ -503,10 +528,10 @@ impl Document {
                 stack.extend_from_slice(c);
                 stack.extend(self.template_of(n));
             }
-        }
-        self.check_room_for(size).map_err(|e| self.fail(e))?;
-        let copy = self.clone_one(top)?;
-        if deep {
+            if let Err(e) = self.check_room_for(size) {
+                self.drop_subtree(copy);
+                return Err(self.fail(e));
+            }
             let mut stack: Vec<(usize, usize)> = vec![(top, copy)];
             while let Some((from, to)) = stack.pop() {
                 // HTML §4.12.3 cloning steps: a template's content too.
@@ -543,7 +568,9 @@ impl Document {
                 self.create_element_with(name, attrs)
             }
             NodeData::Document => {
-                return Err(dom_error("NotSupportedError", "can't clone a document"));
+                return Err(self.fail(DomError::Unsupported {
+                    feature: "cloning a document",
+                }));
             }
         };
         made.map_err(|e| self.fail(e))
@@ -562,9 +589,9 @@ impl Document {
                     p.name == q.name
                         && p.attrs().len() == q.attrs().len()
                         && p.attrs().iter().all(|a| {
-                            q.attrs()
-                                .iter()
-                                .any(|o| o.name == a.name && o.value == a.value)
+                            q.attrs().iter().any(|o| {
+                                same_attribute_name(&o.name, &a.name) && o.value == a.value
+                            })
                         })
                 }
                 (NodeData::Document, NodeData::Document) => true,
@@ -626,43 +653,110 @@ impl Document {
     }
 
     /// §4.4 `normalize`: below `top`, no empty text nodes and no adjacent
-    /// text nodes.
+    /// text nodes. Linear in the subtree: each parent's list is rebuilt in
+    /// one pass, where removing nodes one at a time would rescan it. Merged
+    /// nodes go before the joined text is written, so a merge never needs
+    /// room for both copies.
     pub(crate) fn normalize_tree(&mut self, top: usize) -> BindingResult<()> {
+        if self.is_observed() {
+            return self.normalize_observed(top);
+        }
         let mut stack = vec![top];
         while let Some(n) = stack.pop() {
-            let children: Vec<usize> = self.children(n).to_vec();
-            let mut run: Option<(usize, String)> = None;
-            let mut remove = Vec::new();
-            for c in children {
-                if self.kind(c) == Some(Kind::Text) {
-                    let text = self.text_content(c).unwrap_or_default();
-                    match &mut run {
-                        Some((_, joined)) => {
-                            joined.push_str(&text);
-                            remove.push(c);
-                        }
-                        None if text.is_empty() => remove.push(c),
-                        None => run = Some((c, text)),
-                    }
-                } else {
-                    self.flush_run(run.take())?;
+            let mut kept = Vec::with_capacity(self.children(n).len());
+            let mut merged = Vec::new();
+            // Each run's first node, with the text of the nodes merged in.
+            let mut runs: Vec<(usize, String)> = Vec::new();
+            let mut in_run = false;
+            for &c in self.children(n) {
+                self.poll()?;
+                if self.kind(c) != Some(Kind::Text) {
+                    in_run = false;
+                    kept.push(c);
                     stack.push(c);
+                    continue;
+                }
+                let text = self.char_data(c);
+                match runs.last_mut().filter(|_| in_run) {
+                    Some((_, joined)) => {
+                        joined.push_str(text);
+                        merged.push(c);
+                    }
+                    None if text.is_empty() => merged.push(c),
+                    None => {
+                        in_run = true;
+                        runs.push((c, String::new()));
+                        kept.push(c);
+                    }
                 }
             }
-            self.flush_run(run.take())?;
-            for c in remove {
-                self.detach(c);
+            if !merged.is_empty() {
+                self.replace_child_list(n, kept, merged);
+            }
+            for (id, joined) in runs {
+                self.poll()?;
+                if !joined.is_empty() {
+                    let mut text = self.char_data(id).to_owned();
+                    text.push_str(&joined);
+                    self.set_text_data(id, &text).map_err(|e| self.fail(e))?;
+                }
             }
         }
         Ok(())
     }
 
-    fn flush_run(&mut self, run: Option<(usize, String)>) -> BindingResult<()> {
-        if let Some((id, text)) = run {
-            if self.text_content(id).as_deref() != Some(text.as_str()) {
-                self.set_text_data(id, &text).map_err(|e| self.fail(e))?;
+    /// `normalize` with an observer about. Every step queues its own record,
+    /// in §4.4's order: for each text node in tree order, the joined text,
+    /// then one removal for each node merged into it. So nodes leave one at
+    /// a time and need the room for both copies, and a wide list is quadratic,
+    /// which each removal pays for in its poll.
+    fn normalize_observed(&mut self, top: usize) -> BindingResult<()> {
+        let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
+        while let Some(n) = stack.pop() {
+            self.poll()?;
+            if self.kind(n) != Some(Kind::Text) {
+                stack.extend(self.children(n).iter().rev().copied());
+                continue;
+            }
+            if self.char_data(n).is_empty() {
+                self.remove_observed(n)?;
+                continue;
+            }
+            let mut merged = Vec::new();
+            let mut joined = String::new();
+            let mut next = self.sibling(n, true);
+            while let Some(s) = next.filter(|&s| self.kind(s) == Some(Kind::Text)) {
+                self.poll()?;
+                joined.push_str(self.char_data(s));
+                merged.push(s);
+                next = self.sibling(s, true);
+            }
+            if !joined.is_empty() {
+                let mut text = self.char_data(n).to_owned();
+                text.push_str(&joined);
+                self.set_text_data(n, &text).map_err(|e| self.fail(e))?;
+            }
+            // They are next on the stack, and may not outlive their removal.
+            stack.truncate(stack.len().saturating_sub(merged.len()));
+            for s in merged {
+                self.remove_observed(s)?;
             }
         }
+        Ok(())
+    }
+
+    /// Removes `id` with its record, freeing it if nothing can reach it.
+    fn remove_observed(&mut self, id: usize) -> BindingResult<()> {
+        let Some(parent) = self.parent(id) else {
+            return Ok(());
+        };
+        self.poll_by(self.children(parent).len())?;
+        let previous = self.sibling(id, false);
+        let next = self.sibling(id, true);
+        self.note_child_list(parent, &[], &[id], previous, next);
+        let kept = self.children(parent).iter().copied();
+        let kept = kept.filter(|&c| c != id).collect();
+        self.replace_child_list(parent, kept, vec![id]);
         Ok(())
     }
 
@@ -671,7 +765,8 @@ impl Document {
     }
 
     /// §4.11 "replace data". An offset inside a surrogate pair leaves half a
-    /// pair, which UTF-8 storage can't hold; it becomes U+FFFD.
+    /// pair, which UTF-8 storage can't hold; it becomes U+FFFD (a gap in
+    /// DESIGN.md).
     pub(crate) fn replace_data(
         &mut self,
         id: usize,
@@ -828,10 +923,50 @@ impl Document {
     }
 }
 
+/// The most combinators on one path through `list`: a selector's own, plus
+/// the worst list nested in it. Recursion is bounded by
+/// [`MAX_SELECTOR_NESTING`], checked first.
+fn combinator_depth(list: &[Selector<SelectorImpl>]) -> usize {
+    list.iter().map(selector_combinators).max().unwrap_or(0)
+}
+
+fn selector_combinators(selector: &Selector<SelectorImpl>) -> usize {
+    let mut own = 0;
+    let mut nested = 0;
+    for c in selector.iter_raw_match_order() {
+        let inner = match c {
+            Component::Combinator(_) => {
+                own += 1;
+                0
+            }
+            Component::Negation(l) | Component::Is(l) | Component::Where(l) => {
+                combinator_depth(l.slice())
+            }
+            Component::NthOf(d) => combinator_depth(d.selectors()),
+            Component::Has(r) => r
+                .iter()
+                .map(|s| selector_combinators(&s.selector))
+                .max()
+                .unwrap_or(0),
+            Component::Slotted(s) | Component::Host(Some(s)) => selector_combinators(s),
+            _ => 0,
+        };
+        nested = usize::max(nested, inner);
+    }
+    own + nested
+}
+
 /// The sandbox stops the script at its next check, so this is what the
 /// script never gets to see: the call fails with `TimeLimit`.
-fn timed_out() -> BindingError {
+pub(crate) fn timed_out() -> BindingError {
     BindingError::TypeError("the time limit has passed".to_owned())
+}
+
+/// §4.4 "equals" for attributes: namespace and local name, with the value
+/// compared by the caller. An attribute's prefix doesn't count (an element's
+/// does); WPT Node-isEqualNode.html.
+fn same_attribute_name(a: &QualName, b: &QualName) -> bool {
+    a.ns == b.ns && a.local == b.local
 }
 
 fn index_size() -> BindingError {
