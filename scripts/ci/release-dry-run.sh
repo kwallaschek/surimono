@@ -33,19 +33,22 @@ fi
 version="$(ruby -e 'load "bindings/ruby/lib/surimono/version.rb"; print Surimono::VERSION')"
 echo "release version (the gem's VERSION): $version"
 
-step "no crate is publishable; every crate is at $version"
+step "no crate is publishable; every shipped crate is at $version"
 cargo metadata --format-version 1 --no-deps --locked > "$out/metadata.json"
-if ! python3 -I - "$out/metadata.json" "$version" <<'PY'
-import json, sys
-meta, version = sys.argv[1], sys.argv[2]
+if ! python3 -I - "$out/metadata.json" "$version" "$REPO_ROOT" <<'PY'
+import json, os, sys
+meta, version, root = sys.argv[1], sys.argv[2], sys.argv[3]
 errors = []
 for p in sorted(json.load(open(meta))["packages"], key=lambda p: p["name"]):
     name = p["name"]
+    rel = os.path.relpath(p["manifest_path"], root)
     # cargo metadata says [] for publish = false, null for publishable.
     if p["publish"] != []:
         errors.append(f"{name} is publishable; v0.1 publishes no crate (Kay, checkpoint 2): "
                       "set publish = false")
-    if p["version"] != version:
+    # The crates the gem and the CLI are built from share the gem's version;
+    # examples/ (the docs' runnable examples) aren't shipped and stay 0.0.0.
+    if rel.split(os.sep)[0] in ("crates", "bindings") and p["version"] != version:
         errors.append(f"{name}: version {p['version']}, the gem says {version}")
     print(f"{name} {p['version']} publish={'false' if p['publish'] == [] else p['publish']}")
 for e in errors:
