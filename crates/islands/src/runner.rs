@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
@@ -126,6 +126,11 @@ impl Bundle {
     }
 }
 
+/// Least time between two trims while some worker still holds a runtime. A
+/// trim covers the whole process, so workers that go idle one after another
+/// share one; the last of them always trims.
+const TRIM_MIN_GAP: Duration = Duration::from_secs(10);
+
 /// How often a cancellable render looks at the caller's flag.
 const CANCEL_POLL: Duration = Duration::from_millis(5);
 
@@ -170,6 +175,12 @@ struct Shared {
     preloaded_renders: AtomicU64,
     /// Workers holding a JavaScript runtime right now.
     runtimes: AtomicUsize,
+    /// When this runner was started; the origin of `last_trim_ms`.
+    started: Instant,
+    /// Milliseconds from `started` to the last trim.
+    last_trim_ms: AtomicU64,
+    /// Trims so far.
+    trims: AtomicU64,
     /// Most worker threads.
     pool_size: usize,
     /// Stack size of each worker thread.
@@ -461,6 +472,9 @@ pub struct RunnerStats {
     /// Workers holding a JavaScript runtime right now. A worker frees its
     /// runtime after [`RunnerOptions::release_idle_after`] without work.
     pub runtimes: usize,
+    /// Not public API: how often the workers trimmed the allocator.
+    #[doc(hidden)]
+    pub memory_trims: u64,
 }
 
 /// Renders islands: JavaScript bundles that turn a JSON spec into an SVG
@@ -610,6 +624,9 @@ impl IslandRunner {
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
             runtimes: AtomicUsize::new(0),
+            started: Instant::now(),
+            last_trim_ms: AtomicU64::new(0),
+            trims: AtomicU64::new(0),
             pool_size,
             stack_size,
             workers: Mutex::new(Vec::with_capacity(pool_size)),
@@ -894,6 +911,7 @@ impl IslandRunner {
                 renders: self.shared.renders.load(Ordering::Relaxed),
                 failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
                 preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
+                memory_trims: self.shared.trims.load(Ordering::Relaxed),
                 ..RunnerStats::default()
             };
         }
@@ -908,6 +926,7 @@ impl IslandRunner {
             idle_workers,
             workers,
             runtimes: self.shared.runtimes.load(Ordering::Relaxed),
+            memory_trims: self.shared.trims.load(Ordering::Relaxed),
         }
     }
 
@@ -1132,11 +1151,21 @@ impl Worker {
 
     /// Frees the runtime of a worker that has been idle for a while; the
     /// next job starts a new one. The allocator would keep the runtime's
-    /// pages; this happens at most once per idle spell, so the few
-    /// milliseconds of trimming fall when nothing is waiting on this worker.
+    /// pages, so the last worker to go idle hands them back to the OS. While
+    /// others still hold a runtime (one render at a time keeps a worker
+    /// busy), a worker trims only every [`TRIM_MIN_GAP`].
     fn release(&mut self) {
         self.drop_sandbox();
-        surimono_core::release_free_memory();
+        let shared = &self.shared;
+        let now = u64::try_from(shared.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let last = shared.last_trim_ms.load(Ordering::Relaxed);
+        let all_idle = shared.runtimes.load(Ordering::Relaxed) == 0;
+        let gap = u64::try_from(TRIM_MIN_GAP.as_millis()).unwrap_or(u64::MAX);
+        if all_idle || now.saturating_sub(last) >= gap {
+            shared.last_trim_ms.store(now, Ordering::Relaxed);
+            shared.trims.fetch_add(1, Ordering::Relaxed);
+            surimono_core::release_free_memory();
+        }
     }
 
     /// Gives the sandbox a fresh context for the next job, freeing this
