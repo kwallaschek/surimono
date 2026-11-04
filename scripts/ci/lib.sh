@@ -77,3 +77,49 @@ ensure_cargo_about() {
   rustup toolchain list | grep -q '^stable' || rustup toolchain install stable --profile minimal
   RUSTUP_TOOLCHAIN=stable cargo install --locked cargo-about --version "$CARGO_ABOUT_VERSION" --features cli
 }
+
+# Prints the path of a working llvm-symbolizer, or nothing (P1-PKG-17). Without
+# one, ASan and LSan print bare frames (binary+0x39e0e2). The nightly's
+# llvm-tools component ships no llvm-symbolizer (checked on 1.101.0-nightly
+# 2026-10-29), so this uses the distro's LLVM: ASAN_SYMBOLIZER_PATH if the
+# caller set it, llvm-symbolizer on PATH, then the newest /usr/lib/llvm-N
+# (Ubuntu's llvm-symbolizer-N links there; GitHub's images have LLVM but no
+# unversioned llvm-symbolizer on PATH). On GitHub Actions it installs the
+# distro's llvm package as a last resort.
+find_llvm_symbolizer() {
+  local c d
+  for c in "${ASAN_SYMBOLIZER_PATH:-}" "$(command -v llvm-symbolizer 2>/dev/null || true)" \
+    $(for d in /usr/lib/llvm-[0-9]*/bin/llvm-symbolizer; do
+        [ -e "$d" ] && printf '%s %s\n' "${d#/usr/lib/llvm-}" "$d"
+      done | sort -rn | cut -d' ' -f2); do
+    if [ -n "$c" ] && [ -x "$c" ] && "$c" --version >/dev/null 2>&1; then
+      echo "$c"
+      return 0
+    fi
+  done
+  if [ -n "${GITHUB_ACTIONS:-}" ] && [ -z "${SURIMONO_SYMBOLIZER_INSTALLED:-}" ] \
+    && command -v sudo >/dev/null; then
+    step "installing llvm (for llvm-symbolizer)" >&2
+    sudo apt-get update -qq >&2 && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq llvm >&2 || return 0
+    SURIMONO_SYMBOLIZER_INSTALLED=1 find_llvm_symbolizer
+  fi
+}
+
+# The AddressSanitizer build and run environment for scripts/ci/asan.sh, kept
+# here so a local check can source the exact same flags. Symbolized reports:
+# ASAN_SYMBOLIZER_PATH names the symbolizer (the runtime also searches PATH,
+# but only for the unversioned name) and symbolize=1 is set explicitly in both
+# option sets, since LSan reads LSAN_OPTIONS for the report it prints at exit.
+asan_env() {
+  local sym
+  export RUSTFLAGS="-Zsanitizer=address" RUSTDOCFLAGS="-Zsanitizer=address"
+  export ASAN_OPTIONS="detect_leaks=1:symbolize=1"
+  export LSAN_OPTIONS="symbolize=1"
+  sym="$(find_llvm_symbolizer)"
+  if [ -n "$sym" ]; then
+    export ASAN_SYMBOLIZER_PATH="$sym"
+    echo "ASan symbolizer: $sym ($("$sym" --version 2>/dev/null | grep -m1 -i 'version' || true))"
+  else
+    echo "warning: no llvm-symbolizer found; ASan/LSan frames stay unsymbolized" >&2
+  fi
+}
