@@ -9,9 +9,9 @@ a sandboxed QuickJS runtime and returns HTML that an engine such as
 for charts: it finds chart *islands* in your HTML, draws them as SVG with
 ECharts or Vega, and inlines the SVG.
 
-> **Status:** v0.1 is out as the `surimono` gem on RubyGems and as a
-> command-line tool you build from source. The Rust crates aren't on crates.io
-> yet; Rust projects can use them from this repository (see
+> **Status:** v0.1, the first release, comes as the `surimono` Ruby gem and
+> as a command-line tool you build from source. The Rust crates aren't on
+> crates.io yet; Rust projects can use them from this repository (see
 > [Install](#install)).
 
 ## Why
@@ -69,8 +69,9 @@ gem "fulgur"   # or another browserless PDF engine
 
 or `gem install surimono` outside Bundler. Precompiled gems cover x86_64 and
 aarch64 Linux (glibc) and x86_64 and arm64 macOS. On other platforms the gem
-builds from source and needs a Rust toolchain. fulgur's gem 0.40.0 supports
-Ruby 3.1 to 3.4, so the pair runs on Ruby 3.2 to 3.4 today.
+builds from source and needs Rust 1.87 or later and a C compiler. fulgur's
+gem 0.40.0 supports Ruby 3.1 to 3.4, so the pair runs on Ruby 3.2 to 3.4
+today.
 
 **Rust** (1.87 or later; a C compiler builds QuickJS):
 

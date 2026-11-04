@@ -23,7 +23,8 @@ The first release: chart islands.
 - **The Rust crates are not on crates.io in v0.1**: they need a patched
   QuickJS engine, which a published crate can't carry yet (Cargo's `[patch]`
   doesn't travel with it). Rust projects can depend on the repository with
-  git, as the [Rust guide](docs/guide/rust.md#add-the-crates) shows.
+  git, plus a `[patch.crates-io]` entry for `rquickjs-sys` in their own
+  `Cargo.toml`, as the [Rust guide](docs/guide/rust.md#add-the-crates) shows.
 
 ### Added
 
@@ -93,8 +94,8 @@ The first release: chart islands.
   `surimono::builtin_renderers()` (the built-in renderer names, sorted) and
   `surimono::precompiled_builtins()` (how many of them loaded precompiled
   bytecode in this process); one `#[non_exhaustive]` `Error` enum with
-  `island()` (an `IslandRef`) and a stable `kind()`. `Renderer` is
-  `Send + Sync`.
+  `island()` (the failed island as an `IslandRef`, when there is one) and a
+  stable `kind()`. `Renderer` is `Send + Sync`.
 - **Fork safety.** A `Renderer` built before a fork (Puma `preload_app!` or
   `fork_worker`, Unicorn, Resque) starts its runtime pool and text measurer
   again in the child on first use, without touching any lock a parent thread
