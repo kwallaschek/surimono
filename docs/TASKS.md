@@ -130,17 +130,20 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-ORC-01 · ORC · todo · Checkpoint 2 package: 10 side-by-side fixtures, Grover table, hostile-script results, v0.1 release PR with dry-run
 
 ### Follow-ups found on 4 Nov (main's nightly)
-- P1-DOM-05 · DOM · todo · `wide_tree_drops_in_linear_time` hits the default 2 s time limit under ASan: scale the limit with SURIMONO_TEST_TIME_SCALE, like the other time-bound tests (asan job red on main since #80)
+- P1-DOM-05 · DOM · done · `wide_tree_drops_in_linear_time` hits the default 2 s time limit under ASan: scale the limit with SURIMONO_TEST_TIME_SCALE, like the other time-bound tests (asan job red on main since #80)
 - P1-CF-30 · CF · done · reference job red on main: gfx Chrome checks in fixtures/tools/reference.sh find no browser (Playwright chromium_headless_shell-1243 missing); COMPAT row for blitz comment data / serializer
-- P1-RT-36 · RT · review · Engine patch level 6: segfault on Array subclasses under a memory limit, add_arg check (#95; v0.1 blocker)
-- P1-RT-37 · RT · review · Hostile vector B Array.fromAsync accepts either limit (#98)
-- P1-RT-38 · RT · todo · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
+- P1-RT-36 · RT · done · Engine patch level 6: segfault on Array subclasses under a memory limit, add_arg check (#95; v0.1 blocker)
+- P1-RT-37 · RT · done · Hostile vector B Array.fromAsync accepts either limit (#98)
+- P1-RT-38 · RT · done · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
 - P1-PKG-18 · PKG · todo · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
 - P1-PKG-19 · PKG · todo · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
 - P1-CF-31 · CF · todo · COMPAT entries: Date.parse of non-ISO strings keeps the QuickJS port (V8 gives NaN for CET/CEST), style values not validated, no doctype node, template.content, Attr as a partial Node
 - P1-GFX-07 · GFX · todo · crates/gfx/tests/chrome/*.mjs launch with channel 'chromium' so the preload can go
 - P1-RT-39 · RT · todo · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
-- P1-RT-40 · RT · todo · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
+- P1-RT-40 · RT · done · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
+- P1-RT-41 · RT · todo · #100 follow-up: first idle worker of a burst must not trim while others hold runtimes (reset last_trim_ms on 0→1 runtimes); #95 follow-ups: add_arg over the parameter limit gives a SyntaxError with a test, PATCHES.md wording, draft 07 reachability; HostPanic message truncated; doc lines from #102's review
+- P1-DOM-06 · DOM · todo · Guard every native in crates/dom with Deadline::guard and discards_state (#102 finding 1); required before DOM reaches the facade
+- P1-CF-32 · CF · todo · Alpine LICENSE.md in fixtures/real-world/lib once alpinejs/alpine is readable
 
 ## Phase 2: scripts (v0.2, checkpoint 3 on Sun 22 Nov ~11:00), epics
 
