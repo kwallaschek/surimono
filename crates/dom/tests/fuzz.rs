@@ -40,6 +40,12 @@ const PAGE: &str = r#"<!doctype html><html><head><title>t</title><style>b{color:
 <select><option>1</option></select><textarea>x</textarea></form><img src="x.png"><canvas src="1"></canvas>
 <table><tr><td>c</td></tr></table><svg><style>a{}</style></svg><p>text<!--c--></p></body></html>"#;
 
+/// `<frameset>` orphans the implied body and all of this. No text, `<input>`
+/// or `<img>`: they turn frameset-ok off and the frameset would be ignored.
+const FRAMESET_PAGE: &str = r#"<!doctype html><title>t</title><div id="d"><style>b{color:red}</style>
+<link rel="stylesheet" href="a.css"><form id="f"></form><canvas src="1"></canvas><!--c--></div>
+<frameset><frame src="x.png"></frameset>"#;
+
 const TAGS: &[&str] = &[
     "style", "link", "img", "input", "button", "form", "select", "textarea", "canvas", "title",
     "table", "div", "svg", "object", "output", "fieldset",
@@ -99,12 +105,14 @@ fn quoted(s: &str) -> String {
 
 /// Sets up `pool`, a growing list of nodes the operations draw from.
 const PRELUDE: &str = r#"
-globalThis.pool = [document.documentElement, document.head, document.body];
+// A frameset page has no body element, so its frameset stands in.
+globalThis.main = document.body ?? document.documentElement.lastChild;
+globalThis.pool = [document.documentElement, document.head, main];
 // Half the picks go to the elements made here, which have the special handling.
 globalThis.at = (i) => pool[(i % 2 ? i : i >> 1) % (i % 2 ? pool.length : Math.min(60, pool.length))];
-for (const top of [document.head, document.body])
+for (const top of [document.head, main])
   for (let n = top.firstChild; n; n = n.nextSibling) pool.push(n);
-for (const t of TAGS) { const e = document.createElement(t); pool.push(e); pool.push(document.body.appendChild(document.createElement(t))); }
+for (const t of TAGS) { const e = document.createElement(t); pool.push(e); pool.push(main.appendChild(document.createElement(t))); }
 // Replacing the content of these would end most of a run in its first ops.
 globalThis.small = (i) => { const n = at(i); return n === pool[0] || n === pool[1] || n === pool[2] ? pool[pool.length - 1] : n; };
 globalThis.keep = (n) => { if (n && pool.length < 400) pool.push(n); return n; };
@@ -152,7 +160,7 @@ fn operation(r: &mut Rng) -> String {
     format!("op(() => {{ {body}; }});\n")
 }
 
-fn run_seed(seed: u64) {
+fn run_seed(seed: u64, page: &str) {
     let mut rng = Rng(seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1);
     let mut rt = DomRuntime::new(limits()).unwrap();
     let dom_limits = DomLimits {
@@ -160,7 +168,7 @@ fn run_seed(seed: u64) {
         max_text_bytes: 1 << 20,
         ..DomLimits::default()
     };
-    rt.load(Document::parse_with_limits(PAGE, dom_limits).unwrap());
+    rt.load(Document::parse_with_limits(page, dom_limits).unwrap());
     let tags = TAGS.iter().map(|t| quoted(t)).collect::<Vec<_>>().join(",");
     let _: () = rt
         .eval(&format!("const TAGS = [{tags}];\n{PRELUDE}"))
@@ -194,7 +202,17 @@ fn run_seed(seed: u64) {
 fn random_operations_keep_the_document_sound() {
     count_panics();
     for seed in 1..=SEEDS {
-        run_seed(seed);
+        run_seed(seed, PAGE);
+    }
+}
+
+#[test]
+fn random_operations_after_a_frameset_keep_the_document_sound() {
+    count_panics();
+    let parsed = Document::parse(FRAMESET_PAGE).unwrap().to_html();
+    assert!(parsed.contains("<frameset>"), "{parsed}");
+    for seed in 1..=SEEDS / 4 {
+        run_seed(seed, FRAMESET_PAGE);
     }
 }
 
@@ -211,6 +229,7 @@ fn hostile_markup_parses() {
             format!(
                 "<title>{css}</title><canvas src='{css}'></canvas><form id=f><input form=f></form>"
             ),
+            format!("<!doctype html><div title='{css}'><!--c--></div><frameset>"),
         ] {
             let doc = Document::parse(&page).unwrap_or_else(|e| panic!("{page}: {e:?}"));
             doc.check_consistency()
