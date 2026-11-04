@@ -4,6 +4,8 @@ Kay tags and publishes. The fleet never tags or publishes (CLAUDE.md, hard stops
 
 ## v0.1.0 (gem and CLI only)
 
+> **HOLD (5 Nov): don't tag or push from the commit below.** A chart spec can overrun the time limit in the regexp compiler at that commit. A release commit with the engine fix replaces it; this page will name it.
+
 The release PR #38 merged into main as `915d5cbf2ba2f2c4667da773380cd7c2da9ef387`. Its tree is
 identical to the release-branch head `be5d49f5`, where all 15 CI checks passed (full.yml run
 41783605064) and `scripts/ci/release-dry-run.sh` reported "ok: nothing was published". No Rust crate

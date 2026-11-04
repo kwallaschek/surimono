@@ -11,7 +11,9 @@
 //!   over [`DomLimits`](crate::DomLimits). html5ever walks its stack of open
 //!   elements for most start tags, so a very deep tree would also cost
 //!   quadratic time inside one call that can't be interrupted;
-//! - style text: see [`stash_style_text`].
+//! - style text: see [`stash_style_text`];
+//! - `style` attributes over [`style_attr::fits`]'s limits: blitz-dom hands
+//!   each to stylo as its element is made, so one never gets that far.
 
 use std::borrow::Cow;
 use std::cell::{Cell, Ref, RefCell};
@@ -24,6 +26,8 @@ use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::tokenizer::TokenizerOpts;
 use html5ever::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeBuilderOpts, TreeSink};
 use html5ever::{Attribute, QualName};
+
+use crate::style_attr;
 
 /// Bytes of HTML fed between limit checks.
 const CHUNK: usize = 4096;
@@ -40,6 +44,8 @@ pub(crate) struct Parsed {
     pub quirks: bool,
     /// Feeding stopped because the tree went over a limit.
     pub over_limit: bool,
+    /// Feeding stopped at a `style` attribute over its limits.
+    pub over_style: bool,
 }
 
 /// Stops feeding the parser once `max_nodes` were created or an element
@@ -68,11 +74,26 @@ struct Sink<'m, 'doc> {
     created: Rc<Cell<usize>>,
     /// Every `<style>` created; shared with the caller like the counters.
     styles: Rc<RefCell<Vec<usize>>>,
+    /// A `style` attribute was over its limits; shared the same way.
+    over_style: Rc<Cell<bool>>,
 }
 
 impl Sink<'_, '_> {
     fn note_created(&self) {
         self.created.set(self.created.get() + 1);
+    }
+
+    /// Takes out the `style` attributes if any is over the limits, and
+    /// notes it: feeding stops, and the parse fails.
+    fn screen_style(&self, attrs: &mut Vec<Attribute>) {
+        let is_style = |a: &Attribute| a.name.local.as_ref() == "style";
+        if attrs
+            .iter()
+            .any(|a| is_style(a) && !style_attr::fits(&a.value))
+        {
+            attrs.retain(|a| !is_style(a));
+            self.over_style.set(true);
+        }
     }
 
     fn note_child(&self, parent: usize, child: usize) {
@@ -110,8 +131,14 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         self.inner.elem_name(target)
     }
 
-    fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> usize {
+    fn create_element(
+        &self,
+        name: QualName,
+        mut attrs: Vec<Attribute>,
+        flags: ElementFlags,
+    ) -> usize {
         self.note_created();
+        self.screen_style(&mut attrs);
         let is_style = name.local.as_ref() == "style";
         let id = self.inner.create_element(name, attrs, flags);
         if is_style {
@@ -172,7 +199,8 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         self.parsed.borrow_mut().quirks = mode == QuirksMode::Quirks;
     }
 
-    fn add_attrs_if_missing(&self, target: &usize, attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&self, target: &usize, mut attrs: Vec<Attribute>) {
+        self.screen_style(&mut attrs);
         self.inner.add_attrs_if_missing(target, attrs);
     }
 
@@ -240,6 +268,7 @@ pub(crate) fn parse_fragment(
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
     let styles = Rc::new(RefCell::new(Vec::new()));
+    let over_style = Rc::new(Cell::new(false));
     let sink = Sink {
         inner: DocumentHtmlParser::new(mutr),
         document: holder,
@@ -248,12 +277,17 @@ pub(crate) fn parse_fragment(
         deepest: deepest.clone(),
         created: created.clone(),
         styles: styles.clone(),
+        over_style: over_style.clone(),
     };
     let parser = driver::parse_fragment_for_element(sink, opts(), context, false, None);
     let (mut parsed, stopped) = feed(parser, html, || {
-        stop() || created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
+        stop()
+            || over_style.get()
+            || created.get() > limits.max_nodes
+            || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
+    parsed.over_style = over_style.get();
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
     parsed
 }
@@ -267,6 +301,7 @@ pub(crate) fn parse_document(
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
     let styles = Rc::new(RefCell::new(Vec::new()));
+    let over_style = Rc::new(Cell::new(false));
     let sink = Sink {
         document: 0,
         inner: DocumentHtmlParser::new(mutr),
@@ -275,12 +310,16 @@ pub(crate) fn parse_document(
         deepest: deepest.clone(),
         created: created.clone(),
         styles: styles.clone(),
+        over_style: over_style.clone(),
     };
     let parser = driver::parse_document(sink, opts());
     let (mut parsed, stopped) = feed(parser, html, || {
-        created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
+        over_style.get()
+            || created.get() > limits.max_nodes
+            || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
+    parsed.over_style = over_style.get();
     // Before `mutr` flushes, which is when blitz-dom reads style text.
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
     parsed

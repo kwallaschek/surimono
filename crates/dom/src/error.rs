@@ -51,12 +51,18 @@ pub enum DomError {
         /// The limit that was reached.
         limit: usize,
     },
-    /// A script read or wrote a `style` attribute too large to parse. Every
-    /// read of `element.style` parses it, in a call no time limit can stop.
-    #[error("a style attribute is over the limit of {declarations} declarations or {bytes} bytes")]
+    /// A page or script gave a `style` attribute too large to parse, or
+    /// nested too deeply. Each write and read parses it, and the CSS engine's
+    /// parse is a call no time limit can stop.
+    #[error(
+        "a style attribute is over the limit of {declarations} declarations, {tokens} tokens or \
+         {bytes} bytes, or is nested too deeply"
+    )]
     StyleLimit {
         /// The most declarations in one attribute.
         declarations: usize,
+        /// The most CSS tokens in one attribute.
+        tokens: usize,
         /// The most bytes in one attribute.
         bytes: usize,
     },

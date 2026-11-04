@@ -14,30 +14,42 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use blitz_traits::net::Url;
-use cssparser::{Delimiter, ParseError, Parser, ParserInput, ToCss, Token, serialize_identifier};
+use cssparser::{
+    Delimiter, ParseError, ParseErrorKind, Parser, ParserInput, ToCss, Token, serialize_identifier,
+};
 use style::context::QuirksMode;
 use style::properties::{PropertyId, parse_style_attribute};
 use style::stylesheets::{CssRuleType, UrlExtraData};
 use surimono_core::Deadline;
 
+use crate::DomError;
 use crate::css_properties::CSS_PROPERTIES;
 
 /// Most declarations in one `style` attribute. Every read parses the
-/// attribute and each declaration goes through stylo, so this bounds what one
-/// host call does, outside the deadline, and what it allocates, outside the
-/// JavaScript heap limit.
+/// attribute here and each declaration goes through stylo, so this bounds the
+/// declarations such a read keeps, outside the JavaScript heap limit, and,
+/// with the deadline checked per declaration, its work. A write has its own
+/// bound, [`MAX_TOKENS`].
 pub(crate) const MAX_DECLARATIONS: usize = 4096;
-/// Most bytes in one parsed `style` attribute or value; big enough for a
-/// `data:` image.
+/// Most bytes in one `style` attribute or value; big enough for a `data:`
+/// image.
 pub(crate) const MAX_BYTES: usize = 8 << 20;
+/// Most CSS tokens in one `style` attribute, whitespace included. blitz-dom
+/// hands a whole attribute to stylo whenever it is set, in one call nothing
+/// can interrupt, and stylo's cost follows tokens, not bytes: at the 300 ns a
+/// byte of [`MAX_CHECKED_VALUE`], `a,a,…` costs about 20 ms here, where a
+/// `data:` image is one token. See [`fits`].
+pub(crate) const MAX_TOKENS: usize = 1 << 16;
 /// Deepest nesting of brackets in a value, for the recursion here and in
-/// stylo's `calc()`. A deeper value is invalid.
+/// stylo's `calc()`. A deeper value is invalid, and [`fits`] refuses an
+/// attribute holding one.
 const MAX_NESTING: usize = 32;
-/// Longest value given to stylo; a longer one (in practice a `data:` image)
-/// is checked as tokens only. A stylo parse can't be interrupted and costs up
-/// to about 300 ns a byte in a release build, whatever the property (timed
-/// over every property with long lists, sums and strings): 20 ms here, but
-/// past the time limit at [`MAX_BYTES`].
+/// Longest value this file's own check gives to stylo; a longer one (in
+/// practice a `data:` image) is checked as tokens only here, and meets stylo
+/// when the attribute is written, under [`MAX_TOKENS`]. A stylo parse can't be
+/// interrupted and costs up to about 300 ns a byte in a release build,
+/// whatever the property (timed over every property with long lists, sums and
+/// strings): 20 ms here, but past the time limit at [`MAX_BYTES`].
 const MAX_CHECKED_VALUE: usize = 64 << 10;
 
 /// `url()` values are kept, not fetched; they need a base to parse.
@@ -63,6 +75,78 @@ pub(crate) enum Stop {
     TooLarge,
     /// The script's deadline passed.
     TimeLimit,
+}
+
+/// The error for a `style` attribute over the limits.
+pub(crate) fn limit_error() -> DomError {
+    DomError::StyleLimit {
+        declarations: MAX_DECLARATIONS,
+        tokens: MAX_TOKENS,
+        bytes: MAX_BYTES,
+    }
+}
+
+/// Whether blitz-dom may be given `text` as a `style` attribute: within
+/// [`MAX_BYTES`], [`MAX_TOKENS`] and [`MAX_NESTING`]. Every path that sets the
+/// attribute goes through this first, the parser's included.
+pub(crate) fn fits(text: &str) -> bool {
+    size_check(text).is_none()
+}
+
+/// What is over the limits in `text`, if anything.
+fn size_check(text: &str) -> Option<Over> {
+    if text.len() > MAX_BYTES {
+        return Some(Over::Size);
+    }
+    let mut input = ParserInput::new(text);
+    let mut left = MAX_TOKENS;
+    match spend_tokens(&mut Parser::new(&mut input), &mut left, 0) {
+        Ok(()) => None,
+        Err(ParseError {
+            kind: ParseErrorKind::Custom(over),
+            ..
+        }) => Some(over),
+        // Only `Over` is raised here, and tokenizing itself can't fail.
+        Err(_) => Some(Over::Size),
+    }
+}
+
+/// How text is over the limits of [`fits`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Over {
+    /// [`MAX_BYTES`] or [`MAX_TOKENS`].
+    Size,
+    /// [`MAX_NESTING`].
+    Depth,
+}
+
+/// Takes the tokens of `input` from `left`, entering blocks, whose contents
+/// the parser would otherwise skip. Fails when none are left, or too deep.
+fn spend_tokens<'i>(
+    input: &mut Parser<'i, '_>,
+    left: &mut usize,
+    depth: usize,
+) -> Result<(), ParseError<'i, Over>> {
+    while let Ok(token) = input.next_including_whitespace_and_comments() {
+        let block = matches!(
+            token,
+            Token::Function(_)
+                | Token::ParenthesisBlock
+                | Token::SquareBracketBlock
+                | Token::CurlyBracketBlock
+        );
+        if *left == 0 {
+            return Err(input.new_custom_error(Over::Size));
+        }
+        if block && depth == MAX_NESTING {
+            return Err(input.new_custom_error(Over::Depth));
+        }
+        *left -= 1;
+        if block {
+            input.parse_nested_block(|p| spend_tokens(p, left, depth + 1))?;
+        }
+    }
+    Ok(())
 }
 
 fn is_custom(property: &str) -> bool {
@@ -231,8 +315,10 @@ pub(crate) fn parse_value(
     value: &str,
     quirks: QuirksMode,
 ) -> Result<Option<String>, Stop> {
-    if value.len() > MAX_BYTES {
-        return Err(Stop::TooLarge);
+    match size_check(value) {
+        Some(Over::Size) => return Err(Stop::TooLarge),
+        Some(Over::Depth) => return Ok(None),
+        None => {}
     }
     let mut input = ParserInput::new(value);
     let mut text = String::new();
@@ -468,6 +554,9 @@ mod tests {
             ("width: calc(1px + (2px", "width: calc(1px + (2px));"),
             ("--x: '", "--x: \"\";"),
             ("--x: a /* b", "--x: a;"),
+            // Chrome 153 gives `a`: it computes the family name, and stored
+            // values stay as written, closed.
+            ("font-family: 'a", "font-family: \"a\";"),
         ] {
             let got = css_text(text);
             assert_eq!(got, want, "{text:?}");
@@ -495,7 +584,6 @@ mod tests {
             ("--x", " ", Some("")),
             ("--x", "a!b", None),
             ("--x", ")", None),
-            ("font-family", "'a", Some("\"a\"")),
             ("content", "'a", Some("\"a\"")),
         ] {
             let got = parse_value(name, value, NO_QUIRKS).unwrap();
@@ -522,6 +610,36 @@ mod tests {
         ] {
             let once = css_text(s);
             assert_eq!(css_text(&once), once, "{s:?}");
+        }
+    }
+
+    #[test]
+    fn what_fits_counts_tokens_not_bytes() {
+        let list = |tokens: usize| format!("font-family: {}a", "a,".repeat(tokens / 2));
+        // `font-family`, `:`, a space, then the list.
+        assert!(fits(&list(MAX_TOKENS - 4)));
+        assert!(!fits(&list(MAX_TOKENS)));
+        // Tokens inside a block count.
+        assert!(!fits(&format!("x: f({})", "a,".repeat(MAX_TOKENS))));
+        assert!(!fits(&format!("x: [{}]", "a ".repeat(MAX_TOKENS))));
+        // One token however long, in or out of a block.
+        let data = "A".repeat(MAX_BYTES - 64);
+        assert!(fits(&format!(
+            "background: url(data:image/png;base64,{data})"
+        )));
+        assert!(fits(&format!("content: var(--x, '{data}')")));
+        assert!(fits(&format!("/* {data} */ color: red")));
+        assert!(!fits(&"x".repeat(MAX_BYTES + 1)));
+    }
+
+    #[test]
+    fn what_fits_is_bounded_in_depth() {
+        let at = |n: usize| format!("--x: {}1{}", "a(".repeat(n), ")".repeat(n));
+        assert!(fits(&at(MAX_NESTING)));
+        assert!(!fits(&at(MAX_NESTING + 1)));
+        for open in ["(", "[", "{", "f("] {
+            assert!(fits(&open.repeat(MAX_NESTING)), "{open}");
+            assert!(!fits(&open.repeat(MAX_NESTING + 1)), "{open}");
         }
     }
 
