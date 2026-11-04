@@ -9,7 +9,10 @@ a sandboxed QuickJS runtime and returns HTML that an engine such as
 for charts: it finds chart *islands* in your HTML, draws them as SVG with
 ECharts or Vega, and inlines the SVG.
 
-> **Status:** v0.1 is in development and not yet on crates.io or RubyGems.
+> **Status:** v0.1, the first release, comes as the `surimono` Ruby gem and
+> as a command-line tool you build from source. The Rust crates aren't on
+> crates.io yet; Rust projects can use them from this repository (see
+> [Install](#install)).
 
 ## Why
 
@@ -56,7 +59,7 @@ benchmark in `bench/` has results. Until then this README gives no numbers._
 
 ## Install
 
-**Ruby** (CRuby 3.2 to 4.0):
+**Ruby** (CRuby 3.2 to 4.0), from RubyGems:
 
 ```ruby
 # Gemfile
@@ -64,10 +67,11 @@ gem "surimono"
 gem "fulgur"   # or another browserless PDF engine
 ```
 
-Precompiled gems cover x86_64 and aarch64 Linux (glibc) and x86_64 and arm64
-macOS. On other platforms the gem builds from source and needs a Rust
-toolchain. fulgur's gem 0.40.0 supports Ruby 3.1 to 3.4, so the pair runs on
-Ruby 3.2 to 3.4 today.
+or `gem install surimono` outside Bundler. Precompiled gems cover x86_64 and
+aarch64 Linux (glibc) and x86_64 and arm64 macOS. On other platforms the gem
+builds from source and needs Rust 1.87 or later, a C compiler and libclang
+(rb-sys generates its Ruby bindings with bindgen). fulgur's gem 0.40.0
+supports Ruby 3.1 to 3.4, so the pair runs on Ruby 3.2 to 3.4 today.
 
 **Rust** (1.87 or later; a C compiler builds QuickJS):
 
@@ -98,7 +102,8 @@ ECharts and Vega are Cargo features, both on by default: `echarts` adds the
 fulgur 0.40 depends on krilla 0.7, which needs Rust 1.89, so a project that
 uses both needs 1.89.
 
-**Command line:** build it from a clone of the repository.
+**Command line:** build it from a clone of the repository, with Rust 1.87 or
+later and a C compiler, as for the crates.
 
 ```sh
 git clone https://github.com/kwallaschek/surimono

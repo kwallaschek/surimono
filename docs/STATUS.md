@@ -5,7 +5,23 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Wed 4 Nov 2026, 04:40)
+## Now (Wed 4 Nov 2026, 14:50)
+
+**Main is green**: full.yml passed all 14 jobs at 0e67e98c (ASan leak fixed in #111, macOS flakes in #112,
+symbolized ASan in #107). Merge freeze lifted. Also merged: v0.1 README/CHANGELOG (#110, #113) and the
+Ruby 3.2 signal fix (#114). **v0.1.0 release PR #38 merged** (915d5cbf; pre-release review approved, 15/15 checks). Kay tags
+v0.1.0 and pushes the five gems following docs/RELEASE.md. After #38: phase 2 starts
+with MSRV 1.89, then the open phase-2 PRs (#88 #90 #92–#105) and #106.
+
+## Earlier (Wed 4 Nov 2026, 13:05)
+
+**Checkpoint 2 signed off by Kay at 12:57** (all questions approved; see DECISIONS). The live session
+(cse_011c8hfp9aeYhQp5RpWyywaN) took the fleet back at 12:58. **Merge freeze until main's full.yml is
+green**: linux-extra-asan reports a 1.1 MB leak at exit of the core lib tests (P1-RT-42) and test-macos-14
+has timing flakes (P1-RT-43); P1-PKG-17 symbolizes ASan traces in CI. Then: v0.1 release (#38: main merged
+in, dry-run, fresh review, merge; Kay tags/publishes), then phase 2 starting with MSRV 1.89 (MSRV 1.89 waits until #38 has merged, so the release docs and dry-run keep saying 1.87).
+
+## Earlier (Wed 4 Nov 2026, 04:40)
 
 Session cse_011c8hfnWG3Q5HtHFaa21vge resumed the fleet after 55 h with no heartbeat. No reply from Kay
 to checkpoint 2 visible here (no comments or reviews from him on #38). #82 (P1-DOM-04) and #83 (P1-RT-29)
