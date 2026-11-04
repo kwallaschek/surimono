@@ -135,7 +135,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-36 · RT · done · Engine patch level 6: segfault on Array subclasses under a memory limit, add_arg check (#95; v0.1 blocker)
 - P1-RT-37 · RT · done · Hostile vector B Array.fromAsync accepts either limit (#98)
 - P1-RT-38 · RT · done · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
-- P1-PKG-20 · PKG · doing · Ruby 3.2 flake: test_signal_cancels_the_rest_of_the_document sees the signal only after the whole document (2 of 100 Ruby 3.2 logs); ffi.rs GVL/signal delivery
+- P1-PKG-20 · PKG · doing · Ruby 3.2 only: a signal to a main-thread render waits for the whole render when another Ruby thread exists (Ruby 3.2 starts no signal-pipe drainer then; measured 4.04 s vs 0.41 s). Fix A: short-lived pump thread during such renders on 3.2; deterministic test
 - P1-DX-06 · DX · review · (#110) v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
 - P1-DX-07 · DX · todo · After Kay tags v0.1.0: pin README, CHANGELOG and the Rust guide to tag = "v0.1.0" / git clone --branch v0.1.0 (main moves to phase 2)
 - P1-PKG-21 · PKG · todo · CLI users get no THIRD_PARTY_LICENSES.txt with cargo install: add a `surimono licenses` subcommand (embedded notices) or document where to get them
