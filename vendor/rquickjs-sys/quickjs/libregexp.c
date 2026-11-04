@@ -698,6 +698,20 @@ static int JS_PRINTF_FORMAT_ATTR(2, 3) re_parse_error(REParseState *s, JS_PRINTF
     return -1;
 }
 
+/* surimono: compiling a pattern is quadratic in places (each alternative and
+   quantifier moves the bytecode written so far, each class item merges into a
+   sorted table, each forward \k scans the pattern), and nothing polled:
+   'x|'.repeat(8 << 20) ran for minutes. Called per term, class item and
+   alternative, without a counter, because one step can cost milliseconds.
+   The error is an uncatchable interrupt, not a SyntaxError; see
+   js_compile_regexp. */
+static int re_parse_poll(REParseState *s)
+{
+    if (lre_check_timeout(s->opaque))
+        return re_parse_error(s, "%s", LRE_INTERRUPTED);
+    return 0;
+}
+
 static int re_parse_out_of_memory(REParseState *s)
 {
     return re_parse_error(s, "out of memory");
@@ -1447,6 +1461,9 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
     /* handle unions */
     is_first = true;
     for(;;) {
+        /* surimono */
+        if (re_parse_poll(s))
+            goto fail;
         if (*p == ']')
             break;
         if (*p == '[' && s->unicode_sets) {
@@ -1521,6 +1538,9 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
             if (*p == '&' && p[1] == '&' && p[2] != '&') {
                 /* handle '&&' */
                 for(;;) {
+                    /* surimono */
+                    if (re_parse_poll(s))
+                        goto fail;
                     if (*p == ']') {
                         break;
                     } else if (*p == '&' && p[1] == '&' && p[2] != '&') {
@@ -1538,6 +1558,9 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
             } else if (*p == '-' && p[1] == '-') {
                 /* handle '--' */
                 for(;;) {
+                    /* surimono */
+                    if (re_parse_poll(s))
+                        goto fail;
                     if (*p == ']') {
                         break;
                     } else if (*p == '-' && p[1] == '-') {
@@ -2439,6 +2462,9 @@ static int re_parse_alternative(REParseState *s, bool is_backward_dir)
             break;
         if (*p == '|' || *p == ')')
             break;
+        /* surimono */
+        if (re_parse_poll(s))
+            return -1;
         term_start = s->byte_code.size;
         ret = re_parse_term(s, is_backward_dir);
         if (ret)
@@ -2471,6 +2497,9 @@ static int re_parse_disjunction(REParseState *s, bool is_backward_dir)
     if (re_parse_alternative(s, is_backward_dir))
         return -1;
     while (*s->buf_ptr == '|') {
+        /* surimono */
+        if (re_parse_poll(s))
+            return -1;
         s->buf_ptr++;
 
         len = s->byte_code.size - start;

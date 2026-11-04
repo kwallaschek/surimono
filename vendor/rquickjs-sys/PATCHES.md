@@ -1137,3 +1137,476 @@ array, so `out_of_memory_never_aborts` refuses that allocation;
 +                        goto fail;
                      emit_op(s, OP_get_arg);
 ```
+
+## Polls while compiling (P2-RT-03)
+
+Nothing in a compile ran bytecode, so nothing in it polled, and `eval`,
+`new Function`, `new RegExp` and `JSON.parse` ran to their end whatever the
+limit. Some of that is quadratic in a small input: 60,000 `let`s in a function
+(1 MiB) took 24 s, and `'x|'.repeat(1 << 22)` ran for minutes. A source-size cap
+wouldn't have bounded those, so the fix is polls. Draft:
+`docs/upstream/quickjs-ng/14-parser-never-polls.md`. With patches 1 to 26, patch
+level 7. Precompiled bytecode goes through `JS_ReadObject`, which none of this
+touches, so a load gets no slower.
+
+27. **The tokenizer polls.** `next_token` polls at `redo:`, once per token and
+    per skipped white space character. That is a count, not a source position,
+    because `js_parse_skip_parens_token` scans the same tokens again. The loops
+    that scan a single long token poll per byte: strings, templates, regexp
+    literals and flags, identifiers, block and line comments. `js_atof` polls in
+    its digit loops (also `Number(s)`, `parseFloat`); an interrupt there
+    returns `JS_EXCEPTION` like its out-of-memory path. All of these fail
+    through existing labels.
+    - `js_parse_template` ignored a failure of `js_parse_string` with
+      `do_throw` false (an invalid escape throws nothing). It now returns -1 if
+      an exception is pending.
+    - `simple_next_token` (`peek_token`) and `skip_shebang` take the context and
+      poll. They can't report failure, so they stop early and leave the
+      exception pending; the next `next_token` fails. Patch 1 makes that safe:
+      the poll answers again at once. So is the discarded `next_token`
+      failure in `js_parse_skip_parens_token`: the seek after it polls again.
+    - If a parse error replaces the interrupt, the sandbox still reports
+      `TimeLimit` (`classify` asks the limit state first), and a script that
+      catches the error is stopped at its next poll.
+28. **`JSON.parse` polls.** `json_next_token` at `redo:`, `json_parse_ident` and
+    the digit loops of `json_parse_number`. `json_parse_string` polls per batch
+    and caps its ASCII fast path at 64 KiB a batch.
+29. **The compiler's passes poll.** `resolve_variables` (its first pass over
+    the global variables too), `resolve_labels` and `compute_stack_size` poll
+    once per instruction, at the point of an existing failure path. They cost
+    about as much as parsing, and `resolve_scope_var` walks every variable in
+    scope for each name. The cleanup after a stop here is proportional to the
+    function: about half the time spent so far at worst.
+30. **The regexp compiler polls.** `re_parse_poll` calls `lre_check_timeout` per
+    term, class item and alternative, with no counter, since one step can cost
+    milliseconds (a `memmove` of the bytecode written so far, a merge into a
+    class table). It reports the reserved message `LRE_INTERRUPTED`, which
+    `js_compile_regexp` turns into the uncatchable `JS_ThrowInterrupted`
+    instead of a `SyntaxError`. This also covers regexp literals, which the
+    parser compiles.
+31. **`surimono_quickjs_patch_level()` returns 7**, and surimono-core requires 7.
+
+Left, all linear in data the memory limit bounds: the conversion in `js_atof`
+after its digit loops (`js_atod` on 64 MiB of digits, about 100 to 200 ms),
+`strtod` in `json_parse_number`, `JS_WriteObject` in `Sandbox::compile`, and
+straight-line bytecode, which has no back-edge to poll at.
+
+Timings, release build, 50 ms limit, `TimeLimit` in all of the "after" column
+(`Sandbox::compile`, or a call with the string already set):
+
+| Input | Before | After |
+|---|---|---|
+| 60 MiB of statements in an uncalled function | 6,146 ms | 56 ms |
+| The same through `eval`, direct | 6,334 ms | 55 ms |
+| The same through `new Function` | 7,173 ms | 73 ms |
+| 60 MiB array literal | 7,412 ms | 54 ms |
+| 60,000 `let`s, 1 MiB | 24,255 ms | 50 ms |
+| 131,072 `var`s, 1.4 MiB | 7,543 ms | 51 ms |
+| 60 MiB regexp literal | 1,865 ms | 50 ms |
+| `new RegExp`, 60 MiB of literals | 1,207 ms | 50 ms |
+| `new RegExp('x\|'.repeat(8 << 20))` | stopped by hand after minutes | 50 ms |
+
+The stop itself is prompt; the time after it is unwinding. Past 1 s, for a
+16 MiB source, unwinding takes 100 to 700 ms, still under twice the limit.
+Compiling the 1 MiB ECharts bundle: best of 15, three runs each, 142 to 153 ms
+before, 139 to 144 ms after.
+
+Tests: group G in `crates/core/tests/hostile.rs` (39 vectors, and
+`group_g_compile_interrupts_are_uncatchable`); `interrupted_natives_leak_nothing`
+(six group G vectors), `interrupted_compiles_leak_nothing`,
+`json_strings_are_unchanged_around_a_batch` and `compile_errors_are_unchanged` in
+`crates/core/src/sandbox.rs`. The out-of-memory sweeps now stop at the poll after
+each refused allocation inside the parser and the passes.
+
+### Diff of patches 27 to 31 (on top of patches 1 to 26)
+
+```diff
+--- a/quickjs/libregexp.c
++++ b/quickjs/libregexp.c
+@@ -699,4 +699,18 @@ static int JS_PRINTF_FORMAT_ATTR(2, 3) re_parse_error(REParseState *s, JS_PRINTF
+ }
+ 
++/* surimono: compiling a pattern is quadratic in places (each alternative and
++   quantifier moves the bytecode written so far, each class item merges into a
++   sorted table, each forward \k scans the pattern), and nothing polled:
++   'x|'.repeat(8 << 20) ran for minutes. Called per term, class item and
++   alternative, without a counter, because one step can cost milliseconds.
++   The error is an uncatchable interrupt, not a SyntaxError; see
++   js_compile_regexp. */
++static int re_parse_poll(REParseState *s)
++{
++    if (lre_check_timeout(s->opaque))
++        return re_parse_error(s, "%s", LRE_INTERRUPTED);
++    return 0;
++}
++
+ static int re_parse_out_of_memory(REParseState *s)
+ {
+@@ -1448,4 +1462,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+     is_first = true;
+     for(;;) {
++        /* surimono */
++        if (re_parse_poll(s))
++            goto fail;
+         if (*p == ']')
+             break;
+@@ -1522,4 +1539,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+                 /* handle '&&' */
+                 for(;;) {
++                    /* surimono */
++                    if (re_parse_poll(s))
++                        goto fail;
+                     if (*p == ']') {
+                         break;
+@@ -1539,4 +1559,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
+                 /* handle '--' */
+                 for(;;) {
++                    /* surimono */
++                    if (re_parse_poll(s))
++                        goto fail;
+                     if (*p == ']') {
+                         break;
+@@ -2440,4 +2463,7 @@ static int re_parse_alternative(REParseState *s, bool is_backward_dir)
+         if (*p == '|' || *p == ')')
+             break;
++        /* surimono */
++        if (re_parse_poll(s))
++            return -1;
+         term_start = s->byte_code.size;
+         ret = re_parse_term(s, is_backward_dir);
+@@ -2472,4 +2498,7 @@ static int re_parse_disjunction(REParseState *s, bool is_backward_dir)
+         return -1;
+     while (*s->buf_ptr == '|') {
++        /* surimono */
++        if (re_parse_poll(s))
++            return -1;
+         s->buf_ptr++;
+ 
+--- a/quickjs/libregexp.h
++++ b/quickjs/libregexp.h
+@@ -51,4 +51,8 @@ extern "C" {
+ #define LRE_GROUP_NAME_TRAILER_LEN 2
+ 
++/* surimono: the error message lre_compile gives when lre_check_timeout told
++   it to stop. No syntax error has this text. */
++#define LRE_INTERRUPTED "interrupted"
++
+ uint8_t *lre_compile(int *plen, char *error_msg, int error_msg_size,
+                      const char *buf, size_t buf_len, int re_flags,
+--- a/quickjs/quickjs.c
++++ b/quickjs/quickjs.c
+@@ -8774,8 +8774,10 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
+    5: also the leak count at teardown (p1-rt-18).
+    6: also the failed length property of a new array and the unchecked
+-   add_arg (p1-rt-36). */
++   add_arg (p1-rt-36).
++   7: also the polls in the parser, the compiler passes, JSON.parse and
++   the regexp compiler (p2-rt-03). */
+ int surimono_quickjs_patch_level(void)
+ {
+-    return 6;
++    return 7;
+ }
+ 
+@@ -14037,4 +14039,10 @@ static JSValue js_atof(JSContext *ctx, const char *str, const char **pp,
+                               p != p_start + 1 || p[-1] != '0') &&
+                 js_to_digit((uint8_t)p[1]) < radix)) {
++        /* surimono: a numeric literal, or Number(s), can be as long as its
++           string. See next_token. */
++        if (js_poll_interrupts(ctx)) {
++            val = JS_EXCEPTION;
++            goto done;
++        }
+         p++;
+     }
+@@ -14046,6 +14054,11 @@ static JSValue js_atof(JSContext *ctx, const char *str, const char **pp,
+                 goto fail;
+             while (js_to_digit((uint8_t)*p) < radix ||
+-                   (*p == sep && js_to_digit((uint8_t)p[1]) < radix))
++                   (*p == sep && js_to_digit((uint8_t)p[1]) < radix)) {
++                if (js_poll_interrupts(ctx)) {
++                    val = JS_EXCEPTION;
++                    goto done;
++                }
+                 p++;
++            }
+         }
+         if (p > p_start && (*p == 'e' || *p == 'E')) {
+@@ -14059,6 +14072,11 @@ static JSValue js_atof(JSContext *ctx, const char *str, const char **pp,
+             if (is_digit((uint8_t)*p1)) {
+                 p = p1 + 1;
+-                while (is_digit((uint8_t)*p) || (*p == sep && is_digit((uint8_t)p[1])))
++                while (is_digit((uint8_t)*p) || (*p == sep && is_digit((uint8_t)p[1]))) {
++                    if (js_poll_interrupts(ctx)) {
++                        val = JS_EXCEPTION;
++                        goto done;
++                    }
+                     p++;
++                }
+             }
+         }
+@@ -22830,4 +22848,7 @@ static __exception int js_parse_template_part(JSParseState *s,
+         goto fail;
+     for(;;) {
++        /* surimono: see next_token. */
++        if (js_poll_interrupts(s->ctx))
++            goto fail;
+         if (p >= s->buf_end)
+             goto unexpected_eof;
+@@ -22901,4 +22922,7 @@ static __exception int js_parse_string(JSParseState *s, int sep,
+         goto fail;
+     for(;;) {
++        /* surimono: see next_token. */
++        if (js_poll_interrupts(s->ctx))
++            goto fail;
+         if (p >= s->buf_end)
+             goto invalid_char;
+@@ -23048,4 +23072,7 @@ static __exception int js_parse_regexp(JSParseState *s)
+         goto fail;
+     for(;;) {
++        /* surimono: see next_token. */
++        if (js_poll_interrupts(s->ctx))
++            goto fail;
+         if (p >= s->buf_end) {
+         eof_error:
+@@ -23102,4 +23129,7 @@ static __exception int js_parse_regexp(JSParseState *s)
+     /* flags */
+     for(;;) {
++        /* surimono: see next_token. */
++        if (js_poll_interrupts(s->ctx))
++            goto fail;
+         c = utf8_decode(p, &p_next);
+         /* no need to test for invalid UTF-8, 0xFFFD is not ident_next */
+@@ -23225,4 +23255,7 @@ static JSAtom parse_ident(JSParseState *s, const uint8_t **pp,
+         buf[ident_pos++] = '#';
+     for(;;) {
++        /* surimono: see next_token. */
++        if (js_poll_interrupts(s->ctx))
++            goto done;
+         if (c < 0x80) {
+             buf[ident_pos++] = c;
+@@ -23276,4 +23309,11 @@ static __exception int next_token(JSParseState *s)
+     s->last_col_num = s->token.col_num;
+  redo:
++    /* surimono: the parser runs no bytecode, so nothing polled during a
++       compile: 60 MiB of source took seconds past a 50 ms limit. Poll per
++       token and per skipped white space, and per byte in the loops that
++       scan one long token or comment. Not by source position:
++       js_parse_skip_parens_token scans the same tokens again. */
++    if (js_poll_interrupts(s->ctx))
++        goto fail;
+     s->token.line_num = s->line_num;
+     s->token.col_num = s->col_num;
+@@ -23324,4 +23364,7 @@ static __exception int next_token(JSParseState *s)
+             p += 2;
+             for(;;) {
++                /* surimono: see the poll at redo. */
++                if (js_poll_interrupts(s->ctx))
++                    goto fail;
+                 if (*p == '\0' && p >= s->buf_end) {
+                     js_parse_error(s, "unexpected end of comment");
+@@ -23359,4 +23402,7 @@ static __exception int next_token(JSParseState *s)
+         skip_line_comment:
+             for(;;) {
++                /* surimono: see the poll at redo. */
++                if (js_poll_interrupts(s->ctx))
++                    goto fail;
+                 if (*p == '\0' && p >= s->buf_end)
+                     break;
+@@ -23760,7 +23806,13 @@ static int json_parse_string(JSParseState *s, const uint8_t **pp)
+         }
+ 
++        /* surimono: see next_token. Batches are capped so this runs at
++           bounded intervals. */
++        if (js_poll_interrupts(s->ctx))
++            goto fail;
++
+         // Fast path: batch consecutive ASCII characters
+         const uint8_t *p_start = p;
+-        while (p < s->buf_end && *p != '"' && *p != '\\' && *p >= 0x20 && *p < 0x80) {
++        const uint8_t *p_stop = s->buf_end - p > 65536 ? p + 65536 : s->buf_end;
++        while (p < p_stop && *p != '"' && *p != '\\' && *p >= 0x20 && *p < 0x80) {
+             p++;
+         }
+@@ -23775,4 +23827,8 @@ static int json_parse_string(JSParseState *s, const uint8_t **pp)
+             goto end_of_input;
+ 
++        /* surimono: a batch stopped by its cap, not by a special character. */
++        if (p == p_stop)
++            continue;
++
+         c = *p++;
+         if (c == '"')
+@@ -23849,6 +23905,10 @@ static int json_parse_number(JSParseState *s, const uint8_t **pp)
+         return json_parse_error(s, p, "Unexpected number");
+ 
+-    while (is_digit(*p))
++    /* surimono: see next_token. */
++    while (is_digit(*p)) {
++        if (js_poll_interrupts(s->ctx))
++            return -1;
+         p++;
++    }
+ 
+     if (*p == '.') {
+@@ -23856,6 +23916,9 @@ static int json_parse_number(JSParseState *s, const uint8_t **pp)
+         if (!is_digit(*p))
+             return json_parse_error(s, p, "Unterminated fractional number");
+-        while (is_digit(*p))
++        while (is_digit(*p)) {
++            if (js_poll_interrupts(s->ctx))
++                return -1;
+             p++;
++        }
+     }
+     if (*p == 'e' || *p == 'E') {
+@@ -23865,6 +23928,9 @@ static int json_parse_number(JSParseState *s, const uint8_t **pp)
+         if (!is_digit(*p))
+             return json_parse_error(s, p, "Exponent part is missing a number");
+-        while (is_digit(*p))
++        while (is_digit(*p)) {
++            if (js_poll_interrupts(s->ctx))
++                return -1;
+             p++;
++        }
+     }
+     s->token.val = TOK_NUMBER;
+@@ -23887,4 +23953,9 @@ static JSAtom json_parse_ident(JSParseState *s, const uint8_t **pp, int c)
+     ident_pos = 0;
+     for(;;) {
++        /* surimono: see next_token. */
++        if (js_poll_interrupts(s->ctx)) {
++            atom = JS_ATOM_NULL;
++            goto done;
++        }
+         buf[ident_pos++] = c;
+         c = *p;
+@@ -23926,4 +23997,7 @@ static __exception int json_next_token(JSParseState *s)
+     s->last_col_num = s->token.col_num;
+  redo:
++    /* surimono: see next_token. */
++    if (js_poll_interrupts(s->ctx))
++        goto fail;
+     s->token.line_num = s->line_num;
+     s->token.col_num = s->col_num;
+@@ -24050,5 +24124,10 @@ static __exception int json_next_token(JSParseState *s)
+    only set if TOK_IMPORT is returned */
+ /* XXX: handle all unicode cases */
+-static int simple_next_token(const uint8_t **pp, bool no_line_terminator)
++/* surimono: polls like next_token, whose scan of the same bytes follows.
++   After an interrupt it returns TOK_EOF and the caller's next next_token
++   fails, or a parse error of the caller takes the interrupt's place; either
++   way the next poll stops the script, since an interrupt is sticky. */
++static int simple_next_token(JSContext *ctx, const uint8_t **pp,
++                             bool no_line_terminator)
+ {
+     const uint8_t *p;
+@@ -24058,4 +24137,6 @@ static int simple_next_token(const uint8_t **pp, bool no_line_terminator)
+     p = *pp;
+     for (;;) {
++        if (js_poll_interrupts(ctx))
++            return TOK_EOF;
+         switch(c = *p++) {
+         case '\r':
+@@ -24073,10 +24154,15 @@ static int simple_next_token(const uint8_t **pp, bool no_line_terminator)
+                 if (no_line_terminator)
+                     return '\n';
+-                while (*p && *p != '\r' && *p != '\n')
++                while (*p && *p != '\r' && *p != '\n') {
++                    if (js_poll_interrupts(ctx))
++                        return TOK_EOF;
+                     p++;
++                }
+                 continue;
+             }
+             if (*p == '*') {
+                 while (*++p) {
++                    if (js_poll_interrupts(ctx))
++                        return TOK_EOF;
+                     if ((*p == '\r' || *p == '\n') && no_line_terminator)
+                         return '\n';
+@@ -24135,8 +24221,10 @@ static int peek_token(JSParseState *s, bool no_line_terminator)
+ {
+     const uint8_t *p = s->buf_ptr;
+-    return simple_next_token(&p, no_line_terminator);
++    return simple_next_token(s->ctx, &p, no_line_terminator);
+ }
+ 
+-static void skip_shebang(const uint8_t **pp, const uint8_t *buf_end)
++/* surimono: stops early on an interrupt; the first next_token then fails. */
++static void skip_shebang(JSContext *ctx, const uint8_t **pp,
++                         const uint8_t *buf_end)
+ {
+     const uint8_t *p = *pp;
+@@ -24146,4 +24234,6 @@ static void skip_shebang(const uint8_t **pp, const uint8_t *buf_end)
+         p += 2;
+         while (p < buf_end) {
++            if (js_poll_interrupts(ctx))
++                break;
+             if (*p == '\n' || *p == '\r') {
+                 break;
+@@ -24995,4 +25085,8 @@ static __exception int js_parse_template(JSParseState *s, int call, int *argc)
+              */
+             if (js_parse_string(s, '`', false, p, &cooked, &p)) {
++                /* surimono: an invalid escape throws nothing here; an
++                   interrupt or a failed allocation does. */
++                if (JS_HasException(ctx))
++                    return -1;
+                 cooked.u.str.str = JS_UNDEFINED;
+             }
+@@ -35355,4 +35449,11 @@ static __exception int resolve_variables(JSContext *ctx, JSFunctionDef *s)
+         int flags;
+ 
++        /* surimono: see the poll in the loop below; pos is 0, so the path
++           at fail keeps every atom of the bytecode. */
++        if (js_poll_interrupts(ctx)) {
++            pos = 0;
++            goto fail;
++        }
++
+         /* check if global variable (XXX: simplify) */
+         for(idx = 0; idx < s->closure_var_count; idx++) {
+@@ -35391,4 +35492,9 @@ static __exception int resolve_variables(JSContext *ctx, JSFunctionDef *s)
+     col_num = 0;
+     for (pos = 0; pos < bc_len; pos = pos_next) {
++        /* surimono: this pass costs as much as the parser and its name
++           lookups walk every variable in scope: a function of 60,000 `let`s,
++           1 MiB of source, took 24 s here and in the next one. */
++        if (js_poll_interrupts(ctx))
++            goto fail;
+         op = bc_buf[pos];
+         len = opcode_info[op].size;
+@@ -36075,4 +36181,7 @@ static __exception int resolve_labels(JSContext *ctx, JSFunctionDef *s)
+             goto fail;
+         }
++        /* surimono: see resolve_variables. */
++        if (js_poll_interrupts(ctx))
++            goto fail;
+         op = bc_buf[pos];
+         len = opcode_info[op].size;
+@@ -36995,4 +37104,7 @@ static __exception int compute_stack_size(JSContext *ctx,
+ 
+     while (s->pc_stack_len > 0) {
++        /* surimono: see resolve_variables. */
++        if (js_poll_interrupts(ctx))
++            goto fail;
+         pos = s->pc_stack[--s->pc_stack_len];
+         stack_len = s->stack_level_tab[pos];
+@@ -38424,5 +38536,5 @@ static JSValue __JS_EvalInternal(JSContext *ctx, JSValueConst this_obj,
+ 
+     js_parse_init(ctx, s, input, input_len, filename, line);
+-    skip_shebang(&s->buf_ptr, s->buf_end);
++    skip_shebang(ctx, &s->buf_ptr, s->buf_end);
+ 
+     eval_type = flags & JS_EVAL_TYPE_MASK;
+@@ -49557,4 +49669,9 @@ static JSValue js_compile_regexp(JSContext *ctx, JSValueConst pattern,
+     JS_FreeCString(ctx, str);
+     if (!re_bytecode_buf) {
++        /* surimono: lre_compile polls; see re_parse_poll. */
++        if (!strcmp(error_msg, LRE_INTERRUPTED)) {
++            JS_ThrowInterrupted(ctx);
++            return JS_EXCEPTION;
++        }
+         JS_ThrowSyntaxError(ctx, "%s", error_msg);
+         return JS_EXCEPTION;
+```

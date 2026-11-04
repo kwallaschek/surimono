@@ -329,9 +329,12 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 ///   every sandbox, started by the first sandbox and again by the first
 ///   sandbox in a forked child) raises a flag at the deadline that the
 ///   patched engine reads at every interrupt check: every loop back-edge
-///   and call, and inside the native loops that can run long (`join`,
+///   and call, inside the native loops that can run long (`join`,
 ///   `fill`, `sort`… over a huge array-like, string searches, BigInt
-///   arithmetic). The interrupt is uncatchable, so `try`/`catch`/`finally` can't hold it
+///   arithmetic), and through a compile (every token, every instruction of
+///   the compiler's passes, regular expression terms) and `JSON.parse`, so
+///   [`compile`](Self::compile), `eval`, `new Function` and `RegExp` stop
+///   with the time limit too. The interrupt is uncatchable, so `try`/`catch`/`finally` can't hold it
 ///   off, and it is sticky: built-ins that turn exceptions into rejections
 ///   or new errors (the `Promise` constructor, async generators,
 ///   `DisposableStack`) can't swallow it either. See
@@ -2202,6 +2205,13 @@ const BoundPt = Pt.bind(null, 7);
             "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/g, '')",
             "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/gy, '')",
             "'a'.repeat(1 << 22).replace(/(?:)/g, 'b')",
+            // Group G: stopped while compiling or parsing.
+            "eval('function f(){' + 'a=[1,\"s\",/r/,`t`];'.repeat(1 << 21) + '}')",
+            "new Function('let a=' + '(b,'.repeat(1 << 8) + 'c' + ')'.repeat(1 << 8) + ';'.repeat(1 << 26))",
+            "t = (x) => x; eval('t`' + 'x'.repeat(1 << 25) + '${1}`')",
+            "new RegExp('[a-z]|(?:x)*|'.repeat(1 << 20) + '|'.repeat(1 << 23))",
+            "JSON.parse('[' + '{\"a\":[1,\"s\"]},'.repeat(1 << 21) + '1]')",
+            "JSON.parse('[' + '{\"a\":[1,\"s\"]},'.repeat(1 << 21) + '1]', (k, v) => v)",
         ];
         let limits = Limits::default()
             .with_time(Duration::from_millis(60))
@@ -2226,6 +2236,101 @@ const BoundPt = Pt.bind(null, 7);
                 assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42), "{source}");
             }
         }
+    }
+
+    /// A compile stopped by the time limit anywhere in the parser or the
+    /// compiler's passes gives back everything (patches 27 to 29). The stops
+    /// land across the whole compile: each limit is a share of how long a
+    /// full compile takes here. The out-of-memory sweeps stop it at the poll
+    /// after each allocation, without a clock.
+    #[test]
+    fn interrupted_compiles_leak_nothing() {
+        let source = r#"{
+class C extends Object { #p = 1; static s = /a|b/g; get p() { return this.#p } }
+function f(a, { b, c: [d = 2] = [] } = {}, ...rest) {
+  outer: for (let i = 0; i < 3; i++) {
+    try { switch (i) { case 0: continue outer; default: break outer; } }
+    finally { rest.push(`t${i}`, 1.5, 12n, 'text'); }
+  }
+  const g = async function* () { yield* [a, b, d]; };
+  return (x) => x + a + (() => g)();
+}
+}"#
+        .repeat(1500);
+        let limits = |ms| {
+            Limits::default()
+                .with_time(Duration::from_millis(ms))
+                .with_memory_bytes(512 * 1024 * 1024)
+        };
+        let started = std::time::Instant::now();
+        Sandbox::new(limits(120_000))
+            .unwrap()
+            .compile(&source, "c.js")
+            .unwrap();
+        let full = started.elapsed().as_millis() as u64;
+        for percent in (5..100).step_by(5) {
+            let mut sb = Sandbox::new(limits((full * percent / 100).max(1))).unwrap();
+            let state = sb.state.clone();
+            // A busy machine can make it finish or not: both must hold.
+            let _ = sb.compile(&source, "c.js");
+            sb.reset().unwrap();
+            assert_eq!(state.used(), 0, "stopped at {percent}%: leaked");
+            assert_eq!(state.leaked_objects(), 0, "stopped at {percent}%");
+        }
+    }
+
+    /// The polls of patch 28 leave `JSON.parse` as it was, around the batch
+    /// size of `json_parse_string` too.
+    #[test]
+    fn json_strings_are_unchanged_around_a_batch() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        // Each tail in JSON (as a JS string) and what it must decode to.
+        let tails = [
+            ("", ""),
+            (r"\\n", r"\n"),
+            (r#"\\""#, r#"""#),
+            ("é", "é"),
+            (r"\\u0041", "A"),
+        ];
+        for (json, decoded) in tails {
+            for len in [65534, 65535, 65536, 65537, 131071, 131072, 131073] {
+                let source = format!(
+                    r#"var t = 'x'.repeat({len}); JSON.parse('"' + t + '{json}"') === t + '{decoded}'"#
+                );
+                assert_eq!(sb.eval::<bool>(&source), Ok(true), "{len} {json}");
+            }
+        }
+    }
+
+    /// Compile polls change no syntax error: a bad pattern is still a
+    /// catchable SyntaxError, and a tagged template with a bad escape still
+    /// has an undefined cooked string (the poll's error path is next to it).
+    #[test]
+    fn compile_errors_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let got = sb
+            .eval::<String>(
+                r#"
+const name = (f) => { try { f(); return 'ok' } catch (e) { return e.name } };
+[
+  name(() => new RegExp('(')),
+  name(() => new RegExp('[b-a]')),
+  name(() => eval('/(/')),
+  name(() => eval('`${')),
+  name(() => eval('1 +')),
+  name(() => JSON.parse('[1,')),
+  String(((s) => s[0])`\unicode`),
+  String(((s) => s.raw[0])`\unicode`),
+  Number('12345678901234567890') === 12345678901234567000 ? 'n' : 'x',
+  String(BigInt('123')),
+].join('|')
+"#,
+            )
+            .unwrap();
+        assert_eq!(
+            got,
+            "SyntaxError|SyntaxError|SyntaxError|SyntaxError|SyntaxError|SyntaxError|undefined|\\unicode|n|123"
+        );
     }
 
     /// The per-match polls of patch 19 (P1-RT-23) leave replace's results
