@@ -10,10 +10,14 @@ publish = false
 
 [dependencies]
 surimono-core.workspace = true
+surimono-webidl.workspace = true
 blitz-dom.workspace = true
 blitz-html.workspace = true
 blitz-traits.workspace = true
 thiserror.workspace = true
+# The parser under blitz-html, driven directly for chunked feeding, comment
+# data and quiet parse errors (src/parse.rs). Same versions as blitz-dom's.
+html5ever = "=0.35.0"
 
 [dev-dependencies]
 # Counts live heap bytes in the leak test, as crates/islands' soak test does.

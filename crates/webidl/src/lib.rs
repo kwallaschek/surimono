@@ -14,6 +14,7 @@
 //!   kept fresh by a test. See `crates/webidl/DESIGN.md`.
 
 pub mod ast;
+mod bindgen;
 mod codegen;
 mod lexer;
 mod model;
@@ -27,6 +28,7 @@ pub mod vendored;
 #[rustfmt::skip]
 pub mod stubs;
 
+pub use bindgen::{BindInterface, Bindings, DOM_BINDINGS, generate_bindings};
 pub use codegen::{GenError, STUB_INTERFACES, generate_stubs, rust_name};
 pub use model::{IdlSet, MergedInterface, MergedMember, NameKind, SetError};
 pub use parser::parse;
@@ -54,6 +56,17 @@ pub fn generate_vendored_stubs() -> Result<String, Error> {
         vendored::WEBREF_COMMIT
     );
     Ok(generate_stubs(&set, STUB_INTERFACES, &header)?)
+}
+
+/// The binding glue `surimono-dom` checks in (`src/generated/`):
+/// [`DOM_BINDINGS`] generated from the [`vendored`] IDL.
+pub fn generate_vendored_bindings() -> Result<Bindings, Error> {
+    let set = vendored::idl_set()?;
+    let header = format!(
+        "Bindings from w3c/webref commit {} (crates/webidl/idl/).",
+        vendored::WEBREF_COMMIT
+    );
+    Ok(generate_bindings(&set, DOM_BINDINGS, &header)?)
 }
 
 /// The contents `tests/golden/mini.rs` must have: every interface in
