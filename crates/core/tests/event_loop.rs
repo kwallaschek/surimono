@@ -837,6 +837,37 @@ fn a_late_end_cannot_cancel_a_newer_wait() {
     assert_eq!(handle.external_abandon_all(), 0);
 }
 
+/// A token outlives its runtime: a result from one render, arriving late,
+/// must not end a wait of the next render on a reset (pooled) sandbox, or
+/// real time would reach that page with no host choice.
+#[test]
+fn a_late_end_cannot_cancel_a_wait_after_a_reset() {
+    let mut sb = sandbox();
+    let handle = sb.event_loop().unwrap();
+    let old = handle.external_begin();
+    assert_eq!(handle.external_abandon_all(), 1);
+    sb.reset().unwrap();
+    let handle = sb.event_loop().unwrap();
+    let new = handle.external_begin();
+    assert_ne!(old, new);
+    assert!(!handle.external_end(old));
+    assert_eq!(handle.external_pending(), 1);
+    assert!(handle.external_end(new));
+}
+
+/// Nor can one sandbox's token end another's wait.
+#[test]
+fn a_token_from_another_sandbox_ends_nothing() {
+    let (a, b) = (sandbox(), sandbox());
+    let (a, b) = (a.event_loop().unwrap(), b.event_loop().unwrap());
+    let theirs = a.external_begin();
+    let ours = b.external_begin();
+    assert!(!b.external_end(theirs));
+    assert_eq!(b.external_pending(), 1);
+    assert!(b.external_end(ours));
+    assert!(a.external_end(theirs));
+}
+
 /// A chain of waits, each closing before the next as with an `onerror` that
 /// tries another `src`, holds the clock all the way: the loader's cap is
 /// what ends it (a stand-in here for E2-06's).

@@ -89,7 +89,9 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    your crates (`-p surimono-core`) while iterating. **Run
    `scripts/fleet/touch-workspace.sh` before every build or test**: worktrees share
    artifact names for workspace crates, so without it cargo can silently use another
-   worktree's build of a crate (false red or false green). A worktree that changes
+   worktree's build of a crate (false red or false green). Prefer `scripts/fleet/wcargo.sh <cargo args>`,
+   which sets this env and holds a lock across the touch and the whole command; agents
+   running at once otherwise still race. A worktree that changes
    `vendor/` (the engine) also sets `RUSTFLAGS="--cfg surimono_wt_<task_id>"` for every
    build and test, because touch-workspace.sh doesn't separate the engine's build
    output; delete those artifacts when done. GitHub CI uses a fresh target dir and
