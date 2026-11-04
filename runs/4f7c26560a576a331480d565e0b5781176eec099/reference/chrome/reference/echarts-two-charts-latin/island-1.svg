@@ -1,0 +1,58 @@
+<svg width="640" height="288" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" viewBox="0 0 640 288">
+<rect width="640" height="288" x="0" y="0" fill="none"></rect>
+<path d="M64 260.5L624 260.5" fill="none" pointer-events="visible" stroke="#e5e8eb" class="zr1-cls-2"></path>
+<path d="M64 216.5L624 216.5" fill="none" pointer-events="visible" stroke="#e5e8eb" class="zr1-cls-2"></path>
+<path d="M64 172.5L624 172.5" fill="none" pointer-events="visible" stroke="#e5e8eb" class="zr1-cls-2"></path>
+<path d="M64 128.5L624 128.5" fill="none" pointer-events="visible" stroke="#e5e8eb" class="zr1-cls-2"></path>
+<path d="M64 84.5L624 84.5" fill="none" pointer-events="visible" stroke="#e5e8eb" class="zr1-cls-2"></path>
+<path d="M64 40.5L624 40.5" fill="none" pointer-events="visible" stroke="#e5e8eb" class="zr1-cls-2"></path>
+<path d="M64 260.5L624 260.5" fill="none" pointer-events="visible" stroke="#54555a" stroke-linecap="round" class="zr1-cls-2"></path>
+<path d="M64.5 260L64.5 265" fill="none" pointer-events="visible" stroke="#54555a" class="zr1-cls-2"></path>
+<path d="M210.5 260L210.5 265" fill="none" pointer-events="visible" stroke="#54555a" class="zr1-cls-2"></path>
+<path d="M356.5 260L356.5 265" fill="none" pointer-events="visible" stroke="#54555a" class="zr1-cls-2"></path>
+<path d="M497.5 260L497.5 265" fill="none" pointer-events="visible" stroke="#54555a" class="zr1-cls-2"></path>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:'Noto Sans';" transform="translate(56 260)" fill="#54555a">30,000</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:'Noto Sans';" transform="translate(56 216)" fill="#54555a">35,000</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:'Noto Sans';" transform="translate(56 172)" fill="#54555a">40,000</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:'Noto Sans';" transform="translate(56 128)" fill="#54555a">45,000</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:'Noto Sans';" transform="translate(56 84)" fill="#54555a">50,000</text>
+<text dominant-baseline="central" text-anchor="end" style="font-size:12px;font-family:'Noto Sans';" transform="translate(56 40)" fill="#54555a">55,000</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 10px 'Noto Sans'" xml:space="preserve" y="5" transform="translate(64 268)" fill="#54555a">1 Jul</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 10px 'Noto Sans'" xml:space="preserve" y="5" transform="translate(209.8824 268)" fill="#54555a">1 Aug</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 10px 'Noto Sans'" xml:space="preserve" y="5" transform="translate(355.7647 268)" fill="#54555a">1 Sep</text>
+<text dominant-baseline="central" text-anchor="middle" style="font: normal normal 10px 'Noto Sans'" xml:space="preserve" y="5" transform="translate(496.9412 268)" fill="#54555a">1 Oct</text>
+<g clip-path="url(#zr1-c0)">
+<path d="M64 138.9L68.7 141.2L73.4 138.6L78.1 132.6L82.8 117.6L87.5 116.8L92.2 131.5L96.9 118.9L101.6 122.5L106.4 122.6L111.1 115.2L115.8 113.1L120.5 105.4L125.2 99.3L129.9 95.1L134.6 98.6L139.3 103.2L144 111.9L148.7 120.4L153.4 131.9L158.1 130.8L162.8 120.6L167.5 132.1L172.2 124L176.9 126.2L181.6 137.3L186.4 142.8L191.1 128.8L195.8 134.6L200.5 143.8L205.2 142.7L209.9 137.8L214.6 137.1L219.3 127.6L224 114.2L228.7 98.2L233.4 94.6L238.1 91.4L242.8 84.6L247.5 92.3L252.2 76.8L256.9 89L261.6 84L266.4 87.3L271.1 96.8L275.8 108.9L280.5 115L285.2 109.1L289.9 117.2L294.6 107.2L299.3 111.7L304 96.5L308.7 109.3L313.4 120.9L318.1 121.7L322.8 117.8L327.5 107.1L332.2 116.6L336.9 129L341.6 122.5L346.4 122.6L351.1 128.1L355.8 137.9L360.5 133.9L365.2 137.4L369.9 152.2L374.6 159.7L379.3 148.5L384 146.9L388.7 143L393.4 148L398.1 154.7L402.8 143L407.5 155.4L412.2 163.4L416.9 148.4L421.6 158.5L426.4 169.3L431.1 164L435.8 162.5L440.5 175.4L445.2 165.3L449.9 151.7L454.6 145L459.3 133.6L464 127.9L468.7 119L473.4 117.5L478.1 116.5L482.8 126.5L487.5 122.1L492.2 121.4L496.9 119.5L501.6 119.5L506.4 114L511.1 113L515.8 117.8L520.5 128.5L525.2 122L529.9 114.8L534.6 112.1L539.3 121.7L544 128.8L548.7 144L553.4 129.3L558.1 125.9L562.8 124.5L567.5 115.4L572.2 105.9L576.9 115.9L581.6 121.2L586.4 131.6L591.1 134.6L595.8 138.9L600.5 150.5L605.2 135L609.9 135.9L614.6 128L619.3 132.4L624 116.6L624 260L619.3 260L614.6 260L609.9 260L605.2 260L600.5 260L595.8 260L591.1 260L586.4 260L581.6 260L576.9 260L572.2 260L567.5 260L562.8 260L558.1 260L553.4 260L548.7 260L544 260L539.3 260L534.6 260L529.9 260L525.2 260L520.5 260L515.8 260L511.1 260L506.4 260L501.6 260L496.9 260L492.2 260L487.5 260L482.8 260L478.1 260L473.4 260L468.7 260L464 260L459.3 260L454.6 260L449.9 260L445.2 260L440.5 260L435.8 260L431.1 260L426.4 260L421.6 260L416.9 260L412.2 260L407.5 260L402.8 260L398.1 260L393.4 260L388.7 260L384 260L379.3 260L374.6 260L369.9 260L365.2 260L360.5 260L355.8 260L351.1 260L346.4 260L341.6 260L336.9 260L332.2 260L327.5 260L322.8 260L318.1 260L313.4 260L308.7 260L304 260L299.3 260L294.6 260L289.9 260L285.2 260L280.5 260L275.8 260L271.1 260L266.4 260L261.6 260L256.9 260L252.2 260L247.5 260L242.8 260L238.1 260L233.4 260L228.7 260L224 260L219.3 260L214.6 260L209.9 260L205.2 260L200.5 260L195.8 260L191.1 260L186.4 260L181.6 260L176.9 260L172.2 260L167.5 260L162.8 260L158.1 260L153.4 260L148.7 260L144 260L139.3 260L134.6 260L129.9 260L125.2 260L120.5 260L115.8 260L111.1 260L106.4 260L101.6 260L96.9 260L92.2 260L87.5 260L82.8 260L78.1 260L73.4 260L68.7 260L64 260Z" fill="url(#zr1-g0)" class="zr1-cls-4"></path>
+<path d="M64 138.9L68.7 141.2L73.4 138.6L78.1 132.6L82.8 117.6L87.5 116.8L92.2 131.5L96.9 118.9L101.6 122.5L106.4 122.6L111.1 115.2L115.8 113.1L120.5 105.4L125.2 99.3L129.9 95.1L134.6 98.6L139.3 103.2L144 111.9L148.7 120.4L153.4 131.9L158.1 130.8L162.8 120.6L167.5 132.1L172.2 124L176.9 126.2L181.6 137.3L186.4 142.8L191.1 128.8L195.8 134.6L200.5 143.8L205.2 142.7L209.9 137.8L214.6 137.1L219.3 127.6L224 114.2L228.7 98.2L233.4 94.6L238.1 91.4L242.8 84.6L247.5 92.3L252.2 76.8L256.9 89L261.6 84L266.4 87.3L271.1 96.8L275.8 108.9L280.5 115L285.2 109.1L289.9 117.2L294.6 107.2L299.3 111.7L304 96.5L308.7 109.3L313.4 120.9L318.1 121.7L322.8 117.8L327.5 107.1L332.2 116.6L336.9 129L341.6 122.5L346.4 122.6L351.1 128.1L355.8 137.9L360.5 133.9L365.2 137.4L369.9 152.2L374.6 159.7L379.3 148.5L384 146.9L388.7 143L393.4 148L398.1 154.7L402.8 143L407.5 155.4L412.2 163.4L416.9 148.4L421.6 158.5L426.4 169.3L431.1 164L435.8 162.5L440.5 175.4L445.2 165.3L449.9 151.7L454.6 145L459.3 133.6L464 127.9L468.7 119L473.4 117.5L478.1 116.5L482.8 126.5L487.5 122.1L492.2 121.4L496.9 119.5L501.6 119.5L506.4 114L511.1 113L515.8 117.8L520.5 128.5L525.2 122L529.9 114.8L534.6 112.1L539.3 121.7L544 128.8L548.7 144L553.4 129.3L558.1 125.9L562.8 124.5L567.5 115.4L572.2 105.9L576.9 115.9L581.6 121.2L586.4 131.6L591.1 134.6L595.8 138.9L600.5 150.5L605.2 135L609.9 135.9L614.6 128L619.3 132.4L624 116.6" fill="none" pointer-events="visible" stroke="#c2455a" stroke-width="1.5" stroke-linejoin="bevel" class="zr1-cls-5"></path>
+</g>
+<path d="M-5 -5l132.9 0l0 23l-132.9 0Z" transform="translate(5 5)" fill="rgb(0,0,0)" fill-opacity="0" stroke="#3c3c41" stroke-width="0" class="zr1-cls-2"></path>
+<text dominant-baseline="central" text-anchor="start" style="font-size:13px;font-family:'Noto Sans';font-weight:bold;" xml:space="preserve" y="6.5" transform="translate(5 5)" fill="#3c3c41">Cash balance (EUR)</text>
+<defs >
+<clipPath id="zr1-c0">
+<path d="M63 39.3l563 0l0 221.5l-563 0Z" fill="#000" class="zr1-cls-3"></path>
+</clipPath>
+<linearGradient gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1" id="zr1-g0">
+<stop offset="0%" stop-color="#e07b39"></stop>
+<stop offset="100%" stop-color="#fbe3d3"></stop>
+</linearGradient>
+</defs>
+<style ><![CDATA[
+.zr1-cls-2:hover {
+pointer-events:none;
+}
+.zr1-cls-3:hover {
+cursor:pointer;
+fill:rgba(0,0,0,1);
+}
+.zr1-cls-4:hover {
+cursor:pointer;
+fill:[object Object];
+}
+.zr1-cls-5:hover {
+cursor:pointer;
+}
+
+]]>
+
+</style>
+</svg>
