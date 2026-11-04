@@ -161,7 +161,7 @@ dates a chart shows into its spec as values.
 | `render` | The renderer's result isn't usable SVG | `Surimono::RenderError` | `Error::Render` |
 | `html` | The document is too ambiguous to rewrite | `Surimono::RenderError` | `Error::Html` |
 | `too-many-islands` | More markers than `max_islands`; nothing was rendered | `Surimono::RenderError` | `Error::TooManyIslands` |
-| `cancelled` | The render was cancelled between islands | the interrupt's own exception, such as `Timeout::Error` | `Error::Cancelled` |
+| `cancelled` | The render was cancelled: the running island stopped and the rest were skipped | the interrupt's own exception, such as `Timeout::Error` | `Error::Cancelled` |
 
 Every island error names the island: in Ruby `island_index` (from 0),
 `island_id` and `renderer`; in Rust `Error::island()`. `kind` is the stable

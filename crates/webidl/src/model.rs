@@ -180,13 +180,14 @@ impl IdlSet {
         let mut main = None;
         let mut partials = Vec::new();
         for (f, d) in self.definitions() {
-            if let DefinitionKind::Interface(i) = &d.kind {
-                if i.name == name && i.kind == kind {
-                    if i.partial {
-                        partials.push((f, i));
-                    } else if main.is_none() {
-                        main = Some((f, d, i));
-                    }
+            if let DefinitionKind::Interface(i) = &d.kind
+                && i.name == name
+                && i.kind == kind
+            {
+                if i.partial {
+                    partials.push((f, i));
+                } else if main.is_none() {
+                    main = Some((f, d, i));
                 }
             }
         }
@@ -214,10 +215,11 @@ impl IdlSet {
         }
         let mut mixins = Vec::new();
         for (_, d) in self.definitions() {
-            if let DefinitionKind::Includes { target, mixin } = &d.kind {
-                if target == name && !mixins.contains(mixin) {
-                    mixins.push(mixin.clone());
-                }
+            if let DefinitionKind::Includes { target, mixin } = &d.kind
+                && target == name
+                && !mixins.contains(mixin)
+            {
+                mixins.push(mixin.clone());
             }
         }
         for mixin in &mixins {

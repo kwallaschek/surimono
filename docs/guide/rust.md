@@ -29,12 +29,9 @@ Without the `[patch.crates-io]` entry the build fails at link time with
 `rquickjs-sys` in the repository's `vendor/` folder. Keep both entries on the
 same branch or `rev` so they come from one commit.
 
-surimono needs Rust 1.87 or later. fulgur 0.40 depends on krilla 0.7, which
-needs Rust 1.89, so the pair needs 1.89. surimono builds QuickJS from C
-sources, so a C compiler must be installed (as for most `-sys` crates). On a
-toolchain older than 1.88, put `edition = "2024"` and a `rust-version` in your
-package so that Cargo picks dependency versions your toolchain can build; some
-current releases need 1.88.
+surimono needs Rust 1.89 or later, as does fulgur 0.40 (through krilla 0.7).
+surimono builds QuickJS from C sources, so a C compiler must be installed (as
+for most `-sys` crates).
 
 ECharts and Vega are Cargo features, both on by default: `echarts` adds the
 `echarts` renderer, `vega` adds `vega` and `vega-lite`. Each adds its library,
@@ -192,10 +189,11 @@ can take up to N × `time`. `max_islands` caps N.
 
 ## Cancelling a render
 
-`render_islands_cancellable` takes an `AtomicBool` and checks it before each
-island; once it is true, the rest are skipped with `Error::Cancelled`, whatever
-the error policy. An island already running ends at its own time limit. Set the
-flag from another thread, a timer or a signal handler:
+`render_islands_cancellable` takes an `AtomicBool` and reads it about every
+5 ms while an island runs. Once it is true, the running island's script stops
+within milliseconds, the islands not yet started are skipped, and the render
+ends with `Error::Cancelled`, whatever the error policy. Leave the flag set
+until the call returns. Set it from another thread, a timer or a signal handler:
 
 ```rust
 use std::sync::Arc;
@@ -210,6 +208,12 @@ std::thread::spawn(move || {
 });
 let result = renderer.render_islands_cancellable(&html, &cancel);
 ```
+
+Loading a bundle isn't interrupted: a cancel takes effect when the load ends.
+Precompiled built-ins load in place. A built-in compiled from source on first
+use, or your own bundle compiled at a forked process's first render, can take
+up to twice `time` (one limit to compile, one to run it once), plus any wait
+for a free runtime.
 
 ## Errors
 
