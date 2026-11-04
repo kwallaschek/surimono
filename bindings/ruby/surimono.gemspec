@@ -33,5 +33,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rb_sys", "~> 0.9.130"
 
   spec.metadata["source_code_uri"] = "https://github.com/kwallaschek/surimono"
+  spec.metadata["changelog_uri"] = "https://github.com/kwallaschek/surimono/blob/main/CHANGELOG.md"
   spec.metadata["rubygems_mfa_required"] = "true"
 end

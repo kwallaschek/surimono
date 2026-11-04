@@ -17,7 +17,7 @@ use crate::ErrorPolicy;
 /// drawing it, so a document with N islands can take up to N × `time`.
 /// [`Options::max_islands`] caps N (1,000 by default), and
 /// [`Renderer::render_islands_cancellable`](crate::Renderer::render_islands_cancellable)
-/// stops a render between islands.
+/// stops a render from outside.
 ///
 /// Build limits from the defaults, so a limit added in a later release keeps
 /// its default in your code:

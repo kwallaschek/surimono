@@ -133,8 +133,8 @@ pub enum Error {
         max: usize,
     },
     /// The render was cancelled through the flag given to
-    /// [`Renderer::render_islands_cancellable`](crate::Renderer::render_islands_cancellable);
-    /// the islands not yet started were skipped.
+    /// [`Renderer::render_islands_cancellable`](crate::Renderer::render_islands_cancellable):
+    /// the running island's script was stopped and the rest were skipped.
     #[error("the render was cancelled")]
     Cancelled,
 }

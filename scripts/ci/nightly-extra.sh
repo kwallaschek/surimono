@@ -55,13 +55,19 @@ if [ -f crates/core/tests/main_thread_stack.rs ] && [ "$(uname -m)" = x86_64 ]; 
     sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq musl-tools
   fi
   rustup target add x86_64-unknown-linux-musl
+  # Print the test's stdout before acting on its status, or set -e loses it.
+  musl_status=0
   musl_out="$(ulimit -s 8192 && cargo test -p surimono-core --test main_thread_stack \
-    --target x86_64-unknown-linux-musl --locked)"
+    --target x86_64-unknown-linux-musl --locked)" || musl_status=$?
   printf '%s\n' "$musl_out"
+  [ "$musl_status" -eq 0 ] || exit "$musl_status"
   printf '%s\n' "$musl_out" | grep -q '^main_thread_stack: ok' \
     || { echo "main_thread_stack didn't run its checks" >&2; exit 1; }
   ran=$((ran + 1))
 fi
+# The Rust git-dependency + [patch] recipe the README gives: a program outside
+# the workspace builds and renders with it, and doesn't link without the patch.
+step "git dependency recipe"; scripts/ci/git-dep-recipe.sh; ran=$((ran + 1))
 # On a release branch (release/v*, the release PR): the release dry-run.
 # Checks no crate is publishable, builds and runs the CLI from source and
 # builds the source gem; never publishes or tags.

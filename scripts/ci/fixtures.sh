@@ -52,8 +52,7 @@ if ls bench/tools/test_*.py >/dev/null 2>&1; then
   step "bench: tool tests (python)"
   python3 -I -m unittest discover -s bench/tools -p 'test_*.py'; ran=$((ran + 1))
 fi
-# --check reads the manifest, which comes with the first vendored slices.
-if [ -f wpt/tools/vendor.py ] && [ -f wpt/manifest.toml ]; then
+if [ -f wpt/tools/vendor.py ]; then
   step "wpt: vendored files (vendor.py --check)"; python3 -I wpt/tools/vendor.py --check; ran=$((ran + 1))
 fi
 if ls wpt/tools/test/test_*.py >/dev/null 2>&1; then
