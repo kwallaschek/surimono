@@ -135,8 +135,11 @@ used_by = "P1-RT-08 Mermaid renderer (stretch, first to cut)"
 # Phase 2: libraries that run as page scripts, not as islands. Each is vendored
 # unmodified under fixtures/real-world/lib/<name>-<version>/ (test-only, never
 # compiled in), and its page is a fixture next to this manifest. [[library.vendored]]
-# pins every vendored file: `member` is its path in the tarball; verify.py checks
-# the committed copy offline and the tarball's copy online.
+# pins every vendored file: `member` is its path in the library's tarball, or in
+# `source_tarball` when that is set; a file with no tarball source says why in
+# `written_here`. verify.py checks the committed copy offline and the tarball's
+# copy online. [library.license_pending] names a licence file that isn't here
+# yet, and the task for it; verify.py --release fails while one is open.
 
 [[library]]
 name = "marked"
@@ -221,6 +224,10 @@ dist_format = "UMD, global `katex`"
 source_repo = "https://github.com/KaTeX/KaTeX"
 source_commit = "8000fbd4e29cca2c0cb1e88b745af3ed2f436b66"
 used_by = "fixtures/real-world/katex-autorender (Chrome runs the vendored copy as a page script)"
+# The npm LICENSE (MIT) covers the code. All 20 woff2 files say OFL 1.1 in name
+# ID 13, each with its Reserved Font Name (checked with fontTools).
+fonts_license = "OFL-1.1"
+fonts_license_files = ["fonts/OFL.txt"]
 
 [[library.vendored]]
 file = "fixtures/real-world/lib/katex-0.19.1/katex.min.js"
@@ -361,6 +368,12 @@ sha256 = "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b"
 bytes = 13568
 
 [[library.vendored]]
+file = "fixtures/real-world/lib/katex-0.19.1/fonts/OFL.txt"
+written_here = "the fonts' copyright and Reserved Font Name lines (name IDs 0 and 13) above the OFL 1.1 text from fixtures/fonts/OFL.txt; the tarball has no OFL text"
+sha256 = "cc6677cf0bd0ef24fca3aa74dc60babf94b9836b2ebc71bad1266b6cc64732b8"
+bytes = 4625
+
+[[library.vendored]]
 file = "fixtures/real-world/lib/katex-0.19.1/LICENSE"
 member = "LICENSE"
 sha256 = "766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3"
@@ -384,7 +397,21 @@ source_repo = "https://github.com/alpinejs/alpine"
 source_commit = "8d3d9a2f98385d4c879f4b5be080a0221279ed4d"
 used_by = "fixtures/real-world/alpine-invoice (Chrome runs the vendored copy as a page script)"
 
-license_note = "The npm tarball ships no licence file; see lib/alpinejs-3.17.5/LICENSE-NOTE.md"
+bundled_licenses = ["MIT (@vue/reactivity and @vue/shared, range ~3.5.40; the exact version built into cdn.min.js isn't recorded, see lib/alpinejs-3.17.5/LICENSE-vue-reactivity)"]
+
+[library.license_pending]
+file = "fixtures/real-world/lib/alpinejs-3.17.5/LICENSE.md"
+source_url = "https://github.com/alpinejs/alpine/blob/8d3d9a2f98385d4c879f4b5be080a0221279ed4d/LICENSE.md"
+note = "fixtures/real-world/lib/alpinejs-3.17.5/LICENSE-NOTE.md"
+task = "P1-CF-32"
+
+[[library.vendored]]
+file = "fixtures/real-world/lib/alpinejs-3.17.5/LICENSE-vue-reactivity"
+source_tarball = "https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.40.tgz"
+source_tarball_sha256 = "5f06abdb6606a6a9f5b78d12749f2377904914e0c63dba8d85c6f8b517192a95"
+member = "LICENSE"
+sha256 = "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+bytes = 1091
 
 [[library.vendored]]
 file = "fixtures/real-world/lib/alpinejs-3.17.5/cdn.min.js"

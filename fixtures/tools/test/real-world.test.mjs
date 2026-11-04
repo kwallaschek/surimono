@@ -32,6 +32,16 @@ for (const fixture of pages) {
     }
   });
 
+  test(`${fixture.name}: each font a stylesheet names has a vendored first choice`, () => {
+    for (const [, href] of html.matchAll(/<link\b[^>]*\bhref="([^"]+\.css)"/g)) {
+      const sheet = path.resolve(fixture.dir, href);
+      for (const [, src] of fs.readFileSync(sheet, "utf8").matchAll(/src:\s*([^;}]+)/g)) {
+        const first = /url\(["']?([^"')]+)/.exec(src)[1];
+        assert.ok(fs.existsSync(path.resolve(path.dirname(sheet), first)), first);
+      }
+    }
+  });
+
   test(`${fixture.name}: no clock or random source, no measuring`, () => {
     assert.doesNotMatch(html, /Math\.random|Date\.now|new Date|performance\.now|getBBox|getComputedTextLength|getBoundingClientRect/);
   });

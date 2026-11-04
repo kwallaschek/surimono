@@ -87,6 +87,9 @@ inline and fixed; pages call no clock or random source. The layout stays within
 what fulgur and Chrome agree on (see "Diff metric"), so these pages have flex
 rows and no `<table>`.
 
+`katex.min.css` also names `.woff` and `.ttf` files, which aren't vendored: Chrome
+takes the first `src` it supports, woff2, and E2-06's loader has to do the same.
+
 surimono's side needs page scripts, so no real-world page is compared with
 surimono yet; `compare.sh <fixture> <pdf>` will compare the printed page, and
 `dom.html` is the expectation for serialized HTML. `meta.toml`'s `needs` says
