@@ -1,0 +1,1 @@
+{"workflow":"full","job":"linux-extra","matrix":"asan","status":"failure","reported":"failure","needs_result":"","reported_job":"linux-extra","sha":"6ab1c62f67954c0723ef688e9df6ba1c7bb68376","ref":"release/v0.1.0-fix","event":"push","run_id":"41904508619","attempt":"1","finished_at":"2026-11-04T20:46:33Z"}
