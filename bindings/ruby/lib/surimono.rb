@@ -128,6 +128,9 @@ module Surimono
     #
     # Interrupts (Timeout.timeout, Rack::Timeout, Thread#raise, Thread#kill,
     # SIGTERM) stop a render, its running island included, and raise as usual.
+    # On Ruby 3.2, a render on the main thread while other threads exist runs a
+    # sleeping helper thread, "surimono-signal-pump", for its length, so that
+    # signals reach it; Ruby 3.3 and later need none.
     #
     # Bad argument types or values raise ArgumentError; a font path that
     # can't be read raises the usual Errno error; options the native side
@@ -166,10 +169,51 @@ module Surimono
     def render(html)
       raise ArgumentError, "html must be a String, got #{html.class}" unless html.respond_to?(:to_str)
 
-      _render(Renderer.send(:utf8, html.to_str))
+      html = Renderer.send(:utf8, html.to_str)
+      return _render(html) unless SIGNAL_PUMP && Thread.current.equal?(Thread.main) && Thread.list.size > 1
+
+      with_signal_pump { _render(html) }
     end
 
-    private :_render
+    # Ruby 3.2 passes a signal on to a render on the main thread only through
+    # a Ruby thread that drains its signal pipe: a helper it starts itself when
+    # the main thread is the only thread, or another thread that happens to go
+    # to sleep. With other threads alive and none of them sleeping at the right
+    # moment, the signal waited until the whole document was rendered. A thread
+    # that sleeps in short steps for the length of the render drains it. Ruby
+    # 3.3 and later have a timer thread for this. (P1-PKG-20)
+    SIGNAL_PUMP = RUBY_ENGINE == "ruby" && RUBY_VERSION.start_with?("3.2.")
+    SIGNAL_PUMP_INTERVAL = 0.05
+    private_constant :SIGNAL_PUMP, :SIGNAL_PUMP_INTERVAL
+
+    # Runs the block with the signal pump. The pump only sleeps; it stops on its
+    # own once `done` is set, so even an interrupt that lands between
+    # Thread.new and the assignment can't leave it running, and the ensure
+    # wakes and joins it so it never outlives the render.
+    def with_signal_pump
+      done = false
+      pump = nil
+      begin
+        pump = Thread.new do
+          Thread.current.name = "surimono-signal-pump"
+          Thread.current.report_on_exception = false
+          sleep SIGNAL_PUMP_INTERVAL until done
+        end
+        yield
+      ensure
+        done = true
+        if pump
+          begin
+            pump.wakeup
+          rescue ThreadError
+            nil # already finished
+          end
+          pump.join
+        end
+      end
+    end
+
+    private :_render, :with_signal_pump
 
     class << self
       private

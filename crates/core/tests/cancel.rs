@@ -18,10 +18,17 @@ use surimono_core::{Limits, Sandbox, SandboxError};
 /// milliseconds; the rest is headroom for a loaded CI machine and debug builds.
 const BOUND: Duration = Duration::from_secs(2);
 
+/// Heap limit for these tests unless one says otherwise.
+const MEMORY: usize = 64 << 20;
+
 fn sandbox() -> (Sandbox, Arc<AtomicBool>) {
+    sandbox_with_memory(MEMORY)
+}
+
+fn sandbox_with_memory(memory_bytes: usize) -> (Sandbox, Arc<AtomicBool>) {
     let limits = Limits::default()
         .with_time(scaled(Duration::from_secs(60)))
-        .with_memory_bytes(64 << 20);
+        .with_memory_bytes(memory_bytes);
     let mut sb = Sandbox::new(limits).unwrap();
     let flag = Arc::new(AtomicBool::new(false));
     sb.set_cancel_flag(Some(flag.clone()));
@@ -40,7 +47,12 @@ fn raise_after(flag: &Arc<AtomicBool>, after: Duration) -> thread::JoinHandle<In
 
 /// Runs `script`, raises the flag while it runs, and checks the call stops.
 fn cancels(script: &str) {
-    let (mut sb, flag) = sandbox();
+    cancels_with_memory(script, MEMORY);
+}
+
+/// [`cancels`] with a heap limit of `memory_bytes`.
+fn cancels_with_memory(script: &str, memory_bytes: usize) {
+    let (mut sb, flag) = sandbox_with_memory(memory_bytes);
     let raiser = raise_after(&flag, Duration::from_millis(100));
     let result = sb.eval::<()>(script);
     let ended = Instant::now();
@@ -74,7 +86,17 @@ fn stops_a_loop_with_an_expensive_body() {
 
 #[test]
 fn stops_a_microtask_flood() {
-    cancels("(function f() { Promise.resolve().then(f); Promise.resolve().then(f); })()");
+    // Each job queues two more, so the queue and the heap grow until
+    // something stops them. A fast machine filled the default 64 MiB before
+    // the flag went up (macos-14: MemoryLimit; P1-RT-43). 1 GiB takes the
+    // flood about 10 s in a debug build on the fleet's machine, which fills
+    // 64 MiB in 0.76 s, and so over a second on macos-14, which filled it in
+    // under 0.1 s: far longer than the 100 ms until the flag is raised.
+    // Only the flag can end the call in time, and a MemoryLimit still fails.
+    cancels_with_memory(
+        "(function f() { Promise.resolve().then(f); Promise.resolve().then(f); })()",
+        1 << 30,
+    );
 }
 
 #[test]

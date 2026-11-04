@@ -2,14 +2,16 @@
 # Frees disk in the shared target dir: for every workspace-crate artifact and test
 # binary (which accumulate one copy per feature set / dependency change), keeps the
 # newest two and deletes the rest. crates.io dependency artifacts are untouched, so
-# nothing expensive (Stylo, QuickJS) is rebuilt. Safe while agents work; at worst a
-# running build relinks.
+# nothing expensive (Stylo, QuickJS) is rebuilt. Files modified in the last hour are
+# never deleted: test binaries of different crates share names (hostile-<hash> in
+# core, dom and islands), and an agent may be between building and running one.
 set -euo pipefail
 dir="${CARGO_TARGET_DIR:-/home/claude/target}/debug/deps"
 [ -d "$dir" ] || exit 0
 cd "$dir"
 python3 - <<'PY'
-import os, re, collections, stat
+import os, re, collections, stat, time
+recent=time.time()-3600
 names=[n for n in os.listdir('.') if re.match(r'^(lib)?surimono[_-]', n)]
 for n in os.listdir('.'):
     try: st=os.stat(n)
@@ -24,7 +26,8 @@ for n in set(names):
 freed=0
 for items in groups.values():
     items.sort(reverse=True)
-    for _, n in items[2:]:
+    for mtime, n in items[2:]:
+        if mtime > recent: continue
         try: freed+=os.path.getsize(n); os.remove(n)
         except FileNotFoundError: pass
 print(f"freed {freed/1e9:.1f} GB")
