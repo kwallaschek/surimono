@@ -1,7 +1,8 @@
 // The JavaScript half of the DOM bindings: this head, the generated
 // generated/bindings.js and glue_tail.js make one function. It is called
 // once per context, before any page script runs, with the native functions;
-// it returns nothing and leaves no way to reach them.
+// it returns the function that queues a page's lifecycle, kept by Rust, and
+// leaves scripts no way to reach any of them.
 //
 // A wrapper is an ordinary object carrying a state record { g, h, m } in a
 // private class field (#s), stamped on by `Brand`: g is the document's
@@ -23,9 +24,12 @@
   const call = n.call, current = n.current, root = n.currentRoot, stale = n.stale;
   const report = n.report, throwDom = n.throwDom;
   const G = globalThis;
-  // Scheduled before any script can replace them. The prelude's timers.
-  const setTimeoutReal = G.setTimeout;
-  const schedule = (f, ms) => setTimeoutReal(f, ms);
+  // The prelude's, before any script can replace them; glue_tail.js puts
+  // its own in their place.
+  const setTimeoutReal = G.setTimeout, setIntervalReal = G.setInterval;
+  const clearTimeoutReal = G.clearTimeout;
+  const requestFrameReal = G.requestAnimationFrame;
+  const queueMicrotaskReal = G.queueMicrotask;
   const performanceNow = G.performance === undefined ? undefined : G.performance.now;
   const performanceObject = G.performance;
   const now = () => (performanceNow === undefined ? 0 : apply(performanceNow, performanceObject, []));
@@ -36,7 +40,7 @@
   const rget = Reflect.get, rset = Reflect.set, rhas = Reflect.has, rdelete = Reflect.deleteProperty;
   const rownKeys = Reflect.ownKeys, rdefine = Reflect.defineProperty;
   const rdescriptor = Reflect.getOwnPropertyDescriptor;
-  const ProxyCtor = Proxy;
+  const ProxyCtor = Proxy, FunctionCtor = Function;
   const indexOf = String.prototype.indexOf, slice = String.prototype.slice;
   const arrayProto = Array.prototype;
   const arrayForEach = arrayProto.forEach, arrayKeys = arrayProto.keys;
@@ -88,10 +92,11 @@
     return w;
   }
 
-  // The record of `this` for a member of interface `id`. An undefined `this`
-  // is the global object (WebIDL §3.7.6), for `addEventListener(...)`.
+  // The record of `this` for a member of interface `id`. An undefined or
+  // null `this` is the global object (WebIDL §3.7.6), for
+  // `addEventListener(...)`.
   function self(o, id) {
-    const s = stateOf(o === undefined ? G : o);
+    const s = stateOf(o === undefined || o === null ? G : o);
     if (s === null || (s.m & (1 << id)) === 0) throw new TE('Illegal invocation');
     return s;
   }

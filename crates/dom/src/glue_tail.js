@@ -23,19 +23,105 @@
     enumerable: true, configurable: false,
   });
 
-  // One script's turn. `at` is the node handle, for its load or error event
-  // and `currentScript`; Rust has the source.
+  // The rest of the Window-reflecting set: what only Window has.
+  for (const name in handlerNames[I_Window]) {
+    if (handlerNames[I_HTMLElement][name] !== true) reflected[name] = true;
+  }
+
+  // A handler given to the event loop reports what it throws through the
+  // window's `error` event, like a listener: the prelude's own report goes
+  // straight to the caller. HTML §8.7 (timers), §8.8 (queueMicrotask) and
+  // §8.10.1 (frames) all "report the exception". `expose` keeps each
+  // function's shape: what the prelude's has, down to `length`.
+  function expose(name, f, length) {
+    defineProperty(f, 'length', { value: length, configurable: true });
+    defineProperty(G, name, { value: f, writable: true, enumerable: true, configurable: true });
+  }
+  function setTimer(real, a) {
+    const argc = a.length;
+    if (argc === 0) return real();
+    // Converted here, in argument order, as the prelude would have.
+    let handler = a[0];
+    const isFunction = typeof handler === 'function';
+    if (!isFunction) handler = `${handler}`;
+    const args = create(null);
+    args.length = argc > 2 ? argc - 2 : 0;
+    for (let i = 2; i < argc; i++) args[i - 2] = a[i];
+    const task = function () {
+      try {
+        if (isFunction) apply(handler, G, args);
+        else n.runSource(apply(toWellFormed, handler, []));
+      } catch (x) {
+        reportException(x);
+      }
+    };
+    return argc > 1 ? real(task, a[1]) : real(task);
+  }
+  expose('setTimeout', {
+    setTimeout() { return setTimer(setTimeoutReal, arguments); },
+  }.setTimeout, 1);
+  expose('setInterval', {
+    setInterval() { return setTimer(setIntervalReal, arguments); },
+  }.setInterval, 1);
+  expose('requestAnimationFrame', {
+    requestAnimationFrame(callback) {
+      if (typeof callback !== 'function') return requestFrameReal(callback);
+      return requestFrameReal(function (time) {
+        try {
+          apply(callback, undefined, [time]);
+        } catch (x) {
+          reportException(x);
+        }
+      });
+    },
+  }.requestAnimationFrame, 1);
+  expose('queueMicrotask', {
+    queueMicrotask(callback) {
+      if (typeof callback !== 'function') return queueMicrotaskReal(callback);
+      queueMicrotaskReal(function () {
+        try {
+          apply(callback, undefined, []);
+        } catch (x) {
+          reportException(x);
+        }
+      });
+    },
+  }.queueMicrotask, 1);
+
+  // Timer ids up to this one are the page's lifecycle, and no script may
+  // cancel those (`start`).
+  let lifecycleLast = 0;
+  function clearTimer(a) {
+    if (a.length === 0) return;
+    const id = a[0] | 0;
+    if (id < 1 || id > lifecycleLast) clearTimeoutReal(id);
+  }
+  expose('clearTimeout', { clearTimeout() { clearTimer(arguments); } }.clearTimeout, 0);
+  expose('clearInterval', { clearInterval() { clearTimer(arguments); } }.clearInterval, 0);
+
+  // HTML §8.1.3.5: the running script's element, for the length of its run.
+  let currentScript = null;
+  attr(I_Document, 'currentScript', function () {
+    self(this, I_Document);
+    return currentScript;
+  });
+
+  // One script's turn: its element for `currentScript`, and its load or
+  // error event; Rust has the source.
   function runScript(i, g, h) {
     const element = wrap(g, h);
     let ok = true;
     if (n.scriptFailed(i)) {
       ok = false;
     } else {
+      currentScript = element;
       try {
         n.runScript(i);
       } catch (x) {
+        currentScript = null;
         reportException(x);
       }
+      currentScript = null;
     }
     if (n.scriptExternal(i)) fire(stateOf(element), ok ? 'load' : 'error');
   }
@@ -43,13 +129,22 @@
   // Every step of the page's life is queued here, before any of its scripts
   // runs: same due time, earlier sequence numbers, so they all come before
   // the page's own timers, in this order, each a task with a microtask
-  // checkpoint after it.
+  // checkpoint after it. All of them are timers so that one call to the
+  // event loop, under one time limit, runs the page.
+  //
+  // Two things keep them from being a page's timers. Their ids are refused
+  // by clearTimeout and clearInterval, so a page's clear-all loop can't
+  // cancel them. And each does its work in a microtask of its task: the
+  // loop has left the timer by then, so a timer a script sets starts from
+  // nesting level 0, as a parser's script does in a browser (HTML §8.7).
   return function start(g) {
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
       fire(documentState(), 'readystatechange');
     };
-    const step = (f) => schedule(f, 0);
+    const step = (f) => {
+      lifecycleLast = setTimeoutReal(() => queueMicrotaskReal(f), 0);
+    };
     const scripts = n.scriptCount();
     for (let i = 0; i < scripts; i++) {
       const at = i;

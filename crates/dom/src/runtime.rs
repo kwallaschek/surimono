@@ -2,6 +2,8 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
@@ -33,6 +35,12 @@ struct Host {
     doc: Option<Document>,
     /// The first fatal error of the current call (see [`DomError`]).
     fault: Option<DomError>,
+    /// The sandbox's cancel flag, raised by `limit`: a limit reported by the
+    /// glue must stop the script like one the engine stops it for. Natives
+    /// refuse to work while it is up, because the sandbox's watchdog sees it
+    /// a few milliseconds later. Only this file raises it, and the fault
+    /// says why, so a caller sees that limit and never `Cancelled`.
+    stop: Arc<AtomicBool>,
     /// The current call's deadline; host functions refuse to work after it.
     deadline: Option<Deadline>,
     /// The page's scripts, for [`DomRuntime::run_page`].
@@ -44,6 +52,23 @@ struct Host {
 
 /// Most reported exception messages kept; the rest are only counted.
 const MAX_KEPT_ERRORS: usize = 8;
+
+/// Longest message kept, as for the sandbox's own errors: they live outside
+/// the JavaScript heap.
+const MAX_MESSAGE_BYTES: usize = 4 * 1024;
+
+/// `message` cut to [`MAX_MESSAGE_BYTES`] on a character boundary.
+fn capped(mut message: String) -> String {
+    if message.len() > MAX_MESSAGE_BYTES {
+        let mut cut = MAX_MESSAGE_BYTES;
+        while !message.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        message.truncate(cut);
+        message.push('…');
+    }
+    message
+}
 
 /// One `<script>` of the page.
 struct PageScript {
@@ -60,10 +85,11 @@ struct PageScript {
 pub struct PageReport {
     /// The event loop's report.
     pub settle: SettleReport,
-    /// Exceptions no script caught in scripts, event listeners and callbacks
-    /// of timers.
+    /// Exceptions no script caught and no `error` listener cancelled, in
+    /// scripts, event listeners and callbacks of timers, frames and
+    /// microtasks.
     pub uncaught: u64,
-    /// The first few, as messages.
+    /// The first few, as messages, each cut to a few KiB.
     pub errors: Vec<String>,
     /// `src` values of external scripts the resolver had no source for.
     pub missing_scripts: Vec<String>,
@@ -100,9 +126,12 @@ impl DomRuntime {
 
     /// A runtime from full sandbox options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, DomError> {
+        let host = Shared::default();
+        let mut sandbox = Sandbox::with_options(options.with_event_loop(true))?;
+        sandbox.set_cancel_flag(Some(host.borrow().stop.clone()));
         Ok(Self {
-            sandbox: Sandbox::with_options(options.with_event_loop(true))?,
-            host: Shared::default(),
+            sandbox,
+            host,
             installed: false,
         })
     }
@@ -165,13 +194,26 @@ impl DomRuntime {
     }
 
     /// Runs timers, frames and microtasks until the page settles (see
-    /// `surimono_core`'s event loop), with the bindings in place.
+    /// `surimono_core`'s event loop), with the bindings in place. The report
+    /// includes exceptions reported since the last one, wherever they came
+    /// from: the bindings report them through the window's `error` event.
     pub fn run_until_settled(&mut self, options: &SettleOptions) -> Result<SettleReport, DomError> {
         // Installs the bindings if no script ran yet.
         self.eval::<()>("")?;
         self.begin_call();
         let result = self.sandbox.run_until_settled(options);
-        self.finish_call(result)
+        let mut report = self.finish_call(result)?;
+        let mut host = self.host.borrow_mut();
+        report.uncaught += std::mem::take(&mut host.uncaught);
+        for message in std::mem::take(&mut host.errors) {
+            if report.errors.len() < MAX_KEPT_ERRORS {
+                report.errors.push(SandboxError::Exception {
+                    message,
+                    stack: None,
+                });
+            }
+        }
+        Ok(report)
     }
 
     /// Runs the loaded document as a page, in a fresh context: its scripts in order, then
@@ -189,9 +231,15 @@ impl DomRuntime {
     /// 5. `readyState` is `complete`, with `readystatechange`.
     /// 6. `load` at the window, with the document as its target.
     ///
-    /// An uncaught exception doesn't stop the page: it is an `error` event
-    /// at the window, and is counted in the report unless a listener
-    /// cancels that event.
+    /// A page can't cancel these steps with `clearTimeout`. They do count
+    /// as tasks: with [`SettleOptions::max_tasks`] below their number the
+    /// page stops part way, with [`SettleOutcome::TaskLimit`](surimono_core::SettleOutcome).
+    ///
+    /// An uncaught exception doesn't stop the page, wherever it is thrown
+    /// (scripts, listeners, timers, frames, microtasks): it is an `error`
+    /// event at the window, and is counted in the report unless a listener
+    /// cancels that event. A limit is different: an uncaught stack overflow
+    /// fails the call with the same error everywhere, with no `error` event.
     ///
     /// `resolve` gives the source of an external script from its `src`
     /// value. No network and no files unless the caller's closure reads them.
@@ -253,9 +301,18 @@ impl DomRuntime {
         let settle = self.finish_call(result)?;
         let mut host = self.host.borrow_mut();
         host.scripts.clear();
+        let mut errors = std::mem::take(&mut host.errors);
+        for e in &settle.errors {
+            if errors.len() < MAX_KEPT_ERRORS {
+                errors.push(match e {
+                    SandboxError::Exception { message, .. } => message.clone(),
+                    other => other.to_string(),
+                });
+            }
+        }
         Ok(PageReport {
-            uncaught: settle.uncaught + host.uncaught,
-            errors: std::mem::take(&mut host.errors),
+            uncaught: settle.uncaught + std::mem::take(&mut host.uncaught),
+            errors,
             settle,
             missing_scripts,
         })
@@ -272,6 +329,9 @@ impl DomRuntime {
             // The sandbox rebuilt its context; the bindings went with it.
             self.installed = false;
         }
+        // Lowered only now that the call is over: the sandbox's watchdog
+        // reads the flag every few milliseconds.
+        let stopped = self.host.borrow().stop.swap(false, Ordering::AcqRel);
         if matches!(&result, Err(SandboxError::HostPanic { .. })) {
             // The panic stopped a native halfway through a change to the
             // tree, so the document is no more to be trusted than the
@@ -283,7 +343,14 @@ impl DomRuntime {
             host.deadline = None;
             host.fault.take()
         };
+        if stopped && !matches!(&result, Err(e) if e.discards_state()) {
+            // The call ended before the watchdog looked. Same outcome: the
+            // script stopped at a limit, so its state goes.
+            let _ = self.reset();
+        }
         match (fault, result) {
+            // The limit `stop` was raised for.
+            (Some(fault), Err(SandboxError::Cancelled)) if stopped => Err(fault),
             // These outrank a fault: the script was stopped anyway.
             (_, Err(e)) if e.discards_state() => Err(e.into()),
             (Some(fault), _) => Err(fault),
@@ -302,6 +369,8 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>
     n.set("currentRoot", native_current_root(ctx, host)?)?;
     n.set("stale", native_stale(ctx, host)?)?;
     n.set("report", native_report(ctx, host)?)?;
+    n.set("limit", native_limit(ctx, host)?)?;
+    n.set("runSource", native_run_source(ctx, host)?)?;
     n.set("throwDom", native_throw_dom(ctx, host)?)?;
     n.set("scriptCount", native_script_count(ctx, host)?)?;
     n.set("scriptNode", script_field(ctx, host, |s| s.node)?)?;
@@ -373,6 +442,53 @@ fn native_run_script<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Fun
     )
 }
 
+/// `runSource(source)`: a timer's string handler, as a classic global script
+/// (HTML §8.7). Its exceptions reach the glue, which reports them. rquickjs
+/// takes a C string, so a NUL can't reach the parser and is the only other
+/// error here.
+fn native_run_source<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, source: String| -> rquickjs::Result<()> {
+            guarded(&host, &ctx, || {
+                let mut opts = EvalOptions::default();
+                opts.global = true;
+                opts.strict = false;
+                opts.filename = Some("<timer>".to_owned());
+                match ctx.eval_with_options::<Value<'js>, _>(source, opts) {
+                    Ok(_) => Ok(()),
+                    Err(rquickjs::Error::Exception) => Err(rquickjs::Error::Exception),
+                    Err(_) => Err(Exception::throw_syntax(&ctx, "invalid character in script")),
+                }
+            })
+        },
+    )
+}
+
+/// `limit(kind)`: an uncaught exception that is really a limit, by the
+/// numbers in `glue_events.js`. Ends the call with that error, however the
+/// script goes on; see [`Host::stop`].
+fn native_limit<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, kind: u32| -> rquickjs::Result<()> {
+            guarded(&host, &ctx, || {
+                let error = match kind {
+                    0 => SandboxError::StackOverflow,
+                    1 => SandboxError::MemoryLimit,
+                    _ => SandboxError::TimeLimit,
+                };
+                let mut host = host.borrow_mut();
+                host.fault.get_or_insert(error.into());
+                host.stop.store(true, Ordering::Release);
+                Ok(())
+            })
+        },
+    )
+}
+
 /// `report(message)`: an exception nothing handled.
 fn native_report<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
     let host = host.clone();
@@ -383,7 +499,7 @@ fn native_report<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Functio
                 let mut host = host.borrow_mut();
                 host.uncaught += 1;
                 if host.errors.len() < MAX_KEPT_ERRORS {
-                    host.errors.push(message);
+                    host.errors.push(capped(message));
                 }
                 Ok(())
             })
@@ -413,10 +529,15 @@ fn guarded<'js, R>(
     ctx: &Ctx<'js>,
     f: impl FnOnce() -> rquickjs::Result<R>,
 ) -> rquickjs::Result<R> {
-    let deadline = host.try_borrow().ok().and_then(|h| h.deadline.clone());
+    let (deadline, stopping) = host.try_borrow().map_or((None, false), |h| {
+        (h.deadline.clone(), h.stop.load(Ordering::Acquire))
+    });
     let Some(deadline) = deadline else {
         return Err(Exception::throw_internal(ctx, "no call is running"));
     };
+    if stopping {
+        return Err(Exception::throw_internal(ctx, "the call has ended"));
+    }
     deadline.guard(ctx, || {
         #[cfg(test)]
         tests::panic_if_due();
