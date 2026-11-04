@@ -1,5 +1,5 @@
 //! The watchdog: one thread per process that raises a running call's stop
-//! flag when its deadline passes.
+//! flag when its deadline passes or its cancel flag goes up.
 //!
 //! QuickJS asks the interrupt handler once every 10,000 polls. The patched
 //! engine (`vendor/rquickjs-sys`, PATCHES.md) also reads a per-runtime
@@ -13,6 +13,12 @@
 //! deadline. Its clock is monotonic and only decides when to stop a script,
 //! never what a script sees.
 //!
+//! A cancel flag is a plain atomic its owner can raise from anywhere, so
+//! nothing wakes this thread when that happens. While a call with a cancel
+//! flag runs, the thread looks at the flag every [`CANCEL_POLL`] and raises
+//! the stop flag for it. Calls without one cost nothing: with no flag to
+//! watch the thread still sleeps until the next deadline.
+//!
 //! A forked child inherits no threads, and possibly a lock some thread
 //! held at the fork. So the registry lives in a lock-free
 //! [`ForkSafeCell`]: a process whose fork generation differs from the
@@ -23,9 +29,9 @@
 //! without one).
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, Weak};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::SandboxError;
 use crate::engine::LimitState;
@@ -36,6 +42,17 @@ use crate::fork_safe::ForkSafeCell;
 /// the current one.
 pub(crate) type TimerKey = (Instant, u64);
 
+/// How often the watchdog looks at the cancel flags of running calls.
+pub(crate) const CANCEL_POLL: Duration = Duration::from_millis(5);
+
+/// What the watchdog thread works through, under one lock.
+#[derive(Debug, Default)]
+struct Watched {
+    timers: BTreeMap<TimerKey, Weak<LimitState>>,
+    /// The cancel flag of each running call that has one, by sequence number.
+    cancels: BTreeMap<u64, (Weak<LimitState>, Arc<AtomicBool>)>,
+}
+
 /// The timers of one process and the thread that fires them.
 #[derive(Debug)]
 pub(crate) struct Registry {
@@ -43,7 +60,7 @@ pub(crate) struct Registry {
     generation: u64,
     /// The next call's sequence number; never 0, and stays below 2^63.
     next_seq: AtomicU64,
-    inner: Mutex<BTreeMap<TimerKey, Weak<LimitState>>>,
+    inner: Mutex<Watched>,
     wake: Condvar,
 }
 
@@ -75,7 +92,7 @@ fn start() -> Result<Arc<Registry>, SandboxError> {
     let r = Arc::new(Registry {
         generation: crate::engine::fork_generation()?,
         next_seq: AtomicU64::new(1),
-        inner: Mutex::new(BTreeMap::new()),
+        inner: Mutex::new(Watched::default()),
         wake: Condvar::new(),
     });
     let thread_r = r.clone();
@@ -103,10 +120,10 @@ impl Registry {
 
     /// Adds a timer that tells `state` at `key.0` that call `key.1` is due.
     pub(crate) fn insert(&self, key: TimerKey, state: Weak<LimitState>) {
-        let mut timers = lock(&self.inner);
-        let earliest = timers.first_key_value().is_none_or(|(k, _)| key < *k);
-        timers.insert(key, state);
-        drop(timers);
+        let mut inner = lock(&self.inner);
+        let earliest = inner.timers.first_key_value().is_none_or(|(k, _)| key < *k);
+        inner.timers.insert(key, state);
+        drop(inner);
         if earliest {
             self.wake.notify_one();
         }
@@ -114,22 +131,46 @@ impl Registry {
 
     /// Removes a timer if it hasn't fired yet.
     pub(crate) fn remove(&self, key: TimerKey) {
-        lock(&self.inner).remove(&key);
+        lock(&self.inner).timers.remove(&key);
+    }
+
+    /// Starts watching call `seq`'s cancel flag on `state`'s behalf.
+    pub(crate) fn watch_cancel(&self, seq: u64, state: Weak<LimitState>, flag: Arc<AtomicBool>) {
+        let mut inner = lock(&self.inner);
+        let first = inner.cancels.is_empty();
+        inner.cancels.insert(seq, (state, flag));
+        drop(inner);
+        // The thread may be asleep until a far deadline, or for good.
+        if first {
+            self.wake.notify_one();
+        }
+    }
+
+    /// Stops watching call `seq`'s cancel flag.
+    pub(crate) fn unwatch_cancel(&self, seq: u64) {
+        lock(&self.inner).cancels.remove(&seq);
+    }
+
+    /// Whether call `seq`'s cancel flag is being watched, for tests.
+    #[cfg(test)]
+    pub(crate) fn watching_cancel(&self, seq: u64) -> bool {
+        lock(&self.inner).cancels.contains_key(&seq)
     }
 
     /// Number of timers waiting, for tests.
     #[cfg(test)]
     pub(crate) fn pending(&self) -> usize {
-        lock(&self.inner).len()
+        lock(&self.inner).timers.len()
     }
 
-    /// The watchdog thread: fires due timers, then sleeps until the next.
+    /// The watchdog thread: fires due timers, raises cancelled calls' stop
+    /// flags, then sleeps until the next timer or cancel check.
     fn run(&self) {
         let mut due = Vec::new();
         let mut inner = lock(&self.inner);
         loop {
             let now = Instant::now();
-            while let Some(entry) = inner.first_entry() {
+            while let Some(entry) = inner.timers.first_entry() {
                 if entry.key().0 > now {
                     break;
                 }
@@ -147,9 +188,26 @@ impl Registry {
                 inner = lock(&self.inner);
                 continue;
             }
-            inner = match inner.first_key_value() {
-                Some((&(at, _), _)) => {
-                    let wait = at.saturating_duration_since(now);
+            // A few atomics per running call, and dropping an upgraded state
+            // here can't reach this lock, so the check stays under it.
+            for (&seq, (state, flag)) in &inner.cancels {
+                if flag.load(Ordering::Acquire) {
+                    if let Some(state) = state.upgrade() {
+                        state.cancel(seq);
+                    }
+                }
+            }
+            let next_timer = inner
+                .timers
+                .first_key_value()
+                .map(|(&(at, _), _)| at.saturating_duration_since(now));
+            let next_check = (!inner.cancels.is_empty()).then_some(CANCEL_POLL);
+            let sleep = match (next_timer, next_check) {
+                (Some(timer), Some(check)) => Some(timer.min(check)),
+                (one, other) => one.or(other),
+            };
+            inner = match sleep {
+                Some(wait) => {
                     self.wake
                         .wait_timeout(inner, wait)
                         .unwrap_or_else(PoisonError::into_inner)

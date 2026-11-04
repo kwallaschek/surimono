@@ -10,6 +10,9 @@
 //! the runner, the sandbox or QuickJS shows up byte for byte. Resident
 //! memory (RSS) is printed, with only a loose bound: it depends on the
 //! system allocator's arenas and fragmentation, not just on our code.
+//! Objects the engine finds leaked when it frees a runtime (whose bytes
+//! come back with its arenas) are counted by `surimono_core::teardown_leaks`
+//! and must stay at zero.
 
 use std::alloc::System;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -154,6 +157,9 @@ struct Soak<'a> {
     warm_up: usize,
     spec: &'a (dyn Fn(usize) -> String + Sync),
     check: &'a (dyn Fn(usize, Result<String, IslandError>) + Sync),
+    /// Wait between rounds for every worker to free its runtime
+    /// ([`RunnerOptions::release_idle_after`]), instead of only going idle.
+    idle_release: bool,
 }
 
 /// Waits until every worker is idle: its runtime reset and preloaded, so
@@ -170,6 +176,19 @@ fn wait_until_idle(runner: &IslandRunner) {
     }
 }
 
+/// Waits until every worker has freed its runtime.
+fn wait_until_released(runner: &IslandRunner) {
+    let start = Instant::now();
+    while runner.stats().runtimes > 0 {
+        assert!(
+            start.elapsed() < Duration::from_secs(60),
+            "workers never freed their runtimes: {:?}",
+            runner.stats()
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}
+
 /// Soaks run one at a time: the live-byte counter is process-wide, and the
 /// test harness runs tests in parallel.
 static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -179,6 +198,7 @@ static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn run_soak(soak: &Soak<'_>) {
     let name = soak.name;
     let start_rss = rss_kib();
+    let start_leaks = surimono_core::teardown_leaks();
     let rounds = soak.renders / soak.sample_every;
     let mut samples: Vec<Sample> = Vec::with_capacity(rounds + 1);
     let first_svg_len = AtomicUsize::new(0);
@@ -209,7 +229,11 @@ fn run_soak(soak: &Soak<'_>) {
                 });
             }
         });
-        wait_until_idle(soak.runner);
+        if soak.idle_release {
+            wait_until_released(soak.runner);
+        } else {
+            wait_until_idle(soak.runner);
+        }
         samples.push(Sample {
             renders: base + soak.sample_every,
             live: live_bytes(),
@@ -253,6 +277,17 @@ fn run_soak(soak: &Soak<'_>) {
     assert!(
         end - warm < MAX_LIVE_GROWTH && highest - warm < MAX_LIVE_GROWTH,
         "{name}: live heap grew from {warm} to {end} bytes (highest {highest}) after warm-up"
+    );
+
+    // Every runtime freed during the soak (each limit error replaces one;
+    // idle workers release theirs) gave back every object. The engine
+    // frees its small-block arenas whole, so a leaked object is invisible
+    // in the live heap; the engine counts it (review of #45).
+    let leaks = surimono_core::teardown_leaks();
+    eprintln!("{name}: teardown leaks {leaks:?} (before the soak {start_leaks:?})");
+    assert_eq!(
+        leaks, start_leaks,
+        "{name}: runtimes freed during the soak leaked objects or bytes"
     );
 
     // A loose bound on resident memory, from the settings: every worker's
@@ -299,12 +334,48 @@ fn soak_10000_renders_flat_memory() {
         warm_up: 2_000,
         spec: &spec,
         check: &check,
+        idle_release: false,
     });
     let stats = runner.stats();
     let planned_failures = (0..RENDERS).filter(|&i| plan(i) != Plan::Ok).count();
     assert_eq!(stats.renders, RENDERS as u64);
     assert_eq!(stats.failed_renders, planned_failures as u64);
     assert!(started.elapsed() < Duration::from_secs(600));
+}
+
+/// Bursts with idle spells between them: every worker frees its runtime
+/// (and trims the allocator) and starts a new one, 300 times over.
+#[test]
+#[ignore = "soak: 3,000 renders with idle release; run in release with `--ignored soak`"]
+fn soak_idle_release_3000_renders_flat_memory() {
+    const RENDERS: usize = 3_000;
+    let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+    let runner = IslandRunner::new(RunnerOptions {
+        text_measurer: Some(common::fixture_measurer()),
+        pool_size: POOL_SIZE,
+        limits: Limits::default()
+            .with_memory_bytes(MEMORY_BYTES)
+            .with_time(Duration::from_millis(1000)),
+        release_idle_after: Some(Duration::from_millis(5)),
+        ..RunnerOptions::default()
+    })
+    .unwrap();
+    runner.register_bundle("chart", BUNDLE, "entry").unwrap();
+    run_soak(&Soak {
+        name: "soak-idle-release",
+        runner: &runner,
+        renderer: "chart",
+        memory_bytes: MEMORY_BYTES,
+        renders: RENDERS,
+        sample_every: 10,
+        warm_up: 500,
+        spec: &spec,
+        check: &check,
+        idle_release: true,
+    });
+    let stats = runner.stats();
+    assert_eq!(stats.renders, RENDERS as u64);
+    assert_eq!(stats.runtimes, 0);
 }
 
 /// The product's allocation profile: real charts, rotating through the
@@ -354,6 +425,7 @@ fn soak_echarts_2000_renders_flat_memory() {
         warm_up: 500,
         spec: &spec,
         check: &check,
+        idle_release: false,
     });
     let stats = runner.stats();
     assert_eq!(stats.renders, RENDERS as u64);
@@ -402,6 +474,7 @@ fn soak_vega_lite_600_renders_flat_memory() {
         warm_up: 300,
         spec: &spec,
         check: &check,
+        idle_release: false,
     });
     let stats = runner.stats();
     assert_eq!(stats.renders, RENDERS as u64);
