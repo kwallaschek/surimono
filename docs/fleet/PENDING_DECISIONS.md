@@ -76,3 +76,7 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - ENGINE DISTRIBUTION (Kay decides): crates.io users of surimono-core get unpatched rquickjs-sys 0.14.0 ([patch] doesn't travel); a linked program fails (undefined surimono_quickjs_patch_level). Options: (1) wait for upstream quickjs-ng/rquickjs releases; (2) publish the fork under our own crate names (3 crates); (3) v0.1 = gem (+ CLI binary) only, Rust crates held. Recommend (3) for v0.1, (2) later.
 
 - Open for checkpoint 2: bench on main 15b530e0 (real pipeline): speed 2.4× cold/warm vs Grover (met); memory 5.8× PSS Ruby / 8.0× Rust (10× not met; fulgur alone 8.7×); vs chrome-headless-shell 1.8–2.3× / 3.8–5.2×.
+
+## PKG (#107, #38), add on merge
+- 2026-11-04 · The ASan job symbolizes with the system LLVM's llvm-symbolizer (ASAN_SYMBOLIZER_PATH, PATH, newest /usr/lib/llvm-N; apt llvm on GitHub as a last resort), not the nightly's llvm-tools (#107) · llvm-tools ships no llvm-symbolizer; GitHub's image has none on PATH.
+- 2026-11-04 · The v0.1 release dry-run checks that no crate is publishable, shipped crates match the gem's version, the CHANGELOG has a dated entry, `cargo install --locked --path crates/cli` works and renders two islands, and the source gem carries the patched engine; root publish = false stays (#38) · Kay, checkpoint 2: gem and CLI only.

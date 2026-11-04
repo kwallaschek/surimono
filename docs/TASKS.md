@@ -107,7 +107,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-15 · PKG · done (#77) · scripts/ci/asan.sh sets SURIMONO_TEST_TIME_SCALE=4 for P1-RT-27
 - P1-PKG-16 · PKG · done (#79) · Facade re-exports surimono_islands::BUILTIN_RENDERERS; #76/#77 review nits (publish-results refuses if the index can't be read)
 - P1-GFX-06 · GFX · done (#78) · LeakSanitizer in gfx fulgur_layout: stylo 0.8 Box::leaks two thread-local caches per style thread (~13.6 KB/thread); the test runs Blitz on one long-lived thread. Soak/facade must run Blitz on long-lived threads
-- P1-PKG-17 · PKG · doing · Symbolize ASan traces in CI: nightly llvm-tools + ASAN_SYMBOLIZER_PATH in scripts/ci/asan.sh
+- P1-PKG-17 · PKG · review · (#107) Symbolize ASan traces in CI: nightly llvm-tools + ASAN_SYMBOLIZER_PATH in scripts/ci/asan.sh
 - P1-PKG-10 · PKG · done (#33) · (#33) Gem build carries the vendored QuickJS
 - P1-PKG-08 · PKG · done (#25) · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
 - P1-PKG-09 · PKG · done (#34) · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
@@ -135,6 +135,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-36 · RT · done · Engine patch level 6: segfault on Array subclasses under a memory limit, add_arg check (#95; v0.1 blocker)
 - P1-RT-37 · RT · done · Hostile vector B Array.fromAsync accepts either limit (#98)
 - P1-RT-38 · RT · done · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
+- P1-PKG-20 · PKG · doing · Ruby 3.2 flake: test_signal_cancels_the_rest_of_the_document sees the signal only after the whole document (2 of 100 Ruby 3.2 logs); ffi.rs GVL/signal delivery
+- P1-DX-06 · DX · doing · v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
 - P1-PKG-18 · PKG · todo · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
 - P1-PKG-19 · PKG · todo · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
 - P1-CF-31 · CF · todo · COMPAT entries: Date.parse of non-ISO strings keeps the QuickJS port (V8 gives NaN for CET/CEST), style values not validated, no doctype node, template.content, Attr as a partial Node
