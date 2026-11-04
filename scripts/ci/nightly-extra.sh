@@ -45,6 +45,9 @@ if grep -rq 'fn out_of_memory_full_sweep' crates/core/src 2>/dev/null; then
   step "core: out-of-memory full sweep (ignored test)"
   cargo test -p surimono-core --lib --locked -- --ignored out_of_memory_full_sweep; ran=$((ran + 1))
 fi
+# The Rust git-dependency + [patch] recipe the README gives: a program outside
+# the workspace builds and renders with it, and doesn't link without the patch.
+step "git dependency recipe"; scripts/ci/git-dep-recipe.sh; ran=$((ran + 1))
 # On a release branch (release/v*, the release PR): the release dry-run.
 # Checks no crate is publishable, builds and runs the CLI from source and
 # builds the source gem; never publishes or tags.

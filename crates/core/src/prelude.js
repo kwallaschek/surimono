@@ -804,7 +804,8 @@
   const cancel = host.cancel;
   const report = host.report;
   const global = globalThis;
-  const indirectEval = eval;
+  const runScript = host.runScript;
+  const toWellFormed = String.prototype.toWellFormed;
   const arraySlice = Array.prototype.slice;
   const mapGet = Map.prototype.get;
   const mapSet = Map.prototype.set;
@@ -902,7 +903,10 @@
   }.queueMicrotask, 1);
 
   // Runs one task. Called only by the Rust loop, which handles what a handler
-  // throws. A timeout's record goes first, so a throw can't strand it.
+  // throws. A timeout's record goes first, so a throw can't strand it. A
+  // string runs as a classic script (HTML §8.7), so its `let` lands in the
+  // global lexical scope, unlike with eval. The source reaches the parser as
+  // UTF-8, so a lone surrogate in it becomes U+FFFD.
   return function fire(id, time, frame) {
     clock = time;
     const record = apply(mapGet, callbacks, [id]);
@@ -911,6 +915,6 @@
     const handler = record.handler;
     if (frame) apply(handler, undefined, [time]);
     else if (typeof handler === 'function') apply(handler, global, record.args);
-    else indirectEval(handler);
+    else runScript(apply(toWellFormed, handler, []));
   };
 })
