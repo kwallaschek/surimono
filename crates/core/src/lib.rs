@@ -26,14 +26,20 @@ mod embed;
 #[allow(unsafe_code)]
 mod engine;
 mod error;
+mod event_loop;
 mod fork_safe;
 mod limits;
 mod sandbox;
 mod watchdog;
 
 pub use embed::{compile_for_embedding, engine_fingerprint};
-pub use engine::fork_generation;
+#[doc(hidden)]
+pub use engine::{TeardownLeaks, teardown_leaks};
+pub use engine::{fork_generation, release_free_memory};
 pub use error::SandboxError;
+/// Not public API: phase-2 scaffolding for `surimono-dom`.
+#[doc(hidden)]
+pub use event_loop::{EventLoopHandle, SettleOptions, SettleOutcome, SettleReport};
 pub use limits::Limits;
 pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
 
