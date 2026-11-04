@@ -107,7 +107,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-15 · PKG · done (#77) · scripts/ci/asan.sh sets SURIMONO_TEST_TIME_SCALE=4 for P1-RT-27
 - P1-PKG-16 · PKG · done (#79) · Facade re-exports surimono_islands::BUILTIN_RENDERERS; #76/#77 review nits (publish-results refuses if the index can't be read)
 - P1-GFX-06 · GFX · done (#78) · LeakSanitizer in gfx fulgur_layout: stylo 0.8 Box::leaks two thread-local caches per style thread (~13.6 KB/thread); the test runs Blitz on one long-lived thread. Soak/facade must run Blitz on long-lived threads
-- P1-PKG-17 · PKG · todo · (low) Symbolize ASan traces in CI: nightly llvm-tools + ASAN_SYMBOLIZER_PATH in scripts/ci/asan.sh
+- P1-PKG-17 · PKG · doing · Symbolize ASan traces in CI: nightly llvm-tools + ASAN_SYMBOLIZER_PATH in scripts/ci/asan.sh
 - P1-PKG-10 · PKG · done (#33) · (#33) Gem build carries the vendored QuickJS
 - P1-PKG-08 · PKG · done (#25) · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
 - P1-PKG-09 · PKG · done (#34) · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
@@ -141,6 +141,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-GFX-07 · GFX · todo · crates/gfx/tests/chrome/*.mjs launch with channel 'chromium' so the preload can go
 - P1-RT-39 · RT · todo · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
 - P1-RT-40 · RT · done · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
+- P1-RT-42 · RT · doing · Main's linux-extra-asan: LeakSanitizer reports 1,108,992 bytes in 492 indirect leaks at exit of the surimono-core lib test binary (since at least 88cb0ee9); symbolize locally, find and fix
+- P1-RT-43 · RT · doing · Main's test-macos-14 timing flakes: cancel.rs stops_a_microtask_flood (MemoryLimit before Cancelled), hostile.rs group_b_swallowed_interrupts_end; make robust without weakening
 - P1-RT-41 · RT · todo · #100 follow-up: first idle worker of a burst must not trim while others hold runtimes (reset last_trim_ms on 0→1 runtimes); #95 follow-ups: add_arg over the parameter limit gives a SyntaxError with a test, PATCHES.md wording, draft 07 reachability; HostPanic message truncated; doc lines from #102's review
 - P1-DOM-06 · DOM · todo · Guard every native in crates/dom with Deadline::guard and discards_state (#102 finding 1); required before DOM reaches the facade
 - P1-CF-32 · CF · todo · Alpine LICENSE.md in fixtures/real-world/lib once alpinejs/alpine is readable
