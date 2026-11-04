@@ -150,6 +150,14 @@ struct RenderJob {
     reply: SyncSender<Result<String, IslandError>>,
 }
 
+impl RenderJob {
+    fn cancelled(&self) -> bool {
+        self.cancel
+            .as_ref()
+            .is_some_and(|c| c.load(Ordering::Acquire))
+    }
+}
+
 struct RegisterJob {
     name: String,
     code: Code,
@@ -201,6 +209,9 @@ struct Shared {
     /// Test-only: makes workers die outside their guard (see [`Fault`]).
     #[cfg(test)]
     fault: std::sync::atomic::AtomicU8,
+    /// Test-only: bundles preloaded so far.
+    #[cfg(test)]
+    preloads: AtomicU64,
 }
 
 impl Shared {
@@ -647,6 +658,8 @@ impl IslandRunner {
             spawned: AtomicUsize::new(0),
             #[cfg(test)]
             fault: std::sync::atomic::AtomicU8::new(Fault::None as u8),
+            #[cfg(test)]
+            preloads: AtomicU64::new(0),
         });
         let generation = surimono_core::fork_generation().map_err(IslandError::Sandbox)?;
         let runner = Self {
@@ -778,9 +791,15 @@ impl IslandRunner {
     /// within a few milliseconds. The worker may still be unwinding the script
     /// then, and is back in the pool right after.
     ///
-    /// A render whose answer arrived first keeps it. A built-in renderer's
-    /// first load isn't cancelled: the flag is first checked again once that
-    /// is done (it runs under the sandbox's limits).
+    /// A render whose answer arrived first keeps it. Keep `cancel` up until
+    /// this call returns: it is read about every 5 ms.
+    ///
+    /// Cancelling reaches the script, not the step before it: a built-in
+    /// renderer's first load isn't cancelled, and the flag is read again only
+    /// after it. That load can wait for the runner's lock and for a free
+    /// worker before it compiles, so it can take longer than one script's
+    /// time limit. A cancelled job waits in the queue, holding a copy of its
+    /// spec, until a worker reaches it.
     pub fn render_cancellable(
         &self,
         req: &IslandRequest<'_>,
@@ -1092,9 +1111,17 @@ impl Worker {
             if shared.fault(Fault::HoldingJob, true) {
                 panic!("test fault: worker dies holding a job");
             }
+            let mut used_sandbox = true;
             match job {
                 Job::Render(job) => {
-                    let result = self.guard(|w| w.render(&job));
+                    // Cancelled while queued: nothing runs, and whatever is
+                    // preloaded stays good for the next job.
+                    let result = if job.cancelled() {
+                        used_sandbox = false;
+                        Err(SandboxError::Cancelled.into())
+                    } else {
+                        self.guard(|w| w.render(&job))
+                    };
                     self.shared.renders.fetch_add(1, Ordering::Relaxed);
                     if result.is_err() {
                         self.shared.failed_renders.fetch_add(1, Ordering::Relaxed);
@@ -1116,7 +1143,9 @@ impl Worker {
                 panic!("test fault: worker dies after replying");
             }
             // The caller has its answer; now clear the job's state.
-            self.recycle();
+            if used_sandbox {
+                self.recycle();
+            }
         }
     }
 
@@ -1224,7 +1253,11 @@ impl Worker {
             })
         }));
         match loaded {
-            Ok(Ok(true)) => self.preloaded = Some(bundle),
+            Ok(Ok(true)) => {
+                self.preloaded = Some(bundle);
+                #[cfg(test)]
+                self.shared.preloads.fetch_add(1, Ordering::Relaxed);
+            }
             Ok(Ok(false)) => {
                 bundle.preloadable.store(false, Ordering::Relaxed);
                 self.recycle();
@@ -1282,14 +1315,6 @@ impl Worker {
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
-        // Cancelled while queued: nothing to run.
-        if job
-            .cancel
-            .as_ref()
-            .is_some_and(|c| c.load(Ordering::Acquire))
-        {
-            return Err(SandboxError::Cancelled.into());
-        }
         let measurer = self.measure.clone();
         let bundle = &job.bundle;
         // The sandbox is used from here on, so it is no longer pristine.
@@ -1419,10 +1444,11 @@ fn measure_function<'js>(
               font: Opt<Coerced<String>>|
               -> rquickjs::Result<Object<'js>> {
             if deadline.passed() {
-                // The render now fails with TimeLimit, whatever the script does.
+                // The render now fails with TimeLimit or Cancelled, whatever
+                // the script does.
                 return Err(Exception::throw_internal(
                     &ctx,
-                    "measureText: the time limit has passed",
+                    "measureText: the render has to stop",
                 ));
             }
             deadline.guard(&ctx.clone(), || {
@@ -1505,6 +1531,41 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    #[test]
+    fn a_job_cancelled_in_the_queue_keeps_the_preload() {
+        // No idle release: a stalled test must not drop the preload (#72).
+        let r = IslandRunner::start(
+            RunnerOptions {
+                pool_size: 1,
+                release_idle_after: None,
+                ..RunnerOptions::default()
+            },
+            Measure::Estimate,
+        )
+        .unwrap();
+        r.register_bundle("echo", "function entry(s) { return s }", "entry")
+            .unwrap();
+        let r = Arc::new(r);
+        echo(&r, 1).unwrap();
+        wait_idle(&r);
+        let preloads = r.shared.preloads.load(Ordering::Relaxed);
+        assert!(preloads > 0, "the next job should find the bundle loaded");
+        let req = IslandRequest {
+            renderer: "echo",
+            spec_json: "2",
+            width: 1,
+            height: 1,
+        };
+        let answer = r
+            .submit_render(&req, Some(Arc::new(AtomicBool::new(true))))
+            .unwrap();
+        assert_eq!(recv(&answer), Err(SandboxError::Cancelled.into()));
+        wait_idle(&r);
+        assert_eq!(r.shared.preloads.load(Ordering::Relaxed), preloads);
+        assert_eq!(echo(&r, 3).unwrap(), "3");
+        assert!(r.stats().preloaded_renders > 0);
     }
 
     #[test]

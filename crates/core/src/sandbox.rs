@@ -456,7 +456,8 @@ impl Sandbox {
     }
 
     /// A handle that host functions (Rust functions the script calls) use
-    /// to check the running call's time limit.
+    /// to check whether the running call must stop: its time limit passed
+    /// or it was cancelled.
     ///
     /// The engine stops a script at its next interrupt check once the
     /// deadline passes, but a host function is native code the engine
@@ -464,8 +465,8 @@ impl Sandbox {
     /// would overrun by up to one call each time it catches the error. A
     /// host function should check [`Deadline::passed`] before expensive
     /// work and throw if it has: the call then fails with
-    /// [`SandboxError::TimeLimit`], however the script handles the
-    /// exception. The handle belongs to this sandbox's current runtime;
+    /// [`SandboxError::TimeLimit`] or [`SandboxError::Cancelled`], however the
+    /// script handles the exception. The handle belongs to this sandbox's current runtime;
     /// take a new one after a [`reset`](Self::reset) or a limit error (an
     /// old handle then always reports passed).
     pub fn deadline(&self) -> Deadline {
@@ -490,7 +491,8 @@ impl Sandbox {
     /// It only ever decides whether to stop, so it can't change what a script
     /// that runs to the end produces. The process's watchdog thread reads it
     /// about every 5 ms while a call with a flag runs; calls without one
-    /// cost nothing extra.
+    /// cost nothing extra. So keep it up until the call returns: a flag
+    /// raised and lowered between two reads goes unnoticed.
     pub fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
         self.cancel = flag;
     }
@@ -647,7 +649,7 @@ impl Sandbox {
     }
 
     /// Enters the context with the deadline armed, runs `body`, classifies
-    /// its error, and rebuilds the sandbox after a limit error.
+    /// its error, and rebuilds the sandbox after a limit error or a cancel.
     fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
     where
         B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
