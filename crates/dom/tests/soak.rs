@@ -44,9 +44,10 @@ fn page(i: usize) -> String {
 }
 
 /// Wraps every row repeatedly, reads through wrappers, builds a list of new
-/// nodes and drops it again, and replaces the table's content (dropping
-/// nodes that wrappers still reference). Every 50th render also ends in an
-/// exception on purpose, so that error path is soaked too.
+/// nodes and drops it again, and replaces the table's content (the nodes
+/// wrappers reference stay alive, detached, until the document drops). Every
+/// 50th render also ends in an exception on purpose, so that error path is
+/// soaked too.
 const SCRIPT: &str = r#"
 (function (i) {
   let sum = 0;

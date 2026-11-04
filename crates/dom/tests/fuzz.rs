@@ -144,7 +144,8 @@ fn operation(r: &mut Rng) -> String {
         16 => format!("at({a}).insertBefore(at({b}), at({a}).firstChild)"),
         17 => format!("at({a}).replaceChild(at({b}), at({a}).firstChild)"),
         18 => format!("at({a}).removeChild(at({a}).lastChild)"),
-        19 => format!("keep(at({a}).cloneNode(true))"),
+        // Cloning a document is fatal, a known gap; it would end the run here.
+        19 => format!("if (at({a}) !== document) keep(at({a}).cloneNode(true))"),
         20 => format!("at({a}).append({value}, at({b}))"),
         21 => format!("at({a}).before(at({b}), {value})"),
         22 => format!("at({a}).replaceWith(at({b}), {value})"),

@@ -6,6 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
+use surimono_core::Deadline;
+use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
@@ -112,6 +114,9 @@ pub(crate) enum Kind {
 /// crate sees it.
 const FRAGMENT_NAME: &str = "#document-fragment";
 
+/// Steps of a native's loop between looks at the clock.
+const POLL_EVERY: u32 = 256;
+
 /// A handle as JavaScript holds it, with the document's generation. Neither
 /// is a pointer or a blitz node id.
 pub(crate) type Handle = u32;
@@ -144,6 +149,10 @@ pub struct Document {
     cursor: Cell<(usize, usize)>,
     /// A fatal error a binding met, for the native call to report.
     pub(crate) fault: Option<DomError>,
+    /// The running call's deadline, set for each native call.
+    pub(crate) deadline: Option<Deadline>,
+    /// Steps since the last look at the clock (see [`Document::poll`]).
+    ticks: Cell<u32>,
 }
 
 impl std::fmt::Debug for Document {
@@ -200,6 +209,8 @@ impl Document {
             quirks: parsed.quirks,
             cursor: Cell::new((0, 0)),
             fault: None,
+            deadline: None,
+            ticks: Cell::new(0),
         };
         if doc.node_count() > limits.max_nodes {
             return Err(DomError::NodeLimit {
@@ -223,6 +234,31 @@ impl Document {
             doc.drop_orphan(orphan);
         }
         Ok(doc)
+    }
+
+    /// One step of a loop whose length a script controls, inside a native.
+    /// The sandbox can't interrupt a native, so such a loop ends itself:
+    /// past the deadline this is an exception. As at the start of a native,
+    /// no fault is recorded: the engine stops the script at its next check,
+    /// so the call fails with `TimeLimit` even if the script catches this.
+    pub(crate) fn poll(&self) -> BindingResult<()> {
+        self.poll_by(1)
+    }
+
+    /// [`poll`](Self::poll) for a step that does `work` units of work.
+    pub(crate) fn poll_by(&self, work: u32) -> BindingResult<()> {
+        let ticks = self.ticks.get().saturating_add(work);
+        if ticks < POLL_EVERY {
+            self.ticks.set(ticks);
+            return Ok(());
+        }
+        self.ticks.set(0);
+        if self.deadline.as_ref().is_some_and(Deadline::passed) {
+            return Err(BindingError::TypeError(
+                "surimono: the time limit has passed".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     /// The document's serialization: the `<html>` element's outer HTML, by
@@ -372,7 +408,7 @@ impl Document {
             }
             self.handle_to_node.push(id);
             // `validate` keeps max_handles within u32, so this always fits;
-            // 0 (never a valid handle, resolves to NodeRemoved) otherwise.
+            // 0 (never a valid handle, resolves to StaleDocument) otherwise.
             self.node_to_handle[id] = Handle::try_from(self.handle_to_node.len()).unwrap_or(0);
         }
         Ok(self.node_to_handle[id])
@@ -818,7 +854,16 @@ impl Document {
     /// recurses per level, and removing children one at a time scans the
     /// parent's list each time.
     pub(crate) fn remove_all_children(&mut self, id: usize) {
-        for c in self.take_children(id) {
+        let gone = self.children(id).to_vec();
+        self.replace_child_list(id, Vec::new(), gone);
+    }
+
+    /// Makes `kept` the children of `id` and removes `gone`, its other
+    /// children, as [`remove_all_children`](Self::remove_all_children) does:
+    /// one pass, however wide the list.
+    pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
+        self.take_children(id);
+        for c in gone {
             self.set_parent(c, None);
             if self.subtree_has_handle(c) {
                 // No parent to update: this only updates blitz-dom's
@@ -828,9 +873,12 @@ impl Document {
                 self.drop_subtree(c);
             }
         }
-        // `id` has no children left; this does blitz-dom's restyle
+        // `id` has no children yet; this does blitz-dom's restyle
         // bookkeeping for it.
         self.inner.mutate().remove_and_drop_all_children(id);
+        if let Some(node) = self.inner.get_node_mut(id) {
+            node.children = kept;
+        }
     }
 
     fn subtree_has_handle(&self, top: usize) -> bool {

@@ -19,7 +19,7 @@ a native function, which resolves it through the loaded document on that call:
 ```
 JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ Document::resolve
                                                                 │ generation ≠ doc's → StaleDocument
-                                                                │ handle retired     → NodeRemoved
+                                                                │ unknown handle     → StaleDocument
                                                                 ▼
                                                      blitz node id (slab slot)
 ```
@@ -30,8 +30,9 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
 - **Handle**: a per-document number from `Document`'s handle table, never
   reused. Blitz-dom's node ids are slab slots and *are* reused after a drop,
   so exposing them would let a wrapper for a dropped node silently resolve to
-  a new node. The table maps handle → node id (`None` once dropped) and node
-  id → handle; it is dropped with the document.
+  a new node. The table maps handle → node id and node id → handle; a node
+  with a handle lives as long as the document, so an entry never goes stale,
+  and the table is dropped with the document.
 - **Ownership**: the native functions hold an `Rc` to a slot (`Host`) that the
   document is moved into by `DomRuntime::load` and out of by `take`. No JS
   value keeps a document or node alive; dropping the `Document` frees the
@@ -115,10 +116,12 @@ given to blitz-dom, both done once before layout, not while scripts mutate.
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and
-records a fault; the call then fails with `DomError::StaleDocument`,
-`NodeRemoved` or `NoDocument` **even if the script caught the exception**:
-continuing would mean computing with data that no longer exists. The same
-applies to the DOM resource limits (below). Ordinary DOM errors
+records a fault; the call then fails with `DomError::StaleDocument` or
+`NoDocument` **even if the script caught the exception**: continuing would mean
+computing with data that no longer exists. The same applies to the DOM resource
+limits (below) and to `DomError::Unsupported`, for what the DOM defines and this
+crate doesn't do yet, so a script can't take a refusal for the standard's
+answer. Ordinary DOM errors
 (`HierarchyRequestError`, `InvalidCharacterError`) are DOMExceptions the script
 may catch, as in a browser. Sandbox limits outrank faults: a script stopped by
 the time, memory or stack limit reports that limit.
@@ -137,7 +140,9 @@ needed nothing new from core. Bindings are installed inside the first call on
 a context (`glue.js` plus the natives) and again after the sandbox rebuilds
 itself following a limit error or a reset. Every native checks the call's
 `Deadline` first, as the islands' `measureText` does, so a loop of host calls
-still ends with `TimeLimit`.
+still ends with `TimeLimit`. The engine can't interrupt a native, so a native's
+own loop whose length a script controls either is linear in something a limit
+bounds or calls `Document::poll` (a look at the clock every 256 steps).
 
 Nodes live in Rust, outside the JavaScript heap limit, so the document has its
 own limits (`DomLimits`), all fatal faults:
@@ -188,6 +193,14 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 
 ## Deviations and gaps for E2-02
 
+- **`document.cloneNode()`.** §4.4 and WPT Node-cloneNode.html give a new
+  `Document`; a runtime holds one document and blitz-dom can't make a second
+  document node, so the call ends with `DomError::Unsupported`. That is a gap,
+  not conformance (`tests/mutation.rs`, `cloning_a_document_is_a_known_gap`).
+  Comes with `DOMImplementation`.
+- **Half a surrogate pair.** Text is stored as UTF-8, which can't hold a lone
+  surrogate, so a CharacterData offset inside a pair (`deleteData(0, 1)` on an
+  emoji) leaves U+FFFD. The DOM keeps the lone code unit.
 - **Serialization.** blitz-dom 0.2.4's `outer_html` doesn't escape text
   (`<` stays `<`) and recurses per level, so `Document::to_html` has its own
   iterative serializer (HTML §13.3): HTML, SVG and MathML elements, attribute
