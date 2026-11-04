@@ -69,9 +69,9 @@ gem "fulgur"   # or another browserless PDF engine
 
 or `gem install surimono` outside Bundler. Precompiled gems cover x86_64 and
 aarch64 Linux (glibc) and x86_64 and arm64 macOS. On other platforms the gem
-builds from source and needs Rust 1.87 or later and a C compiler. fulgur's
-gem 0.40.0 supports Ruby 3.1 to 3.4, so the pair runs on Ruby 3.2 to 3.4
-today.
+builds from source and needs Rust 1.87 or later, a C compiler and libclang
+(rb-sys generates its Ruby bindings with bindgen). fulgur's gem 0.40.0
+supports Ruby 3.1 to 3.4, so the pair runs on Ruby 3.2 to 3.4 today.
 
 **Rust** (1.87 or later; a C compiler builds QuickJS):
 
