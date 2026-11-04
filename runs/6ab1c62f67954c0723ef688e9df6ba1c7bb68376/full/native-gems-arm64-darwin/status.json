@@ -1,0 +1,1 @@
+{"workflow":"full","job":"native-gems","matrix":"arm64-darwin","status":"success","reported":"success","needs_result":"","reported_job":"native-gems","sha":"6ab1c62f67954c0723ef688e9df6ba1c7bb68376","ref":"release/v0.1.0-fix","event":"push","run_id":"41904508619","attempt":"1","finished_at":"2026-11-04T20:19:30Z"}
