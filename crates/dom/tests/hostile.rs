@@ -250,6 +250,11 @@ fn string_bytes_are_limited() {
         "for (;;) new Text(s);",
         "for (;;) document.createComment(s);",
         "for (;;) new Comment(s);",
+        "for (let k = 0;; k++) document.createElement(s + k);",
+        "for (let k = 0;; k++) document.createElementNS(s + k, 'a');",
+        "for (let k = 0;; k++) document.createElementNS('urn:x', s + k + ':a');",
+        "for (let k = 0;; k++) b.setAttributeNS(s + k, 'a', '');",
+        "const c = n(); c.setAttribute('a', s); for (;;) c.cloneNode();",
         "for (let k = 0;; k++) b.setAttribute('a' + k, s);",
         "for (let k = 0;; k++) b.setAttribute(s + k, '');",
         "for (;;) n().setAttribute('a', s);",
@@ -262,7 +267,9 @@ fn string_bytes_are_limited() {
         "for (;;) document.createTextNode('').nodeValue = s;",
         "for (;;) document.createElement('style').textContent = s;",
     ] {
-        let mut rt = DomRuntime::new(limits()).unwrap();
+        // About bytes, not time: a 1 MiB name goes through debug-build checks
+        // and lower-casing, and takes seconds on a loaded machine.
+        let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(120)))).unwrap();
         rt.load(
             Document::parse_with_limits(
                 PAGE,

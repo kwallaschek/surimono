@@ -373,6 +373,45 @@ fn an_idle_worker_frees_its_runtime() {
 }
 
 #[test]
+fn workers_going_idle_together_trim_once() {
+    let r = std::sync::Arc::new(
+        IslandRunner::with_estimated_text_metrics(RunnerOptions {
+            release_idle_after: Some(Duration::from_millis(50)),
+            ..options(3)
+        })
+        .unwrap(),
+    );
+    r.register_bundle(
+        "busy",
+        "function entry() { for (let i = 0; i < 2e5; i++); return 'x' }",
+        "entry",
+    )
+    .unwrap();
+    for round in 1..=2 {
+        std::thread::scope(|s| {
+            for _ in 0..6 {
+                s.spawn(|| render(&r, "busy").unwrap());
+            }
+        });
+        let start = std::time::Instant::now();
+        while r.stats().runtimes != 0 || r.stats().memory_trims < round {
+            assert!(
+                start.elapsed() < Duration::from_secs(10),
+                "never went idle: {:?}",
+                r.stats()
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(r.stats().memory_trims, round, "{:?}", r.stats());
+    }
+    assert!(
+        r.stats().workers > 1,
+        "the test needs overlap: {:?}",
+        r.stats()
+    );
+}
+
+#[test]
 fn runtimes_are_kept_without_an_idle_release() {
     let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         release_idle_after: None,

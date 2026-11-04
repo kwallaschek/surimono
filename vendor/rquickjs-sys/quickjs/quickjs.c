@@ -402,6 +402,9 @@ struct JSRuntime {
     /* surimono: never NULL; points at js_interrupt_flag_clear unless the
        host set its own flag. Copied to every context. */
     js_interrupt_flag_t *interrupt_flag;
+    /* surimono: where JS_FreeRuntime reports how many objects leaked
+       (see surimono_set_leak_count); NULL when nobody asked. */
+    uint32_t *leak_count;
 
     JSPromiseHook *promise_hook;
     void *promise_hook_opaque;
@@ -2531,6 +2534,17 @@ void surimono_set_interrupt_flag(JSRuntime *rt, uint32_t *flag)
     }
 }
 
+/* surimono: JS_FreeRuntime stores in *count how many objects were still
+   alive when the runtime was freed: objects some error path leaked a
+   reference to (see the note there), which it leaves to the arenas
+   instead of aborting. The arena blocks go back to the allocator with the
+   arenas, so no byte count shows these leaks; this count does. The
+   pointer must stay valid until JS_FreeRuntime returns. NULL removes it. */
+void surimono_set_leak_count(JSRuntime *rt, uint32_t *count)
+{
+    rt->leak_count = count;
+}
+
 void JS_SetCanBlock(JSRuntime *rt, bool can_block)
 {
     rt->can_block = can_block;
@@ -2759,9 +2773,19 @@ void JS_FreeRuntime(JSRuntime *rt)
        rather than abort the process. Large blocks they own (from the
        backing allocator) stay allocated until the process exits.
        surimono's tests check that a runtime gives back every byte it
-       allocated. */
-    if (!list_empty(&rt->gc_obj_list))
+       allocated, and the host can have the leaked objects counted
+       (surimono_set_leak_count). */
+    if (!list_empty(&rt->gc_obj_list)) {
+        if (rt->leak_count) {
+            uint32_t n = 0;
+            list_for_each(el, &rt->gc_obj_list) {
+                if (n < UINT32_MAX)
+                    n++;
+            }
+            *rt->leak_count = n;
+        }
         init_list_head(&rt->gc_obj_list);
+    }
 
     /* free the classes */
     for(i = 0; i < rt->class_count; i++) {
@@ -6244,10 +6268,19 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
                 if (likely(sh == ctx->array_shape)) {
                     pr = &p->prop[0];
                 } else {
-                    /* only used for the first array */
-                    /* cannot fail */
+                    /* surimono: not only the first array: any Array subclass
+                       or other new.target lands here. When the prototype's
+                       empty shape is shared, add_property clones it, which
+                       can fail: `new A()` crashed on a NULL `pr` under a
+                       memory limit. p isn't on the GC list yet. */
                     pr = add_property(ctx, p, JS_ATOM_length,
                                       JS_PROP_WRITABLE | JS_PROP_LENGTH);
+                    if (unlikely(!pr)) {
+                        js_free_shape(ctx->rt, p->shape);
+                        js_free(ctx, p->prop);
+                        js_free(ctx, p);
+                        return JS_EXCEPTION;
+                    }
                 }
                 pr->u.value = js_int32(0);
             }
@@ -8737,10 +8770,13 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
 /* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
    3: both the allocation-failure hardening (p1-rt-15) and the interrupt
    flag (p1-rt-14), each of which was level 2 on its own branch.
-   4: also the per-match polls in the regexp replace loops (p1-rt-23). */
+   4: also the per-match polls in the regexp replace loops (p1-rt-23).
+   5: also the leak count at teardown (p1-rt-18).
+   6: also the failed length property of a new array and the unchecked
+   add_arg (p1-rt-36). */
 int surimono_quickjs_patch_level(void)
 {
-    return 4;
+    return 6;
 }
 
 /* surimono: with enabled = 0, every later allocation of this runtime goes
@@ -37829,6 +37865,10 @@ static __exception int js_parse_function_decl2(JSParseState *s,
                 } else {
                     /* unnamed arg for destructuring */
                     idx = add_arg(ctx, fd, JS_ATOM_NULL);
+                    /* surimono: -1 would become OP_get_arg 0xffff, a read
+                       about 1 MiB past the frame when the function runs. */
+                    if (idx < 0)
+                        goto fail;
                     emit_op(s, OP_get_arg);
                     emit_u16(s, idx);
                 }

@@ -4,14 +4,14 @@ use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::mpsc::{self, SyncSender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
-use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxOptions};
+use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxError, SandboxOptions};
 
 use crate::measure::{Measure, MeasureError};
 use crate::{IslandError, TextMeasurer, builtins, embedded};
@@ -29,10 +29,10 @@ pub struct RunnerOptions {
     /// more than one. 0 picks the default: the number of CPUs, at most 4.
     pub pool_size: usize,
     /// How long a worker may sit idle before it frees its JavaScript
-    /// runtime (and the bundle preloaded in it). The next request on that
-    /// worker starts a runtime and loads its bundle itself (about 0.5 ms
-    /// plus the bundle's load time). `None` keeps runtimes for as long as
-    /// the runner lives. Default: 2 s.
+    /// runtime (and the bundle preloaded in it) and hands the freed memory
+    /// back to the OS. The next request on that worker starts a runtime and
+    /// loads its bundle itself (about 0.5 ms plus the bundle's load time).
+    /// `None` keeps runtimes for as long as the runner lives. Default: 2 s.
     pub release_idle_after: Option<Duration>,
     /// Seed for `Math.random`; every render starts the same sequence.
     pub seed: u64,
@@ -126,11 +126,21 @@ impl Bundle {
     }
 }
 
+/// Least time between two trims while some worker still holds a runtime. A
+/// trim covers the whole process, so workers that go idle one after another
+/// share one; the last of them always trims.
+const TRIM_MIN_GAP: Duration = Duration::from_secs(10);
+
+/// How often a cancellable render looks at the caller's flag.
+const CANCEL_POLL: Duration = Duration::from_millis(5);
+
 struct RenderJob {
     bundle: Arc<Bundle>,
     spec_json: String,
     width: u32,
     height: u32,
+    /// Raised to stop this job; `None` when it can't be cancelled.
+    cancel: Option<Arc<AtomicBool>>,
     reply: SyncSender<Result<String, IslandError>>,
 }
 
@@ -165,6 +175,12 @@ struct Shared {
     preloaded_renders: AtomicU64,
     /// Workers holding a JavaScript runtime right now.
     runtimes: AtomicUsize,
+    /// When this runner was started; the origin of `last_trim_ms`.
+    started: Instant,
+    /// Milliseconds from `started` to the last trim.
+    last_trim_ms: AtomicU64,
+    /// Trims so far.
+    trims: AtomicU64,
     /// Most worker threads.
     pool_size: usize,
     /// Stack size of each worker thread.
@@ -456,6 +472,9 @@ pub struct RunnerStats {
     /// Workers holding a JavaScript runtime right now. A worker frees its
     /// runtime after [`RunnerOptions::release_idle_after`] without work.
     pub runtimes: usize,
+    /// Not public API: how often the workers trimmed the allocator.
+    #[doc(hidden)]
+    pub memory_trims: u64,
 }
 
 /// Renders islands: JavaScript bundles that turn a JSON spec into an SVG
@@ -605,6 +624,9 @@ impl IslandRunner {
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
             runtimes: AtomicUsize::new(0),
+            started: Instant::now(),
+            last_trim_ms: AtomicU64::new(0),
+            trims: AtomicU64::new(0),
             pool_size,
             stack_size,
             workers: Mutex::new(Vec::with_capacity(pool_size)),
@@ -731,15 +753,60 @@ impl IslandRunner {
     /// is loaded on its first use, unless a bundle was registered under its
     /// name.
     pub fn render(&self, req: &IslandRequest<'_>) -> Result<String, IslandError> {
+        let answer = self.submit_render(req, None)?;
+        recv(&answer)
+    }
+
+    /// [`render`](Self::render) that stops once `cancel` is raised, from any
+    /// thread: a running script stops like at a time limit, and a render still
+    /// queued never starts. The call returns
+    /// [`SandboxError::Cancelled`](surimono_core::SandboxError::Cancelled)
+    /// within a few milliseconds. The worker may still be unwinding the script
+    /// then, and is back in the pool right after.
+    ///
+    /// A render whose answer arrived first keeps it. A built-in renderer's
+    /// first load isn't cancelled: the flag is first checked again once that
+    /// is done (it runs under the sandbox's limits).
+    pub fn render_cancellable(
+        &self,
+        req: &IslandRequest<'_>,
+        cancel: &AtomicBool,
+    ) -> Result<String, IslandError> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(SandboxError::Cancelled.into());
+        }
+        // The worker's flag must be owned, as a job can outlive this call.
+        let job_cancel = Arc::new(AtomicBool::new(false));
+        let answer = self.submit_render(req, Some(job_cancel.clone()))?;
+        loop {
+            match answer.recv_timeout(CANCEL_POLL) {
+                Ok(result) => return result,
+                Err(RecvTimeoutError::Timeout) if cancel.load(Ordering::Acquire) => {
+                    job_cancel.store(true, Ordering::Release);
+                    return Err(SandboxError::Cancelled.into());
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return Err(worker_stopped()),
+            }
+        }
+    }
+
+    /// Checks a render request and queues it.
+    fn submit_render(
+        &self,
+        req: &IslandRequest<'_>,
+        cancel: Option<Arc<AtomicBool>>,
+    ) -> Result<Receiver<Result<String, IslandError>>, IslandError> {
         self.check_process()?;
         let bundle = self.bundle(req.renderer)?;
         serde_json::from_str::<serde::de::IgnoredAny>(req.spec_json).map_err(bad_json)?;
-        self.dispatch(|reply| {
+        self.submit(|reply| {
             Job::Render(RenderJob {
                 bundle,
                 spec_json: req.spec_json.to_owned(),
                 width: req.width,
                 height: req.height,
+                cancel,
                 reply,
             })
         })
@@ -844,6 +911,7 @@ impl IslandRunner {
                 renders: self.shared.renders.load(Ordering::Relaxed),
                 failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
                 preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
+                memory_trims: self.shared.trims.load(Ordering::Relaxed),
                 ..RunnerStats::default()
             };
         }
@@ -858,6 +926,7 @@ impl IslandRunner {
             idle_workers,
             workers,
             runtimes: self.shared.runtimes.load(Ordering::Relaxed),
+            memory_trims: self.shared.trims.load(Ordering::Relaxed),
         }
     }
 
@@ -866,6 +935,14 @@ impl IslandRunner {
         &self,
         make: impl FnOnce(SyncSender<Result<T, IslandError>>) -> Job,
     ) -> Result<T, IslandError> {
+        recv(&self.submit(make)?)
+    }
+
+    /// Sends a job to the pool; its answer arrives on the returned channel.
+    fn submit<T>(
+        &self,
+        make: impl FnOnce(SyncSender<Result<T, IslandError>>) -> Job,
+    ) -> Result<Receiver<Result<T, IslandError>>, IslandError> {
         let (reply, answer) = mpsc::sync_channel(1);
         let short = self
             .shared
@@ -878,12 +955,20 @@ impl IslandRunner {
         if short {
             self.grow();
         }
-        // Every job is answered or dropped: by its worker, by a dying
-        // worker's `Life` (with an error), or with the worker that died
-        // holding it. The queue can't close while `self` is borrowed.
-        answer.recv().map_err(|_| IslandError::Worker {
-            message: "the worker thread stopped while handling this request".into(),
-        })?
+        Ok(answer)
+    }
+}
+
+/// Waits for a job's answer. Every job is answered or dropped: by its worker,
+/// by a dying worker's `Life` (with an error), or with the worker that died
+/// holding it. The queue can't close while the runner is borrowed.
+fn recv<T>(answer: &Receiver<Result<T, IslandError>>) -> Result<T, IslandError> {
+    answer.recv().map_err(|_| worker_stopped())?
+}
+
+fn worker_stopped() -> IslandError {
+    IslandError::Worker {
+        message: "the worker thread stopped while handling this request".into(),
     }
 }
 
@@ -1065,9 +1150,22 @@ impl Worker {
     }
 
     /// Frees the runtime of a worker that has been idle for a while; the
-    /// next job starts a new one.
+    /// next job starts a new one. The allocator would keep the runtime's
+    /// pages, so the last worker to go idle hands them back to the OS. While
+    /// others still hold a runtime (one render at a time keeps a worker
+    /// busy), a worker trims only every [`TRIM_MIN_GAP`].
     fn release(&mut self) {
         self.drop_sandbox();
+        let shared = &self.shared;
+        let now = u64::try_from(shared.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let last = shared.last_trim_ms.load(Ordering::Relaxed);
+        let all_idle = shared.runtimes.load(Ordering::Relaxed) == 0;
+        let gap = u64::try_from(TRIM_MIN_GAP.as_millis()).unwrap_or(u64::MAX);
+        if all_idle || now.saturating_sub(last) >= gap {
+            shared.last_trim_ms.store(now, Ordering::Relaxed);
+            shared.trims.fetch_add(1, Ordering::Relaxed);
+            surimono_core::release_free_memory();
+        }
     }
 
     /// Gives the sandbox a fresh context for the next job, freeing this
@@ -1075,6 +1173,8 @@ impl Worker {
     fn recycle(&mut self) {
         self.preloaded = None;
         if let Some(sb) = self.sandbox.as_mut() {
+            // A job's flag ends with the job: preloading must not trip on it.
+            sb.set_cancel_flag(None);
             if sb.reset().is_err() {
                 self.drop_sandbox();
             }
@@ -1162,6 +1262,14 @@ impl Worker {
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
+        // Cancelled while queued: nothing to run.
+        if job
+            .cancel
+            .as_ref()
+            .is_some_and(|c| c.load(Ordering::Acquire))
+        {
+            return Err(SandboxError::Cancelled.into());
+        }
         let measurer = self.measure.clone();
         let bundle = &job.bundle;
         // The sandbox is used from here on, so it is no longer pristine.
@@ -1175,6 +1283,7 @@ impl Worker {
         let no_fonts = Arc::new(AtomicBool::new(false));
         let measure_text = (measurer, no_fonts.clone());
         let sb = self.sandbox()?;
+        sb.set_cancel_flag(job.cancel.clone());
         let deadline = sb.deadline();
         // One call, so one deadline covers loading the bundle and the
         // render. A preloaded bundle was loaded off the caller's clock with
@@ -1199,12 +1308,20 @@ impl Worker {
             svg_string,
         );
         // Measured without fonts: whatever the script made of the
-        // TypeError (even if it caught it), the layout is wrong.
-        if no_fonts.load(Ordering::Relaxed) {
+        // TypeError (even if it caught it), the layout is wrong. A cancelled
+        // caller wants to hear that instead.
+        if no_fonts.load(Ordering::Relaxed) && outcome != Err(SandboxError::Cancelled) {
             return Err(IslandError::NoFonts {
                 renderer: bundle.name.clone(),
             });
         }
+        let outcome = outcome.map_err(|e| match e {
+            // As when a panic reaches the worker's guard.
+            SandboxError::HostPanic { message } => IslandError::Worker {
+                message: format!("panicked: {message}"),
+            },
+            other => other.into(),
+        });
         outcome?.map_err(|found| IslandError::NotAString {
             renderer: bundle.name.clone(),
             found,
@@ -1288,26 +1405,28 @@ fn measure_function<'js>(
                     "measureText: the time limit has passed",
                 ));
             }
-            let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
-            let m = measurer.measure(&text.0, &font).map_err(|e| {
-                let msg = match e {
-                    MeasureError::NoFonts => {
-                        no_fonts.store(true, Ordering::Relaxed);
-                        "no fonts were given to measure text with".to_owned()
-                    }
-                    MeasureError::Other(msg) => msg,
-                };
-                Exception::throw_type(&ctx, &format!("measureText: {msg}"))
-            })?;
-            let o = Object::new(ctx)?;
-            o.set("width", m.width)?;
-            o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;
-            o.set("actualBoundingBoxRight", m.actual_bounding_box_right)?;
-            o.set("actualBoundingBoxAscent", m.actual_bounding_box_ascent)?;
-            o.set("actualBoundingBoxDescent", m.actual_bounding_box_descent)?;
-            o.set("fontBoundingBoxAscent", m.font_bounding_box_ascent)?;
-            o.set("fontBoundingBoxDescent", m.font_bounding_box_descent)?;
-            Ok(o)
+            deadline.guard(&ctx.clone(), || {
+                let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
+                let m = measurer.measure(&text.0, &font).map_err(|e| {
+                    let msg = match e {
+                        MeasureError::NoFonts => {
+                            no_fonts.store(true, Ordering::Relaxed);
+                            "no fonts were given to measure text with".to_owned()
+                        }
+                        MeasureError::Other(msg) => msg,
+                    };
+                    Exception::throw_type(&ctx, &format!("measureText: {msg}"))
+                })?;
+                let o = Object::new(ctx)?;
+                o.set("width", m.width)?;
+                o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;
+                o.set("actualBoundingBoxRight", m.actual_bounding_box_right)?;
+                o.set("actualBoundingBoxAscent", m.actual_bounding_box_ascent)?;
+                o.set("actualBoundingBoxDescent", m.actual_bounding_box_descent)?;
+                o.set("fontBoundingBoxAscent", m.font_bounding_box_ascent)?;
+                o.set("fontBoundingBoxDescent", m.font_bounding_box_descent)?;
+                Ok(o)
+            })
         },
     )?
     .with_name("measureText")
@@ -1366,6 +1485,33 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    #[test]
+    fn a_script_cannot_swallow_a_measurer_panic() {
+        let r = runner_with_odd_measurer();
+        r.register_bundle(
+            "swallow",
+            "function entry(s, ctx) {
+               try { ctx.measureText('boom') } catch (e) {}
+               return 'carried on'
+             }",
+            "entry",
+        )
+        .unwrap();
+        let out = r.render(&IslandRequest {
+            renderer: "swallow",
+            spec_json: "{}",
+            width: 1,
+            height: 1,
+        });
+        match out.unwrap_err() {
+            IslandError::Worker { message } => {
+                assert!(message.contains("measurer exploded"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(measure(&r, "abcd").unwrap(), "4");
     }
 
     #[test]

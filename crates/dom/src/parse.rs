@@ -33,6 +33,10 @@ const CHUNK: usize = 4096;
 pub(crate) struct Parsed {
     /// (node, data): comment data, and the text of `<style>` elements.
     pub strings: Vec<(usize, String)>,
+    /// Nodes the tree builder took out of the tree. It puts most back; what
+    /// has no parent at the end (`<frameset>` drops the `<body>`) is an
+    /// orphan for the caller to free.
+    pub removed: Vec<usize>,
     pub quirks: bool,
     /// Feeding stopped because the tree went over a limit.
     pub over_limit: bool,
@@ -168,6 +172,7 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
     }
 
     fn remove_from_parent(&self, target: &usize) {
+        self.parsed.borrow_mut().removed.push(*target);
         self.inner.remove_from_parent(target);
     }
 
@@ -246,7 +251,7 @@ pub(crate) fn parse_document(
 /// resolved (`import.url.url().unwrap()`, net.rs). Which text does that can
 /// only be told by parsing CSS, across node boundaries; so no style text
 /// reaches it. `Document` keeps it in its side table and reads it from there;
-/// blitz-dom sees empty text nodes and no stylesheets.
+/// blitz-dom sees empty text nodes, and builds an empty stylesheet from them.
 fn stash_style_text(
     mutr: &mut DocumentMutator<'_>,
     styles: &[usize],

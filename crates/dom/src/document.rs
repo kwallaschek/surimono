@@ -32,9 +32,9 @@ pub struct DomLimits {
     /// table (16 bytes a handle, outside the JavaScript heap limit) when a
     /// script creates and drops nodes in a loop.
     pub max_handles: usize,
-    /// Most bytes of strings the document may hold: text, comment data, and
-    /// attribute names and values (with [`ATTRIBUTE_COST`] each), parsed and
-    /// from scripts together. Counted on write and credited on overwrite and
+    /// Most bytes of strings the document may hold: text, comment data,
+    /// element names, and attribute names and values (with
+    /// [`ATTRIBUTE_COST`] each), parsed and from scripts together. Counted on write and credited on overwrite and
     /// on drop. These strings live in Rust, outside the JavaScript heap
     /// limit, and one JavaScript string can be stored on many nodes.
     pub max_text_bytes: usize,
@@ -165,9 +165,9 @@ impl Document {
     /// Parses `html`. No network, no system fonts: blitz-dom is built
     /// without them and the config has no providers.
     ///
-    /// Fails with [`DomError::NodeLimit`] or [`DomError::TreeTooDeep`] if
-    /// the parsed tree is already over `limits` (html5ever doesn't cap
-    /// nesting), and with [`DomError::InvalidLimits`] for limits out of
+    /// Fails with [`DomError::NodeLimit`], [`DomError::TreeTooDeep`] or
+    /// [`DomError::TextLimit`] if the parsed tree is already over `limits`
+    /// (html5ever doesn't cap nesting), and with [`DomError::InvalidLimits`] for limits out of
     /// range. The parser itself doesn't recurse per level, and a refused
     /// tree is freed without recursing (blitz-dom keeps nodes in a slab).
     pub fn parse_with_limits(html: &str, limits: DomLimits) -> Result<Self, DomError> {
@@ -211,11 +211,16 @@ impl Document {
                 limit: limits.max_depth,
             });
         }
-        doc.held_bytes = doc.bytes_under(doc.root());
+        // Every node, not only those under the root: orphans count until
+        // they go, so a page can't hide bytes in them.
+        doc.held_bytes = doc.bytes_held();
         if doc.held_bytes > limits.max_text_bytes {
             return Err(DomError::TextLimit {
                 limit: limits.max_text_bytes,
             });
+        }
+        for orphan in parsed.removed {
+            doc.drop_orphan(orphan);
         }
         Ok(doc)
     }
@@ -623,26 +628,37 @@ impl Document {
                 .attrs()
                 .iter()
                 .map(|a| attribute_cost(&a.name, &a.value))
-                .sum(),
+                .sum::<usize>()
+                .saturating_add(name_cost(&e.name)),
             NodeData::Document => 0,
         }
     }
 
-    /// Bytes the subtree at `top` holds, iteratively.
-    fn bytes_under(&self, top: usize) -> usize {
-        let mut total = 0usize;
-        let mut stack = vec![top];
-        while let Some(n) = stack.pop() {
-            total = total.saturating_add(self.node_bytes(n));
-            stack.extend(self.node(n).children.iter().copied());
+    /// Bytes every node holds, reachable or not.
+    fn bytes_held(&self) -> usize {
+        self.inner
+            .tree()
+            .iter()
+            .fold(0, |sum, (id, _)| sum.saturating_add(self.node_bytes(id)))
+    }
+
+    /// Frees `id` and its subtree if the parser left it with no parent.
+    fn drop_orphan(&mut self, id: usize) {
+        if self.inner.get_node(id).is_some_and(|n| n.parent.is_none()) {
+            self.drop_subtree(id);
         }
-        total
+    }
+
+    fn credit(&mut self, bytes: usize) {
+        debug_assert!(self.held_bytes >= bytes, "a byte count went wrong");
+        self.held_bytes = self.held_bytes.saturating_sub(bytes);
     }
 
     /// Swaps `credit` held bytes for `charge`, failing with
     /// [`DomError::TextLimit`] (and changing nothing) if that's over the
     /// limit. Callers charge before they write.
     fn recharge(&mut self, credit: usize, charge: usize) -> Result<(), DomError> {
+        debug_assert!(self.held_bytes >= credit, "a byte count went wrong");
         let held = self
             .held_bytes
             .saturating_sub(credit)
@@ -668,8 +684,7 @@ impl Document {
     }
 
     pub(crate) fn clear_attribute(&mut self, id: usize, name: QualName) {
-        let credit = self.attribute_bytes(id, &name);
-        self.held_bytes = self.held_bytes.saturating_sub(credit);
+        self.credit(self.attribute_bytes(id, &name));
         let is_link_href = self
             .element_name(id)
             .is_some_and(|n| n.local.as_ref() == "link")
@@ -841,7 +856,7 @@ impl Document {
                 continue;
             }
             stack.extend(self.take_children(n));
-            self.held_bytes = self.held_bytes.saturating_sub(self.node_bytes(n));
+            self.credit(self.node_bytes(n));
             self.side_data.remove(&n);
             self.inner.mutate().remove_and_drop_node(n);
         }
@@ -895,6 +910,7 @@ impl Document {
     pub(crate) fn create_fragment(&mut self) -> Result<usize, DomError> {
         self.check_room()?;
         let name = QualName::new(None, ns!(), LocalName::from(FRAGMENT_NAME));
+        self.recharge(0, name_cost(&name))?;
         Ok(self.inner.mutate().create_element(name, Vec::new()))
     }
 
@@ -905,11 +921,11 @@ impl Document {
         attrs: Vec<blitz_dom::Attribute>,
     ) -> Result<usize, DomError> {
         self.check_room()?;
-        let bytes = attrs
+        let attr_bytes: usize = attrs
             .iter()
             .map(|a| attribute_cost(&a.name, &a.value))
             .sum();
-        self.recharge(0, bytes)?;
+        self.recharge(0, attr_bytes.saturating_add(name_cost(&name)))?;
         Ok(self.inner.mutate().create_element(name, attrs))
     }
 
@@ -920,7 +936,10 @@ impl Document {
             return Ok(None);
         }
         self.check_room()?;
-        let qual = QualName::new(None, ns!(html), LocalName::from(name.to_ascii_lowercase()));
+        let lower = name.to_ascii_lowercase();
+        // Before the atom exists: it holds the whole name, in Rust.
+        self.recharge(0, html_name_cost(&lower))?;
+        let qual = QualName::new(None, ns!(html), LocalName::from(lower));
         Ok(Some(self.inner.mutate().create_element(qual, Vec::new())))
     }
 
@@ -996,9 +1015,8 @@ impl Document {
     /// is wrong, if anything.
     #[doc(hidden)]
     pub fn check_consistency(&self) -> Result<(), String> {
-        let mut held = 0usize;
+        let held = self.bytes_held();
         for (id, node) in self.inner.tree().iter() {
-            held = held.saturating_add(self.node_bytes(id));
             if let Some(p) = node.parent {
                 let Some(parent) = self.inner.get_node(p) else {
                     return Err(format!("node {id} has a dropped parent {p}"));
@@ -1020,9 +1038,19 @@ impl Document {
     }
 }
 
+/// What a name is charged: all its atoms, which a script can make any size.
+fn name_cost(name: &QualName) -> usize {
+    name.local.len() + name.ns.len() + name.prefix.as_ref().map_or(0, |p| p.len())
+}
+
+/// [`name_cost`] of an HTML element called `local`, before its name exists.
+fn html_name_cost(local: &str) -> usize {
+    local.len() + ns!(html).len()
+}
+
 /// What one attribute is charged.
 fn attribute_cost(name: &QualName, value: &str) -> usize {
-    ATTRIBUTE_COST + name.local.len() + value.len()
+    ATTRIBUTE_COST + name_cost(name) + value.len()
 }
 
 /// An element's or attribute's qualified name (`prefix:local`).

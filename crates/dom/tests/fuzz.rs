@@ -128,6 +128,7 @@ fn operation(r: &mut Rng) -> String {
         9 => format!("small({a}).textContent = {value}"),
         10 => format!("at({a}).data = {value}"),
         11 => format!("at({a}).nodeValue = {value}"),
+        12 if a % 8 == 0 => format!("keep(document.createElement('n'.repeat({b} + 1)))"),
         12 => format!("keep(at({a}).firstChild); keep(at({b}).lastChild)"),
         13 => format!("keep(at({a}).nextSibling); keep(at({b}).parentNode)"),
         14 => format!("at({a}).id = {value}; at({b}).className = {value}"),
