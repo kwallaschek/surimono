@@ -1137,3 +1137,94 @@ array, so `out_of_memory_never_aborts` refuses that allocation;
 +                        goto fail;
                      emit_op(s, OP_get_arg);
 ```
+
+## The engine's own limit errors are marked (P2-RT-05)
+
+The sandbox has to tell the errors the engine throws at a limit from anything
+a script can make, in a thrown value or a promise's rejection reason. Comparing
+`name` and `message` can't: `new RangeError('Maximum call stack size exceeded')`
+compares equal, changing `RangeError.prototype.name` hides a real one, and
+reading the properties runs a script's getters, which the promise rejection
+tracker must not do.
+
+27. **`surimono_limit_error(val)`**: `JS_ThrowStackOverflow` and
+    `JS_ThrowOutOfMemory` set a new two-bit field of `JSObject`,
+    `surimono_limit`, on the error object they throw (1 stack, 2 memory; only
+    when it is a `JS_CLASS_ERROR`: with no memory for it the engine throws
+    `JS_NULL`, and the allocator's flag reports that). The function returns the
+    field, 0 for anything else, and runs no script. The field shares the byte
+    `is_HTMLDDA` starts, so `JSObject` keeps its size. A script holding a marked
+    object can rethrow it, which is the same limit error; it can't copy the
+    mark or clear it. `Object.create(err)` and a `Proxy` are other objects.
+
+    Not for upstream as it stands: it is a surimono hook, not a fix. A general
+    version would be an API saying why the engine threw.
+
+28. **`surimono_quickjs_patch_level()` returns 7**, and surimono-core requires
+    it.
+
+### Diff of patches 27 and 28 (on top of patches 1 to 26)
+
+```diff
+--- a/quickjs/quickjs.c (with patches 1 to 26)
++++ b/quickjs/quickjs.c
+@@ struct JSObject
+     uint8_t is_HTMLDDA : 1; /* specific annex B IsHtmlDDA behavior */
++    /* surimono: which limit made the engine throw this error, 0 for every
++       other object (see surimono_limit_error). Nothing a script does sets it. */
++    uint8_t surimono_limit : 2;
+     uint16_t class_id; /* see JS_CLASS_x */
+@@ JS_NewObjectFromShape
+     p->is_HTMLDDA = 0;
++    p->surimono_limit = 0;
+@@ JS_ThrowOutOfMemory
++/* surimono: marks the exception just thrown as the engine's own limit error.
++   The object is the one the script can catch and rethrow; a copy, or an error
++   a script made with the same name and message, carries no mark. */
++static void surimono_mark_limit_error(JSContext *ctx, int limit)
++{
++    JSValueConst val = ctx->rt->current_exception;
++    JSObject *p;
++
++    if (JS_VALUE_GET_TAG(val) != JS_TAG_OBJECT)
++        return; /* JS_NULL: no memory for the error object */
++    p = JS_VALUE_GET_OBJ(val);
++    if (p->class_id == JS_CLASS_ERROR)
++        p->surimono_limit = limit;
++}
++
+ JSValue JS_ThrowOutOfMemory(JSContext *ctx)
+ {
+     JSRuntime *rt = ctx->rt;
+     if (!rt->in_out_of_memory) {
+         rt->in_out_of_memory = true;
+         JS_ThrowInternalError(ctx, "out of memory");
++        surimono_mark_limit_error(ctx, 2);
+         rt->in_out_of_memory = false;
+     }
+     return JS_EXCEPTION;
+ }
+ 
+ static JSValue JS_ThrowStackOverflow(JSContext *ctx)
+ {
+-    return JS_ThrowRangeError(ctx, "Maximum call stack size exceeded");
++    JS_ThrowRangeError(ctx, "Maximum call stack size exceeded");
++    surimono_mark_limit_error(ctx, 1);
++    return JS_EXCEPTION;
++}
++
++/* surimono: 1 if the engine threw `val` for a stack overflow, 2 for running
++   out of memory, 0 for anything else. Runs no script. */
++int surimono_limit_error(JSValueConst val)
++{
++    JSObject *p;
++
++    if (JS_VALUE_GET_TAG(val) != JS_TAG_OBJECT)
++        return 0;
++    p = JS_VALUE_GET_OBJ(val);
++    return p->surimono_limit;
+ }
+@@ surimono_quickjs_patch_level
+-    return 6;
++    return 7;
+```

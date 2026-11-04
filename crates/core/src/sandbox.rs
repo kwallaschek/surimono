@@ -631,12 +631,13 @@ impl Sandbox {
             });
         };
         let shared = hooks.shared.clone();
+        let rejections = hooks.rejections.clone();
         let fire = hooks.fire.clone();
         self.execute_classified(|ctx, state| {
             let fire = fire.restore(ctx).map_err(|e| SandboxError::Engine {
                 message: e.to_string(),
             })?;
-            event_loop::run(ctx, state, &shared, fire, options)
+            event_loop::run(ctx, state, &shared, &rejections, fire, options)
         })
     }
 
@@ -846,11 +847,23 @@ const PRELUDE_SOURCE: &str = include_str!("prelude.js");
 /// locked (review of #47, finding 2).
 static PRELUDE: ForkSafeCell<Vec<u8>> = ForkSafeCell::shared();
 
-/// What Rust keeps of a context's event loop: the queue, and the prelude's
-/// dispatcher, the one JavaScript value held from Rust.
+/// What Rust keeps of a context's event loop: the queue, the prelude's
+/// dispatcher, and the rejected promises waiting for a handler, the only
+/// JavaScript values held from Rust.
 struct EventLoopHooks {
     shared: event_loop::Shared,
+    /// Holds JavaScript values, so unlike `shared` it stays out of every
+    /// [`EventLoopHandle`] and can be emptied before the runtime goes. The
+    /// runtime's tracker holds it too.
+    rejections: event_loop::SharedRejections,
     fire: Persistent<Function<'static>>,
+}
+
+impl Drop for EventLoopHooks {
+    fn drop(&mut self) {
+        // The tracker outlives this, in the runtime; nothing it holds may.
+        self.rejections.borrow_mut().clear();
+    }
 }
 
 /// Creates a context with the sandbox's built-ins and runs the prelude.
@@ -872,6 +885,12 @@ fn new_context(
             },
         })
     })?;
+    if let Some(hooks) = &hooks {
+        rt.set_host_promise_rejection_tracker(Some(event_loop::rejection_tracker(
+            &hooks.rejections,
+            state,
+        )));
+    }
     Ok((ctx, hooks))
 }
 
@@ -910,6 +929,7 @@ fn install_prelude(
     let fire: Option<Function<'_>> = prelude.call((config,))?;
     Ok(shared.zip(fire).map(|(shared, fire)| EventLoopHooks {
         shared,
+        rejections: event_loop::SharedRejections::default(),
         fire: Persistent::save(ctx, fire),
     }))
 }
@@ -1040,8 +1060,14 @@ pub(crate) fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) ->
     }
 }
 
-/// Describes a thrown value.
+/// Describes a thrown value. The engine's own limit errors are told by a mark
+/// no script can set or clear, before anything reads a property; a script's
+/// `new RangeError('Maximum call stack size exceeded')` is an ordinary
+/// exception, and reading one of those can run its getters.
 pub(crate) fn exception_error(value: Value<'_>) -> SandboxError {
+    if let Some(limit) = engine::limit_error(&value) {
+        return limit;
+    }
     let (name, message, stack) = match value.as_object() {
         Some(obj) => (
             string_prop(obj.get("name").ok()),
@@ -1050,14 +1076,6 @@ pub(crate) fn exception_error(value: Value<'_>) -> SandboxError {
         ),
         None => (None, None, None),
     };
-    match (name.as_deref(), message.as_deref()) {
-        (Some("RangeError"), Some("Maximum call stack size exceeded")) => {
-            return SandboxError::StackOverflow;
-        }
-        (Some("InternalError"), Some("out of memory")) => return SandboxError::MemoryLimit,
-        (Some("InternalError"), Some("interrupted")) => return SandboxError::TimeLimit,
-        _ => {}
-    }
     let text = match (name, message) {
         (Some(n), Some(m)) if m.is_empty() => n,
         (Some(n), Some(m)) => format!("{n}: {m}"),

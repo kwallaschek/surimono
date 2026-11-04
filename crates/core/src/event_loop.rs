@@ -87,24 +87,65 @@
 //! A callback that throws is reported ([`SettleReport::errors`]) and the
 //! loop goes on, as in a browser; hitting a limit ends the call with the
 //! typed error.
+//!
+//! # Rejected promises
+//!
+//! An exception inside an async function or a promise reaction doesn't
+//! escape: it rejects a promise, and if no script handles that promise,
+//! nothing else would ever see it. That includes a stack overflow, the one
+//! limit that isn't sticky. So the runtime's promise rejection tracker
+//! ([`rejection_tracker`]) does what HTML's "unhandled promise rejections"
+//! section says: a promise rejected without a handler goes on a list, a handler added to it takes it off, and
+//! whatever is left when the microtasks have drained was not handled. For
+//! each of those, in the order they rejected:
+//!
+//! - if the reason is the engine's own stack-overflow or out-of-memory error,
+//!   the call ends with that typed error, as if it had been thrown from a
+//!   timer. The engine marks those errors itself, so a script can't forge one
+//!   or disguise one. Handling the promise is like catching the error, and
+//!   stops it the same way;
+//! - any other reason is counted ([`SettleReport::unhandled_rejections`]),
+//!   and the loop goes on. This is where the DOM can fire
+//!   `unhandledrejection`.
+//!
+//! The checkpoint is the event loop's alone: a call such as
+//! [`Sandbox::eval`](crate::Sandbox) runs microtasks but reports no
+//! rejection, so it counts as one task with the next
+//! [`Sandbox::run_until_settled`](crate::Sandbox), up to that call's first
+//! drain. A handler added after the checkpoint changes nothing, and
+//! `rejectionhandled` is not tracked.
+//!
+//! The list holds the promise and its reason as persistent references, the
+//! only JavaScript values Rust holds besides the dispatcher, and only until
+//! the checkpoint. The sandbox empties it before the runtime goes. Its entries
+//! are outside the JavaScript heap, so they are capped like timers
+//! ([`MAX_PENDING_REJECTIONS`]).
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use rquickjs::{Ctx, Exception, Function, Object, Value};
+use rquickjs::runtime::RejectionTracker;
+use rquickjs::{Ctx, Exception, Function, Object, Persistent, Value};
 
 use crate::SandboxError;
-use crate::engine::LimitState;
+use crate::engine::{self, LimitState};
 use crate::sandbox::{classify, drain_jobs, eval_options, exception_error, guard_native};
 
 /// Most timers alive at once. Their Rust entries aren't in the JavaScript
 /// heap, so this is what bounds them; far above what real pages use.
 pub(crate) const MAX_LIVE_TIMERS: usize = 100_000;
 
-/// Most uncaught exceptions kept for [`SettleReport::errors`]; the rest are
-/// only counted.
+/// Most rejected promises waiting for a handler at once. Their Rust entries
+/// aren't in the JavaScript heap, so this is what bounds them; passing it
+/// fails the call with [`SandboxError::MemoryLimit`].
+pub(crate) const MAX_PENDING_REJECTIONS: usize = 100_000;
+
+/// Most uncaught exceptions kept for [`SettleReport::errors`], and most
+/// unhandled rejections for [`SettleReport::rejections`]; the rest are only
+/// counted.
 const MAX_KEPT_ERRORS: usize = 8;
 
 /// HTML timers: a timer set at a nesting level above this...
@@ -186,6 +227,12 @@ pub struct SettleReport {
     pub uncaught: u64,
     /// The first few of those.
     pub errors: Vec<SandboxError>,
+    /// Promises rejected with no handler at the end of a microtask
+    /// checkpoint since the last report, the ones `unhandledrejection` is
+    /// fired for. Never a limit error: that ends the call.
+    pub unhandled_rejections: u64,
+    /// The first few of those reasons, in the order they rejected.
+    pub rejections: Vec<SandboxError>,
 }
 
 impl SettleReport {
@@ -331,11 +378,63 @@ pub(crate) struct LoopState {
     external: BTreeSet<u64>,
     uncaught: u64,
     errors: Vec<SandboxError>,
+    unhandled_rejections: u64,
+    rejections: Vec<SandboxError>,
     /// A limit error found in a callback's report: the call must end.
     fatal: Option<SandboxError>,
 }
 
 pub(crate) type Shared = Rc<RefCell<LoopState>>;
+
+/// One rejected promise waiting for a handler.
+struct PendingRejection {
+    /// Never read: it keeps the promise alive, so its address stays its own.
+    _promise: Persistent<Value<'static>>,
+    reason: Persistent<Value<'static>>,
+    address: usize,
+}
+
+/// HTML's "about-to-be-notified rejected promises list".
+#[derive(Default)]
+pub(crate) struct Rejections {
+    /// By the order they rejected: addresses can't decide anything a page
+    /// sees, or two runs would differ.
+    pending: BTreeMap<u64, PendingRejection>,
+    /// Where each promise is in `pending`, because handlers can come in any
+    /// order and a script can have many rejections waiting.
+    by_address: HashMap<usize, u64>,
+    next_seq: u64,
+}
+
+pub(crate) type SharedRejections = Rc<RefCell<Rejections>>;
+
+impl Rejections {
+    fn add(&mut self, entry: PendingRejection) {
+        self.by_address.insert(entry.address, self.next_seq);
+        self.pending.insert(self.next_seq, entry);
+        self.next_seq += 1;
+    }
+
+    /// Takes a promise that just got a handler off the list. One that isn't
+    /// there has been reported already, and stays reported.
+    fn handled(&mut self, address: usize) -> Option<PendingRejection> {
+        let seq = self.by_address.remove(&address)?;
+        self.pending.remove(&seq)
+    }
+
+    fn pop_first(&mut self) -> Option<PendingRejection> {
+        let (_, entry) = self.pending.pop_first()?;
+        self.by_address.remove(&entry.address);
+        Some(entry)
+    }
+
+    /// Lets go of every reference, which must happen before the runtime
+    /// goes.
+    pub(crate) fn clear(&mut self) {
+        self.pending.clear();
+        self.by_address.clear();
+    }
+}
 
 /// What to do next.
 enum Step {
@@ -476,6 +575,14 @@ impl LoopState {
         }
     }
 
+    /// Records a promise no script handled.
+    fn note_rejection(&mut self, reason: SandboxError) {
+        self.unhandled_rejections += 1;
+        if self.rejections.len() < MAX_KEPT_ERRORS {
+            self.rejections.push(reason);
+        }
+    }
+
     fn report(&mut self, outcome: SettleOutcome) -> SettleReport {
         let errors = std::mem::take(&mut self.errors);
         SettleReport {
@@ -486,6 +593,8 @@ impl LoopState {
             external_pending: self.external.len(),
             uncaught: std::mem::take(&mut self.uncaught),
             errors,
+            unhandled_rejections: std::mem::take(&mut self.unhandled_rejections),
+            rejections: std::mem::take(&mut self.rejections),
         }
     }
 }
@@ -570,16 +679,88 @@ pub(crate) fn host_object<'js>(
     Ok(host)
 }
 
-/// Drains the microtasks: an exception escaping a job is reported and the
-/// rest still run; a limit ends the call.
-fn drain<'js>(ctx: &Ctx<'js>, limit: &LimitState, shared: &Shared) -> Result<(), SandboxError> {
-    shared.borrow_mut().nesting = 0;
-    while let Err(e) = drain_jobs(ctx, limit) {
-        survive(ctx, limit, shared, e)?;
+/// The runtime's promise rejection tracker: HTML's
+/// HostPromiseRejectionTracker. The engine calls it in the middle of rejecting
+/// or subscribing to a promise, so it runs no script and allocates nothing in
+/// the JavaScript heap.
+pub(crate) fn rejection_tracker(
+    rejections: &SharedRejections,
+    limit: &Arc<LimitState>,
+) -> RejectionTracker {
+    let (rejections, stop) = (rejections.clone(), limit.clone());
+    Box::new(move |ctx, promise, reason, is_handled| {
+        let address = engine::object_address(&promise);
+        if is_handled {
+            // Bound first: dropping an entry frees JavaScript references, so
+            // it happens after the borrow.
+            let entry = rejections.borrow_mut().handled(address);
+            drop(entry);
+            return;
+        }
+        let mut list = rejections.borrow_mut();
+        if list.pending.len() >= MAX_PENDING_REJECTIONS {
+            stop.exceed_memory();
+            return;
+        }
+        list.add(PendingRejection {
+            _promise: Persistent::save(&ctx, promise),
+            reason: Persistent::save(&ctx, reason),
+            address,
+        });
+    })
+}
+
+/// HTML's "notify about rejected promises", at the end of a microtask
+/// checkpoint. Reading a hostile reason can run its getters, so no entry is
+/// taken before the last one is done with: a getter may still handle one.
+fn notify_rejections<'js>(
+    ctx: &Ctx<'js>,
+    shared: &Shared,
+    rejections: &SharedRejections,
+) -> Result<(), SandboxError> {
+    loop {
+        // Bound first, so the borrow ends before any script can run.
+        let next = rejections.borrow_mut().pop_first();
+        let Some(entry) = next else {
+            return Ok(());
+        };
+        let reason = entry
+            .reason
+            .restore(ctx)
+            .map_err(|e| SandboxError::Engine {
+                message: e.to_string(),
+            })?;
+        let error = exception_error(reason);
+        let _ = ctx.catch();
+        if error.is_limit() {
+            return Err(error);
+        }
+        shared.borrow_mut().note_rejection(error);
     }
-    match shared.borrow_mut().fatal.take() {
-        Some(fatal) => Err(fatal),
-        None => Ok(()),
+}
+
+/// A microtask checkpoint: drains the microtasks, then reports the promises
+/// left rejected with no handler. An exception escaping a job is reported and
+/// the rest still run; a limit ends the call.
+fn drain<'js>(
+    ctx: &Ctx<'js>,
+    limit: &LimitState,
+    shared: &Shared,
+    rejections: &SharedRejections,
+) -> Result<(), SandboxError> {
+    shared.borrow_mut().nesting = 0;
+    loop {
+        while let Err(e) = drain_jobs(ctx, limit) {
+            survive(ctx, limit, shared, e)?;
+        }
+        if let Some(fatal) = shared.borrow_mut().fatal.take() {
+            return Err(fatal);
+        }
+        if rejections.borrow().pending.is_empty() {
+            return Ok(());
+        }
+        notify_rejections(ctx, shared, rejections)?;
+        // A reason's getters may have queued more of either.
     }
 }
 
@@ -608,11 +789,12 @@ pub(crate) fn run<'js>(
     ctx: &Ctx<'js>,
     limit: &LimitState,
     shared: &Shared,
+    rejections: &SharedRejections,
     fire: Function<'js>,
     options: &SettleOptions,
 ) -> Result<SettleReport, SandboxError> {
     loop {
-        drain(ctx, limit, shared)?;
+        drain(ctx, limit, shared, rejections)?;
         let step = shared.borrow_mut().step(options);
         let (task, due) = match step {
             Step::Run(task, due) => (task, due),
@@ -624,7 +806,7 @@ pub(crate) fn run<'js>(
         if let Err(e) = fire.call::<_, ()>((task.id, due as f64, frame)) {
             survive(ctx, limit, shared, e)?;
         }
-        drain(ctx, limit, shared)?;
+        drain(ctx, limit, shared, rejections)?;
         shared.borrow_mut().finish(task);
     }
 }
