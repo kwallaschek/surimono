@@ -126,9 +126,11 @@ impl Bundle {
     }
 }
 
-/// Least time between two trims while some worker still holds a runtime. A
-/// trim covers the whole process, so workers that go idle one after another
-/// share one; the last of them always trims.
+/// Least time between two trims while some worker still holds a runtime,
+/// counted from the last trim or the start of the busy period. A trim covers
+/// the whole process, so workers that go idle one after another share one:
+/// the last of them always trims, and so a lone worker does each time it goes
+/// idle, at most once per [`RunnerOptions::release_idle_after`].
 const TRIM_MIN_GAP: Duration = Duration::from_secs(10);
 
 /// How often a cancellable render looks at the caller's flag.
@@ -142,6 +144,14 @@ struct RenderJob {
     /// Raised to stop this job; `None` when it can't be cancelled.
     cancel: Option<Arc<AtomicBool>>,
     reply: SyncSender<Result<String, IslandError>>,
+}
+
+impl RenderJob {
+    fn cancelled(&self) -> bool {
+        self.cancel
+            .as_ref()
+            .is_some_and(|c| c.load(Ordering::Acquire))
+    }
 }
 
 struct RegisterJob {
@@ -177,7 +187,8 @@ struct Shared {
     runtimes: AtomicUsize,
     /// When this runner was started; the origin of `last_trim_ms`.
     started: Instant,
-    /// Milliseconds from `started` to the last trim.
+    /// Milliseconds from `started` to the last trim, or to the start of the
+    /// busy period if that came later.
     last_trim_ms: AtomicU64,
     /// Trims so far.
     trims: AtomicU64,
@@ -194,6 +205,31 @@ struct Shared {
     /// Test-only: makes workers die outside their guard (see [`Fault`]).
     #[cfg(test)]
     fault: std::sync::atomic::AtomicU8,
+    /// Test-only: bundles preloaded so far.
+    #[cfg(test)]
+    preloads: AtomicU64,
+    /// Test-only: workers inside [`Worker::release`].
+    #[cfg(test)]
+    releasing: AtomicUsize,
+    /// Test-only: what [`Shared::elapsed_ms`] says, unless [`CLOCK_RUNS`].
+    #[cfg(test)]
+    frozen_ms: AtomicU64,
+}
+
+/// Test-only: the value of `Shared::frozen_ms` while the clock isn't frozen.
+#[cfg(test)]
+const CLOCK_RUNS: u64 = u64::MAX;
+
+impl Shared {
+    /// Milliseconds since this runner started.
+    fn elapsed_ms(&self) -> u64 {
+        #[cfg(test)]
+        match self.frozen_ms.load(Ordering::SeqCst) {
+            CLOCK_RUNS => {}
+            frozen => return frozen,
+        }
+        u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX)
+    }
 }
 
 /// Test-only ways for a worker thread to die outside [`Worker::guard`], as
@@ -633,6 +669,12 @@ impl IslandRunner {
             spawned: AtomicUsize::new(0),
             #[cfg(test)]
             fault: std::sync::atomic::AtomicU8::new(Fault::None as u8),
+            #[cfg(test)]
+            preloads: AtomicU64::new(0),
+            #[cfg(test)]
+            releasing: AtomicUsize::new(0),
+            #[cfg(test)]
+            frozen_ms: AtomicU64::new(CLOCK_RUNS),
         });
         let generation = surimono_core::fork_generation().map_err(IslandError::Sandbox)?;
         let runner = Self {
@@ -764,9 +806,15 @@ impl IslandRunner {
     /// within a few milliseconds. The worker may still be unwinding the script
     /// then, and is back in the pool right after.
     ///
-    /// A render whose answer arrived first keeps it. A built-in renderer's
-    /// first load isn't cancelled: the flag is first checked again once that
-    /// is done (it runs under the sandbox's limits).
+    /// A render whose answer arrived first keeps it. Keep `cancel` up until
+    /// this call returns: it is read about every 5 ms.
+    ///
+    /// Cancelling reaches the script, not the step before it: a built-in
+    /// renderer's first load isn't cancelled, and the flag is read again only
+    /// after it. That load can wait for the runner's lock and for a free
+    /// worker before it compiles, so it can take longer than one script's
+    /// time limit. A cancelled job waits in the queue, holding a copy of its
+    /// spec, until a worker reaches it.
     pub fn render_cancellable(
         &self,
         req: &IslandRequest<'_>,
@@ -1078,9 +1126,17 @@ impl Worker {
             if shared.fault(Fault::HoldingJob, true) {
                 panic!("test fault: worker dies holding a job");
             }
+            let mut used_sandbox = true;
             match job {
                 Job::Render(job) => {
-                    let result = self.guard(|w| w.render(&job));
+                    // Cancelled while queued: nothing runs, and whatever is
+                    // preloaded stays good for the next job.
+                    let result = if job.cancelled() {
+                        used_sandbox = false;
+                        Err(SandboxError::Cancelled.into())
+                    } else {
+                        self.guard(|w| w.render(&job))
+                    };
                     self.shared.renders.fetch_add(1, Ordering::Relaxed);
                     if result.is_err() {
                         self.shared.failed_renders.fetch_add(1, Ordering::Relaxed);
@@ -1102,7 +1158,9 @@ impl Worker {
                 panic!("test fault: worker dies after replying");
             }
             // The caller has its answer; now clear the job's state.
-            self.recycle();
+            if used_sandbox {
+                self.recycle();
+            }
         }
     }
 
@@ -1134,38 +1192,55 @@ impl Worker {
             None => {
                 self.preloaded = None;
                 let sb = Sandbox::with_options(self.shared.sandbox_options.clone())?;
-                self.shared.runtimes.fetch_add(1, Ordering::Relaxed);
+                if self.shared.runtimes.fetch_add(1, Ordering::Relaxed) == 0 {
+                    // A busy period starts: the first worker to go idle at its
+                    // end must not trim while the others hold their runtimes.
+                    self.shared
+                        .last_trim_ms
+                        .store(self.shared.elapsed_ms(), Ordering::Relaxed);
+                }
                 sb
             }
         };
         Ok(self.sandbox.insert(sb))
     }
 
-    /// Drops the sandbox and whatever is loaded in it.
-    fn drop_sandbox(&mut self) {
+    /// Drops the sandbox and whatever is loaded in it. Returns whether that
+    /// was the last runtime of the pool: of workers dropping theirs at once,
+    /// exactly one is told so.
+    fn drop_sandbox(&mut self) -> bool {
         self.preloaded = None;
-        if self.sandbox.take().is_some() {
-            self.shared.runtimes.fetch_sub(1, Ordering::Relaxed);
-        }
+        self.sandbox.take().is_some() && self.shared.runtimes.fetch_sub(1, Ordering::Relaxed) == 1
     }
 
     /// Frees the runtime of a worker that has been idle for a while; the
     /// next job starts a new one. The allocator would keep the runtime's
     /// pages, so the last worker to go idle hands them back to the OS. While
-    /// others still hold a runtime (one render at a time keeps a worker
-    /// busy), a worker trims only every [`TRIM_MIN_GAP`].
+    /// others still hold a runtime (a steady trickle keeps one busy), a worker
+    /// trims only every [`TRIM_MIN_GAP`].
     fn release(&mut self) {
-        self.drop_sandbox();
+        #[cfg(test)]
+        self.shared.releasing.fetch_add(1, Ordering::SeqCst);
+        let held = self.sandbox.is_some();
+        let last_out = self.drop_sandbox();
         let shared = &self.shared;
-        let now = u64::try_from(shared.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let now = shared.elapsed_ms();
         let last = shared.last_trim_ms.load(Ordering::Relaxed);
-        let all_idle = shared.runtimes.load(Ordering::Relaxed) == 0;
+        // A worker with no runtime left (a failed reset dropped it) still
+        // trims for the pages that one left, if nobody holds a runtime.
+        let all_idle = if held {
+            last_out
+        } else {
+            shared.runtimes.load(Ordering::Relaxed) == 0
+        };
         let gap = u64::try_from(TRIM_MIN_GAP.as_millis()).unwrap_or(u64::MAX);
         if all_idle || now.saturating_sub(last) >= gap {
             shared.last_trim_ms.store(now, Ordering::Relaxed);
             shared.trims.fetch_add(1, Ordering::Relaxed);
             surimono_core::release_free_memory();
         }
+        #[cfg(test)]
+        shared.releasing.fetch_sub(1, Ordering::SeqCst);
     }
 
     /// Gives the sandbox a fresh context for the next job, freeing this
@@ -1204,14 +1279,20 @@ impl Worker {
             })
         }));
         match loaded {
-            Ok(Ok(true)) => self.preloaded = Some(bundle),
+            Ok(Ok(true)) => {
+                self.preloaded = Some(bundle);
+                #[cfg(test)]
+                self.shared.preloads.fetch_add(1, Ordering::Relaxed);
+            }
             Ok(Ok(false)) => {
                 bundle.preloadable.store(false, Ordering::Relaxed);
                 self.recycle();
             }
             Ok(Err(_)) => self.recycle(),
             // The runtime may be mid-call; never reuse it.
-            Err(_) => self.drop_sandbox(),
+            Err(_) => {
+                self.drop_sandbox();
+            }
         }
     }
 
@@ -1262,14 +1343,6 @@ impl Worker {
     }
 
     fn render(&mut self, job: &RenderJob) -> Result<String, IslandError> {
-        // Cancelled while queued: nothing to run.
-        if job
-            .cancel
-            .as_ref()
-            .is_some_and(|c| c.load(Ordering::Acquire))
-        {
-            return Err(SandboxError::Cancelled.into());
-        }
         let measurer = self.measure.clone();
         let bundle = &job.bundle;
         // The sandbox is used from here on, so it is no longer pristine.
@@ -1399,10 +1472,11 @@ fn measure_function<'js>(
               font: Opt<Coerced<String>>|
               -> rquickjs::Result<Object<'js>> {
             if deadline.passed() {
-                // The render now fails with TimeLimit, whatever the script does.
+                // The render now fails with TimeLimit or Cancelled, whatever
+                // the script does.
                 return Err(Exception::throw_internal(
                     &ctx,
-                    "measureText: the time limit has passed",
+                    "measureText: the render has to stop",
                 ));
             }
             deadline.guard(&ctx.clone(), || {
@@ -1488,6 +1562,41 @@ mod tests {
     }
 
     #[test]
+    fn a_job_cancelled_in_the_queue_keeps_the_preload() {
+        // No idle release: a stalled test must not drop the preload (#72).
+        let r = IslandRunner::start(
+            RunnerOptions {
+                pool_size: 1,
+                release_idle_after: None,
+                ..RunnerOptions::default()
+            },
+            Measure::Estimate,
+        )
+        .unwrap();
+        r.register_bundle("echo", "function entry(s) { return s }", "entry")
+            .unwrap();
+        let r = Arc::new(r);
+        echo(&r, 1).unwrap();
+        wait_idle(&r);
+        let preloads = r.shared.preloads.load(Ordering::Relaxed);
+        assert!(preloads > 0, "the next job should find the bundle loaded");
+        let req = IslandRequest {
+            renderer: "echo",
+            spec_json: "2",
+            width: 1,
+            height: 1,
+        };
+        let answer = r
+            .submit_render(&req, Some(Arc::new(AtomicBool::new(true))))
+            .unwrap();
+        assert_eq!(recv(&answer), Err(SandboxError::Cancelled.into()));
+        wait_idle(&r);
+        assert_eq!(r.shared.preloads.load(Ordering::Relaxed), preloads);
+        assert_eq!(echo(&r, 3).unwrap(), "3");
+        assert!(r.stats().preloaded_renders > 0);
+    }
+
+    #[test]
     fn a_script_cannot_swallow_a_measurer_panic() {
         let r = runner_with_odd_measurer();
         r.register_bundle(
@@ -1512,6 +1621,102 @@ mod tests {
             other => panic!("{other:?}"),
         }
         assert_eq!(measure(&r, "abcd").unwrap(), "4");
+    }
+
+    /// Waits (bounded) until no worker holds a runtime and none is still
+    /// in [`Worker::release`], so every trim of the idle period is counted.
+    fn wait_released(r: &IslandRunner) {
+        let until = std::time::Instant::now() + Duration::from_secs(60);
+        // In this order: a worker counts as releasing before it drops its
+        // runtime.
+        while r.shared.runtimes.load(Ordering::SeqCst) != 0
+            || r.shared.releasing.load(Ordering::SeqCst) != 0
+        {
+            assert!(std::time::Instant::now() < until, "{:?}", r.stats());
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
+    /// Holds every job in `ctx.measureText`: the test decides when the
+    /// workers are busy and when they stop, not the scheduler.
+    #[derive(Default)]
+    struct JobGate {
+        arrived: AtomicUsize,
+        open: AtomicBool,
+    }
+
+    impl JobGate {
+        fn hold(&self) -> Result<TextMetrics, String> {
+            self.arrived.fetch_add(1, Ordering::SeqCst);
+            let until = std::time::Instant::now() + Duration::from_secs(60);
+            while !self.open.load(Ordering::SeqCst) {
+                if std::time::Instant::now() >= until {
+                    return Err("the test never opened the gate".to_owned());
+                }
+                thread::sleep(Duration::from_millis(1));
+            }
+            Ok(TextMetrics::default())
+        }
+
+        fn wait_for(&self, jobs: usize) {
+            let until = std::time::Instant::now() + Duration::from_secs(60);
+            while self.arrived.load(Ordering::SeqCst) != jobs {
+                assert!(std::time::Instant::now() < until, "jobs never overlapped");
+                thread::sleep(Duration::from_millis(1));
+            }
+        }
+    }
+
+    #[test]
+    fn a_burst_after_a_long_gap_trims_once() {
+        const WORKERS: usize = 3;
+        let gate = Arc::new(JobGate::default());
+        let held = gate.clone();
+        let r = Arc::new(
+            IslandRunner::start(
+                RunnerOptions {
+                    // A held job must outlive the time limit, however slow
+                    // the other workers are to arrive.
+                    limits: Limits::default().with_time(Duration::from_secs(120)),
+                    pool_size: WORKERS,
+                    release_idle_after: Some(Duration::from_millis(30)),
+                    ..RunnerOptions::default()
+                },
+                Measure::Custom(Arc::new(move |_: &str, _: &str| held.hold())),
+            )
+            .unwrap(),
+        );
+        r.register_bundle(
+            "echo",
+            "function entry(s, ctx) { ctx.measureText(s); return s }",
+            "entry",
+        )
+        .unwrap();
+        // The first worker's warm start goes idle too.
+        wait_released(&r);
+        let before = r.stats().memory_trims;
+        for round in 1..=2u64 {
+            // Longer than the gap, so only the start of the busy period keeps
+            // the first idle worker from trimming. From here the clock stands
+            // still: however slow this machine is, the busy period is short.
+            let long_gap = u64::try_from(TRIM_MIN_GAP.as_millis()).unwrap() + 100;
+            let now = r.shared.elapsed_ms();
+            r.shared.frozen_ms.store(now + long_gap, Ordering::SeqCst);
+            gate.open.store(false, Ordering::SeqCst);
+            gate.arrived.store(0, Ordering::SeqCst);
+            thread::scope(|s| {
+                for job in 0..WORKERS {
+                    let (r, n) = (&r, 10 * round as usize + job);
+                    s.spawn(move || echo(r, n).unwrap());
+                }
+                // One busy period: every worker holds a runtime at once.
+                gate.wait_for(WORKERS);
+                assert_eq!(r.stats().runtimes, WORKERS, "{:?}", r.stats());
+                gate.open.store(true, Ordering::SeqCst);
+            });
+            wait_released(&r);
+            assert_eq!(r.stats().memory_trims, before + round, "{:?}", r.stats());
+        }
     }
 
     #[test]

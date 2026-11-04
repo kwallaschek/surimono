@@ -127,11 +127,10 @@ module Surimono
     # measurer again in each child on first use.
     #
     # Interrupts (Timeout.timeout, Rack::Timeout, Thread#raise, Thread#kill,
-    # SIGTERM) stop a render before its next island and raise as usual; the
-    # island already running ends within its own time_ms. On Ruby 3.2, a
-    # render on the main thread while other threads exist runs a sleeping
-    # helper thread, "surimono-signal-pump", for its length, so that signals
-    # reach it; Ruby 3.3 and later need none.
+    # SIGTERM) stop a render, its running island included, and raise as usual.
+    # On Ruby 3.2, a render on the main thread while other threads exist runs a
+    # sleeping helper thread, "surimono-signal-pump", for its length, so that
+    # signals reach it; Ruby 3.3 and later need none.
     #
     # Bad argument types or values raise ArgumentError; a font path that
     # can't be read raises the usual Errno error; options the native side

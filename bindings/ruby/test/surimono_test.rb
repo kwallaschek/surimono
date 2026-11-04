@@ -451,7 +451,7 @@ class SurimonoTest < Minitest::Test
   end
 
   # Twenty islands that each run into a 200 ms time limit: 4 s for the
-  # document. An interrupt stops it before the next island.
+  # document. An interrupt stops it in the island that is running.
   def slow_document
     island('{"limit": "time"}') * 20
   end
@@ -472,6 +472,30 @@ class SurimonoTest < Minitest::Test
       assert_raises(Timeout::Error) { Timeout.timeout(0.3) { r.render(slow_document) } }
     end
     assert_operator took, :<, 1.5, "Timeout waited #{took.round(2)} s for a 4 s document"
+    assert_equal stub_svg, r.render(island), "the renderer still works"
+  end
+
+  # One island that would run for a minute: the interrupt stops the script
+  # itself, not only the islands after it.
+  def endless_island_renderer
+    renderer(limits: { time_ms: 60_000 }).tap { |r| r.render(island) }
+  end
+
+  def test_timeout_stops_the_running_island
+    r = endless_island_renderer
+    took = elapsed do
+      assert_raises(Timeout::Error) { Timeout.timeout(0.3) { r.render(island('{"limit": "time"}')) } }
+    end
+    assert_operator took, :<, 20, "Timeout waited #{took.round(2)} s for a 60 s island"
+    assert_equal stub_svg, r.render(island), "the renderer still works"
+  end
+
+  def test_kill_stops_the_running_island
+    r = endless_island_renderer
+    t = Thread.new { r.render(island('{"limit": "time"}')) }
+    sleep 0.2
+    t.kill
+    assert t.join(20), "Thread#kill waited on a 60 s island"
     assert_equal stub_svg, r.render(island), "the renderer still works"
   end
 
@@ -503,7 +527,7 @@ class SurimonoTest < Minitest::Test
   # (in this test process minitest's idle threads drain Ruby's signal pipe,
   # which hid the bug). On Ruby 3.2 both cases waited for the whole document
   # every time, 4.04 to 4.20 s (P1-PKG-20); Ruby 3.3 and later, and 3.2
-  # with the signal pump, stop it before the next island.
+  # with the signal pump, stop it in the island that is running.
   #   thread: another Ruby thread calls Process.kill and exits;
   #   outside: another process sends it (Ctrl-C, a supervisor's SIGTERM)
   #            while a Ruby thread is busy.

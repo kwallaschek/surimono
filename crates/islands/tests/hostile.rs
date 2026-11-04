@@ -390,19 +390,18 @@ fn check(o: &Outcome, want: &Expect) -> Result<(), String> {
             allowed.join(" or ")
         ));
     }
-    if o.outcome == "Ok" {
-        if let Some(expected) = &want.output {
-            if o.output.as_deref() != Some(expected.as_str()) {
-                return Err(format!("output {:?}, want {expected:?}", o.output));
-            }
-        }
+    if o.outcome == "Ok"
+        && let Some(expected) = &want.output
+        && o.output.as_deref() != Some(expected.as_str())
+    {
+        return Err(format!("output {:?}, want {expected:?}", o.output));
     }
-    if o.outcome == "Exception" {
-        if let Some(error) = &want.error {
-            let message = o.message.as_deref().unwrap_or("");
-            if !message.starts_with(error.as_str()) {
-                return Err(format!("exception {message:?}, want a {error}"));
-            }
+    if o.outcome == "Exception"
+        && let Some(error) = &want.error
+    {
+        let message = o.message.as_deref().unwrap_or("");
+        if !message.starts_with(error.as_str()) {
+            return Err(format!("exception {message:?}, want a {error}"));
         }
     }
     Ok(())

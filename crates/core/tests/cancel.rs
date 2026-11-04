@@ -126,7 +126,7 @@ fn cancelled_wins_over_a_passed_deadline() {
                 thread::sleep(Duration::from_millis(1));
             }
             raised.store(true, Ordering::Release);
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(scaled(Duration::from_millis(100)));
         })?;
         host.call::<_, ()>(())?;
         ctx.eval::<(), _>("for (;;) {}")
