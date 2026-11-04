@@ -110,6 +110,12 @@ Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the 
 
 Not run yet (`bench/run.sh`).
 
+## Phase 2: scripts
+
+### Web Platform Tests
+
+Not run yet: the runner needs the DOM and the event loop, and the tests aren't vendored (`wpt/README.md`).
+
 <!-- hand-written: begin -->
 
 ## Known gaps
