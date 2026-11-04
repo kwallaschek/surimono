@@ -549,8 +549,9 @@ unsafe extern "C" {
 /// The engine marks the error object as it throws it, and nothing else can:
 /// `new RangeError('Maximum call stack size exceeded')` isn't one, while a
 /// real one still is after a script has changed its `name`, its `message` or
-/// `RangeError.prototype`. Reads no property, so it runs no script.
-pub(crate) fn limit_error(value: &Value<'_>) -> Option<SandboxError> {
+/// `RangeError.prototype`. Reads no property, so it runs no script. Not public
+/// API: for `surimono-dom`, which sees exceptions before the sandbox does.
+pub fn limit_error(value: &Value<'_>) -> Option<SandboxError> {
     // SAFETY: `value` is alive for the call and from a runtime on this
     // thread; the function reads the value's tag and, for an object, one
     // field of it, and keeps nothing.
