@@ -81,7 +81,7 @@ def check(lib: dict, cache: pathlib.Path | None) -> list[str]:
             if member(lf) is None:
                 errors.append(f"licence file {lf} missing")
         for v in lib.get("vendored", []):
-            if "written_here" in v or "source_tarball" in v:
+            if "written_here" in v or "source_tarball" in v or "source_url" in v:
                 continue
             data = member(v["member"])
             if data is None:
@@ -91,6 +91,8 @@ def check(lib: dict, cache: pathlib.Path | None) -> list[str]:
     for v in lib.get("vendored", []):
         if "source_tarball" in v:
             errors += check_source_tarball(v, cache)
+        if "source_url" in v and hashlib.sha256(fetch(v["source_url"], cache)).hexdigest() != v["sha256"]:
+            errors.append(f"{v['source_url']} differs from the manifest")
     return errors
 
 
@@ -159,7 +161,7 @@ def check_vendored(lib: dict, root: pathlib.Path = ROOT) -> list[str]:
         for lf in lib.get("fonts_license_files", []):
             if not any(p.endswith(f"/{lf}") for p in paths):
                 errors.append(f"fonts licence file {lf} isn't vendored")
-        if not lib["license_files"] and not lib.get("license_pending"):
+        if not lib["license_files"] and not lib.get("license_pending") and not any(v.get("license") for v in vendored):
             errors.append("no licence file and no license_pending")
     return errors
 
