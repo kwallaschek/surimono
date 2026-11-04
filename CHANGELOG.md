@@ -7,10 +7,7 @@ release (0.x.0) may change the public API, and every such change is listed here.
 
 The Rust crates and the Ruby gem share one version number.
 
-## [0.1.0] - Unreleased
-
-<!-- The v0.1 release PR (P1-PKG-07) replaces "Unreleased" with the release
-     date. Every line below describes code merged on main. -->
+## [0.1.0] - 2026-11-04
 
 The first release: chart islands.
 
