@@ -55,7 +55,10 @@ The first release: chart islands.
 - **Sandbox.** Each island runs in a fresh QuickJS runtime with memory (64 MiB),
   time (2 s, covering loading and drawing) and stack (512 KiB) limits and no
   filesystem, network or module access. Hitting a limit is a typed error,
-  never a crash or a hang.
+  never a crash or a hang. The time limit also covers compiling and parsing:
+  `eval`, `new Function`, regular expressions, `JSON.parse` and a bundle
+  compiled from source stop at the limit, so a large bundle under a short limit
+  fails with a time-limit error when it is registered.
 - **Document bounds.** `max_islands` (default 1,000) fails a document with more
   islands before any of them runs (`too-many-islands`). A render can be
   cancelled between islands: `Renderer::render_islands_cancellable(html, &AtomicBool)`
