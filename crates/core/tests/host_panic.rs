@@ -2,7 +2,7 @@
 //! script does with the exception it sees.
 
 use surimono_core::rquickjs::{Ctx, Function};
-use surimono_core::{Limits, Sandbox, SandboxError};
+use surimono_core::{Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions};
 
 /// Runs `script` with a global `boom()` whose body panics.
 fn with_boom(sb: &mut Sandbox, script: &str) -> Result<(), SandboxError> {
@@ -74,4 +74,54 @@ fn a_host_function_that_does_not_panic_changes_nothing() {
         })
         .unwrap();
     assert_eq!(out, 3.0);
+}
+
+#[test]
+fn a_panic_in_a_timer_is_typed_and_timers_work_after_it() {
+    let options = SandboxOptions::default().with_event_loop(true);
+    for script in [
+        "setTimeout(() => boom())",
+        "setTimeout(() => { try { boom() } catch (e) {} })",
+    ] {
+        let mut sb = Sandbox::with_options(options.clone()).unwrap();
+        let deadline = sb.deadline();
+        sb.run(|ctx| {
+            let boom = Function::new(ctx.clone(), move |ctx: Ctx<'_>| {
+                deadline.guard(&ctx, || -> surimono_core::rquickjs::Result<()> {
+                    panic!("host exploded")
+                })
+            })?;
+            ctx.globals().set("boom", boom)?;
+            ctx.eval::<(), _>(script)
+        })
+        .unwrap();
+        match sb.run_until_settled(&SettleOptions::default()) {
+            Err(SandboxError::HostPanic { message }) => assert_eq!(message, "host exploded"),
+            other => panic!("{script}: {other:?}"),
+        }
+        sb.eval::<()>("globalThis.ran = 0; setTimeout(() => { ran = 1 })")
+            .unwrap();
+        sb.run_until_settled(&SettleOptions::default()).unwrap();
+        assert_eq!(sb.eval::<i32>("ran"), Ok(1), "{script}");
+    }
+}
+
+#[test]
+fn a_long_panic_message_is_truncated() {
+    let mut sb = Sandbox::new(Limits::default()).unwrap();
+    let deadline = sb.deadline();
+    let result: Result<(), _> = sb.run(|ctx| {
+        let boom = Function::new(ctx.clone(), move |ctx: Ctx<'_>| {
+            deadline.guard(&ctx, || -> surimono_core::rquickjs::Result<()> {
+                panic!("{}", "x".repeat(1 << 20))
+            })
+        })?;
+        boom.call::<_, ()>(())
+    });
+    match result {
+        Err(SandboxError::HostPanic { message }) => {
+            assert!(message.len() < 8 * 1024, "{} bytes", message.len())
+        }
+        other => panic!("{other:?}"),
+    }
 }

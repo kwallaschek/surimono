@@ -1091,14 +1091,19 @@ this sandbox's stop flag around it. Drafts:
     frees it by hand.
 25. **Unnamed destructured parameters check `add_arg`.** -1 went into the
     bytecode as `OP_get_arg 0xffff`, a read of the C stack about 1 MiB past the
-    frame when the function ran. In the sandbox the refused allocation's
-    stop flag ends the script at the call's own poll, so this one was not
-    reachable here; the engine shouldn't depend on that.
+    frame when the function ran. `add_arg` fails two ways. A refused
+    allocation raises the sandbox's stop flag, which ends the script at the
+    call's own poll. Going past `JS_MAX_LOCAL_VARS` raises no flag, so from
+    reading the code a function with that many destructured parameters
+    reached the read in the sandbox before this patch (not run). It is now
+    the `SyntaxError` the code always meant to throw.
 26. **`surimono_quickjs_patch_level()` returns 6**, and surimono-core
-    requires 6, which also refuses bytecode cached by an older engine.
+    requires 6. The level is part of the bytecode fingerprint, so bytecode
+    cached by an older engine is refused.
 
 Tests: `SYNTAX_SCRIPT` in `crates/core/src/sandbox.rs` now builds such an
-array, so `out_of_memory_never_aborts` refuses that allocation.
+array, so `out_of_memory_never_aborts` refuses that allocation;
+`too_many_destructured_parameters_is_a_syntax_error` covers patch 25.
 
 ### Diff of patches 24 and 25 (on top of patches 1 to 23)
 
