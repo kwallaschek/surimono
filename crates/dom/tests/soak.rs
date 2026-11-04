@@ -44,9 +44,10 @@ fn page(i: usize) -> String {
 }
 
 /// Wraps every row repeatedly, reads through wrappers, builds a list of new
-/// nodes and drops it again, and replaces the table's content (dropping
-/// nodes that wrappers still reference). Every 50th render also ends in an
-/// exception on purpose, so that error path is soaked too.
+/// nodes and drops it again, and replaces the table's content (the nodes
+/// wrappers reference stay alive, detached, until the document drops). Every
+/// 50th render also ends in an exception on purpose, so that error path is
+/// soaked too.
 const SCRIPT: &str = r#"
 (function (i) {
   let sum = 0;
@@ -67,6 +68,14 @@ const SCRIPT: &str = r#"
     out.appendChild(ul);
     sum += out.textContent.length;
     out.textContent = '';
+  }
+  // Stylo interns these names and URLs while it checks each value.
+  const styled = document.getElementById('r4').style;
+  for (let k = 0; k < 20; k++) {
+    styled.fontFamily = 'f' + i + '-' + k + ', serif';
+    styled.backgroundImage = 'url(u' + i + '-' + k + '.png)';
+    styled.cssText += ' animation-name: a' + i + '-' + k + ';';
+    sum += styled.length;
   }
   const kept = document.getElementById('r3');
   document.getElementById('t').textContent = 'cleared ' + i;

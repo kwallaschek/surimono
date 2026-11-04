@@ -6,6 +6,8 @@
 //! blitz node ids with [`Document::node_of`]; a fatal error goes through
 //! [`Document::fail`] and reaches the script runner by `Document::fault`.
 
+use std::collections::HashSet;
+
 use blitz_dom::ns;
 use surimono_webidl::runtime::{BindingError, BindingResult, ObjectId, Value};
 use surimono_webidl::stubs as idl;
@@ -15,7 +17,7 @@ use blitz_dom::QualName;
 
 use crate::document::{self, Handle, Kind, ListKind, Object, Owned};
 use crate::style_attr::{self, Declaration};
-use crate::tree::dom_error;
+use crate::tree::{dom_error, timed_out};
 use crate::{Document, DomError};
 
 /// `(TrustedHTML or DOMString)` and the like: the glue always sends a string.
@@ -51,6 +53,22 @@ impl Document {
         let handle = Handle::try_from(this.0).unwrap_or(0);
         match self.resolve(generation, handle) {
             Ok(o) => Ok(o.clone()),
+            Err(e) => Err(self.fail(e)),
+        }
+    }
+
+    /// `f` on the static list `this` is, if it is one, without copying it: a
+    /// loop over `list[i]` must not copy the list per item.
+    fn with_static_list<R>(
+        &mut self,
+        this: ObjectId,
+        f: impl FnOnce(&[usize]) -> R,
+    ) -> BindingResult<Option<R>> {
+        let generation = self.generation();
+        let handle = Handle::try_from(this.0).unwrap_or(0);
+        match self.resolve(generation, handle) {
+            Ok(Object::Static(nodes)) => Ok(Some(f(nodes))),
+            Ok(_) => Ok(None),
             Err(e) => Err(self.fail(e)),
         }
     }
@@ -108,31 +126,33 @@ impl Document {
 
     fn attr_value(&mut self, this: ObjectId) -> BindingResult<String> {
         let (e, name, kept) = self.attr_of(this)?;
-        Ok(self.attribute_value(e, &name).or(kept).unwrap_or_default())
+        Ok(kept
+            .or_else(|| self.attribute_value(e, &name))
+            .unwrap_or_default())
     }
 
     /// Node of a list item: the `index`th of `this`, or `None`.
     fn list_item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<usize>> {
+        let index = index as usize;
+        if let Some(n) = self.with_static_list(this, |nodes| nodes.get(index).copied())? {
+            return Ok(n);
+        }
         let handle = Handle::try_from(this.0).unwrap_or(0);
         Ok(match self.object_at(this)? {
-            Object::Static(nodes) => nodes.get(index as usize).copied(),
-            Object::Live(owner, ListKind::ChildNodes) => {
-                self.children(owner).get(index as usize).copied()
-            }
-            Object::Live(owner, kind) => self
-                .live_nodes(handle, owner, &kind)
-                .get(index as usize)
-                .copied(),
+            Object::Live(owner, ListKind::ChildNodes) => self.children(owner).get(index).copied(),
+            Object::Live(owner, kind) => self.live_nodes(handle, owner, &kind)?.get(index).copied(),
             _ => None,
         })
     }
 
     fn list_length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        if let Some(n) = self.with_static_list(this, <[usize]>::len)? {
+            return Ok(u32::try_from(n).unwrap_or(u32::MAX));
+        }
         let handle = Handle::try_from(this.0).unwrap_or(0);
         let n = match self.object_at(this)? {
-            Object::Static(nodes) => nodes.len(),
             Object::Live(owner, ListKind::ChildNodes) => self.children(owner).len(),
-            Object::Live(owner, kind) => self.live_nodes(handle, owner, &kind).len(),
+            Object::Live(owner, kind) => self.live_nodes(handle, owner, &kind)?.len(),
             _ => 0,
         };
         Ok(u32::try_from(n).unwrap_or(u32::MAX))
@@ -163,40 +183,52 @@ impl Document {
 
     /// `innerHTML` set: the parsed fragment replaces the children.
     fn set_inner(&mut self, id: usize, html: &str) -> BindingResult<()> {
-        let context = self.parse_context(id);
-        if let Some(frag) = self.parse_fragment_in(context, id, html)? {
+        if let Some(frag) = self.parse_fragment_in(Some(id), id, html)? {
             self.remove_all_children(id);
             self.insert_parsed(id, frag, None);
         }
         Ok(())
     }
 
-    /// The context element `id` gives the fragment parser: itself, or a new
-    /// `<body>` for what isn't an element (HTML §13.4).
-    fn parse_context(&mut self, id: usize) -> usize {
-        if self.is_element(id) {
-            id
-        } else {
-            self.body().unwrap_or(id)
-        }
-    }
-
+    /// Parses `html` into a fragment fit for `parent`, in the context of
+    /// `context`, or of a new `<body>` element if there is none.
     fn parse_fragment_in(
         &mut self,
-        context: usize,
+        context: Option<usize>,
         parent: usize,
         html: &str,
     ) -> BindingResult<Option<usize>> {
-        self.parse_into_fragment(context, parent, html)
-            .map_err(|e| self.fail(e))
+        let made = match context {
+            Some(_) => None,
+            None => Document::create_element(self, "body").map_err(|e| self.fail(e))?,
+        };
+        let parsed = match context.or(made) {
+            Some(c) => self
+                .parse_into_fragment(c, parent, html)
+                .map_err(|e| self.fail(e)),
+            None => Ok(None),
+        };
+        if let Some(m) = made {
+            self.drop_subtree(m);
+        }
+        parsed
     }
 
+    /// The parse context for what goes under `id` in `outerHTML` and
+    /// `insertAdjacentHTML` (HTML §8.5): `id` unless it isn't an element.
+    fn parse_context(&self, id: usize) -> Option<usize> {
+        self.is_element(id).then_some(id)
+    }
+
+    /// The set of `class` tokens, in order; linear in their number.
     fn tokens_of(&mut self, this: ObjectId) -> BindingResult<(usize, Vec<String>)> {
         let id = self.owner_of(this)?;
         let class = self.attribute(id, "class").unwrap_or_default();
+        let mut seen = HashSet::new();
         let mut tokens: Vec<String> = Vec::new();
         for t in class.split_ascii_whitespace() {
-            if !tokens.iter().any(|x| x == t) {
+            self.poll()?;
+            if seen.insert(t) {
                 tokens.push(t.to_owned());
             }
         }
@@ -254,7 +286,22 @@ impl Document {
     fn style_list(&mut self, this: ObjectId) -> BindingResult<(usize, Vec<Declaration>)> {
         let id = self.owner_of(this)?;
         let text = self.attribute(id, "style").unwrap_or_default();
-        Ok((id, style_attr::parse(&text)))
+        Ok((id, self.parse_style(&text)?))
+    }
+
+    fn parse_style(&mut self, text: &str) -> BindingResult<Vec<Declaration>> {
+        style_attr::parse(text, self.quirks_mode(), self.deadline.as_ref())
+            .map_err(|stop| self.style_stopped(stop))
+    }
+
+    fn style_stopped(&mut self, stop: style_attr::Stop) -> BindingError {
+        match stop {
+            style_attr::Stop::TooLarge => self.fail(DomError::StyleLimit {
+                declarations: style_attr::MAX_DECLARATIONS,
+                bytes: style_attr::MAX_BYTES,
+            }),
+            style_attr::Stop::TimeLimit => timed_out(),
+        }
     }
 
     fn store_style(&mut self, id: usize, list: &[Declaration]) -> BindingResult<()> {
@@ -408,6 +455,9 @@ impl Document {
             Some(Kind::Element) if self.element_name(id).is_some_and(|n| n.ns == ns!(html)) => {
                 interface::HTML_ELEMENT
             }
+            Some(Kind::Element) if self.element_name(id).is_some_and(|n| n.ns == ns!(svg)) => {
+                interface::SVG_ELEMENT
+            }
             Some(Kind::Element) => interface::ELEMENT,
             // Layout boxes, which no tree link reaches before layout.
             None => interface::NODE,
@@ -439,29 +489,35 @@ impl Document {
                 .collect(),
             Object::Live(owner, kind) if kind != ListKind::ChildNodes => {
                 let handle = Handle::try_from(this.0).unwrap_or(0);
-                let nodes = self.live_nodes(handle, owner, &kind).to_vec();
+                let nodes = self.live_nodes(handle, owner, &kind)?.to_vec();
                 let mut out: Vec<String> = Vec::new();
                 for n in nodes {
+                    self.poll()?;
                     let html = self.element_name(n).is_some_and(|q| q.ns == ns!(html));
                     let name = html.then(|| self.attribute(n, "name")).flatten();
-                    for v in [self.attribute(n, "id"), name].into_iter().flatten() {
-                        if !v.is_empty() && !out.contains(&v) {
-                            out.push(v);
-                        }
-                    }
+                    out.extend(self.attribute(n, "id"));
+                    out.extend(name);
                 }
+                out.retain(|v| !v.is_empty());
                 out
             }
             _ => Vec::new(),
         };
-        // Newline-joined; `nameArray` in the glue splits it. A name with a
-        // newline (an `id` can have one) is left out: it can't be looked up
-        // by a page that follows the spec's "no whitespace in IDs" anyway.
-        Ok(names
-            .into_iter()
-            .filter(|n| !n.contains('\n'))
-            .collect::<Vec<_>>()
-            .join("\n"))
+        // Each name ends in a newline, so one empty name (a sole `data-`)
+        // isn't an empty list; `nameList` in the glue splits it. A name with
+        // a newline (an `id` can have one) is left out: it can't be looked
+        // up by a page that follows the spec's "no whitespace in IDs" anyway.
+        // Ordered sets: duplicates would make a proxy's `ownKeys` throw.
+        let mut seen = HashSet::new();
+        let mut out = String::new();
+        for name in &names {
+            self.poll()?;
+            if !name.contains('\n') && seen.insert(name.as_str()) {
+                out.push_str(name);
+                out.push('\n');
+            }
+        }
+        Ok(out)
     }
 }
 
@@ -845,7 +901,12 @@ impl idl::Element for Document {
                 ));
             }
         };
-        let context = self.parse_context(parent);
+        // HTML §8.5: the `html` element is no context either, or the parser
+        // would start before the head and add a second head and body.
+        let is_root_element = self
+            .element_name(parent)
+            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "html");
+        let context = self.parse_context(parent).filter(|_| !is_root_element);
         if let Some(frag) = self.parse_fragment_in(context, parent, &value_string(string))? {
             self.insert_parsed(parent, frag, before);
         }
@@ -1097,11 +1158,11 @@ impl idl::Document for Document {
     }
 
     fn title(&mut self, _this: ObjectId) -> BindingResult<String> {
-        Ok(Document::title(self))
+        Document::title(self)
     }
 
     fn set_title(&mut self, _this: ObjectId, value: String) -> BindingResult<()> {
-        Document::set_title(self, &value).map_err(|e| self.fail(e))
+        Document::set_title(self, &value)
     }
 
     fn ready_state(&mut self, _this: ObjectId) -> BindingResult<String> {
@@ -1446,22 +1507,19 @@ impl idl::Attr for Document {
     }
 
     fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
-        let (e, name, _) = self.attr_of(this)?;
-        if self.attribute_value(e, &name).is_some() {
+        let (e, name, kept) = self.attr_of(this)?;
+        let written = if kept.is_some() {
+            let handle = Handle::try_from(this.0).unwrap_or(0);
+            self.set_kept_value(handle, value)
+        } else {
             self.write_attribute(e, name, &value)
-                .map_err(|e| self.fail(e))?;
-        } else if let Ok(h) = Handle::try_from(this.0) {
-            if let Some(Object::Attr(_, _, kept)) = self.object_mut(h) {
-                *kept = Some(value);
-            }
-        }
-        Ok(())
+        };
+        written.map_err(|e| self.fail(e))
     }
 
     fn owner_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
-        let (e, name, _) = self.attr_of(this)?;
-        let present = self.attribute_value(e, &name).is_some();
-        self.opt_object(present.then_some(e))
+        let (e, _, kept) = self.attr_of(this)?;
+        self.opt_object(kept.is_none().then_some(e))
     }
 
     fn specified(&mut self, _this: ObjectId) -> BindingResult<bool> {
@@ -1500,13 +1558,17 @@ impl idl::HTMLCollection for Document {
         let Object::Live(owner, kind) = self.object_at(this)? else {
             return Ok(None);
         };
-        let nodes = self.live_nodes(handle, owner, &kind).to_vec();
-        let found = nodes.into_iter().find(|&n| {
-            self.attribute(n, "id").as_deref() == Some(name.as_str())
+        let nodes = self.live_nodes(handle, owner, &kind)?.to_vec();
+        for n in nodes {
+            self.poll()?;
+            if self.attribute(n, "id").as_deref() == Some(name.as_str())
                 || (self.element_name(n).is_some_and(|q| q.ns == ns!(html))
                     && self.attribute(n, "name").as_deref() == Some(name.as_str()))
-        });
-        self.opt_object(found)
+            {
+                return self.opt_object(Some(n));
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -1612,8 +1674,10 @@ impl idl::DOMTokenList for Document {
             check_token(t)?;
         }
         let (id, mut list) = self.tokens_of(this)?;
+        let mut seen: HashSet<String> = list.iter().cloned().collect();
         for t in tokens {
-            if !list.contains(&t) {
+            self.poll()?;
+            if seen.insert(t.clone()) {
                 list.push(t);
             }
         }
@@ -1625,7 +1689,8 @@ impl idl::DOMTokenList for Document {
             check_token(t)?;
         }
         let (id, mut list) = self.tokens_of(this)?;
-        list.retain(|t| !tokens.contains(t));
+        let gone: HashSet<&String> = tokens.iter().collect();
+        list.retain(|t| !gone.contains(t));
         self.store_tokens(id, &list)
     }
 
@@ -1719,7 +1784,17 @@ impl idl::DOMStringMap for Document {
     }
 }
 
+impl idl::SVGElement for Document {
+    fn style(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        idl::HTMLElement::style(self, this)
+    }
+}
+
 impl idl::CSSStyleDeclaration for Document {
+    fn parent_rule(&mut self, _this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        Ok(None)
+    }
+
     fn css_text(&mut self, this: ObjectId) -> BindingResult<String> {
         let (_, list) = self.style_list(this)?;
         Ok(style_attr::serialize(&list))
@@ -1727,7 +1802,8 @@ impl idl::CSSStyleDeclaration for Document {
 
     fn set_css_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let id = self.owner_of(this)?;
-        self.store_style(id, &style_attr::parse(&value))
+        let list = self.parse_style(&value)?;
+        self.store_style(id, &list)
     }
 
     fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
@@ -1762,8 +1838,13 @@ impl idl::CSSStyleDeclaration for Document {
         value: String,
         priority: String,
     ) -> BindingResult<()> {
-        // CSSOM §6.6 setProperty: an empty value removes; an unknown
-        // priority does nothing.
+        // CSSOM §6.6 setProperty, in its order: an unsupported property does
+        // nothing, an empty value removes, an unknown priority or an invalid
+        // value does nothing.
+        let name = style_attr::normalized(&property);
+        if !style_attr::supported(&name) {
+            return Ok(());
+        }
         if value.is_empty() {
             return idl::CSSStyleDeclaration::remove_property(self, this, property).map(|_| ());
         }
@@ -1771,13 +1852,12 @@ impl idl::CSSStyleDeclaration for Document {
         if !priority.is_empty() && !important {
             return Ok(());
         }
+        let parsed = style_attr::parse_value(&name, &value, self.quirks_mode());
+        let Some(text) = parsed.map_err(|stop| self.style_stopped(stop))? else {
+            return Ok(());
+        };
         let (id, mut list) = self.style_list(this)?;
-        style_attr::set(
-            &mut list,
-            style_attr::normalized(&property),
-            value,
-            important,
-        );
+        style_attr::set(&mut list, name, text, important);
         self.store_style(id, &list)
     }
 

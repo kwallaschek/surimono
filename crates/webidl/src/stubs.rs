@@ -294,6 +294,99 @@ pub static INTERFACES: &[InterfaceInfo] = &[
         ],
     },
     InterfaceInfo {
+        name: "SVGElement",
+        parent: Some("Element"),
+        files: &["SVG.idl", "cssom.idl", "html.idl"],
+        members: &[
+            MemberInfo { idl_name: "className", rust_name: "class_name", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "ownerSVGElement", rust_name: "owner_svg_element", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "viewportElement", rust_name: "viewport_element", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "onabort", rust_name: "onabort", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onauxclick", rust_name: "onauxclick", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onbeforeinput", rust_name: "onbeforeinput", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onbeforematch", rust_name: "onbeforematch", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onbeforetoggle", rust_name: "onbeforetoggle", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onblur", rust_name: "onblur", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncancel", rust_name: "oncancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncanplay", rust_name: "oncanplay", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncanplaythrough", rust_name: "oncanplaythrough", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onchange", rust_name: "onchange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onclick", rust_name: "onclick", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onclose", rust_name: "onclose", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncommand", rust_name: "oncommand", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncontextlost", rust_name: "oncontextlost", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncontextmenu", rust_name: "oncontextmenu", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncontextrestored", rust_name: "oncontextrestored", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncopy", rust_name: "oncopy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncuechange", rust_name: "oncuechange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncut", rust_name: "oncut", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondblclick", rust_name: "ondblclick", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondrag", rust_name: "ondrag", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragend", rust_name: "ondragend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragenter", rust_name: "ondragenter", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragleave", rust_name: "ondragleave", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragover", rust_name: "ondragover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragstart", rust_name: "ondragstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondrop", rust_name: "ondrop", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondurationchange", rust_name: "ondurationchange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onemptied", rust_name: "onemptied", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onended", rust_name: "onended", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onerror", rust_name: "onerror", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onfocus", rust_name: "onfocus", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onformdata", rust_name: "onformdata", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oninput", rust_name: "oninput", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oninvalid", rust_name: "oninvalid", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onkeydown", rust_name: "onkeydown", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onkeypress", rust_name: "onkeypress", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onkeyup", rust_name: "onkeyup", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onload", rust_name: "onload", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onloadeddata", rust_name: "onloadeddata", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onloadedmetadata", rust_name: "onloadedmetadata", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onloadstart", rust_name: "onloadstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmousedown", rust_name: "onmousedown", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseenter", rust_name: "onmouseenter", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseleave", rust_name: "onmouseleave", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmousemove", rust_name: "onmousemove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseout", rust_name: "onmouseout", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseover", rust_name: "onmouseover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseup", rust_name: "onmouseup", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpaste", rust_name: "onpaste", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpause", rust_name: "onpause", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onplay", rust_name: "onplay", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onplaying", rust_name: "onplaying", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onprogress", rust_name: "onprogress", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onratechange", rust_name: "onratechange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onreset", rust_name: "onreset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onresize", rust_name: "onresize", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onscroll", rust_name: "onscroll", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onscrollend", rust_name: "onscrollend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onsecuritypolicyviolation", rust_name: "onsecuritypolicyviolation", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onseeked", rust_name: "onseeked", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onseeking", rust_name: "onseeking", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onselect", rust_name: "onselect", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onslotchange", rust_name: "onslotchange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onstalled", rust_name: "onstalled", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onsubmit", rust_name: "onsubmit", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onsuspend", rust_name: "onsuspend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontimeupdate", rust_name: "ontimeupdate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontoggle", rust_name: "ontoggle", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onvolumechange", rust_name: "onvolumechange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwaiting", rust_name: "onwaiting", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkitanimationend", rust_name: "onwebkitanimationend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkitanimationiteration", rust_name: "onwebkitanimationiteration", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkitanimationstart", rust_name: "onwebkitanimationstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkittransitionend", rust_name: "onwebkittransitionend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwheel", rust_name: "onwheel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "dataset", rust_name: "dataset", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "nonce", rust_name: "nonce", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "autofocus", rust_name: "autofocus", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "tabIndex", rust_name: "tab_index", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "focus", rust_name: "focus", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "blur", rust_name: "blur", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "style", rust_name: "style", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
         name: "Document",
         parent: Some("Node"),
         files: &["SVG.idl", "css-font-loading.idl", "cssom-view.idl", "cssom.idl", "dom.idl", "html.idl"],
@@ -2815,6 +2908,1003 @@ pub trait HTMLElement: Element {
     fn blur(&mut self, this: ObjectId) -> BindingResult<()> {
         let _ = this;
         Err(BindingError::NotImplemented("HTMLElement.blur"))
+    }
+}
+
+/// IDL `interface SVGElement : Element` (SVG.idl).
+///
+/// Includes: GlobalEventHandlers, HTMLOrSVGOrMathMLElement, ElementCSSInlineStyle.
+///
+/// Members also from: cssom.idl, html.idl.
+pub trait SVGElement: Element {
+    /// `[SameObject] readonly attribute SVGAnimatedString className;` (SVG.idl)
+    fn class_name(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.className"))
+    }
+
+    /// `readonly attribute SVGSVGElement? ownerSVGElement;` (SVG.idl)
+    fn owner_svg_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ownerSVGElement"))
+    }
+
+    /// `readonly attribute SVGElement? viewportElement;` (SVG.idl)
+    fn viewport_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.viewportElement"))
+    }
+
+    /// `attribute EventHandler onabort;` (GlobalEventHandlers, html.idl)
+    fn onabort(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onabort"))
+    }
+
+    /// `attribute EventHandler onabort;` (GlobalEventHandlers, html.idl)
+    fn set_onabort(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onabort"))
+    }
+
+    /// `attribute EventHandler onauxclick;` (GlobalEventHandlers, html.idl)
+    fn onauxclick(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onauxclick"))
+    }
+
+    /// `attribute EventHandler onauxclick;` (GlobalEventHandlers, html.idl)
+    fn set_onauxclick(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onauxclick"))
+    }
+
+    /// `attribute EventHandler onbeforeinput;` (GlobalEventHandlers, html.idl)
+    fn onbeforeinput(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onbeforeinput"))
+    }
+
+    /// `attribute EventHandler onbeforeinput;` (GlobalEventHandlers, html.idl)
+    fn set_onbeforeinput(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onbeforeinput"))
+    }
+
+    /// `attribute EventHandler onbeforematch;` (GlobalEventHandlers, html.idl)
+    fn onbeforematch(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onbeforematch"))
+    }
+
+    /// `attribute EventHandler onbeforematch;` (GlobalEventHandlers, html.idl)
+    fn set_onbeforematch(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onbeforematch"))
+    }
+
+    /// `attribute EventHandler onbeforetoggle;` (GlobalEventHandlers, html.idl)
+    fn onbeforetoggle(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onbeforetoggle"))
+    }
+
+    /// `attribute EventHandler onbeforetoggle;` (GlobalEventHandlers, html.idl)
+    fn set_onbeforetoggle(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onbeforetoggle"))
+    }
+
+    /// `attribute EventHandler onblur;` (GlobalEventHandlers, html.idl)
+    fn onblur(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onblur"))
+    }
+
+    /// `attribute EventHandler onblur;` (GlobalEventHandlers, html.idl)
+    fn set_onblur(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onblur"))
+    }
+
+    /// `attribute EventHandler oncancel;` (GlobalEventHandlers, html.idl)
+    fn oncancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncancel"))
+    }
+
+    /// `attribute EventHandler oncancel;` (GlobalEventHandlers, html.idl)
+    fn set_oncancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncancel"))
+    }
+
+    /// `attribute EventHandler oncanplay;` (GlobalEventHandlers, html.idl)
+    fn oncanplay(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncanplay"))
+    }
+
+    /// `attribute EventHandler oncanplay;` (GlobalEventHandlers, html.idl)
+    fn set_oncanplay(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncanplay"))
+    }
+
+    /// `attribute EventHandler oncanplaythrough;` (GlobalEventHandlers, html.idl)
+    fn oncanplaythrough(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncanplaythrough"))
+    }
+
+    /// `attribute EventHandler oncanplaythrough;` (GlobalEventHandlers, html.idl)
+    fn set_oncanplaythrough(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncanplaythrough"))
+    }
+
+    /// `attribute EventHandler onchange;` (GlobalEventHandlers, html.idl)
+    fn onchange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onchange"))
+    }
+
+    /// `attribute EventHandler onchange;` (GlobalEventHandlers, html.idl)
+    fn set_onchange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onchange"))
+    }
+
+    /// `attribute EventHandler onclick;` (GlobalEventHandlers, html.idl)
+    fn onclick(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onclick"))
+    }
+
+    /// `attribute EventHandler onclick;` (GlobalEventHandlers, html.idl)
+    fn set_onclick(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onclick"))
+    }
+
+    /// `attribute EventHandler onclose;` (GlobalEventHandlers, html.idl)
+    fn onclose(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onclose"))
+    }
+
+    /// `attribute EventHandler onclose;` (GlobalEventHandlers, html.idl)
+    fn set_onclose(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onclose"))
+    }
+
+    /// `attribute EventHandler oncommand;` (GlobalEventHandlers, html.idl)
+    fn oncommand(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncommand"))
+    }
+
+    /// `attribute EventHandler oncommand;` (GlobalEventHandlers, html.idl)
+    fn set_oncommand(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncommand"))
+    }
+
+    /// `attribute EventHandler oncontextlost;` (GlobalEventHandlers, html.idl)
+    fn oncontextlost(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncontextlost"))
+    }
+
+    /// `attribute EventHandler oncontextlost;` (GlobalEventHandlers, html.idl)
+    fn set_oncontextlost(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncontextlost"))
+    }
+
+    /// `attribute EventHandler oncontextmenu;` (GlobalEventHandlers, html.idl)
+    fn oncontextmenu(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncontextmenu"))
+    }
+
+    /// `attribute EventHandler oncontextmenu;` (GlobalEventHandlers, html.idl)
+    fn set_oncontextmenu(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncontextmenu"))
+    }
+
+    /// `attribute EventHandler oncontextrestored;` (GlobalEventHandlers, html.idl)
+    fn oncontextrestored(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncontextrestored"))
+    }
+
+    /// `attribute EventHandler oncontextrestored;` (GlobalEventHandlers, html.idl)
+    fn set_oncontextrestored(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncontextrestored"))
+    }
+
+    /// `attribute EventHandler oncopy;` (GlobalEventHandlers, html.idl)
+    fn oncopy(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncopy"))
+    }
+
+    /// `attribute EventHandler oncopy;` (GlobalEventHandlers, html.idl)
+    fn set_oncopy(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncopy"))
+    }
+
+    /// `attribute EventHandler oncuechange;` (GlobalEventHandlers, html.idl)
+    fn oncuechange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncuechange"))
+    }
+
+    /// `attribute EventHandler oncuechange;` (GlobalEventHandlers, html.idl)
+    fn set_oncuechange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncuechange"))
+    }
+
+    /// `attribute EventHandler oncut;` (GlobalEventHandlers, html.idl)
+    fn oncut(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oncut"))
+    }
+
+    /// `attribute EventHandler oncut;` (GlobalEventHandlers, html.idl)
+    fn set_oncut(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oncut"))
+    }
+
+    /// `attribute EventHandler ondblclick;` (GlobalEventHandlers, html.idl)
+    fn ondblclick(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondblclick"))
+    }
+
+    /// `attribute EventHandler ondblclick;` (GlobalEventHandlers, html.idl)
+    fn set_ondblclick(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondblclick"))
+    }
+
+    /// `attribute EventHandler ondrag;` (GlobalEventHandlers, html.idl)
+    fn ondrag(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondrag"))
+    }
+
+    /// `attribute EventHandler ondrag;` (GlobalEventHandlers, html.idl)
+    fn set_ondrag(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondrag"))
+    }
+
+    /// `attribute EventHandler ondragend;` (GlobalEventHandlers, html.idl)
+    fn ondragend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondragend"))
+    }
+
+    /// `attribute EventHandler ondragend;` (GlobalEventHandlers, html.idl)
+    fn set_ondragend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondragend"))
+    }
+
+    /// `attribute EventHandler ondragenter;` (GlobalEventHandlers, html.idl)
+    fn ondragenter(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondragenter"))
+    }
+
+    /// `attribute EventHandler ondragenter;` (GlobalEventHandlers, html.idl)
+    fn set_ondragenter(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondragenter"))
+    }
+
+    /// `attribute EventHandler ondragleave;` (GlobalEventHandlers, html.idl)
+    fn ondragleave(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondragleave"))
+    }
+
+    /// `attribute EventHandler ondragleave;` (GlobalEventHandlers, html.idl)
+    fn set_ondragleave(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondragleave"))
+    }
+
+    /// `attribute EventHandler ondragover;` (GlobalEventHandlers, html.idl)
+    fn ondragover(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondragover"))
+    }
+
+    /// `attribute EventHandler ondragover;` (GlobalEventHandlers, html.idl)
+    fn set_ondragover(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondragover"))
+    }
+
+    /// `attribute EventHandler ondragstart;` (GlobalEventHandlers, html.idl)
+    fn ondragstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondragstart"))
+    }
+
+    /// `attribute EventHandler ondragstart;` (GlobalEventHandlers, html.idl)
+    fn set_ondragstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondragstart"))
+    }
+
+    /// `attribute EventHandler ondrop;` (GlobalEventHandlers, html.idl)
+    fn ondrop(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondrop"))
+    }
+
+    /// `attribute EventHandler ondrop;` (GlobalEventHandlers, html.idl)
+    fn set_ondrop(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondrop"))
+    }
+
+    /// `attribute EventHandler ondurationchange;` (GlobalEventHandlers, html.idl)
+    fn ondurationchange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ondurationchange"))
+    }
+
+    /// `attribute EventHandler ondurationchange;` (GlobalEventHandlers, html.idl)
+    fn set_ondurationchange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ondurationchange"))
+    }
+
+    /// `attribute EventHandler onemptied;` (GlobalEventHandlers, html.idl)
+    fn onemptied(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onemptied"))
+    }
+
+    /// `attribute EventHandler onemptied;` (GlobalEventHandlers, html.idl)
+    fn set_onemptied(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onemptied"))
+    }
+
+    /// `attribute EventHandler onended;` (GlobalEventHandlers, html.idl)
+    fn onended(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onended"))
+    }
+
+    /// `attribute EventHandler onended;` (GlobalEventHandlers, html.idl)
+    fn set_onended(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onended"))
+    }
+
+    /// `attribute OnErrorEventHandler onerror;` (GlobalEventHandlers, html.idl)
+    fn onerror(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onerror"))
+    }
+
+    /// `attribute OnErrorEventHandler onerror;` (GlobalEventHandlers, html.idl)
+    fn set_onerror(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onerror"))
+    }
+
+    /// `attribute EventHandler onfocus;` (GlobalEventHandlers, html.idl)
+    fn onfocus(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onfocus"))
+    }
+
+    /// `attribute EventHandler onfocus;` (GlobalEventHandlers, html.idl)
+    fn set_onfocus(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onfocus"))
+    }
+
+    /// `attribute EventHandler onformdata;` (GlobalEventHandlers, html.idl)
+    fn onformdata(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onformdata"))
+    }
+
+    /// `attribute EventHandler onformdata;` (GlobalEventHandlers, html.idl)
+    fn set_onformdata(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onformdata"))
+    }
+
+    /// `attribute EventHandler oninput;` (GlobalEventHandlers, html.idl)
+    fn oninput(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oninput"))
+    }
+
+    /// `attribute EventHandler oninput;` (GlobalEventHandlers, html.idl)
+    fn set_oninput(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oninput"))
+    }
+
+    /// `attribute EventHandler oninvalid;` (GlobalEventHandlers, html.idl)
+    fn oninvalid(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.oninvalid"))
+    }
+
+    /// `attribute EventHandler oninvalid;` (GlobalEventHandlers, html.idl)
+    fn set_oninvalid(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.oninvalid"))
+    }
+
+    /// `attribute EventHandler onkeydown;` (GlobalEventHandlers, html.idl)
+    fn onkeydown(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onkeydown"))
+    }
+
+    /// `attribute EventHandler onkeydown;` (GlobalEventHandlers, html.idl)
+    fn set_onkeydown(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onkeydown"))
+    }
+
+    /// `attribute EventHandler onkeypress;` (GlobalEventHandlers, html.idl)
+    fn onkeypress(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onkeypress"))
+    }
+
+    /// `attribute EventHandler onkeypress;` (GlobalEventHandlers, html.idl)
+    fn set_onkeypress(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onkeypress"))
+    }
+
+    /// `attribute EventHandler onkeyup;` (GlobalEventHandlers, html.idl)
+    fn onkeyup(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onkeyup"))
+    }
+
+    /// `attribute EventHandler onkeyup;` (GlobalEventHandlers, html.idl)
+    fn set_onkeyup(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onkeyup"))
+    }
+
+    /// `attribute EventHandler onload;` (GlobalEventHandlers, html.idl)
+    fn onload(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onload"))
+    }
+
+    /// `attribute EventHandler onload;` (GlobalEventHandlers, html.idl)
+    fn set_onload(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onload"))
+    }
+
+    /// `attribute EventHandler onloadeddata;` (GlobalEventHandlers, html.idl)
+    fn onloadeddata(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onloadeddata"))
+    }
+
+    /// `attribute EventHandler onloadeddata;` (GlobalEventHandlers, html.idl)
+    fn set_onloadeddata(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onloadeddata"))
+    }
+
+    /// `attribute EventHandler onloadedmetadata;` (GlobalEventHandlers, html.idl)
+    fn onloadedmetadata(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onloadedmetadata"))
+    }
+
+    /// `attribute EventHandler onloadedmetadata;` (GlobalEventHandlers, html.idl)
+    fn set_onloadedmetadata(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onloadedmetadata"))
+    }
+
+    /// `attribute EventHandler onloadstart;` (GlobalEventHandlers, html.idl)
+    fn onloadstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onloadstart"))
+    }
+
+    /// `attribute EventHandler onloadstart;` (GlobalEventHandlers, html.idl)
+    fn set_onloadstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onloadstart"))
+    }
+
+    /// `attribute EventHandler onmousedown;` (GlobalEventHandlers, html.idl)
+    fn onmousedown(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onmousedown"))
+    }
+
+    /// `attribute EventHandler onmousedown;` (GlobalEventHandlers, html.idl)
+    fn set_onmousedown(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onmousedown"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseenter;` (GlobalEventHandlers, html.idl)
+    fn onmouseenter(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onmouseenter"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseenter;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseenter(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onmouseenter"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseleave;` (GlobalEventHandlers, html.idl)
+    fn onmouseleave(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onmouseleave"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseleave;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseleave(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onmouseleave"))
+    }
+
+    /// `attribute EventHandler onmousemove;` (GlobalEventHandlers, html.idl)
+    fn onmousemove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onmousemove"))
+    }
+
+    /// `attribute EventHandler onmousemove;` (GlobalEventHandlers, html.idl)
+    fn set_onmousemove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onmousemove"))
+    }
+
+    /// `attribute EventHandler onmouseout;` (GlobalEventHandlers, html.idl)
+    fn onmouseout(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onmouseout"))
+    }
+
+    /// `attribute EventHandler onmouseout;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseout(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onmouseout"))
+    }
+
+    /// `attribute EventHandler onmouseover;` (GlobalEventHandlers, html.idl)
+    fn onmouseover(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onmouseover"))
+    }
+
+    /// `attribute EventHandler onmouseover;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseover(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onmouseover"))
+    }
+
+    /// `attribute EventHandler onmouseup;` (GlobalEventHandlers, html.idl)
+    fn onmouseup(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onmouseup"))
+    }
+
+    /// `attribute EventHandler onmouseup;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseup(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onmouseup"))
+    }
+
+    /// `attribute EventHandler onpaste;` (GlobalEventHandlers, html.idl)
+    fn onpaste(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpaste"))
+    }
+
+    /// `attribute EventHandler onpaste;` (GlobalEventHandlers, html.idl)
+    fn set_onpaste(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpaste"))
+    }
+
+    /// `attribute EventHandler onpause;` (GlobalEventHandlers, html.idl)
+    fn onpause(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpause"))
+    }
+
+    /// `attribute EventHandler onpause;` (GlobalEventHandlers, html.idl)
+    fn set_onpause(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpause"))
+    }
+
+    /// `attribute EventHandler onplay;` (GlobalEventHandlers, html.idl)
+    fn onplay(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onplay"))
+    }
+
+    /// `attribute EventHandler onplay;` (GlobalEventHandlers, html.idl)
+    fn set_onplay(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onplay"))
+    }
+
+    /// `attribute EventHandler onplaying;` (GlobalEventHandlers, html.idl)
+    fn onplaying(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onplaying"))
+    }
+
+    /// `attribute EventHandler onplaying;` (GlobalEventHandlers, html.idl)
+    fn set_onplaying(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onplaying"))
+    }
+
+    /// `attribute EventHandler onprogress;` (GlobalEventHandlers, html.idl)
+    fn onprogress(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onprogress"))
+    }
+
+    /// `attribute EventHandler onprogress;` (GlobalEventHandlers, html.idl)
+    fn set_onprogress(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onprogress"))
+    }
+
+    /// `attribute EventHandler onratechange;` (GlobalEventHandlers, html.idl)
+    fn onratechange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onratechange"))
+    }
+
+    /// `attribute EventHandler onratechange;` (GlobalEventHandlers, html.idl)
+    fn set_onratechange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onratechange"))
+    }
+
+    /// `attribute EventHandler onreset;` (GlobalEventHandlers, html.idl)
+    fn onreset(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onreset"))
+    }
+
+    /// `attribute EventHandler onreset;` (GlobalEventHandlers, html.idl)
+    fn set_onreset(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onreset"))
+    }
+
+    /// `attribute EventHandler onresize;` (GlobalEventHandlers, html.idl)
+    fn onresize(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onresize"))
+    }
+
+    /// `attribute EventHandler onresize;` (GlobalEventHandlers, html.idl)
+    fn set_onresize(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onresize"))
+    }
+
+    /// `attribute EventHandler onscroll;` (GlobalEventHandlers, html.idl)
+    fn onscroll(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onscroll"))
+    }
+
+    /// `attribute EventHandler onscroll;` (GlobalEventHandlers, html.idl)
+    fn set_onscroll(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onscroll"))
+    }
+
+    /// `attribute EventHandler onscrollend;` (GlobalEventHandlers, html.idl)
+    fn onscrollend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onscrollend"))
+    }
+
+    /// `attribute EventHandler onscrollend;` (GlobalEventHandlers, html.idl)
+    fn set_onscrollend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onscrollend"))
+    }
+
+    /// `attribute EventHandler onsecuritypolicyviolation;` (GlobalEventHandlers, html.idl)
+    fn onsecuritypolicyviolation(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onsecuritypolicyviolation"))
+    }
+
+    /// `attribute EventHandler onsecuritypolicyviolation;` (GlobalEventHandlers, html.idl)
+    fn set_onsecuritypolicyviolation(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onsecuritypolicyviolation"))
+    }
+
+    /// `attribute EventHandler onseeked;` (GlobalEventHandlers, html.idl)
+    fn onseeked(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onseeked"))
+    }
+
+    /// `attribute EventHandler onseeked;` (GlobalEventHandlers, html.idl)
+    fn set_onseeked(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onseeked"))
+    }
+
+    /// `attribute EventHandler onseeking;` (GlobalEventHandlers, html.idl)
+    fn onseeking(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onseeking"))
+    }
+
+    /// `attribute EventHandler onseeking;` (GlobalEventHandlers, html.idl)
+    fn set_onseeking(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onseeking"))
+    }
+
+    /// `attribute EventHandler onselect;` (GlobalEventHandlers, html.idl)
+    fn onselect(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onselect"))
+    }
+
+    /// `attribute EventHandler onselect;` (GlobalEventHandlers, html.idl)
+    fn set_onselect(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onselect"))
+    }
+
+    /// `attribute EventHandler onslotchange;` (GlobalEventHandlers, html.idl)
+    fn onslotchange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onslotchange"))
+    }
+
+    /// `attribute EventHandler onslotchange;` (GlobalEventHandlers, html.idl)
+    fn set_onslotchange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onslotchange"))
+    }
+
+    /// `attribute EventHandler onstalled;` (GlobalEventHandlers, html.idl)
+    fn onstalled(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onstalled"))
+    }
+
+    /// `attribute EventHandler onstalled;` (GlobalEventHandlers, html.idl)
+    fn set_onstalled(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onstalled"))
+    }
+
+    /// `attribute EventHandler onsubmit;` (GlobalEventHandlers, html.idl)
+    fn onsubmit(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onsubmit"))
+    }
+
+    /// `attribute EventHandler onsubmit;` (GlobalEventHandlers, html.idl)
+    fn set_onsubmit(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onsubmit"))
+    }
+
+    /// `attribute EventHandler onsuspend;` (GlobalEventHandlers, html.idl)
+    fn onsuspend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onsuspend"))
+    }
+
+    /// `attribute EventHandler onsuspend;` (GlobalEventHandlers, html.idl)
+    fn set_onsuspend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onsuspend"))
+    }
+
+    /// `attribute EventHandler ontimeupdate;` (GlobalEventHandlers, html.idl)
+    fn ontimeupdate(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ontimeupdate"))
+    }
+
+    /// `attribute EventHandler ontimeupdate;` (GlobalEventHandlers, html.idl)
+    fn set_ontimeupdate(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ontimeupdate"))
+    }
+
+    /// `attribute EventHandler ontoggle;` (GlobalEventHandlers, html.idl)
+    fn ontoggle(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ontoggle"))
+    }
+
+    /// `attribute EventHandler ontoggle;` (GlobalEventHandlers, html.idl)
+    fn set_ontoggle(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ontoggle"))
+    }
+
+    /// `attribute EventHandler onvolumechange;` (GlobalEventHandlers, html.idl)
+    fn onvolumechange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onvolumechange"))
+    }
+
+    /// `attribute EventHandler onvolumechange;` (GlobalEventHandlers, html.idl)
+    fn set_onvolumechange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onvolumechange"))
+    }
+
+    /// `attribute EventHandler onwaiting;` (GlobalEventHandlers, html.idl)
+    fn onwaiting(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onwaiting"))
+    }
+
+    /// `attribute EventHandler onwaiting;` (GlobalEventHandlers, html.idl)
+    fn set_onwaiting(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onwaiting"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationend;` (GlobalEventHandlers, html.idl)
+    fn onwebkitanimationend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onwebkitanimationend"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationend;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkitanimationend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onwebkitanimationend"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationiteration;` (GlobalEventHandlers, html.idl)
+    fn onwebkitanimationiteration(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onwebkitanimationiteration"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationiteration;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkitanimationiteration(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onwebkitanimationiteration"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationstart;` (GlobalEventHandlers, html.idl)
+    fn onwebkitanimationstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onwebkitanimationstart"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationstart;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkitanimationstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onwebkitanimationstart"))
+    }
+
+    /// `attribute EventHandler onwebkittransitionend;` (GlobalEventHandlers, html.idl)
+    fn onwebkittransitionend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onwebkittransitionend"))
+    }
+
+    /// `attribute EventHandler onwebkittransitionend;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkittransitionend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onwebkittransitionend"))
+    }
+
+    /// `attribute EventHandler onwheel;` (GlobalEventHandlers, html.idl)
+    fn onwheel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onwheel"))
+    }
+
+    /// `attribute EventHandler onwheel;` (GlobalEventHandlers, html.idl)
+    fn set_onwheel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onwheel"))
+    }
+
+    /// `[SameObject] readonly attribute DOMStringMap dataset;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn dataset(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.dataset"))
+    }
+
+    /// `attribute DOMString nonce;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn nonce(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.nonce"))
+    }
+
+    /// `attribute DOMString nonce;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn set_nonce(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.nonce"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean autofocus;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn autofocus(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.autofocus"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean autofocus;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn set_autofocus(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.autofocus"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute long tabIndex;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn tab_index(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.tabIndex"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute long tabIndex;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn set_tab_index(&mut self, this: ObjectId, value: i32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.tabIndex"))
+    }
+
+    /// `undefined focus(optional FocusOptions options = {});` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn focus(&mut self, this: ObjectId, options: Value) -> BindingResult<()> {
+        let _ = (this, options);
+        Err(BindingError::NotImplemented("SVGElement.focus"))
+    }
+
+    /// `undefined blur();` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn blur(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.blur"))
+    }
+
+    /// `[SameObject, PutForwards=cssText] readonly attribute CSSStyleProperties style;` (ElementCSSInlineStyle, cssom.idl)
+    fn style(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.style"))
     }
 }
 

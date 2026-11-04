@@ -133,12 +133,13 @@
     return apply(call, undefined, l);
   }
 
-  // Splits a newline-joined list into a real array, without its setters:
-  // names can't contain a newline. `defineProperty` with a null-prototype
-  // descriptor reads nothing a script can have changed.
+  // Splits a newline-joined list, or one with a newline after every name
+  // (where a name may be empty), without an array's setters: names can't
+  // contain a newline. `defineProperty` with a null-prototype descriptor
+  // reads nothing a script can have changed.
   function nameList(joined, each) {
     let at = 0;
-    while (at <= joined.length && joined.length > 0) {
+    while (at < joined.length) {
       let end = apply(indexOf, joined, ['\n', at]);
       if (end < 0) end = joined.length;
       each(apply(slice, joined, [at, end]));
@@ -214,6 +215,11 @@
   function exotic(id, x) {
     const ops = create(null);
     for (const k in x) ops[k] = x[k];
+    // WebIDL §3.7.8: an interface with an indexed getter gets @@iterator,
+    // with or without `iterable<>`'s other members.
+    if (ops.item !== undefined) {
+      defineProperty(protos[id], symbolIterator, { value: arrayValues, writable: true, configurable: true });
+    }
     const length = (s) => call(ops.length, s.g, s.h);
     const itemAt = (s, i) => {
       const r = call(ops.item, s.g, s.h, i);
@@ -227,12 +233,15 @@
       return ops.namedWraps ? wrap(s.g, r) ?? undefined : r;
     };
     // The property's value, or undefined if the object doesn't supply it.
+    const indexed = (k) => ops.item !== undefined && indexKey(k) >= 0;
     const lookup = (t, k) => {
       const s = stateOf(t);
-      const i = indexKey(k);
-      if (i >= 0 && ops.item !== undefined) return i < length(s) ? itemAt(s, i) : undefined;
+      if (indexed(k)) { const i = indexKey(k); return i < length(s) ? itemAt(s, i) : undefined; }
       return named(s, t, k);
     };
+    // WebIDL §3.9 "named property visibility": own properties hide a name,
+    // and so does the prototype chain, without [LegacyOverrideBuiltIns].
+    const visible = (t, k) => (ops.overrides ? rdescriptor(t, k) === undefined : !rhas(t, k));
     const h = create(null);
     h.get = function (t, k, r) { const v = lookup(t, k); return v !== undefined ? v : rget(t, k, r); };
     h.has = function (t, k) { return lookup(t, k) !== undefined || rhas(t, k); };
@@ -241,8 +250,8 @@
       if (v === undefined) return rdescriptor(t, k);
       const d = create(null);
       d.value = v; d.configurable = true;
-      d.writable = indexKey(k) < 0 && ops.set !== undefined;
-      d.enumerable = indexKey(k) >= 0 || !ops.unenumerable;
+      d.writable = !indexed(k) && ops.set !== undefined;
+      d.enumerable = indexed(k) || !ops.unenumerable;
       return d;
     };
     // Whether a write to `k` goes to the named setter. With `knownOnly`,
@@ -256,12 +265,15 @@
       call(ops.set, s.g, s.h, str(k), ops.knownOnly && v === null ? '' : str(v));
     };
     h.set = function (t, k, v, r) {
-      if (indexKey(k) >= 0 && ops.item !== undefined) return false;
+      // WebIDL §3.9.2: only when the object itself is the receiver, not
+      // something that inherits from it.
+      if (stateOf(r) !== stateOf(t)) return rset(t, k, v, r);
+      if (indexed(k)) return false;
       if (settable(t, k)) { store(t, k, v); return true; }
       return rset(t, k, v, r);
     };
     h.defineProperty = function (t, k, d) {
-      if (indexKey(k) >= 0 && ops.item !== undefined) return false;
+      if (indexed(k)) return false;
       if (settable(t, k)) { store(t, k, d.value); return true; }
       return rdefine(t, k, d);
     };
@@ -269,8 +281,8 @@
       const present = lookup(t, k) !== undefined;
       if (!present) return rdelete(t, k);
       // CSSOM's attributes live on a prototype: deleting does nothing.
-      if (ops.knownOnly && indexKey(k) < 0) return true;
-      if (indexKey(k) >= 0 || ops.del === undefined) return false;
+      if (ops.knownOnly && !indexed(k)) return true;
+      if (indexed(k) || ops.del === undefined) return false;
       const s = stateOf(t);
       call(ops.del, s.g, s.h, str(k));
       return true;
@@ -285,7 +297,7 @@
       }
       if (ops.named !== undefined) {
         nameList(call(1, s.g, s.h), (name) => {
-          if (indexKey(name) < 0 && !rhas(t, name)) keys[n++] = name;
+          if (!indexed(name) && visible(t, name)) keys[n++] = name;
         });
       }
       const own = rownKeys(t);
