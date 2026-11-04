@@ -8,6 +8,8 @@
 #   fixtures/real-world/verify.py     the embedded library builds match the manifest (--embedded-only)
 #   fixtures/real-world/test_*.py     unit tests of the real-world suite's tooling
 #   bench/tools/test_*.py             unit tests of the benchmark tooling
+#   wpt/tools/vendor.py --check       the vendored WPT files match wpt/manifest.toml
+#   wpt/tools/test/test_*.py          unit tests of the WPT tooling
 # docs/COMPAT.md is regenerated from a CI run's published results, so it isn't
 # checked here (compat.py --check without results rebuilds an all-"not run"
 # file). The checks that need npm or the network run nightly instead
@@ -49,5 +51,12 @@ fi
 if ls bench/tools/test_*.py >/dev/null 2>&1; then
   step "bench: tool tests (python)"
   python3 -I -m unittest discover -s bench/tools -p 'test_*.py'; ran=$((ran + 1))
+fi
+if [ -f wpt/tools/vendor.py ]; then
+  step "wpt: vendored files (vendor.py --check)"; python3 -I wpt/tools/vendor.py --check; ran=$((ran + 1))
+fi
+if ls wpt/tools/test/test_*.py >/dev/null 2>&1; then
+  step "wpt: tool tests (python)"
+  python3 -B -I -m unittest discover -s wpt/tools/test -p 'test_*.py'; ran=$((ran + 1))
 fi
 echo "fixture verifiers run: $ran"

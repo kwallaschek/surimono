@@ -74,15 +74,15 @@ pub enum ErrorPolicy {
 }
 
 /// What a render of one document allows: the error policy, how many islands
-/// it may have, and the flag that cancels it between islands.
+/// it may have, and the flag that cancels it.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Document<'a> {
     pub(crate) policy: ErrorPolicy,
     /// Most island markers the document may have; one more fails it with
     /// [`Error::TooManyIslands`] before any island runs.
     pub(crate) max_islands: usize,
-    /// Checked before each island; once true, the rest are skipped with
-    /// [`Error::Cancelled`].
+    /// Checked before each island, and by the `render` callback while one
+    /// runs; once true, the render ends with [`Error::Cancelled`].
     pub(crate) cancel: Option<&'a AtomicBool>,
 }
 
@@ -159,7 +159,8 @@ struct Scan {
 ///
 /// `render` is called once per well-formed marker, in document order. Errors
 /// (malformed markers and whatever `render` returns) follow `doc.policy`; too
-/// many markers and cancellation fail the document whatever the policy.
+/// many markers and cancellation, whether seen here or returned by `render`,
+/// fail the document whatever the policy.
 pub(crate) fn rewrite_islands<F>(
     html: &str,
     doc: &Document<'_>,
@@ -260,6 +261,7 @@ where
         let outcome = check(index, &raw).and_then(|island| render(&island));
         match (outcome, doc.policy) {
             (Ok(svg), _) => replacements.push(wrapper(&raw, &svg)),
+            (Err(Error::Cancelled), _) => return Err(Error::Cancelled),
             (Err(e), ErrorPolicy::Placeholder) => replacements.push(placeholder(&raw, &e)),
             (Err(e), ErrorPolicy::Fail) => return Err(e),
         }
@@ -425,11 +427,11 @@ fn box_style(raw: &RawMarker, clip: bool) -> String {
     if clip {
         style.push_str(";overflow:hidden");
     }
-    if let Some((_, theirs)) = raw.kept.iter().find(|(name, _)| name == "style") {
-        if !theirs.trim().is_empty() {
-            style.push(';');
-            style.push_str(theirs);
-        }
+    if let Some((_, theirs)) = raw.kept.iter().find(|(name, _)| name == "style")
+        && !theirs.trim().is_empty()
+    {
+        style.push(';');
+        style.push_str(theirs);
     }
     format!(" style=\"{}\"", quote_safe(&style))
 }
@@ -598,6 +600,20 @@ mod tests {
         };
         let html = format!("<script>1</script><script type=module>2</script>{one}");
         assert!(rewrite_islands(&html, &doc, fake).is_ok());
+    }
+
+    #[test]
+    fn a_render_that_was_cancelled_ends_the_document_whatever_the_policy() {
+        for policy in [ErrorPolicy::Fail, ErrorPolicy::Placeholder] {
+            let html = format!("<script type={T} data-renderer=r>1</script>").repeat(2);
+            let mut calls = 0;
+            let out = rewrite_islands(&html, &Document::with_policy(policy), |_| {
+                calls += 1;
+                Err(Error::Cancelled)
+            });
+            assert!(matches!(out, Err(Error::Cancelled)), "{policy:?}: {out:?}");
+            assert_eq!(calls, 1, "{policy:?}");
+        }
     }
 
     #[test]

@@ -8,8 +8,12 @@ surimono and a browserless engine such as fulgur.
 This guide is for those documents. Check first whether yours is one of them.
 
 <!-- bench: grover-vs-surimono -->
-_The benchmark against Grover (time and peak memory, cold and warm) will be
-linked here once `bench/` has results._
+On a six-page report with six charts, surimono + fulgur in Ruby took 694 ms
+cold and 538 ms warm, with a peak of 101 and 128 MB. Grover took 1,698 ms and
+1,268 ms with 589 and 712 MB on Chrome, and 1,284 ms and 1,009 ms with 383 and
+494 MB on chrome-headless-shell. The report is shaped around fulgur 0.40's
+layout gaps, so it is not a typical Rails template. The
+[README](../../README.md#why) has the Rust numbers and how they were measured.
 
 ## What still needs Chrome in v0.1
 

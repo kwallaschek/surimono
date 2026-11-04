@@ -547,14 +547,14 @@ pub(crate) fn parse_family_list(s: &str) -> Option<Vec<FamilyEntry>> {
                 {
                     return None;
                 }
-                if words.len() == 1 {
-                    if let Some(g) = GenericFamily::from_keyword(&words[0]) {
-                        out.push(FamilyEntry::Generic(g));
-                        if !after_entry(&mut chars)? {
-                            return Some(out);
-                        }
-                        continue;
+                if words.len() == 1
+                    && let Some(g) = GenericFamily::from_keyword(&words[0])
+                {
+                    out.push(FamilyEntry::Generic(g));
+                    if !after_entry(&mut chars)? {
+                        return Some(out);
                     }
+                    continue;
                 }
                 FamilyEntry::Named(words.join(" "))
             }

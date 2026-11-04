@@ -36,7 +36,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-14 · RT · done (#47) · (#47) Deadline enforcement: watchdog flag checked on every poll; expensive natives poll (indexOf, BigInt cap); flaky core tests; F2/F3 (v0.1 release blockers R4, R5)
 - P1-RT-15 · RT · done (#45) · (#45) Allocation-failure crash fixes in the vendored engine; full-coverage OOM sweep; docs stop over-claiming (v0.1 release blockers R6, R7, R8; details private)
 - P1-RT-15b · RT · done (#45) · #45 review blockers: sweep covers bind and Promise.any; nits
-- P1-RT-20 · RT · todo · quickjs-ng public issue drafts in docs/upstream/quickjs-ng/, one per finding, each with a reproducer on current master and a repro.sh Kay runs to verify (per quickjs-ng's security policy)
+- P1-RT-20 · RT · done (#90) · quickjs-ng public issue drafts in docs/upstream/quickjs-ng/, one per finding, each with a reproducer on current master and a repro.sh Kay runs to verify (per quickjs-ng's security policy)
 - P1-RT-19 · RT · done (#52) · macOS: the determinism test's own TZ probe read 1970, where macOS libc ignores POSIX-rule transitions; probe 2001 and run IANA zones
 - P1-RT-24 · RT · done (#57) · (#57) ASan: stack_available() reads a local on ASan's fake stack, so main's linux-extra-asan fails every sandbox test with "0 bytes of stack left" (since ccb6025)
 - P1-RT-25 · RT · done · Measure gem RSS/PSS after a concurrent burst and idle release (does CRuby's malloc_trim reclaim it?); decide on malloc_trim FFI in the engine-binding module; add the idle-release path to a soak; alternate OOM shapes in the 10k soak
@@ -124,10 +124,10 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-DOM-04 · DOM · done · #80 review nits: serializer keeps xlink:/xml:/xmlns: attribute prefixes; comment data gap (blitz 0.2.4) to COMPAT via CF; noscript raw-text comment; stack-squeeze regression test (JS recursion to the limit then a MAX_DEPTH append); trace the "ERROR: Unexpected token" stderr line in dom tests
 
 ### Reviewer
-- P1-REV-01 · REV · todo · Review every merge; pre-release checklist for v0.1
+- P1-REV-01 · REV · done (v0.1 pre-release review approved; every merge reviewed) · Review every merge; pre-release checklist for v0.1
 
 ### Checkpoint
-- P1-ORC-01 · ORC · todo · Checkpoint 2 package: 10 side-by-side fixtures, Grover table, hostile-script results, v0.1 release PR with dry-run
+- P1-ORC-01 · ORC · done (signed off 4 Nov) · Checkpoint 2 package: 10 side-by-side fixtures, Grover table, hostile-script results, v0.1 release PR with dry-run
 
 ### Follow-ups found on 4 Nov (main's nightly)
 - P1-DOM-05 · DOM · done · `wide_tree_drops_in_linear_time` hits the default 2 s time limit under ASan: scale the limit with SURIMONO_TEST_TIME_SCALE, like the other time-bound tests (asan job red on main since #80)
@@ -137,36 +137,43 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-38 · RT · done · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
 - P1-PKG-20 · PKG · done (#114) · Ruby 3.2 only: a signal to a main-thread render waits for the whole render when another Ruby thread exists (Ruby 3.2 starts no signal-pipe drainer then; measured 4.04 s vs 0.41 s). Fix A: short-lived pump thread during such renders on 3.2; deterministic test
 - P1-DX-06 · DX · done (#110, #113) · (#110) v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
-- P1-PKG-22 · PKG · todo · #114 nits: rescue inside the Ruby 3.2 signal pump; fall back to no pump if Thread.new raises ThreadError; name the pump before it first runs; mention the pump in ffi.rs unblock docs
-- P1-DX-08 · DX+CF · todo · README.md:25-27 and COMPAT.md still say the Grover benchmark has no results; cite the committed/CI bench (5.8× Ruby, 8.0× Rust PSS; 2.4× time) once bench/ has the report (with P1-CF-33)
-- P1-PKG-23 · PKG · todo · Nightly check of the Rust git-dependency + [patch] recipe; gemspec changelog_uri; drop redundant publish lines in dom/webidl
+- P1-PKG-22 · PKG · review (#115 approved) · #114 nits: rescue inside the Ruby 3.2 signal pump; fall back to no pump if Thread.new raises ThreadError; name the pump before it first runs; mention the pump in ffi.rs unblock docs
+- P1-DX-08 · DX+CF · review (#118 #119) · README.md:25-27 and COMPAT.md still say the Grover benchmark has no results; cite the committed/CI bench (5.8× Ruby, 8.0× Rust PSS; 2.4× time) once bench/ has the report (with P1-CF-33)
+- P1-PKG-23 · PKG · done (#116) · Nightly check of the Rust git-dependency + [patch] recipe; gemspec changelog_uri
+- P1-DOM-07 · DOM · todo · Drop the redundant publish lines in crates/dom and crates/webidl after the DOM stack lands
 - P1-DX-07 · DX · todo · After Kay tags v0.1.0: pin README, CHANGELOG and the Rust guide to tag = "v0.1.0" / git clone --branch v0.1.0 (main moves to phase 2)
 - P1-PKG-21 · PKG · todo · CLI users get no THIRD_PARTY_LICENSES.txt with cargo install: add a `surimono licenses` subcommand (embedded notices) or document where to get them
-- P1-PKG-18 · PKG · todo · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
-- P1-PKG-19 · PKG · todo · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
-- P1-CF-31 · CF · todo · COMPAT entries: Date.parse of non-ISO strings keeps the QuickJS port (V8 gives NaN for CET/CEST), style values not validated, no doctype node, template.content, Attr as a partial Node
+- P1-PKG-18 · PKG · done (#108) · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
+- P1-PKG-19 · PKG · doing (#109 blocked: fixtures.sh guard) · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
+- P1-CF-31 · CF · done (#103) · COMPAT entries: Date.parse of non-ISO strings keeps the QuickJS port (V8 gives NaN for CET/CEST), style values not validated, no doctype node, template.content, Attr as a partial Node
 - P1-GFX-07 · GFX · todo · crates/gfx/tests/chrome/*.mjs launch with channel 'chromium' so the preload can go
-- P1-RT-39 · RT · todo · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
+- P1-RT-39 · RT · done (#101) · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
 - P1-RT-40 · RT · done · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
-- P1-CF-33 · CF · todo · COMPAT.md memory note: target is now ≥5× PSS vs Grover (Kay, checkpoint 2); state the measured 5.8× Ruby / 8.0× Rust and fulgur's own ~8.7× floor
+- P1-CF-33 · CF · review (#119) · COMPAT.md memory note: target is now ≥5× PSS vs Grover (Kay, checkpoint 2); state the measured 5.8× Ruby / 8.0× Rust and fulgur's own ~8.7× floor
 - P1-RT-42 · RT · done (#111) · (#111) Main's linux-extra-asan: LeakSanitizer reports 1,108,992 bytes in 492 indirect leaks at exit of the surimono-core lib test binary (since at least 88cb0ee9); symbolize locally, find and fix
 - P1-RT-43 · RT · done (#112) · (#112) Main's test-macos-14 timing flakes: cancel.rs stops_a_microtask_flood (MemoryLimit before Cancelled), hostile.rs group_b_swallowed_interrupts_end; make robust without weakening
-- P1-RT-41 · RT · todo · #100 follow-up: first idle worker of a burst must not trim while others hold runtimes (reset last_trim_ms on 0→1 runtimes); #95 follow-ups: add_arg over the parameter limit gives a SyntaxError with a test, PATCHES.md wording, draft 07 reachability; HostPanic message truncated; doc lines from #102's review
-- P1-DOM-06 · DOM · todo · Guard every native in crates/dom with Deadline::guard and discards_state (#102 finding 1); required before DOM reaches the facade
-- P1-CF-32 · CF · todo · Alpine LICENSE.md in fixtures/real-world/lib once alpinejs/alpine is readable
+- P1-RT-41 · RT · done (#106) · #100 follow-up: first idle worker of a burst must not trim while others hold runtimes (reset last_trim_ms on 0→1 runtimes); #95 follow-ups: add_arg over the parameter limit gives a SyntaxError with a test, PATCHES.md wording, draft 07 reachability; HostPanic message truncated; doc lines from #102's review
+- P1-DOM-06 · DOM · done (#93) · Guard every native in crates/dom with Deadline::guard and discards_state (#102 finding 1); required before DOM reaches the facade
+- P1-CF-32 · CF · review (#120) · Alpine LICENSE.md in fixtures/real-world/lib once alpinejs/alpine is readable
 
 ## Phase 2: scripts (v0.2, checkpoint 3 on Sun 22 Nov ~11:00), epics
 
-> Internal scaffolding only until checkpoint 2 is signed off (DECISIONS 2026-11-04): nothing new in the facade, CLI or gem.
+> Checkpoint 2 is signed off; phase-2 public API may land once its task is reviewed.
+- P2-ORC-01 · ORC · review (#117) · MSRV 1.89: toolchain, rust-version, docs, clippy
+- P2-RT-02 · RT · review (#121) · a_burst_after_a_long_gap_trims_once flaky on GitHub (main red): deterministic test; two workers idling together could both trim
+- P2-RT-01 · RT · review (#122) · #99 review follow-ups: wait tokens unique across reset() (generation in the token, test), wording at event_loop.rs:63 and :49; PATCHES.md item 25 says the JS_MAX_LOCAL_VARS path wasn't run (now it was: SIGSEGV from JS on unpatched master); generator `{} = {}` variant of too_many_destructured_parameters_is_a_syntax_error; sandbox.rs:462 rewrap
+- P2-CF-01 · CF · review (#119) · COMPAT lines from #99: await sleep(0) vs Chrome 153, NUL and lone surrogate in string handlers, the "promise never settled" quote at COMPAT.md:126
+- P2-DX-01 · DX · review (#118) · Docs after #108: a cancel stops the running island (README:258, rust.md:195, islands.md:164, rails.md:331, surimono.rb:130 first-load caveat); CHANGELOG Unreleased: MSRV 1.89, cancel, Ruby 3.2 pump
 - E2-01 · DOM · todo · Bindings generated from WebIDL for DOM core, events, HTML elements in scope
 - E2-02 · DOM · doing · Id-based bindings to blitz-dom: nodes, attributes, tree mutation, serialization
 - E2-03 · RT · doing · (a merged #91; b: rAF frames grouped, external waits vs timers, classic-script string handlers) Event loop on a virtual clock: microtasks, timers fast-forwarded, settle rule (microtasks drained, no timer due in budget, fonts and images resolved)
 - E2-04 · DOM · todo · Events, MutationObserver, selectors, classList, dataset, template, URL, TextEncoder, console
 - E2-05 · DOM · todo · DOMParser (first to cut)
-- E2-06 · PKG · todo · Resource loader with allowlist, network off by default
+- E2-13 · DOM · todo · WPT wins after the stack: new Document(), document.implementation, iframes for selector/characterSet tests (decide scope), XML parser (decide), window.frames, MouseEvent, named access on Window, on* handlers, document.currentScript, document.body on frameset pages, style on SVG elements, error events for timer and microtask exceptions
+- E2-06 · PKG · todo · Resource loader with allowlist, network off by default. Caps its waits: at most 1,000 waits started and 10 s real time per render, then external_abandon_all, fail the rest without opening a wait, let the page settle; delivers completions in a fixed order (#99 review)
 - E2-07 · DOM · todo · Layout-query policy (zeros or throw)
-- E2-08 · PKG · todo · Output: serialized HTML, and the live Blitz document handed to fulgur behind a feature
-- E2-09 · CF · doing · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing
+- E2-08 · PKG · todo · Output: serialized HTML, and the live Blitz document handed to fulgur behind a feature. Screen style text set by scripts as inline SVG/style is screened; text moved out of <style> stays empty in blitz, so the live hand-off would lose it (#93, #94 reviews)
+- E2-09 · CF · doing · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing (first run #123: 73.5%, 18.8%, 10.8%, 13.5%; PKG job to publish wpt-results.json still needed)
 - E2-10 · CF · doing · Real-world suite: marked, highlight.js, KaTeX auto-render, Alpine.js (second to cut), D3 without measuring
 - E2-11 · PKG · todo · musl native gems (third to cut)
 - E2-12 · DX · todo · Rails guide for page scripts; checkpoint-3 checklist for Kay's own template

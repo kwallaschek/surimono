@@ -479,10 +479,10 @@ impl<'a> Walker<'a> {
                     .and_then(|(_, off)| off)
                     .map(|off| core.start + off..core.end)
             };
-            if let Some(f) = family {
-                if let Some(new) = family_value(self.cx.fonts, &self.s[f.clone()], self.cx.quote) {
-                    self.edits.push((f, new));
-                }
+            if let Some(f) = family
+                && let Some(new) = family_value(self.cx.fonts, &self.s[f.clone()], self.cx.quote)
+            {
+                self.edits.push((f, new));
             }
             return Ok(());
         }
