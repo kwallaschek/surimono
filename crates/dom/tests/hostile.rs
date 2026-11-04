@@ -587,9 +587,9 @@ fn wide_normalize_time(n: usize) -> Duration {
 /// eight times the time.
 #[test]
 fn wide_normalize_is_linear() {
-    let small = wide_normalize_time(6_250);
-    let large = wide_normalize_time(25_000);
-    assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
+    let small = wide_normalize_time(20_000);
+    let large = wide_normalize_time(80_000);
+    assert!(large < small * 8, "20,000: {small:?}; 80,000: {large:?}");
 }
 
 /// The largest run a page can have, under a short limit: done, or stopped by
