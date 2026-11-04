@@ -6,12 +6,16 @@
 //! blitz node ids with [`Document::node_of`]; a fatal error goes through
 //! [`Document::fail`] and reaches the script runner by `Document::fault`.
 
+use std::collections::HashSet;
+
 use blitz_dom::ns;
 use surimono_webidl::runtime::{BindingError, BindingResult, ObjectId, Value};
 use surimono_webidl::stubs as idl;
 
 use crate::dispatch::interface;
-use crate::document::{self, Handle, Kind};
+use blitz_dom::QualName;
+
+use crate::document::{self, Handle, Kind, ListKind, Object, Owned};
 use crate::tree::dom_error;
 use crate::{Document, DomError};
 
@@ -33,9 +37,258 @@ impl Document {
 
     /// The blitz node id behind a handle.
     pub(crate) fn node_of(&mut self, this: ObjectId) -> BindingResult<usize> {
+        match self.object_at(this)? {
+            Object::Node(id) => Ok(id),
+            // An `Attr` for a member of `Node` it has no answer to. The
+            // glue's brand check lets nothing else through.
+            _ => Err(BindingError::TypeError(
+                "the member isn't available on this object".to_owned(),
+            )),
+        }
+    }
+
+    fn object_at(&mut self, this: ObjectId) -> BindingResult<Object> {
         let generation = self.generation();
         let handle = Handle::try_from(this.0).unwrap_or(0);
-        self.resolve(generation, handle).map_err(|e| self.fail(e))
+        match self.resolve(generation, handle) {
+            Ok(o) => Ok(o.clone()),
+            Err(e) => Err(self.fail(e)),
+        }
+    }
+
+    /// `f` on the static list `this` is, if it is one, without copying it: a
+    /// loop over `list[i]` must not copy the list per item.
+    fn with_static_list<R>(
+        &mut self,
+        this: ObjectId,
+        f: impl FnOnce(&[usize]) -> R,
+    ) -> BindingResult<Option<R>> {
+        let generation = self.generation();
+        let handle = Handle::try_from(this.0).unwrap_or(0);
+        match self.resolve(generation, handle) {
+            Ok(Object::Static(nodes)) => Ok(Some(f(nodes))),
+            Ok(_) => Ok(None),
+            Err(e) => Err(self.fail(e)),
+        }
+    }
+
+    fn owner_of(&mut self, this: ObjectId) -> BindingResult<usize> {
+        match self.object_at(this)? {
+            Object::Tokens(n) | Object::Attributes(n) | Object::Dataset(n) => Ok(n),
+            _ => Err(BindingError::TypeError("wrong object".to_owned())),
+        }
+    }
+
+    fn owned_object(
+        &mut self,
+        owner: usize,
+        key: Owned,
+        make: impl FnOnce() -> Object,
+    ) -> BindingResult<ObjectId> {
+        match self.owned_handle(owner, key, make) {
+            Ok(h) => Ok(ObjectId(u64::from(h))),
+            Err(e) => Err(self.fail(e)),
+        }
+    }
+
+    fn live_list(&mut self, this: ObjectId, kind: ListKind) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        let make = kind.clone();
+        self.owned_object(id, Owned::List(kind), move || Object::Live(id, make))
+    }
+
+    fn attr_object(&mut self, element: usize, name: QualName) -> BindingResult<ObjectId> {
+        let make = name.clone();
+        self.owned_object(element, Owned::Attr(name), move || {
+            Object::Attr(element, make, None)
+        })
+    }
+
+    /// `(element, name, kept value)` of an `Attr`, or `None` for other
+    /// objects.
+    fn attr_at(
+        &mut self,
+        this: ObjectId,
+    ) -> BindingResult<Option<(usize, QualName, Option<String>)>> {
+        Ok(match self.object_at(this)? {
+            Object::Attr(e, n, kept) => Some((e, n, kept)),
+            _ => None,
+        })
+    }
+
+    fn attr_of(&mut self, this: ObjectId) -> BindingResult<(usize, QualName, Option<String>)> {
+        self.attr_at(this)?
+            .ok_or_else(|| BindingError::TypeError("not an Attr".to_owned()))
+    }
+
+    fn attr_value(&mut self, this: ObjectId) -> BindingResult<String> {
+        let (e, name, kept) = self.attr_of(this)?;
+        Ok(kept
+            .or_else(|| self.attribute_value(e, &name))
+            .unwrap_or_default())
+    }
+
+    /// Node of a list item: the `index`th of `this`, or `None`.
+    fn list_item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<usize>> {
+        let index = index as usize;
+        if let Some(n) = self.with_static_list(this, |nodes| nodes.get(index).copied())? {
+            return Ok(n);
+        }
+        let handle = Handle::try_from(this.0).unwrap_or(0);
+        Ok(match self.object_at(this)? {
+            Object::Live(owner, ListKind::ChildNodes) => self.children(owner).get(index).copied(),
+            Object::Live(owner, kind) => self.live_nodes(handle, owner, &kind)?.get(index).copied(),
+            _ => None,
+        })
+    }
+
+    fn list_length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        if let Some(n) = self.with_static_list(this, <[usize]>::len)? {
+            return Ok(u32::try_from(n).unwrap_or(u32::MAX));
+        }
+        let handle = Handle::try_from(this.0).unwrap_or(0);
+        let n = match self.object_at(this)? {
+            Object::Live(owner, ListKind::ChildNodes) => self.children(owner).len(),
+            Object::Live(owner, kind) => self.live_nodes(handle, owner, &kind)?.len(),
+            _ => 0,
+        };
+        Ok(u32::try_from(n).unwrap_or(u32::MAX))
+    }
+
+    fn query_all(&mut self, this: ObjectId, selectors: &str) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        let nodes = self.select(id, selectors, false)?;
+        match self.static_list(nodes) {
+            Ok(h) => Ok(ObjectId(u64::from(h))),
+            Err(e) => Err(self.fail(e)),
+        }
+    }
+
+    fn query_one(&mut self, this: ObjectId, selectors: &str) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let first = self.select(id, selectors, true)?.first().copied();
+        self.opt_object(first)
+    }
+
+    fn by_tag(&mut self, this: ObjectId, name: String) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::ByTag(name))
+    }
+
+    fn by_class(&mut self, this: ObjectId, names: String) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::ByClass(names))
+    }
+
+    /// `innerHTML` set: the parsed fragment replaces the children.
+    fn set_inner(&mut self, id: usize, html: &str) -> BindingResult<()> {
+        if let Some(frag) = self.parse_fragment_in(Some(id), id, html)? {
+            self.remove_all_children(id);
+            self.insert_parsed(id, frag, None);
+        }
+        Ok(())
+    }
+
+    /// Parses `html` into a fragment fit for `parent`, in the context of
+    /// `context`, or of a new `<body>` element if there is none.
+    fn parse_fragment_in(
+        &mut self,
+        context: Option<usize>,
+        parent: usize,
+        html: &str,
+    ) -> BindingResult<Option<usize>> {
+        let made = match context {
+            Some(_) => None,
+            None => Document::create_element(self, "body").map_err(|e| self.fail(e))?,
+        };
+        let parsed = match context.or(made) {
+            Some(c) => self
+                .parse_into_fragment(c, parent, html)
+                .map_err(|e| self.fail(e)),
+            None => Ok(None),
+        };
+        if let Some(m) = made {
+            self.drop_subtree(m);
+        }
+        parsed
+    }
+
+    /// The parse context for what goes under `id` in `outerHTML` and
+    /// `insertAdjacentHTML` (HTML §8.5): `id` unless it isn't an element.
+    fn parse_context(&self, id: usize) -> Option<usize> {
+        self.is_element(id).then_some(id)
+    }
+
+    /// The set of `class` tokens, in order; linear in their number.
+    fn tokens_of(&mut self, this: ObjectId) -> BindingResult<(usize, Vec<String>)> {
+        let id = self.owner_of(this)?;
+        let class = self.attribute(id, "class").unwrap_or_default();
+        let mut seen = HashSet::new();
+        let mut tokens: Vec<String> = Vec::new();
+        for t in class.split_ascii_whitespace() {
+            self.poll()?;
+            if seen.insert(t) {
+                tokens.push(t.to_owned());
+            }
+        }
+        Ok((id, tokens))
+    }
+
+    /// DOMTokenList "update steps" (DOM §7.1).
+    fn store_tokens(&mut self, id: usize, tokens: &[String]) -> BindingResult<()> {
+        if tokens.is_empty() && self.attribute(id, "class").is_none() {
+            return Ok(());
+        }
+        Document::set_attribute(self, id, "class", &tokens.join(" ")).map_err(|e| self.fail(e))
+    }
+
+    /// `data-` attribute name for dataset property `name` (HTML §3.2.6),
+    /// or `None` if `name` has a hyphen before a lower-case letter.
+    fn dataset_attribute(name: &str) -> Option<String> {
+        let mut out = String::from("data-");
+        let mut chars = name.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '-' && chars.peek().is_some_and(char::is_ascii_lowercase) {
+                return None;
+            }
+            if c.is_ascii_uppercase() {
+                out.push('-');
+                out.push(c.to_ascii_lowercase());
+            } else {
+                out.push(c);
+            }
+        }
+        Some(out)
+    }
+
+    /// A dataset's property for a `data-` attribute name, or `None` if it
+    /// isn't one (HTML §3.2.6).
+    fn dataset_property(attribute: &str) -> Option<String> {
+        let rest = attribute.strip_prefix("data-")?;
+        if rest.bytes().any(|b| b.is_ascii_uppercase()) {
+            return None;
+        }
+        let mut out = String::with_capacity(rest.len());
+        let mut chars = rest.chars().peekable();
+        while let Some(c) = chars.next() {
+            match chars.peek() {
+                Some(n) if c == '-' && n.is_ascii_lowercase() => {
+                    out.push(n.to_ascii_uppercase());
+                    chars.next();
+                }
+                _ => out.push(c),
+            }
+        }
+        Some(out)
+    }
+
+    /// The getter of a legacy platform object with an anonymous named
+    /// getter (`DOMStringMap`): `None` for no such property.
+    pub(crate) fn named_value(
+        &mut self,
+        this: ObjectId,
+        name: String,
+    ) -> BindingResult<Option<String>> {
+        let id = self.owner_of(this)?;
+        Ok(Document::dataset_attribute(&name).and_then(|a| self.attribute(id, &a)))
     }
 
     pub(crate) fn object(&mut self, id: usize) -> BindingResult<ObjectId> {
@@ -125,7 +378,17 @@ impl Document {
 
     /// Operation 0: the handle's concrete interface, for `wrap`.
     pub(crate) fn interface_of(&mut self, this: ObjectId) -> BindingResult<u32> {
-        let id = self.node_of(this)?;
+        let id = match self.object_at(this)? {
+            Object::Node(id) => id,
+            Object::Static(_) | Object::Live(_, ListKind::ChildNodes) => {
+                return Ok(interface::NODE_LIST);
+            }
+            Object::Live(..) => return Ok(interface::HTML_COLLECTION),
+            Object::Tokens(_) => return Ok(interface::DOM_TOKEN_LIST),
+            Object::Attributes(_) => return Ok(interface::NAMED_NODE_MAP),
+            Object::Dataset(_) => return Ok(interface::DOM_STRING_MAP),
+            Object::Attr(..) => return Ok(interface::ATTR),
+        };
         Ok(match self.kind(id) {
             Some(Kind::Document) => interface::DOCUMENT,
             Some(Kind::DocumentFragment) => interface::DOCUMENT_FRAGMENT,
@@ -141,8 +404,53 @@ impl Document {
     }
 
     /// Operation 1: an exotic object's supported property names.
-    pub(crate) fn supported_names(&mut self, _this: ObjectId) -> BindingResult<String> {
-        Ok(String::new())
+    pub(crate) fn supported_names(&mut self, this: ObjectId) -> BindingResult<String> {
+        let names: Vec<String> = match self.object_at(this)? {
+            Object::Attributes(id) => {
+                // WebIDL: HTML elements in an HTML document hide names they
+                // couldn't look up (DOM §4.9.1).
+                let html = self.element_name(id).is_some_and(|n| n.ns == ns!(html));
+                self.attribute_names(id)
+                    .into_iter()
+                    .filter(|n| !html || !n.bytes().any(|b| b.is_ascii_uppercase()))
+                    .collect()
+            }
+            Object::Dataset(id) => self
+                .attribute_names(id)
+                .iter()
+                .filter_map(|a| Document::dataset_property(a))
+                .collect(),
+            Object::Live(owner, kind) if kind != ListKind::ChildNodes => {
+                let handle = Handle::try_from(this.0).unwrap_or(0);
+                let nodes = self.live_nodes(handle, owner, &kind)?.to_vec();
+                let mut out: Vec<String> = Vec::new();
+                for n in nodes {
+                    self.poll()?;
+                    let html = self.element_name(n).is_some_and(|q| q.ns == ns!(html));
+                    let name = html.then(|| self.attribute(n, "name")).flatten();
+                    out.extend(self.attribute(n, "id"));
+                    out.extend(name);
+                }
+                out.retain(|v| !v.is_empty());
+                out
+            }
+            _ => Vec::new(),
+        };
+        // Each name ends in a newline, so one empty name (a sole `data-`)
+        // isn't an empty list; `nameList` in the glue splits it. A name with
+        // a newline (an `id` can have one) is left out: it can't be looked
+        // up by a page that follows the spec's "no whitespace in IDs" anyway.
+        // Ordered sets: duplicates would make a proxy's `ownKeys` throw.
+        let mut seen = HashSet::new();
+        let mut out = String::new();
+        for name in &names {
+            self.poll()?;
+            if !name.contains('\n') && seen.insert(name.as_str()) {
+                out.push_str(name);
+                out.push('\n');
+            }
+        }
+        Ok(out)
     }
 }
 
@@ -150,6 +458,9 @@ impl idl::EventTarget for Document {}
 
 impl idl::Node for Document {
     fn node_type(&mut self, this: ObjectId) -> BindingResult<u16> {
+        if self.attr_at(this)?.is_some() {
+            return Ok(2);
+        }
         let id = self.node_of(this)?;
         // `kind` is None only for layout boxes, which no tree link reaches
         // before layout; report them as plain nodes.
@@ -157,6 +468,9 @@ impl idl::Node for Document {
     }
 
     fn node_name(&mut self, this: ObjectId) -> BindingResult<String> {
+        if let Some((_, name, _)) = self.attr_at(this)? {
+            return Ok(document::qualified_name(&name));
+        }
         let id = self.node_of(this)?;
         Ok(Document::node_name(self, id))
     }
@@ -173,6 +487,9 @@ impl idl::Node for Document {
     }
 
     fn parent_node(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        if self.attr_at(this)?.is_some() {
+            return Ok(None);
+        }
         let id = self.node_of(this)?;
         let p = self.parent(id);
         self.opt_object(p)
@@ -214,6 +531,9 @@ impl idl::Node for Document {
     }
 
     fn node_value(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        if self.attr_at(this)?.is_some() {
+            return self.attr_value(this).map(Some);
+        }
         let id = self.node_of(this)?;
         Ok(match self.kind(id) {
             Some(Kind::Text | Kind::Comment) => Document::text_content(self, id),
@@ -231,6 +551,9 @@ impl idl::Node for Document {
     }
 
     fn text_content(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        if self.attr_at(this)?.is_some() {
+            return self.attr_value(this).map(Some);
+        }
         let id = self.node_of(this)?;
         Ok(Document::text_content(self, id))
     }
@@ -238,6 +561,10 @@ impl idl::Node for Document {
     fn set_text_content(&mut self, this: ObjectId, value: Option<String>) -> BindingResult<()> {
         let id = self.node_of(this)?;
         Document::set_text_content(self, id, &value.unwrap_or_default()).map_err(|e| self.fail(e))
+    }
+
+    fn child_nodes(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::ChildNodes)
     }
 
     fn get_root_node(&mut self, this: ObjectId, _options: Value) -> BindingResult<ObjectId> {
@@ -378,6 +705,145 @@ impl idl::Element for Document {
 
     fn set_class_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         self.reflect(this, "class", &value)
+    }
+
+    fn class_list(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        self.owned_object(id, Owned::Tokens, move || Object::Tokens(id))
+    }
+
+    fn attributes(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        self.owned_object(id, Owned::Attributes, move || Object::Attributes(id))
+    }
+
+    fn get_attribute_names(&mut self, this: ObjectId) -> BindingResult<Vec<String>> {
+        let id = self.node_of(this)?;
+        Ok(self.attribute_names(id))
+    }
+
+    fn closest(&mut self, this: ObjectId, selectors: String) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let found = self.closest_match(id, &selectors)?;
+        self.opt_object(found)
+    }
+
+    fn matches(&mut self, this: ObjectId, selectors: String) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        self.element_matches(id, &selectors)
+    }
+
+    fn get_elements_by_tag_name(
+        &mut self,
+        this: ObjectId,
+        qualified_name: String,
+    ) -> BindingResult<ObjectId> {
+        self.by_tag(this, qualified_name)
+    }
+
+    fn get_elements_by_class_name(
+        &mut self,
+        this: ObjectId,
+        class_names: String,
+    ) -> BindingResult<ObjectId> {
+        self.by_class(this, class_names)
+    }
+
+    fn query_selector(
+        &mut self,
+        this: ObjectId,
+        selectors: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        self.query_one(this, &selectors)
+    }
+
+    fn query_selector_all(&mut self, this: ObjectId, selectors: String) -> BindingResult<ObjectId> {
+        self.query_all(this, &selectors)
+    }
+
+    fn inner_html(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let id = self.node_of(this)?;
+        Ok(Value::String(Document::inner_html(self, id)))
+    }
+
+    fn set_inner_html(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.set_inner(id, &value_string(value))
+    }
+
+    fn outer_html(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let id = self.node_of(this)?;
+        Ok(Value::String(Document::outer_html(self, id)))
+    }
+
+    fn set_outer_html(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        // HTML §8.5: no parent, nothing; the document, an error.
+        let Some(parent) = self.parent(id) else {
+            return Ok(());
+        };
+        if self.kind(parent) == Some(Kind::Document) {
+            return Err(dom_error(
+                "NoModificationAllowedError",
+                "outerHTML: the element's parent is the document",
+            ));
+        }
+        let context = self.parse_context(parent);
+        if let Some(frag) = self.parse_fragment_in(context, parent, &value_string(value))? {
+            let next = self.sibling(id, true);
+            self.detach(id);
+            self.insert_parsed(parent, frag, next);
+        }
+        Ok(())
+    }
+
+    fn insert_adjacent_html(
+        &mut self,
+        this: ObjectId,
+        position: String,
+        string: Value,
+    ) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        let place = position.to_ascii_lowercase();
+        let (parent, before) = match place.as_str() {
+            "beforebegin" | "afterend" => {
+                // HTML §8.5: the context must be a parent that isn't the
+                // document.
+                let parent = self
+                    .parent(id)
+                    .filter(|&p| self.kind(p) != Some(Kind::Document))
+                    .ok_or_else(|| {
+                        dom_error(
+                            "NoModificationAllowedError",
+                            "insertAdjacentHTML: the element has no parent to insert into",
+                        )
+                    })?;
+                let before = if place == "beforebegin" {
+                    Some(id)
+                } else {
+                    self.sibling(id, true)
+                };
+                (parent, before)
+            }
+            "afterbegin" => (id, Document::children(self, id).first().copied()),
+            "beforeend" => (id, None),
+            _ => {
+                return Err(dom_error(
+                    "SyntaxError",
+                    "the position must be beforebegin, afterbegin, beforeend or afterend",
+                ));
+            }
+        };
+        // HTML §8.5: the `html` element is no context either, or the parser
+        // would start before the head and add a second head and body.
+        let is_root_element = self
+            .element_name(parent)
+            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "html");
+        let context = self.parse_context(parent).filter(|_| !is_root_element);
+        if let Some(frag) = self.parse_fragment_in(context, parent, &value_string(string))? {
+            self.insert_parsed(parent, frag, before);
+        }
+        Ok(())
     }
 
     fn has_attributes(&mut self, this: ObjectId) -> BindingResult<bool> {
@@ -555,6 +1021,10 @@ impl idl::Element for Document {
         Ok(want)
     }
 
+    fn children(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Children)
+    }
+
     fn first_element_child(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
         self.first_element_child_of(this)
     }
@@ -591,6 +1061,11 @@ impl idl::HTMLElement for Document {
 
     fn set_lang(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         self.reflect(this, "lang", &value)
+    }
+
+    fn dataset(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        self.owned_object(id, Owned::Dataset, move || Object::Dataset(id))
     }
 }
 
@@ -635,6 +1110,34 @@ impl idl::Document for Document {
         let root = self.root();
         let e = self.element_by_id(root, &element_id);
         self.opt_object(e)
+    }
+
+    fn query_selector(
+        &mut self,
+        this: ObjectId,
+        selectors: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        self.query_one(this, &selectors)
+    }
+
+    fn query_selector_all(&mut self, this: ObjectId, selectors: String) -> BindingResult<ObjectId> {
+        self.query_all(this, &selectors)
+    }
+
+    fn get_elements_by_tag_name(
+        &mut self,
+        this: ObjectId,
+        qualified_name: String,
+    ) -> BindingResult<ObjectId> {
+        self.by_tag(this, qualified_name)
+    }
+
+    fn get_elements_by_class_name(
+        &mut self,
+        this: ObjectId,
+        class_names: String,
+    ) -> BindingResult<ObjectId> {
+        self.by_class(this, class_names)
     }
 
     fn create_element_ns(
@@ -709,6 +1212,10 @@ impl idl::Document for Document {
         self.created(r)
     }
 
+    fn children(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Children)
+    }
+
     fn first_element_child(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
         self.first_element_child_of(this)
     }
@@ -728,6 +1235,18 @@ impl idl::DocumentFragment for Document {
         self.created(r)
     }
 
+    fn query_selector(
+        &mut self,
+        this: ObjectId,
+        selectors: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        self.query_one(this, &selectors)
+    }
+
+    fn query_selector_all(&mut self, this: ObjectId, selectors: String) -> BindingResult<ObjectId> {
+        self.query_all(this, &selectors)
+    }
+
     fn get_element_by_id(
         &mut self,
         this: ObjectId,
@@ -736,6 +1255,10 @@ impl idl::DocumentFragment for Document {
         let id = self.node_of(this)?;
         let e = self.element_by_id(id, &element_id);
         self.opt_object(e)
+    }
+
+    fn children(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Children)
     }
 
     fn first_element_child(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
@@ -866,5 +1389,308 @@ impl idl::Comment for Document {
     fn constructor(&mut self, data: String) -> BindingResult<ObjectId> {
         let r = Document::create_comment(self, &data);
         self.created(r)
+    }
+}
+
+impl idl::Attr for Document {
+    fn namespace_uri(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let (_, name, _) = self.attr_of(this)?;
+        Ok(Some(name.ns.to_string()).filter(|n| !n.is_empty()))
+    }
+
+    fn prefix(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let (_, name, _) = self.attr_of(this)?;
+        Ok(name.prefix.map(|p| p.to_string()))
+    }
+
+    fn local_name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let (_, name, _) = self.attr_of(this)?;
+        Ok(name.local.to_string())
+    }
+
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let (_, name, _) = self.attr_of(this)?;
+        Ok(document::qualified_name(&name))
+    }
+
+    fn value(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.attr_value(this)
+    }
+
+    fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let (e, name, kept) = self.attr_of(this)?;
+        let written = if kept.is_some() {
+            let handle = Handle::try_from(this.0).unwrap_or(0);
+            self.set_kept_value(handle, value)
+        } else {
+            self.write_attribute(e, name, &value)
+        };
+        written.map_err(|e| self.fail(e))
+    }
+
+    fn owner_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let (e, _, kept) = self.attr_of(this)?;
+        self.opt_object(kept.is_none().then_some(e))
+    }
+
+    fn specified(&mut self, _this: ObjectId) -> BindingResult<bool> {
+        Ok(true)
+    }
+}
+
+impl idl::NodeList for Document {
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<ObjectId>> {
+        let n = self.list_item(this, index)?;
+        self.opt_object(n)
+    }
+
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        self.list_length(this)
+    }
+}
+
+impl idl::HTMLCollection for Document {
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        self.list_length(this)
+    }
+
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<ObjectId>> {
+        let n = self.list_item(this, index)?;
+        self.opt_object(n)
+    }
+
+    fn named_item(&mut self, this: ObjectId, name: String) -> BindingResult<Option<ObjectId>> {
+        // DOM §4.2.10.2: the first element with this ID, or an HTML element
+        // with this name; the empty string names nothing.
+        if name.is_empty() {
+            return Ok(None);
+        }
+        let handle = Handle::try_from(this.0).unwrap_or(0);
+        let Object::Live(owner, kind) = self.object_at(this)? else {
+            return Ok(None);
+        };
+        let nodes = self.live_nodes(handle, owner, &kind)?.to_vec();
+        for n in nodes {
+            self.poll()?;
+            if self.attribute(n, "id").as_deref() == Some(name.as_str())
+                || (self.element_name(n).is_some_and(|q| q.ns == ns!(html))
+                    && self.attribute(n, "name").as_deref() == Some(name.as_str()))
+            {
+                return self.opt_object(Some(n));
+            }
+        }
+        Ok(None)
+    }
+}
+
+impl idl::NamedNodeMap for Document {
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let id = self.owner_of(this)?;
+        Ok(u32::try_from(self.attribute_count(id)).unwrap_or(u32::MAX))
+    }
+
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<ObjectId>> {
+        let id = self.owner_of(this)?;
+        self.attribute_name_at(id, index as usize)
+            .map(|n| self.attr_object(id, n))
+            .transpose()
+    }
+
+    fn get_named_item(
+        &mut self,
+        this: ObjectId,
+        qualified_name: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.owner_of(this)?;
+        self.attribute_named(id, &qualified_name)
+            .map(|n| self.attr_object(id, n))
+            .transpose()
+    }
+
+    fn get_named_item_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.owner_of(this)?;
+        self.attribute_ns(id, &namespace.unwrap_or_default(), &local_name)
+            .map(|n| self.attr_object(id, n))
+            .transpose()
+    }
+
+    fn remove_named_item(
+        &mut self,
+        this: ObjectId,
+        qualified_name: String,
+    ) -> BindingResult<ObjectId> {
+        let id = self.owner_of(this)?;
+        let Some(name) = self.attribute_named(id, &qualified_name) else {
+            return Err(dom_error("NotFoundError", "no such attribute"));
+        };
+        let attr = self.attr_object(id, name.clone())?;
+        self.clear_attribute(id, name);
+        Ok(attr)
+    }
+
+    fn remove_named_item_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<ObjectId> {
+        let id = self.owner_of(this)?;
+        let Some(name) = self.attribute_ns(id, &namespace.unwrap_or_default(), &local_name) else {
+            return Err(dom_error("NotFoundError", "no such attribute"));
+        };
+        let attr = self.attr_object(id, name.clone())?;
+        self.clear_attribute(id, name);
+        Ok(attr)
+    }
+}
+
+/// DOM §7.1: a token must be non-empty and hold no ASCII whitespace.
+fn check_token(token: &str) -> BindingResult<()> {
+    if token.is_empty() {
+        return Err(dom_error("SyntaxError", "the token is empty"));
+    }
+    if token.contains(['\t', '\n', '\u{c}', '\r', ' ']) {
+        return Err(dom_error(
+            "InvalidCharacterError",
+            "the token contains whitespace",
+        ));
+    }
+    Ok(())
+}
+
+impl idl::DOMTokenList for Document {
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let (_, tokens) = self.tokens_of(this)?;
+        Ok(u32::try_from(tokens.len()).unwrap_or(u32::MAX))
+    }
+
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<String>> {
+        let (_, mut tokens) = self.tokens_of(this)?;
+        let i = index as usize;
+        Ok((i < tokens.len()).then(|| tokens.swap_remove(i)))
+    }
+
+    fn contains(&mut self, this: ObjectId, token: String) -> BindingResult<bool> {
+        let (_, tokens) = self.tokens_of(this)?;
+        Ok(tokens.contains(&token))
+    }
+
+    fn add(&mut self, this: ObjectId, tokens: Vec<String>) -> BindingResult<()> {
+        for t in &tokens {
+            check_token(t)?;
+        }
+        let (id, mut list) = self.tokens_of(this)?;
+        let mut seen: HashSet<String> = list.iter().cloned().collect();
+        for t in tokens {
+            self.poll()?;
+            if seen.insert(t.clone()) {
+                list.push(t);
+            }
+        }
+        self.store_tokens(id, &list)
+    }
+
+    fn remove(&mut self, this: ObjectId, tokens: Vec<String>) -> BindingResult<()> {
+        for t in &tokens {
+            check_token(t)?;
+        }
+        let (id, mut list) = self.tokens_of(this)?;
+        let gone: HashSet<&String> = tokens.iter().collect();
+        list.retain(|t| !gone.contains(t));
+        self.store_tokens(id, &list)
+    }
+
+    fn toggle(
+        &mut self,
+        this: ObjectId,
+        token: String,
+        force: Option<bool>,
+    ) -> BindingResult<bool> {
+        check_token(&token)?;
+        let (id, mut list) = self.tokens_of(this)?;
+        if list.contains(&token) {
+            if force == Some(true) {
+                return Ok(true);
+            }
+            list.retain(|t| *t != token);
+            self.store_tokens(id, &list)?;
+            return Ok(false);
+        }
+        if force == Some(false) {
+            return Ok(false);
+        }
+        list.push(token);
+        self.store_tokens(id, &list)?;
+        Ok(true)
+    }
+
+    fn replace(&mut self, this: ObjectId, token: String, new_token: String) -> BindingResult<bool> {
+        check_token(&token)?;
+        check_token(&new_token)?;
+        let (id, mut list) = self.tokens_of(this)?;
+        let Some(at) = list.iter().position(|t| *t == token) else {
+            return Ok(false);
+        };
+        // DOM "ordered set replace": first of the two keeps the place.
+        let other = list.iter().position(|t| *t == new_token);
+        list[at] = new_token.clone();
+        if let Some(o) = other.filter(|&o| o != at) {
+            let keep = at.min(o);
+            let drop = at.max(o);
+            list[keep] = new_token;
+            list.remove(drop);
+        }
+        self.store_tokens(id, &list)?;
+        Ok(true)
+    }
+
+    fn supports(&mut self, _this: ObjectId, _token: String) -> BindingResult<bool> {
+        // `class` has no supported tokens (DOM §7.1).
+        Err(BindingError::TypeError(
+            "classList has no supported tokens".to_owned(),
+        ))
+    }
+
+    fn value(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.owner_of(this)?;
+        Ok(self.attribute(id, "class").unwrap_or_default())
+    }
+
+    fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let id = self.owner_of(this)?;
+        Document::set_attribute(self, id, "class", &value).map_err(|e| self.fail(e))
+    }
+}
+
+impl idl::DOMStringMap for Document {
+    fn named_setter(&mut self, this: ObjectId, name: String, value: String) -> BindingResult<()> {
+        let id = self.owner_of(this)?;
+        // HTML §3.2.6 "set a value".
+        let Some(attribute) = Document::dataset_attribute(&name) else {
+            return Err(dom_error(
+                "SyntaxError",
+                "dataset: a hyphen can't come before a lower-case letter",
+            ));
+        };
+        if !document::is_valid_attribute_name(&attribute) {
+            return Err(dom_error(
+                "InvalidCharacterError",
+                "dataset: the name is not a valid attribute name",
+            ));
+        }
+        Document::set_attribute(self, id, &attribute, &value).map_err(|e| self.fail(e))
+    }
+
+    fn named_deleter(&mut self, this: ObjectId, name: String) -> BindingResult<()> {
+        let id = self.owner_of(this)?;
+        if let Some(attribute) = Document::dataset_attribute(&name) {
+            Document::remove_attribute(self, id, &attribute);
+        }
+        Ok(())
     }
 }

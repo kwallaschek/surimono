@@ -74,6 +74,7 @@ const VALUES: &[&str] = &[
     "@import url(\"http://[\") print;",
     "@\\69mport 'http://[';",
     "<b>",
+    "</style><style>@import 'http://[';",
     "\u{fffd}",
 ];
 
@@ -125,7 +126,7 @@ fn operation(r: &mut Rng) -> String {
     let tag = quoted(r.pick(TAGS));
     let attr = quoted(r.pick(ATTRS));
     let value = quoted(r.pick(VALUES));
-    let body = match r.below(26) {
+    let body = match r.below(36) {
         0 => format!("keep(document.createElement({tag}))"),
         1 => format!("keep(document.createTextNode({value}))"),
         2 => format!("keep(document.createComment({value}))"),
@@ -153,6 +154,27 @@ fn operation(r: &mut Rng) -> String {
         24 => format!(
             "const f = keep(document.createDocumentFragment()); f.append(at({a}), {value}); at({b}).appendChild(f)"
         ),
+        25 => format!("at({a}).innerHTML = {value} + '<style>' + {value} + '</style><b>x</b>'"),
+        26 if a % 4 == 0 => {
+            format!("at({a}).innerHTML = '<body>' + {value} + '</body><frameset></frameset>'")
+        }
+        26 => format!("at({a}).outerHTML = '<i>' + {value} + '</i>'"),
+        27 => format!(
+            "small({a}).insertAdjacentHTML('beforeend', '<svg><style>' + {value} + '</style></svg>')"
+        ),
+        28 => format!("at({a}).classList.toggle({attr}); at({b}).classList.add({attr})"),
+        29 => format!("at({a}).dataset[{attr}] = {value}; delete at({b}).dataset[{attr}]"),
+        30 => format!(
+            "keep(at({a}).childNodes[0]); keep(at({b}).children[0]); keep(at({a}).attributes[0])"
+        ),
+        31 => format!(
+            "document.querySelectorAll('style, link, :empty').forEach(keep); keep(at({a}).closest('div'))"
+        ),
+        32 => format!("const m = at({a}).attributes; m.removeNamedItem({attr})"),
+        33 => format!(
+            "[at({a}).innerHTML, at({b}).outerHTML, document.getElementsByTagName({tag}).length]"
+        ),
+        34 => format!("at({a}).getElementsByClassName({value})[0]; at({b}).children.length"),
         // Reads: every node type, whatever state it reached.
         _ => format!(
             "[at({a}).textContent, at({b}).nodeName, at({c}).isConnected, document.getElementById({value})]"

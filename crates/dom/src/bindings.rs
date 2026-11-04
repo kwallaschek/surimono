@@ -17,7 +17,7 @@ fn bad(i: usize) -> BindingError {
     BindingError::TypeError(format!("argument {i} has the wrong type"))
 }
 
-// Not every accessor has a generated caller yet.
+// The accessors follow the types in the IDL; not all have callers yet.
 #[allow(dead_code)]
 impl<'js> Args<'js> {
     pub(crate) fn new(values: Vec<Value<'js>>) -> Self {
@@ -191,6 +191,13 @@ impl From<ObjectId> for Ret {
 impl From<Option<ObjectId>> for Ret {
     fn from(id: Option<ObjectId>) -> Self {
         Ret::Number(id.map_or(0.0, |i| i.0 as f64))
+    }
+}
+
+impl From<Vec<String>> for Ret {
+    /// `sequence<DOMString>`: names, newline-joined for `nameArray`.
+    fn from(names: Vec<String>) -> Self {
+        Ret::Str(names.join("\n"))
     }
 }
 

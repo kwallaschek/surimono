@@ -25,6 +25,15 @@
   const defineProperty = Object.defineProperty;
   const setPrototypeOf = Object.setPrototypeOf;
   const apply = Reflect.apply;
+  const rget = Reflect.get, rset = Reflect.set, rhas = Reflect.has, rdelete = Reflect.deleteProperty;
+  const rownKeys = Reflect.ownKeys, rdefine = Reflect.defineProperty;
+  const rdescriptor = Reflect.getOwnPropertyDescriptor;
+  const ProxyCtor = Proxy;
+  const indexOf = String.prototype.indexOf, slice = String.prototype.slice;
+  const arrayProto = Array.prototype;
+  const arrayForEach = arrayProto.forEach, arrayKeys = arrayProto.keys;
+  const arrayValues = arrayProto.values, arrayEntries = arrayProto.entries;
+  const symbolIterator = Symbol.iterator;
   const toWellFormed = String.prototype.toWellFormed;
   const TE = TypeError;
   const symbolTag = Symbol.toStringTag;
@@ -42,6 +51,8 @@
 
   // Interface objects, prototypes and brand masks by interface number.
   const ctors = create(null), protos = create(null), masks = create(null), names = create(null);
+  // Proxy handlers of legacy platform objects, by interface number.
+  const exotics = create(null);
 
   // Same node, same wrapper (DOM identity), within one document generation.
   let cacheGeneration = -1;
@@ -56,6 +67,10 @@
       const s = create(null);
       s.g = g; s.h = h; s.m = masks[i];
       w = new Brand(create(protos[i]), s);
+      const handler = exotics[i];
+      // Both the target (for the traps) and the proxy (for members) carry
+      // the record; private fields don't go through proxy traps.
+      if (handler !== undefined) w = new Brand(new ProxyCtor(w, handler), s);
       cache[h] = w;
     }
     return w;
@@ -100,6 +115,30 @@
     return apply(call, undefined, l);
   }
 
+  // Splits a newline-joined list, or one with a newline after every name
+  // (where a name may be empty), without an array's setters: names can't
+  // contain a newline. `defineProperty` with a null-prototype descriptor
+  // reads nothing a script can have changed.
+  function nameList(joined, each) {
+    let at = 0;
+    while (at < joined.length) {
+      let end = apply(indexOf, joined, ['\n', at]);
+      if (end < 0) end = joined.length;
+      each(apply(slice, joined, [at, end]));
+      at = end + 1;
+    }
+  }
+  function nameArray(joined) {
+    const out = [];
+    let n = 0;
+    nameList(joined, (name) => {
+      const d = create(null);
+      d.value = name; d.writable = true; d.enumerable = true; d.configurable = true;
+      defineProperty(out, n++, d);
+    });
+    return out;
+  }
+
   // WebIDL §3.7.1: a subclass's instance gets the subclass's prototype.
   function adopt(w, target, id) {
     if (target !== ctors[id]) {
@@ -132,5 +171,119 @@
   }
   function op(id, name, f) {
     defineProperty(protos[id], name, { value: f, writable: true, enumerable: true, configurable: true });
+  }
+  function iterable(id) {
+    const p = protos[id];
+    op(id, 'forEach', arrayForEach);
+    op(id, 'keys', arrayKeys);
+    op(id, 'values', arrayValues);
+    op(id, 'entries', arrayEntries);
+    defineProperty(p, symbolIterator, { value: arrayValues, writable: true, configurable: true });
+  }
+  function stringifier(id, name) {
+    op(id, 'toString', function toString() { self(this, id); return this[name]; });
+  }
+
+  // The array index a property key spells, or -1.
+  function indexKey(k) {
+    if (typeof k !== 'string') return -1;
+    const n = k >>> 0;
+    return `${n}` === k && n !== 4294967295 ? n : -1;
+  }
+
+  // WebIDL §3.9 legacy platform objects: indexed and named properties in
+  // terms of the operations in `x` (operation numbers). Traps read the
+  // record off the target, which scripts never see.
+  function exotic(id, x) {
+    const ops = create(null);
+    for (const k in x) ops[k] = x[k];
+    // WebIDL §3.7.8: an interface with an indexed getter gets @@iterator,
+    // with or without `iterable<>`'s other members.
+    if (ops.item !== undefined) {
+      defineProperty(protos[id], symbolIterator, { value: arrayValues, writable: true, configurable: true });
+    }
+    const length = (s) => call(ops.length, s.g, s.h);
+    const itemAt = (s, i) => {
+      const r = call(ops.item, s.g, s.h, i);
+      return ops.itemWraps ? wrap(s.g, r) : r;
+    };
+    const named = (s, t, k) => {
+      if (typeof k !== 'string' || ops.named === undefined) return undefined;
+      if (!ops.overrides && rhas(t, k)) return undefined;
+      const r = call(ops.named, s.g, s.h, str(k));
+      if (r === null || r === undefined) return undefined;
+      return ops.namedWraps ? wrap(s.g, r) ?? undefined : r;
+    };
+    // The property's value, or undefined if the object doesn't supply it.
+    const indexed = (k) => ops.item !== undefined && indexKey(k) >= 0;
+    const lookup = (t, k) => {
+      const s = stateOf(t);
+      if (indexed(k)) { const i = indexKey(k); return i < length(s) ? itemAt(s, i) : undefined; }
+      return named(s, t, k);
+    };
+    // WebIDL §3.9 "named property visibility": own properties hide a name,
+    // and so does the prototype chain, without [LegacyOverrideBuiltIns].
+    const visible = (t, k) => (ops.overrides ? rdescriptor(t, k) === undefined : !rhas(t, k));
+    const h = create(null);
+    h.get = function (t, k, r) { const v = lookup(t, k); return v !== undefined ? v : rget(t, k, r); };
+    h.has = function (t, k) { return lookup(t, k) !== undefined || rhas(t, k); };
+    h.getOwnPropertyDescriptor = function (t, k) {
+      const v = lookup(t, k);
+      if (v === undefined) return rdescriptor(t, k);
+      const d = create(null);
+      d.value = v; d.configurable = true;
+      d.writable = !indexed(k) && ops.set !== undefined;
+      d.enumerable = indexed(k) || !ops.unenumerable;
+      return d;
+    };
+    h.set = function (t, k, v, r) {
+      // WebIDL §3.9.2: only when the object itself is the receiver, not
+      // something that inherits from it.
+      const s = stateOf(t);
+      if (stateOf(r) !== s) return rset(t, k, v, r);
+      if (indexed(k)) return false;
+      if (typeof k === 'string' && ops.set !== undefined && (ops.overrides || !rhas(t, k))) {
+        call(ops.set, s.g, s.h, str(k), str(v));
+        return true;
+      }
+      return rset(t, k, v, r);
+    };
+    h.defineProperty = function (t, k, d) {
+      if (indexed(k)) return false;
+      if (typeof k === 'string' && ops.set !== undefined && (ops.overrides || !rhas(t, k))) {
+        const s = stateOf(t);
+        call(ops.set, s.g, s.h, str(k), str(d.value));
+        return true;
+      }
+      return rdefine(t, k, d);
+    };
+    h.deleteProperty = function (t, k) {
+      const present = lookup(t, k) !== undefined;
+      if (!present) return rdelete(t, k);
+      if (indexed(k) || ops.del === undefined) return false;
+      const s = stateOf(t);
+      call(ops.del, s.g, s.h, str(k));
+      return true;
+    };
+    h.ownKeys = function (t) {
+      const s = stateOf(t);
+      const keys = create(null);
+      let n = 0;
+      if (ops.item !== undefined) {
+        const len = length(s);
+        for (let i = 0; i < len; i++) keys[n++] = `${i}`;
+      }
+      if (ops.named !== undefined) {
+        nameList(call(1, s.g, s.h), (name) => {
+          if (!indexed(name) && visible(t, name)) keys[n++] = name;
+        });
+      }
+      const own = rownKeys(t);
+      const m = own.length;
+      for (let i = 0; i < m; i++) keys[n++] = own[i];
+      keys.length = n;
+      return keys;
+    };
+    exotics[id] = h;
   }
 

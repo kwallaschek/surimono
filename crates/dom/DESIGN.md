@@ -113,6 +113,35 @@ reaches the printing engine's blitz-dom, where the panic lives: the fulgur hand-
 Phase 3 needs both back, for layout: flags set over the tree and screened CSS
 given to blitz-dom, both done once before layout, not while scripts mutate.
 
+## Objects other than nodes
+
+The handle table holds `Object`s, not only nodes: live lists (`childNodes`,
+`children`, `getElementsBy*`), static lists, `classList`, `attributes`,
+`dataset`, `Attr`. Each is addressed through its owner node, which has a handle
+and so stays alive; `[SameObject]` members look their handle up in a
+`(node, key)` map. A live list is recomputed when the document's `version`
+moved, with one cached result (bounded memory; a `for (i…) list[i]` loop isn't
+quadratic). Static-list entries count against `8 × max_handles`, since they live
+outside the JS heap limit.
+
+Interfaces with indexed or named getters are generated as `exotic()` tables and
+wrapped in a `Proxy` whose handler lives in the glue (WebIDL §3.9). Target and
+proxy both carry the record in the private field, which proxy traps don't see.
+
+## Selectors
+
+`src/select.rs` matches element by element through `Guarded`, a delegating
+`selectors::Element`, instead of calling blitz-dom's query in one go. One match
+can be polynomial in a wide tree (`:not(:not(b ~ b) ~ b)`) and nothing could
+interrupt it; `Guarded` charges a clock for work (each element's match for the
+list's length, each sibling scanned, children `:empty` reads, attributes
+tested) and answers "no such element" once the deadline passes, so the match
+ends quickly. blitz-dom's sibling lookups scan the parent per step, so `Guarded`
+has its own, which search out from the last index found. The parser and matcher
+recurse per bracket level and the matcher per combinator, on the stack, so
+`parse_selectors` caps both, and the length (see the gaps below). The
+nth-child cache lives for the whole query.
+
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and
@@ -159,7 +188,9 @@ own limits (`DomLimits`), all fatal faults:
 - `max_text_bytes` (default 256 MiB): text, comment data, element names, and
   attribute names and values (plus `ATTRIBUTE_COST` each) held by the document;
   names with their namespace and prefix, which a script can make any size. Charged before a
-  write and credited on overwrite and drop. These strings are outside the JS heap
+  write and credited on overwrite and drop. Also what script objects keep: the
+  names of `getElementsBy*` lists and `Attr`s, and the values of removed `Attr`s,
+  until the document drops. These strings are outside the JS heap
   limit, and one JS string can be stored on many nodes.
 
 **Node lifetime.** A node with a handle lives until the document drops: a script
@@ -193,6 +224,21 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 
 ## Deviations and gaps for E2-02
 
+- **Selectors.** `:has()`, `:nth-child(… of S)` and `:dir()` are refused with
+  a `SyntaxError`, as blitz-dom's parser configuration has them. `:enabled`,
+  `:disabled`, `:checked`, `:required`, `:optional`, `:lang()`, `:defined` and
+  `:read-only` parse and match nothing. `[a=b i]` is case-sensitive, and
+  attribute selectors don't look at the namespace. `:scope` in a
+  `DocumentFragment` query matches nothing (Selectors 4 makes the fragment's
+  top-level elements its children). WPT dom/nodes/selectors.js covers several.
+- **Selector limits.** To keep hostile selectors off the stack and out of Rust's
+  heap, these valid selectors are a `SyntaxError`: longer than 128 KiB, more
+  than 128 combinators on one path through the nested lists, or nesting more
+  than 32 brackets, counted with those in strings (`[a="(((…"]`) and comments.
+  Telling those apart needs the CSS tokenizer's every rule, and a wrong guess
+  would let real nesting reach the parser's recursion, so the count stays
+  conservative. `tests/hostile.rs` runs the worst allowed selector on the
+  stack headroom alone.
 - **`document.cloneNode()`.** §4.4 and WPT Node-cloneNode.html give a new
   `Document`; a runtime holds one document and blitz-dom can't make a second
   document node, so the call ends with `DomError::Unsupported`. That is a gap,

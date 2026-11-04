@@ -642,6 +642,276 @@ fn removed_subtrees_scripts_cannot_reach_are_dropped() {
 }
 
 #[test]
+fn inner_html_stays_inside_the_limits() {
+    let run = |limits_: DomLimits, script: &str| {
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(Document::parse_with_limits(PAGE, limits_).unwrap());
+        (rt.eval::<i32>(script), rt.take().unwrap())
+    };
+    // Deeper than the limit, and the tree stays as it was.
+    let (r, doc) = run(
+        DomLimits::default(),
+        "document.getElementById('d').innerHTML = '<div>'.repeat(100000); 0",
+    );
+    assert_eq!(r, Err(DomError::TreeTooDeep { limit: 512 }));
+    assert!(doc.to_html().contains(r#"<div id="d">x</div>"#));
+    // More nodes than the limit.
+    let few = DomLimits {
+        max_nodes: 100,
+        ..DomLimits::default()
+    };
+    let (r, doc) = run(
+        few,
+        "document.getElementById('d').innerHTML = '<b></b>'.repeat(1000); 0",
+    );
+    assert_eq!(r, Err(DomError::NodeLimit { limit: 100 }));
+    assert!(doc.node_count() < 20);
+    // A loop over a large fragment doesn't leave nodes behind.
+    let (r, doc) = run(
+        DomLimits {
+            max_nodes: 200,
+            ..DomLimits::default()
+        },
+        "const d = document.getElementById('d'); for (let i = 0; i < 50; i++) d.innerHTML = '<b></b>'.repeat(50); d.childNodes.length",
+    );
+    assert_eq!(r, Ok(50));
+    assert!(doc.node_count() < 70);
+}
+
+#[test]
+fn fragments_are_charged_and_their_orphans_freed() {
+    const LIMIT: usize = 1 << 20;
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse_with_limits(
+            PAGE,
+            DomLimits {
+                max_text_bytes: LIMIT,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
+    // Replacing content stays inside the budget however often it happens,
+    // with the parser dropping the <body> it made on the way.
+    let _: () = rt
+        .eval(
+            r#"const s = 'x'.repeat(1 << 18);
+            const d = document.getElementById('d');
+            for (let k = 0; k < 40; k++) d.innerHTML = '<b title="' + s + '">y</b><!--z-->';
+            for (let k = 0; k < 40; k++) document.documentElement.innerHTML = '<body title="' + s + '">y</body><frameset></frameset>';"#,
+        )
+        .unwrap();
+    assert_eq!(
+        rt.eval::<()>(
+            "document.documentElement.innerHTML = '<b title=\"' + 'x'.repeat(1 << 21) + '\">'"
+        ),
+        Err(DomError::TextLimit { limit: LIMIT })
+    );
+    rt.take().unwrap().check_consistency().unwrap();
+}
+
+#[test]
+fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
+    // `selectors` recurses once per combinator: this aborted the process.
+    let page = format!("<!doctype html><body>{}", "<b></b>".repeat(49_000));
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(&page).unwrap());
+    for combinator in ['+', '~', '>', ' '] {
+        let script = format!(
+            r#"try {{ document.body.lastElementChild.matches('b' + '{combinator}b'.repeat(48000)); 'none'; }}
+            catch (e) {{ e.name; }}"#
+        );
+        assert_eq!(rt.eval::<String>(&script).unwrap(), "SyntaxError");
+    }
+    // Spread over nested lists, the path still counts.
+    let r: String = rt
+        .eval(
+            r#"{ let s = 'b';
+            for (let i = 0; i < 20; i++) s = ':is(' + s + '+b+b+b+b+b+b+b)';
+            try { document.body.lastElementChild.matches(s); 'none'; } catch (e) { e.name; } }"#,
+        )
+        .unwrap();
+    assert_eq!(r, "SyntaxError");
+    // Long selectors are refused before they are parsed; short ones aren't.
+    let r: String = rt
+        .eval(
+            r#"{ let name = 'none';
+            try { document.querySelector('x,'.repeat(70000) + 'x'); } catch (e) { name = e.name; }
+            const fine = Array(40).fill('b').join(' + ');
+            name + document.querySelectorAll(fine).length; }"#,
+        )
+        .unwrap();
+    assert_eq!(r, "SyntaxError48961");
+}
+
+#[test]
+fn the_worst_selector_allowed_fits_the_stack_headroom() {
+    // 32 levels of nesting and 128 combinators on the path, every combinator
+    // matching, called from the deepest frame that can still make the call.
+    const SCRIPT: &str = r#"
+        const own = 128 - 4 * 30;
+        let s = 'b' + '+b'.repeat(4);
+        for (let i = 1; i < 30; i++) s = ':is(' + s + ')' + '+b'.repeat(4);
+        s = s + '+b'.repeat(own);
+        const last = document.body.lastElementChild;
+        let done = -1, hit = false;
+        function f(n) {
+          try { f(n + 1); } catch (e) {
+            if (!(e instanceof RangeError)) throw e;
+            if (done < 0) { hit = last.matches(s); done = n; }
+          }
+        }
+        f(0);
+        done > 100 && hit"#;
+    let limits = limits();
+    let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + 64 * 1024;
+    let page = format!("<!doctype html><body>{}", "<b></b>".repeat(400));
+    let r = std::thread::Builder::new()
+        .stack_size(size)
+        .spawn(move || {
+            let mut rt = DomRuntime::new(limits).unwrap();
+            rt.load(Document::parse(&page).unwrap());
+            rt.eval::<bool>(SCRIPT)
+        })
+        .unwrap()
+        .join()
+        .expect("no stack overflow");
+    assert_eq!(r, Ok(true));
+}
+
+#[test]
+fn list_names_a_script_picks_are_charged() {
+    // A list keeps its name for the document's life, in Rust.
+    for call in ["getElementsByClassName", "getElementsByTagName"] {
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(
+            Document::parse_with_limits(
+                PAGE,
+                DomLimits {
+                    max_text_bytes: 1024 * 1024,
+                    ..DomLimits::default()
+                },
+            )
+            .unwrap(),
+        );
+        let script = format!(
+            "const s = 'x'.repeat(64 * 1024);
+            for (let i = 0; i < 100; i++) document.{call}(s + i);"
+        );
+        assert_eq!(
+            rt.eval::<()>(&script),
+            Err(DomError::TextLimit { limit: 1024 * 1024 }),
+            "{call}"
+        );
+    }
+}
+
+#[test]
+fn values_of_removed_attrs_are_charged() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse_with_limits(
+            PAGE,
+            DomLimits {
+                max_text_bytes: 1024 * 1024,
+                ..DomLimits::default()
+            },
+        )
+        .unwrap(),
+    );
+    assert_eq!(
+        rt.eval::<()>(
+            "const p = document.getElementById('p'), s = 'x'.repeat(64 * 1024);
+            for (let i = 0; i < 100; i++) {
+              p.setAttribute('z' + i, s + i);
+              const a = p.attributes.getNamedItem('z' + i);
+              p.attributes.removeNamedItem('z' + i);
+            }"
+        ),
+        Err(DomError::TextLimit { limit: 1024 * 1024 })
+    );
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let _: () = rt
+        .eval(
+            "const p = document.getElementById('p');
+            document.getElementsByClassName('a b');
+            document.getElementsByTagName('b');
+            p.setAttribute('z', 'value');
+            const a = p.attributes.getNamedItem('z');
+            p.attributes.removeNamedItem('z');
+            a.value = 'longer value';
+            a.value = '';
+            p.attributes.getNamedItem('id');",
+        )
+        .unwrap();
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn hostile_selectors_are_typed_errors() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let r: String = rt
+        .eval(
+            r#"const out = [];
+            for (const s of [':not('.repeat(100000), ':is('.repeat(100000) + 'a' + ')'.repeat(100000),
+                             ':has('.repeat(100000), '['.repeat(100000), ':nth-child(2n of '.repeat(100000)]) {
+              try { document.querySelector(s); out.push('none'); } catch (e) { out.push(e.name); }
+            }
+            out.join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, ["SyntaxError"; 5].join(","));
+}
+
+/// A selector that makes one element's match scan its siblings, for each
+/// sibling, still ends at the time limit. No `:nth-child` here: in debug
+/// builds the selectors crate re-walks the siblings in a `debug_assert`, and
+/// that walk can straddle the stop (see `src/select.rs`).
+#[test]
+fn a_slow_selector_stops_at_the_time_limit() {
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_millis(300)))).unwrap();
+    let page = format!(
+        "<!doctype html><body>{}",
+        "<b></b>".repeat(DomLimits::DEFAULT_MAX_NODES / 2)
+    );
+    rt.load(Document::parse(&page).unwrap());
+    let started = std::time::Instant::now();
+    let r = rt.eval::<()>(
+        "try { document.querySelectorAll(':not(:not(i ~ b) ~ b) ~ b'); } catch (e) {} for (;;) {}",
+    );
+    assert_eq!(r, Err(DomError::Sandbox(SandboxError::TimeLimit)));
+    assert!(started.elapsed() < scaled(Duration::from_secs(5)));
+}
+
+#[test]
+fn hostile_exotic_objects() {
+    // Tampering with what the traps use, then reading through them.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let r: String = rt
+        .eval(
+            r#"const list = document.body.childNodes;
+            const map = document.body.dataset;
+            for (const k of ['get', 'set', 'has', 'ownKeys', 'deleteProperty', 'defineProperty'])
+              Reflect[k] = () => { throw new Error('tampered ' + k); };
+            String.prototype.slice = String.prototype.indexOf = () => { throw new Error('tampered'); };
+            Array.prototype.forEach = () => { throw new Error('tampered'); };
+            Object.prototype.get = () => 1;
+            Object.prototype.value = 2;
+            map.a = '1';
+            [list.length, list[0].nodeName, Object.keys(list).join('+'), Object.keys(map).join('+'),
+             document.body.getAttributeNames().join('+'), map.a].join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "2,P,0+1,a,data-a,1");
+}
+
+#[test]
 fn handle_churn_hits_the_handle_limit() {
     let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(

@@ -310,6 +310,9 @@ impl Bound<'_, '_> {
             {
                 Ok(r.to_owned())
             }
+            TypeKind::Sequence(e) if matches!(&e.kind, TypeKind::Named(n) if is_string(n)) => {
+                Ok(format!("nameArray({r})"))
+            }
             _ => match conv(self.gen_, self.table, t, 0) {
                 Some(Conv::Obj(_)) => Ok(format!("wrap({g}, {r})")),
                 Some(Conv::Str(_) | Conv::Bool | Conv::Int(_)) => Ok(r.to_owned()),
@@ -531,6 +534,7 @@ impl Bound<'_, '_> {
                 .first()
                 .is_some_and(|a| a.ty.kind == TypeKind::Named("unsigned long".into()));
             let rust = rust_name(&key);
+            let anonymous_getter = name.is_none() && matches!(sp, Special::Getter);
             let (rust_args, entry): (Vec<String>, _) = match sp {
                 Special::Getter if by_index => (vec!["a.uint(0)?".into()], &mut index),
                 Special::Getter => (vec!["a.string(0)?".into()], &mut named),
@@ -541,7 +545,7 @@ impl Bound<'_, '_> {
                 Special::Deleter => (vec!["a.string(0)?".into()], &mut deleter),
             };
             let wraps = matches!(&return_type.kind, TypeKind::Named(n) if bound_id(self.table, n).is_some());
-            *entry = Some((rust, rust_args, wraps));
+            *entry = Some((rust, rust_args, wraps, anonymous_getter));
         }
         if index.is_none() && named.is_none() {
             return Ok(None);
@@ -560,8 +564,14 @@ impl Bound<'_, '_> {
             ("set", &setter),
             ("del", &deleter),
         ] {
-            if let Some((rust, args, wraps)) = slot {
-                let call = self.trait_call(rust, args, true);
+            if let Some((rust, args, wraps, anonymous_getter)) = slot {
+                // The stub returns a plain string, with no way to say
+                // "no such property"; this host method can.
+                let call = if *anonymous_getter {
+                    format!("h.named_value(this, {})", args.join(", "))
+                } else {
+                    self.trait_call(rust, args, true)
+                };
                 fields.push(format!("{key}: {}", self.out.op(&call)));
                 if key != "set" && key != "del" {
                     fields.push(format!("{key}Wraps: {wraps}"));
@@ -783,6 +793,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "nodeValue",
             "textContent",
             "getRootNode",
+            "childNodes",
             "normalize",
             "cloneNode",
             "isEqualNode",
@@ -804,7 +815,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "tagName",
             "id",
             "className",
+            "classList",
+            "attributes",
             "hasAttributes",
+            "getAttributeNames",
             "getAttribute",
             "setAttribute",
             "removeAttribute",
@@ -814,8 +828,18 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "setAttributeNS",
             "removeAttributeNS",
             "hasAttributeNS",
+            "closest",
+            "matches",
+            "getElementsByTagName",
+            "getElementsByClassName",
+            "querySelector",
+            "querySelectorAll",
+            "innerHTML",
+            "outerHTML",
+            "insertAdjacentHTML",
             "insertAdjacentElement",
             "insertAdjacentText",
+            "children",
             "firstElementChild",
             "lastElementChild",
             "childElementCount",
@@ -832,7 +856,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLElement",
-        members: &["title", "lang"],
+        members: &["title", "lang", "dataset"],
     },
     BindInterface {
         name: "Document",
@@ -844,12 +868,17 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "characterSet",
             "contentType",
             "getElementById",
+            "getElementsByTagName",
+            "getElementsByClassName",
+            "querySelector",
+            "querySelectorAll",
             "createElement",
             "createElementNS",
             "createDocumentFragment",
             "createTextNode",
             "createComment",
             "adoptNode",
+            "children",
             "firstElementChild",
             "lastElementChild",
             "childElementCount",
@@ -863,6 +892,9 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &[
             "constructor",
             "getElementById",
+            "querySelector",
+            "querySelectorAll",
+            "children",
             "firstElementChild",
             "lastElementChild",
             "childElementCount",
@@ -896,6 +928,48 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "Comment",
         members: &["constructor"],
+    },
+    BindInterface {
+        name: "Attr",
+        members: &[
+            "namespaceURI",
+            "prefix",
+            "localName",
+            "name",
+            "value",
+            "ownerElement",
+            "specified",
+        ],
+    },
+    BindInterface {
+        name: "NodeList",
+        members: &["item", "length", "iterable"],
+    },
+    BindInterface {
+        name: "HTMLCollection",
+        members: &["length", "item", "namedItem"],
+    },
+    BindInterface {
+        name: "NamedNodeMap",
+        members: &[
+            "length",
+            "item",
+            "getNamedItem",
+            "getNamedItemNS",
+            "removeNamedItem",
+            "removeNamedItemNS",
+        ],
+    },
+    BindInterface {
+        name: "DOMTokenList",
+        members: &[
+            "length", "item", "contains", "add", "remove", "toggle", "replace", "supports",
+            "value", "iterable",
+        ],
+    },
+    BindInterface {
+        name: "DOMStringMap",
+        members: &["named_getter", "named_setter", "named_deleter"],
     },
 ];
 
