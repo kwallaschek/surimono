@@ -11,7 +11,7 @@ Updated after every task. Times are JST.
 (cse_011c8hfp9aeYhQp5RpWyywaN) took the fleet back at 12:58. **Merge freeze until main's full.yml is
 green**: linux-extra-asan reports a 1.1 MB leak at exit of the core lib tests (P1-RT-42) and test-macos-14
 has timing flakes (P1-RT-43); P1-PKG-17 symbolizes ASan traces in CI. Then: v0.1 release (#38: main merged
-in, dry-run, fresh review, merge; Kay tags/publishes), then phase 2 starting with MSRV 1.89.
+in, dry-run, fresh review, merge; Kay tags/publishes), then phase 2 starting with MSRV 1.89 (MSRV 1.89 waits until #38 has merged, so the release docs and dry-run keep saying 1.87).
 
 ## Earlier (Wed 4 Nov 2026, 04:40)
 
