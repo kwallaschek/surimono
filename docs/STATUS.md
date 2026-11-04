@@ -9,8 +9,8 @@ Updated after every task. Times are JST.
 
 **Main is green**: full.yml passed all 14 jobs at 0e67e98c (ASan leak fixed in #111, macOS flakes in #112,
 symbolized ASan in #107). Merge freeze lifted. Also merged: v0.1 README/CHANGELOG (#110, #113) and the
-Ruby 3.2 signal fix (#114). Next: v0.1 release PR #38 (PKG merges main, sets the CHANGELOG date, dry-run
-on full.yml; fresh review; merge), then Kay tags v0.1.0 and publishes the gem. After #38: phase 2 starts
+Ruby 3.2 signal fix (#114). **v0.1.0 release PR #38 merged** (915d5cbf; pre-release review approved, 15/15 checks). Kay tags
+v0.1.0 and pushes the five gems following docs/RELEASE.md. After #38: phase 2 starts
 with MSRV 1.89, then the open phase-2 PRs (#88 #90 #92–#105) and #106.
 
 ## Earlier (Wed 4 Nov 2026, 13:05)
