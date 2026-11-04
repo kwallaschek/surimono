@@ -6,6 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
+use surimono_core::Deadline;
+use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
@@ -159,6 +161,9 @@ pub(crate) enum Owned {
     Attr(QualName),
 }
 
+/// Steps of a native's loop between looks at the clock.
+const POLL_EVERY: u32 = 256;
+
 /// A handle as JavaScript holds it, with the document's generation. Neither
 /// is a pointer or a blitz node id.
 pub(crate) type Handle = u32;
@@ -185,8 +190,6 @@ pub struct Document {
     list_cache: Option<(Handle, u64, Vec<usize>)>,
     /// Entries in static lists so far, bounded by [`Self::static_limit`].
     static_entries: usize,
-    /// The running call's time limit, for work inside one native call.
-    pub(crate) deadline: Option<surimono_core::Deadline>,
     /// Blitz node id to its handle, 0 for none yet.
     node_to_handle: Vec<Handle>,
     /// Strings blitz-dom doesn't hold, by node id: comment data
@@ -203,6 +206,10 @@ pub struct Document {
     cursor: Cell<(usize, usize)>,
     /// A fatal error a binding met, for the native call to report.
     pub(crate) fault: Option<DomError>,
+    /// The running call's deadline, set for each native call.
+    pub(crate) deadline: Option<Deadline>,
+    /// Steps since the last look at the clock (see [`Document::poll`]).
+    ticks: Cell<u32>,
 }
 
 impl std::fmt::Debug for Document {
@@ -257,13 +264,14 @@ impl Document {
             version: 0,
             list_cache: None,
             static_entries: 0,
-            deadline: None,
             node_to_handle: Vec::new(),
             side_data: parsed.strings.into_iter().collect(),
             held_bytes: 0,
             quirks: parsed.quirks,
             cursor: Cell::new((0, 0)),
             fault: None,
+            deadline: None,
+            ticks: Cell::new(0),
         };
         if doc.node_count() > limits.max_nodes {
             return Err(DomError::NodeLimit {
@@ -315,7 +323,7 @@ impl Document {
             || {
                 deadline
                     .as_ref()
-                    .is_some_and(surimono_core::Deadline::passed)
+                    .is_some_and(Deadline::passed)
             },
         );
         self.side_data.extend(parsed.strings);
@@ -349,7 +357,7 @@ impl Document {
         }
         let timed_out = deadline
             .as_ref()
-            .is_some_and(surimono_core::Deadline::passed);
+            .is_some_and(Deadline::passed);
         let limit = if self.node_count() > self.limits.max_nodes {
             Some(DomError::NodeLimit {
                 limit: self.limits.max_nodes,
@@ -388,6 +396,31 @@ impl Document {
         let mut out = String::new();
         self.serialize(id, &mut out);
         out
+    }
+
+    /// One step of a loop whose length a script controls, inside a native.
+    /// The sandbox can't interrupt a native, so such a loop ends itself:
+    /// past the deadline this is an exception. As at the start of a native,
+    /// no fault is recorded: the engine stops the script at its next check,
+    /// so the call fails with `TimeLimit` even if the script catches this.
+    pub(crate) fn poll(&self) -> BindingResult<()> {
+        self.poll_by(1)
+    }
+
+    /// [`poll`](Self::poll) for a step that does `work` units of work.
+    pub(crate) fn poll_by(&self, work: u32) -> BindingResult<()> {
+        let ticks = self.ticks.get().saturating_add(work);
+        if ticks < POLL_EVERY {
+            self.ticks.set(ticks);
+            return Ok(());
+        }
+        self.ticks.set(0);
+        if self.deadline.as_ref().is_some_and(Deadline::passed) {
+            return Err(BindingError::TypeError(
+                "surimono: the time limit has passed".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     /// The document's serialization: the `<html>` element's outer HTML, by
@@ -1147,8 +1180,17 @@ impl Document {
     /// recurses per level, and removing children one at a time scans the
     /// parent's list each time.
     pub(crate) fn remove_all_children(&mut self, id: usize) {
+        let gone = self.children(id).to_vec();
+        self.replace_child_list(id, Vec::new(), gone);
+    }
+
+    /// Makes `kept` the children of `id` and removes `gone`, its other
+    /// children, as [`remove_all_children`](Self::remove_all_children) does:
+    /// one pass, however wide the list.
+    pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
         self.version += 1;
-        for c in self.take_children(id) {
+        self.take_children(id);
+        for c in gone {
             self.set_parent(c, None);
             if self.subtree_has_handle(c) {
                 // No parent to update: this only updates blitz-dom's
@@ -1158,9 +1200,12 @@ impl Document {
                 self.drop_subtree(c);
             }
         }
-        // `id` has no children left; this does blitz-dom's restyle
+        // `id` has no children yet; this does blitz-dom's restyle
         // bookkeeping for it.
         self.inner.mutate().remove_and_drop_all_children(id);
+        if let Some(node) = self.inner.get_node_mut(id) {
+            node.children = kept;
+        }
     }
 
     fn subtree_has_handle(&self, top: usize) -> bool {

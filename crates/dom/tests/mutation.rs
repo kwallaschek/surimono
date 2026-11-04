@@ -97,6 +97,45 @@ fn insertion_errors() {
 }
 
 #[test]
+fn the_reference_child_is_checked_before_the_node() {
+    // WPT pre-insertion-validation-notfound.js: step 3 of "ensure pre-insert
+    // validity" (and of "replace") comes after the parent and ancestor
+    // checks and before every check of `node`. `p` is a child of neither
+    // `free` nor `document`. Parents and nodes the bindings can't make yet
+    // (doctypes, a second document) are left out; `free` is detached so
+    // `document`, the one document, isn't its ancestor (step 2).
+    let (r, _) = with_vars(
+        r#"const out = [];
+        const t = (f) => { try { f(); out.push('none'); } catch (e) { out.push(e.name); } };
+        const two = document.createDocumentFragment();
+        two.append(document.createElement('b'), document.createElement('b'));
+        const free = document.createElement('div');
+        t(() => free.insertBefore(document, p));             // step 3 before 4
+        t(() => free.replaceChild(document, p));
+        t(() => document.insertBefore(document.createTextNode('x'), p)); // before 5
+        t(() => document.replaceChild(document.createTextNode('x'), p));
+        t(() => document.insertBefore(document.createElement('b'), p));  // before 6
+        t(() => document.replaceChild(document.createElement('b'), p));
+        t(() => document.insertBefore(two, p));
+        t(() => document.replaceChild(two, p));
+        t(() => i.firstChild.insertBefore(p, b));            // step 1 before 3
+        t(() => i.firstChild.replaceChild(p, b));
+        t(() => i.insertBefore(a, b));                       // step 2 before 3
+        t(() => i.replaceChild(a, b));
+        t(() => a.insertBefore(document, p));                // the ancestor test
+        t(() => a.replaceChild(document, p));                // comes first
+        out.join()"#,
+    );
+    assert_eq!(
+        r,
+        "NotFoundError,NotFoundError,NotFoundError,NotFoundError,NotFoundError,NotFoundError,\
+         NotFoundError,NotFoundError,HierarchyRequestError,HierarchyRequestError,\
+         HierarchyRequestError,HierarchyRequestError,HierarchyRequestError,\
+         HierarchyRequestError"
+    );
+}
+
+#[test]
 fn a_failed_insert_leaves_the_tree_alone() {
     let (r, body) = with_vars(
         r#"let name = '';
@@ -210,9 +249,54 @@ fn clone_node() {
         r,
         "true,false,a,12,,true,true,i,true,false,true,false,note,11,false"
     );
-    let mut rt = runtime();
-    let r = rt.eval::<String>("try { document.cloneNode() } catch (e) { e.name }");
-    assert_eq!(r.unwrap(), "NotSupportedError");
+}
+
+/// A known gap, not conformance: §4.4 and WPT Node-cloneNode.html expect a new
+/// `Document`. Fatal, so a script can't catch it and take it for the DOM's
+/// answer. See "Deviations and gaps" in DESIGN.md.
+#[test]
+fn cloning_a_document_is_a_known_gap() {
+    for script in [
+        "document.cloneNode()",
+        "document.cloneNode(true)",
+        "try { document.cloneNode() } catch (e) {} 'caught'",
+    ] {
+        let mut rt = runtime();
+        assert_eq!(
+            rt.eval::<String>(script),
+            Err(DomError::Unsupported {
+                feature: "cloning a document"
+            }),
+            "{script}"
+        );
+    }
+}
+
+#[test]
+fn equal_nodes_compare_an_attributes_namespace_not_its_prefix() {
+    // §4.4 "equals"; WPT Node-isEqualNode.html, "elements should be compared
+    // on attribute namespace, local name, and value".
+    let (r, _) = with_vars(
+        r#"const el = (ns, name, v) => {
+            const e = document.createElement('element');
+            e.setAttributeNS(ns, name, v);
+            return e;
+        };
+        const e1 = el('namespace', 'prefix:localName', 'value');
+        const compare = [
+            el('namespace', 'prefix:localName', 'value'),
+            el('namespace2', 'prefix:localName', 'value'),
+            el('namespace', 'prefix2:localName', 'value'),
+            el('namespace', 'prefix:localName2', 'value'),
+            el('namespace', 'prefix:localName', 'value2'),
+        ].map((e) => e1.isEqualNode(e));
+        // An element's own prefix does count.
+        const x = document.createElementNS('namespace', 'prefix:localName');
+        const y = document.createElementNS('namespace', 'prefix2:localName');
+        compare.push(x.isEqualNode(y));
+        compare.join()"#,
+    );
+    assert_eq!(r, "true,false,true,false,false,false");
 }
 
 #[test]
@@ -270,6 +354,81 @@ fn normalize() {
         body,
         r#"<div id="a"><i id="i">1</i><b id="b">2</b></div><p id="p">ab<u></u>c</p>"#
     );
+}
+
+#[test]
+fn normalize_drops_merged_nodes_and_keeps_held_ones() {
+    // Merged nodes with no handle go at once (DESIGN.md, node lifetime), so
+    // this loop stays flat.
+    let mut rt = runtime();
+    let script = "{ const p = document.getElementById('p');
+        for (let i = 0; i < 100; i++) { p.append('a', 'b'); p.normalize(); p.textContent = ''; } }";
+    let _: () = rt.eval(script).unwrap();
+    let once = rt.with_document(Document::node_count).unwrap();
+    let _: () = rt.eval(script).unwrap();
+    assert_eq!(rt.with_document(Document::node_count).unwrap(), once);
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+
+    // A merged node a script holds is removed from the tree, data intact (§4.4
+    // only changes the first node's data). WPT Node-normalize.html.
+    let (r, body) = with_vars(
+        r#"const t1 = document.createTextNode('a'), t2 = document.createTextNode('b');
+        const empty = document.createTextNode('');
+        p.append(empty, t1, t2);
+        p.normalize();
+        [t1.parentNode === p, t1.data, t2.parentNode, t2.data, empty.parentNode,
+         p.firstChild === p.lastChild].join()"#,
+    );
+    assert_eq!(r, "true,ab,,b,,true");
+    assert_eq!(
+        body,
+        r#"<div id="a"><i id="i">1</i><b id="b">2</b></div><p id="p">ab</p>"#
+    );
+}
+
+#[test]
+fn child_node_methods_with_this_among_the_arguments() {
+    // §4.2.8: the node leaves its place into the temporary fragment. WPT
+    // ChildNode-replaceWith.html, ChildNode-after.html.
+    let (r, body) = with_vars(
+        r#"const x = document.createElement('x');
+        a.append(x);
+        // Replacing with itself and a sibling.
+        i.replaceWith(x, i);
+        const first = a.firstChild.nodeName + a.firstChild.nextSibling.nodeName;
+        // A listed next sibling: the viable sibling is past it.
+        const y = document.createElement('y'), z = document.createElement('z');
+        p.append(y, z);
+        const t = document.createTextNode('t');
+        p.prepend(t);
+        t.after(y);
+        first + p.firstChild.nextSibling.nodeName + p.lastChild.nodeName"#,
+    );
+    assert_eq!(r, "XIYZ");
+    assert_eq!(
+        body,
+        r#"<div id="a"><x></x><i id="i">1</i><b id="b">2</b></div><p id="p">t<y></y><z></z></p>"#
+    );
+}
+
+#[test]
+fn byte_count_stays_right_after_remove_attribute_ns() {
+    let mut rt = runtime();
+    let _: () = rt
+        .eval(
+            "const a = document.getElementById('a');
+            a.setAttributeNS('n', 'p:k', 'value');
+            a.setAttributeNS('n', 'q:k', 'other');
+            a.removeAttributeNS('n', 'k');",
+        )
+        .unwrap();
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+    let html = rt.with_document(Document::to_html).unwrap();
+    assert!(!html.contains("other"), "{html}");
 }
 
 #[test]

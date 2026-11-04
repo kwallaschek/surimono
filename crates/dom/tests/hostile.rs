@@ -554,6 +554,75 @@ fn wide_tree_drops_in_linear_time() {
     assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
 }
 
+/// Time for one `normalize()` of `n` adjacent text nodes, best of 3. As in
+/// [`wide_drop_time`], the build is a separate `eval`.
+fn wide_normalize_time(n: usize) -> Duration {
+    (0..3)
+        .map(|_| {
+            let mut rt =
+                DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+            rt.load(Document::parse(PAGE).unwrap());
+            let build = format!(
+                "globalThis.d = document.getElementById('d');
+                for (let i = 0; i < {n}; i++) d.appendChild(document.createTextNode('t'));"
+            );
+            let _: () = rt.eval(&build).unwrap();
+            let started = std::time::Instant::now();
+            let _: () = rt.eval("d.normalize()").unwrap();
+            let took = started.elapsed();
+            let data: usize = rt.eval("d.firstChild.data.length").unwrap();
+            assert_eq!(data, n + 1, "the page's x and the new nodes");
+            assert!(rt.eval::<bool>("d.firstChild === d.lastChild").unwrap());
+            rt.with_document(Document::check_consistency)
+                .unwrap()
+                .unwrap();
+            took
+        })
+        .min()
+        .unwrap()
+}
+
+/// `normalize` rebuilds the parent's list once, not per merged node. As in
+/// `wide_tree_drops_in_linear_time`: four times the nodes must cost less than
+/// eight times the time.
+#[test]
+fn wide_normalize_is_linear() {
+    let small = wide_normalize_time(6_250);
+    let large = wide_normalize_time(25_000);
+    assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
+}
+
+/// The largest run a page can have, under a short limit: done, or stopped by
+/// the deadline near the limit, never a native running on past it.
+#[test]
+fn wide_normalize_stops_near_the_limit() {
+    let mut build = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+    build.load(Document::parse(PAGE).unwrap());
+    let _: () = build
+        .eval(
+            "const d = document.getElementById('d');
+            for (let i = 0; i < 99000; i++) d.appendChild(document.createTextNode('t'));",
+        )
+        .unwrap();
+    let doc = build.take().unwrap();
+    let limit = scaled(Duration::from_millis(100));
+    let mut rt = DomRuntime::new(limits().with_time(limit)).unwrap();
+    rt.load(doc);
+    let started = std::time::Instant::now();
+    let r = rt.eval::<()>("document.getElementById('d').normalize()");
+    let took = started.elapsed();
+    assert!(
+        matches!(r, Ok(()) | Err(DomError::Sandbox(SandboxError::TimeLimit))),
+        "{r:?}"
+    );
+    assert!(
+        took < limit + scaled(Duration::from_millis(500)),
+        "{took:?}"
+    );
+    let doc = rt.take().unwrap();
+    doc.check_consistency().unwrap();
+}
+
 #[test]
 fn removed_subtrees_scripts_cannot_reach_are_dropped() {
     // Nothing in the old subtree has a handle: the nodes go at once, so
