@@ -29,12 +29,9 @@ Without the `[patch.crates-io]` entry the build fails at link time with
 `rquickjs-sys` in the repository's `vendor/` folder. Keep both entries on the
 same branch or `rev` so they come from one commit.
 
-surimono needs Rust 1.87 or later. fulgur 0.40 depends on krilla 0.7, which
-needs Rust 1.89, so the pair needs 1.89. surimono builds QuickJS from C
-sources, so a C compiler must be installed (as for most `-sys` crates). On a
-toolchain older than 1.88, put `edition = "2024"` and a `rust-version` in your
-package so that Cargo picks dependency versions your toolchain can build; some
-current releases need 1.88.
+surimono needs Rust 1.89 or later, as does fulgur 0.40 (through krilla 0.7).
+surimono builds QuickJS from C sources, so a C compiler must be installed (as
+for most `-sys` crates).
 
 ECharts and Vega are Cargo features, both on by default: `echarts` adds the
 `echarts` renderer, `vega` adds `vega` and `vega-lite`. Each adds its library,

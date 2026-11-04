@@ -29,7 +29,7 @@ default-members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.89"
 license = "MIT OR Apache-2.0"
 description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
 keywords = ["pdf", "javascript", "quickjs", "html", "charts"]

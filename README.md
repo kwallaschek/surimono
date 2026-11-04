@@ -69,11 +69,11 @@ gem "fulgur"   # or another browserless PDF engine
 
 or `gem install surimono` outside Bundler. Precompiled gems cover x86_64 and
 aarch64 Linux (glibc) and x86_64 and arm64 macOS. On other platforms the gem
-builds from source and needs Rust 1.87 or later, a C compiler and libclang
+builds from source and needs Rust 1.89 or later, a C compiler and libclang
 (rb-sys generates its Ruby bindings with bindgen). fulgur's gem 0.40.0
 supports Ruby 3.1 to 3.4, so the pair runs on Ruby 3.2 to 3.4 today.
 
-**Rust** (1.87 or later; a C compiler builds QuickJS):
+**Rust** (1.89 or later; a C compiler builds QuickJS):
 
 The Rust crates aren't on crates.io yet. surimono needs a patched QuickJS, and
 a crates.io release can't carry the patch until the fixes are upstream or
@@ -92,17 +92,13 @@ rquickjs-sys = { git = "https://github.com/kwallaschek/surimono", branch = "main
 Without the `[patch.crates-io]` entry the build fails at link time with
 `undefined reference to surimono_quickjs_patch_level`. Cargo finds
 `rquickjs-sys` in the repository's `vendor/` folder. Keep both entries on the
-same branch or `rev` so they come from one commit. On Rust 1.87, put
-`edition = "2024"` and `rust-version = "1.87"` in your package so that Cargo
-picks dependency versions that build on 1.87; some current releases need 1.88.
+same branch or `rev` so they come from one commit.
 
 ECharts and Vega are Cargo features, both on by default: `echarts` adds the
 `echarts` renderer, `vega` adds `vega` and `vega-lite`. To leave Vega out, add
 `default-features = false, features = ["echarts"]` to the `surimono` line.
-fulgur 0.40 depends on krilla 0.7, which needs Rust 1.89, so a project that
-uses both needs 1.89.
 
-**Command line:** build it from a clone of the repository, with Rust 1.87 or
+**Command line:** build it from a clone of the repository, with Rust 1.89 or
 later and a C compiler, as for the crates.
 
 ```sh
