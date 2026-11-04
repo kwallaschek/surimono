@@ -51,3 +51,5 @@ if (unlikely(!pr)) {
     return JS_EXCEPTION;
 }
 ```
+
+surimono carries this fix in its patched copy of QuickJS, and we can send it as a pull request.

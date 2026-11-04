@@ -19,8 +19,8 @@ The patch numbers below are for this repository only (`vendor/rquickjs-sys/PATCH
 | 04 | [`js_free_function_def` frees garbage atoms](04-free-function-def-atoms.md) | SIGSEGV | 7 |
 | 05 | [`Promise.allSettled`/`any` leaks](05-promise-combinator-leaks.md) | assert in `JS_FreeRuntime` | 10, 11 |
 | 06 | [libregexp group names](06-regexp-group-names.md) | out-of-bounds read | 12 |
-| 07 | [Unchecked `add_arg`](07-add-arg-unchecked.md) | out-of-bounds stack read at run time | none yet |
-| 08 | [`add_property` for an array's length](08-array-add-property.md) | SIGSEGV from JavaScript alone | none yet |
+| 07 | [Unchecked `add_arg`](07-add-arg-unchecked.md) | out-of-bounds stack read at run time | 25 |
+| 08 | [`add_property` for an array's length](08-array-add-property.md) | SIGSEGV from JavaScript alone | 24 |
 | 09 | [Interrupts can be swallowed](09-interrupt-is-swallowed.md) | hang | 1 |
 | 10 | [Array-like loops never poll](10-array-like-loops-never-poll.md) | hang | 2 |
 | 11 | [Interrupt granularity](11-interrupt-granularity.md) | minutes past a deadline | 14 |
