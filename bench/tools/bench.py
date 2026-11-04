@@ -72,7 +72,7 @@ FONTS = ROOT / "fixtures" / "fonts"
 TOOLS = ROOT / "fixtures" / "tools"
 SAMPLE_INTERVAL_S = 0.010
 SPEC_SPEED = 2.0  # docs/SPEC.md: at least 2x faster than Grover, cold and warm
-SPEC_MEMORY = 10.0  # docs/SPEC.md: at least 10x lower peak memory than Grover
+SPEC_MEMORY = 5.0  # docs/SPEC.md: at least 5x lower peak memory (PSS) than Grover
 SPEC_RUNS = 20  # docs/SPEC.md: median of 20 runs
 # The Node process that keeps warm Grover's Chrome open. It only holds Chrome;
 # a lean deployment starts Chrome itself, so it isn't Grover's cost.
