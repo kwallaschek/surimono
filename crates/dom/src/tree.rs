@@ -755,7 +755,7 @@ impl Document {
 
 /// The sandbox stops the script at its next check, so this is what the
 /// script never gets to see: the call fails with `TimeLimit`.
-fn timed_out() -> BindingError {
+pub(crate) fn timed_out() -> BindingError {
     BindingError::TypeError("the time limit has passed".to_owned())
 }
 

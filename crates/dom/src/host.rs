@@ -15,7 +15,7 @@ use blitz_dom::QualName;
 
 use crate::document::{self, Handle, Kind, ListKind, Object, Owned};
 use crate::style_attr::{self, Declaration};
-use crate::tree::dom_error;
+use crate::tree::{dom_error, timed_out};
 use crate::{Document, DomError};
 
 /// `(TrustedHTML or DOMString)` and the like: the glue always sends a string.
@@ -254,7 +254,22 @@ impl Document {
     fn style_list(&mut self, this: ObjectId) -> BindingResult<(usize, Vec<Declaration>)> {
         let id = self.owner_of(this)?;
         let text = self.attribute(id, "style").unwrap_or_default();
-        Ok((id, style_attr::parse(&text)))
+        Ok((id, self.parse_style(&text)?))
+    }
+
+    fn parse_style(&mut self, text: &str) -> BindingResult<Vec<Declaration>> {
+        style_attr::parse(text, self.quirks_mode(), self.deadline.as_ref())
+            .map_err(|stop| self.style_stopped(stop))
+    }
+
+    fn style_stopped(&mut self, stop: style_attr::Stop) -> BindingError {
+        match stop {
+            style_attr::Stop::TooLarge => self.fail(DomError::StyleLimit {
+                declarations: style_attr::MAX_DECLARATIONS,
+                bytes: style_attr::MAX_BYTES,
+            }),
+            style_attr::Stop::TimeLimit => timed_out(),
+        }
     }
 
     fn store_style(&mut self, id: usize, list: &[Declaration]) -> BindingResult<()> {
@@ -407,6 +422,9 @@ impl Document {
             Some(Kind::Comment) => interface::COMMENT,
             Some(Kind::Element) if self.element_name(id).is_some_and(|n| n.ns == ns!(html)) => {
                 interface::HTML_ELEMENT
+            }
+            Some(Kind::Element) if self.element_name(id).is_some_and(|n| n.ns == ns!(svg)) => {
+                interface::SVG_ELEMENT
             }
             Some(Kind::Element) => interface::ELEMENT,
             // Layout boxes, which no tree link reaches before layout.
@@ -1696,7 +1714,17 @@ impl idl::DOMStringMap for Document {
     }
 }
 
+impl idl::SVGElement for Document {
+    fn style(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        idl::HTMLElement::style(self, this)
+    }
+}
+
 impl idl::CSSStyleDeclaration for Document {
+    fn parent_rule(&mut self, _this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        Ok(None)
+    }
+
     fn css_text(&mut self, this: ObjectId) -> BindingResult<String> {
         let (_, list) = self.style_list(this)?;
         Ok(style_attr::serialize(&list))
@@ -1704,7 +1732,8 @@ impl idl::CSSStyleDeclaration for Document {
 
     fn set_css_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let id = self.owner_of(this)?;
-        self.store_style(id, &style_attr::parse(&value))
+        let list = self.parse_style(&value)?;
+        self.store_style(id, &list)
     }
 
     fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
@@ -1739,8 +1768,13 @@ impl idl::CSSStyleDeclaration for Document {
         value: String,
         priority: String,
     ) -> BindingResult<()> {
-        // CSSOM §6.6 setProperty: an empty value removes; an unknown
-        // priority does nothing.
+        // CSSOM §6.6 setProperty, in its order: an unsupported property does
+        // nothing, an empty value removes, an unknown priority or an invalid
+        // value does nothing.
+        let name = style_attr::normalized(&property);
+        if !style_attr::supported(&name) {
+            return Ok(());
+        }
         if value.is_empty() {
             return idl::CSSStyleDeclaration::remove_property(self, this, property).map(|_| ());
         }
@@ -1748,13 +1782,12 @@ impl idl::CSSStyleDeclaration for Document {
         if !priority.is_empty() && !important {
             return Ok(());
         }
+        let parsed = style_attr::parse_value(&name, &value, self.quirks_mode());
+        let Some(text) = parsed.map_err(|stop| self.style_stopped(stop))? else {
+            return Ok(());
+        };
         let (id, mut list) = self.style_list(this)?;
-        style_attr::set(
-            &mut list,
-            style_attr::normalized(&property),
-            value,
-            important,
-        );
+        style_attr::set(&mut list, name, text, important);
         self.store_style(id, &list)
     }
 

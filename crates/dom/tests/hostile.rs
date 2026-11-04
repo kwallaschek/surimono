@@ -885,3 +885,77 @@ fn too_deep_append_after_recursing_to_the_stack_limit_is_a_typed_error() {
         })
     );
 }
+
+/// `style` reads parse the attribute in one host call. 40,000 declarations of
+/// unique names took 40 s in a debug build while parsing was quadratic and
+/// nothing bounded it (review of #97); the cap ends it at once, typed, even
+/// if the script catches the exception.
+#[test]
+fn a_huge_style_attribute_ends_typed() {
+    let limit = DomError::StyleLimit {
+        declarations: 4096,
+        bytes: 8 << 20,
+    };
+    let unique = "s += 'x' + i + ': 1; '";
+    for script in [
+        format!("let s = ''; for (let i = 0; i < 40000; i++) {unique}; p.setAttribute('style', s); try {{ p.style.length }} catch (e) {{}}"),
+        format!("let s = ''; for (let i = 0; i < 40000; i++) {unique}; p.setAttribute('style', s); try {{ p.style.color = 'red' }} catch (e) {{}}"),
+        format!("let s = ''; for (let i = 0; i < 40000; i++) {unique}; try {{ p.style.cssText = s }} catch (e) {{}}"),
+        "const s = 'a: 1;'.repeat(40000); try { p.style.cssText = s } catch (e) {}".to_owned(),
+        "const s = ';'.repeat(40000); try { p.style.cssText = s } catch (e) {}".to_owned(),
+        "const s = 'x'.repeat((8 << 20) + 1); try { p.style.setProperty('--x', s) } catch (e) {}"
+            .to_owned(),
+        "const s = 'x'.repeat((8 << 20) + 1); p.setAttribute('style', s); try { p.style.color } catch (e) {}"
+            .to_owned(),
+    ] {
+        let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(5)))).unwrap();
+        rt.load(Document::parse(PAGE).unwrap());
+        let start = std::time::Instant::now();
+        let r = rt.eval::<()>(&format!("const p = document.getElementById('p'); {script}"));
+        assert_eq!(r, Err(limit.clone()), "{script}");
+        assert!(start.elapsed() < scaled(Duration::from_secs(5)), "{script}");
+    }
+}
+
+/// The largest attribute allowed, with every declaration going through
+/// stylo, read until the time limit: each read is bounded, so the limit is
+/// reached soon after it passes.
+#[test]
+fn reading_a_style_attribute_at_the_cap_ends_at_the_time_limit() {
+    let time = scaled(Duration::from_millis(500));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let script = "const p = document.getElementById('p');
+        let s = ''; for (let i = 0; i < 4096; i++) s += 'margin: ' + i + 'px; ';
+        p.setAttribute('style', s); for (;;) { try { p.style.length } catch (e) {} }";
+    let start = std::time::Instant::now();
+    let r = rt.eval::<()>(script);
+    assert_eq!(r, Err(DomError::Sandbox(SandboxError::TimeLimit)));
+    assert!(start.elapsed() < time + scaled(Duration::from_secs(5)));
+}
+
+/// Nesting has a limit, for stylo's `calc()` recursion; Puma's stack size.
+#[test]
+fn deeply_nested_style_values_on_a_small_stack() {
+    std::thread::Builder::new()
+        .stack_size(1 << 20)
+        .spawn(|| {
+            let mut rt = DomRuntime::new(limits()).unwrap();
+            rt.load(Document::parse(PAGE).unwrap());
+            let r: String = rt
+                .eval(
+                    "const p = document.getElementById('p');
+                    const open = 'calc('.repeat(32), close = ')'.repeat(32);
+                    p.style.width = open + '1px' + close;
+                    const deep = p.style.width !== '';
+                    p.style.height = 'calc('.repeat(100000) + '1px';
+                    p.style.setProperty('--x', '('.repeat(100000));
+                    [deep, p.style.height, p.style.getPropertyValue('--x')].join('|')",
+                )
+                .unwrap();
+            assert_eq!(r, "true||");
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}

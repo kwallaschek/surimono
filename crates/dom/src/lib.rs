@@ -7,6 +7,7 @@
 //! Phase-2 scaffolding: internal only, not re-exported by the facade.
 
 mod bindings;
+mod css_properties;
 mod document;
 mod error;
 mod host;

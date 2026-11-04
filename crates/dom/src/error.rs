@@ -6,7 +6,7 @@ use surimono_core::SandboxError;
 /// complete.
 ///
 /// The `StaleDocument`, `NoDocument`, `NodeLimit`, `TreeTooDeep`,
-/// `HandleLimit` and `TextLimit` variants are *fatal to the call*: the
+/// `HandleLimit`, `TextLimit` and `StyleLimit` variants are *fatal to the call*: the
 /// binding throws into the script (so it stops where it is), and the call
 /// fails with this error even if the script caught the exception. Each means
 /// the script used a wrapper with no document behind it, or hit a DOM
@@ -49,6 +49,15 @@ pub enum DomError {
     TextLimit {
         /// The limit that was reached.
         limit: usize,
+    },
+    /// A script read or wrote a `style` attribute too large to parse. Every
+    /// read of `element.style` parses it, in a call no time limit can stop.
+    #[error("a style attribute is over the limit of {declarations} declarations or {bytes} bytes")]
+    StyleLimit {
+        /// The most declarations in one attribute.
+        declarations: usize,
+        /// The most bytes in one attribute.
+        bytes: usize,
     },
     /// A [`DomLimits`](crate::DomLimits) value is out of range.
     #[error("invalid DOM limits: {message}")]
