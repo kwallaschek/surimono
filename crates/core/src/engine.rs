@@ -554,10 +554,11 @@ pub fn release_free_memory() {
     }
 }
 
-/// The lowest engine patch level the sandbox runs on: 5, the leak count
-/// at teardown (P1-RT-18) on top of level 4, the per-match polls in the
-/// regexp replace loops (P1-RT-23) (see `vendor/rquickjs-sys/PATCHES.md`).
-pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 5;
+/// The lowest engine patch level the sandbox runs on: 6, the checks in
+/// `JS_NewObjectFromShape` and for destructured parameters (P1-RT-36) on
+/// top of level 5, the leak count at teardown (P1-RT-18) (see
+/// `vendor/rquickjs-sys/PATCHES.md`).
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 6;
 
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse

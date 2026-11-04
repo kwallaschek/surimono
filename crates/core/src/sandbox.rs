@@ -2011,7 +2011,8 @@ mod tests {
     /// so the parser and both code-generation passes meet refused
     /// allocations everywhere. It also calls `Function.prototype.bind` (with
     /// no, a few and a long spread of bound arguments, and on a constructor)
-    /// and `Promise.allSettled`/`Promise.any`, so the sweep refuses each of
+    /// and `Promise.allSettled`/`Promise.any`, and builds an `Array` subclass
+    /// whose prototype's empty shape is shared, so the sweep refuses each of
     /// their allocations too.
     const SYNTAX_SCRIPT: &str = r#"
 'use strict';
@@ -2063,6 +2064,9 @@ const big = 1_000_000n * 3n;
 const ev = eval('(function inner(p) { var q = p + 1; return eval("q * 2"); })(20)');
 const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
 function sum3(a, b, c) { return this.k + a + b + c; }
+class Arr extends Array {}
+const arrKeep = Object.create(Arr.prototype);
+const arrNew = new Arr();
 const bound0 = sum3.bind({ k: 1 });
 const bound2 = sum3.bind({ k: 2 }, 3, 4);
 const bargs = new Array(300).fill(1);
