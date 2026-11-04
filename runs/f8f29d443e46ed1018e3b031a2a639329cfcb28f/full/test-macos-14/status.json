@@ -1,0 +1,1 @@
+{"workflow":"full","job":"test","matrix":"macos-14","status":"failure","reported":"failure","needs_result":"","reported_job":"test","sha":"f8f29d443e46ed1018e3b031a2a639329cfcb28f","ref":"main","event":"push","run_id":"41844933787","attempt":"1","finished_at":"2026-11-04T14:16:19Z"}
