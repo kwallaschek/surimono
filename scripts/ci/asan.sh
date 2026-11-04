@@ -5,14 +5,15 @@
 # explicit --target so build scripts and proc macros are built without ASan.
 # The Ruby extension is excluded: it links libruby, which isn't built with ASan.
 # Set ASAN_TOOLCHAIN to pin a dated nightly if a new one breaks the build.
+# The flags and the symbolizer lookup are asan_env in lib.sh (P1-PKG-17).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+. scripts/ci/lib.sh
 toolchain="${ASAN_TOOLCHAIN:-nightly}"
 target="$(uname -m)-unknown-linux-gnu"
 rustup toolchain install "$toolchain" --profile minimal -c rust-src
 rustc "+$toolchain" -Vv
-export RUSTFLAGS="-Zsanitizer=address" RUSTDOCFLAGS="-Zsanitizer=address"
-export ASAN_OPTIONS="detect_leaks=1"
+asan_env
 # Tests multiply their wall-clock limits and bounds by this (P1-RT-27, #73):
 # ASan runs several times slower than a normal debug build.
 export SURIMONO_TEST_TIME_SCALE="${SURIMONO_TEST_TIME_SCALE:-4}"

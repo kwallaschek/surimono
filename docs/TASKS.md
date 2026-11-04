@@ -107,11 +107,11 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-15 · PKG · done (#77) · scripts/ci/asan.sh sets SURIMONO_TEST_TIME_SCALE=4 for P1-RT-27
 - P1-PKG-16 · PKG · done (#79) · Facade re-exports surimono_islands::BUILTIN_RENDERERS; #76/#77 review nits (publish-results refuses if the index can't be read)
 - P1-GFX-06 · GFX · done (#78) · LeakSanitizer in gfx fulgur_layout: stylo 0.8 Box::leaks two thread-local caches per style thread (~13.6 KB/thread); the test runs Blitz on one long-lived thread. Soak/facade must run Blitz on long-lived threads
-- P1-PKG-17 · PKG · todo · (low) Symbolize ASan traces in CI: nightly llvm-tools + ASAN_SYMBOLIZER_PATH in scripts/ci/asan.sh
+- P1-PKG-17 · PKG · done (#107) · Symbolize ASan traces in CI with the system LLVM's llvm-symbolizer (asan_env in scripts/ci/lib.sh); follow-ups: overridable /usr/lib prefix with tests, ::warning:: when none found, sudo -n
 - P1-PKG-10 · PKG · done (#33) · (#33) Gem build carries the vendored QuickJS
 - P1-PKG-08 · PKG · done (#25) · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
 - P1-PKG-09 · PKG · done (#34) · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
-- P1-PKG-07 · PKG · review · v0.1 release PR with a passing dry-run (cargo publish --dry-run in order, gem build, CHANGELOG), no tag, no publish
+- P1-PKG-07 · PKG · done (#38) · v0.1 release PR with a passing dry-run (cargo publish --dry-run in order, gem build, CHANGELOG), no tag, no publish
 
 ### Docs and DX (README.md, docs/guide, examples, CHANGELOG.md)
 - P1-DX-01 · DX · done (#18) · README for v0.1: what it is, what it is not, install, a 10-line Rails example, a 10-line Rust example, honest limits
@@ -135,12 +135,22 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-36 · RT · done · Engine patch level 6: segfault on Array subclasses under a memory limit, add_arg check (#95; v0.1 blocker)
 - P1-RT-37 · RT · done · Hostile vector B Array.fromAsync accepts either limit (#98)
 - P1-RT-38 · RT · done · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
+- P1-PKG-20 · PKG · done (#114) · Ruby 3.2 only: a signal to a main-thread render waits for the whole render when another Ruby thread exists (Ruby 3.2 starts no signal-pipe drainer then; measured 4.04 s vs 0.41 s). Fix A: short-lived pump thread during such renders on 3.2; deterministic test
+- P1-DX-06 · DX · done (#110, #113) · (#110) v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
+- P1-PKG-22 · PKG · todo · #114 nits: rescue inside the Ruby 3.2 signal pump; fall back to no pump if Thread.new raises ThreadError; name the pump before it first runs; mention the pump in ffi.rs unblock docs
+- P1-DX-08 · DX+CF · todo · README.md:25-27 and COMPAT.md still say the Grover benchmark has no results; cite the committed/CI bench (5.8× Ruby, 8.0× Rust PSS; 2.4× time) once bench/ has the report (with P1-CF-33)
+- P1-PKG-23 · PKG · todo · Nightly check of the Rust git-dependency + [patch] recipe; gemspec changelog_uri; drop redundant publish lines in dom/webidl
+- P1-DX-07 · DX · todo · After Kay tags v0.1.0: pin README, CHANGELOG and the Rust guide to tag = "v0.1.0" / git clone --branch v0.1.0 (main moves to phase 2)
+- P1-PKG-21 · PKG · todo · CLI users get no THIRD_PARTY_LICENSES.txt with cargo install: add a `surimono licenses` subcommand (embedded notices) or document where to get them
 - P1-PKG-18 · PKG · todo · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
 - P1-PKG-19 · PKG · todo · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
 - P1-CF-31 · CF · todo · COMPAT entries: Date.parse of non-ISO strings keeps the QuickJS port (V8 gives NaN for CET/CEST), style values not validated, no doctype node, template.content, Attr as a partial Node
 - P1-GFX-07 · GFX · todo · crates/gfx/tests/chrome/*.mjs launch with channel 'chromium' so the preload can go
 - P1-RT-39 · RT · todo · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
 - P1-RT-40 · RT · done · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
+- P1-CF-33 · CF · todo · COMPAT.md memory note: target is now ≥5× PSS vs Grover (Kay, checkpoint 2); state the measured 5.8× Ruby / 8.0× Rust and fulgur's own ~8.7× floor
+- P1-RT-42 · RT · done (#111) · (#111) Main's linux-extra-asan: LeakSanitizer reports 1,108,992 bytes in 492 indirect leaks at exit of the surimono-core lib test binary (since at least 88cb0ee9); symbolize locally, find and fix
+- P1-RT-43 · RT · done (#112) · (#112) Main's test-macos-14 timing flakes: cancel.rs stops_a_microtask_flood (MemoryLimit before Cancelled), hostile.rs group_b_swallowed_interrupts_end; make robust without weakening
 - P1-RT-41 · RT · todo · #100 follow-up: first idle worker of a burst must not trim while others hold runtimes (reset last_trim_ms on 0→1 runtimes); #95 follow-ups: add_arg over the parameter limit gives a SyntaxError with a test, PATCHES.md wording, draft 07 reachability; HostPanic message truncated; doc lines from #102's review
 - P1-DOM-06 · DOM · todo · Guard every native in crates/dom with Deadline::guard and discards_state (#102 finding 1); required before DOM reaches the facade
 - P1-CF-32 · CF · todo · Alpine LICENSE.md in fixtures/real-world/lib once alpinejs/alpine is readable

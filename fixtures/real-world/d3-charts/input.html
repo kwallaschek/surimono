@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Regional sales</title>
+<style>
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; padding: 0; background: #ffffff; color: #1f2933; }
+body { font-family: "Noto Sans", "Noto Sans JP"; font-size: 14px; line-height: 22px; }
+h1 { font-size: 26px; line-height: 34px; margin: 0 0 12px; }
+h2 { font-size: 16px; line-height: 24px; margin: 16px 0 6px; }
+svg { display: block; }
+</style>
+</head>
+<body>
+<h1>Regional sales</h1>
+<h2>By region</h2>
+<div id="bars"></div>
+<h2>By month</h2>
+<div id="line"></div>
+<h2>Share</h2>
+<div id="pie"></div>
+<script src="../lib/d3-7.9.1/d3.min.js"></script>
+<script>
+// Nothing here measures text or asks for layout.
+const FONT = "Noto Sans";
+const colours = d3.scaleOrdinal(["#2f6fb0", "#e07b39", "#4bb3c4", "#d4a72c", "#6a9a4f"]);
+const regions = [["Kanto", 420], ["Kansai", 310], ["Chubu", 190], ["Kyushu", 140], ["Tohoku", 90]];
+const months = d3.range(12).map((i) => ({ m: i, v: 100 + 40 * Math.round(3 * (1 + ((i * 7) % 5))) }));
+const svgOf = (id, w, h) => d3.select(id).append("svg").attr("width", w).attr("height", h).attr("viewBox", `0 0 ${w} ${h}`).attr("font-family", FONT);
+const font = (axis) => axis.attr("font-family", FONT).attr("font-size", 11);
+
+{
+  const [w, h, m] = [640, 208, { t: 8, r: 8, b: 24, l: 40 }];
+  const svg = svgOf("#bars", w, h);
+  const x = d3.scaleBand(regions.map((d) => d[0]), [m.l, w - m.r]).padding(0.25);
+  const y = d3.scaleLinear([0, 450], [h - m.b, m.t]).nice();
+  svg.append("g").selectAll("rect").data(regions).join("rect")
+    .attr("x", (d) => x(d[0])).attr("y", (d) => y(d[1]))
+    .attr("width", x.bandwidth()).attr("height", (d) => y(0) - y(d[1]))
+    .attr("fill", (d) => colours(d[0]));
+  svg.append("g").selectAll("text").data(regions).join("text")
+    .attr("x", (d) => x(d[0]) + x.bandwidth() / 2).attr("y", (d) => y(d[1]) - 3)
+    .attr("text-anchor", "middle").attr("font-size", 11).text((d) => d[1]);
+  font(svg.append("g").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x)));
+  font(svg.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5)));
+}
+{
+  const [w, h, m] = [640, 208, { t: 8, r: 8, b: 24, l: 40 }];
+  const svg = svgOf("#line", w, h);
+  const x = d3.scaleLinear([0, 11], [m.l, w - m.r]);
+  const y = d3.scaleLinear([0, d3.max(months, (d) => d.v)], [h - m.b, m.t]).nice();
+  svg.append("path").attr("d", d3.area().x((d) => x(d.m)).y0(y(0)).y1((d) => y(d.v)).curve(d3.curveMonotoneX)(months)).attr("fill", "#d7e4f1");
+  svg.append("path").attr("d", d3.line().x((d) => x(d.m)).y((d) => y(d.v)).curve(d3.curveMonotoneX)(months)).attr("fill", "none").attr("stroke", "#2f6fb0").attr("stroke-width", 2);
+  font(svg.append("g").attr("transform", `translate(0,${h - m.b})`).call(d3.axisBottom(x).ticks(12).tickFormat((i) => d3.format("02d")(i + 1))));
+  font(svg.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(","))));
+}
+{
+  const [w, h] = [640, 208];
+  const svg = svgOf("#pie", w, h);
+  const g = svg.append("g").attr("transform", `translate(${w / 2},${h / 2})`);
+  const arc = d3.arc().innerRadius(40).outerRadius(96);
+  const slices = d3.pie().sort(null).value((d) => d[1])(regions);
+  g.selectAll("path").data(slices).join("path").attr("d", arc).attr("fill", (d) => colours(d.data[0])).attr("stroke", "#ffffff");
+  g.selectAll("text").data(slices).join("text").attr("transform", (d) => `translate(${arc.centroid(d)})`)
+    .attr("text-anchor", "middle").attr("dy", "0.35em").attr("font-size", 10).attr("fill", "#ffffff").text((d) => d.data[0]);
+}
+</script>
+</body>
+</html>
