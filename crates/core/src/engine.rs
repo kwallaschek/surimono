@@ -971,6 +971,8 @@ pub(crate) fn run_pending_job(ctx: &Ctx<'_>) -> rquickjs::Result<bool> {
 mod tests {
     use super::*;
     use rquickjs::{Context, Runtime};
+    use std::collections::HashSet;
+    use std::mem::ManuallyDrop;
 
     fn with_ctx<R>(f: impl FnOnce(Ctx<'_>) -> R) -> R {
         let state = LimitState::new(usize::MAX);
@@ -1531,16 +1533,110 @@ mod tests {
         });
     }
 
+    /// A [`LimitAllocator`] for a test that leaks on purpose: it also
+    /// remembers every block it hands out and, once the runtime is gone and
+    /// the inner allocator's `drop` has counted what was left behind, frees
+    /// those blocks. The leak is what such a test checks; freeing it after
+    /// keeps it out of the process, where LeakSanitizer reported it at exit
+    /// (P1-RT-42: the ASan build has no arenas, so every object the runtime
+    /// left alive is a block of its own).
+    struct Reclaiming {
+        inner: ManuallyDrop<LimitAllocator>,
+        live: HashSet<usize>,
+        /// Usable bytes freed after the runtime was gone.
+        reclaimed: Arc<AtomicUsize>,
+    }
+
+    impl Reclaiming {
+        fn new(state: Arc<LimitState>, reclaimed: Arc<AtomicUsize>) -> Self {
+            Self {
+                inner: ManuallyDrop::new(LimitAllocator::new(state)),
+                live: HashSet::new(),
+                reclaimed,
+            }
+        }
+
+        fn track(&mut self, p: *mut u8) -> *mut u8 {
+            if !p.is_null() {
+                self.live.insert(p as usize);
+            }
+            p
+        }
+    }
+
+    // SAFETY: every method delegates the memory management to
+    // `LimitAllocator`, which upholds the trait's contract; this wrapper only
+    // records which blocks are live and never touches their memory.
+    unsafe impl Allocator for Reclaiming {
+        fn alloc(&mut self, size: usize) -> *mut u8 {
+            let p = self.inner.alloc(size);
+            self.track(p)
+        }
+
+        fn calloc(&mut self, count: usize, size: usize) -> *mut u8 {
+            let p = self.inner.calloc(count, size);
+            self.track(p)
+        }
+
+        unsafe fn dealloc(&mut self, ptr: *mut u8) {
+            self.live.remove(&(ptr as usize));
+            // SAFETY: the caller's guarantee (`ptr` came from this
+            // allocator, so from `inner`), passed on.
+            unsafe { self.inner.dealloc(ptr) }
+        }
+
+        unsafe fn realloc(&mut self, ptr: *mut u8, new_size: usize) -> *mut u8 {
+            // SAFETY: the caller's guarantee, passed on.
+            let p = unsafe { self.inner.realloc(ptr, new_size) };
+            if !p.is_null() {
+                // Moved (or resized in place); on null the old block stays.
+                self.live.remove(&(ptr as usize));
+            }
+            self.track(p)
+        }
+
+        unsafe fn usable_size(ptr: *mut u8) -> usize {
+            // SAFETY: the caller's guarantee, passed on.
+            unsafe { LimitAllocator::usable_size(ptr) }
+        }
+    }
+
+    impl Drop for Reclaiming {
+        fn drop(&mut self) {
+            // First the inner allocator's own drop, which counts the leak.
+            // SAFETY: `inner` is dropped once, here, and not used after.
+            unsafe { ManuallyDrop::drop(&mut self.inner) };
+            for p in self.live.drain() {
+                let p = p as *mut u8;
+                // SAFETY: rquickjs drops the allocator after `JS_FreeRuntime`
+                // returned, so the runtime is gone and only other leftover
+                // blocks still point at `p` (the forgotten Rust handle is
+                // never used again). `p` came from `RustAllocator` through
+                // `inner` and wasn't freed, or it wouldn't be in `live`.
+                // Freeing it straight through `RustAllocator` leaves the
+                // state's byte count as the runtime left it, for the test.
+                unsafe {
+                    self.reclaimed
+                        .fetch_add(RustAllocator::usable_size(p), Ordering::Relaxed);
+                    RustAllocator.dealloc(p);
+                }
+            }
+        }
+    }
+
     /// Review of #45: an object leaked on some error path used to vanish
     /// with the arenas at teardown, uncounted. A reference leaked on
     /// purpose (a forgotten `Value`) now shows in the counters, and a large
-    /// block it owned in the bytes.
+    /// block it owned in the bytes. The allocator then frees what was left,
+    /// so the test itself leaks nothing.
     #[test]
     fn teardown_counts_leaked_objects() {
         let before = teardown_leaks();
         let state = LimitState::new(usize::MAX);
+        let reclaimed = Arc::new(AtomicUsize::new(0));
         {
-            let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone())).unwrap();
+            let alloc = Reclaiming::new(state.clone(), reclaimed.clone());
+            let rt = Runtime::new_with_alloc(alloc).unwrap();
             let ctx = Context::full(&rt).unwrap();
             ctx.with(|ctx| {
                 install_stop_flag(&ctx, &state);
@@ -1561,6 +1657,27 @@ mod tests {
             after.bytes >= before.bytes + (1 << 20),
             "{before:?} {after:?}"
         );
+        // Every byte the runtime never gave back was found and freed.
+        assert_eq!(reclaimed.load(Ordering::Relaxed), state.used());
+    }
+
+    /// The reclaiming allocator itself: a clean runtime leaves it nothing to
+    /// free, so it can't hide a double free or free a live block.
+    #[test]
+    fn reclaiming_a_clean_teardown_frees_nothing() {
+        let state = LimitState::new(usize::MAX);
+        let reclaimed = Arc::new(AtomicUsize::new(0));
+        {
+            let alloc = Reclaiming::new(state.clone(), reclaimed.clone());
+            let rt = Runtime::new_with_alloc(alloc).unwrap();
+            let ctx = Context::full(&rt).unwrap();
+            ctx.with(|ctx| {
+                let _: Value<'_> = ctx
+                    .eval("globalThis.a = []; for (let i = 0; i < 1000; i++) a.push('x'.repeat(i))")
+                    .unwrap();
+            });
+        }
+        assert_eq!((state.used(), reclaimed.load(Ordering::Relaxed)), (0, 0));
     }
 
     #[test]

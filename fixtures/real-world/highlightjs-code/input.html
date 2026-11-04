@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Code samples</title>
+<link rel="stylesheet" href="../lib/highlight.js-11.12.0/styles/github.min.css">
+<style>
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../fonts/NotoSansJP-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; }
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; padding: 0; background: #ffffff; color: #1f2933; }
+body { font-family: "Noto Sans", "Noto Sans JP"; font-size: 14px; line-height: 22px; }
+h1 { font-size: 26px; line-height: 34px; margin: 0 0 12px; }
+h2 { font-size: 16px; line-height: 24px; margin: 16px 0 6px; }
+pre { margin: 0 0 8px; }
+pre, code { font-family: "Noto Sans", "Noto Sans JP"; }
+pre code.hljs { font-family: "Noto Sans", "Noto Sans JP"; font-size: 13px; line-height: 20px; overflow: visible; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Code samples</h1>
+<h2>Ruby</h2>
+<pre><code class="language-ruby">class Invoice
+  # Sums the lines, in cents.
+  def total(lines)
+    lines.sum { |l| l.quantity * l.unit_cents }
+  end
+end
+puts "Total: #{Invoice.new.total([])}"</code></pre>
+<h2>Rust</h2>
+<pre><code class="language-rust">/// Renders a document to PDF bytes.
+pub fn render(html: &amp;str) -&gt; Result&lt;Vec&lt;u8&gt;, Error&gt; {
+    let doc = Document::parse(html)?;
+    Ok(doc.print())
+}</code></pre>
+<h2>JavaScript</h2>
+<pre><code class="language-javascript">const rows = [1, 2, 3].map((n) =&gt; ({ id: n, label: `row ${n}` }));
+export default async function load(url) {
+  return rows.filter((r) =&gt; r.id !== 2);
+}</code></pre>
+<h2>SQL, HTML and an unnamed block</h2>
+<pre><code class="language-sql">SELECT customer, SUM(amount) AS total FROM invoices
+WHERE issued_on &gt;= '2026-01-01' GROUP BY customer;</code></pre>
+<pre><code class="language-xml">&lt;figure class="island"&gt;&lt;img src="chart.png" alt="Chart"&gt;&lt;/figure&gt;</code></pre>
+<pre><code class="nohighlight">plain text stays plain: 1 + 1 = 2</code></pre>
+<script src="../lib/highlight.js-11.12.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

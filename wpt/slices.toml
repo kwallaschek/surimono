@@ -1,0 +1,46 @@
+# The WPT slices surimono is measured on (docs/SPEC.md, Targets). `commit` is the
+# pinned web-platform-tests revision: the one wpt.fyi's stable Chrome run of
+# 2026-11-03 used (Chrome 156.0.8078.80, run 5143154416943104), so Chrome's own
+# results at this revision can be looked up.
+# wpt/tools/vendor.py copies from a checkout at exactly this commit.
+
+schema = 1
+source = "https://github.com/web-platform-tests/wpt"
+commit = "8b4b06ff53a47f1041e0e59f894d9e929963904c"
+# A file above this size is left out and listed in the manifest (no big assets).
+max_file_bytes = 262144
+
+[[slice]]
+id = "timers"
+area = "html/webappapis timers and microtask queuing"
+paths = ["html/webappapis/timers"]
+phase = 2
+target = 90
+
+[[slice]]
+id = "microtask-queuing"
+area = "html/webappapis timers and microtask queuing"
+paths = ["html/webappapis/microtask-queuing"]
+phase = 2
+target = 90
+
+[[slice]]
+id = "dom-nodes"
+area = "dom/nodes"
+paths = ["dom/nodes"]
+phase = 2
+target = 70
+
+[[slice]]
+id = "dom-events"
+area = "dom/events"
+paths = ["dom/events"]
+phase = 2
+target = 70
+
+[[slice]]
+id = "domparsing"
+area = "domparsing"
+paths = ["domparsing"]
+phase = 2
+target = 60

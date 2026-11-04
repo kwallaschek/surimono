@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generates docs/COMPAT.md from machine-readable test results.
 
-    python3 -I fixtures/tools/compat.py [--fixtures DIR] [--hostile FILE] [--bench FILE]
+    python3 -I fixtures/tools/compat.py [--fixtures DIR] [--hostile FILE] [--bench FILE] [--wpt FILE]
                                         [--commit SHA] [--out docs/COMPAT.md] [--check]
 
 Inputs (each optional; a missing one makes its section say "not run"):
@@ -16,6 +16,9 @@ Inputs (each optional; a missing one makes its section say "not run"):
                   decided here, against fixtures/hostile/manifest.toml, not
                   taken from the file.
   --bench FILE    bench/run.sh's results.json.
+  --wpt FILE      the WPT runner's results (wpt/README.md), scored against
+                  wpt/baseline/chrome.json. Without the baseline, or with a
+                  baseline missing a slice or a vendored test, it is an error.
 
 The real-world section comes from fixtures/real-world/manifest.toml plus the
 fixture results of each library's renderer.
@@ -506,6 +509,75 @@ def real_world_section(fixture_status: dict[str, str], meta: dict[str, dict]) ->
     return lines
 
 
+def wpt_passed(baseline_test: dict, result: dict | None) -> tuple[int, int]:
+    """(passed, counted) for one baseline test, by the rules in wpt/README.md."""
+    if baseline_test.get("status") != "OK":
+        return 0, 0  # Chrome didn't finish it either: nothing to measure against.
+    # A test with no subtests counts once, on its harness status.
+    want = [s["name"] for s in baseline_test.get("subtests", []) if s.get("status") == "PASS"]
+    single = not baseline_test.get("subtests")
+    total = 1 if single else len(want)
+    status = result.get("status") if result else None
+    if status not in ("OK", "TIMEOUT"):
+        return 0, total  # Not reported, ERROR, CRASH, LIMIT: the whole test failed.
+    if single:
+        return (1 if status == "OK" else 0), total
+    ours = {s.get("name") for s in result.get("subtests", []) if s.get("status") == "PASS"}
+    got = sum(1 for n in want if n in ours)
+    # A timed-out test left something unfinished, so it can't be all there.
+    if status == "TIMEOUT" and got == total:
+        return 0, total
+    return got, total
+
+
+def wpt_section(results_file: Path | None) -> list[str]:
+    """WPT pass rates per area. The denominator is what Chrome passes
+    (wpt/baseline/chrome.json), so a subtest we never reported counts as failed."""
+    lines = ["### Web Platform Tests", ""]
+    slices_file = ROOT / "wpt" / "slices.toml"
+    if not slices_file.exists():
+        if results_file:
+            raise SystemExit("--wpt: wpt/slices.toml is not in this checkout")
+        return lines + ["The WPT slices (`wpt/`) are not in this checkout.", ""]
+    slices = tomllib.loads(slices_file.read_text(encoding="utf-8"))
+    baseline_file = ROOT / "wpt" / "baseline" / "chrome.json"
+    if not results_file:
+        return lines + ["Not run yet: the runner needs the DOM and the event loop, and the tests aren't vendored (`wpt/README.md`).", ""]
+    if not baseline_file.exists():
+        raise SystemExit("--wpt: wpt/baseline/chrome.json is missing, so the results can't be scored")
+    results = read_json(results_file)
+    baseline = read_json(baseline_file)
+    for name, data in (("results", results), ("baseline", baseline)):
+        if data.get("wpt_commit") != slices["commit"]:
+            raise SystemExit(f"WPT {name} are from {data.get('wpt_commit')}, wpt/slices.toml pins {slices['commit']}")
+    # A partial baseline would inflate the rate, so it is an error.
+    in_baseline = {t["test"] for t in baseline.get("tests", [])}
+    absent = [sl["id"] for sl in slices["slice"] if not any(t.get("slice") == sl["id"] for t in baseline.get("tests", []))]
+    if absent:
+        raise SystemExit(f"WPT baseline has nothing for slice {', '.join(absent)}")
+    manifest_file = ROOT / "wpt" / "manifest.toml"
+    if manifest_file.exists():
+        manifest = tomllib.loads(manifest_file.read_text(encoding="utf-8"))
+        missing = [u for t in manifest.get("test", []) for u in t["urls"] if u not in in_baseline]
+        if missing:
+            raise SystemExit(f"WPT baseline lacks {len(missing)} vendored tests, first {missing[0]}")
+    ours = {t["test"]: t for t in results.get("tests", [])}
+    areas: dict[str, dict] = {}
+    for sl in slices["slice"]:
+        area = areas.setdefault(sl["area"], {"target": sl["target"], "phase": sl["phase"], "ids": set()})
+        area["ids"].add(sl["id"])
+    lines += ["| Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |", "|---|---|---|---|---|---|---|"]
+    for name, area in areas.items():
+        scores = [wpt_passed(t, ours.get(t["test"])) for t in baseline["tests"] if t.get("slice") in area["ids"]]
+        got = sum(g for g, _ in scores)
+        total = sum(n for _, n in scores)
+        rate = 100 * got / total if total else 0.0
+        status = "meets the target" if total and rate >= area["target"] else "**below the target**"
+        lines.append(f"| {name} | {area['phase']} | {got} | {total} | {rate:.1f}% | {area['target']}% | {status} |")
+    lines.append("")
+    return lines
+
+
 def bench_section(bench_file: Path | None) -> list[str]:
     lines = ["### Speed and memory against Grover", ""]
     if not bench_file:
@@ -551,7 +623,7 @@ def hand_written(existing: str | None) -> str:
     return DEFAULT_HAND_WRITTEN
 
 
-def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None) -> str:
+def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None, wpt: Path | None = None) -> str:
     meta = fixture_meta()
     producer = check_producers(scores + list((determinism or {}).values()))
     fx_lines, fx_status = fixtures_section(scores, meta, determinism)
@@ -577,6 +649,9 @@ def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commi
         *hostile_section(hostile),
         *real_world_section(fx_status, meta),
         *bench_section(bench),
+        "## Phase 2: scripts",
+        "",
+        *wpt_section(wpt),
         BEGIN,
         "",
         hand_written(existing).rstrip("\n"),
@@ -592,16 +667,17 @@ def main() -> int:
     ap.add_argument("--fixtures", type=Path)
     ap.add_argument("--hostile", type=Path)
     ap.add_argument("--bench", type=Path)
+    ap.add_argument("--wpt", type=Path)
     ap.add_argument("--commit", default="this checkout")
     ap.add_argument("--out", type=Path, default=ROOT / "docs" / "COMPAT.md")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
-    for p in (args.fixtures, args.hostile, args.bench):
+    for p in (args.fixtures, args.hostile, args.bench, args.wpt):
         if p and not p.exists():
             sys.exit(f"{p} does not exist")
     existing = args.out.read_text(encoding="utf-8") if args.out.exists() else None
     try:
-        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures))
+        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures), args.wpt)
     except CompatError as e:
         print(f"compat.py: {e}", file=sys.stderr)
         return 1
