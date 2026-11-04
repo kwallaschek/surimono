@@ -1683,10 +1683,10 @@ impl Document {
     }
 
     fn pin(&mut self, id: Option<usize>) -> Option<usize> {
-        if let Some(n) = id {
-            if let Err(e) = self.handle_for(n) {
-                self.fault.get_or_insert(e);
-            }
+        if let Some(n) = id
+            && let Err(e) = self.handle_for(n)
+        {
+            self.fault.get_or_insert(e);
         }
         id
     }
