@@ -141,7 +141,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-GFX-07 · GFX · todo · crates/gfx/tests/chrome/*.mjs launch with channel 'chromium' so the preload can go
 - P1-RT-39 · RT · todo · #85 review nits: doc split, recycle after a queue-cancelled job, doc wording, scaled test time, flag raised and lowered inside one poll
 - P1-RT-40 · RT · done · A panic in a native function reaches JS as an exception a script's try can swallow (rquickjs): make any native panic end the render with a typed error, sticky, with a test
-- P1-CF-32 · CF · todo · COMPAT.md memory note: target is now ≥5× PSS vs Grover (Kay, checkpoint 2); state the measured 5.8× Ruby / 8.0× Rust and fulgur's own ~8.7× floor
+- P1-CF-33 · CF · todo · COMPAT.md memory note: target is now ≥5× PSS vs Grover (Kay, checkpoint 2); state the measured 5.8× Ruby / 8.0× Rust and fulgur's own ~8.7× floor
 - P1-RT-42 · RT · doing · Main's linux-extra-asan: LeakSanitizer reports 1,108,992 bytes in 492 indirect leaks at exit of the surimono-core lib test binary (since at least 88cb0ee9); symbolize locally, find and fix
 - P1-RT-43 · RT · doing · Main's test-macos-14 timing flakes: cancel.rs stops_a_microtask_flood (MemoryLimit before Cancelled), hostile.rs group_b_swallowed_interrupts_end; make robust without weakening
 - P1-RT-41 · RT · todo · #100 follow-up: first idle worker of a burst must not trim while others hold runtimes (reset last_trim_ms on 0→1 runtimes); #95 follow-ups: add_arg over the parameter limit gives a SyntaxError with a test, PATCHES.md wording, draft 07 reachability; HostPanic message truncated; doc lines from #102's review
