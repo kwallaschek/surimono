@@ -313,9 +313,12 @@ mod tests {
     thread_local! {
         /// How many guarded natives may still run before one panics.
         static PANIC_AFTER: Cell<Option<u32>> = const { Cell::new(None) };
+        /// How many guarded natives have started on this thread.
+        static STARTED: Cell<u32> = const { Cell::new(0) };
     }
 
     pub(super) fn panic_if_due() {
+        STARTED.set(STARTED.get() + 1);
         match PANIC_AFTER.get() {
             Some(0) => {
                 PANIC_AFTER.set(None);
@@ -388,5 +391,30 @@ mod tests {
             assert_eq!(rt.eval::<String>("document.body.tagName").unwrap(), "BODY");
         }
         assert!(panicked > 5, "{panicked}");
+    }
+
+    /// [`Deadline::passed`] doesn't see a panic, so what keeps a `catch` off
+    /// the half-changed document is the engine: a panic raises the stop flag,
+    /// and the only way to a native is through a glue function, whose entry
+    /// polls that flag.
+    #[test]
+    fn no_native_runs_after_a_panic() {
+        let mut rt = DomRuntime::new(Limits::default()).unwrap();
+        rt.load(Document::parse("<!doctype html><body>").unwrap());
+        assert_eq!(rt.eval::<String>("document.body.tagName").unwrap(), "BODY");
+        STARTED.set(0);
+        PANIC_AFTER.set(Some(1));
+        let script = "for (let k = 0; k < 20; k++) {
+            try { document.body.setAttribute('a', 'b'); } catch (e) {}
+          }";
+        let result = rt.eval::<()>(script);
+        assert!(
+            matches!(
+                result,
+                Err(DomError::Sandbox(SandboxError::HostPanic { .. }))
+            ),
+            "{result:?}"
+        );
+        assert_eq!(STARTED.get(), 2, "one call, then the one that panicked");
     }
 }

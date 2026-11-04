@@ -293,6 +293,53 @@ fn string_bytes_are_limited() {
     );
 }
 
+/// `<frameset>` drops the implied `<body>` and leaves it, with everything in
+/// it, with no parent. An explicit `<body>` tag or any text turns frameset-ok
+/// off (HTML Standard, 13.2.6.4.7), so every page here has an implied body.
+#[test]
+fn a_frameset_frees_the_body_it_orphans() {
+    let doc =
+        Document::parse("<!doctype html><div title=yyyyyyyy><!--cc--></div><frameset>").unwrap();
+    doc.check_consistency().unwrap();
+    assert_eq!(
+        doc.to_html(),
+        "<html><head></head><frameset></frameset></html>"
+    );
+    // The document node, `<html>`, `<head>` and `<frameset>`; the body, the
+    // div and the comment are gone, not only out of the tree.
+    assert_eq!(doc.node_count(), 4);
+}
+
+/// An orphan's bytes count until it goes: a page can't hide them there.
+#[test]
+fn a_frameset_cannot_hide_bytes_in_an_orphan() {
+    const LIMIT: usize = 1 << 20;
+    let page = |bytes: usize| {
+        format!(
+            "<!doctype html><div title=\"{}\"></div><frameset>",
+            "x".repeat(bytes)
+        )
+    };
+    let limits_ = DomLimits {
+        max_text_bytes: LIMIT,
+        ..DomLimits::default()
+    };
+    assert_eq!(
+        Document::parse_with_limits(&page(LIMIT), limits_).unwrap_err(),
+        DomError::TextLimit { limit: LIMIT }
+    );
+    // And they're given back when it goes: nearly the whole budget is free.
+    const MOST: usize = LIMIT / 8 * 7;
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse_with_limits(&page(MOST), limits_).unwrap());
+    let _: () = rt
+        .eval(&format!(
+            "document.documentElement.setAttribute('a', 'y'.repeat({MOST}))"
+        ))
+        .unwrap();
+    rt.take().unwrap().check_consistency().unwrap();
+}
+
 /// Overwrites and drops give the bytes back: a page rewriting a label stays
 /// well inside the budget however often it does.
 #[test]
