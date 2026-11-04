@@ -2057,7 +2057,8 @@ mod tests {
 
     /// A script that allocates on many paths: the compiler (through `eval`
     /// and `Function`), async functions and promise jobs, generators,
-    /// strings, arrays, Date parsing, sorting, JSON and regexps.
+    /// strings, arrays, Date parsing, sorting, JSON, regexps and the sorted
+    /// copy of a proxy's `ownKeys` result.
     const ALLOCATING_SCRIPT: &str = r#"
         async function f(n) { await null; return [n, { a: n }, 'x' + n]; }
         const out = [];
@@ -2074,6 +2075,11 @@ mod tests {
           + eval('(function (a, b) { let c = a + b; return [c, ...arguments]; })(1, 2).join()')
           + new Function('x', 'class K { #p = x; get p() { return this.#p * 2; } } return new K().p')(21)
           + `${[1, 2].map((x) => x ** 2)}`.padStart(8, '-')
+          + (() => {
+              const k = Array.from({ length: 20 }, (_, i) => 'k' + i);
+              const t = Object.freeze(Object.fromEntries(k.map((x) => [x, 1])));
+              return Reflect.ownKeys(new Proxy(t, { ownKeys: () => k })).length;
+            })()
     "#;
 
     /// Compiles a large generated program through `eval`, so allocations in
@@ -2212,6 +2218,18 @@ const BoundPt = Pt.bind(null, 7);
             "new RegExp('[a-z]|(?:x)*|'.repeat(1 << 20) + '|'.repeat(1 << 23))",
             "JSON.parse('[' + '{\"a\":[1,\"s\"]},'.repeat(1 << 21) + '1]')",
             "JSON.parse('[' + '{\"a\":[1,\"s\"]},'.repeat(1 << 21) + '1]', (k, v) => v)",
+            // Group H: stopped reading, sorting or checking an `ownKeys`
+            // result, with the sorted copy allocated in the last two.
+            "const k = Array.from({ length: 1 << 12 }, (_, i) => 'k' + i);
+             const p = new Proxy({}, { ownKeys: () => k });
+             for (;;) Reflect.ownKeys(p)",
+            "const k = Array.from({ length: 1 << 12 }, (_, i) => 'k' + i);
+             const t = Object.freeze(Object.fromEntries(k.map((x) => [x, 1])));
+             const p = new Proxy(t, { ownKeys: () => k });
+             for (;;) Reflect.ownKeys(p)",
+            "const k = Array.from({ length: 1 << 12 }, (_, i) => 'k' + i);
+             const p = new Proxy({}, { ownKeys: () => k });
+             for (;;) Object.getOwnPropertyDescriptors(p)",
         ];
         let limits = Limits::default()
             .with_time(Duration::from_millis(60))
@@ -2300,6 +2318,104 @@ function f(a, { b, c: [d = 2] = [] } = {}, ...rest) {
                 assert_eq!(sb.eval::<bool>(&source), Ok(true), "{len} {json}");
             }
         }
+    }
+
+    /// The sorted copy behind a proxy's `ownKeys` checks (patch 32) changes
+    /// no result: the order is the trap's, and every invariant fails as
+    /// before, either side of the size that takes the copy off the stack.
+    /// The expected results are ProxyObject.[[OwnPropertyKeys]] in ECMA-262
+    /// (10.5.11).
+    #[test]
+    fn proxy_own_keys_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let got = sb
+            .eval::<String>(
+                r#"
+const sym = Symbol('s');
+const keys = (n) => Array.from({ length: n }, (_, i) => (i % 3 == 0 ? 'k' : '') + (n - i));
+const own = (target, list) => Reflect.ownKeys(new Proxy(target, { ownKeys: () => list }));
+const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+const error = (f) => { try { f(); return 'ok' } catch (e) { return e.name + ': ' + e.message } };
+const sizes = [0, 1, 2, 3, 6, 7, 15, 16, 17, 18, 1000];
+const out = [];
+// The trap's order, not the object order, with strings, numbers and symbols.
+out.push(own({}, ['z', 'a', '1', sym, '0']).map(String).join());
+for (const n of sizes) {
+  const k = keys(n);
+  if (!same(own({}, k), k)) out.push('order ' + n);
+  // Non-extensible: exactly the target's keys, in the trap's order.
+  const t = Object.preventExtensions(Object.fromEntries(k.map((x) => [x, 1])));
+  const r = [...k].reverse();
+  if (!same(own(t, r), r)) out.push('non-extensible ' + n);
+  if (n > 0) {
+    // A duplicate at each end and side by side.
+    for (const [i, j] of [[0, n - 1], [n - 1, n], [n >> 1, 0]]) {
+      const d = [...k];
+      d.splice(j, 0, d[i]);
+      if (error(() => own({}, d)) !== 'TypeError: proxy: duplicate property')
+        out.push('duplicate ' + n);
+    }
+    // Missing a key that a non-extensible target has, or adding one.
+    if (error(() => own(t, k.slice(1))) !==
+        'TypeError: proxy: target property must be present in proxy ownKeys')
+      out.push('missing ' + n);
+    if (error(() => own(t, [...k, 'extra'])) !==
+        'TypeError: proxy: property not present in target were returned by non extensible proxy')
+      out.push('extra ' + n);
+    // Only non-configurable keys must be there; any other key may be added.
+    const c = Object.defineProperty({}, k[n - 1], { value: 1 });
+    if (!same(own(c, [...k, 'extra']), [...k, 'extra'])) out.push('configurable ' + n);
+    if (error(() => own(c, k.slice(0, -1))) !==
+        'TypeError: proxy: target property must be present in proxy ownKeys')
+      out.push('non-configurable ' + n);
+  }
+}
+// The duplicate check comes before the target is asked anything.
+const log = [];
+const logged = new Proxy({}, {
+  isExtensible(t) { log.push('isExtensible'); return Reflect.isExtensible(t) },
+  ownKeys(t) { log.push('ownKeys'); return Reflect.ownKeys(t) },
+});
+out.push(error(() => own(logged, ['a', 'a'])), log.join());
+own(logged, ['a', 'b']);
+out.push(log.join());
+// Reading stops at the first bad element, in order.
+const reads = [];
+const like = new Proxy({ length: 3, 0: 'a', 1: 1, 2: 'b' }, {
+  get(t, p, r) { reads.push(String(p)); return Reflect.get(t, p, r) },
+});
+out.push(error(() => own({}, like)), reads.join());
+// Revoked while checking, with the copy live: the target's trap revokes the
+// outer proxy. The spec has no check there and QuickJS throws, so only that
+// it ends counts here.
+let revoke;
+const many = Object.fromEntries(keys(20).map((x) => [x, 1]));
+const inner = new Proxy(many, {
+  getOwnPropertyDescriptor(t, p) { revoke(); return Reflect.getOwnPropertyDescriptor(t, p) },
+});
+const outer = Proxy.revocable(inner, { ownKeys: () => keys(20) });
+revoke = outer.revoke;
+error(() => Reflect.ownKeys(outer.proxy));
+// Enumerability still comes from the target through the proxy.
+const mixed = Object.defineProperty({ a: 1, b: 2 }, 'c', { value: 3, configurable: true });
+out.push(Object.keys(new Proxy(mixed, { ownKeys: () => ['c', 'b', 'a', 'gone'] })).join());
+out.join('\n')
+"#,
+            )
+            .unwrap();
+        let lines: Vec<&str> = got.lines().collect();
+        assert_eq!(
+            lines,
+            [
+                "z,a,1,Symbol(s),0",
+                "TypeError: proxy: duplicate property",
+                "",
+                "isExtensible,ownKeys",
+                "TypeError: proxy: properties must be strings or symbols",
+                "length,0,1",
+                "b,a",
+            ]
+        );
     }
 
     /// Compile polls change no syntax error: a bad pattern is still a

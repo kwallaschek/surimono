@@ -12,7 +12,8 @@
 //! call (`replace`, `split`, `match`, `matchAll`); group G is a compile or
 //! parse of a huge or quadratic input, which runs no bytecode (source text
 //! through `compile`, `eval` and `new Function`, patterns through `RegExp`,
-//! `JSON.parse`). Each must stop within
+//! `JSON.parse`); group H is a proxy's `ownKeys` result, checked in C after
+//! the trap returns. Each must stop within
 //! about twice the time limit (timed apart from the cleanup after it, which
 //! has a bound of its own): with the expected limit error, or for the
 //! TOCTOU vectors (whose trick only fooled the old prelude guards)
@@ -123,6 +124,9 @@ enum Setup {
     Compile(fn() -> String),
     /// The same for [`Sandbox::eval`].
     Eval(fn() -> String),
+    /// The global `s` as for `Text`, then each of these scripts in a call of
+    /// its own, so a loaded machine can't run the setup out of time.
+    TextThen(fn() -> String, &'static [&'static str]),
 }
 
 /// Heap limit of every vector that doesn't set its own.
@@ -611,6 +615,7 @@ fn all_vectors() -> impl Iterator<Item = &'static Vector> {
         .chain(GROUP_E)
         .chain(GROUP_F)
         .chain(GROUP_G)
+        .chain(GROUP_H)
 }
 
 fn pseudo_random(n: usize) -> Vec<i32> {
@@ -654,6 +659,18 @@ fn hostile_child() {
                     .set("s", rquickjs::String::from_str(ctx.clone(), &text)?)
             })
             .unwrap();
+            None
+        }
+        Setup::TextThen(text, then) => {
+            let text = text();
+            sb.run(|ctx| {
+                ctx.globals()
+                    .set("s", rquickjs::String::from_str(ctx.clone(), &text)?)
+            })
+            .unwrap();
+            for script in then {
+                sb.eval::<()>(script).unwrap();
+            }
             None
         }
         Setup::Compile(text) | Setup::Eval(text) => Some(text()),
@@ -1012,6 +1029,107 @@ const GROUP_G: &[Vector] = &[
     ),
 ];
 
+/// Keys of the group H setup: enough that one linear search per key takes
+/// far over [`stop_bound`] (2.4 s for 98,000 in a release build).
+const KEYS: usize = 100_000;
+
+/// A JSON object of [`KEYS`] properties, for the group H setup.
+fn keys_json() -> String {
+    let keys: Vec<String> = (0..KEYS).map(|i| format!("\"k{i}\":1")).collect();
+    format!("{{{}}}", keys.join(","))
+}
+
+/// The group H setup: `t` has [`KEYS`] properties, `k` is its keys, `n` is
+/// as many numeric strings counting down and `d` as many copies of one
+/// string.
+const KEYS_SETUP: &[&str] = &[
+    "var t = JSON.parse(s); s = ''",
+    "var k = Object.keys(t)",
+    "var n = k.map((x) => x.slice(1))",
+    "n.reverse()",
+    "var d = new Array(k.length).fill('x')",
+];
+
+/// One vector of group H: `source` in a loop, so it ends by the time limit
+/// with one call far shorter than the limit, and fails if one call is long.
+const fn keys(name: &'static str, source: &'static str) -> Vector {
+    v(name, source, Want::Time)
+        .with(Setup::TextThen(keys_json, KEYS_SETUP))
+        .with_heap(GROUP_G_HEAP)
+}
+
+/// Group H (P2-RT-04): `js_proxy_get_own_property_names` looked up each key
+/// in a linear scan in C, once for duplicates and once per key of the target
+/// that must be present. The time was spent after the trap had returned, in
+/// every path through a proxy's own keys.
+const GROUP_H: &[Vector] = &[
+    keys(
+        "H Reflect.ownKeys",
+        "var p = new Proxy({}, { ownKeys: () => k }); for (;;) Reflect.ownKeys(p)",
+    ),
+    keys(
+        "H Object.keys",
+        "var p = new Proxy({}, { ownKeys: () => k }); for (;;) Object.keys(p)",
+    ),
+    keys(
+        "H Object.entries",
+        "var p = new Proxy({}, { ownKeys: () => k }); for (;;) Object.entries(p)",
+    ),
+    keys(
+        "H Object.getOwnPropertyDescriptors",
+        "var p = new Proxy({}, { ownKeys: () => k });
+         for (;;) Object.getOwnPropertyDescriptors(p)",
+    ),
+    keys(
+        "H for-in",
+        "var p = new Proxy({}, { ownKeys: () => k }); for (;;) for (var x in p) break",
+    ),
+    keys(
+        "H spread",
+        "var p = new Proxy({}, { ownKeys: () => k }); for (;;) ({ ...p })",
+    ),
+    keys(
+        "H Object.assign",
+        "var p = new Proxy({}, { ownKeys: () => k }); for (;;) Object.assign({}, p)",
+    ),
+    keys(
+        "H JSON.stringify",
+        "var p = new Proxy({}, { ownKeys: () => k }); for (;;) JSON.stringify(p)",
+    ),
+    keys(
+        "H proxy of a proxy",
+        "var p = new Proxy(new Proxy({}, { ownKeys: () => k }), {}); for (;;) Reflect.ownKeys(p)",
+    ),
+    keys(
+        "H numeric keys",
+        "var p = new Proxy({}, { ownKeys: () => n }); for (;;) Reflect.ownKeys(p)",
+    ),
+    keys(
+        "H a duplicate at the end",
+        "var a = k.concat('k0'), p = new Proxy({}, { ownKeys: () => a });
+         for (;;) try { Reflect.ownKeys(p) } catch (e) {}",
+    ),
+    keys(
+        "H one key throughout",
+        "var p = new Proxy({}, { ownKeys: () => d });
+         for (;;) try { Reflect.ownKeys(p) } catch (e) {}",
+    ),
+    keys(
+        "H frozen target, every key looked up",
+        "var p = new Proxy(Object.freeze(t), { ownKeys: () => k }); for (;;) Reflect.ownKeys(p)",
+    ),
+    keys(
+        "H non-extensible target, every key marked",
+        "var p = new Proxy(Object.preventExtensions(t), { ownKeys: () => k });
+         for (;;) Reflect.ownKeys(p)",
+    ),
+    keys(
+        "H plain Object.getOwnPropertyDescriptors",
+        "for (;;) Object.getOwnPropertyDescriptors(t)",
+    ),
+    keys("H plain Object.entries", "for (;;) Object.entries(t)"),
+];
+
 /// Group G: the interrupt during a compile or parse is the time limit, not
 /// an error a script can catch. `caught` is set if it can.
 #[test]
@@ -1080,4 +1198,9 @@ fn group_f_regexp_per_match_loops_end() {
 #[test]
 fn group_g_compiles_and_parses_end() {
     run_group(GROUP_G, unwind_bound());
+}
+
+#[test]
+fn group_h_proxy_own_keys_end() {
+    run_group(GROUP_H, unwind_bound());
 }
