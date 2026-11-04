@@ -574,6 +574,72 @@ class SurimonoTest < Minitest::Test
     other&.kill&.join
   end
 
+  # The pump's helpers are private but run on every Ruby, so these tests don't
+  # need 3.2. A pump only shows up in Thread.list while the block runs.
+  def signal_pump
+    Thread.list.find { |t| t.name == "surimono-signal-pump" }
+  end
+
+  def test_signal_pump_is_named_before_it_first_runs
+    r = renderer
+    seen = r.send(:with_signal_pump) { [signal_pump, signal_pump&.report_on_exception] }
+    refute_nil seen[0], "no pump with that name right after Thread.new"
+    assert_equal false, seen[1]
+    assert_no_signal_pump
+  end
+
+  # Before P1-PKG-22 this came out of render through pump.join, after the whole
+  # document, and left the rest of the render with no pump. Raised twice,
+  # because the rescue must still be there after a retry.
+  def test_exception_raised_into_the_signal_pump_stays_there
+    r = renderer
+    pump = nil
+    out = r.send(:with_signal_pump) do
+      pump = signal_pump
+      2.times do
+        Thread.pass until pump.stop? # in its sleep, past the block's first line
+        pump.raise(RuntimeError, "aimed at the pump")
+        sleep 0.01
+      end
+      Thread.pass until pump.stop?
+      assert pump.alive?, "the pump died of the exception"
+      r.send(:_render, island)
+    end
+    assert_equal stub_svg, out
+    refute pump.alive?
+  end
+
+  # Thread.new raises ThreadError in a frozen ThreadGroup, as it does at a
+  # thread limit. The render worked without the pump before; it still must.
+  def test_render_goes_ahead_when_no_pump_can_start
+    r = renderer
+    t = Thread.new do
+      group = ThreadGroup.new
+      group.add(Thread.current)
+      group.freeze
+      assert_raises(ThreadError) { Thread.new {} }
+      [r.send(:with_signal_pump) { r.send(:_render, island) }, signal_pump]
+    end
+    out, pump = t.value
+    assert_equal stub_svg, out
+    assert_nil pump
+  end
+
+  # A ThreadError from the render itself is not "no pump": it must not be
+  # swallowed, or run the block a second time.
+  def test_thread_error_from_the_block_is_not_swallowed
+    r = renderer
+    runs = 0
+    assert_raises(ThreadError) do
+      r.send(:with_signal_pump) do
+        runs += 1
+        raise ThreadError, "the caller's"
+      end
+    end
+    assert_equal 1, runs
+    assert_no_signal_pump
+  end
+
   def assert_no_signal_pump
     pumps = Thread.list.select { |t| t.name == "surimono-signal-pump" }
     assert_empty pumps, "a signal pump outlived the render"
