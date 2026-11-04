@@ -134,9 +134,8 @@ enum Setup {
     Compile(fn() -> String),
     /// The same for [`Sandbox::eval`].
     Eval(fn() -> String),
-    /// The global `s` as for `Text`, then each of these scripts in a call of
-    /// its own, so a loaded machine can't run the setup out of time.
-    TextThen(fn() -> String, &'static [&'static str]),
+    /// Scripts run in order, each in a call of its own.
+    Scripts(&'static [&'static str]),
 }
 
 /// Heap limit of every vector that doesn't set its own.
@@ -671,14 +670,8 @@ fn hostile_child() {
             .unwrap();
             None
         }
-        Setup::TextThen(text, then) => {
-            let text = text();
-            sb.run(|ctx| {
-                ctx.globals()
-                    .set("s", rquickjs::String::from_str(ctx.clone(), &text)?)
-            })
-            .unwrap();
-            for script in then {
+        Setup::Scripts(scripts) => {
+            for script in scripts {
                 sb.eval::<()>(script).unwrap();
             }
             None
@@ -1090,32 +1083,36 @@ const GROUP_G: &[Vector] = &[
     ),
 ];
 
-/// Keys of the group H setup: enough that one linear search per key takes
-/// far over [`stop_bound`] (2.4 s for 98,000 in a release build).
-const KEYS: usize = 100_000;
-
-/// A JSON object of [`KEYS`] properties, for the group H setup.
-fn keys_json() -> String {
-    let keys: Vec<String> = (0..KEYS).map(|i| format!("\"k{i}\":1")).collect();
-    format!("{{{}}}", keys.join(","))
-}
-
-/// The group H setup: `t` has [`KEYS`] properties, `k` is its keys, `n` is
-/// as many numeric strings counting down and `d` as many copies of one
+/// The group H setup, in short steps: each one runs under the time limit, and
+/// under AddressSanitizer one long step took all of it. `t` has 100,000
+/// properties, enough that one linear search per key takes far over
+/// [`stop_bound`] (2.4 s for 98,000 in a release build), `k` is its keys, `n`
+/// is as many numeric strings counting down and `d` as many copies of one
 /// string.
 const KEYS_SETUP: &[&str] = &[
-    "var t = JSON.parse(s); s = ''",
-    "var k = Object.keys(t)",
-    "var n = k.map((x) => x.slice(1))",
-    "n.reverse()",
-    "var d = new Array(k.length).fill('x')",
+    "var t = {}, k = [], n = [], d = [], i = 0;
+     function more() {
+       for (var e = i + 10000; i < e; i++) {
+         t['k' + i] = 1; k.push('k' + i); n.push(String(99999 - i)); d.push('x');
+       }
+     }",
+    "more()",
+    "more()",
+    "more()",
+    "more()",
+    "more()",
+    "more()",
+    "more()",
+    "more()",
+    "more()",
+    "more()",
 ];
 
 /// One vector of group H: `source` in a loop, so it ends by the time limit
 /// with one call far shorter than the limit, and fails if one call is long.
 const fn keys(name: &'static str, source: &'static str) -> Vector {
     v(name, source, Want::Time)
-        .with(Setup::TextThen(keys_json, KEYS_SETUP))
+        .with(Setup::Scripts(KEYS_SETUP))
         .with_heap(GROUP_G_HEAP)
 }
 
