@@ -1,0 +1,4219 @@
+{
+  "schema": 2,
+  "started_at": "2026-11-04T03:01:34+0000",
+  "versions": {
+    "chromium": "Google Chrome for Testing 153.0.8010.12",
+    "chrome_headless_shell": "Google Chrome for Testing 153.0.8010.12",
+    "grover": "1.2.10",
+    "puppeteer": "25.11.0",
+    "fulgur_gem": "0.40.0",
+    "echarts": "6.1.0",
+    "vega": "6.4.0",
+    "vega_lite": "6.5.0",
+    "playwright": "1.63.0",
+    "surimono_commit": "92c5f58c16e71d041188d8a9ace62710cb89ec5c",
+    "surimono_describe": "92c5f58",
+    "surimono_gem": "0.0.0 (native 0.0.0)",
+    "ruby": "ruby 3.4.12 (2026-10-23 revision 366f5fdc00) +PRISM [x86_64-linux]",
+    "node": "v22.23.4",
+    "nokogiri": "1.19.4"
+  },
+  "machine": {
+    "ci": true,
+    "runner": "GitHub Actions 1000002245",
+    "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "memory_gb": 15.6,
+    "loadavg_start": [
+      2.12353515625,
+      0.7900390625,
+      0.29296875
+    ],
+    "loadavg_end": [
+      3.564453125,
+      2.87939453125,
+      1.73095703125
+    ]
+  },
+  "method": {
+    "runs": 20,
+    "memory_runs": 5,
+    "warmup": 2,
+    "spec_runs": 20,
+    "sample_interval_ms": 10.0,
+    "subreaper": true,
+    "report": "bench/report/report.html",
+    "spec_targets": {
+      "speed": 2.0,
+      "memory": 10.0
+    },
+    "time_budget_min": 50.0,
+    "surimono_pool_size": {
+      "setting": "default (CPUs clamped to 1..8)",
+      "size": 4,
+      "cpus": 4
+    },
+    "rust_build_s": 155.0,
+    "islands": 6
+  },
+  "results": {
+    "grover": {
+      "label": "Grover (Chrome)",
+      "about": "Grover 1.2.10, Puppeteer, Chrome; charts drawn client-side by ECharts/Vega in Chrome. Warm: Ruby process and Chrome reused (browser_ws_endpoint); the Node process that only keeps Chrome open is left out of the memory sum (reported separately).",
+      "done": [
+        "cold",
+        "cold-memory",
+        "warm",
+        "warm-memory"
+      ],
+      "status": "measured",
+      "cold": [
+        {
+          "wall_ms": 2233.37,
+          "cpu_ms": 4660.0,
+          "setup_ms": 142.34771000000183,
+          "render_ms": 1940.8868750000256,
+          "phases": {
+            "grover_ms": 1940.8794810000109
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 10
+        },
+        {
+          "wall_ms": 2128.89,
+          "cpu_ms": 3210.0,
+          "setup_ms": 49.32837199995993,
+          "render_ms": 1930.4850860000006,
+          "phases": {
+            "grover_ms": 1930.478674000071
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2097.85,
+          "cpu_ms": 3200.0,
+          "setup_ms": 52.04232599999523,
+          "render_ms": 1892.087445000012,
+          "phases": {
+            "grover_ms": 1892.0797209999873
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2099.91,
+          "cpu_ms": 3200.0,
+          "setup_ms": 49.34047799999826,
+          "render_ms": 1900.7266679999884,
+          "phases": {
+            "grover_ms": 1900.7197450000094
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2137.35,
+          "cpu_ms": 3250.0,
+          "setup_ms": 50.936474000045564,
+          "render_ms": 1928.0990269999602,
+          "phases": {
+            "grover_ms": 1928.0917439999175
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2059.14,
+          "cpu_ms": 3150.0,
+          "setup_ms": 49.293393999978434,
+          "render_ms": 1864.2351119999657,
+          "phases": {
+            "grover_ms": 1864.2285189999384
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2121.11,
+          "cpu_ms": 3190.0,
+          "setup_ms": 51.685293000075035,
+          "render_ms": 1914.3664870000212,
+          "phases": {
+            "grover_ms": 1914.359282999998
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2069.9,
+          "cpu_ms": 3170.0,
+          "setup_ms": 49.37529900006484,
+          "render_ms": 1871.6807129999506,
+          "phases": {
+            "grover_ms": 1871.674010000017
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2093.92,
+          "cpu_ms": 3200.0,
+          "setup_ms": 50.09066500002518,
+          "render_ms": 1893.9203180000186,
+          "phases": {
+            "grover_ms": 1893.9148779999814
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2094.36,
+          "cpu_ms": 3180.0,
+          "setup_ms": 50.41406300000381,
+          "render_ms": 1894.1530700000585,
+          "phases": {
+            "grover_ms": 1894.147629999963
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2099.67,
+          "cpu_ms": 3190.0,
+          "setup_ms": 49.46660299994983,
+          "render_ms": 1900.9588499999954,
+          "phases": {
+            "grover_ms": 1900.9533590000356
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2088.71,
+          "cpu_ms": 3140.0,
+          "setup_ms": 49.78740399994422,
+          "render_ms": 1891.8485069999588,
+          "phases": {
+            "grover_ms": 1891.8419039999717
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2087.04,
+          "cpu_ms": 3110.0,
+          "setup_ms": 49.56628900003852,
+          "render_ms": 1889.3747660000226,
+          "phases": {
+            "grover_ms": 1889.368914999999
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2080.11,
+          "cpu_ms": 3160.0,
+          "setup_ms": 49.827810000046156,
+          "render_ms": 1882.2992350000422,
+          "phases": {
+            "grover_ms": 1882.2919819999952
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2118.31,
+          "cpu_ms": 3180.0,
+          "setup_ms": 49.538930999988224,
+          "render_ms": 1919.0671369999764,
+          "phases": {
+            "grover_ms": 1919.0589710000204
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2097.95,
+          "cpu_ms": 3190.0,
+          "setup_ms": 50.33289399999194,
+          "render_ms": 1898.3835839999956,
+          "phases": {
+            "grover_ms": 1898.378504000022
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2109.9,
+          "cpu_ms": 3200.0,
+          "setup_ms": 51.02140999992844,
+          "render_ms": 1907.6695329999784,
+          "phases": {
+            "grover_ms": 1907.6624399999855
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2079.36,
+          "cpu_ms": 3180.0,
+          "setup_ms": 49.36780700000236,
+          "render_ms": 1880.5840710000484,
+          "phases": {
+            "grover_ms": 1880.578019000066
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2128.29,
+          "cpu_ms": 3180.0,
+          "setup_ms": 49.96187599998666,
+          "render_ms": 1929.2373389999848,
+          "phases": {
+            "grover_ms": 1929.2315989999915
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        },
+        {
+          "wall_ms": 2071.58,
+          "cpu_ms": 3130.0,
+          "setup_ms": 49.39436499995645,
+          "render_ms": 1873.7884100000374,
+          "phases": {
+            "grover_ms": 1873.7822779999115
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6
+        }
+      ],
+      "cold-memory": [
+        {
+          "wall_ms": 2436.05,
+          "cpu_ms": 3300.0,
+          "setup_ms": 51.22053699998651,
+          "render_ms": 2234.70346400002,
+          "phases": {
+            "grover_ms": 2234.6978939999826
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6,
+          "memory": {
+            "peak_pss_mb": 590.4,
+            "peak_rss_mb": 1284.7,
+            "max_single_process_rss_mb": 299.2,
+            "peak_processes": 14,
+            "processes_seen": [
+              "chrome",
+              "chrome (gpu-process)",
+              "chrome (renderer)",
+              "chrome (utility)",
+              "chrome (zygote)",
+              "chrome_crashpad_handler",
+              "exe (utility)",
+              "node",
+              "ruby"
+            ],
+            "samples": 90,
+            "mean_sample_interval_ms": 27.1,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 2430.64,
+          "cpu_ms": 3320.0,
+          "setup_ms": 51.175844000070356,
+          "render_ms": 2229.2020249998895,
+          "phases": {
+            "grover_ms": 2229.194089999888
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 7,
+          "memory": {
+            "peak_pss_mb": 582.4,
+            "peak_rss_mb": 1285.2,
+            "max_single_process_rss_mb": 285.8,
+            "peak_processes": 14,
+            "processes_seen": [
+              "chrome",
+              "chrome (gpu-process)",
+              "chrome (renderer)",
+              "chrome (utility)",
+              "chrome (zygote)",
+              "chrome_crashpad_handler",
+              "node",
+              "ruby"
+            ],
+            "samples": 88,
+            "mean_sample_interval_ms": 27.6,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 2433.28,
+          "cpu_ms": 3230.0,
+          "setup_ms": 51.421502999961376,
+          "render_ms": 2231.175226000021,
+          "phases": {
+            "grover_ms": 2231.168552999967
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6,
+          "memory": {
+            "peak_pss_mb": 594.5,
+            "peak_rss_mb": 1287.8,
+            "max_single_process_rss_mb": 300.1,
+            "peak_processes": 14,
+            "processes_seen": [
+              "chrome",
+              "chrome (gpu-process)",
+              "chrome (renderer)",
+              "chrome (utility)",
+              "chrome (zygote)",
+              "chrome_crashpad_handler",
+              "exe (utility)",
+              "node",
+              "ruby"
+            ],
+            "samples": 89,
+            "mean_sample_interval_ms": 27.3,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 2394.42,
+          "cpu_ms": 3250.0,
+          "setup_ms": 51.50439400004689,
+          "render_ms": 2191.8579270000337,
+          "phases": {
+            "grover_ms": 2191.8523780000396
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6,
+          "memory": {
+            "peak_pss_mb": 586.4,
+            "peak_rss_mb": 1284.2,
+            "max_single_process_rss_mb": 275.4,
+            "peak_processes": 14,
+            "processes_seen": [
+              "chrome",
+              "chrome (gpu-process)",
+              "chrome (renderer)",
+              "chrome (utility)",
+              "chrome (zygote)",
+              "chrome_crashpad_handler",
+              "exe (utility)",
+              "node",
+              "ruby"
+            ],
+            "samples": 90,
+            "mean_sample_interval_ms": 26.6,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 2441.91,
+          "cpu_ms": 3310.0,
+          "setup_ms": 53.04877599992324,
+          "render_ms": 2236.605118000065,
+          "phases": {
+            "grover_ms": 2236.598314999952
+          },
+          "pdf_bytes": 2286205,
+          "stragglers_killed": 6,
+          "memory": {
+            "peak_pss_mb": 599.9,
+            "peak_rss_mb": 1288.9,
+            "max_single_process_rss_mb": 300.7,
+            "peak_processes": 14,
+            "processes_seen": [
+              "chrome",
+              "chrome (gpu-process)",
+              "chrome (renderer)",
+              "chrome (utility)",
+              "chrome (zygote)",
+              "chrome_crashpad_handler",
+              "node",
+              "ruby"
+            ],
+            "samples": 90,
+            "mean_sample_interval_ms": 27.1,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        }
+      ],
+      "warm": {
+        "process_wall_ms": 34936.3,
+        "process_cpu_ms": 51270.0,
+        "setup_ms": 532.6471819999861,
+        "iterations": [
+          {
+            "ms": 1589.97,
+            "phases": {
+              "grover_ms": 1589.9604559999425
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1584.14,
+            "phases": {
+              "grover_ms": 1584.1323789999587
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1596.19,
+            "phases": {
+              "grover_ms": 1596.1840289999964
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1530.07,
+            "phases": {
+              "grover_ms": 1530.0649950000225
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1583.23,
+            "phases": {
+              "grover_ms": 1583.2262529998552
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1545.42,
+            "phases": {
+              "grover_ms": 1545.4075940001057
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1544.98,
+            "phases": {
+              "grover_ms": 1544.9707490000874
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1505.16,
+            "phases": {
+              "grover_ms": 1505.1545150000602
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1504.79,
+            "phases": {
+              "grover_ms": 1504.780638000113
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1549.11,
+            "phases": {
+              "grover_ms": 1549.1034189999336
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1586.64,
+            "phases": {
+              "grover_ms": 1586.6298199999146
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1511.52,
+            "phases": {
+              "grover_ms": 1511.509442999959
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1568.08,
+            "phases": {
+              "grover_ms": 1568.0729140000185
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1542.26,
+            "phases": {
+              "grover_ms": 1542.2521839999827
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1508.06,
+            "phases": {
+              "grover_ms": 1508.0529039999237
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1540.94,
+            "phases": {
+              "grover_ms": 1540.9295840000268
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1511.27,
+            "phases": {
+              "grover_ms": 1511.2602219999535
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1521.35,
+            "phases": {
+              "grover_ms": 1521.3473299999023
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1539.57,
+            "phases": {
+              "grover_ms": 1539.5606170000974
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1548.74,
+            "phases": {
+              "grover_ms": 1548.7351110000163
+            },
+            "pdf_bytes": 2286205
+          }
+        ]
+      },
+      "warm-memory": {
+        "process_wall_ms": 40338.64,
+        "process_cpu_ms": 54280.0,
+        "setup_ms": 580.5505739999935,
+        "iterations": [
+          {
+            "ms": 1823.38,
+            "phases": {
+              "grover_ms": 1823.3705410000402
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1811.87,
+            "phases": {
+              "grover_ms": 1811.859337999951
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1856.0,
+            "phases": {
+              "grover_ms": 1855.9911300000967
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1744.2,
+            "phases": {
+              "grover_ms": 1744.1889910001773
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1852.98,
+            "phases": {
+              "grover_ms": 1852.9697280001128
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1732.86,
+            "phases": {
+              "grover_ms": 1732.8494799999753
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1761.05,
+            "phases": {
+              "grover_ms": 1761.0451149999863
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1803.16,
+            "phases": {
+              "grover_ms": 1803.1501169999829
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1769.63,
+            "phases": {
+              "grover_ms": 1769.6221940000542
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1761.49,
+            "phases": {
+              "grover_ms": 1761.4824600000866
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1823.79,
+            "phases": {
+              "grover_ms": 1823.7776239999803
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1766.02,
+            "phases": {
+              "grover_ms": 1766.012820999953
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1792.43,
+            "phases": {
+              "grover_ms": 1792.4232479999773
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1762.45,
+            "phases": {
+              "grover_ms": 1762.436020999914
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1732.42,
+            "phases": {
+              "grover_ms": 1732.4125540000387
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1831.82,
+            "phases": {
+              "grover_ms": 1831.8120540000964
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1764.8,
+            "phases": {
+              "grover_ms": 1764.795676000067
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1774.15,
+            "phases": {
+              "grover_ms": 1774.142194999964
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1855.56,
+            "phases": {
+              "grover_ms": 1855.5506319999695
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1723.18,
+            "phases": {
+              "grover_ms": 1723.1707399999723
+            },
+            "pdf_bytes": 2286205
+          }
+        ],
+        "memory": {
+          "peak_pss_mb": 710.4,
+          "peak_rss_mb": 1435.3,
+          "max_single_process_rss_mb": 302.5,
+          "peak_processes": 14,
+          "processes_seen": [
+            "chrome",
+            "chrome (gpu-process)",
+            "chrome (renderer)",
+            "chrome (utility)",
+            "chrome (zygote)",
+            "chrome_crashpad_handler",
+            "node",
+            "ruby"
+          ],
+          "samples": 787,
+          "mean_sample_interval_ms": 51.3,
+          "complete": true,
+          "unreadable_processes": [],
+          "excluded": {
+            "what": "the Node process that only keeps Chrome open (bench/grover/browser.cjs); its Chrome is counted",
+            "peak_pss_mb": 77.4,
+            "peak_rss_mb": 80.9
+          }
+        }
+      },
+      "summary": {
+        "cold_ms": {
+          "n": 20,
+          "median": 2097.9,
+          "p90": 2128.9,
+          "min": 2059.1,
+          "max": 2233.4,
+          "mean": 2104.8,
+          "stdev": 36.9
+        },
+        "cold_cpu_ms": {
+          "n": 20,
+          "median": 3185.0,
+          "p90": 3210.0,
+          "min": 3110.0,
+          "max": 4660.0,
+          "mean": 3253.5,
+          "stdev": 332.5
+        },
+        "cold_peak_pss_mb": {
+          "n": 5,
+          "median": 590.4,
+          "p90": 599.9,
+          "min": 582.4,
+          "max": 599.9,
+          "mean": 590.7,
+          "stdev": 6.8
+        },
+        "cold_peak_rss_mb": {
+          "n": 5,
+          "median": 1285.2,
+          "p90": 1288.9,
+          "min": 1284.2,
+          "max": 1288.9,
+          "mean": 1286.2,
+          "stdev": 2.1
+        },
+        "cold_memory_complete": true,
+        "warm_ms": {
+          "n": 20,
+          "median": 1543.6,
+          "p90": 1586.6,
+          "min": 1504.8,
+          "max": 1596.2,
+          "mean": 1545.6,
+          "stdev": 30.4
+        },
+        "warm_peak_pss_mb": 710.4,
+        "warm_peak_rss_mb": 1435.3,
+        "warm_memory_renders": 20,
+        "warm_memory_complete": true
+      },
+      "pdf_pages": {
+        "cold": 6,
+        "warm": 6
+      }
+    },
+    "surimono-ruby": {
+      "label": "surimono + fulgur (Ruby)",
+      "about": "Surimono::Renderer#render (islands in QuickJS), then the fulgur gem prints the HTML.",
+      "done": [
+        "cold",
+        "cold-memory",
+        "warm",
+        "warm-memory"
+      ],
+      "status": "measured",
+      "cold": [
+        {
+          "wall_ms": 914.51,
+          "cpu_ms": 970.0,
+          "setup_ms": 28.609024999954272,
+          "render_ms": 727.6370219999808,
+          "phases": {
+            "islands_ms": 631.2509009999922,
+            "pdf_ms": 96.37993000005372
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 897.36,
+          "cpu_ms": 950.0,
+          "setup_ms": 28.821030999999493,
+          "render_ms": 711.2273870000499,
+          "phases": {
+            "islands_ms": 616.2626000000164,
+            "pdf_ms": 94.95822399994358
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 914.57,
+          "cpu_ms": 980.0,
+          "setup_ms": 29.09948400000576,
+          "render_ms": 722.0980599999893,
+          "phases": {
+            "islands_ms": 628.044888000004,
+            "pdf_ms": 94.04564700002084
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 896.66,
+          "cpu_ms": 950.0,
+          "setup_ms": 28.727190999954473,
+          "render_ms": 713.3854130000109,
+          "phases": {
+            "islands_ms": 618.8091429999913,
+            "pdf_ms": 94.56991800002288
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 904.48,
+          "cpu_ms": 960.0,
+          "setup_ms": 29.625777000037488,
+          "render_ms": 711.0409039999358,
+          "phases": {
+            "islands_ms": 615.8266569999978,
+            "pdf_ms": 95.20695299998624
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 909.92,
+          "cpu_ms": 960.0,
+          "setup_ms": 28.16854099999182,
+          "render_ms": 724.3461789999856,
+          "phases": {
+            "islands_ms": 630.3404100000043,
+            "pdf_ms": 93.99973799998406
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 906.22,
+          "cpu_ms": 960.0,
+          "setup_ms": 28.715622000047006,
+          "render_ms": 717.6537639999879,
+          "phases": {
+            "islands_ms": 622.3303780000424,
+            "pdf_ms": 95.31646200001705
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 895.72,
+          "cpu_ms": 940.0,
+          "setup_ms": 28.339101000048686,
+          "render_ms": 712.7428589999909,
+          "phases": {
+            "islands_ms": 619.8391269999556,
+            "pdf_ms": 92.89762000006158
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 897.69,
+          "cpu_ms": 950.0,
+          "setup_ms": 28.692521999997552,
+          "render_ms": 712.5930480000097,
+          "phases": {
+            "islands_ms": 618.2439739999827,
+            "pdf_ms": 94.34295200003544
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 891.53,
+          "cpu_ms": 940.0,
+          "setup_ms": 28.825020000047516,
+          "render_ms": 706.3061139999772,
+          "phases": {
+            "islands_ms": 612.1822090000496,
+            "pdf_ms": 94.11768299993128
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 895.57,
+          "cpu_ms": 940.0,
+          "setup_ms": 28.250987999956124,
+          "render_ms": 709.5578020000248,
+          "phases": {
+            "islands_ms": 616.1757730000536,
+            "pdf_ms": 93.3764890000457
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 902.61,
+          "cpu_ms": 950.0,
+          "setup_ms": 28.460016999975778,
+          "render_ms": 717.8993790000095,
+          "phases": {
+            "islands_ms": 623.5025879999739,
+            "pdf_ms": 94.39037900004769
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 898.46,
+          "cpu_ms": 950.0,
+          "setup_ms": 28.25174999999581,
+          "render_ms": 713.712882999971,
+          "phases": {
+            "islands_ms": 619.3843800000031,
+            "pdf_ms": 94.32250200002454
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 896.04,
+          "cpu_ms": 940.0,
+          "setup_ms": 28.20228699996369,
+          "render_ms": 712.1085470000398,
+          "phases": {
+            "islands_ms": 618.156529000029,
+            "pdf_ms": 93.94553600001382
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 912.29,
+          "cpu_ms": 960.0,
+          "setup_ms": 28.327982000017073,
+          "render_ms": 727.5624979999848,
+          "phases": {
+            "islands_ms": 634.1916959999944,
+            "pdf_ms": 93.36490100005176
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 903.1,
+          "cpu_ms": 960.0,
+          "setup_ms": 28.544706000073347,
+          "render_ms": 716.7802499999525,
+          "phases": {
+            "islands_ms": 622.1036089999834,
+            "pdf_ms": 94.67042899999069
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 912.18,
+          "cpu_ms": 960.0,
+          "setup_ms": 28.714795000036247,
+          "render_ms": 724.4927279999829,
+          "phases": {
+            "islands_ms": 629.4921229999745,
+            "pdf_ms": 94.99390200007474
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 903.19,
+          "cpu_ms": 950.0,
+          "setup_ms": 28.830023000075016,
+          "render_ms": 716.9664210000774,
+          "phases": {
+            "islands_ms": 621.8431359999231,
+            "pdf_ms": 95.11713300005067
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 906.87,
+          "cpu_ms": 960.0,
+          "setup_ms": 29.307555000064895,
+          "render_ms": 714.930907999922,
+          "phases": {
+            "islands_ms": 620.9180700000143,
+            "pdf_ms": 94.00657700002193
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 901.2,
+          "cpu_ms": 940.0,
+          "setup_ms": 28.45099400007166,
+          "render_ms": 715.6960880000843,
+          "phases": {
+            "islands_ms": 622.359092000057,
+            "pdf_ms": 93.33092500001658
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0
+        }
+      ],
+      "cold-memory": [
+        {
+          "wall_ms": 940.09,
+          "cpu_ms": 1000.0,
+          "setup_ms": 29.78121899999678,
+          "render_ms": 750.8476789999986,
+          "phases": {
+            "islands_ms": 641.6206179999281,
+            "pdf_ms": 109.22067900002003
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 101.2,
+            "peak_rss_mb": 104.3,
+            "max_single_process_rss_mb": 104.3,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 82,
+            "mean_sample_interval_ms": 11.5,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 948.13,
+          "cpu_ms": 980.0,
+          "setup_ms": 28.492884000064805,
+          "render_ms": 760.80268600001,
+          "phases": {
+            "islands_ms": 649.5885240000207,
+            "pdf_ms": 111.20806099998299
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 95.9,
+            "peak_rss_mb": 99.1,
+            "max_single_process_rss_mb": 99.1,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 82,
+            "mean_sample_interval_ms": 11.6,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 935.3,
+          "cpu_ms": 960.0,
+          "setup_ms": 30.122665000031702,
+          "render_ms": 747.92077899992,
+          "phases": {
+            "islands_ms": 642.9028380000964,
+            "pdf_ms": 105.01119899994228
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 105.8,
+            "peak_rss_mb": 108.9,
+            "max_single_process_rss_mb": 108.9,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 81,
+            "mean_sample_interval_ms": 11.5,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 933.35,
+          "cpu_ms": 960.0,
+          "setup_ms": 28.21284900000319,
+          "render_ms": 747.9793539999519,
+          "phases": {
+            "islands_ms": 644.0628850000212,
+            "pdf_ms": 103.91077899991069
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 96.0,
+            "peak_rss_mb": 99.1,
+            "max_single_process_rss_mb": 99.1,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 81,
+            "mean_sample_interval_ms": 11.5,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 923.58,
+          "cpu_ms": 960.0,
+          "setup_ms": 28.880784000153653,
+          "render_ms": 740.3565609999932,
+          "phases": {
+            "islands_ms": 637.5690379999578,
+            "pdf_ms": 102.78202300006524
+          },
+          "pdf_bytes": 224851,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 95.9,
+            "peak_rss_mb": 99.0,
+            "max_single_process_rss_mb": 99.0,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 81,
+            "mean_sample_interval_ms": 11.4,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        }
+      ],
+      "warm": {
+        "process_wall_ms": 15326.32,
+        "process_cpu_ms": 16320.0,
+        "setup_ms": 28.08238799998071,
+        "iterations": [
+          {
+            "ms": 680.44,
+            "phases": {
+              "islands_ms": 605.3523510000668,
+              "pdf_ms": 75.0747899999842
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 679.22,
+            "phases": {
+              "islands_ms": 603.3335499999812,
+              "pdf_ms": 75.87768000003416
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 681.69,
+            "phases": {
+              "islands_ms": 605.1039870000677,
+              "pdf_ms": 76.57562199991662
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 679.81,
+            "phases": {
+              "islands_ms": 605.0541590000503,
+              "pdf_ms": 74.75096999993548
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 677.14,
+            "phases": {
+              "islands_ms": 601.5510919999797,
+              "pdf_ms": 75.58168999990448
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 679.04,
+            "phases": {
+              "islands_ms": 601.9319909999613,
+              "pdf_ms": 77.10360500006936
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 684.63,
+            "phases": {
+              "islands_ms": 607.9688179998193,
+              "pdf_ms": 76.65385400003288
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 680.77,
+            "phases": {
+              "islands_ms": 605.0346869999776,
+              "pdf_ms": 75.73274600005243
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 678.0,
+            "phases": {
+              "islands_ms": 603.2643399999943,
+              "pdf_ms": 74.72574300004635
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 692.52,
+            "phases": {
+              "islands_ms": 617.1549269999377,
+              "pdf_ms": 75.36080899997614
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 681.8,
+            "phases": {
+              "islands_ms": 604.8315480001038,
+              "pdf_ms": 76.95917299995199
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 695.77,
+            "phases": {
+              "islands_ms": 613.6092039999785,
+              "pdf_ms": 82.14999100007117
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 691.5,
+            "phases": {
+              "islands_ms": 608.841138000018,
+              "pdf_ms": 82.6457170000067
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 686.21,
+            "phases": {
+              "islands_ms": 603.2511660000309,
+              "pdf_ms": 82.95262999995612
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 689.52,
+            "phases": {
+              "islands_ms": 603.8570879999315,
+              "pdf_ms": 85.65730400010943
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 690.73,
+            "phases": {
+              "islands_ms": 605.215326000005,
+              "pdf_ms": 85.50468900008127
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 689.22,
+            "phases": {
+              "islands_ms": 604.2451729999157,
+              "pdf_ms": 84.9681270000292
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 690.74,
+            "phases": {
+              "islands_ms": 602.2342769999523,
+              "pdf_ms": 88.49724999989849
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 696.5,
+            "phases": {
+              "islands_ms": 608.3167789999861,
+              "pdf_ms": 88.17970399989281
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 694.97,
+            "phases": {
+              "islands_ms": 607.6635989999631,
+              "pdf_ms": 87.29441100009717
+            },
+            "pdf_bytes": 224851
+          }
+        ]
+      },
+      "warm-memory": {
+        "process_wall_ms": 15735.82,
+        "process_cpu_ms": 16760.0,
+        "setup_ms": 29.490216000005603,
+        "iterations": [
+          {
+            "ms": 695.51,
+            "phases": {
+              "islands_ms": 610.4211210000794,
+              "pdf_ms": 85.07697099982761
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 694.85,
+            "phases": {
+              "islands_ms": 611.3351669999538,
+              "pdf_ms": 83.50924799998756
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 708.36,
+            "phases": {
+              "islands_ms": 617.286914999946,
+              "pdf_ms": 91.06233400001656
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 684.96,
+            "phases": {
+              "islands_ms": 603.7996610000264,
+              "pdf_ms": 81.15209500002675
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 694.89,
+            "phases": {
+              "islands_ms": 613.1742150000064,
+              "pdf_ms": 81.70387500000652
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 693.76,
+            "phases": {
+              "islands_ms": 610.8370690000011,
+              "pdf_ms": 82.91693499998655
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 696.22,
+            "phases": {
+              "islands_ms": 605.8139930000762,
+              "pdf_ms": 90.40143499989063
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 682.35,
+            "phases": {
+              "islands_ms": 603.8960100000259,
+              "pdf_ms": 78.44713899993803
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 759.09,
+            "phases": {
+              "islands_ms": 682.1048599999631,
+              "pdf_ms": 76.97250199993141
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 728.91,
+            "phases": {
+              "islands_ms": 640.0738280001096,
+              "pdf_ms": 88.82789600000251
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 706.61,
+            "phases": {
+              "islands_ms": 611.863553000032,
+              "pdf_ms": 94.74121199990623
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 703.52,
+            "phases": {
+              "islands_ms": 608.8446329999715,
+              "pdf_ms": 94.67137200001162
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 698.86,
+            "phases": {
+              "islands_ms": 607.1566009999951,
+              "pdf_ms": 91.69950999994762
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 694.67,
+            "phases": {
+              "islands_ms": 602.0568939999212,
+              "pdf_ms": 92.60360000014771
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 702.0,
+            "phases": {
+              "islands_ms": 603.8597109998809,
+              "pdf_ms": 98.13535300013609
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 705.33,
+            "phases": {
+              "islands_ms": 610.6999580000993,
+              "pdf_ms": 94.62154899991583
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 703.38,
+            "phases": {
+              "islands_ms": 606.4142630000133,
+              "pdf_ms": 96.96185999992304
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 702.02,
+            "phases": {
+              "islands_ms": 602.8814439999405,
+              "pdf_ms": 99.12971999996807
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 703.35,
+            "phases": {
+              "islands_ms": 603.3826999999583,
+              "pdf_ms": 99.95871800009627
+            },
+            "pdf_bytes": 224851
+          },
+          {
+            "ms": 704.23,
+            "phases": {
+              "islands_ms": 606.6293549999828,
+              "pdf_ms": 97.59647500002757
+            },
+            "pdf_bytes": 224851
+          }
+        ],
+        "memory": {
+          "peak_pss_mb": 125.5,
+          "peak_rss_mb": 128.6,
+          "max_single_process_rss_mb": 128.6,
+          "peak_processes": 1,
+          "processes_seen": [
+            "ruby"
+          ],
+          "samples": 1262,
+          "mean_sample_interval_ms": 12.5,
+          "complete": true,
+          "unreadable_processes": []
+        }
+      },
+      "summary": {
+        "cold_ms": {
+          "n": 20,
+          "median": 902.9,
+          "p90": 912.3,
+          "min": 891.5,
+          "max": 914.6,
+          "mean": 903.0,
+          "stdev": 7.0
+        },
+        "cold_cpu_ms": {
+          "n": 20,
+          "median": 950.0,
+          "p90": 960.0,
+          "min": 940.0,
+          "max": 980.0,
+          "mean": 953.5,
+          "stdev": 10.9
+        },
+        "cold_peak_pss_mb": {
+          "n": 5,
+          "median": 96.0,
+          "p90": 105.8,
+          "min": 95.9,
+          "max": 105.8,
+          "mean": 99.0,
+          "stdev": 4.5
+        },
+        "cold_peak_rss_mb": {
+          "n": 5,
+          "median": 99.1,
+          "p90": 108.9,
+          "min": 99.0,
+          "max": 108.9,
+          "mean": 102.1,
+          "stdev": 4.4
+        },
+        "cold_memory_complete": true,
+        "warm_ms": {
+          "n": 20,
+          "median": 685.4,
+          "p90": 695.0,
+          "min": 677.1,
+          "max": 696.5,
+          "mean": 686.0,
+          "stdev": 6.5
+        },
+        "warm_peak_pss_mb": 125.5,
+        "warm_peak_rss_mb": 128.6,
+        "warm_memory_renders": 20,
+        "warm_memory_complete": true
+      },
+      "pdf_pages": {
+        "cold": 6,
+        "warm": 6
+      }
+    },
+    "surimono-rust": {
+      "label": "surimono + fulgur (Rust)",
+      "about": "surimono::Renderer::render_islands, then the fulgur crate 0.40.0, in one Rust process (bench/rust, release build).",
+      "done": [
+        "cold",
+        "cold-memory",
+        "warm",
+        "warm-memory"
+      ],
+      "status": "measured",
+      "cold": [
+        {
+          "wall_ms": 741.65,
+          "cpu_ms": 790.0,
+          "setup_ms": 16.991492,
+          "render_ms": 712.1897339999999,
+          "phases": {
+            "islands_ms": 617.646706,
+            "pdf_ms": 94.54198699999999
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 739.8,
+          "cpu_ms": 800.0,
+          "setup_ms": 17.243562999999998,
+          "render_ms": 709.78894,
+          "phases": {
+            "islands_ms": 617.499301,
+            "pdf_ms": 92.288738
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 748.08,
+          "cpu_ms": 790.0,
+          "setup_ms": 17.104665,
+          "render_ms": 718.2632159999999,
+          "phases": {
+            "islands_ms": 624.72178,
+            "pdf_ms": 93.540663
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 752.98,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.412212,
+          "render_ms": 722.712263,
+          "phases": {
+            "islands_ms": 624.56055,
+            "pdf_ms": 98.150801
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 768.48,
+          "cpu_ms": 820.0,
+          "setup_ms": 17.211312,
+          "render_ms": 738.398803,
+          "phases": {
+            "islands_ms": 645.5959489999999,
+            "pdf_ms": 92.801892
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 753.02,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.142824,
+          "render_ms": 723.216832,
+          "phases": {
+            "islands_ms": 628.319027,
+            "pdf_ms": 94.896734
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 747.93,
+          "cpu_ms": 800.0,
+          "setup_ms": 17.404116000000002,
+          "render_ms": 717.592519,
+          "phases": {
+            "islands_ms": 624.80004,
+            "pdf_ms": 92.791757
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 742.09,
+          "cpu_ms": 800.0,
+          "setup_ms": 17.42538,
+          "render_ms": 712.619386,
+          "phases": {
+            "islands_ms": 619.935726,
+            "pdf_ms": 92.68279799999999
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 753.85,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.065614999999998,
+          "render_ms": 724.041369,
+          "phases": {
+            "islands_ms": 625.375787,
+            "pdf_ms": 98.66491199999999
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 748.22,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.063622000000002,
+          "render_ms": 718.6930299999999,
+          "phases": {
+            "islands_ms": 625.929927,
+            "pdf_ms": 92.76222100000001
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 743.19,
+          "cpu_ms": 790.0,
+          "setup_ms": 17.16977,
+          "render_ms": 713.55112,
+          "phases": {
+            "islands_ms": 620.8927229999999,
+            "pdf_ms": 92.65749600000001
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 747.59,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.055012,
+          "render_ms": 717.897223,
+          "phases": {
+            "islands_ms": 624.540224,
+            "pdf_ms": 93.356178
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 745.29,
+          "cpu_ms": 790.0,
+          "setup_ms": 16.890575000000002,
+          "render_ms": 715.576464,
+          "phases": {
+            "islands_ms": 621.227943,
+            "pdf_ms": 94.347339
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 742.9,
+          "cpu_ms": 790.0,
+          "setup_ms": 17.177525,
+          "render_ms": 713.4869640000001,
+          "phases": {
+            "islands_ms": 619.9966489999999,
+            "pdf_ms": 93.489063
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 745.99,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.300274,
+          "render_ms": 715.643956,
+          "phases": {
+            "islands_ms": 620.90998,
+            "pdf_ms": 94.733166
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 745.96,
+          "cpu_ms": 800.0,
+          "setup_ms": 17.200878,
+          "render_ms": 715.881262,
+          "phases": {
+            "islands_ms": 622.391698,
+            "pdf_ms": 93.48875299999999
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 765.68,
+          "cpu_ms": 830.0,
+          "setup_ms": 17.173989,
+          "render_ms": 736.071964,
+          "phases": {
+            "islands_ms": 630.116395,
+            "pdf_ms": 105.954737
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 738.04,
+          "cpu_ms": 800.0,
+          "setup_ms": 17.17387,
+          "render_ms": 707.817522,
+          "phases": {
+            "islands_ms": 615.0505790000001,
+            "pdf_ms": 92.766132
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 745.77,
+          "cpu_ms": 790.0,
+          "setup_ms": 17.030111,
+          "render_ms": 715.834678,
+          "phases": {
+            "islands_ms": 623.386761,
+            "pdf_ms": 92.331368
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 742.22,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.080284000000002,
+          "render_ms": 712.9578130000001,
+          "phases": {
+            "islands_ms": 619.917892,
+            "pdf_ms": 93.03913
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0
+        }
+      ],
+      "cold-memory": [
+        {
+          "wall_ms": 766.8,
+          "cpu_ms": 800.0,
+          "setup_ms": 17.461997999999998,
+          "render_ms": 736.846225,
+          "phases": {
+            "islands_ms": 638.321135,
+            "pdf_ms": 98.524229
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 83.2,
+            "peak_rss_mb": 85.8,
+            "max_single_process_rss_mb": 85.8,
+            "peak_processes": 1,
+            "processes_seen": [
+              "surimono-bench"
+            ],
+            "samples": 69,
+            "mean_sample_interval_ms": 11.1,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 776.92,
+          "cpu_ms": 830.0,
+          "setup_ms": 18.232027000000002,
+          "render_ms": 747.313036,
+          "phases": {
+            "islands_ms": 646.073324,
+            "pdf_ms": 101.2389
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 73.5,
+            "peak_rss_mb": 76.1,
+            "max_single_process_rss_mb": 76.1,
+            "peak_processes": 1,
+            "processes_seen": [
+              "surimono-bench"
+            ],
+            "samples": 69,
+            "mean_sample_interval_ms": 11.3,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 766.73,
+          "cpu_ms": 810.0,
+          "setup_ms": 17.341812,
+          "render_ms": 736.8362000000001,
+          "phases": {
+            "islands_ms": 635.029137,
+            "pdf_ms": 101.806382
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 73.3,
+            "peak_rss_mb": 75.9,
+            "max_single_process_rss_mb": 75.9,
+            "peak_processes": 1,
+            "processes_seen": [
+              "surimono-bench"
+            ],
+            "samples": 69,
+            "mean_sample_interval_ms": 11.1,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 786.63,
+          "cpu_ms": 840.0,
+          "setup_ms": 17.341611999999998,
+          "render_ms": 755.948262,
+          "phases": {
+            "islands_ms": 650.056655,
+            "pdf_ms": 105.89083600000001
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 78.2,
+            "peak_rss_mb": 80.8,
+            "max_single_process_rss_mb": 80.8,
+            "peak_processes": 1,
+            "processes_seen": [
+              "surimono-bench"
+            ],
+            "samples": 70,
+            "mean_sample_interval_ms": 11.2,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 767.58,
+          "cpu_ms": 800.0,
+          "setup_ms": 17.387467,
+          "render_ms": 739.330991,
+          "phases": {
+            "islands_ms": 638.5844950000001,
+            "pdf_ms": 100.745796
+          },
+          "pdf_bytes": 224759,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 81.7,
+            "peak_rss_mb": 84.3,
+            "max_single_process_rss_mb": 84.3,
+            "peak_processes": 1,
+            "processes_seen": [
+              "surimono-bench"
+            ],
+            "samples": 69,
+            "mean_sample_interval_ms": 11.1,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        }
+      ],
+      "warm": {
+        "process_wall_ms": 15241.93,
+        "process_cpu_ms": 16300.0,
+        "setup_ms": 17.36649,
+        "iterations": [
+          {
+            "ms": 689.35,
+            "phases": {
+              "islands_ms": 612.345683,
+              "pdf_ms": 77.00151500000001
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 698.45,
+            "phases": {
+              "islands_ms": 614.893282,
+              "pdf_ms": 83.554427
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 687.94,
+            "phases": {
+              "islands_ms": 610.9367100000001,
+              "pdf_ms": 77.00106199999999
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 700.25,
+            "phases": {
+              "islands_ms": 615.367537,
+              "pdf_ms": 84.876756
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 687.41,
+            "phases": {
+              "islands_ms": 611.461638,
+              "pdf_ms": 75.95029000000001
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 684.86,
+            "phases": {
+              "islands_ms": 608.959293,
+              "pdf_ms": 75.90332199999999
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 687.17,
+            "phases": {
+              "islands_ms": 611.799288,
+              "pdf_ms": 75.367111
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 680.96,
+            "phases": {
+              "islands_ms": 605.418759,
+              "pdf_ms": 75.538961
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 722.04,
+            "phases": {
+              "islands_ms": 634.287551,
+              "pdf_ms": 87.749199
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 684.53,
+            "phases": {
+              "islands_ms": 608.971669,
+              "pdf_ms": 75.561404
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 684.07,
+            "phases": {
+              "islands_ms": 609.07588,
+              "pdf_ms": 74.990297
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 687.81,
+            "phases": {
+              "islands_ms": 612.277881,
+              "pdf_ms": 75.527761
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 686.49,
+            "phases": {
+              "islands_ms": 610.995156,
+              "pdf_ms": 75.491793
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 685.67,
+            "phases": {
+              "islands_ms": 610.310997,
+              "pdf_ms": 75.359407
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 685.54,
+            "phases": {
+              "islands_ms": 610.679396,
+              "pdf_ms": 74.861446
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 684.42,
+            "phases": {
+              "islands_ms": 609.451011,
+              "pdf_ms": 74.968245
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 686.22,
+            "phases": {
+              "islands_ms": 611.2963599999999,
+              "pdf_ms": 74.924324
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 683.77,
+            "phases": {
+              "islands_ms": 608.641964,
+              "pdf_ms": 75.127734
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 683.58,
+            "phases": {
+              "islands_ms": 608.423725,
+              "pdf_ms": 75.15482399999999
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 695.33,
+            "phases": {
+              "islands_ms": 618.986356,
+              "pdf_ms": 76.340149
+            },
+            "pdf_bytes": 224759
+          }
+        ]
+      },
+      "warm-memory": {
+        "process_wall_ms": 15553.24,
+        "process_cpu_ms": 16770.0,
+        "setup_ms": 17.784951,
+        "iterations": [
+          {
+            "ms": 717.82,
+            "phases": {
+              "islands_ms": 630.6786159999999,
+              "pdf_ms": 87.140961
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 709.82,
+            "phases": {
+              "islands_ms": 624.638334,
+              "pdf_ms": 85.18091799999999
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 695.75,
+            "phases": {
+              "islands_ms": 612.428897,
+              "pdf_ms": 83.319004
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 718.7,
+            "phases": {
+              "islands_ms": 635.32164,
+              "pdf_ms": 83.378696
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 689.58,
+            "phases": {
+              "islands_ms": 607.851006,
+              "pdf_ms": 81.723815
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 694.17,
+            "phases": {
+              "islands_ms": 611.753196,
+              "pdf_ms": 82.41606399999999
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 697.48,
+            "phases": {
+              "islands_ms": 615.9319210000001,
+              "pdf_ms": 81.543324
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 712.26,
+            "phases": {
+              "islands_ms": 631.4088399999999,
+              "pdf_ms": 80.845791
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 692.74,
+            "phases": {
+              "islands_ms": 611.7610599999999,
+              "pdf_ms": 80.973901
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 717.07,
+            "phases": {
+              "islands_ms": 629.480388,
+              "pdf_ms": 87.592854
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 711.55,
+            "phases": {
+              "islands_ms": 623.0235160000001,
+              "pdf_ms": 88.527048
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 697.78,
+            "phases": {
+              "islands_ms": 616.8101409999999,
+              "pdf_ms": 80.97210700000001
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 694.46,
+            "phases": {
+              "islands_ms": 613.016648,
+              "pdf_ms": 81.438107
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 689.73,
+            "phases": {
+              "islands_ms": 610.0929040000001,
+              "pdf_ms": 79.634412
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 697.91,
+            "phases": {
+              "islands_ms": 623.579702,
+              "pdf_ms": 74.32472
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 703.21,
+            "phases": {
+              "islands_ms": 623.9851950000001,
+              "pdf_ms": 79.22446199999999
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 705.62,
+            "phases": {
+              "islands_ms": 625.03111,
+              "pdf_ms": 80.58441900000001
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 703.15,
+            "phases": {
+              "islands_ms": 613.208175,
+              "pdf_ms": 89.941105
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 705.85,
+            "phases": {
+              "islands_ms": 616.815639,
+              "pdf_ms": 89.035875
+            },
+            "pdf_bytes": 224759
+          },
+          {
+            "ms": 704.01,
+            "phases": {
+              "islands_ms": 615.9718330000001,
+              "pdf_ms": 88.04058400000001
+            },
+            "pdf_bytes": 224759
+          }
+        ],
+        "memory": {
+          "peak_pss_mb": 87.3,
+          "peak_rss_mb": 89.9,
+          "max_single_process_rss_mb": 89.9,
+          "peak_processes": 1,
+          "processes_seen": [
+            "surimono-bench"
+          ],
+          "samples": 1306,
+          "mean_sample_interval_ms": 11.9,
+          "complete": true,
+          "unreadable_processes": []
+        }
+      },
+      "summary": {
+        "cold_ms": {
+          "n": 20,
+          "median": 746.0,
+          "p90": 753.9,
+          "min": 738.0,
+          "max": 768.5,
+          "mean": 747.9,
+          "stdev": 7.8
+        },
+        "cold_cpu_ms": {
+          "n": 20,
+          "median": 800.0,
+          "p90": 810.0,
+          "min": 790.0,
+          "max": 830.0,
+          "mean": 803.0,
+          "stdev": 11.3
+        },
+        "cold_peak_pss_mb": {
+          "n": 5,
+          "median": 78.2,
+          "p90": 83.2,
+          "min": 73.3,
+          "max": 83.2,
+          "mean": 78.0,
+          "stdev": 4.6
+        },
+        "cold_peak_rss_mb": {
+          "n": 5,
+          "median": 80.8,
+          "p90": 85.8,
+          "min": 75.9,
+          "max": 85.8,
+          "mean": 80.6,
+          "stdev": 4.6
+        },
+        "cold_memory_complete": true,
+        "warm_ms": {
+          "n": 20,
+          "median": 686.4,
+          "p90": 698.5,
+          "min": 681.0,
+          "max": 722.0,
+          "mean": 689.3,
+          "stdev": 9.2
+        },
+        "warm_peak_pss_mb": 87.3,
+        "warm_peak_rss_mb": 89.9,
+        "warm_memory_renders": 20,
+        "warm_memory_complete": true
+      },
+      "pdf_pages": {
+        "cold": 6,
+        "warm": 6
+      }
+    },
+    "fulgur-prerendered": {
+      "label": "fulgur only, Chrome's SVGs (reference point)",
+      "about": "The fulgur gem prints the report with Chrome's island SVGs already inlined. No JavaScript runs. Chrome's SVGs keep <text>, which fulgur shapes itself, while surimono outlines text by default, so the PDF step is not identical: a reference point, expected to bound surimono's ratios, NOT a surimono result.",
+      "done": [
+        "cold",
+        "cold-memory",
+        "warm",
+        "warm-memory"
+      ],
+      "status": "measured",
+      "cold": [
+        {
+          "wall_ms": 354.31,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.32319899997674,
+          "render_ms": 192.0497139999061,
+          "phases": {
+            "pdf_ms": 192.0433619999676
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 356.64,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.232689999975264,
+          "render_ms": 192.46440399996936,
+          "phases": {
+            "pdf_ms": 192.4585429999861
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 345.94,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.224075000034645,
+          "render_ms": 184.08189400000265,
+          "phases": {
+            "pdf_ms": 184.07565100002103
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 360.85,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.690100999956485,
+          "render_ms": 198.19932399998652,
+          "phases": {
+            "pdf_ms": 198.1915699999663
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 351.65,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.323419000022113,
+          "render_ms": 190.25309599994216,
+          "phases": {
+            "pdf_ms": 190.24698499997612
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 357.13,
+          "cpu_ms": 360.0,
+          "setup_ms": 14.014880000031553,
+          "render_ms": 190.21335099998396,
+          "phases": {
+            "pdf_ms": 190.20616900001187
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 349.13,
+          "cpu_ms": 340.0,
+          "setup_ms": 13.312613999994937,
+          "render_ms": 190.07008400000632,
+          "phases": {
+            "pdf_ms": 190.06424300000072
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 348.72,
+          "cpu_ms": 340.0,
+          "setup_ms": 13.420174999919254,
+          "render_ms": 189.47512600000482,
+          "phases": {
+            "pdf_ms": 189.46823300002143
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 354.66,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.218829999968875,
+          "render_ms": 191.04781999997795,
+          "phases": {
+            "pdf_ms": 191.0410780000384
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 350.9,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.225191999983508,
+          "render_ms": 189.66355200001271,
+          "phases": {
+            "pdf_ms": 189.6571400000248
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 350.53,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.307466000027489,
+          "render_ms": 190.09215400001267,
+          "phases": {
+            "pdf_ms": 190.08393800002523
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 353.7,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.25596499996027,
+          "render_ms": 193.21150600002147,
+          "phases": {
+            "pdf_ms": 193.20448400004534
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 346.98,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.512714000011329,
+          "render_ms": 187.86365300003672,
+          "phases": {
+            "pdf_ms": 187.85665000003064
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 350.79,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.330698999983724,
+          "render_ms": 190.64518599997973,
+          "phases": {
+            "pdf_ms": 190.63881400000537
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 347.81,
+          "cpu_ms": 340.0,
+          "setup_ms": 13.371245999995153,
+          "render_ms": 188.3094910000218,
+          "phases": {
+            "pdf_ms": 188.30309999996098
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 351.56,
+          "cpu_ms": 340.0,
+          "setup_ms": 13.211987000016961,
+          "render_ms": 191.28333699994255,
+          "phases": {
+            "pdf_ms": 191.27721600001678
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 354.75,
+          "cpu_ms": 360.0,
+          "setup_ms": 13.44406099995831,
+          "render_ms": 192.80182400008198,
+          "phases": {
+            "pdf_ms": 192.7952510000323
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 345.79,
+          "cpu_ms": 340.0,
+          "setup_ms": 13.197021000029054,
+          "render_ms": 184.3318309999886,
+          "phases": {
+            "pdf_ms": 184.32545899995603
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 348.91,
+          "cpu_ms": 360.0,
+          "setup_ms": 13.33977100008633,
+          "render_ms": 190.0026610000059,
+          "phases": {
+            "pdf_ms": 189.9966499999864
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        },
+        {
+          "wall_ms": 353.34,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.261351000051945,
+          "render_ms": 193.38215400010813,
+          "phases": {
+            "pdf_ms": 193.3758519999683
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0
+        }
+      ],
+      "cold-memory": [
+        {
+          "wall_ms": 371.02,
+          "cpu_ms": 360.0,
+          "setup_ms": 13.659336000098847,
+          "render_ms": 207.7571010000538,
+          "phases": {
+            "pdf_ms": 207.7508900000248
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 68.4,
+            "peak_rss_mb": 71.3,
+            "max_single_process_rss_mb": 71.3,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 34,
+            "mean_sample_interval_ms": 10.9,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 362.91,
+          "cpu_ms": 340.0,
+          "setup_ms": 13.285376999992877,
+          "render_ms": 201.5489340000786,
+          "phases": {
+            "pdf_ms": 201.5434739999473
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 64.5,
+            "peak_rss_mb": 67.5,
+            "max_single_process_rss_mb": 67.5,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 33,
+            "mean_sample_interval_ms": 11.0,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 367.67,
+          "cpu_ms": 360.0,
+          "setup_ms": 13.307116000098176,
+          "render_ms": 206.53223700006492,
+          "phases": {
+            "pdf_ms": 206.52646600001026
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 59.2,
+            "peak_rss_mb": 62.2,
+            "max_single_process_rss_mb": 62.2,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 34,
+            "mean_sample_interval_ms": 10.8,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 373.13,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.308428000076674,
+          "render_ms": 207.51115899998695,
+          "phases": {
+            "pdf_ms": 207.5055289999582
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 63.2,
+            "peak_rss_mb": 66.1,
+            "max_single_process_rss_mb": 66.1,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 34,
+            "mean_sample_interval_ms": 11.0,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 362.81,
+          "cpu_ms": 350.0,
+          "setup_ms": 13.346038000076078,
+          "render_ms": 200.57702300010715,
+          "phases": {
+            "pdf_ms": 200.57024999998976
+          },
+          "pdf_bytes": 111413,
+          "stragglers_killed": 0,
+          "memory": {
+            "peak_pss_mb": 63.7,
+            "peak_rss_mb": 66.7,
+            "max_single_process_rss_mb": 66.7,
+            "peak_processes": 1,
+            "processes_seen": [
+              "ruby"
+            ],
+            "samples": 33,
+            "mean_sample_interval_ms": 11.0,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        }
+      ],
+      "warm": {
+        "process_wall_ms": 4100.69,
+        "process_cpu_ms": 4100.0,
+        "setup_ms": 13.551782000111416,
+        "iterations": [
+          {
+            "ms": 171.59,
+            "phases": {
+              "pdf_ms": 171.58090399985667
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 173.35,
+            "phases": {
+              "pdf_ms": 173.34591099992394
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.14,
+            "phases": {
+              "pdf_ms": 177.13182300003245
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.68,
+            "phases": {
+              "pdf_ms": 177.67389600002207
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.88,
+            "phases": {
+              "pdf_ms": 177.8669050000608
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 176.67,
+            "phases": {
+              "pdf_ms": 176.66450999991503
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.06,
+            "phases": {
+              "pdf_ms": 177.0507519999519
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.74,
+            "phases": {
+              "pdf_ms": 177.73223399999551
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 176.16,
+            "phases": {
+              "pdf_ms": 176.15468800009694
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.15,
+            "phases": {
+              "pdf_ms": 177.13812500005588
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.21,
+            "phases": {
+              "pdf_ms": 177.20075100008398
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 177.55,
+            "phases": {
+              "pdf_ms": 177.5466080000624
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 178.07,
+            "phases": {
+              "pdf_ms": 178.05676099995617
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 178.1,
+            "phases": {
+              "pdf_ms": 178.08929100004025
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 181.58,
+            "phases": {
+              "pdf_ms": 181.57177599996794
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 180.58,
+            "phases": {
+              "pdf_ms": 180.5763980000047
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 179.46,
+            "phases": {
+              "pdf_ms": 179.4485599999316
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 180.36,
+            "phases": {
+              "pdf_ms": 180.3556249999674
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 180.26,
+            "phases": {
+              "pdf_ms": 180.24868500011507
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 180.8,
+            "phases": {
+              "pdf_ms": 180.7917090000119
+            },
+            "pdf_bytes": 111413
+          }
+        ]
+      },
+      "warm-memory": {
+        "process_wall_ms": 4395.26,
+        "process_cpu_ms": 4020.0,
+        "setup_ms": 13.379531000042334,
+        "iterations": [
+          {
+            "ms": 189.55,
+            "phases": {
+              "pdf_ms": 189.54379599995445
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 188.94,
+            "phases": {
+              "pdf_ms": 188.92784600006416
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 187.87,
+            "phases": {
+              "pdf_ms": 187.85947000002488
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 193.41,
+            "phases": {
+              "pdf_ms": 193.40198200009763
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 189.83,
+            "phases": {
+              "pdf_ms": 189.82013300003018
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 193.07,
+            "phases": {
+              "pdf_ms": 193.0569479999831
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 190.01,
+            "phases": {
+              "pdf_ms": 190.00150899996515
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 193.04,
+            "phases": {
+              "pdf_ms": 193.03022299986333
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 189.4,
+            "phases": {
+              "pdf_ms": 189.39273900003172
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 192.18,
+            "phases": {
+              "pdf_ms": 192.17308199999388
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 189.93,
+            "phases": {
+              "pdf_ms": 189.9222670000745
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 191.16,
+            "phases": {
+              "pdf_ms": 191.15515699994285
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 191.58,
+            "phases": {
+              "pdf_ms": 191.57125799986534
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 189.51,
+            "phases": {
+              "pdf_ms": 189.50087099999655
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 190.77,
+            "phases": {
+              "pdf_ms": 190.76153500005603
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 189.54,
+            "phases": {
+              "pdf_ms": 189.52889199997298
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 190.55,
+            "phases": {
+              "pdf_ms": 190.5388390000444
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 192.48,
+            "phases": {
+              "pdf_ms": 192.47367300000042
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 192.22,
+            "phases": {
+              "pdf_ms": 192.20822699996643
+            },
+            "pdf_bytes": 111413
+          },
+          {
+            "ms": 192.64,
+            "phases": {
+              "pdf_ms": 192.63297100004274
+            },
+            "pdf_bytes": 111413
+          }
+        ],
+        "memory": {
+          "peak_pss_mb": 80.3,
+          "peak_rss_mb": 83.2,
+          "max_single_process_rss_mb": 83.2,
+          "peak_processes": 1,
+          "processes_seen": [
+            "ruby"
+          ],
+          "samples": 371,
+          "mean_sample_interval_ms": 11.8,
+          "complete": true,
+          "unreadable_processes": []
+        }
+      },
+      "summary": {
+        "cold_ms": {
+          "n": 20,
+          "median": 351.2,
+          "p90": 356.6,
+          "min": 345.8,
+          "max": 360.9,
+          "mean": 351.7,
+          "stdev": 4.0
+        },
+        "cold_cpu_ms": {
+          "n": 20,
+          "median": 350.0,
+          "p90": 360.0,
+          "min": 340.0,
+          "max": 360.0,
+          "mean": 349.0,
+          "stdev": 6.4
+        },
+        "cold_peak_pss_mb": {
+          "n": 5,
+          "median": 63.7,
+          "p90": 68.4,
+          "min": 59.2,
+          "max": 68.4,
+          "mean": 63.8,
+          "stdev": 3.3
+        },
+        "cold_peak_rss_mb": {
+          "n": 5,
+          "median": 66.7,
+          "p90": 71.3,
+          "min": 62.2,
+          "max": 71.3,
+          "mean": 66.8,
+          "stdev": 3.3
+        },
+        "cold_memory_complete": true,
+        "warm_ms": {
+          "n": 20,
+          "median": 177.7,
+          "p90": 180.6,
+          "min": 171.6,
+          "max": 181.6,
+          "mean": 177.8,
+          "stdev": 2.4
+        },
+        "warm_peak_pss_mb": 80.3,
+        "warm_peak_rss_mb": 83.2,
+        "warm_memory_renders": 20,
+        "warm_memory_complete": true
+      },
+      "pdf_pages": {
+        "cold": 6,
+        "warm": 6
+      }
+    },
+    "grover-shell": {
+      "label": "Grover (chrome-headless-shell)",
+      "about": "As Grover (Chrome), on chrome-headless-shell of the same build (Puppeteer's headless: \"shell\"), the leanest Chrome a Grover user can run.",
+      "done": [
+        "cold",
+        "cold-memory",
+        "warm",
+        "warm-memory"
+      ],
+      "status": "measured",
+      "cold": [
+        {
+          "wall_ms": 1625.16,
+          "cpu_ms": 2210.0,
+          "setup_ms": 49.46029899996938,
+          "render_ms": 1425.2017319999868,
+          "phases": {
+            "grover_ms": 1425.1965520000085
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1642.11,
+          "cpu_ms": 2220.0,
+          "setup_ms": 50.14482099999441,
+          "render_ms": 1440.5098620000063,
+          "phases": {
+            "grover_ms": 1440.502187999955
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1601.08,
+          "cpu_ms": 2180.0,
+          "setup_ms": 49.35972400003811,
+          "render_ms": 1400.6933390000486,
+          "phases": {
+            "grover_ms": 1400.6872270000167
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1660.99,
+          "cpu_ms": 2270.0,
+          "setup_ms": 53.08108000003267,
+          "render_ms": 1445.9101079999818,
+          "phases": {
+            "grover_ms": 1445.9022039999836
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1593.67,
+          "cpu_ms": 2170.0,
+          "setup_ms": 49.73340600001393,
+          "render_ms": 1394.9613760000211,
+          "phases": {
+            "grover_ms": 1394.9558460000553
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1641.01,
+          "cpu_ms": 2240.0,
+          "setup_ms": 49.53434399998514,
+          "render_ms": 1436.00217599998,
+          "phases": {
+            "grover_ms": 1435.995121999993
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1616.17,
+          "cpu_ms": 2190.0,
+          "setup_ms": 49.32481399999233,
+          "render_ms": 1415.7278139999835,
+          "phases": {
+            "grover_ms": 1415.7227640000056
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1647.1,
+          "cpu_ms": 2220.0,
+          "setup_ms": 49.455137000011746,
+          "render_ms": 1447.9083739999915,
+          "phases": {
+            "grover_ms": 1447.902333999984
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1589.85,
+          "cpu_ms": 2190.0,
+          "setup_ms": 49.41534800006775,
+          "render_ms": 1390.1323899999843,
+          "phases": {
+            "grover_ms": 1390.12589700002
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1610.22,
+          "cpu_ms": 2180.0,
+          "setup_ms": 49.50804099999368,
+          "render_ms": 1410.0575390000013,
+          "phases": {
+            "grover_ms": 1410.0530920000165
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1622.15,
+          "cpu_ms": 2200.0,
+          "setup_ms": 49.250950999965426,
+          "render_ms": 1421.9770180000341,
+          "phases": {
+            "grover_ms": 1421.9704250000068
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1630.37,
+          "cpu_ms": 2230.0,
+          "setup_ms": 49.408694999990985,
+          "render_ms": 1430.9529469999834,
+          "phases": {
+            "grover_ms": 1430.9460040000267
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1613.21,
+          "cpu_ms": 2220.0,
+          "setup_ms": 49.59227099997224,
+          "render_ms": 1415.3749310000567,
+          "phases": {
+            "grover_ms": 1415.3688390000025
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1618.97,
+          "cpu_ms": 2220.0,
+          "setup_ms": 49.70697499997914,
+          "render_ms": 1417.1167189999833,
+          "phases": {
+            "grover_ms": 1417.1100159999914
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1621.23,
+          "cpu_ms": 2200.0,
+          "setup_ms": 49.4237949999515,
+          "render_ms": 1416.8079209999996,
+          "phases": {
+            "grover_ms": 1416.8015799999703
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1652.2,
+          "cpu_ms": 2270.0,
+          "setup_ms": 49.51496599998791,
+          "render_ms": 1453.344936999958,
+          "phases": {
+            "grover_ms": 1453.33812400006
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1643.24,
+          "cpu_ms": 2240.0,
+          "setup_ms": 51.114182999997865,
+          "render_ms": 1438.5859990000026,
+          "phases": {
+            "grover_ms": 1438.579979000031
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3
+        },
+        {
+          "wall_ms": 1581.26,
+          "cpu_ms": 2150.0,
+          "setup_ms": 49.113641000003554,
+          "render_ms": 1385.9833960000542,
+          "phases": {
+            "grover_ms": 1385.9781560000847
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1607.82,
+          "cpu_ms": 2200.0,
+          "setup_ms": 50.14672000007704,
+          "render_ms": 1407.0781639999477,
+          "phases": {
+            "grover_ms": 1407.0728440000676
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        },
+        {
+          "wall_ms": 1616.39,
+          "cpu_ms": 2190.0,
+          "setup_ms": 49.245567000005394,
+          "render_ms": 1419.1860429999651,
+          "phases": {
+            "grover_ms": 1419.1807619999163
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2
+        }
+      ],
+      "cold-memory": [
+        {
+          "wall_ms": 1798.07,
+          "cpu_ms": 2240.0,
+          "setup_ms": 53.61125399998855,
+          "render_ms": 1593.587990000029,
+          "phases": {
+            "grover_ms": 1593.5814170000376
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3,
+          "memory": {
+            "peak_pss_mb": 379.8,
+            "peak_rss_mb": 719.9,
+            "max_single_process_rss_mb": 204.8,
+            "peak_processes": 9,
+            "processes_seen": [
+              "chrome-headless-shell",
+              "chrome-headless-shell (gpu-process)",
+              "chrome-headless-shell (renderer)",
+              "chrome-headless-shell (utility)",
+              "chrome-headless-shell (zygote)",
+              "exe (utility)",
+              "node",
+              "ruby"
+            ],
+            "samples": 87,
+            "mean_sample_interval_ms": 20.7,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 1843.42,
+          "cpu_ms": 2280.0,
+          "setup_ms": 51.17441099998541,
+          "render_ms": 1642.1750059999758,
+          "phases": {
+            "grover_ms": 1642.168592999922
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2,
+          "memory": {
+            "peak_pss_mb": 381.0,
+            "peak_rss_mb": 721.2,
+            "max_single_process_rss_mb": 204.5,
+            "peak_processes": 9,
+            "processes_seen": [
+              "chrome-headless-shell",
+              "chrome-headless-shell (gpu-process)",
+              "chrome-headless-shell (renderer)",
+              "chrome-headless-shell (utility)",
+              "chrome-headless-shell (zygote)",
+              "node",
+              "ruby"
+            ],
+            "samples": 88,
+            "mean_sample_interval_ms": 20.9,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 1824.36,
+          "cpu_ms": 2280.0,
+          "setup_ms": 50.816438999958336,
+          "render_ms": 1623.7145059999311,
+          "phases": {
+            "grover_ms": 1623.709385999944
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3,
+          "memory": {
+            "peak_pss_mb": 382.4,
+            "peak_rss_mb": 723.9,
+            "max_single_process_rss_mb": 202.7,
+            "peak_processes": 9,
+            "processes_seen": [
+              "chrome-headless-shell",
+              "chrome-headless-shell (gpu-process)",
+              "chrome-headless-shell (renderer)",
+              "chrome-headless-shell (utility)",
+              "chrome-headless-shell (zygote)",
+              "node",
+              "ruby"
+            ],
+            "samples": 87,
+            "mean_sample_interval_ms": 21.0,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 1816.5,
+          "cpu_ms": 2270.0,
+          "setup_ms": 54.374931999947876,
+          "render_ms": 1602.8267610000912,
+          "phases": {
+            "grover_ms": 1602.8202189999865
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 2,
+          "memory": {
+            "peak_pss_mb": 379.6,
+            "peak_rss_mb": 718.3,
+            "max_single_process_rss_mb": 205.8,
+            "peak_processes": 9,
+            "processes_seen": [
+              "chrome-headless-shell",
+              "chrome-headless-shell (gpu-process)",
+              "chrome-headless-shell (renderer)",
+              "chrome-headless-shell (utility)",
+              "chrome-headless-shell (zygote)",
+              "exe (utility)",
+              "node",
+              "ruby"
+            ],
+            "samples": 85,
+            "mean_sample_interval_ms": 21.4,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        },
+        {
+          "wall_ms": 1835.45,
+          "cpu_ms": 2280.0,
+          "setup_ms": 50.49182000011206,
+          "render_ms": 1634.0640729999868,
+          "phases": {
+            "grover_ms": 1634.0575800000224
+          },
+          "pdf_bytes": 2286908,
+          "stragglers_killed": 3,
+          "memory": {
+            "peak_pss_mb": 380.1,
+            "peak_rss_mb": 720.0,
+            "max_single_process_rss_mb": 204.9,
+            "peak_processes": 9,
+            "processes_seen": [
+              "chrome-headless-shell",
+              "chrome-headless-shell (gpu-process)",
+              "chrome-headless-shell (renderer)",
+              "chrome-headless-shell (utility)",
+              "chrome-headless-shell (zygote)",
+              "node",
+              "ruby"
+            ],
+            "samples": 86,
+            "mean_sample_interval_ms": 21.3,
+            "complete": true,
+            "unreadable_processes": []
+          }
+        }
+      ],
+      "warm": {
+        "process_wall_ms": 27958.38,
+        "process_cpu_ms": 37960.0,
+        "setup_ms": 342.88103000004776,
+        "iterations": [
+          {
+            "ms": 1280.5,
+            "phases": {
+              "grover_ms": 1280.4969190000556
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1235.97,
+            "phases": {
+              "grover_ms": 1235.9629000000423
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1260.51,
+            "phases": {
+              "grover_ms": 1260.504416000098
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1201.73,
+            "phases": {
+              "grover_ms": 1201.7163460000884
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1256.3,
+            "phases": {
+              "grover_ms": 1256.2954930000706
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1235.68,
+            "phases": {
+              "grover_ms": 1235.6761390001047
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1235.11,
+            "phases": {
+              "grover_ms": 1235.1029779999517
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1250.07,
+            "phases": {
+              "grover_ms": 1250.0584130000789
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1230.01,
+            "phases": {
+              "grover_ms": 1230.004247999983
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1261.43,
+            "phases": {
+              "grover_ms": 1261.4225100000622
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1231.42,
+            "phases": {
+              "grover_ms": 1231.4074559999863
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1213.45,
+            "phases": {
+              "grover_ms": 1213.441301999963
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1286.17,
+            "phases": {
+              "grover_ms": 1286.1588299999712
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1226.81,
+            "phases": {
+              "grover_ms": 1226.8035809999565
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1232.12,
+            "phases": {
+              "grover_ms": 1232.1114229999948
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1248.06,
+            "phases": {
+              "grover_ms": 1248.0560160001041
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1219.12,
+            "phases": {
+              "grover_ms": 1219.1124349999009
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1199.55,
+            "phases": {
+              "grover_ms": 1199.5383949999232
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1254.39,
+            "phases": {
+              "grover_ms": 1254.3819120000117
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1263.97,
+            "phases": {
+              "grover_ms": 1263.9626670000143
+            },
+            "pdf_bytes": 2286908
+          }
+        ]
+      },
+      "warm-memory": {
+        "process_wall_ms": 31624.76,
+        "process_cpu_ms": 40240.0,
+        "setup_ms": 361.3351970000658,
+        "iterations": [
+          {
+            "ms": 1460.44,
+            "phases": {
+              "grover_ms": 1460.4369439999573
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1455.85,
+            "phases": {
+              "grover_ms": 1455.8426609999733
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1401.93,
+            "phases": {
+              "grover_ms": 1401.9269749999512
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1431.22,
+            "phases": {
+              "grover_ms": 1431.2100119999377
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1416.58,
+            "phases": {
+              "grover_ms": 1416.568978000083
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1380.21,
+            "phases": {
+              "grover_ms": 1380.198739000014
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1412.74,
+            "phases": {
+              "grover_ms": 1412.7295640000375
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1418.6,
+            "phases": {
+              "grover_ms": 1418.590152000077
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1418.66,
+            "phases": {
+              "grover_ms": 1418.6534460000694
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1387.99,
+            "phases": {
+              "grover_ms": 1387.9783290000632
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1400.35,
+            "phases": {
+              "grover_ms": 1400.3387080001412
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1395.94,
+            "phases": {
+              "grover_ms": 1395.934838000103
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1432.63,
+            "phases": {
+              "grover_ms": 1432.6205939999782
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1390.24,
+            "phases": {
+              "grover_ms": 1390.2293920000084
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1344.1,
+            "phases": {
+              "grover_ms": 1344.0895960000344
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1390.2,
+            "phases": {
+              "grover_ms": 1390.1892320000334
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1386.76,
+            "phases": {
+              "grover_ms": 1386.7482509999536
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1411.13,
+            "phases": {
+              "grover_ms": 1411.116289999918
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1400.27,
+            "phases": {
+              "grover_ms": 1400.2605399999302
+            },
+            "pdf_bytes": 2286908
+          },
+          {
+            "ms": 1411.96,
+            "phases": {
+              "grover_ms": 1411.9540010000346
+            },
+            "pdf_bytes": 2286908
+          }
+        ],
+        "memory": {
+          "peak_pss_mb": 490.7,
+          "peak_rss_mb": 854.4,
+          "max_single_process_rss_mb": 206.1,
+          "peak_processes": 9,
+          "processes_seen": [
+            "chrome-headless-shell",
+            "chrome-headless-shell (gpu-process)",
+            "chrome-headless-shell (renderer)",
+            "chrome-headless-shell (utility)",
+            "chrome-headless-shell (zygote)",
+            "node",
+            "ruby"
+          ],
+          "samples": 904,
+          "mean_sample_interval_ms": 35.0,
+          "complete": true,
+          "unreadable_processes": [],
+          "excluded": {
+            "what": "the Node process that only keeps Chrome open (bench/grover/browser.cjs); its Chrome is counted",
+            "peak_pss_mb": 74.4,
+            "peak_rss_mb": 78.0
+          }
+        }
+      },
+      "summary": {
+        "cold_ms": {
+          "n": 20,
+          "median": 1620.1,
+          "p90": 1647.1,
+          "min": 1581.3,
+          "max": 1661.0,
+          "mean": 1621.7,
+          "stdev": 21.5
+        },
+        "cold_cpu_ms": {
+          "n": 20,
+          "median": 2205.0,
+          "p90": 2240.0,
+          "min": 2150.0,
+          "max": 2270.0,
+          "mean": 2209.5,
+          "stdev": 31.0
+        },
+        "cold_peak_pss_mb": {
+          "n": 5,
+          "median": 380.1,
+          "p90": 382.4,
+          "min": 379.6,
+          "max": 382.4,
+          "mean": 380.6,
+          "stdev": 1.1
+        },
+        "cold_peak_rss_mb": {
+          "n": 5,
+          "median": 720.0,
+          "p90": 723.9,
+          "min": 718.3,
+          "max": 723.9,
+          "mean": 720.7,
+          "stdev": 2.1
+        },
+        "cold_memory_complete": true,
+        "warm_ms": {
+          "n": 20,
+          "median": 1235.8,
+          "p90": 1264.0,
+          "min": 1199.5,
+          "max": 1286.2,
+          "mean": 1241.1,
+          "stdev": 23.6
+        },
+        "warm_peak_pss_mb": 490.7,
+        "warm_peak_rss_mb": 854.4,
+        "warm_memory_renders": 20,
+        "warm_memory_complete": true
+      },
+      "pdf_pages": {
+        "cold": 6,
+        "warm": 6
+      }
+    },
+    "grover-launch": {
+      "label": "Grover, new Chrome per document",
+      "about": "Warm only: Ruby process reused, Grover's default of launching Chrome for every document.",
+      "done": [
+        "warm",
+        "warm-memory"
+      ],
+      "status": "measured",
+      "warm": {
+        "process_wall_ms": 41542.15,
+        "process_cpu_ms": 65130.0,
+        "setup_ms": 49.35103100002743,
+        "iterations": [
+          {
+            "ms": 1920.98,
+            "phases": {
+              "grover_ms": 1920.969247000059
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1845.59,
+            "phases": {
+              "grover_ms": 1845.5824829998892
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1904.56,
+            "phases": {
+              "grover_ms": 1904.5561480000615
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1838.58,
+            "phases": {
+              "grover_ms": 1838.5694960000692
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1896.72,
+            "phases": {
+              "grover_ms": 1896.7163070000242
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1871.17,
+            "phases": {
+              "grover_ms": 1871.1646579999942
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1931.81,
+            "phases": {
+              "grover_ms": 1931.806353000109
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1851.65,
+            "phases": {
+              "grover_ms": 1851.642761999974
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1857.21,
+            "phases": {
+              "grover_ms": 1857.2048350000987
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1899.03,
+            "phases": {
+              "grover_ms": 1899.0229089999339
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1876.81,
+            "phases": {
+              "grover_ms": 1876.803651999915
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1851.63,
+            "phases": {
+              "grover_ms": 1851.619590000133
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1949.32,
+            "phases": {
+              "grover_ms": 1949.3137720001396
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1853.98,
+            "phases": {
+              "grover_ms": 1853.9670029999688
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1853.14,
+            "phases": {
+              "grover_ms": 1853.1340319998562
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1890.71,
+            "phases": {
+              "grover_ms": 1890.7055210000835
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1861.03,
+            "phases": {
+              "grover_ms": 1861.0265589999035
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1833.77,
+            "phases": {
+              "grover_ms": 1833.7588270000415
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1889.57,
+            "phases": {
+              "grover_ms": 1889.563162000035
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 1895.55,
+            "phases": {
+              "grover_ms": 1895.5410489998758
+            },
+            "pdf_bytes": 2286205
+          }
+        ]
+      },
+      "warm-memory": {
+        "process_wall_ms": 48939.76,
+        "process_cpu_ms": 67820.0,
+        "setup_ms": 51.302219000062905,
+        "iterations": [
+          {
+            "ms": 2232.15,
+            "phases": {
+              "grover_ms": 2232.1405459999805
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2196.63,
+            "phases": {
+              "grover_ms": 2196.617542000022
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2232.74,
+            "phases": {
+              "grover_ms": 2232.7384269998875
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2230.36,
+            "phases": {
+              "grover_ms": 2230.3506940000225
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2258.24,
+            "phases": {
+              "grover_ms": 2258.23545999988
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2184.11,
+            "phases": {
+              "grover_ms": 2184.100456999964
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2220.21,
+            "phases": {
+              "grover_ms": 2220.2066140000243
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2155.37,
+            "phases": {
+              "grover_ms": 2155.3668379999
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2213.47,
+            "phases": {
+              "grover_ms": 2213.459613999934
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2171.81,
+            "phases": {
+              "grover_ms": 2171.8012990000425
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2236.02,
+            "phases": {
+              "grover_ms": 2236.009527000133
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2224.25,
+            "phases": {
+              "grover_ms": 2224.2382499999367
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2322.66,
+            "phases": {
+              "grover_ms": 2322.6566459999885
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2216.97,
+            "phases": {
+              "grover_ms": 2216.9575220000697
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2159.62,
+            "phases": {
+              "grover_ms": 2159.609494000091
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2195.09,
+            "phases": {
+              "grover_ms": 2195.0787130000535
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2175.8,
+            "phases": {
+              "grover_ms": 2175.787287999876
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2178.3,
+            "phases": {
+              "grover_ms": 2178.2885709999828
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2281.56,
+            "phases": {
+              "grover_ms": 2281.552026999998
+            },
+            "pdf_bytes": 2286205
+          },
+          {
+            "ms": 2226.11,
+            "phases": {
+              "grover_ms": 2226.1069780000253
+            },
+            "pdf_bytes": 2286205
+          }
+        ],
+        "memory": {
+          "peak_pss_mb": 710.7,
+          "peak_rss_mb": 1412.6,
+          "max_single_process_rss_mb": 301.6,
+          "peak_processes": 14,
+          "processes_seen": [
+            "chrome",
+            "chrome (gpu-process)",
+            "chrome (renderer)",
+            "chrome (utility)",
+            "chrome (zygote)",
+            "chrome_crashpad_handler",
+            "exe (utility)",
+            "node",
+            "ruby"
+          ],
+          "samples": 1281,
+          "mean_sample_interval_ms": 38.2,
+          "complete": true,
+          "unreadable_processes": []
+        }
+      },
+      "summary": {
+        "warm_ms": {
+          "n": 20,
+          "median": 1874.0,
+          "p90": 1921.0,
+          "min": 1833.8,
+          "max": 1949.3,
+          "mean": 1878.6,
+          "stdev": 32.3
+        },
+        "warm_peak_pss_mb": 710.7,
+        "warm_peak_rss_mb": 1412.6,
+        "warm_memory_renders": 20,
+        "warm_memory_complete": true
+      },
+      "pdf_pages": {
+        "warm": 6
+      }
+    }
+  },
+  "saved_at": "2026-11-04T03:11:35+0000",
+  "finished_at": "2026-11-04T03:11:35+0000"
+}
