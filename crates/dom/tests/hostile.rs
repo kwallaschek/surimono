@@ -3,15 +3,23 @@
 //! churn, and scripts that tamper with built-ins to read or forge handles
 //! (review of #80).
 
-use surimono_core::{Limits, Sandbox};
+mod common;
+
+use std::time::Duration;
+
+use common::{limits, scaled};
+use surimono_core::Sandbox;
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
-const PAGE: &str = r#"<html><body><p id="p">secret</p><div id="d">x</div></body></html>"#;
+// With a doctype: blitz-html prints every parse error on stdout, and a
+// missing doctype is one ("ERROR: Unexpected token").
+const PAGE: &str =
+    r#"<!doctype html><html><body><p id="p">secret</p><div id="d">x</div></body></html>"#;
 
 /// `n` nested `<div>`s inside `<body>`; the innermost is at depth `n + 2`.
 fn nested(n: usize) -> String {
     format!(
-        "<html><body>{}<i id=\"deep\">deep</i>{}</body></html>",
+        "<!doctype html><html><body>{}<i id=\"deep\">deep</i>{}</body></html>",
         "<div>".repeat(n),
         "</div>".repeat(n)
     )
@@ -30,7 +38,8 @@ fn parse_enforces_depth_and_node_limits() {
         max_nodes: 50,
         ..DomLimits::default()
     };
-    let r = Document::parse_with_limits(&"<b>x</b>".repeat(30), limits);
+    let r =
+        Document::parse_with_limits(&format!("<!doctype html>{}", "<b>x</b>".repeat(30)), limits);
     assert_eq!(r.unwrap_err(), DomError::NodeLimit { limit: 50 });
 }
 
@@ -78,7 +87,7 @@ fn deepest_allowed_tree_on_a_small_stack() {
             let html = doc.to_html();
             assert!(html.contains("<i id=\"deep\">deep</i>"));
             let mut rt =
-                DomRuntime::new(Limits::default().with_stack_bytes(256 * 1024)).unwrap();
+                DomRuntime::new(common::limits().with_stack_bytes(256 * 1024)).unwrap();
             rt.load(doc);
             let depth: i32 = rt
                 .eval(
@@ -122,28 +131,46 @@ fn deepest_allowed_tree_on_a_small_stack() {
     worker.join().expect("no stack overflow");
 }
 
+/// Time to drop `n` siblings with one text child each, best of 3. Each
+/// trial builds in its own `eval`, outside the timer: the build loop is nearly
+/// all of the work, and would hide a slow drop.
+fn wide_drop_time(n: usize) -> Duration {
+    (0..3)
+        .map(|_| {
+            // The limit only has to let a slow build finish building.
+            let mut rt =
+                DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+            rt.load(Document::parse(PAGE).unwrap());
+            let build = format!(
+                "globalThis.d = document.getElementById('d');
+                for (let i = 0; i < {n}; i++) d.appendChild(document.createElement('b')).appendChild(document.createTextNode('t'));"
+            );
+            let _: () = rt.eval(&build).unwrap();
+            let started = std::time::Instant::now();
+            let _: () = rt.eval("d.textContent = ''").unwrap();
+            let took = started.elapsed();
+            let doc = rt.take().unwrap();
+            assert!(doc.node_count() < 20, "{}", doc.node_count());
+            took
+        })
+        .min()
+        .unwrap()
+}
+
+/// One drop of a wide tree, not one list scan per child. The drop is compared
+/// with itself, so machine speed and the time scale don't matter: four times
+/// the children must cost less than eight times the time. Measured in a debug
+/// build: linear about 4.5, quadratic (a scan per child) about 12.7.
 #[test]
 fn wide_tree_drops_in_linear_time() {
-    // 50,000 siblings, each with a child: one drop, not 50,000 list scans.
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
-    rt.load(Document::parse(PAGE).unwrap());
-    let started = std::time::Instant::now();
-    let _: () = rt
-        .eval(
-            r#"
-        const d = document.getElementById('d');
-        for (let i = 0; i < 25000; i++) d.appendChild(document.createElement('b')).appendChild(document.createTextNode('t'));
-        d.textContent = '';"#,
-        )
-        .unwrap();
-    assert!(started.elapsed() < std::time::Duration::from_secs(10));
-    let doc = rt.take().unwrap();
-    assert!(doc.node_count() < 20, "{}", doc.node_count());
+    let small = wide_drop_time(6_250);
+    let large = wide_drop_time(25_000);
+    assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
 }
 
 #[test]
 fn handle_churn_hits_the_handle_limit() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(
         Document::parse_with_limits(
             PAGE,
@@ -212,7 +239,7 @@ TypeError,TypeError,TypeError,secret,true,true,BODY,true,[]";
 
 #[test]
 fn tampering_before_first_use_cannot_read_or_forge_handles() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     // The first eval installs the bindings, then runs the tampering script
     // before any wrapper exists.
@@ -224,7 +251,7 @@ fn tampering_before_first_use_cannot_read_or_forge_handles() {
 
 #[test]
 fn tampering_after_use_cannot_read_or_forge_handles() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     // Wrappers exist and are cached before the built-ins are replaced.
     let _: String = rt
@@ -251,7 +278,7 @@ fn on_a_tight_stack(script: &'static str, levels: usize) -> Result<i32, DomError
     // and the part of the requested size that isn't usable stack (32 KiB
     // was too little on Linux, debug build).
     const SLACK: usize = 64 * 1024;
-    let limits = Limits::default();
+    let limits = limits();
     let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + SLACK;
     std::thread::Builder::new()
         .stack_size(size)

@@ -335,20 +335,24 @@ fn string_handlers_are_classic_scripts() {
     assert_eq!(sb.eval::<i32>("lexical").unwrap(), 1);
 }
 
-/// Sources a C string can't hold, and strings that aren't well formed, end
-/// as a reported error or a run, never a failed call.
+/// Two known gaps from the C-string, UTF-8 route to the parser (COMPAT.md),
+/// pinned so a change is seen. The standard would give `log.push(3)` and
+/// 0xD800 here, as `eval` does; a NUL or a lone surrogate is valid source.
+/// Either way the handler ends as a report or a run, never a failed call.
 #[test]
-fn odd_string_handlers() {
+fn nul_and_lone_surrogates_in_string_handlers() {
     let mut sb = sandbox();
     sb.eval::<()>(
-        r"setTimeout('log.push(1)\0log.push(2)');
-          setTimeout('log.push(\'\ud800\'.length)');
+        r"log.push(eval('\'a\0b\'.length'), eval('\'\ud800\'.charCodeAt(0)'));
+          setTimeout('log.push(1)\0log.push(2)');
+          setTimeout('log.push(\'a\0b\'.length)');
+          setTimeout('log.push(\'\ud800\'.charCodeAt(0))');
           setTimeout('');",
     )
     .unwrap();
     let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
-    assert_eq!((r.outcome, r.uncaught), (SettleOutcome::Settled, 1));
-    assert_eq!(sb.eval::<String>("log.join()").unwrap(), "1");
+    assert_eq!((r.outcome, r.uncaught), (SettleOutcome::Settled, 2));
+    assert_eq!(sb.eval::<String>("log.join()").unwrap(), "3,55296,65533");
 }
 
 /// A task's microtasks run before the next task (§8.1.7.3), and an
@@ -700,8 +704,8 @@ fn the_task_limit_stops_cleanly_and_holds_across_calls() {
 fn external_waits_hold_the_clock() {
     let mut sb = sandbox();
     let handle = sb.event_loop().unwrap();
-    handle.external_begin();
-    handle.external_begin();
+    let first = handle.external_begin();
+    let second = handle.external_begin();
     sb.eval::<()>(
         "setTimeout(() => log.push('now'));
          setTimeout(() => log.push('later'), 5);
@@ -712,12 +716,13 @@ fn external_waits_hold_the_clock() {
     assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
     assert_eq!((r.external_pending, r.tasks_run, r.timers_left), (2, 1, 2));
     assert_eq!(handle.virtual_now_ms(), 0);
-    handle.external_end();
+    assert!(handle.external_end(first));
     let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
     assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
     assert_eq!(handle.external_pending(), 1);
-    handle.external_end();
-    handle.external_end(); // an extra end is ignored
+    assert!(!handle.external_end(first), "already ended");
+    assert_eq!(handle.external_pending(), 1, "an extra end changes nothing");
+    assert!(handle.external_end(second));
     let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
     assert_eq!(r.outcome, SettleOutcome::Settled);
     assert_eq!(r.external_pending, 0);
@@ -731,7 +736,7 @@ fn external_waits_hold_the_clock() {
 fn a_fallback_timer_cannot_overtake_a_pending_load() {
     let mut sb = sandbox();
     let handle = sb.event_loop().unwrap();
-    handle.external_begin();
+    let image = handle.external_begin();
     sb.eval::<()>(
         "setTimeout(() => log.push('fallback', performance.now()), 3000);
          var polls = 0;
@@ -748,7 +753,7 @@ fn a_fallback_timer_cannot_overtake_a_pending_load() {
          setTimeout(() => log.push('after load', performance.now()), 9000);",
     )
     .unwrap();
-    handle.external_end();
+    handle.external_end(image);
     let r = sb.run_until_settled(&options).unwrap();
     assert_eq!(r.outcome, SettleOutcome::Settled);
     assert_eq!(
@@ -762,12 +767,96 @@ fn a_fallback_timer_cannot_overtake_a_pending_load() {
 #[test]
 fn zero_delay_work_runs_during_a_wait() {
     let mut sb = sandbox();
-    sb.event_loop().unwrap().external_begin();
+    let _ = sb.event_loop().unwrap().external_begin();
     sb.eval::<()>("var n = 0; setInterval(() => n++, 0)")
         .unwrap();
     let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
     assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
     assert_eq!((r.virtual_now_ms, r.tasks_run), (0, 6));
+}
+
+/// The page of a wait that never ends, given up on after `calls` more calls
+/// to settle, with real time passing between them: the report of the run
+/// after giving up, and the log.
+fn give_up_after(calls: u32) -> (surimono_core::SettleReport, String) {
+    let mut sb = sandbox();
+    let handle = sb.event_loop().unwrap();
+    let forever = handle.external_begin();
+    sb.eval::<()>(
+        "setTimeout(() => log.push('zero', Date.now(), Math.random()));
+         setTimeout(() => log.push('fallback', Date.now(), Math.random()), 3000);
+         var polls = 0;
+         setInterval(() => polls++, 1000);",
+    )
+    .unwrap();
+    let options = SettleOptions::default();
+    let first = sb.run_until_settled(&options).unwrap();
+    assert_eq!(first.outcome, SettleOutcome::WaitingExternal);
+    assert_eq!((first.virtual_now_ms, first.tasks_run), (0, 1));
+    for _ in 0..calls {
+        std::thread::sleep(Duration::from_millis(1));
+        // Not an end, and nothing moves however often the host asks.
+        assert_eq!(sb.run_until_settled(&options).unwrap(), first);
+    }
+    assert_eq!(handle.external_abandon_all(), 1);
+    assert!(!handle.external_end(forever), "abandoned");
+    let report = sb.run_until_settled(&options).unwrap();
+    let log = sb.eval("log.join() + ' ' + polls").unwrap();
+    (report, log)
+}
+
+/// A wait that never ends: neither limit can end it, the host gives up, the
+/// timers then get the whole budget, and when it gave up can't be seen.
+#[test]
+fn giving_up_on_a_wait_early_or_late_gives_the_same_page() {
+    let (early, log) = give_up_after(0);
+    assert_eq!(early.outcome, SettleOutcome::Settled);
+    assert!(early.settled_by_budget());
+    assert_eq!(early.virtual_now_ms, 10_000);
+    assert_eq!(early.external_pending, 0);
+    assert!(log.ends_with(" 10"), "{log}");
+    assert_eq!(give_up_after(50), (early, log));
+}
+
+/// A result arriving after the host gave up can't close a newer wait.
+#[test]
+fn a_late_end_cannot_cancel_a_newer_wait() {
+    let mut sb = sandbox();
+    let handle = sb.event_loop().unwrap();
+    let abandoned = handle.external_begin();
+    assert_eq!(handle.external_abandon_all(), 1);
+    let newer = handle.external_begin();
+    assert_ne!(abandoned, newer);
+    assert!(!handle.external_end(abandoned));
+    assert_eq!(handle.external_pending(), 1);
+    sb.eval::<()>("setTimeout(() => log.push('later'), 5)")
+        .unwrap();
+    let r = sb.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
+    assert!(handle.external_end(newer));
+    assert_eq!(handle.external_abandon_all(), 0);
+}
+
+/// A chain of waits, each closing before the next as with an `onerror` that
+/// tries another `src`, holds the clock all the way: the loader's cap is
+/// what ends it (a stand-in here for E2-06's).
+#[test]
+fn a_chain_of_waits_ends_at_the_loader_cap() {
+    const LOADER_CAP: u32 = 1000;
+    let mut sb = sandbox();
+    let handle = sb.event_loop().unwrap();
+    sb.eval::<()>("setTimeout(() => log.push('timer'), 5)")
+        .unwrap();
+    let options = SettleOptions::default();
+    for _ in 0..LOADER_CAP {
+        let wait = handle.external_begin();
+        let r = sb.run_until_settled(&options).unwrap();
+        assert_eq!(r.outcome, SettleOutcome::WaitingExternal);
+        assert_eq!(r.virtual_now_ms, 0);
+        assert!(handle.external_end(wait));
+    }
+    let r = sb.run_until_settled(&options).unwrap();
+    assert_eq!((r.outcome, r.virtual_now_ms), (SettleOutcome::Settled, 5));
 }
 
 // --- Hostile scripts -----------------------------------------------------

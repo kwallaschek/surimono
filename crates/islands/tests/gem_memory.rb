@@ -22,6 +22,7 @@ POOL = Integer(ENV.fetch("GEM_MEM_POOL", "4"))
 ROUNDS = Integer(ENV.fetch("GEM_MEM_ROUNDS", "2"))
 STAGES = ENV.fetch("GEM_MEM_STAGES", "idle,gc,trim").split(",")
 
+ERRORS = Hash.new(0)
 MALLOC_TRIM = Fiddle::Function.new(Fiddle.dlopen(nil)["malloc_trim"], [Fiddle::TYPE_SIZE_T], Fiddle::TYPE_INT)
 
 def mem
@@ -35,7 +36,12 @@ def row(stage)
 end
 
 def render_all(renderer, documents)
-  documents.each { |d| renderer.render(d) }
+  documents.each do |d|
+    renderer.render(d)
+  rescue Surimono::Error => e
+    # A busy machine can hit a limit; the memory numbers still hold.
+    ERRORS[e.kind] += 1
+  end
 end
 
 fonts = Dir[File.join(ROOT, "fixtures/fonts/**/*.{ttf,otf}")].sort
@@ -66,3 +72,4 @@ STAGES.each do |stage|
     row(format("malloc_trim(0), %.1f ms", took * 1000))
   end
 end
+puts "render errors: #{ERRORS.empty? ? 'none' : ERRORS}"

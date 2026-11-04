@@ -44,6 +44,38 @@
 //! - a task is due but [`SettleOptions::max_tasks`] tasks have run:
 //!   [`SettleOutcome::TaskLimit`]. A frame already started finishes first.
 //!
+//! # External waits: what the host must do
+//!
+//! `WaitingExternal` is not an end. Each call returns at once, but the page
+//! has not finished: with the clock held, no later timer has run, so
+//! printing it now would print a page that never got to run them. The
+//! virtual budget and the task limit can't end a wait, because neither moves
+//! while the clock is held. Calling again without ending a wait gives the
+//! same report for ever. So the host, and only the host, ends every wait:
+//!
+//! 1. [`EventLoopHandle::external_begin`] returns an [`ExternalWait`] for
+//!    each thing the page waits on. [`EventLoopHandle::external_end`] closes
+//!    that one and says whether it was still open.
+//! 2. To give up, [`EventLoopHandle::external_abandon_all`] closes every
+//!    open wait. A result that arrives later finds `external_end` returning
+//!    false: drop it. It can't close a newer wait.
+//! 3. Call [`Sandbox::run_until_settled`](crate::Sandbox) again. The timers
+//!    then run to the budget, with the budget as a whole still ahead of
+//!    them, since the clock didn't move.
+//!
+//! When the host gives up doesn't change the output: the clock didn't move
+//! and no task ran meanwhile, so giving up after no calls or after many
+//! gives the same report and the same page. Which waits it gave up on can:
+//! that is the one way real time can reach a page, and only through the
+//! host's choice.
+//!
+//! A page can open waits in a chain (an image's `onerror` setting another
+//! `src`), each closing before the next, and the clock stays held all the
+//! way. So the loader (E2-06) caps its waits for each render, however they
+//! end: 1,000 started, and 10 seconds of real time from the first. At either
+//! cap it calls `external_abandon_all`, fails the rest of its resources
+//! without opening a wait, and lets the page settle.
+//!
 //! The virtual budget and the task count are measured from the start of the
 //! context, not of the call, so calling again can't extend them. The real
 //! time, memory and stack limits apply to the whole of a
@@ -54,14 +86,14 @@
 //! typed error.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use rquickjs::{Ctx, Exception, Function, Object, Value};
 
 use crate::SandboxError;
 use crate::engine::LimitState;
-use crate::sandbox::{classify, drain_jobs, eval_options, exception_error};
+use crate::sandbox::{classify, drain_jobs, eval_options, exception_error, guard_native};
 
 /// Most timers alive at once. Their Rust entries aren't in the JavaScript
 /// heap, so this is what bounds them; far above what real pages use.
@@ -114,16 +146,19 @@ impl Default for SettleOptions {
 }
 
 /// Why [`Sandbox::run_until_settled`](crate::Sandbox) stopped. In every case
-/// the microtasks are drained and script state is consistent, so the page
-/// can be serialized.
+/// the microtasks are drained and script state is consistent. `Settled` and
+/// `TaskLimit` are ends, after which the page can be serialized;
+/// `WaitingExternal` is not (see the module docs).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettleOutcome {
     /// Nothing is left to do within the budget.
     Settled,
-    /// Timers were still due when the task limit was reached.
+    /// Tasks were still due when the task limit was reached.
     TaskLimit,
-    /// External waits are pending and the clock can't move until they end;
-    /// resolve them and call again. Timers may be waiting too
+    /// External waits are pending and the clock can't move until they end.
+    /// Not an end: neither limit can stop a wait, so the host must end every
+    /// wait or abandon them, then call again, and calling again without
+    /// doing so returns this for ever. Timers may be waiting too
     /// ([`SettleReport::timers_left`]).
     WaitingExternal,
 }
@@ -138,7 +173,7 @@ pub struct SettleReport {
     pub virtual_now_ms: u64,
     /// Tasks run so far in the life of the context.
     pub tasks_run: u64,
-    /// Timers that haven't run yet.
+    /// Timers and animation-frame callbacks that haven't run yet.
     pub timers_left: usize,
     /// External waits still pending.
     pub external_pending: usize,
@@ -169,20 +204,33 @@ pub struct EventLoopHandle {
 
 impl EventLoopHandle {
     /// Records that the page now waits on one more external thing.
-    pub fn external_begin(&self) {
+    pub fn external_begin(&self) -> ExternalWait {
         let mut st = self.shared.borrow_mut();
-        st.external = st.external.saturating_add(1);
+        let id = st.next_wait;
+        st.next_wait += 1;
+        st.external.insert(id);
+        ExternalWait(id)
     }
 
-    /// Records that one external wait ended. Extra calls are ignored.
-    pub fn external_end(&self) {
+    /// Ends `wait`. True if it was open; false if it had ended or been
+    /// abandoned, when the host must drop whatever result it has for it.
+    /// Never touches any other wait.
+    pub fn external_end(&self, wait: ExternalWait) -> bool {
+        self.shared.borrow_mut().external.remove(&wait.0)
+    }
+
+    /// Gives up on every open wait, returning how many there were. Waits
+    /// begun afterwards are new ones.
+    pub fn external_abandon_all(&self) -> usize {
         let mut st = self.shared.borrow_mut();
-        st.external = st.external.saturating_sub(1);
+        let open = st.external.len();
+        st.external.clear();
+        open
     }
 
     /// External waits pending now.
     pub fn external_pending(&self) -> usize {
-        self.shared.borrow().external
+        self.shared.borrow().external.len()
     }
 
     /// The virtual clock, in milliseconds since the start of the context.
@@ -190,6 +238,11 @@ impl EventLoopHandle {
         self.shared.borrow().now
     }
 }
+
+/// One external wait, from [`EventLoopHandle::external_begin`]. Ids are never
+/// reused, so a late end can only find its own wait.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExternalWait(u64);
 
 /// What a timer does when it comes due. The numbers are the `kind` argument
 /// of the `schedule` native (see `prelude.js`).
@@ -248,7 +301,7 @@ struct Slot {
 pub(crate) struct LoopState {
     queue: BTreeMap<Key, Task>,
     /// Every live id. Lookups only: nothing iterates this, or the queue
-    /// except from the front, so order is always (due, seq).
+    /// except from the front, so order is always the [`Key`]'s.
     live: BTreeMap<i32, Slot>,
     /// Ids count up from 1 and are never reused; animation frames share
     /// them, which no script can tell from separate counters except by
@@ -264,7 +317,9 @@ pub(crate) struct LoopState {
     /// are the rest of that frame.
     open_frame: Option<u64>,
     tasks_run: u64,
-    external: usize,
+    /// Open external waits.
+    external: BTreeSet<u64>,
+    next_wait: u64,
     uncaught: u64,
     errors: Vec<SandboxError>,
     /// A limit error found in a callback's report: the call must end.
@@ -347,7 +402,7 @@ impl LoopState {
     /// Applies the settle rule: the next task, or why there is none.
     fn step(&mut self, options: &SettleOptions) -> Step {
         let budget = options.virtual_budget_ms;
-        let waiting = self.external > 0;
+        let waiting = !self.external.is_empty();
         let now = self.now;
         let Some(entry) = self
             .queue
@@ -419,7 +474,7 @@ impl LoopState {
             virtual_now_ms: self.now,
             tasks_run: self.tasks_run,
             timers_left: self.queue.len(),
-            external_pending: self.external,
+            external_pending: self.external.len(),
             uncaught: std::mem::take(&mut self.uncaught),
             errors,
         }
@@ -452,46 +507,54 @@ pub(crate) fn host_object<'js>(
         Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>, kind: u32, timeout: i32| -> rquickjs::Result<i32> {
-                let id = st.borrow_mut().schedule(Kind::from_js(kind), timeout);
-                id.ok_or_else(|| {
-                    // Sticky, like a refused allocation: catching this
-                    // doesn't save the call.
-                    stop.exceed_memory();
-                    Exception::throw_internal(&ctx, "too many timers")
+                guard_native(&stop, &ctx, || {
+                    let id = st.borrow_mut().schedule(Kind::from_js(kind), timeout);
+                    id.ok_or_else(|| {
+                        // Sticky, like a refused allocation: catching this
+                        // doesn't save the call.
+                        stop.exceed_memory();
+                        Exception::throw_internal(&ctx, "too many timers")
+                    })
                 })
             },
         )?,
     )?;
-    let st = shared.clone();
+    let (st, stop) = (shared.clone(), limit.clone());
     host.set(
         "cancel",
-        Function::new(ctx.clone(), move |id: i32, frame: bool| {
-            st.borrow_mut().cancel(id, frame)
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, id: i32, frame: bool| {
+            guard_native(&stop, &ctx, || Ok(st.borrow_mut().cancel(id, frame)))
         })?,
     )?;
-    let st = shared.clone();
+    let (st, stop) = (shared.clone(), limit.clone());
     host.set(
         "report",
         Function::new(ctx.clone(), move |ctx: Ctx<'js>, thrown: Value<'js>| {
-            // Reading the exception can run its getters, so no borrow yet.
-            let error = exception_error(thrown);
-            let _ = ctx.catch();
-            st.borrow_mut().note(error);
+            guard_native(&stop, &ctx, || {
+                // Reading the exception can run its getters, so no borrow yet.
+                let error = exception_error(thrown);
+                let _ = ctx.catch();
+                st.borrow_mut().note(error);
+                Ok(())
+            })
         })?,
     )?;
+    let stop = limit.clone();
     host.set(
         "runScript",
         Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>, source: String| -> rquickjs::Result<()> {
-                let options = eval_options("<timer>");
-                match ctx.eval_with_options::<Value<'js>, _>(source, options) {
-                    Ok(_) => Ok(()),
-                    Err(rquickjs::Error::Exception) => Err(rquickjs::Error::Exception),
-                    // rquickjs takes a C string, so a NUL can't reach the
-                    // parser, which is all that ends up here.
-                    Err(_) => Err(Exception::throw_syntax(&ctx, "invalid character in script")),
-                }
+                guard_native(&stop, &ctx, || {
+                    let options = eval_options("<timer>");
+                    match ctx.eval_with_options::<Value<'js>, _>(source, options) {
+                        Ok(_) => Ok(()),
+                        Err(rquickjs::Error::Exception) => Err(rquickjs::Error::Exception),
+                        // rquickjs takes a C string, so a NUL can't reach the
+                        // parser, which is all that ends up here.
+                        Err(_) => Err(Exception::throw_syntax(&ctx, "invalid character in script")),
+                    }
+                })
             },
         )?,
     )?;
