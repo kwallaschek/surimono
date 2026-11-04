@@ -107,7 +107,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-PKG-15 · PKG · done (#77) · scripts/ci/asan.sh sets SURIMONO_TEST_TIME_SCALE=4 for P1-RT-27
 - P1-PKG-16 · PKG · done (#79) · Facade re-exports surimono_islands::BUILTIN_RENDERERS; #76/#77 review nits (publish-results refuses if the index can't be read)
 - P1-GFX-06 · GFX · done (#78) · LeakSanitizer in gfx fulgur_layout: stylo 0.8 Box::leaks two thread-local caches per style thread (~13.6 KB/thread); the test runs Blitz on one long-lived thread. Soak/facade must run Blitz on long-lived threads
-- P1-PKG-17 · PKG · review · (#107) Symbolize ASan traces in CI: nightly llvm-tools + ASAN_SYMBOLIZER_PATH in scripts/ci/asan.sh
+- P1-PKG-17 · PKG · done (#107) · Symbolize ASan traces in CI with the system LLVM's llvm-symbolizer (asan_env in scripts/ci/lib.sh); follow-ups: overridable /usr/lib prefix with tests, ::warning:: when none found, sudo -n
 - P1-PKG-10 · PKG · done (#33) · (#33) Gem build carries the vendored QuickJS
 - P1-PKG-08 · PKG · done (#25) · (#25) Facade on the real IslandRunner and gfx; every island SVG through sanitize_svg (SanitizedSvg newtype); stub removed
 - P1-PKG-09 · PKG · done (#34) · (#34) THIRD_PARTY_LICENSES.txt for native gems and CLI (cargo-about), incl. bundled JS licences
