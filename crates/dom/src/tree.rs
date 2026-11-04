@@ -711,8 +711,9 @@ impl Document {
     }
 
     /// `normalize` with an observer about. Every step queues its own record,
-    /// in §4.4's order: for each text node in tree order, the joined text,
-    /// then one removal for each node merged into it. So nodes leave one at
+    /// in §4.4's order: for each text node in tree order, the joined text
+    /// (a record even if nothing joined it), then one removal for each node
+    /// merged into it. So nodes leave one at
     /// a time and need the room for both copies, and a wide list is quadratic,
     /// which each removal pays for in its poll.
     fn normalize_observed(&mut self, top: usize) -> BindingResult<()> {
@@ -736,11 +737,11 @@ impl Document {
                 merged.push(s);
                 next = self.sibling(s, true);
             }
-            if !joined.is_empty() {
-                let mut text = self.char_data(n).to_owned();
-                text.push_str(&joined);
-                self.set_text_data(n, &text).map_err(|e| self.fail(e))?;
-            }
+            // Step 4 replaces data even when `joined` is empty, and "replace
+            // data" always queues its record.
+            let mut text = self.char_data(n).to_owned();
+            text.push_str(&joined);
+            self.set_text_data(n, &text).map_err(|e| self.fail(e))?;
             // They are next on the stack, and may not outlive their removal.
             stack.truncate(stack.len().saturating_sub(merged.len()));
             for s in merged {

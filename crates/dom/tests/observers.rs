@@ -54,9 +54,11 @@ fn child_list() {
 
 #[test]
 fn normalize_queues_its_records_in_tree_order() {
-    // DOM §4.4 normalize: the joined text ("replace data"), then one removal
-    // per merged node; an empty node just goes. Linear normalize must not
-    // lose these (merge of #96 and #105).
+    // DOM §4.4 normalize, for each text node in tree order: an empty one is
+    // removed; any other has step 4's "replace data", which queues a record
+    // whatever it replaces (§4.10 step 4), then one removal per merged node.
+    // Linear normalize must not lose these (merge of #96 and #105). Chromium
+    // 153 differs (docs/COMPAT.md); the spec wins for DOM behaviour.
     let r = observed(&format!(
         r#"{SHOW}
         const t = (s) => document.createTextNode(s);
@@ -78,8 +80,64 @@ fn normalize_queues_its_records_in_tree_order() {
          |childList,a,0,1,,,,#text,I\
          |characterData,#text,0,0,,,p,,\
          |childList,I,0,1,,,,#text,\
-         |childList,a,0,1,,,,I,#text"
+         |childList,a,0,1,,,,I,#text\
+         |characterData,#text,0,0,,,z,,"
     );
+}
+
+#[test]
+fn normalize_replaces_data_of_a_node_nothing_joins() {
+    // DOM §4.4 step 4 has no test on `data`.
+    let cases = [
+        ("['x']", "x|1|0|characterData,#text,0,0,,,x,,"),
+        (
+            "['x', '']",
+            "x|1|0|characterData,#text,0,0,,,x,,|childList,a,0,1,,,,#text,",
+        ),
+        (
+            "['x', '', '']",
+            "x|1|0|characterData,#text,0,0,,,x,,\
+             |childList,a,0,1,,,,#text,#text|childList,a,0,1,,,,#text,",
+        ),
+    ];
+    for (texts, expected) in cases {
+        let r = observed(&format!(
+            r#"{SHOW}
+            a.textContent = '';
+            a.append(...{texts}.map((s) => document.createTextNode(s)));
+            const o = new MutationObserver(show);
+            o.observe(a, {{ childList: true, characterData: true, characterDataOldValue: true, subtree: true }});
+            a.normalize();
+            log.push(a.textContent, a.childNodes.length, 0);"#
+        ));
+        assert_eq!(r, expected, "{texts}");
+    }
+    // In a child element, with nothing to merge at either level.
+    let r = observed(&format!(
+        r#"{SHOW}
+        const i = document.createElement('i');
+        i.textContent = 'p';
+        a.textContent = '';
+        a.append(i);
+        const o = new MutationObserver(show);
+        o.observe(a, {{ childList: true, characterData: true, characterDataOldValue: true, subtree: true }});
+        a.normalize();
+        log.push(a.textContent, a.childNodes.length, i.childNodes.length);"#
+    ));
+    assert_eq!(r, "p|1|1|characterData,#text,0,0,,,p,,");
+}
+
+#[test]
+fn normalize_without_an_interested_observer_queues_nothing() {
+    let r = observed(&format!(
+        r#"{SHOW}
+        a.textContent = 'x';
+        const o = new MutationObserver(show);
+        o.observe(a, {{ childList: true }});
+        a.normalize();
+        log.push(a.textContent, a.childNodes.length, 0);"#
+    ));
+    assert_eq!(r, "x|1|0");
 }
 
 #[test]
