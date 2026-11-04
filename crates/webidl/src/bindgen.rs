@@ -377,8 +377,13 @@ impl Bound<'_, '_> {
         let mut rust_args = Vec::new();
         let mut variadic = None;
         for (i, (a, (_, rt))) in args.iter().zip(&params).enumerate() {
-            let c = conv(self.gen_, self.table, &a.ty, 0)
+            let mut c = conv(self.gen_, self.table, &a.ty, 0)
                 .ok_or_else(|| self.unsupported(member, &a.ty))?;
+            // On a required argument the parser hangs it on the argument, on
+            // an optional one on the type.
+            if let Conv::Str(null_to_empty) = &mut c {
+                *null_to_empty |= has_ext(&a.ext_attrs, "LegacyNullToEmptyString");
+            }
             rust_args.push(if matches!(c, Conv::Skip) {
                 "Value::Undefined".to_owned()
             } else {
@@ -880,6 +885,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &["title", "lang", "dataset", "style"],
     },
     BindInterface {
+        name: "SVGElement",
+        members: &["style"],
+    },
+    BindInterface {
         name: "Document",
         members: &[
             "documentElement",
@@ -992,10 +1001,16 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         name: "DOMStringMap",
         members: &["named_getter", "named_setter", "named_deleter"],
     },
+    // Only for `parentRule`, always null on an inline style.
+    BindInterface {
+        name: "CSSRule",
+        members: &[],
+    },
     BindInterface {
         name: "CSSStyleDeclaration",
         members: &[
             "cssText",
+            "parentRule",
             "length",
             "item",
             "getPropertyValue",

@@ -30,6 +30,7 @@ pub const STUB_INTERFACES: &[&str] = &[
     "Node",
     "Element",
     "HTMLElement",
+    "SVGElement",
     "Document",
     "DocumentFragment",
     "CharacterData",
