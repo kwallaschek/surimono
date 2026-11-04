@@ -126,10 +126,16 @@ impl Bundle {
     }
 }
 
-/// Least time between two trims while some worker still holds a runtime. A
-/// trim covers the whole process, so workers that go idle one after another
-/// share one; the last of them always trims.
+/// Least time between two trims while some worker still holds a runtime,
+/// counted from the last trim or the start of the busy period. A trim covers
+/// the whole process, so workers that go idle one after another share one:
+/// the last of them always trims, and so a lone worker does each time it goes
+/// idle, at most once per [`RunnerOptions::release_idle_after`].
+#[cfg(not(test))]
 const TRIM_MIN_GAP: Duration = Duration::from_secs(10);
+/// Short, for the test that waits it out.
+#[cfg(test)]
+const TRIM_MIN_GAP: Duration = Duration::from_secs(1);
 
 /// How often a cancellable render looks at the caller's flag.
 const CANCEL_POLL: Duration = Duration::from_millis(5);
@@ -177,7 +183,8 @@ struct Shared {
     runtimes: AtomicUsize,
     /// When this runner was started; the origin of `last_trim_ms`.
     started: Instant,
-    /// Milliseconds from `started` to the last trim.
+    /// Milliseconds from `started` to the last trim, or to the start of the
+    /// busy period if that came later.
     last_trim_ms: AtomicU64,
     /// Trims so far.
     trims: AtomicU64,
@@ -194,6 +201,13 @@ struct Shared {
     /// Test-only: makes workers die outside their guard (see [`Fault`]).
     #[cfg(test)]
     fault: std::sync::atomic::AtomicU8,
+}
+
+impl Shared {
+    /// Milliseconds since this runner started.
+    fn elapsed_ms(&self) -> u64 {
+        u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX)
+    }
 }
 
 /// Test-only ways for a worker thread to die outside [`Worker::guard`], as
@@ -1134,7 +1148,13 @@ impl Worker {
             None => {
                 self.preloaded = None;
                 let sb = Sandbox::with_options(self.shared.sandbox_options.clone())?;
-                self.shared.runtimes.fetch_add(1, Ordering::Relaxed);
+                if self.shared.runtimes.fetch_add(1, Ordering::Relaxed) == 0 {
+                    // A busy period starts: the first worker to go idle at its
+                    // end must not trim while the others hold their runtimes.
+                    self.shared
+                        .last_trim_ms
+                        .store(self.shared.elapsed_ms(), Ordering::Relaxed);
+                }
                 sb
             }
         };
@@ -1152,12 +1172,12 @@ impl Worker {
     /// Frees the runtime of a worker that has been idle for a while; the
     /// next job starts a new one. The allocator would keep the runtime's
     /// pages, so the last worker to go idle hands them back to the OS. While
-    /// others still hold a runtime (one render at a time keeps a worker
-    /// busy), a worker trims only every [`TRIM_MIN_GAP`].
+    /// others still hold a runtime (a steady trickle keeps one busy), a worker
+    /// trims only every [`TRIM_MIN_GAP`].
     fn release(&mut self) {
         self.drop_sandbox();
         let shared = &self.shared;
-        let now = u64::try_from(shared.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let now = shared.elapsed_ms();
         let last = shared.last_trim_ms.load(Ordering::Relaxed);
         let all_idle = shared.runtimes.load(Ordering::Relaxed) == 0;
         let gap = u64::try_from(TRIM_MIN_GAP.as_millis()).unwrap_or(u64::MAX);
@@ -1512,6 +1532,46 @@ mod tests {
             other => panic!("{other:?}"),
         }
         assert_eq!(measure(&r, "abcd").unwrap(), "4");
+    }
+
+    #[test]
+    fn a_burst_after_a_long_gap_trims_once() {
+        let r = Arc::new(
+            IslandRunner::start(
+                RunnerOptions {
+                    pool_size: 3,
+                    release_idle_after: Some(Duration::from_millis(30)),
+                    ..RunnerOptions::default()
+                },
+                Measure::Estimate,
+            )
+            .unwrap(),
+        );
+        r.register_bundle("echo", "function entry(s) { return s }", "entry")
+            .unwrap();
+        // The first worker's warm start goes idle too.
+        let until = std::time::Instant::now() + Duration::from_secs(30);
+        while r.stats().runtimes != 0 || r.stats().memory_trims == 0 {
+            assert!(std::time::Instant::now() < until, "{:?}", r.stats());
+            thread::sleep(Duration::from_millis(1));
+        }
+        let before = r.stats().memory_trims;
+        for round in 1..=2 {
+            // Longer than the gap, so only the start of the busy period
+            // keeps the first idle worker from trimming.
+            thread::sleep(TRIM_MIN_GAP + Duration::from_millis(100));
+            thread::scope(|s| {
+                for _ in 0..6 {
+                    s.spawn(|| echo(&r, 1).unwrap());
+                }
+            });
+            let until = std::time::Instant::now() + Duration::from_secs(30);
+            while r.stats().runtimes != 0 || r.stats().memory_trims < before + round {
+                assert!(std::time::Instant::now() < until, "{:?}", r.stats());
+                thread::sleep(Duration::from_millis(1));
+            }
+            assert_eq!(r.stats().memory_trims, before + round, "{:?}", r.stats());
+        }
     }
 
     #[test]
