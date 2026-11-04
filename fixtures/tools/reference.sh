@@ -46,7 +46,9 @@ status=0
 node "$here/reference.mjs" --out "$out" "${args[@]}" "$@" || status=$?
 
 # gfx's own Chrome checks (crates/gfx/tests/chrome/, owned by the graphics
-# engineer; run from here so they use the same pinned Chromium):
+# engineer; run from here so they use the same pinned Chromium, which
+# lib/pinned-chromium.cjs enforces: they call launch() with no channel, which
+# would ask for the headless shell that isn't installed in CI):
 #   svg_inline.mjs   sanitized island SVG stays inert when inlined in an HTML page
 #   svg_outline.mjs  outlined island text looks like Chrome's own text in the same fonts
 # Their inputs come from `cargo test -p surimono-gfx --test svg`. Skipped, with a
@@ -75,11 +77,11 @@ else
     echo "==> gfx Chrome checks: svg_inline.mjs"
     # In an `if`, a failing pipeline (pipefail) sets status instead of ending the
     # script under `set -e`, so svg_outline.mjs still runs after svg_inline.mjs fails.
-    if ! node "$repo/crates/gfx/tests/chrome/svg_inline.mjs" "$target/tmp/hostile-svg.json" 2>&1 | tee "$out/gfx-svg-inline.log"; then
+    if ! node --require "$here/lib/pinned-chromium.cjs" "$repo/crates/gfx/tests/chrome/svg_inline.mjs" "$target/tmp/hostile-svg.json" 2>&1 | tee "$out/gfx-svg-inline.log"; then
       status=1
     fi
     echo "==> gfx Chrome checks: svg_outline.mjs"
-    if ! node "$repo/crates/gfx/tests/chrome/svg_outline.mjs" "$target/tmp/outlined" "$repo/fixtures/fonts" 2>&1 | tee "$out/gfx-svg-outline.log"; then
+    if ! node --require "$here/lib/pinned-chromium.cjs" "$repo/crates/gfx/tests/chrome/svg_outline.mjs" "$target/tmp/outlined" "$repo/fixtures/fonts" 2>&1 | tee "$out/gfx-svg-outline.log"; then
       status=1
     fi
   else
