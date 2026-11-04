@@ -1063,9 +1063,6 @@ mod tests {
         }
     }
 
-    /// A late timer can't stop the next call: the watchdog (or the clock
-    /// backstop) raises the flag only for the call whose sequence number it
-    /// holds, and ending a call waits out a raise in progress.
     #[test]
     fn a_watched_cancel_flag_raises_the_stop_flag_and_the_watch_ends_with_the_call() {
         let state = LimitState::new(usize::MAX);
@@ -1105,6 +1102,9 @@ mod tests {
         state.disarm();
     }
 
+    /// A late timer can't stop the next call: the watchdog (or the clock
+    /// backstop) raises the flag only for the call whose sequence number it
+    /// holds, and ending a call waits out a raise in progress.
     #[test]
     fn a_stale_expiry_never_stops_the_next_call() {
         let state = LimitState::new(usize::MAX);
