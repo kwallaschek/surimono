@@ -427,11 +427,11 @@ fn box_style(raw: &RawMarker, clip: bool) -> String {
     if clip {
         style.push_str(";overflow:hidden");
     }
-    if let Some((_, theirs)) = raw.kept.iter().find(|(name, _)| name == "style") {
-        if !theirs.trim().is_empty() {
-            style.push(';');
-            style.push_str(theirs);
-        }
+    if let Some((_, theirs)) = raw.kept.iter().find(|(name, _)| name == "style")
+        && !theirs.trim().is_empty()
+    {
+        style.push(';');
+        style.push_str(theirs);
     }
     format!(" style=\"{}\"", quote_safe(&style))
 }

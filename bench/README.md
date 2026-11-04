@@ -118,8 +118,8 @@ the same six pages in both engines, but it is not a typical Rails template;
   fulgur gets the same files through `AssetBundle#add_font_file`, surimono
   through `Renderer.new(fonts:)`.
 - **Rust toolchain.** `rust/` is its own Cargo workspace with its own
-  `rust-toolchain.toml` (1.97.0), because the fulgur crate's PDF stack (krilla
-  0.7) needs rustc 1.89 while the library is pinned to 1.87. It builds into
+  `rust-toolchain.toml` (1.97.0), separate from the library's MSRV pin; the
+  fulgur crate's PDF stack (krilla 0.7) needs rustc 1.89 or later. It builds into
   `bench/.cache/target` locally (or `$BENCH_RUST_TARGET_DIR`), never the
   shared target, and into `$CARGO_TARGET_DIR/bench-rust` in CI.
 

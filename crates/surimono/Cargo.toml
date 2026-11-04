@@ -31,8 +31,9 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 # HTML pre-pass. BSD-3-Clause; shares cssparser 0.35 and selectors 0.32 (MPL-2.0,
-# fenced in deny.toml) with Stylo. 2.7.0 is the newest release that builds on our
-# MSRV 1.87 (2.7.1 and later use let chains). Exact pin; moves to the workspace root.
+# fenced in deny.toml) with Stylo. Held at 2.7.0 to keep that sharing: 2.7.1 and
+# later move to cssparser 0.36 and selectors 0.33, a second copy of each next to
+# Stylo's. Exact pin; moves to the workspace root.
 lol_html = "=2.7.0"
 # HTML named character references (the standard's table), for decoding marker
 # attributes. MIT OR Apache-2.0; already in the tree through blitz-html 0.2.

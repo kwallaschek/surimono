@@ -384,12 +384,11 @@ fn sanitize(svg: &str, island: usize, fonts: &FontSet) -> Result<String, GfxErro
             removed: false,
             ..
         } = visit
+            && let Some(id) = node.attribute("id")
         {
-            if let Some(id) = node.attribute("id") {
-                ids.insert(id.to_string());
-                if node.descendants().any(is_use) {
-                    ids_with_use.insert(id.to_string());
-                }
+            ids.insert(id.to_string());
+            if node.descendants().any(is_use) {
+                ids_with_use.insert(id.to_string());
             }
         }
         Ok(())

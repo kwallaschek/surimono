@@ -62,6 +62,6 @@ Answers to the brief's open questions (defaults, overturn any):
 
 1. Blitz is pinned at 0.2.4 (blitz-html 0.2.0), the exact versions in the latest fulgur (0.40.0). Blitz 0.3 is in beta; we move when fulgur does.
 2. The MPL-2.0 exception for Stylo above. "Permissive only" can't hold with Blitz in the tree.
-3. MSRV is Rust 1.87, the toolchain is pinned to it.
+3. MSRV is Rust 1.89, the toolchain is pinned to it (1.87 through v0.1; raised for phase 2 because fulgur 0.40 needs 1.89).
 4. A speed target, which the brief left open.
 5. scripts/ci.sh runs the same checks as ci.yml locally, so specialists only open a pull request once their branch is green. Chrome references are rendered with a pinned Playwright Chromium, locally and in `reference.yml`.

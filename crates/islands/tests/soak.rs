@@ -219,10 +219,10 @@ fn run_soak(soak: &Soak<'_>) {
                             width: 800,
                             height: 400,
                         });
-                        if i == 0 {
-                            if let Ok(svg) = &result {
-                                first_svg_len.store(svg.len(), Ordering::Relaxed);
-                            }
+                        if i == 0
+                            && let Ok(svg) = &result
+                        {
+                            first_svg_len.store(svg.len(), Ordering::Relaxed);
                         }
                         (soak.check)(i, result);
                     }
