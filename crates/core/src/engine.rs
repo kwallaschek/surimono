@@ -541,10 +541,12 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
 ///
 /// A freed JavaScript heap stays in glibc's arenas, in pieces its automatic
 /// trimming can't return, so a process keeps its peak after a concurrent burst.
-/// This is `malloc_trim(0)`, for the whole process, and takes a few
-/// milliseconds during which allocating threads may wait on an arena. It
-/// changes no output. The island runner calls it when an idle worker frees its
-/// runtime. Does nothing on other C libraries (musl, macOS).
+/// This is `malloc_trim(0)`, for the whole process: it walks every arena of
+/// the host too, so its cost grows with the host's heap, a few milliseconds
+/// in a small process and over 100 ms with a fragmented 1 GB heap, and a
+/// thread allocating on an arena can wait for all of that arena's walk. It
+/// changes no output. The island runner calls it when its workers have gone
+/// idle, not per render. Does nothing on other C libraries (musl, macOS).
 pub fn release_free_memory() {
     // SAFETY: malloc_trim takes no pointers, keeps the heap valid and locks
     // each arena it visits, so any thread may call it at any time.
