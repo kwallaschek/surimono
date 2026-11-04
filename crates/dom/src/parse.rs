@@ -301,10 +301,10 @@ fn stash_style_text(
         let Some(node) = mutr.doc.get_node_mut(n) else {
             continue;
         };
-        if let Some(t) = node.text_data_mut() {
-            if !t.content.is_empty() {
-                out.push((n, std::mem::take(&mut t.content)));
-            }
+        if let Some(t) = node.text_data_mut()
+            && !t.content.is_empty()
+        {
+            out.push((n, std::mem::take(&mut t.content)));
         }
         stack.extend(node.children.iter().copied());
     }

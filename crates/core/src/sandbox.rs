@@ -201,6 +201,13 @@ impl Deadline {
     /// Here a panic in `f` becomes that exception and also ends the call: it
     /// fails with [`SandboxError::HostPanic`] however the script handles the
     /// exception. Wrap every host function's body in this.
+    ///
+    /// With `panic = "abort"` there is nothing to catch: a host panic aborts
+    /// the process and no typed error is returned. Like
+    /// [`passed`](Self::passed), this belongs to the runtime the handle was
+    /// taken from, but it doesn't fail safe: a panic under a handle from
+    /// before a [`reset`](Sandbox::reset) doesn't stop the current call, so
+    /// take a fresh handle for each call.
     pub fn guard<'js, R>(
         &self,
         ctx: &Ctx<'js>,
@@ -224,7 +231,7 @@ pub(crate) fn guard_native<'js, R>(
                 .map(|s| (*s).to_owned())
                 .or_else(|| panic.downcast_ref::<String>().cloned())
                 .unwrap_or_else(|| "a panic with no message".to_owned());
-            state.note_panic(message);
+            state.note_panic(truncate(message, MAX_MESSAGE_BYTES));
             Err(rquickjs::Exception::throw_internal(
                 ctx,
                 "a host function failed",
@@ -449,7 +456,8 @@ impl Sandbox {
     }
 
     /// A handle that host functions (Rust functions the script calls) use
-    /// to check the running call's time limit.
+    /// to check whether the running call must stop: its time limit passed
+    /// or it was cancelled.
     ///
     /// The engine stops a script at its next interrupt check once the
     /// deadline passes, but a host function is native code the engine
@@ -457,8 +465,8 @@ impl Sandbox {
     /// would overrun by up to one call each time it catches the error. A
     /// host function should check [`Deadline::passed`] before expensive
     /// work and throw if it has: the call then fails with
-    /// [`SandboxError::TimeLimit`], however the script handles the
-    /// exception. The handle belongs to this sandbox's current runtime;
+    /// [`SandboxError::TimeLimit`] or [`SandboxError::Cancelled`], however the
+    /// script handles the exception. The handle belongs to this sandbox's current runtime;
     /// take a new one after a [`reset`](Self::reset) or a limit error (an
     /// old handle then always reports passed).
     pub fn deadline(&self) -> Deadline {
@@ -483,7 +491,8 @@ impl Sandbox {
     /// It only ever decides whether to stop, so it can't change what a script
     /// that runs to the end produces. The process's watchdog thread reads it
     /// about every 5 ms while a call with a flag runs; calls without one
-    /// cost nothing extra.
+    /// cost nothing extra. So keep it up until the call returns: a flag
+    /// raised and lowered between two reads goes unnoticed.
     pub fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
         self.cancel = flag;
     }
@@ -587,8 +596,8 @@ impl Sandbox {
     /// promise is replaced by its value and a rejected one fails like a thrown
     /// exception. `then` converts the final value. One time budget covers
     /// all of it. A promise still pending once nothing is left to run fails
-    /// with [`SandboxError::Type`] (the sandbox has no timers or I/O, so it
-    /// would never settle).
+    /// with [`SandboxError::Type`]: this call runs microtasks only, no timers
+    /// or external waits, so it can't settle such a promise.
     pub fn run_await<R, F, G>(&mut self, f: F, then: G) -> Result<R, SandboxError>
     where
         F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<Value<'js>>,
@@ -640,7 +649,7 @@ impl Sandbox {
     }
 
     /// Enters the context with the deadline armed, runs `body`, classifies
-    /// its error, and rebuilds the sandbox after a limit error.
+    /// its error, and rebuilds the sandbox after a limit error or a cancel.
     fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
     where
         B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
@@ -821,7 +830,7 @@ impl Drop for Armed<'_> {
     }
 }
 
-fn eval_options(filename: &str) -> EvalOptions {
+pub(crate) fn eval_options(filename: &str) -> EvalOptions {
     let mut opts = EvalOptions::default();
     opts.global = true;
     opts.strict = false;
@@ -976,7 +985,7 @@ fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
             from: "pending promise",
             to: "value",
             message: Some(
-                "the promise never settled: nothing was left to run (the sandbox has no timers or I/O)"
+                "the promise is still pending: this call runs microtasks only, not timers or I/O"
                     .into(),
             ),
         }),
@@ -1113,6 +1122,23 @@ mod tests {
 
     fn sandbox() -> Sandbox {
         Sandbox::new(limits()).unwrap()
+    }
+
+    #[test]
+    fn too_many_destructured_parameters_is_a_syntax_error() {
+        // Past JS_MAX_LOCAL_VARS (65,535) add_arg fails with no allocation
+        // refused, so no stop flag is up; the function is only compiled.
+        let source = format!("function f({}) {{}}", "{},".repeat(70_000));
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_secs(60))).unwrap();
+        match sb.compile(&source, "params.js") {
+            Err(SandboxError::Exception { message, .. }) => {
+                assert!(
+                    message.starts_with("SyntaxError: too many parameters"),
+                    "{message}"
+                )
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
@@ -1894,7 +1920,7 @@ mod tests {
             .run_await(|ctx| ctx.eval("new Promise(() => {})"), to_string)
             .unwrap_err()
         {
-            SandboxError::Type { message } => assert!(message.contains("never settled")),
+            SandboxError::Type { message } => assert!(message.contains("still pending")),
             other => panic!("{other:?}"),
         }
         // Limits still apply, and the budget covers the awaiting.

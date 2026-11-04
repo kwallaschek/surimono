@@ -98,9 +98,11 @@ pub(crate) fn check_bundle(name: &str, entry: &str, taken: &[String]) -> Result<
     Ok(())
 }
 
-/// The public error for an island the runner failed on.
+/// The public error for an island the runner failed on. A cancel is no
+/// island's failure, so it comes out as the document's [`Error::Cancelled`].
 pub(crate) fn island_error(e: IslandError, island: IslandRef, enabled: &[String]) -> Error {
     match e {
+        IslandError::Sandbox(SandboxError::Cancelled) => Error::Cancelled,
         IslandError::Sandbox(SandboxError::MemoryLimit) => Error::MemoryLimit { island },
         IslandError::Sandbox(SandboxError::TimeLimit) => Error::TimeLimit { island },
         IslandError::Sandbox(SandboxError::StackOverflow) => Error::StackOverflow { island },
@@ -123,8 +125,9 @@ pub(crate) fn island_error(e: IslandError, island: IslandRef, enabled: &[String]
                 "the script's text is not valid JSON: {message} at line {line} column {column}"
             ),
         },
-        // A wrong return type, an engine or worker failure, and anything added
-        // later: the island can't be rendered, and the message says why.
+        // A wrong return type, an engine or worker failure, a host function's
+        // panic and anything added later: the island can't be rendered, and
+        // the message says why.
         other => Error::Render {
             island,
             message: other.to_string(),
@@ -151,6 +154,7 @@ mod tests {
             (SandboxError::MemoryLimit.into(), "memory-limit"),
             (SandboxError::TimeLimit.into(), "time-limit"),
             (SandboxError::StackOverflow.into(), "stack-overflow"),
+            (SandboxError::Cancelled.into(), "cancelled"),
             (
                 SandboxError::Exception {
                     message: "m".into(),
@@ -162,6 +166,14 @@ mod tests {
             (
                 SandboxError::Engine {
                     message: "e".into(),
+                }
+                .into(),
+                "render",
+            ),
+            // The runner turns these into Worker; either way, a render error.
+            (
+                SandboxError::HostPanic {
+                    message: "p".into(),
                 }
                 .into(),
                 "render",
