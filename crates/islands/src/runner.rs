@@ -756,7 +756,10 @@ impl IslandRunner {
     /// any bundle of that name. `entry` is the global function to call.
     ///
     /// The bundle runs once here, under the runner's limits, to check that it
-    /// defines `entry`.
+    /// defines `entry`. The compile counts against the same time limit, so a
+    /// large bundle under a short limit fails with a time-limit error here.
+    /// A built-in renderer whose embedded bytecode this engine can't read is
+    /// compiled the same way, under the limit of its first render.
     pub fn register_bundle(
         &self,
         name: &str,
