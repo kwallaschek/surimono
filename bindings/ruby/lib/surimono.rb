@@ -127,8 +127,7 @@ module Surimono
     # measurer again in each child on first use.
     #
     # Interrupts (Timeout.timeout, Rack::Timeout, Thread#raise, Thread#kill,
-    # SIGTERM) stop a render before its next island and raise as usual; the
-    # island already running ends within its own time_ms.
+    # SIGTERM) stop a render, its running island included, and raise as usual.
     #
     # Bad argument types or values raise ArgumentError; a font path that
     # can't be read raises the usual Errno error; options the native side

@@ -473,6 +473,30 @@ class SurimonoTest < Minitest::Test
     assert_equal stub_svg, r.render(island), "the renderer still works"
   end
 
+  # One island that would run for a minute: the interrupt stops the script
+  # itself, not only the islands after it.
+  def endless_island_renderer
+    renderer(limits: { time_ms: 60_000 }).tap { |r| r.render(island) }
+  end
+
+  def test_timeout_stops_the_running_island
+    r = endless_island_renderer
+    took = elapsed do
+      assert_raises(Timeout::Error) { Timeout.timeout(0.3) { r.render(island('{"limit": "time"}')) } }
+    end
+    assert_operator took, :<, 20, "Timeout waited #{took.round(2)} s for a 60 s island"
+    assert_equal stub_svg, r.render(island), "the renderer still works"
+  end
+
+  def test_kill_stops_the_running_island
+    r = endless_island_renderer
+    t = Thread.new { r.render(island('{"limit": "time"}')) }
+    sleep 0.2
+    t.kill
+    assert t.join(20), "Thread#kill waited on a 60 s island"
+    assert_equal stub_svg, r.render(island), "the renderer still works"
+  end
+
   def test_signal_cancels_the_rest_of_the_document
     skip "no SIGUSR2 on this platform" unless Signal.list.key?("USR2")
 

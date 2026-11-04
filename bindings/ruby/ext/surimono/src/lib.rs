@@ -99,7 +99,7 @@ impl Renderer {
             let renderer = Arc::clone(&rb_self.0);
             let doc = Arc::clone(&html);
             // Raised by the unblock function when Ruby interrupts this thread;
-            // the facade checks it before each island.
+            // the facade stops the running island's script and skips the rest.
             let cancel = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&cancel);
             let result = ffi::without_gvl_cancellable(ruby, &cancel, move || {
