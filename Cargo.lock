@@ -1831,8 +1831,10 @@ dependencies = [
  "blitz-dom",
  "blitz-html",
  "blitz-traits",
+ "html5ever",
  "stats_alloc",
  "surimono-core",
+ "surimono-webidl",
  "thiserror",
 ]
 

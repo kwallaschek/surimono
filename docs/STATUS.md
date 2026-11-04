@@ -5,7 +5,11 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Wed 4 Nov 2026, 14:50)
+## Now (Wed 4 Nov 2026, 23:15)
+
+Scheduled session cse_011c8hfoqJ45246YxjoyFzH7 resumed at 20:18. v0.1.0 isn't tagged yet (Kay's step, docs/RELEASE.md). Merged tonight: #88 #90 #92 #93 #99 #101 #103 #106 #108 #116. **Main's linux check flakes** on a_burst_after_a_long_gap_trims_once (since #106): #121 fixes it and goes first, then MSRV #117, then the rest. First WPT run (#123): timers 73.5%, dom/nodes 18.8%, dom/events 10.8%, domparsing 13.5%, all below target; the biggest cause is `new Document()`. DOM stack #94 #96 #97 #104 #105 all reviewed BLOCK (25 blockers, mostly limits inside natives and spec details).
+
+## Earlier (Wed 4 Nov 2026, 14:50)
 
 **Main is green**: full.yml passed all 14 jobs at 0e67e98c (ASan leak fixed in #111, macOS flakes in #112,
 symbolized ASan in #107). Merge freeze lifted. Also merged: v0.1 README/CHANGELOG (#110, #113) and the

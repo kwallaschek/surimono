@@ -399,11 +399,14 @@ used_by = "fixtures/real-world/alpine-invoice (Chrome runs the vendored copy as 
 
 bundled_licenses = ["MIT (@vue/reactivity and @vue/shared, range ~3.5.40; the exact version built into cdn.min.js isn't recorded, see lib/alpinejs-3.17.5/LICENSE-vue-reactivity)"]
 
-[library.license_pending]
+# The npm tarball has no licence file, so this one comes from the source repo
+# (LICENSE-NOTE.md) and `license_files`, which names tarball members, stays empty.
+[[library.vendored]]
 file = "fixtures/real-world/lib/alpinejs-3.17.5/LICENSE.md"
-source_url = "https://github.com/alpinejs/alpine/blob/8d3d9a2f98385d4c879f4b5be080a0221279ed4d/LICENSE.md"
-note = "fixtures/real-world/lib/alpinejs-3.17.5/LICENSE-NOTE.md"
-task = "P1-CF-32"
+source_url = "https://raw.githubusercontent.com/alpinejs/alpine/8d3d9a2f98385d4c879f4b5be080a0221279ed4d/LICENSE.md"
+license = true
+sha256 = "08b7502da6e7aa1d0bbdc97d220fbf669b9366c61bd0f072238283c89bc4773a"
+bytes = 1092
 
 [[library.vendored]]
 file = "fixtures/real-world/lib/alpinejs-3.17.5/LICENSE-vue-reactivity"

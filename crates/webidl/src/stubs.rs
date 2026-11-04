@@ -170,6 +170,130 @@ pub static INTERFACES: &[InterfaceInfo] = &[
         ],
     },
     InterfaceInfo {
+        name: "HTMLElement",
+        parent: Some("Element"),
+        files: &["cssom-view.idl", "cssom.idl", "html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "title", rust_name: "title", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "lang", rust_name: "lang", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "translate", rust_name: "translate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "dir", rust_name: "dir", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hidden", rust_name: "hidden", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "inert", rust_name: "inert", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "click", rust_name: "click", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "accessKey", rust_name: "access_key", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "accessKeyLabel", rust_name: "access_key_label", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "draggable", rust_name: "draggable", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "spellcheck", rust_name: "spellcheck", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "writingSuggestions", rust_name: "writing_suggestions", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "autocapitalize", rust_name: "autocapitalize", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "autocorrect", rust_name: "autocorrect", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "innerText", rust_name: "inner_text", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "outerText", rust_name: "outer_text", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "attachInternals", rust_name: "attach_internals", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "showPopover", rust_name: "show_popover", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "hidePopover", rust_name: "hide_popover", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "togglePopover", rust_name: "toggle_popover", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "popover", rust_name: "popover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "headingOffset", rust_name: "heading_offset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "headingReset", rust_name: "heading_reset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "scrollParent", rust_name: "scroll_parent", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "offsetParent", rust_name: "offset_parent", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "offsetTop", rust_name: "offset_top", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "offsetLeft", rust_name: "offset_left", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "offsetWidth", rust_name: "offset_width", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "offsetHeight", rust_name: "offset_height", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "style", rust_name: "style", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "onabort", rust_name: "onabort", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onauxclick", rust_name: "onauxclick", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onbeforeinput", rust_name: "onbeforeinput", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onbeforematch", rust_name: "onbeforematch", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onbeforetoggle", rust_name: "onbeforetoggle", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onblur", rust_name: "onblur", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncancel", rust_name: "oncancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncanplay", rust_name: "oncanplay", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncanplaythrough", rust_name: "oncanplaythrough", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onchange", rust_name: "onchange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onclick", rust_name: "onclick", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onclose", rust_name: "onclose", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncommand", rust_name: "oncommand", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncontextlost", rust_name: "oncontextlost", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncontextmenu", rust_name: "oncontextmenu", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncontextrestored", rust_name: "oncontextrestored", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncopy", rust_name: "oncopy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncuechange", rust_name: "oncuechange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oncut", rust_name: "oncut", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondblclick", rust_name: "ondblclick", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondrag", rust_name: "ondrag", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragend", rust_name: "ondragend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragenter", rust_name: "ondragenter", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragleave", rust_name: "ondragleave", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragover", rust_name: "ondragover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondragstart", rust_name: "ondragstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondrop", rust_name: "ondrop", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ondurationchange", rust_name: "ondurationchange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onemptied", rust_name: "onemptied", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onended", rust_name: "onended", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onerror", rust_name: "onerror", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onfocus", rust_name: "onfocus", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onformdata", rust_name: "onformdata", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oninput", rust_name: "oninput", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "oninvalid", rust_name: "oninvalid", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onkeydown", rust_name: "onkeydown", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onkeypress", rust_name: "onkeypress", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onkeyup", rust_name: "onkeyup", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onload", rust_name: "onload", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onloadeddata", rust_name: "onloadeddata", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onloadedmetadata", rust_name: "onloadedmetadata", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onloadstart", rust_name: "onloadstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmousedown", rust_name: "onmousedown", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseenter", rust_name: "onmouseenter", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseleave", rust_name: "onmouseleave", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmousemove", rust_name: "onmousemove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseout", rust_name: "onmouseout", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseover", rust_name: "onmouseover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onmouseup", rust_name: "onmouseup", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpaste", rust_name: "onpaste", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpause", rust_name: "onpause", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onplay", rust_name: "onplay", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onplaying", rust_name: "onplaying", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onprogress", rust_name: "onprogress", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onratechange", rust_name: "onratechange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onreset", rust_name: "onreset", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onresize", rust_name: "onresize", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onscroll", rust_name: "onscroll", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onscrollend", rust_name: "onscrollend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onsecuritypolicyviolation", rust_name: "onsecuritypolicyviolation", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onseeked", rust_name: "onseeked", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onseeking", rust_name: "onseeking", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onselect", rust_name: "onselect", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onslotchange", rust_name: "onslotchange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onstalled", rust_name: "onstalled", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onsubmit", rust_name: "onsubmit", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onsuspend", rust_name: "onsuspend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontimeupdate", rust_name: "ontimeupdate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontoggle", rust_name: "ontoggle", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onvolumechange", rust_name: "onvolumechange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwaiting", rust_name: "onwaiting", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkitanimationend", rust_name: "onwebkitanimationend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkitanimationiteration", rust_name: "onwebkitanimationiteration", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkitanimationstart", rust_name: "onwebkitanimationstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwebkittransitionend", rust_name: "onwebkittransitionend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onwheel", rust_name: "onwheel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "contentEditable", rust_name: "content_editable", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "enterKeyHint", rust_name: "enter_key_hint", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "isContentEditable", rust_name: "is_content_editable", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "inputMode", rust_name: "input_mode", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "dataset", rust_name: "dataset", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "nonce", rust_name: "nonce", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "autofocus", rust_name: "autofocus", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "tabIndex", rust_name: "tab_index", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "focus", rust_name: "focus", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "blur", rust_name: "blur", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+        ],
+    },
+    InterfaceInfo {
         name: "Document",
         parent: Some("Node"),
         files: &["SVG.idl", "css-font-loading.idl", "cssom-view.idl", "cssom.idl", "dom.idl", "html.idl"],
@@ -359,6 +483,123 @@ pub static INTERFACES: &[InterfaceInfo] = &[
         ],
     },
     InterfaceInfo {
+        name: "DocumentFragment",
+        parent: Some("Node"),
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "getElementById", rust_name: "get_element_by_id", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "children", rust_name: "children", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "firstElementChild", rust_name: "first_element_child", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "lastElementChild", rust_name: "last_element_child", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "childElementCount", rust_name: "child_element_count", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "prepend", rust_name: "prepend", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "append", rust_name: "append", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "replaceChildren", rust_name: "replace_children", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "moveBefore", rust_name: "move_before", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "querySelector", rust_name: "query_selector", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "querySelectorAll", rust_name: "query_selector_all", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+        ],
+    },
+    InterfaceInfo {
+        name: "CharacterData",
+        parent: Some("Node"),
+        files: &["dom.idl", "html.idl"],
+        members: &[
+            MemberInfo { idl_name: "data", rust_name: "data", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "length", rust_name: "length", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "substringData", rust_name: "substring_data", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "appendData", rust_name: "append_data", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "insertData", rust_name: "insert_data", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "deleteData", rust_name: "delete_data", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "replaceData", rust_name: "replace_data", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "previousElementSibling", rust_name: "previous_element_sibling", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "nextElementSibling", rust_name: "next_element_sibling", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "beforeHTML", rust_name: "before_html", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "afterHTML", rust_name: "after_html", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "replaceWithHTML", rust_name: "replace_with_html", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "beforeHTMLUnsafe", rust_name: "before_html_unsafe", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "afterHTMLUnsafe", rust_name: "after_html_unsafe", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "replaceWithHTMLUnsafe", rust_name: "replace_with_html_unsafe", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "before", rust_name: "before", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "after", rust_name: "after", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "replaceWith", rust_name: "replace_with", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "remove", rust_name: "remove", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+        ],
+    },
+    InterfaceInfo {
+        name: "Text",
+        parent: Some("CharacterData"),
+        files: &["cssom-view.idl", "dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "splitText", rust_name: "split_text", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "wholeText", rust_name: "whole_text", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "getBoxQuads", rust_name: "get_box_quads", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "convertQuadFromNode", rust_name: "convert_quad_from_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "convertRectFromNode", rust_name: "convert_rect_from_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "convertPointFromNode", rust_name: "convert_point_from_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "assignedSlot", rust_name: "assigned_slot", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "Comment",
+        parent: Some("CharacterData"),
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+        ],
+    },
+    InterfaceInfo {
+        name: "Attr",
+        parent: Some("Node"),
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "namespaceURI", rust_name: "namespace_uri", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "prefix", rust_name: "prefix", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "localName", rust_name: "local_name", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "name", rust_name: "name", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "value", rust_name: "value", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ownerElement", rust_name: "owner_element", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "specified", rust_name: "specified", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "NodeList",
+        parent: None,
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "item", rust_name: "item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "length", rust_name: "length", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "iterable", rust_name: "", kind: MemberInfoKind::Collection },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLCollection",
+        parent: None,
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "length", rust_name: "length", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "item", rust_name: "item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "namedItem", rust_name: "named_item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+        ],
+    },
+    InterfaceInfo {
+        name: "NamedNodeMap",
+        parent: None,
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "length", rust_name: "length", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "item", rust_name: "item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "getNamedItem", rust_name: "get_named_item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "getNamedItemNS", rust_name: "get_named_item_ns", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setNamedItem", rust_name: "set_named_item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setNamedItemNS", rust_name: "set_named_item_ns", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "removeNamedItem", rust_name: "remove_named_item", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "removeNamedItemNS", rust_name: "remove_named_item_ns", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+        ],
+    },
+    InterfaceInfo {
         name: "DOMTokenList",
         parent: None,
         files: &["dom.idl"],
@@ -373,6 +614,16 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "supports", rust_name: "supports", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "value", rust_name: "value", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "iterable", rust_name: "", kind: MemberInfoKind::Collection },
+        ],
+    },
+    InterfaceInfo {
+        name: "DOMStringMap",
+        parent: None,
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "", rust_name: "named_getter", kind: MemberInfoKind::Special },
+            MemberInfo { idl_name: "", rust_name: "named_setter", kind: MemberInfoKind::Special },
+            MemberInfo { idl_name: "", rust_name: "named_deleter", kind: MemberInfoKind::Special },
         ],
     },
 ];
@@ -1247,6 +1498,1308 @@ pub trait Element: Node {
     fn assigned_slot(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
         let _ = this;
         Err(BindingError::NotImplemented("Element.assignedSlot"))
+    }
+}
+
+/// IDL `interface HTMLElement : Element` (html.idl).
+///
+/// Includes: ElementCSSInlineStyle, GlobalEventHandlers, ElementContentEditable, HTMLOrSVGOrMathMLElement.
+///
+/// Members also from: cssom-view.idl, cssom.idl.
+pub trait HTMLElement: Element {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLElement"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString title;` (html.idl)
+    fn title(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.title"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString title;` (html.idl)
+    fn set_title(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.title"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString lang;` (html.idl)
+    fn lang(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.lang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString lang;` (html.idl)
+    fn set_lang(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.lang"))
+    }
+
+    /// `[CEReactions] attribute boolean translate;` (html.idl)
+    fn translate(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.translate"))
+    }
+
+    /// `[CEReactions] attribute boolean translate;` (html.idl)
+    fn set_translate(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.translate"))
+    }
+
+    /// `[CEReactions] attribute DOMString dir;` (html.idl)
+    fn dir(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.dir"))
+    }
+
+    /// `[CEReactions] attribute DOMString dir;` (html.idl)
+    fn set_dir(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.dir"))
+    }
+
+    /// `[CEReactions] attribute (boolean or unrestricted double or DOMString)? hidden;` (html.idl)
+    fn hidden(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.hidden"))
+    }
+
+    /// `[CEReactions] attribute (boolean or unrestricted double or DOMString)? hidden;` (html.idl)
+    fn set_hidden(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.hidden"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean inert;` (html.idl)
+    fn inert(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.inert"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean inert;` (html.idl)
+    fn set_inert(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.inert"))
+    }
+
+    /// `undefined click();` (html.idl)
+    fn click(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.click"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString accessKey;` (html.idl)
+    fn access_key(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.accessKey"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString accessKey;` (html.idl)
+    fn set_access_key(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.accessKey"))
+    }
+
+    /// `readonly attribute DOMString accessKeyLabel;` (html.idl)
+    fn access_key_label(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.accessKeyLabel"))
+    }
+
+    /// `[CEReactions] attribute boolean draggable;` (html.idl)
+    fn draggable(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.draggable"))
+    }
+
+    /// `[CEReactions] attribute boolean draggable;` (html.idl)
+    fn set_draggable(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.draggable"))
+    }
+
+    /// `[CEReactions] attribute boolean spellcheck;` (html.idl)
+    fn spellcheck(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.spellcheck"))
+    }
+
+    /// `[CEReactions] attribute boolean spellcheck;` (html.idl)
+    fn set_spellcheck(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.spellcheck"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute DOMString writingSuggestions;` (html.idl)
+    fn writing_suggestions(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.writingSuggestions"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute DOMString writingSuggestions;` (html.idl)
+    fn set_writing_suggestions(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.writingSuggestions"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute DOMString autocapitalize;` (html.idl)
+    fn autocapitalize(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.autocapitalize"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute DOMString autocapitalize;` (html.idl)
+    fn set_autocapitalize(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.autocapitalize"))
+    }
+
+    /// `[CEReactions] attribute boolean autocorrect;` (html.idl)
+    fn autocorrect(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.autocorrect"))
+    }
+
+    /// `[CEReactions] attribute boolean autocorrect;` (html.idl)
+    fn set_autocorrect(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.autocorrect"))
+    }
+
+    /// `[CEReactions] attribute [LegacyNullToEmptyString] DOMString innerText;` (html.idl)
+    fn inner_text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.innerText"))
+    }
+
+    /// `[CEReactions] attribute [LegacyNullToEmptyString] DOMString innerText;` (html.idl)
+    fn set_inner_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.innerText"))
+    }
+
+    /// `[CEReactions] attribute [LegacyNullToEmptyString] DOMString outerText;` (html.idl)
+    fn outer_text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.outerText"))
+    }
+
+    /// `[CEReactions] attribute [LegacyNullToEmptyString] DOMString outerText;` (html.idl)
+    fn set_outer_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.outerText"))
+    }
+
+    /// `ElementInternals attachInternals();` (html.idl)
+    fn attach_internals(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.attachInternals"))
+    }
+
+    /// `undefined showPopover(optional ShowPopoverOptions options = {});` (html.idl)
+    fn show_popover(&mut self, this: ObjectId, options: Value) -> BindingResult<()> {
+        let _ = (this, options);
+        Err(BindingError::NotImplemented("HTMLElement.showPopover"))
+    }
+
+    /// `undefined hidePopover();` (html.idl)
+    fn hide_popover(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.hidePopover"))
+    }
+
+    /// `boolean togglePopover(optional (TogglePopoverOptions or boolean) options = {});` (html.idl)
+    fn toggle_popover(&mut self, this: ObjectId, options: Value) -> BindingResult<bool> {
+        let _ = (this, options);
+        Err(BindingError::NotImplemented("HTMLElement.togglePopover"))
+    }
+
+    /// `[CEReactions] attribute DOMString? popover;` (html.idl)
+    fn popover(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.popover"))
+    }
+
+    /// `[CEReactions] attribute DOMString? popover;` (html.idl)
+    fn set_popover(&mut self, this: ObjectId, value: Option<String>) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.popover"))
+    }
+
+    /// `[CEReactions, Reflect, ReflectRange=(0, 8)] attribute unsigned long headingOffset;` (html.idl)
+    fn heading_offset(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.headingOffset"))
+    }
+
+    /// `[CEReactions, Reflect, ReflectRange=(0, 8)] attribute unsigned long headingOffset;` (html.idl)
+    fn set_heading_offset(&mut self, this: ObjectId, value: u32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.headingOffset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean headingReset;` (html.idl)
+    fn heading_reset(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.headingReset"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean headingReset;` (html.idl)
+    fn set_heading_reset(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.headingReset"))
+    }
+
+    /// `readonly attribute Element? scrollParent;` (cssom-view.idl)
+    fn scroll_parent(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.scrollParent"))
+    }
+
+    /// `readonly attribute Element? offsetParent;` (cssom-view.idl)
+    fn offset_parent(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.offsetParent"))
+    }
+
+    /// `readonly attribute long offsetTop;` (cssom-view.idl)
+    fn offset_top(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.offsetTop"))
+    }
+
+    /// `readonly attribute long offsetLeft;` (cssom-view.idl)
+    fn offset_left(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.offsetLeft"))
+    }
+
+    /// `readonly attribute long offsetWidth;` (cssom-view.idl)
+    fn offset_width(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.offsetWidth"))
+    }
+
+    /// `readonly attribute long offsetHeight;` (cssom-view.idl)
+    fn offset_height(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.offsetHeight"))
+    }
+
+    /// `[SameObject, PutForwards=cssText] readonly attribute CSSStyleProperties style;` (ElementCSSInlineStyle, cssom.idl)
+    fn style(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.style"))
+    }
+
+    /// `attribute EventHandler onabort;` (GlobalEventHandlers, html.idl)
+    fn onabort(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onabort"))
+    }
+
+    /// `attribute EventHandler onabort;` (GlobalEventHandlers, html.idl)
+    fn set_onabort(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onabort"))
+    }
+
+    /// `attribute EventHandler onauxclick;` (GlobalEventHandlers, html.idl)
+    fn onauxclick(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onauxclick"))
+    }
+
+    /// `attribute EventHandler onauxclick;` (GlobalEventHandlers, html.idl)
+    fn set_onauxclick(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onauxclick"))
+    }
+
+    /// `attribute EventHandler onbeforeinput;` (GlobalEventHandlers, html.idl)
+    fn onbeforeinput(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onbeforeinput"))
+    }
+
+    /// `attribute EventHandler onbeforeinput;` (GlobalEventHandlers, html.idl)
+    fn set_onbeforeinput(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onbeforeinput"))
+    }
+
+    /// `attribute EventHandler onbeforematch;` (GlobalEventHandlers, html.idl)
+    fn onbeforematch(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onbeforematch"))
+    }
+
+    /// `attribute EventHandler onbeforematch;` (GlobalEventHandlers, html.idl)
+    fn set_onbeforematch(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onbeforematch"))
+    }
+
+    /// `attribute EventHandler onbeforetoggle;` (GlobalEventHandlers, html.idl)
+    fn onbeforetoggle(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onbeforetoggle"))
+    }
+
+    /// `attribute EventHandler onbeforetoggle;` (GlobalEventHandlers, html.idl)
+    fn set_onbeforetoggle(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onbeforetoggle"))
+    }
+
+    /// `attribute EventHandler onblur;` (GlobalEventHandlers, html.idl)
+    fn onblur(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onblur"))
+    }
+
+    /// `attribute EventHandler onblur;` (GlobalEventHandlers, html.idl)
+    fn set_onblur(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onblur"))
+    }
+
+    /// `attribute EventHandler oncancel;` (GlobalEventHandlers, html.idl)
+    fn oncancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncancel"))
+    }
+
+    /// `attribute EventHandler oncancel;` (GlobalEventHandlers, html.idl)
+    fn set_oncancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncancel"))
+    }
+
+    /// `attribute EventHandler oncanplay;` (GlobalEventHandlers, html.idl)
+    fn oncanplay(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncanplay"))
+    }
+
+    /// `attribute EventHandler oncanplay;` (GlobalEventHandlers, html.idl)
+    fn set_oncanplay(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncanplay"))
+    }
+
+    /// `attribute EventHandler oncanplaythrough;` (GlobalEventHandlers, html.idl)
+    fn oncanplaythrough(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncanplaythrough"))
+    }
+
+    /// `attribute EventHandler oncanplaythrough;` (GlobalEventHandlers, html.idl)
+    fn set_oncanplaythrough(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncanplaythrough"))
+    }
+
+    /// `attribute EventHandler onchange;` (GlobalEventHandlers, html.idl)
+    fn onchange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onchange"))
+    }
+
+    /// `attribute EventHandler onchange;` (GlobalEventHandlers, html.idl)
+    fn set_onchange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onchange"))
+    }
+
+    /// `attribute EventHandler onclick;` (GlobalEventHandlers, html.idl)
+    fn onclick(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onclick"))
+    }
+
+    /// `attribute EventHandler onclick;` (GlobalEventHandlers, html.idl)
+    fn set_onclick(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onclick"))
+    }
+
+    /// `attribute EventHandler onclose;` (GlobalEventHandlers, html.idl)
+    fn onclose(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onclose"))
+    }
+
+    /// `attribute EventHandler onclose;` (GlobalEventHandlers, html.idl)
+    fn set_onclose(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onclose"))
+    }
+
+    /// `attribute EventHandler oncommand;` (GlobalEventHandlers, html.idl)
+    fn oncommand(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncommand"))
+    }
+
+    /// `attribute EventHandler oncommand;` (GlobalEventHandlers, html.idl)
+    fn set_oncommand(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncommand"))
+    }
+
+    /// `attribute EventHandler oncontextlost;` (GlobalEventHandlers, html.idl)
+    fn oncontextlost(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncontextlost"))
+    }
+
+    /// `attribute EventHandler oncontextlost;` (GlobalEventHandlers, html.idl)
+    fn set_oncontextlost(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncontextlost"))
+    }
+
+    /// `attribute EventHandler oncontextmenu;` (GlobalEventHandlers, html.idl)
+    fn oncontextmenu(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncontextmenu"))
+    }
+
+    /// `attribute EventHandler oncontextmenu;` (GlobalEventHandlers, html.idl)
+    fn set_oncontextmenu(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncontextmenu"))
+    }
+
+    /// `attribute EventHandler oncontextrestored;` (GlobalEventHandlers, html.idl)
+    fn oncontextrestored(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncontextrestored"))
+    }
+
+    /// `attribute EventHandler oncontextrestored;` (GlobalEventHandlers, html.idl)
+    fn set_oncontextrestored(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncontextrestored"))
+    }
+
+    /// `attribute EventHandler oncopy;` (GlobalEventHandlers, html.idl)
+    fn oncopy(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncopy"))
+    }
+
+    /// `attribute EventHandler oncopy;` (GlobalEventHandlers, html.idl)
+    fn set_oncopy(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncopy"))
+    }
+
+    /// `attribute EventHandler oncuechange;` (GlobalEventHandlers, html.idl)
+    fn oncuechange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncuechange"))
+    }
+
+    /// `attribute EventHandler oncuechange;` (GlobalEventHandlers, html.idl)
+    fn set_oncuechange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncuechange"))
+    }
+
+    /// `attribute EventHandler oncut;` (GlobalEventHandlers, html.idl)
+    fn oncut(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oncut"))
+    }
+
+    /// `attribute EventHandler oncut;` (GlobalEventHandlers, html.idl)
+    fn set_oncut(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oncut"))
+    }
+
+    /// `attribute EventHandler ondblclick;` (GlobalEventHandlers, html.idl)
+    fn ondblclick(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondblclick"))
+    }
+
+    /// `attribute EventHandler ondblclick;` (GlobalEventHandlers, html.idl)
+    fn set_ondblclick(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondblclick"))
+    }
+
+    /// `attribute EventHandler ondrag;` (GlobalEventHandlers, html.idl)
+    fn ondrag(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondrag"))
+    }
+
+    /// `attribute EventHandler ondrag;` (GlobalEventHandlers, html.idl)
+    fn set_ondrag(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondrag"))
+    }
+
+    /// `attribute EventHandler ondragend;` (GlobalEventHandlers, html.idl)
+    fn ondragend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondragend"))
+    }
+
+    /// `attribute EventHandler ondragend;` (GlobalEventHandlers, html.idl)
+    fn set_ondragend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondragend"))
+    }
+
+    /// `attribute EventHandler ondragenter;` (GlobalEventHandlers, html.idl)
+    fn ondragenter(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondragenter"))
+    }
+
+    /// `attribute EventHandler ondragenter;` (GlobalEventHandlers, html.idl)
+    fn set_ondragenter(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondragenter"))
+    }
+
+    /// `attribute EventHandler ondragleave;` (GlobalEventHandlers, html.idl)
+    fn ondragleave(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondragleave"))
+    }
+
+    /// `attribute EventHandler ondragleave;` (GlobalEventHandlers, html.idl)
+    fn set_ondragleave(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondragleave"))
+    }
+
+    /// `attribute EventHandler ondragover;` (GlobalEventHandlers, html.idl)
+    fn ondragover(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondragover"))
+    }
+
+    /// `attribute EventHandler ondragover;` (GlobalEventHandlers, html.idl)
+    fn set_ondragover(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondragover"))
+    }
+
+    /// `attribute EventHandler ondragstart;` (GlobalEventHandlers, html.idl)
+    fn ondragstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondragstart"))
+    }
+
+    /// `attribute EventHandler ondragstart;` (GlobalEventHandlers, html.idl)
+    fn set_ondragstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondragstart"))
+    }
+
+    /// `attribute EventHandler ondrop;` (GlobalEventHandlers, html.idl)
+    fn ondrop(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondrop"))
+    }
+
+    /// `attribute EventHandler ondrop;` (GlobalEventHandlers, html.idl)
+    fn set_ondrop(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondrop"))
+    }
+
+    /// `attribute EventHandler ondurationchange;` (GlobalEventHandlers, html.idl)
+    fn ondurationchange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ondurationchange"))
+    }
+
+    /// `attribute EventHandler ondurationchange;` (GlobalEventHandlers, html.idl)
+    fn set_ondurationchange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ondurationchange"))
+    }
+
+    /// `attribute EventHandler onemptied;` (GlobalEventHandlers, html.idl)
+    fn onemptied(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onemptied"))
+    }
+
+    /// `attribute EventHandler onemptied;` (GlobalEventHandlers, html.idl)
+    fn set_onemptied(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onemptied"))
+    }
+
+    /// `attribute EventHandler onended;` (GlobalEventHandlers, html.idl)
+    fn onended(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onended"))
+    }
+
+    /// `attribute EventHandler onended;` (GlobalEventHandlers, html.idl)
+    fn set_onended(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onended"))
+    }
+
+    /// `attribute OnErrorEventHandler onerror;` (GlobalEventHandlers, html.idl)
+    fn onerror(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onerror"))
+    }
+
+    /// `attribute OnErrorEventHandler onerror;` (GlobalEventHandlers, html.idl)
+    fn set_onerror(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onerror"))
+    }
+
+    /// `attribute EventHandler onfocus;` (GlobalEventHandlers, html.idl)
+    fn onfocus(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onfocus"))
+    }
+
+    /// `attribute EventHandler onfocus;` (GlobalEventHandlers, html.idl)
+    fn set_onfocus(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onfocus"))
+    }
+
+    /// `attribute EventHandler onformdata;` (GlobalEventHandlers, html.idl)
+    fn onformdata(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onformdata"))
+    }
+
+    /// `attribute EventHandler onformdata;` (GlobalEventHandlers, html.idl)
+    fn set_onformdata(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onformdata"))
+    }
+
+    /// `attribute EventHandler oninput;` (GlobalEventHandlers, html.idl)
+    fn oninput(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oninput"))
+    }
+
+    /// `attribute EventHandler oninput;` (GlobalEventHandlers, html.idl)
+    fn set_oninput(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oninput"))
+    }
+
+    /// `attribute EventHandler oninvalid;` (GlobalEventHandlers, html.idl)
+    fn oninvalid(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.oninvalid"))
+    }
+
+    /// `attribute EventHandler oninvalid;` (GlobalEventHandlers, html.idl)
+    fn set_oninvalid(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.oninvalid"))
+    }
+
+    /// `attribute EventHandler onkeydown;` (GlobalEventHandlers, html.idl)
+    fn onkeydown(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onkeydown"))
+    }
+
+    /// `attribute EventHandler onkeydown;` (GlobalEventHandlers, html.idl)
+    fn set_onkeydown(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onkeydown"))
+    }
+
+    /// `attribute EventHandler onkeypress;` (GlobalEventHandlers, html.idl)
+    fn onkeypress(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onkeypress"))
+    }
+
+    /// `attribute EventHandler onkeypress;` (GlobalEventHandlers, html.idl)
+    fn set_onkeypress(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onkeypress"))
+    }
+
+    /// `attribute EventHandler onkeyup;` (GlobalEventHandlers, html.idl)
+    fn onkeyup(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onkeyup"))
+    }
+
+    /// `attribute EventHandler onkeyup;` (GlobalEventHandlers, html.idl)
+    fn set_onkeyup(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onkeyup"))
+    }
+
+    /// `attribute EventHandler onload;` (GlobalEventHandlers, html.idl)
+    fn onload(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onload"))
+    }
+
+    /// `attribute EventHandler onload;` (GlobalEventHandlers, html.idl)
+    fn set_onload(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onload"))
+    }
+
+    /// `attribute EventHandler onloadeddata;` (GlobalEventHandlers, html.idl)
+    fn onloadeddata(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onloadeddata"))
+    }
+
+    /// `attribute EventHandler onloadeddata;` (GlobalEventHandlers, html.idl)
+    fn set_onloadeddata(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onloadeddata"))
+    }
+
+    /// `attribute EventHandler onloadedmetadata;` (GlobalEventHandlers, html.idl)
+    fn onloadedmetadata(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onloadedmetadata"))
+    }
+
+    /// `attribute EventHandler onloadedmetadata;` (GlobalEventHandlers, html.idl)
+    fn set_onloadedmetadata(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onloadedmetadata"))
+    }
+
+    /// `attribute EventHandler onloadstart;` (GlobalEventHandlers, html.idl)
+    fn onloadstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onloadstart"))
+    }
+
+    /// `attribute EventHandler onloadstart;` (GlobalEventHandlers, html.idl)
+    fn set_onloadstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onloadstart"))
+    }
+
+    /// `attribute EventHandler onmousedown;` (GlobalEventHandlers, html.idl)
+    fn onmousedown(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onmousedown"))
+    }
+
+    /// `attribute EventHandler onmousedown;` (GlobalEventHandlers, html.idl)
+    fn set_onmousedown(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onmousedown"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseenter;` (GlobalEventHandlers, html.idl)
+    fn onmouseenter(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onmouseenter"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseenter;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseenter(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onmouseenter"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseleave;` (GlobalEventHandlers, html.idl)
+    fn onmouseleave(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onmouseleave"))
+    }
+
+    /// `[LegacyLenientThis] attribute EventHandler onmouseleave;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseleave(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onmouseleave"))
+    }
+
+    /// `attribute EventHandler onmousemove;` (GlobalEventHandlers, html.idl)
+    fn onmousemove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onmousemove"))
+    }
+
+    /// `attribute EventHandler onmousemove;` (GlobalEventHandlers, html.idl)
+    fn set_onmousemove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onmousemove"))
+    }
+
+    /// `attribute EventHandler onmouseout;` (GlobalEventHandlers, html.idl)
+    fn onmouseout(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onmouseout"))
+    }
+
+    /// `attribute EventHandler onmouseout;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseout(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onmouseout"))
+    }
+
+    /// `attribute EventHandler onmouseover;` (GlobalEventHandlers, html.idl)
+    fn onmouseover(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onmouseover"))
+    }
+
+    /// `attribute EventHandler onmouseover;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseover(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onmouseover"))
+    }
+
+    /// `attribute EventHandler onmouseup;` (GlobalEventHandlers, html.idl)
+    fn onmouseup(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onmouseup"))
+    }
+
+    /// `attribute EventHandler onmouseup;` (GlobalEventHandlers, html.idl)
+    fn set_onmouseup(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onmouseup"))
+    }
+
+    /// `attribute EventHandler onpaste;` (GlobalEventHandlers, html.idl)
+    fn onpaste(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpaste"))
+    }
+
+    /// `attribute EventHandler onpaste;` (GlobalEventHandlers, html.idl)
+    fn set_onpaste(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpaste"))
+    }
+
+    /// `attribute EventHandler onpause;` (GlobalEventHandlers, html.idl)
+    fn onpause(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpause"))
+    }
+
+    /// `attribute EventHandler onpause;` (GlobalEventHandlers, html.idl)
+    fn set_onpause(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpause"))
+    }
+
+    /// `attribute EventHandler onplay;` (GlobalEventHandlers, html.idl)
+    fn onplay(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onplay"))
+    }
+
+    /// `attribute EventHandler onplay;` (GlobalEventHandlers, html.idl)
+    fn set_onplay(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onplay"))
+    }
+
+    /// `attribute EventHandler onplaying;` (GlobalEventHandlers, html.idl)
+    fn onplaying(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onplaying"))
+    }
+
+    /// `attribute EventHandler onplaying;` (GlobalEventHandlers, html.idl)
+    fn set_onplaying(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onplaying"))
+    }
+
+    /// `attribute EventHandler onprogress;` (GlobalEventHandlers, html.idl)
+    fn onprogress(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onprogress"))
+    }
+
+    /// `attribute EventHandler onprogress;` (GlobalEventHandlers, html.idl)
+    fn set_onprogress(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onprogress"))
+    }
+
+    /// `attribute EventHandler onratechange;` (GlobalEventHandlers, html.idl)
+    fn onratechange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onratechange"))
+    }
+
+    /// `attribute EventHandler onratechange;` (GlobalEventHandlers, html.idl)
+    fn set_onratechange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onratechange"))
+    }
+
+    /// `attribute EventHandler onreset;` (GlobalEventHandlers, html.idl)
+    fn onreset(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onreset"))
+    }
+
+    /// `attribute EventHandler onreset;` (GlobalEventHandlers, html.idl)
+    fn set_onreset(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onreset"))
+    }
+
+    /// `attribute EventHandler onresize;` (GlobalEventHandlers, html.idl)
+    fn onresize(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onresize"))
+    }
+
+    /// `attribute EventHandler onresize;` (GlobalEventHandlers, html.idl)
+    fn set_onresize(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onresize"))
+    }
+
+    /// `attribute EventHandler onscroll;` (GlobalEventHandlers, html.idl)
+    fn onscroll(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onscroll"))
+    }
+
+    /// `attribute EventHandler onscroll;` (GlobalEventHandlers, html.idl)
+    fn set_onscroll(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onscroll"))
+    }
+
+    /// `attribute EventHandler onscrollend;` (GlobalEventHandlers, html.idl)
+    fn onscrollend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onscrollend"))
+    }
+
+    /// `attribute EventHandler onscrollend;` (GlobalEventHandlers, html.idl)
+    fn set_onscrollend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onscrollend"))
+    }
+
+    /// `attribute EventHandler onsecuritypolicyviolation;` (GlobalEventHandlers, html.idl)
+    fn onsecuritypolicyviolation(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onsecuritypolicyviolation"))
+    }
+
+    /// `attribute EventHandler onsecuritypolicyviolation;` (GlobalEventHandlers, html.idl)
+    fn set_onsecuritypolicyviolation(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onsecuritypolicyviolation"))
+    }
+
+    /// `attribute EventHandler onseeked;` (GlobalEventHandlers, html.idl)
+    fn onseeked(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onseeked"))
+    }
+
+    /// `attribute EventHandler onseeked;` (GlobalEventHandlers, html.idl)
+    fn set_onseeked(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onseeked"))
+    }
+
+    /// `attribute EventHandler onseeking;` (GlobalEventHandlers, html.idl)
+    fn onseeking(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onseeking"))
+    }
+
+    /// `attribute EventHandler onseeking;` (GlobalEventHandlers, html.idl)
+    fn set_onseeking(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onseeking"))
+    }
+
+    /// `attribute EventHandler onselect;` (GlobalEventHandlers, html.idl)
+    fn onselect(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onselect"))
+    }
+
+    /// `attribute EventHandler onselect;` (GlobalEventHandlers, html.idl)
+    fn set_onselect(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onselect"))
+    }
+
+    /// `attribute EventHandler onslotchange;` (GlobalEventHandlers, html.idl)
+    fn onslotchange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onslotchange"))
+    }
+
+    /// `attribute EventHandler onslotchange;` (GlobalEventHandlers, html.idl)
+    fn set_onslotchange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onslotchange"))
+    }
+
+    /// `attribute EventHandler onstalled;` (GlobalEventHandlers, html.idl)
+    fn onstalled(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onstalled"))
+    }
+
+    /// `attribute EventHandler onstalled;` (GlobalEventHandlers, html.idl)
+    fn set_onstalled(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onstalled"))
+    }
+
+    /// `attribute EventHandler onsubmit;` (GlobalEventHandlers, html.idl)
+    fn onsubmit(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onsubmit"))
+    }
+
+    /// `attribute EventHandler onsubmit;` (GlobalEventHandlers, html.idl)
+    fn set_onsubmit(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onsubmit"))
+    }
+
+    /// `attribute EventHandler onsuspend;` (GlobalEventHandlers, html.idl)
+    fn onsuspend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onsuspend"))
+    }
+
+    /// `attribute EventHandler onsuspend;` (GlobalEventHandlers, html.idl)
+    fn set_onsuspend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onsuspend"))
+    }
+
+    /// `attribute EventHandler ontimeupdate;` (GlobalEventHandlers, html.idl)
+    fn ontimeupdate(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ontimeupdate"))
+    }
+
+    /// `attribute EventHandler ontimeupdate;` (GlobalEventHandlers, html.idl)
+    fn set_ontimeupdate(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ontimeupdate"))
+    }
+
+    /// `attribute EventHandler ontoggle;` (GlobalEventHandlers, html.idl)
+    fn ontoggle(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ontoggle"))
+    }
+
+    /// `attribute EventHandler ontoggle;` (GlobalEventHandlers, html.idl)
+    fn set_ontoggle(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ontoggle"))
+    }
+
+    /// `attribute EventHandler onvolumechange;` (GlobalEventHandlers, html.idl)
+    fn onvolumechange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onvolumechange"))
+    }
+
+    /// `attribute EventHandler onvolumechange;` (GlobalEventHandlers, html.idl)
+    fn set_onvolumechange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onvolumechange"))
+    }
+
+    /// `attribute EventHandler onwaiting;` (GlobalEventHandlers, html.idl)
+    fn onwaiting(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onwaiting"))
+    }
+
+    /// `attribute EventHandler onwaiting;` (GlobalEventHandlers, html.idl)
+    fn set_onwaiting(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onwaiting"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationend;` (GlobalEventHandlers, html.idl)
+    fn onwebkitanimationend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onwebkitanimationend"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationend;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkitanimationend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onwebkitanimationend"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationiteration;` (GlobalEventHandlers, html.idl)
+    fn onwebkitanimationiteration(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onwebkitanimationiteration"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationiteration;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkitanimationiteration(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onwebkitanimationiteration"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationstart;` (GlobalEventHandlers, html.idl)
+    fn onwebkitanimationstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onwebkitanimationstart"))
+    }
+
+    /// `attribute EventHandler onwebkitanimationstart;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkitanimationstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onwebkitanimationstart"))
+    }
+
+    /// `attribute EventHandler onwebkittransitionend;` (GlobalEventHandlers, html.idl)
+    fn onwebkittransitionend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onwebkittransitionend"))
+    }
+
+    /// `attribute EventHandler onwebkittransitionend;` (GlobalEventHandlers, html.idl)
+    fn set_onwebkittransitionend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onwebkittransitionend"))
+    }
+
+    /// `attribute EventHandler onwheel;` (GlobalEventHandlers, html.idl)
+    fn onwheel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onwheel"))
+    }
+
+    /// `attribute EventHandler onwheel;` (GlobalEventHandlers, html.idl)
+    fn set_onwheel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onwheel"))
+    }
+
+    /// `[CEReactions] attribute DOMString contentEditable;` (ElementContentEditable, html.idl)
+    fn content_editable(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.contentEditable"))
+    }
+
+    /// `[CEReactions] attribute DOMString contentEditable;` (ElementContentEditable, html.idl)
+    fn set_content_editable(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.contentEditable"))
+    }
+
+    /// `[CEReactions] attribute DOMString enterKeyHint;` (ElementContentEditable, html.idl)
+    fn enter_key_hint(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.enterKeyHint"))
+    }
+
+    /// `[CEReactions] attribute DOMString enterKeyHint;` (ElementContentEditable, html.idl)
+    fn set_enter_key_hint(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.enterKeyHint"))
+    }
+
+    /// `readonly attribute boolean isContentEditable;` (ElementContentEditable, html.idl)
+    fn is_content_editable(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.isContentEditable"))
+    }
+
+    /// `[CEReactions] attribute DOMString inputMode;` (ElementContentEditable, html.idl)
+    fn input_mode(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.inputMode"))
+    }
+
+    /// `[CEReactions] attribute DOMString inputMode;` (ElementContentEditable, html.idl)
+    fn set_input_mode(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.inputMode"))
+    }
+
+    /// `[SameObject] readonly attribute DOMStringMap dataset;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn dataset(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.dataset"))
+    }
+
+    /// `attribute DOMString nonce;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn nonce(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.nonce"))
+    }
+
+    /// `attribute DOMString nonce;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn set_nonce(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.nonce"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean autofocus;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn autofocus(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.autofocus"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean autofocus;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn set_autofocus(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.autofocus"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute long tabIndex;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn tab_index(&mut self, this: ObjectId) -> BindingResult<i32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.tabIndex"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute long tabIndex;` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn set_tab_index(&mut self, this: ObjectId, value: i32) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.tabIndex"))
+    }
+
+    /// `undefined focus(optional FocusOptions options = {});` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn focus(&mut self, this: ObjectId, options: Value) -> BindingResult<()> {
+        let _ = (this, options);
+        Err(BindingError::NotImplemented("HTMLElement.focus"))
+    }
+
+    /// `undefined blur();` (HTMLOrSVGOrMathMLElement, html.idl)
+    fn blur(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.blur"))
     }
 }
 
@@ -2894,6 +4447,414 @@ pub trait Document: Node {
     }
 }
 
+/// IDL `interface DocumentFragment : Node` (dom.idl).
+///
+/// Includes: NonElementParentNode, ParentNode.
+pub trait DocumentFragment: Node {
+    /// `constructor();` (dom.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new DocumentFragment"))
+    }
+
+    /// `Element? getElementById(DOMString elementId);` (NonElementParentNode, dom.idl)
+    fn get_element_by_id(&mut self, this: ObjectId, element_id: String) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, element_id);
+        Err(BindingError::NotImplemented("DocumentFragment.getElementById"))
+    }
+
+    /// `[SameObject] readonly attribute HTMLCollection children;` (ParentNode, dom.idl)
+    fn children(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("DocumentFragment.children"))
+    }
+
+    /// `readonly attribute Element? firstElementChild;` (ParentNode, dom.idl)
+    fn first_element_child(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("DocumentFragment.firstElementChild"))
+    }
+
+    /// `readonly attribute Element? lastElementChild;` (ParentNode, dom.idl)
+    fn last_element_child(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("DocumentFragment.lastElementChild"))
+    }
+
+    /// `readonly attribute unsigned long childElementCount;` (ParentNode, dom.idl)
+    fn child_element_count(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("DocumentFragment.childElementCount"))
+    }
+
+    /// `[CEReactions, Unscopable] undefined prepend((Node or DOMString)... nodes);` (ParentNode, dom.idl)
+    fn prepend(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let _ = (this, nodes);
+        Err(BindingError::NotImplemented("DocumentFragment.prepend"))
+    }
+
+    /// `[CEReactions, Unscopable] undefined append((Node or DOMString)... nodes);` (ParentNode, dom.idl)
+    fn append(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let _ = (this, nodes);
+        Err(BindingError::NotImplemented("DocumentFragment.append"))
+    }
+
+    /// `[CEReactions, Unscopable] undefined replaceChildren((Node or DOMString)... nodes);` (ParentNode, dom.idl)
+    fn replace_children(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let _ = (this, nodes);
+        Err(BindingError::NotImplemented("DocumentFragment.replaceChildren"))
+    }
+
+    /// `[CEReactions] undefined moveBefore(Node node, Node? child);` (ParentNode, dom.idl)
+    fn move_before(&mut self, this: ObjectId, node: ObjectId, child: Option<ObjectId>) -> BindingResult<()> {
+        let _ = (this, node, child);
+        Err(BindingError::NotImplemented("DocumentFragment.moveBefore"))
+    }
+
+    /// `Element? querySelector(DOMString selectors);` (ParentNode, dom.idl)
+    fn query_selector(&mut self, this: ObjectId, selectors: String) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, selectors);
+        Err(BindingError::NotImplemented("DocumentFragment.querySelector"))
+    }
+
+    /// `[NewObject] NodeList querySelectorAll(DOMString selectors);` (ParentNode, dom.idl)
+    fn query_selector_all(&mut self, this: ObjectId, selectors: String) -> BindingResult<ObjectId> {
+        let _ = (this, selectors);
+        Err(BindingError::NotImplemented("DocumentFragment.querySelectorAll"))
+    }
+}
+
+/// IDL `interface CharacterData : Node` (dom.idl).
+///
+/// Includes: NonDocumentTypeChildNode, ChildNode.
+///
+/// Members also from: html.idl.
+pub trait CharacterData: Node {
+    /// `attribute [LegacyNullToEmptyString] DOMString data;` (dom.idl)
+    fn data(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CharacterData.data"))
+    }
+
+    /// `attribute [LegacyNullToEmptyString] DOMString data;` (dom.idl)
+    fn set_data(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("CharacterData.data"))
+    }
+
+    /// `readonly attribute unsigned long length;` (dom.idl)
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CharacterData.length"))
+    }
+
+    /// `DOMString substringData(unsigned long offset, unsigned long count);` (dom.idl)
+    fn substring_data(&mut self, this: ObjectId, offset: u32, count: u32) -> BindingResult<String> {
+        let _ = (this, offset, count);
+        Err(BindingError::NotImplemented("CharacterData.substringData"))
+    }
+
+    /// `undefined appendData(DOMString data);` (dom.idl)
+    fn append_data(&mut self, this: ObjectId, data: String) -> BindingResult<()> {
+        let _ = (this, data);
+        Err(BindingError::NotImplemented("CharacterData.appendData"))
+    }
+
+    /// `undefined insertData(unsigned long offset, DOMString data);` (dom.idl)
+    fn insert_data(&mut self, this: ObjectId, offset: u32, data: String) -> BindingResult<()> {
+        let _ = (this, offset, data);
+        Err(BindingError::NotImplemented("CharacterData.insertData"))
+    }
+
+    /// `undefined deleteData(unsigned long offset, unsigned long count);` (dom.idl)
+    fn delete_data(&mut self, this: ObjectId, offset: u32, count: u32) -> BindingResult<()> {
+        let _ = (this, offset, count);
+        Err(BindingError::NotImplemented("CharacterData.deleteData"))
+    }
+
+    /// `undefined replaceData(unsigned long offset, unsigned long count, DOMString data);` (dom.idl)
+    fn replace_data(&mut self, this: ObjectId, offset: u32, count: u32, data: String) -> BindingResult<()> {
+        let _ = (this, offset, count, data);
+        Err(BindingError::NotImplemented("CharacterData.replaceData"))
+    }
+
+    /// `readonly attribute Element? previousElementSibling;` (NonDocumentTypeChildNode, dom.idl)
+    fn previous_element_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CharacterData.previousElementSibling"))
+    }
+
+    /// `readonly attribute Element? nextElementSibling;` (NonDocumentTypeChildNode, dom.idl)
+    fn next_element_sibling(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CharacterData.nextElementSibling"))
+    }
+
+    /// `[CEReactions] undefined beforeHTML(DOMString html, optional SetHTMLOptions options = {});` (NonDocumentTypeChildNode, html.idl)
+    fn before_html(&mut self, this: ObjectId, html: String, options: Value) -> BindingResult<()> {
+        let _ = (this, html, options);
+        Err(BindingError::NotImplemented("CharacterData.beforeHTML"))
+    }
+
+    /// `[CEReactions] undefined afterHTML(DOMString html, optional SetHTMLOptions options = {});` (NonDocumentTypeChildNode, html.idl)
+    fn after_html(&mut self, this: ObjectId, html: String, options: Value) -> BindingResult<()> {
+        let _ = (this, html, options);
+        Err(BindingError::NotImplemented("CharacterData.afterHTML"))
+    }
+
+    /// `[CEReactions] undefined replaceWithHTML(DOMString html, optional SetHTMLOptions options = {});` (NonDocumentTypeChildNode, html.idl)
+    fn replace_with_html(&mut self, this: ObjectId, html: String, options: Value) -> BindingResult<()> {
+        let _ = (this, html, options);
+        Err(BindingError::NotImplemented("CharacterData.replaceWithHTML"))
+    }
+
+    /// `[CEReactions] undefined beforeHTMLUnsafe((TrustedHTML or DOMString) html, optional (SetHTMLUnsafeOptions or TrustedHTMLParserOptions) options = {});` (NonDocumentTypeChildNode, html.idl)
+    fn before_html_unsafe(&mut self, this: ObjectId, html: Value, options: Value) -> BindingResult<()> {
+        let _ = (this, html, options);
+        Err(BindingError::NotImplemented("CharacterData.beforeHTMLUnsafe"))
+    }
+
+    /// `[CEReactions] undefined afterHTMLUnsafe((TrustedHTML or DOMString) html, optional (SetHTMLUnsafeOptions or TrustedHTMLParserOptions) options = {});` (NonDocumentTypeChildNode, html.idl)
+    fn after_html_unsafe(&mut self, this: ObjectId, html: Value, options: Value) -> BindingResult<()> {
+        let _ = (this, html, options);
+        Err(BindingError::NotImplemented("CharacterData.afterHTMLUnsafe"))
+    }
+
+    /// `[CEReactions] undefined replaceWithHTMLUnsafe((TrustedHTML or DOMString) html, optional (SetHTMLUnsafeOptions or TrustedHTMLParserOptions) options = {});` (NonDocumentTypeChildNode, html.idl)
+    fn replace_with_html_unsafe(&mut self, this: ObjectId, html: Value, options: Value) -> BindingResult<()> {
+        let _ = (this, html, options);
+        Err(BindingError::NotImplemented("CharacterData.replaceWithHTMLUnsafe"))
+    }
+
+    /// `[CEReactions, Unscopable] undefined before((Node or DOMString)... nodes);` (ChildNode, dom.idl)
+    fn before(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let _ = (this, nodes);
+        Err(BindingError::NotImplemented("CharacterData.before"))
+    }
+
+    /// `[CEReactions, Unscopable] undefined after((Node or DOMString)... nodes);` (ChildNode, dom.idl)
+    fn after(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let _ = (this, nodes);
+        Err(BindingError::NotImplemented("CharacterData.after"))
+    }
+
+    /// `[CEReactions, Unscopable] undefined replaceWith((Node or DOMString)... nodes);` (ChildNode, dom.idl)
+    fn replace_with(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let _ = (this, nodes);
+        Err(BindingError::NotImplemented("CharacterData.replaceWith"))
+    }
+
+    /// `[CEReactions, Unscopable] undefined remove();` (ChildNode, dom.idl)
+    fn remove(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("CharacterData.remove"))
+    }
+}
+
+/// IDL `interface Text : CharacterData` (dom.idl).
+///
+/// Includes: GeometryUtils, Slottable.
+///
+/// Members also from: cssom-view.idl.
+pub trait Text: CharacterData {
+    /// `constructor(optional DOMString data = "");` (dom.idl)
+    fn constructor(&mut self, data: String) -> BindingResult<ObjectId> {
+        let _ = data;
+        Err(BindingError::NotImplemented("new Text"))
+    }
+
+    /// `[NewObject] Text splitText(unsigned long offset);` (dom.idl)
+    fn split_text(&mut self, this: ObjectId, offset: u32) -> BindingResult<ObjectId> {
+        let _ = (this, offset);
+        Err(BindingError::NotImplemented("Text.splitText"))
+    }
+
+    /// `readonly attribute DOMString wholeText;` (dom.idl)
+    fn whole_text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Text.wholeText"))
+    }
+
+    /// `sequence<DOMQuad> getBoxQuads(optional BoxQuadOptions options = {});` (GeometryUtils, cssom-view.idl)
+    fn get_box_quads(&mut self, this: ObjectId, options: Value) -> BindingResult<Vec<ObjectId>> {
+        let _ = (this, options);
+        Err(BindingError::NotImplemented("Text.getBoxQuads"))
+    }
+
+    /// `DOMQuad convertQuadFromNode(DOMQuadInit quad, GeometryNode from, optional ConvertCoordinateOptions options = {});` (GeometryUtils, cssom-view.idl)
+    fn convert_quad_from_node(&mut self, this: ObjectId, quad: Value, from: Value, options: Value) -> BindingResult<ObjectId> {
+        let _ = (this, quad, from, options);
+        Err(BindingError::NotImplemented("Text.convertQuadFromNode"))
+    }
+
+    /// `DOMQuad convertRectFromNode(DOMRectReadOnly rect, GeometryNode from, optional ConvertCoordinateOptions options = {});` (GeometryUtils, cssom-view.idl)
+    fn convert_rect_from_node(&mut self, this: ObjectId, rect: ObjectId, from: Value, options: Value) -> BindingResult<ObjectId> {
+        let _ = (this, rect, from, options);
+        Err(BindingError::NotImplemented("Text.convertRectFromNode"))
+    }
+
+    /// `DOMPoint convertPointFromNode(DOMPointInit point, GeometryNode from, optional ConvertCoordinateOptions options = {});` (GeometryUtils, cssom-view.idl)
+    fn convert_point_from_node(&mut self, this: ObjectId, point: Value, from: Value, options: Value) -> BindingResult<ObjectId> {
+        let _ = (this, point, from, options);
+        Err(BindingError::NotImplemented("Text.convertPointFromNode"))
+    }
+
+    /// `readonly attribute HTMLSlotElement? assignedSlot;` (Slottable, dom.idl)
+    fn assigned_slot(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Text.assignedSlot"))
+    }
+}
+
+/// IDL `interface Comment : CharacterData` (dom.idl).
+pub trait Comment: CharacterData {
+    /// `constructor(optional DOMString data = "");` (dom.idl)
+    fn constructor(&mut self, data: String) -> BindingResult<ObjectId> {
+        let _ = data;
+        Err(BindingError::NotImplemented("new Comment"))
+    }
+}
+
+/// IDL `interface Attr : Node` (dom.idl).
+pub trait Attr: Node {
+    /// `readonly attribute DOMString? namespaceURI;` (dom.idl)
+    fn namespace_uri(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Attr.namespaceURI"))
+    }
+
+    /// `readonly attribute DOMString? prefix;` (dom.idl)
+    fn prefix(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Attr.prefix"))
+    }
+
+    /// `readonly attribute DOMString localName;` (dom.idl)
+    fn local_name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Attr.localName"))
+    }
+
+    /// `readonly attribute DOMString name;` (dom.idl)
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Attr.name"))
+    }
+
+    /// `[CEReactions] attribute DOMString value;` (dom.idl)
+    fn value(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Attr.value"))
+    }
+
+    /// `[CEReactions] attribute DOMString value;` (dom.idl)
+    fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Attr.value"))
+    }
+
+    /// `readonly attribute Element? ownerElement;` (dom.idl)
+    fn owner_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Attr.ownerElement"))
+    }
+
+    /// `readonly attribute boolean specified;` (dom.idl)
+    fn specified(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Attr.specified"))
+    }
+}
+
+/// IDL `interface NodeList` (dom.idl).
+///
+/// Not generated yet:
+/// - `iterable<Node>;` (dom.idl)
+pub trait NodeList {
+    /// `getter Node? item(unsigned long index);` (dom.idl)
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, index);
+        Err(BindingError::NotImplemented("NodeList.item"))
+    }
+
+    /// `readonly attribute unsigned long length;` (dom.idl)
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("NodeList.length"))
+    }
+}
+
+/// IDL `interface HTMLCollection` (dom.idl).
+pub trait HTMLCollection {
+    /// `readonly attribute unsigned long length;` (dom.idl)
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLCollection.length"))
+    }
+
+    /// `getter Element? item(unsigned long index);` (dom.idl)
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, index);
+        Err(BindingError::NotImplemented("HTMLCollection.item"))
+    }
+
+    /// `getter Element? namedItem(DOMString name);` (dom.idl)
+    fn named_item(&mut self, this: ObjectId, name: String) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, name);
+        Err(BindingError::NotImplemented("HTMLCollection.namedItem"))
+    }
+}
+
+/// IDL `interface NamedNodeMap` (dom.idl).
+pub trait NamedNodeMap {
+    /// `readonly attribute unsigned long length;` (dom.idl)
+    fn length(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("NamedNodeMap.length"))
+    }
+
+    /// `getter Attr? item(unsigned long index);` (dom.idl)
+    fn item(&mut self, this: ObjectId, index: u32) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, index);
+        Err(BindingError::NotImplemented("NamedNodeMap.item"))
+    }
+
+    /// `getter Attr? getNamedItem(DOMString qualifiedName);` (dom.idl)
+    fn get_named_item(&mut self, this: ObjectId, qualified_name: String) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, qualified_name);
+        Err(BindingError::NotImplemented("NamedNodeMap.getNamedItem"))
+    }
+
+    /// `Attr? getNamedItemNS(DOMString? _namespace, DOMString localName);` (dom.idl)
+    fn get_named_item_ns(&mut self, this: ObjectId, namespace: Option<String>, local_name: String) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, namespace, local_name);
+        Err(BindingError::NotImplemented("NamedNodeMap.getNamedItemNS"))
+    }
+
+    /// `[CEReactions] Attr? setNamedItem(Attr attr);` (dom.idl)
+    fn set_named_item(&mut self, this: ObjectId, attr: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, attr);
+        Err(BindingError::NotImplemented("NamedNodeMap.setNamedItem"))
+    }
+
+    /// `[CEReactions] Attr? setNamedItemNS(Attr attr);` (dom.idl)
+    fn set_named_item_ns(&mut self, this: ObjectId, attr: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = (this, attr);
+        Err(BindingError::NotImplemented("NamedNodeMap.setNamedItemNS"))
+    }
+
+    /// `[CEReactions] Attr removeNamedItem(DOMString qualifiedName);` (dom.idl)
+    fn remove_named_item(&mut self, this: ObjectId, qualified_name: String) -> BindingResult<ObjectId> {
+        let _ = (this, qualified_name);
+        Err(BindingError::NotImplemented("NamedNodeMap.removeNamedItem"))
+    }
+
+    /// `[CEReactions] Attr removeNamedItemNS(DOMString? _namespace, DOMString localName);` (dom.idl)
+    fn remove_named_item_ns(&mut self, this: ObjectId, namespace: Option<String>, local_name: String) -> BindingResult<ObjectId> {
+        let _ = (this, namespace, local_name);
+        Err(BindingError::NotImplemented("NamedNodeMap.removeNamedItemNS"))
+    }
+}
+
 /// IDL `interface DOMTokenList` (dom.idl).
 ///
 /// Not generated yet:
@@ -2957,5 +4918,26 @@ pub trait DOMTokenList {
     fn set_value(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let _ = (this, value);
         Err(BindingError::NotImplemented("DOMTokenList.value"))
+    }
+}
+
+/// IDL `interface DOMStringMap` (html.idl).
+pub trait DOMStringMap {
+    /// `getter DOMString (DOMString name);` (html.idl)
+    fn named_getter(&mut self, this: ObjectId, name: String) -> BindingResult<String> {
+        let _ = (this, name);
+        Err(BindingError::NotImplemented("DOMStringMap named_getter"))
+    }
+
+    /// `[CEReactions] setter undefined (DOMString name, DOMString value);` (html.idl)
+    fn named_setter(&mut self, this: ObjectId, name: String, value: String) -> BindingResult<()> {
+        let _ = (this, name, value);
+        Err(BindingError::NotImplemented("DOMStringMap named_setter"))
+    }
+
+    /// `[CEReactions] deleter undefined (DOMString name);` (html.idl)
+    fn named_deleter(&mut self, this: ObjectId, name: String) -> BindingResult<()> {
+        let _ = (this, name);
+        Err(BindingError::NotImplemented("DOMStringMap named_deleter"))
     }
 }
