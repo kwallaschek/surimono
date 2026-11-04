@@ -106,8 +106,11 @@
     return currentScript;
   });
 
-  // One script's turn: its element for `currentScript`, and its load or
-  // error event; Rust has the source.
+  // One script's run, with its element as `currentScript`; Rust has the
+  // source. Returns the rest of its turn, for a step of its own: HTML runs the
+  // microtask checkpoint inside "run a classic script", so the script's
+  // microtasks, however they chain, still see its element and come before
+  // its load or error event.
   function runScript(i, g, h) {
     const element = wrap(g, h);
     let ok = true;
@@ -118,12 +121,13 @@
       try {
         n.runScript(i);
       } catch (x) {
-        currentScript = null;
         reportException(x);
       }
-      currentScript = null;
     }
-    if (n.scriptExternal(i)) fire(stateOf(element), ok ? 'load' : 'error');
+    return () => {
+      currentScript = null;
+      if (n.scriptExternal(i)) fire(stateOf(element), ok ? 'load' : 'error');
+    };
   }
 
   // Every step of the page's life is queued here, before any of its scripts
@@ -145,15 +149,18 @@
     const step = (f) => {
       lifecycleLast = setTimeoutReal(() => queueMicrotaskReal(f), 0);
     };
+    const turn = (at) => {
+      let finish;
+      step(() => { finish = runScript(at, g, n.scriptNode(at)); });
+      step(() => { finish(); });
+    };
     const scripts = n.scriptCount();
     for (let i = 0; i < scripts; i++) {
-      const at = i;
-      if (!n.scriptDeferred(i)) step(() => runScript(at, g, n.scriptNode(at)));
+      if (!n.scriptDeferred(i)) turn(i);
     }
     step(setState(1));
     for (let i = 0; i < scripts; i++) {
-      const at = i;
-      if (n.scriptDeferred(i)) step(() => runScript(at, g, n.scriptNode(at)));
+      if (n.scriptDeferred(i)) turn(i);
     }
     step(() => { fire(documentState(), 'DOMContentLoaded', true); });
     step(setState(2));

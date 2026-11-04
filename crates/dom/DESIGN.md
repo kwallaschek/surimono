@@ -234,7 +234,8 @@ Content attributes live in Rust, so `syncHandlers` compares them when an event
 reaches the target, a listener is added or the handler is read, which are the
 only points a page can observe a listener's place from. Raw text compiles once,
 on first use. On a body or frameset element the Window-reflecting set is the
-window's. `document.currentScript` is the glue's, set around a script's run.
+window's. `document.currentScript` is the glue's, set from a script's run until
+a separate lifecycle step after its microtasks, which then fires its `load`.
 
 **Gaps** (each for docs/COMPAT.md): no `window.event`; `isTrusted` is an
 ordinary accessor, not [LegacyUnforgeable]; no microtask checkpoint between the
