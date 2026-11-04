@@ -145,6 +145,29 @@ class CompatTest(unittest.TestCase):
         self.wpt_tree()
         self.assertIn("100.0% | 70% | meets the target", self.wpt_table(self.wpt_results(["one", "two", "three", "four"])))
 
+    def test_wpt_failures_name_the_test_and_group_causes(self):
+        self.wpt_tree()
+        subs = [
+            {"name": "one", "status": "PASS"},
+            {"name": "two", "status": "FAIL", "message": "x is not defined at 12"},
+            {"name": "three", "status": "FAIL", "message": "x is not defined at 34"},
+        ]
+        results = self.write_json("r2.json", {"wpt_commit": "abc", "tests": [{"test": "a.html", "status": "OK", "subtests": subs}]})
+        table = self.wpt_table(results)
+        self.assertIn("| 2 | FAIL: x is not defined at N |", table)
+        self.assertIn("| 1 | not reported |", table)
+        self.assertIn("| a.html | 1 | 4 | OK |", table)
+
+    def test_wpt_a_timeout_with_every_subtest_passed_still_has_a_cause(self):
+        self.wpt_tree()
+        table = self.wpt_table(self.wpt_results(["one", "two", "three", "four"], "TIMEOUT"))
+        self.assertIn("| 4 | TIMEOUT: every subtest passed", table)
+
+    def test_wpt_failed_file_gives_its_message_as_the_cause(self):
+        self.wpt_tree()
+        results = self.write_json("r3.json", {"wpt_commit": "abc", "tests": [{"test": "a.html", "status": "ERROR", "message": "needs an XML parser", "subtests": []}]})
+        self.assertIn("| 4 | ERROR: needs an XML parser |", self.wpt_table(results))
+
     def test_wpt_failed_file_fails_all_its_subtests(self):
         for status in ("ERROR", "CRASH", "LIMIT"):
             self.wpt_tree()

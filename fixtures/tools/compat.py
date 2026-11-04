@@ -509,6 +509,9 @@ def real_world_section(fixture_status: dict[str, str], meta: dict[str, dict]) ->
     return lines
 
 
+WPT_CAUSES_SHOWN = 25
+
+
 def wpt_passed(baseline_test: dict, result: dict | None) -> tuple[int, int]:
     """(passed, counted) for one baseline test, by the rules in wpt/README.md."""
     if baseline_test.get("status") != "OK":
@@ -528,6 +531,39 @@ def wpt_passed(baseline_test: dict, result: dict | None) -> tuple[int, int]:
     if status == "TIMEOUT" and got == total:
         return 0, total
     return got, total
+
+
+def wpt_cause(baseline_test: dict, result: dict | None, subtest: str | None) -> str:
+    """Why one subtest Chrome passes isn't a pass here, in words that group:
+    numbers and quoted strings are removed, so one missing API reads as one cause."""
+    status = result.get("status") if result else None
+    if status not in ("OK", "TIMEOUT"):
+        message = (result or {}).get("message") or ""
+        return f"{status or 'not reported'}: {message}" if message else str(status or "not reported")
+    ours = next((x for x in result.get("subtests", []) if x.get("name") == subtest), None)
+    if ours is None:
+        return "harness timed out before it" if status == "TIMEOUT" else "not reported"
+    text = str(ours.get("message") or ours.get("status"))
+    text = re.sub(r'"(?:[^"\\]|\\.)*"|\'[^\']*\'|`[^`]*`', "…", text.splitlines()[0] if text else text)
+    return f"{ours.get('status')}: {re.sub(r'[0-9]+', 'N', text)[:90]}"
+
+
+def wpt_failures(baseline_tests: list[dict], ours: dict[str, dict]) -> tuple[list[tuple[str, int]], list[tuple[str, int, int, str]]]:
+    """The causes, most subtests first, and every test that doesn't pass in full."""
+    causes: dict[str, int] = {}
+    rows = []
+    for t in baseline_tests:
+        result = ours.get(t["test"])
+        got, total = wpt_passed(t, result)
+        if got == total:
+            continue
+        rows.append((t["test"], got, total, (result or {}).get("status", "not reported")))
+        mine = {x.get("name") for x in (result or {}).get("subtests", []) if x.get("status") == "PASS"}
+        want = [x["name"] for x in t.get("subtests", []) if x.get("status") == "PASS"] or [None]
+        lost = [wpt_cause(t, result, name) for name in want if name not in mine]
+        for cause in lost or ["TIMEOUT: every subtest passed, but something didn't finish"] * total:
+            causes[cause] = causes.get(cause, 0) + 1
+    return sorted(causes.items(), key=lambda kv: (-kv[1], kv[0])), rows
 
 
 def wpt_section(results_file: Path | None) -> list[str]:
@@ -575,6 +611,20 @@ def wpt_section(results_file: Path | None) -> list[str]:
         status = "meets the target" if total and rate >= area["target"] else "**below the target**"
         lines.append(f"| {name} | {area['phase']} | {got} | {total} | {rate:.1f}% | {area['target']}% | {status} |")
     lines.append("")
+    left_out = sum(1 for t in baseline["tests"] if t.get("status") != "OK")
+    lines += [
+        f"WPT {slices['commit'][:10]}, {len(baseline['tests'])} test URLs: Chromium {baseline.get('chromium', '?')} (`wpt/baseline/chrome.json`) "
+        f"against surimono {str(results.get('surimono_commit', '?'))[:10]} (`wpt/results/`). {left_out} tests Chrome didn't finish here are left out (`wpt/README.md`).",
+        "",
+    ]
+    causes, rows = wpt_failures(baseline["tests"], ours)
+    if causes:
+        lines += ["The most common causes, in subtests Chrome passes:", "", "| Subtests | Cause |", "|---|---|"]
+        for cause, n in causes[:WPT_CAUSES_SHOWN]:
+            lines.append(f"| {n} | {cause.replace('|', '/')} |")
+        lines += ["", "<details><summary>Every test that doesn't pass in full</summary>", "", "| Test | Passed | Of | Status |", "|---|---|---|---|"]
+        lines += [f"| {t} | {got} | {total} | {status} |" for t, got, total, status in rows]
+        lines += ["", "</details>", ""]
     return lines
 
 
