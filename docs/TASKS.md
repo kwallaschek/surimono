@@ -136,7 +136,9 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-RT-37 · RT · done · Hostile vector B Array.fromAsync accepts either limit (#98)
 - P1-RT-38 · RT · done · Trim once per idle period, not once per worker (shared minimum gap); engine.rs doc says the cost grows with the host's heap; gem_memory.rb rescues and counts errors (#89 review)
 - P1-PKG-20 · PKG · doing · Ruby 3.2 flake: test_signal_cancels_the_rest_of_the_document sees the signal only after the whole document (2 of 100 Ruby 3.2 logs); ffi.rs GVL/signal delivery
-- P1-DX-06 · DX · doing · v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
+- P1-DX-06 · DX · review · (#110) v0.1 CHANGELOG distribution note (gem + CLI from a clone; crates not on crates.io) and README status/install lines for publish day
+- P1-DX-07 · DX · todo · After Kay tags v0.1.0: pin README, CHANGELOG and the Rust guide to tag = "v0.1.0" / git clone --branch v0.1.0 (main moves to phase 2)
+- P1-PKG-21 · PKG · todo · CLI users get no THIRD_PARTY_LICENSES.txt with cargo install: add a `surimono licenses` subcommand (embedded notices) or document where to get them
 - P1-PKG-18 · PKG · todo · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
 - P1-PKG-19 · PKG · todo · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
 - P1-CF-31 · CF · todo · COMPAT entries: Date.parse of non-ISO strings keeps the QuickJS port (V8 gives NaN for CET/CEST), style values not validated, no doctype node, template.content, Attr as a partial Node
