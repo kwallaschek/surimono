@@ -6276,9 +6276,9 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
                     pr = add_property(ctx, p, JS_ATOM_length,
                                       JS_PROP_WRITABLE | JS_PROP_LENGTH);
                     if (unlikely(!pr)) {
+                        js_free_shape(ctx->rt, p->shape);
                         js_free(ctx, p->prop);
                         js_free(ctx, p);
-                        js_free_shape(ctx->rt, sh);
                         return JS_EXCEPTION;
                     }
                 }

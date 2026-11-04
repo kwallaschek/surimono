@@ -1116,9 +1116,9 @@ array, so `out_of_memory_never_aborts` refuses that allocation.
                      pr = add_property(ctx, p, JS_ATOM_length,
                                        JS_PROP_WRITABLE | JS_PROP_LENGTH);
 +                    if (unlikely(!pr)) {
++                        js_free_shape(ctx->rt, p->shape);
 +                        js_free(ctx, p->prop);
 +                        js_free(ctx, p);
-+                        js_free_shape(ctx->rt, sh);
 +                        return JS_EXCEPTION;
 +                    }
                  }
