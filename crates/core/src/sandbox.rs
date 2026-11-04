@@ -1,15 +1,18 @@
 //! The QuickJS sandbox: one runtime and one context under resource limits.
 
 use std::fmt;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rquickjs::context::EvalOptions;
 use rquickjs::context::intrinsic;
 use rquickjs::function::{IntoArgs, Rest};
 use rquickjs::promise::PromiseState;
-use rquickjs::{Context, Ctx, FromJs, Function, Object, Runtime, Value};
+use rquickjs::{Context, Ctx, FromJs, Function, Object, Persistent, Runtime, Value};
 
 use crate::engine::{self, LimitAllocator, LimitState};
+use crate::event_loop::{self, EventLoopHandle, SettleOptions, SettleReport};
 use crate::fork_safe::ForkSafeCell;
 use crate::{Limits, SandboxError};
 
@@ -67,6 +70,10 @@ pub struct SandboxOptions {
     /// Local time's offset from UTC in minutes, e.g. 540 for Japan. Affects
     /// `getHours()`, `toString()`, `new Date(2026, 0, 1)` and the like.
     pub utc_offset_minutes: i32,
+    /// Not public API: gives scripts timers and a clock that moves with
+    /// them, for [`Sandbox::run_until_settled`]. Off by default.
+    #[doc(hidden)]
+    pub event_loop: bool,
 }
 
 impl SandboxOptions {
@@ -109,6 +116,14 @@ impl SandboxOptions {
         self
     }
 
+    /// Not public API: these options with the event loop on or off.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn with_event_loop(mut self, on: bool) -> Self {
+        self.event_loop = on;
+        self
+    }
+
     /// Checks every option is in range.
     pub fn validate(&self) -> Result<(), SandboxError> {
         self.limits.validate()?;
@@ -145,6 +160,7 @@ impl Default for SandboxOptions {
             random_seed: Self::DEFAULT_RANDOM_SEED,
             now_ms: Self::DEFAULT_NOW_MS,
             utc_offset_minutes: 0,
+            event_loop: false,
         }
     }
 }
@@ -156,9 +172,11 @@ pub struct Deadline {
 }
 
 impl Deadline {
-    /// Whether the running call has passed its time limit. Once this is
-    /// true the call is over: it fails with [`SandboxError::TimeLimit`] as
-    /// soon as control returns to the engine. False when no call is running.
+    /// Whether the running call has passed its time limit or was cancelled
+    /// ([`Sandbox::set_cancel_flag`]). Once this is true the call is over:
+    /// it fails with [`SandboxError::TimeLimit`] or
+    /// [`SandboxError::Cancelled`] as soon as control returns to the engine.
+    /// False when no call is running.
     ///
     /// It reads the same stop flag the engine polls, which the sandbox's
     /// watchdog raises at the deadline, so it costs an atomic load and,
@@ -171,7 +189,47 @@ impl Deadline {
     /// was dropped always reports `true`, so a host function holding a
     /// stale handle refuses work instead of running unbounded.
     pub fn passed(&self) -> bool {
-        self.state.retired() || self.state.deadline_passed()
+        self.state.retired() || self.state.cancelled() || self.state.deadline_passed()
+    }
+}
+
+impl Deadline {
+    /// Runs the body of a host function. rquickjs turns a panic in a host
+    /// function into an exception a script can catch, and finishes the panic
+    /// only if the exception gets back to Rust, so a `try` would hide it and
+    /// the script would carry on over whatever the panic left half done.
+    /// Here a panic in `f` becomes that exception and also ends the call: it
+    /// fails with [`SandboxError::HostPanic`] however the script handles the
+    /// exception. Wrap every host function's body in this.
+    pub fn guard<'js, R>(
+        &self,
+        ctx: &Ctx<'js>,
+        f: impl FnOnce() -> rquickjs::Result<R>,
+    ) -> rquickjs::Result<R> {
+        guard_native(&self.state, ctx, f)
+    }
+}
+
+/// See [`Deadline::guard`].
+pub(crate) fn guard_native<'js, R>(
+    state: &LimitState,
+    ctx: &Ctx<'js>,
+    f: impl FnOnce() -> rquickjs::Result<R>,
+) -> rquickjs::Result<R> {
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(result) => result,
+        Err(panic) => {
+            let message = panic
+                .downcast_ref::<&str>()
+                .map(|s| (*s).to_owned())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "a panic with no message".to_owned());
+            state.note_panic(message);
+            Err(rquickjs::Exception::throw_internal(
+                ctx,
+                "a host function failed",
+            ))
+        }
     }
 }
 
@@ -278,12 +336,17 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// - **Stack**: recursion deeper than [`Limits::stack_bytes`] fails with
 ///   [`SandboxError::StackOverflow`] unless the script catches the `RangeError`.
 ///
-/// After a limit error the sandbox throws away its runtime and starts a fresh
-/// one, so it is ready for the next call but every global the script set is
-/// gone. After an ordinary exception the script's state is kept.
+/// A call can also be stopped from outside through a flag: see
+/// [`set_cancel_flag`](Self::set_cancel_flag).
+///
+/// After a limit error or a cancelled call the sandbox throws away its runtime
+/// and starts a fresh one, so it is ready for the next call but every global
+/// the script set is gone. After an ordinary exception the script's state is
+/// kept.
 ///
 /// Scripts get the ECMAScript built-ins only: no modules or loader, no
-/// filesystem, network, timers or host helpers. The sandbox is tied to the
+/// filesystem, network, timers or host helpers. (The internal event loop
+/// option adds timers on a virtual clock.) The sandbox is tied to the
 /// thread that created it.
 ///
 /// That thread needs [`Limits::stack_bytes`] of stack free below the point
@@ -296,6 +359,9 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 /// [`std::thread::Builder::stack_size`] set from `stack_bytes`.
 pub struct Sandbox {
     options: SandboxOptions,
+    /// Declared before `ctx`: the dispatcher it holds keeps the context
+    /// alive and must go before the runtime does.
+    event_loop: Option<EventLoopHooks>,
     /// The context, which also keeps its runtime alive. Always `Some` except
     /// if a rebuild failed, in which case every call reports an engine error.
     ctx: Option<Context>,
@@ -303,6 +369,8 @@ pub struct Sandbox {
     /// interrupt polls read its stop flag (the runtime's allocator holds a
     /// reference too; see `engine::install_stop_flag`).
     state: Arc<LimitState>,
+    /// See [`set_cancel_flag`](Self::set_cancel_flag).
+    cancel: Option<Arc<AtomicBool>>,
 }
 
 impl fmt::Debug for Sandbox {
@@ -341,7 +409,7 @@ impl Sandbox {
     /// forked child whose parent's thread is gone, say).
     pub fn with_options(options: SandboxOptions) -> Result<Self, SandboxError> {
         options.validate()?;
-        if engine::patch_level() < 3 {
+        if engine::patch_level() < engine::REQUIRED_PATCH_LEVEL {
             return Err(SandboxError::Engine {
                 message: "QuickJS lacks surimono's sandbox patches".into(),
             });
@@ -355,11 +423,13 @@ impl Sandbox {
         rt.set_max_stack_size(options.limits.stack_bytes);
         let handler_state = state.clone();
         rt.set_interrupt_handler(Some(Box::new(move || handler_state.should_interrupt())));
-        let ctx = new_context(&rt, &state, &options)?;
+        let (ctx, event_loop) = new_context(&rt, &state, &options)?;
         Ok(Self {
             options,
+            event_loop,
             ctx: Some(ctx),
             state,
+            cancel: None,
         })
     }
 
@@ -395,6 +465,27 @@ impl Sandbox {
         Deadline {
             state: self.state.clone(),
         }
+    }
+
+    /// Sets the flag that stops this sandbox's calls from outside, or removes
+    /// it with `None`. Any thread may raise the flag.
+    ///
+    /// Raising it stops a running call like a time limit does (`try`/`catch`
+    /// can't hold it off, and the same interrupt checks apply), within a few
+    /// milliseconds of the next check: the call fails with
+    /// [`SandboxError::Cancelled`] and the sandbox discards the script's state.
+    /// While the flag stays up, every further call fails with
+    /// [`SandboxError::Cancelled`] without running anything or touching the
+    /// script's state, so give the sandbox a lowered or new flag to use it
+    /// again. A call that finished before the flag went up keeps its result.
+    ///
+    /// The flag stays set across a [`reset`](Self::reset) and a limit error.
+    /// It only ever decides whether to stop, so it can't change what a script
+    /// that runs to the end produces. The process's watchdog thread reads it
+    /// about every 5 ms while a call with a flag runs; calls without one
+    /// cost nothing extra.
+    pub fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
+        self.cancel = flag;
     }
 
     /// Discards all script state: the next call runs in a fresh runtime and
@@ -513,50 +604,122 @@ impl Sandbox {
         })
     }
 
+    /// Not public API: runs the event loop until the page settles; see
+    /// the `event_loop` module for the rule. One call under one time
+    /// budget, with every callback and microtask inside it. Fails with a
+    /// limit error if a callback hits one, after which the sandbox has
+    /// rebuilt itself like after any other call, and with
+    /// [`SandboxError::InvalidOptions`] without the event loop option.
+    #[doc(hidden)]
+    pub fn run_until_settled(
+        &mut self,
+        options: &SettleOptions,
+    ) -> Result<SettleReport, SandboxError> {
+        event_loop::validate(options)?;
+        let Some(hooks) = &self.event_loop else {
+            return Err(SandboxError::InvalidOptions {
+                message: "this sandbox was created without the event loop".into(),
+            });
+        };
+        let shared = hooks.shared.clone();
+        let fire = hooks.fire.clone();
+        self.execute_classified(|ctx, state| {
+            let fire = fire.restore(ctx).map_err(|e| SandboxError::Engine {
+                message: e.to_string(),
+            })?;
+            event_loop::run(ctx, state, &shared, fire, options)
+        })
+    }
+
+    /// Not public API: a handle on the event loop, if the sandbox has one.
+    #[doc(hidden)]
+    pub fn event_loop(&self) -> Option<EventLoopHandle> {
+        self.event_loop.as_ref().map(|hooks| EventLoopHandle {
+            shared: hooks.shared.clone(),
+        })
+    }
+
     /// Enters the context with the deadline armed, runs `body`, classifies
     /// its error, and rebuilds the sandbox after a limit error.
     fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
     where
         B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
     {
+        self.execute_classified(|ctx, state| body(ctx, state).map_err(|e| classify(ctx, state, e)))
+    }
+
+    /// [`execute`](Self::execute) for a body that classifies its own errors.
+    fn execute_classified<R, B>(&mut self, body: B) -> Result<R, SandboxError>
+    where
+        B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> Result<R, SandboxError>,
+    {
         let Some(ctx) = self.ctx.clone() else {
             return Err(SandboxError::Engine {
                 message: "the sandbox has no context; a reset failed".into(),
             });
         };
+        if self.cancel_raised() {
+            return Err(SandboxError::Cancelled);
+        }
         check_stack(&self.options.limits)?;
+        #[cfg(any(test, feature = "test-hooks"))]
+        let started = test_hooks::begin_call();
         self.state.arm(self.options.limits.time)?;
         // Disarms even if `body` panics (a host function can), so no timer
         // outlives the call.
         let armed = Armed(&self.state);
+        if let Some(flag) = &self.cancel {
+            self.state.watch_cancel(flag.clone())?;
+        }
         let state = &*self.state;
         let result = ctx.with(|ctx| {
             engine::update_stack_top(&ctx);
-            body(&ctx, state).map_err(|e| classify(&ctx, state, e))
+            body(&ctx, state)
         });
         drop(armed);
-        if let Err(e) = &result {
-            if e.is_limit() {
-                // A limit can stop a script anywhere, leaving its state half
-                // updated and microtasks queued. Start over; if even that fails,
-                // later calls report an engine error (see `rebuild`).
-                let _ = self.rebuild();
-            }
+        // Let go of this clone now, so a rebuild below really frees the old
+        // context (and most of its heap) before the new runtime allocates.
+        drop(ctx);
+        #[cfg(any(test, feature = "test-hooks"))]
+        let stopped = std::time::Instant::now();
+        let rebuild = matches!(&result, Err(e) if e.discards_state());
+        if rebuild {
+            // A limit, a cancel or a panic stops a script anywhere, leaving its
+            // state half updated, microtasks queued and the engine's interrupt
+            // sticky. Start over; if even that fails,
+            // later calls report an engine error (see `rebuild`).
+            let _ = self.rebuild();
         }
+        #[cfg(any(test, feature = "test-hooks"))]
+        test_hooks::record(test_hooks::CallTimings {
+            run: stopped - started,
+            unwind: test_hooks::first_stop_answer().map(|at| stopped.saturating_duration_since(at)),
+            cleanup: rebuild.then(|| stopped.elapsed()),
+        });
         result
+    }
+
+    fn cancel_raised(&self) -> bool {
+        self.cancel
+            .as_ref()
+            .is_some_and(|flag| flag.load(Ordering::Acquire))
     }
 
     /// Replaces the runtime and context with fresh ones.
     fn rebuild(&mut self) -> Result<(), SandboxError> {
         // Deadlines taken so far belong to the old runtime.
         self.state.retire();
+        self.event_loop = None;
         // Drop the old context first, which frees most of the old heap before
         // the new runtime allocates. The old runtime itself (with anything its
         // job queue still holds) lives until `*self = fresh`. If building
         // fails, the sandbox is left without a context and every later call
         // reports an engine error.
         self.ctx = None;
-        let fresh = Self::with_options(self.options.clone())?;
+        #[cfg(test)]
+        test_hooks::record_heap_before_rebuild(self.state.used());
+        let mut fresh = Self::with_options(self.options.clone())?;
+        fresh.cancel = self.cancel.take();
         *self = fresh;
         Ok(())
     }
@@ -567,6 +730,85 @@ impl Drop for Sandbox {
         // Deadlines taken from this runtime now report passed. (A rebuild
         // drops the old sandbox value, so it lands here too.)
         self.state.retire();
+    }
+}
+
+/// Not public API: timings of the last call a [`Sandbox`] made on this
+/// thread, so the hostile-script suite can bound how long a limited script
+/// takes to stop apart from the cleanup after it. Only built for the
+/// crate's own tests (the non-default `test-hooks` feature).
+#[cfg(any(test, feature = "test-hooks"))]
+#[doc(hidden)]
+pub mod test_hooks {
+    use std::cell::Cell;
+    use std::time::{Duration, Instant};
+
+    /// How one call's wall time splits.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct CallTimings {
+        /// From arming the deadline until the script returned or stopped,
+        /// including unwinding its stack and running its microtasks.
+        pub run: Duration,
+        /// From the first time the interrupt handler (or the check between
+        /// microtasks) answered "stop" until the call returned: how long the
+        /// engine took to unwind once it knew. `None` when nothing asked the
+        /// call to stop.
+        pub unwind: Option<Duration>,
+        /// The rebuild after a limit error, which frees the old heap and
+        /// makes a fresh runtime; `None` when the call didn't rebuild.
+        pub cleanup: Option<Duration>,
+    }
+
+    thread_local! {
+        static LAST: Cell<Option<CallTimings>> = const { Cell::new(None) };
+        static FIRST_STOP: Cell<Option<Instant>> = const { Cell::new(None) };
+    }
+
+    /// Starts timing a call on this thread.
+    pub(crate) fn begin_call() -> Instant {
+        FIRST_STOP.with(|f| f.set(None));
+        Instant::now()
+    }
+
+    /// Called whenever the stop check answers true; keeps the first time.
+    /// (A sandbox runs on the thread that calls it, so the handler's thread
+    /// is the call's.)
+    pub(crate) fn note_stop_answer() {
+        FIRST_STOP.with(|f| {
+            if f.get().is_none() {
+                f.set(Some(Instant::now()));
+            }
+        });
+    }
+
+    pub(crate) fn first_stop_answer() -> Option<Instant> {
+        FIRST_STOP.with(Cell::get)
+    }
+
+    pub(crate) fn record(timings: CallTimings) {
+        LAST.with(|last| last.set(Some(timings)));
+    }
+
+    /// Takes the timings of the last call on this thread, if any.
+    pub fn take_last_call() -> Option<CallTimings> {
+        LAST.with(Cell::take)
+    }
+
+    #[cfg(test)]
+    thread_local! {
+        static HEAP_BEFORE_REBUILD: Cell<Option<usize>> = const { Cell::new(None) };
+    }
+
+    /// Unit tests: the old runtime's heap when the last rebuild on this
+    /// thread started building the new one.
+    #[cfg(test)]
+    pub(crate) fn record_heap_before_rebuild(bytes: usize) {
+        HEAP_BEFORE_REBUILD.with(|h| h.set(Some(bytes)));
+    }
+
+    #[cfg(test)]
+    pub(crate) fn take_heap_before_rebuild() -> Option<usize> {
+        HEAP_BEFORE_REBUILD.with(Cell::take)
     }
 }
 
@@ -595,30 +837,41 @@ const PRELUDE_SOURCE: &str = include_str!("prelude.js");
 /// locked (review of #47, finding 2).
 static PRELUDE: ForkSafeCell<Vec<u8>> = ForkSafeCell::shared();
 
+/// What Rust keeps of a context's event loop: the queue, and the prelude's
+/// dispatcher, the one JavaScript value held from Rust.
+struct EventLoopHooks {
+    shared: event_loop::Shared,
+    fire: Persistent<Function<'static>>,
+}
+
 /// Creates a context with the sandbox's built-ins and runs the prelude.
 fn new_context(
     rt: &Runtime,
     state: &Arc<LimitState>,
     options: &SandboxOptions,
-) -> Result<Context, SandboxError> {
+) -> Result<(Context, Option<EventLoopHooks>), SandboxError> {
     let ctx = Context::custom::<Intrinsics>(rt).map_err(|e| setup_error(state, e))?;
-    ctx.with(|ctx| {
+    let hooks = ctx.with(|ctx| {
         engine::update_stack_top(&ctx);
         engine::install_stop_flag(&ctx, state);
         #[cfg(test)]
         engine::fault::apply_arena_setting(&ctx);
-        install_prelude(&ctx, options).map_err(|e| match classify(&ctx, state, e) {
+        install_prelude(&ctx, state, options).map_err(|e| match classify(&ctx, state, e) {
             limit if limit.is_limit() => limit,
             other => SandboxError::Engine {
                 message: format!("the sandbox prelude failed: {other}"),
             },
         })
     })?;
-    Ok(ctx)
+    Ok((ctx, hooks))
 }
 
 /// Runs the prelude function with this sandbox's settings.
-fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<()> {
+fn install_prelude(
+    ctx: &Ctx<'_>,
+    state: &Arc<LimitState>,
+    options: &SandboxOptions,
+) -> rquickjs::Result<Option<EventLoopHooks>> {
     let bytes = PRELUDE.get_or_try_init(
         || engine::compile_script(ctx, PRELUDE_SOURCE, "surimono:prelude"),
         |why| rquickjs::Error::FromJs {
@@ -641,7 +894,15 @@ fn install_prelude(ctx: &Ctx<'_>, options: &SandboxOptions) -> rquickjs::Result<
     config.set("seedHi", (options.random_seed >> 32) as f64)?;
     config.set("nowMs", options.now_ms as f64)?;
     config.set("utcOffsetMinutes", options.utc_offset_minutes)?;
-    prelude.call::<_, ()>((config,))
+    let shared = options.event_loop.then(event_loop::Shared::default);
+    if let Some(shared) = &shared {
+        config.set("host", event_loop::host_object(ctx, shared, state)?)?;
+    }
+    let fire: Option<Function<'_>> = prelude.call((config,))?;
+    Ok(shared.zip(fire).map(|(shared, fire)| EventLoopHooks {
+        shared,
+        fire: Persistent::save(ctx, fire),
+    }))
 }
 
 /// Fails if this thread has less stack left than the engine may use, so deep
@@ -723,7 +984,7 @@ fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
 }
 
 /// Runs queued microtasks until none are left or a limit is hit.
-fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
+pub(crate) fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
     loop {
         // Checked before every job: a flood of tiny jobs might never reach the
         // engine's own interrupt check, and an out-of-memory error the script
@@ -739,8 +1000,18 @@ fn drain_jobs(ctx: &Ctx<'_>, state: &LimitState) -> rquickjs::Result<()> {
 
 /// Turns an engine error into a [`SandboxError`], consuming any pending
 /// exception.
-fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) -> SandboxError {
+pub(crate) fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) -> SandboxError {
     let exception = matches!(e, rquickjs::Error::Exception).then(|| ctx.catch());
+    // First: whoever cancelled wants to know that, whatever else went wrong
+    // on the way down.
+    if state.cancelled() {
+        return SandboxError::Cancelled;
+    }
+    if state.panicked() {
+        return SandboxError::HostPanic {
+            message: state.panic_message(),
+        };
+    }
     if state.oom() {
         return SandboxError::MemoryLimit;
     }
@@ -761,7 +1032,7 @@ fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) -> SandboxErr
 }
 
 /// Describes a thrown value.
-fn exception_error(value: Value<'_>) -> SandboxError {
+pub(crate) fn exception_error(value: Value<'_>) -> SandboxError {
     let (name, message, stack) = match value.as_object() {
         Some(obj) => (
             string_prop(obj.get("name").ok()),
@@ -1509,6 +1780,40 @@ mod tests {
     }
 
     #[test]
+    fn limit_error_times_the_stop_apart_from_the_rebuild() {
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_millis(50))).unwrap();
+        test_hooks::take_last_call();
+        assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42));
+        let ok = test_hooks::take_last_call().unwrap();
+        assert_eq!((ok.unwind, ok.cleanup), (None, None));
+        assert_eq!(sb.eval::<()>("for (;;) {}"), Err(SandboxError::TimeLimit));
+        let stopped = test_hooks::take_last_call().unwrap();
+        assert!(stopped.run >= Duration::from_millis(50), "{stopped:?}");
+        assert!(stopped.unwind.unwrap() <= stopped.run, "{stopped:?}");
+        assert!(stopped.cleanup.is_some(), "{stopped:?}");
+        // Taken: the next take sees nothing until another call.
+        assert_eq!(test_hooks::take_last_call(), None);
+    }
+
+    #[test]
+    fn rebuild_after_a_limit_frees_the_old_context_first() {
+        // The call's own handle on the context must be gone before the new
+        // runtime allocates, or two heaps coexist at the peak.
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_millis(200))).unwrap();
+        let base = sb.heap_bytes();
+        test_hooks::take_heap_before_rebuild();
+        assert_eq!(
+            sb.eval::<()>("globalThis.big = new Float64Array(1 << 20); for (;;) {}"),
+            Err(SandboxError::TimeLimit)
+        );
+        let held = test_hooks::take_heap_before_rebuild().unwrap();
+        assert!(
+            held < base + 1_000_000,
+            "base {base}, old heap at rebuild {held}"
+        );
+    }
+
+    #[test]
     fn limits_out_of_range_are_rejected() {
         for bad in [
             Limits {
@@ -1752,7 +2057,8 @@ mod tests {
     /// so the parser and both code-generation passes meet refused
     /// allocations everywhere. It also calls `Function.prototype.bind` (with
     /// no, a few and a long spread of bound arguments, and on a constructor)
-    /// and `Promise.allSettled`/`Promise.any`, so the sweep refuses each of
+    /// and `Promise.allSettled`/`Promise.any`, and builds an `Array` subclass
+    /// whose prototype's empty shape is shared, so the sweep refuses each of
     /// their allocations too.
     const SYNTAX_SCRIPT: &str = r#"
 'use strict';
@@ -1804,6 +2110,9 @@ const big = 1_000_000n * 3n;
 const ev = eval('(function inner(p) { var q = p + 1; return eval("q * 2"); })(20)');
 const fn = new Function('a', 'b = 2', 'return a ** b + arguments.length');
 function sum3(a, b, c) { return this.k + a + b + c; }
+class Arr extends Array {}
+const arrKeep = Object.create(Arr.prototype);
+const arrNew = new Arr();
 const bound0 = sum3.bind({ k: 1 });
 const bound2 = sum3.bind({ k: 2 }, 3, 4);
 const bargs = new Array(300).fill(1);
@@ -1830,7 +2139,9 @@ const BoundPt = Pt.bind(null, 7);
 
     /// Review of #47, finding 1: a call stopped inside an expensive native
     /// leaks nothing. Each group E vector of `tests/hostile.rs` (the
-    /// natives that poll inside their loops) runs with a short limit; after
+    /// natives that poll inside their loops), and the group F regexp
+    /// vectors that stop at the polls of patch 19 (P1-RT-23: the replace
+    /// fast path, and either of the replace loops), runs with a short limit; after
     /// the limit error the sandbox replaces its runtime, and the old one
     /// must have given back every byte when it was freed. A block an
     /// interrupt path forgets (as `js_bigint_pow` did with its running
@@ -1851,6 +2162,10 @@ const BoundPt = Pt.bind(null, 7);
             "const a = (1n << 1000000n) - 1n, d = (1n << 500000n) - 3n; let q; eval('q = a / d;'.repeat(16))",
             "const t = '9'.repeat(300000); let x; eval('x = BigInt(t);'.repeat(16))",
             "let x; eval('x = 3n ** 600000n;'.repeat(16))",
+            // Group F.
+            "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/g, '')",
+            "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/gy, '')",
+            "'a'.repeat(1 << 22).replace(/(?:)/g, 'b')",
         ];
         let limits = Limits::default()
             .with_time(Duration::from_millis(60))
@@ -1871,26 +2186,76 @@ const BoundPt = Pt.bind(null, 7);
                 );
                 // The limit error replaced the runtime already.
                 assert_eq!(state.used(), 0, "{source} leaked");
+                assert_eq!(state.leaked_objects(), 0, "{source} leaked objects");
                 assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42), "{source}");
             }
         }
     }
+
+    /// The per-match polls of patch 19 (P1-RT-23) leave replace's results
+    /// unchanged, on the fast path (`''` with a standard global or sticky
+    /// regexp) and the general one.
+    #[test]
+    fn regexp_replace_results_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let got = sb
+            .eval::<String>(
+                r#"[
+ 'abcabc'.replace(/b/g, ''),
+ 'abcabc'.replace(/a/gy, ''),
+ 'aabca'.replace(/a/gy, ''),
+ 'abc'.replace(/(?:)/g, ''),
+ 'abcabc'.replaceAll(/c/g, ''),
+ 'abcabc'.replace(/b/g, '[$&]'),
+ 'abcabc'.replace(/(?<l>b)/g, '<$<l>>'),
+ 'abcabc'.replace(/b/g, (m, i) => i),
+ 'abc'.replace(/(?:)/g, '-'),
+].join('|')"#,
+            )
+            .unwrap();
+        assert_eq!(
+            got,
+            "acac|bcabc|bca|abc|abab|a[b]ca[b]c|a<b>ca<b>c|a1ca4c|-a-b-c-"
+        );
+    }
+
+    /// For the sweeps: every path of the event loop, which also keeps one
+    /// JavaScript value in Rust (a leak of it shows as heap left over).
+    const EVENT_LOOP_SCRIPT: &str = r#"
+var log = [];
+setTimeout(function (a, b) { log.push(a + b); queueMicrotask(() => log.push('m')); }, 1, 'x', 'y');
+setTimeout("log.push('string')", 2);
+setTimeout(() => { throw new Error('reported'); }, 3);
+queueMicrotask(() => { throw new TypeError('reported too'); });
+var n = 0;
+var h = setInterval(() => { if (++n === 3) clearInterval(h); }, 0);
+clearTimeout(setTimeout(() => {}, 5));
+requestAnimationFrame((t) => log.push(t));
+cancelAnimationFrame(requestAnimationFrame(() => {}));
+setTimeout(() => {}, 1e9);
+"#;
 
     /// Child side of the out-of-memory sweeps. SURIMONO_OOM_SCRIPT picks the
     /// script, SURIMONO_OOM_MODE `eval` (compile and run) or `bytecode` (run
     /// precompiled bytecode), and SURIMONO_OOM_ARENA=off makes every
     /// allocation reach the sandbox's allocator. With SURIMONO_OOM_COUNT set
     /// it prints how many allocations a clean run makes; otherwise, for each
-    /// N in SURIMONO_OOM_NS, it refuses the run's Nth allocation.
+    /// N in SURIMONO_OOM_NS, it refuses the run's Nth allocation; a run that
+    /// still succeeds must return the clean run's value.
     #[test]
     #[ignore = "helper: run in a child process by the out-of-memory sweeps"]
     fn oom_sweep_child() {
         let limits = limits().with_time(Duration::from_secs(10));
+        let event_loop = std::env::var("SURIMONO_OOM_SCRIPT").as_deref() == Ok("event-loop");
         let script = match std::env::var("SURIMONO_OOM_SCRIPT").as_deref() {
             Ok("compiling") => COMPILING_SCRIPT,
             Ok("syntax") => SYNTAX_SCRIPT,
+            Ok("event-loop") => EVENT_LOOP_SCRIPT,
             _ => ALLOCATING_SCRIPT,
         };
+        let options = SandboxOptions::default()
+            .with_limits(limits)
+            .with_event_loop(event_loop);
         let bytecode = std::env::var("SURIMONO_OOM_MODE").as_deref() == Ok("bytecode");
         engine::fault::set_arena_off(std::env::var("SURIMONO_OOM_ARENA").as_deref() == Ok("off"));
         let compiled = bytecode.then(|| {
@@ -1899,21 +2264,37 @@ const BoundPt = Pt.bind(null, 7);
                 .compile(script, "sweep.js")
                 .unwrap()
         });
-        let run = |sb: &mut Sandbox| match &compiled {
-            Some(bc) => sb.eval_bytecode(bc),
-            None => sb.eval::<String>(script).map(drop),
+        // The script's completion value plus what its async part left in
+        // `r` or `asyncResult`: a run that succeeds despite a refused allocation
+        // must give exactly what a clean run gives (review of #45).
+        let run = |sb: &mut Sandbox| -> Result<String, SandboxError> {
+            if event_loop {
+                sb.eval::<()>(script)?;
+                sb.run_until_settled(&SettleOptions::default())?;
+                return sb.eval::<String>("log.join()");
+            }
+            let value = match &compiled {
+                Some(bc) => sb.run(|ctx| String::from_js(ctx, bc.eval(ctx)?))?,
+                None => sb.eval::<String>(script)?,
+            };
+            let late = sb.eval::<String>("[globalThis.r, globalThis.asyncResult].join('|')")?;
+            Ok(format!("{value}|{late}"))
+        };
+        let clean = || {
+            let mut sb = Sandbox::with_options(options.clone()).unwrap();
+            engine::fault::refuse_nth(usize::MAX);
+            let value = run(&mut sb).unwrap();
+            (value, engine::fault::count())
         };
         if std::env::var_os("SURIMONO_OOM_COUNT").is_some() {
-            let mut sb = Sandbox::new(limits).unwrap();
-            engine::fault::refuse_nth(usize::MAX);
-            run(&mut sb).unwrap();
-            println!("OOM-COUNT {}", engine::fault::count());
+            println!("OOM-COUNT {}", clean().1);
             return;
         }
+        let (expected, _) = clean();
         let ns = std::env::var("SURIMONO_OOM_NS").unwrap();
         let (mut ok, mut refused) = (0, 0);
         for n in ns.split(',').map(|n| n.parse::<usize>().unwrap()) {
-            let mut sb = Sandbox::new(limits).unwrap();
+            let mut sb = Sandbox::with_options(options.clone()).unwrap();
             let state = sb.state.clone();
             engine::fault::refuse_nth(n);
             let result = run(&mut sb);
@@ -1929,8 +2310,21 @@ const BoundPt = Pt.bind(null, 7);
             // error path leaked an object.
             drop(sb);
             assert_eq!(state.used(), 0, "leak after refusing allocation {n}");
+            // With the arena on, a leaked object's bytes go back with the
+            // arenas; the engine still counts it (review of #45).
+            assert_eq!(
+                state.leaked_objects(),
+                0,
+                "objects leaked after refusing allocation {n}"
+            );
             match result {
-                Ok(()) => ok += 1,
+                Ok(value) => {
+                    assert_eq!(
+                        value, expected,
+                        "refusing allocation {n} changed the result"
+                    );
+                    ok += 1;
+                }
                 Err(SandboxError::MemoryLimit) => refused += 1,
                 Err(other) => panic!("refusing allocation {n} gave {other:?}"),
             }
@@ -2016,6 +2410,7 @@ const BoundPt = Pt.bind(null, 7);
                 oom_sweep(script, mode, "off", 1);
             }
         }
+        oom_sweep("event-loop", "eval", "off", 1);
         for mode in ["eval", "bytecode"] {
             oom_sweep("compiling", mode, "off", 13);
         }

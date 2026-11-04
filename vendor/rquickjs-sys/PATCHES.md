@@ -5,7 +5,10 @@ path `sys/`), which bundles quickjs-ng 0.16.2. It is wired in through
 `[patch.crates-io]` in the workspace `Cargo.toml`. Every change to upstream
 code is listed here and marked `surimono:` in the source. Drafts for
 upstream are in `docs/upstream/quickjs-ng-sticky-interrupt-and-native-loop-polls.md`
-and `docs/upstream/quickjs-ng-interrupt-granularity.md`.
+and `docs/upstream/quickjs-ng-interrupt-granularity.md`; the regexp
+per-match polls (patches 19 and 20) are in
+`docs/upstream/quickjs-ng-regexp-replace-polls.md`; the rest are in
+`docs/upstream/quickjs-ng/`.
 
 ## Removed (not needed to build)
 
@@ -885,4 +888,245 @@ in data the memory limit bounds (a `JSON.stringify` or
              if (psc.exception)
                  return JS_EXCEPTION;
          }
+```
+
+## Regexp per-match polls (P1-RT-23)
+
+Review of #47: `'a'.repeat(1 << 25).replace(/(?:)/g, '')` stopped at
+1,174 ms against a 250 ms limit. `lre_exec` polls every 10,000 steps of
+one match attempt and restarts that count at every call, so a pattern that
+matches in a few steps never polls, and a C loop over its matches must.
+The loops audited: `js_regexp_Symbol_match` (global), `Symbol.split` and
+the first loop of `Symbol.replace` call `exec` through `JS_RegExpExec`,
+and `matchAll`'s iterator is called from script or a native iteration;
+all of them go through `JS_CallInternal`, which polls on entry, so they
+already polled per match. Two loops did not. With patches 1 to 18,
+patch level 4.
+
+19. **`JS_RegExpDelete` polls per match.** It is the fast path of
+    `replace`/`replaceAll` with `''` on a standard global or sticky regexp
+    and calls `lre_exec` directly, so nothing in it polled. It now calls
+    `js_poll_interrupts` before each match and fails after an interrupt,
+    freeing its buffers on the existing path. Debug build, 250 ms limit:
+    the empty pattern on 32M chars took 997 ms unpatched and stops at
+    250 ms; an 8-way alternation on 64M chars 4,587 ms and 253 ms.
+20. **`js_regexp_Symbol_replace` polls per match in its second loop**, the
+    one that builds the result from the collected matches. With a string
+    replacement it calls no script code, so a match list collected just
+    inside the limit was processed in one more unpolled pass of about the
+    same length. Results are unchanged.
+21. **`surimono_quickjs_patch_level()` returns 4.** surimono-core requires
+    4 (`engine::REQUIRED_PATCH_LEVEL`). The level is part of the bytecode
+    cache's engine fingerprint, so old cached bytecode is refused, as with
+    any engine change.
+
+Tests: group F in `crates/core/tests/hostile.rs` (ten vectors: the replace
+fast path, `replaceAll`, string and function replacements, `split`,
+`match`, `matchAll`); `interrupted_natives_leak_nothing` (three group F
+vectors) and `regexp_replace_results_are_unchanged` in
+`crates/core/src/sandbox.rs`.
+
+### Diff of patches 19 to 21 (on top of patches 1 to 18)
+
+```diff
+--- a/quickjs/quickjs.c (with patches 1 to 18)
++++ b/quickjs/quickjs.c
+@@ -8736,10 +8736,11 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
+ 
+ /* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
+    3: both the allocation-failure hardening (p1-rt-15) and the interrupt
+-   flag (p1-rt-14), each of which was level 2 on its own branch. */
++   flag (p1-rt-14), each of which was level 2 on its own branch.
++   4: also the per-match polls in the regexp replace loops (p1-rt-23). */
+ int surimono_quickjs_patch_level(void)
+ {
+-    return 3;
++    return 4;
+ }
+ 
+ /* surimono: with enabled = 0, every later allocation of this runtime goes
+@@ -50244,6 +50245,13 @@ static JSValue JS_RegExpDelete(JSContext *ctx, JSValueConst this_val, JSValue ar
+         if (last_index > str->len)
+             break;
+ 
++        /* surimono: poll once per match. Each lre_exec starts its own
++           step counter, so a pattern that matches in a few steps never
++           reaches the regexp engine's poll, and this loop calls no script
++           code: 'a'.repeat(1 << 25).replace(/(?:)/g, '') made 32M
++           matches in one native call. */
++        if (js_poll_interrupts(ctx))
++            goto fail;
+         ret = lre_exec(capture, re_bytecode,
+                        str_buf, last_index, str->len, shift, ctx);
+         if (ret != 1) {
+@@ -50747,6 +50755,13 @@ static JSValue js_regexp_Symbol_replace(JSContext *ctx, JSValueConst this_val,
+     nextSourcePosition = 0;
+     for(j = 0; j < results->len; j++) {
+         JSValue result;
++        /* surimono: poll once per match. The loop above polls through
++           each exec call, but this one may call no script code (a string
++           replacement), so a match list collected just inside the limit
++           was replaced in one more unpolled pass of about the same
++           length. */
++        if (js_poll_interrupts(ctx))
++            goto exception;
+         result = results->arr[j];
+         if (js_get_length32(ctx, &nCaptures, result) < 0)
+             goto exception;
+```
+
+## Leak count at teardown (P1-RT-18)
+
+Review of #45: patch 11 lets `JS_FreeRuntime` leave objects that an error
+path leaked instead of aborting. Their small blocks go back to the
+allocator with the arenas, so no byte count saw such a leak in production
+(arena on); only the sweep's arena-off runs did. With patches 1 to 21,
+patch level 5.
+
+22. **`surimono_set_leak_count(rt, count)`**: `JS_FreeRuntime` stores in
+    `*count` how many objects were still on `gc_obj_list` (after its final
+    GC) before it drops them from the list. A new `JSRuntime.leak_count`
+    field holds the pointer (NULL, the default, counts nothing).
+    surimono-core points it into the runtime's `LimitState` next to the
+    interrupt flag, and when rquickjs drops the runtime's allocator (after
+    `JS_FreeRuntime` returned) adds it, and any bytes the runtime never gave
+    back, to process-wide counters (`surimono_core::teardown_leaks`, hidden
+    from the docs). The soak tests require them to stay at zero; the
+    out-of-memory sweeps and `interrupted_natives_leak_nothing` require
+    each runtime's count to be zero.
+23. **`surimono_quickjs_patch_level()` returns 5.** surimono-core requires
+    5 (`engine::REQUIRED_PATCH_LEVEL`).
+
+Tests: `teardown_counts_leaked_objects` and `a_clean_teardown_leaks_nothing`
+in `crates/core/src/engine.rs`; the sweeps in `crates/core/src/sandbox.rs`;
+the soak tests in `crates/islands/tests/soak.rs`.
+
+### Diff of patches 22 and 23 (on top of patches 1 to 21)
+
+```diff
+--- a/quickjs/quickjs.c (with patches 1 to 21)
++++ b/quickjs/quickjs.c
+@@ -402,6 +402,9 @@
+     /* surimono: never NULL; points at js_interrupt_flag_clear unless the
+        host set its own flag. Copied to every context. */
+     js_interrupt_flag_t *interrupt_flag;
++    /* surimono: where JS_FreeRuntime reports how many objects leaked
++       (see surimono_set_leak_count); NULL when nobody asked. */
++    uint32_t *leak_count;
+ 
+     JSPromiseHook *promise_hook;
+     void *promise_hook_opaque;
+@@ -2531,6 +2534,17 @@
+     }
+ }
+ 
++/* surimono: JS_FreeRuntime stores in *count how many objects were still
++   alive when the runtime was freed: objects some error path leaked a
++   reference to (see the note there), which it leaves to the arenas
++   instead of aborting. The arena blocks go back to the allocator with the
++   arenas, so no byte count shows these leaks; this count does. The
++   pointer must stay valid until JS_FreeRuntime returns. NULL removes it. */
++void surimono_set_leak_count(JSRuntime *rt, uint32_t *count)
++{
++    rt->leak_count = count;
++}
++
+ void JS_SetCanBlock(JSRuntime *rt, bool can_block)
+ {
+     rt->can_block = can_block;
+@@ -2759,9 +2773,19 @@
+        rather than abort the process. Large blocks they own (from the
+        backing allocator) stay allocated until the process exits.
+        surimono's tests check that a runtime gives back every byte it
+-       allocated. */
+-    if (!list_empty(&rt->gc_obj_list))
++       allocated, and the host can have the leaked objects counted
++       (surimono_set_leak_count). */
++    if (!list_empty(&rt->gc_obj_list)) {
++        if (rt->leak_count) {
++            uint32_t n = 0;
++            list_for_each(el, &rt->gc_obj_list) {
++                if (n < UINT32_MAX)
++                    n++;
++            }
++            *rt->leak_count = n;
++        }
+         init_list_head(&rt->gc_obj_list);
++    }
+ 
+     /* free the classes */
+     for(i = 0; i < rt->class_count; i++) {
+@@ -8737,10 +8761,11 @@
+ /* surimono: identifies this patched build; see vendor/rquickjs-sys/PATCHES.md.
+    3: both the allocation-failure hardening (p1-rt-15) and the interrupt
+    flag (p1-rt-14), each of which was level 2 on its own branch.
+-   4: also the per-match polls in the regexp replace loops (p1-rt-23). */
++   4: also the per-match polls in the regexp replace loops (p1-rt-23).
++   5: also the leak count at teardown (p1-rt-18). */
+ int surimono_quickjs_patch_level(void)
+ {
+-    return 4;
++    return 5;
+ }
+ 
+ /* surimono: with enabled = 0, every later allocation of this runtime goes
+```
+
+## Two more failure paths (P1-RT-36)
+
+Found while writing the quickjs-ng issue drafts (P1-RT-20): a harness that
+refuses each allocation of a script, run on the vendored engine, without
+this sandbox's stop flag around it. Drafts:
+`docs/upstream/quickjs-ng/07-add-arg-unchecked.md` and
+`08-array-add-property.md`. With patches 1 to 23, patch level 6.
+
+24. **`JS_NewObjectFromShape` checks the array's `length` property.** A
+    comment said `add_property` there "cannot fail" and only ran for the first
+    array. Any `new.target` reaches it: when the prototype's empty shape is
+    shared, `add_property` clones it, and a refused clone left `pr` NULL. A
+    one-line script crashed the process through the public API:
+    `class A extends Array {}` in a loop with `Object.create(A.prototype)` and
+    `new A()` under an 8 MiB limit, 5 of 380 pad sizes (47 of 380 on
+    quickjs-ng master). The object isn't on the GC list yet, so the check
+    frees it by hand.
+25. **Unnamed destructured parameters check `add_arg`.** -1 went into the
+    bytecode as `OP_get_arg 0xffff`, a read of the C stack about 1 MiB past the
+    frame when the function ran. In the sandbox the refused allocation's
+    stop flag ends the script at the call's own poll, so this one was not
+    reachable here; the engine shouldn't depend on that.
+26. **`surimono_quickjs_patch_level()` returns 6**, and surimono-core
+    requires 6, which also refuses bytecode cached by an older engine.
+
+Tests: `SYNTAX_SCRIPT` in `crates/core/src/sandbox.rs` now builds such an
+array, so `out_of_memory_never_aborts` refuses that allocation.
+
+### Diff of patches 24 and 25 (on top of patches 1 to 23)
+
+```diff
+--- a/quickjs/quickjs.c (with patches 1 to 23)
++++ b/quickjs/quickjs.c
+@@ JS_NewObjectFromShape
+-                    /* only used for the first array */
+-                    /* cannot fail */
++                    /* surimono: not only the first array: any Array subclass
++                       or other new.target lands here. When the prototype's
++                       empty shape is shared, add_property clones it, which
++                       can fail: `new A()` crashed on a NULL `pr` under a
++                       memory limit. p isn't on the GC list yet. */
+                     pr = add_property(ctx, p, JS_ATOM_length,
+                                       JS_PROP_WRITABLE | JS_PROP_LENGTH);
++                    if (unlikely(!pr)) {
++                        js_free_shape(ctx->rt, p->shape);
++                        js_free(ctx, p->prop);
++                        js_free(ctx, p);
++                        return JS_EXCEPTION;
++                    }
+                 }
+@@ js_parse_function_decl2
+                     idx = add_arg(ctx, fd, JS_ATOM_NULL);
++                    /* surimono: -1 would become OP_get_arg 0xffff, a read
++                       about 1 MiB past the frame when the function runs. */
++                    if (idx < 0)
++                        goto fail;
+                     emit_op(s, OP_get_arg);
 ```

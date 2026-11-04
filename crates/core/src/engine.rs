@@ -17,7 +17,10 @@
 //!   in `vendor/rquickjs-sys` defines, so a build against an unpatched
 //!   engine fails to link instead of shipping a sandbox that can hang;
 //! - [`install_stop_flag`], which points the patched engine at the
-//!   [`LimitState`]'s stop flag, read on every interrupt poll;
+//!   [`LimitState`]'s stop flag, read on every interrupt poll, and at its
+//!   leak count, which `JS_FreeRuntime` fills in (see [`teardown_leaks`]);
+//! - [`release_free_memory`], which hands the C allocator's free pages back
+//!   to the OS;
 //! - [`fork_generation`], which registers a `pthread_atfork` child handler
 //!   so a forked process can tell its own state from its ancestors'.
 //!
@@ -27,8 +30,8 @@
 
 use std::ffi::CString;
 use std::ptr;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use rquickjs::allocator::{Allocator, RustAllocator};
@@ -48,8 +51,8 @@ pub(crate) struct LimitState {
     used: AtomicUsize,
     /// Maximum bytes the engine may hold.
     limit: AtomicUsize,
-    /// Why the running call must stop: [`STOP_TIME`] and [`STOP_MEMORY`]
-    /// bits, zero while it may go on. The patched engine reads it on every
+    /// Why the running call must stop: [`STOP_TIME`], [`STOP_MEMORY`],
+    /// [`STOP_CANCEL`] and [`STOP_PANIC`] bits, zero while it may go on. The patched engine reads it on every
     /// interrupt poll and asks the handler as soon as it is nonzero (see
     /// [`install_stop_flag`]). Cleared when a call is armed and disarmed.
     stop: AtomicU32,
@@ -72,6 +75,16 @@ pub(crate) struct LimitState {
     /// on an [`EXPIRING`] bit that its parent's watchdog set: that thread
     /// doesn't exist here.
     armed_gen: AtomicU64,
+    /// Whether the watchdog is watching a cancel flag for the running call
+    /// ([`LimitState::watch_cancel`]).
+    cancel_watched: AtomicBool,
+    /// Objects still alive when the runtime was freed, written by the
+    /// patched `JS_FreeRuntime` (see [`install_stop_flag`]) and read when
+    /// the allocator is dropped, after it returned.
+    leaked_objects: AtomicU32,
+    /// The message of a panic caught in a host function; see
+    /// [`LimitState::note_panic`]. Only this runtime's thread locks it.
+    panic: Mutex<Option<String>>,
 }
 
 /// [`LimitState::call`] bit: the stop flag is being raised for this call.
@@ -82,6 +95,10 @@ const DISARMED: u64 = u64::MAX;
 const STOP_TIME: u32 = 1;
 /// [`LimitState::stop`] bit: an allocation was refused.
 const STOP_MEMORY: u32 = 2;
+/// [`LimitState::stop`] bit: the caller's cancel flag was raised.
+const STOP_CANCEL: u32 = 4;
+/// [`LimitState::stop`] bit: a host function panicked.
+const STOP_PANIC: u32 = 8;
 
 impl LimitState {
     pub(crate) fn new(memory_limit: usize) -> Arc<Self> {
@@ -94,6 +111,9 @@ impl LimitState {
             origin: Instant::now(),
             call: AtomicU64::new(0),
             armed_gen: AtomicU64::new(0),
+            cancel_watched: AtomicBool::new(false),
+            leaked_objects: AtomicU32::new(0),
+            panic: Mutex::new(None),
         })
     }
 
@@ -123,6 +143,18 @@ impl LimitState {
         if let Some(key) = self.timer_key(deadline, seq) {
             registry.insert(key, Arc::downgrade(self));
         }
+        Ok(())
+    }
+
+    /// Asks the watchdog to stop the call just armed once `flag` is raised.
+    /// [`disarm`](Self::disarm) ends the watch.
+    pub(crate) fn watch_cancel(
+        self: &Arc<Self>,
+        flag: Arc<AtomicBool>,
+    ) -> Result<(), SandboxError> {
+        let seq = self.call.load(Ordering::Acquire) & !EXPIRING;
+        watchdog::registry()?.watch_cancel(seq, Arc::downgrade(self), flag);
+        self.cancel_watched.store(true, Ordering::Relaxed);
         Ok(())
     }
 
@@ -156,11 +188,16 @@ impl LimitState {
                 break call & !EXPIRING;
             }
         };
+        let watched = self.cancel_watched.swap(false, Ordering::Relaxed);
         if ended != 0 {
             let armed_in = self.armed_gen.load(Ordering::Relaxed);
-            let registry = watchdog::current().filter(|r| r.generation() == armed_in);
-            if let (Some(registry), Some(key)) = (registry, self.timer_key(deadline, ended)) {
-                registry.remove(key);
+            if let Some(registry) = watchdog::current().filter(|r| r.generation() == armed_in) {
+                if let Some(key) = self.timer_key(deadline, ended) {
+                    registry.remove(key);
+                }
+                if watched {
+                    registry.unwatch_cancel(ended);
+                }
             }
         }
         self.deadline.store(DISARMED, Ordering::Relaxed);
@@ -170,12 +207,25 @@ impl LimitState {
     /// Raises the stop flag if call `seq` is still running. Called by the
     /// watchdog when that call's timer is due, and by the clock backstop.
     pub(crate) fn expire(&self, seq: u64) {
+        self.raise(seq, STOP_TIME);
+    }
+
+    /// Raises the stop flag if call `seq` is still running, because its
+    /// cancel flag is up. The watchdog calls this on every pass while the
+    /// flag stays up, so losing a race to [`expire`](Self::expire) only
+    /// delays it to the next pass.
+    pub(crate) fn cancel(&self, seq: u64) {
+        self.raise(seq, STOP_CANCEL);
+    }
+
+    /// Sets `bit` in the stop flag if call `seq` is still running.
+    fn raise(&self, seq: u64, bit: u32) {
         if self
             .call
             .compare_exchange(seq, seq | EXPIRING, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
-            self.stop.fetch_or(STOP_TIME, Ordering::Release);
+            self.stop.fetch_or(bit, Ordering::Release);
             // Only this thread changes `call` while EXPIRING is set.
             self.call.store(seq, Ordering::Release);
         }
@@ -189,6 +239,40 @@ impl LimitState {
     /// Whether the running call passed its deadline.
     pub(crate) fn timed_out(&self) -> bool {
         self.stop.load(Ordering::Acquire) & STOP_TIME != 0
+    }
+
+    /// Records a panic caught in a host function. Sticky like a refused
+    /// allocation: the engine stops the script at its next poll, and the end
+    /// of the call fails with it even if the script caught the exception.
+    pub(crate) fn note_panic(&self, message: String) {
+        *self.panic.lock().unwrap_or_else(PoisonError::into_inner) = Some(message);
+        self.stop.fetch_or(STOP_PANIC, Ordering::Release);
+    }
+
+    /// Whether a host function panicked in the running call.
+    pub(crate) fn panicked(&self) -> bool {
+        self.stop.load(Ordering::Acquire) & STOP_PANIC != 0
+    }
+
+    /// The panic [`note_panic`](Self::note_panic) recorded.
+    pub(crate) fn panic_message(&self) -> String {
+        self.panic
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .unwrap_or_default()
+    }
+
+    /// Whether the running call was cancelled.
+    pub(crate) fn cancelled(&self) -> bool {
+        self.stop.load(Ordering::Acquire) & STOP_CANCEL != 0
+    }
+
+    /// Objects the runtime's `JS_FreeRuntime` found still alive; zero
+    /// until it has run.
+    #[cfg(test)]
+    pub(crate) fn leaked_objects(&self) -> u32 {
+        self.leaked_objects.load(Ordering::Relaxed)
     }
 
     /// Bytes currently held by the engine.
@@ -237,11 +321,16 @@ impl LimitState {
         true
     }
 
-    /// The interrupt handler's answer: stop on a passed deadline, and stop at
-    /// once after an out-of-memory error so a script that catches it cannot
-    /// keep going.
+    /// The interrupt handler's answer: stop on a passed deadline or a
+    /// cancelled call, and stop at once after an out-of-memory error or a
+    /// host function's panic so a script that catches it cannot keep going.
     pub(crate) fn should_interrupt(&self) -> bool {
-        self.oom() || self.deadline_passed()
+        let stop = self.oom() || self.cancelled() || self.panicked() || self.deadline_passed();
+        #[cfg(any(test, feature = "test-hooks"))]
+        if stop {
+            crate::sandbox::test_hooks::note_stop_answer();
+        }
+        stop
     }
 
     fn elapsed_nanos(&self) -> u64 {
@@ -253,6 +342,12 @@ impl LimitState {
     fn refuse(&self) -> bool {
         self.stop.fetch_or(STOP_MEMORY, Ordering::Release);
         false
+    }
+
+    /// Fails the running call as if an allocation had been refused, for
+    /// memory the sandbox keeps outside the JavaScript heap.
+    pub(crate) fn exceed_memory(&self) {
+        self.refuse();
     }
 
     /// Reserves room for `extra` more bytes, or records an out-of-memory error.
@@ -291,6 +386,55 @@ pub(crate) struct LimitAllocator {
 impl LimitAllocator {
     pub(crate) fn new(state: Arc<LimitState>) -> Self {
         Self { state }
+    }
+}
+
+/// Runtimes freed with something left behind, the objects left and the
+/// bytes left; see [`teardown_leaks`].
+static LEAKY_RUNTIMES: AtomicU64 = AtomicU64::new(0);
+static LEAKED_OBJECTS: AtomicU64 = AtomicU64::new(0);
+static LEAKED_BYTES: AtomicU64 = AtomicU64::new(0);
+
+impl Drop for LimitAllocator {
+    /// rquickjs drops the allocator after `JS_FreeRuntime` has returned, so
+    /// the runtime's teardown is complete here: whatever it still holds, or
+    /// reported as leaked, it will never give back.
+    fn drop(&mut self) {
+        let objects = self.state.leaked_objects.load(Ordering::Relaxed);
+        let bytes = self.state.used();
+        if objects != 0 || bytes != 0 {
+            LEAKY_RUNTIMES.fetch_add(1, Ordering::Relaxed);
+            LEAKED_OBJECTS.fetch_add(u64::from(objects), Ordering::Relaxed);
+            LEAKED_BYTES.fetch_add(bytes as u64, Ordering::Relaxed);
+        }
+    }
+}
+
+/// What sandbox runtimes left behind when they were freed, summed over the
+/// process. All zero unless an engine error path leaked a reference.
+///
+/// Not public API (hidden from the docs; it may change in any release): a
+/// debug counter for surimono's soak and sweep tests. Leaked objects are
+/// otherwise invisible: the engine frees its small-block arenas whole, so
+/// the bytes come back, but the leak was real (review of #45).
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TeardownLeaks {
+    /// Runtimes freed with leaked objects or bytes.
+    pub runtimes: u64,
+    /// Objects still alive at `JS_FreeRuntime`.
+    pub objects: u64,
+    /// Bytes the engine never gave back (large blocks such objects owned).
+    pub bytes: u64,
+}
+
+/// Reads the process-wide [`TeardownLeaks`] counters.
+#[doc(hidden)]
+pub fn teardown_leaks() -> TeardownLeaks {
+    TeardownLeaks {
+        runtimes: LEAKY_RUNTIMES.load(Ordering::Relaxed),
+        objects: LEAKED_OBJECTS.load(Ordering::Relaxed),
+        bytes: LEAKED_BYTES.load(Ordering::Relaxed),
     }
 }
 
@@ -390,13 +534,18 @@ unsafe extern "C" {
     /// poll of `rt`'s contexts also loads `*flag` (atomically, relaxed) and
     /// calls the interrupt handler while it is nonzero.
     fn surimono_set_interrupt_flag(rt: *mut qjs::JSRuntime, flag: *mut u32);
+    /// Defined only by the patched QuickJS (patch 22, level 5):
+    /// `JS_FreeRuntime` stores in `*count` how many objects were still alive.
+    fn surimono_set_leak_count(rt: *mut qjs::JSRuntime, count: *mut u32);
 }
 
 /// Makes every interrupt poll of `ctx`'s runtime read `state`'s stop flag,
 /// so a passed deadline or a refused allocation stops the script at its
-/// next poll instead of up to 10,000 polls later.
+/// next poll instead of up to 10,000 polls later, and has `JS_FreeRuntime`
+/// report leaked objects to `state`.
 pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
     let flag = state.stop.as_ptr();
+    let leaks = state.leaked_objects.as_ptr();
     // SAFETY: `ctx` is a live context and we are inside `Context::with`, so
     // the runtime is locked; the call only writes the flag pointer into the
     // runtime and its contexts. The pointer stays valid as long as the
@@ -408,8 +557,38 @@ pub(crate) fn install_stop_flag(ctx: &Ctx<'_>, state: &Arc<LimitState>) {
     unsafe {
         let rt = qjs::JS_GetRuntime(ctx.as_raw().as_ptr());
         surimono_set_interrupt_flag(rt, flag);
+        // Same lifetime argument: `leaks` points into `state`, which
+        // outlives `JS_FreeRuntime`, the only writer. It writes once, on the
+        // thread freeing the runtime, and the allocator's `drop` reads it
+        // on that thread after `JS_FreeRuntime` returned.
+        surimono_set_leak_count(rt, leaks);
     }
 }
+
+/// Hands memory the C allocator keeps free back to the OS.
+///
+/// A freed JavaScript heap stays in glibc's arenas, in pieces its automatic
+/// trimming can't return, so a process keeps its peak after a concurrent burst.
+/// This is `malloc_trim(0)`, for the whole process: it walks every arena of
+/// the host too, so its cost grows with the host's heap, a few milliseconds
+/// in a small process and over 100 ms with a fragmented 1 GB heap, and a
+/// thread allocating on an arena can wait for all of that arena's walk. It
+/// changes no output. The island runner calls it when its workers have gone
+/// idle, not per render. Does nothing on other C libraries (musl, macOS).
+pub fn release_free_memory() {
+    // SAFETY: malloc_trim takes no pointers, keeps the heap valid and locks
+    // each arena it visits, so any thread may call it at any time.
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    unsafe {
+        libc::malloc_trim(0);
+    }
+}
+
+/// The lowest engine patch level the sandbox runs on: 6, the checks in
+/// `JS_NewObjectFromShape` and for destructured parameters (P1-RT-36) on
+/// top of level 5, the leak count at teardown (P1-RT-18) (see
+/// `vendor/rquickjs-sys/PATCHES.md`).
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 6;
 
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse
@@ -919,6 +1098,45 @@ mod tests {
     /// backstop) raises the flag only for the call whose sequence number it
     /// holds, and ending a call waits out a raise in progress.
     #[test]
+    fn a_watched_cancel_flag_raises_the_stop_flag_and_the_watch_ends_with_the_call() {
+        let state = LimitState::new(usize::MAX);
+        let flag = Arc::new(AtomicBool::new(false));
+        state.arm(Duration::from_secs(60)).unwrap();
+        state.watch_cancel(flag.clone()).unwrap();
+        let seq = state.call.load(Ordering::Acquire);
+        let registry = watchdog::current().unwrap();
+        assert!(registry.watching_cancel(seq));
+        std::thread::sleep(watchdog::CANCEL_POLL * 2);
+        assert!(!state.should_interrupt(), "the flag is down");
+
+        flag.store(true, Ordering::Release);
+        let until = Instant::now() + Duration::from_secs(10);
+        while !state.should_interrupt() {
+            assert!(Instant::now() < until, "the watchdog never saw the flag");
+            std::thread::yield_now();
+        }
+        assert!(state.cancelled());
+        assert!(!state.timed_out());
+
+        state.disarm();
+        assert!(!registry.watching_cancel(seq));
+        assert!(!state.cancelled(), "disarm clears the stop flag");
+    }
+
+    #[test]
+    fn a_stale_cancel_never_stops_the_next_call() {
+        let state = LimitState::new(usize::MAX);
+        state.arm(Duration::from_secs(60)).unwrap();
+        let old = state.call.load(Ordering::Acquire);
+        state.disarm();
+        state.arm(Duration::from_secs(60)).unwrap();
+        state.cancel(old);
+        assert!(!state.cancelled());
+        assert!(!state.should_interrupt());
+        state.disarm();
+    }
+
+    #[test]
     fn a_stale_expiry_never_stops_the_next_call() {
         let state = LimitState::new(usize::MAX);
         state.arm(Duration::from_secs(60)).unwrap();
@@ -1313,9 +1531,57 @@ mod tests {
         });
     }
 
+    /// Review of #45: an object leaked on some error path used to vanish
+    /// with the arenas at teardown, uncounted. A reference leaked on
+    /// purpose (a forgotten `Value`) now shows in the counters, and a large
+    /// block it owned in the bytes.
+    #[test]
+    fn teardown_counts_leaked_objects() {
+        let before = teardown_leaks();
+        let state = LimitState::new(usize::MAX);
+        {
+            let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone())).unwrap();
+            let ctx = Context::full(&rt).unwrap();
+            ctx.with(|ctx| {
+                install_stop_flag(&ctx, &state);
+                let v: Value<'_> = ctx.eval("({ big: new ArrayBuffer(1 << 20) })").unwrap();
+                // The leak under test: a reference never released.
+                #[allow(clippy::mem_forget)]
+                std::mem::forget(v);
+            });
+        }
+        // The object and its buffer, at least (the forgotten handle also
+        // pins the context).
+        assert!(state.leaked_objects() >= 2, "{}", state.leaked_objects());
+        assert!(state.used() >= 1 << 20, "{}", state.used());
+        let after = teardown_leaks();
+        assert!(after.runtimes > before.runtimes, "{before:?} {after:?}");
+        assert!(after.objects >= before.objects + 2, "{before:?} {after:?}");
+        assert!(
+            after.bytes >= before.bytes + (1 << 20),
+            "{before:?} {after:?}"
+        );
+    }
+
+    #[test]
+    fn a_clean_teardown_leaks_nothing() {
+        let state = LimitState::new(usize::MAX);
+        {
+            let rt = Runtime::new_with_alloc(LimitAllocator::new(state.clone())).unwrap();
+            let ctx = Context::full(&rt).unwrap();
+            ctx.with(|ctx| {
+                install_stop_flag(&ctx, &state);
+                let _: Value<'_> = ctx
+                    .eval("globalThis.c = { self: null, b: new ArrayBuffer(1 << 20) }; c.self = c")
+                    .unwrap();
+            });
+        }
+        assert_eq!((state.leaked_objects(), state.used()), (0, 0));
+    }
+
     #[test]
     fn the_engine_is_patched() {
-        assert!(patch_level() >= 2);
+        assert!(patch_level() >= REQUIRED_PATCH_LEVEL);
     }
 
     /// Also the regression test for `stack_pointer`: under AddressSanitizer

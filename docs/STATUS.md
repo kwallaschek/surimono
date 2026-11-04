@@ -5,16 +5,35 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Sun 1 Nov 2026, 14:40)
+## Now (Wed 4 Nov 2026, 13:05)
 
-**Phase 1: islands. Checkpoint 2 is today about 18:00 JST.** Scheduled resume
-cse_011c8hfoBxyki5Uo3FJx7LZe (from 12:17) merged, each on green ci/linux plus a fresh reviewer's
-APPROVE: #72 (RT-35 macOS preload flake), #73 + #77 (RT-27 ASan time scale, LSan-reachable test
-leaks), #74 (DOM-03 webidl follow-ups), #75 + #79 (BUILTIN_RENDERERS, facade re-export), #76 (PKG-01d
-publish-results hardening), #78 (GFX-06 stylo thread-local leak in a gfx test). main 0eb1e4ee:
-full.yml all green except asan (still running at 14:30; first run with #73/#77). #38 merged main in
-(head 5d5182d2), dry-run evidence posted (only the engine-distribution blocker fails).
-Earlier sessions: see git log; cse_011c8hfq5ufjN5m2pZpZysXx ran 04:16–09:10.
+**Checkpoint 2 signed off by Kay at 12:57** (all questions approved; see DECISIONS). The live session
+(cse_011c8hfp9aeYhQp5RpWyywaN) took the fleet back at 12:58. **Merge freeze until main's full.yml is
+green**: linux-extra-asan reports a 1.1 MB leak at exit of the core lib tests (P1-RT-42) and test-macos-14
+has timing flakes (P1-RT-43); P1-PKG-17 symbolizes ASan traces in CI. Then: v0.1 release (#38: main merged
+in, dry-run, fresh review, merge; Kay tags/publishes), then phase 2 starting with MSRV 1.89.
+
+## Earlier (Wed 4 Nov 2026, 04:40)
+
+Session cse_011c8hfnWG3Q5HtHFaa21vge resumed the fleet after 55 h with no heartbeat. No reply from Kay
+to checkpoint 2 visible here (no comments or reviews from him on #38). #82 (P1-DOM-04) and #83 (P1-RT-29)
+were merged on Sun evening. main adfe71a7: 13 of 14 full.yml jobs green; asan red (P1-DOM-05, a test's
+2 s limit); reference red (P1-CF-30, no browser). Phase-2 internal scaffolding starts now under the
+DECISIONS 2026-11-04 rule; nothing public until sign-off. macos-14 still ran on 2 Nov.
+
+## Earlier (Sun 1 Nov 2026, 16:00)
+
+**Phase 1: islands. Checkpoint 2 message sent to Kay at 15:58 JST** (SendUserMessage + push), in session
+cse_011c8hfoBxyki5Uo3FJx7LZe. Waiting for his 5 answers: (1) engine distribution (recommend gem + CLI
+v0.1, Rust crates held), (2) memory target: a) ≥5× PSS or b) keep 10× + COMPAT gap, (3) MSRV 1.89 at
+phase 2, (4) outline labels default OK, (5) publish v0.1? Also asked him to copy docs/ci/*.yml into
+.github/workflows before macos-14 retires on 2 Nov. The message covers today's 20:00 digest.
+
+This session merged (each on green ci/linux + a fresh reviewer's APPROVE): #72 (RT-35 macOS preload
+flake), #73 + #77 (RT-27 ASan time scale), #74 (DOM-03), #75 + #79 (BUILTIN_RENDERERS), #76 (PKG-01d),
+#78 (GFX-06 stylo thread-local leak in a test), #81 (RT-23 regexp per-match polls, engine patch level 4),
+#80 (DOM-02 id-handle spike, internal; first review blocked, fixed). main abd31b70: full.yml all 14 jobs
+green incl. asan and macos-14. #38 head f0d7091f has main up to abd31b70 (not #80/#81).
 
 ### Checkpoint 2 evidence (all on main)
 - Fixtures: fixtures/checkpoint-2/index.md (+ NOTES.md). Gate 12/12 islands pass; 34/35 comparisons
@@ -39,22 +58,26 @@ Earlier sessions: see git log; cse_011c8hfq5ufjN5m2pZpZysXx ran 04:16–09:10.
 ### Open PRs
 | PR | Task | State |
 |---|---|---|
-| #38 | v0.1 release PR | merge main in, re-run dry-run; merge only with Kay's OK |
+| #38 | v0.1 release PR | waits for Kay; merge main in again (gets #81) before any merge |
+| #84 | P1-RT-18 | ci/linux green, in review |
 
 ### Blocked / waiting on Kay
-- Nothing until checkpoint 2.
+- Checkpoint 2 answers (above). Don't merge #38 or any phase-2 public API without them.
 
 ### Next (in order; a resumed session starts here)
-1. Check main's full.yml on the latest main commit (macos-14 and asan jobs were "cancelled" on recent
-   runs — find out whether that is timeout or concurrency; asan is known red until P1-RT-27).
-2. PKG: merge main into release/v0.1.0 (#38), re-run scripts/ci/release-dry-run.sh, post evidence.
-3. ~16:00–18:00 JST: checkpoint 2 message to Kay (SendUserMessage + PushNotification): the evidence
-   above with links to fixtures/checkpoint-2/index.md, the bench summary, COMPAT.md, #38; the Kay
-   decisions; exact steps and time needed. Then wait for his OK; ask whether to publish v0.1.
-4. ~20:00 JST: Sunday digest (five lines) if checkpoint 2 hasn't covered it.
-5. Meanwhile (no checkpoint can change these): P1-RT-27 (ASan time scale), P1-RT-25 (gem RSS after
-   burst), P1-RT-21 (cancel inside an island), P1-RT-23/29 (regex polls), P1-RT-34, P1-DOM-03,
-   P1-DOM-02 (id handles spike), P1-PKG-01d, P1-RT-20 (quickjs-ng public issue drafts).
+1. Look for Kay's checkpoint-2 reply (this session's conversation; if a resumed session can't see it,
+   check PR #38 comments). Record his answers as DECISIONS lines (sign-off of checkpoint 2) and act:
+   rename nothing; if he says publish, PKG merges main into release/v0.1.0, re-runs the dry-run, and
+   the orchestrator merges #38 on green + fresh review; Kay tags/publishes himself. Apply (2) to
+   SPEC.md/COMPAT.md. If no reply yet, don't ask again; keep working on 2.
+2. Meanwhile (no checkpoint can change these): P1-RT-29 (test-only stop-vs-cleanup hook), P1-RT-25 (gem
+   RSS after burst), P1-RT-21 (cancel inside an island), P1-RT-18, P1-DOM-04 (#80 nits), P1-PKG-17
+   (ASan symbolizer), P1-RT-20 (quickjs-ng drafts), P1-CF COMPAT row for blitz comment data / serializer.
+3. After checkpoint-2 sign-off: phase 2 kickoff — MSRV 1.89 task first (full rebuild), then break
+   phase-2 epics into tasks in TASKS.md.
+4. Run reviewers/ci.sh staggered: concurrent ci.sh runs in the shared target dir give spurious
+   failures (permission denied / E0460). Reviewers rely on GitHub ci/linux + targeted local tests.
+5. Each push to main cancels the running full.yml (concurrency); batch docs commits.
 
 ### Disk
 When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh`.

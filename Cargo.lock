@@ -1820,6 +1820,7 @@ dependencies = [
  "libc",
  "rquickjs",
  "sha2",
+ "surimono-core",
  "thiserror",
 ]
 
@@ -1830,7 +1831,9 @@ dependencies = [
  "blitz-dom",
  "blitz-html",
  "blitz-traits",
+ "stats_alloc",
  "surimono-core",
+ "thiserror",
 ]
 
 [[package]]
