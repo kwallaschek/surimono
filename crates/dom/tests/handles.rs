@@ -2,16 +2,19 @@
 //! the result back in Rust. Expected DOM behaviour is from the DOM Standard
 //! (https://dom.spec.whatwg.org/), sections cited per test.
 
+mod common;
+
 use std::time::Duration;
 
-use surimono_core::{Limits, SandboxError};
+use common::{limits, scaled};
+use surimono_core::SandboxError;
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
 const PAGE: &str = r#"<!doctype html><html><head><title>t</title></head>
 <body><div id="chart"><span id="label">Sales</span> 2026</div><p id="p">x</p></body></html>"#;
 
 fn runtime_with(html: &str) -> DomRuntime {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     assert!(rt.load(Document::parse(html).unwrap()).is_none());
     rt
 }
@@ -126,7 +129,12 @@ fn wrapper_from_a_previous_document_is_stale() {
         .eval("globalThis.old = document.getElementById('chart')")
         .unwrap();
     let old = rt
-        .load(Document::parse(r#"<html><body><div id="chart">new</div></body></html>"#).unwrap())
+        .load(
+            Document::parse(
+                r#"<!doctype html><html><body><div id="chart">new</div></body></html>"#,
+            )
+            .unwrap(),
+        )
         .unwrap();
     // The old document's #chart is node-for-node where the new one's is.
     let r = rt.eval::<String>("old.textContent");
@@ -207,7 +215,7 @@ fn create_and_append() {
 
 #[test]
 fn node_and_depth_limits_are_typed_errors() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(
         Document::parse_with_limits(
             PAGE,
@@ -243,9 +251,9 @@ fn node_and_depth_limits_are_typed_errors() {
 #[test]
 fn sandbox_limits_apply_and_bindings_survive_a_rebuild() {
     let mut rt = DomRuntime::new(
-        Limits::default()
+        limits()
             .with_memory_bytes(8 * 1024 * 1024)
-            .with_time(Duration::from_millis(200)),
+            .with_time(scaled(Duration::from_millis(200))),
     )
     .unwrap();
     rt.load(Document::parse(PAGE).unwrap());
@@ -273,7 +281,7 @@ fn sandbox_limits_apply_and_bindings_survive_a_rebuild() {
 
 #[test]
 fn no_document_loaded() {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(limits()).unwrap();
     assert_eq!(rt.eval::<bool>("document === null"), Ok(true));
     assert!(rt.take().is_none());
 }

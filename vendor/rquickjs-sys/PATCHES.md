@@ -7,7 +7,8 @@ code is listed here and marked `surimono:` in the source. Drafts for
 upstream are in `docs/upstream/quickjs-ng-sticky-interrupt-and-native-loop-polls.md`
 and `docs/upstream/quickjs-ng-interrupt-granularity.md`; the regexp
 per-match polls (patches 19 and 20) are in
-`docs/upstream/quickjs-ng-regexp-replace-polls.md`.
+`docs/upstream/quickjs-ng-regexp-replace-polls.md`; the rest are in
+`docs/upstream/quickjs-ng/`.
 
 ## Removed (not needed to build)
 
@@ -1069,4 +1070,63 @@ the soak tests in `crates/islands/tests/soak.rs`.
  }
  
  /* surimono: with enabled = 0, every later allocation of this runtime goes
+```
+
+## Two more failure paths (P1-RT-36)
+
+Found while writing the quickjs-ng issue drafts (P1-RT-20): a harness that
+refuses each allocation of a script, run on the vendored engine, without
+this sandbox's stop flag around it. Drafts:
+`docs/upstream/quickjs-ng/07-add-arg-unchecked.md` and
+`08-array-add-property.md`. With patches 1 to 23, patch level 6.
+
+24. **`JS_NewObjectFromShape` checks the array's `length` property.** A
+    comment said `add_property` there "cannot fail" and only ran for the first
+    array. Any `new.target` reaches it: when the prototype's empty shape is
+    shared, `add_property` clones it, and a refused clone left `pr` NULL. A
+    one-line script crashed the process through the public API:
+    `class A extends Array {}` in a loop with `Object.create(A.prototype)` and
+    `new A()` under an 8 MiB limit, 5 of 380 pad sizes (47 of 380 on
+    quickjs-ng master). The object isn't on the GC list yet, so the check
+    frees it by hand.
+25. **Unnamed destructured parameters check `add_arg`.** -1 went into the
+    bytecode as `OP_get_arg 0xffff`, a read of the C stack about 1 MiB past the
+    frame when the function ran. In the sandbox the refused allocation's
+    stop flag ends the script at the call's own poll, so this one was not
+    reachable here; the engine shouldn't depend on that.
+26. **`surimono_quickjs_patch_level()` returns 6**, and surimono-core
+    requires 6, which also refuses bytecode cached by an older engine.
+
+Tests: `SYNTAX_SCRIPT` in `crates/core/src/sandbox.rs` now builds such an
+array, so `out_of_memory_never_aborts` refuses that allocation.
+
+### Diff of patches 24 and 25 (on top of patches 1 to 23)
+
+```diff
+--- a/quickjs/quickjs.c (with patches 1 to 23)
++++ b/quickjs/quickjs.c
+@@ JS_NewObjectFromShape
+-                    /* only used for the first array */
+-                    /* cannot fail */
++                    /* surimono: not only the first array: any Array subclass
++                       or other new.target lands here. When the prototype's
++                       empty shape is shared, add_property clones it, which
++                       can fail: `new A()` crashed on a NULL `pr` under a
++                       memory limit. p isn't on the GC list yet. */
+                     pr = add_property(ctx, p, JS_ATOM_length,
+                                       JS_PROP_WRITABLE | JS_PROP_LENGTH);
++                    if (unlikely(!pr)) {
++                        js_free_shape(ctx->rt, p->shape);
++                        js_free(ctx, p->prop);
++                        js_free(ctx, p);
++                        return JS_EXCEPTION;
++                    }
+                 }
+@@ js_parse_function_decl2
+                     idx = add_arg(ctx, fd, JS_ATOM_NULL);
++                    /* surimono: -1 would become OP_get_arg 0xffff, a read
++                       about 1 MiB past the frame when the function runs. */
++                    if (idx < 0)
++                        goto fail;
+                     emit_op(s, OP_get_arg);
 ```

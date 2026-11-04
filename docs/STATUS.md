@@ -5,7 +5,15 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Wed 4 Nov 2026, 04:40)
+## Now (Wed 4 Nov 2026, 13:05)
+
+**Checkpoint 2 signed off by Kay at 12:57** (all questions approved; see DECISIONS). The live session
+(cse_011c8hfp9aeYhQp5RpWyywaN) took the fleet back at 12:58. **Merge freeze until main's full.yml is
+green**: linux-extra-asan reports a 1.1 MB leak at exit of the core lib tests (P1-RT-42) and test-macos-14
+has timing flakes (P1-RT-43); P1-PKG-17 symbolizes ASan traces in CI. Then: v0.1 release (#38: main merged
+in, dry-run, fresh review, merge; Kay tags/publishes), then phase 2 starting with MSRV 1.89.
+
+## Earlier (Wed 4 Nov 2026, 04:40)
 
 Session cse_011c8hfnWG3Q5HtHFaa21vge resumed the fleet after 55 h with no heartbeat. No reply from Kay
 to checkpoint 2 visible here (no comments or reviews from him on #38). #82 (P1-DOM-04) and #83 (P1-RT-29)

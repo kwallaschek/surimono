@@ -12,10 +12,11 @@
 //! soaks (`scripts/ci/soak.sh`: `--ignored soak`); a 300-render version
 //! runs with the ordinary tests.
 
+mod common;
+
 use std::alloc::System;
 
 use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
-use surimono_core::Limits;
 use surimono_dom::{Document, DomError, DomRuntime};
 
 #[global_allocator]
@@ -107,7 +108,7 @@ fn render(rt: &mut DomRuntime, i: usize) {
 }
 
 fn run_soak(name: &str, renders: usize, sample_every: usize, warm_up: usize) {
-    let mut rt = DomRuntime::new(Limits::default()).unwrap();
+    let mut rt = DomRuntime::new(common::limits()).unwrap();
     let start_rss = rss_kib();
     let started = std::time::Instant::now();
     let mut samples = Vec::new();

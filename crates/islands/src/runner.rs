@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
@@ -126,6 +126,11 @@ impl Bundle {
     }
 }
 
+/// Least time between two trims while some worker still holds a runtime. A
+/// trim covers the whole process, so workers that go idle one after another
+/// share one; the last of them always trims.
+const TRIM_MIN_GAP: Duration = Duration::from_secs(10);
+
 /// How often a cancellable render looks at the caller's flag.
 const CANCEL_POLL: Duration = Duration::from_millis(5);
 
@@ -178,6 +183,12 @@ struct Shared {
     preloaded_renders: AtomicU64,
     /// Workers holding a JavaScript runtime right now.
     runtimes: AtomicUsize,
+    /// When this runner was started; the origin of `last_trim_ms`.
+    started: Instant,
+    /// Milliseconds from `started` to the last trim.
+    last_trim_ms: AtomicU64,
+    /// Trims so far.
+    trims: AtomicU64,
     /// Most worker threads.
     pool_size: usize,
     /// Stack size of each worker thread.
@@ -472,6 +483,9 @@ pub struct RunnerStats {
     /// Workers holding a JavaScript runtime right now. A worker frees its
     /// runtime after [`RunnerOptions::release_idle_after`] without work.
     pub runtimes: usize,
+    /// Not public API: how often the workers trimmed the allocator.
+    #[doc(hidden)]
+    pub memory_trims: u64,
 }
 
 /// Renders islands: JavaScript bundles that turn a JSON spec into an SVG
@@ -621,6 +635,9 @@ impl IslandRunner {
             failed_renders: AtomicU64::new(0),
             preloaded_renders: AtomicU64::new(0),
             runtimes: AtomicUsize::new(0),
+            started: Instant::now(),
+            last_trim_ms: AtomicU64::new(0),
+            trims: AtomicU64::new(0),
             pool_size,
             stack_size,
             workers: Mutex::new(Vec::with_capacity(pool_size)),
@@ -913,6 +930,7 @@ impl IslandRunner {
                 renders: self.shared.renders.load(Ordering::Relaxed),
                 failed_renders: self.shared.failed_renders.load(Ordering::Relaxed),
                 preloaded_renders: self.shared.preloaded_renders.load(Ordering::Relaxed),
+                memory_trims: self.shared.trims.load(Ordering::Relaxed),
                 ..RunnerStats::default()
             };
         }
@@ -927,6 +945,7 @@ impl IslandRunner {
             idle_workers,
             workers,
             runtimes: self.shared.runtimes.load(Ordering::Relaxed),
+            memory_trims: self.shared.trims.load(Ordering::Relaxed),
         }
     }
 
@@ -1161,11 +1180,21 @@ impl Worker {
 
     /// Frees the runtime of a worker that has been idle for a while; the
     /// next job starts a new one. The allocator would keep the runtime's
-    /// pages; this happens at most once per idle spell, so the few
-    /// milliseconds of trimming fall when nothing is waiting on this worker.
+    /// pages, so the last worker to go idle hands them back to the OS. While
+    /// others still hold a runtime (one render at a time keeps a worker
+    /// busy), a worker trims only every [`TRIM_MIN_GAP`].
     fn release(&mut self) {
         self.drop_sandbox();
-        surimono_core::release_free_memory();
+        let shared = &self.shared;
+        let now = u64::try_from(shared.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let last = shared.last_trim_ms.load(Ordering::Relaxed);
+        let all_idle = shared.runtimes.load(Ordering::Relaxed) == 0;
+        let gap = u64::try_from(TRIM_MIN_GAP.as_millis()).unwrap_or(u64::MAX);
+        if all_idle || now.saturating_sub(last) >= gap {
+            shared.last_trim_ms.store(now, Ordering::Relaxed);
+            shared.trims.fetch_add(1, Ordering::Relaxed);
+            surimono_core::release_free_memory();
+        }
     }
 
     /// Gives the sandbox a fresh context for the next job, freeing this
@@ -1311,6 +1340,13 @@ impl Worker {
                 renderer: bundle.name.clone(),
             });
         }
+        let outcome = outcome.map_err(|e| match e {
+            // As when a panic reaches the worker's guard.
+            SandboxError::HostPanic { message } => IslandError::Worker {
+                message: format!("panicked: {message}"),
+            },
+            other => other.into(),
+        });
         outcome?.map_err(|found| IslandError::NotAString {
             renderer: bundle.name.clone(),
             found,
@@ -1395,26 +1431,28 @@ fn measure_function<'js>(
                     "measureText: the render has to stop",
                 ));
             }
-            let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
-            let m = measurer.measure(&text.0, &font).map_err(|e| {
-                let msg = match e {
-                    MeasureError::NoFonts => {
-                        no_fonts.store(true, Ordering::Relaxed);
-                        "no fonts were given to measure text with".to_owned()
-                    }
-                    MeasureError::Other(msg) => msg,
-                };
-                Exception::throw_type(&ctx, &format!("measureText: {msg}"))
-            })?;
-            let o = Object::new(ctx)?;
-            o.set("width", m.width)?;
-            o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;
-            o.set("actualBoundingBoxRight", m.actual_bounding_box_right)?;
-            o.set("actualBoundingBoxAscent", m.actual_bounding_box_ascent)?;
-            o.set("actualBoundingBoxDescent", m.actual_bounding_box_descent)?;
-            o.set("fontBoundingBoxAscent", m.font_bounding_box_ascent)?;
-            o.set("fontBoundingBoxDescent", m.font_bounding_box_descent)?;
-            Ok(o)
+            deadline.guard(&ctx.clone(), || {
+                let font = font.0.map_or_else(|| "10px sans-serif".to_owned(), |f| f.0);
+                let m = measurer.measure(&text.0, &font).map_err(|e| {
+                    let msg = match e {
+                        MeasureError::NoFonts => {
+                            no_fonts.store(true, Ordering::Relaxed);
+                            "no fonts were given to measure text with".to_owned()
+                        }
+                        MeasureError::Other(msg) => msg,
+                    };
+                    Exception::throw_type(&ctx, &format!("measureText: {msg}"))
+                })?;
+                let o = Object::new(ctx)?;
+                o.set("width", m.width)?;
+                o.set("actualBoundingBoxLeft", m.actual_bounding_box_left)?;
+                o.set("actualBoundingBoxRight", m.actual_bounding_box_right)?;
+                o.set("actualBoundingBoxAscent", m.actual_bounding_box_ascent)?;
+                o.set("actualBoundingBoxDescent", m.actual_bounding_box_descent)?;
+                o.set("fontBoundingBoxAscent", m.font_bounding_box_ascent)?;
+                o.set("fontBoundingBoxDescent", m.font_bounding_box_descent)?;
+                Ok(o)
+            })
         },
     )?
     .with_name("measureText")
@@ -1477,7 +1515,19 @@ mod tests {
 
     #[test]
     fn a_job_cancelled_in_the_queue_keeps_the_preload() {
-        let r = echo_runner(1);
+        // No idle release: a stalled test must not drop the preload (#72).
+        let r = IslandRunner::start(
+            RunnerOptions {
+                pool_size: 1,
+                release_idle_after: None,
+                ..RunnerOptions::default()
+            },
+            Measure::Estimate,
+        )
+        .unwrap();
+        r.register_bundle("echo", "function entry(s) { return s }", "entry")
+            .unwrap();
+        let r = Arc::new(r);
         echo(&r, 1).unwrap();
         wait_idle(&r);
         let preloads = r.shared.preloads.load(Ordering::Relaxed);
@@ -1496,6 +1546,33 @@ mod tests {
         assert_eq!(r.shared.preloads.load(Ordering::Relaxed), preloads);
         assert_eq!(echo(&r, 3).unwrap(), "3");
         assert!(r.stats().preloaded_renders > 0);
+    }
+
+    #[test]
+    fn a_script_cannot_swallow_a_measurer_panic() {
+        let r = runner_with_odd_measurer();
+        r.register_bundle(
+            "swallow",
+            "function entry(s, ctx) {
+               try { ctx.measureText('boom') } catch (e) {}
+               return 'carried on'
+             }",
+            "entry",
+        )
+        .unwrap();
+        let out = r.render(&IslandRequest {
+            renderer: "swallow",
+            spec_json: "{}",
+            width: 1,
+            height: 1,
+        });
+        match out.unwrap_err() {
+            IslandError::Worker { message } => {
+                assert!(message.contains("measurer exploded"), "{message}")
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(measure(&r, "abcd").unwrap(), "4");
     }
 
     #[test]
