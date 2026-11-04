@@ -5,6 +5,8 @@
 
 use blitz_dom::{LocalName, NodeData, QualName, ns};
 use html5ever::{Namespace, Prefix};
+use selectors::parser::{Component, Selector};
+use style::selector_parser::SelectorImpl;
 use surimono_webidl::runtime::{BindingError, BindingResult, Value};
 
 use crate::document::{Kind, is_valid_attribute_name, is_valid_element_name};
@@ -17,6 +19,17 @@ const XMLNS: &str = "http://www.w3.org/2000/xmlns/";
 
 /// Deepest bracket nesting accepted in a selector.
 const MAX_SELECTOR_NESTING: usize = 32;
+
+/// Longest selector a query takes. The parser can't be stopped, and holds a
+/// few dozen bytes per selector in a comma list, in Rust. No real selector
+/// is close; a longer one is a `SyntaxError` (a gap, see DESIGN.md).
+const MAX_SELECTOR_BYTES: usize = 128 * 1024;
+
+/// Most combinators on any path through a selector, nested ones included:
+/// the matcher recurses once per combinator, on the stack. Real selectors
+/// have a dozen. Fits the stack with [`MAX_SELECTOR_NESTING`] levels on a
+/// 1 MiB thread (`tests/hostile.rs`).
+const MAX_SELECTOR_COMBINATORS: usize = 128;
 
 pub(crate) fn dom_error(name: &'static str, message: &str) -> BindingError {
     BindingError::DomException {
@@ -179,7 +192,14 @@ impl Document {
 
     /// Selectors nest in brackets; the parser and the matcher recurse per
     /// level. Refused here so that no script can reach the stack's end.
-    fn check_selector_depth(selectors: &str) -> BindingResult<()> {
+    /// Brackets in strings count, on purpose: telling them apart needs the
+    /// CSS tokenizer's every rule (a `"` in an unquoted `url(` starts no
+    /// string, and `:is()` recovers from that token), and a wrong guess here
+    /// would let real nesting through. See "Deviations and gaps" in DESIGN.md.
+    fn check_selector_text(selectors: &str) -> BindingResult<()> {
+        if selectors.len() > MAX_SELECTOR_BYTES {
+            return Err(dom_error("SyntaxError", "the selector is too long"));
+        }
         let mut depth = 0usize;
         for b in selectors.bytes() {
             match b {
@@ -197,10 +217,15 @@ impl Document {
     fn parse_selectors(
         &self,
         selectors: &str,
-    ) -> BindingResult<selectors::SelectorList<style::selector_parser::SelectorImpl>> {
-        Self::check_selector_depth(selectors)?;
-        self.selector_list(selectors)
-            .ok_or_else(|| dom_error("SyntaxError", "the selector is not valid"))
+    ) -> BindingResult<selectors::SelectorList<SelectorImpl>> {
+        Self::check_selector_text(selectors)?;
+        let list = self
+            .selector_list(selectors)
+            .ok_or_else(|| dom_error("SyntaxError", "the selector is not valid"))?;
+        if combinator_depth(list.slice()) > MAX_SELECTOR_COMBINATORS {
+            return Err(dom_error("SyntaxError", "the selector is too complex"));
+        }
+        Ok(list)
     }
 
     fn matcher(&self) -> Matcher {
@@ -220,10 +245,11 @@ impl Document {
         let mut matcher = self.matcher();
         let mut out = Vec::new();
         let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
+        // A document has no scope element; a fragment should be one, a gap
+        // in DESIGN.md.
+        let scope = (self.kind(top) == Some(Kind::Element)).then(|| self.node(top));
         while let Some(n) = stack.pop() {
-            if self.kind(n) == Some(Kind::Element)
-                && matcher.matches(self.node(n), self.node(top), &list)
-            {
+            if self.kind(n) == Some(Kind::Element) && matcher.matches(self.node(n), scope, &list) {
                 out.push(n);
                 if first_only {
                     break;
@@ -241,7 +267,7 @@ impl Document {
         let list = self.parse_selectors(selectors)?;
         let mut matcher = self.matcher();
         let node = self.node(id);
-        let found = matcher.matches(node, node, &list);
+        let found = matcher.matches(node, Some(node), &list);
         if matcher.stopped() {
             return Err(timed_out());
         }
@@ -259,7 +285,7 @@ impl Document {
         let mut at = Some(id);
         while let Some(n) = at {
             if self.kind(n) == Some(Kind::Element)
-                && matcher.matches(self.node(n), self.node(id), &list)
+                && matcher.matches(self.node(n), Some(self.node(id)), &list)
             {
                 return Ok(Some(n));
             }
@@ -762,6 +788,39 @@ impl Document {
         }
         Ok(true)
     }
+}
+
+/// The most combinators on one path through `list`: a selector's own, plus
+/// the worst list nested in it. Recursion is bounded by
+/// [`MAX_SELECTOR_NESTING`], checked first.
+fn combinator_depth(list: &[Selector<SelectorImpl>]) -> usize {
+    list.iter().map(selector_combinators).max().unwrap_or(0)
+}
+
+fn selector_combinators(selector: &Selector<SelectorImpl>) -> usize {
+    let mut own = 0;
+    let mut nested = 0;
+    for c in selector.iter_raw_match_order() {
+        let inner = match c {
+            Component::Combinator(_) => {
+                own += 1;
+                0
+            }
+            Component::Negation(l) | Component::Is(l) | Component::Where(l) => {
+                combinator_depth(l.slice())
+            }
+            Component::NthOf(d) => combinator_depth(d.selectors()),
+            Component::Has(r) => r
+                .iter()
+                .map(|s| selector_combinators(&s.selector))
+                .max()
+                .unwrap_or(0),
+            Component::Slotted(s) | Component::Host(Some(s)) => selector_combinators(s),
+            _ => 0,
+        };
+        nested = usize::max(nested, inner);
+    }
+    own + nested
 }
 
 /// The sandbox stops the script at its next check, so this is what the

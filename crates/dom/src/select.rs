@@ -1,26 +1,35 @@
 //! Selector matching that a time limit can stop.
 //!
 //! One selector match can take far longer than one script instruction:
-//! sibling combinators and `:has()` inside `:not()` make a single element's
-//! match polynomial in a wide tree's size, in a call the sandbox can't
+//! sibling combinators inside `:not()` make a single element's match
+//! polynomial in a wide tree's size, in a call the sandbox can't
 //! interrupt. So every element goes through [`Guarded`], which delegates to
-//! blitz-dom's `selectors::Element` for `&Node` and counts navigation steps;
-//! once the deadline passes each step answers "no such element", the match
-//! ends quickly, and [`Matcher::stopped`] tells the caller.
+//! blitz-dom's `selectors::Element` for `&Node` and charges a clock for the
+//! work, not only for navigation: each element's match for the selector
+//! list's length, each sibling scanned, each child `:empty` reads, and each
+//! attribute test for what it reads. Once the deadline passes each step
+//! answers "no such element" or "no match", the match ends quickly, and
+//! [`Matcher::stopped`] tells the caller.
+//!
+//! Blitz's own sibling lookups find the node's index by a scan per step, so
+//! they aren't used: [`Budget::index_in`] searches out from the last index it
+//! found, which costs little in tree order and is charged in any order.
 //!
 //! Stopping mid-way can leave a wrong count in the nth-child cache, which is
 //! fine: the query fails. In debug builds only, a `debug_assert` in
 //! `selectors` recounts and can then panic, if the stop falls inside an
 //! nth-child count. Release builds don't have that assertion.
 //!
-//! The same wrapper corrects three answers: a fragment isn't a parent
+//! The same wrapper corrects four answers: a fragment isn't a parent
 //! element, `:root` is only the document's element (blitz-dom says yes for
-//! any tree's second level), and comments don't stop `:empty`.
+//! any tree's second level), comments and empty text don't stop `:empty`,
+//! and only HTML elements are matched case-insensitively (blitz-dom says
+//! every element is one, so `linearGradient` could never match).
 
 use std::cell::Cell;
 use std::ptr::NonNull;
 
-use blitz_dom::{Node, NodeData};
+use blitz_dom::{Node, NodeData, local_name, ns};
 use selectors::attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint};
 use selectors::bloom::BloomFilter;
 use selectors::matching::{
@@ -34,28 +43,62 @@ use surimono_core::Deadline;
 
 use crate::document::is_fragment_name;
 
-/// Navigation steps between looks at the clock.
-const STEPS_PER_CHECK: u32 = 4096;
+/// Units of work between looks at the clock.
+const STEPS_PER_CHECK: usize = 4096;
 
 /// The clock shared by one query.
 struct Budget {
     deadline: Option<Deadline>,
-    steps: Cell<u32>,
+    steps: Cell<usize>,
     stopped: Cell<bool>,
+    /// Where [`index_in`](Self::index_in) last found a node.
+    hint: Cell<usize>,
 }
 
 impl Budget {
     /// Whether matching should give up; counts one step.
     fn over(&self) -> bool {
+        self.charge(1)
+    }
+
+    /// Whether matching should give up; counts `work` steps.
+    fn charge(&self, work: usize) -> bool {
         if self.stopped.get() {
             return true;
         }
-        let s = self.steps.get().wrapping_add(1);
-        self.steps.set(s);
-        if s % STEPS_PER_CHECK == 0 && self.deadline.as_ref().is_some_and(Deadline::passed) {
+        let steps = self.steps.get().saturating_add(work);
+        if steps < STEPS_PER_CHECK {
+            self.steps.set(steps);
+            return false;
+        }
+        self.steps.set(0);
+        if self.deadline.as_ref().is_some_and(Deadline::passed) {
             self.stopped.set(true);
         }
         self.stopped.get()
+    }
+
+    /// The index of `id` in `list`, searching outwards from the last index
+    /// found. `None` once stopped.
+    fn index_in(&self, list: &[usize], id: usize) -> Option<usize> {
+        let hint = self.hint.get().min(list.len().saturating_sub(1));
+        for distance in 0..list.len() {
+            if self.over() {
+                return None;
+            }
+            let above = hint + distance;
+            let below = hint.checked_sub(distance);
+            let found = if list.get(above) == Some(&id) {
+                Some(above)
+            } else {
+                below.filter(|&b| list[b] == id)
+            };
+            if let Some(at) = found {
+                self.hint.set(at);
+                return Some(at);
+            }
+        }
+        None
     }
 }
 
@@ -80,6 +123,34 @@ impl<'a> Guarded<'a> {
             node,
             budget: self.budget,
         })
+    }
+
+    /// The nearest element sibling, charging each node passed.
+    fn sibling_element(&self, forward: bool) -> Option<Self> {
+        let list = &self.node.with(self.node.parent?).children;
+        let mut at = self.budget.index_in(list, self.node.id)?;
+        loop {
+            if self.budget.over() {
+                return None;
+            }
+            at = if forward { at + 1 } else { at.checked_sub(1)? };
+            let node = self.node.with(*list.get(at)?);
+            if node.is_element() {
+                self.budget.hint.set(at);
+                return Some(Self {
+                    node,
+                    budget: self.budget,
+                });
+            }
+        }
+    }
+
+    /// Charges a test of attribute `value`, which costs a search of the
+    /// element's attributes and a read of the value. Whether to give up.
+    fn charge_attribute(&self, value: Option<&str>) -> bool {
+        let attributes = self.node.attrs().map_or(0, <[_]>::len);
+        self.budget
+            .charge(attributes + value.map_or(0, str::len) / 16)
     }
 }
 
@@ -117,19 +188,35 @@ impl Element for Guarded<'_> {
     }
 
     fn prev_sibling_element(&self) -> Option<Self> {
-        self.step(Element::prev_sibling_element(&self.node))
+        self.sibling_element(false)
     }
 
     fn next_sibling_element(&self) -> Option<Self> {
-        self.step(Element::next_sibling_element(&self.node))
+        self.sibling_element(true)
     }
 
     fn first_element_child(&self) -> Option<Self> {
-        self.step(Element::first_element_child(&self.node))
+        for &c in &self.node.children {
+            if self.budget.over() {
+                return None;
+            }
+            let node = self.node.with(c);
+            if node.is_element() {
+                return Some(Self {
+                    node,
+                    budget: self.budget,
+                });
+            }
+        }
+        None
     }
 
+    /// Selectors 4: names are ASCII case-insensitive only for HTML elements
+    /// in an HTML document, and every document here is an HTML one.
     fn is_html_element_in_html_document(&self) -> bool {
-        Element::is_html_element_in_html_document(&self.node)
+        self.node
+            .element_data()
+            .is_some_and(|e| e.name.ns == ns!(html))
     }
 
     fn has_local_name(&self, name: &<Impl as selectors::SelectorImpl>::BorrowedLocalName) -> bool {
@@ -150,6 +237,9 @@ impl Element for Guarded<'_> {
         local_name: &<Impl as selectors::SelectorImpl>::LocalName,
         operation: &AttrSelectorOperation<&<Impl as selectors::SelectorImpl>::AttrValue>,
     ) -> bool {
+        if self.charge_attribute(self.node.data.attr(local_name.0.clone())) {
+            return false;
+        }
         Element::attr_matches(&self.node, ns, local_name, operation)
     }
 
@@ -192,6 +282,9 @@ impl Element for Guarded<'_> {
         name: &<Impl as selectors::SelectorImpl>::Identifier,
         case_sensitivity: CaseSensitivity,
     ) -> bool {
+        if self.charge_attribute(self.node.data.attr(local_name!("class"))) {
+            return false;
+        }
         Element::has_class(&self.node, name, case_sensitivity)
     }
 
@@ -210,12 +303,22 @@ impl Element for Guarded<'_> {
         false
     }
 
-    /// Selectors 4 `:empty`: comments don't count.
+    /// `:empty`: no children but comments and empty text (Selectors 3, which
+    /// browsers follow; a `<style>`'s text is out of blitz-dom's reach, see
+    /// [`crate::parse`], and it counts as there).
     fn is_empty(&self) -> bool {
-        self.node
-            .children
-            .iter()
-            .all(|&c| matches!(self.node.with(c).data, NodeData::Comment))
+        let style = self
+            .node
+            .element_data()
+            .is_some_and(|e| e.name.local.as_ref() == "style");
+        self.node.children.iter().all(|&c| {
+            !self.budget.over()
+                && match &self.node.with(c).data {
+                    NodeData::Comment => true,
+                    NodeData::Text(t) => t.content.is_empty() && !style,
+                    _ => false,
+                }
+        })
     }
 
     /// Selectors 4 `:root`: the element whose parent is the document.
@@ -251,21 +354,31 @@ impl Matcher {
                 deadline,
                 steps: Cell::new(0),
                 stopped: Cell::new(false),
+                hint: Cell::new(0),
             },
             quirks,
         }
     }
 
-    /// Whether `node` matches, with `scope` as `:scope`.
-    pub(crate) fn matches(&mut self, node: &Node, scope: &Node, list: &SelectorList<Impl>) -> bool {
+    /// Whether `node` matches, with `scope` as `:scope`: without one, the
+    /// document's element, as for a query on the document (Selectors 4).
+    pub(crate) fn matches(
+        &mut self,
+        node: &Node,
+        scope: Option<&Node>,
+        list: &SelectorList<Impl>,
+    ) -> bool {
+        if self.budget.charge(list.slice().len()) {
+            return false;
+        }
         let element = Guarded {
             node,
             budget: &self.budget,
         };
-        let scope = Guarded {
-            node: scope,
+        let scope = scope.map(|node| Guarded {
+            node,
             budget: &self.budget,
-        };
+        });
         let mut context = MatchingContext::new(
             MatchingMode::Normal,
             None,
@@ -274,7 +387,7 @@ impl Matcher {
             NeedsSelectorFlags::No,
             MatchingForInvalidation::No,
         );
-        context.scope_element = Some(scope.opaque());
+        context.scope_element = scope.map(|s| s.opaque());
         matching::matches_selector_list(list, &element, &mut context)
     }
 

@@ -338,3 +338,206 @@ fn what_the_libraries_do() {
         "{body}"
     );
 }
+
+#[test]
+fn collections_iterate_as_webidl_says() {
+    // WebIDL §3.7.8; WPT dom/collections/HTMLCollection-iterator.html: an
+    // indexed getter brings @@iterator, without `iterable<>`'s other members.
+    let r = eval(
+        r#"const out = [];
+        for (const c of u.children) out.push(c.id);
+        out.push([...u.children].length, [...u.attributes].map((a) => a.name).join('+'));
+        const c = u.children, a = u.attributes;
+        out.push(Symbol.iterator in c, 'values' in c, 'entries' in c, 'forEach' in c, 'keys' in c,
+                 'values' in a, 'forEach' in a);
+        const values = Array.prototype[Symbol.iterator];
+        out.push(HTMLCollection.prototype[Symbol.iterator] === values,
+                 NamedNodeMap.prototype[Symbol.iterator] === values,
+                 NodeList.prototype[Symbol.iterator] === values,
+                 DOMTokenList.prototype[Symbol.iterator] === values);
+        out.join()"#,
+    );
+    assert_eq!(
+        r,
+        "l1,l2,2,id+class+data-x-y+data-z,true,false,false,false,false,false,false,true,true,true,true"
+    );
+}
+
+#[test]
+fn insert_adjacent_html_around_head_and_body_implies_neither() {
+    // HTML §8.5; WPT domparsing/insert_adjacent_html.html, "Inserting kids of
+    // the <html> element should not do weird things with implied <body>/<head>
+    // tags".
+    let r = eval(
+        r#"document.body.insertAdjacentHTML('afterend', '<p>');
+        document.head.insertAdjacentHTML('beforebegin', '<p>');
+        document.documentElement.insertAdjacentHTML('beforeend', '<td>x</td><p>y');
+        document.documentElement.insertAdjacentHTML('afterbegin', '<i>z</i>');
+        const html = document.documentElement;
+        const names = [];
+        for (let n = html.firstChild; n; n = n.nextSibling) names.push(n.nodeName);
+        [document.getElementsByTagName('head').length,
+         document.getElementsByTagName('body').length, names.join('+'),
+         html.lastChild.textContent].join()"#,
+    );
+    assert_eq!(r, "1,1,I+P+HEAD+BODY+P+#text+P,y");
+}
+
+#[test]
+fn insert_adjacent_html_with_the_html_context_needs_no_body() {
+    // The context is a new element, so a page without a <body> works too.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse("<!doctype html><frameset></frameset>").unwrap());
+    let r: String = rt
+        .eval(
+            "const html = document.documentElement;
+            html.insertAdjacentHTML('beforeend', '<td>x</td>');
+            html.lastChild.nodeName + document.getElementsByTagName('frameset').length",
+        )
+        .unwrap();
+    assert_eq!(r, "#text1");
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn svg_names_keep_their_case_in_selectors() {
+    // Selectors 4 §6.1: type selectors and attribute names are ASCII
+    // case-insensitive only for HTML elements in an HTML document.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse(
+            r#"<!doctype html><body><svg viewBox="0 0 1 1"><defs><linearGradient id="g"></linearGradient><clipPath id="c"></clipPath></defs><foreignObject id="f"></foreignObject></svg><div id="d" title="t"></div>"#,
+        )
+        .unwrap(),
+    );
+    let r: String = rt
+        .eval(
+            r#"const id = (s) => { const e = document.querySelector(s); return e ? e.id || e.nodeName : 'null'; };
+            ['linearGradient', 'lineargradient', 'clipPath', 'clippath', 'foreignObject',
+             'foreignobject', '[viewBox]', '[viewbox]', 'DIV', 'div[TITLE]'].map(id).join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "g,null,c,null,f,null,svg,null,d,d");
+}
+
+#[test]
+fn dataset_names_as_the_wpt_lists_them() {
+    // WPT dom/collections/domstringmap-supported-property-names.html.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse(
+            r#"<!doctype html><div id="edge1" data-="012"></div><div id="edge2" data-id-="012"></div>
+            <div id="user" data-id="1234567890" data-user="johndoe" data-date-of-birth></div>
+            <div id="user2" data-unique-id="1234567890"></div><div id="user3" data-unique-id="4324324241"></div>"#,
+        )
+        .unwrap(),
+    );
+    let r: String = rt
+        .eval(
+            r#"const names = (id) => JSON.stringify(Object.getOwnPropertyNames(document.getElementById(id).dataset));
+            document.getElementById('user2').dataset.middleName = 'mark';
+            document.getElementById('user3').setAttribute('data-age', 30);
+            ['edge1', 'edge2', 'user', 'user2', 'user3'].map(names).join()"#,
+        )
+        .unwrap();
+    assert_eq!(
+        r,
+        r#"[""],["id-"],["id","user","dateOfBirth"],["uniqueId","middleName"],["uniqueId","age"]"#
+    );
+}
+
+#[test]
+fn dataset_shows_what_shadows_a_builtin_and_numeric_names() {
+    // DOMStringMap is [LegacyOverrideBuiltIns] and has no indexed getter
+    // (HTML §3.2.6; WebIDL §3.9 "named property visibility").
+    let r = eval(
+        r#"p.setAttribute('data-to-string', 'x');
+        p.setAttribute('data-1', 'one');
+        const d = p.dataset;
+        const out = [Object.keys(d).join('+'), d.toString, d[1], 1 in d];
+        out.push(delete d[1], p.hasAttribute('data-1'), Object.keys(d).join('+'));
+        out.join()"#,
+    );
+    assert_eq!(r, "toString+1,x,one,true,true,false,toString");
+}
+
+#[test]
+fn inheriting_from_a_dataset_does_not_write_to_it() {
+    // WebIDL §3.9.2 [[Set]]: the setter runs only with the object as receiver.
+    let r = eval(
+        r#"const child = Object.create(p.dataset);
+        child.x = '1';
+        [p.hasAttribute('data-x'), Object.getOwnPropertyDescriptor(child, 'x').value].join()"#,
+    );
+    assert_eq!(r, "false,1");
+}
+
+#[test]
+fn a_removed_attr_keeps_its_value_and_a_new_attribute_is_a_new_attr() {
+    // DOM §4.9.2: removing sets the Attr's element to null; it keeps its value.
+    let mut rt = runtime();
+    let r: String = rt
+        .eval(
+            r#"const p = document.getElementById('p');
+            p.setAttribute('k', 'old');
+            const a = p.getAttributeNode ? null : p.attributes.getNamedItem('k');
+            p.attributes.removeNamedItem('k');
+            const out = [a.value, a.ownerElement];
+            a.value = 'detached';
+            p.setAttribute('k', 'new');
+            const b = p.attributes.getNamedItem('k');
+            out.push(a.value, a.ownerElement, b.value, b === a, b.ownerElement === p);
+            b.value = 'written';
+            out.push(p.getAttribute('k'), a.value);
+            out.join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "old,,detached,,new,false,true,written,detached");
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn two_attributes_with_one_qualified_name_list_it_once() {
+    // DOM §4.9.1: the supported names are an ordered set.
+    let r = eval(
+        r#"p.setAttributeNS('a', 'x:k', '1');
+        p.setAttributeNS('b', 'x:k', '2');
+        Object.getOwnPropertyNames(p.attributes).join()"#,
+    );
+    assert_eq!(r, "0,1,2,id,x:k");
+}
+
+#[test]
+fn scope_on_a_document_is_the_root_element() {
+    // Selectors 4 §3.3 (:scope with no scoping root): `:root`.
+    let r = eval(
+        r#"[document.querySelector(':scope') === document.documentElement,
+            document.querySelector(':scope > body') === document.body,
+            document.body.querySelector(':scope > ul') === u].join()"#,
+    );
+    assert_eq!(r, "true,true,true");
+}
+
+#[test]
+fn empty_ignores_comments_and_empty_text() {
+    // Selectors 3 §6.6.5.8 (Chrome agrees): text of zero length doesn't count.
+    let r = eval(
+        r#"const e = document.createElement('i');
+        document.body.append(e);
+        const out = [];
+        const empty = () => out.push(e.matches(':empty'));
+        empty();
+        e.append(document.createComment('c')); empty();
+        e.append(document.createTextNode('')); empty();
+        e.append(document.createTextNode(' ')); empty();
+        const s = document.createElement('style');
+        s.textContent = 'a{}';
+        out.push(s.matches(':empty'));
+        out.join()"#,
+    );
+    assert_eq!(r, "true,true,true,false,false");
+}
