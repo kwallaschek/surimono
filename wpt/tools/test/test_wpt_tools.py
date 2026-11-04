@@ -64,12 +64,80 @@ class VendorTests(unittest.TestCase):
         self.assertEqual([s["file"] for s in m["skipped"]], ["dom/nodes/big.html"])
         self.assertEqual(m["commit"], self.commit)
 
+    def manifest(self):
+        return tomllib.loads((self.out / "manifest.toml").read_text(encoding="utf-8"))
+
+    def add(self, rel, text):
+        p = self.src / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+
+    def test_symlinked_dependency_is_not_copied(self):
+        secret = pathlib.Path(self.tmp.name, "secret.txt")
+        secret.write_text("private", encoding="utf-8")
+        (self.src / "dom/nodes/evil.js").symlink_to(secret)
+        self.add("dom/nodes/Node-c.html", f'{TESTHARNESS}<script src="evil.js"></script>')
+        vendor.vendor(self.src, self.out, slices(self.commit))
+        self.assertFalse((self.out / "tests/dom/nodes/evil.js").exists())
+        self.assertIn("dom/nodes/evil.js", [m["file"] for m in self.manifest()["missing"]])
+
+    def test_dependency_through_a_symlinked_directory_is_not_copied(self):
+        outside = pathlib.Path(self.tmp.name, "outside")
+        outside.mkdir()
+        (outside / "x.js").write_text("private", encoding="utf-8")
+        (self.src / "dom/link").symlink_to(outside)
+        self.add("dom/nodes/Node-c.html", f'{TESTHARNESS}<script src="/dom/link/x.js"></script>')
+        vendor.vendor(self.src, self.out, slices(self.commit))
+        self.assertFalse((self.out / "tests/dom/link/x.js").exists())
+
+    def test_report_hook_is_never_vendored_however_it_is_named(self):
+        self.assertEqual(vendor.dependencies("dom/nodes/a.html", '<script src="../../resources/testharnessreport.js"></script>'), [])
+
+    def test_xht_is_a_test(self):
+        self.add("dom/nodes/a.xht", TESTHARNESS)
+        vendor.vendor(self.src, self.out, slices(self.commit))
+        self.assertIn("dom/nodes/a.xht", [t["file"] for t in self.manifest()["test"]])
+
+    def test_ids_of_generated_tests_and_variants(self):
+        self.assertEqual(vendor.urls("a/b.any.js", ""), ["a/b.any.html"])
+        self.assertEqual(vendor.urls("a/b.window.js", ""), ["a/b.window.html"])
+        self.assertEqual(vendor.urls("a/b.any.js", "// META: global=window,worker\n"), ["a/b.any.html"])
+        self.assertEqual(vendor.urls("a/b.any.js", "// META: global=dedicatedworker\n"), [])
+        self.assertEqual(vendor.urls("a/b.any.js", "// META: variant=?x\n// META: variant=?y\n"), ["a/b.any.html?x", "a/b.any.html?y"])
+        self.assertEqual(vendor.urls("a/b.html", '<meta name="variant" content="?1-10"><meta name=variant content="?11-20">'), ["a/b.html?1-10", "a/b.html?11-20"])
+
+    def test_worker_only_test_is_left_out(self):
+        self.add("dom/nodes/w.any.js", "// META: global=serviceworker\ntest(() => {});")
+        vendor.vendor(self.src, self.out, slices(self.commit))
+        self.assertNotIn("dom/nodes/w.any.js", [t["file"] for t in self.manifest()["test"]])
+
+    def test_missing_harness_is_fatal_and_keeps_what_was_there(self):
+        vendor.vendor(self.src, self.out, slices(self.commit))
+        (self.src / "resources/testharness.js").unlink()
+        with self.assertRaises(SystemExit):
+            vendor.vendor(self.src, self.out, slices(self.commit))
+        self.assertTrue((self.out / "tests/dom/nodes/Node-a.html").exists())
+
+    def test_oversized_harness_is_fatal(self):
+        self.add("resources/testharness.js", "x" * 500)
+        with self.assertRaises(SystemExit):
+            vendor.vendor(self.src, self.out, slices(self.commit))
+
+    def test_a_bad_dependency_leaves_the_tests_alone(self):
+        vendor.vendor(self.src, self.out, slices(self.commit))
+        self.add("dom/nodes/Node-c.html", f'{TESTHARNESS}<script src="/../x.js"></script>')
+        self.add("dom/nodes/Node-d.html", f'{TESTHARNESS}<script src="../../../x.js"></script>')
+        with self.assertRaises(ValueError):
+            vendor.vendor(self.src, self.out, slices(self.commit))
+        self.assertTrue((self.out / "tests/dom/nodes/Node-a.html").exists())
+
     def test_a_checkout_at_another_commit_is_refused(self):
         with self.assertRaises(SystemExit):
             vendor.vendor(self.src, self.out, slices("0" * 40))
 
     def test_check_finds_edits_and_strays(self):
         vendor.vendor(self.src, self.out, slices(self.commit))
+        (self.out / "slices.toml").write_text(f'commit = "{self.commit}"\n', encoding="utf-8")
         self.assertEqual(vendor.check(self.out), [])
         (self.out / "tests/dom/nodes/helper.js").write_text("edited", encoding="utf-8")
         (self.out / "tests/extra.js").write_text("x", encoding="utf-8")
@@ -79,6 +147,15 @@ class VendorTests(unittest.TestCase):
 
     def test_check_passes_before_vendoring(self):
         self.assertEqual(vendor.check(pathlib.Path(self.tmp.name, "empty")), [])
+
+    def test_check_refuses_tests_without_a_manifest(self):
+        (self.out / "tests").mkdir()
+        self.assertEqual(vendor.check(self.out), ["wpt/tests exists but manifest.toml doesn't"])
+
+    def test_check_notices_a_bumped_pin(self):
+        vendor.vendor(self.src, self.out, slices(self.commit))
+        (self.out / "slices.toml").write_text('commit = "new"\n', encoding="utf-8")
+        self.assertTrue(any("slices.toml pins new" in e for e in vendor.check(self.out)))
 
     def test_a_dependency_cannot_leave_the_wpt_root(self):
         with self.assertRaises(ValueError):
@@ -131,6 +208,10 @@ class ApiNeedsTests(unittest.TestCase):
         self.assertEqual(r["blocked"], {"iframe": 1})
         self.assertEqual(r["subtests"], 0)
         self.assertEqual(r["tests"][0]["blocked_by"], ["iframe"])
+
+    def test_substitution_idl_and_xml_tests_are_set_aside(self):
+        r = self.run_on({"a.sub.html": "<script>test(()=>{})</script>", "b.html": "<script>idl_test([],[],()=>{})</script>", "c.xht": "<script>test(()=>{})</script>"})
+        self.assertEqual(r["blocked"], {"idl files from the server": 1, "server-side substitution": 1, "xml parser": 1})
 
     def test_without_a_manifest_it_says_so(self):
         err = io.StringIO()

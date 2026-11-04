@@ -38,6 +38,12 @@ BLOCKERS = {
     "worker": re.compile(r"new\s+(?:Shared)?Worker\s*\(|fetch_tests_from_worker"),
     "xhr or fetch": re.compile(r"XMLHttpRequest|\bfetch\s*\("),
     "testdriver": re.compile(r"testdriver"),
+    "idl files from the server": re.compile(r"idlharness|idl_test\s*\("),
+}
+# The same, decided by the file's name.
+NAME_BLOCKERS = {
+    "server-side substitution": re.compile(r"\.sub\.[^/]*$"),
+    "xml parser": re.compile(r"\.(?:xhtml|xht|svg)$"),
 }
 
 
@@ -82,7 +88,7 @@ def analyse(tests: list[dict], root: pathlib.Path, interfaces: set[str], members
             p = root / dep
             if p.is_file() and p.suffix == ".js" and dep != "resources/testharness.js":
                 script += "\n" + p.read_text(encoding="utf-8", errors="replace")
-        block = sorted(k for k, r in BLOCKERS.items() if r.search(text))
+        block = sorted({k for k, r in BLOCKERS.items() if r.search(text)} | {k for k, r in NAME_BLOCKERS.items() if r.search(t["file"])})
         count = max(1, len(SUBTEST_RE.findall(script_of(t["file"], text))))
         for b in block:
             blocked[b] += count
