@@ -8775,10 +8775,12 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
    6: also the failed length property of a new array and the unchecked
    add_arg (p1-rt-36).
    7: also the polls in the parser, the compiler passes, JSON.parse and
-   the regexp compiler (p2-rt-03). */
+   the regexp compiler (p2-rt-03).
+   8: also the duplicate-key check of a proxy's ownKeys in O(n log n)
+   (p2-rt-04). */
 int surimono_quickjs_patch_level(void)
 {
-    return 7;
+    return 8;
 }
 
 /* surimono: with enabled = 0, every later allocation of this runtime goes
@@ -41933,6 +41935,9 @@ static JSValue js_object_getOwnPropertyDescriptors(JSContext *ctx, JSValueConst 
         JSValue atomValue, desc;
         JSValueConst args[2];
 
+        /* surimono: about 1 s per million keys, with no call to JS. */
+        if (js_poll_interrupts(ctx))
+            goto exception;
         atomValue = JS_AtomToValue(ctx, props[i].atom);
         if (JS_IsException(atomValue))
             goto exception;
@@ -41980,6 +41985,9 @@ static JSValue JS_GetOwnPropertyNames2(JSContext *ctx, JSValueConst obj1,
         goto exception;
     for(j = i = 0; i < len; i++) {
         JSAtom atom = atoms[i].atom;
+        /* surimono: see js_object_getOwnPropertyDescriptors. */
+        if (js_poll_interrupts(ctx))
+            goto exception;
         if (flags & JS_GPN_ENUM_ONLY) {
             int desc_flags, res;
 
@@ -53181,13 +53189,52 @@ static int js_proxy_delete_property(JSContext *ctx, JSValueConst obj,
     return res;
 }
 
-/* return the index of the property or -1 if not found */
-static int find_prop_key(const JSPropertyEnum *tab, int n, JSAtom atom)
+/* surimono: an entry of the sorted copy of the keys that an ownKeys trap
+   returned: the key and its place in the result, which keeps the trap's
+   order. Sorted, not hashed: a key like "123" is a tagged integer atom, so a
+   script picks the atoms it wants and could make any fixed hash collide,
+   while rqsort has no such input (three-way partition, and heapsort past a
+   depth limit). */
+typedef struct JSPropKeyIndex {
+    JSAtom atom;
+    uint32_t idx;
+} JSPropKeyIndex;
+
+struct prop_key_sort_context {
+    JSContext *ctx;
+    bool exception;
+};
+
+static int js_prop_key_index_cmp(const void *a, const void *b, void *opaque)
 {
-    int i;
-    for(i = 0; i < n; i++) {
-        if (tab[i].atom == atom)
-            return i;
+    struct prop_key_sort_context *psc = opaque;
+    JSAtom a1 = ((const JSPropKeyIndex *)a)->atom;
+    JSAtom a2 = ((const JSPropKeyIndex *)b)->atom;
+
+    if (psc->exception)
+        return 0;
+    /* surimono: as in js_array_cmp_generic. Once this fails, every later
+       comparison returns 0 and rqsort finishes in one pass. */
+    if (js_poll_interrupts(psc->ctx)) {
+        psc->exception = true;
+        return 0;
+    }
+    return (a1 > a2) - (a1 < a2);
+}
+
+/* return the index of the property or -1 if not found */
+static int64_t find_prop_key(const JSPropKeyIndex *index, uint32_t n,
+                             JSAtom atom)
+{
+    uint32_t lo = 0, hi = n, mid;
+    while (lo < hi) {
+        mid = lo + (hi - lo) / 2;
+        if (index[mid].atom == atom)
+            return index[mid].idx;
+        if (index[mid].atom < atom)
+            lo = mid + 1;
+        else
+            hi = mid;
     }
     return -1;
 }
@@ -53201,8 +53248,12 @@ static int js_proxy_get_own_property_names(JSContext *ctx,
     JSValue method, prop_array, val;
     uint32_t len, target_len, tab_size, i, len2;
     JSPropertyEnum *tab, *tab2;
+    /* surimono: no allocation for the usual few keys. */
+    JSPropKeyIndex index_buf[16], *index;
+    struct prop_key_sort_context sort_ctx;
     JSAtom atom;
-    int res, is_extensible, idx;
+    int res, is_extensible;
+    int64_t idx;
 
     s = get_proxy_method(ctx, &method, obj, JS_ATOM_ownKeys);
     if (!s)
@@ -53226,9 +53277,13 @@ static int js_proxy_get_own_property_names(JSContext *ctx,
     tab_size = 0;
     tab2 = NULL;
     len2 = 0;
+    index = index_buf;
     if (js_get_length32(ctx, &target_len, prop_array))
         goto fail;
     for(i = 0; i < target_len; i++) {
+        /* surimono: a fast array doesn't poll in JS_GetPropertyUint32. */
+        if (js_poll_interrupts(ctx))
+            goto fail;
         val = JS_GetPropertyUint32(ctx, prop_array, i);
         if (JS_IsException(val))
             goto fail;
@@ -53263,10 +53318,27 @@ static int js_proxy_get_own_property_names(JSContext *ctx,
         len++;
     }
 
-    /* check duplicate properties (XXX: inefficient, could store the
-     * properties an a temporary object to use the hash) */
+    /* surimono: check duplicate properties on a sorted copy. A linear search
+       per key here and below took 7.5 s for 196,000 keys, in C, after the
+       trap had returned, so no poll could end it. tab keeps the trap's
+       order, which is the result. The copy's size can't overflow: tab has
+       the same number of entries of the same size. */
+    if (len > countof(index_buf)) {
+        index = js_malloc(ctx, sizeof(index[0]) * (size_t)len);
+        if (!index)
+            goto fail;
+    }
+    for(i = 0; i < len; i++) {
+        index[i].atom = tab[i].atom;
+        index[i].idx = i;
+    }
+    sort_ctx.ctx = ctx;
+    sort_ctx.exception = false;
+    rqsort(index, len, sizeof(index[0]), js_prop_key_index_cmp, &sort_ctx);
+    if (sort_ctx.exception)
+        goto fail;
     for(i = 1; i < len; i++) {
-        if (find_prop_key(tab, i, tab[i].atom) >= 0) {
+        if (index[i - 1].atom == index[i].atom) {
             JS_ThrowTypeError(ctx, "proxy: duplicate property");
             goto fail;
         }
@@ -53285,6 +53357,9 @@ static int js_proxy_get_own_property_names(JSContext *ctx,
                                JS_GPN_STRING_MASK | JS_GPN_SYMBOL_MASK))
         goto fail;
     for(i = 0; i < len2; i++) {
+        /* surimono: see the read loop above. */
+        if (js_poll_interrupts(ctx))
+            goto fail;
         if (s->is_revoked) {
             JS_ThrowTypeErrorRevokedProxy(ctx);
             goto fail;
@@ -53297,7 +53372,7 @@ static int js_proxy_get_own_property_names(JSContext *ctx,
                 goto fail;
             if (res) {  /* safety, property should be found */
                 if (!(desc_flags & JS_PROP_CONFIGURABLE) || !is_extensible) {
-                    idx = find_prop_key(tab, len, tab2[i].atom);
+                    idx = find_prop_key(index, len, tab2[i].atom);
                     if (idx < 0) {
                         JS_ThrowTypeError(ctx, "proxy: target property must be present in proxy ownKeys");
                         goto fail;
@@ -53319,12 +53394,16 @@ static int js_proxy_get_own_property_names(JSContext *ctx,
         }
     }
 
+    if (index != index_buf)
+        js_free(ctx, index);
     js_free_prop_enum(ctx, tab2, len2);
     JS_FreeValue(ctx, prop_array);
     *ptab = tab;
     *plen = len;
     return 0;
  fail:
+    if (index != index_buf)
+        js_free(ctx, index);
     js_free_prop_enum(ctx, tab2, len2);
     js_free_prop_enum(ctx, tab, len);
     JS_FreeValue(ctx, prop_array);
