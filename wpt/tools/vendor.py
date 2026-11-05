@@ -29,7 +29,7 @@ import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ALWAYS = ["LICENSE.md", "resources/testharness.js"]
-TEST_EXT = (".html", ".htm", ".xhtml", ".xht", ".svg")
+TEST_EXT = (".html", ".htm", ".xhtml", ".xht", ".xml", ".svg")
 GENERATED = (".any.js", ".window.js")
 # testharnessreport.js is the embedder's hook; the runner supplies its own.
 SUPPLIED = {"/resources/testharnessreport.js"}

@@ -22,6 +22,10 @@ names from `ed/css` at the same commit (`crates/dom/fetch-css-properties.sh`).
 | `hr-time.idl` | [High Resolution Time](https://w3c.github.io/hr-time/) | W3C | W3C Software and Document License 2023 | 20c66ab62bd1122b |
 | `resize-observer.idl` | [Resize Observer Module Level 1](https://drafts.csswg.org/resize-observer-1/) | W3C | W3C Software and Document License 2023 | 72d67e3fab8f09c4 |
 | `SVG.idl` | [Scalable Vector Graphics (SVG) 2](https://w3c.github.io/svgwg/svg2-draft/) | W3C | W3C Software and Document License 2023 | 5d2ff4e113daafe3 |
+| `orientation-event.idl` | [Device Orientation and Motion](https://w3c.github.io/deviceorientation/) | W3C | W3C Software and Document License 2023 | d27a961de56501e1 |
+| `pointerevents.idl` | [Pointer Events](https://w3c.github.io/pointerevents/) | W3C | W3C Software and Document License 2023 | 59f92db5165e9e33 |
+| `pointerlock.idl` | [Pointer Lock 2.0](https://w3c.github.io/pointerlock/) | W3C | W3C Software and Document License 2023 | 85339e08fe6d7a62 |
+| `touch-events.idl` | [Touch Events - Level 2](https://w3c.github.io/touch-events/) | W3C | W3C Software and Document License 2023 | 15a6cd56c5dae608 |
 | `uievents.idl` | [UI Events](https://w3c.github.io/uievents/) | W3C | W3C Software and Document License 2023 | 928b9ba3244788b5 |
 
 ## Licences

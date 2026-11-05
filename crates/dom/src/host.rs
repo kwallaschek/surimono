@@ -88,6 +88,7 @@ fn html_interface(local: &str) -> u32 {
         "progress" => interface::HTML_PROGRESS_ELEMENT,
         "script" => interface::HTML_SCRIPT_ELEMENT,
         "select" => interface::HTML_SELECT_ELEMENT,
+        "selectedcontent" => interface::HTML_SELECTED_CONTENT_ELEMENT,
         "slot" => interface::HTML_SLOT_ELEMENT,
         "source" => interface::HTML_SOURCE_ELEMENT,
         "span" => interface::HTML_SPAN_ELEMENT,
@@ -740,6 +741,26 @@ impl Document {
         Ok(Handle::try_from(h.0).unwrap_or(0))
     }
 
+    /// Parses one queued frame; whether there was one to parse.
+    pub(crate) fn load_frame(&mut self) -> BindingResult<bool> {
+        match self.load_next_frame().map_err(|e| self.fail(e))? {
+            None => Ok(false),
+            Some(true) => Ok(true),
+            Some(false) => Err(timed_out()),
+        }
+    }
+
+    /// `node` as XML, for `XMLSerializer` and XML documents' `innerHTML`.
+    fn xml_text(&mut self, node: usize) -> BindingResult<String> {
+        match crate::xml::serialize(self, node) {
+            Ok(text) => Ok(text),
+            Err(crate::xml::Refused::Time(e)) => Err(e),
+            Err(crate::xml::Refused::TooLong(limit)) => {
+                Err(self.fail(DomError::TextLimit { limit }))
+            }
+        }
+    }
+
     /// The next `<iframe>` whose `load` is due; 0 for none.
     pub(crate) fn next_frame_load(&mut self) -> BindingResult<u32> {
         Ok(self.next_frame())
@@ -754,7 +775,13 @@ impl Document {
     /// `XMLSerializer.serializeToString`.
     pub(crate) fn serialize_xml(&mut self, node: ObjectId) -> BindingResult<String> {
         let id = self.node_of(node)?;
-        crate::xml::serialize(self, id)
+        self.xml_text(id)
+    }
+
+    /// Whether node `this` is in the page's document.
+    pub(crate) fn in_page(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(self.owner_of_node(id) == self.root())
     }
 
     /// A layout query by `member`: nothing under [`LayoutPolicy::Zeros`],
@@ -772,6 +799,161 @@ impl Document {
         let id = self.node_of(this)?;
         let h = self.owned_object(id, Owned::Computed, move || Object::Computed(id))?;
         Ok(Handle::try_from(h.0).unwrap_or(0))
+    }
+
+    /// The element whose `on*` attributes are the window's (HTML §8.1.7.1): the
+    /// body or frameset element whose attribute was written last, or the
+    /// document's body element. 0 for none.
+    pub(crate) fn handler_element(&mut self) -> BindingResult<u32> {
+        if let Some(h) = self.handler_source {
+            return Ok(h);
+        }
+        match Document::body(self, self.root()) {
+            Some(id) => self.handle_for(id).map_err(|e| self.fail(e)),
+            None => Ok(0),
+        }
+    }
+
+    /// Every element's `id` in tree order, each followed by a newline, for
+    /// named access on the window (HTML §7.3.3). The tree has at most
+    /// `max_nodes` nodes, and the text is the document's.
+    pub(crate) fn id_names(&mut self) -> BindingResult<String> {
+        let mut names = String::new();
+        let mut stack = vec![self.root()];
+        while let Some(at) = stack.pop() {
+            self.poll()?;
+            stack.extend(self.children(at).iter().rev().copied());
+            if let Some(id) = self.attribute(at, "id") {
+                names.push_str(&id);
+                names.push('\n');
+            }
+        }
+        Ok(names)
+    }
+
+    /// A label's labeled control (HTML §4.10.4), or 0: with `for`, the first
+    /// element of the label's own tree with that `id`, if it is labelable;
+    /// otherwise the first labelable descendant. Polls the deadline.
+    pub(crate) fn labeled_control(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let label = self.node_of(this)?;
+        let wanted = self.attribute(label, "for");
+        let mut top = label;
+        if wanted.is_some() {
+            while let Some(p) = self.parent(top) {
+                top = p;
+            }
+        }
+        let mut found = None;
+        let mut stack = vec![top];
+        while let Some(at) = stack.pop() {
+            self.poll()?;
+            stack.extend(self.children(at).iter().rev().copied());
+            match &wanted {
+                Some(id) if !id.is_empty() && self.attribute(at, "id").as_ref() == Some(id) => {
+                    found = Some(at).filter(|&c| self.labelable(c));
+                    break;
+                }
+                None if at != label && self.labelable(at) => {
+                    found = Some(at);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        match found {
+            Some(c) => self.handle_for(c).map_err(|e| self.fail(e)),
+            None => Ok(0),
+        }
+    }
+
+    /// HTML §4.10.2, labelable elements. Form-associated custom elements
+    /// aren't there yet.
+    fn labelable(&self, id: usize) -> bool {
+        self.element_name(id).is_some_and(|n| {
+            n.ns == ns!(html)
+                && match n.local.as_ref() {
+                    "button" | "meter" | "output" | "progress" | "select" | "textarea" => true,
+                    "input" => !self
+                        .attribute(id, "type")
+                        .is_some_and(|t| t.eq_ignore_ascii_case("hidden")),
+                    _ => false,
+                }
+        })
+    }
+
+    /// Radio input activation (HTML §4.10.5.1.15): checks `this`, unchecks the
+    /// rest of its group, and returns the handle of the one that was checked,
+    /// or 0, for undoing it. `set_checked` on `true` does the same.
+    pub(crate) fn radio_check(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let id = self.node_of(this)?;
+        let other = self.uncheck_group(id)?;
+        Document::set_attribute(self, id, "checked", "").map_err(|e| self.fail(e))?;
+        match other {
+            Some(o) => self.handle_for(o).map_err(|e| self.fail(e)),
+            None => Ok(0),
+        }
+    }
+
+    /// Unchecks the other radio buttons of `id`'s group (HTML §4.10.5.1.15: same
+    /// tree, same form owner, same non-empty name); returns the first that was
+    /// checked. Polls the deadline: its length is the tree's.
+    fn uncheck_group(&mut self, id: usize) -> BindingResult<Option<usize>> {
+        if self
+            .attribute(id, "type")
+            .is_none_or(|t| !t.eq_ignore_ascii_case("radio"))
+        {
+            return Ok(None);
+        }
+        let Some(name) = self.attribute(id, "name").filter(|n| !n.is_empty()) else {
+            return Ok(None);
+        };
+        let owner = self.radio_owner(id);
+        let mut top = id;
+        while let Some(p) = self.parent(top) {
+            top = p;
+        }
+        let mut found = None;
+        let mut stack = vec![top];
+        while let Some(at) = stack.pop() {
+            self.poll()?;
+            stack.extend(self.children(at).iter().rev().copied());
+            if at == id || !self.is_radio_in(at, &name) || self.radio_owner(at) != owner {
+                continue;
+            }
+            if self.attribute(at, "checked").is_some() {
+                found.get_or_insert(at);
+                Document::remove_attribute(self, at, "checked");
+            }
+        }
+        Ok(found)
+    }
+
+    fn is_radio_in(&self, id: usize, name: &str) -> bool {
+        self.element_name(id)
+            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "input")
+            && self
+                .attribute(id, "type")
+                .is_some_and(|t| t.eq_ignore_ascii_case("radio"))
+            && self.attribute(id, "name").is_some_and(|n| n == name)
+    }
+
+    /// What identifies a radio button's form owner: its `form` attribute's
+    /// text, or its nearest ancestor form.
+    fn radio_owner(&self, id: usize) -> (Option<String>, Option<usize>) {
+        if let Some(f) = self.attribute(id, "form") {
+            return (Some(f), None);
+        }
+        let mut at = self.parent(id);
+        while let Some(p) = at {
+            if self
+                .element_name(p)
+                .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "form")
+            {
+                return (None, Some(p));
+            }
+            at = self.parent(p);
+        }
+        (None, None)
     }
 
     pub(crate) fn observer_new(&mut self) -> BindingResult<u32> {
@@ -1253,7 +1435,7 @@ impl idl::Element for Document {
             let top = self.template_of(id).unwrap_or(id);
             let mut out = String::new();
             for c in Document::children(self, top).to_vec() {
-                out.push_str(&crate::xml::serialize(self, c)?);
+                out.push_str(&self.xml_text(c)?);
             }
             return Ok(Value::String(out));
         }
@@ -1268,7 +1450,7 @@ impl idl::Element for Document {
     fn outer_html(&mut self, this: ObjectId) -> BindingResult<Value> {
         let id = self.node_of(this)?;
         if !self.in_html_document(id) {
-            return crate::xml::serialize(self, id).map(Value::String);
+            return self.xml_text(id).map(Value::String);
         }
         Ok(Value::String(Document::outer_html(self, id)))
     }
@@ -2707,6 +2889,24 @@ impl idl::HTMLTemplateElement for Document {
     }
 }
 
+impl idl::HTMLAreaElement for Document {
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected_url(this, "href")
+    }
+
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "href", &value)
+    }
+
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "rel")
+    }
+
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "rel", &value)
+    }
+}
+
 impl idl::HTMLAnchorElement for Document {
     fn href(&mut self, this: ObjectId) -> BindingResult<String> {
         self.reflected_url(this, "href")
@@ -2853,6 +3053,7 @@ impl idl::HTMLInputElement for Document {
     fn set_checked(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
         let id = self.node_of(this)?;
         if value {
+            self.uncheck_group(id)?;
             Document::set_attribute(self, id, "checked", "").map_err(|e| self.fail(e))
         } else {
             Document::remove_attribute(self, id, "checked");

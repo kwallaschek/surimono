@@ -2,15 +2,15 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
 use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, IntoJs, Object, Value};
 use surimono_core::{
-    Deadline, Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport,
+    Bytecode, Deadline, Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport,
     limit_error,
 };
 use surimono_webidl::runtime::{BindingError, ObjectId};
@@ -24,10 +24,33 @@ use crate::{Document, DomError, LayoutPolicy};
 const GLUE: &str = concat!(
     include_str!("glue_head.js"),
     include_str!("glue_events.js"),
+    include_str!("glue_abort.js"),
+    include_str!("glue_activation.js"),
     include_str!("generated/bindings.js"),
     include_str!("glue_layout.js"),
     include_str!("glue_tail.js"),
 );
+
+/// The name the glue's function has on the global object between
+/// [`Sandbox::eval_bytecode`] and [`install`], with no page script between them.
+const GLUE_GLOBAL: &str = "__surimonoGlue";
+
+/// The glue, compiled once per process: it is about 150 KB of source, and every
+/// page gets a new context.
+static GLUE_BYTECODE: OnceLock<Bytecode> = OnceLock::new();
+
+/// Puts the glue's function on the global object for [`install`].
+fn load_glue(sandbox: &mut Sandbox) -> Result<(), SandboxError> {
+    let bytecode = match GLUE_BYTECODE.get() {
+        Some(b) => b,
+        None => {
+            let source = format!("globalThis.{GLUE_GLOBAL} = {GLUE}");
+            let compiled = sandbox.compile(&source, "glue.js")?;
+            GLUE_BYTECODE.get_or_init(|| compiled)
+        }
+    };
+    sandbox.eval_bytecode(bytecode)
+}
 
 /// State the native functions share with [`DomRuntime`]. The functions
 /// hold an `Rc` to this slot, not to a document: the document is moved in
@@ -262,6 +285,11 @@ impl DomRuntime {
     where
         T: for<'js> FromJs<'js>,
     {
+        if !self.installed {
+            self.begin_call();
+            let loaded = load_glue(&mut self.sandbox);
+            self.finish_call(loaded)?;
+        }
         self.begin_call();
         let Self {
             sandbox,
@@ -320,8 +348,10 @@ impl DomRuntime {
 
     /// Runs the loaded document as a page, in a fresh context: its scripts in order, then
     /// `DOMContentLoaded` and `load`, then the event loop until it settles;
-    /// all under one time limit. `<iframe>`s load as documents without a
-    /// browsing context of their own: see "Frames" in DESIGN.md. The order, all at virtual time 0 and before
+    /// all under one time limit, and each round of frames a script added
+    /// under another, checked between rounds, so at most about twice it.
+    /// `<iframe>`s load as documents without a browsing context of their own:
+    /// see "Frames" in DESIGN.md. The order, all at virtual time 0 and before
     /// any of the page's own timers, each step a task (HTML §13.2.7):
     ///
     /// 1. `readyState` is `loading`. Scripts in tree order, except `defer`.
@@ -389,11 +419,15 @@ impl DomRuntime {
             host.unhandled_rejections = 0;
             host.rejections.clear();
         }
-        // The parser's frames load before any script, and their `load` events
-        // fire before the window's, as they must: a page's `load` listener
-        // reads them. A script sees a frame as loaded from the start.
+        // The parser's frames are asked for here and parsed in the first step
+        // of the lifecycle, before any script, and their `load` events fire
+        // before the window's, as they must: a page's `load` listener reads
+        // them. A script sees a frame as loaded from the start.
         self.load_frames(&mut resolve)?;
         self.reset()?;
+        self.begin_call();
+        let loaded = load_glue(&mut self.sandbox);
+        self.finish_call(loaded)?;
         self.begin_call();
         let Self {
             sandbox,
@@ -464,35 +498,32 @@ impl DomRuntime {
 
     /// Starts the loads of `<iframe>`s nothing has loaded yet (HTML §4.8.5):
     /// `srcdoc`, the source of `src` from the page's resolver, or their
-    /// `about:blank`. Whether any was started. This runs when the page has
-    /// settled, so a frame's `load` comes after every timer that was ready,
-    /// at a point that doesn't depend on how long a resolver took.
+    /// `about:blank`. Whether any was started. Asks the resolver here, between
+    /// calls, and parses nothing: a parse belongs in a sandbox call, the only
+    /// place the time limit and a cancel can be seen, so the glue's next step
+    /// does it, one native call per frame.
     fn load_frames(
         &mut self,
         resolve: &mut impl FnMut(&str) -> Option<String>,
     ) -> Result<bool, DomError> {
-        let deadline = self.sandbox.deadline();
         let mut guard = self.host.borrow_mut();
         let Some(doc) = guard.doc.as_mut() else {
             return Ok(false);
         };
-        doc.deadline = Some(deadline);
         let frames = doc.frames_to_load();
         let any = !frames.is_empty();
         for (element, srcdoc, src) in frames {
             match (srcdoc, src) {
-                (Some(text), _) => doc.load_frame(element, Some(&text), "about:srcdoc")?,
+                (Some(text), _) => doc.queue_frame(element, Some(text), "about:srcdoc".to_owned()),
                 (None, Some(src)) => {
                     // The fragment is the document's to read, not the source's.
                     let plain = src.split('#').next().unwrap_or(&src);
                     let url = doc.frame_url(&src);
-                    let text = resolve(plain);
-                    doc.load_frame(element, text.as_deref(), &url)?;
+                    doc.queue_frame(element, resolve(plain), url);
                 }
-                (None, None) => doc.load_frame(element, None, "about:blank")?,
+                (None, None) => doc.queue_frame(element, None, "about:blank".to_owned()),
             }
         }
-        doc.deadline = None;
         Ok(any)
     }
 
@@ -559,7 +590,9 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>
         script_field(ctx, host, |s| s.source.is_none())?,
     )?;
     n.set("runScript", native_run_script(ctx, host)?)?;
-    let glue: Function<'js> = ctx.eval(GLUE)?;
+    let globals = ctx.globals();
+    let glue: Function<'js> = globals.get(GLUE_GLOBAL)?;
+    globals.remove(GLUE_GLOBAL)?;
     glue.call((n,))
 }
 

@@ -16,7 +16,7 @@ keeps its licence file next to it. Rust dependencies are checked by cargo-deny
 | Vega's 51 bundled dependencies | per lockfile | BSD-3-Clause, ISC, Unlicense (robust-predicates) | npm | crates/islands/bundles/vega/THIRD_PARTY_LICENSES.txt |
 | QuickJS-ng (patched, via rquickjs-sys) | 0.16.2 (rquickjs-sys 0.14.0) | MIT | https://github.com/quickjs-ng/quickjs, https://crates.io/crates/rquickjs-sys | vendor/rquickjs-sys/ (changes in PATCHES.md) |
 | WHATWG IDL (DOM, HTML, URL, Encoding, Console, Web IDL) | webref 09f7739 | BSD-3-Clause (IDL in source code; specs CC-BY-4.0) | https://github.com/w3c/webref (`ed/idl/`) | crates/webidl/idl/ (LICENSE-WHATWG-BSD-3-Clause) |
-| W3C IDL (CSSOM, CSSOM View, CSS Font Loading, Geometry, HR Time, Resize Observer, SVG 2, UI Events) | webref 09f7739 | W3C Software and Document License 2023 | https://github.com/w3c/webref (`ed/idl/`) | crates/webidl/idl/ (LICENSE-W3C-software-and-document-2023) |
+| W3C IDL (CSSOM, CSSOM View, CSS Font Loading, Device Orientation, Geometry, HR Time, Pointer Events, Pointer Lock, Resize Observer, SVG 2, Touch Events, UI Events) | webref 09f7739 | W3C Software and Document License 2023 | https://github.com/w3c/webref (`ed/idl/`) | crates/webidl/idl/ (LICENSE-W3C-software-and-document-2023) |
 | w3c/webref | 09f7739 | MIT | https://github.com/w3c/webref | crates/webidl/idl/LICENSE-webref-MIT |
-| web-platform-tests (test suite, not shipped) | 8b4b06ff | BSD-3-Clause | https://github.com/web-platform-tests/wpt | wpt/tests/ (LICENSE.md; arrives with #123) |
+| web-platform-tests (test suite, not shipped) | 8b4b06ff | BSD-3-Clause | https://github.com/web-platform-tests/wpt | wpt/tests/ (LICENSE.md) |
 | Real-world suite libraries, incl. Alpine.js 3.17.5 (test fixtures, not shipped) | per manifest | per library | fixtures/real-world/manifest.toml | fixtures/real-world/lib/ (fixtures/THIRD_PARTY-fixtures.md) |

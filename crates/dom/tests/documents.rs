@@ -594,6 +594,257 @@ fn a_render_leaves_nothing_behind() {
     }
 }
 
+// ------ Namespace lookups (DOM §4.4), from WPT Node-lookupNamespaceURI.html ------
+
+#[test]
+fn lookup_namespace_uri_follows_the_algorithm() {
+    let got = eval(
+        "const x = 'http://www.w3.org/XML/1998/namespace';
+         const ns = 'http://www.w3.org/2000/xmlns/';
+         const html = 'http://www.w3.org/1999/xhtml';
+         const d = new Document();
+         const e = d.createElementNS('urn:d', 'e');
+         const c = d.createElementNS('urn:c', 'p:c');
+         c.setAttributeNS(ns, 'xmlns:q', 'urn:q');
+         e.appendChild(c);
+         const t = c.appendChild(d.createTextNode('t'));
+         const u = e.appendChild(d.createElementNS(null, 'u'));
+         u.setAttributeNS(ns, 'xmlns', '');
+         d.appendChild(e);
+         const f = d.createDocumentFragment(), a = d.createAttribute('a');
+         const doctype = document.implementation.createDocumentType('n', '', '');
+         const l = (n, p) => n.lookupNamespaceURI(p);
+         JSON.stringify([
+           l(e, 'xml') === x, l(e, 'xmlns') === ns, l(document, 'xml') === x,
+           l(document.body, 'xmlns') === ns, l(document, null) === html,
+           l(e, null), l(e, ''), l(c, 'p'), l(c, 'q'), l(t, 'q'), l(t, 'nope'), l(u, null),
+           l(f, 'xml'), l(f, null), l(doctype, 'xml'), l(a, 'xml'),
+           l(new Document(), 'xml'), l(c.attributes[0], 'q'),
+         ])",
+    );
+    assert_eq!(
+        got,
+        r#"[true,true,true,true,true,"urn:d","urn:d","urn:c","urn:q","urn:q",null,null,null,null,null,null,null,"urn:q"]"#
+    );
+}
+
+#[test]
+fn lookup_prefix_and_is_default_namespace() {
+    let got = eval(
+        "const ns = 'http://www.w3.org/2000/xmlns/';
+         const d = new Document();
+         const e = d.createElementNS('urn:d', 'p:e');
+         e.setAttributeNS(ns, 'xmlns:q', 'urn:q');
+         const c = e.appendChild(d.createElementNS('urn:c', 'c'));
+         d.appendChild(e);
+         const t = c.appendChild(d.createTextNode('t'));
+         const f = d.createDocumentFragment();
+         JSON.stringify([
+           e.lookupPrefix('urn:d'), e.lookupPrefix('urn:q'), t.lookupPrefix('urn:q'),
+           c.lookupPrefix('urn:c'), d.lookupPrefix('urn:d'), e.lookupPrefix(null),
+           e.lookupPrefix(''), e.lookupPrefix('urn:none'), f.lookupPrefix('urn:d'),
+           c.isDefaultNamespace('urn:c'), c.isDefaultNamespace('urn:d'), e.isDefaultNamespace(null),
+           e.isDefaultNamespace(''), t.isDefaultNamespace('urn:c'), f.isDefaultNamespace(null),
+           document.isDefaultNamespace('http://www.w3.org/1999/xhtml'),
+           document.body.isDefaultNamespace(null),
+         ])",
+    );
+    assert_eq!(
+        got,
+        r#"["p","q","q",null,"p",null,null,null,null,true,false,true,true,true,true,true,false]"#
+    );
+}
+
+/// DOM §4.2.6.2 "list of elements with namespace and local name".
+#[test]
+fn get_elements_by_tag_name_ns() {
+    let got = eval(
+        "const d = new Document(), r = d.appendChild(d.createElementNS('urn:a', 'r'));
+         r.appendChild(d.createElementNS('urn:a', 'p:x'));
+         r.appendChild(d.createElementNS('urn:b', 'x'));
+         const none = r.appendChild(d.createElementNS(null, 'x'));
+         const n = (o, a, b) => o.getElementsByTagNameNS(a, b).length;
+         const live = d.getElementsByTagNameNS('urn:b', 'x');
+         const before = live.length;
+         r.appendChild(d.createElementNS('urn:b', 'x'));
+         [n(d, 'urn:a', 'x'), n(d, 'urn:a', 'p:x'), n(d, '*', 'x'), n(d, 'urn:a', '*'),
+          n(d, '*', '*'), n(d, null, 'x'), n(d, '', 'x'), n(r, 'urn:a', 'r'), before, live.length,
+          r.getElementsByTagNameNS('urn:b', 'x') === r.getElementsByTagNameNS('urn:b', 'x'),
+          n(document, 'http://www.w3.org/1999/xhtml', 'P'), n(document, 'http://www.w3.org/1999/xhtml', 'p')].join()",
+    );
+    assert_eq!(got, "1,0,4,2,5,1,1,0,1,2,true,0,1");
+}
+
+// ------ Attr nodes (DOM §4.9), from WPT attributes.html ------
+
+#[test]
+fn create_attribute_and_its_case() {
+    let got = eval(
+        "const out = [];
+         const h = document.createAttribute('AbC'), x = new Document().createAttribute('AbC');
+         out.push(h.name, x.name, h.value === '', h.ownerElement, h.ownerDocument === document,
+                  h instanceof Attr, h.namespaceURI, h.prefix);
+         const n = document.createAttributeNS('urn:x', 'p:Ab');
+         out.push(n.name, n.localName, n.prefix, n.namespaceURI);
+         for (const f of [() => document.createAttribute(''), () => document.createAttribute('a b'),
+                          () => document.createAttributeNS(null, 'p:a'),
+                          () => document.createAttributeNS('urn:x', 'xmlns')]) {
+           try { f(); out.push('no'); } catch (e) { out.push(e.name); }
+         }
+         out.join()",
+    );
+    assert_eq!(
+        got,
+        "abc,AbC,true,,true,true,,,p:Ab,Ab,p,urn:x,InvalidCharacterError,InvalidCharacterError,\
+         NamespaceError,NamespaceError"
+    );
+}
+
+#[test]
+fn set_get_and_remove_attribute_node() {
+    let got = eval(
+        "const out = [], e = document.createElement('p'), o = document.createElement('p');
+         const a = document.createAttribute('k');
+         a.value = '1';
+         out.push(e.setAttributeNode(a), e.getAttribute('k'), a.ownerElement === e,
+                  e.getAttributeNode('k') === a, e.getAttributeNode('K') === a,
+                  e.getAttributeNode('nope'), e.setAttributeNode(a) === a);
+         try { o.setAttributeNode(a); } catch (x) { out.push(x.name); }
+         const b = document.createAttribute('k');
+         b.value = '2';
+         const old = e.setAttributeNode(b);
+         out.push(old === a, a.value, a.ownerElement, b.ownerElement === e, e.getAttribute('k'),
+                  e.attributes.length);
+         a.value = 'free';
+         out.push(e.getAttribute('k'), e.removeAttributeNode(b) === b, b.value, b.ownerElement,
+                  e.hasAttribute('k'));
+         try { e.removeAttributeNode(b); } catch (x) { out.push(x.name); }
+         out.push(o.setAttributeNode(b), o.getAttribute('k'));
+         out.join()",
+    );
+    assert_eq!(
+        got,
+        ",1,true,true,true,,true,InUseAttributeError,true,1,,true,2,1,2,true,2,,false,NotFoundError,,2"
+    );
+}
+
+#[test]
+fn set_attribute_node_ns_and_get_by_namespace() {
+    let got = eval(
+        "const e = document.createElement('p'), out = [];
+         const a = document.createAttributeNS('urn:x', 'p:a');
+         a.value = '1';
+         e.setAttributeNodeNS(a);
+         out.push(e.getAttributeNodeNS('urn:x', 'a') === a, e.getAttributeNodeNS('urn:y', 'a'),
+                  e.getAttributeNS('urn:x', 'a'), e.getAttribute('p:a'),
+                  e.getAttributeNodeNS(null, 'a'));
+         const plain = document.createAttributeNS(null, 'b');
+         e.setAttributeNode(plain);
+         out.push(e.getAttributeNodeNS(null, 'b') === plain, e.getAttributeNodeNS('', 'b') === plain);
+         out.join()",
+    );
+    assert_eq!(got, "true,,1,1,,true,true");
+}
+
+/// DOM §4.9 "replace an attribute": the new `Attr` takes the old one's place,
+/// under its own name, whatever its prefix.
+#[test]
+fn replacing_an_attribute_with_another_prefix() {
+    let got = eval(
+        "const e = document.createElement('p'), out = [];
+         e.setAttribute('first', '');
+         e.setAttributeNS('urn:x', 'p:a', '1');
+         e.setAttribute('last', '');
+         const old = e.getAttributeNode('p:a');
+         const n = document.createAttributeNS('urn:x', 'q:a');
+         n.value = '2';
+         out.push(e.setAttributeNode(n) === old, old.value, old.ownerElement,
+                  e.getAttributeNames().join(' '), n.value, n.ownerElement === e,
+                  e.getAttributeNS('urn:x', 'a'), e.getAttribute('q:a'), e.getAttribute('p:a'));
+         n.value = '3';
+         out.push(e.getAttributeNS('urn:x', 'a'), e.attributes[1] === n);
+         out.push(e.removeAttributeNode(n) === n, e.getAttributeNames().join(' '), n.value,
+                  n.ownerElement);
+         const o = document.createElement('p');
+         o.setAttributeNode(n);
+         out.push(o.getAttribute('q:a'));
+         out.join()",
+    );
+    assert_eq!(
+        got,
+        "true,1,,first q:a last,2,true,2,2,,3,true,true,first last,3,,3"
+    );
+}
+
+#[test]
+fn named_node_map_set_named_item() {
+    let got = eval(
+        "const e = document.createElement('p'), out = [];
+         e.setAttribute('k', 'old');
+         const a = document.createAttribute('k');
+         a.value = 'new';
+         const old = e.attributes.setNamedItem(a);
+         out.push(old.value, old.ownerElement, e.getAttribute('k'), e.attributes.getNamedItem('k') === a);
+         const b = document.createAttributeNS('urn:x', 'p:b');
+         b.value = 'ns';
+         out.push(e.attributes.setNamedItemNS(b), e.attributes.getNamedItemNS('urn:x', 'b') === b);
+         try { document.createElement('i').attributes.setNamedItem(a); } catch (x) { out.push(x.name); }
+         out.join()",
+    );
+    assert_eq!(got, "old,,new,true,,true,InUseAttributeError");
+}
+
+/// HTML §7.2: only the page's document has a browsing context.
+#[test]
+fn default_view_and_location() {
+    let got = eval(
+        "const o = [new Document(), document.implementation.createHTMLDocument(''),
+                    document.implementation.createDocument(null, null), document.cloneNode()];
+         const none = o.every((d) => d.defaultView === null && d.location === null);
+         globalThis.location = 'here';
+         [none, document.defaultView === window, document.location].join()",
+    );
+    assert_eq!(got, "true,true,here");
+    assert_eq!(
+        eval("String(document.location)"),
+        "null",
+        "a window with no location"
+    );
+}
+
+/// HTML "execute the script element": its node document has changed.
+#[test]
+fn a_script_moved_to_another_document_doesnt_run() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse(
+            r#"<!doctype html><script>globalThis.ran = '';
+               const d = document.implementation.createHTMLDocument('');
+               d.adoptNode(document.getElementById('s'));
+               document.addEventListener('DOMContentLoaded', () => { ran += 'dcl'; });</script>
+               <script id=s>ran += 'moved';</script><script>ran += 'next';</script>"#,
+        )
+        .unwrap(),
+    );
+    rt.run_page(&surimono_core::SettleOptions::default(), |_| None)
+        .unwrap();
+    assert_eq!(rt.eval::<String>("ran").unwrap(), "nextdcl");
+}
+
+/// A live list's answer depends on the type of the document it is in.
+#[test]
+fn adoption_refreshes_live_lists() {
+    let got = eval(
+        "const e = document.createElement('p'), x = new Document();
+         e.appendChild(document.createElement('div'));
+         const l = e.getElementsByTagName('DIV');
+         const before = l.length;
+         x.adoptNode(e);
+         [before, l.length].join()",
+    );
+    assert_eq!(got, "1,0");
+}
+
 // ------ DOMParser, text/html (HTML §8.5.3) ------
 
 #[test]
@@ -750,6 +1001,19 @@ fn a_parsed_document_keeps_the_page_rules_for_style() {
          [d.querySelector('style').textContent, d.querySelector('p').style.color].join()"#,
     );
     assert_eq!(got, r#"@import "http://[";,red"#);
+}
+
+/// HTML §13.4: the fragment parser's scripting flag is the context's document's.
+#[test]
+fn inner_html_in_a_parsed_document_has_scripting_off() {
+    let got = eval(
+        r#"const d = new DOMParser().parseFromString('<body>', 'text/html');
+         d.body.innerHTML = '<noscript><b>x</b></noscript>';
+         document.body.innerHTML = '<noscript><b>x</b></noscript>';
+         [d.querySelector('noscript').firstChild.nodeName,
+          document.querySelector('noscript').firstChild.nodeName].join()"#,
+    );
+    assert_eq!(got, "B,#text");
 }
 
 // ------ DOMParser for XML, and the XML parser ------
@@ -1397,4 +1661,232 @@ fn an_xml_page_takes_its_type_from_its_url() {
             .unwrap();
         assert_eq!(got, format!("{expected} {namespace}"), "{url}");
     }
+}
+
+// ------ Bounded on the paths the review found ------
+
+/// `eval` with room for a slow build to set up a big case.
+fn eval_long(script: &str) -> Result<String, DomError> {
+    let mut rt = DomRuntime::new(
+        limits()
+            .with_time(common::scaled(Duration::from_secs(60)))
+            .with_memory_bytes(512 << 20),
+    )
+    .unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    rt.eval::<String>(script)
+}
+
+/// A namespace held once: 1 MiB on 90,000 children would be 90 GB in copies.
+#[test]
+fn a_long_namespace_is_not_copied_per_child() {
+    let got = eval_long(
+        "const n = 'urn:' + 'x'.repeat(1 << 20), e = document.createElementNS(n, 'a');
+         for (let i = 0; i < 90000; i++) e.appendChild(document.createComment(''));
+         String(new XMLSerializer().serializeToString(e).length)",
+    )
+    .unwrap();
+    // `<a xmlns="urn:x…">`, the comments, `</a>`.
+    let open = "<a xmlns=\"\">".len() + 4 + (1 << 20);
+    assert_eq!(got, (open + 90_000 * 7 + 4).to_string());
+}
+
+/// A declaration per child makes output larger than the tree: it has a limit.
+#[test]
+fn serialized_declarations_stop_at_the_byte_limit() {
+    const CAP: usize = 1 << 24;
+    let l = DomLimits {
+        max_text_bytes: CAP,
+        ..DomLimits::default()
+    };
+    assert_eq!(
+        limited(
+            l,
+            "const n = 'urn:' + 'x'.repeat(1 << 18), e = document.createElementNS(n, 'a');
+             for (let i = 0; i < 100; i++) {
+               const b = e.appendChild(document.createElementNS(null, 'b'));
+               b.appendChild(document.createElementNS(n, 'c'));
+             }
+             new XMLSerializer().serializeToString(e);"
+        ),
+        DomError::TextLimit { limit: CAP }
+    );
+}
+
+/// Parsing: 300 attributes in a 16 MiB namespace were 300 copies at once. The
+/// charge is per name, as for a script's attributes, so this is refused with
+/// nothing allocated on the way there.
+#[test]
+fn a_long_namespace_is_not_copied_per_attribute() {
+    let e = eval_long(
+        "let s = '<a xmlns:p=\"urn:' + 'x'.repeat(1 << 24) + '\"';
+         for (let i = 0; i < 300; i++) s += ' p:a' + i + '=\"\"';
+         new DOMParser().parseFromString(s + '/>', 'text/xml');
+         'parsed'",
+    )
+    .unwrap_err();
+    assert_eq!(
+        e,
+        DomError::TextLimit {
+            limit: DomLimits::DEFAULT_MAX_TEXT_BYTES
+        }
+    );
+}
+
+/// Thousands of prefixes in scope with a tag naming one is a hash lookup, so
+/// this is linear; as a scan it took 11.8 s.
+#[test]
+fn deep_scopes_stay_linear() {
+    let got = eval_long(
+        "let s = '';
+         for (let d = 0; d < 32; d++) {
+           s += '<a';
+           for (let i = 0; i < 4000; i++) s += ' xmlns:p' + i + '=\"u' + d + '\"';
+           s += '>';
+         }
+         s += '<p7:b/>'.repeat(4000) + '</a>'.repeat(32);
+         const d = new DOMParser().parseFromString(s, 'text/xml');
+         d.getElementsByTagNameNS('u31', 'b').length + ' ' +
+           new XMLSerializer().serializeToString(d).length",
+    )
+    .unwrap();
+    assert!(got.starts_with("4000 "), "{got}");
+}
+
+/// The shape under the attribute limit still reaches the clock.
+#[test]
+fn xml_under_the_attribute_limit_ends_at_the_time_limit() {
+    let mut rt = DomRuntime::new(Limits::default().with_time(Duration::from_millis(300))).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let started = Instant::now();
+    let e = rt
+        .eval::<()>(
+            "let s = '<a'; for (let i = 0; i < 4000; i++) s += ' b' + i + '=\"\"'; s += '/>';
+             for (;;) {
+               const p = new DOMParser();
+               new XMLSerializer().serializeToString(p.parseFromString(s, 'text/xml'));
+             }",
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            e,
+            DomError::Sandbox(SandboxError::TimeLimit)
+                | DomError::NodeLimit { .. }
+                | DomError::TextLimit { .. }
+                | DomError::HandleLimit { .. }
+        ),
+        "{e:?}"
+    );
+    assert!(started.elapsed() < common::scaled(Duration::from_secs(3)));
+}
+
+fn quadratic_tag(open: bool) -> String {
+    let attrs: String = (0..20_000).map(|i| format!(" a{i}")).collect();
+    format!("<p{attrs}{}", if open { "" } else { ">" })
+}
+
+/// A frame's parse is under the page's time limit: 8 of these ran past 120 s
+/// under 200 ms when they parsed outside any call.
+#[test]
+fn a_frame_parse_ends_at_the_time_limit() {
+    for open in [false, true] {
+        let tag = quadratic_tag(open);
+        let frames: String = (0..8)
+            .map(|_| format!(r#"<iframe srcdoc="{tag}"></iframe>"#))
+            .collect();
+        let mut rt =
+            DomRuntime::new(Limits::default().with_time(Duration::from_millis(200))).unwrap();
+        rt.load(Document::parse(&format!("<!doctype html>{frames}")).unwrap());
+        let started = Instant::now();
+        let e = rt
+            .run_page(&surimono_core::SettleOptions::default(), |_| None)
+            .unwrap_err();
+        assert!(
+            matches!(e, DomError::Sandbox(SandboxError::TimeLimit)),
+            "{e:?}"
+        );
+        eprintln!("parser's frames, open {open}: {:?}", started.elapsed());
+        assert!(started.elapsed() < common::scaled(Duration::from_millis(1500)));
+    }
+}
+
+#[test]
+fn a_script_added_frame_parse_ends_at_the_time_limit() {
+    let page = "<!doctype html><body><script>
+        let s = '<p'; for (let i = 0; i < 20000; i++) s += ' a' + i;
+        for (let k = 0; k < 8; k++) {
+          const f = document.createElement('iframe');
+          f.srcdoc = s;
+          document.body.appendChild(f);
+        }
+        </script>";
+    let mut rt = DomRuntime::new(Limits::default().with_time(Duration::from_millis(500))).unwrap();
+    rt.load(Document::parse(page).unwrap());
+    let started = Instant::now();
+    let e = rt
+        .run_page(&surimono_core::SettleOptions::default(), |_| None)
+        .unwrap_err();
+    assert!(
+        matches!(e, DomError::Sandbox(SandboxError::TimeLimit)),
+        "{e:?}"
+    );
+    eprintln!("script's frames: {:?}", started.elapsed());
+    assert!(started.elapsed() < common::scaled(Duration::from_secs(3)));
+}
+
+/// `src` frames take the same path: the resolver is asked, the parse is timed.
+#[test]
+fn a_src_frame_parse_ends_at_the_time_limit() {
+    let tag = quadratic_tag(false);
+    let mut rt = DomRuntime::new(Limits::default().with_time(Duration::from_millis(200))).unwrap();
+    rt.load(
+        Document::parse("<!doctype html><iframe src=a></iframe><iframe src=a></iframe>").unwrap(),
+    );
+    let started = Instant::now();
+    let e = rt
+        .run_page(&surimono_core::SettleOptions::default(), |_| {
+            Some(tag.clone())
+        })
+        .unwrap_err();
+    assert!(
+        matches!(e, DomError::Sandbox(SandboxError::TimeLimit)),
+        "{e:?}"
+    );
+    assert!(started.elapsed() < common::scaled(Duration::from_millis(1500)));
+}
+
+#[test]
+fn only_a_frame_has_a_frame() {
+    let got = eval(
+        r#"const d = new DOMParser().parseFromString('<iframe></iframe>', 'text/html');
+         const f = d.querySelector('iframe');
+         [f.contentDocument, f.contentWindow].join()"#,
+    );
+    assert_eq!(got, ",");
+}
+
+/// `run_page` calls this global, so a page mustn't be able to swap it.
+#[test]
+fn the_frame_hook_cannot_be_replaced() {
+    let (mut rt, report) = page(
+        r#"<!doctype html><body><script>
+           globalThis.log = [];
+           const name = '__surimonoFrameLoads';
+           globalThis[name] = () => log.push('replaced');
+           try { Object.defineProperty(globalThis, name, { value: () => log.push('redefined') }); }
+           catch (e) { log.push(e.name); }
+           log.push(delete globalThis[name]);
+           log.push(Object.keys(globalThis).includes(name));
+           const f = document.createElement('iframe');
+           f.onload = () => log.push('load');
+           document.body.appendChild(f);
+           </script>"#,
+        &[],
+    );
+    assert_eq!(report.uncaught, 0, "{:?}", report.errors);
+    assert_eq!(
+        rt.eval::<String>("log.join()").unwrap(),
+        "TypeError,false,false,load"
+    );
 }

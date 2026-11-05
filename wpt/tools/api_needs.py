@@ -43,7 +43,7 @@ BLOCKERS = {
 # The same, decided by the file's name.
 NAME_BLOCKERS = {
     "server-side substitution": re.compile(r"\.sub\.[^/]*$"),
-    "xml parser": re.compile(r"\.(?:xhtml|xht|svg)$"),
+    "xml parser": re.compile(r"\.(?:xhtml|xht|xml|svg)$"),
 }
 
 

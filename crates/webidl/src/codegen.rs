@@ -46,6 +46,7 @@ pub const STUB_INTERFACES: &[&str] = &[
     "MutationRecord",
     "HTMLTemplateElement",
     "HTMLAnchorElement",
+    "HTMLAreaElement",
     "HTMLImageElement",
     "HTMLLinkElement",
     "HTMLScriptElement",

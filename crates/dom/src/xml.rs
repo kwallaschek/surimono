@@ -13,10 +13,10 @@
 //! [`Document`]'s constructors, so every limit applies as it does to a script's
 //! nodes, and the clock is looked at per token.
 
-use std::collections::HashSet;
-use std::rc::Rc;
+use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
 
-use blitz_dom::{Attribute, LocalName, QualName};
+use blitz_dom::{Attribute, LocalName, QualName, ns};
 use html5ever::{Namespace, Prefix};
 use surimono_webidl::runtime::BindingError;
 
@@ -64,7 +64,7 @@ pub(crate) enum Mode {
 struct Open<'a> {
     id: usize,
     name: &'a str,
-    /// Length of the namespace scope outside this element.
+    /// Length of `Parser::declared` outside this element.
     scope: usize,
 }
 
@@ -72,8 +72,12 @@ struct Parser<'d, 'a> {
     doc: &'d mut Document,
     src: &'a str,
     at: usize,
-    /// (prefix, namespace) in scope, innermost last; `""` is the default.
-    scope: Vec<(&'a str, String)>,
+    /// Prefix to its namespaces, innermost last; `""` is the default. A hash
+    /// lookup, since a tag can name thousands of prefixes in scope, and interned
+    /// namespaces, so that a long one is held once however often it's used.
+    scope: HashMap<&'a str, Vec<Namespace>>,
+    /// The prefixes in `scope` in the order declared, for end tags to undo.
+    declared: Vec<&'a str>,
     /// Text not placed yet: adjacent text and references make one node.
     text: String,
     /// Levels above the first level of content.
@@ -252,17 +256,26 @@ impl<'d, 'a> Parser<'d, 'a> {
         Ok(out)
     }
 
-    fn namespace_of(&self, prefix: &str) -> Parse<Option<&str>> {
-        self.doc.poll_by(self.scope.len() / 16)?;
-        for (p, uri) in self.scope.iter().rev() {
-            if *p == prefix {
-                return Ok(Some(uri));
+    fn namespace_of(&self, prefix: &str) -> Option<Namespace> {
+        match self.scope.get(prefix).and_then(|l| l.last()) {
+            Some(n) => Some(n.clone()),
+            None if prefix == "xml" => Some(ns!(xml)),
+            None => None,
+        }
+    }
+
+    /// Ends the declarations made after `mark`.
+    fn unscope(&mut self, mark: usize) {
+        while self.declared.len() > mark {
+            if let Some(prefix) = self.declared.pop()
+                && let Some(list) = self.scope.get_mut(prefix)
+            {
+                list.pop();
+                if list.is_empty() {
+                    self.scope.remove(prefix);
+                }
             }
         }
-        Ok(match prefix {
-            "xml" => Some(XML),
-            _ => None,
-        })
     }
 
     /// Text gathered so far becomes a node.
@@ -479,7 +492,7 @@ impl<'d, 'a> Parser<'d, 'a> {
         let name = self.name()?;
         let mut raw: Vec<(&'a str, String)> = Vec::new();
         let mut seen: HashSet<&'a str> = HashSet::new();
-        let scope_before = self.scope.len();
+        let scope_before = self.declared.len();
         let empty = loop {
             let spaced = self.skip_space();
             if self.eat("/>") {
@@ -510,27 +523,27 @@ impl<'d, 'a> Parser<'d, 'a> {
         let (prefix, local) =
             split_qname(name).ok_or_else(|| Stop::Malformed(format!("bad name {name:?}")))?;
         let namespace = match prefix {
-            Some(p) => match self.namespace_of(p)? {
-                Some(u) => u.to_owned(),
+            Some(p) => match self.namespace_of(p) {
+                Some(u) => u,
                 None => return bad(format!("the prefix {p:?} isn't declared")),
             },
-            None => self.namespace_of("")?.unwrap_or("").to_owned(),
+            None => self.namespace_of("").unwrap_or(ns!()),
         };
         let mut attrs = Vec::with_capacity(raw.len());
-        let mut expanded: HashSet<(String, &'a str)> = HashSet::new();
+        let mut expanded: HashSet<(Namespace, &'a str)> = HashSet::new();
         for (attr, value) in raw {
             self.doc.poll()?;
             let (p, l) =
                 split_qname(attr).ok_or_else(|| Stop::Malformed(format!("bad name {attr:?}")))?;
             let uri = if attr == "xmlns" || p == Some("xmlns") {
-                XMLNS.to_owned()
+                ns!(xmlns)
             } else if let Some(p) = p {
-                match self.namespace_of(p)? {
-                    Some(u) => u.to_owned(),
+                match self.namespace_of(p) {
+                    Some(u) => u,
                     None => return bad(format!("the prefix {p:?} isn't declared")),
                 }
             } else {
-                String::new()
+                ns!()
             };
             if !uri.is_empty() && !expanded.insert((uri.clone(), l)) {
                 return bad(format!("attribute {attr:?} appears twice"));
@@ -546,18 +559,14 @@ impl<'d, 'a> Parser<'d, 'a> {
             );
             attrs.push(Attribute { name: qual, value });
         }
-        let qual = QualName::new(
-            prefix.map(Prefix::from),
-            Namespace::from(namespace),
-            LocalName::from(local),
-        );
+        let qual = QualName::new(prefix.map(Prefix::from), namespace, LocalName::from(local));
         let id = self
             .doc
             .create_element_with(qual, attrs)
             .map_err(|e| self.doc.fail(e))?;
         self.doc.place_quietly(parent, &[id], None);
         if empty {
-            self.scope.truncate(scope_before);
+            self.unscope(scope_before);
         }
         Ok((id, name, empty))
     }
@@ -571,7 +580,11 @@ impl<'d, 'a> Parser<'d, 'a> {
         if reserved || (uri.is_empty() && !prefix.is_empty()) {
             return bad(format!("the prefix {prefix:?} can't be bound to {uri:?}"));
         }
-        self.scope.push((prefix, uri.to_owned()));
+        self.scope
+            .entry(prefix)
+            .or_default()
+            .push(Namespace::from(uri));
+        self.declared.push(prefix);
         Ok(())
     }
 
@@ -622,7 +635,7 @@ impl<'d, 'a> Parser<'d, 'a> {
                     return bad(format!("</{name}> closes <{}>", o.name));
                 }
                 self.flush_text(o.id)?;
-                self.scope.truncate(o.scope);
+                self.unscope(o.scope);
             } else {
                 if !in_content && roots > 0 {
                     return bad("a second document element");
@@ -633,7 +646,7 @@ impl<'d, 'a> Parser<'d, 'a> {
                     let e = self.doc.fail(DomError::TreeTooDeep { limit });
                     return Err(Stop::Limit(e));
                 }
-                let scope = self.scope.len();
+                let scope = self.declared.len();
                 let (id, name, empty) = self.start_tag(parent)?;
                 if open.is_empty() {
                     roots += 1;
@@ -678,14 +691,14 @@ impl<'d, 'a> Parser<'d, 'a> {
 }
 
 /// Parses `src` under `top`, a document or a fragment in the document being
-/// made in, with `scope` as the namespaces in scope. `depth` is how deep
-/// `top`'s children sit.
-pub(crate) fn parse(
+/// made in, with `seed` as the namespaces in scope, one per prefix. `depth` is
+/// how deep `top`'s children sit.
+pub(crate) fn parse<'a>(
     doc: &mut Document,
     top: usize,
-    src: &str,
+    src: &'a str,
     mode: Mode,
-    scope: &[(String, String)],
+    seed: &'a HashMap<String, Namespace>,
     depth: usize,
 ) -> Parse<()> {
     let max_depth = doc.max_depth();
@@ -693,10 +706,11 @@ pub(crate) fn parse(
         doc,
         src,
         at: 0,
-        scope: scope
+        scope: seed
             .iter()
-            .map(|(prefix, uri)| (prefix.as_str(), uri.clone()))
+            .map(|(prefix, uri)| (prefix.as_str(), vec![uri.clone()]))
             .collect(),
+        declared: Vec::new(),
         text: String::new(),
         base_depth: depth,
         max_depth,
@@ -718,27 +732,80 @@ pub(crate) fn error_name() -> QualName {
 
 // ------ XMLSerializer (DOM Parsing and Serialization §3.2) ------
 
-/// Namespace to the prefixes bound to it, most recent last, as the algorithm's
-/// "namespace prefix map". Cloned per element that declares something.
-type PrefixMap = Vec<(Option<String>, Vec<String>)>;
+/// The algorithm's "namespace prefix map", kept once for the whole walk: what
+/// an element adds is undone at its end tag, so nothing is copied per element,
+/// and a lookup is a hash, not a scan. Strings are borrowed from the document.
+#[derive(Default)]
+struct PrefixMap<'d> {
+    /// Namespace to its prefixes, most recent last.
+    by_namespace: HashMap<Option<&'d str>, Vec<Cow<'d, str>>>,
+    /// How many times each pair is in `by_namespace`.
+    pairs: HashMap<(Option<&'d str>, Cow<'d, str>), u32>,
+    /// What was added, in order, for `undo`.
+    added: Vec<(Option<&'d str>, Cow<'d, str>)>,
+}
 
-fn map_add(map: &mut PrefixMap, ns: Option<&str>, prefix: &str) {
-    match map.iter_mut().find(|(n, _)| n.as_deref() == ns) {
-        Some((_, list)) => list.push(prefix.to_owned()),
-        None => map.push((ns.map(str::to_owned), vec![prefix.to_owned()])),
+impl<'d> PrefixMap<'d> {
+    fn add(&mut self, ns: Option<&'d str>, prefix: Cow<'d, str>) {
+        self.by_namespace
+            .entry(ns)
+            .or_default()
+            .push(prefix.clone());
+        *self.pairs.entry((ns, prefix.clone())).or_default() += 1;
+        self.added.push((ns, prefix));
+    }
+
+    fn has(&self, ns: Option<&'d str>, prefix: Cow<'d, str>) -> bool {
+        self.pairs.contains_key(&(ns, prefix))
+    }
+
+    /// §3.2.1.1 "retrieve a preferred prefix string".
+    fn preferred(&self, ns: Option<&'d str>, prefix: Option<&'d str>) -> Option<Cow<'d, str>> {
+        if let Some(p) = prefix
+            && self.has(ns, Cow::Borrowed(p))
+        {
+            return Some(Cow::Borrowed(p));
+        }
+        self.by_namespace.get(&ns).and_then(|l| l.last()).cloned()
+    }
+
+    /// Back to `mark`, a length of `added`.
+    fn undo(&mut self, mark: usize) {
+        while self.added.len() > mark {
+            let Some((ns, prefix)) = self.added.pop() else {
+                return;
+            };
+            if let Some(list) = self.by_namespace.get_mut(&ns) {
+                list.pop();
+                if list.is_empty() {
+                    self.by_namespace.remove(&ns);
+                }
+            }
+            let key = (ns, prefix);
+            if let Some(n) = self.pairs.get_mut(&key) {
+                *n -= 1;
+                if *n == 0 {
+                    self.pairs.remove(&key);
+                }
+            }
+        }
     }
 }
 
-fn map_has(map: &PrefixMap, ns: Option<&str>, prefix: &str) -> bool {
-    map.iter()
-        .any(|(n, l)| n.as_deref() == ns && l.iter().any(|p| p == prefix))
+/// Why a serialization stopped.
+#[derive(Debug)]
+pub(crate) enum Refused {
+    /// The time limit.
+    Time(BindingError),
+    /// More than this many bytes: the output is outside the JS heap, and
+    /// repeated namespace declarations can make it far larger than the tree.
+    TooLong(usize),
 }
 
-/// §3.2.1.1 "retrieve a preferred prefix string".
-fn preferred<'m>(map: &'m PrefixMap, ns: Option<&str>, prefix: Option<&str>) -> Option<&'m str> {
-    let (_, list) = map.iter().find(|(n, _)| n.as_deref() == ns)?;
-    let same = list.iter().find(|&x| Some(x.as_str()) == prefix);
-    same.or(list.last()).map(String::as_str)
+impl From<BindingError> for Refused {
+    fn from(e: BindingError) -> Self {
+        Self::Time(e)
+    }
 }
 
 /// §3.2.1.5 "serializing an attribute value", which the current algorithm
@@ -774,253 +841,297 @@ const VOID_HTML: [&str; 16] = [
     "link", "meta", "param", "source", "wbr",
 ];
 
-enum Step {
-    Open(usize, Option<String>, Rc<PrefixMap>),
-    Close(String),
+enum Step<'d> {
+    /// A node, and the namespace it inherits.
+    Open(usize, Option<&'d str>),
+    /// An end tag: the name, and where the map goes back to.
+    Close(String, usize),
 }
 
-/// One element's start tag, per §3.2.1.1 steps 1 to 20. Returns the namespace
-/// its children inherit, its map, and the name of its end tag, if it has one.
-fn open_element(
-    doc: &Document,
-    id: usize,
-    inherited: Option<String>,
-    parent_map: &Rc<PrefixMap>,
-    index: &mut u32,
-    out: &mut String,
-) -> (Option<String>, Rc<PrefixMap>, Option<String>) {
-    let Some(name) = doc.element_name(id) else {
-        return (inherited, parent_map.clone(), None);
-    };
-    let attrs = doc.node(id).attrs().unwrap_or(&[]);
-    let namespace = Some(name.ns.as_ref()).filter(|n| !n.is_empty());
-    let local = name.local.as_ref();
-    let element_prefix = name.prefix.as_deref();
-    let mut map = (**parent_map).clone();
-    let mut local_prefixes: Vec<(&str, &str)> = Vec::new();
-    // §3.2.1.1.1 "recording the namespace information".
-    let mut local_default: Option<&str> = None;
-    for a in attrs {
-        if a.name.ns.as_ref() != XMLNS {
-            continue;
+/// One serialization's state.
+struct Serializer<'d> {
+    doc: &'d Document,
+    map: PrefixMap<'d>,
+    index: u32,
+    out: String,
+    max_bytes: usize,
+}
+
+impl<'d> Serializer<'d> {
+    fn check_size(&self) -> Result<(), Refused> {
+        if self.out.len() > self.max_bytes {
+            return Err(Refused::TooLong(self.max_bytes));
         }
-        match a.name.prefix.as_deref() {
-            None => local_default = Some(a.value.as_str()),
-            Some(_) => {
-                let value = Some(a.value.as_str()).filter(|v| !v.is_empty());
-                let prefix = a.name.local.as_ref();
-                if value == Some(XML) || value.is_none() {
-                    continue;
+        Ok(())
+    }
+
+    fn generate_prefix(&mut self) -> String {
+        let g = format!("ns{}", self.index);
+        self.index += 1;
+        g
+    }
+
+    fn declaration(&mut self, prefix: Option<&str>, namespace: &str) {
+        self.out.push_str(" xmlns");
+        if let Some(p) = prefix {
+            self.out.push(':');
+            self.out.push_str(p);
+        }
+        self.out.push_str("=\"");
+        escape_attribute(namespace, &mut self.out);
+        self.out.push('"');
+    }
+
+    /// One element's start tag, per §3.2.1.1 steps 1 to 20. Returns the
+    /// namespace its children inherit and the name of its end tag, if it has
+    /// one. Attributes are counted against the clock and the size one by one.
+    fn open_element(
+        &mut self,
+        id: usize,
+        inherited: Option<&'d str>,
+    ) -> Result<(Option<&'d str>, Option<String>), Refused> {
+        let doc = self.doc;
+        let Some(name) = doc.element_name(id) else {
+            return Ok((inherited, None));
+        };
+        let attrs: &'d [Attribute] = doc.node(id).attrs().unwrap_or(&[]);
+        let namespace = Some(name.ns.as_ref()).filter(|n| !n.is_empty());
+        let local = name.local.as_ref();
+        let element_prefix = name.prefix.as_deref();
+        let mut local_prefixes: HashMap<&'d str, &'d str> = HashMap::new();
+        // §3.2.1.1.1 "recording the namespace information".
+        let mut local_default: Option<&'d str> = None;
+        for a in attrs {
+            doc.poll()?;
+            if a.name.ns.as_ref() != XMLNS {
+                continue;
+            }
+            match a.name.prefix.as_deref() {
+                None => local_default = Some(a.value.as_str()),
+                Some(_) => {
+                    let value = Some(a.value.as_str()).filter(|v| !v.is_empty());
+                    let prefix = a.name.local.as_ref();
+                    if value == Some(XML) || value.is_none() {
+                        continue;
+                    }
+                    if !self.map.has(value, Cow::Borrowed(prefix)) {
+                        self.map.add(value, Cow::Borrowed(prefix));
+                    }
+                    local_prefixes.insert(prefix, a.value.as_str());
                 }
-                if !map_has(&map, value, prefix) {
-                    map_add(&mut map, value, prefix);
-                }
-                local_prefixes.push((prefix, a.value.as_str()));
             }
         }
-    }
-    let mut inherited_child = inherited.clone();
-    let mut ignore_default = false;
-    let qualified;
-    let mut declare = String::new();
-    if inherited.as_deref() == namespace {
-        if local_default.is_some() {
-            ignore_default = true;
-        }
-        qualified = if namespace == Some(XML) {
-            format!("xml:{local}")
-        } else {
-            local.to_owned()
-        };
-    } else {
-        let candidate = preferred(&map, namespace, element_prefix).map(str::to_owned);
-        if let Some(c) = candidate {
+        let mut inherited_child = inherited;
+        let mut ignore_default = false;
+        let qualified;
+        let mut declare: Option<(Option<Cow<'d, str>>, &'d str)> = None;
+        if inherited == namespace {
+            if local_default.is_some() {
+                ignore_default = true;
+            }
+            qualified = if namespace == Some(XML) {
+                format!("xml:{local}")
+            } else {
+                local.to_owned()
+            };
+        } else if let Some(c) = self.map.preferred(namespace, element_prefix) {
             qualified = format!("{c}:{local}");
             if let Some(d) = local_default.filter(|&d| d != XML) {
-                inherited_child = Some(d.to_owned()).filter(|v| !v.is_empty());
+                inherited_child = Some(d).filter(|v| !v.is_empty());
             }
         } else if let Some(p) = element_prefix {
-            let mut prefix = p.to_owned();
-            if local_prefixes.iter().any(|(k, _)| *k == p) {
-                prefix = format!("ns{index}");
-                *index += 1;
-            }
-            map_add(&mut map, namespace, &prefix);
+            let prefix = if local_prefixes.contains_key(p) {
+                Cow::Owned(self.generate_prefix())
+            } else {
+                Cow::Borrowed(p)
+            };
+            self.map.add(namespace, prefix.clone());
             qualified = format!("{prefix}:{local}");
-            declare = format!(" xmlns:{prefix}=\"");
-            escape_attribute(namespace.unwrap_or(""), &mut declare);
-            declare.push('"');
+            declare = Some((Some(prefix), namespace.unwrap_or("")));
             if let Some(d) = local_default {
-                inherited_child = Some(d.to_owned()).filter(|v| !v.is_empty());
+                inherited_child = Some(d).filter(|v| !v.is_empty());
             }
-        } else if local_default.is_none() || local_default != Some(namespace.unwrap_or("")) {
+        } else if local_default != Some(namespace.unwrap_or("")) {
             ignore_default = true;
             qualified = local.to_owned();
-            inherited_child = namespace.map(str::to_owned);
-            declare = " xmlns=\"".to_owned();
-            escape_attribute(namespace.unwrap_or(""), &mut declare);
-            declare.push('"');
+            inherited_child = namespace;
+            declare = Some((None, namespace.unwrap_or("")));
         } else {
             qualified = local.to_owned();
-            inherited_child = namespace.map(str::to_owned);
+            inherited_child = namespace;
         }
+        self.out.push('<');
+        self.out.push_str(&qualified);
+        if let Some((prefix, uri)) = declare {
+            self.declaration(prefix.as_deref(), uri);
+        }
+        // §3.2.1.7 "serialization of the attributes".
+        for a in attrs {
+            doc.poll_by(1 + a.value.len() / 64)?;
+            self.check_size()?;
+            let attr_ns = Some(a.name.ns.as_ref()).filter(|n| !n.is_empty());
+            let mut candidate: Option<Cow<'d, str>> = None;
+            if let Some(ans) = attr_ns {
+                candidate = self.map.preferred(attr_ns, a.name.prefix.as_deref());
+                if ans == XMLNS {
+                    let local_name = a.name.local.as_ref();
+                    let known = local_prefixes.get(local_name) == Some(&a.value.as_str());
+                    if a.value == XML
+                        || (a.name.prefix.is_none() && ignore_default)
+                        || (a.name.prefix.is_some()
+                            && !known
+                            && self.map.has(Some(&a.value), Cow::Borrowed(local_name)))
+                    {
+                        continue;
+                    }
+                    if a.name.prefix.as_deref() == Some("xmlns") {
+                        candidate = Some(Cow::Borrowed("xmlns"));
+                    }
+                } else if candidate.is_none() {
+                    let free = a
+                        .name
+                        .prefix
+                        .as_deref()
+                        .filter(|p| !local_prefixes.contains_key(p));
+                    let prefix = match free {
+                        Some(p) => Cow::Borrowed(p),
+                        None => Cow::Owned(self.generate_prefix()),
+                    };
+                    self.map.add(attr_ns, prefix.clone());
+                    self.declaration(Some(&prefix), ans);
+                    candidate = Some(prefix);
+                }
+            }
+            self.out.push(' ');
+            if let Some(c) = &candidate {
+                self.out.push_str(c);
+                self.out.push(':');
+            }
+            self.out.push_str(&a.name.local);
+            self.out.push_str("=\"");
+            escape_attribute(&a.value, &mut self.out);
+            self.out.push('"');
+        }
+        self.check_size()?;
+        let html = namespace == Some(HTML);
+        let empty = doc.children(id).is_empty() && !(html && doc.is_html_template(id));
+        if empty && html && VOID_HTML.contains(&local) {
+            self.out.push_str(" />");
+            return Ok((inherited_child, None));
+        }
+        if empty && !html {
+            self.out.push_str("/>");
+            return Ok((inherited_child, None));
+        }
+        self.out.push('>');
+        Ok((inherited_child, Some(qualified)))
     }
-    out.push('<');
-    out.push_str(&qualified);
-    out.push_str(&declare);
-    // §3.2.1.7 "serialization of the attributes".
-    for a in attrs {
-        let attr_ns = Some(a.name.ns.as_ref()).filter(|n| !n.is_empty());
-        let mut candidate: Option<String> = None;
-        if let Some(ans) = attr_ns {
-            candidate = preferred(&map, attr_ns, a.name.prefix.as_deref()).map(str::to_owned);
-            if ans == XMLNS {
-                let known = local_prefixes
-                    .iter()
-                    .any(|(k, v)| *k == a.name.local.as_ref() && *v == a.value);
-                if a.value == XML
-                    || (a.name.prefix.is_none() && ignore_default)
-                    || (a.name.prefix.is_some()
-                        && !known
-                        && map_has(&map, Some(&a.value), a.name.local.as_ref()))
-                {
+
+    fn run(&mut self, top: usize) -> Result<(), Refused> {
+        let doc = self.doc;
+        let mut stack = vec![Step::Open(top, None)];
+        while let Some(step) = stack.pop() {
+            let (id, inherited) = match step {
+                Step::Close(name, mark) => {
+                    self.out.push_str("</");
+                    self.out.push_str(&name);
+                    self.out.push('>');
+                    self.map.undo(mark);
                     continue;
                 }
-                if a.name.prefix.as_deref() == Some("xmlns") {
-                    candidate = Some("xmlns".to_owned());
+                Step::Open(id, inherited) => (id, inherited),
+            };
+            doc.poll()?;
+            self.check_size()?;
+            match doc.kind(id) {
+                Some(Kind::Element) => {
+                    let mark = self.map.added.len();
+                    let (child_ns, close) = self.open_element(id, inherited)?;
+                    match close {
+                        Some(name) => {
+                            stack.push(Step::Close(name, mark));
+                            let kids: &[usize] = if doc.is_html_template(id) {
+                                doc.template_of(id).map_or(&[], |c| doc.children(c))
+                            } else {
+                                doc.children(id)
+                            };
+                            stack.extend(kids.iter().rev().map(|&k| Step::Open(k, child_ns)));
+                        }
+                        None => self.map.undo(mark),
+                    }
                 }
-            } else if candidate.is_none() {
-                let mut p = a.name.prefix.as_deref().map(str::to_owned);
-                let free = |p: &str| !local_prefixes.iter().any(|(k, _)| *k == p);
-                if !p.as_deref().is_some_and(free) {
-                    p = None;
+                Some(Kind::Document | Kind::DocumentFragment) => {
+                    let kids = doc.children(id);
+                    stack.extend(kids.iter().rev().map(|&k| Step::Open(k, inherited)));
                 }
-                let prefix = p.unwrap_or_else(|| {
-                    let g = format!("ns{index}");
-                    *index += 1;
-                    g
-                });
-                map_add(&mut map, attr_ns, &prefix);
-                out.push_str(" xmlns:");
-                out.push_str(&prefix);
-                out.push_str("=\"");
-                escape_attribute(ans, out);
-                out.push('"');
-                candidate = Some(prefix);
+                Some(Kind::Text) if doc.is_cdata(id) => {
+                    self.out.push_str("<![CDATA[");
+                    self.out.push_str(doc.char_data(id));
+                    self.out.push_str("]]>");
+                }
+                Some(Kind::Text) => escape_text(doc.char_data(id), &mut self.out),
+                Some(Kind::Comment) => {
+                    self.out.push_str("<!--");
+                    self.out.push_str(doc.char_data(id));
+                    self.out.push_str("-->");
+                }
+                Some(Kind::ProcessingInstruction) => {
+                    if let Some(Special::Instruction { target }) = doc.special(id) {
+                        self.out.push_str("<?");
+                        self.out.push_str(target);
+                        self.out.push(' ');
+                        self.out.push_str(doc.char_data(id));
+                        self.out.push_str("?>");
+                    }
+                }
+                Some(Kind::DocumentType) => {
+                    if let Some(Special::Doctype {
+                        name,
+                        public_id,
+                        system_id,
+                    }) = doc.special(id)
+                    {
+                        let out = &mut self.out;
+                        out.push_str("<!DOCTYPE ");
+                        out.push_str(name);
+                        if !public_id.is_empty() {
+                            out.push_str(" PUBLIC \"");
+                            out.push_str(public_id);
+                            out.push('"');
+                        }
+                        if !system_id.is_empty() {
+                            if public_id.is_empty() {
+                                out.push_str(" SYSTEM");
+                            }
+                            out.push_str(" \"");
+                            out.push_str(system_id);
+                            out.push('"');
+                        }
+                        out.push('>');
+                    }
+                }
+                None => {}
             }
         }
-        out.push(' ');
-        if let Some(c) = &candidate {
-            out.push_str(c);
-            out.push(':');
-        }
-        out.push_str(&a.name.local);
-        out.push_str("=\"");
-        escape_attribute(&a.value, out);
-        out.push('"');
+        self.check_size()
     }
-    let html = namespace == Some(HTML);
-    let empty = doc.children(id).is_empty() && !(html && doc.is_html_template(id));
-    if empty && html && VOID_HTML.contains(&local) {
-        out.push_str(" />");
-        return (inherited_child, Rc::new(map), None);
-    }
-    if empty && !html {
-        out.push_str("/>");
-        return (inherited_child, Rc::new(map), None);
-    }
-    out.push('>');
-    (inherited_child, Rc::new(map), Some(qualified))
 }
 
 /// §3.2 "XML serialization", with the require well-formed flag unset, as
-/// `XMLSerializer` calls it. Iterative. The polls are in the caller's hands
-/// through `poll`, once per node.
-pub(crate) fn serialize(doc: &Document, top: usize) -> Result<String, BindingError> {
-    let xml_map: PrefixMap = vec![(Some(XML.to_owned()), vec!["xml".to_owned()])];
-    let mut out = String::new();
-    let mut index = 1u32;
-    let mut stack = vec![Step::Open(top, None, Rc::new(xml_map))];
-    while let Some(step) = stack.pop() {
-        let (id, inherited, map) = match step {
-            Step::Close(name) => {
-                out.push_str("</");
-                out.push_str(&name);
-                out.push('>');
-                continue;
-            }
-            Step::Open(id, inherited, map) => (id, inherited, map),
-        };
-        doc.poll()?;
-        match doc.kind(id) {
-            Some(Kind::Element) => {
-                let (child_ns, child_map, close) =
-                    open_element(doc, id, inherited, &map, &mut index, &mut out);
-                doc.poll_by(child_map.len())?;
-                if let Some(name) = close {
-                    stack.push(Step::Close(name));
-                    let kids: &[usize] = if doc.is_html_template(id) {
-                        doc.template_of(id).map_or(&[], |c| doc.children(c))
-                    } else {
-                        doc.children(id)
-                    };
-                    for &k in kids.iter().rev() {
-                        stack.push(Step::Open(k, child_ns.clone(), child_map.clone()));
-                    }
-                }
-            }
-            Some(Kind::Document | Kind::DocumentFragment) => {
-                for &k in doc.children(id).iter().rev() {
-                    stack.push(Step::Open(k, inherited.clone(), map.clone()));
-                }
-            }
-            Some(Kind::Text) if doc.is_cdata(id) => {
-                out.push_str("<![CDATA[");
-                out.push_str(doc.char_data(id));
-                out.push_str("]]>");
-            }
-            Some(Kind::Text) => escape_text(doc.char_data(id), &mut out),
-            Some(Kind::Comment) => {
-                out.push_str("<!--");
-                out.push_str(doc.char_data(id));
-                out.push_str("-->");
-            }
-            Some(Kind::ProcessingInstruction) => {
-                if let Some(Special::Instruction { target }) = doc.special(id) {
-                    out.push_str("<?");
-                    out.push_str(target);
-                    out.push(' ');
-                    out.push_str(doc.char_data(id));
-                    out.push_str("?>");
-                }
-            }
-            Some(Kind::DocumentType) => {
-                if let Some(Special::Doctype {
-                    name,
-                    public_id,
-                    system_id,
-                }) = doc.special(id)
-                {
-                    out.push_str("<!DOCTYPE ");
-                    out.push_str(name);
-                    if !public_id.is_empty() {
-                        out.push_str(" PUBLIC \"");
-                        out.push_str(public_id);
-                        out.push('"');
-                    }
-                    if !system_id.is_empty() {
-                        if public_id.is_empty() {
-                            out.push_str(" SYSTEM");
-                        }
-                        out.push_str(" \"");
-                        out.push_str(system_id);
-                        out.push('"');
-                    }
-                    out.push('>');
-                }
-            }
-            None => {}
-        }
-    }
-    Ok(out)
+/// `XMLSerializer` calls it. Iterative, with nothing copied per node: the
+/// namespaces on its stack are borrowed from the document. The output stops at
+/// [`DomLimits::max_text_bytes`](crate::DomLimits::max_text_bytes), since
+/// repeated declarations can make it far larger than the tree.
+pub(crate) fn serialize(doc: &Document, top: usize) -> Result<String, Refused> {
+    let mut map = PrefixMap::default();
+    map.add(Some(XML), Cow::Borrowed("xml"));
+    let mut s = Serializer {
+        doc,
+        map,
+        index: 1,
+        out: String::new(),
+        max_bytes: doc.max_text_bytes(),
+    };
+    s.run(top)?;
+    Ok(s.out)
 }

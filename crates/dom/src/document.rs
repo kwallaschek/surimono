@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
+use html5ever::Namespace;
 use surimono_core::Deadline;
 use surimono_webidl::runtime::{BindingError, BindingResult};
 
@@ -429,6 +430,10 @@ pub struct Document {
     frames: HashMap<usize, usize>,
     /// `<iframe>`s whose load has been started. Each loads once.
     frames_started: HashSet<usize>,
+    /// Loads started in this render, whatever became of them.
+    frame_count: usize,
+    /// Sources a resolver gave, to parse inside a call: (element, text, URL).
+    frame_sources: VecDeque<(usize, Option<String>, String)>,
     /// Handles of `<iframe>`s whose `load` is due.
     frame_loads: VecDeque<Handle>,
     /// See [`Special`].
@@ -445,6 +450,9 @@ pub struct Document {
     pub(crate) deadline: Option<Deadline>,
     /// What layout queries do, set for each native call.
     pub(crate) layout: LayoutPolicy,
+    /// The body or frameset element whose `on*` attribute was written last:
+    /// its attributes are the window's. A handle, so its node stays.
+    pub(crate) handler_source: Option<Handle>,
     /// Steps since the last look at the clock (see [`Document::poll`]).
     ticks: Cell<u32>,
     /// Entries of child lists passed by changes (see [`Document::list_steps`]).
@@ -555,6 +563,8 @@ impl Document {
             page_html: true,
             frames: HashMap::new(),
             frames_started: HashSet::new(),
+            frame_count: 0,
+            frame_sources: VecDeque::new(),
             frame_loads: VecDeque::new(),
             specials: parsed.specials.into_iter().collect(),
             ready_state: 2,
@@ -562,6 +572,7 @@ impl Document {
             fault: None,
             deadline: None,
             layout: LayoutPolicy::default(),
+            handler_source: None,
             ticks: Cell::new(0),
             list_steps: 0,
         };
@@ -606,6 +617,9 @@ impl Document {
         // The parser's own root and holder add two levels.
         let levels = self.limits.max_depth.saturating_sub(self.depth(parent)) + 2;
         let deadline = self.deadline.clone();
+        // HTML §13.4: the flag is that of the context's node document, and only
+        // the page's has a browsing context.
+        let scripting = self.making == self.root();
         let parsed = parse::parse_fragment(
             &mut self.inner.mutate(),
             context,
@@ -615,6 +629,7 @@ impl Document {
                 max_nodes: room,
                 max_depth: levels,
             },
+            scripting,
             || deadline.as_ref().is_some_and(Deadline::passed),
         );
         self.side_data.extend(parsed.strings);
@@ -752,6 +767,8 @@ impl Document {
     pub(crate) fn adopt_subtree(&mut self, top: usize, doc: usize) {
         if self.owner_of_node(top) != doc {
             self.own_subtree(top, doc);
+            // What a live list answers depends on the document's type.
+            self.version += 1;
         }
     }
 
@@ -808,7 +825,7 @@ impl Document {
         r
     }
 
-    /// Whether the document's URL is `url`. See [`Document::set_url`].
+    /// Document `doc`'s URL. See [`Document::set_url`].
     pub(crate) fn url(&self, doc: usize) -> &str {
         &self.info(doc).url
     }
@@ -816,7 +833,8 @@ impl Document {
     /// Sets the URL of the page's document (`document.URL`), which the
     /// documents it makes through `DOMParser` take on. `about:blank` until set.
     /// An XML page's `contentType` then goes by the URL's extension, as a
-    /// frame's does, for want of a Content-Type.
+    /// frame's does, for want of a Content-Type. `pub` for the runner and the
+    /// facade; the crate is unpublished.
     pub fn set_url(&mut self, url: &str) {
         let root = self.root();
         if let Some(d) = self.docs.get_mut(&root) {
@@ -978,6 +996,11 @@ impl Document {
         Ok(Some(doc))
     }
 
+    /// The most bytes of strings a document may hold.
+    pub(crate) fn max_text_bytes(&self) -> usize {
+        self.limits.max_text_bytes
+    }
+
     /// The deepest nesting allowed.
     pub(crate) fn max_depth(&self) -> usize {
         self.limits.max_depth
@@ -1003,8 +1026,10 @@ impl Document {
     /// `<iframe>` `id`'s document (HTML §4.8.5): none unless it is connected;
     /// its initial `about:blank` until one has loaded.
     pub(crate) fn frame_document(&mut self, id: usize) -> Result<Option<usize>, DomError> {
-        if !self.is_connected(id) {
-            // Removal discards the browsing context.
+        let owner = self.owner_of_node(id);
+        if !self.is_connected(id) || (owner != self.root() && !self.info(owner).frame) {
+            // Removal discards the browsing context, and a document with none
+            // of its own can't give one.
             self.frames.remove(&id);
             self.frames_started.remove(&id);
             return Ok(None);
@@ -1036,39 +1061,50 @@ impl Document {
             if let Some(&d) = self.frames.get(&n) {
                 stack.push(d);
             }
-            if !self.frames_started.contains(&n)
-                && self.frames_started.len() + out.len() < MAX_FRAMES
-            {
+            if !self.frames_started.contains(&n) && self.frame_count + out.len() < MAX_FRAMES {
                 let src = self.attribute(n, "src").filter(|s| !s.is_empty());
                 out.push((n, self.attribute(n, "srcdoc"), src));
             }
         }
+        self.frame_count += out.len();
         for (n, ..) in &out {
             self.frames_started.insert(*n);
         }
         out
     }
 
-    /// Gives `<iframe>` `id` the document `text`, from `url`, and queues its
-    /// `load`. `text` `None` keeps what it has (a failed load still fires
-    /// `load`, as a 404 does). The type goes by the URL's extension: there is
-    /// no Content-Type here. A frame's scripts don't run.
-    pub(crate) fn load_frame(
-        &mut self,
-        id: usize,
-        text: Option<&str>,
-        url: &str,
-    ) -> Result<(), DomError> {
+    /// Keeps a frame's source until a call parses it, under that call's limits.
+    pub(crate) fn queue_frame(&mut self, id: usize, text: Option<String>, url: String) {
+        self.frame_sources.push_back((id, text, url));
+    }
+
+    /// Parses the next queued frame, inside a native call, so the time limit,
+    /// a cancel and the panic guard all reach the parse. Gives `<iframe>` its
+    /// document and queues its `load`. `text` `None` keeps what it has (a
+    /// failed load still fires `load`, as a 404 does). The type goes by the
+    /// URL's extension: there is no Content-Type here. A frame's scripts don't
+    /// run. `Ok(None)` if nothing is queued; `Ok(Some(false))` if the time
+    /// limit passed.
+    pub(crate) fn load_next_frame(&mut self) -> Result<Option<bool>, DomError> {
+        let Some((id, text, url)) = self.frame_sources.pop_front() else {
+            return Ok(None);
+        };
         if !self.is_connected(id) {
-            return Ok(());
+            return Ok(Some(true));
         }
         let url: Arc<str> = Arc::from(url);
         let parsed = match text {
             None => self.frame_document(id)?,
-            Some(text) => match frame_content_type(&url) {
-                Some(t) => self.parse_xml_document(text, t, url)?,
-                None => self.parse_html_document(text, url)?,
-            },
+            Some(text) => {
+                let parsed = match frame_content_type(&url) {
+                    Some(t) => self.parse_xml_document(&text, t, url)?,
+                    None => self.parse_html_document(&text, url)?,
+                };
+                if parsed.is_none() {
+                    return Ok(Some(false));
+                }
+                parsed
+            }
         };
         if let Some(d) = parsed {
             if let Some(info) = self.docs.get_mut(&d) {
@@ -1078,7 +1114,7 @@ impl Document {
         }
         let h = self.handle_for(id)?;
         self.frame_loads.push_back(h);
-        Ok(())
+        Ok(Some(true))
     }
 
     /// The next `<iframe>` whose `load` is due, 0 for none.
@@ -1106,9 +1142,9 @@ impl Document {
         parsed.map_or(url, String::from)
     }
 
-    /// `src`, resolved against the page's URL, without its fragment: what a
-    /// frame's document is called and what the caller's resolver is asked for
-    /// (`text` keeps the page's own spelling; see `run_page`).
+    /// `src`, resolved against the page's URL: what a frame's document is
+    /// called. The resolver is asked for `src` as the page spelled it, without
+    /// the fragment.
     pub(crate) fn frame_url(&self, src: &str) -> String {
         let base = url::Url::parse(&self.info(self.root()).url);
         base.and_then(|b| b.join(src))
@@ -1117,8 +1153,9 @@ impl Document {
 
     /// Parses `text` under the empty document `doc`.
     fn fill_xml_document(&mut self, doc: usize, text: &str) -> Result<Option<usize>, DomError> {
+        let seed = HashMap::new();
         let done = self.making_in(doc, |d| {
-            xml::parse(d, doc, text, xml::Mode::Document, &[], 0)
+            xml::parse(d, doc, text, xml::Mode::Document, &seed, 0)
         });
         match done {
             Ok(()) => Ok(Some(doc)),
@@ -1152,28 +1189,30 @@ impl Document {
         parent: usize,
         text: &str,
     ) -> Result<usize, xml::Stop> {
-        let mut scope = Vec::new();
+        // Innermost first: a prefix seen stays as it is.
+        let mut scope: HashMap<String, Namespace> = HashMap::new();
         let mut at = Some(context);
         while let Some(n) = at {
             for a in self.node(n).attrs().into_iter().flatten() {
+                self.poll_by(1 + a.value.len() / 64)?;
                 if a.name.ns.as_ref() == "http://www.w3.org/2000/xmlns/" {
                     let prefix = match &a.name.prefix {
                         Some(_) => a.name.local.to_string(),
                         None => String::new(),
                     };
-                    scope.push((prefix, a.value.clone()));
+                    scope
+                        .entry(prefix)
+                        .or_insert_with(|| Namespace::from(a.value.as_str()));
                 }
             }
             if let Some(q) = self.element_name(n)
                 && !q.ns.is_empty()
             {
                 let prefix = q.prefix.as_deref().unwrap_or("").to_owned();
-                scope.push((prefix, q.ns.to_string()));
+                scope.entry(prefix).or_insert_with(|| q.ns.clone());
             }
             at = self.parent(n);
         }
-        // Innermost last.
-        scope.reverse();
         let frag = self
             .create_fragment()
             .map_err(|e| xml::Stop::Limit(self.fail(e)))?;
@@ -1974,6 +2013,13 @@ impl Document {
         name: QualName,
         value: &str,
     ) -> Result<(), DomError> {
+        if name.local.as_ref().starts_with("on")
+            && self.element_name(id).is_some_and(|n| {
+                n.ns == ns!(html) && matches!(n.local.as_ref(), "body" | "frameset")
+            })
+        {
+            self.handler_source = Some(self.handle_for(id)?);
+        }
         // Any namespace: blitz-dom goes by the local name.
         if name.local.as_ref() == "style" && !style_attr::fits(value) {
             return Err(style_attr::limit_error());
@@ -2020,8 +2066,8 @@ impl Document {
     }
 
     /// Puts the free `Attr` `handle` on `element` under `name`, with `value`,
-    /// which it held: in the place of the attribute `old`, whose object keeps
-    /// the old value.
+    /// which it held: DOM §4.9 "replace an attribute" if there is one, `old`,
+    /// whose object keeps the old value, and this one has its place.
     pub(crate) fn attach_attr(
         &mut self,
         handle: Handle,
@@ -2035,9 +2081,19 @@ impl Document {
             self.keep_attr_value(element, &target);
         }
         self.write_attribute(element, target.clone(), &value)?;
+        if target != name {
+            // Same namespace and local name, so only the prefix differs: blitz-dom
+            // has seen what it goes by, and the entry keeps its place.
+            self.recharge(name_cost(&target), name_cost(&name))?;
+            if let Some(e) = self.element_mut(element) {
+                if let Some(a) = e.attrs.iter_mut().find(|a| a.name == target) {
+                    a.name = name.clone();
+                }
+            }
+        }
         self.credit(value.len());
         self.retained_bytes -= value.len();
-        self.owned.insert((element, Owned::Attr(target)), handle);
+        self.owned.insert((element, Owned::Attr(name)), handle);
         if let Some(Object::Attr(e, _, kept)) = self.object_mut(handle) {
             *e = element;
             *kept = None;
