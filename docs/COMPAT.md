@@ -132,53 +132,51 @@ Memory target (`docs/SPEC.md`): at least 5× lower peak (summed PSS) than Grover
 
 | Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |
 |---|---|---|---|---|---|---|
-| html/webappapis timers and microtask queuing | 2 | 25 | 34 | 73.5% | 90% | **below the target** |
-| dom/nodes | 2 | 2860 | 15253 | 18.8% | 70% | **below the target** |
-| dom/events | 2 | 81 | 748 | 10.8% | 70% | **below the target** |
-| domparsing | 2 | 123 | 909 | 13.5% | 60% | **below the target** |
+| html/webappapis timers and microtask queuing | 2 | 30 | 34 | 88.2% | 90% | **below the target** |
+| dom/nodes | 2 | 2902 | 15253 | 19.0% | 70% | **below the target** |
+| dom/events | 2 | 84 | 748 | 11.2% | 70% | **below the target** |
+| domparsing | 2 | 124 | 909 | 13.6% | 60% | **below the target** |
 
-WPT 8b4b06ff53, 722 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono c648551f1a (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
+WPT 8b4b06ff53, 722 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 44444abde4 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
 
 The most common causes, in subtests Chrome passes:
 
 | Subtests | Cause |
 |---|---|
 | 3727 | ERROR: TypeError: Illegal constructor |
-| 3355 | harness timed out before it |
+| 3344 | harness timed out before it |
 | 2133 | ERROR: needs an XML parser, which surimono-dom doesn't have |
-| 1015 | FAIL: cannot read property … of undefined |
-| 764 | NOTRUN: NOTRUN |
-| 509 | FAIL: not a function |
+| 1018 | FAIL: cannot read property … of undefined |
+| 759 | NOTRUN: NOTRUN |
 | 509 | not reported |
+| 504 | FAIL: not a function |
 | 278 | ERROR: ReferenceError: trustedTypes is not defined |
 | 178 | FAIL: DOMParser is not defined |
 | 150 | FAIL: assert_throws_dom: function "function () { |
 | 127 | ERROR: TypeError: cannot read property 'createDocument' of undefined |
 | 120 | ERROR: 21 duplicate test names: "When clicking child <INPUT type=checkbox></INPUT> of parent <FORM><BUTTON></BUTTON></FORM>, only child should be activated.", "When clicking child <INPUT type=radio></INPUT>  |
-| 92 | TIMEOUT: Test timed out |
 | 90 | ERROR: ReferenceError: history is not defined |
 | 88 | ERROR: 20 duplicate test names: "touchstart listener is passive by default for HTMLElement", "touchstart listener is passive with {passive:undefined} for HTMLElement", "touchstart listener is non-passive wit |
+| 87 | TIMEOUT: Test timed out |
 | 52 | ERROR: TypeError: cannot read property 'insertRule' of undefined |
 | 50 | ERROR: TypeError: not a function |
 | 48 | ERROR: ReferenceError: HTMLBodyElement is not defined |
-| 43 | FAIL: assert_equals: expected … but got … |
-| 39 | FAIL: promise_test: Unhandled rejection with value: object … |
+| 46 | FAIL: promise_test: Unhandled rejection with value: object … |
+| 44 | FAIL: assert_equals: expected … but got … |
 | 30 | FAIL: MouseEvent is not defined |
-| 18 | FAIL: Illegal constructor |
 | 16 | ERROR: ReferenceError: targetDiv is not defined |
+| 16 | FAIL: Illegal constructor |
+| 15 | FAIL: frames is not defined |
 | 14 | ERROR: ReferenceError: DOMParser is not defined |
-| 14 | FAIL: assert_throws_dom: function "function() { |
 
 <details><summary>Every test that doesn't pass in full</summary>
 
 | Test | Passed | Of | Status |
 |---|---|---|---|
-| html/webappapis/timers/errors.html | 0 | 4 | TIMEOUT |
 | html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
 | html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
 | html/webappapis/timers/settimeout-detached-iframe.html | 0 | 1 | OK |
 | html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
-| html/webappapis/microtask-queuing/queue-microtask-exceptions.any.html | 0 | 1 | TIMEOUT |
 | dom/nodes/Attr-prefix-xhtml.xhtml | 0 | 2 | ERROR |
 | dom/nodes/Attr-prefix.html | 0 | 6 | OK |
 | dom/nodes/CharacterData-appendChild.html | 4 | 9 | OK |
@@ -256,7 +254,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Element-firstElementChild-namespace-xhtml.xhtml | 0 | 1 | ERROR |
 | dom/nodes/Element-firstElementChild-svg.svg | 0 | 1 | ERROR |
 | dom/nodes/Element-firstElementChild-xhtml.xhtml | 0 | 1 | ERROR |
-| dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html | 0 | 1 | OK |
 | dom/nodes/Element-getElementsByTagNameNS.html | 0 | 16 | OK |
 | dom/nodes/Element-lastElementChild-svg.svg | 0 | 1 | ERROR |
 | dom/nodes/Element-lastElementChild-xhtml.xhtml | 0 | 1 | ERROR |
@@ -274,11 +272,10 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Element-webkitMatchesSelector.html | 0 | 669 | TIMEOUT |
 | dom/nodes/MutationObserver-callback-order.window.html | 2 | 3 | OK |
 | dom/nodes/MutationObserver-characterData.html | 0 | 23 | ERROR |
-| dom/nodes/MutationObserver-childList.html | 19 | 40 | TIMEOUT |
+| dom/nodes/MutationObserver-childList.html | 26 | 40 | OK |
 | dom/nodes/MutationObserver-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
 | dom/nodes/MutationObserver-document.html | 1 | 4 | OK |
-| dom/nodes/MutationObserver-inner-outer.html | 0 | 3 | OK |
-| dom/nodes/MutationObserver-textContent.html | 1 | 4 | TIMEOUT |
+| dom/nodes/MutationObserver-textContent.html | 3 | 4 | TIMEOUT |
 | dom/nodes/MutationObserver-transient-registered-observers.window.html | 5 | 15 | OK |
 | dom/nodes/MutationObserver-xml-parser.xhtml | 0 | 1 | ERROR |
 | dom/nodes/Node-appendChild-cereactions-vs-script.window.html | 0 | 1 | OK |
@@ -286,7 +283,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Node-baseURI.html | 4 | 9 | OK |
 | dom/nodes/Node-childNodes.html | 5 | 6 | OK |
 | dom/nodes/Node-cloneNode-XMLDocument.html | 0 | 1 | OK |
-| dom/nodes/Node-cloneNode-document-allow-declarative-shadow-roots.window.html | 0 | 1 | OK |
+| dom/nodes/Node-cloneNode-document-allow-declarative-shadow-roots.window.html | 0 | 1 | LIMIT |
 | dom/nodes/Node-cloneNode-document-with-doctype.html | 0 | 3 | OK |
 | dom/nodes/Node-cloneNode-external-stylesheet-no-bc.sub.html | 0 | 1 | OK |
 | dom/nodes/Node-cloneNode.html | 60 | 135 | OK |
@@ -296,7 +293,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Node-isConnected-shadow-dom.html | 0 | 2 | OK |
 | dom/nodes/Node-isConnected.html | 1 | 2 | OK |
 | dom/nodes/Node-isEqualNode-xhtml.xhtml | 0 | 14 | ERROR |
-| dom/nodes/Node-isEqualNode.html | 4 | 9 | OK |
+| dom/nodes/Node-isEqualNode.html | 5 | 9 | OK |
 | dom/nodes/Node-isSameNode.html | 5 | 9 | OK |
 | dom/nodes/Node-lookupNamespaceURI.html | 0 | 75 | ERROR |
 | dom/nodes/Node-lookupPrefix.xhtml | 0 | 11 | ERROR |
@@ -337,7 +334,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/ParentNode-querySelectorAll-namespace.html | 0 | 1 | ERROR |
 | dom/nodes/ParentNode-querySelectorAll-nested-not-has.html | 0 | 1 | OK |
 | dom/nodes/ParentNode-querySelectorAll-scope-change.html | 0 | 1 | OK |
-| dom/nodes/ParentNode-replaceChildren.html | 0 | 28 | ERROR |
+| dom/nodes/ParentNode-replaceChildren.html | 20 | 28 | OK |
 | dom/nodes/ProcessingInstruction-escapes-1.xhtml | 0 | 1 | ERROR |
 | dom/nodes/ProcessingInstruction-literal-1.xhtml | 0 | 1 | ERROR |
 | dom/nodes/ProcessingInstruction-literal-2.xhtml | 0 | 1 | ERROR |
@@ -347,7 +344,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/attach-shadow-realm-after-adoption.html | 0 | 3 | ERROR |
 | dom/nodes/attributes-namednodemap-cross-document.window.html | 0 | 2 | OK |
 | dom/nodes/attributes-namednodemap.html | 5 | 8 | OK |
-| dom/nodes/attributes.html | 50 | 67 | OK |
+| dom/nodes/attributes.html | 53 | 67 | OK |
 | dom/nodes/case.html | 265 | 285 | OK |
 | dom/nodes/create-element-realm-after-adoption.html | 0 | 3 | ERROR |
 | dom/nodes/getElementById-namespaced-id.html | 0 | 4 | OK |
@@ -374,7 +371,6 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/insertion-removing-steps/frame-post-connection-steps.html | 0 | 4 | OK |
 | dom/nodes/insertion-removing-steps/insertion-removing-steps-iframe.window.html | 0 | 1 | OK |
 | dom/nodes/insertion-removing-steps/insertion-removing-steps-script.window.html | 0 | 1 | OK |
-| dom/nodes/live-collections-batched-mutations.window.html | 1 | 2 | OK |
 | dom/nodes/moveBefore/Node-moveBefore.html | 2 | 32 | OK |
 | dom/nodes/moveBefore/child-style-preserve.html | 0 | 1 | OK |
 | dom/nodes/moveBefore/continue-css-animation-left.html | 0 | 1 | TIMEOUT |
@@ -429,7 +425,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/moveBefore/style-applies.html | 0 | 1 | OK |
 | dom/nodes/moveBefore/throws-exception.html | 0 | 1 | OK |
 | dom/nodes/name-validation.html | 1 | 5 | OK |
-| dom/nodes/namespaced-attribute-mutations.html | 5 | 24 | OK |
+| dom/nodes/namespaced-attribute-mutations.html | 10 | 24 | OK |
 | dom/nodes/node-creation-realm.html | 0 | 12 | OK |
 | dom/nodes/node-realm-adoption-after-frame-removal.html | 0 | 2 | OK |
 | dom/nodes/node-realm-mixed-across-adoption.html | 0 | 2 | OK |
@@ -454,9 +450,9 @@ The most common causes, in subtests Chrome passes:
 | dom/events/Event-defaultPrevented-after-dispatch.html | 0 | 2 | OK |
 | dom/events/Event-defaultPrevented.html | 0 | 8 | OK |
 | dom/events/Event-dispatch-bubble-canceled.html | 0 | 1 | OK |
-| dom/events/Event-dispatch-bubbles-false.html | 0 | 5 | OK |
-| dom/events/Event-dispatch-bubbles-true.html | 0 | 5 | OK |
-| dom/events/Event-dispatch-click.html | 0 | 33 | TIMEOUT |
+| dom/events/Event-dispatch-bubbles-false.html | 0 | 5 | LIMIT |
+| dom/events/Event-dispatch-bubbles-true.html | 0 | 5 | LIMIT |
+| dom/events/Event-dispatch-click.html | 1 | 33 | OK |
 | dom/events/Event-dispatch-click.tentative.html | 0 | 4 | OK |
 | dom/events/Event-dispatch-detached-click.html | 0 | 2 | TIMEOUT |
 | dom/events/Event-dispatch-detached-input-and-change.html | 0 | 12 | OK |
@@ -472,7 +468,6 @@ The most common causes, in subtests Chrome passes:
 | dom/events/Event-dispatch-target-moved.html | 0 | 1 | OK |
 | dom/events/Event-dispatch-target-removed.html | 0 | 1 | OK |
 | dom/events/Event-dispatch-throwing-multiple-globals.html | 0 | 2 | TIMEOUT |
-| dom/events/Event-dispatch-throwing.html | 0 | 2 | OK |
 | dom/events/Event-init-while-dispatching.html | 2 | 5 | OK |
 | dom/events/Event-initEvent.html | 0 | 12 | OK |
 | dom/events/Event-isTrusted.any.html | 0 | 1 | OK |
@@ -488,8 +483,8 @@ The most common causes, in subtests Chrome passes:
 | dom/events/Event-type.html | 1 | 3 | OK |
 | dom/events/EventListener-addEventListener.sub.window.html | 0 | 1 | TIMEOUT |
 | dom/events/EventListener-handleEvent-cross-realm.html | 0 | 2 | OK |
-| dom/events/EventListener-incumbent-global-1.sub.html | 0 | 1 | TIMEOUT |
-| dom/events/EventListener-incumbent-global-2.sub.html | 0 | 1 | TIMEOUT |
+| dom/events/EventListener-incumbent-global-1.sub.html | 0 | 1 | OK |
+| dom/events/EventListener-incumbent-global-2.sub.html | 0 | 1 | OK |
 | dom/events/EventListener-invoke-legacy.html | 0 | 6 | TIMEOUT |
 | dom/events/EventTarget-add-listener-platform-object.html | 0 | 1 | OK |
 | dom/events/EventTarget-dispatchEvent-returnvalue.html | 0 | 2 | OK |
@@ -500,8 +495,8 @@ The most common causes, in subtests Chrome passes:
 | dom/events/event-disabled-dynamic.html | 0 | 1 | OK |
 | dom/events/event-global-event-targets.html | 0 | 5 | OK |
 | dom/events/event-global-extra.window.html | 0 | 6 | TIMEOUT |
-| dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html | 0 | 1 | TIMEOUT |
-| dom/events/event-global-is-still-set-when-reporting-exception-onerror.html | 0 | 1 | TIMEOUT |
+| dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html | 0 | 1 | OK |
+| dom/events/event-global-is-still-set-when-reporting-exception-onerror.html | 0 | 1 | OK |
 | dom/events/event-global-set-before-handleEvent-lookup.window.html | 0 | 1 | OK |
 | dom/events/event-global.html | 0 | 8 | OK |
 | dom/events/event-listener-not-fully-active-adopted-node.html | 0 | 5 | TIMEOUT |
@@ -522,7 +517,7 @@ The most common causes, in subtests Chrome passes:
 | dom/events/scrolling/scroll-event-not-fired-on-ancestor-style-change.html | 0 | 1 | OK |
 | dom/events/scrolling/scroll-events-fired-once-per-frame-across-display-none.html | 0 | 2 | OK |
 | dom/events/scrolling/scrollend-event-fired-after-instant-scroll-in-microtask.html | 0 | 1 | OK |
-| dom/events/scrolling/scrollend-event-fired-for-mandatory-snap-point-after-load.html | 0 | 1 | TIMEOUT |
+| dom/events/scrolling/scrollend-event-fired-for-mandatory-snap-point-after-load.html | 0 | 1 | OK |
 | dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-auto | 0 | 1 | ERROR |
 | dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-smooth | 0 | 1 | ERROR |
 | dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollTo-auto | 0 | 1 | ERROR |
@@ -544,8 +539,8 @@ The most common causes, in subtests Chrome passes:
 | dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
 | dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-end-block-end-behavior-auto | 0 | 1 | ERROR |
 | dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
-| dom/events/scrolling/scrollend-event-handler-content-attributes.html | 0 | 4 | TIMEOUT |
-| dom/events/scrolling/scrollend-event-not-fired-after-removing-scroller.tentative.html | 0 | 3 | TIMEOUT |
+| dom/events/scrolling/scrollend-event-handler-content-attributes.html | 0 | 4 | OK |
+| dom/events/scrolling/scrollend-event-not-fired-after-removing-scroller.tentative.html | 0 | 3 | OK |
 | dom/events/scrolling/scrollend-fires-to-text-input.html | 0 | 5 | ERROR |
 | dom/events/scrolling/scrollend-with-snap-on-fractional-offset.html | 0 | 1 | ERROR |
 | dom/events/shadow-relatedTarget.html | 0 | 2 | ERROR |
@@ -580,7 +575,6 @@ The most common causes, in subtests Chrome passes:
 | domparsing/innerhtml-empty-document-element.html | 0 | 1 | OK |
 | domparsing/innerhtml-mxss.sub.html | 30 | 60 | OK |
 | domparsing/insert_adjacent_html-xhtml.xhtml | 0 | 30 | ERROR |
-| domparsing/insert_adjacent_html.html | 30 | 31 | OK |
 | domparsing/outerhtml-03.html | 3 | 4 | TIMEOUT |
 | domparsing/parsed-document-origin.window.html | 1 | 7 | OK |
 | domparsing/positional-html-into-script-safe.html | 0 | 13 | OK |
@@ -622,7 +616,7 @@ The most common causes, in subtests Chrome passes:
 | `<template>` has no `content`: blitz-html 0.2.0's sink returns the element itself as its contents, so a template's children are ordinary children, and `HTMLTemplateElement` isn't bound. `t.content` is `undefined`, `t.childNodes.length` counts the children, and `querySelector` finds nodes inside. In Chromium 153.0.8010.12, `t.content` is a `DocumentFragment` holding them and `t.childNodes.length` is 0 | `get_template_contents` in blitz-html 0.2.0 (`src/html_sink.rs`, marked TODO), `crates/dom/src/parse.rs` (branch `e2-02d`, not on main yet). HTML §4.12.3 | Libraries that clone `template.content` fail: Alpine's `x-for` and `x-if` do, so `fixtures/real-world/alpine-invoice` needs this (E2-04). Selectors also match template contents, which Chrome keeps out of the document tree |
 | `Attr` is a partial `Node`: `nodeType`, `nodeName`, `nodeValue`, `textContent` and `parentNode` answer, but other `Node` members throw a `TypeError`, "the member isn't available on this object". In Chromium 153.0.8010.12 `Attr` is a full `Node` | `Document::node_of` in `crates/dom/src/host.rs`, `crates/dom/tests/collections.rs`, `attributes_map` (branch `e2-02d`, not on main yet). DOM §4.9.2 | A script that calls a tree method on an `Attr` stops with an exception. Rare outside WPT, where dom/nodes tests of `Attr` will fail |
 | `window.parent`, `top`, `opener` and `location` don't exist in surimono-dom: `location.href` throws a `ReferenceError`, and `testharness.js` can't start without them. In Chrome each page has them. The WPT runner defines the missing names at the start of `testharness.js`'s script, `location` as plain data, so its rates don't depend on this gap and don't measure it either | `wpt/runner/src/main.rs`, `ENVIRONMENT`; `wpt/README.md`, "Harness environment". HTML, the `Window` object and `Location` | A page or library that reads `location` or `window.top` stops with an exception |
-| The WPT denominator is a little small: the Chrome baseline runs on a static server, not wptserve, so subtests that need its Python handlers, or a real browser's input and scrolling, aren't in it. A subtest we fail there can't lower a rate | `wpt/README.md`, "Baseline". Chrome's passes in the baseline against wpt.fyi's Chrome 156 run at the same commit: dom/nodes 15253 of 15286, dom/events 748 of 848, domparsing 909 of 913, timers and microtasks 34 of 34 | dom/events's rate is the most flattered: 10.8% would be 9.6% on wpt.fyi's count. The rest differ by under 1% |
+| The WPT denominator is a little small: the Chrome baseline runs on a static server, not wptserve, so subtests that need its Python handlers, or a real browser's input and scrolling, aren't in it. A subtest we fail there can't lower a rate | `wpt/README.md`, "Baseline". Chrome's passes in the baseline against wpt.fyi's Chrome 156 run at the same commit: dom/nodes 15253 of 15286, dom/events 748 of 848, domparsing 909 of 913, timers and microtasks 34 of 34 | dom/events's rate is the most flattered: 11.2% would be 9.9% on wpt.fyi's count. The rest differ by under 1% |
 | `while (…) await sleep(0)` never moves the virtual clock, and ends in `TaskLimit`. A timer set from a microtask starts at nesting level 0, so the 4 ms clamp never applies; with `var ready = false; setTimeout(() => ready = true, 100);` the flag is never set. Chromium 153.0.8010.12 keeps the level through microtasks and clamps from the seventh round, so the same loop ends. The spec wins for DOM behaviour | HTML, timer initialization steps: the level comes from the currently running task, and a microtask checkpoint makes the microtask that task. Pinned by `awaiting_a_zero_timer_does_not_move_the_clock` in `crates/core/tests/event_loop.rs`. Chrome's delays in ms (#99, fresh page per case, 3 runs): `await sleep(0)` 0.1 0 0 0 0 0 4.4 4.2 4.2; `setTimeout` from `queueMicrotask` 0 0 0 0 0 4.4 4.3 4.3; from `then` 0 0 0 0 0 4.2 4.3 4.2; a nested `setTimeout`, the control, 0 0 0 0 0 4.3 4.2 4.3, which matches surimono | A page that polls with `await sleep(0)` for something a later timer sets stops at the task limit, with the timer not run. Polling with a non-zero delay, or a plain nested `setTimeout`, moves the clock as in Chrome |
 | A NUL inside a string literal or a comment of a string handler (`setTimeout("log.push('a\0b'.length)")`, with a real NUL in the source) is reported as a `SyntaxError`, and the handler doesn't run. It is valid source: `SourceCharacter` in ECMA-262 (Source Text) is any code point, `eval` in the sandbox gives 3, and so does the handler in Chromium 153.0.8010.12. A NUL outside a literal is a `SyntaxError` everywhere | String handlers reach the parser as a C string (`Ctx::eval_raw` is private in rquickjs). Pinned by `nul_and_lone_surrogates_in_string_handlers` in `crates/core/tests/event_loop.rs`. Chrome's checked in that build with the test's own handlers: 3, and one `SyntaxError` for the NUL outside a literal | The page goes on and the error is in the settle report (`uncaught`), but that one handler does nothing. Rare: a string handler is legacy, and a NUL in one rarer |
 | A lone surrogate in a string handler reads as U+FFFD: `setTimeout("log.push('\ud800'.charCodeAt(0))")`, with a real lone surrogate in the source, gives 65533. `eval` in the sandbox and the handler in Chromium 153.0.8010.12 give 55296 | The handler's source reaches the parser as UTF-8, which can't hold a surrogate. Same test as the row above; Chrome's checked in that build | Only string handlers that hold unpaired surrogates in the source text. |
