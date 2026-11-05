@@ -11,6 +11,7 @@
 use std::alloc::System;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
@@ -48,6 +49,7 @@ fn page(i: usize) -> String {
         r#"<!doctype html><html><head><title>p{i}</title><noscript><p>off</p></noscript></head>
 <body><h1 id="title">Report {i}</h1><table id="t">{rows}</table><img src="a{i}.png"><div id="out"></div>
 <script type="application/vnd.surimono+json" data-renderer="echo">{{"n":{i}}}</script>
+<link rel="stylesheet" href="lib/app.css">
 <script src="lib/app.js"></script>
 <script src="lib/missing-{i}.js"></script>
 <script>
@@ -61,6 +63,8 @@ fn page(i: usize) -> String {
     )
 }
 
+const STYLE: &str = "h1 { color: red } td { padding: 1px }";
+
 const LIB: &str = "function build(out, i) {
   for (let k = 0; k < 100; k++) {
     const li = document.createElement('li');
@@ -71,14 +75,19 @@ const LIB: &str = "function build(out, i) {
   out.textContent = '';
 }";
 
+fn load(url: &str) -> Result<Vec<u8>, String> {
+    match url {
+        "lib/app.js" => Ok(LIB.as_bytes().to_vec()),
+        "lib/app.css" => Ok(STYLE.as_bytes().to_vec()),
+        _ => Err("no such file".to_owned()),
+    }
+}
+
 fn renderer() -> Renderer {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/fonts/NotoSans-Regular.ttf");
     let font = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    let loader = ResourceLoader::new(["lib/"], |url| match url {
-        "lib/app.js" => Ok(LIB.as_bytes().to_vec()),
-        _ => Err("no such file".to_owned()),
-    });
+    let loader = ResourceLoader::new(["lib/"], load);
     Renderer::new(
         Options::new()
             .font(font)
@@ -94,8 +103,15 @@ fn renderer() -> Renderer {
     .unwrap_or_else(|e| panic!("{e}"))
 }
 
+/// Every third render loads through a function on the calling thread.
 fn render(r: &Renderer, i: usize) {
-    match r.render_page(&page(i)) {
+    let result = if i % 3 == 0 {
+        let allow = ["lib/".to_owned()];
+        r.render_page_loading(&page(i), &allow, &mut load, &AtomicBool::new(false))
+    } else {
+        r.render_page(&page(i))
+    };
+    match result {
         Ok(out) => {
             assert_ne!(i % 50, 49, "render {i} should have hit a limit");
             assert!(out.html.contains("done 1000"), "render {i}: {}", out.html);

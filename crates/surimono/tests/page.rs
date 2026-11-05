@@ -166,7 +166,11 @@ fn a_page_can_remove_everything() {
         &r,
         "<!doctype html><script>document.documentElement.remove();</script>",
     );
-    assert_eq!(out.html, "<!doctype html>");
+    // What a parser makes of nothing, which is what a printer will read.
+    assert_eq!(
+        out.html,
+        "<!doctype html><html><head></head><body></body></html>"
+    );
     assert_eq!(out.report.uncaught, 0);
 }
 
@@ -670,13 +674,176 @@ fn highlight_js_matches_chrome() {
 }
 
 /// fulgur's parse: blitz-dom with a `file:` base, as `parse_inner` sets it up
-/// (fulgur 0.40.0 `src/blitz_adapter.rs`). It panics on URLs it can't resolve.
+/// (fulgur 0.40.0 `src/blitz_adapter.rs`), then style resolution, on the stack
+/// a Ruby worker has. It panics on URLs it can't resolve, and a tree too deep
+/// aborts the process.
 fn printer_parses(html: &str) {
-    let config = blitz_dom::DocumentConfig {
-        base_url: Some("file:///".to_owned()),
-        ..blitz_dom::DocumentConfig::default()
+    let html = html.to_owned();
+    let run = move || {
+        let config = blitz_dom::DocumentConfig {
+            base_url: Some("file:///".to_owned()),
+            ..blitz_dom::DocumentConfig::default()
+        };
+        let mut doc = blitz_html::HtmlDocument::from_html(&html, config);
+        doc.resolve(0.0);
     };
-    drop(blitz_html::HtmlDocument::from_html(html, config));
+    let thread = std::thread::Builder::new()
+        .stack_size(8 << 20)
+        .spawn(run)
+        .unwrap_or_else(|e| panic!("{e}"));
+    thread
+        .join()
+        .unwrap_or_else(|_| panic!("the printer panicked"));
+}
+
+/// `<!doctype html><body>` with `markup` written into a comment by a script,
+/// so it reaches the output whatever the page's own parser makes of it.
+fn through_a_comment(markup: &str) -> String {
+    let text = serde_json::Value::from(format!("-->{markup}<!--"));
+    format!(
+        "<!doctype html><body><script>\
+         document.body.appendChild(document.createComment({text}));</script>"
+    )
+}
+
+/// Each case from the review of #143: all reach a printer's parser as markup
+/// only that parser reads as such.
+#[test]
+fn what_counts_is_what_the_printers_parser_makes_of_it() {
+    let r = renderer(options());
+    let plain = "<!doctype html><body><template><noscript></template>\
+        <script>alert(1)</script><noscript>NS</noscript></noscript>x";
+    let from_script = "<!doctype html><body><template id=t></template><script>
+        const n = document.createElement('noscript');
+        n.textContent = '</template><script>alert(1)<\\/script>';
+        document.getElementById('t').content.append(n);
+    </script>";
+    let mut pages = vec![plain.to_owned(), from_script.to_owned()];
+    for markup in [
+        "<svg><template><script>alert(1)</script><noscript>NS</noscript></template></svg>",
+        "<math><annotation-xml encoding=text/html><style><script>alert(1)</script></style>\
+         </annotation-xml></math>",
+        "<template><noscript></template><script>alert(1)</script></noscript>",
+    ] {
+        pages.push(through_a_comment(markup));
+    }
+    for html in pages {
+        let out = page(&r, &html);
+        assert!(!out.html.contains("alert("), "{html}: {}", out.html);
+        assert!(!out.html.contains(">NS<"), "{html}: {}", out.html);
+        printer_parses(&out.html);
+    }
+}
+
+#[test]
+fn what_only_a_printer_reads_as_css_is_screened() {
+    let r = renderer(options());
+    for html in [
+        "<!doctype html><body><template><noscript></template>\
+         <style>@import 'http://[';</style></noscript>"
+            .to_owned(),
+        // Static, in HTML's raw text: blitz-dom decodes it all the same.
+        "<!doctype html><style>@import &quot;http://[&quot;;</style>".to_owned(),
+        through_a_comment("<svg><style>@import &quot;http://[&quot;;</style></svg>"),
+        // Not a parser's `style`, but blitz-dom goes by the local name.
+        through_a_comment("<math><style>@import 'http://[';</style></math>"),
+        "<!doctype html><body><script>
+           const i = document.createElement('image');
+           i.setAttribute('src', 'http://[');
+           document.body.append(i);
+         </script>"
+            .to_owned(),
+    ] {
+        let out = page(&r, &html);
+        assert!(!out.html.contains("http://["), "{html}: {}", out.html);
+        printer_parses(&out.html);
+    }
+    let css = format!(
+        "a{{{}{}}}",
+        "--x:1;".repeat(4_000),
+        "all:inherit;".repeat(2_000)
+    );
+    for html in [
+        format!(
+            "<!doctype html><body><template><noscript></template><style>{css}</style></noscript>"
+        ),
+        through_a_comment(&format!(
+            "<svg><style>{}</style></svg>",
+            css.replace(';', "&#59 ")
+        )),
+    ] {
+        let e = r.render_page(&html).map(|_| ()).unwrap_err();
+        assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
+    }
+}
+
+/// 20,000 levels abort a printer on an 8 MiB stack (exit 134).
+#[test]
+fn markup_only_a_printer_reads_is_limited_too() {
+    let r = renderer(options());
+    let deep = "<div>".repeat(20_000);
+    for html in [
+        format!("<!doctype html><body><template><noscript></template>{deep}</noscript>"),
+        through_a_comment(&format!("<template><noscript></template>{deep}</noscript>")),
+    ] {
+        let e = r.render_page(&html).map(|_| ()).unwrap_err();
+        assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
+    }
+    // The deepest a page may be still reaches the printer, and survives it.
+    let html = format!("<!doctype html><body>{}", "<div>".repeat(400));
+    printer_parses(&page(&r, &html).html);
+}
+
+#[test]
+fn the_output_stops_at_its_limit() {
+    let set = |n: usize| {
+        format!(
+            "<!doctype html><body><script>
+               const s = '<'.repeat({n});
+               for (let i = 0; i < 14; i++)
+                 document.body.appendChild(document.createElement('p')).textContent = s;
+             </script>"
+        )
+    };
+    // 16 MiB of text per node, past what a page may hold: ends in the script.
+    let r = renderer(options());
+    let started = Instant::now();
+    let e = r.render_page(&set(16 << 20)).map(|_| ()).unwrap_err();
+    assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
+    assert!(started.elapsed() < Duration::from_secs(60));
+    // Text that fits and escapes to four times the limit.
+    let r = renderer(options().limits(Limits {
+        output_bytes: 4 << 20,
+        time: Duration::from_secs(30),
+        ..Limits::default()
+    }));
+    let e = r.render_page(&set(160 << 10)).map(|_| ()).unwrap_err();
+    assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
+    assert!(e.to_string().contains("output limit"), "{e}");
+    // Under it, a page is as it was.
+    let html = page(&r, "<!doctype html><p>x").html;
+    assert!(html.contains("<p>x</p>"), "{html}");
+}
+
+#[test]
+fn what_follows_the_scripts_has_a_deadline() {
+    // Much quicker to write than to read: the parse has to stop part way.
+    let font = repo().join("fixtures/fonts/NotoSans-Regular.ttf");
+    let font = std::fs::read(&font).unwrap_or_else(|e| panic!("{e}"));
+    let r = renderer(Options::new().font(font).pool_size(1).limits(Limits {
+        time: Duration::from_millis(300),
+        output_bytes: 256 << 20,
+        ..Limits::default()
+    }));
+    let html = "<!doctype html><body><script>
+        const s = '<'.repeat(4 << 20);
+        for (let i = 0; i < 4; i++)
+          document.body.appendChild(document.createElement('p')).textContent = s;
+      </script>";
+    let started = Instant::now();
+    let e = r.render_page(html).map(|_| ()).unwrap_err();
+    assert!(matches!(e, Error::PageTimeLimit), "{e}");
+    assert!(started.elapsed() < Duration::from_secs(10));
 }
 
 /// Serialized comments and raw text aren't escaped, so text can become markup
@@ -852,6 +1019,47 @@ fn a_load_function_runs_on_the_calling_thread() {
     );
     assert_eq!(asked, ["/a.js", "/b.js", "/a.css"]);
     assert_eq!(out.report.failed_count, 2);
+}
+
+/// `createElementNS` keeps the case; the printer's parser and these checks
+/// don't care.
+#[test]
+fn a_stylesheet_is_found_in_any_case() {
+    let loader = ResourceLoader::from_map([("a.css", b"p{color:red}".to_vec())]);
+    let r = renderer(options().resource_loader(loader));
+    let out = page(
+        &r,
+        "<!doctype html><body><script>
+           const l = document.createElementNS('http://www.w3.org/1999/xhtml', 'LINK');
+           l.setAttribute('rel', 'stylesheet');
+           l.setAttribute('href', 'a.css');
+           document.body.append(l);
+         </script>",
+    );
+    assert!(
+        out.html.contains("<style>p{color:red}</style>"),
+        "{}",
+        out.html
+    );
+}
+
+#[test]
+fn links_to_one_big_file_are_charged_and_end_on_time() {
+    let loader = ResourceLoader::from_map([("x/a.css", vec![b' '; 1 << 20])]);
+    let r = renderer(options().resource_loader(loader).limits(Limits {
+        memory_bytes: 4 << 20,
+        ..Limits::default()
+    }));
+    let html = format!(
+        "<!doctype html><body>{}",
+        "<link rel=stylesheet href=x/a.css>".repeat(2_000)
+    );
+    let out = page(&r, &html);
+    assert_eq!(out.html.matches("<style>").count(), 4, "room for four");
+    assert_eq!(out.report.failed_count, 1_996);
+    let reason = &out.report.failed[0];
+    assert_eq!(reason.kind, ResourceKind::Stylesheet);
+    assert_eq!(reason.reason, ResourceFailureReason::TooLarge);
 }
 
 #[test]
