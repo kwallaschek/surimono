@@ -48,14 +48,21 @@ pub struct BindInterface {
 /// from the IDL (names, constants, brand checks, conversions), and each member
 /// calls `H.<Interface>_<member>(record, ...)`, with `H.set_...` for setters
 /// and `H.new_<Interface>(new.target, ...)` for constructors.
-const JS_INTERFACES: &[&str] = &[
-    "EventTarget",
-    "Event",
-    "CustomEvent",
-    "ErrorEvent",
-    "Window",
-    "MutationObserver",
-];
+///
+/// Every interface that inherits from `Event` is one of these too, without
+/// being listed, and more of it is generated: the constructor, and each
+/// attribute with a member of the same name in the init dictionary (DOM §2.5
+/// "inner event creation steps"). Its dictionary becomes a `D_<name>` function
+/// that reads and converts the members in WebIDL's order.
+const JS_INTERFACES: &[&str] = &["EventTarget", "Event", "Window", "MutationObserver"];
+
+/// Single members of interfaces otherwise in Rust that live in the glue:
+/// `H.<Interface>_<member>`, as for [`JS_INTERFACES`].
+const JS_MEMBERS: &[(&str, &str)] = &[("Document", "createEvent")];
+
+/// In a table's member list: every attribute and operation in the IDL,
+/// and the constructor. For event interfaces, whose members need no Rust.
+const ALL_MEMBERS: &str = "*";
 
 /// Operations for the glue that aren't IDL members: the name its `OP_<name>`
 /// constant takes, and the call on the host.
@@ -103,6 +110,7 @@ const GLUE_OPS: &[(&str, &str)] = &[
     ("Element", "getAttribute"),
     ("Element", "getAttributeNames"),
     ("Document", "body"),
+    ("Document", "documentElement"),
 ];
 
 /// IDL types of event handler IDL attributes (HTML §8.1.7.1).
@@ -119,6 +127,9 @@ struct Out {
     next_op: u32,
     /// The operations of [`GLUE_OPS`] members bound so far.
     glue_ops: Vec<(&'static str, u32)>,
+    /// Dictionary converters, each once, and the names written so far.
+    dicts: String,
+    dict_names: BTreeSet<String>,
 }
 
 impl Out {
@@ -148,6 +159,74 @@ fn bound_ancestor(set: &IdlSet, table: &[BindInterface], name: &str) -> Option<u
         at = set.interface(&at)?.parent?;
     }
     None
+}
+
+/// `WindowProxy` isn't an interface of its own: WebIDL treats it as `Window`.
+fn window_proxy(name: &str) -> &str {
+    if name == "WindowProxy" {
+        "Window"
+    } else {
+        name
+    }
+}
+
+/// Whether `name` is `Event` or inherits from it.
+fn is_event(set: &IdlSet, name: &str) -> bool {
+    let mut at = name.to_owned();
+    // Parent chains are short; the bound stops a cycle.
+    for _ in 0..16 {
+        if at == "Event" {
+            return true;
+        }
+        match set.interface(&at).and_then(|i| i.parent) {
+            Some(p) => at = p,
+            None => return false,
+        }
+    }
+    false
+}
+
+/// The members of dictionary `name` itself (partials included) in the
+/// lexicographic order WebIDL reads them, and what it inherits from. A member
+/// that two partials declare keeps the first, by file name.
+fn dictionary_parts(set: &IdlSet, name: &str) -> Option<(Vec<DictionaryMember>, Option<String>)> {
+    let mut members: Vec<DictionaryMember> = Vec::new();
+    let mut parent = None;
+    let mut found = false;
+    for (_, d) in set.definitions() {
+        let DefinitionKind::Dictionary(x) = &d.kind else {
+            continue;
+        };
+        if x.name != name {
+            continue;
+        }
+        found = true;
+        if x.inherits.is_some() {
+            parent.clone_from(&x.inherits);
+        }
+        for m in &x.members {
+            if !members.iter().any(|o| o.name == m.name) {
+                members.push(m.clone());
+            }
+        }
+    }
+    members.sort_by(|a, b| a.name.cmp(&b.name));
+    found.then_some((members, parent))
+}
+
+/// Every member name of dictionary `name`, inherited ones too.
+fn dictionary_fields(set: &IdlSet, name: &str) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    let mut at = Some(name.to_owned());
+    // Parent chains are short; the bound stops a cycle.
+    for _ in 0..16 {
+        let Some((members, parent)) = at.as_deref().and_then(|n| dictionary_parts(set, n)) else {
+            break;
+        };
+        out.extend(members.into_iter().map(|m| m.name));
+        at = parent;
+    }
+    out
 }
 
 fn has_ext(attrs: &[ExtAttr], name: &str) -> bool {
@@ -191,6 +270,7 @@ fn conv(gen_: &Gen<'_>, table: &[BindInterface], t: &Type, depth: u32) -> Option
                 "unsigned short" => Some(Conv::Int("(x >>> 0) & 65535")),
                 "short" => Some(Conv::Int("(x << 16) >> 16")),
                 other => {
+                    let other = window_proxy(other);
                     if let Some(id) = bound_ancestor(gen_.set, table, other) {
                         return Some(Conv::Obj(id));
                     }
@@ -321,6 +401,10 @@ struct Bound<'a, 'g> {
     out: &'a mut Out,
     /// The members are hand-written in the glue (see [`JS_INTERFACES`]).
     js_impl: bool,
+    /// `Event` or an interface inheriting from it.
+    event: bool,
+    /// Members of the event's init dictionary, its generated fields.
+    fields: BTreeSet<String>,
 }
 
 /// Operations sharing `name` in `m`, for the overload check.
@@ -434,7 +518,15 @@ impl Bound<'_, '_> {
         ext_attrs: &[ExtAttr],
     ) -> Result<(), GenError> {
         let id = self.id;
-        if self.js_impl {
+        if self.event && self.iface.name != "Event" && self.fields.contains(name) {
+            let _ = writeln!(
+                self.out.js,
+                "attr({id}, {}, function () {{ return self(this, {id}).d.{name}; }});",
+                js_string(name)
+            );
+            return Ok(());
+        }
+        if self.js_impl || JS_MEMBERS.contains(&(self.iface.name.as_str(), name)) {
             return self.js_attribute(name, ty, readonly);
         }
         let rust = rust_name(name);
@@ -620,7 +712,7 @@ impl Bound<'_, '_> {
             return Err(self.unknown(name));
         };
         let id = self.id;
-        if self.js_impl {
+        if self.js_impl || JS_MEMBERS.contains(&(self.iface.name.as_str(), name)) {
             self.js_operation(name, args);
             return Ok(());
         }
@@ -680,6 +772,9 @@ impl Bound<'_, '_> {
         let [args] = ctors.as_slice() else {
             return Err(self.unknown("constructor"));
         };
+        if self.event {
+            return self.event_constructor(args);
+        }
         if self.js_impl {
             let (params, exprs) = self.js_impl_arguments(args);
             let required = params.len();
@@ -714,6 +809,177 @@ impl Bound<'_, '_> {
             all.join(", "),
             self.id
         ))
+    }
+
+    /// The constructor of an event interface: `(DOMString type, init)`.
+    fn event_constructor(&mut self, args: &[Argument]) -> Result<String, GenError> {
+        let [_, init] = args else {
+            return Err(self.unknown("constructor"));
+        };
+        let TypeKind::Named(dict) = &init.ty.kind else {
+            return Err(self.unsupported("constructor", &init.ty));
+        };
+        self.dictionary(dict)?;
+        let id = self.id;
+        let name = &self.iface.name;
+        let (params, required, value) = if init.optional {
+            ("a0", 1, "(argc > 1 ? arguments[1] : undefined)")
+        } else {
+            ("a0, a1", 2, "a1")
+        };
+        Ok(format!(
+            "function {name}({params}) {{ if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; need(argc, {required}, {}); return newEvent({id}, new.target, str(a0), D_{dict}({value})); }}",
+            js_string(name)
+        ))
+    }
+
+    /// Writes `D_<name>(value, out)` once, and those it needs: WebIDL §3.2.18.
+    /// With `out` left undefined, `value` is a whole dictionary to convert;
+    /// from a derived dictionary, `value` is already an object.
+    fn dictionary(&mut self, name: &str) -> Result<(), GenError> {
+        if !self.out.dict_names.insert(name.to_owned()) {
+            return Ok(());
+        }
+        let Some((members, parent)) = dictionary_parts(self.gen_.set, name) else {
+            return Err(GenError::UnknownInterface(name.to_owned()));
+        };
+        let mut body = format!(
+            "function D_{name}(v, d) {{\n  if (d === undefined) {{ v = dictionary(v, {}); d = create(null); }}\n",
+            js_string(name)
+        );
+        if let Some(p) = &parent {
+            self.dictionary(p)?;
+            let _ = writeln!(body, "  D_{p}(v, d);");
+        }
+        body.push_str("  let x;\n");
+        for m in &members {
+            let k = &m.name;
+            let _ = write!(body, "  x = v.{k}; ");
+            if m.required {
+                let _ = write!(
+                    body,
+                    "if (x === undefined) throw new TE({}); ",
+                    js_string(&format!("{name}: {k} is required"))
+                );
+            }
+            let c = self.value_conv(&m.ty, "x", 0)?;
+            let default = match &m.default {
+                Some(DefaultValue::EmptySequence) => "realArray(list())".to_owned(),
+                Some(DefaultValue::EmptyDictionary) => match &m.ty.kind {
+                    TypeKind::Named(n) => format!("D_{n}(undefined)"),
+                    _ => return Err(self.unsupported(k, &m.ty)),
+                },
+                d => js_default(d),
+            };
+            let _ = writeln!(body, "d.{k} = x === undefined ? {default} : {c};");
+        }
+        body.push_str("  return d;\n}\n");
+        self.out.dicts.push_str(&body);
+        Ok(())
+    }
+
+    /// JS that converts `x`, already known not to be undefined at the top
+    /// level, to IDL type `t`, kept as a JavaScript value: WebIDL §3.2 for
+    /// what stays in the glue. A value of an interface with no binding can
+    /// only be null, since no script can have one.
+    fn value_conv(&mut self, t: &Type, x: &str, depth: u32) -> Result<String, GenError> {
+        if depth > 8 {
+            return Err(self.unsupported(x, t));
+        }
+        let c = self.plain_value_conv(t, x, depth)?;
+        Ok(if t.nullable {
+            format!("({x} === null || {x} === undefined ? null : {c})")
+        } else {
+            c
+        })
+    }
+
+    fn plain_value_conv(&mut self, t: &Type, x: &str, depth: u32) -> Result<String, GenError> {
+        let n = match &t.kind {
+            TypeKind::Named(n) => n.as_str(),
+            TypeKind::Sequence(e) | TypeKind::FrozenArray(e) => {
+                let c = self.value_conv(e, "e", depth + 1)?;
+                return Ok(format!("seq({x}, (e) => {c})"));
+            }
+            TypeKind::Promise(_) => return Ok(format!("toPromise({x})")),
+            TypeKind::Union(ts) => {
+                // Unions here are one bound interface among unbound ones.
+                let found = ts.iter().find_map(|b| match &b.kind {
+                    TypeKind::Named(n) => {
+                        bound_ancestor(self.gen_.set, self.table, window_proxy(n))
+                    }
+                    _ => None,
+                });
+                return Ok(match found {
+                    Some(id) => format!("inst({x}, {id})"),
+                    None => format!("unbound({x})"),
+                });
+            }
+            _ => return Err(self.unsupported(x, t)),
+        };
+        Ok(match n {
+            "any" => x.to_owned(),
+            "object" => format!("objectOf({x})"),
+            "boolean" => format!("!!{x}"),
+            "byte" => format!("(({x} << 24) >> 24)"),
+            "octet" => format!("({x} & 255)"),
+            "short" => format!("(({x} << 16) >> 16)"),
+            "unsigned short" => format!("(({x} >>> 0) & 65535)"),
+            "long" => format!("({x} | 0)"),
+            "unsigned long" => format!("({x} >>> 0)"),
+            "double" => format!("dbl({x})"),
+            "float" => format!("flt({x})"),
+            "unrestricted double" => format!("+{x}"),
+            "DOMString" | "CSSOMString" => format!("`${{{x}}}`"),
+            "USVString" | "ByteString" => format!("str({x})"),
+            other => {
+                let other = window_proxy(other);
+                if let Some(id) = bound_ancestor(self.gen_.set, self.table, other) {
+                    return Ok(format!("inst({x}, {id})"));
+                }
+                if let Some(target) = self.gen_.set.typedef(other).cloned() {
+                    return self.value_conv(&target, x, depth + 1);
+                }
+                match self.gen_.names.get(other) {
+                    Some(NameKind::Dictionary) => {
+                        self.dictionary(other)?;
+                        format!("D_{other}({x})")
+                    }
+                    Some(NameKind::Enum) => {
+                        let values = self.enum_values(other);
+                        format!("oneOf(`${{{x}}}`, [{}])", values.join(", "))
+                    }
+                    _ => format!("unbound({x})"),
+                }
+            }
+        })
+    }
+
+    fn enum_values(&self, name: &str) -> Vec<String> {
+        self.gen_
+            .set
+            .definitions()
+            .find_map(|(_, d)| match &d.kind {
+                DefinitionKind::Enum { name: n, values } if n == name => {
+                    Some(values.iter().map(|v| js_string(v)).collect())
+                }
+                _ => None,
+            })
+            .unwrap_or_default()
+    }
+
+    /// The name of the init dictionary of this event interface, if any.
+    fn init_dictionary(&self) -> Option<String> {
+        self.iface
+            .members
+            .iter()
+            .find_map(|m| match &m.member.kind {
+                MemberKind::Constructor { args } => match args.last().map(|a| &a.ty.kind) {
+                    Some(TypeKind::Named(n)) => Some(n.clone()),
+                    _ => None,
+                },
+                _ => None,
+            })
     }
 
     /// The object literal for `exotic()`, if the interface has property
@@ -810,6 +1076,39 @@ impl Bound<'_, '_> {
         Ok(Some(format!("{{ {} }}", fields.join(", "))))
     }
 
+    /// What [`ALL_MEMBERS`] stands for: each attribute and operation once
+    /// (two partials can declare the same one), no static ones, no anonymous
+    /// ones, and the constructor if there is one.
+    fn all_members(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for m in &self.iface.members {
+            let name = match &m.member.kind {
+                MemberKind::Attribute {
+                    name,
+                    is_static: false,
+                    ty,
+                    ..
+                } if !matches!(&ty.kind, TypeKind::Named(n)
+                        if EVENT_HANDLER_TYPES.contains(&n.as_str())) =>
+                {
+                    name.clone()
+                }
+                MemberKind::Operation {
+                    name: Some(name),
+                    is_static: false,
+                    special: None,
+                    ..
+                } => name.clone(),
+                MemberKind::Constructor { .. } => "constructor".to_owned(),
+                _ => continue,
+            };
+            if !out.contains(&name) {
+                out.push(name);
+            }
+        }
+        out
+    }
+
     fn interface(&mut self, spec: &BindInterface) -> Result<(), GenError> {
         let id = self.id;
         let parent = match &self.iface.parent {
@@ -823,19 +1122,40 @@ impl Bound<'_, '_> {
             None => "-1".to_owned(),
         };
         let _ = writeln!(self.out.js, "\n// {}", spec.name);
-        let ctor = self.constructor(spec.members)?;
+        let everything = spec.members == [ALL_MEMBERS];
+        let expanded: Vec<String> = if everything {
+            self.all_members()
+        } else {
+            spec.members.iter().map(|m| (*m).to_owned()).collect()
+        };
+        let members: Vec<&str> = expanded.iter().map(String::as_str).collect();
+        let dict = self.init_dictionary().filter(|_| self.event);
+        if let Some(d) = &dict {
+            self.fields = dictionary_fields(self.gen_.set, d);
+        }
+        let ctor = self.constructor(&members)?;
         let _ = writeln!(
             self.out.js,
             "iface({id}, {}, {parent}, {ctor});",
             js_string(spec.name)
         );
+        if self.event {
+            match &dict {
+                Some(d) => {
+                    let _ = writeln!(self.out.js, "eventInits[{id}] = D_{d};");
+                }
+                None => {
+                    let _ = writeln!(self.out.js, "eventInits[{id}] = eventInits[{parent}];");
+                }
+            }
+        }
         for mm in &self.iface.members.clone() {
             if let MemberKind::Const { name, value, .. } = &mm.member.kind {
                 let _ = writeln!(self.out.js, "konst({id}, {}, {value});", js_string(name));
             }
         }
         let mut seen = BTreeSet::new();
-        for &name in spec.members {
+        for &name in &members {
             if !seen.insert(name) {
                 return Err(GenError::Duplicate(format!("{}.{name}", spec.name)));
             }
@@ -874,7 +1194,7 @@ impl Bound<'_, '_> {
                 None => self.operation(name)?,
             }
         }
-        if spec.members.contains(&"iterable") {
+        if members.contains(&"iterable") {
             if !self
                 .iface
                 .members
@@ -897,10 +1217,10 @@ impl Bound<'_, '_> {
                 } => Some(name.clone()),
                 _ => None,
             });
-        if let Some(s) = stringifies.filter(|s| spec.members.contains(&s.as_str())) {
+        if let Some(s) = stringifies.filter(|s| members.contains(&s.as_str())) {
             let _ = writeln!(self.out.js, "stringifier({id}, {});", js_string(&s));
         }
-        if let Some(x) = self.exotic(spec.members)? {
+        if let Some(x) = self.exotic(&members)? {
             let _ = writeln!(self.out.js, "exotic({id}, {x});");
         }
         self.event_handlers();
@@ -925,6 +1245,8 @@ pub fn generate_bindings(
         arms: String::new(),
         next_op: OP_FIRST,
         glue_ops: Vec::new(),
+        dicts: String::new(),
+        dict_names: BTreeSet::new(),
     };
     for (id, spec) in table.iter().enumerate() {
         if bound_id(table, spec.name) != Some(id) {
@@ -939,7 +1261,9 @@ pub fn generate_bindings(
             iface: &iface,
             id,
             out: &mut out,
-            js_impl: JS_INTERFACES.contains(&spec.name),
+            js_impl: JS_INTERFACES.contains(&spec.name) || is_event(set, spec.name),
+            event: is_event(set, spec.name),
+            fields: BTreeSet::new(),
         }
         .interface(spec)?;
     }
@@ -957,11 +1281,23 @@ pub fn generate_bindings(
     };
 
     let mut js = note("//");
-    for name in JS_INTERFACES.iter().chain(&["Node", "HTMLElement", "Document"]) {
+    for name in JS_INTERFACES
+        .iter()
+        .chain(&["Node", "HTMLElement", "Document"])
+    {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
         }
     }
+    for spec in table {
+        if is_event(set, spec.name)
+            && spec.name != "Event"
+            && let Some(id) = bound_id(table, spec.name)
+        {
+            let _ = writeln!(js, "const I_{} = {id};", spec.name);
+        }
+    }
+    js.push_str(&out.dicts);
     js.push_str(&out.js);
 
     for (i, (name, _)) in HOST_OPS.iter().enumerate() {
@@ -1012,6 +1348,14 @@ pub fn generate_bindings(
 /// a member whose setter isn't implemented yet.
 const GETTER_ONLY: &str = ":getter";
 
+/// An event interface, whole: see [`JS_INTERFACES`].
+const fn event(name: &'static str) -> BindInterface {
+    BindInterface {
+        name,
+        members: &[ALL_MEMBERS],
+    }
+}
+
 /// An interface bound for its name and brand alone.
 const fn element(name: &'static str) -> BindInterface {
     BindInterface { name, members: &[] }
@@ -1053,21 +1397,31 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "initEvent",
         ],
     },
-    BindInterface {
-        name: "CustomEvent",
-        members: &["constructor", "detail", "initCustomEvent"],
-    },
-    BindInterface {
-        name: "ErrorEvent",
-        members: &[
-            "constructor",
-            "message",
-            "filename",
-            "lineno",
-            "colno",
-            "error",
-        ],
-    },
+    event("CustomEvent"),
+    event("ErrorEvent"),
+    event("UIEvent"),
+    event("FocusEvent"),
+    event("MouseEvent"),
+    event("WheelEvent"),
+    event("PointerEvent"),
+    event("DragEvent"),
+    event("KeyboardEvent"),
+    event("CompositionEvent"),
+    event("InputEvent"),
+    event("TextEvent"),
+    event("TouchEvent"),
+    event("HashChangeEvent"),
+    event("PopStateEvent"),
+    event("PageTransitionEvent"),
+    event("BeforeUnloadEvent"),
+    event("PromiseRejectionEvent"),
+    event("MessageEvent"),
+    event("StorageEvent"),
+    event("SubmitEvent"),
+    event("ToggleEvent"),
+    event("CommandEvent"),
+    event("DeviceMotionEvent"),
+    event("DeviceOrientationEvent"),
     BindInterface {
         name: "Window",
         members: &["devicePixelRatio"],
@@ -1179,6 +1533,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "createDocumentFragment",
             "createTextNode",
             "createComment",
+            "createEvent",
             "importNode",
             "adoptNode",
             "children",

@@ -1134,3 +1134,161 @@ fn small_spec_points() {
     );
     assert_eq!(r, "true,true,y,true,1,1,window,ac");
 }
+
+#[test]
+fn event_constructors_follow_their_dictionaries() {
+    // DOM §2.5; UI Events; Pointer Events; WPT
+    // dom/events/Event-subclasses-constructors.html.
+    let r = eval(
+        r#"const f = new FocusEvent('f', { relatedTarget: document, view: window, detail: '7' });
+        const m = new MouseEvent('m', { screenX: 1.5, clientY: 2, button: 300, buttons: 65537,
+          ctrlKey: 1, modifierCapsLock: true, relatedTarget: a });
+        const w = new WheelEvent('w', { deltaY: 3.5, deltaMode: 1 });
+        const k = new KeyboardEvent('k', { key: 'a', code: 'KeyA', location: 2, repeat: true });
+        const p = new PointerEvent('p', { pointerId: 4, pointerType: 'pen', width: 3, clientX: 9 });
+        const h = new HashChangeEvent('h', { oldURL: 'a', newURL: 'b' });
+        const c = new CompositionEvent('c', { data: 'd' });
+        const i = new InputEvent('i', { data: 'x', inputType: 'insertText', isComposing: true });
+        const s = new StorageEvent('s', { key: 'k', url: 'u' });
+        [f.view === window, f.detail, f.relatedTarget === document, f instanceof UIEvent,
+         m.screenX, m.clientY, m.button, m.buttons, m.ctrlKey, m.getModifierState('Control'),
+         m.getModifierState('CapsLock'), m.getModifierState('Shift'), m.relatedTarget === a,
+         m.pageX === m.clientX, m.y,
+         w.deltaY, w.deltaMode, WheelEvent.DOM_DELTA_PAGE, w instanceof MouseEvent,
+         k.key, k.code, k.location, k.repeat, KeyboardEvent.DOM_KEY_LOCATION_NUMPAD,
+         p.pointerId, p.pointerType, p.width, p.clientX, p instanceof MouseEvent,
+         p.getCoalescedEvents().length, h.oldURL, h.newURL, c.data, i.data, i.inputType,
+         i.isComposing, s.key, s.url, s.newValue].join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "true|7|true|true|\
+         1.5|2|44|1|true|true|\
+         true|false|true|\
+         true|2|\
+         3.5|1|2|true|\
+         a|KeyA|2|true|3|\
+         4|pen|3|9|true|\
+         0|a|b|d|x|insertText|\
+         true|k|u|"
+    );
+}
+
+#[test]
+fn dictionary_members_are_read_in_order() {
+    // WebIDL §3.2.18: inherited dictionaries first, each member lexicographic.
+    let r = eval(
+        r#"const order = [];
+        const init = new Proxy({}, { get(t, k) { if (typeof k === 'string') order.push(k); } });
+        new UIEvent('x', init);
+        const nulls = ['', null, undefined].map((v) => new UIEvent('x', v).detail).join();
+        let threw = [];
+        for (const f of [() => new UIEvent('x', 1), () => new UIEvent('x', { view: {} }),
+          () => new MouseEvent('x', { clientX: NaN }), () => new UIEvent('x', { detail: Symbol() }),
+          () => new PromiseRejectionEvent('x'), () => new PromiseRejectionEvent('x', {}),
+          () => new TouchEvent('x', { touches: 1 }), () => new TouchEvent('x', { touches: [1] })]) {
+          try { f(); threw.push('no'); } catch (e) { threw.push(e.name); }
+        }
+        const p = {};
+        [order.join(), nulls, threw.join(),
+         new PromiseRejectionEvent('x', { promise: p, reason: 2 }).promise === p].join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "bubbles,cancelable,composed,detail,view,which||TypeError,TypeError,TypeError,TypeError,\
+         TypeError,TypeError,TypeError,TypeError|true"
+    );
+}
+
+#[test]
+fn create_event_gives_uninitialized_events() {
+    // DOM §4.5; WPT dom/nodes/Document-createEvent.https.html.
+    let r = eval(
+        r#"const out = [];
+        for (const [n, i] of [['Event', Event], ['EVENTS', Event], ['htmlevents', Event],
+          ['SVGEvents', Event], ['UIEvents', UIEvent], ['MouseEvents', MouseEvent],
+          ['customevent', CustomEvent], ['KeyboardEvent', KeyboardEvent], ['TextEvent', TextEvent],
+          ['BeforeUnloadEvent', BeforeUnloadEvent], ['DragEvent', DragEvent],
+          ['MessageEvent', MessageEvent], ['StorageEvent', StorageEvent], ['TouchEvent', TouchEvent],
+          ['HashChangeEvent', HashChangeEvent], ['DeviceMotionEvent', DeviceMotionEvent]]) {
+          const e = document.createEvent(n);
+          if (!(e instanceof i) || e.type !== '' || e.bubbles || e.isTrusted) out.push('bad ' + n);
+        }
+        for (const n of ['', 'Eventx', 'PointerEvent', 'WheelEvent', 'SubmitEvent']) {
+          try { document.createEvent(n); out.push('no ' + n); }
+          catch (e) { out.push(e.name === 'NotSupportedError' && e.code === 9); }
+        }
+        const e = document.createEvent('Event');
+        try { a.dispatchEvent(e); out.push('dispatched'); } catch (x) { out.push(x.name); }
+        e.initEvent('x', true, false);
+        a.addEventListener('x', () => log.push('got'));
+        out.push(a.dispatchEvent(e), log.join());
+        const m = document.createEvent('MouseEvent');
+        m.initMouseEvent('c', true, true, window, 3, 1, 2, 3, 4, true, false, false, true, 2, b);
+        out.push(m.type, m.detail, m.clientY, m.ctrlKey, m.metaKey, m.button, m.relatedTarget === b);
+        const k = document.createEvent('KeyboardEvent');
+        k.initKeyboardEvent('k', false, false, null, 'q', 1);
+        const c = document.createEvent('CustomEvent');
+        c.initCustomEvent('c', false, false, 5);
+        const u = document.createEvent('UIEvent');
+        u.initUIEvent('u', false, false, window, 9);
+        out.push(k.key, k.location, c.detail, u.view === window, u.detail);
+        out.join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "true|true|true|true|true|InvalidStateError|true|got|c|3|4|true|true|2|true|q|1|5|true|9"
+    );
+}
+
+#[test]
+fn a_touch_or_wheel_listener_is_passive_by_default_on_the_root() {
+    // DOM §2.7.3 "default passive value"; WPT dom/events/passive-by-default.html.
+    let r = eval(
+        r#"const out = [];
+        const body = document.body;
+        for (const t of [window, document, document.documentElement, body, a]) {
+          for (const type of ['touchstart', 'wheel', 'mousewheel', 'touchmove', 'touchend']) {
+            for (const passive of ['omitted', undefined, false, true]) {
+              const f = (e) => { e.preventDefault(); out.push(e.defaultPrevented ? 1 : 0); };
+              t.addEventListener(type, f, passive === 'omitted' ? undefined : { passive });
+              t.dispatchEvent(new Event(type, { cancelable: true }));
+              t.removeEventListener(type, f);
+            }
+          }
+        }
+        out.join('')"#,
+    );
+    // Per target: four event types of 0 0 1 0, and touchend of 1 1 1 0; the
+    // div is 1 1 1 0 for all five.
+    let root = format!("{}1110", "0010".repeat(4));
+    assert_eq!(r, format!("{}{}", root.repeat(4), "1110".repeat(5)));
+}
+
+#[test]
+fn hostile_dictionaries_and_event_names() {
+    // A getter that throws stops the conversion; a getter can't reach the
+    // record, and a replaced prototype changes nothing here.
+    let r = eval(
+        r#"let thrown = '';
+        try { new MouseEvent('x', { get altKey() { throw new RangeError('mine'); } }); }
+        catch (e) { thrown = e.name; }
+        Object.defineProperty(Object.prototype, 'bubbles', { get() { return true; }, configurable: true });
+        Object.defineProperty(Array.prototype, 0, { set() { throw 1; }, configurable: true });
+        const e = document.createEvent('Event');
+        const inherited = new Event('x').bubbles;
+        const sequence = new PointerEvent('x').getCoalescedEvents().length;
+        delete Object.prototype.bubbles;
+        delete Array.prototype[0];
+        const held = new CustomEvent('x', { detail: e });
+        [thrown, inherited, e.bubbles, sequence, held.detail === e].join('|')"#,
+    );
+    assert_eq!(r, "RangeError|true|false|0|true");
+    // An endless sequence of what can't be converted stops at the first
+    // element; of what can be, it ends at a limit, not a hang.
+    let r = eval(
+        "try { new TouchEvent('x', { touches: { [Symbol.iterator]() { return { next() {
+           return { done: false, value: 1 }; } }; } } }); 'no' } catch (e) { e.name }",
+    );
+    assert_eq!(r, "TypeError");
+}
