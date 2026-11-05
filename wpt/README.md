@@ -13,6 +13,7 @@ their targets in `slices.toml`. Owned by the conformance researcher.
 | `results/wpt-results.json` | Generated: what surimono reports, with failure messages ("Results") |
 | `runner/` | The runner, a standalone crate ("Runner") |
 | `tools/chrome_baseline.mjs` | Writes the baseline in the pinned Chromium |
+| `probes/` | Small pages behind `docs/COMPAT.md`'s rows that WPT's slices don't pin, with what Chromium and surimono log for each; `run.mjs` regenerates `results.json` |
 | `tools/vendor.py` | Copies the slices from a local WPT checkout at the pinned commit; `--check` verifies them offline |
 | `tools/api_needs.py` | Ranks DOM interfaces by how many subtests they unblock, for the DOM engineer |
 
@@ -70,7 +71,7 @@ subtests hang on them: any other `.py` URL is a 404. A subtest that needs one fa
 denominator. **So the baseline is smaller than a full wptserve run**, and a
 rate can only be flattered by what those subtests would have scored. wpt.fyi's
 Chrome 156 summary at the same commit is the check on how much that is:
-Chrome's passes here against wpt.fyi's are dom/nodes 15253 of 15286, dom/events 748
+Chrome's passes here against wpt.fyi's are dom/nodes 15267 of 15300, dom/events 748
 of 848 (scrolling and input tests that need a real driver), domparsing 909 of 913,
 timers and microtasks 34 of 34. Per URL, the baseline's count equals wpt.fyi's or is
 lower, never higher. dom/events is the one that matters: it is 11.8% short, so 524
@@ -120,7 +121,7 @@ machine sets one, and uses `scripts/fleet/wcargo.sh` for the build.
 
 For each URL of each `[[test]]`:
 
-1. **Document.** Parse the `.html` file. `.xhtml`, `.xht` and `.svg` tests need an
+1. **Document.** Parse the `.html` file. `.xhtml`, `.xht`, `.xml` and `.svg` tests need an
    XML parser, which surimono-dom doesn't have: they report `ERROR` until it does.
    For `.any.js` and `.window.js`, build the page WPT's server would wrap around it:
    `self.GLOBAL` (`isWindow()` true, `isWorker()` and `isShadowRealm()` false) set
@@ -231,11 +232,3 @@ tests fetch `/interfaces/*.idl`, and XML tests need a parser. `api_needs.py` set
 all of these aside so the ranking isn't misled, but they stay in the denominator:
 a target is met on all of the slice, or the gap goes in `COMPAT.md` for Kay's OK.
 `COMPAT.md`'s cause table shows how much each of these weighs.
-
-**Four tests are in no slice.** `vendor.py` copies `.xhtml`, `.xht` and `.svg` but
-not `.xml`, so `dom/nodes/Node-contains-xml.xml`, `Document-constructor-xml.xml`,
-`getElementsByClassName-10.xml` and `-11.xml` (14 subtests Chrome passes) are in no
-manifest and no baseline, and don't count in any rate. wpt.fyi's window-scope figure
-for dom/nodes is 15300 with them, and the 15286 above leaves them out. They would
-report `ERROR` until there is an XML parser, so the effect is 0.09% of dom/nodes.
-Adding them means a new baseline run in Chromium; do that with the XML parser.
