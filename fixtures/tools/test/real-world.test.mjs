@@ -9,8 +9,8 @@ import { FIXTURES_DIR, KINDS, listAllFixtures, listFixtures } from "../lib/fixtu
 
 const pages = listFixtures("real-world");
 
-test("all five libraries have a page", () => {
-  assert.deepEqual(pages.map((f) => f.name), ["alpine-invoice", "d3-charts", "highlightjs-code", "katex-autorender", "marked-report"]);
+test("each library has a page, and noscript-message has none", () => {
+  assert.deepEqual(pages.map((f) => f.name), ["alpine-invoice", "d3-charts", "highlightjs-code", "katex-autorender", "marked-report", "noscript-message"]);
 });
 
 test("every kind is listed, and a name is found in any kind", () => {
