@@ -39,15 +39,12 @@
 //!
 //! - **Size:** [`MAX_CSS_BYTES`] over all style text, and an attribute's own
 //!   [`MAX_ATTRIBUTE_BYTES`] and [`MAX_ATTRIBUTE_TOKENS`].
-//! - **Declarations:** a push of a property a block already has walks the
-//!   block, and `all` pushes every longhand, so a block costs its size squared,
-//!   and `all` multiplies it; 60 KB took 11 s (`crates/dom/DESIGN.md`).
-//!   [`MAX_BLOCK_DECLARATIONS`] per block, [`MAX_STEPS`] over the page.
-//! - **Grid strings:** `grid-template-areas` tokenizes its strings again and
-//!   interns each name, and `var()` can carry such a string out of a custom
-//!   property, so strings count in both. [`MAX_CELLS`] per declaration,
-//!   [`MAX_PAGE_CELLS`] over the page.
-//! - **Nesting:** [`MAX_NESTING`] brackets, for the recursion in stylo.
+//! - **Declarations:** [`MAX_BLOCK_DECLARATIONS`] per block, and [`MAX_STEPS`]
+//!   over the page, where a block costs its declarations squared and `all`
+//!   counts as every longhand.
+//! - **Grid strings:** [`MAX_CELLS`] words per declaration and [`MAX_PAGE_CELLS`]
+//!   over the page, in the strings of grid and custom properties.
+//! - **Nesting:** [`MAX_NESTING`] brackets.
 //! - **References:** [`MAX_VAR_CHAIN`] links between custom properties over the
 //!   page, every declaration of a name counted together.
 //! - **Selectors:** [`MAX_COMBINATORS`] in one.
@@ -97,8 +94,7 @@ const MAX_PASSES: usize = 4;
 const MAX_NODES: usize = DomLimits::DEFAULT_MAX_NODES;
 /// Deepest nesting of the printer's tree, the document's default.
 const MAX_DEPTH: usize = DomLimits::DEFAULT_MAX_DEPTH;
-/// Most attributes on one element. html5ever and blitz-dom compare each new
-/// attribute of a tag with the others, so one tag's cost is this squared.
+/// Most attributes on one element.
 const MAX_ATTRIBUTES: usize = 4_096;
 
 /// Most bytes of style text in a page: `<style>` and `style` attributes.
@@ -106,8 +102,8 @@ const MAX_ATTRIBUTES: usize = 4_096;
 const MAX_CSS_BYTES: usize = 32 * 1024 * 1024;
 /// Most declarations in one block, as `crates/dom` has for an attribute.
 const MAX_BLOCK_DECLARATIONS: usize = 4_096;
-/// What a page's blocks may cost: `crates/dom`'s bound for one attribute,
-/// which took stylo under a few hundred milliseconds, for the whole page.
+/// What a page's blocks may cost: `crates/dom`'s bound for one attribute, for
+/// the whole page.
 const MAX_STEPS: u64 = 1 << 26;
 /// Longhands one `all` pushes, rounded up.
 const ALL_LONGHANDS: u64 = 512;
@@ -405,8 +401,8 @@ fn screen_css(
     let fixes = screen.fixes;
     budget.stopped()?;
     match kind {
-        Css::Sheet => budget.references.read_sheet(css),
-        Css::Attribute => budget.references.read_attribute(css),
+        Css::Sheet => budget.references.read_sheet(css, gate)?,
+        Css::Attribute => budget.references.read_attribute(css, gate)?,
         Css::Media => {}
     }
     if fixes.is_empty() {
@@ -539,6 +535,7 @@ fn screen_tree(tree: &mut Tree, keep_scripts: bool, gate: &Gate<'_>) -> Result<(
             inert: inside,
         }));
     }
+    gate.check()?;
     if budget.references.longest_chain() > MAX_VAR_CHAIN {
         budget.over("too long a chain of var() references");
     }
@@ -1066,6 +1063,15 @@ mod tests {
         over(&format!("<style>@media print{{{long}}}</style>"));
         over(&format!("<style>a{{{long}}}</style>"));
         over(&format!("<style>a:is(b,c){long}</style>"));
+        // An unclosed bracket is one rule a browser drops, however long.
+        let typo = format!(
+            "<style>.a:not(.b {{color:red}}{}</style>",
+            ".c .d {color:red}".repeat(MAX_COMBINATORS)
+        );
+        assert!(ok(&typo).contains(".a:not(.b"));
+        // With no block, it's no rule.
+        let unfinished = format!("<style>a{}</style>", " b".repeat(MAX_COMBINATORS + 1));
+        assert_eq!(ok(&unfinished), unfinished);
         // A list in a pseudo-class is no chain.
         let items = format!(
             "<style>:is({}a){{}}</style>",
@@ -1143,6 +1149,54 @@ mod tests {
             screen_css(&long, Css::Sheet, &mut budget, &gate),
             Err(Error::PageTimeLimit)
         ));
+        // And past the screen, in what reads rules, at any depth.
+        let sheet = wrapped(MAX_NESTING - 2, GATE_TOKENS);
+        let attribute = format!("--a:{}", "b ".repeat(GATE_TOKENS));
+        assert!(matches!(
+            References::default().read_sheet(&sheet, &gate),
+            Err(Error::PageTimeLimit)
+        ));
+        let cancelled = AtomicBool::new(true);
+        let gate = Gate::new(&cancelled, Duration::from_secs(60));
+        assert!(matches!(
+            References::default().read_sheet(&sheet, &gate),
+            Err(Error::Cancelled)
+        ));
+        assert!(matches!(
+            References::default().read_attribute(&attribute, &gate),
+            Err(Error::Cancelled)
+        ));
+    }
+
+    /// A rule holding `words`, under `depth` declarations that turn out to be
+    /// rules.
+    fn wrapped(depth: usize, words: usize) -> String {
+        format!(
+            "a{{{}{}{}}}",
+            "b:{".repeat(depth),
+            " a".repeat(words),
+            "}".repeat(depth)
+        )
+    }
+
+    #[test]
+    fn nested_rules_are_read_once() {
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::from_secs(600));
+        let words = 20_000;
+        let mut flat = References::default();
+        assert!(flat.read_sheet(&wrapped(0, words), &gate).is_ok());
+        let mut deep = References::default();
+        assert!(
+            deep.read_sheet(&wrapped(MAX_NESTING - 2, words), &gate)
+                .is_ok()
+        );
+        assert!(
+            deep.tokens < flat.tokens + 100,
+            "{} {}",
+            deep.tokens,
+            flat.tokens
+        );
     }
 
     #[test]

@@ -776,7 +776,7 @@ fn what_only_a_printer_reads_as_css_is_screened() {
     }
 }
 
-/// 20,000 levels abort a printer on an 8 MiB stack (exit 134).
+/// Markup past the depth limit fails with `PageDomLimit`, however it got there.
 #[test]
 fn markup_only_a_printer_reads_is_limited_too() {
     let r = renderer(options());

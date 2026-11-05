@@ -1,6 +1,7 @@
 //! Custom properties that name each other, and how long selectors are, as the
 //! CSS parser's own rules and declarations have them. Running after the token
-//! screen, which has already bounded nesting.
+//! screen, which has already bounded nesting, and under the same gate. Each
+//! level is read once: a declaration gives up at a `{` it can't hold.
 
 use std::collections::HashMap;
 
@@ -8,6 +9,9 @@ use cssparser::{
     AtRuleParser, CowRcStr, DeclarationParser, ParseError, Parser, ParserInput, ParserState,
     QualifiedRuleParser, RuleBodyItemParser, RuleBodyParser, StyleSheetParser, Token,
 };
+
+use super::{GATE_TOKENS, Gate};
+use crate::error::Error;
 
 /// Which custom properties name which, and the longest selector, over a page.
 #[derive(Debug, Default)]
@@ -17,6 +21,10 @@ pub(super) struct References {
     names: Vec<Vec<usize>>,
     /// The most combinators in one selector.
     pub(super) combinators: usize,
+    /// Tokens read so far.
+    pub(super) tokens: usize,
+    /// The gate said stop.
+    halted: Option<Error>,
 }
 
 impl References {
@@ -31,27 +39,46 @@ impl References {
     }
 
     /// Reads a stylesheet.
-    pub(super) fn read_sheet(&mut self, css: &str) {
+    pub(super) fn read_sheet(&mut self, css: &str, gate: &Gate<'_>) -> Result<(), Error> {
         let mut input = ParserInput::new(css);
         let mut parser = Parser::new(&mut input);
         let mut reader = Reader {
             references: self,
+            gate: *gate,
             declarations: false,
             rules: true,
         };
-        for _ in StyleSheetParser::new(&mut parser, &mut reader) {}
+        let mut items = StyleSheetParser::new(&mut parser, &mut reader);
+        while items.next().is_some() && items.parser.references.halted.is_none() {}
+        self.finish()
     }
 
     /// Reads a `style` attribute.
-    pub(super) fn read_attribute(&mut self, css: &str) {
+    pub(super) fn read_attribute(&mut self, css: &str, gate: &Gate<'_>) -> Result<(), Error> {
         let mut input = ParserInput::new(css);
         let mut parser = Parser::new(&mut input);
         let mut reader = Reader {
             references: self,
+            gate: *gate,
             declarations: true,
             rules: false,
         };
-        for _ in RuleBodyParser::new(&mut parser, &mut reader) {}
+        let mut items = RuleBodyParser::new(&mut parser, &mut reader);
+        while items.next().is_some() && items.parser.references.halted.is_none() {}
+        self.finish()
+    }
+
+    fn finish(&mut self) -> Result<(), Error> {
+        self.halted.take().map_or(Ok(()), Err)
+    }
+
+    /// Counts a token, and says whether reading has to stop.
+    fn stop(&mut self, gate: &Gate<'_>) -> bool {
+        self.tokens += 1;
+        if self.tokens.is_multiple_of(GATE_TOKENS) && self.halted.is_none() {
+            self.halted = gate.check().err();
+        }
+        self.halted.is_some()
     }
 
     /// The most links on any path. Properties naming each other in a cycle are
@@ -125,16 +152,18 @@ impl References {
 type Failure<'i> = ParseError<'i, ()>;
 
 /// Goes through a list of rules or declarations, noting what's in them.
-struct Reader<'r> {
+struct Reader<'r, 'g> {
     references: &'r mut References,
+    gate: Gate<'g>,
     /// Declarations can be here, as in a style rule or an attribute.
     declarations: bool,
     rules: bool,
 }
 
-impl Reader<'_> {
+impl Reader<'_, '_> {
     /// Whether a `{}` is in what's left of `input`, at its own level. `from` is
-    /// the custom property the value belongs to, if it does.
+    /// the custom property the value belongs to, if it does. Any other value
+    /// ends at the first `{}`, which makes it a rule, read once as that.
     fn read_value<'i>(&mut self, input: &mut Parser<'i, '_>, from: Option<usize>) -> bool {
         let mut block = false;
         while let Ok(token) = input.next_including_whitespace_and_comments() {
@@ -145,13 +174,18 @@ impl Reader<'_> {
                     false
                 }
                 Token::Function(_) | Token::ParenthesisBlock | Token::SquareBracketBlock => false,
-                _ => continue,
+                _ => {
+                    if self.references.stop(&self.gate) {
+                        break;
+                    }
+                    continue;
+                }
             };
-            let Some(from) = from else {
-                continue;
-            };
+            if (block && from.is_none()) || self.references.stop(&self.gate) {
+                break;
+            }
             let read: Result<(), Failure<'i>> = input.parse_nested_block(|inner| {
-                if reference {
+                if reference && let Some(from) = from {
                     let start = inner.state();
                     if let Ok(Token::Ident(name)) = inner.next() {
                         let to = self.references.id(name);
@@ -159,7 +193,7 @@ impl Reader<'_> {
                     }
                     inner.reset(&start);
                 }
-                self.read_value(inner, Some(from));
+                self.read_value(inner, from);
                 Ok(())
             });
             drop(read);
@@ -167,53 +201,66 @@ impl Reader<'_> {
         block
     }
 
+    /// The most combinators in any entry of the selector list left in `input`,
+    /// those inside a pseudo-class added to the entry they're in. `None` for
+    /// what can't be a selector: no selector holds a `{` or a `;`.
+    fn combinators<'i>(&mut self, input: &mut Parser<'i, '_>) -> Option<usize> {
+        let (mut most, mut here) = (0, 0);
+        let (mut started, mut gap) = (false, false);
+        while let Ok(token) = input.next_including_whitespace_and_comments() {
+            let nested = match token {
+                Token::CurlyBracketBlock | Token::Semicolon => return None,
+                Token::WhiteSpace(_) | Token::Comment(_) | Token::Delim('>' | '+' | '~') => {
+                    gap = true;
+                    false
+                }
+                Token::Comma => {
+                    most = usize::max(most, here);
+                    here = 0;
+                    (started, gap) = (false, false);
+                    false
+                }
+                other => {
+                    let nested = matches!(
+                        other,
+                        Token::Function(_) | Token::ParenthesisBlock | Token::SquareBracketBlock
+                    );
+                    here += usize::from(started && gap);
+                    (started, gap) = (true, false);
+                    nested
+                }
+            };
+            if self.references.stop(&self.gate) {
+                return None;
+            }
+            if nested {
+                let inner: Result<Option<usize>, Failure<'i>> =
+                    input.parse_nested_block(|inner| Ok(self.combinators(inner)));
+                here += inner.ok().flatten()?;
+            }
+        }
+        Some(usize::max(most, here))
+    }
+
     fn read_body(&mut self, input: &mut Parser<'_, '_>, declarations: bool) {
         let mut inner = Reader {
             references: &mut *self.references,
+            gate: self.gate,
             declarations,
             rules: true,
         };
-        for _ in RuleBodyParser::new(input, &mut inner) {}
+        let mut items = RuleBodyParser::new(input, &mut inner);
+        while items.next().is_some() && items.parser.references.halted.is_none() {}
     }
 }
 
-/// The most combinators in any entry of the selector list left in `input`, those
-/// inside a pseudo-class added to the entry they're in.
-fn combinators<'i>(input: &mut Parser<'i, '_>) -> usize {
-    let (mut most, mut here) = (0, 0);
-    let (mut started, mut gap) = (false, false);
-    while let Ok(token) = input.next_including_whitespace_and_comments() {
-        match token {
-            Token::WhiteSpace(_) | Token::Comment(_) | Token::Delim('>' | '+' | '~') => gap = true,
-            Token::Comma => {
-                most = usize::max(most, here);
-                here = 0;
-                (started, gap) = (false, false);
-            }
-            other => {
-                let nested = matches!(
-                    other,
-                    Token::Function(_) | Token::ParenthesisBlock | Token::SquareBracketBlock
-                );
-                here += usize::from(started && gap);
-                (started, gap) = (true, false);
-                if nested {
-                    let inner: Result<usize, Failure<'i>> =
-                        input.parse_nested_block(|inner| Ok(combinators(inner)));
-                    here += inner.unwrap_or(0);
-                }
-            }
-        }
-    }
-    usize::max(most, here)
-}
-
-impl<'i> DeclarationParser<'i> for Reader<'_> {
+impl<'i> DeclarationParser<'i> for Reader<'_, '_> {
     type Declaration = ();
     type Error = ();
 
     /// A `{}` fails the declaration, whatever it holds: the parser then tries
-    /// it as a rule too, so both readings are noted.
+    /// it as a rule too, so both readings are noted. Not for a `--name:`, which
+    /// CSS Syntax doesn't let be a rule, and whose value is read here in full.
     fn parse_value<'t>(
         &mut self,
         name: CowRcStr<'i>,
@@ -228,29 +275,29 @@ impl<'i> DeclarationParser<'i> for Reader<'_> {
     }
 }
 
-impl<'i> QualifiedRuleParser<'i> for Reader<'_> {
-    type Prelude = ();
+impl<'i> QualifiedRuleParser<'i> for Reader<'_, '_> {
+    /// Combinators in the selector, which count only if a block follows.
+    type Prelude = usize;
     type QualifiedRule = ();
     type Error = ();
 
-    fn parse_prelude<'t>(&mut self, input: &mut Parser<'i, 't>) -> Result<(), Failure<'i>> {
-        let found = combinators(input);
-        self.references.combinators = self.references.combinators.max(found);
-        Ok(())
+    fn parse_prelude<'t>(&mut self, input: &mut Parser<'i, 't>) -> Result<usize, Failure<'i>> {
+        Ok(self.combinators(input).unwrap_or(0))
     }
 
     fn parse_block<'t>(
         &mut self,
-        (): (),
+        combinators: usize,
         _start: &ParserState,
         input: &mut Parser<'i, 't>,
     ) -> Result<(), Failure<'i>> {
+        self.references.combinators = self.references.combinators.max(combinators);
         self.read_body(input, true);
         Ok(())
     }
 }
 
-impl<'i> AtRuleParser<'i> for Reader<'_> {
+impl<'i> AtRuleParser<'i> for Reader<'_, '_> {
     /// Whether the block holds declarations.
     type Prelude = bool;
     type AtRule = ();
@@ -261,10 +308,14 @@ impl<'i> AtRuleParser<'i> for Reader<'_> {
         name: CowRcStr<'i>,
         input: &mut Parser<'i, 't>,
     ) -> Result<bool, Failure<'i>> {
-        while input.next_including_whitespace_and_comments().is_ok() {}
+        while input.next_including_whitespace_and_comments().is_ok()
+            && !self.references.stop(&self.gate)
+        {}
+        // `@scope` isn't on the list: it can hold declarations. Its prelude is
+        // selectors, which `combinators` would have to read if it's ever on.
         let only_rules = matches!(
             name.to_ascii_lowercase().as_str(),
-            "media" | "supports" | "layer" | "container" | "document" | "scope" | "starting-style"
+            "media" | "supports" | "layer" | "container" | "document" | "starting-style"
         );
         Ok(self.declarations || !only_rules)
     }
@@ -284,7 +335,7 @@ impl<'i> AtRuleParser<'i> for Reader<'_> {
     }
 }
 
-impl<'i> RuleBodyItemParser<'i, (), ()> for Reader<'_> {
+impl<'i> RuleBodyItemParser<'i, (), ()> for Reader<'_, '_> {
     fn parse_declarations(&self) -> bool {
         self.declarations
     }
