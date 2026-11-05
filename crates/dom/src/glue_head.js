@@ -49,8 +49,9 @@
   const symbolIterator = Symbol.iterator;
   const toWellFormed = String.prototype.toWellFormed;
   const charCodeAt = String.prototype.charCodeAt, fromCharCode = String.fromCharCode;
-  const fround = Math.fround;
+  const fround = Math.fround, trunc = Math.trunc;
   const PromiseCtor = Promise, promiseResolve = Promise.resolve;
+  const DOMExceptionCtor = G.DOMException, decodeURI_ = decodeURIComponent;
   const TE = TypeError;
   const symbolTag = Symbol.toStringTag;
 
@@ -66,7 +67,7 @@
   const stateOf = Brand.of;
 
   // Interface objects, prototypes and brand sets by interface number.
-  const ctors = create(null), protos = create(null), masks = create(null), names = create(null);
+  const ctors = create(null), protos = create(null), brands = create(null), names = create(null);
   // Proxy handlers of legacy platform objects, by interface number.
   const exotics = create(null);
   // Bodies of hand-written members (glue_events.js); the window's record.
@@ -86,7 +87,7 @@
     if (w === undefined) {
       const i = call(0, g, h);
       const s = create(null);
-      s.g = g; s.h = h; s.m = masks[i];
+      s.g = g; s.h = h; s.m = brands[i];
       w = new Brand(create(protos[i]), s);
       s.w = w;
       const handler = exotics[i];
@@ -193,20 +194,50 @@
     ctors[id] = f; protos[id] = proto; names[id] = name;
     // One set per interface, shared by its wrappers.
     const m = create(null);
-    if (parent >= 0) for (const k in masks[parent]) m[k] = true;
+    if (parent >= 0) for (const k in brands[parent]) m[k] = true;
     m[id] = true;
-    masks[id] = m;
+    brands[id] = m;
   }
   function konst(id, name, value) {
     const d = { value, enumerable: true };
     defineProperty(ctors[id], name, d);
     defineProperty(protos[id], name, d);
   }
+  // WebIDL §3.7.6: a [Global] interface's members are the global's own.
+  const holder = (id) => (id === I_Window ? G : protos[id]);
   function attr(id, name, get, set) {
-    defineProperty(protos[id], name, { get, set, enumerable: true, configurable: true });
+    defineProperty(holder(id), name, { get, set, enumerable: true, configurable: true });
   }
   function op(id, name, f) {
-    defineProperty(protos[id], name, { value: f, writable: true, enumerable: true, configurable: true });
+    defineProperty(holder(id), name, { value: f, writable: true, enumerable: true, configurable: true });
+  }
+  function staticOp(id, name, f) {
+    defineProperty(ctors[id], name, { value: f, writable: true, enumerable: true, configurable: true });
+  }
+  // A task of the glue's own, on the virtual clock. A page can guess its
+  // timer's id, so `clearTimeout` refuses these (glue_tail.js).
+  const glueTasks = create(null);
+  function task(f, ms) {
+    const id = setTimeoutReal(() => { delete glueTasks[id]; f(); }, ms);
+    glueTasks[id] = true;
+  }
+
+  // WebIDL §3.7.6: writing a [Replaceable] attribute makes a data property.
+  function replaceable(o, name, v) {
+    const d = create(null);
+    d.value = v; d.writable = true; d.enumerable = true; d.configurable = true;
+    defineProperty(o, name, d);
+  }
+  // HTML §2.6.1, in terms of the content attribute's text.
+  function reflectStr(s, name) {
+    const v = call(OP_getAttribute, s.g, s.h, name);
+    return v === null ? '' : v;
+  }
+  function setReflectStr(s, name, v) { call(OP_setAttribute, s.g, s.h, name, str(v)); }
+  function reflectBool(s, name) { return call(OP_getAttribute, s.g, s.h, name) !== null; }
+  function setReflectBool(s, name, v) {
+    if (v) call(OP_setAttribute, s.g, s.h, name, '');
+    else call(OP_removeAttribute, s.g, s.h, name);
   }
   function iterable(id) {
     const p = protos[id];

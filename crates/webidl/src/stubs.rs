@@ -853,6 +853,37 @@ pub static INTERFACES: &[InterfaceInfo] = &[
         ],
     },
     InterfaceInfo {
+        name: "HTMLAreaElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "alt", rust_name: "alt", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "coords", rust_name: "coords", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shape", rust_name: "shape", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "download", rust_name: "download", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ping", rust_name: "ping", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "rel", rust_name: "rel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "relList", rust_name: "rel_list", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "referrerPolicy", rust_name: "referrer_policy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "noHref", rust_name: "no_href", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "origin", rust_name: "origin", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "protocol", rust_name: "protocol", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "username", rust_name: "username", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "password", rust_name: "password", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "host", rust_name: "host", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hostname", rust_name: "hostname", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "port", rust_name: "port", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "pathname", rust_name: "pathname", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "search", rust_name: "search", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hash", rust_name: "hash", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hreflang", rust_name: "hreflang", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "type", rust_name: "type_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "href", rust_name: "href", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "target", rust_name: "target", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
         name: "HTMLImageElement",
         parent: Some("HTMLElement"),
         files: &["cssom-view.idl", "html.idl"],
@@ -7429,6 +7460,280 @@ pub trait HTMLAnchorElement: HTMLElement {
     fn set_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let _ = (this, value);
         Err(BindingError::NotImplemented("HTMLAnchorElement.target"))
+    }
+}
+
+/// IDL `interface HTMLAreaElement : HTMLElement` (html.idl).
+///
+/// Includes: HyperlinkElementUtils, HTMLHyperlinkElementUtils.
+pub trait HTMLAreaElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLAreaElement"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn alt(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.alt"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn set_alt(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.alt"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString coords;` (html.idl)
+    fn coords(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.coords"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString coords;` (html.idl)
+    fn set_coords(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.coords"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shape;` (html.idl)
+    fn shape(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.shape"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shape;` (html.idl)
+    fn set_shape(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.shape"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString download;` (html.idl)
+    fn download(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.download"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString download;` (html.idl)
+    fn set_download(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.download"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString ping;` (html.idl)
+    fn ping(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.ping"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString ping;` (html.idl)
+    fn set_ping(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.ping"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.rel"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.rel"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect="rel"] readonly attribute DOMTokenList relList;` (html.idl)
+    fn rel_list(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.relList"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn referrer_policy(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn set_referrer_policy(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean noHref;` (html.idl)
+    fn no_href(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.noHref"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean noHref;` (html.idl)
+    fn set_no_href(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.noHref"))
+    }
+
+    /// `readonly attribute USVString origin;` (HyperlinkElementUtils, html.idl)
+    fn origin(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.origin"))
+    }
+
+    /// `[CEReactions] attribute USVString protocol;` (HyperlinkElementUtils, html.idl)
+    fn protocol(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.protocol"))
+    }
+
+    /// `[CEReactions] attribute USVString protocol;` (HyperlinkElementUtils, html.idl)
+    fn set_protocol(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.protocol"))
+    }
+
+    /// `[CEReactions] attribute USVString username;` (HyperlinkElementUtils, html.idl)
+    fn username(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.username"))
+    }
+
+    /// `[CEReactions] attribute USVString username;` (HyperlinkElementUtils, html.idl)
+    fn set_username(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.username"))
+    }
+
+    /// `[CEReactions] attribute USVString password;` (HyperlinkElementUtils, html.idl)
+    fn password(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.password"))
+    }
+
+    /// `[CEReactions] attribute USVString password;` (HyperlinkElementUtils, html.idl)
+    fn set_password(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.password"))
+    }
+
+    /// `[CEReactions] attribute USVString host;` (HyperlinkElementUtils, html.idl)
+    fn host(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.host"))
+    }
+
+    /// `[CEReactions] attribute USVString host;` (HyperlinkElementUtils, html.idl)
+    fn set_host(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.host"))
+    }
+
+    /// `[CEReactions] attribute USVString hostname;` (HyperlinkElementUtils, html.idl)
+    fn hostname(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.hostname"))
+    }
+
+    /// `[CEReactions] attribute USVString hostname;` (HyperlinkElementUtils, html.idl)
+    fn set_hostname(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.hostname"))
+    }
+
+    /// `[CEReactions] attribute USVString port;` (HyperlinkElementUtils, html.idl)
+    fn port(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.port"))
+    }
+
+    /// `[CEReactions] attribute USVString port;` (HyperlinkElementUtils, html.idl)
+    fn set_port(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.port"))
+    }
+
+    /// `[CEReactions] attribute USVString pathname;` (HyperlinkElementUtils, html.idl)
+    fn pathname(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.pathname"))
+    }
+
+    /// `[CEReactions] attribute USVString pathname;` (HyperlinkElementUtils, html.idl)
+    fn set_pathname(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.pathname"))
+    }
+
+    /// `[CEReactions] attribute USVString search;` (HyperlinkElementUtils, html.idl)
+    fn search(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.search"))
+    }
+
+    /// `[CEReactions] attribute USVString search;` (HyperlinkElementUtils, html.idl)
+    fn set_search(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.search"))
+    }
+
+    /// `[CEReactions] attribute USVString hash;` (HyperlinkElementUtils, html.idl)
+    fn hash(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.hash"))
+    }
+
+    /// `[CEReactions] attribute USVString hash;` (HyperlinkElementUtils, html.idl)
+    fn set_hash(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.hash"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (HyperlinkElementUtils, html.idl)
+    fn hreflang(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (HyperlinkElementUtils, html.idl)
+    fn set_hreflang(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (HyperlinkElementUtils, html.idl)
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.type"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (HyperlinkElementUtils, html.idl)
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.type"))
+    }
+
+    /// `[CEReactions, ReflectSetter] stringifier attribute USVString href;` (HTMLHyperlinkElementUtils, html.idl)
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.href"))
+    }
+
+    /// `[CEReactions, ReflectSetter] stringifier attribute USVString href;` (HTMLHyperlinkElementUtils, html.idl)
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.href"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (HTMLHyperlinkElementUtils, html.idl)
+    fn target(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.target"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (HTMLHyperlinkElementUtils, html.idl)
+    fn set_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.target"))
     }
 }
 

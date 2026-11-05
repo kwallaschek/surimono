@@ -282,7 +282,8 @@ fn every_element_has_its_interface() {
             Object.prototype.toString.call(e);
         };
         ['div', 'body', 'html', 'head', 'h3', 'tbody', 'td', 'blockquote', 'q', 'del', 'audio',
-         'xmp', 'acronym', 'section', 'x-widget', 'blink', 'applet', 'annotation-xml', 'frameset']
+         'xmp', 'acronym', 'section', 'x-widget', 'blink', 'applet', 'annotation-xml', 'frameset',
+         'selectedcontent']
           .map(of).join('|')"#,
     );
     let want = [
@@ -305,6 +306,7 @@ fn every_element_has_its_interface() {
         "HTMLUnknownElement",
         "HTMLUnknownElement",
         "HTMLFrameSetElement",
+        "HTMLSelectedContentElement",
     ];
     let want: Vec<String> = want
         .iter()

@@ -23,7 +23,7 @@
   // A new wrapper of a hand-written interface. `target` is new.target.
   function make(id, target) {
     const s = create(null);
-    s.m = masks[id]; s.g = 0; s.h = 0;
+    s.m = brands[id]; s.g = 0; s.h = 0;
     const w = new Brand(create(protos[id]), s);
     s.w = w;
     if (target !== undefined) adopt(w, target, id);
@@ -116,18 +116,21 @@
     return h === root() || h === call(OP_documentElement, g, root()) || h === call(OP_body, g, root());
   }
   H.EventTarget_addEventListener = (s, type, callback, options) => {
-    // §2.7.3 "flatten more". `signal` isn't read: AbortSignal isn't bound.
+    // §2.7.3 "flatten more".
     const capture = flatten(options);
-    let once = false, passive;
+    let once = false, passive, signal = null;
     if (isObject(options)) {
       once = !!options.once;
       passive = options.passive;
       if (passive !== undefined) passive = !!passive;
+      const given = options.signal;
+      if (given !== undefined) signal = self(given, I_AbortSignal);
     }
     if (callback === null || callback === undefined) return;
     if (typeof callback !== 'object' && typeof callback !== 'function') {
       throw new TE('addEventListener: the listener is not an object');
     }
+    if (signal !== null && signal.aborted) return;
     syncHandlers(s);
     const l = listenersOf(s, true);
     for (let i = 0; i < l.n; i++) {
@@ -135,7 +138,12 @@
       if (e.type === type && e.callback === callback && e.capture === capture) return;
     }
     if (passive === undefined) passive = defaultPassive(s, type);
-    addListener(l, type, callback, capture, once, passive);
+    const e = addListener(l, type, callback, capture, once, passive);
+    if (signal !== null) {
+      add(signal.algorithms, () => {
+        for (let i = 0; i < l.n; i++) if (l[i] === e) { removeAt(l, i); return; }
+      });
+    }
   };
   function addListener(l, type, callback, capture, once, passive) {
     const e = create(null);
@@ -180,13 +188,23 @@
     return null;
   }
 
+  // HTML §7.2 `window.event`: the event of the listener running.
+  let currentEvent;
+  H.Window_event = () => currentEvent;
+
   // §2.9 "dispatch". No shadow trees, so no retargeting and no slots.
   function dispatch(target, event) {
     event.dispatching = true;
     event.target = target.w;
+    const activating = event.m[I_MouseEvent] === true && event.type === 'click';
+    let activation = activating && hasActivation(target) ? target : null;
     const path = list();
-    for (let at = target; at !== null; at = parentOf(at, event)) add(path, at);
+    for (let at = target; at !== null; at = parentOf(at, event)) {
+      add(path, at);
+      if (activating && event.bubbles && activation === null && hasActivation(at)) activation = at;
+    }
     event.path = path;
+    const saved = activation === null ? null : preActivate(activation);
     for (let i = path.n - 1; i >= 0; i--) {
       event.eventPhase = i === 0 ? 2 : 1;
       invoke(path[i], event, true);
@@ -202,6 +220,10 @@
     event.dispatching = false;
     event.stop = false;
     event.stopNow = false;
+    if (activation !== null) {
+      if (event.canceled) cancelActivation(activation, saved);
+      else runActivation(activation, event);
+    }
     return !event.canceled;
   }
 
@@ -209,6 +231,14 @@
   // the others still run.
   function invoke(target, event, capturing) {
     if (event.stop) return;
+    // A form keeps its descendants' submit and reset to itself: WPT
+    // Event-dispatch-single-activation-behavior.html and Chrome, the spec has
+    // no word on nested forms.
+    if (!capturing && target.m[I_HTMLFormElement] === true && event.target !== target.w &&
+        (event.type === 'submit' || event.type === 'reset')) {
+      event.stop = true;
+      return;
+    }
     event.currentTarget = target.w;
     syncHandlers(target);
     const all = target.l;
@@ -221,6 +251,8 @@
         for (let k = 0; k < all.n; k++) if (all[k] === e) { removeAt(all, k); break; }
       }
       event.passive = e.passive;
+      const outer = currentEvent;
+      currentEvent = event.w;
       try {
         const cb = e.callback;
         if (typeof cb === 'function') {
@@ -233,6 +265,7 @@
       } catch (x) {
         reportException(x);
       }
+      currentEvent = outer;
       event.passive = false;
       if (event.stopNow) break;
     }
@@ -247,8 +280,17 @@
     s.isTrusted = false; s.target = null;
     s.type = type; s.bubbles = bubbles; s.cancelable = cancelable;
   }
+  // [LegacyUnforgeable]: an own accessor on each event, the same one on all
+  // (WebIDL §3.7.5), so a page can't replace what a listener reads.
+  const isTrustedGetter = { get isTrusted() { return self(this, I_Event).isTrusted; } };
+  const isTrustedDescriptor = rdescriptor(isTrustedGetter, 'isTrusted');
+  isTrustedDescriptor.enumerable = true;
+  isTrustedDescriptor.configurable = false;
+  setPrototypeOf(isTrustedDescriptor, null);
+
   // A new event's fields.
   function initEvent(s, type, bubbles, cancelable) {
+    defineProperty(s.w, 'isTrusted', isTrustedDescriptor);
     initialize(s, type, bubbles, cancelable);
     s.composed = false; s.dispatching = false; s.passive = false;
     s.currentTarget = null; s.eventPhase = 0;
@@ -285,7 +327,6 @@
   H.Event_preventDefault = cancel;
   H.Event_defaultPrevented = (s) => s.canceled;
   H.Event_composed = (s) => s.composed;
-  H.Event_isTrusted = (s) => s.isTrusted;
   H.Event_timeStamp = (s) => s.timeStamp;
   H.Event_initEvent = (s, type, bubbles, cancelable) => {
     if (!s.dispatching) initialize(s, type, bubbles, cancelable);
@@ -371,9 +412,21 @@
   H.MouseEvent_offsetY = (s) => s.d.clientY;
   H.MouseEvent_layerX = (s) => s.d.clientX;
   H.MouseEvent_layerY = (s) => s.d.clientY;
-  // No coalescing here: no real input arrives.
-  H.PointerEvent_getCoalescedEvents = () => realArray(list());
-  H.PointerEvent_getPredictedEvents = () => realArray(list());
+  // A new sequence each time, of what the init gave: no real input arrives.
+  function freshCopy(a) {
+    const l = list();
+    for (let i = 0; i < a.length; i++) add(l, a[i]);
+    return realArray(l);
+  }
+  H.PointerEvent_getCoalescedEvents = (s) => freshCopy(s.d.coalescedEvents);
+  H.PointerEvent_getPredictedEvents = (s) => freshCopy(s.d.predictedEvents);
+  // Pointer Events §5.1, the defaults for a device with no tilt. A given pair
+  // isn't converted to the other pair.
+  const orDefault = (v, d) => (v === undefined ? d : v);
+  H.PointerEvent_tiltX = (s) => orDefault(s.d.tiltX, 0);
+  H.PointerEvent_tiltY = (s) => orDefault(s.d.tiltY, 0);
+  H.PointerEvent_altitudeAngle = (s) => orDefault(s.d.altitudeAngle, 1.5707963267948966);
+  H.PointerEvent_azimuthAngle = (s) => orDefault(s.d.azimuthAngle, 0);
   H.BeforeUnloadEvent_returnValue = (s) => (s.returnText === undefined ? '' : s.returnText);
   H.set_BeforeUnloadEvent_returnValue = (s, v) => { s.returnText = v; };
 
@@ -390,6 +443,15 @@
   };
 
   H.Window_devicePixelRatio = () => 1;
+  // One browsing context, with nothing around it.
+  H.Window_top = () => G;
+  H.Window_parent = () => G;
+  H.Window_frames = () => G;
+  H.Window_length = () => 0;
+  H.Window_closed = () => false;
+  H.Window_frameElement = () => null;
+  H.Window_opener = (s) => (s.opener === undefined ? null : s.opener);
+  H.set_Window_opener = (s, v) => { s.opener = v; };
 
   // ------ MutationObserver (DOM §4.3) ------
   //
@@ -510,9 +572,10 @@
   // ------ Firing, and the page's life (HTML §13.2.7 "the end") ------
 
   // §2.10 "fire an event".
-  function fire(target, type, bubbles, cancelable) {
+  function fire(target, type, bubbles, cancelable, composed) {
     const s = make(I_Event);
     initEvent(s, type, !!bubbles, !!cancelable);
+    s.composed = !!composed;
     s.isTrusted = true;
     return dispatch(target, s);
   }
@@ -581,7 +644,7 @@
     if (e === undefined) {
       e = create(null);
       e.value = null; e.pending = false; e.raw = null; e.scope = null;
-      e.attr = null; e.entry = null;
+      e.attr = null; e.from = 0; e.entry = null;
       s.hm[name] = e;
     }
     return e;
@@ -608,8 +671,8 @@
       seen[name] = true;
       const raw = call(OP_getAttribute, g, h, name);
       const e = handlerState(s, name);
-      if (e.attr === raw) return;
-      e.attr = raw; e.raw = raw; e.value = null; e.pending = true; e.scope = wrap(g, h);
+      if (e.attr === raw && e.from === h) return;
+      e.attr = raw; e.from = h; e.raw = raw; e.value = null; e.pending = true; e.scope = wrap(g, h);
       activate(s, name, e);
     });
     if (s.hm === undefined) return;
@@ -622,8 +685,10 @@
     if (s === windowState) {
       const g = current();
       if (g === 0) return;
-      const body = call(OP_body, g, root());
-      if (body === 0 || body === null) return;
+      // Any body or frameset element's attributes reach the window: the last
+      // one written, or the document's body.
+      const body = call(OP_handlerElement, g, root());
+      if (body === 0) return;
       syncFrom(s, g, body, (name) => reflected[name]);
     } else if (s.m[I_HTMLElement] === true) {
       const known = handlerNames[I_HTMLElement];
@@ -683,7 +748,8 @@
       const name = list_[i];
       known[name] = true;
       // The body element's are the window's.
-      const owner = (s) => (id === I_HTMLElement && reflects(s, name) ? windowState : s);
+      const forwards = id === I_HTMLBodyElement || id === I_HTMLFrameSetElement;
+      const owner = (s) => (forwards || (id === I_HTMLElement && reflects(s, name)) ? windowState : s);
       attr(id, name, function () {
         return handlerValue(owner(self(this, id)), name);
       }, function (v) {

@@ -58,7 +58,10 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
 member names, checked against the vendored IDL) into two checked-in files,
 `src/generated/bindings.js` and `src/generated/dispatch.rs`; `tests/generated.rs`
 fails when they are stale. Only listed members exist in JavaScript, so a page's
-feature detection sees the truth. The hand-written glue is only infrastructure:
+feature detection sees the truth, with one caveat: every element's interface
+exists, members or not, so `typeof HTMLCanvasElement` is `function` though
+`getContext` isn't there, and a page that tests the constructor and then calls the
+method gets a TypeError where it would have taken its fallback (for COMPAT). The hand-written glue is only infrastructure:
 `glue_head.js` (brand, `wrap`, conversions, interface setup) and `glue_tail.js`.
 
 - **One native.** Every member is `call(op, generation, handle, ...args)`. The
@@ -247,7 +250,7 @@ The flag is private to `DomRuntime`: nothing else can cancel a `DomRuntime`'s
 sandbox. A sticky stop in core, as for a panic, would remove that wait.
 
 **Event handlers** (HTML §8.1.7): `handlers(id, names)` in `bindings.js` comes
-from the IDL's `EventHandler` attributes, for HTMLElement, Document and Window.
+from the IDL's `EventHandler` attributes, for each bound interface that has them.
 A handler's state is in the target's record, next to its listeners, and
 `activate` adds a listener of its own in the place the spec gives it.
 Content attributes live in Rust, so `syncHandlers` compares them when an event
@@ -257,16 +260,50 @@ on first use. On a body or frameset element the Window-reflecting set is the
 window's. `document.currentScript` is the glue's, set from a script's run until
 a separate lifecycle step after its microtasks, which then fires its `load`.
 
-**Gaps** (each for docs/COMPAT.md): no `window.event`; `isTrusted` is an
-ordinary accessor, not [LegacyUnforgeable]; no microtask checkpoint between the
-listeners of a browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`);
-the handler attributes sit on `Window.prototype`, not on the window itself; a
+**Event interfaces.** Every interface inheriting from `Event` is generated
+whole (`JS_INTERFACES` in the generator): the constructor reads its dictionary
+through a generated `D_<name>` converter, which follows WebIDL §3.2.18 (inherited
+dictionaries first, members in lexicographic order), and an attribute with a
+dictionary member of its name reads the record's `d`, as DOM §2.5 says. What
+isn't in a dictionary is hand-written (`H.MouseEvent_pageX`, the legacy
+`init*Event`). A value of an interface with no binding can only be null, since
+no script can have one.
+
+**Activation** (`glue_activation.js`): `dispatch` finds the activation target as
+DOM §2.9 says and runs what `<a>`, `<area>`, `<input>`, `<button>`, `<label>`
+and `<summary>` do. A page is printed, not used, so nothing leaves the document:
+a form's `submit` and `reset` events fire and stop where it would navigate, and
+a link only runs a `javascript:` URL, in a task. `checked` stays an attribute,
+which is what gets printed, so a form's reset can't restore it.
+
+**Named access on the window** is WebIDL's named properties object, between
+`Window.prototype` and `EventTarget.prototype`: a getter for each `id` in the
+parsed tree, made before the first script, at most 4,096. Not a Proxy: QuickJS
+reads a global through the prototype chain, and a Proxy there makes an undeclared
+name `undefined` instead of a ReferenceError.
+
+**Gaps** (each for docs/COMPAT.md): no microtask checkpoint between the listeners of a
+browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`), because a
+checkpoint from inside a native needs core; a
 handler's scope has no form owner; SVG and MathML elements have no `on*`
-attributes (no interfaces bound), and `<svg><script>` doesn't run; the
-WindowEventHandlers aren't readable on a body element, only reachable through
-its content attributes; `AbortSignal` in listener options is ignored;
-`unhandledrejection` doesn't fire. ErrorEvent `filename`, `lineno` and `colno` are always
-empty and 0.
+attributes, and `<svg><script>` doesn't run; `unhandledrejection` doesn't fire.
+ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
+`Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
+two events at one virtual time have the same one. `HTMLDocument` is `Document`, as
+HTML says; browsers keep a separate interface, so `document.constructor.name`
+differs from Chrome's. `offsetX`, `offsetY`, `layerX` and `layerY` are the client
+coordinates until layout. Interactive form validation doesn't stop a submit.
+`TouchEvent`'s `touches` lists are plain arrays, and `Touch` isn't bound, so they
+can only be empty. Named access doesn't read `name` and doesn't see what a
+script adds; `document.URL` isn't known, so a fragment link's `hashchange` has the
+fragments as its URLs. A body element's `on*`
+attributes reach the window from the last one written, not from each in turn.
+Radio groups key on a `form` attribute's text, not on the element it names.
+Setting `details.open` from a script queues no `toggle`; only a click on its summary
+does. Two elements with one `id` name the first on the window, not a collection.
+A form's reset restores neither `value` nor `checked`. `PointerEvent`'s tilt and
+altitude pairs aren't converted into each other. `DeviceMotionEvent`'s members are
+the converted dictionaries, not interfaces.
 
 ## MutationObserver
 

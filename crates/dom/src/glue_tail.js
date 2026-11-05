@@ -17,7 +17,7 @@
   // The global object is the window (HTML §7.2): it gets its brand and
   // inherits from Window.prototype, so `addEventListener` is a global.
   windowState = create(null);
-  windowState.m = masks[I_Window]; windowState.g = 0; windowState.h = 0; windowState.w = G;
+  windowState.m = brands[I_Window]; windowState.g = 0; windowState.h = 0; windowState.w = G;
   new Brand(G, windowState);
   setPrototypeOf(G, protos[I_Window]);
   // The engine's own tag would hide Window.prototype's.
@@ -26,7 +26,7 @@
   for (const i in ctors) {
     defineProperty(G, names[i], { value: ctors[i], writable: true, configurable: true });
   }
-  // HTML §3.1.1: the name is kept for old pages, and is Document's.
+  // HTML §7.2.2: the name is kept for old pages, and is Document's.
   defineProperty(G, 'HTMLDocument', { value: ctors[I_Document], writable: true, configurable: true });
   // [LegacyUnforgeable] `window` and `document`; [Replaceable] `self`.
   defineProperty(G, 'window', { value: G, enumerable: true, configurable: false });
@@ -37,6 +37,43 @@
     get: function () { const g = current(); return g === 0 ? null : wrap(g, root()); },
     enumerable: true, configurable: false,
   });
+
+  // The sandbox's `performance`, with the brand HR Time gives it: an event
+  // target, whose `now` stays the prelude's virtual clock.
+  if (performanceObject !== undefined) {
+    const p = create(null);
+    p.m = brands[I_Performance]; p.g = 0; p.h = 0; p.w = performanceObject;
+    new Brand(performanceObject, p);
+    setPrototypeOf(performanceObject, protos[I_Performance]);
+  }
+
+  // HTML §7.3.3 named access on the Window object, as WebIDL §3.7.4's named
+  // properties object: between Window.prototype and EventTarget.prototype, so
+  // anything a script defines hides a name. Not a Proxy, as `exotic` is: the
+  // engine reads a global through the prototype chain, and a Proxy there
+  // would turn a ReferenceError into undefined. So the object gets a getter
+  // for each `id` of the parsed tree before the first script (`start`); what
+  // a script adds later has no name here. At most MAX_WINDOW_NAMES.
+  const windowProperties = create(protos[I_EventTarget]);
+  setPrototypeOf(protos[I_Window], windowProperties);
+  const MAX_WINDOW_NAMES = 4096;
+  function nameElements(g) {
+    let count = 0;
+    nameList(call(OP_idNames, g, root()), (name) => {
+      if (name === '' || count === MAX_WINDOW_NAMES || rhas(G, name)) return;
+      count++;
+      defineProperty(windowProperties, name, {
+        get: function () {
+          const r = current() === g ? wrap(g, call(OP_getElementById, g, root(), name)) : null;
+          return r === null ? undefined : r;
+        },
+        // WebIDL §3.7.4 reports a writable data property, so an assignment
+        // makes an own property of the window, as for `chart = init(...)`.
+        set: function (v) { replaceable(G, name, v); },
+        enumerable: false, configurable: true,
+      });
+    });
+  }
 
   // The rest of the Window-reflecting set: what only Window has.
   for (const name in handlerNames[I_Window]) {
@@ -104,12 +141,12 @@
   }.queueMicrotask, 1);
 
   // Timer ids up to this one are the page's lifecycle, and no script may
-  // cancel those (`start`).
+  // cancel those (`start`), nor the glue's own tasks (`task`).
   let lifecycleLast = 0;
   function clearTimer(a) {
     if (a.length === 0) return;
     const id = a[0] | 0;
-    if (id < 1 || id > lifecycleLast) clearTimeoutReal(id);
+    if ((id < 1 || id > lifecycleLast) && glueTasks[id] !== true) clearTimeoutReal(id);
   }
   expose('clearTimeout', { clearTimeout() { clearTimer(arguments); } }.clearTimeout, 0);
   expose('clearInterval', { clearInterval() { clearTimer(arguments); } }.clearInterval, 0);
@@ -157,6 +194,7 @@
   // loop has left the timer by then, so a timer a script sets starts from
   // nesting level 0, as a parser's script does in a browser (HTML §8.7).
   return function start(g) {
+    nameElements(g);
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
       fire(documentState(), 'readystatechange');

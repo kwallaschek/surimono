@@ -4,6 +4,8 @@
 
 mod common;
 
+use std::time::Duration;
+
 use common::limits;
 use surimono_core::{SandboxError, SettleOptions};
 use surimono_dom::{Document, DomError, DomRuntime};
@@ -1291,4 +1293,419 @@ fn hostile_dictionaries_and_event_names() {
            return { done: false, value: 1 }; } }; } } }); 'no' } catch (e) { e.name }",
     );
     assert_eq!(r, "TypeError");
+}
+
+#[test]
+fn window_event_is_the_running_listeners_event() {
+    // DOM §2.9 "inner invoke"; HTML §7.2; WPT dom/events/event-global.html.
+    let r = eval(
+        r#"const own = Object.getOwnPropertyDescriptor(window, 'event') !== undefined;
+        const before = window.event;
+        let inner, outer, after;
+        const e = new Event('x'), f = new Event('y');
+        b.addEventListener('y', () => { inner = window.event === f; });
+        a.addEventListener('x', () => {
+          b.dispatchEvent(f);
+          outer = window.event === e;
+          throw new Error('no');
+        });
+        addEventListener('error', (x) => { x.preventDefault(); log.push(window.event.type); });
+        a.dispatchEvent(e);
+        after = window.event;
+        Object.prototype.get = () => 7;
+        window.event = 5;
+        delete Object.prototype.get;
+        [own, before, inner, outer, after, log.join(), window.event].join('|')"#,
+    );
+    assert_eq!(r, "true||true|true||error|5");
+}
+
+#[test]
+fn is_trusted_cant_be_replaced() {
+    // DOM §2.2, [LegacyUnforgeable]; WPT dom/events/Event-isTrusted.any.js.
+    let r = eval(
+        r#"const e = new Event('x'), f = new Event('y');
+        const d = Object.getOwnPropertyDescriptor(e, 'isTrusted');
+        const g = Object.getOwnPropertyDescriptor(f, 'isTrusted');
+        let threw = '';
+        try { Object.defineProperty(e, 'isTrusted', { value: true }); } catch (x) { threw = x.name; }
+        [typeof d.get, d.get === g.get, d.configurable, d.set, e.isTrusted, threw,
+         'isTrusted' in Event.prototype].join('|')"#,
+    );
+    assert_eq!(r, "function|true|false||false|TypeError|false");
+}
+
+#[test]
+fn a_signal_removes_its_listeners() {
+    // DOM §2.7.3, §3.2; WPT dom/events/AddEventListenerOptions-signal.any.js.
+    let r = eval(
+        r#"const ctl = new AbortController();
+        let n = 0;
+        const f = () => { n++; };
+        a.addEventListener('x', f, { signal: ctl.signal });
+        a.dispatchEvent(new Event('x'));
+        ctl.abort();
+        a.dispatchEvent(new Event('x'));
+        a.addEventListener('x', f, { signal: ctl.signal });
+        a.dispatchEvent(new Event('x'));
+        let threw = '';
+        try { a.addEventListener('x', f, { signal: null }); } catch (e) { threw = e.name; }
+        const s = AbortSignal.abort('why');
+        const d = AbortSignal.any([new AbortController().signal, ctl.signal]);
+        const c2 = new AbortController(), d2 = AbortSignal.any([c2.signal]);
+        d2.addEventListener('abort', () => log.push('abort'));
+        ctl.signal.onabort = () => log.push('late');
+        c2.abort();
+        let reason = '';
+        try { ctl.signal.throwIfAborted(); } catch (e) { reason = e.name; }
+        [n, threw, ctl.signal.aborted, s.reason, d.aborted, d.reason === ctl.signal.reason,
+         d2.aborted, d2.reason.name, reason, log.join(), s instanceof EventTarget].join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "1|TypeError|true|why|true|true|true|AbortError|AbortError|abort|true"
+    );
+}
+
+#[test]
+fn abort_signal_timeout_is_on_the_virtual_clock() {
+    // DOM §3.2; the reason's name; settles without waiting.
+    let (mut rt, _) = page(
+        "<!doctype html><script>globalThis.log = [];
+         const s = AbortSignal.timeout(5000);
+         s.addEventListener('abort', () => log.push(s.reason.name, performance.now()));
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "TimeoutError,5000");
+}
+
+#[test]
+fn checkbox_and_radio_activation() {
+    // HTML §4.10.5.1.15, §6.6; WPT dom/events/Event-dispatch-click.html.
+    let r = eval(
+        r#"const box = document.createElement('input');
+        box.type = 'checkbox';
+        a.append(box);
+        box.addEventListener('click', () => log.push('click ' + box.checked));
+        box.addEventListener('input', () => log.push('input'));
+        box.addEventListener('change', () => log.push('change'));
+        box.click();
+        box.dispatchEvent(new Event('click'));
+        box.indeterminate = true;
+        const cancel = (e) => { e.preventDefault(); };
+        box.addEventListener('click', cancel);
+        box.click();
+        log.push(box.checked, box.indeterminate);
+        const r1 = document.createElement('input'), r2 = document.createElement('input');
+        r1.type = r2.type = 'radio';
+        r1.name = r2.name = 'n';
+        a.append(r1, r2);
+        r1.click();
+        r2.click();
+        log.push(r1.checked, r2.checked);
+        r1.addEventListener('click', cancel);
+        r1.click();
+        log.push(r1.checked, r2.checked);
+        const off = document.createElement('input');
+        off.type = 'checkbox';
+        off.disabled = true;
+        a.append(off);
+        off.click();
+        log.push(off.checked);
+        log.join('|')"#,
+    );
+    // The first click checks; a click that isn't a MouseEvent has no
+    // activation behaviour; the cancelled one is undone after its listeners.
+    assert_eq!(
+        r,
+        "click true|input|change|click true|click false|true|true|false|true|false|true|false"
+    );
+}
+
+#[test]
+fn forms_fire_their_events_and_go_nowhere() {
+    // HTML §4.10.21.3, §4.10.22; WPT dom/events/Event-dispatch-click.html.
+    let r = eval(
+        r#"a.innerHTML = '<form id=f><input id=s type=submit><button id=b></button>' +
+          '<button id=r type=reset></button><button id=p type=button></button>' +
+          '<fieldset disabled><input id=d type=submit></fieldset></form>' +
+          '<input id=o type=submit form=f><input id=x type=submit>';
+        const $ = (i) => document.getElementById(i);
+        const f = $('f'), inside = $('b');
+        f.addEventListener('submit', (e) => {
+          log.push('submit ' + (e.submitter && e.submitter.id) + ' ' + e.isTrusted + ' ' + e.cancelable);
+        });
+        f.addEventListener('reset', () => log.push('reset'));
+        $('s').click(); $('b').click(); $('r').click(); $('p').click(); $('d').click();
+        $('o').click(); $('x').click();
+        f.requestSubmit();
+        f.requestSubmit($('s'));
+        let threw = [];
+        try { f.requestSubmit($('p')); } catch (e) { threw.push(e.name); }
+        try { f.requestSubmit($('x')); } catch (e) { threw.push(e.name); }
+        f.submit();
+        const owners = [$('s').form === f, $('o').form === f, $('x').form];
+        f.remove();
+        inside.click();
+        log.push(threw.join(), ...owners, inside.type, inside.form === f, inside.isConnected);
+        log.join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "submit s true true|submit b true true|reset|submit o true true|\
+         submit null true true|submit s true true|TypeError,NotFoundError|true|true||submit|true|false"
+    );
+}
+
+#[test]
+fn labels_and_details() {
+    // HTML §4.10.4, §4.11.1; WPT dom/events/label-default-action.html.
+    let (mut rt, _) = page(
+        "<!doctype html><label id=l for=c>t<b id=t>x</b></label>
+         <input id=c type=checkbox>
+         <label id=m><button id=i></button><input id=n type=checkbox></label>
+         <details id=d><summary id=s>x</summary><summary id=z>y</summary></details>
+         <script>globalThis.log = [];
+         const $ = (i) => document.getElementById(i);
+         $('t').click(); $('i').click(); $('s').click();
+         log.push($('c').checked, $('n').checked, $('d').open, $('l').control === $('c'),
+           $('m').control === $('i'), $('l').htmlFor);
+         $('z').click();
+         log.push($('d').open);
+         $('d').addEventListener('toggle', (e) => log.push(e.oldState, e.newState, e.isTrusted));
+         </script>",
+    );
+    assert_eq!(
+        log_of(&mut rt),
+        "true,false,true,true,true,c,true,closed,open,true"
+    );
+}
+
+#[test]
+fn a_javascript_link_runs_in_a_task() {
+    // HTML §4.6.4; §7.11 for javascript: URLs. WPT Event-dispatch-click.html.
+    let (mut rt, report) = page(
+        "<!doctype html><a id=a href='javascript:log.push(%22link%22)'>x</a>
+         <a id=b href='javascript:nope('>y</a><a id=c>z</a><a id=d href='#f'>w</a>
+         <script>globalThis.log = [];
+         const $ = (i) => document.getElementById(i);
+         $('a').click(); log.push('after');
+         $('c').click(); $('d').click(); $('b').click();
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "after,link");
+    assert_eq!(report.uncaught, 1, "{:?}", report.errors);
+}
+
+#[test]
+fn a_limit_in_a_javascript_link_ends_the_page() {
+    // The link's task runs under the same time limit as any other.
+    let mut rt =
+        DomRuntime::new(limits().with_time(common::scaled(Duration::from_millis(200)))).unwrap();
+    rt.load(
+        Document::parse(
+            "<!doctype html><a id=a href='javascript:for(;;);'>x</a>
+             <script>document.getElementById('a').click();</script>",
+        )
+        .unwrap(),
+    );
+    let e = rt
+        .run_page(&SettleOptions::default(), |_| None)
+        .unwrap_err();
+    assert!(
+        matches!(e, DomError::Sandbox(SandboxError::TimeLimit)),
+        "{e:?}"
+    );
+}
+
+#[test]
+fn clicks_cant_recurse_or_be_forged() {
+    // A click in progress on an element does nothing (HTML §6.6), so this ends;
+    // a form's reset and submit are guarded the same way.
+    let r = eval(
+        r#"let n = 0;
+        a.addEventListener('click', () => { n++; a.click(); });
+        a.click();
+        a.innerHTML = '<form id=f><button id=b></button></form>';
+        const f = document.getElementById('f'), b2 = document.getElementById('b');
+        let m = 0;
+        f.addEventListener('submit', () => { m++; f.requestSubmit(); });
+        b2.click();
+        let k = 0;
+        f.addEventListener('reset', () => { k++; f.reset(); });
+        f.reset();
+        const fake = Object.create(HTMLElement.prototype);
+        let threw = '';
+        try { fake.click(); } catch (e) { threw = e.name; }
+        [n, m, k, threw].join('|')"#,
+    );
+    // The click on the button bubbles to `a`, whose listener then clicks `a`.
+    assert_eq!(r, "3|1|1|TypeError");
+}
+
+#[test]
+fn elements_are_named_on_the_window() {
+    // HTML §7.3.3; WebIDL §3.7.4: a real property hides a name, and a global
+    // that isn't there is still a ReferenceError.
+    let (mut rt, _) = page(
+        "<!doctype html><div id=one></div><p id=window></p><p id=setTimeout></p><i id=two></i>
+         <b id=three></b><b id=four></b><b id=five></b>
+         <script>globalThis.log = [];
+         log.push(one === document.getElementById('one'), typeof setTimeout, window === self);
+         let threw = '';
+         try { nothing_here; } catch (e) { threw = e.name; }
+         log.push(threw, typeof nothing_here, 'one' in window);
+         document.getElementById('two').remove();
+         log.push(typeof two);
+         </script><script>var one = 5; log.push(window.one);
+         three = { x: 1 }; log.push(three.x, window.three.x);
+         window.four = 7; log.push(four);
+         (function () { 'use strict'; five = 8; })(); log.push(window.five);
+         log.push(Object.getOwnPropertyDescriptor(window, 'three') !== undefined);
+         </script>",
+    );
+    assert_eq!(
+        log_of(&mut rt),
+        "true,function,true,ReferenceError,undefined,true,undefined,5,1,1,7,8,true"
+    );
+}
+
+#[test]
+fn every_event_getter_answers_something() {
+    // WebIDL: an attribute's getter returns a value of its type, so undefined
+    // is only for `any`. Pointer Events §5.1 for the defaults.
+    let r = eval(
+        r#"const out = [];
+        for (const name of Object.getOwnPropertyNames(window)) {
+          const I = window[name];
+          if (typeof I !== 'function' || !(I.prototype instanceof Event)) continue;
+          let e;
+          try { e = new I('x', { promise: {} }); }
+          catch (x) { e = document.createEvent(name); }
+          for (let p = I.prototype; p !== Event.prototype; p = Object.getPrototypeOf(p)) {
+            for (const [k, d] of Object.entries(Object.getOwnPropertyDescriptors(p))) {
+              if (d.get && d.get.call(e) === undefined) out.push(name + '.' + k);
+            }
+          }
+        }
+        const p = new PointerEvent('x');
+        out.sort();
+        [out.join(), p.tiltX, p.tiltY, p.azimuthAngle, Math.abs(p.altitudeAngle - Math.PI / 2) < 1e-9,
+         new DeviceMotionEvent('x').acceleration, new PointerEvent('x', { tiltX: 5 }).tiltX].join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "ErrorEvent.error,PromiseRejectionEvent.reason|0|0|0|true||5"
+    );
+}
+
+#[test]
+fn legacy_initializers_convert_their_arguments() {
+    // WebIDL §3.2: HTML's initMessageEvent and initStorageEvent.
+    let r = eval(
+        r#"const out = [];
+        const m = document.createEvent('MessageEvent');
+        for (const f of [() => m.initMessageEvent('x', false, false, null, '', '', 5),
+          () => m.initMessageEvent('x', false, false, null, '', '', null, {}),
+          () => m.initMessageEvent('x', false, false, null, '', '', null, [1]),
+          () => document.createEvent('StorageEvent').initStorageEvent('x', false, false, null, null,
+            null, '', {})]) {
+          try { f(); out.push('no'); } catch (e) { out.push(e.name); }
+        }
+        m.initMessageEvent('y', true, false, 3, 'o', 'i', window, []);
+        const s = document.createEvent('StorageEvent');
+        s.initStorageEvent('z', false, false, 1, null, 'n', 2);
+        out.push(m.type, m.data, m.origin, m.source === window, m.ports.length, s.key, s.oldValue,
+          s.newValue, s.url);
+        out.join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "TypeError|TypeError|TypeError|TypeError|y|3|o|true|0|1||n|2"
+    );
+}
+
+#[test]
+fn pointer_event_sequences_come_from_the_init() {
+    let r = eval(
+        r#"const q = new PointerEvent('q');
+        const p = new PointerEvent('y', { coalescedEvents: [q], predictedEvents: [q, q] });
+        const got = p.getCoalescedEvents();
+        [got.length, got[0] === q, got !== p.getCoalescedEvents(),
+         p.getPredictedEvents().length].join('|')"#,
+    );
+    assert_eq!(r, "1|true|true|2");
+}
+
+#[test]
+fn abort_signal_timeout_range() {
+    // WebIDL [EnforceRange] unsigned long long; a delay past a timer's range
+    // doesn't wrap around to now.
+    let (mut rt, _) = page(
+        "<!doctype html><script>globalThis.log = [];
+         for (const v of [-1, NaN, Infinity, 2 ** 53]) {
+           try { AbortSignal.timeout(v); log.push('no'); } catch (e) { log.push(e.name); }
+         }
+         for (const v of [2 ** 31, 2 ** 32 + 7, 1e12, 9007199254740991]) {
+           AbortSignal.timeout(v).addEventListener('abort', () => log.push('early ' + v));
+         }
+         AbortSignal.timeout(-0.5).addEventListener('abort', () => log.push('zero'));
+         </script>",
+    );
+    assert_eq!(
+        log_of(&mut rt),
+        "TypeError,TypeError,TypeError,TypeError,zero"
+    );
+}
+
+#[test]
+fn a_page_cant_clear_the_glues_tasks() {
+    // The next timer id after the page's own is the glue's task; clearing it
+    // changes nothing.
+    let (mut rt, _) = page(
+        "<!doctype html><details id=d><summary id=s>x</summary></details>
+         <a id=a href='#f'>l</a><script>globalThis.log = [];
+         addEventListener('hashchange', () => log.push('hash'));
+         const d = document.getElementById('d');
+         d.addEventListener('toggle', (e) => log.push(e.newState));
+         const near = setTimeout(() => {}, 0);
+         document.getElementById('s').click();
+         document.getElementById('a').click();
+         const signal = AbortSignal.timeout(5);
+         signal.addEventListener('abort', () => log.push('abort'));
+         for (let i = near; i < near + 8; i++) clearTimeout(i);
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "open,hash,abort");
+}
+
+#[test]
+fn a_replaceable_attribute_with_no_this_is_the_windows() {
+    // WebIDL §3.7.6: an undefined `this` is the global.
+    let r = eval(
+        r#"const set = Object.getOwnPropertyDescriptor(window, 'event').set;
+        (function () { 'use strict'; set.call(undefined, 9); })();
+        String(window.event)"#,
+    );
+    assert_eq!(r, "9");
+}
+
+#[test]
+fn a_labels_control_ignores_hidden_inputs_and_stays_in_its_tree() {
+    // HTML §4.10.4.
+    let r = eval(
+        r#"a.innerHTML = '<label id=l1><input type=HIDDEN><input id=v></label>' +
+          '<label id=l2 for=h></label><input id=h type=hidden><label id=l3 for=nope></label>';
+        const $ = (i) => document.getElementById(i);
+        const free = document.createElement('label');
+        free.htmlFor = 'inner';
+        const inner = document.createElement('input');
+        inner.id = 'inner';
+        free.append(inner);
+        const stray = document.createElement('label');
+        stray.htmlFor = 'v';
+        [$('l1').control === $('v'), $('l2').control, $('l3').control, free.control === inner,
+         stray.control].join('|')"#,
+    );
+    assert_eq!(r, "true|||true|");
 }

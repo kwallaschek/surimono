@@ -314,6 +314,9 @@ pub struct Document {
     pub(crate) fault: Option<DomError>,
     /// The running call's deadline, set for each native call.
     pub(crate) deadline: Option<Deadline>,
+    /// The body or frameset element whose `on*` attribute was written last:
+    /// its attributes are the window's. A handle, so its node stays.
+    pub(crate) handler_source: Option<Handle>,
     /// Steps since the last look at the clock (see [`Document::poll`]).
     ticks: Cell<u32>,
     /// Entries of child lists passed by changes (see [`Document::list_steps`]).
@@ -387,6 +390,7 @@ impl Document {
             cursor: Cell::new((0, 0)),
             fault: None,
             deadline: None,
+            handler_source: None,
             ticks: Cell::new(0),
             list_steps: 0,
         };
@@ -1229,6 +1233,13 @@ impl Document {
         name: QualName,
         value: &str,
     ) -> Result<(), DomError> {
+        if name.local.as_ref().starts_with("on")
+            && self.element_name(id).is_some_and(|n| {
+                n.ns == ns!(html) && matches!(n.local.as_ref(), "body" | "frameset")
+            })
+        {
+            self.handler_source = Some(self.handle_for(id)?);
+        }
         // Any namespace: blitz-dom goes by the local name.
         if name.local.as_ref() == "style" && !style_attr::fits(value) {
             return Err(style_attr::limit_error());
