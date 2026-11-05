@@ -124,11 +124,11 @@ Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the 
 | vega | 6.4.0 | BSD-3-Clause | required | 1 | pass (1 of 1 fixtures) |
 | vega-lite | 6.5.0 | BSD-3-Clause | required | 4 | **1 failing**: vegalite-line-ja |
 | mermaid | 12.2.0 | MIT | stretch | 0 | no fixtures yet |
-| marked | 18.1.3 | MIT | required | 0 | no fixtures yet |
-| highlight.js | 11.12.0 | BSD-3-Clause | required | 0 | no fixtures yet |
-| katex | 0.19.1 | MIT | required | 0 | no fixtures yet |
-| alpinejs | 3.17.5 | MIT | second to cut in phase 2 | 0 | no fixtures yet |
-| d3 | 7.9.1 | ISC | required | 0 | no fixtures yet |
+| marked | 18.1.3 | MIT | required | 0 | page `marked-report`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
+| highlight.js | 11.12.0 | BSD-3-Clause | required | 0 | page `highlightjs-code`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
+| katex | 0.19.1 | MIT | required | 0 | page `katex-autorender`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
+| alpinejs | 3.17.5 | MIT | second to cut in phase 2 | 0 | page `alpine-invoice`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
+| d3 | 7.9.1 | ISC | required | 0 | page `d3-charts`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
 
 ### Speed and memory against Grover
 
@@ -152,7 +152,7 @@ Memory target (`docs/SPEC.md`): at least 5× lower peak (summed PSS) than Grover
 | Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |
 |---|---|---|---|---|---|---|
 | html/webappapis timers and microtask queuing | 2 | 30 | 34 | 88.2% | 90% | **below the target** |
-| dom/nodes | 2 | 2902 | 15253 | 19.0% | 70% | **below the target** |
+| dom/nodes | 2 | 2902 | 15267 | 19.0% | 70% | **below the target** |
 | dom/events | 2 | 84 | 748 | 11.2% | 70% | **below the target** |
 | domparsing | 2 | 124 | 909 | 13.6% | 60% | **below the target** |
 
@@ -161,11 +161,11 @@ The same passes on the two denominators. Ours is what Chrome passes on a static 
 | Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count |
 |---|---|---|---|---|---|
 | html/webappapis timers and microtask queuing | 30 | 34 | 34 | 0 | 88.2% |
-| dom/nodes | 2902 | 15253 | 15286 | 33 | 19.0% |
+| dom/nodes | 2902 | 15267 | 15300 | 33 | 19.0% |
 | dom/events | 84 | 748 | 848 | 100 | 9.9% |
 | domparsing | 124 | 909 | 913 | 4 | 13.6% |
 
-WPT 8b4b06ff53, 722 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 89343c8f62 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
+WPT 8b4b06ff53, 726 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 7902c92212 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
 
 The most common causes, in subtests Chrome passes:
 
@@ -173,7 +173,7 @@ The most common causes, in subtests Chrome passes:
 |---|---|
 | 3727 | ERROR: TypeError: Illegal constructor |
 | 3344 | harness timed out before it |
-| 2133 | ERROR: needs an XML parser, which surimono-dom doesn't have |
+| 2147 | ERROR: needs an XML parser, which surimono-dom doesn't have |
 | 1018 | FAIL: cannot read property … of undefined |
 | 759 | NOTRUN: NOTRUN |
 | 509 | not reported |
@@ -228,6 +228,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Document-cloneNode-base-url.window.html | 0 | 5 | OK |
 | dom/nodes/Document-cloneNode-srcdoc-base-url.window.html | 0 | 1 | TIMEOUT |
 | dom/nodes/Document-constructor-svg.svg | 0 | 4 | ERROR |
+| dom/nodes/Document-constructor-xml.xml | 0 | 4 | ERROR |
 | dom/nodes/Document-constructor.html | 0 | 5 | OK |
 | dom/nodes/Document-contentType/contentType/contenttype_css.html | 0 | 1 | TIMEOUT |
 | dom/nodes/Document-contentType/contentType/contenttype_datauri_02.html | 0 | 1 | TIMEOUT |
@@ -316,6 +317,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Node-cloneNode-external-stylesheet-no-bc.sub.html | 0 | 1 | OK |
 | dom/nodes/Node-cloneNode.html | 60 | 135 | OK |
 | dom/nodes/Node-compareDocumentPosition.html | 0 | 1444 | ERROR |
+| dom/nodes/Node-contains-xml.xml | 0 | 8 | ERROR |
 | dom/nodes/Node-contains.html | 0 | 1482 | ERROR |
 | dom/nodes/Node-insertBefore.html | 11 | 40 | OK |
 | dom/nodes/Node-isConnected-shadow-dom.html | 0 | 2 | OK |
@@ -376,6 +378,8 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/case.html | 265 | 285 | OK |
 | dom/nodes/create-element-realm-after-adoption.html | 0 | 3 | ERROR |
 | dom/nodes/getElementById-namespaced-id.html | 0 | 4 | OK |
+| dom/nodes/getElementsByClassName-10.xml | 0 | 1 | ERROR |
+| dom/nodes/getElementsByClassName-11.xml | 0 | 1 | ERROR |
 | dom/nodes/getElementsByClassName-20.htm | 0 | 1 | OK |
 | dom/nodes/getElementsByClassName-21.htm | 0 | 1 | OK |
 | dom/nodes/getElementsByClassName-22.htm | 0 | 1 | OK |
@@ -644,13 +648,13 @@ The most common causes, in subtests Chrome passes:
 | A NUL inside a string literal or a comment of a string handler (`setTimeout("log.push('a\0b'.length)")`, with a real NUL in the source) is reported as a `SyntaxError`, and the handler doesn't run. It is valid source: `SourceCharacter` in ECMA-262 (Source Text) is any code point, `eval` in the sandbox gives 3, and so does the handler in Chromium 153.0.8010.12. A NUL outside a literal is a `SyntaxError` everywhere | String handlers reach the parser as a C string (`Ctx::eval_raw` is private in rquickjs). Pinned by `nul_and_lone_surrogates_in_string_handlers` in `crates/core/tests/event_loop.rs`. Chrome's checked in that build with the test's own handlers: 3, and one `SyntaxError` for the NUL outside a literal | The page goes on and the error is in the settle report (`uncaught`), but that one handler does nothing. Rare: a string handler is legacy, and a NUL in one rarer |
 | A lone surrogate in a string handler reads as U+FFFD: `setTimeout("log.push('\ud800'.charCodeAt(0))")`, with a real lone surrogate in the source, gives 65533. `eval` in the sandbox and the handler in Chromium 153.0.8010.12 give 55296 | The handler's source reaches the parser as UTF-8, which can't hold a surrogate. Same test as the row above; Chrome's checked in that build | Only string handlers that hold unpaired surrogates in the source text. |
 | `window.parent`, `top`, `opener` and `location` don't exist in surimono-dom: `location.href` throws a `ReferenceError`, and `testharness.js` can't start without them. In Chrome each page has them. The WPT runner defines the missing names at the start of `testharness.js`'s script, `location` as plain data, so its rates don't depend on this gap and don't measure it either | `wpt/runner/src/main.rs`, `ENVIRONMENT`; `wpt/README.md`, "Harness environment". HTML, the `Window` object and `Location` | A page or library that reads `location` or `window.top` stops with an exception |
-| The WPT denominator is smaller than wpt.fyi's, and for dom/events by a lot: the Chrome baseline runs on a static server, not wptserve, so subtests that need its Python handlers, or a real browser's input and scrolling, aren't in it. A subtest we fail there can't lower a rate. Four `.xml` tests are in no slice at all (14 subtests Chrome passes, 0.09% of dom/nodes): `vendor.py` doesn't copy `.xml`, and they would report `ERROR` until there is an XML parser | `wpt/README.md`, "Baseline" and "Which tests can't run". Chrome's passes in the baseline against wpt.fyi's Chrome 156 run at the same commit: dom/nodes 15253 of 15286, dom/events 748 of 848, domparsing 909 of 913, timers and microtasks 34 of 34. The rates on both counts are in the table above | dom/events's baseline is 100 subtests short, 11.8%, so its rate is the most flattered: 524 passes would meet 70% of 748 and be 61.8% of 848. Report dom/events on both denominators against its target. The other areas differ by under 1% |
+| The WPT denominator is smaller than wpt.fyi's, and for dom/events by a lot: the Chrome baseline runs on a static server, not wptserve, so subtests that need its Python handlers, or a real browser's input and scrolling, aren't in it. A subtest we fail there can't lower a rate | `wpt/README.md`, "Baseline" and "Which tests can't run". Chrome's passes in the baseline against wpt.fyi's Chrome 156 run at the same commit: dom/nodes 15267 of 15300, dom/events 748 of 848, domparsing 909 of 913, timers and microtasks 34 of 34. The rates on both counts are in the table above | dom/events's baseline is 100 subtests short, 11.8%, so its rate is the most flattered: 524 passes would meet 70% of 748 and be 61.8% of 848. Report dom/events on both denominators against its target. The other areas differ by under 1% |
 | `document.cloneNode()` ends the whole call with `DomError::Unsupported`, whatever the script catches: a runtime holds one document, and blitz-dom can't make a second document node. DOM §4.4 and Chromium 153.0.8010.12 give a new `Document` | `crates/dom/tests/mutation.rs`, `cloning_a_document_is_a_known_gap`; `crates/dom/DESIGN.md`, "Deviations". In the WPT table three tests report `LIMIT` for it: `Node-cloneNode-document-allow-declarative-shadow-roots.window.html`, `Event-dispatch-bubbles-false.html`, `Event-dispatch-bubbles-true.html` | The page fails with a typed error. Comes with `DOMImplementation` (E2-13) |
 | Half a surrogate pair reads as U+FFFD: text is stored as UTF-8, which can't hold one. `createTextNode('😀x').deleteData(0, 1)` leaves `data.charCodeAt(0)` 65533 and `createTextNode('\ud800').data.charCodeAt(0)` is 65533. The DOM keeps the lone code unit (55357, 55296), since a DOM string is UTF-16 code units; `length` and offsets are right | `crates/dom/src/tree.rs`, `crates/dom/DESIGN.md`, "Half a surrogate pair". DOM §4.10 and §1.3 (strings). Probed on main 89343c8f | Only text cut inside a pair, or built from lone surrogates. Text that keeps its pairs is exact |
-| `:has()`, `:nth-child(… of S)` and `:dir()` are refused with a `SyntaxError`, as blitz-dom's parser configuration has them. Selectors 4 defines all three | `crates/dom/DESIGN.md`, "Selectors" under "Deviations". WPT `dom/nodes/ParentNode-querySelector-All.html` covers several. Probed on main 89343c8f | A script that uses them in `querySelector` or `matches` stops with the exception, unless it catches it |
-| `:enabled`, `:disabled`, `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:defined` and `:lang()` parse and match nothing: `document.querySelector('input:checked')` is null with a checked input on the page. Selectors 4 and HTML §4.16 (pseudo-classes) define each | Same places. Probed on main 89343c8f, each against a matching element | Scripts that look up form state or language through a selector find nothing, with no error |
+| `:has()`, `:nth-child(… of S)`, `:dir()` and `:in-range` are refused with a `SyntaxError`, as blitz-dom's parser configuration has them. Selectors 4 defines all four, and Chromium 153.0.8010.12 accepts them (`wpt/probes`, `selectors`) | `crates/dom/DESIGN.md`, "Selectors" under "Deviations". WPT `dom/nodes/ParentNode-querySelector-All.html` covers several. Probed on main 89343c8f | A script that uses them in `querySelector` or `matches` stops with the exception, unless it catches it |
+| `:enabled`, `:disabled`, `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:default`, `:valid`, `:invalid`, `:defined` and `:lang()` parse and match nothing: `document.querySelector('input:checked')` is null with a checked input on the page. Selectors 4 and HTML §4.16 (pseudo-classes) define each | Same places. Probed on main 89343c8f, each against a matching element | Scripts that look up form state or language through a selector find nothing, with no error |
 | `[a=b i]` is case-sensitive, and attribute selectors don't look at the namespace: with `a="B"`, `[a=b i]` finds nothing. Selectors 4 makes `i` compare ASCII case-insensitively | `crates/dom/DESIGN.md`, "Selectors". Probed on main 89343c8f | Rare: only selectors with the `i` flag |
-| `:scope` in a `DocumentFragment` query matches nothing: `fragment.querySelector(':scope > b')` is null with a `<b>` child. Selectors 4 makes the fragment the scoping root, so its top-level elements are `:scope`'s children. On an element and on a document `:scope` works | `crates/dom/DESIGN.md`, "Selectors"; `crates/dom/tests/collections.rs`, `scope_on_a_document_is_the_root_element`. Probed on main 89343c8f | Rare: only queries from a fragment or a template's content that use `:scope` |
+| `:scope` in a `DocumentFragment` query matches nothing: `fragment.querySelector(':scope > b')` is null with a `<b>` child. Selectors 4 makes the fragment the scoping root, so its top-level elements are `:scope`'s children. On an element and on a document `:scope` works. Chromium 153.0.8010.12 gives the same answer as surimono here (`wpt/probes`, `fragscope`), so this departs from Selectors 4, not from Chrome | `crates/dom/DESIGN.md`, "Selectors"; `crates/dom/tests/collections.rs`, `scope_on_a_document_is_the_root_element`. Probed on main 89343c8f | Rare: only queries from a fragment or a template's content that use `:scope` |
 | These valid selectors are a `SyntaxError`, to keep hostile selectors off the stack and out of Rust's heap: longer than 128 KiB, more than 128 combinators on one path through the nested lists, or more than 32 nested brackets. Brackets inside strings and comments count too, so `[a="((((…"]` with 39 is refused | `crates/dom/DESIGN.md`, "Selector limits"; `crates/dom/tests/hostile.rs`, `hostile_selectors_are_typed_errors` and `the_worst_selector_allowed_fits_the_stack_headroom`. Probed on main 89343c8f: 33 nested `:is(` and 129 combinators refused, 30 and 127 accepted | No real page reaches these. A long attribute string full of brackets is the likeliest way in, and it is a catchable exception |
 | `element.style` decides validity with stylo, in Servo's configuration, where stylo knows the property, so values Chrome accepts are dropped: `display: -webkit-box`, system colours (`color: Canvas`), `font: caption`, `word-break: break-word`, `text-decoration: underline dotted red 1px`, `list-style-type: "x"`. `-webkit-print-color-adjust`, a legacy name alias of `print-color-adjust` in css-color-adjust-1, is dropped as well, and `print-color-adjust` itself is kept. The `style` attribute itself still reads back as written | `crates/dom/DESIGN.md`, "Inline style"; `crates/dom/src/style_attr.rs`; review of #97, which ran these in Chromium 153.0.8010.12. The alias is from the spec. Probed on main 89343c8f: `style.length` is 0 for each | Blitz parses with the same stylo, so the print doesn't change, but `style.length` and read-back differ. A value that printing can't use reads as unsupported, which is what a page's feature test should see. `-webkit-print-color-adjust` is common in print CSS, so a script reading it back sees nothing |
 | `element.style` keeps a value as written: no computed forms and no shorthand expansion. `color: #F00` reads back `#F00`, `color: rgb(255,0,0)` keeps its spacing, and after `margin: 1px` the `cssText` is `margin: 1px;`, `style.length` is 1 and `style.marginTop` is `""`. CSSOM §6.6 serializes values and expands shorthands. `--x: 'a'` is rewritten to `--x: "a"`, and `--x: var(--x 1px)` is stored where Chrome refuses it | `crates/dom/DESIGN.md`, "Inline style"; review of #97 for the custom properties. Probed on main 89343c8f | The printer reads the same text, so pages look the same. A script that reads a longhand back after setting a shorthand sees `""`, and one comparing colour strings sees the source form |
@@ -670,10 +674,17 @@ The most common causes, in subtests Chrome passes:
 | `noscript.innerHTML = '<i>z</i>'` makes an `I` element; Chrome makes one text node, because scripting is on. A `<noscript>` in a `<template>` serializes as `<b>q</b>` where Chrome gives `&lt;b&gt;q&lt;/b&gt;`. A parsed `<noscript>` is raw text, as in Chrome | Review of #104; `crates/dom/tests/serialize.rs`, `noscript_is_raw_text_with_scripting_enabled`. HTML's fragment parsing, with the scripting flag. Probed on main 89343c8f | Nothing inside runs either way. fulgur parses with scripting off, and E2-08 drops `<noscript>` at the hand-off |
 | `nomodule` is ignored: `<script nomodule>` runs. HTML's "prepare the script element" and Chromium skip it. This one is a choice, not a shortfall: modules don't run here, so the fallback is the only code a page has for us | `crates/dom/DESIGN.md`, "Events and the page's life"; `docs/DECISIONS.md`, 2026-11-04 (#104). Probed on main 89343c8f | A page with both a module and a `nomodule` bundle runs the second, which is the point |
 | A proxy's `ownKeys` check throws at the first non-configurable key of the target that the trap left out. ECMA-262 §10.5.11 reads every target descriptor first, and throws after. The only visible difference is a shorter trap log when the target is itself a proxy | Review of #126: 105 of 3,000 rounds differ from V8 in Node, the same before and after that PR. `vendor/rquickjs-sys` PATCHES.md, level 8 | None for a page, unless it logs the traps of a proxied proxy that breaks the invariant. The outcome, a `TypeError`, is the same |
+| The parser finishes before the first script, so a script sees the whole document: `document.getElementById('late')` finds an element written after the script, where Chrome gives `null`. `readyState` reads `loading` in both | `wpt/probes`, `partial`. `crates/dom/DESIGN.md`. HTML, the parser's script end tag steps | A script that relies on not yet seeing later markup behaves differently. The usual idioms (`DOMContentLoaded`, scripts at the end of `body`) don't notice |
+| A script inserted by a script doesn't run: `document.head.appendChild(script)` does nothing and reports nothing, where Chromium 153.0.8010.12 runs it at once | `wpt/probes`, `inserted`. `crates/dom/DESIGN.md`. HTML, "prepare the script element" | A loader or tag manager that adds its own scripts silently does nothing, and the page settles without them |
+| `document.write` and `document.writeln` don't exist: a `TypeError`. In Chromium 153.0.8010.12 the markup lands after the script | `wpt/probes`, `write`. HTML, "document.write()" | The script stops there. Common in older report templates |
+| Interfaces not bound. On `document`: `implementation`, `createEvent`, `createRange`, `createTreeWalker`, `createNodeIterator`, `createCDATASection`, `createProcessingInstruction`, `styleSheets`. Globals: `DOMImplementation`, `DOMParser`, `XMLSerializer`, `XMLDocument`, `Range`, `TreeWalker`, `NodeIterator`, `MouseEvent`, `UIEvent`, `KeyboardEvent`, `history`, `frames`, `getComputedStyle`, `matchMedia`. Most element interfaces too: `document.body` is an `HTMLElement` here, an `HTMLBodyElement` in Chromium 153.0.8010.12. `getAttributeNode` is missing | `wpt/probes`, `interfaces`, `attr`; the WPT causes table above. `constructor.name` being `HTMLElement` is what gives `passive-by-default.html` its duplicate test names | The main reason for the WPT rates. A library that touches one stops with an exception. Element checks like `instanceof HTMLBodyElement` throw |
+| Properties stylo's Servo build doesn't know are only tokenised, so bad values stay: `fill: bad`, `stroke: bad` and `break-inside: bad` read back here, and Chromium 153.0.8010.12 drops them. `'webkitTransform' in el.style` is false (true in Chrome). `el.style` follows the first attribute named `style`, even one in a namespace: after `setAttributeNS('urn:y', 'style', 'top: 3px')`, `style.top` is `3px` here and empty in Chrome | `wpt/probes`, `stylevals`, `styleprops`. CSSOM §6.6 means the attribute in no namespace | Read-back only: the printer ignores a bad value. A `webkit` camelCase write becomes an expando |
+| A `<style>` with one empty text child isn't `:empty`; a `<p>` with one is, and in Chromium 153.0.8010.12 both are | `wpt/probes`, `styleempty`. Selectors 4, `:empty`; `is_empty` in `crates/dom/src/select.rs` | Only `<style>` elements matched with `:empty` |
+| A getter on a rejection reason that overflows the stack while Rust reads it counts as an ordinary rejection: `Promise.reject({get name(){f()}})` gives no `StackOverflow`, one `unhandled_rejections`, the text `a value of type object`, and the next script runs. Chrome doesn't read those properties, so it has no overflow to see, and reports the same one rejection | `wpt/probes`, `getter`. Review of #127; `crates/core/src/event_loop.rs` | Accepted: the overflow is in the script's own getter, nothing crashes or hangs, and the report isn't clean. Only the reason's text is less exact |
 
 ## Where the spec and Chromium disagree
 
-Every row is a conflict the fleet rule settles: the spec wins for DOM behaviour, so surimono follows the spec and differs from Chromium 153.0.8010.12. None of them changes how a page prints.
+Every row is a conflict the fleet rule settles: the spec wins for DOM behaviour, so surimono follows the spec and differs from Chromium 153.0.8010.12. None of them changes how a page prints. `wpt/probes` reruns each one in both.
 
 | Behaviour | Spec, and surimono | Chromium 153 | Evidence |
 |---|---|---|---|
@@ -684,6 +695,7 @@ Every row is a conflict the fleet rule settles: the spec wins for DOM behaviour,
 | `previousSibling` in the record of `a.replaceChild(p, q)`, where `p` was `q`'s previous sibling | §4.2.3 reads it before adopting, so the record has `p` | Null | Review of #105. Probed on main 89343c8f |
 | `outerHTML` with text at the edge of the new content, beside a text node | DOM Parsing has no merge step: one record, adding the element and the text | Merges the text edge with the next text node: `add[B,"2z"]`, then a `characterData` and a removal | Review of #105. Probed on main 89343c8f |
 | `splitText` record order | §4.11: insert first, then replace data | `characterData` first | Review of #105. Probed on main 89343c8f |
+| `[a="b" s]`, the case-sensitive flag | Selectors 4 defines `s`, and it matches here | `SyntaxError` | `wpt/probes`, `selectors` |
 | A handler that returns `false` on a non-cancelable event | HTML §8.1.7.1 sets the canceled flag, whether or not the event can be canceled, so `dispatchEvent` returns `false` | `dispatchEvent` returns `true` | Review of #104; `crates/dom/src/glue_events.js`. Probed on main 89343c8f: `false`, `defaultPrevented` true |
 
 ## Printing gaps in fulgur 0.40.0 seen by the fixtures
