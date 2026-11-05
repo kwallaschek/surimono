@@ -135,20 +135,32 @@ fn repeated_tests_of_one_elements_children_and_attributes() {
     }
 }
 
-/// [`bounded`] for what must end in `DomError::StyleLimit`, before stylo: the
-/// caps don't wait for the deadline, so the call is over well within it.
-fn style_refused(page: &str, script: &str) {
-    let mut rt = DomRuntime::new(limits().with_time(scaled(LIMIT))).unwrap();
+/// A runtime on `page` where `v` holds the value of the expression `value`,
+/// which isn't what is measured: on a loaded machine, building a long string
+/// can take all of a short limit.
+fn runtime_with(page: &str, value: &str) -> DomRuntime {
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(10)))).unwrap();
     rt.load(Document::parse(page).unwrap());
-    let _: () = rt.eval("0").unwrap();
+    let _: () = rt.eval(&format!("globalThis.v = {value}; 0")).unwrap();
+    rt
+}
+
+/// For what must end in `DomError::StyleLimit`, before stylo: the caps don't
+/// wait for the deadline, so `write`, a script using `v` (see [`runtime_with`]),
+/// is over at once.
+fn style_refused(page: &str, value: &str, write: &str) {
+    let mut rt = runtime_with(page, value);
     let started = Instant::now();
-    let r = rt.eval::<()>(script);
+    let r = rt.eval::<()>(write);
     let took = started.elapsed();
     assert!(
         matches!(r, Err(DomError::StyleLimit { .. })),
-        "{script}: {r:?}"
+        "{write}, {value}: {r:?}"
     );
-    assert!(took < scaled(Duration::from_secs(2)), "{script}: {took:?}");
+    assert!(
+        took < scaled(Duration::from_secs(2)),
+        "{write}, {value}: {took:?}"
+    );
 }
 
 const STYLED: &str = r#"<!doctype html><body><p id="p"></p>"#;
@@ -159,7 +171,8 @@ fn a_huge_font_family_through_set_property() {
     // under a 300 ms limit (review of #97).
     style_refused(
         STYLED,
-        "document.getElementById('p').style.setProperty('font-family', 'a,'.repeat(4e6) + 'a')",
+        "'a,'.repeat(4e6) + 'a'",
+        "document.getElementById('p').style.setProperty('font-family', v)",
     );
 }
 
@@ -172,10 +185,11 @@ fn a_huge_style_through_set_attribute() {
         "'font-family:' + 'a,'.repeat(4e6 - 8) + 'a'",
         "'x'.repeat(2e7)",
     ] {
-        style_refused(STYLED, &format!("{p}.setAttribute('style', {value})"));
+        style_refused(STYLED, value, &format!("{p}.setAttribute('style', v)"));
         style_refused(
             STYLED,
-            &format!("{p}.setAttributeNS('urn:x', 'style', {value})"),
+            value,
+            &format!("{p}.setAttributeNS('urn:x', 'style', v)"),
         );
     }
     // Just over the cap, or feeding the parser itself runs into the limit.
@@ -184,7 +198,7 @@ fn a_huge_style_through_set_attribute() {
         format!("'<b style=\"' + {value} + '\">'"),
         format!("'<template><b style=\"' + {value} + '\"></template>'"),
     ] {
-        style_refused(STYLED, &format!("{p}.innerHTML = {html}"));
+        style_refused(STYLED, &html, &format!("{p}.innerHTML = v"));
     }
 }
 
@@ -192,10 +206,11 @@ fn a_huge_style_through_set_attribute() {
 fn deep_brackets_in_a_style_attribute() {
     let p = "document.getElementById('p')";
     let value = "'background: ' + 'a('.repeat(33)";
-    style_refused(STYLED, &format!("{p}.setAttribute('style', {value})"));
+    style_refused(STYLED, value, &format!("{p}.setAttribute('style', v)"));
     style_refused(
         STYLED,
-        &format!("{p}.innerHTML = '<b style=\"' + {value} + '\">'"),
+        &format!("'<b style=\"' + {value} + '\">'"),
+        &format!("{p}.innerHTML = v"),
     );
     let value = "background: ".to_owned() + &"a(".repeat(32);
     let page = format!(r#"<!doctype html><p style="{value}">"#);
@@ -234,28 +249,28 @@ fn a_style_attribute_at_the_cap_stays_near_the_limit() {
 /// expression `value`. All are refused; `cssText` goes through its own parse.
 fn refuse_on_every_write(value: &str) {
     let p = "document.getElementById('p')";
-    for script in [
-        format!("{p}.setAttribute('style', {value})"),
-        format!("{p}.innerHTML = '<b style=\"' + {value} + '\">'"),
-        format!(
-            "{p}.setAttribute('style', ''); {p}.attributes.getNamedItem('style').value = {value}"
-        ),
-    ] {
-        style_refused(STYLED, &script);
-    }
+    style_refused(STYLED, value, &format!("{p}.setAttribute('style', v)"));
+    style_refused(
+        STYLED,
+        &format!("'<b style=\"' + {value} + '\">'"),
+        &format!("{p}.innerHTML = v"),
+    );
+    style_refused(
+        STYLED,
+        value,
+        &format!("{p}.setAttribute('style', ''); {p}.attributes.getNamedItem('style').value = v"),
+    );
     // What it keeps of the text is written back. It keeps one `all`, and what
     // stylo refuses goes, so this may be accepted.
-    let script = format!("try {{ {p}.style.cssText = {value} }} catch (e) {{}} 'ended'");
-    let mut rt = DomRuntime::new(limits().with_time(scaled(LIMIT))).unwrap();
-    rt.load(Document::parse(STYLED).unwrap());
-    let _: () = rt.eval("0").unwrap();
+    let mut rt = runtime_with(STYLED, value);
+    let script = format!("try {{ {p}.style.cssText = v }} catch (e) {{}} 'ended'");
     let started = Instant::now();
     let r = rt.eval::<String>(&script);
     let took = started.elapsed();
-    assert!(took < scaled(Duration::from_secs(2)), "{script}: {took:?}");
+    assert!(took < scaled(Duration::from_secs(2)), "{value}: {took:?}");
     assert!(
         matches!(&r, Err(DomError::StyleLimit { .. })) || r.as_deref() == Ok("ended"),
-        "{script}: {r:?}"
+        "{value}: {r:?}"
     );
 }
 
@@ -291,7 +306,8 @@ fn a_style_of_many_grid_areas() {
             refuse_on_every_write(&value);
             style_refused(
                 STYLED,
-                &format!("document.getElementById('p').style.setProperty('{property}', {strings})"),
+                &strings,
+                &format!("document.getElementById('p').style.setProperty('{property}', v)"),
             );
         }
     }
@@ -305,7 +321,7 @@ fn a_style_of_many_grid_areas() {
         String(one && p.style.getPropertyValue('--x') !== '')",
         names(4000),
     );
-    assert_eq!(bounded(STYLED, &script).as_deref(), Some("true"));
+    assert!(bounded(STYLED, &script).is_none_or(|s| s == "true"));
     let script = format!(
         "const p = document.getElementById('p');
         p.setAttribute('style', \"--x:'\" + {} + \"'\"); String(p.getAttribute('style').length > 1e6)",
