@@ -459,6 +459,39 @@ class CompatTest(unittest.TestCase):
         text = "\n".join(compat.bench_section(bench))
         self.assertIn("| Grover | 2,000 ms | 900 ms | 500 MB | measured |", text)
         self.assertIn("not measured: gem not built |", text)
+        # Without a measured surimono there is nothing to set against the target.
+        self.assertNotIn("Memory target", text)
+
+    def test_bench_states_the_memory_target_from_the_run(self):
+        def measured(peak):
+            return {"label": "x", "status": "measured", "summary": {"cold_peak_pss_mb": {"median": peak}}}
+
+        bench = self.write_json(
+            "bench2.json",
+            {
+                "results": {
+                    "grover": measured(600),
+                    "surimono-ruby": measured(100),
+                    "surimono-rust": measured(80),
+                    "fulgur-prerendered": measured(70),
+                    "grover-shell": measured(400),
+                },
+            },
+        )
+        text = "\n".join(compat.bench_section(bench))
+        self.assertIn("at least 5× lower peak (summed PSS) than Grover", text)
+        self.assertIn("Measured, cold: 6.0× Ruby and 7.5× Rust.", text)
+        self.assertIn("fulgur alone, with no JavaScript, reaches 8.6×", text)
+        self.assertIn("chrome-headless-shell, the leanest Chrome it can run: 4.0× Ruby and 5.0× Rust.", text)
+        self.assertIn("that run's summary.md", text)
+
+    def test_a_committed_bench_run_is_cited_by_path(self):
+        run = compat.ROOT / "bench" / "results" / "abc"
+        run.mkdir(parents=True)
+        (run / "results.json").write_text('{"results": {}}')
+        (run / "summary.md").write_text("# run")
+        text = "\n".join(compat.bench_section(run / "results.json"))
+        self.assertIn("`bench/results/abc/summary.md`", text)
 
     def test_a_result_for_a_fixture_not_in_the_checkout_is_an_error(self):
         # Review of #28: a failing result under another spelling of a fixture

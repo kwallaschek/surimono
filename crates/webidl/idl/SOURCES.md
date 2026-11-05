@@ -4,7 +4,8 @@ Copied unmodified from [w3c/webref](https://github.com/w3c/webref) `ed/idl/`
 at commit `09f7739aa691c3b9784f1e45069b8fa375e61423` (2026-10-31, "Update of ed
 report from new reffy run"). webref extracts the IDL from each spec's editor's
 draft. Builds and tests never fetch anything; `../fetch-webref.sh <commit>`
-refreshes these files by hand.
+refreshes these files by hand. `crates/dom/src/css_properties.rs` holds the property
+names from `ed/css` at the same commit (`crates/dom/fetch-css-properties.sh`).
 
 | File | Spec | Publisher | Licence of the IDL | sha256 (first 16) |
 |---|---|---|---|---|

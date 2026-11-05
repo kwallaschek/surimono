@@ -201,6 +201,13 @@ impl Deadline {
     /// Here a panic in `f` becomes that exception and also ends the call: it
     /// fails with [`SandboxError::HostPanic`] however the script handles the
     /// exception. Wrap every host function's body in this.
+    ///
+    /// With `panic = "abort"` there is nothing to catch: a host panic aborts
+    /// the process and no typed error is returned. Like
+    /// [`passed`](Self::passed), this belongs to the runtime the handle was
+    /// taken from, but it doesn't fail safe: a panic under a handle from
+    /// before a [`reset`](Sandbox::reset) doesn't stop the current call, so
+    /// take a fresh handle for each call.
     pub fn guard<'js, R>(
         &self,
         ctx: &Ctx<'js>,
@@ -224,7 +231,7 @@ pub(crate) fn guard_native<'js, R>(
                 .map(|s| (*s).to_owned())
                 .or_else(|| panic.downcast_ref::<String>().cloned())
                 .unwrap_or_else(|| "a panic with no message".to_owned());
-            state.note_panic(message);
+            state.note_panic(truncate(message, MAX_MESSAGE_BYTES));
             Err(rquickjs::Exception::throw_internal(
                 ctx,
                 "a host function failed",
@@ -322,9 +329,12 @@ const MAX_STACK_BYTES: usize = 16 * 1024;
 ///   every sandbox, started by the first sandbox and again by the first
 ///   sandbox in a forked child) raises a flag at the deadline that the
 ///   patched engine reads at every interrupt check: every loop back-edge
-///   and call, and inside the native loops that can run long (`join`,
+///   and call, inside the native loops that can run long (`join`,
 ///   `fill`, `sort`… over a huge array-like, string searches, BigInt
-///   arithmetic). The interrupt is uncatchable, so `try`/`catch`/`finally` can't hold it
+///   arithmetic), and through a compile (every token, every instruction of
+///   the compiler's passes, regular expression terms) and `JSON.parse`, so
+///   [`compile`](Self::compile), `eval`, `new Function` and `RegExp` stop
+///   with the time limit too. The interrupt is uncatchable, so `try`/`catch`/`finally` can't hold it
 ///   off, and it is sticky: built-ins that turn exceptions into rejections
 ///   or new errors (the `Promise` constructor, async generators,
 ///   `DisposableStack`) can't swallow it either. See
@@ -449,7 +459,8 @@ impl Sandbox {
     }
 
     /// A handle that host functions (Rust functions the script calls) use
-    /// to check the running call's time limit.
+    /// to check whether the running call must stop: its time limit passed
+    /// or it was cancelled.
     ///
     /// The engine stops a script at its next interrupt check once the
     /// deadline passes, but a host function is native code the engine
@@ -457,10 +468,10 @@ impl Sandbox {
     /// would overrun by up to one call each time it catches the error. A
     /// host function should check [`Deadline::passed`] before expensive
     /// work and throw if it has: the call then fails with
-    /// [`SandboxError::TimeLimit`], however the script handles the
-    /// exception. The handle belongs to this sandbox's current runtime;
-    /// take a new one after a [`reset`](Self::reset) or a limit error (an
-    /// old handle then always reports passed).
+    /// [`SandboxError::TimeLimit`] or [`SandboxError::Cancelled`], however the
+    /// script handles the exception. The handle belongs to this sandbox's
+    /// current runtime; take a new one after a [`reset`](Self::reset) or a
+    /// limit error (an old handle then always reports passed).
     pub fn deadline(&self) -> Deadline {
         Deadline {
             state: self.state.clone(),
@@ -483,7 +494,8 @@ impl Sandbox {
     /// It only ever decides whether to stop, so it can't change what a script
     /// that runs to the end produces. The process's watchdog thread reads it
     /// about every 5 ms while a call with a flag runs; calls without one
-    /// cost nothing extra.
+    /// cost nothing extra. So keep it up until the call returns: a flag
+    /// raised and lowered between two reads goes unnoticed.
     pub fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
         self.cancel = flag;
     }
@@ -587,8 +599,8 @@ impl Sandbox {
     /// promise is replaced by its value and a rejected one fails like a thrown
     /// exception. `then` converts the final value. One time budget covers
     /// all of it. A promise still pending once nothing is left to run fails
-    /// with [`SandboxError::Type`] (the sandbox has no timers or I/O, so it
-    /// would never settle).
+    /// with [`SandboxError::Type`]: this call runs microtasks only, no timers
+    /// or external waits, so it can't settle such a promise.
     pub fn run_await<R, F, G>(&mut self, f: F, then: G) -> Result<R, SandboxError>
     where
         F: for<'js> FnOnce(&Ctx<'js>) -> rquickjs::Result<Value<'js>>,
@@ -622,12 +634,13 @@ impl Sandbox {
             });
         };
         let shared = hooks.shared.clone();
+        let rejections = hooks.rejections.clone();
         let fire = hooks.fire.clone();
         self.execute_classified(|ctx, state| {
             let fire = fire.restore(ctx).map_err(|e| SandboxError::Engine {
                 message: e.to_string(),
             })?;
-            event_loop::run(ctx, state, &shared, fire, options)
+            event_loop::run(ctx, state, &shared, &rejections, fire, options)
         })
     }
 
@@ -640,7 +653,7 @@ impl Sandbox {
     }
 
     /// Enters the context with the deadline armed, runs `body`, classifies
-    /// its error, and rebuilds the sandbox after a limit error.
+    /// its error, and rebuilds the sandbox after a limit error or a cancel.
     fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
     where
         B: for<'js> FnOnce(&Ctx<'js>, &LimitState) -> rquickjs::Result<R>,
@@ -821,7 +834,7 @@ impl Drop for Armed<'_> {
     }
 }
 
-fn eval_options(filename: &str) -> EvalOptions {
+pub(crate) fn eval_options(filename: &str) -> EvalOptions {
     let mut opts = EvalOptions::default();
     opts.global = true;
     opts.strict = false;
@@ -837,11 +850,23 @@ const PRELUDE_SOURCE: &str = include_str!("prelude.js");
 /// locked (review of #47, finding 2).
 static PRELUDE: ForkSafeCell<Vec<u8>> = ForkSafeCell::shared();
 
-/// What Rust keeps of a context's event loop: the queue, and the prelude's
-/// dispatcher, the one JavaScript value held from Rust.
+/// What Rust keeps of a context's event loop: the queue, the prelude's
+/// dispatcher, and the rejected promises waiting for a handler, the only
+/// JavaScript values held from Rust.
 struct EventLoopHooks {
     shared: event_loop::Shared,
+    /// Holds JavaScript values, so unlike `shared` it stays out of every
+    /// [`EventLoopHandle`] and can be emptied before the runtime goes. The
+    /// runtime's tracker holds it too.
+    rejections: event_loop::SharedRejections,
     fire: Persistent<Function<'static>>,
+}
+
+impl Drop for EventLoopHooks {
+    fn drop(&mut self) {
+        // The tracker outlives this, in the runtime; nothing it holds may.
+        self.rejections.borrow_mut().clear();
+    }
 }
 
 /// Creates a context with the sandbox's built-ins and runs the prelude.
@@ -863,6 +888,12 @@ fn new_context(
             },
         })
     })?;
+    if let Some(hooks) = &hooks {
+        rt.set_host_promise_rejection_tracker(Some(event_loop::rejection_tracker(
+            &hooks.rejections,
+            state,
+        )));
+    }
     Ok((ctx, hooks))
 }
 
@@ -901,6 +932,7 @@ fn install_prelude(
     let fire: Option<Function<'_>> = prelude.call((config,))?;
     Ok(shared.zip(fire).map(|(shared, fire)| EventLoopHooks {
         shared,
+        rejections: event_loop::SharedRejections::default(),
         fire: Persistent::save(ctx, fire),
     }))
 }
@@ -976,7 +1008,7 @@ fn settle(v: Value<'_>) -> rquickjs::Result<Value<'_>> {
             from: "pending promise",
             to: "value",
             message: Some(
-                "the promise never settled: nothing was left to run (the sandbox has no timers or I/O)"
+                "the promise is still pending: this call runs microtasks only, not timers or I/O"
                     .into(),
             ),
         }),
@@ -1031,8 +1063,14 @@ pub(crate) fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) ->
     }
 }
 
-/// Describes a thrown value.
+/// Describes a thrown value. The engine's own limit errors are told by a mark
+/// no script can set or clear, before anything reads a property; a script's
+/// `new RangeError('Maximum call stack size exceeded')` is an ordinary
+/// exception, and reading one of those can run its getters.
 pub(crate) fn exception_error(value: Value<'_>) -> SandboxError {
+    if let Some(limit) = engine::limit_error(&value) {
+        return limit;
+    }
     let (name, message, stack) = match value.as_object() {
         Some(obj) => (
             string_prop(obj.get("name").ok()),
@@ -1041,14 +1079,6 @@ pub(crate) fn exception_error(value: Value<'_>) -> SandboxError {
         ),
         None => (None, None, None),
     };
-    match (name.as_deref(), message.as_deref()) {
-        (Some("RangeError"), Some("Maximum call stack size exceeded")) => {
-            return SandboxError::StackOverflow;
-        }
-        (Some("InternalError"), Some("out of memory")) => return SandboxError::MemoryLimit,
-        (Some("InternalError"), Some("interrupted")) => return SandboxError::TimeLimit,
-        _ => {}
-    }
     let text = match (name, message) {
         (Some(n), Some(m)) if m.is_empty() => n,
         (Some(n), Some(m)) => format!("{n}: {m}"),
@@ -1113,6 +1143,33 @@ mod tests {
 
     fn sandbox() -> Sandbox {
         Sandbox::new(limits()).unwrap()
+    }
+
+    #[test]
+    fn too_many_destructured_parameters_is_a_syntax_error() {
+        // Past JS_MAX_LOCAL_VARS (65,535) add_arg fails with no allocation
+        // refused, so no stop flag is up; the function is only compiled.
+        let plain = format!("function f({}) {{}}", "{},".repeat(70_000));
+        // The form that crashed the unpatched engine when called with no
+        // arguments (PATCHES.md, item 25). The call never compiles here.
+        let params = "{} = {},".repeat(65_536);
+        let mut sources = vec![plain];
+        for head in ["function* f", "async function f", "async function* f"] {
+            sources.push(format!("{head}({params}) {{}}\nf()"));
+        }
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_secs(60))).unwrap();
+        for source in &sources {
+            let head = &source[..source.len().min(20)];
+            match sb.compile(source, "params.js") {
+                Err(SandboxError::Exception { message, .. }) => {
+                    assert!(
+                        message.starts_with("SyntaxError: too many parameters"),
+                        "{head}: {message}"
+                    )
+                }
+                other => panic!("{head}: {other:?}"),
+            }
+        }
     }
 
     #[test]
@@ -1894,7 +1951,7 @@ mod tests {
             .run_await(|ctx| ctx.eval("new Promise(() => {})"), to_string)
             .unwrap_err()
         {
-            SandboxError::Type { message } => assert!(message.contains("never settled")),
+            SandboxError::Type { message } => assert!(message.contains("still pending")),
             other => panic!("{other:?}"),
         }
         // Limits still apply, and the budget covers the awaiting.
@@ -2018,7 +2075,8 @@ mod tests {
 
     /// A script that allocates on many paths: the compiler (through `eval`
     /// and `Function`), async functions and promise jobs, generators,
-    /// strings, arrays, Date parsing, sorting, JSON and regexps.
+    /// strings, arrays, Date parsing, sorting, JSON, regexps and the sorted
+    /// copy of a proxy's `ownKeys` result.
     const ALLOCATING_SCRIPT: &str = r#"
         async function f(n) { await null; return [n, { a: n }, 'x' + n]; }
         const out = [];
@@ -2035,6 +2093,11 @@ mod tests {
           + eval('(function (a, b) { let c = a + b; return [c, ...arguments]; })(1, 2).join()')
           + new Function('x', 'class K { #p = x; get p() { return this.#p * 2; } } return new K().p')(21)
           + `${[1, 2].map((x) => x ** 2)}`.padStart(8, '-')
+          + (() => {
+              const k = Array.from({ length: 20 }, (_, i) => 'k' + i);
+              const t = Object.freeze(Object.fromEntries(k.map((x) => [x, 1])));
+              return Reflect.ownKeys(new Proxy(t, { ownKeys: () => k })).length;
+            })()
     "#;
 
     /// Compiles a large generated program through `eval`, so allocations in
@@ -2102,6 +2165,7 @@ const o = { a: { b: [1, { c: 2 }] }, get g() { return 7; }, set s(v) { this._s =
 const { a: { b: [, { c } = {}] } = {}, ...rest } = o;
 let x1 = null; x1 ??= 4; let x2 = 0; x2 ||= 5; let x3 = 1; x3 &&= 6;
 const re = /(?<year>\d{4})-(?<m>\d\d)/gu;
+const classes = new RegExp('[\\q{abc|d}--\\q{d}][[\\q{e}][\\q{f}]]', 'iv');
 const dates = [...'2026-10 2027-01'.matchAll(re)].map((mm) => mm.groups.year + mm.groups.m);
 const fns = [];
 for (let i = 0; i < 3; i++) fns.push(() => i);
@@ -2166,6 +2230,25 @@ const BoundPt = Pt.bind(null, 7);
             "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/g, '')",
             "'a'.repeat(1 << 26).replace(/(?:x|y|z|w|v|u|t|a)/gy, '')",
             "'a'.repeat(1 << 22).replace(/(?:)/g, 'b')",
+            // Group G: stopped while compiling or parsing.
+            "eval('function f(){' + 'a=[1,\"s\",/r/,`t`];'.repeat(1 << 21) + '}')",
+            "new Function('let a=' + '(b,'.repeat(1 << 8) + 'c' + ')'.repeat(1 << 8) + ';'.repeat(1 << 26))",
+            "t = (x) => x; eval('t`' + 'x'.repeat(1 << 25) + '${1}`')",
+            "new RegExp('[a-z]|(?:x)*|'.repeat(1 << 20) + '|'.repeat(1 << 23))",
+            "JSON.parse('[' + '{\"a\":[1,\"s\"]},'.repeat(1 << 21) + '1]')",
+            "JSON.parse('[' + '{\"a\":[1,\"s\"]},'.repeat(1 << 21) + '1]', (k, v) => v)",
+            // Group H: stopped reading, sorting or checking an `ownKeys`
+            // result, with the sorted copy allocated in the last two.
+            "const k = Array.from({ length: 1 << 12 }, (_, i) => 'k' + i);
+             const p = new Proxy({}, { ownKeys: () => k });
+             for (;;) Reflect.ownKeys(p)",
+            "const k = Array.from({ length: 1 << 12 }, (_, i) => 'k' + i);
+             const t = Object.freeze(Object.fromEntries(k.map((x) => [x, 1])));
+             const p = new Proxy(t, { ownKeys: () => k });
+             for (;;) Reflect.ownKeys(p)",
+            "const k = Array.from({ length: 1 << 12 }, (_, i) => 'k' + i);
+             const p = new Proxy({}, { ownKeys: () => k });
+             for (;;) Object.getOwnPropertyDescriptors(p)",
         ];
         let limits = Limits::default()
             .with_time(Duration::from_millis(60))
@@ -2190,6 +2273,272 @@ const BoundPt = Pt.bind(null, 7);
                 assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42), "{source}");
             }
         }
+    }
+
+    /// A compile stopped by the time limit anywhere in the parser or the
+    /// compiler's passes gives back everything (patches 27 to 29). The stops
+    /// land across the whole compile: each limit is a share of how long a
+    /// full compile takes here. The out-of-memory sweeps stop it at the poll
+    /// after each allocation, without a clock.
+    #[test]
+    fn interrupted_compiles_leak_nothing() {
+        let source = r#"{
+class C extends Object { #p = 1; static s = /a|b/g; get p() { return this.#p } }
+function f(a, { b, c: [d = 2] = [] } = {}, ...rest) {
+  outer: for (let i = 0; i < 3; i++) {
+    try { switch (i) { case 0: continue outer; default: break outer; } }
+    finally { rest.push(`t${i}`, 1.5, 12n, 'text'); }
+  }
+  const g = async function* () { yield* [a, b, d]; };
+  return (x) => x + a + (() => g)();
+}
+}"#
+        .repeat(1500);
+        // Stopped inside add_eval_variables and the jump shrinking pass.
+        let vars: String = (0..1 << 13).map(|i| format!("var a{i};")).collect();
+        let eval = format!("function f(){{{vars}return ()=>()=>()=>eval('')}}");
+        let jumps = format!(
+            "function f(a){{{}}}",
+            format!("if(a){{{}}}", "a();".repeat(12)).repeat(4000)
+        );
+        let limits = |ms| {
+            Limits::default()
+                .with_time(Duration::from_millis(ms))
+                .with_memory_bytes(512 * 1024 * 1024)
+        };
+        for source in [source, eval, jumps] {
+            let started = std::time::Instant::now();
+            Sandbox::new(limits(120_000))
+                .unwrap()
+                .compile(&source, "c.js")
+                .unwrap();
+            let full = started.elapsed().as_millis() as u64;
+            for percent in (5..100).step_by(5) {
+                let mut sb = Sandbox::new(limits((full * percent / 100).max(1))).unwrap();
+                let state = sb.state.clone();
+                // A busy machine can make it finish or not: both must hold.
+                let _ = sb.compile(&source, "c.js");
+                sb.reset().unwrap();
+                assert_eq!(state.used(), 0, "stopped at {percent}%: leaked");
+                assert_eq!(state.leaked_objects(), 0, "stopped at {percent}%");
+            }
+        }
+    }
+
+    /// The same for a class's `\q{}` strings, stopped in the parse, in a list
+    /// operation or while writing the bytecode.
+    #[test]
+    fn interrupted_class_strings_leak_nothing() {
+        let list: String = (0..1 << 17).map(|i| format!("a{i}|")).collect();
+        let cases = [
+            (format!("[\\q{{{list}b}}]"), "v"),
+            (format!("[\\q{{{list}b}}]"), "iv"),
+            (format!("[[\\q{{{list}b}}][\\q{{{list}c}}]]"), "v"),
+            (format!("[\\q{{{list}b}}&&\\q{{{list}c}}]"), "v"),
+            (format!("[\\q{{{list}b}}--\\q{{{list}c}}]"), "v"),
+        ];
+        let limits = |ms| {
+            Limits::default()
+                .with_time(Duration::from_millis(ms))
+                .with_memory_bytes(512 * 1024 * 1024)
+        };
+        let compile = |sb: &mut Sandbox, pattern: &str, flags: &str| {
+            sb.run(|ctx| {
+                ctx.globals()
+                    .set("s", rquickjs::String::from_str(ctx.clone(), pattern)?)?;
+                ctx.globals()
+                    .set("f", rquickjs::String::from_str(ctx.clone(), flags)?)?;
+                ctx.eval::<(), _>("new RegExp(s, f)")
+            })
+        };
+        for (pattern, flags) in &cases {
+            let started = std::time::Instant::now();
+            let mut sb = Sandbox::new(limits(120_000)).unwrap();
+            compile(&mut sb, pattern, flags).unwrap();
+            let full = started.elapsed().as_millis() as u64;
+            for percent in (10..100).step_by(10) {
+                let mut sb = Sandbox::new(limits((full * percent / 100).max(1))).unwrap();
+                let state = sb.state.clone();
+                // A busy machine can make it finish or not: both must hold.
+                let _ = compile(&mut sb, pattern, flags);
+                sb.reset().unwrap();
+                assert_eq!(state.used(), 0, "stopped at {percent}%: leaked");
+                assert_eq!(state.leaked_objects(), 0, "stopped at {percent}%");
+            }
+        }
+    }
+
+    /// The polls in the string list code of patch 30 change no match.
+    #[test]
+    fn class_strings_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let cases = [
+            (r"^[\q{abc|d}x]$", "v", "abc", true),
+            (r"^[\q{abc|d}x]$", "v", "x", true),
+            (r"^[\q{abc|d}x]$", "v", "ab", false),
+            (r"^[[\q{abc}][\q{d}]]$", "v", "d", true),
+            (r"^[\q{abc|d}&&\q{d|e}]$", "v", "d", true),
+            (r"^[\q{abc|d}&&\q{d|e}]$", "v", "abc", false),
+            (r"^[\q{abc|d}--\q{d}]$", "v", "abc", true),
+            (r"^[\q{abc|d}--\q{d}]$", "v", "d", false),
+            (r"^[\q{ABC}]$", "iv", "abc", true),
+        ];
+        for (pattern, flags, text, want) in cases {
+            let source = format!(r"new RegExp(String.raw`{pattern}`, '{flags}').test('{text}')");
+            assert_eq!(sb.eval::<bool>(&source), Ok(want), "{source}");
+        }
+    }
+
+    /// The polls of patch 28 leave `JSON.parse` as it was, around the batch
+    /// size of `json_parse_string` too.
+    #[test]
+    fn json_strings_are_unchanged_around_a_batch() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        // Each tail in JSON (as a JS string) and what it must decode to.
+        let tails = [
+            ("", ""),
+            (r"\\n", r"\n"),
+            (r#"\\""#, r#"""#),
+            ("é", "é"),
+            (r"\\u0041", "A"),
+        ];
+        for (json, decoded) in tails {
+            for len in [65534, 65535, 65536, 65537, 131071, 131072, 131073] {
+                let source = format!(
+                    r#"var t = 'x'.repeat({len}); JSON.parse('"' + t + '{json}"') === t + '{decoded}'"#
+                );
+                assert_eq!(sb.eval::<bool>(&source), Ok(true), "{len} {json}");
+            }
+        }
+    }
+
+    /// The sorted copy behind a proxy's `ownKeys` checks (patch 32) changes
+    /// no result: the order is the trap's, and every invariant fails as
+    /// before, either side of the size that takes the copy off the stack.
+    /// The expected results are ProxyObject.[[OwnPropertyKeys]] in ECMA-262
+    /// (10.5.11).
+    #[test]
+    fn proxy_own_keys_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let got = sb
+            .eval::<String>(
+                r#"
+const sym = Symbol('s');
+const keys = (n) => Array.from({ length: n }, (_, i) => (i % 3 == 0 ? 'k' : '') + (n - i));
+const own = (target, list) => Reflect.ownKeys(new Proxy(target, { ownKeys: () => list }));
+const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+const error = (f) => { try { f(); return 'ok' } catch (e) { return e.name + ': ' + e.message } };
+const sizes = [0, 1, 2, 3, 6, 7, 15, 16, 17, 18, 1000];
+const out = [];
+// The trap's order, not the object order, with strings, numbers and symbols.
+out.push(own({}, ['z', 'a', '1', sym, '0']).map(String).join());
+for (const n of sizes) {
+  const k = keys(n);
+  if (!same(own({}, k), k)) out.push('order ' + n);
+  // Non-extensible: exactly the target's keys, in the trap's order.
+  const t = Object.preventExtensions(Object.fromEntries(k.map((x) => [x, 1])));
+  const r = [...k].reverse();
+  if (!same(own(t, r), r)) out.push('non-extensible ' + n);
+  if (n > 0) {
+    // A duplicate at each end and side by side.
+    for (const [i, j] of [[0, n - 1], [n - 1, n], [n >> 1, 0]]) {
+      const d = [...k];
+      d.splice(j, 0, d[i]);
+      if (error(() => own({}, d)) !== 'TypeError: proxy: duplicate property')
+        out.push('duplicate ' + n);
+    }
+    // Missing a key that a non-extensible target has, or adding one.
+    if (error(() => own(t, k.slice(1))) !==
+        'TypeError: proxy: target property must be present in proxy ownKeys')
+      out.push('missing ' + n);
+    if (error(() => own(t, [...k, 'extra'])) !==
+        'TypeError: proxy: property not present in target were returned by non extensible proxy')
+      out.push('extra ' + n);
+    // Only non-configurable keys must be there; any other key may be added.
+    const c = Object.defineProperty({}, k[n - 1], { value: 1 });
+    if (!same(own(c, [...k, 'extra']), [...k, 'extra'])) out.push('configurable ' + n);
+    if (error(() => own(c, k.slice(0, -1))) !==
+        'TypeError: proxy: target property must be present in proxy ownKeys')
+      out.push('non-configurable ' + n);
+  }
+}
+// The duplicate check comes before the target is asked anything.
+const log = [];
+const logged = new Proxy({}, {
+  isExtensible(t) { log.push('isExtensible'); return Reflect.isExtensible(t) },
+  ownKeys(t) { log.push('ownKeys'); return Reflect.ownKeys(t) },
+});
+out.push(error(() => own(logged, ['a', 'a'])), log.join());
+own(logged, ['a', 'b']);
+out.push(log.join());
+// Reading stops at the first bad element, in order.
+const reads = [];
+const like = new Proxy({ length: 3, 0: 'a', 1: 1, 2: 'b' }, {
+  get(t, p, r) { reads.push(String(p)); return Reflect.get(t, p, r) },
+});
+out.push(error(() => own({}, like)), reads.join());
+// Revoked while checking, with the copy live: the target's trap revokes the
+// outer proxy. The spec has no check there and QuickJS throws, so only that
+// it ends counts here.
+let revoke;
+const many = Object.fromEntries(keys(20).map((x) => [x, 1]));
+const inner = new Proxy(many, {
+  getOwnPropertyDescriptor(t, p) { revoke(); return Reflect.getOwnPropertyDescriptor(t, p) },
+});
+const outer = Proxy.revocable(inner, { ownKeys: () => keys(20) });
+revoke = outer.revoke;
+error(() => Reflect.ownKeys(outer.proxy));
+// Enumerability still comes from the target through the proxy.
+const mixed = Object.defineProperty({ a: 1, b: 2 }, 'c', { value: 3, configurable: true });
+out.push(Object.keys(new Proxy(mixed, { ownKeys: () => ['c', 'b', 'a', 'gone'] })).join());
+out.join('\n')
+"#,
+            )
+            .unwrap();
+        let lines: Vec<&str> = got.lines().collect();
+        assert_eq!(
+            lines,
+            [
+                "z,a,1,Symbol(s),0",
+                "TypeError: proxy: duplicate property",
+                "",
+                "isExtensible,ownKeys",
+                "TypeError: proxy: properties must be strings or symbols",
+                "length,0,1",
+                "b,a",
+            ]
+        );
+    }
+
+    /// Compile polls change no syntax error: a bad pattern is still a
+    /// catchable SyntaxError, and a tagged template with a bad escape still
+    /// has an undefined cooked string (the poll's error path is next to it).
+    #[test]
+    fn compile_errors_are_unchanged() {
+        let mut sb = Sandbox::new(Limits::default()).unwrap();
+        let got = sb
+            .eval::<String>(
+                r#"
+const name = (f) => { try { f(); return 'ok' } catch (e) { return e.name } };
+[
+  name(() => new RegExp('(')),
+  name(() => new RegExp('[b-a]')),
+  name(() => eval('/(/')),
+  name(() => eval('`${')),
+  name(() => eval('1 +')),
+  name(() => JSON.parse('[1,')),
+  String(((s) => s[0])`\unicode`),
+  String(((s) => s.raw[0])`\unicode`),
+  Number('12345678901234567890') === 12345678901234567000 ? 'n' : 'x',
+  String(BigInt('123')),
+].join('|')
+"#,
+            )
+            .unwrap();
+        assert_eq!(
+            got,
+            "SyntaxError|SyntaxError|SyntaxError|SyntaxError|SyntaxError|SyntaxError|undefined|\\unicode|n|123"
+        );
     }
 
     /// The per-match polls of patch 19 (P1-RT-23) leave replace's results

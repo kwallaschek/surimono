@@ -6,6 +6,14 @@ cd "$(dirname "$0")/../.."
 . scripts/ci/lib.sh
 
 ran=0
+# The WPT slices, once wpt/runner is on the branch: first, so an unrelated
+# failure below can't lose the results, and a failure here is reported only
+# after the other checks have run. It publishes results and judges no rates.
+wpt_status=0
+if [ -f wpt/runner/Cargo.toml ]; then
+  step "wpt: run the slices, publish wpt-results.json"
+  scripts/ci/wpt.sh || wpt_status=$?; ran=$((ran + 1))
+fi
 # The fixture tooling's JavaScript tests need its npm dependencies.
 if ls fixtures/tools/test/*.test.mjs >/dev/null 2>&1; then
   step "fixtures: tool tests (node, after npm ci)"
@@ -45,6 +53,29 @@ if grep -rq 'fn out_of_memory_full_sweep' crates/core/src 2>/dev/null; then
   step "core: out-of-memory full sweep (ignored test)"
   cargo test -p surimono-core --lib --locked -- --ignored out_of_memory_full_sweep; ran=$((ran + 1))
 fi
+# The stack check on the main thread under musl (#45), where it falls back to
+# RLIMIT_STACK. musl-gcc builds quickjs.c. The test skips itself on a small or
+# unlimited stack, so set the limit it needs and insist it says "ok": a skip
+# here would turn the job green without having checked anything.
+if [ -f crates/core/tests/main_thread_stack.rs ] && [ "$(uname -m)" = x86_64 ]; then
+  step "core: main thread stack on x86_64-unknown-linux-musl"
+  if ! command -v musl-gcc >/dev/null && [ -n "${GITHUB_ACTIONS:-}" ]; then
+    sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq musl-tools
+  fi
+  rustup target add x86_64-unknown-linux-musl
+  # Print the test's stdout before acting on its status, or set -e loses it.
+  musl_status=0
+  musl_out="$(ulimit -s 8192 && cargo test -p surimono-core --test main_thread_stack \
+    --target x86_64-unknown-linux-musl --locked)" || musl_status=$?
+  printf '%s\n' "$musl_out"
+  [ "$musl_status" -eq 0 ] || exit "$musl_status"
+  printf '%s\n' "$musl_out" | grep -q '^main_thread_stack: ok' \
+    || { echo "main_thread_stack didn't run its checks" >&2; exit 1; }
+  ran=$((ran + 1))
+fi
+# The Rust git-dependency + [patch] recipe the README gives: a program outside
+# the workspace builds and renders with it, and doesn't link without the patch.
+step "git dependency recipe"; scripts/ci/git-dep-recipe.sh; ran=$((ran + 1))
 # On a release branch (release/v*, the release PR): the release dry-run.
 # Checks no crate is publishable, builds and runs the CLI from source and
 # builds the source gem; never publishes or tags.
@@ -53,3 +84,4 @@ case "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}" in
     step "release dry-run"; scripts/ci/release-dry-run.sh; ran=$((ran + 1)) ;;
 esac
 echo "nightly extra checks run: $ran"
+exit "$wpt_status"

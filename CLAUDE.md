@@ -89,7 +89,9 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    your crates (`-p surimono-core`) while iterating. **Run
    `scripts/fleet/touch-workspace.sh` before every build or test**: worktrees share
    artifact names for workspace crates, so without it cargo can silently use another
-   worktree's build of a crate (false red or false green). A worktree that changes
+   worktree's build of a crate (false red or false green). Prefer `scripts/fleet/wcargo.sh <cargo args>`,
+   which sets this env and holds a lock across the touch and the whole command; agents
+   running at once otherwise still race. A worktree that changes
    `vendor/` (the engine) also sets `RUSTFLAGS="--cfg surimono_wt_<task_id>"` for every
    build and test, because touch-workspace.sh doesn't separate the engine's build
    output; delete those artifacts when done. GitHub CI uses a fresh target dir and
@@ -120,7 +122,9 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   (`status.json`, `<name>/log.txt`, `<name>/exit.json`, plus anything written to
   `$CI_JOB_OUT`). Read them with
   `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`, or run
-  `scripts/fleet/ci-status.sh <sha>`. A job's own `status.json` is written by code under
+  `scripts/fleet/ci-status.sh <sha>`. Since Kay adopted the publish-job workflows (5 Nov) a pull request's
+  ci-results may hold only `needs.json`; job logs then come from
+  `scripts/fleet/gh-api.sh GET /actions/jobs/<id>/logs`, with the id from ci-status.sh. A job's own `status.json` is written by code under
   test; GitHub's check runs (and `needs_result`, once the publish-job YAML is live) are
   the authoritative result.
 

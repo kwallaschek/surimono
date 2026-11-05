@@ -11,7 +11,11 @@
 //!   over [`DomLimits`](crate::DomLimits). html5ever walks its stack of open
 //!   elements for most start tags, so a very deep tree would also cost
 //!   quadratic time inside one call that can't be interrupted;
-//! - style text: see [`stash_style_text`].
+//! - style text: see [`stash_style_text`];
+//! - `style` attributes: blitz-dom hands each to stylo as its element is
+//!   made, in a call nothing can stop. One over [`style_attr::fits`]'s limits
+//!   ends the parse, and the rest stay away from stylo under another name
+//!   until the tree is built ([`style_attr::hide`]).
 
 use std::borrow::Cow;
 use std::cell::{Cell, Ref, RefCell};
@@ -24,6 +28,8 @@ use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::tokenizer::TokenizerOpts;
 use html5ever::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeBuilderOpts, TreeSink};
 use html5ever::{Attribute, QualName};
+
+use crate::style_attr;
 
 /// Bytes of HTML fed between limit checks.
 const CHUNK: usize = 4096;
@@ -42,6 +48,10 @@ pub(crate) struct Parsed {
     pub quirks: bool,
     /// Feeding stopped because the tree went over a limit.
     pub over_limit: bool,
+    /// Feeding stopped at a `style` attribute over its limits.
+    pub over_style: bool,
+    /// Elements whose `style` attributes are hidden from blitz-dom.
+    hidden_styles: Vec<usize>,
 }
 
 /// Stops feeding the parser once `max_nodes` were created or an element
@@ -70,11 +80,33 @@ struct Sink<'m, 'doc> {
     created: Rc<Cell<usize>>,
     /// Every `<style>` created; shared with the caller like the counters.
     styles: Rc<RefCell<Vec<usize>>>,
+    /// A `style` attribute was over its limits; shared the same way.
+    over_style: Rc<Cell<bool>>,
 }
 
 impl Sink<'_, '_> {
     fn note_created(&self) {
         self.created.set(self.created.get() + 1);
+    }
+
+    /// Takes out the `style` attributes if any is over the limits, and
+    /// notes it: feeding stops, and the parse fails. Otherwise hides them,
+    /// and says whether there were any.
+    fn screen_style(&self, attrs: &mut Vec<Attribute>) -> bool {
+        let is_style = |a: &Attribute| a.name.local.as_ref() == "style";
+        if attrs
+            .iter()
+            .any(|a| is_style(a) && !style_attr::fits(&a.value))
+        {
+            attrs.retain(|a| !is_style(a));
+            self.over_style.set(true);
+        }
+        let mut any = false;
+        for a in attrs.iter_mut().filter(|a| is_style(a)) {
+            style_attr::hide(&mut a.name);
+            any = true;
+        }
+        any
     }
 
     fn note_child(&self, parent: usize, child: usize) {
@@ -112,12 +144,21 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         self.inner.elem_name(target)
     }
 
-    fn create_element(&self, name: QualName, attrs: Vec<Attribute>, flags: ElementFlags) -> usize {
+    fn create_element(
+        &self,
+        name: QualName,
+        mut attrs: Vec<Attribute>,
+        flags: ElementFlags,
+    ) -> usize {
         self.note_created();
+        let hidden = self.screen_style(&mut attrs);
         let is_style = name.local.as_ref() == "style";
         let id = self.inner.create_element(name, attrs, flags);
         if is_style {
             self.styles.borrow_mut().push(id);
+        }
+        if hidden {
+            self.parsed.borrow_mut().hidden_styles.push(id);
         }
         id
     }
@@ -185,7 +226,10 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         self.parsed.borrow_mut().quirks = mode == QuirksMode::Quirks;
     }
 
-    fn add_attrs_if_missing(&self, target: &usize, attrs: Vec<Attribute>) {
+    fn add_attrs_if_missing(&self, target: &usize, mut attrs: Vec<Attribute>) {
+        if self.screen_style(&mut attrs) {
+            self.parsed.borrow_mut().hidden_styles.push(*target);
+        }
         self.inner.add_attrs_if_missing(target, attrs);
     }
 
@@ -204,8 +248,11 @@ fn opts() -> ParseOpts {
         tokenizer: TokenizerOpts::default(),
         tree_builder: TreeBuilderOpts {
             exact_errors: false,
-            // As blitz-html: <noscript> content parses as markup.
-            scripting_enabled: false,
+            // Scripts run on this tree, so its scripting flag is set, as in
+            // a browser: <noscript> content is raw text (HTML §13.2.6.4.4).
+            // blitz-html parses with it off, where a `<script>` in a head
+            // `<noscript>` ends the noscript and lands in the head.
+            scripting_enabled: true,
             iframe_srcdoc: false,
             drop_doctype: true,
             quirks_mode: QuirksMode::NoQuirks,
@@ -250,6 +297,7 @@ pub(crate) fn parse_fragment(
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
     let styles = Rc::new(RefCell::new(Vec::new()));
+    let over_style = Rc::new(Cell::new(false));
     let sink = Sink {
         inner: DocumentHtmlParser::new(mutr),
         document: holder,
@@ -258,13 +306,19 @@ pub(crate) fn parse_fragment(
         deepest: deepest.clone(),
         created: created.clone(),
         styles: styles.clone(),
+        over_style: over_style.clone(),
     };
     let parser = driver::parse_fragment_for_element(sink, opts(), context, false, None);
     let (mut parsed, stopped) = feed(parser, html, || {
-        stop() || created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
+        stop()
+            || over_style.get()
+            || created.get() > limits.max_nodes
+            || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
+    parsed.over_style = over_style.get();
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
+    reveal_styles(&mut *mutr, &parsed.hidden_styles);
     parsed
 }
 
@@ -277,6 +331,7 @@ pub(crate) fn parse_document(
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
     let styles = Rc::new(RefCell::new(Vec::new()));
+    let over_style = Rc::new(Cell::new(false));
     let sink = Sink {
         document: 0,
         inner: DocumentHtmlParser::new(mutr),
@@ -285,15 +340,29 @@ pub(crate) fn parse_document(
         deepest: deepest.clone(),
         created: created.clone(),
         styles: styles.clone(),
+        over_style: over_style.clone(),
     };
     let parser = driver::parse_document(sink, opts());
     let (mut parsed, stopped) = feed(parser, html, || {
-        created.get() > limits.max_nodes || deepest.get() as usize > limits.max_depth
+        over_style.get()
+            || created.get() > limits.max_nodes
+            || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
+    parsed.over_style = over_style.get();
     // Before `mutr` flushes, which is when blitz-dom reads style text.
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
+    reveal_styles(&mut *mutr, &parsed.hidden_styles);
     parsed
+}
+
+/// Gives the elements in `hidden` their `style` attributes back.
+fn reveal_styles(mutr: &mut DocumentMutator<'_>, hidden: &[usize]) {
+    for &id in hidden {
+        if let Some(e) = mutr.doc.get_node_mut(id).and_then(|n| n.element_data_mut()) {
+            style_attr::reveal(&mut e.attrs);
+        }
+    }
 }
 
 /// Moves the text under `styles` out of blitz-dom, into `out`.
@@ -314,10 +383,10 @@ fn stash_style_text(
         let Some(node) = mutr.doc.get_node_mut(n) else {
             continue;
         };
-        if let Some(t) = node.text_data_mut() {
-            if !t.content.is_empty() {
-                out.push((n, std::mem::take(&mut t.content)));
-            }
+        if let Some(t) = node.text_data_mut()
+            && !t.content.is_empty()
+        {
+            out.push((n, std::mem::take(&mut t.content)));
         }
         stack.extend(node.children.iter().copied());
     }

@@ -23,8 +23,8 @@ use crate::svg::SanitizedSvg;
 /// A renderer survives `fork` (Puma's `preload_app!` and `fork_worker`,
 /// Unicorn, Resque): worker threads don't, so the first render in a forked
 /// process starts a new pool and text measurer there, sharing the font data
-/// with the parent. Nothing it needs in the child is a lock a parent thread
-/// could have held at the moment of the fork.
+/// with the parent, and compiles your bundles again. Nothing it needs in the
+/// child is a lock a parent thread could have held at the moment of the fork.
 ///
 /// ```
 /// use surimono::{Options, Renderer};
@@ -305,7 +305,7 @@ impl Renderer {
     /// time limit ([`Limits::time`](crate::Limits::time)), so a document with
     /// N islands can take up to N × that; [`Options::max_islands`] caps N
     /// (1,000 by default), and [`render_islands_cancellable`](Self::render_islands_cancellable)
-    /// lets you stop a render between islands. The same renderer, options and
+    /// lets you stop a render from outside. The same renderer, options and
     /// input always give the same bytes.
     ///
     /// # Errors
@@ -323,10 +323,23 @@ impl Renderer {
     }
 
     /// [`render_islands`](Self::render_islands) that stops early once `cancel`
-    /// is true: it is checked before each island, and the islands not yet
-    /// started are skipped with [`Error::Cancelled`] whatever the error
-    /// policy. An island already running finishes or stops at its own time
-    /// limit.
+    /// is true: a running island's script stops within milliseconds, the
+    /// islands not yet started are skipped, and the render ends with
+    /// [`Error::Cancelled`] whatever the error policy.
+    ///
+    /// Loading a bundle isn't interrupted; the flag is checked again right
+    /// after. A built-in renderer's precompiled bytecode loads quickly on first
+    /// use. Two cases load from source: a built-in whose bytecode this engine
+    /// can't read, on its first use, and every bundle you added, one after
+    /// another, on the first render in a forked process (the first island
+    /// waits for them all).
+    ///
+    /// From source, a bundle is compiled and then run once to check its entry
+    /// function, and each step has its own time limit, so a load can take twice
+    /// [`Limits::time`](crate::Limits::time). The run stops at its limit. The
+    /// compile doesn't: the engine's parser never checks the time, so a source
+    /// too large to compile within the limit takes as long as its size needs
+    /// (memory limit permitting) and only then fails with the time limit error.
     ///
     /// Set it from another thread, a timer or a signal handler (storing to an
     /// `AtomicBool` is async-signal-safe). The Ruby gem sets it when the
@@ -382,10 +395,12 @@ impl Renderer {
                 Some(l) => l,
                 None => *local.insert(self.local()?),
             };
-            let svg = local
-                .runner
-                .render(&request)
-                .map_err(|e| backend::island_error(e, island.at.clone(), &self.enabled))?;
+            let answer = match cancel {
+                Some(cancel) => local.runner.render_cancellable(&request, cancel),
+                None => local.runner.render(&request),
+            };
+            let svg =
+                answer.map_err(|e| backend::island_error(e, island.at.clone(), &self.enabled))?;
             SanitizedSvg::new(&svg, &island.at, &local.measurer, self.options.text_mode)
         })
     }
@@ -987,7 +1002,7 @@ mod tests {
         );
 
         // Twenty islands that each run into a 100 ms time limit take 2 s;
-        // cancelled after the first, the render ends at the next island.
+        // cancelled during the second, the rest never start.
         let slow = renderer(
             options()
                 .error_policy(ErrorPolicy::Placeholder)
@@ -1011,5 +1026,44 @@ mod tests {
         let _ = setter.join();
         assert!(matches!(out, Err(Error::Cancelled)), "{out:?}");
         assert!(took < Duration::from_millis(1500), "took {took:?}");
+    }
+
+    /// A script that never ends under a limit the test would never reach,
+    /// cancelled while it runs, under either policy: the flag ends the render,
+    /// not the time limit, and no placeholder hides it.
+    #[test]
+    fn a_cancel_stops_the_island_that_is_running() {
+        for policy in [ErrorPolicy::Fail, ErrorPolicy::Placeholder] {
+            let r = renderer(options().error_policy(policy).limits(Limits {
+                time: Duration::from_secs(60),
+                ..Limits::default()
+            }));
+            // Loaded first, so the cancel lands in the script.
+            let rendered = r
+                .render_islands(&island("{}"))
+                .unwrap_or_else(|e| panic!("{policy:?}: {e}"));
+            assert!(rendered.contains("<svg"), "{policy:?}: {rendered}");
+            let cancel = Arc::new(AtomicBool::new(false));
+            let setter = {
+                let cancel = Arc::clone(&cancel);
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(100));
+                    cancel.store(true, Ordering::Release);
+                })
+            };
+            let started = std::time::Instant::now();
+            let out = r.render_islands_cancellable(&island(r#"{"limit": "time"}"#), &cancel);
+            let took = started.elapsed();
+            let _ = setter.join();
+            assert!(matches!(out, Err(Error::Cancelled)), "{policy:?}: {out:?}");
+            assert!(took < Duration::from_secs(20), "{policy:?} took {took:?}");
+
+            // The renderer carries on, and the same flag down renders.
+            cancel.store(false, Ordering::Release);
+            let again = r
+                .render_islands_cancellable(&island("{}"), &cancel)
+                .unwrap_or_else(|e| panic!("{policy:?}: {e}"));
+            assert_eq!(again, rendered, "{policy:?}");
+        }
     }
 }

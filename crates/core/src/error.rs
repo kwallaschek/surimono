@@ -29,10 +29,11 @@ pub enum SandboxError {
     /// A Rust host function panicked inside
     /// [`Deadline::guard`](crate::Deadline::guard). A bug in the host, not the
     /// script's fault, and terminal however the script handles the exception
-    /// it saw: the sandbox discards the script's state.
+    /// it saw: the sandbox discards the script's state. With
+    /// `panic = "abort"` the process aborts instead and this is never returned.
     #[error("a host function panicked: {message}")]
     HostPanic {
-        /// The panic's message.
+        /// The panic's message, truncated to a few KiB.
         message: String,
     },
     /// The script threw an exception it did not catch.

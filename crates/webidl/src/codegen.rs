@@ -30,6 +30,7 @@ pub const STUB_INTERFACES: &[&str] = &[
     "Node",
     "Element",
     "HTMLElement",
+    "SVGElement",
     "Document",
     "DocumentFragment",
     "CharacterData",
@@ -216,13 +217,13 @@ pub fn generate_stubs(set: &IdlSet, interfaces: &[&str], header: &str) -> Result
             .interface(name)
             .ok_or_else(|| GenError::UnknownInterface((*name).to_owned()))?;
         check_inheritance(set, name)?;
-        if let Some(p) = &m.parent {
-            if !interfaces.contains(&p.as_str()) {
-                return Err(GenError::ParentNotGenerated {
-                    interface: m.name.clone(),
-                    parent: p.clone(),
-                });
-            }
+        if let Some(p) = &m.parent
+            && !interfaces.contains(&p.as_str())
+        {
+            return Err(GenError::ParentNotGenerated {
+                interface: m.name.clone(),
+                parent: p.clone(),
+            });
         }
         merged.push(m);
     }

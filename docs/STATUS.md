@@ -5,7 +5,16 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Wed 4 Nov 2026, 14:50)
+> **Kay, 5 Nov 09:07: no releases until phase 3 is done.** Drop the v0.1.0 re-cut
+> (release/v0.1.0-fix and its review); don't touch tags; nothing goes to RubyGems. The engine
+> time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
+> (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
+
+## Now (Thu 5 Nov 2026, 11:45)
+
+Session cse_011c8hfoqJ45246YxjoyFzH7 holds the fleet. Merged today: #97 #125 #126 #127 #128 #129 (engine patch level 9). Open: #104 (needs limit errors from promises, via #127), #105 (delta approved; contains #104), #123 (WPT, approved; base e2-04b).
+
+## Earlier (Wed 4 Nov 2026, 14:50)
 
 **Main is green**: full.yml passed all 14 jobs at 0e67e98c (ASan leak fixed in #111, macOS flakes in #112,
 symbolized ASan in #107). Merge freeze lifted. Also merged: v0.1 README/CHANGELOG (#110, #113) and the
@@ -73,19 +82,10 @@ green incl. asan and macos-14. #38 head f0d7091f has main up to abd31b70 (not #8
 - Checkpoint 2 answers (above). Don't merge #38 or any phase-2 public API without them.
 
 ### Next (in order; a resumed session starts here)
-1. Look for Kay's checkpoint-2 reply (this session's conversation; if a resumed session can't see it,
-   check PR #38 comments). Record his answers as DECISIONS lines (sign-off of checkpoint 2) and act:
-   rename nothing; if he says publish, PKG merges main into release/v0.1.0, re-runs the dry-run, and
-   the orchestrator merges #38 on green + fresh review; Kay tags/publishes himself. Apply (2) to
-   SPEC.md/COMPAT.md. If no reply yet, don't ask again; keep working on 2.
-2. Meanwhile (no checkpoint can change these): P1-RT-29 (test-only stop-vs-cleanup hook), P1-RT-25 (gem
-   RSS after burst), P1-RT-21 (cancel inside an island), P1-RT-18, P1-DOM-04 (#80 nits), P1-PKG-17
-   (ASan symbolizer), P1-RT-20 (quickjs-ng drafts), P1-CF COMPAT row for blitz comment data / serializer.
-3. After checkpoint-2 sign-off: phase 2 kickoff — MSRV 1.89 task first (full rebuild), then break
-   phase-2 epics into tasks in TASKS.md.
-4. Run reviewers/ci.sh staggered: concurrent ci.sh runs in the shared target dir give spurious
-   failures (permission denied / E0460). Reviewers rely on GitHub ci/linux + targeted local tests.
-5. Each push to main cancels the running full.yml (concurrency); batch docs commits.
+1. #104 fix, delta review, merge; #105 merge main, CI, merge.
+2. Retarget #123 to main, regenerate COMPAT (command in #123), merge. Then P2-CF-02, E2-13, E2-06/07/08, E2-10 surimono side, E2-12. Checkpoint 3 is Sun 22 Nov 11:00.
+3. Sun 8 Nov 20:00 JST: five-line digest to Kay.
+4. Each push to main cancels the running full.yml; batch docs commits. Read full.yml on main under Kay's adopted workflows (macos-15).
 
 ### Disk
 When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh`.

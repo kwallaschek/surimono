@@ -451,7 +451,7 @@ class SurimonoTest < Minitest::Test
   end
 
   # Twenty islands that each run into a 200 ms time limit: 4 s for the
-  # document. An interrupt stops it before the next island.
+  # document. An interrupt stops it in the island that is running.
   def slow_document
     island('{"limit": "time"}') * 20
   end
@@ -472,6 +472,30 @@ class SurimonoTest < Minitest::Test
       assert_raises(Timeout::Error) { Timeout.timeout(0.3) { r.render(slow_document) } }
     end
     assert_operator took, :<, 1.5, "Timeout waited #{took.round(2)} s for a 4 s document"
+    assert_equal stub_svg, r.render(island), "the renderer still works"
+  end
+
+  # One island that would run for a minute: the interrupt stops the script
+  # itself, not only the islands after it.
+  def endless_island_renderer
+    renderer(limits: { time_ms: 60_000 }).tap { |r| r.render(island) }
+  end
+
+  def test_timeout_stops_the_running_island
+    r = endless_island_renderer
+    took = elapsed do
+      assert_raises(Timeout::Error) { Timeout.timeout(0.3) { r.render(island('{"limit": "time"}')) } }
+    end
+    assert_operator took, :<, 20, "Timeout waited #{took.round(2)} s for a 60 s island"
+    assert_equal stub_svg, r.render(island), "the renderer still works"
+  end
+
+  def test_kill_stops_the_running_island
+    r = endless_island_renderer
+    t = Thread.new { r.render(island('{"limit": "time"}')) }
+    sleep 0.2
+    t.kill
+    assert t.join(20), "Thread#kill waited on a 60 s island"
     assert_equal stub_svg, r.render(island), "the renderer still works"
   end
 
@@ -503,7 +527,7 @@ class SurimonoTest < Minitest::Test
   # (in this test process minitest's idle threads drain Ruby's signal pipe,
   # which hid the bug). On Ruby 3.2 both cases waited for the whole document
   # every time, 4.04 to 4.20 s (P1-PKG-20); Ruby 3.3 and later, and 3.2
-  # with the signal pump, stop it before the next island.
+  # with the signal pump, stop it in the island that is running.
   #   thread: another Ruby thread calls Process.kill and exits;
   #   outside: another process sends it (Ctrl-C, a supervisor's SIGTERM)
   #            while a Ruby thread is busy.
@@ -572,6 +596,72 @@ class SurimonoTest < Minitest::Test
     assert_equal before, Thread.list.size
   ensure
     other&.kill&.join
+  end
+
+  # The pump's helpers are private but run on every Ruby, so these tests don't
+  # need 3.2. A pump only shows up in Thread.list while the block runs.
+  def signal_pump
+    Thread.list.find { |t| t.name == "surimono-signal-pump" }
+  end
+
+  def test_signal_pump_is_named_before_it_first_runs
+    r = renderer
+    seen = r.send(:with_signal_pump) { [signal_pump, signal_pump&.report_on_exception] }
+    refute_nil seen[0], "no pump with that name right after Thread.new"
+    assert_equal false, seen[1]
+    assert_no_signal_pump
+  end
+
+  # Before P1-PKG-22 this came out of render through pump.join, after the whole
+  # document, and left the rest of the render with no pump. Raised twice,
+  # because the rescue must still be there after a retry.
+  def test_exception_raised_into_the_signal_pump_stays_there
+    r = renderer
+    pump = nil
+    out = r.send(:with_signal_pump) do
+      pump = signal_pump
+      2.times do
+        Thread.pass until pump.stop? # in its sleep, past the block's first line
+        pump.raise(RuntimeError, "aimed at the pump")
+        sleep 0.01
+      end
+      Thread.pass until pump.stop?
+      assert pump.alive?, "the pump died of the exception"
+      r.send(:_render, island)
+    end
+    assert_equal stub_svg, out
+    refute pump.alive?
+  end
+
+  # Thread.new raises ThreadError in a frozen ThreadGroup, as it does at a
+  # thread limit. The render worked without the pump before; it still must.
+  def test_render_goes_ahead_when_no_pump_can_start
+    r = renderer
+    t = Thread.new do
+      group = ThreadGroup.new
+      group.add(Thread.current)
+      group.freeze
+      assert_raises(ThreadError) { Thread.new {} }
+      [r.send(:with_signal_pump) { r.send(:_render, island) }, signal_pump]
+    end
+    out, pump = t.value
+    assert_equal stub_svg, out
+    assert_nil pump
+  end
+
+  # A ThreadError from the render itself is not "no pump": it must not be
+  # swallowed, or run the block a second time.
+  def test_thread_error_from_the_block_is_not_swallowed
+    r = renderer
+    runs = 0
+    assert_raises(ThreadError) do
+      r.send(:with_signal_pump) do
+        runs += 1
+        raise ThreadError, "the caller's"
+      end
+    end
+    assert_equal 1, runs
+    assert_no_signal_pump
   end
 
   def assert_no_signal_pump
