@@ -5,7 +5,7 @@
 //!
 //! ```text
 //! surimono-wpt-runner --root wpt --out wpt-results.json [--jobs 2] [--filter STR]
-//!                     [--commit SHA]
+//!                     [--commit SHA] [--time-limit-ms N] [--wall-limit-ms N]
 //! surimono-wpt-runner --root wpt --one URL FILE   # child: one test, JSON on stdout
 //! ```
 
@@ -23,13 +23,18 @@ use surimono_core::{Limits, SettleOptions};
 use surimono_dom::{Document, DomRuntime};
 
 /// Longer than Limits' default 2 s: dev-profile bindings run some tests, such
-/// as the selector tables, far slower than a release build, and the rate
-/// shouldn't depend on the profile. Everything else stays at the defaults.
+/// as the selector tables, far slower than a release build. It makes the rate
+/// depend less on the profile and the machine's load, not not at all: this is
+/// real time, and a test near it can end either way. Everything else stays at
+/// the defaults.
 const TIME_LIMIT: Duration = Duration::from_secs(20);
 /// wptrunner's limit for a `timeout=long` test, on the virtual clock.
 const VIRTUAL_BUDGET_MS: u64 = 60_000;
 /// A child still alive after this is killed; the sandbox should have ended it.
 const WALL_LIMIT: Duration = Duration::from_secs(120);
+/// Set by `tests/runner.rs` only, to `HOW URL`, comma-separated: the child for
+/// that URL dies or hangs, which no test page can make it do.
+const FAULT_ENV: &str = "SURIMONO_WPT_FAULT";
 /// Longest failure message kept per subtest.
 const MESSAGE_CHARS: usize = 200;
 
@@ -74,6 +79,14 @@ const ENVIRONMENT: &str = r#"
 /// Where WPT's server would serve a test (wptserve's default host and port).
 const ORIGIN: &str = "http://web-platform.test:8000/";
 
+#[derive(Clone, Copy)]
+struct TestLimits {
+    /// The sandbox's time limit for one test.
+    time: Duration,
+    /// How long the parent waits for one child.
+    wall: Duration,
+}
+
 struct Test {
     slice: String,
     url: String,
@@ -89,12 +102,22 @@ fn main() -> ExitCode {
             .cloned()
     };
     let root = PathBuf::from(flag("--root").unwrap_or_else(|| "wpt".to_owned()));
+    let millis = |name: &str, default: Duration| {
+        flag(name)
+            .and_then(|v| v.parse().ok())
+            .map_or(default, Duration::from_millis)
+    };
+    let limits = TestLimits {
+        time: millis("--time-limit-ms", TIME_LIMIT),
+        wall: millis("--wall-limit-ms", WALL_LIMIT),
+    };
     if let Some(i) = args.iter().position(|a| a == "--one") {
         let (Some(url), Some(file)) = (args.get(i + 1), args.get(i + 2)) else {
             eprintln!("--one needs URL and FILE");
             return ExitCode::FAILURE;
         };
-        println!("{}", run_one(&root, url, file));
+        inject_fault(url);
+        println!("{}", run_one(&root, url, file, limits.time));
         return ExitCode::SUCCESS;
     }
     let Some(out) = flag("--out") else {
@@ -108,6 +131,7 @@ fn main() -> ExitCode {
         jobs,
         flag("--filter"),
         flag("--commit"),
+        limits,
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
@@ -159,6 +183,7 @@ fn run_all(
     jobs: usize,
     filter: Option<String>,
     commit: Option<String>,
+    limits: TestLimits,
 ) -> Result<(), String> {
     let (wpt_commit, mut tests) = load_tests(root)?;
     if let Some(f) = &filter {
@@ -173,7 +198,7 @@ fn run_all(
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some(test) = tests.get(i) else { break };
-                    let result = child(&exe, root, test);
+                    let result = child(&exe, root, test, limits);
                     eprintln!(
                         "[{}/{}] {} {}",
                         i + 1,
@@ -211,9 +236,10 @@ fn run_all(
 }
 
 /// Runs one test in a child process; whatever happens is a value.
-fn child(exe: &Path, root: &Path, test: &Test) -> Value {
+fn child(exe: &Path, root: &Path, test: &Test, limits: TestLimits) -> Value {
     let spawned = Command::new(exe)
         .args(["--root".as_ref(), root.as_os_str()])
+        .args(["--time-limit-ms", &limits.time.as_millis().to_string()])
         .args(["--one", &test.url, &test.file])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -235,7 +261,7 @@ fn child(exe: &Path, root: &Path, test: &Test) -> Value {
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break Some(status),
-            Ok(None) if started.elapsed() > WALL_LIMIT => break None,
+            Ok(None) if started.elapsed() > limits.wall => break None,
             Ok(None) => std::thread::sleep(Duration::from_millis(5)),
             Err(e) => return failure("CRASH", format!("wait: {e}")),
         }
@@ -256,9 +282,32 @@ fn failure(status: &str, message: String) -> Value {
     json!({ "status": status, "message": message, "subtests": [] })
 }
 
+/// What [`FAULT_ENV`] asks of the child for `url`, if anything. The stdout of a
+/// child that is killed or dies is never read as a result.
+fn inject_fault(url: &str) {
+    let Ok(spec) = std::env::var(FAULT_ENV) else {
+        return;
+    };
+    for entry in spec.split(',') {
+        match entry.split_once(' ') {
+            Some(("abort", u)) if u == url => std::process::abort(),
+            Some(("exit", u)) if u == url => std::process::exit(3),
+            Some(("panic", u)) if u == url => panic!("injected"),
+            Some(("garbage", u)) if u == url => {
+                println!("not a result");
+                std::process::exit(0);
+            }
+            Some(("hang", u)) if u == url => loop {
+                std::thread::sleep(Duration::from_secs(1));
+            },
+            _ => {}
+        }
+    }
+}
+
 /// One test, in this process. Never panics on a test's account: the parent
 /// counts a panic as a crash, which is what it would be.
-fn run_one(root: &Path, url: &str, file: &str) -> Value {
+fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
     let html = match page(root, file) {
         Ok(html) => html,
         Err(e) => return failure("ERROR", e),
@@ -267,7 +316,7 @@ fn run_one(root: &Path, url: &str, file: &str) -> Value {
         Ok(doc) => doc,
         Err(e) => return failure("ERROR", format!("parse: {e}")),
     };
-    let limits = Limits::default().with_time(TIME_LIMIT);
+    let limits = Limits::default().with_time(time_limit);
     let mut rt = match DomRuntime::new(limits) {
         Ok(rt) => rt,
         Err(e) => return failure("ERROR", format!("runtime: {e}")),

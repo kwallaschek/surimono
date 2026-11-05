@@ -168,6 +168,41 @@ class CompatTest(unittest.TestCase):
         results = self.write_json("r3.json", {"wpt_commit": "abc", "tests": [{"test": "a.html", "status": "ERROR", "message": "needs an XML parser", "subtests": []}]})
         self.assertIn("| 4 | ERROR: needs an XML parser |", self.wpt_table(results))
 
+    def test_wpt_passes_in_a_failed_file_are_counted_under_its_cause(self):
+        self.wpt_tree()
+        subs = [{"name": n, "status": "PASS"} for n in ("one", "two", "three", "four")]
+        for status in ("ERROR", "CRASH", "LIMIT"):
+            results = self.write_json("r4.json", {"wpt_commit": "abc", "tests": [{"test": "a.html", "status": status, "message": "boom", "subtests": subs}]})
+            table = self.wpt_table(results)
+            self.assertIn("| 0 | 4 | 0.0%", table, status)
+            self.assertIn(f"| 4 | {status}: boom |", table, status)
+            self.assertNotIn("every subtest passed", table, status)
+
+    def test_wpt_causes_add_up_to_what_the_rate_loses(self):
+        self.wpt_tree(extra=[{"slice": "nodes", "test": "c.html", "file": "c.html", "status": "OK", "subtests": [{"name": n, "status": "PASS"} for n in "abc"]}])
+        tests = [
+            {"test": "a.html", "status": "ERROR", "message": "m", "subtests": [{"name": "one", "status": "PASS"}, {"name": "two", "status": "FAIL"}]},
+            {"test": "c.html", "status": "TIMEOUT", "subtests": [{"name": "a", "status": "PASS"}, {"name": "b", "status": "FAIL"}]},
+        ]
+        baseline = compat.read_json(self.root / "wpt" / "baseline" / "chrome.json")["tests"]
+        ours = {t["test"]: t for t in tests}
+        causes, _ = compat.wpt_failures(baseline, ours)
+        scores = [compat.wpt_passed(t, ours.get(t["test"])) for t in baseline]
+        self.assertEqual(sum(n for _, n in causes), sum(total - got for got, total in scores))
+
+    def test_wpt_rate_is_shown_on_wpt_fyis_count_too(self):
+        self.wpt_tree()
+        path = self.root / "wpt" / "slices.toml"
+        path.write_text(path.read_text() + '[wpt_fyi]\nrun = "1"\nchrome = "156"\n[wpt_fyi.chrome_passes]\n"dom/nodes" = 8\n')
+        self.assertIn("| dom/nodes | 2 | 4 | 8 | 4 | 25.0% |", self.wpt_table(self.wpt_results(["one", "two"])))
+
+    def test_wpt_fyi_count_for_an_unknown_area_is_an_error(self):
+        self.wpt_tree()
+        path = self.root / "wpt" / "slices.toml"
+        path.write_text(path.read_text() + '[wpt_fyi]\nrun = "1"\nchrome = "156"\n[wpt_fyi.chrome_passes]\n"dom/bogus" = 8\n')
+        with self.assertRaises(SystemExit):
+            self.wpt_table(self.wpt_results(["one", "two"]))
+
     def test_wpt_failed_file_fails_all_its_subtests(self):
         for status in ("ERROR", "CRASH", "LIMIT"):
             self.wpt_tree()

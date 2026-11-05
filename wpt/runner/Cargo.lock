@@ -1574,6 +1574,7 @@ dependencies = [
  "blitz-dom",
  "blitz-html",
  "blitz-traits",
+ "cssparser",
  "html5ever",
  "selectors",
  "stylo",
