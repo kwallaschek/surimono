@@ -957,7 +957,10 @@ pub fn generate_bindings(
     };
 
     let mut js = note("//");
-    for name in JS_INTERFACES.iter().chain(&["Node", "HTMLElement", "Document"]) {
+    for name in JS_INTERFACES
+        .iter()
+        .chain(&["Node", "HTMLElement", "Document"])
+    {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
         }
