@@ -12,7 +12,7 @@
     "outputs": {}
   },
   "linux-extra": {
-    "result": "failure",
+    "result": "success",
     "outputs": {}
   }
 }
