@@ -151,6 +151,17 @@
   expose('clearTimeout', { clearTimeout() { clearTimer(arguments); } }.clearTimeout, 0);
   expose('clearInterval', { clearInterval() { clearTimer(arguments); } }.clearInterval, 0);
 
+  // HTML §3.1.1 and §7.2: only the page's document has a browsing context.
+  const isPage = (s) => s.g === current() && s.h === root();
+  attr(I_Document, 'defaultView', function () {
+    return isPage(self(this, I_Document)) ? G : null;
+  });
+  attr(I_Document, 'location', function () {
+    if (!isPage(self(this, I_Document))) return null;
+    const l = G.location;
+    return l === undefined ? null : l;
+  });
+
   // HTML §8.1.3.5: the running script's element, for the length of its run.
   let currentScript = null;
   attr(I_Document, 'currentScript', function () {
@@ -166,6 +177,8 @@
   function runScript(i, g, h) {
     const element = wrap(g, h);
     let ok = true;
+    // HTML "execute the script element": moved to another document, it's over.
+    if (!call(OP_inPage, g, h)) return () => { currentScript = null; };
     if (n.scriptFailed(i)) {
       ok = false;
     } else {

@@ -15,7 +15,10 @@ use surimono_webidl::stubs as idl;
 use crate::dispatch::interface;
 use blitz_dom::QualName;
 
-use crate::document::{self, Handle, Kind, ListKind, MutationRecord, Object, Owned};
+use crate::document::{
+    self, APPLICATION_XML, Handle, Kind, ListKind, MutationRecord, Object, Owned, Special,
+    TEXT_HTML,
+};
 use crate::style_attr::{self, Declaration};
 use crate::tree::{dom_error, timed_out};
 use crate::{Document, DomError, LayoutPolicy};
@@ -285,6 +288,21 @@ impl Document {
         self.live_list(this, ListKind::ByTag(name))
     }
 
+    fn by_tag_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local: String,
+    ) -> BindingResult<ObjectId> {
+        // "*" is any namespace; null and "" are no namespace.
+        let namespace = match namespace.as_deref() {
+            Some("*") => None,
+            Some(n) => Some(n.to_owned()),
+            None => Some(String::new()),
+        };
+        self.live_list(this, ListKind::ByTagNs(namespace, local))
+    }
+
     fn by_class(&mut self, this: ObjectId, names: String) -> BindingResult<ObjectId> {
         self.live_list(this, ListKind::ByClass(names))
     }
@@ -314,7 +332,11 @@ impl Document {
     ) -> BindingResult<Option<usize>> {
         let made = match context {
             Some(_) => None,
-            None => Document::create_element(self, "body").map_err(|e| self.fail(e))?,
+            None => {
+                let body = QualName::new(None, ns!(html), blitz_dom::local_name!("body"));
+                let made = self.create_element_with(body, Vec::new());
+                Some(made.map_err(|e| self.fail(e))?)
+            }
         };
         let parsed = match context.or(made) {
             Some(c) => self
@@ -577,14 +599,19 @@ impl Document {
             Object::Style(_) | Object::Computed(_) => {
                 return Ok(interface::CSS_STYLE_DECLARATION);
             }
+            Object::Implementation(_) => return Ok(interface::DOM_IMPLEMENTATION),
             Object::Record(_) => return Ok(interface::MUTATION_RECORD),
             Object::Attr(..) => return Ok(interface::ATTR),
         };
         Ok(match self.kind(id) {
+            Some(Kind::Document) if self.info(id).xml_interface => interface::XML_DOCUMENT,
             Some(Kind::Document) => interface::DOCUMENT,
             Some(Kind::DocumentFragment) => interface::DOCUMENT_FRAGMENT,
+            Some(Kind::DocumentType) => interface::DOCUMENT_TYPE,
+            Some(Kind::Text) if self.is_cdata(id) => interface::CDATA_SECTION,
             Some(Kind::Text) => interface::TEXT,
             Some(Kind::Comment) => interface::COMMENT,
+            Some(Kind::ProcessingInstruction) => interface::PROCESSING_INSTRUCTION,
             Some(Kind::Element) => match self.element_name(id) {
                 Some(n) if n.ns == ns!(html) => html_interface(n.local.as_ref()),
                 Some(n) if n.ns == ns!(svg) => interface::SVG_ELEMENT,
@@ -593,6 +620,95 @@ impl Document {
             // Layout boxes, which no tree link reaches before layout.
             None => interface::NODE,
         })
+    }
+
+    /// What §4.4's namespace lookups start from: `this`, or an `Attr`'s
+    /// element, if it has one.
+    fn lookup_node(&mut self, this: ObjectId) -> BindingResult<Option<usize>> {
+        if let Some((e, _, kept)) = self.attr_at(this)? {
+            return Ok(kept.is_none().then_some(e));
+        }
+        self.node_of(this).map(Some)
+    }
+
+    /// DOM §4.9 "set an attribute": `attr`, free or already on `element`,
+    /// goes on `element`, in the place of any with its namespace and local
+    /// name, which is returned.
+    fn set_attr_node(&mut self, element: usize, attr: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let (on, name, kept) = self.attr_of(attr)?;
+        let Some(value) = kept else {
+            if on != element {
+                return Err(dom_error(
+                    "InUseAttributeError",
+                    "the attribute is already on another element",
+                ));
+            }
+            return Ok(Some(attr));
+        };
+        let old = self.attribute_ns(element, name.ns.as_ref(), name.local.as_ref());
+        let old_object = old
+            .clone()
+            .map(|n| self.attr_object(element, n))
+            .transpose()?;
+        let handle = Handle::try_from(attr.0).unwrap_or(0);
+        self.attach_attr(handle, element, name, value, old)
+            .map_err(|e| self.fail(e))?;
+        Ok(old_object)
+    }
+
+    /// The `Attr` `attr`, on `element` as far as a script can tell, or an
+    /// error if it isn't one.
+    fn attached_attr(&mut self, element: usize, attr: ObjectId) -> BindingResult<QualName> {
+        match self.attr_of(attr)? {
+            (on, name, None) if on == element => Ok(name),
+            _ => Err(dom_error(
+                "NotFoundError",
+                "the attribute isn't on this element",
+            )),
+        }
+    }
+
+    /// (name, public ID, system ID) of the doctype `this`.
+    fn doctype_field(&mut self, this: ObjectId) -> BindingResult<(String, String, String)> {
+        let id = self.node_of(this)?;
+        Ok(match self.special(id) {
+            Some(Special::Doctype {
+                name,
+                public_id,
+                system_id,
+            }) => (name.clone(), public_id.clone(), system_id.clone()),
+            _ => Default::default(),
+        })
+    }
+
+    /// DOM §4.5.1 `createHTMLDocument`: the tree in the new document `doc`,
+    /// which is being made in.
+    fn fill_html_document(&mut self, doc: usize, title: Option<&str>) -> Result<(), DomError> {
+        let doctype = self.create_doctype("html", "", "")?;
+        self.place_quietly(doc, &[doctype], None);
+        let element = |d: &mut Self, name: &str| {
+            d.create_element(name)
+                .and_then(|e| e.ok_or(DomError::NoDocument))
+        };
+        let html = element(self, "html")?;
+        self.place_quietly(doc, &[html], None);
+        let head = element(self, "head")?;
+        self.place_quietly(html, &[head], None);
+        if let Some(title) = title {
+            let t = element(self, "title")?;
+            self.place_quietly(head, &[t], None);
+            let text = self.create_text(title)?;
+            self.place_quietly(t, &[text], None);
+        }
+        let body = element(self, "body")?;
+        self.place_quietly(html, &[body], None);
+        Ok(())
+    }
+
+    /// Whether node `this` is in the page's document.
+    pub(crate) fn in_page(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(self.owner_of_node(id) == self.root())
     }
 
     /// A layout query by `member`: nothing under [`LayoutPolicy::Zeros`],
@@ -619,7 +735,7 @@ impl Document {
         if let Some(h) = self.handler_source {
             return Ok(h);
         }
-        match Document::body(self) {
+        match Document::body(self, self.root()) {
             Some(id) => self.handle_for(id).map_err(|e| self.fail(e)),
             None => Ok(0),
         }
@@ -816,7 +932,8 @@ impl Document {
             Object::Attributes(id) => {
                 // WebIDL: HTML elements in an HTML document hide names they
                 // couldn't look up (DOM §4.9.1).
-                let html = self.element_name(id).is_some_and(|n| n.ns == ns!(html));
+                let html = self.element_name(id).is_some_and(|n| n.ns == ns!(html))
+                    && self.in_html_document(id);
                 self.attribute_names(id)
                     .into_iter()
                     .filter(|n| !html || !n.bytes().any(|b| b.is_ascii_uppercase()))
@@ -869,6 +986,9 @@ impl idl::Node for Document {
             return Ok(2);
         }
         let id = self.node_of(this)?;
+        if self.is_cdata(id) {
+            return Ok(4);
+        }
         // `kind` is None only for layout boxes, which no tree link reaches
         // before layout; report them as plain nodes.
         Ok(self.kind(id).map_or(0, |k| k as u16))
@@ -888,9 +1008,13 @@ impl idl::Node for Document {
     }
 
     fn owner_document(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        if let Some((e, ..)) = self.attr_at(this)? {
+            let owner = self.owner_of_node(e);
+            return self.opt_object(Some(owner));
+        }
         let id = self.node_of(this)?;
-        let root = self.root();
-        self.opt_object((id != root).then_some(root))
+        let owner = self.owner_of_node(id);
+        self.opt_object((self.kind(id) != Some(Kind::Document)).then_some(owner))
     }
 
     fn parent_node(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
@@ -943,14 +1067,19 @@ impl idl::Node for Document {
         }
         let id = self.node_of(this)?;
         Ok(match self.kind(id) {
-            Some(Kind::Text | Kind::Comment) => Document::text_content(self, id),
+            Some(Kind::Text | Kind::Comment | Kind::ProcessingInstruction) => {
+                Document::text_content(self, id)
+            }
             _ => None,
         })
     }
 
     fn set_node_value(&mut self, this: ObjectId, value: Option<String>) -> BindingResult<()> {
         let id = self.node_of(this)?;
-        if matches!(self.kind(id), Some(Kind::Text | Kind::Comment)) {
+        if matches!(
+            self.kind(id),
+            Some(Kind::Text | Kind::Comment | Kind::ProcessingInstruction)
+        ) {
             Document::set_text_content(self, id, &value.unwrap_or_default())
                 .map_err(|e| self.fail(e))?;
         }
@@ -991,6 +1120,38 @@ impl idl::Node for Document {
         let id = self.node_of(this)?;
         let copy = self.clone_tree(id, subtree)?;
         self.object(copy)
+    }
+
+    fn lookup_prefix(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+    ) -> BindingResult<Option<String>> {
+        let id = self.lookup_node(this)?;
+        match namespace.filter(|n| !n.is_empty()) {
+            Some(n) => id.map_or(Ok(None), |i| self.locate_prefix(i, &n)),
+            None => Ok(None),
+        }
+    }
+
+    fn lookup_namespace_uri(
+        &mut self,
+        this: ObjectId,
+        prefix: Option<String>,
+    ) -> BindingResult<Option<String>> {
+        let id = self.lookup_node(this)?;
+        let prefix = prefix.filter(|p| !p.is_empty());
+        id.map_or(Ok(None), |i| self.locate_namespace(i, prefix.as_deref()))
+    }
+
+    fn is_default_namespace(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+    ) -> BindingResult<bool> {
+        let id = self.lookup_node(this)?;
+        let default = id.map_or(Ok(None), |i| self.locate_namespace(i, None))?;
+        Ok(default == namespace.filter(|n| !n.is_empty()))
     }
 
     fn is_equal_node(
@@ -1148,6 +1309,15 @@ impl idl::Element for Document {
         self.by_tag(this, qualified_name)
     }
 
+    fn get_elements_by_tag_name_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<ObjectId> {
+        self.by_tag_ns(this, namespace, local_name)
+    }
+
     fn get_elements_by_class_name(
         &mut self,
         this: ObjectId,
@@ -1254,6 +1424,54 @@ impl idl::Element for Document {
     fn has_attributes(&mut self, this: ObjectId) -> BindingResult<bool> {
         let id = self.node_of(this)?;
         Ok(self.attribute_count(id) > 0)
+    }
+
+    fn get_attribute_node(
+        &mut self,
+        this: ObjectId,
+        qualified_name: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        self.attribute_named(id, &qualified_name)
+            .map(|n| self.attr_object(id, n))
+            .transpose()
+    }
+
+    fn get_attribute_node_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        self.attribute_ns(id, namespace.as_deref().unwrap_or(""), &local_name)
+            .map(|n| self.attr_object(id, n))
+            .transpose()
+    }
+
+    fn set_attribute_node(
+        &mut self,
+        this: ObjectId,
+        attr: ObjectId,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        self.set_attr_node(id, attr)
+    }
+
+    fn set_attribute_node_ns(
+        &mut self,
+        this: ObjectId,
+        attr: ObjectId,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        self.set_attr_node(id, attr)
+    }
+
+    fn remove_attribute_node(&mut self, this: ObjectId, attr: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        let name = self.attached_attr(id, attr)?;
+        self.clear_attribute(id, name);
+        Ok(attr)
     }
 
     fn get_attribute(
@@ -1480,33 +1698,70 @@ impl idl::HTMLElement for Document {
 }
 
 impl idl::Document for Document {
-    fn document_element(&mut self, _this: ObjectId) -> BindingResult<Option<ObjectId>> {
-        let e = Document::document_element(self);
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        // DOM §4.5: an XML document, whose interface is still Document.
+        let info = self.blank_info(false, APPLICATION_XML);
+        let r = self.new_document(info);
+        self.created(r)
+    }
+
+    fn implementation(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        self.owned_object(id, Owned::Implementation, move || {
+            Object::Implementation(id)
+        })
+    }
+
+    fn url(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Ok(Document::url(self, id).to_owned())
+    }
+
+    fn document_uri(&mut self, this: ObjectId) -> BindingResult<String> {
+        idl::Document::url(self, this)
+    }
+
+    fn doctype(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let d = self.doctype_of(id);
+        self.opt_object(d)
+    }
+
+    fn document_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let e = self.document_element_of(id);
         self.opt_object(e)
     }
 
-    fn head(&mut self, _this: ObjectId) -> BindingResult<Option<ObjectId>> {
-        let e = Document::head(self);
+    fn head(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let e = Document::head(self, id);
         self.opt_object(e)
     }
 
-    fn body(&mut self, _this: ObjectId) -> BindingResult<Option<ObjectId>> {
-        let e = Document::body(self);
+    fn body(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let e = Document::body(self, id);
         self.opt_object(e)
     }
 
-    fn title(&mut self, _this: ObjectId) -> BindingResult<String> {
-        Document::title(self)
+    fn title(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Document::title(self, id)
     }
 
-    fn set_title(&mut self, _this: ObjectId, value: String) -> BindingResult<()> {
-        Document::set_title(self, &value)
+    fn set_title(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        Document::set_title(self, id, &value)
     }
 
-    fn ready_state(&mut self, _this: ObjectId) -> BindingResult<String> {
+    fn ready_state(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        // Only the page has a lifecycle; "complete" is the others' default.
+        let page = id == self.root();
         Ok(match Document::ready_state(self) {
-            0 => "loading",
-            1 => "interactive",
+            0 if page => "loading",
+            1 if page => "interactive",
             _ => "complete",
         }
         .to_owned())
@@ -1525,16 +1780,89 @@ impl idl::Document for Document {
         Ok("UTF-8".to_owned())
     }
 
-    fn content_type(&mut self, _this: ObjectId) -> BindingResult<String> {
-        Ok("text/html".to_owned())
+    fn charset(&mut self, _this: ObjectId) -> BindingResult<String> {
+        Ok("UTF-8".to_owned())
+    }
+
+    fn input_encoding(&mut self, _this: ObjectId) -> BindingResult<String> {
+        Ok("UTF-8".to_owned())
+    }
+
+    fn content_type(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Ok(self.info(id).content_type.to_owned())
+    }
+
+    fn create_cdata_section(&mut self, this: ObjectId, data: String) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        if self.info(id).html {
+            return Err(dom_error(
+                "NotSupportedError",
+                "createCDATASection: an HTML document has none",
+            ));
+        }
+        if data.contains("]]>") {
+            return Err(dom_error(
+                "InvalidCharacterError",
+                "createCDATASection: the data contains \"]]>\"",
+            ));
+        }
+        let r = self.create_cdata(&data);
+        self.created(r)
+    }
+
+    fn create_attribute(&mut self, this: ObjectId, local_name: String) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        if !document::is_valid_attribute_name(&local_name) {
+            return Err(dom_error(
+                "InvalidCharacterError",
+                "createAttribute: the name is not valid",
+            ));
+        }
+        let local = if self.info(id).html {
+            local_name.to_ascii_lowercase()
+        } else {
+            local_name
+        };
+        let name = QualName::new(None, ns!(), blitz_dom::LocalName::from(local));
+        let h = self.free_attr(id, name).map_err(|e| self.fail(e))?;
+        Ok(ObjectId(u64::from(h)))
+    }
+
+    fn create_attribute_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        qualified_name: String,
+    ) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        let name = Document::validate_and_extract(namespace.as_deref(), &qualified_name, false)?;
+        let h = self.free_attr(id, name).map_err(|e| self.fail(e))?;
+        Ok(ObjectId(u64::from(h)))
+    }
+
+    fn create_processing_instruction(
+        &mut self,
+        _this: ObjectId,
+        target: String,
+        data: String,
+    ) -> BindingResult<ObjectId> {
+        if !document::is_xml_name(&target) || data.contains("?>") {
+            return Err(dom_error(
+                "InvalidCharacterError",
+                "createProcessingInstruction: the target or data is not valid",
+            ));
+        }
+        let r = self.create_instruction(&target, &data);
+        self.created(r)
     }
 
     fn get_element_by_id(
         &mut self,
-        _this: ObjectId,
+        this: ObjectId,
         element_id: String,
     ) -> BindingResult<Option<ObjectId>> {
-        let root = self.root();
+        let root = self.node_of(this)?;
         let e = self.element_by_id(root, &element_id);
         self.opt_object(e)
     }
@@ -1557,6 +1885,15 @@ impl idl::Document for Document {
         qualified_name: String,
     ) -> BindingResult<ObjectId> {
         self.by_tag(this, qualified_name)
+    }
+
+    fn get_elements_by_tag_name_ns(
+        &mut self,
+        this: ObjectId,
+        namespace: Option<String>,
+        local_name: String,
+    ) -> BindingResult<ObjectId> {
+        self.by_tag_ns(this, namespace, local_name)
     }
 
     fn get_elements_by_class_name(
@@ -1586,6 +1923,13 @@ impl idl::Document for Document {
         options: Value,
     ) -> BindingResult<ObjectId> {
         let id = self.node_of(node)?;
+        // §4.5: `this` is `making`, so the copy joins it.
+        if self.kind(id) == Some(Kind::Document) {
+            return Err(dom_error(
+                "NotSupportedError",
+                "importNode: a document can't be imported",
+            ));
+        }
         let copy = self.clone_tree(id, matches!(options, Value::Bool(true)))?;
         self.object(copy)
     }
@@ -1595,7 +1939,7 @@ impl idl::Document for Document {
         self.created(r)
     }
 
-    fn adopt_node(&mut self, _this: ObjectId, node: ObjectId) -> BindingResult<ObjectId> {
+    fn adopt_node(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<ObjectId> {
         let id = self.node_of(node)?;
         match self.kind(id) {
             Some(Kind::Document) => Err(dom_error(
@@ -1603,7 +1947,9 @@ impl idl::Document for Document {
                 "adoptNode: a document can't be adopted",
             )),
             _ => {
+                let doc = self.node_of(this)?;
                 self.detach(id);
+                self.adopt_subtree(id, doc);
                 Ok(node)
             }
         }
@@ -1666,6 +2012,122 @@ impl idl::Document for Document {
         self.child_element_count_of(this)
     }
 }
+
+impl idl::XMLDocument for Document {}
+
+impl idl::DOMImplementation for Document {
+    fn create_document_type(
+        &mut self,
+        _this: ObjectId,
+        name: String,
+        public_id: String,
+        system_id: String,
+    ) -> BindingResult<ObjectId> {
+        // DOM §1.5 "valid doctype name".
+        if name.contains(['\t', '\n', '\u{c}', '\r', ' ', '\0', '>']) {
+            return Err(dom_error(
+                "InvalidCharacterError",
+                "createDocumentType: the name is not valid",
+            ));
+        }
+        let r = self.create_doctype(&name, &public_id, &system_id);
+        self.created(r)
+    }
+
+    fn create_document(
+        &mut self,
+        _this: ObjectId,
+        namespace: Option<String>,
+        qualified_name: String,
+        doctype: Option<ObjectId>,
+    ) -> BindingResult<ObjectId> {
+        let name = if qualified_name.is_empty() {
+            None
+        } else {
+            let n = Document::validate_and_extract(namespace.as_deref(), &qualified_name, true)?;
+            Some(n)
+        };
+        let doctype = self.opt_node(doctype)?;
+        let mut info = self.blank_info(false, Document::xml_content_type(namespace.as_deref()));
+        info.xml_interface = true;
+        let doc = self.new_document(info).map_err(|e| self.fail(e))?;
+        self.making_in(doc, |d| {
+            if let Some(t) = doctype {
+                d.pre_insert(doc, t, None)?;
+            }
+            if let Some(n) = name {
+                let e = d.create_element_with(n, Vec::new());
+                let e = e.map_err(|e| d.fail(e))?;
+                d.pre_insert(doc, e, None)?;
+            }
+            Ok(())
+        })?;
+        self.object(doc)
+    }
+
+    fn create_html_document(
+        &mut self,
+        _this: ObjectId,
+        title: Option<String>,
+    ) -> BindingResult<ObjectId> {
+        let info = self.blank_info(true, TEXT_HTML);
+        let doc = self.new_document(info).map_err(|e| self.fail(e))?;
+        let built = self.making_in(doc, |d| d.fill_html_document(doc, title.as_deref()));
+        built.map_err(|e| self.fail(e))?;
+        self.object(doc)
+    }
+
+    fn has_feature(&mut self, _this: ObjectId) -> BindingResult<bool> {
+        Ok(true)
+    }
+}
+
+impl idl::DocumentType for Document {
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        Ok(self.doctype_field(this)?.0)
+    }
+
+    fn public_id(&mut self, this: ObjectId) -> BindingResult<String> {
+        Ok(self.doctype_field(this)?.1)
+    }
+
+    fn system_id(&mut self, this: ObjectId) -> BindingResult<String> {
+        Ok(self.doctype_field(this)?.2)
+    }
+
+    fn before(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.before_nodes(id, nodes)
+    }
+
+    fn after(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.after_nodes(id, nodes)
+    }
+
+    fn replace_with(&mut self, this: ObjectId, nodes: Vec<Value>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.replace_with_nodes(id, nodes)
+    }
+
+    fn remove(&mut self, this: ObjectId) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.detach(id);
+        Ok(())
+    }
+}
+
+impl idl::ProcessingInstruction for Document {
+    fn target(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Ok(match self.special(id) {
+            Some(Special::Instruction { target }) => target.clone(),
+            _ => String::new(),
+        })
+    }
+}
+
+impl idl::CDATASection for Document {}
 
 impl idl::DocumentFragment for Document {
     fn constructor(&mut self) -> BindingResult<ObjectId> {
@@ -1943,6 +2405,24 @@ impl idl::NamedNodeMap for Document {
         self.attribute_named(id, &qualified_name)
             .map(|n| self.attr_object(id, n))
             .transpose()
+    }
+
+    fn set_named_item(
+        &mut self,
+        this: ObjectId,
+        attr: ObjectId,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.owner_of(this)?;
+        self.set_attr_node(id, attr)
+    }
+
+    fn set_named_item_ns(
+        &mut self,
+        this: ObjectId,
+        attr: ObjectId,
+    ) -> BindingResult<Option<ObjectId>> {
+        let id = self.owner_of(this)?;
+        self.set_attr_node(id, attr)
     }
 
     fn get_named_item_ns(

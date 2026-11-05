@@ -251,25 +251,18 @@ fn clone_node() {
     );
 }
 
-/// A known gap, not conformance: §4.4 and WPT Node-cloneNode.html expect a new
-/// `Document`. Fatal, so a script can't catch it and take it for the DOM's
-/// answer. See "Deviations and gaps" in DESIGN.md.
+/// DOM §4.4: a clone of a document is a new document, with its own copies.
 #[test]
-fn cloning_a_document_is_a_known_gap() {
-    for script in [
-        "document.cloneNode()",
-        "document.cloneNode(true)",
-        "try { document.cloneNode() } catch (e) {} 'caught'",
-    ] {
-        let mut rt = runtime();
-        assert_eq!(
-            rt.eval::<String>(script),
-            Err(DomError::Unsupported {
-                feature: "cloning a document"
-            }),
-            "{script}"
-        );
-    }
+fn cloning_a_document_gives_a_document() {
+    let mut rt = runtime();
+    let got: String = rt
+        .eval(
+            "const c = document.cloneNode(true), s = document.cloneNode();
+             [c.nodeType, c === document, c.ownerDocument, c.body.tagName,
+              c.body.ownerDocument === c, s.firstChild, document.body.ownerDocument === document].join()",
+        )
+        .unwrap();
+    assert_eq!(got, "9,false,,BODY,true,,true");
 }
 
 #[test]
