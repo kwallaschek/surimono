@@ -537,6 +537,37 @@ unsafe extern "C" {
     /// Defined only by the patched QuickJS (patch 22, level 5):
     /// `JS_FreeRuntime` stores in `*count` how many objects were still alive.
     fn surimono_set_leak_count(rt: *mut qjs::JSRuntime, count: *mut u32);
+    /// Defined only by the patched QuickJS (patch 36, level 9): which limit
+    /// made the engine throw `value`: 0 none, 1 stack, 2 memory. Runs no
+    /// script.
+    fn surimono_limit_error(value: qjs::JSValue) -> std::ffi::c_int;
+}
+
+/// The limit error `value` stands for, if the engine itself threw it for
+/// running out of stack or memory.
+///
+/// The engine marks the error object as it throws it, and nothing else can:
+/// `new RangeError('Maximum call stack size exceeded')` isn't one, while a
+/// real one still is after a script has changed its `name`, its `message` or
+/// `RangeError.prototype`. Reads no property, so it runs no script. Not public
+/// API: for `surimono-dom`, which sees exceptions before the sandbox does.
+pub fn limit_error(value: &Value<'_>) -> Option<SandboxError> {
+    // SAFETY: `value` is alive for the call and from a runtime on this
+    // thread; the function reads the value's tag and, for an object, one
+    // field of it, and keeps nothing.
+    match unsafe { surimono_limit_error(value.as_raw()) } {
+        1 => Some(SandboxError::StackOverflow),
+        2 => Some(SandboxError::MemoryLimit),
+        _ => None,
+    }
+}
+
+/// The address of the heap object behind `value`, to tell objects apart: it
+/// stays this object's only while something holds a reference to it.
+pub(crate) fn object_address(value: &Value<'_>) -> usize {
+    // SAFETY: reads the payload of a value this function holds; the result
+    // is a number here and is never turned back into a pointer.
+    unsafe { qjs::JS_VALUE_GET_PTR(value.as_raw()) as usize }
 }
 
 /// Makes every interrupt poll of `ctx`'s runtime read `state`'s stop flag,
@@ -584,11 +615,11 @@ pub fn release_free_memory() {
     }
 }
 
-/// The lowest engine patch level the sandbox runs on: 8, the duplicate-key
-/// check of a proxy's `ownKeys` in O(n log n) (P2-RT-04) on top of level 7,
-/// the time-limit polls while compiling (P2-RT-03) (see
+/// The lowest engine patch level the sandbox runs on: 9, the mark on the
+/// engine's own limit errors (P2-RT-05) on top of level 8, the duplicate-key
+/// check of a proxy's `ownKeys` in O(n log n) (P2-RT-04) (see
 /// `vendor/rquickjs-sys/PATCHES.md`).
-pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 8;
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 9;
 
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse
@@ -979,6 +1010,65 @@ mod tests {
         let rt = Runtime::new_with_alloc(LimitAllocator::new(state)).unwrap();
         let ctx = Context::full(&rt).unwrap();
         ctx.with(f)
+    }
+
+    #[test]
+    fn only_the_engine_can_make_a_limit_error() {
+        with_ctx(|ctx| {
+            let thrown: Value<'_> = ctx
+                .eval(
+                    "function r() { return r() + 1 }
+                     let e; try { r() } catch (x) { e = x }
+                     e.name = 'Harmless'; e.message = ''; e",
+                )
+                .unwrap();
+            assert_eq!(limit_error(&thrown), Some(SandboxError::StackOverflow));
+            for forged in [
+                "new RangeError('Maximum call stack size exceeded')",
+                "new InternalError('out of memory')",
+                "Object.create(e)",
+                "new Proxy(e, {})",
+                "({})",
+                "'Maximum call stack size exceeded'",
+                "1",
+                "null",
+                "undefined",
+            ] {
+                let value: Value<'_> = ctx.eval(forged).unwrap();
+                assert_eq!(limit_error(&value), None, "{forged}");
+            }
+        });
+    }
+
+    #[test]
+    fn a_refused_allocation_makes_a_limit_error() {
+        let state = LimitState::new(4 << 20);
+        let rt = Runtime::new_with_alloc(LimitAllocator::new(state)).unwrap();
+        let ctx = Context::full(&rt).unwrap();
+        ctx.with(|ctx| {
+            let thrown: Value<'_> = ctx
+                .eval(
+                    "let e;
+                     try {
+                       const a = [];
+                       for (;;) a.push(new Array(1000).fill(0));
+                     } catch (x) { e = x }
+                     e",
+                )
+                .unwrap();
+            assert_eq!(limit_error(&thrown), Some(SandboxError::MemoryLimit));
+        });
+    }
+
+    #[test]
+    fn an_address_tells_objects_apart() {
+        with_ctx(|ctx| {
+            let a: Value<'_> = ctx.eval("globalThis.a = {}; a").unwrap();
+            let same: Value<'_> = ctx.eval("a").unwrap();
+            let other: Value<'_> = ctx.eval("({})").unwrap();
+            assert_eq!(object_address(&a), object_address(&same));
+            assert_ne!(object_address(&a), object_address(&other));
+        });
     }
 
     #[test]
