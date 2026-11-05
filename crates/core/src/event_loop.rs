@@ -95,9 +95,10 @@
 //! nothing else would ever see it. That includes a stack overflow, the one
 //! limit that isn't sticky. So the runtime's promise rejection tracker
 //! ([`rejection_tracker`]) does what HTML's "unhandled promise rejections"
-//! section says: a promise rejected without a handler goes on a list, a handler added to it takes it off, and
-//! whatever is left when the microtasks have drained was not handled. For
-//! each of those, in the order they rejected:
+//! section says: a promise rejected without a handler goes on a list, a
+//! handler added to it takes it off, and whatever is left when the microtasks
+//! have drained was not handled. For each of those, in the order they
+//! rejected:
 //!
 //! - if the reason is the engine's own stack-overflow or out-of-memory error,
 //!   the call ends with that typed error, as if it had been thrown from a
@@ -106,7 +107,9 @@
 //!   stops it the same way;
 //! - any other reason is counted ([`SettleReport::unhandled_rejections`]),
 //!   and the loop goes on. This is where the DOM can fire
-//!   `unhandledrejection`.
+//!   `unhandledrejection`. The first few are read and kept
+//!   ([`SettleReport::rejections`]); past those, nothing reads a reason's
+//!   properties, so none of its getters run.
 //!
 //! The checkpoint is the event loop's alone: a call such as
 //! [`Sandbox::eval`](crate::Sandbox) runs microtasks but reports no
@@ -713,12 +716,23 @@ pub(crate) fn rejection_tracker(
 /// HTML's "notify about rejected promises", at the end of a microtask
 /// checkpoint. Reading a hostile reason can run its getters, so no entry is
 /// taken before the last one is done with: a getter may still handle one.
+///
+/// Returns `Ok` with entries left if a limit stops it: the caller's next
+/// [`drain_jobs`] gives the typed error, and the rebuild that follows drops
+/// the rest.
 fn notify_rejections<'js>(
     ctx: &Ctx<'js>,
+    limit: &LimitState,
     shared: &Shared,
     rejections: &SharedRejections,
 ) -> Result<(), SandboxError> {
     loop {
+        // Checked before every entry, like every job in `drain_jobs`: a reason
+        // with plain data properties runs no script, so no interrupt poll
+        // would stop this loop, and copying its strings is not free.
+        if limit.should_interrupt() {
+            return Ok(());
+        }
         // Bound first, so the borrow ends before any script can run.
         let next = rejections.borrow_mut().pop_first();
         let Some(entry) = next else {
@@ -730,6 +744,15 @@ fn notify_rejections<'js>(
             .map_err(|e| SandboxError::Engine {
                 message: e.to_string(),
             })?;
+        // A reason nobody keeps isn't read: that bounds the copying per
+        // checkpoint, and no getter runs for nothing. The mark needs no read.
+        if shared.borrow().rejections.len() >= MAX_KEPT_ERRORS {
+            if let Some(error) = engine::limit_error(&reason) {
+                return Err(error);
+            }
+            shared.borrow_mut().unhandled_rejections += 1;
+            continue;
+        }
         let error = exception_error(reason);
         let _ = ctx.catch();
         if error.is_limit() {
@@ -759,8 +782,9 @@ fn drain<'js>(
         if rejections.borrow().pending.is_empty() {
             return Ok(());
         }
-        notify_rejections(ctx, shared, rejections)?;
-        // A reason's getters may have queued more of either.
+        notify_rejections(ctx, limit, shared, rejections)?;
+        // A reason's getters may have queued more of either, and a limit may
+        // have stopped it early: `drain_jobs` reports that.
     }
 }
 
@@ -813,7 +837,37 @@ pub(crate) fn run<'js>(
 
 #[cfg(test)]
 mod tests {
+    use rquickjs::{Context, Runtime};
+
     use super::*;
+
+    /// Deterministic where a timed test can't be: past the limit, not one more
+    /// entry is read, and the entries stay for the rebuild to drop.
+    #[test]
+    fn a_limit_stops_the_notifications_between_entries() {
+        let rt = Runtime::new().unwrap();
+        let ctx = Context::full(&rt).unwrap();
+        let limit = LimitState::new(usize::MAX);
+        let shared = Shared::default();
+        let rejections = SharedRejections::default();
+        rt.set_host_promise_rejection_tracker(Some(rejection_tracker(&rejections, &limit)));
+        ctx.with(|ctx| {
+            ctx.eval::<(), _>("Promise.reject(1); Promise.reject(2); Promise.reject(3)")
+                .unwrap();
+            assert_eq!(rejections.borrow().pending.len(), 3);
+            limit.exceed_memory();
+            assert_eq!(
+                notify_rejections(&ctx, &limit, &shared, &rejections),
+                Ok(())
+            );
+            assert_eq!(shared.borrow().unhandled_rejections, 0);
+            assert_eq!(rejections.borrow().pending.len(), 3);
+            // `drain` then ends the call instead of going round again.
+            let drained = drain(&ctx, &limit, &shared, &rejections);
+            assert_eq!(drained, Err(SandboxError::MemoryLimit));
+        });
+        rejections.borrow_mut().clear();
+    }
 
     fn run_order(st: &mut LoopState) -> Vec<(u64, i32)> {
         let options = SettleOptions::default();

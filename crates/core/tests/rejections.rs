@@ -7,7 +7,7 @@
 //! the event itself belongs to the DOM. That a limit error ends the call is
 //! ours: it is the sandbox rule that hitting a limit gives a typed error.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use surimono_core::{
     Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport, teardown_leaks,
@@ -573,4 +573,65 @@ fn renders_with_limit_rejections_leak_nothing() {
     }
     drop(sb);
     assert_eq!(teardown_leaks().objects, 0);
+}
+
+// --- Reasons nobody keeps ---------------------------------------------------
+
+/// `count` promises rejected with one reason whose three strings hold 4 MiB
+/// each, none of them ASCII, so reading the reason copies and converts them.
+fn large_reasons(count: usize) -> String {
+    format!(
+        "const big = 'x'.repeat(4000000) + '\\u3042';
+         const o = {{ name: big, message: big, stack: big }};
+         for (let i = 0; i < {count}; i++) Promise.reject(o);"
+    )
+}
+
+/// Review of #127: reading every reason took about 12 ms each, between two
+/// polls, so 4,000 of them ran for 48 s under a 2 s limit.
+#[test]
+fn many_large_reasons_stay_inside_the_time_limit() {
+    let budget = scaled(Duration::from_secs(1));
+    let mut sb = sandbox_with(
+        Limits::default()
+            .with_memory_bytes(256 << 20)
+            .with_time(budget),
+    );
+    sb.eval::<()>(&large_reasons(4_000)).unwrap();
+    let start = Instant::now();
+    let result = settle(&mut sb);
+    let elapsed = start.elapsed();
+    assert!(elapsed < budget * 3, "{elapsed:?} under a {budget:?} limit");
+    // A very slow machine may stop at the limit, which is also an answer.
+    match result {
+        Ok(report) => {
+            assert_eq!(report.unhandled_rejections, 4_000);
+            assert_eq!(report.rejections.len(), 8);
+        }
+        Err(e) => assert_eq!(e, SandboxError::TimeLimit),
+    }
+}
+
+/// Only the reasons kept are read, so only their getters run.
+#[test]
+fn getters_of_reasons_nobody_keeps_do_not_run() {
+    let mut sb = sandbox();
+    sb.eval::<()>(
+        "var reads = 0;
+         for (let i = 0; i < 100; i++)
+           Promise.reject({ get message() { reads++; return 'm' } });",
+    )
+    .unwrap();
+    let report = settle(&mut sb).unwrap();
+    assert_eq!(report.unhandled_rejections, 100);
+    assert_eq!(report.rejections.len(), 8);
+    assert_eq!(sb.eval::<i32>("reads").unwrap(), 8);
+}
+
+/// A limit error is told by its mark, which takes no read, so it ends the call
+/// wherever it is in the list.
+#[test]
+fn a_limit_error_past_the_kept_reasons_still_ends_the_call() {
+    let source = format!("{OVERFLOW} for (let i = 0; i < 20; i++) Promise.reject(i); f()");
+    assert_eq!(run(&source), Err(SandboxError::StackOverflow));
 }
