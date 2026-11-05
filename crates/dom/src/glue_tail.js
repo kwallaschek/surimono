@@ -149,8 +149,10 @@
       throw new TE('parseFromString: the type is not a DOMParserSupportedType');
     }
     const g = current();
-    return wrap(g, call(OP_parseFromString, g, root(), text, t === 'text/html'));
+    return wrap(g, call(OP_parseFromString, g, root(), text, t));
   };
+  H.new_XMLSerializer = (target) => make(I_XMLSerializer, target).w;
+  H.XMLSerializer_serializeToString = (s, node) => call(OP_serializeXml, node.g, node.h, node.h);
 
   // Timer ids up to this one are the page's lifecycle, and no script may
   // cancel those (`start`), nor the glue's own tasks (`task`).
@@ -165,9 +167,72 @@
 
   // HTML §3.1.1 and §7.2: only the page's document has a browsing context.
   const isPage = (s) => s.g === current() && s.h === root();
+  // A frame has no realm or scripts of its own: its window is an object over
+  // the page's, with its own `document`. Enough for what looks things up on
+  // `contentWindow` or `defaultView`, and no way to run anything.
+  function frameWindow(s) {
+    if (s.frameWindow === undefined) {
+      const w = create(G);
+      const d = create(null);
+      d.value = s.w; d.enumerable = true;
+      defineProperty(w, 'document', d);
+      s.frameWindow = w;
+    }
+    return s.frameWindow;
+  }
   attr(I_Document, 'defaultView', function () {
-    return isPage(self(this, I_Document)) ? G : null;
+    const s = self(this, I_Document);
+    if (isPage(s)) return G;
+    return call(OP_isFrameDocument, s.g, s.h) ? frameWindow(s) : null;
   });
+  attr(I_HTMLIFrameElement, 'contentWindow', function () {
+    const d = stateOf(this.contentDocument);
+    return d === null ? null : frameWindow(d);
+  });
+  // Frames whose source Rust has, one parse per call, under this call's limits.
+  function parseFrames() {
+    const g = current();
+    while (call(OP_loadFrame, g, root()));
+  }
+  function frameLoads() {
+    const g = current();
+    parseFrames();
+    for (;;) {
+      const h = call(OP_nextFrameLoad, g, root());
+      if (h === 0) return;
+      fire(stateOf(wrap(g, h)), 'load');
+    }
+  }
+  // Called by `run_page` when frames have loaded. A script can call it too,
+  // which fires only what was due.
+  defineProperty(G, '__surimonoFrameLoads', { value: frameLoads });
+  // HTML §7.2.2.3 "document-tree child navigables": the page's iframes.
+  // `frames` is the window in a browser; here it is a list over it, built per
+  // read, since the global object has no indexed properties.
+  const pageByTag = protos[I_Document].getElementsByTagName;
+  function childWindows() {
+    const out = create(G);
+    const d = current() === 0 ? null : wrap(current(), root());
+    let n = 0;
+    if (d !== null) {
+      const list = apply(pageByTag, d, ['iframe']);
+      const m = list.length;
+      for (let i = 0; i < m; i++) {
+        const w = list[i].contentWindow;
+        if (w !== null) {
+          const e = create(null);
+          e.value = w; e.enumerable = true;
+          defineProperty(out, n++, e);
+        }
+      }
+    }
+    const l = create(null);
+    l.value = n;
+    defineProperty(out, 'length', l);
+    return out;
+  }
+  attr(I_Window, 'frames', function () { self(this, I_Window); return childWindows(); });
+  attr(I_Window, 'length', function () { self(this, I_Window); return childWindows().length; });
   attr(I_Document, 'location', function () {
     if (!isPage(self(this, I_Document))) return null;
     const l = G.location;
@@ -232,6 +297,8 @@
       step(() => { finish = runScript(at, g, n.scriptNode(at)); });
       step(() => { finish(); });
     };
+    // The parser's frames, before any script reads them.
+    step(parseFrames);
     const scripts = n.scriptCount();
     for (let i = 0; i < scripts; i++) {
       if (!n.scriptDeferred(i)) turn(i);
@@ -242,6 +309,8 @@
     }
     step(() => { fire(documentState(), 'DOMContentLoaded', true); });
     step(setState(2));
+    // The frames the parser found: `load` waits for them (HTML §4.8.5).
+    step(frameLoads);
     step(() => {
       // HTML: `load` goes to the window, with the document as its target.
       const s = make(I_Event);

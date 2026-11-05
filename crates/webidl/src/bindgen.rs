@@ -63,6 +63,7 @@ const JS_INTERFACES: &[&str] = &[
     "DOMRect",
     "DOMRectList",
     "DOMParser",
+    "XMLSerializer",
     "AbortController",
     "AbortSignal",
     "Performance",
@@ -115,9 +116,13 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("recordsPending", "h.records_pending()"),
     ("layoutQuery", "h.layout_query(a.string(0)?)"),
     ("computedStyle", "h.computed_style(this)"),
+    ("serializeXml", "h.serialize_xml(a.id(0)?)"),
+    ("nextFrameLoad", "h.next_frame_load()"),
+    ("loadFrame", "h.load_frame()"),
+    ("isFrameDocument", "h.is_frame_document(this)"),
     (
         "parseFromString",
-        "h.parse_from_string(a.string(0)?, a.boolean(1)?)",
+        "h.parse_from_string(a.string(0)?, a.string(1)?)",
     ),
     ("inPage", "h.in_page(this)"),
     ("radioCheck", "h.radio_check(this)"),
@@ -1436,6 +1441,7 @@ pub fn generate_bindings(
         "Element",
         "HTMLElement",
         "Document",
+        "HTMLIFrameElement",
         "HTMLBodyElement",
         "HTMLFrameSetElement",
         "HTMLFormElement",
@@ -1616,6 +1622,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &[
             "nodeType",
             "nodeName",
+            "baseURI",
             "isConnected",
             "ownerDocument",
             "parentNode",
@@ -1674,6 +1681,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "getElementsByTagNameNS",
             "closest",
             "matches",
+            "webkitMatchesSelector",
             "getElementsByTagName",
             "getElementsByClassName",
             "querySelector",
@@ -1936,6 +1944,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         name: "DOMParser",
         members: &["constructor", "parseFromString"],
     },
+    BindInterface {
+        name: "XMLSerializer",
+        members: &["constructor", "serializeToString"],
+    },
     // Layout queries, in `glue_layout.js`.
     BindInterface {
         name: "DOMRectReadOnly",
@@ -2008,7 +2020,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLHeadingElement"),
     element("HTMLHRElement"),
     element("HTMLHtmlElement"),
-    element("HTMLIFrameElement"),
+    BindInterface {
+        name: "HTMLIFrameElement",
+        members: &["src", "srcdoc", "name", "contentDocument"],
+    },
     BindInterface {
         name: "HTMLLabelElement",
         members: &["form", "htmlFor", "control"],

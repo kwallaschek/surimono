@@ -2,18 +2,37 @@
 
 use std::borrow::Cow;
 use std::cell::Cell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
+use html5ever::Namespace;
 use surimono_core::Deadline;
 use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
 use crate::style_attr;
+use crate::xml;
+
+/// Most `<iframe>`s loaded in a render. Each costs a parse, and a page can
+/// make them in a loop; later ones stay at `about:blank`, with no `load`.
+const MAX_FRAMES: usize = 64;
+
+/// The XML `contentType` of a frame at `url`, by its path's extension, or
+/// `None` for HTML.
+fn frame_content_type(url: &str) -> Option<&'static str> {
+    let path = url.split(['?', '#']).next().unwrap_or(url);
+    let extension = path.rsplit('/').next()?.rsplit_once('.')?.1;
+    match extension {
+        "xht" | "xhtml" => Some(APPLICATION_XHTML),
+        "xml" => Some(APPLICATION_XML),
+        "svg" => Some("image/svg+xml"),
+        _ => None,
+    }
+}
 
 /// Infra's ASCII whitespace.
 const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
@@ -206,6 +225,8 @@ pub(crate) struct DocInfo {
     pub xml_interface: bool,
     pub quirks: bool,
     pub content_type: &'static str,
+    /// An iframe's: a `defaultView`, though no script of its own.
+    pub frame: bool,
     /// One allocation, however many documents take the URL.
     pub url: Arc<str>,
 }
@@ -402,6 +423,19 @@ pub struct Document {
     /// The document nodes made now belong to: the document of the running
     /// member's `this` (see [`Document::enter`]).
     making: usize,
+    /// The page's document is an HTML document: all of them are, on an
+    /// ordinary page, which saves the lookup.
+    page_html: bool,
+    /// An `<iframe>` to its document, once it has one.
+    frames: HashMap<usize, usize>,
+    /// `<iframe>`s whose load has been started. Each loads once.
+    frames_started: HashSet<usize>,
+    /// Loads started in this render, whatever became of them.
+    frame_count: usize,
+    /// Sources a resolver gave, to parse inside a call: (element, text, URL).
+    frame_sources: VecDeque<(usize, Option<String>, String)>,
+    /// Handles of `<iframe>`s whose `load` is due.
+    frame_loads: VecDeque<Handle>,
     /// See [`Special`].
     specials: HashMap<usize, Special>,
     /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
@@ -436,6 +470,30 @@ impl std::fmt::Debug for Document {
 }
 
 impl Document {
+    /// Parses `source` as an XML document (a page served as XHTML), with
+    /// the default [`DomLimits`]. See [`parse_xml_with_limits`](Self::parse_xml_with_limits).
+    pub fn parse_xml(source: &str) -> Result<Self, DomError> {
+        Self::parse_xml_with_limits(source, DomLimits::default())
+    }
+
+    /// Parses `source` as an XML document of type `application/xhtml+xml`.
+    /// Input that isn't well-formed gives a document with a `parsererror`
+    /// element, as DOMParser's does, so the page's scripts run on what a
+    /// browser would show. Fails on the same limits as [`parse_with_limits`](Self::parse_with_limits).
+    pub fn parse_xml_with_limits(source: &str, limits: DomLimits) -> Result<Self, DomError> {
+        let mut doc = Self::parse_with_limits("", limits)?;
+        let root = doc.root();
+        doc.remove_children_quietly(root);
+        if let Some(d) = doc.docs.get_mut(&root) {
+            d.html = false;
+            d.quirks = false;
+            d.content_type = APPLICATION_XHTML;
+        }
+        doc.page_html = false;
+        doc.fill_xml_document(root, source)?;
+        Ok(doc)
+    }
+
     /// Parses `html` with the default [`DomLimits`].
     pub fn parse(html: &str) -> Result<Self, DomError> {
         Self::parse_with_limits(html, DomLimits::default())
@@ -477,6 +535,7 @@ impl Document {
             xml_interface: false,
             quirks: parsed.quirks,
             content_type: TEXT_HTML,
+            frame: false,
             url: Arc::from("about:blank"),
         };
         let mut doc = Self {
@@ -501,6 +560,12 @@ impl Document {
             docs: HashMap::from([(root, info)]),
             owners: HashMap::new(),
             making: root,
+            page_html: true,
+            frames: HashMap::new(),
+            frames_started: HashSet::new(),
+            frame_count: 0,
+            frame_sources: VecDeque::new(),
+            frame_loads: VecDeque::new(),
             specials: parsed.specials.into_iter().collect(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
@@ -683,7 +748,10 @@ impl Document {
 
     /// Whether `id` is in an HTML document, not an XML one.
     pub(crate) fn in_html_document(&self, id: usize) -> bool {
-        self.owners.is_empty() || self.info(self.owner_of_node(id)).html
+        if self.owners.is_empty() {
+            return self.page_html;
+        }
+        self.info(self.owner_of_node(id)).html
     }
 
     fn set_owner(&mut self, id: usize, doc: usize) {
@@ -734,6 +802,7 @@ impl Document {
             xml_interface: false,
             quirks: false,
             content_type,
+            frame: false,
             url: Arc::from("about:blank"),
         }
     }
@@ -761,12 +830,18 @@ impl Document {
         &self.info(doc).url
     }
 
-    /// Sets the URL of the page's document (`document.URL`). `about:blank`
-    /// until set. `pub` for the runner and the facade; the crate is unpublished.
+    /// Sets the URL of the page's document (`document.URL`), which the
+    /// documents it makes through `DOMParser` take on. `about:blank` until set.
+    /// An XML page's `contentType` then goes by the URL's extension, as a
+    /// frame's does, for want of a Content-Type. `pub` for the runner and the
+    /// facade; the crate is unpublished.
     pub fn set_url(&mut self, url: &str) {
         let root = self.root();
         if let Some(d) = self.docs.get_mut(&root) {
             d.url = Arc::from(url);
+            if !d.html {
+                d.content_type = frame_content_type(url).unwrap_or(APPLICATION_XHTML);
+            }
         }
     }
 
@@ -843,9 +918,13 @@ impl Document {
     /// DOMParser's `text/html` (HTML §8.5.3): a new document parsed from
     /// `html`, with scripting off, its URL the page's. Fits the limits with
     /// everything else in the render. `Ok(None)` if the time limit passed.
-    pub(crate) fn parse_html_document(&mut self, html: &str) -> Result<Option<usize>, DomError> {
+    pub(crate) fn parse_html_document(
+        &mut self,
+        html: &str,
+        url: Arc<str>,
+    ) -> Result<Option<usize>, DomError> {
         let mut info = self.blank_info(true, TEXT_HTML);
-        info.url = self.info(self.root()).url.clone();
+        info.url = url;
         let doc = self.new_document(info)?;
         let room = self.limits.max_nodes.saturating_sub(self.node_count());
         let deadline = self.deadline.clone();
@@ -915,6 +994,236 @@ impl Document {
         }
         self.own_subtree(doc, doc);
         Ok(Some(doc))
+    }
+
+    /// The most bytes of strings a document may hold.
+    pub(crate) fn max_text_bytes(&self) -> usize {
+        self.limits.max_text_bytes
+    }
+
+    /// The deepest nesting allowed.
+    pub(crate) fn max_depth(&self) -> usize {
+        self.limits.max_depth
+    }
+
+    /// DOMParser for an XML type (HTML §8.5.3), or a frame's XML document: a
+    /// new `XMLDocument` of `content_type`. Input that isn't well-formed gives
+    /// a document holding only a `parsererror` element, as the standard says;
+    /// a limit is an error. `Ok(None)` if the time limit passed.
+    pub(crate) fn parse_xml_document(
+        &mut self,
+        text: &str,
+        content_type: &'static str,
+        url: Arc<str>,
+    ) -> Result<Option<usize>, DomError> {
+        let mut info = self.blank_info(false, content_type);
+        info.url = url;
+        info.xml_interface = true;
+        let doc = self.new_document(info)?;
+        self.fill_xml_document(doc, text)
+    }
+
+    /// `<iframe>` `id`'s document (HTML §4.8.5): none unless it is connected;
+    /// its initial `about:blank` until one has loaded.
+    pub(crate) fn frame_document(&mut self, id: usize) -> Result<Option<usize>, DomError> {
+        let owner = self.owner_of_node(id);
+        if !self.is_connected(id) || (owner != self.root() && !self.info(owner).frame) {
+            // Removal discards the browsing context, and a document with none
+            // of its own can't give one.
+            self.frames.remove(&id);
+            self.frames_started.remove(&id);
+            return Ok(None);
+        }
+        if let Some(&d) = self.frames.get(&id) {
+            return Ok(Some(d));
+        }
+        let Some(d) = self.parse_html_document("", Arc::from("about:blank"))? else {
+            return Ok(None);
+        };
+        if let Some(info) = self.docs.get_mut(&d) {
+            info.frame = true;
+        }
+        self.frames.insert(id, d);
+        Ok(Some(d))
+    }
+
+    /// `<iframe>`s in the page and its frames that haven't started to load,
+    /// in tree order: (element, `srcdoc`, `src`). At most `room` of them, so
+    /// a page's frames are bounded whatever it builds.
+    pub(crate) fn frames_to_load(&mut self) -> Vec<(usize, Option<String>, Option<String>)> {
+        let mut out = Vec::new();
+        let mut stack = vec![self.root()];
+        while let Some(n) = stack.pop() {
+            stack.extend(self.children(n).iter().rev().copied());
+            if !self.is_html_element(n, &["iframe"]) {
+                continue;
+            }
+            if let Some(&d) = self.frames.get(&n) {
+                stack.push(d);
+            }
+            if !self.frames_started.contains(&n) && self.frame_count + out.len() < MAX_FRAMES {
+                let src = self.attribute(n, "src").filter(|s| !s.is_empty());
+                out.push((n, self.attribute(n, "srcdoc"), src));
+            }
+        }
+        self.frame_count += out.len();
+        for (n, ..) in &out {
+            self.frames_started.insert(*n);
+        }
+        out
+    }
+
+    /// Keeps a frame's source until a call parses it, under that call's limits.
+    pub(crate) fn queue_frame(&mut self, id: usize, text: Option<String>, url: String) {
+        self.frame_sources.push_back((id, text, url));
+    }
+
+    /// Parses the next queued frame, inside a native call, so the time limit,
+    /// a cancel and the panic guard all reach the parse. Gives `<iframe>` its
+    /// document and queues its `load`. `text` `None` keeps what it has (a
+    /// failed load still fires `load`, as a 404 does). The type goes by the
+    /// URL's extension: there is no Content-Type here. A frame's scripts don't
+    /// run. `Ok(None)` if nothing is queued; `Ok(Some(false))` if the time
+    /// limit passed.
+    pub(crate) fn load_next_frame(&mut self) -> Result<Option<bool>, DomError> {
+        let Some((id, text, url)) = self.frame_sources.pop_front() else {
+            return Ok(None);
+        };
+        if !self.is_connected(id) {
+            return Ok(Some(true));
+        }
+        let url: Arc<str> = Arc::from(url);
+        let parsed = match text {
+            None => self.frame_document(id)?,
+            Some(text) => {
+                let parsed = match frame_content_type(&url) {
+                    Some(t) => self.parse_xml_document(&text, t, url)?,
+                    None => self.parse_html_document(&text, url)?,
+                };
+                if parsed.is_none() {
+                    return Ok(Some(false));
+                }
+                parsed
+            }
+        };
+        if let Some(d) = parsed {
+            if let Some(info) = self.docs.get_mut(&d) {
+                info.frame = true;
+            }
+            self.frames.insert(id, d);
+        }
+        let h = self.handle_for(id)?;
+        self.frame_loads.push_back(h);
+        Ok(Some(true))
+    }
+
+    /// The next `<iframe>` whose `load` is due, 0 for none.
+    pub(crate) fn next_frame(&mut self) -> Handle {
+        self.frame_loads.pop_front().unwrap_or(0)
+    }
+
+    /// HTML §2.4.1 "document base URL": the URL, or the first `<base href>`
+    /// in the head parsed against it. A `<base>` outside the head is ignored
+    /// here (a gap): reflected URLs read this often, and a walk of the head
+    /// stays small.
+    pub(crate) fn base_url(&self, doc: usize) -> String {
+        let url = self.url(doc).to_owned();
+        let Some(head) = self.head(doc) else {
+            return url;
+        };
+        let base = self.children(head).iter().find_map(|&c| {
+            if self.is_html_element(c, &["base"]) {
+                self.attribute(c, "href")
+            } else {
+                None
+            }
+        });
+        let parsed = base.and_then(|b| url::Url::parse(&url).and_then(|u| u.join(&b)).ok());
+        parsed.map_or(url, String::from)
+    }
+
+    /// `src`, resolved against the page's URL: what a frame's document is
+    /// called. The resolver is asked for `src` as the page spelled it, without
+    /// the fragment.
+    pub(crate) fn frame_url(&self, src: &str) -> String {
+        let base = url::Url::parse(&self.info(self.root()).url);
+        base.and_then(|b| b.join(src))
+            .map_or_else(|_| src.to_owned(), String::from)
+    }
+
+    /// Parses `text` under the empty document `doc`.
+    fn fill_xml_document(&mut self, doc: usize, text: &str) -> Result<Option<usize>, DomError> {
+        let seed = HashMap::new();
+        let done = self.making_in(doc, |d| {
+            xml::parse(d, doc, text, xml::Mode::Document, &seed, 0)
+        });
+        match done {
+            Ok(()) => Ok(Some(doc)),
+            Err(xml::Stop::Limit(_)) => {
+                self.remove_children_quietly(doc);
+                match self.fault.take() {
+                    Some(e) => Err(e),
+                    None => Ok(None),
+                }
+            }
+            Err(xml::Stop::Malformed(message)) => {
+                self.remove_children_quietly(doc);
+                self.making_in(doc, |d| {
+                    let e = d.create_element_with(xml::error_name(), Vec::new())?;
+                    d.place_quietly(doc, &[e], None);
+                    let t = d.create_text(&message)?;
+                    d.place_quietly(e, &[t], None);
+                    Ok(Some(doc))
+                })
+            }
+        }
+    }
+
+    /// Parses `text` as XML element content into a new fragment, in the
+    /// document of `context`, with the namespaces in scope there (DOM Parsing
+    /// §2.1, "XML fragment parsing"). `Err` with the error for a `SyntaxError`
+    /// or a fatal stop.
+    pub(crate) fn parse_xml_fragment(
+        &mut self,
+        context: usize,
+        parent: usize,
+        text: &str,
+    ) -> Result<usize, xml::Stop> {
+        // Innermost first: a prefix seen stays as it is.
+        let mut scope: HashMap<String, Namespace> = HashMap::new();
+        let mut at = Some(context);
+        while let Some(n) = at {
+            for a in self.node(n).attrs().into_iter().flatten() {
+                self.poll_by(1 + a.value.len() / 64)?;
+                if a.name.ns.as_ref() == "http://www.w3.org/2000/xmlns/" {
+                    let prefix = match &a.name.prefix {
+                        Some(_) => a.name.local.to_string(),
+                        None => String::new(),
+                    };
+                    scope
+                        .entry(prefix)
+                        .or_insert_with(|| Namespace::from(a.value.as_str()));
+                }
+            }
+            if let Some(q) = self.element_name(n)
+                && !q.ns.is_empty()
+            {
+                let prefix = q.prefix.as_deref().unwrap_or("").to_owned();
+                scope.entry(prefix).or_insert_with(|| q.ns.clone());
+            }
+            at = self.parent(n);
+        }
+        let frag = self
+            .create_fragment()
+            .map_err(|e| xml::Stop::Limit(self.fail(e)))?;
+        let depth = self.depth(parent);
+        match xml::parse(self, frag, text, xml::Mode::Fragment, &scope, depth) {
+            Ok(()) => Ok(frag),
+            Err(e) => {
+                self.drop_subtree(frag);
+                Err(e)
+            }
+        }
     }
 
     /// `id`'s children, serialized (HTML §13.3, `innerHTML`).
@@ -2704,25 +3013,6 @@ pub(crate) fn is_valid_element_name(name: &str) -> bool {
 /// DOM "valid attribute local name" (§1.5, namespaces).
 pub(crate) fn is_valid_attribute_name(name: &str) -> bool {
     !name.is_empty() && !name.contains(['\t', '\n', '\u{c}', '\r', ' ', '\0', '/', '=', '>'])
-}
-
-/// Whether `name` matches XML's Name production (XML 1.0 §2.3), for
-/// processing instruction targets.
-pub(crate) fn is_xml_name(name: &str) -> bool {
-    fn start(c: char) -> bool {
-        matches!(c, ':' | '_' | 'A'..='Z' | 'a'..='z' | '\u{C0}'..='\u{D6}' | '\u{D8}'..='\u{F6}'
-            | '\u{F8}'..='\u{2FF}' | '\u{370}'..='\u{37D}' | '\u{37F}'..='\u{1FFF}'
-            | '\u{200C}'..='\u{200D}' | '\u{2070}'..='\u{218F}' | '\u{2C00}'..='\u{2FEF}'
-            | '\u{3001}'..='\u{D7FF}' | '\u{F900}'..='\u{FDCF}' | '\u{FDF0}'..='\u{FFFD}'
-            | '\u{10000}'..='\u{EFFFF}')
-    }
-    let mut chars = name.chars();
-    chars.next().is_some_and(start)
-        && chars.all(|c| {
-            start(c)
-                || matches!(c, '-' | '.' | '0'..='9' | '\u{B7}' | '\u{300}'..='\u{36F}'
-                    | '\u{203F}'..='\u{2040}')
-        })
 }
 
 /// Writes an attribute's serialized name (HTML Standard §13.3, "serializing
