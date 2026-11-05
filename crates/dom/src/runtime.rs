@@ -122,8 +122,9 @@ pub struct PageReport {
     /// Promises rejected with no handler at the end of a microtask
     /// checkpoint: an exception in an async function or a promise reaction
     /// that no script handled. They are not in `uncaught`: no `error` event
-    /// fires for them, so no listener can cancel them. A limit is never here:
-    /// it fails the call.
+    /// fires for them, so no listener can cancel them. A limit nearly never
+    /// is, since it fails the call: the exception is one reached while Rust
+    /// reads the reason (see "Errors" in `DESIGN.md`).
     pub unhandled_rejections: u64,
     /// The first few reasons, as messages, each cut to a few KiB.
     pub rejections: Vec<String>,
@@ -208,6 +209,9 @@ impl DomRuntime {
     /// and its microtasks are a task: a limit reached in them fails the call,
     /// whether in the script, a listener or a promise nothing handled, and a
     /// promise left rejected counts in the next report.
+    ///
+    /// The script and that checkpoint are two sandbox calls with a deadline
+    /// each, so a hostile script can use up to twice [`Limits::time`].
     pub fn eval<T>(&mut self, source: &str) -> Result<T, DomError>
     where
         T: for<'js> FromJs<'js>,

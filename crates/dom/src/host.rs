@@ -28,6 +28,109 @@ fn value_string(v: Value) -> String {
     }
 }
 
+/// HTML §3.2.2 "element interface", from the element index (§ Index) and the
+/// obsolete elements of §16.
+fn html_interface(local: &str) -> u32 {
+    match local {
+        "a" => interface::HTML_ANCHOR_ELEMENT,
+        "area" => interface::HTML_AREA_ELEMENT,
+        "audio" => interface::HTML_AUDIO_ELEMENT,
+        "base" => interface::HTML_BASE_ELEMENT,
+        "blockquote" | "q" => interface::HTML_QUOTE_ELEMENT,
+        "body" => interface::HTML_BODY_ELEMENT,
+        "br" => interface::HTMLBR_ELEMENT,
+        "button" => interface::HTML_BUTTON_ELEMENT,
+        "canvas" => interface::HTML_CANVAS_ELEMENT,
+        "caption" => interface::HTML_TABLE_CAPTION_ELEMENT,
+        "col" | "colgroup" => interface::HTML_TABLE_COL_ELEMENT,
+        "data" => interface::HTML_DATA_ELEMENT,
+        "datalist" => interface::HTML_DATA_LIST_ELEMENT,
+        "del" | "ins" => interface::HTML_MOD_ELEMENT,
+        "details" => interface::HTML_DETAILS_ELEMENT,
+        "dialog" => interface::HTML_DIALOG_ELEMENT,
+        "dir" => interface::HTML_DIRECTORY_ELEMENT,
+        "div" => interface::HTML_DIV_ELEMENT,
+        "dl" => interface::HTMLD_LIST_ELEMENT,
+        "embed" => interface::HTML_EMBED_ELEMENT,
+        "fieldset" => interface::HTML_FIELD_SET_ELEMENT,
+        "font" => interface::HTML_FONT_ELEMENT,
+        "form" => interface::HTML_FORM_ELEMENT,
+        "frame" => interface::HTML_FRAME_ELEMENT,
+        "frameset" => interface::HTML_FRAME_SET_ELEMENT,
+        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => interface::HTML_HEADING_ELEMENT,
+        "head" => interface::HTML_HEAD_ELEMENT,
+        "hr" => interface::HTMLHR_ELEMENT,
+        "html" => interface::HTML_HTML_ELEMENT,
+        "iframe" => interface::HTMLI_FRAME_ELEMENT,
+        "img" => interface::HTML_IMAGE_ELEMENT,
+        "input" => interface::HTML_INPUT_ELEMENT,
+        "label" => interface::HTML_LABEL_ELEMENT,
+        "legend" => interface::HTML_LEGEND_ELEMENT,
+        "li" => interface::HTMLLI_ELEMENT,
+        "link" => interface::HTML_LINK_ELEMENT,
+        "map" => interface::HTML_MAP_ELEMENT,
+        "marquee" => interface::HTML_MARQUEE_ELEMENT,
+        "menu" => interface::HTML_MENU_ELEMENT,
+        "meta" => interface::HTML_META_ELEMENT,
+        "meter" => interface::HTML_METER_ELEMENT,
+        "object" => interface::HTML_OBJECT_ELEMENT,
+        "ol" => interface::HTMLO_LIST_ELEMENT,
+        "optgroup" => interface::HTML_OPT_GROUP_ELEMENT,
+        "option" => interface::HTML_OPTION_ELEMENT,
+        "output" => interface::HTML_OUTPUT_ELEMENT,
+        "p" => interface::HTML_PARAGRAPH_ELEMENT,
+        "param" => interface::HTML_PARAM_ELEMENT,
+        "picture" => interface::HTML_PICTURE_ELEMENT,
+        "pre" | "listing" | "xmp" => interface::HTML_PRE_ELEMENT,
+        "progress" => interface::HTML_PROGRESS_ELEMENT,
+        "script" => interface::HTML_SCRIPT_ELEMENT,
+        "select" => interface::HTML_SELECT_ELEMENT,
+        "slot" => interface::HTML_SLOT_ELEMENT,
+        "source" => interface::HTML_SOURCE_ELEMENT,
+        "span" => interface::HTML_SPAN_ELEMENT,
+        "style" => interface::HTML_STYLE_ELEMENT,
+        "table" => interface::HTML_TABLE_ELEMENT,
+        "tbody" | "tfoot" | "thead" => interface::HTML_TABLE_SECTION_ELEMENT,
+        "td" | "th" => interface::HTML_TABLE_CELL_ELEMENT,
+        "template" => interface::HTML_TEMPLATE_ELEMENT,
+        "textarea" => interface::HTML_TEXT_AREA_ELEMENT,
+        "time" => interface::HTML_TIME_ELEMENT,
+        "title" => interface::HTML_TITLE_ELEMENT,
+        "tr" => interface::HTML_TABLE_ROW_ELEMENT,
+        "track" => interface::HTML_TRACK_ELEMENT,
+        "ul" => interface::HTMLU_LIST_ELEMENT,
+        "video" => interface::HTML_VIDEO_ELEMENT,
+        "abbr" | "acronym" | "address" | "article" | "aside" | "b" | "basefont" | "bdi" | "bdo"
+        | "big" | "center" | "cite" | "code" | "dd" | "dfn" | "dt" | "em" | "figcaption"
+        | "figure" | "footer" | "header" | "hgroup" | "i" | "kbd" | "main" | "mark" | "nav"
+        | "nobr" | "noembed" | "noframes" | "noscript" | "plaintext" | "rb" | "rp" | "rt"
+        | "rtc" | "ruby" | "s" | "samp" | "search" | "section" | "small" | "strike" | "strong"
+        | "sub" | "summary" | "sup" | "tt" | "u" | "var" | "wbr" => interface::HTML_ELEMENT,
+        name if custom_element_name(name) => interface::HTML_ELEMENT,
+        _ => interface::HTML_UNKNOWN_ELEMENT,
+    }
+}
+
+/// HTML §4.13.3 "valid custom element name", as far as it matters here: a
+/// name with a hyphen, starting with a lowercase ASCII letter, with no
+/// uppercase ASCII letter, and not one of the reserved names.
+fn custom_element_name(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_lowercase())
+        && name.contains('-')
+        && !name.contains(|c: char| c.is_ascii_uppercase())
+        && !matches!(
+            name,
+            "annotation-xml"
+                | "color-profile"
+                | "font-face"
+                | "font-face-src"
+                | "font-face-uri"
+                | "font-face-format"
+                | "font-face-name"
+                | "missing-glyph"
+        )
+}
+
 impl Document {
     /// Records a fatal error; the returned exception stops the script.
     pub(crate) fn fail(&mut self, e: DomError) -> BindingError {
@@ -468,15 +571,7 @@ impl Document {
             Some(Kind::Text) => interface::TEXT,
             Some(Kind::Comment) => interface::COMMENT,
             Some(Kind::Element) => match self.element_name(id) {
-                Some(n) if n.ns == ns!(html) => match n.local.as_ref() {
-                    "a" => interface::HTML_ANCHOR_ELEMENT,
-                    "img" => interface::HTML_IMAGE_ELEMENT,
-                    "input" => interface::HTML_INPUT_ELEMENT,
-                    "link" => interface::HTML_LINK_ELEMENT,
-                    "script" => interface::HTML_SCRIPT_ELEMENT,
-                    "template" => interface::HTML_TEMPLATE_ELEMENT,
-                    _ => interface::HTML_ELEMENT,
-                },
+                Some(n) if n.ns == ns!(html) => html_interface(n.local.as_ref()),
                 Some(n) if n.ns == ns!(svg) => interface::SVG_ELEMENT,
                 _ => interface::ELEMENT,
             },

@@ -6,8 +6,8 @@
 //
 // A wrapper is an ordinary object carrying a state record { g, h, m } in a
 // private class field (#s), stamped on by `Brand`: g is the document's
-// generation, h the handle, m the interface bits (the concrete interface and
-// its ancestors), w the wrapper, plus what glue_events.js keeps there. Private fields can't be read, written, listed or
+// generation, h the handle, m the set of interface numbers it brands for (the
+// concrete interface and its ancestors), w the wrapper, plus what glue_events.js keeps there. Private fields can't be read, written, listed or
 // intercepted through any prototype, Proxy or reflection, so scripts can
 // neither read nor forge a handle; `#s in o` is the brand check. Every
 // member passes the pair to Rust, which resolves it through the document on
@@ -62,7 +62,7 @@
   }
   const stateOf = Brand.of;
 
-  // Interface objects, prototypes and brand masks by interface number.
+  // Interface objects, prototypes and brand sets by interface number.
   const ctors = create(null), protos = create(null), masks = create(null), names = create(null);
   // Proxy handlers of legacy platform objects, by interface number.
   const exotics = create(null);
@@ -98,7 +98,7 @@
   // `addEventListener(...)`.
   function self(o, id) {
     const s = stateOf(o === undefined || o === null ? G : o);
-    if (s === null || (s.m & (1 << id)) === 0) throw new TE('Illegal invocation');
+    if (s === null || s.m[id] !== true) throw new TE('Illegal invocation');
     return s;
   }
   function need(argc, min, what) {
@@ -111,7 +111,7 @@
   function str(x) { return apply(toWellFormed, `${x}`, []); }
   function obj(x, id, g) {
     const s = stateOf(x);
-    if (s === null || (s.m & (1 << id)) === 0) throw new TE('Argument is not a ' + names[id]);
+    if (s === null || s.m[id] !== true) throw new TE('Argument is not a ' + names[id]);
     if (s.g !== g) stale();
     return s.h;
   }
@@ -119,7 +119,7 @@
   // `(Node or DOMString)`: a handle or a string. Rust tells them by type.
   function nodeOrStr(x, g) {
     const s = stateOf(x);
-    if (s === null || (s.m & nodeBit) === 0) return str(x);
+    if (s === null || s.m[I_Node] !== true) return str(x);
     if (s.g !== g) stale();
     return s.h;
   }
@@ -186,7 +186,11 @@
       setPrototypeOf(proto, protos[parent]);
     }
     ctors[id] = f; protos[id] = proto; names[id] = name;
-    masks[id] = (parent >= 0 ? masks[parent] : 0) | (1 << id);
+    // One set per interface, shared by its wrappers.
+    const m = create(null);
+    if (parent >= 0) for (const k in masks[parent]) m[k] = true;
+    m[id] = true;
+    masks[id] = m;
   }
   function konst(id, name, value) {
     const d = { value, enumerable: true };
