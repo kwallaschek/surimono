@@ -780,6 +780,12 @@ fn hidden_closing_brackets_do_not_hide_nesting() {
             if (level.includes('(/*') && name(() => api(at)) !== 'none') out.push('at ' + level);
           }
         }
+        // Every kind of block counts, in `:is()`'s forgiving recovery too: curly
+        // blocks are nesting the selector grammar has no use for, and they aborted
+        // the process as well. 60000 is under the 128 KiB length cap.
+        for (const op of ['{', '[', '(']) {
+          for (const api of apis) out.push(name(() => api(':is(' + op.repeat(60000))));
+        }
         // Nothing here nests at all, so none of it is refused.
         for (const s of ['b/*' + '('.repeat(20) + '*/', 'b[a="' + '('.repeat(20) + '"]',
                          "b[a='" + '['.repeat(20) + "']", 'b' + '\\('.repeat(20)]) {
@@ -787,7 +793,7 @@ fn hidden_closing_brackets_do_not_hide_nesting() {
         }
         out.join()"#;
     let page = "<!doctype html><body><b></b>".to_owned();
-    let refused = vec!["SyntaxError"; 10 * 3];
+    let refused = vec!["SyntaxError"; (10 + 3) * 3];
     let accepted = vec!["none"; 4 * 3];
     assert_eq!(
         on_the_headroom(page, SCRIPT).as_deref(),
