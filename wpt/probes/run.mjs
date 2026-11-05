@@ -2,10 +2,12 @@
 // Writes wpt/probes/results.json: what the pinned Chromium and surimono log for
 // each page in cases.mjs.
 //
-//   node wpt/probes/run.mjs RUNNER [--filter STR]
+//   node wpt/probes/run.mjs RUNNER COMMIT
 //
 // RUNNER is the surimono-wpt-runner binary (wpt/README.md, "Runner"), which runs
-// one page with --probe. Pages are served from memory; no network.
+// one page with --probe, and COMMIT the surimono commit it was built from, which
+// goes in results.json as it does in wpt-results.json. Pages are served from
+// memory; no network.
 
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
@@ -17,9 +19,9 @@ import { cases, page } from './cases.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { chromium } = createRequire(path.join(here, '../../fixtures/tools/package.json'))('playwright');
-const [runner] = process.argv.slice(2);
-if (!runner) {
-  console.error('usage: run.mjs RUNNER');
+const [runner, commit] = process.argv.slice(2);
+if (!runner || !commit) {
+  console.error('usage: run.mjs RUNNER COMMIT');
   process.exit(1);
 }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wpt-probes-'));
@@ -44,6 +46,6 @@ for (const [id, body] of Object.entries(cases)) {
 const version = browser.version();
 await browser.close();
 fs.rmdirSync(tmp);
-fs.writeFileSync(path.join(here, 'results.json'), `${JSON.stringify({ chromium: version, cases: results }, null, 1)}\n`);
+fs.writeFileSync(path.join(here, 'results.json'), `${JSON.stringify({ chromium: version, surimono_commit: commit, cases: results }, null, 1)}\n`);
 const same = Object.values(results).filter((r) => JSON.stringify(r.chrome.log) === JSON.stringify(r.surimono.log)).length;
 console.error(`${Object.keys(results).length} cases, ${same} log the same in both`);

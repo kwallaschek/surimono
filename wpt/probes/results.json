@@ -1,5 +1,6 @@
 {
  "chromium": "153.0.8010.12",
+ "surimono_commit": "743883d6fc589ea536b53c58a807d39e1af8fe22",
  "cases": {
   "write": {
    "chrome": {

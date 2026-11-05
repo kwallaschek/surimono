@@ -193,9 +193,10 @@ surimono-dom has the name. `location` here is data with no behaviour, and the ga
 is in `COMPAT.md`.
 
 The harness also needs `window` as an event target, with `self` the same object,
-`DOMContentLoaded` then `load` after the scripts, `error` and `unhandledrejection` on
-`window`, `document.title`, `meta` and `script` lookups, `setTimeout` on the virtual
-clock, and `Promise`; surimono-dom has all of those on main.
+`DOMContentLoaded` then `load` after the scripts, `error` on `window`, somewhere to
+register an `unhandledrejection` listener (the event itself doesn't fire: `COMPAT.md`),
+`document.title`, `meta` and `script` lookups, `setTimeout` on the virtual clock, and
+`Promise`; surimono-dom has all of those on main.
 
 ## Results
 

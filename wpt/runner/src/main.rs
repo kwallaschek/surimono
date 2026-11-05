@@ -7,7 +7,7 @@
 //! surimono-wpt-runner --root wpt --out wpt-results.json [--jobs 2] [--filter STR]
 //!                     [--commit SHA] [--time-limit-ms N] [--wall-limit-ms N]
 //! surimono-wpt-runner --root wpt --one URL FILE   # child: one test, JSON on stdout
-//! surimono-wpt-runner --probe FILE                # wpt/probes: one page, JSON on stdout
+//! surimono-wpt-runner --probe FILE [--time-limit-ms N]  # wpt/probes: one page, JSON on stdout
 //! ```
 
 use std::collections::BTreeMap;
@@ -122,7 +122,7 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     if let Some(file) = flag("--probe") {
-        println!("{}", probe(Path::new(&file)));
+        println!("{}", probe(Path::new(&file), limits.time));
         return ExitCode::SUCCESS;
     }
     let Some(out) = flag("--out") else {
@@ -371,11 +371,11 @@ fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
 }
 
 /// One page of `wpt/probes`: its global `L`, with the page report.
-fn probe(file: &Path) -> Value {
+fn probe(file: &Path, time_limit: Duration) -> Value {
     let page = (|| {
         let html = fs::read_to_string(file).map_err(|e| e.to_string())?;
         let doc = Document::parse(&html).map_err(|e| e.to_string())?;
-        DomRuntime::new(Limits::default().with_time(TIME_LIMIT))
+        DomRuntime::new(Limits::default().with_time(time_limit))
             .map_err(|e| e.to_string())
             .map(|mut rt| {
                 rt.load(doc);
