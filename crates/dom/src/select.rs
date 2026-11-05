@@ -5,9 +5,10 @@
 //! polynomial in a wide tree's size, in a call the sandbox can't
 //! interrupt. So every element goes through [`Guarded`], which delegates to
 //! blitz-dom's `selectors::Element` for `&Node` and charges a clock for the
-//! work, not only for navigation: each element's match for the selector
-//! list's length, each sibling scanned, each child `:empty` reads, and each
-//! attribute test for what it reads. Once the deadline passes each step
+//! work, not only for navigation: each element reached for the selector's
+//! size, since all of it can be tested there, each sibling scanned, each
+//! child `:empty` reads, and each attribute test for what it reads. Once the
+//! deadline passes each step
 //! answers "no such element" or "no match", the match ends quickly, and
 //! [`Matcher::stopped`] tells the caller.
 //!
@@ -49,10 +50,24 @@ const STEPS_PER_CHECK: usize = 4096;
 /// The clock shared by one query.
 struct Budget {
     deadline: Option<Deadline>,
+    /// Steps charged so far.
     steps: Cell<usize>,
+    /// The step count at which to look at the clock next.
+    next_check: Cell<usize>,
     stopped: Cell<bool>,
     /// Where [`index_in`](Self::index_in) last found a node.
     hint: Cell<usize>,
+    /// What testing the whole selector on one element costs, at most: see
+    /// [`element_weight`].
+    weight: usize,
+}
+
+/// The steps one element's test of a selector of `bytes` bytes costs. Nothing
+/// charges for simple selectors, and a list nested in `:is()` is invisible
+/// from the top level, so the size of the text stands in: a compound takes
+/// at least two bytes with its separator (`x,`).
+fn element_weight(bytes: usize) -> usize {
+    bytes / 2 + 1
 }
 
 impl Budget {
@@ -61,17 +76,23 @@ impl Budget {
         self.charge(1)
     }
 
+    /// Whether matching should give up; counts reaching one element, where
+    /// the rest of the selector is tested.
+    fn reach(&self) -> bool {
+        self.charge(self.weight)
+    }
+
     /// Whether matching should give up; counts `work` steps.
     fn charge(&self, work: usize) -> bool {
         if self.stopped.get() {
             return true;
         }
         let steps = self.steps.get().saturating_add(work);
-        if steps < STEPS_PER_CHECK {
-            self.steps.set(steps);
+        self.steps.set(steps);
+        if steps < self.next_check.get() {
             return false;
         }
-        self.steps.set(0);
+        self.next_check.set(steps.saturating_add(STEPS_PER_CHECK));
         if self.deadline.as_ref().is_some_and(Deadline::passed) {
             self.stopped.set(true);
         }
@@ -116,7 +137,7 @@ impl std::fmt::Debug for Guarded<'_> {
 
 impl<'a> Guarded<'a> {
     fn step(&self, next: Option<&'a Node>) -> Option<Self> {
-        if self.budget.over() {
+        if self.budget.reach() {
             return None;
         }
         next.map(|node| Self {
@@ -137,6 +158,9 @@ impl<'a> Guarded<'a> {
             let node = self.node.with(*list.get(at)?);
             if node.is_element() {
                 self.budget.hint.set(at);
+                if self.budget.reach() {
+                    return None;
+                }
                 return Some(Self {
                     node,
                     budget: self.budget,
@@ -202,6 +226,9 @@ impl Element for Guarded<'_> {
             }
             let node = self.node.with(c);
             if node.is_element() {
+                if self.budget.reach() {
+                    return None;
+                }
                 return Some(Self {
                     node,
                     budget: self.budget,
@@ -347,14 +374,17 @@ pub(crate) struct Matcher {
 }
 
 impl Matcher {
-    pub(crate) fn new(quirks: QuirksMode, deadline: Option<Deadline>) -> Self {
+    /// A matcher for one query of the selector text `selector`.
+    pub(crate) fn new(quirks: QuirksMode, deadline: Option<Deadline>, selector: &str) -> Self {
         Self {
             caches: SelectorCaches::default(),
             budget: Budget {
                 deadline,
                 steps: Cell::new(0),
+                next_check: Cell::new(STEPS_PER_CHECK),
                 stopped: Cell::new(false),
                 hint: Cell::new(0),
+                weight: element_weight(selector.len()),
             },
             quirks,
         }
@@ -368,7 +398,7 @@ impl Matcher {
         scope: Option<&Node>,
         list: &SelectorList<Impl>,
     ) -> bool {
-        if self.budget.charge(list.slice().len()) {
+        if self.budget.reach() {
             return false;
         }
         let element = Guarded {
@@ -389,6 +419,12 @@ impl Matcher {
         );
         context.scope_element = scope.map(|s| s.opaque());
         matching::matches_selector_list(list, &element, &mut context)
+    }
+
+    /// The steps charged so far.
+    #[cfg(test)]
+    pub(crate) fn steps(&self) -> usize {
+        self.budget.steps.get()
     }
 
     /// Whether the time limit passed, also between elements.

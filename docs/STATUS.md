@@ -10,9 +10,9 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Thu 5 Nov 2026, 09:25)
+## Now (Thu 5 Nov 2026, 11:45)
 
-Session cse_011c8hfoqJ45246YxjoyFzH7 holds the fleet. #125 and #126 merged (engine patch level 8). Kay's no-release decision above applies. Open: #127 (blocked: poll in notify_rejections; renumber its patch), #128 (approved; takes main), #97 (blocked: stylo cost of `all` times block size; grid-template-areas strings), #104 (waits for #127), #105 (delta approved), #123 (WPT, approved; base e2-04b).
+Session cse_011c8hfoqJ45246YxjoyFzH7 holds the fleet. Merged today: #97 #125 #126 #127 #128 #129 (engine patch level 9). Open: #104 (needs limit errors from promises, via #127), #105 (delta approved; contains #104), #123 (WPT, approved; base e2-04b).
 
 ## Earlier (Wed 4 Nov 2026, 14:50)
 
@@ -82,8 +82,8 @@ green incl. asan and macos-14. #38 head f0d7091f has main up to abd31b70 (not #8
 - Checkpoint 2 answers (above). Don't merge #38 or any phase-2 public API without them.
 
 ### Next (in order; a resumed session starts here)
-1. #127 fixed and merged; #128 merged; #97 fixed; merge main up the DOM stack; #104 reports limits from promises via #127; review deltas; merge #97, #104, #105 in order.
-2. Retarget #123 to main, regenerate COMPAT (command in #123), merge. Then P2-CF-02, E2-13, E2-06/07/08, E2-10 surimono side, E2-12, P2-DX-02. Checkpoint 3 is Sun 22 Nov 11:00.
+1. #104 fix, delta review, merge; #105 merge main, CI, merge.
+2. Retarget #123 to main, regenerate COMPAT (command in #123), merge. Then P2-CF-02, E2-13, E2-06/07/08, E2-10 surimono side, E2-12. Checkpoint 3 is Sun 22 Nov 11:00.
 3. Sun 8 Nov 20:00 JST: five-line digest to Kay.
 4. Each push to main cancels the running full.yml; batch docs commits. Read full.yml on main under Kay's adopted workflows (macos-15).
 

@@ -9,11 +9,12 @@ For the marker format and the renderers, see the [islands guide](islands.md).
 
 ## Add the crates
 
-surimono's crates aren't on crates.io yet. surimono needs a patched QuickJS,
-and a crates.io release can't carry the patch until the fixes are upstream or
-published under crate names of our own. Until then, depend on the repository
-and patch `rquickjs-sys` in your own `Cargo.toml`, because a dependency's
-`[patch]` never reaches your build:
+surimono isn't released yet; the first release is planned for v0.3. Its crates
+aren't on crates.io. surimono needs a patched QuickJS, and a crates.io release
+can't carry the patch until the fixes are upstream or published under crate
+names of our own. Until then, depend on the repository and patch `rquickjs-sys`
+in your own `Cargo.toml`, because a dependency's `[patch]` never reaches your
+build:
 
 ```toml
 [dependencies]

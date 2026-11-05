@@ -1162,6 +1162,9 @@ struct JSObject {
     uint8_t is_uncatchable_error : 1; /* if true, error is not catchable */
     uint8_t tmp_mark : 1; /* used in JS_WriteObjectRec() */
     uint8_t is_HTMLDDA : 1; /* specific annex B IsHtmlDDA behavior */
+    /* surimono: which limit made the engine throw this error, 0 for every
+       other object (see surimono_limit_error). Nothing a script does sets it. */
+    uint8_t surimono_limit : 2;
     uint16_t class_id; /* see JS_CLASS_x */
     /* byte offsets: 16/24 */
     JSShape *shape; /* prototype and property names + flag */
@@ -6232,6 +6235,7 @@ static JSValue JS_NewObjectFromShape(JSContext *ctx, JSShape *sh, JSClassID clas
     p->is_uncatchable_error = 0;
     p->tmp_mark = 0;
     p->is_HTMLDDA = 0;
+    p->surimono_limit = 0;
     p->is_prototype = 0;
     p->first_weak_ref = NULL;
     p->u.opaque = NULL;
@@ -8651,12 +8655,28 @@ static int JS_ThrowTypeErrorReadOnly(JSContext *ctx, int flags, JSAtom atom)
     }
 }
 
+/* surimono: marks the exception just thrown as the engine's own limit error.
+   The object is the one the script can catch and rethrow; a copy, or an error
+   a script made with the same name and message, carries no mark. */
+static void surimono_mark_limit_error(JSContext *ctx, int limit)
+{
+    JSValueConst val = ctx->rt->current_exception;
+    JSObject *p;
+
+    if (JS_VALUE_GET_TAG(val) != JS_TAG_OBJECT)
+        return; /* JS_NULL: no memory for the error object */
+    p = JS_VALUE_GET_OBJ(val);
+    if (p->class_id == JS_CLASS_ERROR)
+        p->surimono_limit = limit;
+}
+
 JSValue JS_ThrowOutOfMemory(JSContext *ctx)
 {
     JSRuntime *rt = ctx->rt;
     if (!rt->in_out_of_memory) {
         rt->in_out_of_memory = true;
         JS_ThrowInternalError(ctx, "out of memory");
+        surimono_mark_limit_error(ctx, 2);
         rt->in_out_of_memory = false;
     }
     return JS_EXCEPTION;
@@ -8664,7 +8684,21 @@ JSValue JS_ThrowOutOfMemory(JSContext *ctx)
 
 static JSValue JS_ThrowStackOverflow(JSContext *ctx)
 {
-    return JS_ThrowRangeError(ctx, "Maximum call stack size exceeded");
+    JS_ThrowRangeError(ctx, "Maximum call stack size exceeded");
+    surimono_mark_limit_error(ctx, 1);
+    return JS_EXCEPTION;
+}
+
+/* surimono: 1 if the engine threw `val` for a stack overflow, 2 for running
+   out of memory, 0 for anything else. Runs no script. */
+int surimono_limit_error(JSValueConst val)
+{
+    JSObject *p;
+
+    if (JS_VALUE_GET_TAG(val) != JS_TAG_OBJECT)
+        return 0;
+    p = JS_VALUE_GET_OBJ(val);
+    return p->surimono_limit;
 }
 
 static JSValue JS_ThrowTypeErrorNotAConstructor(JSContext *ctx,
@@ -8777,10 +8811,11 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
    7: also the polls in the parser, the compiler passes, JSON.parse and
    the regexp compiler (p2-rt-03).
    8: also the duplicate-key check of a proxy's ownKeys in O(n log n)
-   (p2-rt-04). */
+   (p2-rt-04).
+   9: also the mark on the engine's own limit errors (p2-rt-05). */
 int surimono_quickjs_patch_level(void)
 {
-    return 8;
+    return 9;
 }
 
 /* surimono: with enabled = 0, every later allocation of this runtime goes
