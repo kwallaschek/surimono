@@ -878,6 +878,19 @@ fn a_slow_selector_stops_at_the_time_limit() {
 }
 
 #[test]
+fn title_walks_a_wide_page_inside_the_limits() {
+    // The title is the first in tree order, so the walk behind `document.title`
+    // sees every element when there is none, and it is bounded like any other.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let page = format!("<!doctype html><head><body>{}", "<b></b>".repeat(50_000));
+    rt.load(Document::parse(&page).unwrap());
+    let r: String = rt
+        .eval("document.title = 'x'; document.title += 'y'; document.title")
+        .unwrap();
+    assert_eq!(r, "xy");
+}
+
+#[test]
 fn hostile_exotic_objects() {
     // Tampering with what the traps use, then reading through them.
     let mut rt = DomRuntime::new(limits()).unwrap();

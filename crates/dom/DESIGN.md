@@ -195,6 +195,79 @@ CSSOM defines the per-property attributes (`style.fontSize`) in prose, so the
 generator has a pseudo member for them: property names go to the host, others are
 ordinary expandos. `getComputedStyle` is phase 3.
 
+## Events and the page's life
+
+Listeners are JavaScript values, so events live in the glue (`glue_events.js`),
+as timers' handlers do in the prelude: in private records, under the memory
+limit, with no Rust state. The generator still writes these interfaces from the
+IDL (`JS_INTERFACES`): names, constants, brand checks and conversions come from
+WebIDL; each member calls a hand-written `H.<Interface>_<member>`. Lists are
+null-prototype objects, so `Array.prototype` setters see nothing.
+
+The global object is the window: it is branded, inherits from
+`Window.prototype`, and an undefined `this` means it (WebIDL §3.7.6).
+
+`DomRuntime::run_page` queues every lifecycle step as a zero-delay timer before
+any page script runs, so they keep their order ahead of the page's own timers,
+each is a task with a microtask checkpoint after it, and all run in one
+`run_until_settled` call under one time limit. The order is in its doc comment.
+Being timers would make them a page's to cancel and start a script's timers one
+nesting level high, so: `clearTimeout` and `clearInterval` are the glue's and
+refuse the lifecycle's ids (HTML §13.2.7 has no way to cancel "the end"), and
+each step does its work in a microtask of its task, where the loop's nesting
+level is 0 again. The parser has finished before the first script runs, so a
+script sees the whole tree: `document.write` has no meaning here (not bound),
+and a script can't observe the parse. A `<script>` a script inserts doesn't run
+yet.
+
+Which scripts run is "prepare the script element" (HTML §4.12.1.1) with the
+MIME Sniffing list of JavaScript essences, including `language`. Template
+contents never run. The tree is parsed with scripting on, so `<noscript>` holds
+raw text and no script. Departures: `nomodule` is ignored, since modules don't
+run here and the fallback is what a page has for us; an `async` script keeps
+its tree position, which the spec allows and which is deterministic.
+
+**Reporting.** `reportException` is HTML §8.1.6.2, with its error reporting
+mode: while an `error` event is being fired, a further exception is counted and
+fires nothing, so a listener calling a missing function can't recurse. The
+glue wraps `setTimeout`, `setInterval`, `requestAnimationFrame` and
+`queueMicrotask` so their callbacks report the same way as scripts and
+listeners, and reach `PageReport.errors`. A string handler runs through a native
+for that reason. Messages are capped at 4 KiB, as the sandbox's are.
+
+**Limits are not exceptions.** A thrown value is classified first, as
+`exception_error` in crates/core does, so no listener sees or cancels it.
+Memory and time are sticky in the sandbox, which stops the script itself; a
+stack overflow isn't, and a `try` may catch one (as in a browser). An uncaught
+one reaches `n.limit`, which records the error and raises the sandbox's cancel
+flag, the only stop crates/dom can reach. The watchdog sees it within about 5 ms;
+until the call returns natives refuse to work, and `finish_call` turns the
+`Cancelled` back into the limit, or resets the sandbox if the call ended first.
+The flag is private to `DomRuntime`: nothing else can cancel a `DomRuntime`'s
+sandbox. A sticky stop in core, as for a panic, would remove that wait.
+
+**Event handlers** (HTML §8.1.7): `handlers(id, names)` in `bindings.js` comes
+from the IDL's `EventHandler` attributes, for HTMLElement, Document and Window.
+A handler's state is in the target's record, next to its listeners, and
+`activate` adds a listener of its own in the place the spec gives it.
+Content attributes live in Rust, so `syncHandlers` compares them when an event
+reaches the target, a listener is added or the handler is read, which are the
+only points a page can observe a listener's place from. Raw text compiles once,
+on first use. On a body or frameset element the Window-reflecting set is the
+window's. `document.currentScript` is the glue's, set from a script's run until
+a separate lifecycle step after its microtasks, which then fires its `load`.
+
+**Gaps** (each for docs/COMPAT.md): no `window.event`; `isTrusted` is an
+ordinary accessor, not [LegacyUnforgeable]; no microtask checkpoint between the
+listeners of a browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`);
+the handler attributes sit on `Window.prototype`, not on the window itself; a
+handler's scope has no form owner; SVG and MathML elements have no `on*`
+attributes (no interfaces bound), and `<svg><script>` doesn't run; the
+WindowEventHandlers aren't readable on a body element, only reachable through
+its content attributes; `AbortSignal` in listener options is ignored;
+`unhandledrejection` doesn't fire. ErrorEvent `filename`, `lineno` and `colno` are always
+empty and 0.
+
 ## Errors
 
 Using a stale wrapper throws into the script (so it stops where it is) and
@@ -207,6 +280,17 @@ answer. Ordinary DOM errors
 (`HierarchyRequestError`, `InvalidCharacterError`) are DOMExceptions the script
 may catch, as in a browser. Sandbox limits outrank faults: a script stopped by
 the time, memory or stack limit reports that limit.
+
+A limit error ends the call wherever it surfaces, and the engine says which
+errors are one (`surimono_core::limit_error`, a mark on the error object), so
+a script can neither forge one nor hide one by renaming it. Thrown, it reaches
+the glue's `reportException`, which asks Rust before any event fires. In an
+async function or a promise reaction it rejects a promise instead: if nothing
+handled that promise when the microtasks have drained, core's rejection tracker
+ends the call, and handling it is catching it. Core's event loop has that
+checkpoint and `Sandbox::run` doesn't, so `DomRuntime::eval` follows each script
+with a run of the loop whose options let no task start (`CHECKPOINT`). Other
+rejections go in the report (`PageReport::unhandled_rejections`).
 
 ## Sandbox and limits
 
@@ -305,7 +389,9 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   iterative serializer (HTML §13.3): HTML, SVG and MathML elements, attribute
   names with their `xml:`/`xmlns:`/`xlink:` prefixes, raw text and void
   elements for HTML elements only, text and comments (`tests/serialize.rs`).
-  It serializes with scripting disabled, because blitz-html 0.2.0 parses
-  that way (`scripting_enabled: false`): `<noscript>` content is markup, so
-  its text is escaped, and a reparse (fulgur's included) gives the same
-  tree. E2-02 adds `<template>` contents.
+  The tree is parsed and serialized with scripting enabled, unlike blitz-html
+  0.2.0: scripts run on it, so `<noscript>` content is raw text (the tree a
+  script would see in a browser), and is written back literally. fulgur
+  parses with scripting off, so it builds that content as markup and may
+  print it: the hand-off (E2-08) has to drop `<noscript>`. E2-02 adds
+  `<template>` contents.

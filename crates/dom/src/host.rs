@@ -461,6 +461,12 @@ impl Document {
         })
     }
 
+    /// Operation 2: the page lifecycle moves `readyState`.
+    pub(crate) fn set_ready_state(&mut self, state: u32) -> BindingResult<()> {
+        self.set_ready(state);
+        Ok(())
+    }
+
     /// Operation 1: an exotic object's supported property names.
     pub(crate) fn supported_names(&mut self, this: ObjectId) -> BindingResult<String> {
         let names: Vec<String> = match self.object_at(this)? {
@@ -1146,6 +1152,23 @@ impl idl::Document for Document {
     fn body(&mut self, _this: ObjectId) -> BindingResult<Option<ObjectId>> {
         let e = Document::body(self);
         self.opt_object(e)
+    }
+
+    fn title(&mut self, _this: ObjectId) -> BindingResult<String> {
+        Document::title(self)
+    }
+
+    fn set_title(&mut self, _this: ObjectId, value: String) -> BindingResult<()> {
+        Document::set_title(self, &value)
+    }
+
+    fn ready_state(&mut self, _this: ObjectId) -> BindingResult<String> {
+        Ok(match Document::ready_state(self) {
+            0 => "loading",
+            1 => "interactive",
+            _ => "complete",
+        }
+        .to_owned())
     }
 
     fn compat_mode(&mut self, _this: ObjectId) -> BindingResult<String> {

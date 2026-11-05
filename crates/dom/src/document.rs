@@ -14,6 +14,33 @@ use crate::DomError;
 use crate::parse::{self, ParseLimits};
 use crate::style_attr;
 
+/// Infra's ASCII whitespace.
+const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
+
+/// Whether `s` is a JavaScript MIME type essence string (MIME Sniffing §4.6:
+/// "JavaScript MIME type essence match"), ignoring ASCII case.
+fn is_javascript_mime_essence(s: &str) -> bool {
+    const ESSENCES: [&str; 16] = [
+        "application/ecmascript",
+        "application/javascript",
+        "application/x-ecmascript",
+        "application/x-javascript",
+        "text/ecmascript",
+        "text/javascript",
+        "text/javascript1.0",
+        "text/javascript1.1",
+        "text/javascript1.2",
+        "text/javascript1.3",
+        "text/javascript1.4",
+        "text/javascript1.5",
+        "text/jscript",
+        "text/livescript",
+        "text/x-ecmascript",
+        "text/x-javascript",
+    ];
+    ESSENCES.iter().any(|e| e.eq_ignore_ascii_case(s))
+}
+
 /// Generations are unique in the process, so a wrapper can never match a
 /// document other than its own. Starts at 1; 0 is never a generation.
 static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
@@ -213,6 +240,9 @@ pub struct Document {
     held_bytes: usize,
     /// The document was parsed in quirks mode.
     quirks: bool,
+    /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
+    /// page lifecycle has run on is complete.
+    ready_state: u32,
     /// The last (parent, index in its children) a sibling step found, so
     /// walking a wide parent's children isn't quadratic. Checked on use.
     cursor: Cell<(usize, usize)>,
@@ -283,6 +313,7 @@ impl Document {
             side_data: parsed.strings.into_iter().collect(),
             held_bytes: 0,
             quirks: parsed.quirks,
+            ready_state: 2,
             cursor: Cell::new((0, 0)),
             fault: None,
             deadline: None,
@@ -444,8 +475,8 @@ impl Document {
     /// The document's serialization: the `<html>` element's outer HTML, by
     /// the HTML Standard's fragment serialization algorithm (§13.3) for
     /// elements (HTML, SVG and MathML) with their attributes, text and
-    /// comments, with scripting disabled, as blitz-html parsed the
-    /// document. Iterative, so tree depth can't overflow the stack.
+    /// comments, with scripting enabled, as the document was parsed.
+    /// Iterative, so tree depth can't overflow the stack.
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         if let Some(id) = self.document_element() {
@@ -478,12 +509,7 @@ impl Document {
                             // noembed, noframes or plaintext element (an SVG
                             // <style> or <script> is escaped), or a noscript
                             // element when scripting is enabled for the
-                            // node. It isn't here: blitz-html 0.2.0 parses
-                            // with `scripting_enabled: false`, so noscript
-                            // content is parsed as markup and its text must
-                            // be escaped to survive a reparse. Written raw,
-                            // `<noscript>&lt;b&gt;</noscript>` would come
-                            // back as a real <b> element.
+                            // node, as it always is here (see `parse::opts`).
                             let raw = node
                                 .parent
                                 .and_then(|p| self.node(p).element_data())
@@ -498,6 +524,7 @@ impl Document {
                                                 | "noembed"
                                                 | "noframes"
                                                 | "plaintext"
+                                                | "noscript"
                                         )
                                 });
                             if raw {
@@ -849,6 +876,119 @@ impl Document {
 
     pub(crate) fn children(&self, id: usize) -> &[usize] {
         &self.node(id).children
+    }
+
+    pub(crate) fn ready_state(&self) -> u32 {
+        self.ready_state
+    }
+
+    pub(crate) fn set_ready(&mut self, state: u32) {
+        self.ready_state = state;
+    }
+
+    /// Classic scripts in tree order, for the page lifecycle: (node, `src`
+    /// value, text, defer), as HTML §4.12.1.1 "prepare the script element"
+    /// picks them. `module` and other types don't run. A parser-inserted
+    /// `async` script keeps its tree position, which is one of the orders
+    /// the spec allows and the deterministic one. Nothing inside `<template>`
+    /// runs: its contents are inert. `<noscript>` needs no such care: with
+    /// scripting on it is raw text, so the parser makes no script there.
+    pub(crate) fn scripts(&self) -> Vec<(usize, Option<String>, String, bool)> {
+        let mut out = Vec::new();
+        let mut stack = vec![self.root()];
+        while let Some(n) = stack.pop() {
+            let html_name = self
+                .element_name(n)
+                .filter(|q| q.ns == ns!(html))
+                .map(|q| &*q.local);
+            if html_name == Some("template") {
+                continue;
+            }
+            stack.extend(self.children(n).iter().rev().copied());
+            if html_name != Some("script") || !self.is_classic_script(n) {
+                continue;
+            }
+            let src = self.attribute(n, "src");
+            let text = self.child_text(n);
+            if src.is_none() && text.is_empty() {
+                continue;
+            }
+            let defer = src.is_some()
+                && self.attribute(n, "defer").is_some()
+                && self.attribute(n, "async").is_none();
+            out.push((n, src, text, defer));
+        }
+        out
+    }
+
+    /// HTML §4.12.1.1 "prepare the script element", the steps that give the
+    /// type string, for a classic script. `nomodule` is ignored, unlike the
+    /// standard: modules don't run here, so the fallback is what a page has
+    /// for us (a recorded departure).
+    fn is_classic_script(&self, id: usize) -> bool {
+        let ty = self.attribute(id, "type");
+        let language = self.attribute(id, "language");
+        match (ty.as_deref(), language.as_deref()) {
+            (Some(""), _) | (None, None | Some("")) => true,
+            (Some(ty), _) => is_javascript_mime_essence(ty.trim_matches(ASCII_WHITESPACE)),
+            (None, Some(language)) => is_javascript_mime_essence(&format!("text/{language}")),
+        }
+    }
+
+    /// A node's child text content (DOM §4.2.5): its Text children, joined.
+    fn child_text(&self, id: usize) -> String {
+        self.children(id)
+            .iter()
+            .filter(|&&c| matches!(self.node(c).data, NodeData::Text(_)))
+            .map(|&c| self.char_data(c))
+            .collect()
+    }
+
+    /// The `<title>` element: the first in tree order (HTML §3.1.3).
+    fn title_element(&self) -> BindingResult<Option<usize>> {
+        let Some(top) = self.document_element() else {
+            return Ok(None);
+        };
+        let is_title = |n: usize| {
+            self.element_name(n)
+                .is_some_and(|q| q.ns == ns!(html) && q.local.as_ref() == "title")
+        };
+        if is_title(top) {
+            return Ok(Some(top));
+        }
+        let found = self.descendants(top, |n| Ok(is_title(n)))?;
+        Ok(found.first().copied())
+    }
+
+    /// `document.title`: the title's child text content, with whitespace
+    /// stripped and collapsed (HTML §3.1.3).
+    pub(crate) fn title(&self) -> BindingResult<String> {
+        Ok(self
+            .title_element()?
+            .map(|t| self.child_text(t))
+            .map(|t| t.split_ascii_whitespace().collect::<Vec<_>>().join(" "))
+            .unwrap_or_default())
+    }
+
+    /// `document.title` set: the title's content, a new `<title>` in the
+    /// head if there is none; nothing without a head.
+    pub(crate) fn set_title(&mut self, value: &str) -> BindingResult<()> {
+        let title = match self.title_element()? {
+            Some(t) => t,
+            None => {
+                let Some(head) = self.head() else {
+                    return Ok(());
+                };
+                let created = self
+                    .create_element("title")
+                    .and_then(|t| t.ok_or(DomError::NoDocument));
+                let t = created.map_err(|e| self.fail(e))?;
+                self.place(head, &[t], None);
+                t
+            }
+        };
+        self.set_text_content(title, value)
+            .map_err(|e| self.fail(e))
     }
 
     pub(crate) fn is_quirks(&self) -> bool {
