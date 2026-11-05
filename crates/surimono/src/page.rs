@@ -423,13 +423,15 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
     let body = rt
         .with_document(Document::to_html)
         .ok_or_else(|| page_error(DomError::NoDocument))?;
+    if body.len() > setup.output_bytes {
+        return Err(print::too_long(setup.output_bytes));
+    }
     // The parser drops the doctype; a renderer that goes by it gets the mode
     // the page ran in, standards or not. (Blitz always lays out as no-quirks.)
-    let html = if summary.standards {
-        format!("<!doctype html>{body}")
-    } else {
-        body
-    };
+    let mut html = body;
+    if summary.standards {
+        html.insert_str(0, "<!doctype html>");
+    }
     // Drops the page's last wrappers, then the document.
     rt.reset().map_err(page_error)?;
     drop(rt.take());

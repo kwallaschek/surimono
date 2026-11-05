@@ -412,7 +412,11 @@ impl Renderer {
     /// resolve, on which it panics, are taken out. All this after the scripts
     /// has one [`time`](crate::Limits::time) limit of its own and stops at a
     /// cancel. Selector matching and SVG parsing in the printer aren't bounded
-    /// here, so run a printer that takes untrusted pages under its own timeout.
+    /// here, so run a printer that takes untrusted pages in a process of its
+    /// own: a timeout can't stop a thread, or catch what ends a process. Give
+    /// it stack for the depth this allows: at least 2 MiB, and 8 MiB leaves
+    /// room. Ruby's threads have 1 MiB unless `RUBY_THREAD_MACHINE_STACK_SIZE`
+    /// says otherwise.
     ///
     /// What this release doesn't do: scripts a script inserts don't run,
     /// modules don't run (`nomodule` scripts do), nothing is laid out (see

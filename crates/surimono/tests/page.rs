@@ -674,9 +674,8 @@ fn highlight_js_matches_chrome() {
 }
 
 /// fulgur's parse: blitz-dom with a `file:` base, as `parse_inner` sets it up
-/// (fulgur 0.40.0 `src/blitz_adapter.rs`), then style resolution, on the stack
-/// a Ruby worker has. It panics on URLs it can't resolve, and a tree too deep
-/// aborts the process.
+/// (fulgur 0.40.0 `src/blitz_adapter.rs`), then style resolution, on the 8 MiB
+/// of a main thread. Ruby's other threads have 1 MiB: see `render_page`'s docs.
 fn printer_parses(html: &str) {
     let html = html.to_owned();
     let run = move || {

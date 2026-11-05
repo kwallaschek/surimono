@@ -448,7 +448,7 @@ pub(crate) fn inline_stylesheets(
             element.name = QualName::new(None, element.name.ns.clone(), LocalName::from("style"));
             element.attrs.retain(|a| a.name.local.as_ref() == "media");
         }
-        // Text can't end the element it goes into; `\\/` is `/` in CSS.
+        // Text can't end the element it goes into; `\/` is `/` in CSS.
         tree.set_text(id, css.replace("</", "<\\/"));
     }
     Ok(())

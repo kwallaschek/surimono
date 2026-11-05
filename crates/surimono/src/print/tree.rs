@@ -13,11 +13,19 @@
 //!   with the template), which is why a printer reads `<style>` in one;
 //! - no annotation-xml integration points (the hook keeps its default), so
 //!   `<math><annotation-xml encoding=text/html><style>` holds markup;
-//! - text appends to a text node just before it, and comments don't.
+//! - text appends to a text node just before it, and comments don't;
+//! - the input goes in through the same reader and decoder, so the parser's
+//!   buffers fall where a printer's do.
+//!
+//! What it writes back holds no literal U+FEFF, as a reference or not at all,
+//! so no reader can take one for a byte order mark, wherever its buffers fall.
+//! That covers output whose offsets moved later, as island drawings move them.
 //!
 //! The tests below compare this tree with blitz-html's own.
 
+use std::borrow::Cow;
 use std::cell::{Cell, Ref, RefCell};
+use std::io::{self, Read};
 
 use html5ever::driver::{self, ParseOpts};
 use html5ever::tendril::{StrTendril, TendrilSink};
@@ -27,11 +35,6 @@ use html5ever::{Attribute, LocalName, QualName, ns};
 
 use super::Gate;
 use crate::error::Error;
-
-/// Bytes of HTML fed between looks at the limits and the gate. html5ever
-/// checks each attribute against the tag's others, so cost grows with a tag's
-/// length, but no one feed takes long: a tag that never ends is stopped here.
-const CHUNK: usize = 4096;
 
 /// What a parse may build, as [`surimono_dom::DomLimits`] has for a document.
 #[derive(Debug, Clone, Copy)]
@@ -207,19 +210,22 @@ impl Tree {
             tree: RefCell::new(Self::new()),
             watch: &watch,
         };
-        let mut parser = driver::parse_document(sink, printer_opts());
-        let mut at = 0;
-        while at < html.len() {
-            gate.check()?;
-            watch.check(limits)?;
-            let mut end = (at + CHUNK).min(html.len());
-            while !html.is_char_boundary(end) {
-                end += 1;
+        let mut feed = Feed {
+            rest: html.as_bytes(),
+            gate,
+            watch: &watch,
+            limits,
+            stopped: None,
+        };
+        let parser = driver::parse_document(sink, printer_opts()).from_utf8();
+        let tree = match parser.read_from(&mut feed) {
+            Ok(tree) => tree,
+            Err(e) => {
+                return Err(feed.stopped.take().unwrap_or_else(|| Error::PageFailed {
+                    message: format!("reading the page: {e}"),
+                }));
             }
-            parser.process(StrTendril::from_slice(&html[at..end]));
-            at = end;
-        }
-        let tree = parser.finish();
+        };
         gate.check()?;
         watch.check(limits)?;
         Ok(tree)
@@ -261,7 +267,7 @@ impl Tree {
                             break;
                         }
                         out.push_str("</");
-                        out.push_str(e.local());
+                        out.push_str(&without_mark(e.local()));
                         out.push('>');
                     }
                     continue;
@@ -277,21 +283,21 @@ impl Tree {
                     }
                     let parent = node.parent.and_then(|p| self.element(p));
                     if parent.is_some_and(holds_raw_text) {
-                        out.push_str(text);
+                        out.push_str(&without_mark(text));
                     } else {
                         escape_into(text, false, &mut out);
                     }
                 }
                 Data::Element(e) => {
                     out.push('<');
-                    out.push_str(e.local());
+                    out.push_str(&without_mark(e.local()));
                     for a in &e.attrs {
                         out.push(' ');
                         if let Some(prefix) = &a.name.prefix {
                             out.push_str(prefix);
                             out.push(':');
                         }
-                        out.push_str(a.name.local.as_ref());
+                        out.push_str(&without_mark(&a.name.local));
                         out.push_str("=\"");
                         escape_into(&a.value, true, &mut out);
                         out.push('"');
@@ -300,9 +306,13 @@ impl Tree {
                     if is_void(e) {
                         continue;
                     }
+                    let first = node
+                        .children
+                        .iter()
+                        .map(|&c| &self.nodes[c].data)
+                        .find(|d| !matches!(d, Data::Comment));
                     if drops_first_newline(e)
-                        && let Some(&first) = node.children.first()
-                        && let Data::Text(t) = &self.nodes[first].data
+                        && let Some(Data::Text(t)) = first
                         && t.starts_with('\n')
                     {
                         out.push('\n');
@@ -320,7 +330,7 @@ impl Tree {
 }
 
 /// The error for a page past [`Limits::output_bytes`](crate::Limits::output_bytes).
-pub(super) fn too_long(max_bytes: usize) -> Error {
+pub(crate) fn too_long(max_bytes: usize) -> Error {
     Error::PageDomLimit {
         message: format!("the page's HTML is over the output limit of {max_bytes} bytes"),
     }
@@ -337,6 +347,15 @@ fn printer_opts() -> ParseOpts {
             drop_doctype: true,
             quirks_mode: QuirksMode::NoQuirks,
         },
+    }
+}
+
+/// `text` with no U+FEFF, for where a reference can't stand in for one.
+fn without_mark(text: &str) -> Cow<'_, str> {
+    if text.contains('\u{feff}') {
+        Cow::Owned(text.replace('\u{feff}', ""))
+    } else {
+        Cow::Borrowed(text)
     }
 }
 
@@ -387,6 +406,7 @@ fn escape_into(text: &str, attribute: bool, out: &mut String) {
             '<' => "&lt;",
             '>' => "&gt;",
             '\r' => "&#13;",
+            '\u{feff}' => "&#xfeff;",
             '"' if attribute => "&quot;",
             _ => continue,
         };
@@ -420,6 +440,33 @@ impl Watch {
             return Ok(());
         };
         Err(Error::PageDomLimit { message })
+    }
+}
+
+/// The page's bytes as a reader, as blitz-html reads them from a slice. Between
+/// reads it looks at the gate and the limits; html5ever checks each attribute
+/// against the tag's others, so cost grows with a tag's length, but no one read
+/// takes long, and a tag that never ends is stopped here.
+struct Feed<'a> {
+    rest: &'a [u8],
+    gate: &'a Gate<'a>,
+    watch: &'a Watch,
+    limits: TreeLimits,
+    /// Why it stopped, which `io::Error` can't carry.
+    stopped: Option<Error>,
+}
+
+impl Read for Feed<'_> {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        let go_on = self
+            .gate
+            .check()
+            .and_then(|()| self.watch.check(self.limits));
+        if let Err(e) = go_on {
+            self.stopped = Some(e);
+            return Err(io::Error::other("stopped"));
+        }
+        self.rest.read(buffer)
     }
 }
 
@@ -711,6 +758,31 @@ pub(super) mod tests {
         }
     }
 
+    /// Takes `html` to just around where a reader's buffer ends.
+    fn pad_to_a_read(html: &mut String, how: u64) {
+        let filler = if how % 2 == 0 { 'x' } else { 'あ' };
+        let target = 4_090 + (how >> 1) % 9;
+        while html.len() < target as usize {
+            html.push(filler);
+        }
+    }
+
+    #[test]
+    fn the_tree_is_blitz_htmls_wherever_a_read_ends() {
+        for filler in ['x', 'é', 'あ', '😀'] {
+            for extra in 0..filler.len_utf8() + 3 {
+                let mut html = String::from("<!doctype html><p>");
+                while html.len() + filler.len_utf8() <= 4_096 {
+                    html.push(filler);
+                }
+                html.push_str(&"a".repeat(extra));
+                html.push('\u{feff}');
+                html.push_str("<b title=\"\u{feff}\">x\u{feff}</b>あ");
+                assert_same_tree(&html);
+            }
+        }
+    }
+
     fn step(seed: &mut u64) -> u64 {
         *seed ^= *seed << 13;
         *seed ^= *seed >> 7;
@@ -797,14 +869,19 @@ pub(super) mod tests {
             "</",
             "\n",
             "&#13;",
+            "\u{feff}",
         ];
         let mut html = String::from(if step(seed) % 2 == 0 {
             "<!doctype html>"
         } else {
             ""
         });
-        for _ in 0..(step(seed) % 40) {
+        let pad_at = step(seed) % 120;
+        for i in 0..(step(seed) % 40) {
             html.push_str(PIECES[(step(seed) % PIECES.len() as u64) as usize]);
+            if i == pad_at {
+                pad_to_a_read(&mut html, step(seed));
+            }
         }
         html
     }
