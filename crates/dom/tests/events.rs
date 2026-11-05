@@ -1500,8 +1500,8 @@ fn a_javascript_link_runs_in_a_task() {
 #[test]
 fn a_limit_in_a_javascript_link_ends_the_page() {
     // The link's task runs under the same time limit as any other.
-    let mut rt = DomRuntime::new(limits().with_time(common::scaled(Duration::from_millis(200))))
-        .unwrap();
+    let mut rt =
+        DomRuntime::new(limits().with_time(common::scaled(Duration::from_millis(200)))).unwrap();
     rt.load(
         Document::parse(
             "<!doctype html><a id=a href='javascript:for(;;);'>x</a>
@@ -1509,7 +1509,9 @@ fn a_limit_in_a_javascript_link_ends_the_page() {
         )
         .unwrap(),
     );
-    let e = rt.run_page(&SettleOptions::default(), |_| None).unwrap_err();
+    let e = rt
+        .run_page(&SettleOptions::default(), |_| None)
+        .unwrap_err();
     assert!(
         matches!(e, DomError::Sandbox(SandboxError::TimeLimit { .. })),
         "{e:?}"
