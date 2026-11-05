@@ -511,22 +511,220 @@ fn a_caught_stack_overflow_is_a_script_matter() {
     assert_eq!(log_of(&mut rt), "RangeError,next");
 }
 
-/// Core classifies a thrown value by its name and message, which a script
-/// can spell: the same on every path, and it only ends the script's own page.
+/// Only the engine can say a value is a limit error: one a script spells is
+/// an ordinary exception, on every path.
 #[test]
-fn limits_spelled_by_a_script_end_the_call_like_in_a_timer() {
+fn limits_spelled_by_a_script_are_ordinary_exceptions() {
     let fake = "{ name: 'InternalError', message: 'out of memory' }";
     for start in [
         format!("throw {fake};"),
         format!("setTimeout(() => {{ throw {fake}; }}, 0);"),
+        format!("queueMicrotask(() => {{ throw {fake}; }});"),
+        "throw new RangeError('Maximum call stack size exceeded');".to_owned(),
     ] {
         let html = format!("<!doctype html><script>{start}</script>");
-        assert_eq!(
-            run(&html).unwrap_err(),
-            DomError::Sandbox(SandboxError::MemoryLimit),
-            "{start}"
-        );
+        assert_eq!(run(&html).unwrap().uncaught, 1, "{start}");
     }
+    let html = format!("<!doctype html><script>Promise.reject({fake});</script>");
+    assert_eq!(run(&html).unwrap().unhandled_rejections, 1);
+}
+
+/// And renaming a real one, or making it overflow only once it is read,
+/// hides nothing.
+#[test]
+fn a_disguised_limit_error_still_ends_the_page() {
+    let f = "function f() { f(); }";
+    for start in [
+        "try { f(); } catch (e) { e.name = 'Error'; e.message = 'fine'; throw e; }",
+        "setTimeout(() => { try { f(); } catch (e) { e.name = 'x'; throw e; } }, 0);",
+        "throw { toString() { f(); } };",
+    ] {
+        let html = format!(
+            "<!doctype html><script>{f} addEventListener('error', (e) => e.preventDefault());
+             {start}</script>"
+        );
+        assert_eq!(run(&html).unwrap_err(), OVERFLOW, "{start}");
+    }
+}
+
+/// A limit that rejects a promise ends the page as a thrown one does: the
+/// paths of `an_uncaught_stack_overflow_ends_the_page_on_every_path`, with
+/// the function async, or the overflow in a reaction.
+#[test]
+fn a_limit_in_a_promise_ends_the_page_on_every_path() {
+    const HIDE: &str = "<!doctype html><script>globalThis.log = [];
+        addEventListener('error', (e) => { log.push('saw it'); e.preventDefault(); });
+        window.onerror = () => true;
+        function f() { return f() + 1; }
+        function grow() { const a = []; for (;;) a.push(new Array(1000).fill(a.length)); }
+        async function af() { f(); }
+        async function ag() { grow(); }
+        </script>";
+    for (name, start, error) in [
+        (
+            "async function",
+            "(async function () { f(); })();",
+            OVERFLOW,
+        ),
+        (
+            "after an await",
+            "(async () => { await null; f(); })();",
+            OVERFLOW,
+        ),
+        ("reaction", "Promise.resolve().then(f);", OVERFLOW),
+        (
+            "rejection reaction",
+            "Promise.reject(1).catch(f);",
+            OVERFLOW,
+        ),
+        ("executor", "new Promise(f);", OVERFLOW),
+        (
+            "async listener",
+            "addEventListener('x', af); dispatchEvent(new Event('x'));",
+            OVERFLOW,
+        ),
+        ("async load", "addEventListener('load', af);", OVERFLOW),
+        (
+            "async handler",
+            "document.onreadystatechange = af;",
+            OVERFLOW,
+        ),
+        ("async timer", "setTimeout(af, 0);", OVERFLOW),
+        ("async frame", "requestAnimationFrame(af);", OVERFLOW),
+        ("async microtask", "queueMicrotask(af);", OVERFLOW),
+        (
+            "async error listener",
+            "addEventListener('error', af); throw 1;",
+            OVERFLOW,
+        ),
+        (
+            "memory",
+            "ag();",
+            DomError::Sandbox(SandboxError::MemoryLimit),
+        ),
+        (
+            "memory in a reaction",
+            "Promise.resolve().then(grow);",
+            DomError::Sandbox(SandboxError::MemoryLimit),
+        ),
+    ] {
+        let html = format!("{HIDE}<script>{start}</script>");
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(Document::parse(&html).unwrap());
+        let r = rt.run_page(&SettleOptions::default(), |_| None);
+        assert_eq!(r.unwrap_err(), error, "{name}");
+        // The script's state went, and the runtime still works.
+        assert_eq!(rt.eval::<String>("typeof log").unwrap(), "undefined");
+        assert_eq!(rt.eval::<i32>("1 + 1").unwrap(), 2);
+    }
+}
+
+/// The page stops there: the spin in the next script never starts.
+#[test]
+fn nothing_runs_after_a_limit_in_a_promise() {
+    let html = "<!doctype html><script>function f() { f(); } (async () => f())();</script>
+        <script>for (;;) document.title = 'x';</script>";
+    assert_eq!(run(html).unwrap_err(), OVERFLOW);
+}
+
+/// `eval`, outside a page: its script is a task, with the checkpoint at the
+/// end, so the call that ran the promise is the one that fails.
+#[test]
+fn a_limit_in_a_promise_fails_eval_too() {
+    const F: &str = "function f() { f(); } async function af() { f(); }\n";
+    for start in [
+        "af();",
+        "Promise.resolve().then(f);",
+        "addEventListener('x', af); dispatchEvent(new Event('x'));",
+        "af(); throw 1;",
+    ] {
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(Document::parse(PAGE).unwrap());
+        let r = rt.eval::<()>(&format!("{F}{start}"));
+        assert_eq!(r.unwrap_err(), OVERFLOW, "{start}");
+        assert_eq!(rt.eval::<String>("typeof f").unwrap(), "undefined");
+    }
+}
+
+/// Handling the promise is catching the error, in time or not at all: at
+/// the end of the task a handler still counts, a task later it doesn't.
+#[test]
+fn a_handled_limit_in_a_promise_is_a_script_matter() {
+    let (mut rt, report) = page(
+        r#"<!doctype html><script>
+        globalThis.log = [];
+        function f() { f(); }
+        async function af() { f(); }
+        af().catch((e) => log.push(e.name));
+        const later = af();
+        queueMicrotask(() => later.catch((e) => log.push('late ' + e.name)));
+        </script><script>log.push('next');</script>"#,
+    );
+    assert_eq!((report.uncaught, report.unhandled_rejections), (0, 0));
+    assert_eq!(log_of(&mut rt), "RangeError,late RangeError,next");
+
+    let html = "<!doctype html><script>function f() { f(); } globalThis.p = (async () => f())();
+        </script><script>p.catch(() => {});</script>";
+    assert_eq!(run(html).unwrap_err(), OVERFLOW);
+}
+
+/// HTML "unhandled promise rejections": what no script handled reaches the
+/// report, an `error` listener doesn't see it, and the page goes on.
+#[test]
+fn rejections_nothing_handled_reach_the_report() {
+    let (mut rt, report) = page(
+        r#"<!doctype html><script>
+        globalThis.log = [];
+        addEventListener('error', () => log.push('error event'));
+        (async () => { throw new TypeError('in async'); })();
+        Promise.reject('plain');
+        Promise.reject(new Error('handled')).catch(() => {});
+        const p = Promise.reject(new Error('handled later'));
+        queueMicrotask(() => p.catch(() => {}));
+        addEventListener('x', async () => { throw new Error('in listener'); });
+        dispatchEvent(new Event('x'));
+        </script><script>log.push('next');</script>"#,
+    );
+    assert_eq!(report.uncaught, 0);
+    assert_eq!(report.unhandled_rejections, 3);
+    assert_eq!(
+        report.rejections,
+        ["TypeError: in async", "plain", "Error: in listener"]
+    );
+    assert_eq!(report.settle.unhandled_rejections, 3);
+    assert_eq!(log_of(&mut rt), "next");
+}
+
+#[test]
+fn reported_rejections_are_capped() {
+    let (_, report) =
+        page("<!doctype html><script>for (let i = 0; i < 20; i++) Promise.reject(i);</script>");
+    assert_eq!(report.unhandled_rejections, 20);
+    assert_eq!(report.rejections.len(), 8);
+}
+
+/// A rejection in an `eval` waits for the next report, once, in order, and
+/// ends no timer: `eval`'s checkpoint runs no task.
+#[test]
+fn eval_keeps_its_rejections_for_the_next_report() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    rt.eval::<()>(
+        "globalThis.log = []; Promise.reject('one');
+         setTimeout(() => { log.push('timer'); Promise.reject('two'); }, 0);",
+    )
+    .unwrap();
+    assert_eq!(rt.eval::<u32>("log.length").unwrap(), 0);
+    let report = rt.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!(report.unhandled_rejections, 2);
+    let reasons: Vec<String> = report.rejections.iter().map(|e| e.to_string()).collect();
+    assert!(
+        reasons[0].contains("one") && reasons[1].contains("two"),
+        "{reasons:?}"
+    );
+    assert_eq!(log_of(&mut rt), "timer");
+    let report = rt.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!(report.unhandled_rejections, 0);
 }
 
 /// `prepare the script element` picks what runs (HTML §4.12.1.1); the MIME
