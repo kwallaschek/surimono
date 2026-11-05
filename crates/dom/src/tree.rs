@@ -182,6 +182,14 @@ impl Document {
         prefix: Option<&str>,
     ) -> BindingResult<Option<String>> {
         let mut at = self.lookup_start(start);
+        if at.is_some() {
+            // §4.4: these two are bound everywhere.
+            match prefix {
+                Some("xml") => return Ok(Some(XML.to_owned())),
+                Some("xmlns") => return Ok(Some(XMLNS.to_owned())),
+                _ => {}
+            }
+        }
         while let Some(e) = at {
             self.poll()?;
             let name = self.element_name(e);

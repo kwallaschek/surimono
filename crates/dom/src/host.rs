@@ -304,13 +304,25 @@ impl Document {
     }
 
     /// Parses `html` into a fragment fit for `parent`, in the context of
-    /// `context`, or of a new `<body>` element if there is none.
+    /// `context`, or of a new `<body>` element if there is none. In an XML
+    /// document, as XML (DOM Parsing §2.1): input that isn't well-formed is a
+    /// `SyntaxError`.
     fn parse_fragment_in(
         &mut self,
         context: Option<usize>,
         parent: usize,
         html: &str,
     ) -> BindingResult<Option<usize>> {
+        if !self.in_html_document(parent) {
+            return match self.parse_xml_fragment(context.unwrap_or(parent), parent, html) {
+                Ok(frag) => Ok(Some(frag)),
+                Err(crate::xml::Stop::Limit(e)) => Err(e),
+                Err(crate::xml::Stop::Malformed(m)) => Err(BindingError::DomException {
+                    name: "SyntaxError",
+                    message: m,
+                }),
+            };
+        }
         let made = match context {
             Some(_) => None,
             None => {
@@ -546,15 +558,18 @@ impl Document {
         Document::set_attribute(self, id, name, value).map_err(|e| self.fail(e))
     }
 
-    /// A reflected URL attribute (HTML §2.6.1): the value parsed, or as
-    /// written if that fails. There is no document base, so a relative URL
-    /// is one that fails.
+    /// A reflected URL attribute (HTML §2.6.1): the value parsed against the
+    /// document's base URL, or as written if that fails.
     fn reflected_url(&mut self, this: ObjectId, name: &str) -> BindingResult<String> {
         let id = self.node_of(this)?;
         let Some(value) = self.attribute(id, name) else {
             return Ok(String::new());
         };
-        Ok(url::Url::parse(&value).map_or(value, String::from))
+        let base = self.base_url(self.owner_of_node(id));
+        let parsed = url::Url::parse(&base).and_then(|b| b.join(&value));
+        Ok(parsed
+            .or_else(|_| url::Url::parse(&value))
+            .map_or(value, String::from))
     }
 
     fn opt_node(&mut self, id: Option<ObjectId>) -> BindingResult<Option<usize>> {
@@ -687,17 +702,41 @@ impl Document {
     }
 
     /// `DOMParser.parseFromString`: the new document's handle.
-    pub(crate) fn parse_from_string(&mut self, text: String, html: bool) -> BindingResult<u32> {
-        if !html {
-            return Err(self.fail(DomError::Unsupported {
-                feature: "DOMParser for XML",
-            }));
-        }
-        let Some(doc) = self.parse_html_document(&text).map_err(|e| self.fail(e))? else {
+    pub(crate) fn parse_from_string(
+        &mut self,
+        text: String,
+        content_type: String,
+    ) -> BindingResult<u32> {
+        let url = self.info(self.root()).url.clone();
+        let parsed = match content_type.as_str() {
+            "text/html" => self.parse_html_document(&text, url),
+            "text/xml" => self.parse_xml_document(&text, "text/xml", url),
+            "application/xml" => self.parse_xml_document(&text, APPLICATION_XML, url),
+            "image/svg+xml" => self.parse_xml_document(&text, "image/svg+xml", url),
+            _ => self.parse_xml_document(&text, "application/xhtml+xml", url),
+        };
+        let Some(doc) = parsed.map_err(|e| self.fail(e))? else {
             return Err(timed_out());
         };
         let h = self.object(doc)?;
         Ok(Handle::try_from(h.0).unwrap_or(0))
+    }
+
+    /// The next `<iframe>` whose `load` is due; 0 for none.
+    pub(crate) fn next_frame_load(&mut self) -> BindingResult<u32> {
+        Ok(self.next_frame())
+    }
+
+    /// Whether the document `this` is an iframe's.
+    pub(crate) fn is_frame_document(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(self.info(id).frame)
+    }
+
+    /// `XMLSerializer.serializeToString`.
+    pub(crate) fn serialize_xml(&mut self, node: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(node)?;
+        crate::xml::serialize(self, id)
     }
 
     /// A layout query by `member`: nothing under [`LayoutPolicy::Zeros`],
@@ -826,6 +865,14 @@ impl idl::Node for Document {
         // `kind` is None only for layout boxes, which no tree link reaches
         // before layout; report them as plain nodes.
         Ok(self.kind(id).map_or(0, |k| k as u16))
+    }
+
+    fn base_uri(&mut self, this: ObjectId) -> BindingResult<String> {
+        let node = match self.attr_at(this)? {
+            Some((e, ..)) => e,
+            None => self.node_of(this)?,
+        };
+        Ok(self.base_url(self.owner_of_node(node)))
     }
 
     fn node_name(&mut self, this: ObjectId) -> BindingResult<String> {
@@ -1135,6 +1182,14 @@ impl idl::Element for Document {
         self.element_matches(id, &selectors)
     }
 
+    fn webkit_matches_selector(
+        &mut self,
+        this: ObjectId,
+        selectors: String,
+    ) -> BindingResult<bool> {
+        idl::Element::matches(self, this, selectors)
+    }
+
     fn get_elements_by_tag_name(
         &mut self,
         this: ObjectId,
@@ -1174,6 +1229,16 @@ impl idl::Element for Document {
 
     fn inner_html(&mut self, this: ObjectId) -> BindingResult<Value> {
         let id = self.node_of(this)?;
+        if !self.in_html_document(id) {
+            // DOM Parsing §2.1: XML documents serialize as XML. The children
+            // only: a fragment of them keeps no prefix context either.
+            let top = self.template_of(id).unwrap_or(id);
+            let mut out = String::new();
+            for c in Document::children(self, top).to_vec() {
+                out.push_str(&crate::xml::serialize(self, c)?);
+            }
+            return Ok(Value::String(out));
+        }
         Ok(Value::String(Document::inner_html(self, id)))
     }
 
@@ -1184,6 +1249,9 @@ impl idl::Element for Document {
 
     fn outer_html(&mut self, this: ObjectId) -> BindingResult<Value> {
         let id = self.node_of(this)?;
+        if !self.in_html_document(id) {
+            return crate::xml::serialize(self, id).map(Value::String);
+        }
         Ok(Value::String(Document::outer_html(self, id)))
     }
 
@@ -1681,7 +1749,7 @@ impl idl::Document for Document {
         target: String,
         data: String,
     ) -> BindingResult<ObjectId> {
-        if !document::is_xml_name(&target) || data.contains("?>") {
+        if !crate::xml::is_name(&target) || data.contains("?>") {
             return Err(dom_error(
                 "InvalidCharacterError",
                 "createProcessingInstruction: the target or data is not valid",
@@ -1848,6 +1916,38 @@ impl idl::Document for Document {
 }
 
 impl idl::XMLDocument for Document {}
+
+impl idl::HTMLIFrameElement for Document {
+    fn src(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected_url(this, "src")
+    }
+
+    fn set_src(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "src", &value)
+    }
+
+    fn srcdoc(&mut self, this: ObjectId) -> BindingResult<Value> {
+        Ok(Value::String(self.reflected(this, "srcdoc")?))
+    }
+
+    fn set_srcdoc(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        self.reflect(this, "srcdoc", &value_string(value))
+    }
+
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "name")
+    }
+
+    fn set_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "name", &value)
+    }
+
+    fn content_document(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let d = self.frame_document(id).map_err(|e| self.fail(e))?;
+        self.opt_object(d)
+    }
+}
 
 impl idl::DOMImplementation for Document {
     fn create_document_type(

@@ -168,6 +168,50 @@ so `<noscript>` content is markup. A refused parse takes back all it made. The
 parser goes by chunks and looks at the clock between them. Nothing runs: no script,
 no `load`.
 
+## XML
+
+`src/xml.rs` is a hand-written XML 1.0 + Namespaces parser and DOM Parsing's XML
+serializer. A crate would bring code we don't need and doesn't bound what we care
+about; this one is 700 lines, uses `Document`'s constructors, so every limit holds,
+and is iterative. It reads no external entities and defines none from the internal
+subset, which it skips: a reference to any entity but the five predefined ones is a
+well-formedness error, so there is no entity bomb and output is no larger than
+input. XML 1.0 §5.1 allows that for a non-validating processor; browsers do define
+internal entities, a departure for COMPAT. Encoding declarations are checked for
+shape and ignored, since the input is already text.
+
+Input that isn't well-formed gives a `parsererror` document, as DOMParser's
+algorithm says, whose text is our message. `innerHTML` in an XML document parses
+XML in the context's namespaces, and such input is a `SyntaxError`.
+
+`Document::parse_xml` loads a page as XHTML; the document's `html` flag then decides
+names everywhere `owners` would, through `page_html`.
+
+## Frames
+
+Scope, chosen for what the selector and namespace tests need and for attack
+surface: an `<iframe>` gets a document in the render's slab, and no browsing
+context. No script in it runs, nothing navigates, nothing fetches: `src` goes to the
+page's resolver, the one external scripts use, and no resolver means no frame.
+
+- `contentDocument` is `about:blank` from the first read while connected, and null
+  when not (removal discards it).
+- `contentWindow`, and `defaultView` in a frame, are objects inheriting from the
+  page's window, with their own `document`. There is no realm: `frames[0].Node ===
+  Node`. Tests of realms fail, on purpose.
+- `run_page` loads the parser's frames before any script, firing their `load`
+  before the window's. Frames a script adds load when the page has settled, in
+  rounds (at most `MAX_FRAME_ROUNDS`), so a `load` comes after every ready timer, at
+  a point that doesn't depend on a resolver's speed. They don't delay the window's
+  `load`, unlike in a browser. The rounds share the time limit: it is checked
+  between them, so a page can overrun it by one settle at most. A render loads at
+  most `MAX_FRAMES` frames; the rest stay blank and fire nothing.
+- A frame's type goes by its URL's extension, there being no Content-Type.
+- `frames` is a list built per read, not the window, and `window[0]` doesn't exist.
+- `__surimonoFrameLoads` is a global, non-enumerable and fixed, because Rust has no
+  other way into the glue between settles that survives a sandbox rebuild. A script
+  calling it fires only what was due.
+
 ## Objects other than nodes
 
 The handle table holds `Object`s, not only nodes: live lists (`childNodes`,

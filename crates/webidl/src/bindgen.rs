@@ -59,6 +59,7 @@ const JS_INTERFACES: &[&str] = &[
     "DOMRect",
     "DOMRectList",
     "DOMParser",
+    "XMLSerializer",
 ];
 
 /// Operations for the glue that aren't IDL members: the name its `OP_<name>`
@@ -75,9 +76,12 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("recordsPending", "h.records_pending()"),
     ("layoutQuery", "h.layout_query(a.string(0)?)"),
     ("computedStyle", "h.computed_style(this)"),
+    ("serializeXml", "h.serialize_xml(a.id(0)?)"),
+    ("nextFrameLoad", "h.next_frame_load()"),
+    ("isFrameDocument", "h.is_frame_document(this)"),
     (
         "parseFromString",
-        "h.parse_from_string(a.string(0)?, a.boolean(1)?)",
+        "h.parse_from_string(a.string(0)?, a.string(1)?)",
     ),
 ];
 
@@ -967,10 +971,13 @@ pub fn generate_bindings(
     };
 
     let mut js = note("//");
-    for name in JS_INTERFACES
-        .iter()
-        .chain(&["Node", "Element", "HTMLElement", "Document"])
-    {
+    for name in JS_INTERFACES.iter().chain(&[
+        "Node",
+        "Element",
+        "HTMLElement",
+        "Document",
+        "HTMLIFrameElement",
+    ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
         }
@@ -1085,6 +1092,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &[
             "nodeType",
             "nodeName",
+            "baseURI",
             "isConnected",
             "ownerDocument",
             "parentNode",
@@ -1143,6 +1151,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "getElementsByTagNameNS",
             "closest",
             "matches",
+            "webkitMatchesSelector",
             "getElementsByTagName",
             "getElementsByClassName",
             "querySelector",
@@ -1522,7 +1531,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLIFrameElement",
-        members: &[],
+        members: &["src", "srcdoc", "name", "contentDocument"],
     },
     BindInterface {
         name: "HTMLLabelElement",
@@ -1651,6 +1660,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "DOMParser",
         members: &["constructor", "parseFromString"],
+    },
+    BindInterface {
+        name: "XMLSerializer",
+        members: &["constructor", "serializeToString"],
     },
     // Layout queries, in `glue_layout.js`.
     BindInterface {

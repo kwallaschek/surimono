@@ -1012,6 +1012,33 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "sheet", rust_name: "sheet", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
         ],
     },
+    InterfaceInfo {
+        name: "HTMLIFrameElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "src", rust_name: "src", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "srcdoc", rust_name: "srcdoc", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "name", rust_name: "name", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "sandbox", rust_name: "sandbox", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "allow", rust_name: "allow", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "allowFullscreen", rust_name: "allow_fullscreen", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "width", rust_name: "width", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "height", rust_name: "height", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "referrerPolicy", rust_name: "referrer_policy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "loading", rust_name: "loading", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "contentDocument", rust_name: "content_document", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "contentWindow", rust_name: "content_window", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "getSVGDocument", rust_name: "get_svg_document", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "align", rust_name: "align", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "scrolling", rust_name: "scrolling", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "frameBorder", rust_name: "frame_border", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "longDesc", rust_name: "long_desc", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "marginHeight", rust_name: "margin_height", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "marginWidth", rust_name: "margin_width", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
 ];
 
 /// IDL `interface EventTarget` (dom.idl).
@@ -8359,5 +8386,217 @@ pub trait ProcessingInstruction: CharacterData {
     fn sheet(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
         let _ = this;
         Err(BindingError::NotImplemented("ProcessingInstruction.sheet"))
+    }
+}
+
+/// IDL `interface HTMLIFrameElement : HTMLElement` (html.idl).
+pub trait HTMLIFrameElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLIFrameElement"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString src;` (html.idl)
+    fn src(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.src"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString src;` (html.idl)
+    fn set_src(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.src"))
+    }
+
+    /// `[CEReactions] attribute (TrustedHTML or DOMString) srcdoc;` (html.idl)
+    fn srcdoc(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.srcdoc"))
+    }
+
+    /// `[CEReactions] attribute (TrustedHTML or DOMString) srcdoc;` (html.idl)
+    fn set_srcdoc(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.srcdoc"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn name(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.name"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString name;` (html.idl)
+    fn set_name(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.name"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect] readonly attribute DOMTokenList sandbox;` (html.idl)
+    fn sandbox(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.sandbox"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString allow;` (html.idl)
+    fn allow(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.allow"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString allow;` (html.idl)
+    fn set_allow(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.allow"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean allowFullscreen;` (html.idl)
+    fn allow_fullscreen(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.allowFullscreen"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean allowFullscreen;` (html.idl)
+    fn set_allow_fullscreen(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.allowFullscreen"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString width;` (html.idl)
+    fn width(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.width"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString width;` (html.idl)
+    fn set_width(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.width"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString height;` (html.idl)
+    fn height(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.height"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString height;` (html.idl)
+    fn set_height(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.height"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn referrer_policy(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn set_referrer_policy(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString loading;` (html.idl)
+    fn loading(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.loading"))
+    }
+
+    /// `[CEReactions] attribute DOMString loading;` (html.idl)
+    fn set_loading(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.loading"))
+    }
+
+    /// `readonly attribute Document? contentDocument;` (html.idl)
+    fn content_document(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.contentDocument"))
+    }
+
+    /// `readonly attribute WindowProxy? contentWindow;` (html.idl)
+    fn content_window(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.contentWindow"))
+    }
+
+    /// `Document? getSVGDocument();` (html.idl)
+    fn get_svg_document(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.getSVGDocument"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString align;` (html.idl)
+    fn align(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.align"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString align;` (html.idl)
+    fn set_align(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.align"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString scrolling;` (html.idl)
+    fn scrolling(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.scrolling"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString scrolling;` (html.idl)
+    fn set_scrolling(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.scrolling"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString frameBorder;` (html.idl)
+    fn frame_border(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.frameBorder"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString frameBorder;` (html.idl)
+    fn set_frame_border(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.frameBorder"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString longDesc;` (html.idl)
+    fn long_desc(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.longDesc"))
+    }
+
+    /// `[CEReactions, ReflectURL] attribute USVString longDesc;` (html.idl)
+    fn set_long_desc(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.longDesc"))
+    }
+
+    /// `[CEReactions, Reflect] attribute [LegacyNullToEmptyString] DOMString marginHeight;` (html.idl)
+    fn margin_height(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.marginHeight"))
+    }
+
+    /// `[CEReactions, Reflect] attribute [LegacyNullToEmptyString] DOMString marginHeight;` (html.idl)
+    fn set_margin_height(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.marginHeight"))
+    }
+
+    /// `[CEReactions, Reflect] attribute [LegacyNullToEmptyString] DOMString marginWidth;` (html.idl)
+    fn margin_width(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLIFrameElement.marginWidth"))
+    }
+
+    /// `[CEReactions, Reflect] attribute [LegacyNullToEmptyString] DOMString marginWidth;` (html.idl)
+    fn set_margin_width(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLIFrameElement.marginWidth"))
     }
 }
