@@ -104,10 +104,22 @@ fn child(shared: &IslandRunner, owned: Option<IslandRunner>, i: usize) -> i32 {
     0
 }
 
+/// A thread that starts and joins `std::thread`s until `stop` goes up.
+fn spawn_churn(stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        while !stop.load(Ordering::Relaxed) {
+            std::thread::spawn(|| {}).join().unwrap();
+        }
+    })
+}
+
 /// Child side of `forks_never_hang`: a thread renders on a shared runner
 /// as fast as it can (and now and then registers a bundle, reads the stats
-/// and starts a new runner that loads a built-in) while this thread forks.
-/// SURIMONO_FORKS sets the number of forks (default 1,000: about 7 s).
+/// and starts a new runner that loads a built-in) while this thread forks,
+/// and another thread starts and ends threads, as a host's do: at the fork
+/// one of those can hold the lock `std::thread` keeps for all threads (see
+/// `surimono_core`'s `host_thread`). SURIMONO_FORKS sets the number of forks
+/// (default 1,000: about 7 s).
 #[test]
 #[ignore = "helper: run in a child process by forks_never_hang"]
 fn fork_stress_child() {
@@ -143,6 +155,7 @@ fn fork_stress_child() {
             }
         })
     };
+    let churn = spawn_churn(stop.clone());
     const HANG: Duration = Duration::from_secs(30);
     const AT_ONCE: usize = 4;
     let (mut ok, mut hung, mut failed) = (0usize, 0usize, Vec::new());
@@ -202,6 +215,7 @@ fn fork_stress_child() {
     reap(&mut running, 0);
     stop.store(true, Ordering::Relaxed);
     busy.join().unwrap();
+    churn.join().unwrap();
     // The parent's own runners are unaffected.
     if let Some(r) = &owned {
         tiny(r, 10).unwrap();
@@ -210,6 +224,64 @@ fn fork_stress_child() {
         "FORK-STRESS forks={forks} ok={ok} hung={hung} failed={failed:?} busy_renders={}",
         renders.load(Ordering::Relaxed)
     );
+}
+
+/// The cause of a rare hang, without the rest of the stress: a child starts
+/// its workers' kind of thread while the parent's threads come and go. With
+/// `std::thread` in the child, about 1 fork in 1,500 hung here for good, on
+/// the lock `std::thread` keeps for all threads.
+#[test]
+fn a_forked_child_can_start_threads_whatever_the_parent_is_doing() {
+    const FORKS: usize = 5_000;
+    const HANG: Duration = Duration::from_secs(30);
+    let stop = Arc::new(AtomicBool::new(false));
+    let churn = spawn_churn(stop.clone());
+    let mut hung = 0;
+    for _ in 0..FORKS {
+        // SAFETY: as in `fork_stress_child`: the child runs only our code
+        // and leaves through `_exit`.
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let code = match surimono_core::spawn_host_thread(c"fork-test", 256 * 1024, move || {
+                let _ = tx.send(());
+            }) {
+                Ok(thread) => {
+                    let got = rx.recv();
+                    thread.join();
+                    i32::from(got.is_err())
+                }
+                Err(_) => 2,
+            };
+            // SAFETY: ends the child at once; see above.
+            unsafe { libc::_exit(code) };
+        }
+        assert!(pid > 0, "fork failed");
+        let started = Instant::now();
+        let mut status: libc::c_int = 0;
+        loop {
+            // SAFETY: `pid` is our own child that we haven't reaped, and
+            // `status` is a valid place to write its status.
+            let r = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+            if r == pid {
+                assert!(libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0);
+                break;
+            }
+            if started.elapsed() > HANG {
+                // SAFETY: as above; it is still ours until reaped.
+                unsafe {
+                    libc::kill(pid, libc::SIGKILL);
+                    libc::waitpid(pid, &mut status, 0);
+                }
+                hung += 1;
+                break;
+            }
+            std::thread::yield_now();
+        }
+    }
+    stop.store(true, Ordering::Relaxed);
+    churn.join().unwrap();
+    assert_eq!(hung, 0);
 }
 
 /// A fork while another thread renders through an `IslandRunner` (and

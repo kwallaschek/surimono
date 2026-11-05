@@ -6,12 +6,15 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock};
-use std::thread::{self, JoinHandle};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use surimono_core::rquickjs::function::{Opt, This};
 use surimono_core::rquickjs::{self, Coerced, Ctx, Exception, Function, Object, Value};
-use surimono_core::{Bytecode, Deadline, Limits, Sandbox, SandboxError, SandboxOptions};
+use surimono_core::{
+    Bytecode, Deadline, HostThread, Limits, Sandbox, SandboxError, SandboxOptions,
+    spawn_host_thread,
+};
 
 use crate::measure::{Measure, MeasureError};
 use crate::{IslandError, TextMeasurer, builtins, embedded};
@@ -199,9 +202,7 @@ struct Shared {
     /// Handles of the worker threads started and not yet seen finished, to
     /// join when the runner is dropped. Taken before `queue`'s lock when
     /// both are held. How many are alive is `QueueState::live`.
-    workers: Mutex<Vec<JoinHandle<()>>>,
-    /// Worker threads started so far, for their names.
-    spawned: AtomicUsize,
+    workers: Mutex<Vec<HostThread>>,
     /// Test-only: makes workers die outside their guard (see [`Fault`]).
     #[cfg(test)]
     fault: std::sync::atomic::AtomicU8,
@@ -248,7 +249,7 @@ enum Fault {
 }
 
 impl Shared {
-    fn workers_lock(&self) -> MutexGuard<'_, Vec<JoinHandle<()>>> {
+    fn workers_lock(&self) -> MutexGuard<'_, Vec<HostThread>> {
         // Nothing panics while holding the lock.
         self.workers.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -259,26 +260,24 @@ impl Shared {
     /// count is right whenever the queue lock is free.
     fn spawn_worker(
         self: &Arc<Self>,
-        workers: &mut Vec<JoinHandle<()>>,
+        workers: &mut Vec<HostThread>,
         q: &mut QueueState,
     ) -> Result<(), IslandError> {
         // Handles of finished threads are dropped (detached) here, so a
         // pool whose workers die and are replaced keeps a bounded list.
         workers.retain(|h| !h.is_finished());
-        let index = self.spawned.fetch_add(1, Ordering::Relaxed);
         let shared = self.clone();
-        let handle = thread::Builder::new()
-            .name(format!("surimono-island-{index}"))
-            .stack_size(self.stack_size)
-            .spawn(move || {
-                // First, so that whatever ends this thread, it is counted
-                // out and its job and queue are seen to.
-                let life = Life::new(shared);
-                Worker::new(life).run()
-            })
-            .map_err(|e| IslandError::Worker {
-                message: format!("could not start a worker thread: {e}"),
-            })?;
+        // Not `std::thread`, which can hang here in a forked child: see
+        // `surimono_core`'s `host_thread`.
+        let handle = spawn_host_thread(c"surimono-island", self.stack_size, move || {
+            // First, so that whatever ends this thread, it is counted
+            // out and its job and queue are seen to.
+            let life = Life::new(shared);
+            Worker::new(life).run()
+        })
+        .map_err(|e| IslandError::Worker {
+            message: format!("could not start a worker thread: {e}"),
+        })?;
         workers.push(handle);
         q.live += 1;
         Ok(())
@@ -666,7 +665,6 @@ impl IslandRunner {
             pool_size,
             stack_size,
             workers: Mutex::new(Vec::with_capacity(pool_size)),
-            spawned: AtomicUsize::new(0),
             #[cfg(test)]
             fault: std::sync::atomic::AtomicU8::new(Fault::None as u8),
             #[cfg(test)]
@@ -1052,7 +1050,7 @@ impl Drop for IslandRunner {
                 break;
             }
             for w in batch {
-                let _ = w.join();
+                w.join();
             }
         }
     }
