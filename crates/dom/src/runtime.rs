@@ -66,8 +66,10 @@ struct Host {
     /// The sandbox's cancel flag, raised by `limit`: a limit reported by the
     /// glue must stop the script like one the engine stops it for. Natives
     /// refuse to work while it is up, because the sandbox's watchdog sees it
-    /// a few milliseconds later. Only this file raises it, and the fault
-    /// says why, so a caller sees that limit and never `Cancelled`.
+    /// a few milliseconds later. Raised by this file, the fault says why, so
+    /// a caller sees that limit; raised through
+    /// [`DomRuntime::cancel_flag`], there is no fault and the call is
+    /// `Cancelled`.
     stop: Arc<AtomicBool>,
     /// The current call's deadline; host functions refuse to work after it.
     deadline: Option<Deadline>,
@@ -211,6 +213,16 @@ impl DomRuntime {
     /// [`DomError::StaleDocument`].
     pub fn load(&mut self, doc: Document) -> Option<Document> {
         self.host.borrow_mut().doc.replace(doc)
+    }
+
+    /// The flag that stops this runtime's call: raise it from any thread and
+    /// the script stops within a few milliseconds, native loops and parsers
+    /// included, frames' parses too, and the call fails with
+    /// `SandboxError::Cancelled`. The
+    /// call consumes it: the runtime rebuilds its context and works again. Raised
+    /// between calls, it stops the next one.
+    pub fn cancel_flag(&self) -> Arc<AtomicBool> {
+        self.host.borrow().stop.clone()
     }
 
     /// Chooses what scripts' layout queries do, from the next call on. The
@@ -563,6 +575,9 @@ impl DomRuntime {
             // These outrank a fault: the script was stopped anyway.
             (_, Err(e)) if e.discards_state() => Err(e.into()),
             (Some(fault), _) => Err(fault),
+            // The caller's cancel, seen by a native or as the call ended by
+            // itself, before the watchdog looked.
+            (None, _) if stopped => Err(SandboxError::Cancelled.into()),
             (None, r) => r.map_err(DomError::from),
         }
     }

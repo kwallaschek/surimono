@@ -91,6 +91,10 @@ pub struct DomLimits {
     /// on drop. These strings live in Rust, outside the JavaScript heap
     /// limit, and one JavaScript string can be stored on many nodes.
     pub max_text_bytes: usize,
+    /// Most attributes on one element. html5ever's cost for a tag is
+    /// quadratic in its attributes, and so is any tree's for an element: a
+    /// page has a few dozen.
+    pub max_attributes: usize,
 }
 
 /// Bytes charged per attribute beyond its name and value: what the entry
@@ -112,6 +116,8 @@ impl DomLimits {
     /// 256 MiB: far above a real page, inline images included, and small
     /// enough that a script hits this rather than the process's memory.
     pub const DEFAULT_MAX_TEXT_BYTES: usize = 256 * 1024 * 1024;
+    /// 4,096 attributes, the printing pass's cap.
+    pub const DEFAULT_MAX_ATTRIBUTES: usize = 4_096;
 
     /// Checks the limits are in range: every limit at least 1, `max_depth`
     /// at most [`MAX_DEPTH`](Self::MAX_DEPTH), `max_handles` within `u32`.
@@ -125,6 +131,7 @@ impl DomLimits {
             || self.max_depth == 0
             || self.max_handles == 0
             || self.max_text_bytes == 0
+            || self.max_attributes == 0
         {
             return bad("every DOM limit must be at least 1");
         }
@@ -145,6 +152,7 @@ impl Default for DomLimits {
             max_depth: Self::DEFAULT_MAX_DEPTH,
             max_handles: Self::DEFAULT_MAX_HANDLES,
             max_text_bytes: Self::DEFAULT_MAX_TEXT_BYTES,
+            max_attributes: Self::DEFAULT_MAX_ATTRIBUTES,
         }
     }
 }
@@ -481,6 +489,18 @@ impl Document {
     /// element, as DOMParser's does, so the page's scripts run on what a
     /// browser would show. Fails on the same limits as [`parse_with_limits`](Self::parse_with_limits).
     pub fn parse_xml_with_limits(source: &str, limits: DomLimits) -> Result<Self, DomError> {
+        Self::parse_xml_stoppable(source, limits, || false)
+    }
+
+    /// [`parse_xml_with_limits`](Self::parse_xml_with_limits) under a caller's
+    /// stop check, asked as tokens go by: once `stop` says so, the parse
+    /// fails with [`DomError::Stopped`] and frees what it made. This parse runs
+    /// outside any script's time limit, as [`parse_stoppable`](Self::parse_stoppable)'s does.
+    pub fn parse_xml_stoppable(
+        source: &str,
+        limits: DomLimits,
+        stop: impl Fn() -> bool,
+    ) -> Result<Self, DomError> {
         let mut doc = Self::parse_with_limits("", limits)?;
         let root = doc.root();
         doc.remove_children_quietly(root);
@@ -490,7 +510,7 @@ impl Document {
             d.content_type = APPLICATION_XHTML;
         }
         doc.page_html = false;
-        doc.fill_xml_document(root, source)?;
+        doc.fill_xml_until(root, source, &stop)?;
         Ok(doc)
     }
 
@@ -508,7 +528,28 @@ impl Document {
     /// range. The parser itself doesn't recurse per level, and a refused
     /// tree is freed without recursing (blitz-dom keeps nodes in a slab).
     pub fn parse_with_limits(html: &str, limits: DomLimits) -> Result<Self, DomError> {
+        Self::parse_stoppable(html, limits, || false)
+    }
+
+    /// [`parse_with_limits`](Self::parse_with_limits) under a caller's stop
+    /// check, asked between feeds of the parser: once `stop` says so, the
+    /// parse fails with [`DomError::Stopped`] and frees what it made. For input
+    /// a caller doesn't trust, because this parse runs outside any script's
+    /// time limit and one tag can cost quadratic time in its length until
+    /// [`DomLimits::max_attributes`] can see it, at the tag's end.
+    pub fn parse_stoppable(
+        html: &str,
+        limits: DomLimits,
+        stop: impl Fn() -> bool,
+    ) -> Result<Self, DomError> {
         limits.validate()?;
+        // `stop` may answer differently next time; what it said is kept.
+        let halted = Cell::new(false);
+        let stop = || {
+            let now = stop();
+            halted.set(halted.get() || now);
+            now
+        };
         let mut inner = BaseDocument::new(DocumentConfig::default());
         // Nothing is "in the document" as far as blitz-dom can tell. Its
         // hooks for elements joining the document have no use here (nothing
@@ -526,9 +567,10 @@ impl Document {
             ParseLimits {
                 max_nodes: limits.max_nodes,
                 max_depth: limits.max_depth,
+                max_attributes: limits.max_attributes,
             },
             true,
-            || false,
+            stop,
         );
         let info = DocInfo {
             html: true,
@@ -584,6 +626,14 @@ impl Document {
         if parsed.over_style {
             return Err(style_attr::limit_error());
         }
+        if parsed.over_attributes {
+            return Err(DomError::AttributeLimit {
+                limit: limits.max_attributes,
+            });
+        }
+        if halted.get() {
+            return Err(DomError::Stopped);
+        }
         if doc.height(doc.root()) - 1 > limits.max_depth || parsed.over_limit {
             return Err(DomError::TreeTooDeep {
                 limit: limits.max_depth,
@@ -628,6 +678,7 @@ impl Document {
             ParseLimits {
                 max_nodes: room,
                 max_depth: levels,
+                max_attributes: self.limits.max_attributes,
             },
             scripting,
             || deadline.as_ref().is_some_and(Deadline::passed),
@@ -679,6 +730,12 @@ impl Document {
         if parsed.over_style {
             self.drop_subtree(holder);
             return Err(style_attr::limit_error());
+        }
+        if parsed.over_attributes {
+            self.drop_subtree(holder);
+            return Err(DomError::AttributeLimit {
+                limit: self.limits.max_attributes,
+            });
         }
         if limit.is_some() || timed_out || parsed.over_limit {
             self.drop_subtree(holder);
@@ -935,6 +992,7 @@ impl Document {
             ParseLimits {
                 max_nodes: room,
                 max_depth: self.limits.max_depth,
+                max_attributes: self.limits.max_attributes,
             },
             false,
             || deadline.as_ref().is_some_and(Deadline::passed),
@@ -959,8 +1017,8 @@ impl Document {
             }
         }
         let timed_out = deadline.as_ref().is_some_and(Deadline::passed);
-        let limit = if self.node_count() > self.limits.max_nodes || parsed.over_limit && !timed_out
-        {
+        let over = parsed.over_limit && !timed_out && !parsed.over_attributes;
+        let limit = if self.node_count() > self.limits.max_nodes || over {
             let deep = self.height(doc) - 1 > self.limits.max_depth;
             Some(if deep {
                 DomError::TreeTooDeep {
@@ -982,10 +1040,15 @@ impl Document {
         } else {
             None
         };
-        if parsed.over_style || limit.is_some() || timed_out {
+        if parsed.over_style || parsed.over_attributes || limit.is_some() || timed_out {
             self.remove_children_quietly(doc);
             if parsed.over_style {
                 return Err(style_attr::limit_error());
+            }
+            if parsed.over_attributes {
+                return Err(DomError::AttributeLimit {
+                    limit: self.limits.max_attributes,
+                });
             }
             return match limit {
                 Some(e) => Err(e),
@@ -994,6 +1057,11 @@ impl Document {
         }
         self.own_subtree(doc, doc);
         Ok(Some(doc))
+    }
+
+    /// The most attributes an element may have.
+    pub(crate) fn max_attributes(&self) -> usize {
+        self.limits.max_attributes
     }
 
     /// The most bytes of strings a document may hold.
@@ -1153,12 +1221,26 @@ impl Document {
 
     /// Parses `text` under the empty document `doc`.
     fn fill_xml_document(&mut self, doc: usize, text: &str) -> Result<Option<usize>, DomError> {
+        self.fill_xml_until(doc, text, &|| false)
+    }
+
+    /// [`fill_xml_document`](Self::fill_xml_document) under a stop check.
+    fn fill_xml_until(
+        &mut self,
+        doc: usize,
+        text: &str,
+        stop: &dyn Fn() -> bool,
+    ) -> Result<Option<usize>, DomError> {
         let seed = HashMap::new();
         let done = self.making_in(doc, |d| {
-            xml::parse(d, doc, text, xml::Mode::Document, &seed, 0)
+            xml::parse(d, doc, text, xml::Mode::Document, &seed, 0, stop)
         });
         match done {
             Ok(()) => Ok(Some(doc)),
+            Err(xml::Stop::Halted) => {
+                self.remove_children_quietly(doc);
+                Err(DomError::Stopped)
+            }
             Err(xml::Stop::Limit(_)) => {
                 self.remove_children_quietly(doc);
                 match self.fault.take() {
@@ -1217,7 +1299,15 @@ impl Document {
             .create_fragment()
             .map_err(|e| xml::Stop::Limit(self.fail(e)))?;
         let depth = self.depth(parent);
-        match xml::parse(self, frag, text, xml::Mode::Fragment, &scope, depth) {
+        match xml::parse(
+            self,
+            frag,
+            text,
+            xml::Mode::Fragment,
+            &scope,
+            depth,
+            &|| false,
+        ) {
             Ok(()) => Ok(frag),
             Err(e) => {
                 self.drop_subtree(frag);
@@ -1286,18 +1376,60 @@ impl Document {
         out
     }
 
+    /// [`to_html`](Self::to_html) for output a caller has to bound: at most
+    /// `max_bytes` (a little more may be built, never kept) or
+    /// [`DomError::OutputLimit`], and `stop` is asked as it goes, however long
+    /// a text is, ending in [`DomError::Stopped`].
+    pub fn to_html_bounded(
+        &self,
+        max_bytes: usize,
+        stop: impl Fn() -> bool,
+    ) -> Result<String, DomError> {
+        let mut out = String::new();
+        if let Some(id) = self.document_element() {
+            let mut steps = 0u32;
+            self.serialize_with(id, &mut out, &mut |out| {
+                if out.len() > max_bytes {
+                    return Err(DomError::OutputLimit { limit: max_bytes });
+                }
+                steps = steps.wrapping_add(1);
+                if steps % STOP_EVERY == 0 && stop() {
+                    return Err(DomError::Stopped);
+                }
+                Ok(())
+            })?;
+        }
+        if out.len() > max_bytes {
+            return Err(DomError::OutputLimit { limit: max_bytes });
+        }
+        Ok(out)
+    }
+
     fn serialize(&self, top: usize, out: &mut String) {
+        // The check never fails, so neither does this.
+        let _ = self.serialize_with(top, out, &mut |_| Ok(()));
+    }
+
+    /// Serializes `top`, calling `check` at each node and every
+    /// [`TEXT_SLICE`] bytes of a string, so a check sees the output grow.
+    fn serialize_with(
+        &self,
+        top: usize,
+        out: &mut String,
+        check: &mut dyn FnMut(&str) -> Result<(), DomError>,
+    ) -> Result<(), DomError> {
         enum Step {
             Open(usize),
             Close(usize),
         }
         let mut stack = vec![Step::Open(top)];
         while let Some(step) = stack.pop() {
+            check(out)?;
             match step {
                 Step::Close(id) => {
                     if let Some(e) = self.node(id).element_data() {
                         out.push_str("</");
-                        out.push_str(&e.name.local);
+                        push_sliced(&e.name.local, true, false, out, check)?;
                         out.push('>');
                     }
                 }
@@ -1332,11 +1464,7 @@ impl Document {
                                                 | "noscript"
                                         )
                                 });
-                            if raw {
-                                out.push_str(self.char_data(id));
-                            } else {
-                                escape_into(self.char_data(id), false, out);
-                            }
+                            push_sliced(self.char_data(id), raw, false, out, check)?;
                         }
                         // §13.3: comment data goes out unescaped.
                         NodeData::Comment if self.special(id).is_some() => {
@@ -1360,18 +1488,22 @@ impl Document {
                         }
                         NodeData::Comment => {
                             out.push_str("<!--");
-                            out.push_str(self.char_data(id));
+                            push_sliced(self.char_data(id), true, false, out, check)?;
                             out.push_str("-->");
                         }
                         NodeData::Document => {}
                         NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                             out.push('<');
-                            out.push_str(&e.name.local);
+                            push_sliced(&e.name.local, true, false, out, check)?;
                             for a in e.attrs() {
                                 out.push(' ');
-                                push_attribute_name(&a.name, out);
+                                if let Some(prefix) = attribute_prefix(&a.name) {
+                                    push_sliced(prefix, true, false, out, check)?;
+                                    out.push(':');
+                                }
+                                push_sliced(&a.name.local, true, false, out, check)?;
                                 out.push_str("=\"");
-                                escape_into(&a.value, true, out);
+                                push_sliced(&a.value, false, true, out, check)?;
                                 out.push('"');
                             }
                             out.push('>');
@@ -1415,6 +1547,7 @@ impl Document {
                 }
             }
         }
+        Ok(())
     }
 
     /// The live node count, parsed and created.
@@ -2025,6 +2158,11 @@ impl Document {
             return Err(style_attr::limit_error());
         }
         let credit = self.attribute_bytes(id, &name);
+        if credit == 0 && self.attribute_count(id) >= self.limits.max_attributes {
+            return Err(DomError::AttributeLimit {
+                limit: self.limits.max_attributes,
+            });
+        }
         let charge = attribute_cost(&name, value);
         self.recharge(credit, charge)?;
         self.note_attribute(id, &name);
@@ -3015,12 +3153,12 @@ pub(crate) fn is_valid_attribute_name(name: &str) -> bool {
     !name.is_empty() && !name.contains(['\t', '\n', '\u{c}', '\r', ' ', '\0', '/', '=', '>'])
 }
 
-/// Writes an attribute's serialized name (HTML Standard §13.3, "serializing
-/// HTML fragments"): the local name without a namespace; `xml:`, `xmlns:`
-/// or `xlink:` plus the local name in those namespaces (`xmlns` alone for
-/// the `xmlns` attribute itself); the qualified name otherwise.
-fn push_attribute_name(name: &QualName, out: &mut String) {
-    let prefix = if name.ns == ns!() {
+/// The prefix of an attribute's serialized name (HTML Standard §13.3,
+/// "serializing HTML fragments"): none without a namespace; `xml`, `xmlns` or
+/// `xlink` in those namespaces (none for the `xmlns` attribute itself); its
+/// own prefix otherwise.
+fn attribute_prefix(name: &QualName) -> Option<&str> {
+    if name.ns == ns!() {
         None
     } else if name.ns == ns!(xml) {
         Some("xml")
@@ -3030,12 +3168,40 @@ fn push_attribute_name(name: &QualName, out: &mut String) {
         Some("xlink")
     } else {
         name.prefix.as_ref().map(|p| p.as_ref())
-    };
-    if let Some(prefix) = prefix {
-        out.push_str(prefix);
-        out.push(':');
     }
-    out.push_str(&name.local);
+}
+
+/// Bytes of a string written between looks at the output's size and the clock.
+const TEXT_SLICE: usize = 64 * 1024;
+
+/// Nodes and slices between asks of a stop check.
+const STOP_EVERY: u32 = 256;
+
+/// Writes `s`, as it is if `raw` and escaped otherwise, in slices with a
+/// `check` after each.
+fn push_sliced(
+    mut s: &str,
+    raw: bool,
+    attribute: bool,
+    out: &mut String,
+    check: &mut dyn FnMut(&str) -> Result<(), DomError>,
+) -> Result<(), DomError> {
+    while !s.is_empty() {
+        let mut end = TEXT_SLICE.min(s.len());
+        while !s.is_char_boundary(end) {
+            end += 1;
+        }
+        if raw {
+            out.push_str(&s[..end]);
+        } else {
+            escape_into(&s[..end], attribute, out);
+        }
+        s = &s[end..];
+        if !s.is_empty() {
+            check(out)?;
+        }
+    }
+    Ok(())
 }
 
 /// Escapes text or an attribute value as HTML serialization does (HTML

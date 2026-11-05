@@ -35,6 +35,9 @@ use crate::style_attr;
 /// Bytes of HTML fed between limit checks.
 const CHUNK: usize = 4096;
 
+/// The same inside one long token; see [`feed`].
+const SMALL_CHUNK: usize = 256;
+
 /// What the sink learned, beyond the tree.
 #[derive(Debug, Default)]
 pub(crate) struct Parsed {
@@ -53,6 +56,8 @@ pub(crate) struct Parsed {
     pub over_limit: bool,
     /// Feeding stopped at a `style` attribute over its limits.
     pub over_style: bool,
+    /// Feeding stopped at an element over `max_attributes`.
+    pub over_attributes: bool,
     /// Elements whose `style` attributes are hidden from blitz-dom.
     hidden_styles: Vec<usize>,
 }
@@ -63,6 +68,7 @@ pub(crate) struct Parsed {
 pub(crate) struct ParseLimits {
     pub max_nodes: usize,
     pub max_depth: usize,
+    pub max_attributes: usize,
 }
 
 struct Sink<'m, 'doc> {
@@ -85,6 +91,12 @@ struct Sink<'m, 'doc> {
     styles: Rc<RefCell<Vec<usize>>>,
     /// A `style` attribute was over its limits; shared the same way.
     over_style: Rc<Cell<bool>>,
+    /// An element was over `max_attributes`; shared the same way.
+    over_attributes: Rc<Cell<bool>>,
+    max_attributes: usize,
+    /// Attributes merged into `<html>` and `<body>` by repeated tags: they
+    /// add up across tags, where `create_element` sees one tag at a time.
+    merged: Cell<usize>,
 }
 
 impl Sink<'_, '_> {
@@ -96,6 +108,10 @@ impl Sink<'_, '_> {
     /// notes it: feeding stops, and the parse fails. Otherwise hides them,
     /// and says whether there were any.
     fn screen_style(&self, attrs: &mut Vec<Attribute>) -> bool {
+        if attrs.len() > self.max_attributes {
+            attrs.clear();
+            self.over_attributes.set(true);
+        }
         let is_style = |a: &Attribute| a.name.local.as_ref() == "style";
         if attrs
             .iter()
@@ -243,6 +259,12 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
     }
 
     fn add_attrs_if_missing(&self, target: &usize, mut attrs: Vec<Attribute>) {
+        self.merged
+            .set(self.merged.get().saturating_add(attrs.len()));
+        if self.merged.get() > self.max_attributes {
+            attrs.clear();
+            self.over_attributes.set(true);
+        }
         if self.screen_style(&mut attrs) {
             self.parsed.borrow_mut().hidden_styles.push(*target);
         }
@@ -277,23 +299,39 @@ fn opts(scripting: bool) -> ParseOpts {
     }
 }
 
-/// Feeds `html` in chunks, stopping when `stop` says to.
-fn feed<S>(mut parser: S, html: &str, stop: impl Fn() -> bool) -> (S::Output, bool)
+/// Feeds `html` in chunks, stopping when `stop` says to. A feed that made no
+/// node is inside one token, the only place html5ever's cost isn't linear: it
+/// compares each attribute with the tag's others, in one call per feed. So the
+/// chunks shrink there and `stop` is asked more often, and a tag of 60,000
+/// attributes ends close to its deadline. `created` counts the nodes made.
+fn feed<S>(
+    mut parser: S,
+    html: &str,
+    created: &Cell<usize>,
+    stop: impl Fn() -> bool,
+) -> (S::Output, bool)
 where
     S: TendrilSink<html5ever::tendril::fmt::UTF8>,
 {
     let mut at = 0;
     let mut stopped = false;
+    let mut chunk = CHUNK;
     while at < html.len() {
         if stop() {
             stopped = true;
             break;
         }
-        let mut end = (at + CHUNK).min(html.len());
+        let mut end = (at + chunk).min(html.len());
         while !html.is_char_boundary(end) {
             end += 1;
         }
+        let before = created.get();
         parser.process(StrTendril::from_slice(&html[at..end]));
+        chunk = if created.get() == before {
+            SMALL_CHUNK
+        } else {
+            CHUNK
+        };
         at = end;
     }
     (parser.finish(), stopped)
@@ -317,6 +355,7 @@ pub(crate) fn parse_fragment(
     let created = Rc::new(Cell::new(0usize));
     let styles = Rc::new(RefCell::new(Vec::new()));
     let over_style = Rc::new(Cell::new(false));
+    let over_attributes = Rc::new(Cell::new(false));
     let sink = Sink {
         inner: DocumentHtmlParser::new(mutr),
         document: holder,
@@ -326,16 +365,21 @@ pub(crate) fn parse_fragment(
         created: created.clone(),
         styles: styles.clone(),
         over_style: over_style.clone(),
+        over_attributes: over_attributes.clone(),
+        max_attributes: limits.max_attributes,
+        merged: Cell::new(0),
     };
     let parser = driver::parse_fragment_for_element(sink, opts(scripting), context, false, None);
-    let (mut parsed, stopped) = feed(parser, html, || {
+    let (mut parsed, stopped) = feed(parser, html, &created, || {
         stop()
             || over_style.get()
+            || over_attributes.get()
             || created.get() > limits.max_nodes
             || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
     parsed.over_style = over_style.get();
+    parsed.over_attributes = over_attributes.get();
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
     reveal_styles(&mut *mutr, &parsed.hidden_styles);
     parsed
@@ -355,6 +399,7 @@ pub(crate) fn parse_document(
     let created = Rc::new(Cell::new(0usize));
     let styles = Rc::new(RefCell::new(Vec::new()));
     let over_style = Rc::new(Cell::new(false));
+    let over_attributes = Rc::new(Cell::new(false));
     let sink = Sink {
         document,
         inner: DocumentHtmlParser::new(mutr),
@@ -364,16 +409,21 @@ pub(crate) fn parse_document(
         created: created.clone(),
         styles: styles.clone(),
         over_style: over_style.clone(),
+        over_attributes: over_attributes.clone(),
+        max_attributes: limits.max_attributes,
+        merged: Cell::new(0),
     };
     let parser = driver::parse_document(sink, opts(scripting));
-    let (mut parsed, stopped) = feed(parser, html, || {
+    let (mut parsed, stopped) = feed(parser, html, &created, || {
         stop()
             || over_style.get()
+            || over_attributes.get()
             || created.get() > limits.max_nodes
             || deepest.get() as usize > limits.max_depth
     });
     parsed.over_limit = stopped;
     parsed.over_style = over_style.get();
+    parsed.over_attributes = over_attributes.get();
     // Before `mutr` flushes, which is when blitz-dom reads style text.
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
     reveal_styles(&mut *mutr, &parsed.hidden_styles);

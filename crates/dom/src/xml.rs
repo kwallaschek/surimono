@@ -14,6 +14,7 @@
 //! nodes, and the clock is looked at per token.
 
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 
 use blitz_dom::{Attribute, LocalName, QualName, ns};
@@ -36,6 +37,8 @@ pub(crate) enum Stop {
     Malformed(String),
     /// A limit, recorded with [`Document::fail`], or the time limit.
     Limit(BindingError),
+    /// The caller's stop check said so.
+    Halted,
 }
 
 impl From<BindingError> for Stop {
@@ -83,7 +86,13 @@ struct Parser<'d, 'a> {
     /// Levels above the first level of content.
     base_depth: usize,
     max_depth: usize,
+    /// The caller's stop check, and the work since it was asked.
+    stop: &'a dyn Fn() -> bool,
+    spent: Cell<u32>,
 }
+
+/// Units of work between asks of the stop check.
+const STOP_EVERY: u32 = 256;
 
 fn is_name_start(c: char) -> bool {
     matches!(c, ':' | '_' | 'A'..='Z' | 'a'..='z' | '\u{C0}'..='\u{D6}' | '\u{D8}'..='\u{F6}'
@@ -150,6 +159,26 @@ fn reference(body: &str, out: &mut String) -> Parse<()> {
 }
 
 impl<'d, 'a> Parser<'d, 'a> {
+    /// One step of `work` units: the time limit, if a call is running, and the
+    /// caller's stop.
+    fn tick(&self, work: usize) -> Parse<()> {
+        self.doc.poll_by(work)?;
+        let spent = self
+            .spent
+            .get()
+            .saturating_add(u32::try_from(work).unwrap_or(u32::MAX))
+            .saturating_add(1);
+        if spent < STOP_EVERY {
+            self.spent.set(spent);
+            return Ok(());
+        }
+        self.spent.set(0);
+        if (self.stop)() {
+            return Err(Stop::Halted);
+        }
+        Ok(())
+    }
+
     fn rest(&self) -> &'a str {
         &self.src[self.at..]
     }
@@ -208,7 +237,7 @@ impl<'d, 'a> Parser<'d, 'a> {
 
     fn check_chars(&self, s: &str) -> Parse<()> {
         // A long run pays for itself in the clock.
-        self.doc.poll_by(s.len() / 64)?;
+        self.tick(s.len() / 64)?;
         match s.chars().find(|&c| !is_xml_char(c)) {
             Some(c) => bad(format!("U+{:04X} isn't allowed in XML", c as u32)),
             None => Ok(()),
@@ -461,7 +490,7 @@ impl<'d, 'a> Parser<'d, 'a> {
     /// and processing instructions.
     fn internal_subset(&mut self) -> Parse<()> {
         loop {
-            self.doc.poll()?;
+            self.tick(0)?;
             if self.eat("<!--") {
                 self.until("-->", "comment")?;
             } else if self.eat("<?") {
@@ -504,7 +533,7 @@ impl<'d, 'a> Parser<'d, 'a> {
             if !spaced {
                 return bad(format!("malformed tag at byte {}", self.at));
             }
-            self.doc.poll()?;
+            self.tick(0)?;
             let attr = self.name()?;
             self.skip_space();
             self.need("=")?;
@@ -512,6 +541,11 @@ impl<'d, 'a> Parser<'d, 'a> {
             let value = self.attribute_value()?;
             if !seen.insert(attr) {
                 return bad(format!("attribute {attr:?} appears twice"));
+            }
+            if raw.len() >= self.doc.max_attributes() {
+                let limit = self.doc.max_attributes();
+                let e = self.doc.fail(DomError::AttributeLimit { limit });
+                return Err(Stop::Limit(e));
             }
             if attr == "xmlns" {
                 self.declare("", &value)?;
@@ -532,7 +566,7 @@ impl<'d, 'a> Parser<'d, 'a> {
         let mut attrs = Vec::with_capacity(raw.len());
         let mut expanded: HashSet<(Namespace, &'a str)> = HashSet::new();
         for (attr, value) in raw {
-            self.doc.poll()?;
+            self.tick(0)?;
             let (p, l) =
                 split_qname(attr).ok_or_else(|| Stop::Malformed(format!("bad name {attr:?}")))?;
             let uri = if attr == "xmlns" || p == Some("xmlns") {
@@ -594,7 +628,7 @@ impl<'d, 'a> Parser<'d, 'a> {
         let mut open: Vec<Open<'a>> = Vec::new();
         let mut roots = 0usize;
         loop {
-            self.doc.poll()?;
+            self.tick(0)?;
             let parent = open.last().map_or(top, |o| o.id);
             let in_content = !open.is_empty() || mode == Mode::Fragment;
             if self.at >= self.src.len() {
@@ -665,7 +699,7 @@ impl<'d, 'a> Parser<'d, 'a> {
         self.declaration()?;
         // The prolog's comments and instructions, up to a doctype or element.
         loop {
-            self.doc.poll()?;
+            self.tick(0)?;
             self.skip_space();
             if self.eat("<!--") {
                 self.comment(top)?;
@@ -700,6 +734,7 @@ pub(crate) fn parse<'a>(
     mode: Mode,
     seed: &'a HashMap<String, Namespace>,
     depth: usize,
+    stop: &'a dyn Fn() -> bool,
 ) -> Parse<()> {
     let max_depth = doc.max_depth();
     let mut p = Parser {
@@ -714,6 +749,8 @@ pub(crate) fn parse<'a>(
         text: String::new(),
         base_depth: depth,
         max_depth,
+        stop,
+        spent: Cell::new(0),
     };
     match mode {
         Mode::Document => p.document(top),

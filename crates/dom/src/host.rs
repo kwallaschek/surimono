@@ -336,6 +336,8 @@ impl Document {
             return match self.parse_xml_fragment(context.unwrap_or(parent), parent, html) {
                 Ok(frag) => Ok(Some(frag)),
                 Err(crate::xml::Stop::Limit(e)) => Err(e),
+                // Only `Document::parse_xml_stoppable` passes a stop.
+                Err(crate::xml::Stop::Halted) => Err(timed_out()),
                 Err(crate::xml::Stop::Malformed(m)) => Err(BindingError::DomException {
                     name: "SyntaxError",
                     message: m,
