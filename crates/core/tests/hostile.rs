@@ -9,7 +9,10 @@
 //! expensive native call; group E is a single native call whose cost grows
 //! faster than its input (string search, BigInt arithmetic near the size
 //! cap); group F is a regular expression's per-match loop inside one native
-//! call (`replace`, `split`, `match`, `matchAll`). Each must stop within
+//! call (`replace`, `split`, `match`, `matchAll`); group G is a compile or
+//! parse of a huge or quadratic input, which runs no bytecode (source text
+//! through `compile`, `eval` and `new Function`, patterns through `RegExp`,
+//! `JSON.parse`). Each must stop within
 //! about twice the time limit (timed apart from the cleanup after it, which
 //! has a bound of its own): with the expected limit error, or for the
 //! TOCTOU vectors (whose trick only fooled the old prelude guards)
@@ -20,12 +23,25 @@ use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use surimono_core::rquickjs::ArrayBuffer;
+use surimono_core::rquickjs::{self, ArrayBuffer};
 use surimono_core::test_hooks::{self, CallTimings};
 use surimono_core::{Limits, Sandbox, SandboxError};
 
 mod common;
 use common::scaled;
+
+/// Bytes of input for the group G vectors that are linear in their input and
+/// load it in a setup call of its own, under the same limit.
+const BIG: usize = 64 << 20;
+
+/// Bytes of source for the group G vectors that scan one token byte by byte.
+/// GitHub's runners scan 64 MiB in 249 ms, which is a race with the 250 ms
+/// limit and well inside the stop bound. At this size a scan takes about 1 s
+/// there, plus 100 to 200 ms to copy the source first, so it can't finish
+/// inside the limit, and it overruns the stop bound if its poll goes away.
+/// Not larger: the copy runs under the limit too, and a copy that used it all
+/// up would stop at the first poll without reaching the scan.
+const HUGE: usize = 256 << 20;
 
 /// Time limit for every vector. Not scaled by `SURIMONO_TEST_TIME_SCALE`:
 /// a longer limit would let the group C sorts finish inside it on a fast
@@ -109,6 +125,14 @@ enum Setup {
     /// A global `buf`: an ArrayBuffer of this many pseudo-random int32s,
     /// made in Rust because a JS loop to fill it would outlast the limit.
     RandomInt32(usize),
+    /// A global string `s` with this text, set in a call of its own, so
+    /// building it can't use up the limit and let the vector pass unrun.
+    Text(fn() -> String),
+    /// The script is this text, handed to [`Sandbox::compile`]; the vector's
+    /// `source` isn't used.
+    Compile(fn() -> String),
+    /// The same for [`Sandbox::eval`].
+    Eval(fn() -> String),
 }
 
 /// Heap limit of every vector that doesn't set its own.
@@ -134,6 +158,19 @@ const fn v(name: &'static str, source: &'static str, want: Want) -> Vector {
 }
 
 impl Vector {
+    /// This vector with `setup`.
+    const fn with(mut self, setup: Setup) -> Self {
+        self.setup = setup;
+        self
+    }
+
+    /// This vector for input cheap enough per byte that a fast machine may
+    /// get through it within the limit: only the time to stop counts.
+    const fn any_outcome(mut self) -> Self {
+        self.want = Want::Finish;
+        self
+    }
+
     /// This vector with a heap limit of `bytes` instead of [`HEAP`].
     const fn with_heap(mut self, bytes: usize) -> Self {
         self.heap = bytes;
@@ -583,6 +620,7 @@ fn all_vectors() -> impl Iterator<Item = &'static Vector> {
         .chain(GROUP_D)
         .chain(GROUP_E)
         .chain(GROUP_F)
+        .chain(GROUP_G)
 }
 
 fn pseudo_random(n: usize) -> Vec<i32> {
@@ -609,17 +647,35 @@ fn hostile_child() {
         .with_memory_bytes(vector.heap);
     let mut sb = Sandbox::new(limits).unwrap();
     // Setup gets a call of its own, so copying the data doesn't count.
-    if let Setup::RandomInt32(n) = vector.setup {
-        let data = pseudo_random(n);
-        sb.run(|ctx| {
-            ctx.globals()
-                .set("buf", ArrayBuffer::new(ctx.clone(), data)?)
-        })
-        .unwrap();
-    }
+    let script = match vector.setup {
+        Setup::RandomInt32(n) => {
+            let data = pseudo_random(n);
+            sb.run(|ctx| {
+                ctx.globals()
+                    .set("buf", ArrayBuffer::new(ctx.clone(), data)?)
+            })
+            .unwrap();
+            None
+        }
+        Setup::Text(text) => {
+            let text = text();
+            sb.run(|ctx| {
+                ctx.globals()
+                    .set("s", rquickjs::String::from_str(ctx.clone(), &text)?)
+            })
+            .unwrap();
+            None
+        }
+        Setup::Compile(text) | Setup::Eval(text) => Some(text()),
+        Setup::None => None,
+    };
     test_hooks::take_last_call();
     let start = Instant::now();
-    let result: Result<(), SandboxError> = sb.run(|ctx| ctx.eval::<(), _>(vector.source));
+    let result: Result<(), SandboxError> = match (vector.setup, script) {
+        (Setup::Compile(_), Some(script)) => sb.compile(&script, "hostile.js").map(drop),
+        (Setup::Eval(_), Some(script)) => sb.eval(&script),
+        _ => sb.run(|ctx| ctx.eval::<(), _>(vector.source)),
+    };
     let took = start.elapsed();
     let timings = test_hooks::take_last_call();
     let after = sb.eval::<i32>("6 * 7");
@@ -762,6 +818,332 @@ fn run_group(group: &[Vector], unwind_bound: Duration) {
     );
 }
 
+/// Text for the group G setups: a plain `fn`, so vectors stay `const`.
+mod text {
+    use super::{BIG, HUGE};
+
+    /// Statements in a function nothing calls: all the cost is the compile.
+    pub fn statements() -> String {
+        format!("function f(){{{}}}", "a=1;".repeat(1 << 22))
+    }
+    pub fn top_level_vars() -> String {
+        "var a=1;".repeat(1 << 21)
+    }
+    pub fn array_literal() -> String {
+        format!("function f(){{return[{}]}}", "1,".repeat(1 << 23))
+    }
+    /// 1 MiB of source, quadratic: each name walks every variable in scope
+    /// when the variables are resolved, after the parser is done.
+    pub fn many_lets() -> String {
+        let lets: String = (0..60_000)
+            .map(|i| format!("let a{i}=a{};", i / 2))
+            .collect();
+        format!("function f(){{{lets}}}")
+    }
+    /// The same at the top level: each `var` searches the ones before it.
+    pub fn many_vars() -> String {
+        (0..1 << 17).map(|i| format!("var a{i};")).collect()
+    }
+    pub fn block_comment() -> String {
+        format!("/*{}*/", "x".repeat(HUGE))
+    }
+    pub fn line_comment() -> String {
+        format!("//{}", "x".repeat(HUGE))
+    }
+    pub fn html_comment() -> String {
+        format!("<!--{}", "x".repeat(HUGE))
+    }
+    pub fn shebang() -> String {
+        format!("#!{}", "x".repeat(HUGE))
+    }
+    pub fn spaces() -> String {
+        " ".repeat(HUGE)
+    }
+    pub fn newlines() -> String {
+        "\n".repeat(HUGE)
+    }
+    pub fn string_literal() -> String {
+        format!("'{}'", "x".repeat(HUGE))
+    }
+    pub fn template() -> String {
+        format!("`{}`", "x".repeat(HUGE))
+    }
+    pub fn tagged_template() -> String {
+        format!("t`{}`", "x".repeat(HUGE))
+    }
+    pub fn regexp_literal() -> String {
+        format!("/{}/", "x".repeat(HUGE))
+    }
+    pub fn regexp_flags() -> String {
+        format!("/a/{}", "x".repeat(HUGE))
+    }
+    pub fn identifier() -> String {
+        "x".repeat(HUGE)
+    }
+    pub fn number() -> String {
+        "1".repeat(HUGE)
+    }
+    /// `async` makes the parser look past the comment for `function`.
+    pub fn peek_past_comment() -> String {
+        format!("async/*{}*/function f(){{}}", "x".repeat(HUGE))
+    }
+    pub fn alternatives() -> String {
+        "x|".repeat(1 << 21)
+    }
+    pub fn empty_alternatives() -> String {
+        "|".repeat(1 << 22)
+    }
+    pub fn terms() -> String {
+        "(?:x)".repeat(3 << 20)
+    }
+    pub fn quantifiers() -> String {
+        "(?:x{2,3})*".repeat(1 << 20)
+    }
+    pub fn class_items() -> String {
+        let items: String = (0..1 << 16)
+            .map(|i| format!("\\u{{{:x}}}", i * 3))
+            .collect();
+        format!("[{items}]")
+    }
+    pub fn class_items_literal() -> String {
+        format!("/{}/u", class_items())
+    }
+    pub fn backreferences() -> String {
+        format!("{}(?<n>x)", "\\k<n>".repeat(1 << 20))
+    }
+    pub fn json_numbers() -> String {
+        format!("[{}1]", "1,".repeat(1 << 23))
+    }
+    pub fn json_objects() -> String {
+        format!("[{}1]", "{\"a\":1},".repeat(1 << 21))
+    }
+    pub fn json_string() -> String {
+        format!("\"{}\"", "x".repeat(BIG))
+    }
+    pub fn json_spaces() -> String {
+        format!("{}1", " ".repeat(BIG))
+    }
+    pub fn json_digits() -> String {
+        "1".repeat(BIG)
+    }
+    pub fn empty_statements() -> String {
+        ";".repeat(BIG)
+    }
+    /// A direct eval can use every variable of the enclosing functions, so
+    /// each one goes through each function in between, before the first pass
+    /// over the code: quadratic in the variables, linear in the nesting.
+    pub fn eval_in_nested_closures() -> String {
+        let vars: String = (0..1 << 15).map(|i| format!("var a{i};")).collect();
+        format!("function f(){{{vars}return {}eval('')}}", "()=>".repeat(16))
+    }
+    /// 35 MiB of `\q{}` strings: the parse, then one pass per list operation
+    /// and one to write the bytecode, all inside one class item.
+    fn class_string_list() -> String {
+        let mut list = String::new();
+        for i in 0..1 << 22 {
+            list.push('a');
+            list.push_str(&i.to_string());
+            list.push('|');
+        }
+        format!("\\q{{{list}b}}")
+    }
+    pub fn class_strings() -> String {
+        format!("[{}]", class_string_list())
+    }
+    pub fn class_strings_union() -> String {
+        format!("[[{}][\\q{{c}}]]", class_string_list())
+    }
+    /// Forward jumps that need the long form until the code between them is
+    /// optimized. Each one shrunk moves the rest of the bytecode, so 880 KiB
+    /// takes about 7 s, all of it after the per-instruction passes.
+    pub fn shrinking_jumps() -> String {
+        let block = format!("if(a){{{}}}", "a();".repeat(12));
+        format!("function f(a){{{}}}", block.repeat(16_000))
+    }
+}
+
+/// Group G (P2-RT-03): compiles and parses that run no bytecode. The heap is
+/// large enough that time, not memory, must end them.
+const GROUP_G_HEAP: usize = 1 << 30;
+
+const fn compile(name: &'static str, text: fn() -> String) -> Vector {
+    v(name, "", Want::Time)
+        .with(Setup::Compile(text))
+        .with_heap(GROUP_G_HEAP)
+}
+
+const fn compile_cheap(name: &'static str, text: fn() -> String) -> Vector {
+    compile(name, text).any_outcome()
+}
+
+const fn with_text(name: &'static str, source: &'static str, text: fn() -> String) -> Vector {
+    v(name, source, Want::Time)
+        .with(Setup::Text(text))
+        .with_heap(GROUP_G_HEAP)
+}
+
+const GROUP_G: &[Vector] = &[
+    compile("G compile, statements", text::statements),
+    compile("G compile, top-level vars", text::top_level_vars),
+    compile("G compile, array literal", text::array_literal),
+    compile("G compile, empty statements", text::empty_statements),
+    compile("G compile, 60,000 lets (resolve pass)", text::many_lets),
+    compile("G compile, 131,072 vars", text::many_vars),
+    compile("G compile, shrinking jumps", text::shrinking_jumps),
+    compile(
+        "G compile, direct eval in nested closures",
+        text::eval_in_nested_closures,
+    ),
+    compile_cheap("G compile, block comment", text::block_comment),
+    compile_cheap("G compile, line comment", text::line_comment),
+    compile_cheap("G compile, HTML comment", text::html_comment),
+    compile_cheap("G compile, shebang", text::shebang),
+    compile_cheap("G compile, spaces", text::spaces),
+    compile_cheap("G compile, newlines", text::newlines),
+    compile("G compile, string literal", text::string_literal),
+    compile("G compile, template", text::template),
+    compile("G compile, tagged template", text::tagged_template),
+    compile("G compile, regexp literal", text::regexp_literal),
+    compile_cheap("G compile, regexp flags", text::regexp_flags),
+    compile("G compile, identifier", text::identifier),
+    compile_cheap("G compile, number", text::number),
+    compile("G compile, peek past a comment", text::peek_past_comment),
+    compile(
+        "G compile, regexp literal with a huge class",
+        text::class_items_literal,
+    ),
+    v("G eval, statements", "", Want::Time)
+        .with(Setup::Eval(text::statements))
+        .with_heap(GROUP_G_HEAP),
+    with_text("G direct eval", "eval(s)", text::statements),
+    with_text("G indirect eval", "(0, eval)(s)", text::statements),
+    with_text("G new Function", "new Function(s)", text::statements),
+    with_text(
+        "G eval of 60,000 lets, in try",
+        "try { eval(s) } catch (e) {}",
+        text::many_lets,
+    ),
+    with_text(
+        "G RegExp, alternatives",
+        "new RegExp(s)",
+        text::alternatives,
+    ),
+    with_text(
+        "G RegExp, empty alternatives",
+        "new RegExp(s)",
+        text::empty_alternatives,
+    ),
+    with_text("G RegExp, terms", "new RegExp(s)", text::terms).any_outcome(),
+    with_text("G RegExp, quantifiers", "new RegExp(s)", text::quantifiers).any_outcome(),
+    with_text("G RegExp, class", "new RegExp(s, 'u')", text::class_items),
+    with_text(
+        "G RegExp, class ignoring case",
+        "new RegExp(s, 'iu')",
+        text::class_items,
+    ),
+    with_text(
+        "G RegExp, class strings",
+        "new RegExp(s, 'v')",
+        text::class_strings,
+    ),
+    with_text(
+        "G RegExp, class strings ignoring case",
+        "new RegExp(s, 'iv')",
+        text::class_strings,
+    ),
+    with_text(
+        "G RegExp, union of class strings",
+        "new RegExp(s, 'v')",
+        text::class_strings_union,
+    ),
+    with_text(
+        "G RegExp, forward backreferences",
+        "new RegExp(s)",
+        text::backreferences,
+    ),
+    with_text("G JSON.parse, numbers", "JSON.parse(s)", text::json_numbers),
+    with_text("G JSON.parse, objects", "JSON.parse(s)", text::json_objects),
+    with_text("G JSON.parse, string", "JSON.parse(s)", text::json_string).any_outcome(),
+    with_text("G JSON.parse, spaces", "JSON.parse(s)", text::json_spaces).any_outcome(),
+    with_text("G JSON.parse, digits", "JSON.parse(s)", text::json_digits).any_outcome(),
+    with_text(
+        "G JSON.parse, numbers, with a reviver",
+        "JSON.parse(s, (k, v) => v)",
+        text::json_numbers,
+    ),
+];
+
+/// Group G: the duplicate check of a strict function's parameters is
+/// quadratic and capped by the 65,535 parameters a function can have, so it
+/// can't overrun the 250 ms limit by more than the stop bound allows. A short
+/// limit shows the poll: this check alone takes about 900 ms.
+#[test]
+fn group_g_parameter_checks_stop() {
+    let params = |i: usize| format!("a{i}");
+    let list = (0..65_000).map(params).collect::<Vec<_>>();
+    let simple = list.join(",");
+    let destructured = list
+        .iter()
+        .map(|p| format!("{{{p}}}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    for (name, source) in [
+        ("simple", format!("function f({simple}){{'use strict'}}")),
+        ("destructured", format!("function f({destructured}){{}}")),
+    ] {
+        let limits = Limits::default()
+            .with_time(Duration::from_millis(50))
+            .with_memory_bytes(GROUP_G_HEAP);
+        let mut sb = Sandbox::new(limits).unwrap();
+        test_hooks::take_last_call();
+        let result = sb.compile(&source, "hostile.js").map(drop);
+        let timings = test_hooks::take_last_call().expect("the call was timed");
+        assert_eq!(result, Err(SandboxError::TimeLimit), "{name}");
+        assert!(
+            timings.run < scaled(Duration::from_millis(400)),
+            "{name}: took {:?} to stop",
+            timings.run
+        );
+    }
+}
+
+/// Group G: the interrupt during a compile or parse is the time limit, not
+/// an error a script can catch. `caught` is set if it can.
+#[test]
+fn group_g_compile_interrupts_are_uncatchable() {
+    for (name, setup, script) in [
+        ("parser", text::statements as fn() -> String, "eval(s)"),
+        ("compiler pass", text::many_lets, "eval(s)"),
+        ("regexp", text::alternatives, "new RegExp(s)"),
+        ("regexp literal", text::class_items_literal, "eval(s)"),
+        ("regexp strings", text::class_strings, "new RegExp(s, 'v')"),
+        ("eval variables", text::eval_in_nested_closures, "eval(s)"),
+        ("JSON", text::json_numbers, "JSON.parse(s)"),
+    ] {
+        let limits = Limits::default()
+            .with_time(LIMIT)
+            .with_memory_bytes(GROUP_G_HEAP);
+        let mut sb = Sandbox::new(limits).unwrap();
+        let text = setup();
+        sb.run(|ctx| {
+            ctx.globals()
+                .set("s", rquickjs::String::from_str(ctx.clone(), &text)?)
+        })
+        .unwrap();
+        let source =
+            format!("var caught = false; try {{ {script} }} catch (e) {{ caught = true }}");
+        let mut caught = None;
+        let result = sb.run(|ctx| {
+            let run = ctx.eval::<(), _>(source.as_str());
+            // The stop is pending; this read runs no script code.
+            caught = ctx.globals().get::<_, bool>("caught").ok();
+            run
+        });
+        assert_eq!(result, Err(SandboxError::TimeLimit), "{name}");
+        assert_eq!(caught, Some(false), "{name}: a script caught the interrupt");
+    }
+}
+
 #[test]
 fn group_a_native_array_like_loops_end() {
     run_group(GROUP_A, unwind_bound());
@@ -790,4 +1172,9 @@ fn group_e_superlinear_native_calls_end() {
 #[test]
 fn group_f_regexp_per_match_loops_end() {
     run_group(GROUP_F, unwind_bound());
+}
+
+#[test]
+fn group_g_compiles_and_parses_end() {
+    run_group(GROUP_G, unwind_bound());
 }

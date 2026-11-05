@@ -152,3 +152,10 @@ for c in array-join array-fill array-reverse array-copywithin array-concat strin
 for c in granular-json granular-indexof granular-string; do slow 11 "$c"; done
 for c in search-naive search-replaceall bigint-tostring sort-typed; do slow 12 "$c"; done
 slow 13 regexp-delete
+slow 14 parse-source
+slow 14 parse-locals
+slow 14 regexp-compile
+slow 14 json-parse
+slow 14 parse-jumps
+slow 14 parse-eval-closures
+slow 14 regexp-class-strings
