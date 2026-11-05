@@ -927,6 +927,20 @@ mod tests {
     }
 
     #[test]
+    fn a_forked_child_starts_its_own_page_workers() {
+        let _serial = serial();
+        let r = renderer(options());
+        let page = "<script>document.body.dataset.r = Math.random()</script>";
+        let before = r.render_page(page).unwrap_or_else(|e| panic!("{e}"));
+        pretend_forked(&r);
+        assert_eq!(
+            r.render_page(page).unwrap_or_else(|e| panic!("{e}")),
+            before
+        );
+        assert_eq!(last_claimed(&r.slots[..]), 1);
+    }
+
+    #[test]
     fn many_threads_after_a_fork_share_one_new_slot() {
         let _serial = serial();
         let r = Arc::new(renderer(options()));
