@@ -1,4 +1,17 @@
 
+  // DOM §4.5: here because the interface numbers are in bindings.js.
+  for (const [name, id] of [
+    ['beforeunloadevent', I_BeforeUnloadEvent], ['compositionevent', I_CompositionEvent],
+    ['customevent', I_CustomEvent], ['devicemotionevent', I_DeviceMotionEvent],
+    ['deviceorientationevent', I_DeviceOrientationEvent], ['dragevent', I_DragEvent],
+    ['event', I_Event], ['events', I_Event], ['focusevent', I_FocusEvent],
+    ['hashchangeevent', I_HashChangeEvent], ['htmlevents', I_Event],
+    ['keyboardevent', I_KeyboardEvent], ['messageevent', I_MessageEvent],
+    ['mouseevent', I_MouseEvent], ['mouseevents', I_MouseEvent], ['storageevent', I_StorageEvent],
+    ['svgevents', I_Event], ['textevent', I_TextEvent], ['touchevent', I_TouchEvent],
+    ['uievent', I_UIEvent], ['uievents', I_UIEvent],
+  ]) eventNames[name] = id;
+
   const documentState = () => stateOf(wrap(current(), root()));
 
   // The global object is the window (HTML §7.2): it gets its brand and

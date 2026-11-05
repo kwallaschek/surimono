@@ -32,6 +32,57 @@
 
   // WebIDL dictionary conversion (§3.2.17): undefined and null are the empty
   // dictionary; other non-objects are a TypeError.
+  // Conversions for what stays a JavaScript value (WebIDL §3.2); the generated
+  // dictionary converters use them.
+  function inst(x, id) {
+    const s = stateOf(x);
+    if (s === null || s.m[id] !== true) throw new TE('Argument is not a ' + names[id]);
+    return x;
+  }
+  function unbound(x) { throw new TE('no script can have a value of this interface'); }
+  function objectOf(x) {
+    if (!isObject(x)) throw new TE('the value is not an object');
+    return x;
+  }
+  function dbl(x) {
+    const v = +x;
+    if (v - v !== 0) throw new TE('the value is not a finite number');
+    return v;
+  }
+  function flt(x) {
+    const v = fround(+x);
+    if (v - v !== 0) throw new TE('the value is not a finite number');
+    return v;
+  }
+  function toPromise(x) { return apply(promiseResolve, PromiseCtor, [x]); }
+  function oneOf(x, values) {
+    for (let i = 0; i < values.length; i++) if (values[i] === x) return x;
+    throw new TE('the value is not one of the enumeration');
+  }
+  function seq(x, each) {
+    if (!isObject(x)) throw new TE('not a sequence');
+    const method = x[symbolIterator];
+    if (typeof method !== 'function') throw new TE('not iterable');
+    const it = apply(method, x, []);
+    if (!isObject(it)) throw new TE('the iterator is not an object');
+    const next = it.next;
+    const out = list();
+    for (;;) {
+      const r = apply(next, it, []);
+      if (!isObject(r)) throw new TE('the iterator result is not an object');
+      if (r.done) return realArray(out);
+      add(out, each(r.value));
+    }
+  }
+  function asciiLower(x) {
+    let out = '';
+    for (let i = 0; i < x.length; i++) {
+      const c = apply(charCodeAt, x, [i]);
+      out += c >= 65 && c <= 90 ? fromCharCode(c + 32) : x[i];
+    }
+    return out;
+  }
+
   function dictionary(d, what) {
     if (d === undefined || d === null) return create(null);
     if (typeof d !== 'object' && typeof d !== 'function') {
@@ -52,13 +103,26 @@
     if (s.l === undefined && create_) s.l = list();
     return s.l;
   }
+  // §2.7.3 "default passive value".
+  function defaultPassive(s, type) {
+    if (type !== 'touchstart' && type !== 'touchmove' && type !== 'wheel' && type !== 'mousewheel') {
+      return false;
+    }
+    if (s === windowState) return true;
+    if (s.m[I_Node] !== true) return false;
+    const g = s.g;
+    if (g !== current()) return false;
+    const h = s.h;
+    return h === root() || h === call(OP_documentElement, g, root()) || h === call(OP_body, g, root());
+  }
   H.EventTarget_addEventListener = (s, type, callback, options) => {
     // §2.7.3 "flatten more". `signal` isn't read: AbortSignal isn't bound.
     const capture = flatten(options);
-    let once = false, passive = false;
+    let once = false, passive;
     if (isObject(options)) {
       once = !!options.once;
-      passive = !!options.passive;
+      passive = options.passive;
+      if (passive !== undefined) passive = !!passive;
     }
     if (callback === null || callback === undefined) return;
     if (typeof callback !== 'object' && typeof callback !== 'function') {
@@ -70,6 +134,7 @@
       const e = l[i];
       if (e.type === type && e.callback === callback && e.capture === capture) return;
     }
+    if (passive === undefined) passive = defaultPassive(s, type);
     addListener(l, type, callback, capture, once, passive);
   };
   function addListener(l, type, callback, capture, once, passive) {
@@ -189,18 +254,15 @@
     s.currentTarget = null; s.eventPhase = 0;
     s.timeStamp = now();
   }
-  function eventInit(s, type, d, what) {
-    d = dictionary(d, what);
-    const bubbles = !!d.bubbles, cancelable = !!d.cancelable, composed = !!d.composed;
-    initEvent(s, type, bubbles, cancelable);
-    s.composed = composed;
-    return d;
-  }
-  H.new_Event = (target, type, d) => {
-    const s = make(I_Event, target);
-    eventInit(s, type, d, 'Event');
+  // §2.5 "inner event creation steps"; `d` is the converted dictionary, and
+  // the generated attributes of event interfaces read its members.
+  function newEvent(id, target, type, d) {
+    const s = make(id, target);
+    initEvent(s, type, d.bubbles, d.cancelable);
+    s.composed = d.composed;
+    s.d = d;
     return s.w;
-  };
+  }
   H.Event_type = (s) => s.type;
   H.Event_target = (s) => s.target;
   H.Event_srcElement = (s) => s.target;
@@ -229,36 +291,103 @@
     if (!s.dispatching) initialize(s, type, bubbles, cancelable);
   };
 
-  H.new_CustomEvent = (target, type, d) => {
-    const s = make(I_CustomEvent, target);
-    const init = eventInit(s, type, d, 'CustomEvent');
-    const detail = init.detail;
-    s.detail = detail === undefined ? null : detail;
-    return s.w;
-  };
-  H.CustomEvent_detail = (s) => s.detail;
   H.CustomEvent_initCustomEvent = (s, type, bubbles, cancelable, detail) => {
     if (s.dispatching) return;
     initialize(s, type, bubbles, cancelable);
-    s.detail = detail === undefined ? null : detail;
+    s.d.detail = detail;
   };
 
-  H.new_ErrorEvent = (target, type, d) => {
-    const s = make(I_ErrorEvent, target);
-    const init = eventInit(s, type, d, 'ErrorEvent');
-    const message = init.message, filename = init.filename;
-    s.message = message === undefined ? '' : str(message);
-    s.filename = filename === undefined ? '' : str(filename);
-    s.lineno = init.lineno >>> 0;
-    s.colno = init.colno >>> 0;
-    s.error = init.error;
+  // The legacy initializers: "if the dispatch flag is set, return", then the
+  // attributes given.
+  H.UIEvent_initUIEvent = (s, type, bubbles, cancelable, view, detail) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    s.d.view = view === null ? null : view.w; s.d.detail = detail;
+  };
+  H.MouseEvent_initMouseEvent = (s, type, bubbles, cancelable, view, detail, screenX, screenY,
+    clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.view = view === null ? null : view.w; d.detail = detail;
+    d.screenX = screenX; d.screenY = screenY; d.clientX = clientX; d.clientY = clientY;
+    d.ctrlKey = ctrlKey; d.altKey = altKey; d.shiftKey = shiftKey; d.metaKey = metaKey;
+    d.button = button;
+    d.relatedTarget = relatedTarget === null ? null : relatedTarget.w;
+  };
+  H.KeyboardEvent_initKeyboardEvent = (s, type, bubbles, cancelable, view, key, location,
+    ctrlKey, altKey, shiftKey, metaKey) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.view = view === null ? null : view.w; d.key = key; d.location = location;
+    d.ctrlKey = ctrlKey; d.altKey = altKey; d.shiftKey = shiftKey; d.metaKey = metaKey;
+  };
+  H.CompositionEvent_initCompositionEvent = (s, type, bubbles, cancelable, view, data) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    s.d.view = view === null ? null : view.w; s.d.data = data;
+  };
+  H.TextEvent_data = (s) => (s.textData === undefined ? '' : s.textData);
+  H.TextEvent_initTextEvent = (s, type, bubbles, cancelable, view, data) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    s.d.view = view === null ? null : view.w; s.textData = data;
+  };
+  H.MessageEvent_initMessageEvent = (s, type, bubbles, cancelable, data, origin, lastEventId, source, ports) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.data = data; d.origin = origin; d.lastEventId = lastEventId; d.source = source;
+    d.ports = ports === undefined ? realArray(list()) : ports;
+  };
+  H.StorageEvent_initStorageEvent = (s, type, bubbles, cancelable, key, oldValue, newValue, url, area) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.key = key; d.oldValue = oldValue; d.newValue = newValue; d.url = url; d.storageArea = area;
+  };
+
+  // UI Events "getModifierState": the two kinds of key are stored differently.
+  const modifiers = create(null);
+  modifiers.Alt = 'altKey'; modifiers.Control = 'ctrlKey'; modifiers.Meta = 'metaKey';
+  modifiers.Shift = 'shiftKey';
+  for (const k of ['AltGraph', 'CapsLock', 'Fn', 'FnLock', 'Hyper', 'NumLock', 'ScrollLock', 'Super',
+    'Symbol', 'SymbolLock']) modifiers[k] = 'modifier' + k;
+  function modifierState(s, key) {
+    const field = modifiers[key];
+    return field === undefined ? false : !!s.d[field];
+  }
+  H.MouseEvent_getModifierState = modifierState;
+  H.KeyboardEvent_getModifierState = modifierState;
+  // CSSOM View §12: with no layout and no scrolling yet, every box's origin
+  // is the page's, so all these are the client coordinates. Phase 3 gives
+  // offsetX and offsetY their target's padding edge.
+  H.MouseEvent_pageX = (s) => s.d.clientX;
+  H.MouseEvent_pageY = (s) => s.d.clientY;
+  H.MouseEvent_x = (s) => s.d.clientX;
+  H.MouseEvent_y = (s) => s.d.clientY;
+  H.MouseEvent_offsetX = (s) => s.d.clientX;
+  H.MouseEvent_offsetY = (s) => s.d.clientY;
+  H.MouseEvent_layerX = (s) => s.d.clientX;
+  H.MouseEvent_layerY = (s) => s.d.clientY;
+  // No coalescing here: no real input arrives.
+  H.PointerEvent_getCoalescedEvents = () => realArray(list());
+  H.PointerEvent_getPredictedEvents = () => realArray(list());
+  H.BeforeUnloadEvent_returnValue = (s) => (s.returnText === undefined ? '' : s.returnText);
+  H.set_BeforeUnloadEvent_returnValue = (s, v) => { s.returnText = v; };
+
+  // DOM §4.5 createEvent: the legacy names, compared as ASCII lowercase.
+  const eventNames = create(null);
+  H.Document_createEvent = (doc, name) => {
+    const id = eventNames[asciiLower(name)];
+    if (id === undefined) throwDom('NotSupportedError', 'createEvent: unknown interface');
+    const s = make(id);
+    initEvent(s, '', false, false);
+    s.initialized = false;
+    s.d = eventInits[id]();
     return s.w;
   };
-  H.ErrorEvent_message = (s) => s.message;
-  H.ErrorEvent_filename = (s) => s.filename;
-  H.ErrorEvent_lineno = (s) => s.lineno;
-  H.ErrorEvent_colno = (s) => s.colno;
-  H.ErrorEvent_error = (s) => s.error;
 
   H.Window_devicePixelRatio = () => 1;
 
@@ -410,7 +539,8 @@
     const s = make(I_ErrorEvent);
     initEvent(s, 'error', false, true);
     s.isTrusted = true;
-    s.message = message; s.filename = ''; s.lineno = 0; s.colno = 0; s.error = x;
+    s.d = eventInits[I_ErrorEvent]();
+    s.d.message = message; s.d.error = x;
     reporting = true;
     let notHandled;
     try {
@@ -540,7 +670,7 @@
     const v = stateOf(event);
     const special = s === windowState && v.type === 'error' && v.m[I_ErrorEvent] === true;
     const result = special
-      ? apply(callback, s.w, [v.message, v.filename, v.lineno, v.colno, v.error])
+      ? apply(callback, s.w, [v.d.message, v.d.filename, v.d.lineno, v.d.colno, v.d.error])
       : apply(callback, s.w, [event]);
     if (result === special) v.canceled = true;
   }

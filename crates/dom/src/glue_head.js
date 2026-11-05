@@ -48,6 +48,9 @@
   const arrayValues = arrayProto.values, arrayEntries = arrayProto.entries;
   const symbolIterator = Symbol.iterator;
   const toWellFormed = String.prototype.toWellFormed;
+  const charCodeAt = String.prototype.charCodeAt, fromCharCode = String.fromCharCode;
+  const fround = Math.fround;
+  const PromiseCtor = Promise, promiseResolve = Promise.resolve;
   const TE = TypeError;
   const symbolTag = Symbol.toStringTag;
 
@@ -68,6 +71,8 @@
   const exotics = create(null);
   // Bodies of hand-written members (glue_events.js); the window's record.
   const H = create(null);
+  // Each event interface's init dictionary converter, by interface number.
+  const eventInits = create(null);
   let windowState = null;
 
   // Same node, same wrapper (DOM identity), within one document generation.
