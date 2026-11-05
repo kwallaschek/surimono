@@ -844,3 +844,174 @@ fn adoption_refreshes_live_lists() {
     );
     assert_eq!(got, "1,0");
 }
+
+// ------ DOMParser, text/html (HTML §8.5.3) ------
+
+#[test]
+fn dom_parser_gives_a_new_html_document() {
+    let got = eval(
+        r#"const d = new DOMParser().parseFromString('<!doctype html><title>t</title><p id=q>x', 'text/html');
+         [d instanceof Document, d === document, d.contentType, d.compatMode, d.doctype.name, d.title,
+          d.getElementById('q').textContent, d.body.ownerDocument === d, d.URL === document.URL,
+          d.readyState, d.documentElement.isConnected, document.getElementById('q'),
+          d.defaultView, d.location].join()"#,
+    );
+    assert_eq!(
+        got,
+        "true,false,text/html,CSS1Compat,html,t,x,true,true,complete,true,,,"
+    );
+}
+
+/// HTML §8.5.3: no browsing context, so scripts don't run and the scripting
+/// flag is off.
+#[test]
+fn dom_parser_runs_no_script_and_parses_noscript_as_markup() {
+    let got = eval(
+        r#"globalThis.ran = 0;
+         const d = new DOMParser().parseFromString(
+           '<script>ran = 1</script><body onload="ran = 2"><noscript><b>x</b></noscript><img src=x onerror="ran = 3">',
+           'text/html');
+         [ran, d.querySelector('noscript').firstChild.nodeName,
+          d.scripts === undefined ? d.getElementsByTagName('script').length : 0].join()"#,
+    );
+    assert_eq!(got, "0,B,1");
+}
+
+#[test]
+fn dom_parser_quirks_and_templates() {
+    let got = eval(
+        r#"const d = new DOMParser().parseFromString('<template><b>x</b></template>', 'text/html');
+         const t = d.querySelector('template');
+         [d.compatMode, t.content.firstChild.tagName, t.content.firstChild.ownerDocument === d,
+          d.doctype].join()"#,
+    );
+    assert_eq!(got, "BackCompat,B,true,");
+}
+
+#[test]
+fn dom_parser_checks_its_type_first() {
+    let got = eval(
+        "const out = [];
+         for (const t of ['text/plain', 'TEXT/HTML', '', undefined]) {
+           try { new DOMParser().parseFromString('', t); out.push('no'); }
+           catch (e) { out.push(e.name); }
+         }
+         try { DOMParser.prototype.parseFromString.call({}, '', 'text/html'); }
+         catch (e) { out.push(e.name); }
+         out.push(typeof new DOMParser());
+         out.join()",
+    );
+    assert_eq!(
+        got,
+        "TypeError,TypeError,TypeError,TypeError,TypeError,object"
+    );
+}
+
+/// All of a render's parses share the limits, and a refused one leaves the
+/// document empty and the counts right.
+#[test]
+fn a_parser_bomb_hits_the_limits() {
+    let nodes = DomLimits {
+        max_nodes: 5_000,
+        ..DomLimits::default()
+    };
+    assert_eq!(
+        limited(
+            nodes,
+            "const p = new DOMParser(); for (;;) p.parseFromString('<p>x', 'text/html');"
+        ),
+        DomError::NodeLimit { limit: 5_000 }
+    );
+    assert_eq!(
+        limited(
+            nodes,
+            "new DOMParser().parseFromString('<p>'.repeat(10000), 'text/html');"
+        ),
+        DomError::NodeLimit { limit: 5_000 }
+    );
+    let deep = DomLimits {
+        max_depth: 64,
+        ..DomLimits::default()
+    };
+    assert_eq!(
+        limited(
+            deep,
+            "new DOMParser().parseFromString('<div>'.repeat(4000), 'text/html');"
+        ),
+        DomError::TreeTooDeep { limit: 64 }
+    );
+    const CAP: usize = 1 << 20;
+    let text = DomLimits {
+        max_text_bytes: CAP,
+        ..DomLimits::default()
+    };
+    assert_eq!(
+        limited(
+            text,
+            "const s = '<p title=' + 'x'.repeat(1 << 18) + '>'; const p = new DOMParser();
+             for (;;) p.parseFromString(s, 'text/html');"
+        ),
+        DomError::TextLimit { limit: CAP }
+    );
+}
+
+#[test]
+fn a_refused_parse_leaves_consistent_counts() {
+    let l = DomLimits {
+        max_nodes: 5_000,
+        ..DomLimits::default()
+    };
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse_with_limits(PAGE, l).unwrap());
+    let got: String = rt
+        .eval(
+            "try { new DOMParser().parseFromString('<p>'.repeat(10000), 'text/html'); } catch (e) {}
+             'after'",
+        )
+        .unwrap_or_else(|e| e.to_string());
+    assert!(got.contains("5000"), "{got}");
+    rt.with_document(|d| d.check_consistency().unwrap());
+}
+
+#[test]
+fn a_parse_of_a_big_page_ends_at_the_time_limit() {
+    let mut rt = DomRuntime::new(Limits::default().with_time(Duration::from_millis(50))).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    let e = rt
+        .eval::<()>(
+            "const s = '<p>'.repeat(90000); const p = new DOMParser();
+             for (;;) p.parseFromString(s, 'text/html');",
+        )
+        .unwrap_err();
+    assert!(
+        matches!(
+            e,
+            DomError::Sandbox(SandboxError::TimeLimit) | DomError::NodeLimit { .. }
+        ),
+        "{e:?}"
+    );
+}
+
+/// A hostile `style` attribute or `<style>` fares no better here.
+#[test]
+fn a_parsed_document_keeps_the_page_rules_for_style() {
+    let got = eval(
+        r#"const d = new DOMParser().parseFromString(
+             '<style>@import "http://[";</style><p style="color: red">', 'text/html');
+         [d.querySelector('style').textContent, d.querySelector('p').style.color].join()"#,
+    );
+    assert_eq!(got, r#"@import "http://[";,red"#);
+}
+
+/// HTML §13.4: the fragment parser's scripting flag is the context's document's.
+#[test]
+fn inner_html_in_a_parsed_document_has_scripting_off() {
+    let got = eval(
+        r#"const d = new DOMParser().parseFromString('<body>', 'text/html');
+         d.body.innerHTML = '<noscript><b>x</b></noscript>';
+         document.body.innerHTML = '<noscript><b>x</b></noscript>';
+         [d.querySelector('noscript').firstChild.nodeName,
+          document.querySelector('noscript').firstChild.nodeName].join()"#,
+    );
+    assert_eq!(got, "B,#text");
+}

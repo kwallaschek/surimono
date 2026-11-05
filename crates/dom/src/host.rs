@@ -705,6 +705,20 @@ impl Document {
         Ok(())
     }
 
+    /// `DOMParser.parseFromString`: the new document's handle.
+    pub(crate) fn parse_from_string(&mut self, text: String, html: bool) -> BindingResult<u32> {
+        if !html {
+            return Err(self.fail(DomError::Unsupported {
+                feature: "DOMParser for XML",
+            }));
+        }
+        let Some(doc) = self.parse_html_document(&text).map_err(|e| self.fail(e))? else {
+            return Err(timed_out());
+        };
+        let h = self.object(doc)?;
+        Ok(Handle::try_from(h.0).unwrap_or(0))
+    }
+
     /// Whether node `this` is in the page's document.
     pub(crate) fn in_page(&mut self, this: ObjectId) -> BindingResult<bool> {
         let id = self.node_of(this)?;

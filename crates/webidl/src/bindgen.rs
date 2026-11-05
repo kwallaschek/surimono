@@ -62,6 +62,7 @@ const JS_INTERFACES: &[&str] = &[
     "DOMRectReadOnly",
     "DOMRect",
     "DOMRectList",
+    "DOMParser",
     "AbortController",
     "AbortSignal",
     "Performance",
@@ -114,6 +115,10 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("recordsPending", "h.records_pending()"),
     ("layoutQuery", "h.layout_query(a.string(0)?)"),
     ("computedStyle", "h.computed_style(this)"),
+    (
+        "parseFromString",
+        "h.parse_from_string(a.string(0)?, a.boolean(1)?)",
+    ),
     ("inPage", "h.in_page(this)"),
     ("radioCheck", "h.radio_check(this)"),
     ("handlerElement", "h.handler_element()"),
@@ -1926,6 +1931,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "form",
             "indeterminate",
         ],
+    },
+    BindInterface {
+        name: "DOMParser",
+        members: &["constructor", "parseFromString"],
     },
     // Layout queries, in `glue_layout.js`.
     BindInterface {

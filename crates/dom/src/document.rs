@@ -460,15 +460,18 @@ impl Document {
             .root_node_mut()
             .flags
             .remove(NodeFlags::IS_IN_DOCUMENT);
+        let root = inner.root_node().id;
         let parsed = parse::parse_document(
             &mut inner.mutate(),
+            root,
             html,
             ParseLimits {
                 max_nodes: limits.max_nodes,
                 max_depth: limits.max_depth,
             },
+            true,
+            || false,
         );
-        let root = inner.root_node().id;
         let info = DocInfo {
             html: true,
             xml_interface: false,
@@ -549,6 +552,9 @@ impl Document {
         // The parser's own root and holder add two levels.
         let levels = self.limits.max_depth.saturating_sub(self.depth(parent)) + 2;
         let deadline = self.deadline.clone();
+        // HTML §13.4: the flag is that of the context's node document, and only
+        // the page's has a browsing context.
+        let scripting = self.making == self.root();
         let parsed = parse::parse_fragment(
             &mut self.inner.mutate(),
             context,
@@ -558,6 +564,7 @@ impl Document {
                 max_nodes: room,
                 max_depth: levels,
             },
+            scripting,
             || deadline.as_ref().is_some_and(Deadline::passed),
         );
         self.side_data.extend(parsed.strings);
@@ -831,6 +838,83 @@ impl Document {
         if self.making != self.root() {
             self.owners.insert(id, self.making);
         }
+    }
+
+    /// DOMParser's `text/html` (HTML §8.5.3): a new document parsed from
+    /// `html`, with scripting off, its URL the page's. Fits the limits with
+    /// everything else in the render. `Ok(None)` if the time limit passed.
+    pub(crate) fn parse_html_document(&mut self, html: &str) -> Result<Option<usize>, DomError> {
+        let mut info = self.blank_info(true, TEXT_HTML);
+        info.url = self.info(self.root()).url.clone();
+        let doc = self.new_document(info)?;
+        let room = self.limits.max_nodes.saturating_sub(self.node_count());
+        let deadline = self.deadline.clone();
+        let parsed = parse::parse_document(
+            &mut self.inner.mutate(),
+            doc,
+            html,
+            ParseLimits {
+                max_nodes: room,
+                max_depth: self.limits.max_depth,
+            },
+            false,
+            || deadline.as_ref().is_some_and(Deadline::passed),
+        );
+        self.side_data.extend(parsed.strings);
+        self.specials.extend(parsed.specials);
+        self.templates.extend(parsed.templates);
+        if let Some(d) = self.docs.get_mut(&doc) {
+            d.quirks = parsed.quirks;
+        }
+        // Charged here and credited by the drops below if it is refused.
+        let bytes = self.bytes_under(doc) - self.node_bytes(doc);
+        self.held_bytes = self.held_bytes.saturating_add(bytes);
+        for orphan in parsed.removed {
+            if self
+                .inner
+                .get_node(orphan)
+                .is_some_and(|n| n.parent.is_none())
+            {
+                self.held_bytes = self.held_bytes.saturating_add(self.bytes_under(orphan));
+                self.drop_orphan(orphan);
+            }
+        }
+        let timed_out = deadline.as_ref().is_some_and(Deadline::passed);
+        let limit = if self.node_count() > self.limits.max_nodes || parsed.over_limit && !timed_out
+        {
+            let deep = self.height(doc) - 1 > self.limits.max_depth;
+            Some(if deep {
+                DomError::TreeTooDeep {
+                    limit: self.limits.max_depth,
+                }
+            } else {
+                DomError::NodeLimit {
+                    limit: self.limits.max_nodes,
+                }
+            })
+        } else if self.held_bytes > self.limits.max_text_bytes {
+            Some(DomError::TextLimit {
+                limit: self.limits.max_text_bytes,
+            })
+        } else if self.height(doc) - 1 > self.limits.max_depth {
+            Some(DomError::TreeTooDeep {
+                limit: self.limits.max_depth,
+            })
+        } else {
+            None
+        };
+        if parsed.over_style || limit.is_some() || timed_out {
+            self.remove_children_quietly(doc);
+            if parsed.over_style {
+                return Err(style_attr::limit_error());
+            }
+            return match limit {
+                Some(e) => Err(e),
+                None => Ok(None),
+            };
+        }
+        self.own_subtree(doc, doc);
+        Ok(Some(doc))
     }
 
     /// `id`'s children, serialized (HTML §13.3, `innerHTML`).

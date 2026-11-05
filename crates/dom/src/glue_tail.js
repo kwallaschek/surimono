@@ -140,6 +140,18 @@
     },
   }.queueMicrotask, 1);
 
+  // HTML §8.5.3. No state: all of it is the argument.
+  H.new_DOMParser = (target) => make(I_DOMParser, target).w;
+  H.DOMParser_parseFromString = (s, string, type) => {
+    const text = str(string), t = `${type}`;
+    if (t !== 'text/html' && t !== 'text/xml' && t !== 'application/xml' &&
+        t !== 'application/xhtml+xml' && t !== 'image/svg+xml') {
+      throw new TE('parseFromString: the type is not a DOMParserSupportedType');
+    }
+    const g = current();
+    return wrap(g, call(OP_parseFromString, g, root(), text, t === 'text/html'));
+  };
+
   // Timer ids up to this one are the page's lifecycle, and no script may
   // cancel those (`start`), nor the glue's own tasks (`task`).
   let lifecycleLast = 0;

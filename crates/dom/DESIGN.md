@@ -167,6 +167,16 @@ owner document doesn't exist: a template's content stays in the template's docum
 CDATA section gives a CDATA section's data in a Text node, as the standard does.
 `Attr` isn't a whole `Node` (see COMPAT).
 
+## DOMParser
+
+`parseFromString` makes a document like any other in the render: html5ever's tree
+builder runs over the same `Sink`, with the new document's marker as its document,
+so style text, `style` attributes, templates and limits work as for the page. The
+scripting flag is off, as the standard says for a document with no browsing context,
+so `<noscript>` content is markup. A refused parse takes back all it made. The
+parser goes by chunks and looks at the clock between them. Nothing runs: no script,
+no `load`.
+
 ## Objects other than nodes
 
 The handle table holds `Object`s, not only nodes: live lists (`childNodes`,

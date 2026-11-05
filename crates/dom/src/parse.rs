@@ -259,16 +259,17 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
     }
 }
 
-fn opts() -> ParseOpts {
+fn opts(scripting: bool) -> ParseOpts {
     ParseOpts {
         tokenizer: TokenizerOpts::default(),
         tree_builder: TreeBuilderOpts {
             exact_errors: false,
-            // Scripts run on this tree, so its scripting flag is set, as in
-            // a browser: <noscript> content is raw text (HTML §13.2.6.4.4).
+            // Scripts run on a page's tree, so its scripting flag is set, as
+            // in a browser: <noscript> content is raw text (HTML §13.2.6.4.4).
             // blitz-html parses with it off, where a `<script>` in a head
-            // `<noscript>` ends the noscript and lands in the head.
-            scripting_enabled: true,
+            // `<noscript>` ends the noscript and lands in the head. DOMParser's
+            // documents have no browsing context, so scripting is off there.
+            scripting_enabled: scripting,
             iframe_srcdoc: false,
             drop_doctype: false,
             quirks_mode: QuirksMode::NoQuirks,
@@ -302,12 +303,14 @@ where
 /// html5ever does it) into the detached node `holder`: the parser's root
 /// element ends up as `holder`'s only child, and the content under it.
 /// `stop` is asked between chunks; `Parsed::over_limit` says if it stopped.
+/// `scripting` is the tree builder's flag, from the context's node document.
 pub(crate) fn parse_fragment(
     mutr: &mut DocumentMutator<'_>,
     context: usize,
     holder: usize,
     html: &str,
     limits: ParseLimits,
+    scripting: bool,
     stop: impl Fn() -> bool,
 ) -> Parsed {
     let deepest = Rc::new(Cell::new(0u32));
@@ -324,7 +327,7 @@ pub(crate) fn parse_fragment(
         styles: styles.clone(),
         over_style: over_style.clone(),
     };
-    let parser = driver::parse_fragment_for_element(sink, opts(), context, false, None);
+    let parser = driver::parse_fragment_for_element(sink, opts(scripting), context, false, None);
     let (mut parsed, stopped) = feed(parser, html, || {
         stop()
             || over_style.get()
@@ -338,18 +341,22 @@ pub(crate) fn parse_fragment(
     parsed
 }
 
-/// Parses a whole document into `mutr`'s empty document.
+/// Parses a whole document under `document`, `mutr`'s document node or the
+/// marker of another. `scripting` is the tree builder's scripting flag.
 pub(crate) fn parse_document(
     mutr: &mut DocumentMutator<'_>,
+    document: usize,
     html: &str,
     limits: ParseLimits,
+    scripting: bool,
+    stop: impl Fn() -> bool,
 ) -> Parsed {
     let deepest = Rc::new(Cell::new(0u32));
     let created = Rc::new(Cell::new(0usize));
     let styles = Rc::new(RefCell::new(Vec::new()));
     let over_style = Rc::new(Cell::new(false));
     let sink = Sink {
-        document: 0,
+        document,
         inner: DocumentHtmlParser::new(mutr),
         parsed: RefCell::new(Parsed::default()),
         depths: RefCell::new(Vec::new()),
@@ -358,9 +365,10 @@ pub(crate) fn parse_document(
         styles: styles.clone(),
         over_style: over_style.clone(),
     };
-    let parser = driver::parse_document(sink, opts());
+    let parser = driver::parse_document(sink, opts(scripting));
     let (mut parsed, stopped) = feed(parser, html, || {
-        over_style.get()
+        stop()
+            || over_style.get()
             || created.get() > limits.max_nodes
             || deepest.get() as usize > limits.max_depth
     });
