@@ -282,8 +282,8 @@ name `undefined` instead of a ReferenceError.
 **Gaps** (each for docs/COMPAT.md): no microtask checkpoint between the listeners of a
 browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`), because a
 checkpoint from inside a native needs core; a
-handler's scope has no form owner; SVG and MathML elements have no `on*`
-attributes, and `<svg><script>` doesn't run; `unhandledrejection` doesn't fire.
+handler's scope has no form owner; MathML elements have no `on*` attributes (no
+interface bound), and `<svg><script>` doesn't run; `unhandledrejection` doesn't fire.
 ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
 `Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
 two events at one virtual time have the same one. `HTMLDocument` is `Document`, as
@@ -371,7 +371,11 @@ state. `every_native_is_guarded` reads this file and fails on a native without i
 
 Every script runs through `surimono_core::Sandbox::run`, so the memory, time
 and stack limits, determinism and the no-I/O rule apply unchanged; crates/dom
-needed nothing new from core. `DomRuntime::eval` is two sandbox calls, the script
+needed nothing new from core. The glue is compiled once per process and loaded as bytecode into each context
+(`load_glue`), through the sandbox's own `compile` and `eval_bytecode`; measured
+at opt-level 1, a page's install went from 23 ms to about 15 ms, about what it was
+with half the interfaces, and it adds 1.4 MB of JS heap (0.9 MB before e2-13c).
+`DomRuntime::eval` is two sandbox calls, the script
 and its checkpoint, with their own deadlines, so a hostile script can use up to
 twice `Limits.time` there; `run_page` is one call for everything after install. Bindings are installed inside the first call on
 a context (`glue.js` plus the natives) and again after the sandbox rebuilds

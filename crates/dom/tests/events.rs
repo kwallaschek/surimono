@@ -1500,8 +1500,8 @@ fn a_javascript_link_runs_in_a_task() {
 #[test]
 fn a_limit_in_a_javascript_link_ends_the_page() {
     // The link's task runs under the same time limit as any other.
-    let mut rt = DomRuntime::new(limits().with_time(common::scaled(Duration::from_millis(200))))
-        .unwrap();
+    let mut rt =
+        DomRuntime::new(limits().with_time(common::scaled(Duration::from_millis(200)))).unwrap();
     rt.load(
         Document::parse(
             "<!doctype html><a id=a href='javascript:for(;;);'>x</a>
@@ -1509,7 +1509,9 @@ fn a_limit_in_a_javascript_link_ends_the_page() {
         )
         .unwrap(),
     );
-    let e = rt.run_page(&SettleOptions::default(), |_| None).unwrap_err();
+    let e = rt
+        .run_page(&SettleOptions::default(), |_| None)
+        .unwrap_err();
     assert!(
         matches!(e, DomError::Sandbox(SandboxError::TimeLimit { .. })),
         "{e:?}"
@@ -1560,4 +1562,22 @@ fn elements_are_named_on_the_window() {
         log_of(&mut rt),
         "true,function,true,ReferenceError,undefined,true,undefined,5"
     );
+}
+
+#[test]
+fn svg_elements_have_event_handlers() {
+    // HTML §8.1.7.2.1: GlobalEventHandlers on SVGElement, attribute and IDL.
+    let (mut rt, _) = page(
+        "<!doctype html><svg><rect id=r onclick='log.push(this.id, event.type)'/></svg>
+         <script>globalThis.log = [];
+         const r = document.getElementById('r');
+         r.dispatchEvent(new Event('click'));
+         log.push(typeof r.onclick);
+         r.onclick = () => log.push('idl');
+         r.dispatchEvent(new Event('click'));
+         r.removeAttribute('onclick');
+         r.dispatchEvent(new Event('click'));
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "r,click,function,idl");
 }
