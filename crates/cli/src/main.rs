@@ -39,6 +39,8 @@ Options:
   --memory-mb <n>          JavaScript heap per island (default 64)
   --time-ms <n>            Time per island (default 2000)
   --stack-kb <n>           JavaScript stack per island (default 512)
+  --output-mb <n>          With --scripts: most HTML a page may give back, and
+                           text it may hold (default 64)
   --seed <n>               Seed for Math.random (default 0)
   --now-ms <n>             What Date.now() returns, ms since 1970 (default
                            1767225600000, 2026-01-01T00:00:00Z)
@@ -70,9 +72,10 @@ Options:
   --layout-queries <p>     With --scripts, what getBoundingClientRect, offsetWidth
                            and the like give, as nothing is laid out: zeros
                            (default) or throw
-  --resource <url>=<file>  With --scripts: <script src=\"<url>\">, with the URL as
-                           written, loads this file, read once at the start. Only
-                           these load. Repeat it for more.
+  --resource <url>=<file>  With --scripts: <script src=\"<url>\"> or a stylesheet's
+                           <link href=\"<url>\">, with the URL as written, loads
+                           this file, read once at the start. Only these load.
+                           Repeat it for more.
 
   The output file is written only after the render succeeded, through a
   temporary file renamed into place, so it is either complete or untouched.
@@ -241,6 +244,9 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
             }
             "--time-ms" => {
                 r.limits.time = Duration::from_millis(number(&flag, &value()?)?);
+            }
+            "--output-mb" => {
+                r.limits.output_bytes = mib(number::<usize>(&flag, &value()?)?, &flag)?;
             }
             "--stack-kb" => {
                 let kb: usize = number(&flag, &value()?)?;
@@ -476,8 +482,10 @@ fn warn(report: &PageReport) {
     }
     for failed in &report.failed {
         eprintln!(
-            "surimono: warning: {:?} {:?} not loaded: {}",
-            failed.kind, failed.url, failed.reason
+            "surimono: warning: {:?} {:?} not loaded: {:?}",
+            failed.kind,
+            failed.url,
+            failed.reason.to_string()
         );
     }
     if report.failed_count > report.failed.len() as u64 {
@@ -615,6 +623,7 @@ mod tests {
             "--memory-mb",
             "8",
             "--time-ms=500",
+            "--output-mb=2",
             "--stack-kb",
             "256",
             "--seed",
@@ -649,6 +658,7 @@ mod tests {
         );
         assert_eq!(r.limits.memory_bytes, 8 * 1024 * 1024);
         assert_eq!(r.limits.time, Duration::from_millis(500));
+        assert_eq!(r.limits.output_bytes, 2 * 1024 * 1024);
         assert_eq!(r.limits.stack_bytes, 256 * 1024);
         assert_eq!((r.seed, r.now_ms, r.utc_offset_minutes), (7, Some(-5), 540));
         assert_eq!(r.policy, ErrorPolicy::Placeholder);

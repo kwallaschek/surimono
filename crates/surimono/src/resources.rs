@@ -1,18 +1,16 @@
 //! What a page's `<script src>` and `<link rel="stylesheet">` may load:
 //! nothing, unless the caller says so.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use lol_html::html_content::{ContentType, Element};
-use lol_html::{RewriteStrSettings, element, rewrite_str};
+use html5ever::{LocalName, QualName};
 
-use crate::charref::decode_attribute;
 use crate::error::Error;
+use crate::print::{Gate, Tree};
 
 /// Most loads one render may start; the rest fail without calling the loader.
 pub(crate) const MAX_LOADS: usize = 1_000;
@@ -25,21 +23,26 @@ const MAX_KEPT_FAILURES: usize = 64;
 /// Longest URL or message kept in a report.
 const MAX_KEPT_BYTES: usize = 2 * 1024;
 
-/// Loads what a page's external scripts name, for a caller that wants them run.
+/// Loads what a page's external scripts and stylesheets name, for a caller
+/// that wants them.
 ///
 /// Without one, a render opens no network connection and reads no file: every
-/// `<script src>` fails with [`ResourceFailureReason::NoLoader`] in the report.
+/// `<script src>` fails with [`ResourceFailureReason::NoLoader`] in the report,
+/// and every `<link>` is left for the printer.
 /// surimono itself never does any I/O for a page, with or without a loader:
 /// the only code that does is the function you pass in.
 ///
 /// The URL is the attribute as written, with no base applied. It reaches the
 /// function only if the allowlist allows it. An allowlist entry allows a URL
 /// equal to it; an entry ending in `/` also allows URLs under it, unless what
-/// follows the entry has a `.` or `..` segment, an empty segment, a `;`, a
+/// follows the entry has a segment of only dots and spaces (Win32 strips those
+/// from a segment's end, so `.. ` is `..` there), an empty segment, a `;`, a
 /// backslash, a control character, a `:` in its first segment, or an escape
 /// other than of an ordinary character, query included, any of which could
-/// climb out of a directory the entry stands for. A function that reads files
-/// should still check what it opens.
+/// climb out of a directory the entry stands for. Only ASCII is looked at: a
+/// function that normalizes Unicode, where `．．` (full-width) and `‥` become
+/// `..`, must do so before it checks. A function that reads files should
+/// always check what it opens.
 ///
 /// A stylesheet comes out as a `<style>` holding what the function gave, so a
 /// printer needs no access to it; a `url()` or `@import` in it isn't followed.
@@ -49,12 +52,16 @@ const MAX_KEPT_BYTES: usize = 2 * 1024;
 ///
 /// Scripts load one at a time, in document order, on the render's worker
 /// thread and before any script runs, so what they do can't depend on which
-/// finished first. The function runs once per URL in a render. One render
-/// makes at most 1,000 loads, takes at most 10 seconds of real time from the
-/// first, and holds at most [`Limits::memory_bytes`](crate::Limits::memory_bytes)
-/// of script source; past a cap the rest fail in the report and the page goes
-/// on without them. The time cap is looked at between loads, so the function
-/// must bound its own wait for a single resource.
+/// finished first. Stylesheets load the same way once the scripts have settled,
+/// so a `<link>` a script added counts. The function runs once per URL in a
+/// render. One render makes at most 1,000 loads, takes at most 10 seconds of
+/// real time from the first, and holds at most
+/// [`Limits::memory_bytes`](crate::Limits::memory_bytes) of source, each use of
+/// a repeated URL counted; past a cap the rest fail in the report and the page
+/// goes on without them. The time cap is looked at between loads, so the
+/// function must bound its own wait for a single resource. Stylesheets also
+/// fall under the time limit for everything after the scripts: past it the
+/// render fails with [`Error::PageTimeLimit`](crate::Error::PageTimeLimit).
 ///
 /// ```
 /// use surimono::{Options, Renderer, ResourceLoader};
@@ -189,10 +196,19 @@ fn stays_under_the_prefix(tail: &str) -> bool {
     if segments.last().is_some_and(|s| s.is_empty()) {
         segments.pop();
     }
-    if segments.iter().any(|s| matches!(*s, "" | "." | "..")) {
+    if segments.iter().any(|s| only_dots_and_spaces(s)) {
         return false;
     }
     !has_risky_escape(tail)
+}
+
+/// Whether a segment is nothing, or has only dots and spaces, an escaped space
+/// included.
+fn only_dots_and_spaces(segment: &str) -> bool {
+    segment
+        .replace("%20", " ")
+        .chars()
+        .all(|c| c == '.' || c == ' ')
 }
 
 /// Whether `text` has a `%` that isn't an escape of a letter, digit or one of
@@ -234,13 +250,13 @@ pub enum ResourceFailureReason {
     NotAllowed,
     /// The loader failed, with its message (cut to a few KiB).
     Failed(String),
-    /// The script's bytes aren't UTF-8.
+    /// The file's bytes aren't UTF-8.
     NotUtf8,
     /// The render had made 1,000 loads.
     TooManyLoads,
     /// The render's loads had taken 10 seconds of real time.
     OutOfTime,
-    /// The render's scripts would pass
+    /// The render's scripts and stylesheets would pass
     /// [`Limits::memory_bytes`](crate::Limits::memory_bytes).
     TooLarge,
     /// surimono doesn't load images: a page's `load` and `error` events never
@@ -257,7 +273,7 @@ impl fmt::Display for ResourceFailureReason {
             Self::NotUtf8 => f.write_str("it isn't UTF-8"),
             Self::TooManyLoads => f.write_str("the render's cap of 1000 loads was reached"),
             Self::OutOfTime => f.write_str("the render's 10 seconds of loading were used up"),
-            Self::TooLarge => f.write_str("the render's scripts would pass the memory limit"),
+            Self::TooLarge => f.write_str("the render's resources would pass the memory limit"),
             Self::NotLoaded => f.write_str("images aren't loaded during a render"),
         }
     }
@@ -310,11 +326,12 @@ pub(crate) struct Fetcher<'a> {
     /// Script source bytes this render may still hold.
     room: usize,
     loads: usize,
-    /// When the first load started. The only clock in a render, and only
-    /// with a loader.
+    /// When the first load started. With a loader, this is a clock in a
+    /// render that only the loader's speed can move.
     started: Option<Instant>,
-    /// Each URL's result, so a URL repeated in the page loads once.
-    loaded: HashMap<String, Result<String, ResourceFailureReason>>,
+    /// Each URL's result, so a URL repeated in the page loads once and a
+    /// repeat costs nothing until it fits.
+    loaded: HashMap<String, Result<Arc<str>, ResourceFailureReason>>,
     pub(crate) failures: Failures,
 }
 
@@ -340,11 +357,12 @@ impl<'a> Fetcher<'a> {
         self.loader.is_some()
     }
 
-    fn allows(&self, url: &str) -> bool {
+    pub(crate) fn allows(&self, url: &str) -> bool {
         self.loader.is_some_and(|l| l.allows(url))
     }
 
-    fn text(&mut self, kind: ResourceKind, url: &str) -> Option<String> {
+    /// The text at `url`, or `None` with a failure recorded under `kind`.
+    pub(crate) fn text(&mut self, kind: ResourceKind, url: &str) -> Option<String> {
         let result = match self.loaded.get(url) {
             Some(known) => known.clone(),
             None => {
@@ -354,12 +372,13 @@ impl<'a> Fetcher<'a> {
             }
         };
         let result = result.and_then(|source| {
-            // Every use of a repeated URL is another copy held until it runs.
+            // Every use of a repeated URL is another copy held until it runs,
+            // made only once it fits.
             self.room = self
                 .room
                 .checked_sub(source.len())
                 .ok_or(ResourceFailureReason::TooLarge)?;
-            Ok(source)
+            Ok(source.as_ref().to_owned())
         });
         match result {
             Ok(source) => Some(source),
@@ -370,7 +389,7 @@ impl<'a> Fetcher<'a> {
         }
     }
 
-    fn load(&mut self, url: &str) -> Result<String, ResourceFailureReason> {
+    fn load(&mut self, url: &str) -> Result<Arc<str>, ResourceFailureReason> {
         let loader = self.loader.ok_or(ResourceFailureReason::NoLoader)?;
         if !loader.allows(url) {
             return Err(ResourceFailureReason::NotAllowed);
@@ -390,55 +409,49 @@ impl<'a> Fetcher<'a> {
             return Err(ResourceFailureReason::TooLarge);
         }
         let source = String::from_utf8(bytes).map_err(|_| ResourceFailureReason::NotUtf8)?;
-        Ok(match source.strip_prefix('\u{feff}') {
-            Some(rest) => rest.to_owned(),
-            None => source,
-        })
+        Ok(Arc::from(
+            source.strip_prefix('\u{feff}').unwrap_or(&source),
+        ))
     }
 }
 
-/// Replaces each `<link rel="stylesheet">` in `html`, the page as it stands,
-/// with a `<style>` holding what `fetcher` gave for it, or removes it, in tree
-/// order. Links a page's scripts added count. `html` has no `<noscript>`
-/// left, so lol_html's reading of it is the tree's.
-pub(crate) fn inline_stylesheets(html: &str, fetcher: &mut Fetcher<'_>) -> Result<String, Error> {
-    if !html.contains("<link") {
-        return Ok(html.to_owned());
-    }
-    let fetcher = RefCell::new(fetcher);
-    let on_link =
-        |el: &mut Element<'_, '_>| -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-            let is_sheet = el.get_attribute("rel").is_some_and(|rel| {
-                rel.split_ascii_whitespace()
-                    .any(|t| t.eq_ignore_ascii_case("stylesheet"))
-            });
-            let Some(href) = el.get_attribute("href").filter(|_| is_sheet) else {
-                return Ok(());
-            };
-            let href = decode_attribute(&href).into_owned();
-            if !fetcher.borrow().allows(&href) {
-                return Ok(());
-            }
-            let sheet = fetcher.borrow_mut().text(ResourceKind::Stylesheet, &href);
-            match sheet {
-                Some(css) => {
-                    let media = el
-                        .get_attribute("media")
-                        .map_or(String::new(), |m| format!(" media=\"{m}\""));
-                    // Text can't end the element it goes into; `\/` is `/` in CSS.
-                    let css = css.replace("</", "<\\/");
-                    el.replace(&format!("<style{media}>{css}</style>"), ContentType::Html);
-                }
-                None => el.remove(),
-            }
-            Ok(())
+/// Replaces each `<link rel="stylesheet">` in `tree`, the page as a printer
+/// reads it, with a `<style>` holding what `fetcher` gave for it, or removes
+/// it, in tree order. Links a page's scripts added count. Links off the
+/// allowlist stay.
+pub(crate) fn inline_stylesheets(
+    tree: &mut Tree,
+    fetcher: &mut Fetcher<'_>,
+    gate: &Gate<'_>,
+) -> Result<(), Error> {
+    for id in tree.elements_named("link") {
+        gate.check()?;
+        let Some(link) = tree.element(id) else {
+            continue;
         };
-    let settings = RewriteStrSettings {
-        element_content_handlers: vec![element!("link", on_link)],
-        enable_esi_tags: false,
-        ..RewriteStrSettings::new()
-    };
-    rewrite_str(html, settings).map_err(|e| Error::Html(e.to_string()))
+        let is_sheet = link.attr("rel").is_some_and(|rel| {
+            rel.split_ascii_whitespace()
+                .any(|t| t.eq_ignore_ascii_case("stylesheet"))
+        });
+        let Some(href) = link.attr("href").filter(|_| is_sheet) else {
+            continue;
+        };
+        if !fetcher.allows(href) {
+            continue;
+        }
+        let href = href.to_owned();
+        let Some(css) = fetcher.text(ResourceKind::Stylesheet, &href) else {
+            tree.detach(id);
+            continue;
+        };
+        if let Some(element) = tree.element_mut(id) {
+            element.name = QualName::new(None, element.name.ns.clone(), LocalName::from("style"));
+            element.attrs.retain(|a| a.name.local.as_ref() == "media");
+        }
+        // Text can't end the element it goes into; `\\/` is `/` in CSS.
+        tree.set_text(id, css.replace("</", "<\\/"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -475,6 +488,12 @@ mod tests {
             "assets/x?/../../secret",
             "assets/x#/../../secret",
             "assets/C:/windows/x",
+            "assets/.. /secret",
+            "assets/..%20/secret",
+            "assets/.../secret",
+            "assets/ /secret",
+            "assets/%20/secret",
+            "assets/x/.. ",
         ] {
             assert!(!assets.allows(no), "{no}");
         }
@@ -586,6 +605,21 @@ mod tests {
         assert!(f.started.is_some(), "the clock is older than the cap");
         assert_eq!(f.script("x/b"), None);
         assert_eq!(f.failures.kept[0].reason, ResourceFailureReason::OutOfTime);
+    }
+
+    #[test]
+    fn a_repeat_that_cant_fit_costs_nothing() {
+        // 50,000 uses of an 8 MiB file: copied before the check, 400 GB.
+        let l = ResourceLoader::new(["x/"], |_| Ok(vec![b'a'; 8 << 20]));
+        let mut f = Fetcher::new(Some(Source::Shared(&l)), 9 << 20);
+        assert!(f.text(ResourceKind::Stylesheet, "x/a").is_some());
+        let started = Instant::now();
+        for _ in 0..50_000 {
+            assert_eq!(f.text(ResourceKind::Stylesheet, "x/a"), None);
+        }
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert_eq!(f.failures.count, 50_000);
+        assert_eq!(f.failures.kept[0].reason, ResourceFailureReason::TooLarge);
     }
 
     #[test]

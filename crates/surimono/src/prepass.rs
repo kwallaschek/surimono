@@ -307,12 +307,15 @@ fn kept_attributes(el: &Element<'_, '_>) -> Vec<(String, String)> {
     kept
 }
 
-pub(crate) fn is_island(el: &Element<'_, '_>) -> bool {
+fn is_island(el: &Element<'_, '_>) -> bool {
     el.namespace_uri() == HTML_NAMESPACE
-        && el.get_attribute("type").is_some_and(|t| {
-            let essence = t.split(';').next().unwrap_or_default().trim();
-            essence.eq_ignore_ascii_case(ISLAND_TYPE)
-        })
+        && el.get_attribute("type").is_some_and(|t| is_island_type(&t))
+}
+
+/// Whether a `type` attribute is an island marker's.
+pub(crate) fn is_island_type(value: &str) -> bool {
+    let essence = value.split(';').next().unwrap_or_default().trim();
+    essence.eq_ignore_ascii_case(ISLAND_TYPE)
 }
 
 /// Reads a cut-out marker into an [`Island`], or says what is wrong with it.

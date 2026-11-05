@@ -3,22 +3,42 @@
 //! The tree is clean by the time it is serialized, but the text isn't: the
 //! serializer writes comments and raw-text elements unescaped, as the standard
 //! says, so a comment holding `--><script>…` or a `<style>` holding
-//! `</style><noscript>…` becomes markup in whoever parses the result. So this
-//! reads the output as a printer's parser does, and what it finds is what the
-//! printer would find:
+//! `</style><noscript>…` becomes markup in whoever parses the result. And a
+//! printer doesn't read a page the way the page ran: it parses with scripting
+//! off, so `<noscript>` holds markup, its templates aren't fragments, and
+//! `<template><noscript></template>…` opens onto real elements.
 //!
+//! So the only reading that counts is the printer's own, and [`finish_page`]
+//! works on that tree ([`tree`]) and on nothing else. It parses the serialized
+//! page as the printer will, screens what the parser produced, and writes the
+//! result from the tree. That output is then parsed and screened again, until
+//! a pass changes nothing: what is handed over is a fixed point, so the tree
+//! the printer builds from it is one that passed every screen. Parsing can
+//! still rearrange what a tree writes out (a `<form>` in a `<form>`, which no
+//! parser builds but a script can), which a pass or two settles; a page that
+//! doesn't settle in [`MAX_PASSES`] fails with
+//! [`Error::PageFailed`](crate::Error::PageFailed).
+//!
+//! - **Tree:** [`MAX_NODES`] and [`MAX_DEPTH`] hold on the printer's parse, as
+//!   the document's defaults do on the page's, and
+//!   [`MAX_ATTRIBUTES`] per element.
 //! - **Scripts and `<noscript>`:** removed here too, as they are from the tree
-//!   (`cleanup.js`). Island markers stay, and [`Options::keep_scripts`] keeps
-//!   scripts.
+//!   (`cleanup.js`), in any namespace. Inside an HTML `<template>` they stay,
+//!   inert in any printer. An `<svg><template>` isn't one. Island markers stay,
+//!   and [`Options::keep_scripts`](crate::Options::keep_scripts) keeps scripts.
 //!
 //! A printer's CSS engine isn't under any limit of ours. fulgur hands the page
 //! to blitz-dom and stylo, whose parse can't be interrupted, in the caller's
 //! process, after surimono has returned. Scripts can write whatever they like
 //! into `<style>` and `style` attributes, so everything that reaches stylo goes
 //! through here first, with one budget for the whole page: `crates/dom` bounds
-//! a single attribute, and many of those add up.
+//! a single attribute, and many of those add up. Everywhere in the tree,
+//! templates too, because blitz-dom gives a `<style>` in a template to stylo.
+//! Its CSS is what blitz-dom reads: all the text under the element in any
+//! namespace, with character references decoded, even in HTML's raw text.
 //!
-//! - **Size:** [`MAX_CSS_BYTES`] over all style text.
+//! - **Size:** [`MAX_CSS_BYTES`] over all style text, and an attribute's own
+//!   [`MAX_ATTRIBUTE_BYTES`] and [`MAX_ATTRIBUTE_TOKENS`].
 //! - **Declarations:** a push of a property a block already has walks the
 //!   block, and `all` pushes every longhand, so a block costs its size squared,
 //!   and `all` multiplies it; 60 KB took 11 s (`crates/dom/DESIGN.md`).
@@ -38,26 +58,40 @@
 //!   Such a URL can't load anything in a browser either, so it goes: the
 //!   attribute is removed, and in CSS it becomes `data:,`.
 //!
-//! The result then goes through the parser again in `page.rs`, under the
-//! document's limits, since text that became markup never met them.
+//! All of this runs under a [`Gate`], one deadline and the cancel flag, and the
+//! output under [`Limits::output_bytes`](crate::Limits::output_bytes).
 //!
 //! What isn't bounded here: matching selectors against the tree, which
 //! happens in the printer and depends on both. Run your printer under a
 //! timeout of its own if pages come from people you don't trust.
 
-use std::cell::{Cell, RefCell};
+mod tree;
+
 use std::ops::Range;
-use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use cssparser::{Parser, ParserInput, Token};
-use lol_html::errors::RewritingError;
-use lol_html::html_content::{ContentType, Element, TextChunk};
-use lol_html::{RewriteStrSettings, element, rewrite_str, text};
+use html_escape::decode_html_entities;
+use surimono_dom::DomLimits;
 use url::Url;
 
-use crate::charref::decode_attribute;
 use crate::error::Error;
-use crate::prepass::is_island;
+use crate::prepass::is_island_type;
+use crate::resources::{Fetcher, inline_stylesheets};
+pub(crate) use tree::Tree;
+use tree::{TreeLimits, too_long};
+
+/// Most times the output is parsed and screened again. Each level of markup
+/// that only a reparse uncovers takes one; real pages take two passes.
+const MAX_PASSES: usize = 4;
+/// Most nodes the printer's parse may build, the document's default.
+const MAX_NODES: usize = DomLimits::DEFAULT_MAX_NODES;
+/// Deepest nesting of the printer's tree, the document's default.
+const MAX_DEPTH: usize = DomLimits::DEFAULT_MAX_DEPTH;
+/// Most attributes on one element. html5ever and blitz-dom compare each new
+/// attribute of a tag with the others, so one tag's cost is this squared.
+const MAX_ATTRIBUTES: usize = 4_096;
 
 /// Most bytes of style text in a page: `<style>` and `style` attributes.
 /// A large framework's stylesheet is a few MiB.
@@ -75,6 +109,40 @@ const MAX_CELLS: usize = 4_096;
 const MAX_PAGE_CELLS: usize = 65_536;
 /// Deepest nesting of brackets, as `crates/dom` has for an attribute.
 const MAX_NESTING: usize = 32;
+/// Most bytes in one `style` attribute, as `crates/dom` has.
+const MAX_ATTRIBUTE_BYTES: usize = 8 << 20;
+/// Most tokens in one `style` attribute, as `crates/dom` has.
+const MAX_ATTRIBUTE_TOKENS: usize = 1 << 16;
+/// Tokens between looks at the gate.
+const GATE_TOKENS: usize = 1 << 12;
+
+/// When post-run work has to stop: one deadline over all of it, and the
+/// caller's cancel flag.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Gate<'a> {
+    stop: &'a AtomicBool,
+    deadline: Instant,
+}
+
+impl<'a> Gate<'a> {
+    pub(crate) fn new(stop: &'a AtomicBool, time: Duration) -> Self {
+        Self {
+            stop,
+            deadline: Instant::now() + time,
+        }
+    }
+
+    /// [`Error::Cancelled`] or [`Error::PageTimeLimit`] once it is time to stop.
+    pub(crate) fn check(&self) -> Result<(), Error> {
+        if self.stop.load(Ordering::Acquire) {
+            return Err(Error::Cancelled);
+        }
+        if Instant::now() >= self.deadline {
+            return Err(Error::PageTimeLimit);
+        }
+        Ok(())
+    }
+}
 
 /// What's left of the page's budget.
 #[derive(Debug, Default)]
@@ -83,11 +151,30 @@ struct Budget {
     steps: u64,
     cells: usize,
     over: Option<&'static str>,
+    /// The gate said stop.
+    halted: Option<Error>,
 }
 
 impl Budget {
     fn over(&mut self, what: &'static str) {
         self.over.get_or_insert(what);
+    }
+
+    fn running(&self) -> bool {
+        self.over.is_none() && self.halted.is_none()
+    }
+
+    /// What stopped the screen, if anything did.
+    fn stopped(&mut self) -> Result<(), Error> {
+        if let Some(e) = self.halted.take() {
+            return Err(e);
+        }
+        match self.over {
+            Some(what) => Err(Error::PageDomLimit {
+                message: format!("the page's CSS is too much for a printer: {what}"),
+            }),
+            None => Ok(()),
+        }
     }
 
     fn charge_block(&mut self, declarations: u64, alls: u64) {
@@ -129,6 +216,10 @@ fn resolves(url: &str) -> bool {
 /// Reads tokens up to the end of this parser's block.
 struct Screen<'b> {
     budget: &'b mut Budget,
+    gate: &'b Gate<'b>,
+    /// Tokens read, and how many are allowed.
+    tokens: usize,
+    max_tokens: usize,
     /// Byte ranges of `input` to replace, with their replacements.
     fixes: Vec<(Range<usize>, &'static str)>,
 }
@@ -137,11 +228,18 @@ impl Screen<'_> {
     fn walk(&mut self, p: &mut Parser<'_, '_>, block: &mut Block, depth: usize) {
         // Whether the next string is an `@import`'s URL, or a `url(`'s.
         let mut url_next = false;
-        while self.budget.over.is_none() {
+        while self.budget.running() {
             let start = p.position().byte_index();
             let Ok(token) = p.next_including_whitespace_and_comments() else {
                 return;
             };
+            self.tokens += 1;
+            if self.tokens > self.max_tokens {
+                self.budget.over("too many tokens in a style attribute");
+            }
+            if self.tokens.is_multiple_of(GATE_TOKENS) {
+                self.budget.halted = self.gate.check().err();
+            }
             let token = token.clone();
             let end = p.position().byte_index();
             match &token {
@@ -246,18 +344,31 @@ impl Screen<'_> {
     }
 }
 
-/// `css` with what mustn't reach a printer replaced, charged to `budget`.
-/// `attribute` for the text of a `style` attribute, which is one block.
-fn screen_css(css: &str, attribute: bool, budget: &mut Budget) -> Option<String> {
+/// `css` with what mustn't reach a printer replaced, if anything had to be,
+/// charged to `budget`. `attribute` for the text of a `style` attribute, which
+/// is one block.
+fn screen_css(
+    css: &str,
+    attribute: bool,
+    budget: &mut Budget,
+    gate: &Gate<'_>,
+) -> Result<Option<String>, Error> {
     budget.bytes = budget.bytes.saturating_add(css.len());
-    if budget.bytes > MAX_CSS_BYTES {
+    if budget.bytes > MAX_CSS_BYTES || (attribute && css.len() > MAX_ATTRIBUTE_BYTES) {
         budget.over("too much CSS");
-        return None;
+        return budget.stopped().map(|()| None);
     }
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
     let mut screen = Screen {
         budget,
+        gate,
+        tokens: 0,
+        max_tokens: if attribute {
+            MAX_ATTRIBUTE_TOKENS
+        } else {
+            usize::MAX
+        },
         fixes: Vec::new(),
     };
     let mut top = Block::new();
@@ -267,8 +378,9 @@ fn screen_css(css: &str, attribute: bool, budget: &mut Budget) -> Option<String>
         screen.close(&top);
     }
     let fixes = screen.fixes;
+    budget.stopped()?;
     if fixes.is_empty() {
-        return None;
+        return Ok(None);
     }
     let mut out = String::with_capacity(css.len());
     let mut at = 0;
@@ -278,120 +390,160 @@ fn screen_css(css: &str, attribute: bool, budget: &mut Budget) -> Option<String>
         at = range.end;
     }
     out.push_str(&css[at..]);
-    Some(out)
+    Ok(Some(out))
 }
 
-/// A page over budget, as a handler error (stops the rewrite at once).
-#[derive(Debug)]
-struct Over(&'static str);
+/// What one pass does to a node.
+struct Visit {
+    id: usize,
+    depth: usize,
+    /// Inside an HTML `<template>`.
+    inert: bool,
+}
 
-impl std::fmt::Display for Over {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0)
+/// Whether `element` goes, outside a template.
+fn must_go(element: &tree::Element, keep_scripts: bool) -> bool {
+    match element.local() {
+        "noscript" => true,
+        "script" => {
+            !keep_scripts
+                && !(element.name.ns == html5ever::ns!(html)
+                    && element.attr("type").is_some_and(is_island_type))
+        }
+        _ => false,
     }
 }
 
-impl std::error::Error for Over {}
-
-type HandlerResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
-
-fn stop_if_over(budget: &Budget) -> HandlerResult {
-    match budget.over {
-        Some(what) => Err(Box::new(Over(what))),
-        None => Ok(()),
+/// The `style` attributes on `id`, and the URLs a printer would panic on.
+fn screen_attributes(
+    tree: &mut Tree,
+    id: usize,
+    budget: &mut Budget,
+    gate: &Gate<'_>,
+) -> Result<(), Error> {
+    let Some(element) = tree.element_mut(id) else {
+        return Ok(());
+    };
+    for a in &mut element.attrs {
+        if a.name.local.as_ref() == "style"
+            && let Some(fixed) = screen_css(&a.value, true, budget, gate)?
+        {
+            a.value = fixed.as_str().into();
+        }
     }
+    let url_attribute = match element.local() {
+        "img" => "src",
+        "link" => "href",
+        _ => return Ok(()),
+    };
+    element
+        .attrs
+        .retain(|a| a.name.local.as_ref() != url_attribute || resolves(&a.value));
+    Ok(())
 }
 
-/// Screens a serialized page; see the module docs. `keep_scripts` is
-/// [`Options::keep_scripts`](crate::Options::keep_scripts).
-pub(crate) fn screen_page(html: &str, keep_scripts: bool) -> Result<String, Error> {
-    let budget = RefCell::new(Budget::default());
-    let sheet = RefCell::new(String::new());
-    let on_style_text = |t: &mut TextChunk<'_>| -> HandlerResult {
-        let mut sheet = sheet.borrow_mut();
-        sheet.push_str(t.as_str());
-        t.remove();
-        if t.last_in_text_node() {
-            let mut budget = budget.borrow_mut();
-            let fixed = screen_css(&sheet, false, &mut budget);
-            stop_if_over(&budget)?;
-            t.replace(fixed.as_deref().unwrap_or(&sheet), ContentType::Html);
-            sheet.clear();
+/// The CSS of the `<style>` at `id`, as blitz-dom will read it.
+fn screen_style(
+    tree: &mut Tree,
+    id: usize,
+    budget: &mut Budget,
+    gate: &Gate<'_>,
+) -> Result<(), Error> {
+    let text = tree.text_of(id);
+    if text.len() > MAX_CSS_BYTES {
+        budget.over("too much CSS");
+        return budget.stopped();
+    }
+    let css = decode_html_entities(&text);
+    if let Some(fixed) = screen_css(&css, false, budget, gate)? {
+        // Decoded, it may hold what would end the element; `\\/` is `/` in CSS.
+        tree.set_text(id, fixed.replace("</", "<\\/"));
+    }
+    Ok(())
+}
+
+/// One pass over the tree; see the module docs.
+fn screen_tree(tree: &mut Tree, keep_scripts: bool, gate: &Gate<'_>) -> Result<(), Error> {
+    let mut budget = Budget::default();
+    let mut stack = vec![Visit {
+        id: 0,
+        depth: 0,
+        inert: false,
+    }];
+    while let Some(Visit { id, depth, inert }) = stack.pop() {
+        gate.check()?;
+        if depth > MAX_DEPTH {
+            return Err(Error::PageDomLimit {
+                message: format!("the page would nest over {MAX_DEPTH} levels"),
+            });
         }
-        Ok(())
-    };
-    let on_style_attribute = |el: &mut Element<'_, '_>| -> HandlerResult {
-        let Some(raw) = el.get_attribute("style") else {
-            return Ok(());
-        };
-        let css = decode_attribute(&raw);
-        let mut budget = budget.borrow_mut();
-        let fixed = screen_css(&css, true, &mut budget);
-        stop_if_over(&budget)?;
-        if let Some(fixed) = fixed {
-            el.set_attribute("style", &fixed.replace('&', "&amp;"))?;
-        }
-        Ok(())
-    };
-    let drop_bad_url = |attribute: &'static str| {
-        move |el: &mut Element<'_, '_>| -> HandlerResult {
-            let bad = el
-                .get_attribute(attribute)
-                .is_some_and(|raw| !resolves(&decode_attribute(&raw)));
-            if bad {
-                el.remove_attribute(attribute);
+        let mut inside = inert;
+        if let Some(element) = tree.element(id) {
+            if !inert && must_go(element, keep_scripts) {
+                tree.detach(id);
+                continue;
             }
-            Ok(())
-        }
-    };
-    // A template's contents are inert for any parser, and stay as they were.
-    let in_template = Rc::new(Cell::new(0_usize));
-    let on_template = {
-        let in_template = Rc::clone(&in_template);
-        move |el: &mut Element<'_, '_>| -> HandlerResult {
-            in_template.set(in_template.get() + 1);
-            let left = Rc::clone(&in_template);
-            if let Some(handlers) = el.end_tag_handlers() {
-                handlers.push(Box::new(move |_end| {
-                    left.set(left.get().saturating_sub(1));
-                    Ok(())
-                }));
+            inside |= element.is_html("template");
+            let is_style = element.local() == "style";
+            screen_attributes(tree, id, &mut budget, gate)?;
+            if is_style {
+                screen_style(tree, id, &mut budget, gate)?;
             }
-            Ok(())
         }
+        stack.extend(tree.nodes[id].children.iter().rev().map(|&id| Visit {
+            id,
+            depth: depth + 1,
+            inert: inside,
+        }));
+    }
+    Ok(())
+}
+
+/// How [`finish_page`] goes.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Finish {
+    /// [`Options::keep_scripts`](crate::Options::keep_scripts).
+    pub(crate) keep_scripts: bool,
+    /// [`Limits::output_bytes`](crate::Limits::output_bytes).
+    pub(crate) max_bytes: usize,
+}
+
+/// A serialized page as a printer may have it; see the module docs. With a
+/// loader, `<link>`s become `<style>`s first, on the printer's tree, so what
+/// they load meets every screen.
+pub(crate) fn finish_page(
+    html: &str,
+    finish: Finish,
+    fetcher: Option<&mut Fetcher<'_>>,
+    gate: &Gate<'_>,
+) -> Result<String, Error> {
+    if html.len() > finish.max_bytes {
+        return Err(too_long(finish.max_bytes));
+    }
+    let limits = TreeLimits {
+        max_nodes: MAX_NODES,
+        max_depth: MAX_DEPTH,
+        max_attributes: MAX_ATTRIBUTES,
     };
-    let script_depth = Rc::clone(&in_template);
-    let on_script = move |el: &mut Element<'_, '_>| -> HandlerResult {
-        if script_depth.get() == 0 && !keep_scripts && !is_island(el) {
-            el.remove();
+    let pass = |tree: &mut Tree| -> Result<String, Error> {
+        screen_tree(tree, finish.keep_scripts, gate)?;
+        tree.to_html(finish.max_bytes, gate)
+    };
+    let mut tree = Tree::parse(html, limits, gate)?;
+    if let Some(fetcher) = fetcher {
+        inline_stylesheets(&mut tree, fetcher, gate)?;
+    }
+    let mut out = pass(&mut tree)?;
+    drop(tree);
+    for _ in 0..MAX_PASSES {
+        let again = pass(&mut Tree::parse(&out, limits, gate)?)?;
+        if again == out {
+            return Ok(out);
         }
-        Ok(())
-    };
-    let noscript_depth = Rc::clone(&in_template);
-    let on_noscript = move |el: &mut Element<'_, '_>| -> HandlerResult {
-        if noscript_depth.get() == 0 {
-            el.remove();
-        }
-        Ok(())
-    };
-    let settings = RewriteStrSettings {
-        element_content_handlers: vec![
-            element!("template", on_template),
-            element!("script", on_script),
-            element!("noscript", on_noscript),
-            text!("style", on_style_text),
-            element!("[style]", on_style_attribute),
-            element!("img[src]", drop_bad_url("src")),
-            element!("link[href]", drop_bad_url("href")),
-        ],
-        enable_esi_tags: false,
-        ..RewriteStrSettings::new()
-    };
-    rewrite_str(html, settings).map_err(|e| match e {
-        RewritingError::ContentHandlerError(e) if e.is::<Over>() => Error::PageDomLimit {
-            message: format!("the page's CSS is too much for a printer: {e}"),
-        },
-        other => Error::Html(other.to_string()),
+        out = again;
+    }
+    Err(Error::PageFailed {
+        message: format!("the page's markup still changed after {MAX_PASSES} parses"),
     })
 }
 
@@ -399,16 +551,37 @@ pub(crate) fn screen_page(html: &str, keep_scripts: bool) -> Result<String, Erro
 mod tests {
     use super::*;
 
-    fn screened(html: &str) -> Result<String, Error> {
-        screen_page(html, false)
+    const WIDE: usize = usize::MAX / 8;
+
+    fn finish(html: &str, keep_scripts: bool, max_bytes: usize) -> Result<String, Error> {
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::from_secs(600));
+        let finish = Finish {
+            keep_scripts,
+            max_bytes,
+        };
+        finish_page(html, finish, None, &gate)
     }
 
-    fn ok(html: &str) -> String {
-        screened(html).unwrap_or_else(|e| panic!("{e}"))
+    fn document(body: &str) -> String {
+        format!("<!doctype html><html><head></head><body>{body}</body></html>")
     }
 
-    fn over(html: &str) {
-        match screened(html) {
+    fn screened(body: &str) -> Result<String, Error> {
+        finish(&document(body), false, WIDE)
+    }
+
+    /// What's in `<body>` after the page's checks.
+    fn ok(body: &str) -> String {
+        let out = screened(body).unwrap_or_else(|e| panic!("{e}"));
+        let inner = out
+            .strip_prefix("<!doctype html><html><head></head><body>")
+            .and_then(|o| o.strip_suffix("</body></html>"));
+        inner.unwrap_or(&out).to_owned()
+    }
+
+    fn over(body: &str) {
+        match screened(body) {
             Err(Error::PageDomLimit { message }) => assert!(message.contains("CSS"), "{message}"),
             other => panic!("expected PageDomLimit, got {other:?}"),
         }
@@ -420,6 +593,7 @@ mod tests {
             "<p>x</p>",
             "<style>p { color: red; background: url(a.png) } @media print { b { all: unset } }</style>",
             "<style>@import \"a.css\"; @import url(b.css);</style>",
+            "<style>a::before { content: \"&lt;\" }</style>",
             "<p style=\"color: red; width: calc(1px + (2px * 3))\">x</p>",
             "<div style=\"grid-template-areas: 'a b' 'c d'\"></div>",
             "<img src=\"a.png\"><link rel=\"icon\" href=\"/x.png\">",
@@ -453,9 +627,50 @@ mod tests {
                 "<link rel=\"stylesheet\">",
             ),
             ("<img src=\"http://&#91;\">", "<img>"),
+            // The parser's `image` is `img`.
+            ("<image src=\"http://[\">", "<img>"),
+            (
+                "<svg><link href=\"http://[\"></svg>",
+                "<svg><link></link></svg>",
+            ),
+            // blitz-dom decodes style text, even in HTML's raw text.
+            (
+                "<style>@import &quot;http://[&quot;;</style>",
+                "<style>@import \"data:,\";</style>",
+            ),
+            // A printer's templates are real children.
+            (
+                "<template><style>@import 'http://[';</style></template>",
+                "<template><style>@import \"data:,\";</style></template>",
+            ),
+            (
+                "<template><img src=\"http://[\"></template>",
+                "<template><img></template>",
+            ),
+            // An SVG style is markup: the parser decodes it, and it is escaped
+            // going back.
+            (
+                "<svg><style>@import &quot;http://[&quot;;</style></svg>",
+                "<svg><style>@import \"data:,\";</style></svg>",
+            ),
+            // All the text under it, as text_content.
+            (
+                "<svg><style>@import <a>'http://['</a>;</style></svg>",
+                "<svg><style>@import \"data:,\";</style></svg>",
+            ),
         ] {
             assert_eq!(ok(html), want, "{html}");
         }
+    }
+
+    #[test]
+    fn decoded_style_text_cant_end_its_element() {
+        let out =
+            ok("<style>@import &quot;http://[&quot;;a{b:&lt;/style&gt;&lt;script&gt;}</style>");
+        assert_eq!(
+            out,
+            "<style>@import \"data:,\";a{b:<\\/style><script>}</style>"
+        );
     }
 
     #[test]
@@ -490,6 +705,30 @@ mod tests {
         over(&format!("<style>a{{--g:{grid}}}</style>"));
         let cells = format!("<p style=\"--g:'{}'\"></p>", "a ".repeat(MAX_CELLS));
         over(&cells.repeat(MAX_PAGE_CELLS / MAX_CELLS + 1));
+        // One attribute's own limits, as crates/dom has them.
+        over(&format!(
+            "<p style=\"color:{}\"></p>",
+            "a,".repeat(MAX_ATTRIBUTE_TOKENS)
+        ));
+        over(&format!(
+            "<p style=\"background:url({})\"></p>",
+            "a".repeat(MAX_ATTRIBUTE_BYTES + 1)
+        ));
+    }
+
+    #[test]
+    fn the_budget_reads_the_printers_css() {
+        // References the parser decodes in SVG, and blitz-dom in HTML, where
+        // it wants the `;`.
+        let semi = "--x:1&#59 ".repeat(3_000) + &"all:inherit&#59 ".repeat(1_000);
+        over(&format!("<svg><style>a{{{semi}}}</style></svg>"));
+        let semi = "--x:1&#59;".repeat(3_000) + &"all:inherit&#59;".repeat(1_000);
+        over(&format!("<style>a{{{semi}}}</style>"));
+        // In a `<noscript>`, which is markup to a printer.
+        let css = format!("{}{}", "--x:1;".repeat(3_000), "all:inherit;".repeat(1_000));
+        over(&format!(
+            "<template><noscript></template><style>a{{{css}}}</style></noscript>"
+        ));
     }
 
     #[test]
@@ -498,8 +737,8 @@ mod tests {
             "<script type=\"application/vnd.surimono+json\" data-renderer=\"t\">{}</script>";
         for (html, want) in [
             // As a comment's text ended early by what it held.
-            ("<!----><script>alert(1)</script><!---->", "<!----><!---->"),
-            ("<!----><noscript>NS</noscript><!---->", "<!----><!---->"),
+            ("<!----><script>alert(1)</script><!---->", ""),
+            ("<!----><noscript>NS</noscript><!---->", ""),
             // As a raw-text element's.
             ("<style></style><script>x</script>", "<style></style>"),
             ("<xmp></xmp><noscript>x</noscript>", "<xmp></xmp>"),
@@ -517,6 +756,26 @@ mod tests {
                 "<script type=\"application/vnd.surimono+json\">{}</script><script>x</script>",
                 "<script type=\"application/vnd.surimono+json\">{}</script>",
             ),
+            // A noscript as a printer reads it, opened in a template.
+            (
+                "<template><noscript></template><script>alert(1)</script>\
+                 <noscript>NS</noscript></noscript>x",
+                "<template><noscript></noscript></template>x",
+            ),
+            // No template in SVG: a real script in a real tree.
+            (
+                "<svg><template><script>alert(1)</script><noscript>NS</noscript></template></svg>",
+                "<svg><template></template></svg>",
+            ),
+            // No integration point in blitz-html: a style holding markup.
+            (
+                "<math><annotation-xml encoding=text/html><style><script>alert(1)</script></style>\
+                 </annotation-xml></math>",
+                "<math><annotation-xml encoding=\"text/html\"><style></style></annotation-xml></math>",
+            ),
+            // A nested foreign script, with its own namespace.
+            ("<svg><script>alert(1)</script></svg>", "<svg></svg>"),
+            ("<svg><noscript>a</noscript></svg>", "<svg></svg>"),
         ] {
             assert_eq!(ok(html), want, "{html}");
         }
@@ -526,8 +785,137 @@ mod tests {
             ok(inert),
             "<template><script>x</script><noscript>y</noscript></template>"
         );
-        let kept = screen_page("<script>x</script><noscript>y</noscript>", true);
-        assert_eq!(kept.ok().as_deref(), Some("<script>x</script>"));
+        let kept = finish(
+            &document("<script>x</script><noscript>y</noscript>"),
+            true,
+            WIDE,
+        );
+        assert_eq!(
+            kept.ok().as_deref(),
+            Some("<!doctype html><html><head></head><body><script>x</script></body></html>")
+        );
+    }
+
+    #[test]
+    fn limits_hold_on_the_printers_parse() {
+        let limit = |body: &str| match screened(body) {
+            Err(Error::PageDomLimit { .. }) => {}
+            other => panic!("expected PageDomLimit, got {other:?}"),
+        };
+        // Past the document's depth in what the page's own parse called text.
+        limit(&format!(
+            "<template><noscript></template>{}</noscript>",
+            "<div>".repeat(20_000)
+        ));
+        limit(&"<div>".repeat(MAX_DEPTH + 1));
+        limit(&"<br>".repeat(MAX_NODES + 1));
+        // Moved deep by the parser after it was placed.
+        limit(&format!("{}{}", "<b>".repeat(600), "<p>x</b>"));
+        limit(&format!(
+            "<p {}></p>",
+            (0..=MAX_ATTRIBUTES)
+                .map(|i| format!("a{i}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        ));
+        assert_eq!(
+            ok(&"<div>".repeat(MAX_DEPTH - 4)).matches("</div>").count(),
+            MAX_DEPTH - 4
+        );
+    }
+
+    #[test]
+    fn the_output_is_a_fixed_point() {
+        for (html, want) in [
+            // The parser drops a first newline.
+            ("<pre>\n\nx</pre>", "<pre>\n\nx</pre>"),
+            ("<textarea>\n\nx</textarea>", "<textarea>\n\nx</textarea>"),
+            // A literal one would come back a newline.
+            ("<p>a&#13;b</p>", "<p>a&#13;b</p>"),
+            ("<p title=\"a&#13;b\"></p>", "<p title=\"a&#13;b\"></p>"),
+            // Nothing can close it.
+            ("<p>a</p><plaintext>x</b>", "<p>a</p><plaintext>x</b>"),
+            // Names the parser adjusts in foreign content.
+            (
+                "<svg xmlns:xlink=\"a\" xlink:href=\"b\" xml:lang=\"c\" viewBox=\"0 0 1 1\"></svg>",
+                "<svg xmlns:xlink=\"a\" xlink:href=\"b\" xml:lang=\"c\" viewBox=\"0 0 1 1\"></svg>",
+            ),
+            // What no parser builds but a tree can hold.
+            (
+                "<form><div></form><form>x</form>",
+                "<form><div>x</div></form>",
+            ),
+        ] {
+            let out = finish(&document(html), false, WIDE).unwrap_or_else(|e| panic!("{e}"));
+            assert!(out.contains(want), "{html}: {out}");
+            let again = finish(&out, false, WIDE).unwrap_or_else(|e| panic!("{e}"));
+            assert_eq!(again, out, "{html}");
+        }
+    }
+
+    #[test]
+    fn no_doctype_stays_no_doctype() {
+        let out = finish("<p>x", false, WIDE).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(out, "<html><head></head><body><p>x</p></body></html>");
+    }
+
+    #[test]
+    fn comments_go() {
+        assert_eq!(
+            ok("a<!-- x -->b<svg><style>c<!--d-->e</style></svg>"),
+            "ab<svg><style>ce</style></svg>"
+        );
+    }
+
+    #[test]
+    fn the_output_limit_is_a_typed_error() {
+        let html = document(&"<p>x</p>".repeat(100));
+        for max in [10, 50, 500] {
+            match finish(&html, false, max) {
+                Err(Error::PageDomLimit { message }) => {
+                    assert!(message.contains("output limit"), "{message}");
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+        // A small input that a parse would write out as much longer.
+        let cap = html.len() + 8;
+        assert!(finish(&html, false, cap).is_ok());
+    }
+
+    #[test]
+    fn the_gate_stops_every_step() {
+        let html = document(&"<p style=\"color:red\">x</p>".repeat(1000));
+        let finishing = Finish {
+            keep_scripts: false,
+            max_bytes: WIDE,
+        };
+        let stop = AtomicBool::new(true);
+        let gate = Gate::new(&stop, Duration::from_secs(60));
+        assert!(matches!(
+            finish_page(&html, finishing, None, &gate),
+            Err(Error::Cancelled)
+        ));
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::ZERO);
+        assert!(matches!(
+            finish_page(&html, finishing, None, &gate),
+            Err(Error::PageTimeLimit)
+        ));
+        // A tag that never ends is stopped between chunks.
+        let tag = format!("<p {}", "a".repeat(1 << 20));
+        assert!(matches!(
+            finish_page(&tag, finishing, None, &gate),
+            Err(Error::PageTimeLimit)
+        ));
+        // CSS: past its first look at the gate, a stop still gets through.
+        let gate = Gate::new(&stop, Duration::from_millis(0));
+        let mut budget = Budget::default();
+        let long = "a ".repeat(GATE_TOKENS);
+        assert!(matches!(
+            screen_css(&long, false, &mut budget, &gate),
+            Err(Error::PageTimeLimit)
+        ));
     }
 
     #[test]
@@ -537,8 +925,8 @@ mod tests {
     }
 
     #[test]
-    fn a_style_element_over_several_text_chunks_is_read_whole() {
-        // Longer than lol_html's buffers, with the bad URL at the end.
+    fn a_style_element_over_several_chunks_is_read_whole() {
+        // Longer than the parser's chunks, with the bad URL at the end.
         let css = format!("{}@import \"http://[\";", "p{color:red}".repeat(100_000));
         let out = ok(&format!("<style>{css}</style>"));
         assert!(
@@ -547,5 +935,43 @@ mod tests {
             &out[out.len() - 80..]
         );
         assert_eq!(out.len(), css.len() + "<style></style>".len() - 2);
+    }
+
+    /// Markup that has to come out the same from any number of checks, and
+    /// clean to the printer, whatever order it's in.
+    #[test]
+    fn scrambled_markup_settles_and_stays_clean() {
+        let mut seed = 0x2545_F491_4F6C_DD1D_u64;
+        for _ in 0..1_500 {
+            let html = tree::tests::scrambled(&mut seed);
+            let Ok(out) = finish(&html, false, WIDE) else {
+                continue;
+            };
+            assert_eq!(
+                finish(&out, false, WIDE).as_ref().ok(),
+                Some(&out),
+                "{html}"
+            );
+            let limits = TreeLimits {
+                max_nodes: MAX_NODES,
+                max_depth: MAX_DEPTH,
+                max_attributes: MAX_ATTRIBUTES,
+            };
+            let stop = AtomicBool::new(false);
+            let gate = Gate::new(&stop, Duration::from_secs(60));
+            let tree = Tree::parse(&out, limits, &gate).unwrap_or_else(|e| panic!("{e}"));
+            let mut stack = vec![(0, false)];
+            while let Some((id, inert)) = stack.pop() {
+                let mut inside = inert;
+                if let Some(e) = tree.element(id) {
+                    assert!(
+                        inert || !matches!(e.local(), "script" | "noscript"),
+                        "{html}: {out}"
+                    );
+                    inside |= e.is_html("template");
+                }
+                stack.extend(tree.nodes[id].children.iter().map(|&c| (c, inside)));
+            }
+        }
     }
 }

@@ -43,13 +43,14 @@ fn renderer_new(
     utc_offset_minutes: i32,
     text: String,
     max_islands: Option<usize>,
-    page: (bool, String, RArray),
+    page: (bool, String, RArray, usize),
 ) -> Result<Renderer, Error> {
     let mut options = surimono::Options::new()
         .limits(surimono::Limits {
             memory_bytes,
             time: Duration::from_millis(time_ms),
             stack_bytes,
+            output_bytes: page.3,
         })
         .seed(seed)
         .error_policy(match error_policy.as_str() {
@@ -234,6 +235,7 @@ fn report_hash(ruby: &Ruby, report: &surimono::PageReport) -> Result<RHash, Erro
         let kind = match f.kind {
             surimono::ResourceKind::Script => "script",
             surimono::ResourceKind::Image => "image",
+            surimono::ResourceKind::Stylesheet => "stylesheet",
             _ => "other",
         };
         entry.aset(ruby.to_symbol("kind"), ruby.to_symbol(kind))?;

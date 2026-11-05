@@ -142,8 +142,10 @@ pub enum Error {
     /// A page's scripts used more memory than the memory limit allows.
     #[error("the page's scripts exceeded the memory limit")]
     PageMemoryLimit,
-    /// A page's scripts ran longer than the time limit allows.
-    #[error("the page's scripts exceeded the time limit")]
+    /// A page's scripts ran longer than the time limit allows, or what follows
+    /// them did: serializing, stylesheets and the checks for a printer share
+    /// one such limit of their own.
+    #[error("the page exceeded the time limit")]
     PageTimeLimit,
     /// A page's scripts recursed deeper than the stack limit allows, and
     /// nothing caught it.

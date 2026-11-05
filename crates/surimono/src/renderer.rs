@@ -178,6 +178,11 @@ impl Renderer {
                 "limits.time is zero; every island would fail".into(),
             ));
         }
+        if options.limits.output_bytes < 1024 * 1024 {
+            return Err(Error::InvalidOptions(
+                "limits.output_bytes must be at least 1 MiB".into(),
+            ));
+        }
         if options.pool_size == Some(0) {
             return Err(Error::InvalidOptions("pool_size must be at least 1".into()));
         }
@@ -395,14 +400,19 @@ impl Renderer {
     /// mode comes out with `<!doctype html>`, any other with no doctype, so a
     /// limited-quirks doctype is lost. That matters only to a renderer that goes
     /// by it: Blitz, and so fulgur, lays every page out as no-quirks. Comments
-    /// outside `<html>` go.
+    /// go.
     ///
-    /// What a printer's parser and CSS engine would be given is checked,
-    /// because they have no limits of their own and fulgur runs in your
-    /// process. A page with more CSS than is safe to parse, or markup nested
-    /// past the document's limits however it got there, fails with
-    /// [`Error::PageDomLimit`]; URLs Blitz can't resolve, on which it panics, are
-    /// taken out. Selector matching and SVG parsing in the printer aren't bounded
+    /// The output is what blitz-html's parser reads and writes it as, scripting
+    /// off, and comes out of checks on that reading, because a printer's parser
+    /// and CSS engine have no limits of their own and fulgur runs in your
+    /// process. Parsed that way it gives the same tree and passes the same
+    /// checks. A page with more CSS than is safe to parse, or markup past the
+    /// document's limits however it got there, fails with
+    /// [`Error::PageDomLimit`], as does output over
+    /// [`Limits::output_bytes`](crate::Limits::output_bytes); URLs Blitz can't
+    /// resolve, on which it panics, are taken out. All this after the scripts
+    /// has one [`time`](crate::Limits::time) limit of its own and stops at a
+    /// cancel. Selector matching and SVG parsing in the printer aren't bounded
     /// here, so run a printer that takes untrusted pages under its own timeout.
     ///
     /// What this release doesn't do: scripts a script inserts don't run,
@@ -490,6 +500,13 @@ impl Renderer {
     ) -> Result<PageOutput, Error> {
         let (html, report) = self.local()?.pages.run(html, cancel, caller)?;
         let html = self.render(&html, cancel)?;
+        // Islands add their drawings to what the page's checks measured.
+        let max_bytes = self.options.limits.output_bytes;
+        if html.len() > max_bytes {
+            return Err(Error::PageDomLimit {
+                message: format!("the page's HTML is over the output limit of {max_bytes} bytes"),
+            });
+        }
         Ok(PageOutput { html, report })
     }
 
@@ -828,6 +845,10 @@ mod tests {
             },
             Limits {
                 time: Duration::ZERO,
+                ..Limits::default()
+            },
+            Limits {
+                output_bytes: 1024,
                 ..Limits::default()
             },
         ] {

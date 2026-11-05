@@ -47,6 +47,12 @@ cssparser = "=0.35.0"
 # Checks URLs resolve as blitz-dom will (src/print.rs). Same version as
 # surimono-dom's.
 url = "=2.5.8"
+# Parses a page as its printer will (src/print/tree.rs): the html5ever and
+# blitz-html settings fulgur uses. Same version as surimono-dom's.
+html5ever = "=0.35.0"
+# Decodes `<style>` text as blitz-dom does before stylo reads it. MIT; already
+# in the tree through blitz-dom. Exact pin; moves to the workspace root.
+html-escape = "=0.2.15"
 
 [dev-dependencies]
 # tests/breakout.rs parses the facade's output with html5ever, through

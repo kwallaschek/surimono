@@ -1796,6 +1796,8 @@ dependencies = [
  "blitz-dom",
  "blitz-html",
  "cssparser",
+ "html-escape",
+ "html5ever",
  "libc",
  "lol_html",
  "serde",

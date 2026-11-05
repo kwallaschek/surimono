@@ -16,15 +16,14 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use surimono_core::{SandboxError, SandboxOptions, SettleOptions, SettleOutcome};
-use surimono_dom::{Document, DomError, DomRuntime};
+use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
 use crate::backend;
 use crate::error::Error;
 use crate::options::{LayoutQueries, Options};
-use crate::print;
+use crate::print::{self, Finish, Gate};
 use crate::resources::{
-    Failures, Fetcher, ResourceFailure, ResourceFailureReason, ResourceKind, ResourceLoader,
-    Source, inline_stylesheets,
+    Failures, Fetcher, ResourceFailure, ResourceFailureReason, ResourceKind, ResourceLoader, Source,
 };
 
 /// How often a waiting caller looks at its cancel flag.
@@ -61,9 +60,10 @@ pub struct PageReport {
     pub unhandled_rejections: u64,
     /// The first few reasons, as messages.
     pub rejections: Vec<String>,
-    /// How many external scripts and images the page didn't get.
+    /// How many external scripts, images and stylesheets the page didn't get.
     pub failed_count: u64,
-    /// The first few of those, in document order, scripts first.
+    /// The first few of those: scripts, then images, then stylesheets, each in
+    /// document order.
     pub failed: Vec<ResourceFailure>,
 }
 
@@ -81,6 +81,11 @@ pub struct PageOutput {
 struct Setup {
     sandbox: SandboxOptions,
     memory_bytes: usize,
+    /// The document's limits: the text budget follows the output limit.
+    dom: DomLimits,
+    /// How long everything after the scripts may take.
+    finish_time: Duration,
+    output_bytes: usize,
     /// A script that puts the layout shim first in the tree.
     add_shim: String,
     /// A script that clears the settled page out for printing.
@@ -187,6 +192,18 @@ impl PagePool {
                 setup: Setup {
                     sandbox,
                     memory_bytes: options.limits.memory_bytes,
+                    dom: DomLimits {
+                        // A serialized page holds its text at least once, and
+                        // the serializer can't be stopped: this keeps what it
+                        // has to write to a multiple of the limit.
+                        max_text_bytes: options
+                            .limits
+                            .output_bytes
+                            .min(DomLimits::DEFAULT_MAX_TEXT_BYTES),
+                        ..DomLimits::default()
+                    },
+                    finish_time: options.limits.time,
+                    output_bytes: options.limits.output_bytes,
                     add_shim: add_shim(options.layout_queries),
                     cleanup: cleanup(options.keep_scripts),
                     keep_scripts: options.keep_scripts,
@@ -348,7 +365,7 @@ fn work(shared: &Shared) {
 }
 
 fn run_page(setup: &Setup, runtime: &mut Option<DomRuntime>, job: &Job) -> PageResult {
-    let document = Document::parse(&job.html).map_err(page_error)?;
+    let document = Document::parse_with_limits(&job.html, setup.dom).map_err(page_error)?;
     let rt = match runtime {
         Some(rt) => rt,
         None => {
@@ -382,9 +399,9 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
     let page = rt
         .run_page(&SettleOptions::default(), |url| fetcher.script(url))
         .map_err(page_error)?;
-    if job.stop.load(Ordering::Acquire) {
-        return Err(Error::Cancelled);
-    }
+    // One deadline from here to the end, and a cancel reaches all of it.
+    let gate = Gate::new(&job.stop, setup.finish_time);
+    gate.check()?;
     let settled = match page.settle.outcome {
         SettleOutcome::Settled if page.settle.settled_by_budget() => SettleReason::VirtualBudget,
         SettleOutcome::Settled => SettleReason::Idle,
@@ -413,21 +430,17 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
     } else {
         body
     };
-    // Drops the page's last wrappers before the document goes.
+    // Drops the page's last wrappers, then the document.
     rt.reset().map_err(page_error)?;
-    if job.stop.load(Ordering::Acquire) {
-        return Err(Error::Cancelled);
-    }
-    let html = if fetcher.has_loader() {
-        inline_stylesheets(&html, &mut fetcher)?
-    } else {
-        html
+    drop(rt.take());
+    gate.check()?;
+    let finish = Finish {
+        keep_scripts: setup.keep_scripts,
+        max_bytes: setup.output_bytes,
     };
+    let loads = fetcher.has_loader().then_some(&mut fetcher);
+    let html = print::finish_page(&html, finish, loads, &gate)?;
     let failures = fetcher.failures;
-    let html = print::screen_page(&html, setup.keep_scripts)?;
-    // What text became markup in the serializer has met no limit yet. The
-    // printer would parse it next, with no limits of its own.
-    drop(Document::parse(&html).map_err(page_error)?);
     Ok((
         html,
         PageReport {

@@ -87,9 +87,10 @@ module Surimono
   # errors::               the first few, as messages
   # unhandled_rejections:: promises rejected with no handler
   # rejections::           the first few reasons, as messages
-  # failed_count::         external scripts and images the page didn't get
-  # failed::               the first few, as { kind: :script or :image, url:,
-  #                        reason: } Hashes
+  # failed_count::         external scripts, images and stylesheets the page
+  #                        didn't get
+  # failed::               the first few, as { kind: :script, :image or
+  #                        :stylesheet, url:, reason: } Hashes
   PageReport = Struct.new(:settled, :uncaught, :errors, :unhandled_rejections, :rejections, :failed_count,
                           :failed, keyword_init: true)
 
@@ -100,7 +101,7 @@ module Surimono
   # keeps JavaScript runtimes with the renderers compiled, and it is safe to
   # share between threads. Rendering releases the GVL.
   class Renderer
-    LIMIT_KEYS = %i[memory_mb time_ms stack_kb].freeze
+    LIMIT_KEYS = %i[memory_mb time_ms stack_kb output_mb].freeze
     ERROR_POLICIES = %i[fail placeholder].freeze
     LAYOUT_QUERIES = %i[zeros throw].freeze
     # Largest value accepted for a limit or pool_size, so every value fits the
@@ -116,7 +117,10 @@ module Surimono
     #                (1 or more, default 64), time_ms (default 2000; one
     #                deadline per island covering loading the renderer and
     #                drawing), stack_kb (64 to 16384, default 512). A document
-    #                with N islands can take up to N times time_ms.
+    #                with N islands can take up to N times time_ms. For a page,
+    #                time_ms is one limit for its scripts and another for all
+    #                that follows them, and output_mb (default 64) caps the
+    #                HTML it gives back and the text it may hold.
     # max_islands::  most islands one document may have (default 1000); a
     #                document with more raises RenderError (kind
     #                "too-many-islands") before any island runs. Together with
@@ -152,7 +156,8 @@ module Surimono
     #                or :throw (a NotSupportedError in the script).
     # keep_scripts:: with page scripts, leave <script> elements in the result.
     #                Default false: all but island markers are removed.
-    # resources::    with page scripts, what <script src> may load, as
+    # resources::    with page scripts, what <script src> and a stylesheet's
+    #                <link href> may load, as
     #                { "url as written in the page" => source }. Only these load:
     #                no network and no files otherwise. Limits apply to a page's
     #                scripts as one, not per script.
@@ -196,7 +201,8 @@ module Surimono
         normalize_offset(utc_offset_minutes),
         normalize_text(text),
         max_islands && positive_integer(max_islands, "max_islands"),
-        [keep_scripts ? true : false, normalize_layout_queries(layout_queries), normalize_resources(resources)]
+        [keep_scripts ? true : false, normalize_layout_queries(layout_queries), normalize_resources(resources),
+         lim[:output_mb] * 1024 * 1024]
       )
     end
 
@@ -233,8 +239,12 @@ module Surimono
     #          if there is none. An exception in it ends the render and is raised
     #          from here. It isn't interrupted, so give it a timeout of its own:
     #          past 10 seconds of loads, or 1,000 of them, the rest fail and the
-    #          page goes on. A stylesheet goes into the page as <style>; a url()
-    #          or @import in it isn't followed.
+    #          page goes on, and stylesheets count against time_ms too. A
+    #          stylesheet goes into the page as <style>; a url() or @import in it
+    #          isn't followed. Don't call render_page on the same renderer from
+    #          it, or from another fiber of this thread, while pool_size's
+    #          workers are all busy: the page waits for the loader and the loader
+    #          for a worker, until a Timeout ends it.
     # allow::  the URLs that reach loader, nothing by default: an entry equal to
     #          one, or an entry ending in / for what is under it. Check what you
     #          open anyway if you read files.
@@ -348,7 +358,7 @@ module Surimono
         if given.key?(:stack_kb) && !(64..16_384).cover?(given[:stack_kb])
           raise ArgumentError, "limits[:stack_kb] must be from 64 to 16384, got #{given[:stack_kb]}"
         end
-        { memory_mb: 64, time_ms: 2000, stack_kb: 512 }.merge(given)
+        { memory_mb: 64, time_ms: 2000, stack_kb: 512, output_mb: 64 }.merge(given)
       end
 
       def normalize_now(now)

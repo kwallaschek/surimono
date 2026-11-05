@@ -39,10 +39,18 @@ pub struct Limits {
     pub memory_bytes: usize,
     /// Longest one island may run: one deadline per island covering loading
     /// the renderer's bundle into a fresh runtime and drawing the island. A
-    /// page's scripts share one such limit. Must be more than zero.
+    /// page's scripts share one such limit, and everything after them
+    /// (serializing, loading stylesheets, the checks for a printer) another.
+    /// Must be more than zero.
     pub time: Duration,
     /// Most bytes of native stack the JavaScript engine may use, from 64 KiB to 16 MiB.
     pub stack_bytes: usize,
+    /// Most bytes of HTML [`render_page`](crate::Renderer::render_page) may
+    /// give back, and of a page's text while it runs (up to the document's
+    /// own 256 MiB): past either, [`Error::PageDomLimit`](crate::Error::PageDomLimit).
+    /// Escaping can make a page's output many times what it holds, and a
+    /// printer would have to read all of it. At least 1 MiB.
+    pub output_bytes: usize,
 }
 
 impl Limits {
@@ -52,6 +60,8 @@ impl Limits {
     pub const DEFAULT_TIME: Duration = Duration::from_secs(2);
     /// Default stack limit: 512 KiB.
     pub const DEFAULT_STACK_BYTES: usize = 512 * 1024;
+    /// Default output limit: 64 MiB.
+    pub const DEFAULT_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 }
 
 impl Default for Limits {
@@ -60,6 +70,7 @@ impl Default for Limits {
             memory_bytes: Self::DEFAULT_MEMORY_BYTES,
             time: Self::DEFAULT_TIME,
             stack_bytes: Self::DEFAULT_STACK_BYTES,
+            output_bytes: Self::DEFAULT_OUTPUT_BYTES,
         }
     }
 }
@@ -322,8 +333,9 @@ impl Options {
         self
     }
 
-    /// Lets a page's external scripts load, through `loader` only. Default:
-    /// none, so network and files are off. See [`ResourceLoader`].
+    /// Lets a page's external scripts and stylesheets load, through `loader`
+    /// only. Default: none, so network and files are off. See
+    /// [`ResourceLoader`].
     pub fn resource_loader(mut self, loader: ResourceLoader) -> Self {
         self.resource_loader = Some(loader);
         self

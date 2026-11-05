@@ -915,4 +915,17 @@ class SurimonoTest < Minitest::Test
     assert_raises(ArgumentError) { renderer.render_page(html, loader: ->(_) {}, allow: "/") }
     assert renderer.render_page("<p>x</p>").html
   end
+
+  def test_a_failed_stylesheet_has_its_own_kind
+    html = "<!doctype html><link rel=stylesheet href=/x.css><p>x"
+    report = page_renderer.render_page(html, loader: ->(_url) {}, allow: ["/x.css"]).report
+    assert_equal [:stylesheet], report.failed.map { |f| f[:kind] }
+  end
+
+  def test_output_mb_limits_a_page
+    r = page_renderer(limits: { output_mb: 1 })
+    html = "<!doctype html><script>document.body.textContent = '<'.repeat(400000)</script>"
+    e = assert_raises(Surimono::DomLimitError) { r.render_page(html) }
+    assert_equal "dom-limit", e.kind
+  end
 end
