@@ -10,7 +10,7 @@
 use std::collections::VecDeque;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError, SyncSender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -21,8 +21,11 @@ use surimono_dom::{Document, DomError, DomRuntime};
 use crate::backend;
 use crate::error::Error;
 use crate::options::{LayoutQueries, Options};
-use crate::resources::ResourceFailureReason;
-use crate::resources::{Failures, Fetcher, ResourceFailure, ResourceKind, ResourceLoader};
+use crate::print;
+use crate::resources::{
+    Failures, Fetcher, ResourceFailure, ResourceFailureReason, ResourceKind, ResourceLoader,
+    Source, inline_stylesheets,
+};
 
 /// How often a waiting caller looks at its cancel flag.
 const CANCEL_POLL: Duration = Duration::from_millis(5);
@@ -82,6 +85,7 @@ struct Setup {
     add_shim: String,
     /// A script that clears the settled page out for printing.
     cleanup: String,
+    keep_scripts: bool,
     loader: Option<ResourceLoader>,
 }
 
@@ -116,10 +120,28 @@ fn cleanup(keep_scripts: bool) -> String {
 /// The page's serialized HTML and report, islands still to do.
 pub(crate) type PageResult = Result<(String, PageReport), Error>;
 
+/// What a worker sends its caller.
+enum Message {
+    /// A load for a function that runs on the caller's thread.
+    Need {
+        url: String,
+        answer: Sender<Result<Vec<u8>, String>>,
+    },
+    Done(PageResult),
+}
+
+/// What [`PagePool::run`] asks of a caller's own load function.
+pub(crate) struct CallerLoad<'a> {
+    pub(crate) allow: &'a [String],
+    pub(crate) load: &'a mut dyn FnMut(&str) -> Result<Vec<u8>, String>,
+}
+
 struct Job {
     html: String,
     stop: Arc<AtomicBool>,
-    reply: SyncSender<PageResult>,
+    /// The allowlist of a caller's load function, if it has one.
+    allow: Option<Vec<String>>,
+    reply: Sender<Message>,
 }
 
 #[derive(Default)]
@@ -167,6 +189,7 @@ impl PagePool {
                     memory_bytes: options.limits.memory_bytes,
                     add_shim: add_shim(options.layout_queries),
                     cleanup: cleanup(options.keep_scripts),
+                    keep_scripts: options.keep_scripts,
                     loader: options.resource_loader.clone(),
                 },
                 state: Mutex::new(State::default()),
@@ -182,17 +205,24 @@ impl PagePool {
     /// still queued never starts, and a running one is left to stop at its
     /// time limit, because [`DomRuntime`] offers no way to stop it from
     /// outside. Its worker is busy until then.
-    pub(crate) fn run(&self, html: &str, cancel: Option<&AtomicBool>) -> PageResult {
-        if cancel.is_some_and(|c| c.load(Ordering::Acquire)) {
+    pub(crate) fn run(
+        &self,
+        html: &str,
+        cancel: Option<&AtomicBool>,
+        mut caller: Option<CallerLoad<'_>>,
+    ) -> PageResult {
+        let raised = || cancel.is_some_and(|c| c.load(Ordering::Acquire));
+        if raised() {
             return Err(Error::Cancelled);
         }
-        let (reply, answer) = mpsc::sync_channel(1);
+        let (reply, messages): (_, Receiver<Message>) = mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
         {
             let mut state = self.shared.lock();
             let job = Job {
                 html: html.to_owned(),
                 stop: Arc::clone(&stop),
+                allow: caller.as_ref().map(|c| c.allow.to_vec()),
                 reply,
             };
             if state.idle <= state.jobs.len() && state.workers.len() < self.shared.pool_size {
@@ -206,39 +236,42 @@ impl PagePool {
             state.jobs.push_back(job);
             self.shared.wake.notify_one();
         }
-        let stopped = || Error::PageFailed {
-            message: "the page's worker thread stopped".into(),
-        };
-        let Some(cancel) = cancel else {
-            return answer.recv().unwrap_or_else(|_| Err(stopped()));
-        };
         loop {
-            match answer.recv_timeout(CANCEL_POLL) {
-                Ok(result) => return result,
-                Err(RecvTimeoutError::Timeout) if cancel.load(Ordering::Acquire) => {
-                    stop.store(true, Ordering::Release);
-                    return Err(Error::Cancelled);
+            match messages.recv_timeout(CANCEL_POLL) {
+                Ok(Message::Done(result)) => return result,
+                Ok(Message::Need { url, answer }) if !raised() => {
+                    let bytes = match caller.as_mut() {
+                        Some(c) => (c.load)(&url),
+                        None => Err("no load function".to_owned()),
+                    };
+                    let _ = answer.send(bytes);
+                }
+                // The worker finds the job stopped when this load fails.
+                Ok(Message::Need { answer, .. }) => {
+                    let _ = answer.send(Err("cancelled".to_owned()));
                 }
                 Err(RecvTimeoutError::Timeout) => {}
-                Err(RecvTimeoutError::Disconnected) => return Err(stopped()),
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(Error::PageFailed {
+                        message: "the page's worker thread stopped".into(),
+                    });
+                }
+            }
+            if raised() {
+                stop.store(true, Ordering::Release);
+                return Err(Error::Cancelled);
             }
         }
     }
 }
 
 impl Drop for PagePool {
-    /// Joins the workers. [`Renderer`](crate::Renderer) never lets this run
-    /// for a pool started in another process, whose threads don't exist here.
+    /// Closes the queue and doesn't join: a worker may be running a page up to
+    /// the time limit, and Ruby's garbage collector drops renderers, which
+    /// mustn't wait for that. A worker ends on its own after its page.
     fn drop(&mut self) {
-        let workers = {
-            let mut state = self.shared.lock();
-            state.closed = true;
-            std::mem::take(&mut state.workers)
-        };
+        self.shared.lock().closed = true;
         self.shared.wake.notify_all();
-        for worker in workers {
-            let _ = worker.join();
-        }
     }
 }
 
@@ -310,7 +343,7 @@ fn work(shared: &Shared) {
             runtime = None;
         }
         // Nobody may be waiting any more: a cancelled caller has gone.
-        let _ = job.reply.send(result);
+        let _ = job.reply.send(Message::Done(result));
     }
 }
 
@@ -332,7 +365,20 @@ fn run_page(setup: &Setup, runtime: &mut Option<DomRuntime>, job: &Job) -> PageR
 fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
     // Run in a context the page never sees, before any of its code exists.
     rt.eval::<()>(&setup.add_shim).map_err(page_error)?;
-    let mut fetcher = Fetcher::new(setup.loader.as_ref(), setup.memory_bytes);
+    let ask = |url: &str| {
+        let (answer, bytes) = mpsc::channel();
+        let need = Message::Need {
+            url: url.to_owned(),
+            answer,
+        };
+        job.reply.send(need).map_err(|_| "cancelled".to_owned())?;
+        bytes.recv().map_err(|_| "cancelled".to_owned())?
+    };
+    let source = match &job.allow {
+        Some(allow) => Some(Source::Caller { allow, ask: &ask }),
+        None => setup.loader.as_ref().map(Source::Shared),
+    };
+    let mut fetcher = Fetcher::new(source, setup.memory_bytes);
     let page = rt
         .run_page(&SettleOptions::default(), |url| fetcher.script(url))
         .map_err(page_error)?;
@@ -350,19 +396,18 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
             });
         }
     };
-    let mut failures = fetcher.failures;
     // A fresh context: the page's own code can't get in the way from here on.
     rt.reset().map_err(page_error)?;
     let summary: String = rt.eval(&setup.cleanup).map_err(page_error)?;
     let summary: Summary = serde_json::from_str(&summary).map_err(|e| Error::PageFailed {
         message: format!("reading the page's summary: {e}"),
     })?;
-    add_images(&mut failures, &summary);
+    add_images(&mut fetcher.failures, &summary);
     let body = rt
         .with_document(Document::to_html)
         .ok_or_else(|| page_error(DomError::NoDocument))?;
-    // The parser drops the doctype, and without one the printer would parse
-    // the page in quirks mode.
+    // The parser drops the doctype; a renderer that goes by it gets the mode
+    // the page ran in, standards or not. (Blitz always lays out as no-quirks.)
     let html = if summary.standards {
         format!("<!doctype html>{body}")
     } else {
@@ -370,6 +415,19 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
     };
     // Drops the page's last wrappers before the document goes.
     rt.reset().map_err(page_error)?;
+    if job.stop.load(Ordering::Acquire) {
+        return Err(Error::Cancelled);
+    }
+    let html = if fetcher.has_loader() {
+        inline_stylesheets(&html, &mut fetcher)?
+    } else {
+        html
+    };
+    let failures = fetcher.failures;
+    let html = print::screen_page(&html, setup.keep_scripts)?;
+    // What text became markup in the serializer has met no limit yet. The
+    // printer would parse it next, with no limits of its own.
+    drop(Document::parse(&html).map_err(page_error)?);
     Ok((
         html,
         PageReport {

@@ -307,7 +307,7 @@ fn kept_attributes(el: &Element<'_, '_>) -> Vec<(String, String)> {
     kept
 }
 
-fn is_island(el: &Element<'_, '_>) -> bool {
+pub(crate) fn is_island(el: &Element<'_, '_>) -> bool {
     el.namespace_uri() == HTML_NAMESPACE
         && el.get_attribute("type").is_some_and(|t| {
             let essence = t.split(';').next().unwrap_or_default().trim();

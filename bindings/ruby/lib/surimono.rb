@@ -220,15 +220,41 @@ module Surimono
     # the html and a PageReport. The html is the document serialized: without
     # <noscript>, and without <script> unless keep_scripts: true. Each render
     # gets a new document and script state. Nothing is laid out and images
-    # aren't loaded; an external script needs resources:.
+    # aren't loaded.
+    #
+    # External scripts and stylesheets need resources: (see new), or a loader
+    # for this render:
+    #
+    #   loader = ->(url) { Rails.root.join("public", url.delete_prefix("/")).binread }
+    #   renderer.render_page(html, loader: loader, allow: ["/assets/"])
+    #
+    # loader:: called as loader.call(url) with the attribute as written, on this
+    #          thread, one at a time, in document order. Returns a String, or nil
+    #          if there is none. An exception in it ends the render and is raised
+    #          from here. It isn't interrupted, so give it a timeout of its own:
+    #          past 10 seconds of loads, or 1,000 of them, the rest fail and the
+    #          page goes on. A stylesheet goes into the page as <style>; a url()
+    #          or @import in it isn't followed.
+    # allow::  the URLs that reach loader, nothing by default: an entry equal to
+    #          one, or an entry ending in / for what is under it. Check what you
+    #          open anyway if you read files.
     #
     # An exception in a page doesn't raise, it goes in the report. A limit does:
     # MemoryLimitError, TimeLimitError, StackOverflowError or DomLimitError.
     #
     # An interrupt raises at once, but a page already running goes on, unobserved,
     # until its time limit, taking one of pool_size's runtimes until then.
-    def render_page(html)
-      out, report = with_html(html) { |doc| _render_page(doc) }
+    def render_page(html, loader: nil, allow: nil)
+      raise ArgumentError, "allow needs a loader" if loader.nil? && !allow.nil?
+
+      native_loader = nil
+      unless loader.nil?
+        raise ArgumentError, "loader must respond to call, got #{loader.class}" unless loader.respond_to?(:call)
+        raise ArgumentError, "allow must be an Array of Strings" unless allow.nil? || (allow.is_a?(Array) && allow.all?(String))
+
+        native_loader = [loader.respond_to?(:to_proc) ? loader.to_proc : loader.method(:call).to_proc, allow || []]
+      end
+      out, report = with_html(html) { |doc| _render_page(doc, native_loader) }
       Page.new(html: out, report: PageReport.new(**report))
     end
 
@@ -464,6 +490,15 @@ module Surimono
     # Renderer#render_page.
     def render(html, scripts: false, **options)
       renderer_for(options).render(html, scripts: scripts)
+    end
+
+    # Runs html as a page (see Renderer#render_page) with a renderer for these
+    # options, kept as for render. Returns a Surimono::Page.
+    #
+    #   page = Surimono.render_page(html, fonts: ["fonts/NotoSans-Regular.ttf"])
+    #   pdf = Fulgur::Engine.new.render_html(page.html)
+    def render_page(html, loader: nil, allow: nil, **options)
+      renderer_for(options).render_page(html, loader: loader, allow: allow)
     end
 
     private

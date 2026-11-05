@@ -880,4 +880,39 @@ class SurimonoTest < Minitest::Test
     assert_operator took, :<, 1.2, "Timeout waited #{took.round(2)} s for the page"
     assert_equal 0, r.render_page(PAGE).report.uncaught, "the renderer still works"
   end
+
+  def test_render_page_loader
+    asked = []
+    loader = lambda do |url|
+      asked << url
+      { "/a.js" => "document.title = 'loaded';", "/b.css" => "p{color:red}" }[url]
+    end
+    renderer = Surimono::Renderer.new(fonts: FONTS)
+    html = "<title>x</title><link rel=stylesheet href=/b.css><script src=/a.js></script>" \
+           "<script src=/none.js></script><script src=https://elsewhere.example/x.js></script>"
+    page = renderer.render_page(html, loader: loader, allow: ["/"])
+    assert_includes page.html, "<title>loaded</title>"
+    assert_includes page.html, "<style>p{color:red}</style>"
+    assert_equal ["/a.js", "/none.js", "/b.css"], asked
+    assert_includes Surimono.render_page("<script src=/a.js></script>", fonts: FONTS, loader: ->(_) { "1" }, allow: ["/"]).html, "<html>"
+  end
+
+  def test_render_page_loader_errors
+    renderer = Surimono::Renderer.new(fonts: FONTS)
+    html = "<script src=/a.js></script><script src=/b.js></script>"
+    calls = 0
+    error = assert_raises(KeyError) do
+      renderer.render_page(html, loader: ->(_) { calls += 1; raise KeyError, "boom" }, allow: ["/"])
+    end
+    assert_equal "boom", error.message
+    assert_equal 1, calls
+    assert_raises(Timeout::Error) do
+      Timeout.timeout(0.1) { renderer.render_page(html, loader: ->(_) { sleep 5 }, allow: ["/"]) }
+    end
+    assert_raises(TypeError) { renderer.render_page(html, loader: ->(_) { 1 }, allow: ["/"]) }
+    assert_raises(ArgumentError) { renderer.render_page(html, allow: ["/"]) }
+    assert_raises(ArgumentError) { renderer.render_page(html, loader: 1) }
+    assert_raises(ArgumentError) { renderer.render_page(html, loader: ->(_) {}, allow: "/") }
+    assert renderer.render_page("<p>x</p>").html
+  end
 end

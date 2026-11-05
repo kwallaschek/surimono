@@ -10,7 +10,7 @@ use surimono_islands::{IslandRequest, IslandRunner};
 use crate::Options;
 use crate::backend;
 use crate::error::Error;
-use crate::page::{PageOutput, PagePool};
+use crate::page::{CallerLoad, PageOutput, PagePool};
 use crate::prepass::{self, Document, ErrorPolicy};
 use crate::svg::SanitizedSvg;
 
@@ -391,9 +391,19 @@ impl Renderer {
     /// `render_islands`, nothing stays byte for byte. `<noscript>` elements
     /// are removed, because the engine parses with scripting off and would print them;
     /// every `<script>` but island markers is removed unless
-    /// [`Options::keep_scripts`] says otherwise. A doctype that selects
-    /// standards mode comes out as `<!doctype html>`, and with none the page stays in
-    /// quirks mode. Comments outside `<html>` go.
+    /// [`Options::keep_scripts`] says otherwise. A page that ran in standards
+    /// mode comes out with `<!doctype html>`, any other with no doctype, so a
+    /// limited-quirks doctype is lost. That matters only to a renderer that goes
+    /// by it: Blitz, and so fulgur, lays every page out as no-quirks. Comments
+    /// outside `<html>` go.
+    ///
+    /// What a printer's parser and CSS engine would be given is checked,
+    /// because they have no limits of their own and fulgur runs in your
+    /// process. A page with more CSS than is safe to parse, or markup nested
+    /// past the document's limits however it got there, fails with
+    /// [`Error::PageDomLimit`]; URLs Blitz can't resolve, on which it panics, are
+    /// taken out. Selector matching and SVG parsing in the printer aren't bounded
+    /// here, so run a printer that takes untrusted pages under its own timeout.
     ///
     /// What this release doesn't do: scripts a script inserts don't run,
     /// modules don't run (`nomodule` scripts do), nothing is laid out (see
@@ -449,7 +459,36 @@ impl Renderer {
     }
 
     fn page(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<PageOutput, Error> {
-        let (html, report) = self.local()?.pages.run(html, cancel)?;
+        self.page_with(html, cancel, None)
+    }
+
+    /// [`render_page_cancellable`](Self::render_page_cancellable) with a load
+    /// function for this render, instead of an
+    /// [`Options::resource_loader`]. It runs on the calling thread, which is
+    /// what a Ruby proc needs, one call at a time; `allow` works as for a
+    /// [`ResourceLoader`](crate::ResourceLoader), with the same caps. A load
+    /// isn't interrupted by `cancel`, which is looked at when it returns.
+    ///
+    /// # Errors
+    ///
+    /// As [`render_page_cancellable`](Self::render_page_cancellable).
+    pub fn render_page_loading(
+        &self,
+        html: &str,
+        allow: &[String],
+        load: &mut dyn FnMut(&str) -> Result<Vec<u8>, String>,
+        cancel: &AtomicBool,
+    ) -> Result<PageOutput, Error> {
+        self.page_with(html, Some(cancel), Some(CallerLoad { allow, load }))
+    }
+
+    fn page_with(
+        &self,
+        html: &str,
+        cancel: Option<&AtomicBool>,
+        caller: Option<CallerLoad<'_>>,
+    ) -> Result<PageOutput, Error> {
+        let (html, report) = self.local()?.pages.run(html, cancel, caller)?;
         let html = self.render(&html, cancel)?;
         Ok(PageOutput { html, report })
     }

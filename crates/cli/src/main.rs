@@ -454,8 +454,10 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
 
 /// Tells standard error what didn't go well in a page that still rendered.
 fn warn(report: &PageReport) {
+    // Page-controlled text: escaped, so a page can't write control characters
+    // or fake log lines.
     for message in &report.errors {
-        eprintln!("surimono: warning: script error: {message}");
+        eprintln!("surimono: warning: script error: {message:?}");
     }
     if report.uncaught > report.errors.len() as u64 {
         eprintln!(
@@ -464,7 +466,7 @@ fn warn(report: &PageReport) {
         );
     }
     for message in &report.rejections {
-        eprintln!("surimono: warning: unhandled rejection: {message}");
+        eprintln!("surimono: warning: unhandled rejection: {message:?}");
     }
     if report.unhandled_rejections > report.rejections.len() as u64 {
         eprintln!(

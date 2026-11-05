@@ -58,6 +58,7 @@ mod error;
 mod options;
 mod page;
 mod prepass;
+mod print;
 mod renderer;
 mod resources;
 mod svg;

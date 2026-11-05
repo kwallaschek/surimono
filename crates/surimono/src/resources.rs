@@ -1,10 +1,18 @@
-//! What a page's `<script src>` may load: nothing, unless the caller says so.
+//! What a page's `<script src>` and `<link rel="stylesheet">` may load:
+//! nothing, unless the caller says so.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use lol_html::html_content::{ContentType, Element};
+use lol_html::{RewriteStrSettings, element, rewrite_str};
+
+use crate::charref::decode_attribute;
+use crate::error::Error;
 
 /// Most loads one render may start; the rest fail without calling the loader.
 pub(crate) const MAX_LOADS: usize = 1_000;
@@ -24,11 +32,20 @@ const MAX_KEPT_BYTES: usize = 2 * 1024;
 /// surimono itself never does any I/O for a page, with or without a loader:
 /// the only code that does is the function you pass in.
 ///
-/// The URL is the `src` attribute as written, with no base applied. It reaches
-/// the function only if the allowlist allows it. An allowlist entry allows a
-/// URL equal to it; an entry ending in `/` also allows URLs under it, unless
-/// the rest of the path has a `.` or `..` segment, a backslash, a control
-/// character or an escaped dot, slash or backslash, which could climb out.
+/// The URL is the attribute as written, with no base applied. It reaches the
+/// function only if the allowlist allows it. An allowlist entry allows a URL
+/// equal to it; an entry ending in `/` also allows URLs under it, unless what
+/// follows the entry has a `.` or `..` segment, an empty segment, a `;`, a
+/// backslash, a control character, a `:` in its first segment, or an escape
+/// other than of an ordinary character, query included, any of which could
+/// climb out of a directory the entry stands for. A function that reads files
+/// should still check what it opens.
+///
+/// A stylesheet comes out as a `<style>` holding what the function gave, so a
+/// printer needs no access to it; a `url()` or `@import` in it isn't followed.
+/// An allowed stylesheet that can't be had goes from the page, and into the
+/// report. A `<link>` off the list is left for the printer, as all are without
+/// a loader: what a printer may read is for its own configuration.
 ///
 /// Scripts load one at a time, in document order, on the render's worker
 /// thread and before any script runs, so what they do can't depend on which
@@ -101,14 +118,47 @@ impl ResourceLoader {
 
     /// Whether the allowlist lets `url` through.
     fn allows(&self, url: &str) -> bool {
-        self.allow.iter().any(|entry| {
-            url == entry
-                || (entry.ends_with('/')
-                    && url
-                        .strip_prefix(entry.as_str())
-                        .is_some_and(stays_under_the_prefix))
-        })
+        allows(&self.allow, url)
     }
+}
+
+/// Where a render's resources come from.
+#[derive(Clone, Copy)]
+pub(crate) enum Source<'a> {
+    /// A loader from the options, called on the worker.
+    Shared(&'a ResourceLoader),
+    /// A function that has to run on the caller's thread, behind `allow`.
+    Caller {
+        allow: &'a [String],
+        ask: &'a dyn Fn(&str) -> Result<Vec<u8>, String>,
+    },
+}
+
+impl Source<'_> {
+    fn allows(&self, url: &str) -> bool {
+        match self {
+            Self::Shared(loader) => loader.allows(url),
+            Self::Caller { allow, .. } => allows(allow, url),
+        }
+    }
+
+    fn load(&self, url: &str) -> Result<Vec<u8>, String> {
+        match self {
+            Self::Shared(loader) => (loader.load)(url),
+            Self::Caller { ask, .. } => ask(url),
+        }
+    }
+}
+
+/// Whether `allow` lets `url` through; see [`ResourceLoader`].
+fn allows(allow: &[String], url: &str) -> bool {
+    allow.iter().any(|entry| {
+        url == entry
+            || (entry.ends_with('/')
+                && url
+                    .strip_prefix(entry.as_str())
+                    .is_some_and(stays_under_the_prefix))
+    })
 }
 
 impl fmt::Debug for ResourceLoader {
@@ -120,12 +170,46 @@ impl fmt::Debug for ResourceLoader {
 }
 
 /// Whether `tail`, what follows an allowlist prefix, can't leave the prefix.
+/// The whole tail, query and fragment too: they mean nothing to a function
+/// that treats the URL as a path.
 fn stays_under_the_prefix(tail: &str) -> bool {
-    let path = tail.split(['?', '#']).next().unwrap_or_default();
-    let lower = path.to_ascii_lowercase();
-    !path.chars().any(|c| c == '\\' || c.is_control())
-        && !["%2e", "%2f", "%5c"].iter().any(|e| lower.contains(e))
-        && !path.split('/').any(|segment| matches!(segment, "." | ".."))
+    if tail
+        .chars()
+        .any(|c| c == '\\' || c == ';' || c.is_control())
+    {
+        return false;
+    }
+    let first = tail.split('/').next().unwrap_or_default();
+    // A drive (`C:/windows`) replaces the root when a path is joined.
+    if first.contains(':') {
+        return false;
+    }
+    // A final empty segment is a directory; any other is an absolute path.
+    let mut segments: Vec<&str> = tail.split('/').collect();
+    if segments.last().is_some_and(|s| s.is_empty()) {
+        segments.pop();
+    }
+    if segments.iter().any(|s| matches!(*s, "" | "." | "..")) {
+        return false;
+    }
+    !has_risky_escape(tail)
+}
+
+/// Whether `text` has a `%` that isn't an escape of a letter, digit or one of
+/// a few ordinary punctuation marks. So no escaped dot, slash, backslash or
+/// control character, and no `%25`, which would hide any of them one level
+/// down.
+fn has_risky_escape(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.iter().enumerate().any(|(i, b)| {
+        *b == b'%'
+            && !bytes
+                .get(i + 1..i + 3)
+                .and_then(|h| u8::from_str_radix(std::str::from_utf8(h).ok()?, 16).ok())
+                .is_some_and(|c| {
+                    c.is_ascii_alphanumeric() || matches!(c, b' ' | b'-' | b'_' | b'+')
+                })
+    })
 }
 
 /// What a page tried to load.
@@ -136,6 +220,8 @@ pub enum ResourceKind {
     Script,
     /// An `<img src>`.
     Image,
+    /// A `<link rel="stylesheet" href>`.
+    Stylesheet,
 }
 
 /// Why a resource didn't reach the page.
@@ -220,7 +306,7 @@ fn capped(text: &str) -> String {
 
 /// One render's loads, holding its caps.
 pub(crate) struct Fetcher<'a> {
-    loader: Option<&'a ResourceLoader>,
+    loader: Option<Source<'a>>,
     /// Script source bytes this render may still hold.
     room: usize,
     loads: usize,
@@ -233,7 +319,7 @@ pub(crate) struct Fetcher<'a> {
 }
 
 impl<'a> Fetcher<'a> {
-    pub(crate) fn new(loader: Option<&'a ResourceLoader>, room: usize) -> Self {
+    pub(crate) fn new(loader: Option<Source<'a>>, room: usize) -> Self {
         Self {
             loader,
             room,
@@ -246,6 +332,19 @@ impl<'a> Fetcher<'a> {
 
     /// The source of the script at `url`, or `None` with a failure recorded.
     pub(crate) fn script(&mut self, url: &str) -> Option<String> {
+        self.text(ResourceKind::Script, url)
+    }
+
+    /// Whether a loader was given, so a page's `<link>`s may be ours to resolve.
+    pub(crate) fn has_loader(&self) -> bool {
+        self.loader.is_some()
+    }
+
+    fn allows(&self, url: &str) -> bool {
+        self.loader.is_some_and(|l| l.allows(url))
+    }
+
+    fn text(&mut self, kind: ResourceKind, url: &str) -> Option<String> {
         let result = match self.loaded.get(url) {
             Some(known) => known.clone(),
             None => {
@@ -265,7 +364,7 @@ impl<'a> Fetcher<'a> {
         match result {
             Ok(source) => Some(source),
             Err(reason) => {
-                self.failures.add(ResourceKind::Script, url, reason);
+                self.failures.add(kind, url, reason);
                 None
             }
         }
@@ -284,7 +383,7 @@ impl<'a> Fetcher<'a> {
         }
         self.started.get_or_insert_with(Instant::now);
         self.loads += 1;
-        let bytes = catch_unwind(AssertUnwindSafe(|| (loader.load)(url)))
+        let bytes = catch_unwind(AssertUnwindSafe(|| loader.load(url)))
             .unwrap_or_else(|_| Err("it panicked".to_owned()))
             .map_err(|message| ResourceFailureReason::Failed(capped(&message)))?;
         if bytes.len() > self.room {
@@ -296,6 +395,50 @@ impl<'a> Fetcher<'a> {
             None => source,
         })
     }
+}
+
+/// Replaces each `<link rel="stylesheet">` in `html`, the page as it stands,
+/// with a `<style>` holding what `fetcher` gave for it, or removes it, in tree
+/// order. Links a page's scripts added count. `html` has no `<noscript>`
+/// left, so lol_html's reading of it is the tree's.
+pub(crate) fn inline_stylesheets(html: &str, fetcher: &mut Fetcher<'_>) -> Result<String, Error> {
+    if !html.contains("<link") {
+        return Ok(html.to_owned());
+    }
+    let fetcher = RefCell::new(fetcher);
+    let on_link =
+        |el: &mut Element<'_, '_>| -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+            let is_sheet = el.get_attribute("rel").is_some_and(|rel| {
+                rel.split_ascii_whitespace()
+                    .any(|t| t.eq_ignore_ascii_case("stylesheet"))
+            });
+            let Some(href) = el.get_attribute("href").filter(|_| is_sheet) else {
+                return Ok(());
+            };
+            let href = decode_attribute(&href).into_owned();
+            if !fetcher.borrow().allows(&href) {
+                return Ok(());
+            }
+            let sheet = fetcher.borrow_mut().text(ResourceKind::Stylesheet, &href);
+            match sheet {
+                Some(css) => {
+                    let media = el
+                        .get_attribute("media")
+                        .map_or(String::new(), |m| format!(" media=\"{m}\""));
+                    // Text can't end the element it goes into; `\/` is `/` in CSS.
+                    let css = css.replace("</", "<\\/");
+                    el.replace(&format!("<style{media}>{css}</style>"), ContentType::Html);
+                }
+                None => el.remove(),
+            }
+            Ok(())
+        };
+    let settings = RewriteStrSettings {
+        element_content_handlers: vec![element!("link", on_link)],
+        enable_esi_tags: false,
+        ..RewriteStrSettings::new()
+    };
+    rewrite_str(html, settings).map_err(|e| Error::Html(e.to_string()))
 }
 
 #[cfg(test)]
@@ -316,12 +459,28 @@ mod tests {
             "exact.js",
             "https://cdn.example/lib/a.js",
             "https://cdn.example/lib/x/y.js?v=1#z",
-            "https://cdn.example/lib/a.js?next=../../b",
             "https://cdn.example/lib/a..b.js",
+            "https://cdn.example/lib/a%20b.js",
+            "https://cdn.example/lib/dir/",
         ] {
             assert!(l.allows(ok), "{ok}");
         }
+        let assets = ResourceLoader::new(["assets/"], |_| Ok(Vec::new()));
         for no in [
+            "assets//etc/passwd",
+            "assets/%252e%252e/secret",
+            "assets/a/..;/..;/secret",
+            "assets/%00/x",
+            "assets/%0a/x",
+            "assets/x?/../../secret",
+            "assets/x#/../../secret",
+            "assets/C:/windows/x",
+        ] {
+            assert!(!assets.allows(no), "{no}");
+        }
+        for no in [
+            "https://cdn.example/lib//evil.test/a.js",
+            "https://cdn.example/lib/a.js?next=../../b",
             "exact.js/",
             "exact.js?v=2",
             "https://cdn.example/lib",
@@ -360,7 +519,7 @@ mod tests {
             counted.fetch_add(1, Ordering::Relaxed);
             Ok(Vec::new())
         });
-        let mut f = Fetcher::new(Some(&l), 1 << 20);
+        let mut f = Fetcher::new(Some(Source::Shared(&l)), 1 << 20);
         assert_eq!(f.script("no.js"), None);
         assert_eq!(calls.load(Ordering::Relaxed), 0);
         assert_eq!(f.failures.kept[0].reason, ResourceFailureReason::NotAllowed);
@@ -378,7 +537,7 @@ mod tests {
             "x/bom" => Ok(b"\xEF\xBB\xBFa".to_vec()),
             _ => Ok(vec![b'y'; 100]),
         });
-        let mut f = Fetcher::new(Some(&l), 150);
+        let mut f = Fetcher::new(Some(Source::Shared(&l)), 150);
         assert_eq!(f.script("x/bom").as_deref(), Some("a"));
         for url in ["x/fail", "x/panic", "x/latin1"] {
             assert_eq!(f.script(url), None, "{url}");
@@ -410,7 +569,7 @@ mod tests {
             counted.fetch_add(1, Ordering::Relaxed);
             Ok(Vec::new())
         });
-        let mut f = Fetcher::new(Some(&l), 1 << 20);
+        let mut f = Fetcher::new(Some(Source::Shared(&l)), 1 << 20);
         for i in 0..MAX_LOADS + 5 {
             let _ = f.script(&format!("x/{i}"));
         }
@@ -421,7 +580,7 @@ mod tests {
             ResourceFailureReason::TooManyLoads
         );
 
-        let mut f = Fetcher::new(Some(&l), 1 << 20);
+        let mut f = Fetcher::new(Some(Source::Shared(&l)), 1 << 20);
         assert!(f.script("x/a").is_some());
         f.started = Instant::now().checked_sub(MAX_LOAD_TIME);
         assert!(f.started.is_some(), "the clock is older than the cap");
@@ -444,7 +603,7 @@ mod tests {
     #[test]
     fn from_map_serves_its_urls_and_no_others() {
         let l = ResourceLoader::from_map([("a.js", b"1".to_vec())]);
-        let mut f = Fetcher::new(Some(&l), 1 << 20);
+        let mut f = Fetcher::new(Some(Source::Shared(&l)), 1 << 20);
         assert_eq!(f.script("a.js").as_deref(), Some("1"));
         assert_eq!(f.script("b.js"), None);
         assert_eq!(f.failures.kept[0].reason, ResourceFailureReason::NotAllowed);

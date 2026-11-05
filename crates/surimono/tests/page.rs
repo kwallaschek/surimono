@@ -89,7 +89,7 @@ fn a_page_settles_on_the_virtual_clock() {
 fn the_doctype_keeps_its_mode() {
     let r = renderer(options());
     let mode = |html: &str| {
-        // What the printer will see is the same mode the page ran in.
+        // The doctype goes out for a renderer that follows it; Blitz doesn't.
         let out = page(
             &r,
             &format!("{html}<body><script>document.body.id = document.compatMode;</script>"),
@@ -667,4 +667,209 @@ fn marked_matches_chrome() {
 #[test]
 fn highlight_js_matches_chrome() {
     matches_chrome("highlightjs-code");
+}
+
+/// fulgur's parse: blitz-dom with a `file:` base, as `parse_inner` sets it up
+/// (fulgur 0.40.0 `src/blitz_adapter.rs`). It panics on URLs it can't resolve.
+fn printer_parses(html: &str) {
+    let config = blitz_dom::DocumentConfig {
+        base_url: Some("file:///".to_owned()),
+        ..blitz_dom::DocumentConfig::default()
+    };
+    drop(blitz_html::HtmlDocument::from_html(html, config));
+}
+
+/// Serialized comments and raw text aren't escaped, so text can become markup
+/// after clean-up has looked at the tree (review of #130).
+#[test]
+fn text_cant_put_scripts_back() {
+    let r = renderer(options());
+    for script in [
+        "document.body.appendChild(document.createComment(\
+         '--><script>alert(1)<\\/script><noscript>NS</noscript><!--'))",
+        "document.head.appendChild(document.createElement('style')).textContent = \
+         '</style><script>alert(2)<\\/script><noscript>NS</noscript>'",
+        "document.body.appendChild(document.createElement('iframe')).textContent = \
+         '</iframe><script>alert(3)<\\/script><noscript>NS</noscript>'",
+        "document.body.appendChild(document.createElement('xmp')).textContent = \
+         '</xmp><script>alert(4)<\\/script><noscript>NS</noscript>'",
+        "const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+         svg.appendChild(document.createElement('style')).textContent = \
+         '<script>alert(5)<\\/script><noscript>NS</noscript>';
+         document.body.appendChild(svg)",
+        "const x = 'http://www.w3.org/1999/xhtml';
+         document.body.appendChild(document.createElementNS(x, 'SCRIPT')).textContent = 'alert(6)';
+         document.body.appendChild(document.createElementNS(x, 'NOSCRIPT')).textContent = 'NS';",
+    ] {
+        let html = format!("<!doctype html><body><script>{script}</script>");
+        let out = page(&r, &html);
+        assert_eq!(out.report.uncaught, 0, "{script}: {:?}", out.report);
+        let lower = out.html.to_ascii_lowercase();
+        assert!(!lower.contains("alert("), "{script}: {}", out.html);
+        assert!(!lower.contains("<noscript"), "{script}: {}", out.html);
+    }
+}
+
+#[test]
+fn text_cant_outgrow_the_documents_limits() {
+    let r = renderer(options());
+    let html = "<!doctype html><body><script>
+        document.body.appendChild(document.createComment('-->' + '<div>'.repeat(20000) + '<!--'));
+        </script>";
+    let e = r.render_page(html).map(|_| ()).unwrap_err();
+    assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
+}
+
+#[test]
+fn what_a_script_writes_cant_crash_the_printer() {
+    let r = renderer(options());
+    let out = page(
+        &r,
+        r#"<!doctype html><head><style id=s></style><body><p id=a>x</p>
+        <script>
+          document.getElementById('s').textContent = '@import "http://["; @font-face { src: url("http://[") }';
+          document.getElementById('a').style.setProperty('background-image', 'url("http://[")');
+          const i = document.createElement('img');
+          i.setAttribute('src', 'http://[');
+          document.body.append(i);
+          const l = document.createElement('link');
+          l.rel = 'stylesheet'; l.setAttribute('href', 'http://[');
+          document.head.append(l);
+        </script>"#,
+    );
+    assert!(!out.html.contains("http://["), "{}", out.html);
+    printer_parses(&out.html);
+}
+
+#[test]
+fn more_css_than_a_printer_can_take_is_a_typed_error() {
+    let r = renderer(options());
+    let e = r
+        .render_page(
+            "<!doctype html><body><script>
+              const s = document.createElement('style');
+              s.textContent = 'a{' + '--x:1;'.repeat(3000) + 'all:inherit;'.repeat(1000) + '}';
+              document.head.append(s);
+            </script>",
+        )
+        .map(|_| ())
+        .unwrap_err();
+    assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
+}
+
+#[test]
+fn style_attributes_print_as_the_page_left_them() {
+    let r = renderer(options());
+    let out = page(
+        &r,
+        r#"<!doctype html><body><p id=a style="color: red">x</p><svg style="fill: blue"></svg>
+        <script>document.getElementById('a').style.marginTop = '1px';</script>"#,
+    );
+    assert!(
+        out.html
+            .contains(r#"<p id="a" style="color: red; margin-top: 1px;">"#),
+        "{}",
+        out.html
+    );
+    assert!(
+        out.html.contains(r#"<svg style="fill: blue">"#),
+        "{}",
+        out.html
+    );
+}
+
+#[test]
+fn a_stylesheet_comes_out_as_a_style_element() {
+    let loader = ResourceLoader::new(["/css/"], |url: &str| match url {
+        "/css/a.css" => Ok(b"p{color:red}/*</style><b>*/".to_vec()),
+        _ => Err("no such file".to_owned()),
+    });
+    let r = renderer(options().resource_loader(loader));
+    let out = page(
+        &r,
+        r#"<!doctype html><link rel="stylesheet" href="/css/a.css" media="print">
+        <link rel="stylesheet" href="/css/none.css"><link rel="stylesheet" href="https://x.example/b.css">
+        <link rel="icon" href="/i.png"><body><script>
+          const l = document.createElement('link');
+          l.rel = 'stylesheet'; l.href = '/css/gone.css';
+          document.head.append(l);
+        </script>"#,
+    );
+    assert!(
+        out.html
+            .contains(r#"<style media="print">p{color:red}/*<\/style><b>*/</style>"#),
+        "{}",
+        out.html
+    );
+    assert!(out.html.contains("i.png"), "{}", out.html);
+    assert!(!out.html.contains("none.css"), "{}", out.html);
+    assert!(!out.html.contains("gone.css"), "{}", out.html);
+    // Off the list isn't surimono's to load or to take away.
+    assert!(out.html.contains("https://x.example/b.css"), "{}", out.html);
+    let urls: Vec<_> = out.report.failed.iter().map(|f| f.url.as_str()).collect();
+    assert_eq!(urls, ["/css/none.css", "/css/gone.css"]);
+    assert!(
+        out.report
+            .failed
+            .iter()
+            .all(|f| f.kind == ResourceKind::Stylesheet)
+    );
+    // Without a loader they stay for the printer.
+    let out = page(&renderer(options()), "<link rel=stylesheet href=a.css>");
+    assert!(out.html.contains("href=\"a.css\""), "{}", out.html);
+}
+
+#[test]
+fn a_load_function_runs_on_the_calling_thread() {
+    let r = renderer(options());
+    let me = std::thread::current().id();
+    let mut asked = Vec::new();
+    let mut load = |url: &str| {
+        assert_eq!(std::thread::current().id(), me);
+        asked.push(url.to_owned());
+        match url {
+            "/a.js" => Ok(b"document.title = 'loaded';".to_vec()),
+            "/a.css" => Ok(b"p{color:red}".to_vec()),
+            _ => Err("no".to_owned()),
+        }
+    };
+    let cancel = AtomicBool::new(false);
+    let out = r
+        .render_page_loading(
+            "<title>x</title><link rel=stylesheet href=/a.css>
+             <script src=/a.js></script><script src=/b.js></script>
+             <script src=https://elsewhere.example/c.js></script>",
+            &["/".to_owned()],
+            &mut load,
+            &cancel,
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+    assert!(out.html.contains("<title>loaded</title>"), "{}", out.html);
+    assert!(
+        out.html.contains("<style>p{color:red}</style>"),
+        "{}",
+        out.html
+    );
+    assert_eq!(asked, ["/a.js", "/b.js", "/a.css"]);
+    assert_eq!(out.report.failed_count, 2);
+}
+
+#[test]
+fn a_cancel_ends_a_page_at_its_next_load() {
+    let r = renderer(options());
+    let cancel = AtomicBool::new(false);
+    let mut calls = 0;
+    let mut load = |_: &str| {
+        calls += 1;
+        cancel.store(true, Ordering::Release);
+        Ok(Vec::new())
+    };
+    let out = r.render_page_loading(
+        "<script src=/a.js></script><script src=/b.js></script>",
+        &["/".to_owned()],
+        &mut load,
+        &cancel,
+    );
+    assert!(matches!(out, Err(Error::Cancelled)), "{out:?}");
+    assert_eq!(calls, 1);
 }

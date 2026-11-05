@@ -128,8 +128,9 @@ pub struct Options {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum LayoutQueries {
-    /// Sizes and positions are 0, rectangle lists are empty and computed
-    /// styles are empty strings, so a page that only reads them carries on,
+    /// Sizes and positions are 0, rectangle lists are empty and
+    /// `getComputedStyle(…).getPropertyValue()` is an empty string (its named
+    /// properties are undefined), so a page that only reads them carries on,
     /// and may draw at size 0. The default.
     #[default]
     Zeros,

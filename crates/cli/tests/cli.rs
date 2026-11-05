@@ -386,7 +386,7 @@ fn a_page_warns_and_still_renders() {
     assert_eq!(code(&o), 0, "{}", text(&o.stderr));
     let err = text(&o.stderr);
     for line in [
-        "script error: ReferenceError",
+        "script error: \"ReferenceError: boom",
         "Script \"a.js\" not loaded: no resource loader",
         "Image \"a.png\" not loaded",
         "timers were left",

@@ -9,13 +9,14 @@
 
 // A library never writes to stdout or stderr; tests may.
 #![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
+use std::cell::RefCell;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use magnus::{
-    Error, ExceptionClass, KwArgs, RArray, RHash, RModule, RString, Ruby, function, method,
-    prelude::*,
+    Error, ExceptionClass, KwArgs, RArray, RHash, RModule, RString, Ruby, block::Proc, function,
+    method, prelude::*,
 };
 
 #[allow(unsafe_code)]
@@ -133,16 +134,47 @@ impl Renderer {
     }
 
     /// `[html, report]`, with the report as a Hash for lib/surimono.rb.
-    fn render_page(ruby: &Ruby, rb_self: &Self, html: RString) -> Result<RArray, Error> {
+    /// `loader` is `nil`, or `[proc, allow]`.
+    fn render_page(
+        ruby: &Ruby,
+        rb_self: &Self,
+        html: RString,
+        loader: Option<(Proc, Vec<String>)>,
+    ) -> Result<RArray, Error> {
         let html: Arc<str> = Arc::from(html.to_string()?);
         loop {
             let renderer = Arc::clone(&rb_self.0);
             let doc = Arc::clone(&html);
             let cancel = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&cancel);
-            let result = ffi::without_gvl_cancellable(ruby, &cancel, move || {
-                renderer.render_page_cancellable(&doc, &flag)
+            // A loader's exception, or an interrupt in it: it ends the render
+            // and is raised again here.
+            let raised: RefCell<Option<Error>> = RefCell::new(None);
+            let (stop, store) = (&cancel, &raised);
+            let loader = loader.clone();
+            let result = ffi::without_gvl_cancellable(ruby, &cancel, move || match loader {
+                None => renderer.render_page_cancellable(&doc, &flag),
+                Some((proc, allow)) => {
+                    let load = |url: &str| {
+                        ffi::with_gvl(|ruby| call_loader(ruby, proc, url))
+                            .unwrap_or_else(|| Err("the loader panicked".to_owned()))
+                    };
+                    let mut guarded = |url: &str| match load(url) {
+                        Ok(LoadAnswer::Bytes(bytes)) => Ok(bytes),
+                        Ok(LoadAnswer::Nothing) => Err("the loader gave nothing".to_owned()),
+                        Ok(LoadAnswer::Raised(e)) => {
+                            store.borrow_mut().get_or_insert(e);
+                            stop.store(true, Ordering::Release);
+                            Err("the loader raised".to_owned())
+                        }
+                        Err(message) => Err(message),
+                    };
+                    renderer.render_page_loading(&doc, &allow, &mut guarded, &flag)
+                }
             })?;
+            if let Some(e) = raised.take() {
+                return Err(e);
+            }
             match result {
                 Ok(page) => {
                     let out = ruby.ary_new();
@@ -160,6 +192,22 @@ impl Renderer {
     fn renderers(&self) -> Vec<String> {
         self.0.renderers().to_vec()
     }
+}
+
+/// What a loader proc did with a URL.
+enum LoadAnswer {
+    Bytes(Vec<u8>),
+    Nothing,
+    Raised(Error),
+}
+
+/// Calls a loader proc: a String, or nil for nothing.
+fn call_loader(_ruby: &Ruby, proc: Proc, url: &str) -> Result<LoadAnswer, String> {
+    Ok(match proc.call::<_, Option<RString>>((url,)) {
+        Ok(Some(text)) => LoadAnswer::Bytes(ffi::string_bytes(text)),
+        Ok(None) => LoadAnswer::Nothing,
+        Err(e) => LoadAnswer::Raised(e),
+    })
 }
 
 /// A page's report as plain Ruby values.
@@ -298,7 +346,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     let class = module.define_class("Renderer", ruby.class_object())?;
     class.define_singleton_method("_native_new", function!(renderer_new, 14))?;
     class.define_method("_render", method!(Renderer::render, 1))?;
-    class.define_method("_render_page", method!(Renderer::render_page, 1))?;
+    class.define_method("_render_page", method!(Renderer::render_page, 2))?;
     class.define_method("renderers", method!(Renderer::renderers, 0))?;
     Ok(())
 }
