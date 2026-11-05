@@ -174,6 +174,7 @@
       throwDom('InvalidStateError', 'dispatchEvent: the event is being dispatched or not initialized');
     }
     event.isTrusted = false;
+    event.alone = false;
     return dispatch(s, event);
   };
 
@@ -229,6 +230,13 @@
 
   // §2.9 "invoke" and "inner invoke". A listener that throws is reported and
   // the others still run.
+  //
+  // `event.alone` is an event fired from a task, with no script under the
+  // dispatch: there WebIDL's "clean up after running script" finds the stack
+  // empty after each listener, and that is a microtask checkpoint (HTML
+  // §8.1.6.3), which comes before inner invoke reports an exception and while
+  // `window.event` is still this event. Chrome reports first; see DESIGN.md.
+  // A limit is no exception to report, and nothing runs after one.
   function invoke(target, event, capturing) {
     if (event.stop) return;
     // A form keeps its descendants' submit and reset to itself: WPT
@@ -253,6 +261,7 @@
       event.passive = e.passive;
       const outer = currentEvent;
       currentEvent = event.w;
+      let failed = false, thrown;
       try {
         const cb = e.callback;
         if (typeof cb === 'function') {
@@ -263,7 +272,12 @@
           apply(f, cb, [event.w]);
         }
       } catch (x) {
-        reportException(x);
+        failed = true;
+        thrown = x;
+      }
+      if (!(failed && n.limit(thrown))) {
+        if (event.alone) n.checkpoint();
+        if (failed) reportException(thrown, event.alone);
       }
       currentEvent = outer;
       event.passive = false;
@@ -580,6 +594,32 @@
     return dispatch(target, s);
   }
 
+  // The same from a task of the page's life, with no script on the stack:
+  // only those get a checkpoint after each listener (see `invoke`). `click()`
+  // fires its `input` from inside the caller's script, so it uses `fire`.
+  function fireInTask(target, type, bubbles) {
+    const s = make(I_Event);
+    initEvent(s, type, !!bubbles, false);
+    s.isTrusted = true;
+    s.alone = true;
+    return dispatch(target, s);
+  }
+
+  // HTML §8.1.5.7 "notify about rejected promises": what the queued task does
+  // with each promise still unhandled. Core calls this, in that task, and
+  // counts the promise if it returns true; it never passes a limit error.
+  n.setRejectionHook((promise, reason) => {
+    if (windowState === null) return true;
+    const s = make(I_PromiseRejectionEvent);
+    initEvent(s, 'unhandledrejection', false, true);
+    s.isTrusted = true;
+    s.alone = true;
+    const d = create(null);
+    d.promise = promise; d.reason = reason;
+    s.d = d;
+    return dispatch(windowState, s);
+  });
+
   // HTML §8.1.6.2 "report an exception": an `error` event at the window,
   // and the exception counted for the caller unless a listener cancels it.
   // While the window is in error reporting mode no event fires, so an
@@ -589,7 +629,7 @@
   // event fires, so no listener sees or cancels one and no script can forge
   // or disguise one. A limit reached while turning `x` into text counts too.
   let reporting = false;
-  function reportException(x) {
+  function reportException(x, alone) {
     if (n.limit(x)) return;
     let message;
     try {
@@ -604,6 +644,7 @@
     s.isTrusted = true;
     s.d = eventInits[I_ErrorEvent]();
     s.d.message = message; s.d.error = x;
+    s.alone = alone === true;
     reporting = true;
     let notHandled;
     try {

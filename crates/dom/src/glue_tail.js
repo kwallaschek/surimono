@@ -178,7 +178,7 @@
     }
     return () => {
       currentScript = null;
-      if (n.scriptExternal(i)) fire(stateOf(element), ok ? 'load' : 'error');
+      if (n.scriptExternal(i)) fireInTask(stateOf(element), ok ? 'load' : 'error');
     };
   }
 
@@ -197,7 +197,7 @@
     nameElements(g);
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
-      fire(documentState(), 'readystatechange');
+      fireInTask(documentState(), 'readystatechange');
     };
     const step = (f) => {
       lifecycleLast = setTimeoutReal(() => queueMicrotaskReal(f), 0);
@@ -215,13 +215,14 @@
     for (let i = 0; i < scripts; i++) {
       if (n.scriptDeferred(i)) turn(i);
     }
-    step(() => { fire(documentState(), 'DOMContentLoaded', true); });
+    step(() => { fireInTask(documentState(), 'DOMContentLoaded', true); });
     step(setState(2));
     step(() => {
       // HTML: `load` goes to the window, with the document as its target.
       const s = make(I_Event);
       initEvent(s, 'load', false, false);
       s.isTrusted = true;
+      s.alone = true;
       s.dispatching = true;
       s.target = documentState().w;
       const path = list();

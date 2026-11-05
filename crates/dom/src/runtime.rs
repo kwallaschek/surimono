@@ -9,8 +9,8 @@ use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
 use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, IntoJs, Object, Value};
 use surimono_core::{
-    Bytecode, Deadline, Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport,
-    limit_error,
+    Bytecode, Deadline, Limits, LoopBridge, Sandbox, SandboxError, SandboxOptions, SettleOptions,
+    SettleReport, limit_error,
 };
 use surimono_webidl::runtime::{BindingError, ObjectId};
 
@@ -72,8 +72,10 @@ struct Host {
     /// Exceptions reported since the last report, and the first few.
     uncaught: u64,
     errors: Vec<String>,
-    /// Promises [`DomRuntime::checkpoint`] found no script handled, since the
-    /// last report, and the first few reasons.
+    /// Promises a [`DomRuntime::checkpoint`] counted, since the last report,
+    /// and the first few reasons. The queued tasks that decide those run in
+    /// the event loop, so with the hook in place this stays empty until
+    /// something runs them.
     unhandled_rejections: u64,
     rejections: Vec<String>,
 }
@@ -280,9 +282,10 @@ impl DomRuntime {
             host,
             installed,
         } = self;
+        let bridge = sandbox.loop_bridge();
         let result = sandbox.run(|ctx| {
             if !*installed {
-                install(ctx, host)?;
+                install(ctx, host, bridge)?;
                 *installed = true;
             }
             let mut opts = EvalOptions::default();
@@ -353,9 +356,10 @@ impl DomRuntime {
     /// (scripts, listeners, timers, frames, microtasks): it is an `error`
     /// event at the window, and is counted in the report unless a listener
     /// cancels that event. An async function or promise reaction that throws
-    /// leaves a rejected promise; if no script handles it by the end of the
-    /// task it is counted in [`PageReport::unhandled_rejections`], and fires
-    /// nothing (`unhandledrejection` isn't implemented).
+    /// leaves a rejected promise; if no script handles it by the time of the
+    /// task HTML's "notify about rejected promises" queues, that task fires
+    /// `unhandledrejection` at the window, and unless a listener cancels the
+    /// event the promise is counted in [`PageReport::unhandled_rejections`].
     ///
     /// A limit is different: an uncaught stack overflow fails the call with
     /// the same error everywhere, promises included, with no `error` event.
@@ -410,8 +414,9 @@ impl DomRuntime {
             host,
             installed,
         } = self;
+        let bridge = sandbox.loop_bridge();
         let started = sandbox.run(|ctx| {
-            let start = install(ctx, host)?;
+            let start = install(ctx, host, bridge)?;
             *installed = true;
             let g = host
                 .borrow()
@@ -484,8 +489,25 @@ impl DomRuntime {
 /// Installs the bindings in `ctx`: builds the native functions and hands
 /// them to the glue, which keeps them in a closure. Returns the glue's
 /// function that queues a page's lifecycle.
-fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+fn install<'js>(
+    ctx: &Ctx<'js>,
+    host: &Shared,
+    bridge: Option<LoopBridge>,
+) -> rquickjs::Result<Function<'js>> {
     let n = Object::new(ctx.clone())?;
+    // `DomRuntime::new` always asks for the event loop.
+    let Some(bridge) = bridge else {
+        return Err(Exception::throw_internal(
+            ctx,
+            "the sandbox has no event loop",
+        ));
+    };
+    let bridge = Rc::new(bridge);
+    n.set("checkpoint", native_checkpoint(ctx, host, &bridge)?)?;
+    n.set(
+        "setRejectionHook",
+        native_rejection_hook(ctx, host, &bridge)?,
+    )?;
     n.set("call", native_call(ctx, host)?)?;
     n.set("current", native_current(ctx, host)?)?;
     n.set("currentRoot", native_current_root(ctx, host)?)?;
@@ -507,6 +529,46 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>
     let glue: Function<'js> = globals.get(GLUE_GLOBAL)?;
     globals.remove(GLUE_GLOBAL)?;
     glue.call((n,))
+}
+
+/// `checkpoint()`: the microtask checkpoint of "clean up after running
+/// script", for the glue to call with no script of the page on the stack. An
+/// error from it ends the call, as in `limit`.
+fn native_checkpoint<'js>(
+    ctx: &Ctx<'js>,
+    host: &Shared,
+    bridge: &Rc<LoopBridge>,
+) -> rquickjs::Result<Function<'js>> {
+    let (host, bridge) = (host.clone(), bridge.clone());
+    Function::new(ctx.clone(), move |ctx: Ctx<'js>| -> rquickjs::Result<()> {
+        guarded(&host, &ctx, || {
+            let Err(error) = bridge.checkpoint(&ctx) else {
+                return Ok(());
+            };
+            let mut host = host.borrow_mut();
+            host.fault.get_or_insert(error.into());
+            host.stop.store(true, Ordering::Release);
+            Err(Exception::throw_internal(&ctx, "the call has ended"))
+        })
+    })
+}
+
+/// `setRejectionHook(f)`: see [`LoopBridge::set_rejection_hook`].
+fn native_rejection_hook<'js>(
+    ctx: &Ctx<'js>,
+    host: &Shared,
+    bridge: &Rc<LoopBridge>,
+) -> rquickjs::Result<Function<'js>> {
+    let (host, bridge) = (host.clone(), bridge.clone());
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, hook: Function<'js>| -> rquickjs::Result<()> {
+            guarded(&host, &ctx, || {
+                bridge.set_rejection_hook(&ctx, hook);
+                Ok(())
+            })
+        },
+    )
 }
 
 fn native_script_count<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
