@@ -405,11 +405,14 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 - **Selector limits.** To keep hostile selectors off the stack and out of Rust's
   heap, these valid selectors are a `SyntaxError`: longer than 128 KiB, more
   than 64 combinators on one path through the nested lists, or nesting more
-  than 8 brackets, counted with those in strings (`[a="(((…"]`) and comments.
-  Telling those apart needs the CSS tokenizer's every rule, and a wrong guess
-  would let real nesting reach the parser's recursion, so the count stays
-  conservative. `tests/hostile.rs` runs the worst allowed selector on the
-  stack headroom alone. Frames aren't known at compile time, so the caps are
+  than 8 blocks (brackets and functions). Depth is counted on cssparser's
+  tokens, which the selector parser reads too, so what sits in a comment, a
+  string or an escape doesn't count either way; a byte scan can't do this, since
+  a `)` in a comment would hide a real level. `tests/hostile.rs` runs the worst
+  allowed selector from the deepest frame a script can reach, on a thread of
+  `stack_bytes`, the headroom and 64 KiB for what comes before the sandbox's
+  stack check (some of which stays free, so it can't see use just past the
+  headroom). Frames aren't known at compile time, so the caps are
   set from measurements with room to spare: that selector takes just over half
   of the 256 KiB headroom in the slowest x86_64 build and under a third in
   release (numbers at `MAX_SELECTOR_NESTING`). A check of the stack left, from a matcher step in

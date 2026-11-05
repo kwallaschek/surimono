@@ -754,25 +754,45 @@ fn the_worst_selector_allowed_fits_the_stack_headroom() {
           }
         }
         f(0);
-        done > 100 && hit"#;
-    let limits = limits();
-    // The headroom is what a normal build gets. AddressSanitizer's red zones
-    // make every frame several times larger, and its builds set the time
-    // scale (`scripts/ci/asan.sh`), so that stretches the room as well.
-    let room = Sandbox::STACK_HEADROOM_BYTES + 64 * 1024;
-    let size = limits.stack_bytes + room * common::time_scale() as usize;
+        String(done > 100 && hit)"#;
     let page = format!("<!doctype html><body>{}", "<b></b>".repeat(400));
-    let r = std::thread::Builder::new()
-        .stack_size(size)
-        .spawn(move || {
-            let mut rt = DomRuntime::new(limits).unwrap();
-            rt.load(Document::parse(&page).unwrap());
-            rt.eval::<bool>(SCRIPT)
-        })
-        .unwrap()
-        .join()
-        .expect("no stack overflow");
-    assert_eq!(r, Ok(true));
+    assert_eq!(on_the_headroom(page, SCRIPT).as_deref(), Ok("true"));
+}
+
+/// Nesting is what the selector parser sees, whatever is in comments, strings
+/// and escapes: closing brackets there used to hide real levels from the cap,
+/// and enough of them aborted the process.
+#[test]
+fn hidden_closing_brackets_do_not_hide_nesting() {
+    const SCRIPT: &str = r#"
+        const out = [];
+        const last = document.body.lastElementChild;
+        const apis = [s => last.matches(s), s => document.querySelector(s), s => last.closest(s)];
+        const name = f => { try { f(); return 'none'; } catch (e) { return e.name; } };
+        for (const level of [':is(/*)*/', ':not(/*]*/', ':where(/*)]*/',
+                             ':is([a=")"]', ":is([a=')']", ':is([a="\\")"]', ":is([a='\\')']",
+                             ':is([a=\\)]', ':is(\\)', ':i\\73(/*)*/']) {
+          for (const api of apis) out.push(name(() => api(level.repeat(5000) + 'b')));
+          // At the cap and one past it.
+          const at = level.repeat(8) + 'b', past = level.repeat(9) + 'b';
+          for (const api of apis) {
+            if (name(() => api(past)) !== 'SyntaxError') out.push('past ' + level);
+            if (level.includes('(/*') && name(() => api(at)) !== 'none') out.push('at ' + level);
+          }
+        }
+        // Nothing here nests at all, so none of it is refused.
+        for (const s of ['b/*' + '('.repeat(20) + '*/', 'b[a="' + '('.repeat(20) + '"]',
+                         "b[a='" + '['.repeat(20) + "']", 'b' + '\\('.repeat(20)]) {
+          for (const api of apis) out.push(name(() => api(s)));
+        }
+        out.join()"#;
+    let page = "<!doctype html><body><b></b>".to_owned();
+    let refused = vec!["SyntaxError"; 10 * 3];
+    let accepted = vec!["none"; 4 * 3];
+    assert_eq!(
+        on_the_headroom(page, SCRIPT).as_deref(),
+        Ok([refused, accepted].concat().join(",").as_str())
+    );
 }
 
 #[test]
@@ -1019,16 +1039,37 @@ fn tampering_after_use_cannot_read_or_forge_handles() {
     assert_eq!(out, EXPECTED);
 }
 
+/// Runs `script` against `page` on a thread with the room the sandbox asks for
+/// and [`SLACK`], and gives its result as text. A debug build's frames fit that;
+/// AddressSanitizer's red zones make them several times larger, and its builds
+/// set the time scale (`scripts/ci/asan.sh`), so that stretches the room too.
+fn on_the_headroom(page: String, script: &'static str) -> Result<String, DomError> {
+    let limits = limits();
+    let room = Sandbox::STACK_HEADROOM_BYTES + SLACK;
+    let size = limits.stack_bytes + room * common::time_scale() as usize;
+    std::thread::Builder::new()
+        .stack_size(size)
+        .spawn(move || {
+            let mut rt = DomRuntime::new(limits).unwrap();
+            rt.load(Document::parse(&page).unwrap());
+            rt.eval::<String>(script)
+        })
+        .unwrap()
+        .join()
+        .expect("no stack overflow")
+}
+
+/// The frames between a thread's start and the sandbox's stack check, and the
+/// part of the requested size that isn't usable stack (32 KiB was too little
+/// on Linux, debug build).
+const SLACK: usize = 64 * 1024;
+
 /// Runs `script` on a thread whose stack is only just large enough for the
 /// sandbox (`stack_bytes` plus [`Sandbox::STACK_HEADROOM_BYTES`], plus
 /// `SLACK` for this test's own frames), against a body-only page whose
 /// limits allow [`DomLimits::MAX_DEPTH`].
 /// On success, checks the `levels`-deep chain is in the serialization.
 fn on_a_tight_stack(script: &'static str, levels: usize) -> Result<i32, DomError> {
-    // The frames between the thread's start and the sandbox's stack check,
-    // and the part of the requested size that isn't usable stack (32 KiB
-    // was too little on Linux, debug build).
-    const SLACK: usize = 64 * 1024;
     let limits = limits();
     let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + SLACK;
     std::thread::Builder::new()
