@@ -90,6 +90,23 @@ class VendorTests(unittest.TestCase):
         vendor.vendor(self.src, self.out, slices(self.commit))
         self.assertFalse((self.out / "tests/dom/link/x.js").exists())
 
+    def test_support_files_and_folders_come_with_the_tests(self):
+        (self.src / "dom/nodes/frames").mkdir()
+        (self.src / "dom/nodes/frames/a.xml").write_text("<a/>")
+        (self.src / "dom/nodes/frames/b.svg").write_text("<svg/>")
+        (self.src / "common").mkdir(exist_ok=True)
+        (self.src / "common/blank.html").write_text("")
+        (self.src / "common/secret.html").symlink_to("/etc/hostname")
+        commit = checkout(self.src)
+        sl = slices(commit) | {"support": ["common/blank.html", "common/secret.html", "common/absent.html", "dom/nodes/frames"]}
+        vendor.vendor(self.src, self.out, sl)
+        for rel in ("common/blank.html", "dom/nodes/frames/a.xml", "dom/nodes/frames/b.svg"):
+            self.assertTrue((self.out / "tests" / rel).is_file(), rel)
+        self.assertFalse((self.out / "tests/common/secret.html").exists())
+        manifest = tomllib.loads((self.out / "manifest.toml").read_text())
+        self.assertEqual({m["file"] for m in manifest["missing"]}, {"common/absent.html", "common/secret.html"})
+        self.assertNotIn("dom/nodes/frames/a.xml", [t["file"] for t in manifest["test"]])
+
     def test_report_hook_is_never_vendored_however_it_is_named(self):
         self.assertEqual(vendor.dependencies("dom/nodes/a.html", '<script src="../../resources/testharnessreport.js"></script>'), [])
 

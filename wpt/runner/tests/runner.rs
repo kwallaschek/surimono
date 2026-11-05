@@ -27,6 +27,37 @@ fn page(script: &str) -> String {
     )
 }
 
+const FRAME_TARGET: &str = "frame-target.xhtml";
+/// wptserve sends `.xhtml` and `.xht` as this. `.xml` and `.svg` have types of
+/// their own, which `Document::parse_xml` doesn't take, so nothing asserts them.
+const XHTML_TYPE: &str = "assert_equals(document.contentType, 'application/xhtml+xml');";
+
+/// A test that the document has the URL WPT's server gave it, then `more`.
+fn url_test(file: &str, more: &str) -> String {
+    format!(
+        "test(() => {{ \
+           assert_equals(document.URL, 'http://web-platform.test:8000/{file}'); \
+           {more} \
+         }}, 'url');"
+    )
+}
+
+/// A page WPT's server sends as XML. DOM's `createElement` lowercases only in
+/// an HTML document, so its answer shows which parser ran, and `more` is what
+/// the extension adds.
+fn xml_page(file: &str, more: &str) -> String {
+    let test = url_test(
+        file,
+        &format!("assert_equals(document.createElement('A').localName, 'A'); {more}"),
+    );
+    format!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>x</title>
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script></head><body>
+<script><![CDATA[{test}]]></script></body></html>"#
+    )
+}
+
 /// `(file, what the harness sees)`. Each URL is the file's, except the variant.
 fn files() -> Vec<(&'static str, String)> {
     vec![
@@ -74,8 +105,38 @@ fn files() -> Vec<(&'static str, String)> {
             page("test(function f() { f(); }, 'recursion');"),
         ),
         ("no-harness.html", "<!doctype html><p>no harness".to_owned()),
-        ("needs-xml.xhtml", String::new()),
-        ("needs-xml.xml", String::new()),
+        // Every test here reads its own URL, so the URL is the runner's work.
+        (
+            "url.html",
+            page(&url_test(
+                "url.html",
+                "assert_equals(document.createElement('A').localName, 'a');",
+            )),
+        ),
+        ("page.xhtml", xml_page("page.xhtml", XHTML_TYPE)),
+        ("page.xht", xml_page("page.xht", XHTML_TYPE)),
+        ("page.xml", xml_page("page.xml", "")),
+        ("page.svg", xml_page("page.svg", "")),
+        ("not-well-formed.xhtml", "<html><p></html>".to_owned()),
+        (
+            "frames.html",
+            page(
+                "async_test((t) => {\n\
+                   const f = document.createElement('iframe');\n\
+                   f.onload = t.step_func_done(() => {\n\
+                     const d = f.contentDocument;\n\
+                     assert_equals(d.contentType, 'application/xhtml+xml');\n\
+                     assert_equals(d.documentElement.localName, 'from-disk');\n\
+                   });\n\
+                   f.src = location.origin + '/frame-target.xhtml';\n\
+                   document.body.appendChild(f);\n\
+                 }, 'frame');",
+            ),
+        ),
+        (
+            FRAME_TARGET,
+            "<from-disk xmlns=\"http://www.w3.org/1999/xhtml\"/>".to_owned(),
+        ),
         ("aborts.html", PASS_AND_FAIL.to_owned()),
         ("exits.html", PASS_AND_FAIL.to_owned()),
         ("panics.html", PASS_AND_FAIL.to_owned()),
@@ -95,7 +156,7 @@ fn tree(name: &str) -> PathBuf {
     let mut manifest = String::from("commit = \"abc\"\n");
     for (file, text) in files() {
         fs::write(tests.join(file), text).unwrap();
-        if file == "helper.js" {
+        if file == "helper.js" || file == FRAME_TARGET {
             continue;
         }
         let url = match file.strip_suffix(".js") {
@@ -200,9 +261,20 @@ fn every_path_ends_in_a_value() {
     assert_eq!(subtests(t), [("recursion", "FAIL")], "{t}");
 
     assert_eq!(status("no-harness.html"), "LIMIT");
-    assert_eq!(status("needs-xml.xhtml"), "ERROR");
-    assert_eq!(status("needs-xml.xml"), "ERROR");
     assert_eq!(status("missing.html"), "ERROR");
+
+    // The URL it has at WPT's server, and the parser its extension asks for.
+    for url in ["url.html", "page.xhtml", "page.xht", "page.xml", "page.svg"] {
+        let t = test(&r, url);
+        assert_eq!(t["status"], "OK", "{url}: {t}");
+        assert_eq!(subtests(t), [("url", "PASS")], "{url}: {t}");
+    }
+    // Not well-formed is a `parsererror` document, so no harness and no report.
+    assert_eq!(status("not-well-formed.xhtml"), "LIMIT");
+    // A frame's source comes from the vendored tests, also by an absolute URL.
+    let t = test(&r, "frames.html");
+    assert_eq!(t["status"], "OK", "{t}");
+    assert_eq!(subtests(t), [("frame", "PASS")], "{t}");
 
     // A child that dies, or lies, is that test's result and no other's.
     for url in ["aborts.html", "exits.html", "panics.html", "garbage.html"] {
@@ -222,7 +294,8 @@ fn every_path_ends_in_a_value() {
         .iter()
         .map(|t| t["test"].as_str().unwrap())
         .collect();
-    assert_eq!(urls.len(), files().len());
+    // Every file but the helper and the frame's target, and the missing one.
+    assert_eq!(urls.len(), files().len() - 1);
     assert_eq!(urls[..2], ["pass-and-fail.html", "wrapped.any.html?v=1"]);
     assert_eq!(*urls.last().unwrap(), "missing.html");
     fs::remove_dir_all(root).unwrap();

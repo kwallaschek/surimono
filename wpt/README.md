@@ -14,11 +14,11 @@ their targets in `slices.toml`. Owned by the conformance researcher.
 | `runner/` | The runner, a standalone crate ("Runner") |
 | `tools/chrome_baseline.mjs` | Writes the baseline in the pinned Chromium |
 | `probes/` | Small pages behind `docs/COMPAT.md`'s rows that WPT's slices don't pin, with what Chromium and surimono log for each; `run.mjs` regenerates `results.json` |
-| `tools/vendor.py` | Copies the slices from a local WPT checkout at the pinned commit; `--check` verifies them offline |
+| `tools/vendor.py` | Copies the slices, and `support` in `slices.toml`, from a local WPT checkout at the pinned commit; `--check` verifies them offline |
 | `tools/api_needs.py` | Ranks DOM interfaces by how many subtests they unblock, for the DOM engineer |
 
-To vendor again, with a checkout (a sparse, blobless clone of the slices and
-`resources/` is enough):
+To vendor again, with a checkout (a sparse, blobless clone of the slices,
+`resources/` and `common/` is enough):
 
 ```
 git -C <wpt> checkout 8b4b06ff53a47f1041e0e59f894d9e929963904c
@@ -121,8 +121,13 @@ machine sets one, and uses `scripts/fleet/wcargo.sh` for the build.
 
 For each URL of each `[[test]]`:
 
-1. **Document.** Parse the `.html` file. `.xhtml`, `.xht`, `.xml` and `.svg` tests need an
-   XML parser, which surimono-dom doesn't have: they report `ERROR` until it does.
+1. **Document.** Parse the `.html` file with `Document::parse`, and `.xhtml`, `.xht`,
+   `.xml` and `.svg` with `Document::parse_xml`, as WPT's server sends them as XML. The
+   document's URL is the test's on WPT's default origin (`Document::set_url`). A file
+   that isn't well-formed is a `parsererror` document with no harness, so a `LIMIT`.
+   `parse_xml` makes every XML page `application/xhtml+xml`, where the server sends
+   `.xml` as `application/xml` and `.svg` as `image/svg+xml`; a subtest that reads
+   `contentType` on one of those fails.
    For `.any.js` and `.window.js`, build the page WPT's server would wrap around it:
    `self.GLOBAL` (`isWindow()` true, `isWorker()` and `isShadowRealm()` false) set
    first, then `testharness.js`, `testharnessreport.js`, `<div id=log>`, the
@@ -227,9 +232,13 @@ or a local run of the same commit, when the conformance researcher regenerates
 
 ## Which tests can't run
 
-A one-document runner has no iframes, new windows, workers or network, and many
-tests in `dom/` use iframes. `.sub.html` tests need wptserve's substitution, idlharness
-tests fetch `/interfaces/*.idl`, and XML tests need a parser. `api_needs.py` sets
+There are no new windows, workers or network. An `<iframe>` gets a document and no
+browsing context (`crates/dom/DESIGN.md`, "Frames"): its `src` comes through the
+runner's resolver from `wpt/tests/`, and a script in it doesn't run. That is why
+`support` in `slices.toml` lists what frames load: the static files, with the WPT
+path and hash of any other vendored file. A frame that needs a `.py` handler, or its
+own script, gets nothing useful. `.sub.html` tests need wptserve's substitution and
+idlharness tests fetch `/interfaces/*.idl`. `api_needs.py` sets
 all of these aside so the ranking isn't misled, but they stay in the denominator:
 a target is met on all of the slice, or the gap goes in `COMPAT.md` for Kay's OK.
 `COMPAT.md`'s cause table shows how much each of these weighs.
