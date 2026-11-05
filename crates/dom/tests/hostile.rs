@@ -554,42 +554,31 @@ fn wide_tree_drops_in_linear_time() {
     assert!(large < small * 8, "6,250: {small:?}; 25,000: {large:?}");
 }
 
-/// Time for one `normalize()` of `n` adjacent text nodes, best of 3. As in
-/// [`wide_drop_time`], the build is a separate `eval`.
-fn wide_normalize_time(n: usize) -> Duration {
-    (0..3)
-        .map(|_| {
-            let mut rt =
-                DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
-            rt.load(Document::parse(PAGE).unwrap());
-            let build = format!(
-                "globalThis.d = document.getElementById('d');
-                for (let i = 0; i < {n}; i++) d.appendChild(document.createTextNode('t'));"
-            );
-            let _: () = rt.eval(&build).unwrap();
-            let started = std::time::Instant::now();
-            let _: () = rt.eval("d.normalize()").unwrap();
-            let took = started.elapsed();
-            let data: usize = rt.eval("d.firstChild.data.length").unwrap();
-            assert_eq!(data, n + 1, "the page's x and the new nodes");
-            assert!(rt.eval::<bool>("d.firstChild === d.lastChild").unwrap());
-            rt.with_document(Document::check_consistency)
-                .unwrap()
-                .unwrap();
-            took
-        })
-        .min()
-        .unwrap()
-}
-
-/// `normalize` rebuilds the parent's list once, not per merged node. As in
-/// `wide_tree_drops_in_linear_time`: four times the nodes must cost less than
-/// eight times the time.
+/// `normalize` rebuilds the parent's list once, not per merged node. Counted
+/// through [`Document::list_steps`], not timed: a ratio of two times failed at
+/// 8.2× against a bound of 8 on a loaded machine.
 #[test]
 fn wide_normalize_is_linear() {
-    let small = wide_normalize_time(20_000);
-    let large = wide_normalize_time(80_000);
-    assert!(large < small * 8, "20,000: {small:?}; 80,000: {large:?}");
+    for n in [1_000, 20_000] {
+        let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(60)))).unwrap();
+        rt.load(Document::parse(PAGE).unwrap());
+        let build = format!(
+            "globalThis.d = document.getElementById('d');
+            for (let i = 0; i < {n}; i++) d.appendChild(document.createTextNode('t'));"
+        );
+        let _: () = rt.eval(&build).unwrap();
+        let before = rt.with_document(Document::list_steps).unwrap();
+        let _: () = rt.eval("d.normalize()").unwrap();
+        let steps = rt.with_document(Document::list_steps).unwrap() - before;
+        assert!(steps > 0, "the counter must see the list change");
+        assert!(steps <= 2 * n as u64, "{n} nodes took {steps} steps");
+        let data: usize = rt.eval("d.firstChild.data.length").unwrap();
+        assert_eq!(data, n + 1, "the page's x and the new nodes");
+        assert!(rt.eval::<bool>("d.firstChild === d.lastChild").unwrap());
+        rt.with_document(Document::check_consistency)
+            .unwrap()
+            .unwrap();
+    }
 }
 
 /// The largest run a page can have, under a short limit: done, or stopped by

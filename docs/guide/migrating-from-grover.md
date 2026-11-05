@@ -1,11 +1,15 @@
 # Migrating from Grover (chart-only documents)
 
 Many Rails apps run Chrome through Grover for one reason: the PDF has a chart
-in it, and the chart is drawn by JavaScript. surimono 0.1 draws those charts
+in it, and the chart is drawn by JavaScript. surimono draws those charts
 without a browser, so documents whose only scripts are charts can move to
 surimono and a browserless engine such as fulgur.
 
 This guide is for those documents. Check first whether yours is one of them.
+
+surimono isn't released yet: there is no gem on RubyGems, and the first release
+is planned for v0.3. To try this guide today, build the gem from a clone as the
+[Rails guide](rails.md#install) shows.
 
 <!-- bench: grover-vs-surimono -->
 On a six-page report with six charts, surimono + fulgur in Ruby took 694 ms
@@ -15,19 +19,19 @@ cold and 538 ms warm, with a peak of 101 and 128 MB. Grover took 1,698 ms and
 layout gaps, so it is not a typical Rails template. The
 [README](../../README.md#why) has the Rust numbers and how they were measured.
 
-## What still needs Chrome in v0.1
+## What still needs Chrome today
 
 Keep Grover, for now, for any document that needs one of these:
 
-- **The page's own scripts.** surimono 0.1 runs island renderers only. Scripts
+- **The page's own scripts.** surimono runs island renderers only for now. Scripts
   in the page are passed through and never run: anything that builds or changes
   the DOM, Stimulus or Alpine.js controllers, KaTeX auto-render, highlight.js,
   dates formatted in the browser, D3 code that appends elements. Page scripts on
-  a real DOM are planned for v0.2.
+  a real DOM are planned for v0.3.
 - **Scripts that measure layout.** `getBoundingClientRect`, `offsetWidth`,
   `getBBox`, `getComputedTextLength`, sizing a chart to its container, or text
   fitting. Layout queries are planned for v0.3.
-- **Canvas.** Chart.js and other libraries that draw on `<canvas>`. v0.1 has
+- **Canvas.** Chart.js and other libraries that draw on `<canvas>`. surimono has
   ECharts and Vega, which draw SVG. Canvas recorded as vectors, in the scope
   Chart.js uses, is planned for v0.3.
 - **The network.** Neither surimono nor fulgur fetches anything: no web fonts,
@@ -147,7 +151,7 @@ Grover's options map like this:
 | `display_header_footer`, `header_template`, `footer_template` | CSS page margin boxes: `@page { @bottom-right { content: "Page " counter(page) " / " counter(pages); } }` |
 | `wait_until`, `wait_for_selector` | Not needed. There is nothing to wait for: islands are drawn before printing. |
 | `display_url` (base URL for assets) | fulgur doesn't fetch. Register stylesheets with `assets.add_css_file` and images with `assets.add_image_file` (see fulgur's README). |
-| `execute_script` | Not available in v0.1 |
+| `execute_script` | Not available yet |
 
 Options passed to `Fulgur::Engine.new` win over the CSS `@page` rule.
 

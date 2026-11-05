@@ -122,7 +122,9 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   (`status.json`, `<name>/log.txt`, `<name>/exit.json`, plus anything written to
   `$CI_JOB_OUT`). Read them with
   `git fetch origin ci-results && git show origin/ci-results:runs/<sha>/...`, or run
-  `scripts/fleet/ci-status.sh <sha>`. A job's own `status.json` is written by code under
+  `scripts/fleet/ci-status.sh <sha>`. Since Kay adopted the publish-job workflows (5 Nov) a pull request's
+  ci-results may hold only `needs.json`; job logs then come from
+  `scripts/fleet/gh-api.sh GET /actions/jobs/<id>/logs`, with the id from ci-status.sh. A job's own `status.json` is written by code under
   test; GitHub's check runs (and `needs_result`, once the publish-job YAML is live) are
   the authoritative result.
 
