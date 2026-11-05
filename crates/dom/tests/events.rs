@@ -1571,6 +1571,24 @@ fn elements_are_named_on_the_window() {
 }
 
 #[test]
+fn svg_elements_have_event_handlers() {
+    // HTML §8.1.7.2.1: GlobalEventHandlers on SVGElement, attribute and IDL.
+    let (mut rt, _) = page(
+        "<!doctype html><svg><rect id=r onclick='log.push(this.id, event.type)'/></svg>
+         <script>globalThis.log = [];
+         const r = document.getElementById('r');
+         r.dispatchEvent(new Event('click'));
+         log.push(typeof r.onclick);
+         r.onclick = () => log.push('idl');
+         r.dispatchEvent(new Event('click'));
+         r.removeAttribute('onclick');
+         r.dispatchEvent(new Event('click'));
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "r,click,function,idl");
+}
+
+#[test]
 fn every_event_getter_answers_something() {
     // WebIDL: an attribute's getter returns a value of its type, so undefined
     // is only for `any`. Pointer Events §5.1 for the defaults.

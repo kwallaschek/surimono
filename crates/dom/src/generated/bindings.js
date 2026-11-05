@@ -14,6 +14,7 @@ const I_Document = 35;
 const I_HTMLBodyElement = 58;
 const I_HTMLFrameSetElement = 74;
 const I_HTMLFormElement = 72;
+const I_SVGElement = 34;
 const I_CustomEvent = 2;
 const I_ErrorEvent = 3;
 const I_UIEvent = 4;

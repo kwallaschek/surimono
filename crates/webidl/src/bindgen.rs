@@ -1427,6 +1427,7 @@ pub fn generate_bindings(
         "HTMLBodyElement",
         "HTMLFrameSetElement",
         "HTMLFormElement",
+        "SVGElement",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");

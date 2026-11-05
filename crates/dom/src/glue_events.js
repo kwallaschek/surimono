@@ -690,7 +690,8 @@
       const body = call(OP_handlerElement, g, root());
       if (body === 0) return;
       syncFrom(s, g, body, (name) => reflected[name]);
-    } else if (s.m[I_HTMLElement] === true) {
+    } else if (s.m[I_HTMLElement] === true || s.m[I_SVGElement] === true) {
+      // GlobalEventHandlers, the same set on both (HTML §8.1.7.2.1).
       const known = handlerNames[I_HTMLElement];
       syncFrom(s, s.g, s.h, (name) => known[name] === true && !reflects(s, name));
     }
