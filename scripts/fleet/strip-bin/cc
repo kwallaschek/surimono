@@ -1,0 +1,3 @@
+#!/bin/sh
+# Links without debug info, so a test binary is tens of MB, not 340. No cargo hash changes.
+exec /usr/bin/cc -Wl,--strip-debug "$@"

@@ -8,13 +8,20 @@
 
   const mathMin = Math.min, mathMax = Math.max;
 
+  // WebIDL §3.2.7: a restricted `double` refuses NaN and the infinities.
+  function restricted(v) {
+    const n = +v;
+    if (n - n !== 0) throw new TE('The value is not a finite number');
+    return n;
+  }
+
   function askElement(s, name) { call(OP_layoutQuery, s.g, s.h, name); }
   function askDocument(name) {
     const g = current();
     if (g !== 0) call(OP_layoutQuery, g, root(), name);
   }
 
-  // DOMRectReadOnly and DOMRect (Geometry §6).
+  // DOMRectReadOnly and DOMRect (Geometry §3), DOMRectList (§4).
   function newRect(id, target, x, y, width, height) {
     const s = make(id, target);
     // In argument order, before the object can be seen.
@@ -97,7 +104,7 @@
   op(I_Document, 'elementFromPoint', function elementFromPoint(x, y) {
     const s = self(this, I_Document);
     need(arguments.length, 2, 'elementFromPoint');
-    +x; +y;
+    restricted(x); restricted(y);
     askElement(s, 'elementFromPoint');
     return null;
   });
@@ -112,13 +119,14 @@
         defineProperty(G, name, d);
       });
   }
-  // CSSOM §9.1. The pseudo-element argument changes nothing while the style
-  // is empty, but it is still converted.
+  // CSSOM §7.2. [NewObject]: a new wrapper each call, over the element's one
+  // handle, since handles are never reused. The pseudo-element argument
+  // changes nothing while the style is empty, but it is still converted.
   op(I_Window, 'getComputedStyle', function getComputedStyle(elt) {
     self(this, I_Window);
     need(arguments.length, 1, 'getComputedStyle');
     const s = stateOf(elt);
     if (s === null || !is(s, I_Element)) throw new TE('Argument is not a Element');
     if (arguments.length > 1 && arguments[1] !== undefined && arguments[1] !== null) str(arguments[1]);
-    return wrap(s.g, call(OP_computedStyle, s.g, s.h));
+    return wrapper(s.g, call(OP_computedStyle, s.g, s.h));
   });

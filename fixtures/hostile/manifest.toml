@@ -472,6 +472,160 @@ expect = "Ok"
 output = "undefined,undefined,undefined,undefined,undefined"
 about = "Function() and indirect eval see nothing more than the script"
 
+# ---------------------------------------------------------------- compile and parse
+#
+# These run no bytecode for most of their time, so nothing but a poll inside the
+# compiler, the regexp compiler or JSON.parse can stop them. The sandbox's heap is
+# 64 MiB here, so either limit may come first, and a fast machine may finish
+# some within the 2 s, so those accept Ok too. The requirement is the wall clock:
+# an overrun fails on max_wall_ms, whatever the outcome. The cases that take far
+# longer than the limit anywhere (the three on 60,000 lets, the shrinking jumps)
+# don't accept Ok, and a caught compile can't pass by being caught.
+
+[[case]]
+id = "compile-statements"
+file = "compile-statements.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "compiled"
+about = "A function nothing calls, 16 MiB of statements; no bytecode runs, so the compiler must end itself at a limit"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "compile-many-lets"
+file = "compile-many-lets.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "60,000 lets, 1 MiB of source, quadratic in the variable-resolve pass, after the parser is done"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "compile-many-lets-caught"
+file = "compile-many-lets-caught.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "The same compile inside try and catch: a limit reached during a compile stays uncatchable"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "compile-new-function"
+file = "compile-new-function.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "The same compile through new Function"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "compile-many-vars"
+file = "compile-many-vars.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "compiled"
+about = "131,072 top-level vars, each searching the ones before it"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "compile-shrinking-jumps"
+file = "compile-shrinking-jumps.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "880 KiB of forward jumps, each one shrunk moving the rest of the bytecode, after the per-instruction passes"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "compile-eval-in-closures"
+file = "compile-eval-in-closures.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "compiled"
+about = "A direct eval under nested arrow functions and 32,768 vars: quadratic before the first pass over the code"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "regexp-compile-alternatives"
+file = "regexp-compile-alternatives.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "compiled"
+about = "new RegExp of 2 million alternatives; no match runs"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "regexp-compile-class"
+file = "regexp-compile-class.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "compiled"
+about = "new RegExp of a 65,536-item class with the i and u flags"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "regexp-compile-backreferences"
+file = "regexp-compile-backreferences.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "compiled"
+about = "new RegExp of a million forward backreferences"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "regexp-compile-class-strings"
+file = "regexp-compile-class-strings.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "compiled"
+about = "new RegExp of a million \\q{} strings with the i and v flags"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "json-parse-numbers"
+file = "json-parse-numbers.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "parsed"
+about = "JSON.parse of 8 million numbers"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+[[case]]
+id = "json-parse-objects"
+file = "json-parse-objects.js"
+expect_any = ["TimeLimit", "MemoryLimit", "Ok"]
+output = "parsed"
+about = "JSON.parse of 2 million small objects"
+source = "crates/core/tests/hostile.rs, group G (P2-RT-03, #125): the same shapes on a 1 GiB heap, where only the time limit can end them"
+
+# ---------------------------------------------------------------- proxy ownKeys
+
+[[case]]
+id = "ownkeys-reflect"
+file = "ownkeys-reflect.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "Reflect.ownKeys of a proxy returning 200,000 keys, in a loop: one call must be far shorter than the limit"
+source = "crates/core/tests/hostile.rs, group H (P2-RT-04, #126): the same shapes on a 1 GiB heap"
+
+[[case]]
+id = "ownkeys-object-keys"
+file = "ownkeys-object-keys.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "Object.keys of the same proxy"
+source = "crates/core/tests/hostile.rs, group H (P2-RT-04, #126): the same shapes on a 1 GiB heap"
+
+[[case]]
+id = "ownkeys-numeric"
+file = "ownkeys-numeric.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "200,000 integer-like keys, counting down"
+source = "crates/core/tests/hostile.rs, group H (P2-RT-04, #126): the same shapes on a 1 GiB heap"
+
+[[case]]
+id = "ownkeys-duplicate-last"
+file = "ownkeys-duplicate-last.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "A duplicate at the end of 200,000 keys, caught each time"
+source = "crates/core/tests/hostile.rs, group H (P2-RT-04, #126): the same shapes on a 1 GiB heap"
+
+[[case]]
+id = "ownkeys-one-key-throughout"
+file = "ownkeys-one-key-throughout.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "One key 200,000 times, caught each time"
+source = "crates/core/tests/hostile.rs, group H (P2-RT-04, #126): the same shapes on a 1 GiB heap"
+
+[[case]]
+id = "ownkeys-frozen-target"
+file = "ownkeys-frozen-target.js"
+expect_any = ["TimeLimit", "MemoryLimit"]
+about = "A frozen target, so every key is looked up"
+source = "crates/core/tests/hostile.rs, group H (P2-RT-04, #126): the same shapes on a 1 GiB heap"
+
 # ---------------------------------------------------------------- isolation
 
 [[case]]

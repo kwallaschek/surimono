@@ -7,6 +7,12 @@ scripts" section of `docs/COMPAT.md`. The harness reports what happened; it
 never decides pass or fail. `compat.py` decides that against the manifest,
 so a harness bug can't turn a failure into a pass.
 
+`results.json` here is the run `docs/COMPAT.md` was last generated from: a local
+run of `crates/islands/tests/hostile.rs` with `SURIMONO_HOSTILE_RESULTS` set, which
+is how `scripts/ci.sh` writes `$CI_JOB_OUT/hostile.json` too.
+`fixtures/checkpoint-2/hostile-results.json` is checkpoint 2's record, and stays as
+it was: it has no result for a case added since.
+
 ```json
 {
   "schema": 1,
