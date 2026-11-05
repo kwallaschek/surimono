@@ -5,9 +5,14 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
-## Now (Thu 5 Nov 2026, 00:50)
+> **Kay, 5 Nov 09:07: no releases until phase 3 is done.** Drop the v0.1.0 re-cut
+> (release/v0.1.0-fix and its review); don't touch tags; nothing goes to RubyGems. The engine
+> time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
+> (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-Scheduled session cse_011c8hfoqJ45246YxjoyFzH7, running since 20:18. v0.1.0 isn't tagged yet (Kay's step, docs/RELEASE.md). MSRV 1.89 is on main. Merged tonight: #88 #90 #92 #93 #99 #101 #103 #106 #108 #109 #115 #116 #117 #118 #119 #120 #121 #122. Open: DOM stack #94 #96 #97 #104 #105 with all first-review blockers fixed and pushed, awaiting merge-up and re-review; #123 (WPT, approved, base e2-04b); #124 (needs review). First WPT run: timers 73.5%, dom/nodes 18.8%, dom/events 10.8%, domparsing 13.5%, all below target; biggest cause `new Document()`.
+## Now (Thu 5 Nov 2026, 09:25)
+
+Session cse_011c8hfoqJ45246YxjoyFzH7 holds the fleet. #125 and #126 merged (engine patch level 8). Kay's no-release decision above applies. Open: #127 (blocked: poll in notify_rejections; renumber its patch), #128 (approved; takes main), #97 (blocked: stylo cost of `all` times block size; grid-template-areas strings), #104 (waits for #127), #105 (delta approved), #123 (WPT, approved; base e2-04b).
 
 ## Earlier (Wed 4 Nov 2026, 14:50)
 
@@ -77,11 +82,10 @@ green incl. asan and macos-14. #38 head f0d7091f has main up to abd31b70 (not #8
 - Checkpoint 2 answers (above). Don't merge #38 or any phase-2 public API without them.
 
 ### Next (in order; a resumed session starts here)
-1. Merge up the DOM stack (e2-02c into e2-02d into e2-04a into e2-04b; rerun `cargo run -p surimono-webidl --example regen` on generated conflicts; bring main in, for wcargo.sh). Fresh reviewers limited to the fix deltas, merge bottom up, each on green ci/linux.
-2. Retarget #123 to main, regenerate COMPAT (the command is in #123), merge; merge #124 after review.
-3. Then P2-RT-03, P2-CF-02, E2-13 (WPT wins), E2-06/07/08 (loader, layout policy, facade output), E2-10 surimono side, E2-12. Checkpoint 3 is Sun 22 Nov 11:00.
-4. Sunday 8 Nov 20:00 JST: five-line digest to Kay.
-5. Each push to main cancels the running full.yml; batch docs commits; read full.yml on main (first run on 1.89: native-gem images use their own stable).
+1. #127 fixed and merged; #128 merged; #97 fixed; merge main up the DOM stack; #104 reports limits from promises via #127; review deltas; merge #97, #104, #105 in order.
+2. Retarget #123 to main, regenerate COMPAT (command in #123), merge. Then P2-CF-02, E2-13, E2-06/07/08, E2-10 surimono side, E2-12, P2-DX-02. Checkpoint 3 is Sun 22 Nov 11:00.
+3. Sun 8 Nov 20:00 JST: five-line digest to Kay.
+4. Each push to main cancels the running full.yml; batch docs commits. Read full.yml on main under Kay's adopted workflows (macos-15).
 
 ### Disk
 When free space drops under ~5 GB, run `scripts/fleet/prune-target.sh`.

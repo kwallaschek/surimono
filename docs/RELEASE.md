@@ -2,9 +2,14 @@
 
 Kay tags and publishes. The fleet never tags or publishes (CLAUDE.md, hard stops).
 
-## v0.1.0 (gem and CLI only)
+## No release before v0.3
 
-> **HOLD (5 Nov): don't tag or push from the commit below.** A chart spec can overrun the time limit in the regexp compiler at that commit. A release commit with the engine fix replaces it; this page will name it.
+Kay decided on 5 Nov 2026 that nothing is released until phase 3 is done. The `v0.1.0` tag
+on `915d5cbf` stays as it is, but no gem was or will be pushed from it: that commit has a known
+time-limit gap in the regexp compiler (fixed on main by #125/#126). The steps below are kept as the
+template for the v0.3 release.
+
+## v0.1.0 (template; not released)
 
 The release PR #38 merged into main as `915d5cbf2ba2f2c4667da773380cd7c2da9ef387`. Its tree is
 identical to the release-branch head `be5d49f5`, where all 15 CI checks passed (full.yml run
