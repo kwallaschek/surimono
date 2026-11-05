@@ -74,20 +74,26 @@
   let cacheGeneration = -1;
   let cache = create(null);
 
+  // A new wrapper for handle `h`, with its Proxy if its interface has one.
+  function wrapper(g, h) {
+    const i = call(0, g, h);
+    const s = create(null);
+    s.g = g; s.h = h; s.m = masks[i];
+    let w = new Brand(create(protos[i]), s);
+    s.w = w;
+    const handler = exotics[i];
+    // Both the target (for the traps) and the proxy (for members) carry
+    // the record; private fields don't go through proxy traps.
+    if (handler !== undefined) { w = new Brand(new ProxyCtor(w, handler), s); s.w = w; }
+    return w;
+  }
+
   function wrap(g, h) {
     if (h === 0) return null;
     if (g !== cacheGeneration) { cache = create(null); cacheGeneration = g; }
     let w = cache[h];
     if (w === undefined) {
-      const i = call(0, g, h);
-      const s = create(null);
-      s.g = g; s.h = h; s.m = masks[i];
-      w = new Brand(create(protos[i]), s);
-      s.w = w;
-      const handler = exotics[i];
-      // Both the target (for the traps) and the proxy (for members) carry
-      // the record; private fields don't go through proxy traps.
-      if (handler !== undefined) { w = new Brand(new ProxyCtor(w, handler), s); s.w = w; }
+      w = wrapper(g, h);
       cache[h] = w;
     }
     return w;
