@@ -5,6 +5,11 @@ Updated after every task. Times are JST.
 > **Scheduled sessions:** if `scripts/fleet/owner-check.sh` prints STOP, or the heartbeat
 > is under 3 hours old and names another session: change nothing more, end the session.
 
+> **Kay, 5 Nov 09:07: no releases until phase 3 is done.** Drop the v0.1.0 re-cut
+> (release/v0.1.0-fix and its review); don't touch tags; nothing goes to RubyGems. The engine
+> time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
+> (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
+
 ## Now (Thu 5 Nov 2026, 08:35)
 
 Session cse_011c8hfoqJ45246YxjoyFzH7 still holds the fleet. **v0.1.0 is on hold** (docs/RELEASE.md): at 915d5cbf a pure JSON island reaches an unpolled regexp compile. Kay was told at 03:35. Nothing is tagged or published. release/v0.1.0-fix (6850b8b8) has the engine patches; full.yml and bench are green on it, review pending. Open: #125 #126 (engine time limits, in review), #127 (promise rejections; renumber its patch after #126), #128 (DOM follow-ups), #97 #104 #105 (DOM stack; #104 needs #127), #123 (WPT). #127 and #128 are red only on natives::collection_with_many_unique_names, which #126 fixes.
