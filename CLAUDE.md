@@ -98,9 +98,12 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    is the authoritative result.
    Scratch files: the session scratchpad is shared by every agent, so prefix your
    file names there with your task id (`p1-rt-14-clippy.log`, not `clippy.log`).
-3. **Checks before you report.** Run `scripts/ci.sh` from your worktree; it runs
-   exactly what CI runs on Linux (fmt, clippy with warnings as errors, tests,
-   cargo-deny). Your branch must pass it.
+3. **Checks before you report.** Run `scripts/fleet/wci.sh [--no-ruby]` from your
+   worktree: `scripts/ci.sh` (fmt, clippy with warnings as errors, tests) under the build
+   lock, without cargo-deny, which isn't installed here and which GitHub CI runs. Your
+   branch must pass it. Never run two at once, and build from a scratch copy only with
+   `rust-toolchain.toml` in it. Before starting work, list open PRs and remote branches
+   for your task: another session may already have started it.
 4. **Commits.** Small commits with clear messages (`core: add memory limit to
    sandbox`). End every commit message with:
    ```
