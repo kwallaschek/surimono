@@ -1,0 +1,1931 @@
+info: syncing channel updates for nightly-x86_64-unknown-linux-gnu
+info: latest update on 2026-11-05 for version 1.101.0-nightly (2d20b42b8 2026-11-04)
+info: downloading 4 components
+
+  nightly-x86_64-unknown-linux-gnu installed - rustc 1.101.0-nightly (2d20b42b8 2026-11-04)
+
+rustc 1.101.0-nightly (2d20b42b8 2026-11-04)
+binary: rustc
+commit-hash: 2d20b42b883dcfc014f3c2c56081eeb6091c2179
+commit-date: 2026-11-04
+host: x86_64-unknown-linux-gnu
+release: 1.101.0-nightly
+LLVM version: 23.1.5
+ASan symbolizer: /usr/lib/llvm-18/bin/llvm-symbolizer (Ubuntu LLVM version 18.1.3)
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-dom`[0m
+  [1m[94m--> [0mCargo.toml:49:1
+   [1m[94m|[0m
+[1m[94m49[0m [1m[94m|[0m surimono-dom = { path = "crates/dom", version = "0.1.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_dependencies` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-dom`
+[1m[33mwarning[0m[1m: unused field `description` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:34:1
+   [1m[94m|[0m
+[1m[94m34[0m [1m[94m|[0m description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_package_fields` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the field `workspace.package.description`
+[1m[33mwarning[0m: workspace (manifest) generated 2 warnings
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/core/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-core` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/gfx/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-gfx` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/surimono/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/islands/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-islands` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/cli/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-cli` (manifest) generated 1 warning
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m addr2line v0.27.1
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m getopts v0.2.24
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m rustc-literal-escaper v0.0.8
+[1m[92m  Downloaded[0m rustc-demangle v0.1.28
+[1m[92m  Downloaded[0m miniz_oxide v0.9.1
+[1m[92m  Downloaded[0m gimli v0.34.0
+[1m[92m  Downloaded[0m object v0.39.1
+[1m[92m   Compiling[0m compiler_builtins v0.1.160 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
+[1m[92m   Compiling[0m core v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
+[1m[92m   Compiling[0m libc v0.2.191
+[1m[92m   Compiling[0m object v0.39.1
+[1m[92m   Compiling[0m std v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std)
+[1m[92m   Compiling[0m test v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test)
+[1m[92m   Compiling[0m proc-macro2 v1.0.107
+[1m[92m   Compiling[0m quote v1.0.47
+[1m[92m   Compiling[0m unicode-ident v1.0.27
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m syn v3.0.9
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m find-msvc-tools v0.1.15
+[1m[92m   Compiling[0m synstructure v0.14.0
+[1m[92m   Compiling[0m shlex v2.0.1
+[1m[92m   Compiling[0m cc v1.10.0
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m rustc-std-workspace-core v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-core)
+[1m[92m   Compiling[0m alloc v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc)
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/unwind)
+[1m[92m   Compiling[0m rustc-std-workspace-alloc v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-alloc)
+[1m[92m   Compiling[0m gimli v0.34.0
+[1m[92m   Compiling[0m hashbrown v0.17.1
+[1m[92m   Compiling[0m addr2line v0.27.1
+[1m[92m   Compiling[0m std_detect v0.1.5 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std_detect)
+[1m[92m   Compiling[0m miniz_oxide v0.9.1
+[1m[92m   Compiling[0m panic_abort v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_abort)
+[1m[92m   Compiling[0m panic_unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_unwind)
+[1m[92m   Compiling[0m cfg-if v1.0.4
+[1m[92m   Compiling[0m rustc-demangle v0.1.28
+[1m[92m   Compiling[0m rustc-literal-escaper v0.0.8
+[1m[92m   Compiling[0m zerofrom-derive v0.1.8
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m   Compiling[0m rustc-std-workspace-std v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-std)
+[1m[92m   Compiling[0m getopts v0.2.24
+[1m[92m   Compiling[0m proc_macro v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/proc_macro)
+[1m[92m   Compiling[0m stable_deref_trait v1.2.1
+[1m[92m   Compiling[0m smallvec v1.16.4
+[1m[92m   Compiling[0m zerofrom v0.1.8
+[1m[92m   Compiling[0m allocator-api2 v0.2.21
+[1m[92m   Compiling[0m equivalent v1.0.3
+[1m[92m   Compiling[0m yoke-derive v0.8.4
+[1m[92m   Compiling[0m zerovec-derive v0.11.7
+[1m[92m   Compiling[0m thiserror-impl v2.0.21
+[1m[92m   Compiling[0m yoke v0.8.4
+[1m[92m   Compiling[0m displaydoc v0.2.7
+[1m[92m   Compiling[0m zerovec v0.11.9
+[1m[92m   Compiling[0m foldhash v0.2.0
+[1m[92m   Compiling[0m writeable v0.6.4
+[1m[92m   Compiling[0m cfg-if v1.0.5
+[1m[92m   Compiling[0m litemap v0.8.3
+[1m[92m   Compiling[0m tinystr v0.8.5
+[1m[92m   Compiling[0m bytemuck_derive v1.12.1
+[1m[92m   Compiling[0m icu_locale_core v2.2.0
+[1m[92m   Compiling[0m rand_core v0.6.4
+[1m[92m   Compiling[0m siphasher v1.0.4
+[1m[92m   Compiling[0m phf_shared v0.11.3
+[1m[92m   Compiling[0m rand v0.8.8
+[1m[92m   Compiling[0m bitflags v2.13.2
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m libm v0.2.16
+[1m[92m   Compiling[0m phf_generator v0.11.3
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m core_maths v0.1.1
+[1m[92m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m foldhash v0.1.5
+[1m[92m   Compiling[0m bytemuck v1.25.2
+[1m[92m   Compiling[0m parking_lot_core v0.9.12
+[1m[92m   Compiling[0m font-types v0.10.1
+[1m[92m   Compiling[0m font-types v0.12.7
+[1m[92m   Compiling[0m read-fonts v0.35.0
+[1m[92m   Compiling[0m read-fonts v0.41.0
+[1m[92m   Compiling[0m hashbrown v0.15.5
+[1m[92m   Compiling[0m memmap2 v0.9.12
+[1m[92m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[92m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[92m   Compiling[0m scopeguard v1.2.0
+[1m[92m   Compiling[0m lock_api v0.4.14
+[1m[92m   Compiling[0m fontique v0.6.0
+[1m[92m   Compiling[0m skrifa v0.44.0
+[1m[92m   Compiling[0m swash v0.2.10
+[1m[92m   Compiling[0m harfrust v0.3.2
+[1m[92m   Compiling[0m skrifa v0.37.0
+[1m[92m   Compiling[0m phf_codegen v0.11.3
+[1m[92m   Compiling[0m parking_lot v0.12.5
+[1m[92m   Compiling[0m parley v0.6.0
+[1m[92m   Compiling[0m phf_macros v0.11.3
+[1m[92m   Compiling[0m rquickjs-core v0.14.0
+[1m[92m   Compiling[0m rquickjs v0.14.0
+[1m[92m   Compiling[0m precomputed-hash v0.1.1
+[1m[92m   Compiling[0m string_cache v0.8.9
+[1m[92m   Compiling[0m phf v0.11.3
+[1m[92m   Compiling[0m string_cache_codegen v0.5.4
+[1m[92m   Compiling[0m ident_case v1.0.1
+[1m[92m   Compiling[0m fnv v1.0.7
+[1m[92m   Compiling[0m darling_core v0.20.11
+[1m[92m   Compiling[0m dtoa v1.0.11
+[1m[92m   Compiling[0m log v0.4.34
+[1m[92m   Compiling[0m synstructure v0.13.2
+[1m[92m   Compiling[0m dtoa-short v0.3.5
+[1m[92m   Compiling[0m cssparser-macros v0.6.1
+[1m[92m   Compiling[0m cssparser v0.35.0
+[1m[92m   Compiling[0m selectors v0.32.0
+[1m[92m   Compiling[0m servo_arc v0.4.3
+[1m[92m   Compiling[0m thin-vec v0.2.21
+[1m[92m   Compiling[0m smallbitvec v2.6.1
+[1m[92m   Compiling[0m derive_more-impl v2.1.1
+[1m[92m   Compiling[0m to_shmem v0.2.0
+[1m[92m   Compiling[0m web_atoms v0.1.3
+[1m[92m   Compiling[0m rustc-hash v2.1.3
+[1m[92m   Compiling[0m utf_types v1.0.0
+[1m[92m   Compiling[0m utf8_iter v1.1.0
+[1m[92m   Compiling[0m zerotrie v0.2.5
+[1m[92m   Compiling[0m potential_utf v0.1.6
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m icu_collections v2.2.0
+[1m[92m   Compiling[0m darling_macro v0.20.11
+[1m[92m   Compiling[0m icu_provider v2.2.0
+[1m[92m   Compiling[0m encoding_rs v0.8.35
+[1m[92m   Compiling[0m darling v0.20.11
+[1m[92m   Compiling[0m to_shmem_derive v0.1.0
+[1m[92m   Compiling[0m mime v0.3.17
+[1m[92m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[92m   Compiling[0m icu_properties_data v2.2.0
+[1m[92m   Compiling[0m crossbeam-utils v0.8.23
+[1m[92m   Compiling[0m icu_properties v2.2.0
+[1m[92m   Compiling[0m icu_normalizer v2.2.0
+[1m[92m   Compiling[0m derive_more v2.1.1
+[1m[92m   Compiling[0m crossbeam-epoch v0.9.21
+[1m[92m   Compiling[0m idna_adapter v1.2.2
+[1m[92m   Compiling[0m percent-encoding v2.3.2
+[1m[92m   Compiling[0m crossbeam-deque v0.8.8
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m rayon-core v1.13.0
+[1m[92m   Compiling[0m icu_locale_data v2.2.0
+[1m[92m   Compiling[0m form_urlencoded v1.2.2
+[1m[92m   Compiling[0m idna v1.1.0
+[1m[92m   Compiling[0m app_units v0.7.8
+[1m[92m   Compiling[0m euclid v0.22.14
+[1m[92m   Compiling[0m stylo_atoms v0.8.0
+[1m[92m   Compiling[0m mac v0.1.1
+[1m[92m   Compiling[0m void v1.0.2
+[1m[92m   Compiling[0m same-file v1.0.6
+[1m[92m   Compiling[0m icu_segmenter_data v2.2.0
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m walkdir v2.5.0
+[1m[92m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[92m   Compiling[0m futf v0.1.5
+[1m[92m   Compiling[0m url v2.5.8
+[1m[92m   Compiling[0m roxmltree v0.21.2
+[1m[92m   Compiling[0m either v1.19.0
+[1m[92m   Compiling[0m utf-8 v0.7.6
+[1m[92m   Compiling[0m arrayvec v0.7.8
+[1m[92m   Compiling[0m lazy_static v1.5.1
+[1m[92m   Compiling[0m stylo v0.8.0
+[1m[92m   Compiling[0m tendril v0.4.3
+[1m[92m   Compiling[0m icu_locale v2.2.0
+[1m[92m   Compiling[0m malloc_size_of_derive v0.1.3
+[1m[92m   Compiling[0m icu_segmenter v2.2.0
+[1m[92m   Compiling[0m rayon v1.12.0
+[1m[92m   Compiling[0m stylo_traits v0.8.0
+[1m[92m   Compiling[0m markup5ever v0.35.0
+[1m[92m   Compiling[0m uluru v3.1.0
+[1m[92m   Compiling[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[92m   Compiling[0m itertools v0.14.0
+[1m[92m   Compiling[0m stylo_dom v0.8.0
+[1m[92m   Compiling[0m num-integer v0.1.47
+[1m[92m   Compiling[0m stylo_derive v0.8.0
+[1m[92m   Compiling[0m indexmap v2.14.2
+[1m[92m   Compiling[0m num_cpus v1.17.0
+[1m[92m   Compiling[0m stylo_config v0.8.0
+[1m[92m   Compiling[0m stylo_static_prefs v0.8.0
+[1m[92m   Compiling[0m unicode-segmentation v1.13.3
+[1m[92m   Compiling[0m byteorder v1.5.0
+[1m[92m   Compiling[0m static_assertions v1.1.0
+[1m[92m   Compiling[0m atomic_refcell v0.1.14
+[1m[92m   Compiling[0m matches v0.1.10
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m grid v1.0.1
+[1m[92m   Compiling[0m num-derive v0.4.2
+[1m[92m   Compiling[0m http v1.5.0
+[1m[92m   Compiling[0m taffy v0.9.2
+[1m[92m   Compiling[0m keyboard-types v0.7.0
+[1m[92m   Compiling[0m cursor-icon v1.2.0
+[1m[92m   Compiling[0m byteorder-lite v0.1.0
+[1m[92m   Compiling[0m smol_str v0.2.2
+[1m[92m   Compiling[0m blitz-traits v0.2.0
+[1m[92m   Compiling[0m image v0.25.6
+[1m[92m   Compiling[0m html-escape v0.2.15
+[1m[92m   Compiling[0m debug_timer v0.1.3
+[1m[92m   Compiling[0m color v0.3.3
+[1m[92m   Compiling[0m fastrand v2.5.0
+[1m[92m   Compiling[0m stats_alloc v0.1.10
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m match_token v0.35.0
+[1m[92m   Compiling[0m html5ever v0.35.0
+[1m[92m   Compiling[0m xml5ever v0.35.0
+[1m[92m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[92m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[92m   Compiling[0m winnow v1.0.4
+[1m[92m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[92m   Compiling[0m serde_spanned v1.1.2
+[1m[92m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[92m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m   Compiling[0m toml v1.1.8+spec-1.1.0
+[1m[92m   Compiling[0m hashbrown v0.16.1
+[1m[92m   Compiling[0m lol_html v2.7.0
+[1m[92m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[92m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
+[1m[92m   Compiling[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[92m   Compiling[0m stylo_taffy v0.2.0
+[1m[92m   Compiling[0m blitz-dom v0.2.4
+[1m[92m   Compiling[0m blitz-html v0.2.0
+[1m[92m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 4m 34s
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/a11578d4b92a8f1e/out/surimono-a11578d4b92a8f1e)
+
+running 68 tests
+test backend::tests::builtin_names_match_the_islands_crate ... ok
+test backend::tests::bundle_names_and_entries_are_checked ... ok
+test backend::tests::every_island_error_maps_to_a_public_error ... ok
+test backend::tests::fonts_must_be_fonts ... ok
+test charref::tests::numeric_references ... ok
+test charref::tests::named_references ... ok
+test charref::tests::plain_text_is_borrowed ... ok
+test error::tests::document_errors_have_no_island ... ok
+test error::tests::error_is_send_sync_static ... ok
+test error::tests::island_errors_name_the_island ... ok
+test options::tests::defaults ... ok
+test options::tests::builder_sets_everything ... ok
+test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
+test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
+test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
+test prepass::tests::a_render_that_was_cancelled_ends_the_document_whatever_the_policy ... ok
+test prepass::tests::attributes_in_any_order_and_quoting ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
+test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
+test prepass::tests::cancel_skips_the_remaining_islands_whatever_the_policy ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::document_without_islands_is_unchanged ... ok
+test prepass::tests::documents_without_the_island_type_are_not_parsed ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
+test prepass::tests::html_escaped_json_gets_a_hint ... ok
+test prepass::tests::keeps_id_and_class ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
+test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
+test prepass::tests::other_scripts_are_left_alone ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
+test prepass::tests::placeholders_keep_the_island_size_and_style ... ok
+test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
+test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::utf8_text_around_and_inside_islands ... ok
+test prepass::tests::type_must_be_written_without_character_references ... ok
+test prepass::tests::wrapper_keeps_accessibility_and_style_attributes_only ... ok
+test prepass::tests::too_many_islands_fail_before_any_island_runs ... ok
+test renderer::tests::a_forked_child_starts_its_own_runner_and_measurer ... ok
+test renderer::tests::an_island_is_clipped_to_its_declared_box ... ok
+test renderer::tests::builtins_come_first_then_bundles_in_order ... ok
+test renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process ... ok
+test renderer::tests::clock_options_reach_the_scripts ... ok
+test renderer::tests::dropping_a_renderer_from_another_process_does_not_join_its_threads ... ok
+test renderer::tests::hostile_svg_cannot_break_out_of_the_wrapper ... ok
+test renderer::tests::a_cancelled_render_skips_the_remaining_islands ... ok
+test renderer::tests::many_threads_after_a_fork_share_one_new_slot ... ok
+test renderer::tests::a_cancel_stops_the_island_that_is_running ... ok
+test renderer::tests::invalid_options ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::many_threads_share_one_renderer ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test renderer::tests::too_many_fork_generations_is_an_error_not_a_hang ... ok
+test renderer::tests::text_is_measured_with_the_given_fonts ... ok
+test svg::tests::markup_that_would_break_out_of_the_wrapper_is_an_error ... ok
+test svg::tests::outlining_text_without_fonts_says_what_to_do ... ok
+test svg::tests::scripts_and_handlers_are_removed_and_ids_prefixed ... ok
+test renderer::tests::unknown_and_disabled_renderers ... ok
+test tests::version_is_set ... ok
+test tests::every_builtin_is_precompiled ... ok
+test renderer::tests::script_failures_become_typed_errors ... ok
+test renderer::tests::max_islands_caps_a_document ... ok
+
+test result: ok. 68 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.12s
+
+[1m[92m     Running[0m tests/breakout.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/d33c64bc79e3fe94/out/breakout-d33c64bc79e3fe94)
+
+running 3 tests
+test the_check_catches_raw_breakouts ... ok
+test echarts_emphasis_colour_cannot_style_the_page ... ok
+test custom_bundle_svg_stays_in_its_box ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+[1m[92m     Running[0m tests/fixtures.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/7c92cfd1cf01d423/out/fixtures-7c92cfd1cf01d423)
+
+running 4 tests
+test keep_mode_keeps_text_in_the_registered_font ... ok
+test two_echarts_islands_share_no_ids ... ok
+test echarts_bar_simple_latin_becomes_sanitised_svg ... ok
+test every_checkpoint_fixture_renders ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.94s
+
+[1m[92m     Running[0m tests/fork.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/7b8b169049b116de/out/fork-7b8b169049b116de)
+
+running 2 tests
+test fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test forks_never_hang ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 51.43s
+
+[1m[92m     Running[0m unittests src/main.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-cli/52f6ae0db1abbdaf/out/surimono-52f6ae0db1abbdaf)
+
+running 6 tests
+test tests::dash_and_defaults ... ok
+test tests::parses_every_option ... ok
+test tests::atomic_write_replaces_or_leaves_alone ... ok
+test tests::usage_errors ... ok
+test tests::atomic_write_keeps_permissions_and_follows_links ... ok
+test tests::errors_map_to_exit_codes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+[1m[92m     Running[0m tests/cli.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-cli/649074b5281b3d6b/out/cli-649074b5281b3d6b)
+
+running 8 tests
+test a_failed_render_writes_no_output_file ... ok
+test a_failed_render_leaves_an_existing_output_alone ... ok
+test help_and_version ... ok
+test bundles_renderers_and_island_cap ... ok
+test stdin_to_stdout_leaves_a_document_without_islands_alone ... ok
+test exit_codes_are_typed ... ok
+test renders_an_echarts_island_from_file_to_file ... ok
+test same_input_same_output ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/db26e126698e8a15/out/surimono_core-db26e126698e8a15)
+
+running 116 tests
+test embed::tests::embedded_bytecode_is_stripped_and_smaller ... ok
+test embed::tests::a_different_fingerprint_is_refused ... ok
+test embed::tests::embedded_bytecode_runs_like_compiled_bytecode ... ok
+test embed::tests::compiling_for_embedding_is_deterministic ... ok
+test embed::tests::syntax_errors_are_reported ... ok
+test embed::tests::the_canary_compiles_and_the_fingerprint_is_stable ... ok
+test embed::tests::the_fingerprint_includes_the_engine_sources ... ok
+test embed::tests::the_version_is_readable ... ok
+test embed::tests::stripping_hides_native_classes_from_to_string ... ok
+test engine::tests::a_clean_teardown_leaks_nothing ... ok
+test embed::tests::the_fingerprint_includes_the_patch_level ... ok
+test engine::tests::a_refused_allocation_raises_the_flag ... ok
+test engine::tests::a_stale_cancel_never_stops_the_next_call ... ok
+test engine::tests::a_stale_expiry_never_stops_the_next_call ... ok
+test engine::tests::a_forked_child_has_a_newer_generation ... ok
+test engine::tests::allocator_tracks_and_limits ... ok
+test engine::tests::an_address_tells_objects_apart ... ok
+test engine::tests::a_watched_cancel_flag_raises_the_stop_flag_and_the_watch_ends_with_the_call ... ok
+test engine::tests::compile_does_not_run_the_script ... ok
+test engine::tests::bytecode_round_trip_across_runtimes ... ok
+test engine::tests::deadline_arms_and_disarms ... ok
+test engine::tests::compile_reports_syntax_errors ... ok
+test engine::tests::eval_bytecode_reports_exceptions ... ok
+test engine::tests::fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test embed::tests::the_fingerprint_covers_the_format ... ok
+test engine::tests::a_refused_allocation_makes_a_limit_error ... ok
+test engine::tests::only_the_engine_can_make_a_limit_error ... ok
+test engine::tests::pending_jobs_run_and_report_errors ... ok
+test engine::tests::reclaiming_a_clean_teardown_frees_nothing ... ok
+test engine::tests::stack_available_is_plausible ... ok
+test engine::tests::teardown_counts_leaked_objects ... ok
+test engine::tests::the_engine_is_patched ... ok
+test engine::tests::update_stack_top_is_harmless ... ok
+test engine::tests::one_watchdog_serves_every_sandbox ... ok
+test error::tests::limit_errors_are_flagged ... ok
+test event_loop::tests::a_cleared_running_interval_is_not_set_again ... ok
+test event_loop::tests::a_limit_stops_the_notifications_between_entries ... ok
+test event_loop::tests::budgets_above_a_safe_integer_are_refused ... ok
+test event_loop::tests::cancelling_a_queued_timer_frees_both_entries ... ok
+test event_loop::tests::tasks_run_by_due_time_then_by_sequence ... ok
+test event_loop::tests::the_id_space_ends_in_a_refusal ... ok
+test event_loop::tests::timers_and_frames_clear_only_their_own_kind ... ok
+test fork_safe::tests::a_child_holds_its_own_election ... ok
+test fork_safe::tests::a_failed_init_is_retried ... ok
+test fork_safe::tests::a_panicking_init_is_retried ... ok
+test fork_safe::tests::failures_take_no_slot ... ok
+test fork_safe::tests::many_threads_init_once ... ok
+test fork_safe::tests::out_of_slots_fails_without_running_init ... ok
+test limits::tests::defaults_match_the_spec ... ok
+test limits::tests::out_of_range_limits_are_rejected ... ok
+test limits::tests::setters_and_new_build_the_same_limits ... ok
+test engine::tests::watchdog_raises_the_flag_at_the_deadline ... ok
+test engine::tests::expire_races_arm_and_disarm ... ok
+test sandbox::tests::array_builtins_behave_normally ... ok
+test sandbox::tests::a_stale_deadline_fails_safe ... ok
+test sandbox::tests::bound_functions_behave_normally ... ok
+test sandbox::tests::bytecode_compiles_once_and_runs_anywhere ... ok
+test sandbox::tests::call_json_parses_arguments ... ok
+test sandbox::tests::calls_global_functions ... ok
+test sandbox::tests::allocation_bomb_hits_memory_limit ... ok
+test sandbox::tests::async_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails ... ok
+test sandbox::tests::caught_stack_overflow_is_ordinary_js ... ok
+test sandbox::tests::class_strings_are_unchanged ... ok
+test sandbox::tests::compile_errors_are_unchanged ... ok
+test sandbox::tests::compile_reports_syntax_errors ... ok
+test sandbox::tests::debug_of_a_deadline_records_nothing ... ok
+test sandbox::tests::deep_recursion_hits_stack_limit ... ok
+test sandbox::tests::caught_out_of_memory_still_reports_memory_limit ... ok
+test sandbox::tests::doubling_string_ends_with_a_typed_error ... ok
+test sandbox::tests::eval_and_function_constructor_stay_inside ... ok
+test sandbox::tests::evaluates_scripts ... ok
+test sandbox::tests::exceptions_carry_message_and_stack ... ok
+test sandbox::tests::caught_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::deep_recursion_in_native_code_hits_stack_limit ... ok
+test sandbox::tests::exponential_microtask_flood_hits_a_limit ... ok
+test sandbox::tests::huge_messages_are_truncated ... ok
+test sandbox::tests::host_functions_stop_at_the_deadline ... ok
+test sandbox::tests::huge_typed_array_hits_memory_limit ... ok
+test sandbox::tests::heap_returns_to_baseline_after_reset ... ok
+test sandbox::tests::huge_string_hits_memory_limit ... ok
+test sandbox::tests::infinite_loop_hits_time_limit ... ok
+test sandbox::tests::interrupt_skips_finally ... ok
+test sandbox::tests::interrupted_natives_leak_nothing ... ok
+test sandbox::tests::json_strings_are_unchanged_around_a_batch ... ok
+test sandbox::tests::limit_error_times_the_stop_apart_from_the_rebuild ... ok
+test sandbox::tests::limit_errors_discard_state ... ok
+test sandbox::tests::limits_out_of_range_are_rejected ... ok
+test sandbox::tests::microtask_flood_hits_a_limit ... ok
+test sandbox::tests::microtasks_run_before_the_call_returns ... ok
+test sandbox::tests::no_host_access ... ok
+test sandbox::tests::oom_sweep_child ... ignored, helper: run in a child process by the out-of-memory sweeps
+test sandbox::tests::out_of_memory_full_sweep ... ignored, slow: every allocation of the compile-heavy script
+test sandbox::tests::interrupted_compiles_leak_nothing ... ok
+test sandbox::tests::proxy_own_keys_are_unchanged ... ok
+test sandbox::tests::rebuild_after_a_limit_frees_the_old_context_first ... ok
+test sandbox::tests::regex_backtracking_hits_time_limit ... ok
+test sandbox::tests::regexp_replace_results_are_unchanged ... ok
+test sandbox::tests::reset_discards_globals ... ok
+test sandbox::tests::reset_frees_contexts_that_used_rust_functions ... ok
+test sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime ... ok
+test sandbox::tests::run_await_settles_promises ... ok
+test sandbox::tests::run_gives_direct_context_access ... ok
+test sandbox::tests::sandboxes_are_independent ... ok
+test sandbox::tests::scripts_are_sloppy_like_classic_scripts ... ok
+test sandbox::tests::syntax_errors_are_exceptions ... ok
+test sandbox::tests::thrown_primitives_are_described ... ok
+test sandbox::tests::time_limit_is_per_call ... ok
+test sandbox::tests::too_little_thread_stack_is_refused ... ok
+test sandbox::tests::too_many_destructured_parameters_is_a_syntax_error ... ok
+test sandbox::tests::type_errors_on_conversion ... ok
+test sandbox::tests::works_from_a_deep_rust_stack ... ok
+test tests::version_is_set ... ok
+test sandbox::tests::interrupted_class_strings_leak_nothing ... ok
+test engine::tests::forks_never_hang has been running for over 60 seconds
+test engine::tests::forks_never_hang ... ok
+test sandbox::tests::out_of_memory_never_aborts has been running for over 60 seconds
+test sandbox::tests::out_of_memory_never_aborts ... ok
+
+test result: ok. 113 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 500.57s
+
+[1m[92m     Running[0m tests/cancel.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/5c280b6a16bfa03e/out/cancel-5c280b6a16bfa03e)
+
+running 17 tests
+test a_flag_raised_after_the_call_ended_changes_nothing ... ok
+test a_raised_flag_refuses_calls_without_touching_state ... ok
+test a_cancelled_call_discards_the_script_state ... ok
+test host_functions_see_a_cancelled_call ... ok
+test removing_the_flag_ends_its_effect ... ok
+test stops_a_loop_inside_a_promise_constructor ... ok
+test stops_a_loop_that_catches_everything ... ok
+test stops_a_loop_with_an_expensive_body ... ok
+test stops_a_microtask_flood ... ok
+test cancelled_wins_over_a_passed_deadline ... ok
+test stops_a_native_loop ... ok
+test stops_a_plain_loop ... ok
+test the_flag_survives_a_cancelled_call ... ok
+test the_flag_survives_a_reset_and_a_limit_error ... ok
+test the_time_limit_still_applies_with_a_flag_down ... ok
+test a_flag_that_stays_down_changes_nothing ... ok
+test a_flag_stops_only_its_own_sandbox ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.57s
+
+[1m[92m     Running[0m tests/determinism.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/afa76d84fe98e9a2/out/determinism-afa76d84fe98e9a2)
+
+running 20 tests
+test console_exists_and_is_silent ... ok
+test clock_is_fixed_and_configurable ... ok
+test date_parse_matches_quickjs_child ... ignored, helper: run in a child process with TZ=UTC0
+test date_fields_are_clipped_after_the_offset ... ok
+test date_from_an_object_uses_the_sandbox_zone ... ok
+test date_shim_behaves_like_date ... ok
+test every_context_restarts_the_sequence ... ok
+test invalid_options_are_rejected ... ok
+test date_parse_honours_named_zones ... ok
+test local_time_is_utc_by_default ... ok
+test local_time_follows_the_configured_offset ... ok
+test math_random_is_seeded ... ok
+test performance_is_virtual ... ok
+test stack_trace_api_is_off ... ok
+test two_runs_are_byte_identical ... ok
+test tz_child ... ignored, helper: run in a child process with TZ set
+test weak_refs_are_strong_and_cleanup_never_runs ... ok
+test output_ignores_the_host_time_zone ... ok
+test looping_prepare_stack_trace_hits_the_time_limit ... ok
+test date_parse_matches_quickjs_on_a_utc_host ... ok
+
+test result: ok. 18 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.93s
+
+[1m[92m     Running[0m tests/event_loop.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/e0e0140bc038c975/out/event_loop-e0e0140bc038c975)
+
+running 57 tests
+test a_huge_delay_settles_by_budget_without_moving_the_clock ... ok
+test a_fallback_timer_cannot_overtake_a_pending_load ... ok
+test a_late_end_cannot_cancel_a_newer_wait ... ok
+test a_microtask_is_not_a_timer_task ... ok
+test a_late_end_cannot_cancel_a_wait_after_a_reset ... ok
+test a_throwing_timer_is_reported_and_the_loop_goes_on ... ok
+test a_chain_of_waits_ends_at_the_loader_cap ... ok
+test a_missing_interval_is_zero ... ok
+test a_timer_cannot_land_inside_a_frame ... ok
+test an_empty_page_settles_at_once ... ok
+test a_token_from_another_sandbox_ends_nothing ... ok
+test an_interval_nests_like_timeouts ... ok
+test an_interval_that_never_clears_ends_at_the_budget ... ok
+test clear_timeout_and_clear_interval_are_interchangeable ... ok
+test clearing_an_interval_from_its_callback_stops_it ... ok
+test clearing_during_dispatch ... ok
+test awaiting_a_zero_timer_does_not_move_the_clock ... ok
+test evil_spec_example ... ok
+test external_waits_hold_the_clock ... ok
+test date_and_performance_follow_the_virtual_clock ... ok
+test frames_cancel_apart_from_timers ... ok
+test frames_share_a_time_and_nest_into_the_next ... ok
+test giving_up_on_a_wait_early_or_late_gives_the_same_page ... ok
+test handlers_get_arguments_and_the_global ... ok
+test a_timer_fork_bomb_hits_the_task_limit ... ok
+test ids_count_up_and_are_never_reused ... ok
+test hostile_exception_objects ... ok
+test microtasks_run_between_tasks ... ok
+test negative_and_wrapping_intervals_run_at_once ... ok
+test negative_and_wrapping_timeouts_run_first ... ok
+test nesting_clamps_to_4_ms_after_5_levels ... ok
+test nul_and_lone_surrogates_in_string_handlers ... ok
+test odd_delays_convert_like_a_webidl_long ... ok
+test queue_microtask_interleaves_with_promises ... ok
+test queue_microtask_reports_exceptions ... ok
+test queue_microtask_runs_later_with_no_arguments ... ok
+test queue_microtask_throws_on_non_functions ... ok
+test finished_and_cleared_timers_free_their_handlers ... ok
+test recursive_microtasks_hit_the_time_limit ... ok
+test reported_errors_are_bounded ... ok
+test string_handlers_are_classic_scripts ... ok
+test tampering_with_built_ins_changes_nothing ... ok
+test limits_apply_inside_callbacks ... ok
+test the_budget_includes_its_last_millisecond ... ok
+test the_clamp_leaves_longer_delays_alone ... ok
+test the_clock_starts_at_the_configured_instant ... ok
+test the_globals_have_their_webidl_shape ... ok
+test the_same_page_gives_the_same_log ... ok
+test the_task_limit_does_not_split_a_frame ... ok
+test the_task_limit_stops_cleanly_and_holds_across_calls ... ok
+test the_time_limit_covers_all_the_callbacks_together ... ok
+test timers_run_by_time_then_by_order ... ok
+test without_the_option_scripts_see_no_event_loop ... ok
+test zero_delay_work_runs_during_a_wait ... ok
+test renders_leave_nothing_behind ... ok
+test teardown_leaks_nothing ... ok
+test a_timer_bomb_hits_the_cap ... ok
+
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.74s
+
+[1m[92m     Running[0m tests/host_panic.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/a408e2d9a1fcf42b/out/host_panic-a408e2d9a1fcf42b)
+
+running 8 tests
+test a_host_function_that_does_not_panic_changes_nothing ... ok
+test a_caught_panic_still_fails_the_call ... ok
+test a_catching_loop_stops_at_the_next_poll ... ok
+test a_finally_cannot_hide_it ... ok
+test a_long_panic_message_is_truncated ... ok
+test a_panic_in_a_timer_is_typed_and_timers_work_after_it ... ok
+test an_uncaught_panic_is_typed ... ok
+test swallowing_built_ins_cannot_hide_it ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+[1m[92m     Running[0m tests/hostile.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/1fb3b73cb4bd7acc/out/hostile-1fb3b73cb4bd7acc)
+
+running 11 tests
+test group_d_loops_around_expensive_native_calls_end ... ok
+test group_b_swallowed_interrupts_end ... ok
+test group_c_long_native_sorts_end ... ok
+test group_e_superlinear_native_calls_end ... ok
+test group_f_regexp_per_match_loops_end ... ok
+test group_g_parameter_checks_stop ... ok
+test group_a_native_array_like_loops_end ... ok
+test hostile_child ... ignored, helper: run in a child process by the hostile tests
+test group_g_compile_interrupts_are_uncatchable ... ok
+test group_h_proxy_own_keys_end ... ok
+test group_g_compiles_and_parses_end ... ok
+
+test result: ok. 10 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 32.39s
+
+[1m[92m     Running[0m tests/main_thread_stack.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/d587cd2719ba781a/out/main_thread_stack-d587cd2719ba781a)
+main_thread_stack: ok, depth 3401 (422 at the default limit)
+[1m[92m     Running[0m tests/rejections.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/1bc60e4271415487/out/rejections-1bc60e4271415487)
+
+running 46 tests
+test a_forged_throw_is_an_ordinary_exception ... ok
+test a_fulfilled_or_handled_promise_is_not_counted ... ok
+test a_getter_can_handle_a_promise_still_on_the_list ... ok
+test a_caught_limit_error_that_is_rejected_again_is_still_one ... ok
+test a_forged_rejection_is_an_ordinary_one ... ok
+test a_handled_overflow_is_unaffected ... ok
+test a_handler_added_in_a_microtask_means_no_report ... ok
+test a_handler_added_in_a_later_task_is_too_late ... ok
+test a_handler_added_later_in_the_same_task_means_no_report ... ok
+test a_limit_error_past_the_kept_reasons_still_ends_the_call ... ok
+test a_reason_with_throwing_getters_is_still_counted ... ok
+test a_real_error_with_its_properties_changed_still_counts ... ok
+test a_rejection_counts_once_along_a_chain ... ok
+test a_sandbox_without_the_event_loop_tracks_nothing ... ok
+test a_reset_lets_go_of_waiting_rejections ... ok
+test counts_are_since_the_last_report ... ok
+test getters_of_reasons_nobody_keeps_do_not_run ... ok
+test a_getter_that_never_returns_hits_the_time_limit ... ok
+test objects_built_on_a_real_error_are_not_real_errors ... ok
+test only_the_first_few_reasons_are_kept ... ok
+test many_large_reasons_stay_inside_the_time_limit ... ok
+test overflow_at_the_end_of_a_chain_ends_the_call ... ok
+test overflow_in_a_promise_executor_ends_the_call ... ok
+test overflow_in_a_promise_reaction_ends_the_call ... ok
+test overflow_in_an_async_function_ends_the_call ... ok
+test overflow_in_an_async_generator_ends_the_call ... ok
+test overflow_in_any_task_ends_the_call ... ok
+test overflow_of_async_functions_calling_themselves_ends_the_call ... ok
+test overflow_past_an_await_ends_the_call ... ok
+test plain_rejections_are_counted_and_the_loop_goes_on ... ok
+test rejections_a_sandbox_is_dropped_with_are_let_go ... ok
+test rejections_that_keep_rejecting_end_with_the_kept_reasons ... ok
+test renders_with_limit_rejections_leak_nothing ... ok
+test replacing_promise_then_hides_nothing ... ok
+test running_out_of_memory_in_an_async_function_ends_the_call ... ok
+test tampering_hides_nothing_from_a_synchronous_throw_either ... ok
+test tampering_with_error_prototypes_hides_nothing ... ok
+test handlers_in_rejection_order_are_quick ... ok
+test the_same_page_reports_the_same_rejections ... ok
+test the_sandbox_starts_over_after_a_limit_in_a_rejection ... ok
+test the_time_limit_in_an_async_function_ends_the_call ... ok
+test too_many_rejections_waiting_is_a_memory_error ... ok
+test work_a_getter_queues_is_part_of_the_checkpoint ... ok
+test handled_rejections_do_not_fill_the_list ... ok
+test the_heap_stays_flat_over_many_rejections ... ok
+test overflow_at_every_stack_depth_ends_the_call ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.39s
+
+[1m[92m     Running[0m tests/release_memory.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/dbf62e05d8e58f81/out/release_memory-dbf62e05d8e58f81)
+
+running 1 test
+test freed_pages_go_back_to_the_os ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/7de5d1ff1f922cb1/out/surimono_dom-7de5d1ff1f922cb1)
+
+running 26 tests
+test document::tests::a_style_attribute_keeps_its_place_and_namespace ... ok
+test runtime::tests::every_native_is_guarded ... ok
+test document::tests::no_path_gives_a_style_attribute_to_stylo ... ok
+test runtime::tests::no_native_runs_after_a_panic ... ok
+test style_attr::tests::a_value_stays_closed ... ok
+test style_attr::tests::attribute_names ... ok
+test style_attr::tests::a_passed_deadline_stops_the_parse ... ok
+test style_attr::tests::hostile_text_does_not_panic ... ok
+test style_attr::tests::important_keeps_source_order ... ok
+test style_attr::tests::duplicates_near_the_cap ... ok
+test style_attr::tests::parses_as_chrome_does ... ok
+test style_attr::tests::property_table_is_sorted_and_stylo_agrees_on_common_names ... ok
+test style_attr::tests::nesting_is_bounded ... ok
+test style_attr::tests::stylo_cost_by_property_and_shape ... ignored, a survey, for a release build
+test style_attr::tests::stylo_cost_of_repeats ... ignored, a survey, for a release build
+test style_attr::tests::values ... ok
+test style_attr::tests::size_limits ... ok
+test style_attr::tests::what_fits_counts_grid_cells ... ok
+test style_attr::tests::what_fits_counts_declarations ... ok
+test style_attr::tests::what_fits_counts_repeats_times_the_block ... ok
+test style_attr::tests::what_fits_is_bounded_in_depth ... ok
+test tests::version_is_set ... ok
+test tree::tests::every_element_a_match_reaches_pays_for_the_selector ... ok
+test style_attr::tests::what_fits_counts_tokens_not_bytes ... ok
+test runtime::tests::a_panic_in_a_native_ends_the_call_and_discards_the_document ... ok
+test runtime::tests::a_panic_in_a_page_ends_it ... ok
+
+test result: ok. 24 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 5.09s
+
+[1m[92m     Running[0m tests/collections.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/be034ce98034f2e5/out/collections-be034ce98034f2e5)
+
+running 29 tests
+test a_removed_attr_keeps_its_value_and_a_new_attribute_is_a_new_attr ... ok
+test attributes_map ... ok
+test child_nodes_is_live_and_the_same_object ... ok
+test class_list ... ok
+test collections_iterate_as_webidl_says ... ok
+test an_invalid_value_changes_nothing ... ok
+test dataset ... ok
+test dataset_names_as_the_wpt_lists_them ... ok
+test dataset_shows_what_shadows_a_builtin_and_numeric_names ... ok
+test empty_ignores_comments_and_empty_text ... ok
+test fragment_parsing_has_no_effect_until_inserted ... ok
+test html_collections ... ok
+test inheriting_from_a_dataset_does_not_write_to_it ... ok
+test inline_style ... ok
+test inner_html ... ok
+test insert_adjacent_html_around_head_and_body_implies_neither ... ok
+test insert_adjacent_html_with_the_html_context_needs_no_body ... ok
+test lists_behave_as_arrays_do ... ok
+test a_value_cannot_leave_its_declaration ... ok
+test outer_html_and_insert_adjacent_html ... ok
+test query_selector ... ok
+test null_value_of_set_property_removes ... ok
+test scope_on_a_document_is_the_root_element ... ok
+test style_on_svg_and_rule ... ok
+test svg_names_keep_their_case_in_selectors ... ok
+test two_attributes_with_one_qualified_name_list_it_once ... ok
+test what_the_libraries_do ... ok
+test set_property_needs_a_supported_name ... ok
+test common_values_are_valid ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.03s
+
+[1m[92m     Running[0m tests/events.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/afb05c7ef9f9d05f/out/events-afb05c7ef9f9d05f)
+
+running 43 tests
+test a_caught_stack_overflow_is_a_script_matter ... ok
+test a_bad_handler_attribute_is_compiled_once ... ok
+test a_handled_limit_in_a_promise_is_a_script_matter ... ok
+test a_disguised_limit_error_still_ends_the_page ... ok
+test a_listener_overflow_fails_eval_too ... ok
+test a_script_timer_starts_at_nesting_level_zero ... ok
+test a_page_cant_cancel_its_own_lifecycle ... ok
+test a_scripts_microtasks_are_part_of_its_run ... ok
+test an_error_listener_that_throws_doesnt_recurse ... ok
+test a_throwing_listener_is_reported_and_the_others_run ... ok
+test a_limit_in_a_promise_fails_eval_too ... ok
+test body_handlers_are_the_windows ... ok
+test capture_target_bubble_order ... ok
+test current_script ... ok
+test custom_events ... ok
+test dispatching_twice_is_an_error ... ok
+test empty_and_async_scripts ... ok
+test eval_keeps_its_rejections_for_the_next_report ... ok
+test event_fields_during_and_after_dispatch ... ok
+test event_handler_content_attributes ... ok
+test event_handler_idl_attributes ... ok
+test event_loop_through_the_runtime ... ok
+test exceptions_in_callbacks_reach_error_listeners_and_the_report ... ok
+test limits_spelled_by_a_script_are_ordinary_exceptions ... ok
+test listener_list ... ok
+test limits_in_a_page_end_it_with_a_typed_error_and_the_runtime_recovers ... ok
+test an_uncaught_stack_overflow_ends_the_page_on_every_path ... ok
+test nothing_runs_after_a_limit_in_a_promise ... ok
+test nothing_runs_inside_template_or_noscript ... ok
+test prevent_default ... ok
+test rejections_nothing_handled_reach_the_report ... ok
+test reported_messages_are_capped ... ok
+test reported_rejections_are_capped ... ok
+test small_spec_points ... ok
+test nothing_runs_after_an_uncaught_stack_overflow ... ok
+test stop_propagation ... ok
+test the_page_lifecycle_runs_in_a_defined_order ... ok
+test timers_keep_their_shape ... ok
+test title_and_ready_state ... ok
+test window_handlers_from_a_page ... ok
+test window_is_the_global_event_target ... ok
+test which_scripts_run ... ok
+test a_limit_in_a_promise_ends_the_page_on_every_path ... ok
+
+test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.72s
+
+[1m[92m     Running[0m tests/fuzz.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/bd02dee200cdf376/out/fuzz-bd02dee200cdf376)
+
+running 3 tests
+test hostile_markup_parses ... ok
+test random_operations_after_a_frameset_keep_the_document_sound ... ok
+test random_operations_keep_the_document_sound ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.70s
+
+[1m[92m     Running[0m tests/generated.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/47eb9e447d2ab190/out/generated-47eb9e447d2ab190)
+
+running 1 test
+test generated_bindings_are_current ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+[1m[92m     Running[0m tests/handles.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ea8a214196729cc6/out/handles-ea8a214196729cc6)
+
+running 10 tests
+test no_document_loaded ... ok
+test get_element_by_id_and_text_content ... ok
+test create_and_append ... ok
+test node_and_depth_limits_are_typed_errors ... ok
+test parent_node_and_identity ... ok
+test removed_nodes_stay_usable_and_slots_are_not_confused ... ok
+test text_content_setter_mutates_the_rust_document ... ok
+test wrappers_cannot_be_forged ... ok
+test wrapper_from_a_previous_document_is_stale ... ok
+test sandbox_limits_apply_and_bindings_survive_a_rebuild ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s
+
+[1m[92m     Running[0m tests/hostile.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f)
+
+running 37 tests
+test a_frameset_frees_the_body_it_orphans ... ok
+test a_frameset_cannot_hide_bytes_in_an_orphan ... ok
+test appending_a_child_to_its_own_parent ... ok
+test append_at_max_depth_after_recursing_to_the_stack_limit ... ok
+test comments_go_under_the_document ... ok
+test constructors_honour_new_target ... ok
+test deeply_nested_style_values_on_a_small_stack ... ok
+test document_body_has_no_unimplemented_setter ... ok
+test deepest_allowed_tree_on_a_small_stack ... ok
+test fragments_are_charged_and_their_orphans_freed ... ok
+test hostile_exotic_objects ... ok
+test hostile_selectors_are_typed_errors ... ok
+test handle_churn_hits_the_handle_limit ... ok
+test inputs_grow_no_children ... ok
+test limits_are_validated ... ok
+test list_names_a_script_picks_are_charged ... ok
+test inner_html_stays_inside_the_limits ... ok
+test a_huge_style_attribute_ends_typed ... ok
+test parse_enforces_depth_and_node_limits ... ok
+test removed_subtrees_scripts_cannot_reach_are_dropped ... ok
+test removing_a_links_href ... ok
+test a_slow_selector_stops_at_the_time_limit ... ok
+test string_bytes_are_credited ... ok
+test style_text_never_reaches_blitz ... ok
+test tampering_before_first_use_cannot_read_or_forge_handles ... ok
+test tampering_after_use_cannot_read_or_forge_handles ... ok
+AddressSanitizer:DEADLYSIGNAL
+=================================================================
+==19633==ERROR: AddressSanitizer: stack-overflow on address 0x7fa5bcb2ffc8 (pc 0x563d6ad0df36 bp 0x7fa5bcb30810 sp 0x7fa5bcb2ffd0 T34)
+    #0 0x563d6ad0df36 in __asan_memcpy (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f+0xb7ff36) (BuildId: c7d63fd17fb3e56ec2b69f4ab4adfc0a5b1e3855)
+    #1 0x563d6b04c9cf in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1199:29
+    #2 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #3 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #4 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #5 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #6 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #7 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #8 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #9 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #10 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #11 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #12 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #13 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #14 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #15 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #16 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #17 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #18 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #19 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #20 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #21 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #22 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #23 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #24 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #25 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #26 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #27 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #28 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #29 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #30 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #31 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #32 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #33 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #34 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #35 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #36 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #37 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #38 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #39 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #40 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #41 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #42 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #43 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #44 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #45 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #46 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #47 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #48 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #49 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #50 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #51 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #52 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #53 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #54 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #55 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #56 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #57 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #58 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #59 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #60 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #61 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #62 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #63 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #64 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #65 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #66 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #67 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #68 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #69 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #70 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #71 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #72 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #73 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #74 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #75 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #76 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #77 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #78 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #79 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #80 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #81 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #82 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #83 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #84 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #85 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #86 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #87 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #88 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #89 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #90 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #91 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #92 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #93 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #94 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #95 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #96 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #97 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #98 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #99 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #100 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #101 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #102 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #103 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #104 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #105 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #106 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #107 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #108 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #109 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #110 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #111 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #112 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #113 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #114 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #115 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #116 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #117 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #118 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #119 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #120 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #121 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #122 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #123 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #124 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #125 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #126 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #127 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #128 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #129 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #130 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #131 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #132 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #133 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #134 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #135 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #136 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #137 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #138 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #139 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #140 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #141 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #142 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #143 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #144 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #145 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #146 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #147 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #148 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #149 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #150 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #151 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #152 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #153 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #154 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #155 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #156 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #157 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #158 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #159 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #160 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #161 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #162 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #163 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #164 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #165 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #166 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #167 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #168 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #169 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #170 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #171 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #172 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #173 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #174 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #175 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #176 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #177 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #178 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #179 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #180 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #181 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #182 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #183 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #184 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #185 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #186 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #187 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #188 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #189 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #190 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #191 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #192 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #193 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #194 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #195 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #196 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #197 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #198 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #199 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #200 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #201 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #202 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #203 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #204 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #205 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #206 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #207 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #208 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #209 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #210 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #211 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #212 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #213 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #214 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #215 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #216 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #217 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #218 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #219 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #220 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #221 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #222 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #223 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #224 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #225 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #226 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #227 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #228 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #229 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #230 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #231 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #232 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #233 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #234 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #235 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #236 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #237 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #238 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #239 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #240 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #241 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #242 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #243 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #244 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #245 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #246 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #247 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #248 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #249 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #250 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #251 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #252 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #253 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #254 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #255 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #256 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+    #257 0x563d6b053197 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1205:9
+    #258 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, <selectors::kleene_value::KleeneValue>::any_false<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #259 0x563d6b04caf1 in <selectors::kleene_value::KleeneValue>::any_false::<&selectors::parser::Component<style::servo::selector_parser::SelectorImpl>, &mut selectors::parser::SelectorIter<style::servo::selector_parser::SelectorImpl>, selectors::matching::matches_compound_selector<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:52:9
+    #260 0x563d6b04caf1 in selectors::matching::matches_compound_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1204:5
+    #261 0x563d6b04fbf2 in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:830:22
+    #262 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #263 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #264 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #265 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #266 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #267 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #268 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #269 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #270 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #271 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #272 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #273 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #274 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #275 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #276 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #277 0x563d6b05441b in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0}::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:913:17
+    #278 0x563d6afd6440 in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_featureless::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:391:22
+    #279 0x563d6b053aac in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:912:21
+    #280 0x563d6afd691f in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::with_visited_handling_mode::<selectors::matching::matches_complex_selector_internal<surimono_dom::select::Guarded>::{closure#0}, selectors::matching::SelectorMatchingResult> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:416:22
+    #281 0x563d6b05049a in selectors::matching::matches_complex_selector_internal::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:911:30
+    #282 0x563d6b0534df in selectors::matching::matches_complex_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:450:5
+    #283 0x563d6b0534df in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded>::{closure#0} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:468:9
+    #284 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any_value::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, <selectors::kleene_value::KleeneValue>::any<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}>::{closure#0}, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:65:21
+    #285 0x563d6b04edb8 in <selectors::kleene_value::KleeneValue>::any::<&selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>, core::slice::iter::Iter<selectors::parser::Selector<style::servo::selector_parser::SelectorImpl>>, selectors::matching::matches_complex_selector_list<surimono_dom::select::Guarded>::{closure#0}> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/kleene_value.rs:44:9
+    #286 0x563d6b04edb8 in selectors::matching::matches_complex_selector_list::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:467:5
+    #287 0x563d6b052fe4 in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded>::{closure#1} /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1320:17
+    #288 0x563d6afd74ef in <selectors::context::MatchingContext<style::servo::selector_parser::SelectorImpl>>::nest::<selectors::matching::matches_simple_selector<surimono_dom::select::Guarded>::{closure#1}, selectors::kleene_value::KleeneValue> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/context.rs:359:22
+    #289 0x563d6b04c28d in selectors::matching::matches_simple_selector::<surimono_dom::select::Guarded> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.32.0/matching.rs:1319:35
+
+SUMMARY: AddressSanitizer: stack-overflow (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f+0xb7ff36) (BuildId: c7d63fd17fb3e56ec2b69f4ab4adfc0a5b1e3855) in __asan_memcpy
+Thread T34 created by T33 here:
+    #0 0x563d6acf3841 in pthread_create (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f+0xb65841) (BuildId: c7d63fd17fb3e56ec2b69f4ab4adfc0a5b1e3855)
+    #1 0x563d6bdb777a in <std::sys::thread::unix::Thread>::new /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/thread/unix.rs:107:19
+    #2 0x563d6ad7bcc8 in std::thread::lifecycle::spawn_unchecked::<hostile::the_worst_selector_allowed_fits_the_stack_headroom::{closure#0}, core::result::Result<bool, surimono_dom::error::DomError>> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/lifecycle.rs:116:26
+    #3 0x563d6ad86bb9 in <std::thread::builder::Builder>::spawn_unchecked::<hostile::the_worst_selector_allowed_fits_the_stack_headroom::{closure#0}, core::result::Result<bool, surimono_dom::error::DomError>> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/builder.rs:261:32
+    #4 0x563d6ad86d8c in <std::thread::builder::Builder>::spawn::<hostile::the_worst_selector_allowed_fits_the_stack_headroom::{closure#0}, core::result::Result<bool, surimono_dom::error::DomError>> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/builder.rs:191:23
+    #5 0x563d6ad40eb6 in hostile::the_worst_selector_allowed_fits_the_stack_headroom::{closure#0} /home/runner/work/surimono/surimono/crates/dom/tests/hostile.rs:738:56
+    #6 0x563d6ae13a0d in test::run_test_in_process::{closure#0} /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:726:74
+    #7 0x563d6ae13a0d in <core::panic::unwind_safe::AssertUnwindSafe<test::run_test_in_process::{closure#0}> as core::ops::function::FnOnce<()>>::call_once /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panic/unwind_safe.rs:272:9
+    #8 0x563d6ae13a0d in std::panicking::catch_unwind::do_call::<core::panic::unwind_safe::AssertUnwindSafe<test::run_test_in_process::{closure#0}>, core::result::Result<(), alloc::string::String>> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:573:43
+    #9 0x563d6ae198c1 in __rust_try.llvm.701963642145732225 test.f03364bd0ac4fbf3-cgu.10
+    #10 0x563d6ada0e3f in std::panic::catch_unwind::<core::panic::unwind_safe::AssertUnwindSafe<test::run_test_in_process::{closure#0}>, core::result::Result<(), alloc::string::String>> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panic.rs:359:14
+    #11 0x563d6ada0e3f in test::run_test_in_process /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:726:27
+    #12 0x563d6addebf2 in test::run_test::{closure#0} /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:646:43
+    #13 0x563d6addebf2 in test::run_test::{closure#1} /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:677:41
+    #14 0x563d6addebf2 in std::sys::backtrace::__rust_begin_short_backtrace::<test::run_test::{closure#1}, ()> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/backtrace.rs:166:18
+    #15 0x563d6ae137e2 in std::thread::lifecycle::spawn_unchecked::<test::run_test::{closure#1}, ()>::{closure#1}::{closure#0} /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/lifecycle.rs:70:13
+    #16 0x563d6ae137e2 in <core::panic::unwind_safe::AssertUnwindSafe<std::thread::lifecycle::spawn_unchecked<test::run_test::{closure#1}, ()>::{closure#1}::{closure#0}> as core::ops::function::FnOnce<()>>::call_once /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/panic/unwind_safe.rs:272:9
+    #17 0x563d6ae137e2 in std::panicking::catch_unwind::do_call::<core::panic::unwind_safe::AssertUnwindSafe<std::thread::lifecycle::spawn_unchecked<test::run_test::{closure#1}, ()>::{closure#1}::{closure#0}>, ()> (.llvm.701963642145732225) /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:573:43
+    #18 0x563d6ae198c1 in __rust_try.llvm.701963642145732225 test.f03364bd0ac4fbf3-cgu.10
+    #19 0x563d6ae14fc5 in std::panic::catch_unwind::<core::panic::unwind_safe::AssertUnwindSafe<std::thread::lifecycle::spawn_unchecked<test::run_test::{closure#1}, ()>::{closure#1}::{closure#0}>, ()> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panic.rs:359:14
+    #20 0x563d6ae14fc5 in std::thread::lifecycle::spawn_unchecked::<test::run_test::{closure#1}, ()>::{closure#1} /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/lifecycle.rs:68:26
+    #21 0x563d6ae14fc5 in <std::thread::lifecycle::spawn_unchecked<test::run_test::{closure#1}, ()>::{closure#1} as core::ops::function::FnOnce<()>>::call_once::{shim:vtable#0} /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+    #22 0x563d6bd10fc1 in <alloc::boxed::Box<dyn core::ops::function::FnOnce<(), Output = ()> + core::marker::Send> as core::ops::function::FnOnce<()>>::call_once /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed.rs:2466:9
+    #23 0x563d6ad0ddf6 in asan_thread_start(void*) asan_interceptors.cpp
+
+Thread T33 created by T0 here:
+    #0 0x563d6acf3841 in pthread_create (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f+0xb65841) (BuildId: c7d63fd17fb3e56ec2b69f4ab4adfc0a5b1e3855)
+    #1 0x563d6bdb777a in <std::sys::thread::unix::Thread>::new /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/thread/unix.rs:107:19
+    #2 0x563d6ae12c2a in std::thread::lifecycle::spawn_unchecked::<test::run_test::{closure#1}, ()> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/lifecycle.rs:116:26
+    #3 0x563d6ae47f32 in <std::thread::builder::Builder>::spawn_unchecked::<test::run_test::{closure#1}, ()> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/builder.rs:261:32
+    #4 0x563d6ae47f32 in <std::thread::builder::Builder>::spawn::<test::run_test::{closure#1}, ()> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/builder.rs:191:23
+    #5 0x563d6ada3258 in test::run_test /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:677:27
+    #6 0x563d6ad99daa in test::run_tests::<test::console::run_tests_console::{closure#2}> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:439:21
+    #7 0x563d6ae4e94b in test::console::run_tests_console /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/console.rs:332:5
+    #8 0x563d6ada04ff in test::test_main_inner /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:152:19
+    #9 0x563d6ada0948 in test::test_main_env_args /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test/src/lib.rs:179:5
+    #10 0x563d6ad452e8 in hostile::main /home/runner/work/surimono/surimono/crates/dom/tests/hostile.rs
+    #11 0x563d6ad96e7a in <fn() -> std::process::ExitCode as core::ops::function::FnOnce<()>>::call_once /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+    #12 0x563d6bda62cf in std::panic::catch_unwind::<&dyn core::ops::function::Fn<(), Output = i32> + core::panic::unwind_safe::RefUnwindSafe + core::marker::Sync, i32> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panic.rs:359:14
+    #13 0x563d6bda62cf in std::rt::lang_start_internal::{closure#0} /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:175:24
+    #14 0x563d6bda62cf in std::panicking::catch_unwind::do_call::<std::rt::lang_start_internal::{closure#0}, isize> (.llvm.1552070694297140167) /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panicking.rs:573:43
+    #15 0x563d6bdb17d1 in __rust_try.llvm.1552070694297140167 std.e8dc80d097f04b94-cgu.12
+    #16 0x563d6bdd0cce in std::panic::catch_unwind::<std::rt::lang_start_internal::{closure#0}, isize> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/panic.rs:359:14
+    #17 0x563d6bdd0cce in std::rt::lang_start_internal /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:171:5
+    #18 0x563d6ad890af in std::rt::lang_start::<std::process::ExitCode> /home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:205:5
+    #19 0x563d6ad61ddd in main (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f+0xbd3ddd) (BuildId: c7d63fd17fb3e56ec2b69f4ab4adfc0a5b1e3855)
+    #20 0x7fa5bd22a28a in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #21 0x563d6ac78a34 in _start (/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f+0xaeaa34) (BuildId: c7d63fd17fb3e56ec2b69f4ab4adfc0a5b1e3855)
+
+==19633==ABORTING
+[1m[91merror[0m: test failed, to rerun pass `-p surimono-dom --test hostile`
+
+Caused by:
+  process didn't exit successfully: `/home/runner/work/surimono/surimono/target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/ad838cc743e9568f/out/hostile-ad838cc743e9568f` (exit status: 1)
+[1m[92mnote[0m: test exited abnormally; to see the full output pass --no-capture to the harness.
+[1m[92m     Running[0m tests/mutation.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/d7d109cf83412f7f/out/mutation-d7d109cf83412f7f)
+
+running 25 tests
+test adopt_node_detaches ... ok
+test a_refused_multi_node_insert_keeps_the_nodes ... ok
+test append_child_moves_a_node_within_and_between_parents ... ok
+test a_failed_insert_leaves_the_tree_alone ... ok
+test byte_count_stays_right_after_remove_attribute_ns ... ok
+test character_data_operations ... ok
+test child_node_mixin ... ok
+test child_node_methods_with_this_among_the_arguments ... ok
+test clone_node ... ok
+test clone_refuses_more_nodes_than_fit ... ok
+test contains_root_and_position ... ok
+test document_fragments_insert_their_children ... ok
+test equal_nodes_compare_an_attributes_namespace_not_its_prefix ... ok
+test id_lookup_follows_the_tree ... ok
+test cloning_a_document_is_a_known_gap ... ok
+test insert_adjacent ... ok
+test insert_before ... ok
+test insertion_errors ... ok
+test namespaces ... ok
+test normalize ... ok
+test parent_node_mixin ... ok
+test replace_and_remove_child ... ok
+test split_text_and_whole_text ... ok
+test the_reference_child_is_checked_before_the_node ... ok
+test normalize_drops_merged_nodes_and_keeps_held_ones ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+[1m[92m     Running[0m tests/natives.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/b655e07e99f228bb/out/natives-b655e07e99f228bb)
+
+running 20 tests
+test a_large_data_url_is_one_token ... ok
+test a_huge_font_family_through_set_property ... ok
+test a_huge_style_through_set_attribute ... ok
+test a_page_with_a_style_attribute_over_the_limits ... ok
+test a_style_attribute_at_the_cap_stays_near_the_limit ... ok
+test a_long_comma_list_on_many_elements ... ok
+test a_long_list_inside_is_on_many_elements ... ok
+test a_long_list_inside_is_tested_on_each_sibling ... ok
+test class_list_with_many_tokens ... ok
+test class_lookup_with_many_names_on_many_classes ... ok
+test class_list_add_and_remove_with_many_arguments ... ok
+test class_lookup_with_many_unique_names ... ok
+test deep_brackets_in_a_style_attribute ... ok
+test a_style_of_repeats_over_the_block ... ok
+test sibling_combinators_across_many_comments ... ok
+test collection_with_many_unique_names ... ok
+test style_overrun_in_release ... ignored, timings, for a release build
+test sibling_combinators_in_a_wide_tree_stay_linear_enough_to_finish ... ok
+test repeated_tests_of_one_elements_children_and_attributes ... ok
+test a_style_of_many_grid_areas ... ok
+
+test result: ok. 19 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 12.47s
+
+[1m[92m     Running[0m tests/nodes.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/17d3a7cb3ca86b75/out/nodes-17d3a7cb3ca86b75)
+
+running 11 tests
+test members_outside_the_table_do_not_exist ... ok
+test comments_keep_their_data_through_the_bindings ... ok
+test attributes ... ok
+test head_body_and_document_properties ... ok
+test prototype_chain_follows_the_idl ... ok
+test node_type_and_names ... ok
+test reflection_and_ids_set_after_parse ... ok
+test tree_navigation ... ok
+test walking_siblings_stays_correct_while_the_tree_changes ... ok
+test the_body_element_is_the_first_body_or_frameset_child_of_html ... ok
+test webidl_argument_conversions ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+[1m[92m     Running[0m tests/observers.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/65e1fee2c59bd5db/out/observers-65e1fee2c59bd5db)
+
+running 26 tests
+test a_parsed_template_keeps_its_content ... ok
+test a_new_documents_records_go_to_its_own_observer ... ok
+test a_throwing_callback_is_reported_and_others_run ... ok
+test attributes_and_old_values ... ok
+test delivered_as_one_microtask_after_the_script ... ok
+test child_list ... ok
+test inserting_a_fragment_tells_the_fragment ... ok
+test input_value_default_on ... ok
+test normalize_queues_its_records_in_tree_order ... ok
+test normalize_without_an_interested_observer_queues_nothing ... ok
+test observe_validates_its_options ... ok
+test old_values_are_only_copied_when_asked_for ... ok
+test normalize_replaces_data_of_a_node_nothing_joins ... ok
+test old_values_count_against_the_text_limit ... ok
+test observers_belong_to_their_document ... ok
+test reflected_attributes ... ok
+test registrations_are_credited_on_replace_and_disconnect ... ok
+test records_are_bounded_when_nothing_yields ... ok
+test subtree_take_records_and_disconnect ... ok
+test registrations_count_against_the_text_limit ... ok
+test template_contents_stay_inside_the_limits ... ok
+test template_serialization_is_content_only ... ok
+test templates_have_content ... ok
+test union_and_sequence_conversions ... ok
+test template_markup_counts_against_the_text_limit ... ok
+test replacing_queues_one_record ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.39s
+
+[1m[92m     Running[0m tests/real_world.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/569e0521bd929f02/out/real_world-569e0521bd929f02)
+
+running 5 tests
+test alpine ... ok
+test d3 ... ok
+test marked ... ok
+test highlight_js ... ok
+test katex ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+
+[1m[92m     Running[0m tests/serialize.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/310bc986e7a38e2e/out/serialize-310bc986e7a38e2e)
+
+running 6 tests
+test colon_names_on_html_elements_are_plain_local_names ... ok
+test attributes_in_xml_xmlns_and_xlink_namespaces_keep_their_prefix ... ok
+test comments_keep_their_data ... ok
+test void_elements_are_only_html_elements ... ok
+test noscript_is_raw_text_with_scripting_enabled ... ok
+test raw_text_is_only_for_html_elements ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+[1m[92m     Running[0m tests/soak.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-dom/749d05701216a6e7/out/soak-749d05701216a6e7)
+
+running 2 tests
+test soak_dom_handles_2000_renders_flat_memory ... ignored, soak: 2,000 DOM renders; run in release with `--ignored soak`
+test handles_300_renders_flat_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 38.95s
+
+[1m[92m     Running[0m unittests src/main.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-example-rust-islands/7f7fd90997e747e3/out/surimono_example_rust_islands-7f7fd90997e747e3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/example.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-example-rust-islands/e3c5ffc197ed605a/out/example-e3c5ffc197ed605a)
+
+running 4 tests
+test a_broken_island_names_itself ... ok
+test writes_to_a_file_when_asked ... ok
+test renders_every_island_and_keeps_the_rest ... ok
+test same_input_same_output_across_processes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/9a6199f9a4a10d17/out/surimono_gfx-9a6199f9a4a10d17)
+
+running 70 tests
+test css_font::tests::family_offset_points_at_the_list ... ok
+test css_font::tests::family_names ... ok
+test css_font::tests::brief_examples ... ok
+test css_font::tests::weights_and_styles ... ok
+test fonts::tests::empty_set_resolves_to_nothing ... ok
+test css_font::tests::chrome_validity_and_sizes ... ok
+test fonts::tests::unknown_generic_target_is_an_error ... ok
+test measure::tests::empty_font_set_is_an_error ... ok
+test fonts::tests::rejects_non_fonts_without_panicking ... ok
+test measure::tests::measurer_is_send_sync_clone ... ok
+test measure::tests::metrics_serialize_with_canvas_names ... ok
+test css_font::tests::hostile_input_never_panics ... ok
+test measure::tests::overlong_font_string_means_canvas_default ... ok
+test measure::tests::rounding_matches_skia ... ok
+test measure::tests::too_long_text_is_an_error ... ok
+test svg::css::tests::allowed_properties ... ok
+test svg::css::tests::css_string_escaping ... ok
+test svg::css::tests::declaration_pairs_and_removal ... ok
+test svg::css::tests::escapes_and_hidden_loads_drop_the_declaration ... ok
+test svg::css::tests::final_check_is_structure_free ... ok
+test svg::css::tests::hostile_css_never_panics ... ok
+test svg::css::tests::inline_images ... ok
+test svg::css::tests::newlines_end_strings_as_in_css ... ok
+test svg::css::tests::deep_nesting_is_an_error_not_a_crash ... ok
+test svg::css::tests::presentation_values ... ok
+test svg::css::tests::unquoted_urls_are_one_token ... ok
+test svg::css::tests::untouched_css_is_unchanged ... ok
+test svg::css::tests::urls_follow_the_url_parser ... ok
+test svg::css::tests::urls_in_declarations ... ok
+test svg::css::tokenizer::tests::comments ... ok
+test svg::css::tokenizer::tests::hostile_input_never_panics ... ok
+test svg::css::tokenizer::tests::names_and_escapes ... ok
+test svg::css::tokenizer::tests::preprocessing ... ok
+test svg::css::tokenizer::tests::strings_end_at_newlines ... ok
+test svg::css::tokenizer::tests::tokens_tile_the_input ... ok
+test svg::css::tokenizer::tests::url_tokens ... ok
+test svg::tests::css_attributes_are_written_as_checked ... ok
+test svg::tests::data_surimono_attributes_go ... ok
+test svg::css::tests::oversized_css_is_dropped ... ok
+test svg::tests::desc_and_title_keep_only_text ... ok
+test svg::tests::drops_prolog_comments_pis_and_cdata ... ok
+test svg::tests::escaping ... ok
+test svg::tests::id_lists_and_echarts_classes_are_prefixed ... ok
+test svg::tests::prefixes_ids_and_references ... ok
+test svg::tests::presentation_attributes_cannot_load ... ok
+test svg::tests::rejects_what_it_cannot_parse ... ok
+test svg::tests::removes_all_animation ... ok
+test svg::tests::removes_html_breakout_elements ... ok
+test svg::tests::root_keeps_only_box_safe_attributes ... ok
+test svg::tests::root_must_be_an_unprefixed_svg ... ok
+test svg::tests::strips_external_references ... ok
+test svg::tests::strips_scripts_handlers_and_script_urls ... ok
+test svg::tests::style_and_foreign_object_go ... ok
+test svg::tests::untouched_svg_is_byte_identical ... ok
+test svg::tests::urls_are_read_as_a_url_parser_reads_them ... ok
+test svg::tests::use_chains_are_cut ... ok
+test svg::text::tests::faces_used_are_recorded ... ok
+test svg::tests::deep_nesting_is_rejected_before_parsing ... ok
+test svg::text::tests::layout_matches_chrome ... ok
+test svg::text::tests::numbers_are_fixed_precision ... ok
+test svg::text::tests::outline_advance_equals_measure ... ok
+test svg::text::tests::output_keeps_structure_paint_and_meaning ... ok
+test svg::text::tests::path_bytes_are_budgeted_inside_the_pen ... ok
+test svg::text::tests::shaped_white_space_counts ... ok
+test svg::text::tests::styles_are_parsed_once_and_texts_are_capped ... ok
+test svg::text::tests::huge_coordinates_draw_nothing_and_numbers_stay_short ... ok
+test tests::version_is_set ... ok
+test measure::tests::large_texts_leave_no_large_buffers_behind ... ok
+test svg::text::tests::too_much_text_is_an_error_not_a_blowup ... ok
+test measure::tests::caches_stay_under_byte_budget_with_hostile_input ... ok
+
+test result: ok. 70 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.24s
+
+[1m[92m     Running[0m tests/fulgur_layout.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/67f91f7ada23754b/out/fulgur_layout-67f91f7ada23754b)
+
+running 2 tests
+test generic_families_find_no_font_in_blitz_without_system_fonts ... ok
+test measured_width_equals_blitz_layout_width ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+[1m[92m     Running[0m tests/fulgur_print.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/7fdbc8859fabe93d/out/fulgur_print-7fdbc8859fabe93d)
+
+running 2 tests
+test outlined_island_text_prints_without_system_fonts ... ok
+test kept_island_text_prints_in_system_fonts_expected_failure ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/measure_text.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/d29d5e9b2f1ad7eb/out/measure_text-d29d5e9b2f1ad7eb)
+
+running 12 tests
+test errors ... ok
+test bad_font_strings_mean_canvas_default ... ok
+test generic_families_follow_the_mapping ... ok
+test deterministic_bits_across_measurers_and_order ... ok
+test font_files_are_returned_unchanged ... ok
+test japanese_falls_back_to_a_registered_cjk_font ... ok
+test matches_chrome_measure_text ... ok
+test measures_identically_from_many_threads ... ok
+test reference_fonts_are_the_ones_chrome_used ... ok
+test whitespace_and_empty_text ... ok
+test hostile_inputs_do_not_panic ... ok
+test timing_short_labels ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+[1m[92m     Running[0m tests/svg.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-gfx/2063dfea6516e15e/out/svg-2063dfea6516e15e)
+
+running 11 tests
+test errors_are_typed ... ok
+test font_shorthand_in_style_attributes ... ok
+test echarts_output_changes_only_ids_fonts_and_style ... ok
+test deterministic_and_unique_per_island ... ok
+test outlining_text_needs_fonts ... ok
+test hostile_svg_is_neutralised ... ok
+test rewritten_families_measure_like_the_original ... ok
+test vega_output_changes_only_fonts ... ok
+test every_id_and_reference_carries_the_island_prefix ... ok
+test real_charts_print_as_outlines ... ok
+test islands_stay_in_their_box ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/b278c25fa90dd91f/out/surimono_islands-b278c25fa90dd91f)
+
+running 31 tests
+test builtins::tests::builtins_are_sorted_and_unique ... ok
+test builtins::tests::echarts_is_built_in ... ok
+test builtins::tests::every_listed_builtin_is_found ... ok
+test builtins::tests::the_constant_list_matches_the_builtins ... ok
+test builtins::tests::vega_and_vega_lite_are_built_in ... ok
+test builtins::tests::the_class_scanner_finds_class_syntax ... ok
+test builtins::tests::bundles_that_detect_classes_by_source_have_no_native_classes ... ok
+test embedded::tests::empty_bytecode_is_refused ... ok
+test embedded::tests::bytecode_for_other_source_is_refused ... ok
+test builtins::tests::precompiled_builtins_counts_every_builtin ... ok
+test embedded::tests::the_switch_is_zero_only ... ok
+test embedded::tests::every_builtin_is_precompiled_for_this_engine ... ok
+test error::tests::wraps_sandbox_errors ... ok
+test embedded::tests::another_engines_bytecode_is_refused ... ok
+test measure::tests::no_fonts_is_its_own_error ... ok
+test measure::tests::estimates_latin_and_cjk ... ok
+test measure::tests::parses_font_sizes ... ok
+test measure::tests::a_worker_measurer_measures_like_the_original ... ok
+test runner::tests::a_job_cancelled_in_the_queue_keeps_the_preload ... ok
+test runner::tests::a_script_cannot_swallow_a_measurer_panic ... ok
+test runner::tests::a_worker_that_dies_after_replying_is_replaced ... ok
+test runner::tests::a_worker_that_dies_holding_a_job_fails_only_that_job ... ok
+test runner::tests::callers_fail_when_workers_die_at_start ... ok
+test runner::tests::measurer_errors_become_type_errors ... ok
+test runner::tests::a_burst_after_a_long_gap_trims_once ... ok
+test runner::tests::measurer_panics_do_not_kill_the_pool ... ok
+test runner::tests::repeated_deaths_do_not_grow_the_pool ... ok
+test tests::version_is_set ... ok
+test runner::tests::waiting_callers_are_served_by_a_replacement ... ok
+test embedded::tests::precompiled_bytecode_is_what_this_engine_writes ... ok
+test runner::tests::builtins_fall_back_to_source_for_another_engine ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.27s
+
+[1m[92m     Running[0m tests/bundles.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/735d45b388ded0ee/out/bundles-735d45b388ded0ee)
+
+running 2 tests
+test every_bundle_ships_its_licences ... ok
+test bundles_match_their_recorded_sha256 ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+[1m[92m     Running[0m tests/cancel.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/c346712ed0fa02a1/out/cancel-c346712ed0fa02a1)
+
+running 7 tests
+test a_finished_render_beats_a_late_flag ... ok
+test a_flag_that_stays_down_changes_nothing ... ok
+test a_raised_flag_stops_before_anything_is_checked ... ok
+test a_queued_render_is_cancelled_without_waiting_for_the_queue ... ok
+test a_job_flag_ends_with_the_job ... ok
+test a_running_script_stops_and_the_pool_carries_on ... ok
+test cancelling_again_and_again_keeps_one_runtime_per_worker ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+[1m[92m     Running[0m tests/echarts.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/aeb8dd243c3cc324/out/echarts-aeb8dd243c3cc324)
+
+running 9 tests
+test bar_chart_is_valid_svg ... ok
+test echarts_is_a_builtin ... ok
+test bad_specs_are_typed_errors ... ok
+test a_preloaded_render_matches_a_cold_one ... ok
+test japanese_labels_survive ... ok
+test timing_echarts ... ignored, timing report; run explicitly in release mode
+test series_cannot_turn_animation_back_on ... ok
+test text_is_measured_by_the_host ... ok
+test every_option_renders_and_is_deterministic ... ok
+
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.60s
+
+[1m[92m     Running[0m tests/fixture_timing.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/f881b0584fd7105e/out/fixture_timing-f881b0584fd7105e)
+
+running 3 tests
+test cold_child ... ignored, helper: run in a child process by timing_cold_processes
+test timing_cold_processes ... ignored, timing report; run explicitly in release mode
+test timing_fixture_islands ... ignored, timing report; run explicitly in release mode
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/fork.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/d7a94cd6dc63a35d/out/fork-d7a94cd6dc63a35d)
+
+running 2 tests
+test fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test forks_never_hang ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 25.74s
+
+[1m[92m     Running[0m tests/hostile.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/5502a36098ae4453/out/hostile-5502a36098ae4453)
+
+running 6 tests
+test hostile_child ... ignored, helper: run in a child process by hostile_suite
+test hostile_child_ends_badly ... ignored, helper: run in a child process by the harness tests
+test known_failures_excuse_only_their_outcome ... ok
+test every_way_a_child_ends_is_judged ... ok
+test a_child_that_ends_badly_after_reporting_fails ... ok
+test hostile_suite ... ok
+
+test result: ok. 4 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 46.34s
+
+[1m[92m     Running[0m tests/memory_report.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/50ab73062289955b/out/memory_report-50ab73062289955b)
+
+running 1 test
+test memory_report ... ignored, memory report; Linux, run explicitly in release mode
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/pool.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/718c723f5b2e3e6d/out/pool-718c723f5b2e3e6d)
+
+running 20 tests
+test an_entry_defined_in_a_microtask_is_refused_at_registration ... ok
+test a_bundle_that_queues_microtasks_is_never_preloaded ... ok
+test an_idle_worker_preloads_the_last_bundle ... ok
+test a_preloaded_bundle_never_leaks_into_another_renderer ... ok
+test idle_workers_are_counted ... ok
+test an_idle_worker_frees_its_runtime ... ok
+test no_state_leaks_across_renderers ... ok
+test many_renders_on_a_small_pool_are_counted ... ok
+test no_state_leaks_between_renders ... ok
+test no_state_leaks_after_errors ... ok
+test heap_is_freed_after_every_render ... ok
+test registration_never_sees_a_preloaded_bundle ... ok
+test preloaded_and_cold_renders_give_the_same_output ... ok
+test replacing_a_bundle_drops_its_preloaded_copy ... ok
+test runtimes_are_kept_without_an_idle_release ... ok
+test stats_count_failures ... ok
+test renders_one_at_a_time_use_one_worker ... ok
+test limit_errors_keep_the_pool_healthy ... ok
+test overlapping_renders_grow_the_pool_up_to_its_size ... ok
+test workers_going_idle_together_trim_once ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.41s
+
+[1m[92m     Running[0m tests/runner.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/9f992482e61707f6/out/runner-9f992482e61707f6)
+
+running 20 tests
+test dropping_the_runner_stops_the_workers ... ok
+test bad_json_is_reported_with_position ... ok
+test async_entries_are_awaited ... ok
+test invalid_options_are_rejected ... ok
+test entry_exceptions_are_sandbox_errors ... ok
+test measure_text_returns_all_canvas_fields ... ok
+test lone_surrogates_become_replacement_characters ... ok
+test non_string_output ... ok
+test pool_size_defaults_to_cpus_up_to_four ... ok
+test measuring_without_fonts_is_a_typed_error ... ok
+test registration_checks_the_bundle ... ok
+test a_measure_text_loop_stops_at_the_time_limit ... ok
+test renders_concurrently_from_many_threads ... ok
+test runner_is_send_and_sync ... ok
+test renders_svg_with_measured_text ... ok
+test unknown_renderer ... ok
+test reregistering_replaces_the_bundle ... ok
+test uses_the_configured_measurer ... ok
+test same_request_same_svg ... ok
+test hostile_renderers_hit_limits_and_the_pool_recovers ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+
+[1m[92m     Running[0m tests/soak.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/8866048aaa926e68/out/soak-8866048aaa926e68)
+
+running 4 tests
+test soak_10000_renders_flat_memory ... ignored, soak: 10,000 renders; run in release with `--ignored soak`
+test soak_echarts_2000_renders_flat_memory ... ignored, soak: 2,000 ECharts renders; run in release with `--ignored soak`
+test soak_idle_release_3000_renders_flat_memory ... ignored, soak: 3,000 renders with idle release; run in release with `--ignored soak`
+test soak_vega_lite_600_renders_flat_memory ... ignored, soak: 600 Vega-Lite renders; run in release with `--ignored soak`
+
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[92m     Running[0m tests/vega.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-islands/34a27f069af891a4/out/vega-34a27f069af891a4)
+
+running 17 tests
+test a_bundle_registered_during_a_builtin_compile_wins ... ok
+test data_urls_are_refused ... ok
+test bad_specs_are_typed_errors ... ok
+test japanese_labels_survive ... ok
+test raster_features_fail_clearly ... ok
+test every_kind_of_load_is_refused_with_its_reason ... ok
+test timing_vega ... ignored, timing report; run explicitly in release mode
+test vega_and_vega_lite_are_builtins ... ok
+test text_is_measured_by_the_host ... ok
+test dense_scatter_has_every_point ... ok
+test vega_and_vega_lite_share_a_compile_and_render_alike ... ok
+test vega_bar_chart ... ok
+test vega_lite_bar_chart ... ok
+test vega_lite_container_size_is_the_island ... ok
+test vega_and_vega_lite_share_a_preload ... ok
+test vega_soaks_up_no_state_between_specs ... ok
+test every_spec_renders_and_is_deterministic ... ok
+
+test result: ok. 16 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 14.02s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-webidl/736226f299c687b4/out/surimono_webidl-736226f299c687b4)
+
+running 19 tests
+test bindgen::tests::legacy_null_and_put_forwards ... ok
+test bindgen::tests::listed_members_only ... ok
+test bindgen::tests::errors_are_typed ... ok
+test codegen::tests::rust_names ... ok
+test lexer::tests::identifiers_strings_comments ... ok
+test lexer::tests::numbers ... ok
+test lexer::tests::positions ... ok
+test lexer::tests::unterminated ... ok
+test codegen::tests::const_values ... ok
+test model::tests::errors_name_the_file ... ok
+test model::tests::merge_order_is_by_file_name_not_input_order ... ok
+test parser::tests::errors_have_positions ... ok
+test parser::tests::interface_with_every_member_kind ... ok
+test parser::tests::nesting_up_to_the_cap_parses ... ok
+test parser::tests::other_definitions ... ok
+test tests::version_is_set ... ok
+test parser::tests::deep_nesting_is_an_error_not_a_crash ... ok
+test bindgen::tests::vendored_table_generates ... ok
+test codegen::tests::errors ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+[1m[92m     Running[0m tests/codegen.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-webidl/bfad54842d32d73b/out/codegen-bfad54842d32d73b)
+
+running 5 tests
+test interface_table_matches_the_list ... ok
+test stubs_are_implementable_one_member_at_a_time ... ok
+test mini_golden_is_current ... ok
+test checked_in_stubs_are_current ... ok
+test generation_is_deterministic ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+[1m[92m     Running[0m tests/stack.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-webidl/5e66579033d563b8/out/stack-5e66579033d563b8)
+
+running 2 tests
+test deepest_accepted_idl_round_trips_and_generates_on_a_256_kib_stack ... ok
+test hostile_nesting_is_an_error_on_a_256_kib_stack ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+[1m[92m     Running[0m tests/vendored.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-webidl/2b68b15a40ea9ef0/out/vendored-2b68b15a40ea9ef0)
+
+running 9 tests
+test file_list_matches_the_idl_directory ... ok
+test no_name_is_defined_twice ... ok
+test sha256_matches_known_vectors ... ok
+test sources_md_names_the_pinned_commit_and_every_file ... ok
+test parse_order_does_not_matter ... ok
+test every_vendored_file_parses ... ok
+test printing_and_reparsing_gives_the_same_tree ... ok
+test vendored_files_match_the_checksums_in_sources_md ... ok
+test truncated_and_garbled_input_is_an_error_not_a_panic ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.07s
+
+[1m[91merror[0m: 1 target failed:
+    `-p surimono-dom --test hostile`
+
+==> core: out-of-memory full sweep (ignored test)
+[1m[33mwarning[0m[1m: unused workspace dependency `surimono-dom`[0m
+  [1m[94m--> [0mCargo.toml:49:1
+   [1m[94m|[0m
+[1m[94m49[0m [1m[94m|[0m surimono-dom = { path = "crates/dom", version = "0.1.0" }
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_dependencies` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the workspace dependency `surimono-dom`
+[1m[33mwarning[0m[1m: unused field `description` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:34:1
+   [1m[94m|[0m
+[1m[94m34[0m [1m[94m|[0m description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_package_fields` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the field `workspace.package.description`
+[1m[33mwarning[0m: workspace (manifest) generated 2 warnings
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/core/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-core` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/gfx/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-gfx` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/surimono/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/islands/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-islands` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/cli/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-cli` (manifest) generated 1 warning
+[1m[92m   Compiling[0m syn v3.0.9
+[1m[92m   Compiling[0m thiserror-impl v2.0.21
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 9.49s
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/f679c84557927f38/out/surimono_core-f679c84557927f38)
+
+running 1 test
+test sandbox::tests::out_of_memory_full_sweep has been running for over 60 seconds
+test sandbox::tests::out_of_memory_full_sweep ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 115 filtered out; finished in 717.26s
+
