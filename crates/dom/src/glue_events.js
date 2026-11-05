@@ -379,17 +379,6 @@
 
   // DOM §4.5 createEvent: the legacy names, compared as ASCII lowercase.
   const eventNames = create(null);
-  for (const [name, id] of [
-    ['beforeunloadevent', I_BeforeUnloadEvent], ['compositionevent', I_CompositionEvent],
-    ['customevent', I_CustomEvent], ['devicemotionevent', I_DeviceMotionEvent],
-    ['deviceorientationevent', I_DeviceOrientationEvent], ['dragevent', I_DragEvent],
-    ['event', I_Event], ['events', I_Event], ['focusevent', I_FocusEvent],
-    ['hashchangeevent', I_HashChangeEvent], ['htmlevents', I_Event],
-    ['keyboardevent', I_KeyboardEvent], ['messageevent', I_MessageEvent],
-    ['mouseevent', I_MouseEvent], ['mouseevents', I_MouseEvent], ['storageevent', I_StorageEvent],
-    ['svgevents', I_Event], ['textevent', I_TextEvent], ['touchevent', I_TouchEvent],
-    ['uievent', I_UIEvent], ['uievents', I_UIEvent],
-  ]) eventNames[name] = id;
   H.Document_createEvent = (doc, name) => {
     const id = eventNames[asciiLower(name)];
     if (id === undefined) throwDom('NotSupportedError', 'createEvent: unknown interface');
