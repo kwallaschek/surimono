@@ -416,6 +416,9 @@ pub struct Document {
     pub(crate) deadline: Option<Deadline>,
     /// What layout queries do, set for each native call.
     pub(crate) layout: LayoutPolicy,
+    /// The body or frameset element whose `on*` attribute was written last:
+    /// its attributes are the window's. A handle, so its node stays.
+    pub(crate) handler_source: Option<Handle>,
     /// Steps since the last look at the clock (see [`Document::poll`]).
     ticks: Cell<u32>,
     /// Entries of child lists passed by changes (see [`Document::list_steps`]).
@@ -501,6 +504,7 @@ impl Document {
             fault: None,
             deadline: None,
             layout: LayoutPolicy::default(),
+            handler_source: None,
             ticks: Cell::new(0),
             list_steps: 0,
         };
@@ -688,6 +692,8 @@ impl Document {
     pub(crate) fn adopt_subtree(&mut self, top: usize, doc: usize) {
         if self.owner_of_node(top) != doc {
             self.own_subtree(top, doc);
+            // What a live list answers depends on the document's type.
+            self.version += 1;
         }
     }
 
@@ -743,13 +749,13 @@ impl Document {
         r
     }
 
-    /// Whether the document's URL is `url`. See [`Document::set_url`].
+    /// Document `doc`'s URL. See [`Document::set_url`].
     pub(crate) fn url(&self, doc: usize) -> &str {
         &self.info(doc).url
     }
 
-    /// Sets the URL of the page's document (`document.URL`), which the
-    /// documents it makes through `DOMParser` take on. `about:blank` until set.
+    /// Sets the URL of the page's document (`document.URL`). `about:blank`
+    /// until set. `pub` for the runner and the facade; the crate is unpublished.
     pub fn set_url(&mut self, url: &str) {
         let root = self.root();
         if let Some(d) = self.docs.get_mut(&root) {
@@ -1614,6 +1620,13 @@ impl Document {
         name: QualName,
         value: &str,
     ) -> Result<(), DomError> {
+        if name.local.as_ref().starts_with("on")
+            && self.element_name(id).is_some_and(|n| {
+                n.ns == ns!(html) && matches!(n.local.as_ref(), "body" | "frameset")
+            })
+        {
+            self.handler_source = Some(self.handle_for(id)?);
+        }
         // Any namespace: blitz-dom goes by the local name.
         if name.local.as_ref() == "style" && !style_attr::fits(value) {
             return Err(style_attr::limit_error());
@@ -1660,8 +1673,8 @@ impl Document {
     }
 
     /// Puts the free `Attr` `handle` on `element` under `name`, with `value`,
-    /// which it held: in the place of the attribute `old`, whose object keeps
-    /// the old value.
+    /// which it held: DOM §4.9 "replace an attribute" if there is one, `old`,
+    /// whose object keeps the old value, and this one has its place.
     pub(crate) fn attach_attr(
         &mut self,
         handle: Handle,
@@ -1675,9 +1688,19 @@ impl Document {
             self.keep_attr_value(element, &target);
         }
         self.write_attribute(element, target.clone(), &value)?;
+        if target != name {
+            // Same namespace and local name, so only the prefix differs: blitz-dom
+            // has seen what it goes by, and the entry keeps its place.
+            self.recharge(name_cost(&target), name_cost(&name))?;
+            if let Some(e) = self.element_mut(element) {
+                if let Some(a) = e.attrs.iter_mut().find(|a| a.name == target) {
+                    a.name = name.clone();
+                }
+            }
+        }
         self.credit(value.len());
         self.retained_bytes -= value.len();
-        self.owned.insert((element, Owned::Attr(target)), handle);
+        self.owned.insert((element, Owned::Attr(name)), handle);
         if let Some(Object::Attr(e, _, kept)) = self.object_mut(handle) {
             *e = element;
             *kept = None;

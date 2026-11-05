@@ -93,10 +93,15 @@ class VendorTests(unittest.TestCase):
     def test_report_hook_is_never_vendored_however_it_is_named(self):
         self.assertEqual(vendor.dependencies("dom/nodes/a.html", '<script src="../../resources/testharnessreport.js"></script>'), [])
 
-    def test_xht_is_a_test(self):
+    def test_xht_and_xml_are_tests(self):
         self.add("dom/nodes/a.xht", TESTHARNESS)
+        self.add("dom/nodes/b.xml", TESTHARNESS)
+        self.add("dom/nodes/c-iframe.xml", "<x/>")
         vendor.vendor(self.src, self.out, slices(self.commit))
-        self.assertIn("dom/nodes/a.xht", [t["file"] for t in self.manifest()["test"]])
+        files = [t["file"] for t in self.manifest()["test"]]
+        self.assertIn("dom/nodes/a.xht", files)
+        self.assertIn("dom/nodes/b.xml", files)
+        self.assertNotIn("dom/nodes/c-iframe.xml", files)
 
     def test_ids_of_generated_tests_and_variants(self):
         self.assertEqual(vendor.urls("a/b.any.js", ""), ["a/b.any.html"])

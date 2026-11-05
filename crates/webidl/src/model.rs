@@ -116,7 +116,7 @@ impl IdlSet {
         &self.files
     }
 
-    fn definitions(&self) -> impl Iterator<Item = (&str, &Definition)> {
+    pub(crate) fn definitions(&self) -> impl Iterator<Item = (&str, &Definition)> {
         self.files
             .iter()
             .flat_map(|(f, defs)| defs.iter().map(move |d| (f.as_str(), d)))
