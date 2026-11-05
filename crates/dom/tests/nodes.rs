@@ -106,9 +106,9 @@ fn prototype_chain_follows_the_idl() {
     );
     assert_eq!(
         r,
-        "HTMLElement>Element>Node>EventTarget>Object|\
+        "HTMLDivElement>HTMLElement>Element>Node>EventTarget>Object|\
          Text>CharacterData>Node>EventTarget>Object|\
-         Document>Node>EventTarget>Object|true|[object HTMLElement]|false|false"
+         Document>Node>EventTarget>Object|true|[object HTMLDivElement]|false|false"
     );
 }
 
@@ -320,9 +320,10 @@ fn every_element_has_its_interface() {
         [document.createElement('video') instanceof HTMLMediaElement,
          Object.getPrototypeOf(HTMLDivElement) === HTMLElement, threw,
          document.createElementNS('http://www.w3.org/1999/xhtml', 'DIV') instanceof HTMLUnknownElement,
-         document.body instanceof HTMLBodyElement].join('|')"#,
+         document.body instanceof HTMLBodyElement, HTMLDocument === Document,
+         Object.getOwnPropertyDescriptor(window, 'HTMLDocument').enumerable].join('|')"#,
     );
-    assert_eq!(r, "true|true|TypeError|true|true");
+    assert_eq!(r, "true|true|TypeError|true|true|true|false");
 }
 
 #[test]
