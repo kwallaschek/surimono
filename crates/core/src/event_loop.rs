@@ -106,23 +106,49 @@
 //!   or disguise one. Handling the promise is like catching the error, and
 //!   stops it the same way;
 //! - any other reason is counted ([`SettleReport::unhandled_rejections`]),
-//!   and the loop goes on. This is where the DOM can fire
-//!   `unhandledrejection`. The first few are read and kept
+//!   and the loop goes on. The first few are read and kept
 //!   ([`SettleReport::rejections`]); past those, nothing reads a reason's
 //!   properties, so none of its getters run.
+//!
+//! That is the whole story for a sandbox with no hook. With one
+//! ([`LoopBridge::set_rejection_hook`], how the DOM fires
+//! `unhandledrejection`), the second case follows "notify about rejected
+//! promises" to the letter: the checkpoint queues a task, an ordinary one
+//! behind whatever is already queued for this time, and the promises it took
+//! stay on the list until that task runs, so a handler added before then (by
+//! the next `<script>`, or a timer already due) still takes one off. The task
+//! calls the hook with `(promise, reason)` for each promise left, and counts
+//! it only if the hook returns true. A limit error doesn't wait for the task
+//! and no script ever sees one: it ends the call at the checkpoint, as above.
+//!
+//! Each checkpoint that took promises queues its own task, for those promises
+//! only. These tasks count towards [`SettleOptions::max_tasks`]. If the call
+//! stops with one still queued, the promises it holds are counted with no
+//! call to the hook, so the report loses none; `max_tasks: 0` asks for a
+//! checkpoint and no more, so it leaves them for a later call.
 //!
 //! The checkpoint is the event loop's alone: a call such as
 //! [`Sandbox::eval`](crate::Sandbox) runs microtasks but reports no
 //! rejection, so it counts as one task with the next
 //! [`Sandbox::run_until_settled`](crate::Sandbox), up to that call's first
-//! drain. A handler added after the checkpoint changes nothing, and
-//! `rejectionhandled` is not tracked.
+//! drain. A handler added once a promise has been counted changes nothing,
+//! and `rejectionhandled` is not tracked.
 //!
 //! The list holds the promise and its reason as persistent references, the
-//! only JavaScript values Rust holds besides the dispatcher, and only until
-//! the checkpoint. The sandbox empties it before the runtime goes. Its entries
-//! are outside the JavaScript heap, so they are capped like timers
+//! only JavaScript values Rust holds besides the dispatcher and the hook, and
+//! only until its task. The sandbox empties it before the runtime goes. Its
+//! entries are outside the JavaScript heap, so they are capped like timers
 //! ([`MAX_PENDING_REJECTIONS`]).
+//!
+//! # A checkpoint from a native
+//!
+//! HTML's "clean up after running script" performs a microtask checkpoint
+//! each time the JavaScript stack empties, and that is what puts one between
+//! the listeners of an event the browser fires. The DOM runs those listeners
+//! from one piece of glue, so it asks for that checkpoint with
+//! [`LoopBridge::checkpoint`]. Only the caller knows that no script of the
+//! page is on the stack: a checkpoint under a running script would run
+//! microtasks in the middle of it.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -131,7 +157,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use rquickjs::runtime::RejectionTracker;
-use rquickjs::{Ctx, Exception, Function, Object, Persistent, Value};
+use rquickjs::{Ctx, Exception, Function, JsLifetime, Object, Persistent, Value};
 
 use crate::SandboxError;
 use crate::engine::{self, LimitState};
@@ -170,10 +196,11 @@ pub struct SettleOptions {
     /// Timers due later than this many virtual milliseconds after the start
     /// of the context don't run; one due exactly then does.
     pub virtual_budget_ms: u64,
-    /// Most tasks (timer and animation-frame callbacks) to run in the life
-    /// of the context. The limit is checked between frames, so the rest of
-    /// a frame already started can pass it. Microtasks don't count; the time
-    /// limit stops those.
+    /// Most tasks (timer and animation-frame callbacks, and the tasks that
+    /// announce rejected promises) to run in the life of the context. The
+    /// limit is checked between frames, so the rest of a frame already
+    /// started can pass it. Microtasks don't count; the time limit stops
+    /// those.
     pub max_tasks: u64,
 }
 
@@ -311,6 +338,9 @@ enum Kind {
     Timeout = 0,
     Interval = 1,
     Frame = 2,
+    /// Not a timer and never from a script: the task "notify about rejected
+    /// promises" queues. It has no live id.
+    Rejections = 3,
 }
 
 impl Kind {
@@ -345,6 +375,9 @@ struct Task {
     timeout: u32,
     /// The task's timer nesting level.
     nesting: u32,
+    /// For [`Kind::Rejections`]: it announces the promises with a sequence
+    /// number below this.
+    rejections_before: u64,
 }
 
 /// A live id: set and not cleared, or running right now.
@@ -385,19 +418,27 @@ pub(crate) struct LoopState {
     rejections: Vec<SandboxError>,
     /// A limit error found in a callback's report: the call must end.
     fatal: Option<SandboxError>,
+    /// Tasks of [`Kind::Rejections`] in the queue.
+    rejection_tasks: usize,
+    /// A native's checkpoint is running: HTML's "performing a microtask
+    /// checkpoint" flag, for the only checkpoints that can nest.
+    in_native_checkpoint: bool,
 }
 
 pub(crate) type Shared = Rc<RefCell<LoopState>>;
 
 /// One rejected promise waiting for a handler.
 struct PendingRejection {
-    /// Never read: it keeps the promise alive, so its address stays its own.
-    _promise: Persistent<Value<'static>>,
+    /// Holding it also keeps its address its own.
+    promise: Persistent<Value<'static>>,
     reason: Persistent<Value<'static>>,
     address: usize,
+    /// The limit error the reason is, if it is one.
+    limit: Option<SandboxError>,
 }
 
-/// HTML's "about-to-be-notified rejected promises list".
+/// HTML's "about-to-be-notified rejected promises list", and the promises
+/// queued tasks are still to look at.
 #[derive(Default)]
 pub(crate) struct Rejections {
     /// By the order they rejected: addresses can't decide anything a page
@@ -407,6 +448,13 @@ pub(crate) struct Rejections {
     /// order and a script can have many rejections waiting.
     by_address: HashMap<usize, u64>,
     next_seq: u64,
+    /// Entries below this have a task queued; the rest wait for a checkpoint.
+    queued_before: u64,
+    /// Called for each promise a task finds still unhandled; see the module
+    /// docs. Returns whether to count it.
+    hook: Option<Persistent<Function<'static>>>,
+    /// The runtime is going: nothing may take a reference from here on.
+    closed: bool,
 }
 
 pub(crate) type SharedRejections = Rc<RefCell<Rejections>>;
@@ -425,10 +473,17 @@ impl Rejections {
         self.pending.remove(&seq)
     }
 
-    fn pop_first(&mut self) -> Option<PendingRejection> {
-        let (_, entry) = self.pending.pop_first()?;
+    /// The first entry below sequence number `end`.
+    fn pop_before(&mut self, end: u64) -> Option<PendingRejection> {
+        let entry = self.pending.first_entry().filter(|e| *e.key() < end)?;
+        let entry = entry.remove();
         self.by_address.remove(&entry.address);
         Some(entry)
+    }
+
+    /// Whether a checkpoint has anything to look at.
+    fn has_new(&self) -> bool {
+        self.pending.range(self.queued_before..).next().is_some()
     }
 
     /// Lets go of every reference, which must happen before the runtime
@@ -436,6 +491,8 @@ impl Rejections {
     pub(crate) fn clear(&mut self) {
         self.pending.clear();
         self.by_address.clear();
+        self.hook = None;
+        self.closed = true;
     }
 }
 
@@ -453,7 +510,7 @@ impl LoopState {
         let (due, class) = match kind {
             // Strictly later: one set during a frame waits for the next.
             Kind::Frame => ((self.now / FRAME_MS + 1) * FRAME_MS, CLASS_FRAME),
-            Kind::Timeout | Kind::Interval => {
+            Kind::Timeout | Kind::Interval | Kind::Rejections => {
                 let wait = if nesting > CLAMP_NESTING {
                     timeout.max(CLAMP_MS)
                 } else {
@@ -471,6 +528,7 @@ impl LoopState {
                 kind,
                 timeout,
                 nesting: nesting.saturating_add(1),
+                rejections_before: 0,
             },
         );
         self.live.insert(
@@ -480,6 +538,32 @@ impl LoopState {
                 frame: kind == Kind::Frame,
             },
         );
+    }
+
+    /// "Queue a global task" in "notify about rejected promises": a task due
+    /// now, behind everything already queued for now. Each needs a checkpoint
+    /// with a new rejection, so tasks and calls bound them as timers bound
+    /// themselves.
+    fn queue_rejections(&mut self, before: u64) {
+        let key = (self.now, CLASS_TIMER, self.next_seq);
+        self.next_seq += 1;
+        self.rejection_tasks += 1;
+        self.queue.insert(
+            key,
+            Task {
+                id: 0,
+                kind: Kind::Rejections,
+                timeout: 0,
+                nesting: 0,
+                rejections_before: before,
+            },
+        );
+    }
+
+    /// Drops the queued [`Kind::Rejections`] tasks.
+    fn drop_rejection_tasks(&mut self) {
+        self.queue.retain(|_, task| task.kind != Kind::Rejections);
+        self.rejection_tasks = 0;
     }
 
     /// `setTimeout` and friends. `None` when out of ids or over the cap.
@@ -543,6 +627,10 @@ impl LoopState {
                 0
             }
             Kind::Timeout | Kind::Interval => task.nesting,
+            Kind::Rejections => {
+                self.rejection_tasks -= 1;
+                0
+            }
         };
         Step::Run(task, due)
     }
@@ -706,7 +794,8 @@ pub(crate) fn rejection_tracker(
             return;
         }
         list.add(PendingRejection {
-            _promise: Persistent::save(&ctx, promise),
+            limit: engine::limit_error(&reason),
+            promise: Persistent::save(&ctx, promise),
             reason: Persistent::save(&ctx, reason),
             address,
         });
@@ -714,17 +803,42 @@ pub(crate) fn rejection_tracker(
 }
 
 /// HTML's "notify about rejected promises", at the end of a microtask
-/// checkpoint. Reading a hostile reason can run its getters, so no entry is
-/// taken before the last one is done with: a getter may still handle one.
-///
-/// Returns `Ok` with entries left if a limit stops it: the caller's next
-/// [`drain_jobs`] gives the typed error, and the rebuild that follows drops
-/// the rest.
+/// checkpoint. Without a hook it decides here, with [`count_now`]; with one,
+/// [`announce`] does, in the task queued here. Either way a limit error ends
+/// the call now, and through no script.
 fn notify_rejections<'js>(
     ctx: &Ctx<'js>,
     limit: &LimitState,
     shared: &Shared,
     rejections: &SharedRejections,
+) -> Result<(), SandboxError> {
+    let mut list = rejections.borrow_mut();
+    if list.hook.is_none() {
+        drop(list);
+        return count_now(ctx, limit, shared, rejections, u64::MAX);
+    }
+    let new = list.pending.range(list.queued_before..);
+    if let Some(error) = new.filter_map(|(_, entry)| entry.limit.clone()).next() {
+        return Err(error);
+    }
+    list.queued_before = list.next_seq;
+    shared.borrow_mut().queue_rejections(list.next_seq);
+    Ok(())
+}
+
+/// Counts the entries below `end`, in order, with no hook. Reading a hostile
+/// reason can run its getters, so no entry is taken before the last one is
+/// done with: a getter may still handle one.
+///
+/// Returns `Ok` with entries left if a limit stops it: the caller's next
+/// [`drain_jobs`] gives the typed error, and the rebuild that follows drops
+/// the rest.
+fn count_now<'js>(
+    ctx: &Ctx<'js>,
+    limit: &LimitState,
+    shared: &Shared,
+    rejections: &SharedRejections,
+    end: u64,
 ) -> Result<(), SandboxError> {
     loop {
         // Checked before every entry, like every job in `drain_jobs`: a reason
@@ -734,32 +848,84 @@ fn notify_rejections<'js>(
             return Ok(());
         }
         // Bound first, so the borrow ends before any script can run.
-        let next = rejections.borrow_mut().pop_first();
+        let next = rejections.borrow_mut().pop_before(end);
         let Some(entry) = next else {
             return Ok(());
         };
-        let reason = entry
-            .reason
-            .restore(ctx)
-            .map_err(|e| SandboxError::Engine {
-                message: e.to_string(),
-            })?;
-        // A reason nobody keeps isn't read: that bounds the copying per
-        // checkpoint, and no getter runs for nothing. The mark needs no read.
-        if shared.borrow().rejections.len() >= MAX_KEPT_ERRORS {
-            if let Some(error) = engine::limit_error(&reason) {
-                return Err(error);
-            }
-            shared.borrow_mut().unhandled_rejections += 1;
-            continue;
+        count_rejection(ctx, shared, restore(ctx, entry.reason)?)?;
+    }
+}
+
+/// The task "notify about rejected promises" queues: the hook gets each
+/// promise below `end` that no handler took off the list by now, and a true
+/// answer counts it. Bound by the same checks as [`count_now`].
+fn announce<'js>(
+    ctx: &Ctx<'js>,
+    limit: &LimitState,
+    shared: &Shared,
+    rejections: &SharedRejections,
+    end: u64,
+) -> Result<(), SandboxError> {
+    let hook = rejections.borrow().hook.clone();
+    let Some(hook) = hook else {
+        return count_now(ctx, limit, shared, rejections, end);
+    };
+    let hook = restore(ctx, hook)?;
+    loop {
+        if limit.should_interrupt() {
+            return Ok(());
         }
-        let error = exception_error(reason);
-        let _ = ctx.catch();
-        if error.is_limit() {
+        let next = rejections.borrow_mut().pop_before(end);
+        let Some(entry) = next else {
+            return Ok(());
+        };
+        let reason = restore(ctx, entry.reason)?;
+        let args = (restore(ctx, entry.promise)?, reason.clone());
+        let count = match hook.call::<_, bool>(args) {
+            Ok(count) => count,
+            Err(e) => {
+                survive(ctx, limit, shared, e)?;
+                true
+            }
+        };
+        if count {
+            count_rejection(ctx, shared, reason)?;
+        }
+    }
+}
+
+/// A persistent reference back as a value.
+fn restore<'js, T>(ctx: &Ctx<'js>, saved: Persistent<T>) -> Result<T::Changed<'js>, SandboxError>
+where
+    T: JsLifetime<'static>,
+{
+    saved.restore(ctx).map_err(|e| SandboxError::Engine {
+        message: e.to_string(),
+    })
+}
+
+/// Records one promise nothing handled. A reason nobody keeps isn't read:
+/// that bounds the copying per checkpoint, and no getter runs for nothing.
+/// The mark needs no read.
+fn count_rejection<'js>(
+    ctx: &Ctx<'js>,
+    shared: &Shared,
+    reason: Value<'js>,
+) -> Result<(), SandboxError> {
+    if shared.borrow().rejections.len() >= MAX_KEPT_ERRORS {
+        if let Some(error) = engine::limit_error(&reason) {
             return Err(error);
         }
-        shared.borrow_mut().note_rejection(error);
+        shared.borrow_mut().unhandled_rejections += 1;
+        return Ok(());
     }
+    let error = exception_error(reason);
+    let _ = ctx.catch();
+    if error.is_limit() {
+        return Err(error);
+    }
+    shared.borrow_mut().note_rejection(error);
+    Ok(())
 }
 
 /// A microtask checkpoint: drains the microtasks, then reports the promises
@@ -779,7 +945,7 @@ fn drain<'js>(
         if let Some(fatal) = shared.borrow_mut().fatal.take() {
             return Err(fatal);
         }
-        if rejections.borrow().pending.is_empty() {
+        if !rejections.borrow().has_new() {
             return Ok(());
         }
         notify_rejections(ctx, limit, shared, rejections)?;
@@ -808,6 +974,56 @@ fn survive<'js>(
     }
 }
 
+/// Not public API: what `surimono-dom` needs from the event loop of the
+/// context it installs into, from [`Sandbox::loop_bridge`](crate::Sandbox).
+/// Good for that context only: past its end both methods do nothing, so take
+/// a new one for each context.
+#[doc(hidden)]
+pub struct LoopBridge {
+    pub(crate) shared: Shared,
+    pub(crate) rejections: SharedRejections,
+    pub(crate) limit: Arc<LimitState>,
+}
+
+impl std::fmt::Debug for LoopBridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoopBridge").finish_non_exhaustive()
+    }
+}
+
+impl LoopBridge {
+    /// Registers `hook` as the function a task calls with `(promise, reason)`
+    /// for each promise left rejected with no handler; see the module docs.
+    /// It returns whether to count the promise. It is called with no script
+    /// on the stack, and never with a limit error.
+    pub fn set_rejection_hook<'js>(&self, ctx: &Ctx<'js>, hook: Function<'js>) {
+        let mut list = self.rejections.borrow_mut();
+        if !list.closed {
+            list.hook = Some(Persistent::save(ctx, hook));
+        }
+    }
+
+    /// A microtask checkpoint from inside a native: the microtasks, then the
+    /// rejected promises, as between two tasks. For a native called with no
+    /// script of the page on the stack; see the module docs. Does nothing
+    /// inside another such checkpoint.
+    ///
+    /// An exception escaping a microtask is reported as usual. An error here
+    /// is the end of the call (a limit, or a cancel): the native must stop
+    /// the script, and the call must end with that error.
+    pub fn checkpoint<'js>(&self, ctx: &Ctx<'js>) -> Result<(), SandboxError> {
+        if self.rejections.borrow().closed {
+            return Ok(());
+        }
+        if std::mem::replace(&mut self.shared.borrow_mut().in_native_checkpoint, true) {
+            return Ok(());
+        }
+        let result = drain(ctx, &self.limit, &self.shared, &self.rejections);
+        self.shared.borrow_mut().in_native_checkpoint = false;
+        result
+    }
+}
+
 /// The loop itself; see the module docs. `fire` is the prelude's dispatcher.
 pub(crate) fn run<'js>(
     ctx: &Ctx<'js>,
@@ -822,13 +1038,27 @@ pub(crate) fn run<'js>(
         let step = shared.borrow_mut().step(options);
         let (task, due) = match step {
             Step::Run(task, due) => (task, due),
-            Step::Stop(outcome) => return Ok(shared.borrow_mut().report(outcome)),
+            Step::Stop(outcome) => {
+                // `max_tasks: 0` is a checkpoint, with the tasks still to run.
+                if options.max_tasks == 0 || shared.borrow().rejection_tasks == 0 {
+                    return Ok(shared.borrow_mut().report(outcome));
+                }
+                shared.borrow_mut().drop_rejection_tasks();
+                let end = rejections.borrow().queued_before;
+                count_now(ctx, limit, shared, rejections, end)?;
+                // A reason's getters may have left work, as in `drain`.
+                continue;
+            }
         };
         // The borrow has ended: the callback calls the natives. The clock
         // fits a JavaScript number: `validate` bounds the budget.
-        let frame = task.kind == Kind::Frame;
-        if let Err(e) = fire.call::<_, ()>((task.id, due as f64, frame)) {
-            survive(ctx, limit, shared, e)?;
+        if task.kind == Kind::Rejections {
+            announce(ctx, limit, shared, rejections, task.rejections_before)?;
+        } else {
+            let frame = task.kind == Kind::Frame;
+            if let Err(e) = fire.call::<_, ()>((task.id, due as f64, frame)) {
+                survive(ctx, limit, shared, e)?;
+            }
         }
         drain(ctx, limit, shared, rejections)?;
         shared.borrow_mut().finish(task);
