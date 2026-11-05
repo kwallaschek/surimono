@@ -58,6 +58,7 @@ const JS_INTERFACES: &[&str] = &[
     "DOMRectReadOnly",
     "DOMRect",
     "DOMRectList",
+    "DOMParser",
 ];
 
 /// Operations for the glue that aren't IDL members: the name its `OP_<name>`
@@ -74,6 +75,10 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("recordsPending", "h.records_pending()"),
     ("layoutQuery", "h.layout_query(a.string(0)?)"),
     ("computedStyle", "h.computed_style(this)"),
+    (
+        "parseFromString",
+        "h.parse_from_string(a.string(0)?, a.boolean(1)?)",
+    ),
 ];
 
 /// A member name that isn't in the IDL. CSSOM defines
@@ -1642,6 +1647,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "HTMLUnknownElement",
         members: &[],
+    },
+    BindInterface {
+        name: "DOMParser",
+        members: &["constructor", "parseFromString"],
     },
     // Layout queries, in `glue_layout.js`.
     BindInterface {
