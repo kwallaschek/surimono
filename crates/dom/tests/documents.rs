@@ -1078,6 +1078,7 @@ fn hostile_xml_ends_at_the_time_limit() {
                     | DomError::NodeLimit { .. }
                     | DomError::TextLimit { .. }
                     | DomError::HandleLimit { .. }
+                    | DomError::AttributeLimit { .. }
             ),
             "{e:?}"
         );

@@ -358,8 +358,8 @@ one reaches `n.limit`, which records the error and raises the sandbox's cancel
 flag, the only stop crates/dom can reach. The watchdog sees it within about 5 ms;
 until the call returns natives refuse to work, and `finish_call` turns the
 `Cancelled` back into the limit, or resets the sandbox if the call ended first.
-The flag is private to `DomRuntime`: nothing else can cancel a `DomRuntime`'s
-sandbox. A sticky stop in core, as for a panic, would remove that wait.
+`DomRuntime::cancel_flag` hands the same flag to the caller, for a cancel from
+outside: no fault is recorded then, so the call is `Cancelled`. A sticky stop in core, as for a panic, would remove that wait.
 
 **Event handlers** (HTML §8.1.7): `handlers(id, names)` in `bindings.js` comes
 from the IDL's `EventHandler` attributes, for HTMLElement, Document and Window.
@@ -499,6 +499,20 @@ ends; wrappers have no weak references yet.
 blitz-dom's insertion is only used for parentless nodes (`Document::place`): given
 a node that already has a parent, it scans the old parent's list by node id after
 adding to the new one, so a move within one parent would delete the node.
+
+**Parsing outside a script.** `Document::parse` runs before any script and no
+sandbox limit covers it. html5ever compares each attribute with the tag's others,
+so one tag costs quadratic time in its length, in calls of its own: 60,000 attributes
+in 420 KB took 13.8 s. `Document::parse_stoppable` takes a stop check for that, and
+the caller's cancel and deadline belong in it. The feed asks between chunks, of
+256 bytes while no node appears, so the wait is one small feed. `max_attributes`
+(4,096, the printing pass's cap) is a typed `AttributeLimit`, on the parser, on
+scripts and in XML; html5ever only shows a tag at its end, so the cap alone doesn't
+bound a hostile tag's time. `<html>` and `<body>` merge repeated tags' attributes,
+and those count together.
+
+`Document::to_html_bounded` is `to_html` with a byte cap and a stop check, looked at
+per node and every 64 KiB of a string.
 
 ## Measured
 

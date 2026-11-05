@@ -500,6 +500,11 @@ impl<'d, 'a> Parser<'d, 'a> {
             if !seen.insert(attr) {
                 return bad(format!("attribute {attr:?} appears twice"));
             }
+            if raw.len() >= self.doc.max_attributes() {
+                let limit = self.doc.max_attributes();
+                let e = self.doc.fail(DomError::AttributeLimit { limit });
+                return Err(Stop::Limit(e));
+            }
             if attr == "xmlns" {
                 self.declare("", &value)?;
             } else if let Some(prefix) = attr.strip_prefix("xmlns:") {
