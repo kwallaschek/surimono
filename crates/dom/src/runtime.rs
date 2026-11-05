@@ -17,13 +17,14 @@ use surimono_webidl::runtime::{BindingError, ObjectId};
 use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
-use crate::{Document, DomError};
+use crate::{Document, DomError, LayoutPolicy};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
     include_str!("glue_head.js"),
     include_str!("glue_events.js"),
     include_str!("generated/bindings.js"),
+    include_str!("glue_layout.js"),
     include_str!("glue_tail.js"),
 );
 
@@ -36,6 +37,8 @@ struct Host {
     doc: Option<Document>,
     /// The first fatal error of the current call (see [`DomError`]).
     fault: Option<DomError>,
+    /// What layout queries do; survives resets and documents.
+    layout: LayoutPolicy,
     /// The sandbox's cancel flag, raised by `limit`: a limit reported by the
     /// glue must stop the script like one the engine stops it for. Natives
     /// refuse to work while it is up, because the sandbox's watchdog sees it
@@ -177,6 +180,12 @@ impl DomRuntime {
     /// [`DomError::StaleDocument`].
     pub fn load(&mut self, doc: Document) -> Option<Document> {
         self.host.borrow_mut().doc.replace(doc)
+    }
+
+    /// Chooses what scripts' layout queries do, from the next call on. The
+    /// default is [`LayoutPolicy::Zeros`].
+    pub fn set_layout_policy(&mut self, policy: LayoutPolicy) {
+        self.host.borrow_mut().layout = policy;
     }
 
     /// Takes the loaded document back. Wrappers still held by scripts fail
@@ -663,6 +672,7 @@ fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<
                     return Err(fault(&ctx, &mut host.fault, e));
                 }
                 doc.deadline.clone_from(&host.deadline);
+                doc.layout = host.layout;
                 let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
                 if let Some(e) = doc.fault.take() {
                     return Err(fault(&ctx, &mut host.fault, e));

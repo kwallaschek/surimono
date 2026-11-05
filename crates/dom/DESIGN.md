@@ -9,9 +9,9 @@ or change.
 
 JavaScript never holds a pointer, an rquickjs class instance or a blitz node id.
 A node wrapper is a plain object carrying a record `{ g, h, m }` (generation,
-handle, interface bits) in a private class field (`#s`, stamped on by a
+handle, a null-prototype set of the interfaces it is) in a private class field (`#s`, stamped on by a
 closure-private class in `src/glue_head.js`); members brand-check with
-`#s in o` and the interface bit. Private fields can't
+`#s in o` and that set. Private fields can't
 be read, written or intercepted through any prototype, Proxy or reflection, so
 a script can neither read nor forge a pair. Every accessor passes the pair to
 a native function, which resolves it through the loaded document on that call:
@@ -193,7 +193,27 @@ live and nothing is kept per element.
 
 CSSOM defines the per-property attributes (`style.fontSize`) in prose, so the
 generator has a pseudo member for them: property names go to the host, others are
-ordinary expandos. `getComputedStyle` is phase 3.
+ordinary expandos. `getComputedStyle` is phase 3; see Layout queries.
+
+## Layout queries
+
+Nothing lays out in phase 2, so the brief's policy stands in: `LayoutPolicy`, set
+with `DomRuntime::set_layout_policy` (internal; PKG exposes it). `Zeros`, the
+default, answers as a browser does for an element with no box, which is an answer
+pages already handle: zeros, an empty `DOMRectList`, a null `offsetParent` and
+`elementFromPoint`, a read-only computed style with no properties. `Throw` ends
+the call with `DomError::LayoutQuery`, fatal so that a `try` can't go on without
+the answer. `src/glue_layout.js` holds the members, each asking Rust first through
+one operation, so phase 3 replaces one file. They aren't in the generator's table
+because `DOMRect` lives in the glue and a native can't return one.
+
+Bound as far as the policy goes: `getBoundingClientRect`, `getClientRects`,
+`client*`, `scroll*` (setters ask too, and scroll nothing), `offset*`,
+`elementFromPoint`, `getComputedStyle`, and the window's `innerWidth`, `innerHeight`,
+`outerWidth`, `outerHeight`, `scrollX`, `scrollY`, `pageXOffset`, `pageYOffset`.
+Not bound: `elementsFromPoint`, `scrollIntoView`, `scrollTo` and the rest that
+move or return sequences, `getBBox`. `pseudoElt` is converted and ignored.
+`DOMRectList` has `item` but no indexed properties, since it is always empty.
 
 ## Events and the page's life
 

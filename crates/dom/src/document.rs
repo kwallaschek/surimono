@@ -129,6 +129,22 @@ impl Default for DomLimits {
     }
 }
 
+/// What a script's layout queries do until phase 3 answers them from real
+/// layout: `getBoundingClientRect`, `getClientRects`, `client*`, `scroll*`,
+/// `offset*`, `elementFromPoint`, `getComputedStyle` and the window's
+/// `innerWidth`, `outerWidth`, `scrollX` and the like.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum LayoutPolicy {
+    /// Answer as a browser does for an element with no box: zeros, an empty
+    /// rectangle list, a null `offsetParent` and `elementFromPoint`, and a
+    /// computed style with no properties. Pages that only measure keep going.
+    #[default]
+    Zeros,
+    /// End the call with [`DomError::LayoutQuery`], for callers who would
+    /// rather have no page than one built on made-up measurements.
+    Throw,
+}
+
 /// What kind of node a handle names, as the DOM's `nodeType` numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -185,6 +201,8 @@ pub(crate) enum Object {
     Dataset(usize),
     /// `style`.
     Style(usize),
+    /// `getComputedStyle`: empty and read-only until there is layout.
+    Computed(usize),
     /// A `MutationRecord`.
     Record(Box<MutationRecord>),
     /// An `Attr`: its element, its name, and, once it has left the element,
@@ -241,6 +259,7 @@ pub(crate) enum Owned {
     Attributes,
     Dataset,
     Style,
+    Computed,
     Attr(QualName),
 }
 
@@ -314,6 +333,8 @@ pub struct Document {
     pub(crate) fault: Option<DomError>,
     /// The running call's deadline, set for each native call.
     pub(crate) deadline: Option<Deadline>,
+    /// What layout queries do, set for each native call.
+    pub(crate) layout: LayoutPolicy,
     /// Steps since the last look at the clock (see [`Document::poll`]).
     ticks: Cell<u32>,
     /// Entries of child lists passed by changes (see [`Document::list_steps`]).
@@ -387,6 +408,7 @@ impl Document {
             cursor: Cell::new((0, 0)),
             fault: None,
             deadline: None,
+            layout: LayoutPolicy::default(),
             ticks: Cell::new(0),
             list_steps: 0,
         };

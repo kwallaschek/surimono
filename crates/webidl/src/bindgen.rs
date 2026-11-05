@@ -55,6 +55,9 @@ const JS_INTERFACES: &[&str] = &[
     "ErrorEvent",
     "Window",
     "MutationObserver",
+    "DOMRectReadOnly",
+    "DOMRect",
+    "DOMRectList",
 ];
 
 /// Operations for the glue that aren't IDL members: the name its `OP_<name>`
@@ -69,6 +72,8 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("observerDisconnect", "h.observer_disconnect(a.uint(0)?)"),
     ("observerTake", "h.observer_take(a.uint(0)?)"),
     ("recordsPending", "h.records_pending()"),
+    ("layoutQuery", "h.layout_query(a.string(0)?)"),
+    ("computedStyle", "h.computed_style(this)"),
 ];
 
 /// A member name that isn't in the IDL. CSSOM defines
@@ -915,9 +920,6 @@ pub fn generate_bindings(
     table: &[BindInterface],
     header: &str,
 ) -> Result<Bindings, GenError> {
-    if table.len() > 31 {
-        return Err(GenError::TooManyInterfaces);
-    }
     let mut gen_ = Gen {
         set,
         names: set.names(),
@@ -960,10 +962,10 @@ pub fn generate_bindings(
     };
 
     let mut js = note("//");
-    if let Some(id) = bound_id(table, "Node") {
-        let _ = writeln!(js, "const nodeBit = 1 << {id};");
-    }
-    for name in JS_INTERFACES.iter().chain(&["HTMLElement", "Document"]) {
+    for name in JS_INTERFACES
+        .iter()
+        .chain(&["Node", "Element", "HTMLElement", "Document"])
+    {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
         }
@@ -1326,6 +1328,30 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "HTMLInputElement",
         members: &["value", "type", "name", "checked"],
+    },
+    // Layout queries, in `glue_layout.js`.
+    BindInterface {
+        name: "DOMRectReadOnly",
+        members: &[
+            "constructor",
+            "x",
+            "y",
+            "width",
+            "height",
+            "top",
+            "right",
+            "bottom",
+            "left",
+            "toJSON",
+        ],
+    },
+    BindInterface {
+        name: "DOMRect",
+        members: &["constructor", "x", "y", "width", "height"],
+    },
+    BindInterface {
+        name: "DOMRectList",
+        members: &["length"],
     },
     BindInterface {
         name: "CSSStyleDeclaration",

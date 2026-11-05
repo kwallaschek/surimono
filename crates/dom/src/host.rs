@@ -18,7 +18,7 @@ use blitz_dom::QualName;
 use crate::document::{self, Handle, Kind, ListKind, MutationRecord, Object, Owned};
 use crate::style_attr::{self, Declaration};
 use crate::tree::{dom_error, timed_out};
-use crate::{Document, DomError};
+use crate::{Document, DomError, LayoutPolicy};
 
 /// `(TrustedHTML or DOMString)` and the like: the glue always sends a string.
 fn value_string(v: Value) -> String {
@@ -78,6 +78,10 @@ impl Document {
             Object::Tokens(n) | Object::Attributes(n) | Object::Dataset(n) | Object::Style(n) => {
                 Ok(n)
             }
+            Object::Computed(_) => Err(dom_error(
+                "NoModificationAllowedError",
+                "a computed style can't be changed",
+            )),
             _ => Err(BindingError::TypeError("wrong object".to_owned())),
         }
     }
@@ -290,9 +294,17 @@ impl Document {
     }
 
     fn style_list(&mut self, this: ObjectId) -> BindingResult<(usize, Vec<Declaration>)> {
+        if let Object::Computed(id) = self.object_at(this)? {
+            return Ok((id, Vec::new()));
+        }
         let id = self.owner_of(this)?;
         let text = self.attribute(id, "style").unwrap_or_default();
         Ok((id, self.parse_style(&text)?))
+    }
+
+    /// CSSOM §6.6: a computed style's "computed flag".
+    fn check_writable(&mut self, this: ObjectId) -> BindingResult<()> {
+        self.owner_of(this).map(|_| ())
     }
 
     fn parse_style(&mut self, text: &str) -> BindingResult<Vec<Declaration>> {
@@ -458,7 +470,9 @@ impl Document {
             Object::Tokens(_) => return Ok(interface::DOM_TOKEN_LIST),
             Object::Attributes(_) => return Ok(interface::NAMED_NODE_MAP),
             Object::Dataset(_) => return Ok(interface::DOM_STRING_MAP),
-            Object::Style(_) => return Ok(interface::CSS_STYLE_DECLARATION),
+            Object::Style(_) | Object::Computed(_) => {
+                return Ok(interface::CSS_STYLE_DECLARATION);
+            }
             Object::Record(_) => return Ok(interface::MUTATION_RECORD),
             Object::Attr(..) => return Ok(interface::ATTR),
         };
@@ -483,6 +497,23 @@ impl Document {
             // Layout boxes, which no tree link reaches before layout.
             None => interface::NODE,
         })
+    }
+
+    /// A layout query by `member`: nothing under [`LayoutPolicy::Zeros`],
+    /// the call's end under [`LayoutPolicy::Throw`].
+    pub(crate) fn layout_query(&mut self, member: String) -> BindingResult<()> {
+        match self.layout {
+            LayoutPolicy::Zeros => Ok(()),
+            LayoutPolicy::Throw => Err(self.fail(DomError::LayoutQuery { member })),
+        }
+    }
+
+    /// `getComputedStyle(this)`'s handle, one per element.
+    pub(crate) fn computed_style(&mut self, this: ObjectId) -> BindingResult<u32> {
+        self.layout_query("getComputedStyle".to_owned())?;
+        let id = self.node_of(this)?;
+        let h = self.owned_object(id, Owned::Computed, move || Object::Computed(id))?;
+        Ok(Handle::try_from(h.0).unwrap_or(0))
     }
 
     pub(crate) fn observer_new(&mut self) -> BindingResult<u32> {
@@ -1905,6 +1936,7 @@ impl idl::CSSStyleDeclaration for Document {
         value: String,
         priority: String,
     ) -> BindingResult<()> {
+        self.check_writable(this)?;
         // CSSOM §6.6 setProperty, in its order: an unsupported property does
         // nothing, an empty value removes, an unknown priority or an invalid
         // value does nothing.
@@ -1929,6 +1961,7 @@ impl idl::CSSStyleDeclaration for Document {
     }
 
     fn remove_property(&mut self, this: ObjectId, property: String) -> BindingResult<String> {
+        self.check_writable(this)?;
         let (id, mut list) = self.style_list(this)?;
         let name = style_attr::normalized(&property);
         let old = style_attr::value(&list, &name);
