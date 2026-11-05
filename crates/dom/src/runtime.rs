@@ -10,6 +10,7 @@ use surimono_core::rquickjs::function::Rest;
 use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, IntoJs, Object, Value};
 use surimono_core::{
     Deadline, Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport,
+    limit_error,
 };
 use surimono_webidl::runtime::{BindingError, ObjectId};
 
@@ -48,6 +49,10 @@ struct Host {
     /// Exceptions reported since the last report, and the first few.
     uncaught: u64,
     errors: Vec<String>,
+    /// Promises [`DomRuntime::checkpoint`] found no script handled, since the
+    /// last report, and the first few reasons.
+    unhandled_rejections: u64,
+    rejections: Vec<String>,
 }
 
 /// Most reported exception messages kept; the rest are only counted.
@@ -70,6 +75,29 @@ fn capped(mut message: String) -> String {
     message
 }
 
+/// The text of an error in a report.
+fn message_of(error: &SandboxError) -> String {
+    match error {
+        SandboxError::Exception { message, .. } => capped(message.clone()),
+        other => other.to_string(),
+    }
+}
+
+/// Adds `message` to a list of kept messages, unless it is full.
+fn keep(kept: &mut Vec<String>, message: String) {
+    if kept.len() < MAX_KEPT_ERRORS {
+        kept.push(message);
+    }
+}
+
+/// `run_until_settled` with these options is a microtask checkpoint and no
+/// more: the task limit stops every timer before it runs, and an animation
+/// frame, always due after time 0, is past the budget.
+const CHECKPOINT: SettleOptions = SettleOptions {
+    virtual_budget_ms: 0,
+    max_tasks: 0,
+};
+
 /// One `<script>` of the page.
 struct PageScript {
     node: Handle,
@@ -91,6 +119,14 @@ pub struct PageReport {
     pub uncaught: u64,
     /// The first few, as messages, each cut to a few KiB.
     pub errors: Vec<String>,
+    /// Promises rejected with no handler at the end of a microtask
+    /// checkpoint: an exception in an async function or a promise reaction
+    /// that no script handled. They are not in `uncaught`: no `error` event
+    /// fires for them, so no listener can cancel them. A limit is never here:
+    /// it fails the call.
+    pub unhandled_rejections: u64,
+    /// The first few reasons, as messages, each cut to a few KiB.
+    pub rejections: Vec<String>,
     /// `src` values of external scripts the resolver had no source for.
     pub missing_scripts: Vec<String>,
 }
@@ -168,8 +204,41 @@ impl DomRuntime {
     }
 
     /// Evaluates a classic script (sloppy mode, like `<script>`) against the
-    /// loaded document and converts its completion value to `T`.
+    /// loaded document and converts its completion value to `T`. The script
+    /// and its microtasks are a task: a limit reached in them fails the call,
+    /// whether in the script, a listener or a promise nothing handled, and a
+    /// promise left rejected counts in the next report.
     pub fn eval<T>(&mut self, source: &str) -> Result<T, DomError>
+    where
+        T: for<'js> FromJs<'js>,
+    {
+        let result = self.eval_script(source);
+        // Also after a script's exception: its microtasks ran all the same.
+        self.checkpoint()?;
+        result
+    }
+
+    /// The end of a task outside the event loop: what `Sandbox::run` leaves
+    /// out. What it reports waits for the next report; an error is a limit
+    /// in a rejected promise (or a sandbox that can't run at all).
+    fn checkpoint(&mut self) -> Result<(), DomError> {
+        self.begin_call();
+        let result = self.sandbox.run_until_settled(&CHECKPOINT);
+        let report = self.finish_call(result)?;
+        let mut guard = self.host.borrow_mut();
+        let host = &mut *guard;
+        host.uncaught += report.uncaught;
+        for e in &report.errors {
+            keep(&mut host.errors, message_of(e));
+        }
+        host.unhandled_rejections += report.unhandled_rejections;
+        for e in &report.rejections {
+            keep(&mut host.rejections, message_of(e));
+        }
+        Ok(())
+    }
+
+    fn eval_script<T>(&mut self, source: &str) -> Result<T, DomError>
     where
         T: for<'js> FromJs<'js>,
     {
@@ -197,9 +266,10 @@ impl DomRuntime {
     /// `surimono_core`'s event loop), with the bindings in place. The report
     /// includes exceptions reported since the last one, wherever they came
     /// from: the bindings report them through the window's `error` event.
+    /// Likewise promises left rejected, including by an [`eval`](Self::eval).
     pub fn run_until_settled(&mut self, options: &SettleOptions) -> Result<SettleReport, DomError> {
         // Installs the bindings if no script ran yet.
-        self.eval::<()>("")?;
+        self.eval_script::<()>("")?;
         self.begin_call();
         let result = self.sandbox.run_until_settled(options);
         let mut report = self.finish_call(result)?;
@@ -213,6 +283,18 @@ impl DomRuntime {
                 });
             }
         }
+        // These rejected before any in the report.
+        report.unhandled_rejections += std::mem::take(&mut host.unhandled_rejections);
+        let mut rejections: Vec<SandboxError> = std::mem::take(&mut host.rejections)
+            .into_iter()
+            .map(|message| SandboxError::Exception {
+                message,
+                stack: None,
+            })
+            .collect();
+        rejections.append(&mut report.rejections);
+        rejections.truncate(MAX_KEPT_ERRORS);
+        report.rejections = rejections;
         Ok(report)
     }
 
@@ -238,8 +320,14 @@ impl DomRuntime {
     /// An uncaught exception doesn't stop the page, wherever it is thrown
     /// (scripts, listeners, timers, frames, microtasks): it is an `error`
     /// event at the window, and is counted in the report unless a listener
-    /// cancels that event. A limit is different: an uncaught stack overflow
-    /// fails the call with the same error everywhere, with no `error` event.
+    /// cancels that event. An async function or promise reaction that throws
+    /// leaves a rejected promise; if no script handles it by the end of the
+    /// task it is counted in [`PageReport::unhandled_rejections`], and fires
+    /// nothing (`unhandledrejection` isn't implemented).
+    ///
+    /// A limit is different: an uncaught stack overflow fails the call with
+    /// the same error everywhere, promises included, with no `error` event.
+    /// Handling the promise in time is catching it, a script's own matter.
     ///
     /// `resolve` gives the source of an external script from its `src`
     /// value. No network and no files unless the caller's closure reads them.
@@ -277,6 +365,8 @@ impl DomRuntime {
             host.scripts = scripts;
             host.uncaught = 0;
             host.errors.clear();
+            host.unhandled_rejections = 0;
+            host.rejections.clear();
         }
         self.reset()?;
         self.begin_call();
@@ -303,16 +393,13 @@ impl DomRuntime {
         host.scripts.clear();
         let mut errors = std::mem::take(&mut host.errors);
         for e in &settle.errors {
-            if errors.len() < MAX_KEPT_ERRORS {
-                errors.push(match e {
-                    SandboxError::Exception { message, .. } => message.clone(),
-                    other => other.to_string(),
-                });
-            }
+            keep(&mut errors, message_of(e));
         }
         Ok(PageReport {
             uncaught: settle.uncaught + std::mem::take(&mut host.uncaught),
             errors,
+            unhandled_rejections: settle.unhandled_rejections,
+            rejections: settle.rejections.iter().map(message_of).collect(),
             settle,
             missing_scripts,
         })
@@ -466,24 +553,22 @@ fn native_run_source<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Fun
     )
 }
 
-/// `limit(kind)`: an uncaught exception that is really a limit, by the
-/// numbers in `glue_events.js`. Ends the call with that error, however the
-/// script goes on; see [`Host::stop`].
+/// `limit(thrown)`: whether an uncaught exception is really a limit, which
+/// only the engine knows (`surimono_core::limit_error`). One that is ends the
+/// call with that error, however the script goes on; see [`Host::stop`].
 fn native_limit<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
     let host = host.clone();
     Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, kind: u32| -> rquickjs::Result<()> {
+        move |ctx: Ctx<'js>, thrown: Value<'js>| -> rquickjs::Result<bool> {
             guarded(&host, &ctx, || {
-                let error = match kind {
-                    0 => SandboxError::StackOverflow,
-                    1 => SandboxError::MemoryLimit,
-                    _ => SandboxError::TimeLimit,
+                let Some(error) = limit_error(&thrown) else {
+                    return Ok(false);
                 };
                 let mut host = host.borrow_mut();
                 host.fault.get_or_insert(error.into());
                 host.stop.store(true, Ordering::Release);
-                Ok(())
+                Ok(true)
             })
         },
     )

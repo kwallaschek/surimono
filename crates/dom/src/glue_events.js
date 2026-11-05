@@ -388,35 +388,24 @@
     return dispatch(target, s);
   }
 
-  // What the sandbox makes of a thrown value (`exception_error` in
-  // crates/core), as number for `n.limit`, or -1. Asked before any event
-  // fires: no listener may see, or cancel, a limit.
-  const LIMIT_STACK = 0, LIMIT_MEMORY = 1, LIMIT_TIME = 2;
-  function limitOf(x) {
-    if (!isObject(x)) return -1;
-    let name, message;
-    try {
-      name = x.name; message = x.message;
-    } catch (e) {
-      return -1;
-    }
-    if (name === 'RangeError' && message === 'Maximum call stack size exceeded') return LIMIT_STACK;
-    if (name === 'InternalError' && message === 'out of memory') return LIMIT_MEMORY;
-    if (name === 'InternalError' && message === 'interrupted') return LIMIT_TIME;
-    return -1;
-  }
-
   // HTML §8.1.6.2 "report an exception": an `error` event at the window,
   // and the exception counted for the caller unless a listener cancels it.
   // While the window is in error reporting mode no event fires, so an
   // `error` listener that throws is counted and doesn't recurse. A limit
-  // isn't an exception to report: it ends the call, as in a timer.
+  // isn't an exception to report: it ends the call, as in a timer. Rust asks
+  // the engine, which marks the errors it throws for a limit, before any
+  // event fires, so no listener sees or cancels one and no script can forge
+  // or disguise one. A limit reached while turning `x` into text counts too.
   let reporting = false;
   function reportException(x) {
-    const limit = limitOf(x);
-    if (limit >= 0) { n.limit(limit); return; }
+    if (n.limit(x)) return;
     let message;
-    try { message = `${x}`; } catch (e) { message = 'exception'; }
+    try {
+      message = `${x}`;
+    } catch (e) {
+      if (n.limit(e)) return;
+      message = 'exception';
+    }
     if (windowState === null || reporting) { report(message); return; }
     const s = make(I_ErrorEvent);
     initEvent(s, 'error', false, true);

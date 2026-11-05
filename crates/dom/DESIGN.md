@@ -315,6 +315,17 @@ answer. Ordinary DOM errors
 may catch, as in a browser. Sandbox limits outrank faults: a script stopped by
 the time, memory or stack limit reports that limit.
 
+A limit error ends the call wherever it surfaces, and the engine says which
+errors are one (`surimono_core::limit_error`, a mark on the error object), so
+a script can neither forge one nor hide one by renaming it. Thrown, it reaches
+the glue's `reportException`, which asks Rust before any event fires. In an
+async function or a promise reaction it rejects a promise instead: if nothing
+handled that promise when the microtasks have drained, core's rejection tracker
+ends the call, and handling it is catching it. Core's event loop has that
+checkpoint and `Sandbox::run` doesn't, so `DomRuntime::eval` follows each script
+with a run of the loop whose options let no task start (`CHECKPOINT`). Other
+rejections go in the report (`PageReport::unhandled_rejections`).
+
 ## Sandbox and limits
 
 Every native's body runs under `Deadline::guard` through `guarded`, so a panic
