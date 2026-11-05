@@ -58,7 +58,10 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
 member names, checked against the vendored IDL) into two checked-in files,
 `src/generated/bindings.js` and `src/generated/dispatch.rs`; `tests/generated.rs`
 fails when they are stale. Only listed members exist in JavaScript, so a page's
-feature detection sees the truth. The hand-written glue is only infrastructure:
+feature detection sees the truth, with one caveat: every element's interface
+exists, members or not, so `typeof HTMLCanvasElement` is `function` though
+`getContext` isn't there, and a page that tests the constructor and then calls the
+method gets a TypeError where it would have taken its fallback (for COMPAT). The hand-written glue is only infrastructure:
 `glue_head.js` (brand, `wrap`, conversions, interface setup) and `glue_tail.js`.
 
 - **One native.** Every member is `call(op, generation, handle, ...args)`. The
@@ -267,7 +270,7 @@ The flag is private to `DomRuntime`: nothing else can cancel a `DomRuntime`'s
 sandbox. A sticky stop in core, as for a panic, would remove that wait.
 
 **Event handlers** (HTML §8.1.7): `handlers(id, names)` in `bindings.js` comes
-from the IDL's `EventHandler` attributes, for HTMLElement, Document and Window.
+from the IDL's `EventHandler` attributes, for each bound interface that has them.
 A handler's state is in the target's record, next to its listeners, and
 `activate` adds a listener of its own in the place the spec gives it.
 Content attributes live in Rust, so `syncHandlers` compares them when an event
@@ -277,16 +280,50 @@ on first use. On a body or frameset element the Window-reflecting set is the
 window's. `document.currentScript` is the glue's, set from a script's run until
 a separate lifecycle step after its microtasks, which then fires its `load`.
 
-**Gaps** (each for docs/COMPAT.md): no `window.event`; `isTrusted` is an
-ordinary accessor, not [LegacyUnforgeable]; no microtask checkpoint between the
-listeners of a browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`);
-the handler attributes sit on `Window.prototype`, not on the window itself; a
-handler's scope has no form owner; SVG and MathML elements have no `on*`
-attributes (no interfaces bound), and `<svg><script>` doesn't run; the
-WindowEventHandlers aren't readable on a body element, only reachable through
-its content attributes; `AbortSignal` in listener options is ignored;
-`unhandledrejection` doesn't fire. ErrorEvent `filename`, `lineno` and `colno` are always
-empty and 0.
+**Event interfaces.** Every interface inheriting from `Event` is generated
+whole (`JS_INTERFACES` in the generator): the constructor reads its dictionary
+through a generated `D_<name>` converter, which follows WebIDL §3.2.18 (inherited
+dictionaries first, members in lexicographic order), and an attribute with a
+dictionary member of its name reads the record's `d`, as DOM §2.5 says. What
+isn't in a dictionary is hand-written (`H.MouseEvent_pageX`, the legacy
+`init*Event`). A value of an interface with no binding can only be null, since
+no script can have one.
+
+**Activation** (`glue_activation.js`): `dispatch` finds the activation target as
+DOM §2.9 says and runs what `<a>`, `<area>`, `<input>`, `<button>`, `<label>`
+and `<summary>` do. A page is printed, not used, so nothing leaves the document:
+a form's `submit` and `reset` events fire and stop where it would navigate, and
+a link only runs a `javascript:` URL, in a task. `checked` stays an attribute,
+which is what gets printed, so a form's reset can't restore it.
+
+**Named access on the window** is WebIDL's named properties object, between
+`Window.prototype` and `EventTarget.prototype`: a getter for each `id` in the
+parsed tree, made before the first script, at most 4,096. Not a Proxy: QuickJS
+reads a global through the prototype chain, and a Proxy there makes an undeclared
+name `undefined` instead of a ReferenceError.
+
+**Gaps** (each for docs/COMPAT.md): no microtask checkpoint between the listeners of a
+browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`), because a
+checkpoint from inside a native needs core; a
+handler's scope has no form owner; MathML elements have no `on*` attributes (no
+interface bound), and `<svg><script>` doesn't run; `unhandledrejection` doesn't fire.
+ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
+`Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
+two events at one virtual time have the same one. `HTMLDocument` is `Document`, as
+HTML says; browsers keep a separate interface, so `document.constructor.name`
+differs from Chrome's. `offsetX`, `offsetY`, `layerX` and `layerY` are the client
+coordinates until layout. Interactive form validation doesn't stop a submit.
+`TouchEvent`'s `touches` lists are plain arrays, and `Touch` isn't bound, so they
+can only be empty. Named access doesn't read `name` and doesn't see what a
+script adds; `document.URL` isn't known, so a fragment link's `hashchange` has the
+fragments as its URLs. A body element's `on*`
+attributes reach the window from the last one written, not from each in turn.
+Radio groups key on a `form` attribute's text, not on the element it names.
+Setting `details.open` from a script queues no `toggle`; only a click on its summary
+does. Two elements with one `id` name the first on the window, not a collection.
+A form's reset restores neither `value` nor `checked`. `PointerEvent`'s tilt and
+altitude pairs aren't converted into each other. `DeviceMotionEvent`'s members are
+the converted dictionaries, not interfaces.
 
 ## MutationObserver
 
@@ -362,7 +399,11 @@ state. `every_native_is_guarded` reads this file and fails on a native without i
 
 Every script runs through `surimono_core::Sandbox::run`, so the memory, time
 and stack limits, determinism and the no-I/O rule apply unchanged; crates/dom
-needed nothing new from core. `DomRuntime::eval` is two sandbox calls, the script
+needed nothing new from core. The glue is compiled once per process and loaded as bytecode into each context
+(`load_glue`), through the sandbox's own `compile` and `eval_bytecode`; measured
+at opt-level 1, a page's install went from 23 ms to about 15 ms, about what it was
+with half the interfaces, and it adds 1.4 MB of JS heap (0.9 MB before e2-13c).
+`DomRuntime::eval` is two sandbox calls, the script
 and its checkpoint, with their own deadlines, so a hostile script can use up to
 twice `Limits.time` there; `run_page` is one call for everything after install. Bindings are installed inside the first call on
 a context (`glue.js` plus the natives) and again after the sandbox rebuilds
@@ -432,12 +473,19 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   top-level elements its children). WPT dom/nodes/selectors.js covers several.
 - **Selector limits.** To keep hostile selectors off the stack and out of Rust's
   heap, these valid selectors are a `SyntaxError`: longer than 128 KiB, more
-  than 128 combinators on one path through the nested lists, or nesting more
-  than 32 brackets, counted with those in strings (`[a="(((…"]`) and comments.
-  Telling those apart needs the CSS tokenizer's every rule, and a wrong guess
-  would let real nesting reach the parser's recursion, so the count stays
-  conservative. `tests/hostile.rs` runs the worst allowed selector on the
-  stack headroom alone.
+  than 64 combinators on one path through the nested lists, or nesting more
+  than 8 blocks (brackets and functions). Depth is counted on cssparser's
+  tokens, which the selector parser reads too, so what sits in a comment, a
+  string or an escape doesn't count either way; a byte scan can't do this, since
+  a `)` in a comment would hide a real level. `tests/hostile.rs` runs the worst
+  allowed selector from the deepest frame a script can reach, on a thread of
+  `stack_bytes`, the headroom and 64 KiB for what comes before the sandbox's
+  stack check (some of which stays free, so it can't see use just past the
+  headroom). Frames aren't known at compile time, so the caps are
+  set from measurements with room to spare: that selector takes just over half
+  of the 256 KiB headroom in the slowest x86_64 build and under a third in
+  release (numbers at `MAX_SELECTOR_NESTING`). A check of the stack left, from a matcher step in
+  `Guarded`, would make it a proof; it needs core to export `stack_available`.
 - **`document.cloneNode()`.** §4.4 and WPT Node-cloneNode.html give a new
   `Document`; a runtime holds one document and blitz-dom can't make a second
   document node, so the call ends with `DomError::Unsupported`. That is a gap,

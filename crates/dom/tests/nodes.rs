@@ -117,7 +117,7 @@ fn members_outside_the_table_do_not_exist() {
     // Scripts feature-detect: a member that only threw would pass the test.
     let r = eval(
         PAGE,
-        "[typeof document.createEvent, 'attachShadow' in document.body, typeof Location].join()",
+        "[typeof document.elementsFromPoint, 'attachShadow' in document.body, typeof Location].join()",
     );
     assert_eq!(r, "undefined,false,undefined");
 }
@@ -282,7 +282,8 @@ fn every_element_has_its_interface() {
             Object.prototype.toString.call(e);
         };
         ['div', 'body', 'html', 'head', 'h3', 'tbody', 'td', 'blockquote', 'q', 'del', 'audio',
-         'xmp', 'acronym', 'section', 'x-widget', 'blink', 'applet', 'annotation-xml', 'frameset']
+         'xmp', 'acronym', 'section', 'x-widget', 'blink', 'applet', 'annotation-xml', 'frameset',
+         'selectedcontent']
           .map(of).join('|')"#,
     );
     let want = [
@@ -305,6 +306,7 @@ fn every_element_has_its_interface() {
         "HTMLUnknownElement",
         "HTMLUnknownElement",
         "HTMLFrameSetElement",
+        "HTMLSelectedContentElement",
     ];
     let want: Vec<String> = want
         .iter()

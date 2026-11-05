@@ -492,12 +492,20 @@ def real_world_section(fixture_status: dict[str, str], meta: dict[str, dict]) ->
         return lines + ["The real-world manifest (`fixtures/real-world/`) is not in this checkout.", ""]
     manifest = tomllib.loads(manifest_file.read_text(encoding="utf-8"))
     renderer_of = {"echarts": "echarts", "vega": "vega", "vega-lite": "vega-lite", "mermaid": "mermaid"}
+    # Phase 2's pages sit next to the manifest; a test compares their DOM with Chrome's.
+    pages: dict[str, list[str]] = {}
+    for page_meta in sorted((ROOT / "fixtures" / "real-world").glob("*/meta.toml")):
+        renderer = tomllib.loads(page_meta.read_text(encoding="utf-8")).get("renderer", "")
+        pages.setdefault(renderer, []).append(page_meta.parent.name)
     lines += ["| Library | Version | Licence | In the plan | Fixtures | Status |", "|---|---|---|---|---|---|"]
     for lib in manifest["library"]:
         r = renderer_of.get(lib["name"], lib["name"])
         fixtures = [name for name, m in meta.items() if r in [x.strip() for x in str(m.get("renderer", "")).split(",")]]
         states = [fixture_status.get(f, "not run") for f in fixtures]
-        if not fixtures:
+        if not fixtures and pages.get(r):
+            names = ", ".join(f"`{p}`" for p in pages[r])
+            status = f"page {names}: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet"
+        elif not fixtures:
             status = "no fixtures yet"
         elif all(s == "pass" for s in states):
             status = f"pass ({len(fixtures)} of {len(fixtures)} fixtures)"

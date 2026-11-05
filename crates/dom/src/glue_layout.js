@@ -58,11 +58,18 @@
   };
   H.new_DOMRectReadOnly = (target, x, y, w, h) => newRect(I_DOMRectReadOnly, target, x, y, w, h);
   H.new_DOMRect = (target, x, y, w, h) => newRect(I_DOMRect, target, x, y, w, h);
-  for (const k of ['x', 'y', 'width', 'height']) {
-    H['DOMRectReadOnly_' + k] = (s) => s[k];
-    H['DOMRect_' + k] = (s) => s[k];
-    H['set_DOMRect_' + k] = (s, v) => { s[k] = +v; };
-  }
+  H.DOMRectReadOnly_x = (s) => s.x;
+  H.DOMRectReadOnly_y = (s) => s.y;
+  H.DOMRectReadOnly_width = (s) => s.width;
+  H.DOMRectReadOnly_height = (s) => s.height;
+  H.DOMRect_x = (s) => s.x;
+  H.DOMRect_y = (s) => s.y;
+  H.DOMRect_width = (s) => s.width;
+  H.DOMRect_height = (s) => s.height;
+  H.set_DOMRect_x = (s, v) => { s.x = +v; };
+  H.set_DOMRect_y = (s, v) => { s.y = +v; };
+  H.set_DOMRect_width = (s, v) => { s.width = +v; };
+  H.set_DOMRect_height = (s, v) => { s.height = +v; };
   H.DOMRectReadOnly_top = (s) => mathMin(s.y, s.y + s.height);
   H.DOMRectReadOnly_right = (s) => mathMax(s.x, s.x + s.width);
   H.DOMRectReadOnly_bottom = (s) => mathMax(s.y, s.y + s.height);
