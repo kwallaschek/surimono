@@ -268,3 +268,75 @@ fn to_html_bounded_stops_inside_a_long_text() {
     assert_eq!(e, DomError::Stopped);
     assert_eq!(asked.get(), 1);
 }
+
+/// A frame parses inside a call, so a cancel reaches it: raised at 200 ms this
+/// took 18.2 s when frames parsed between calls.
+#[test]
+fn a_cancel_stops_a_frame_parse() {
+    let mut open = attributes(10_000);
+    open.pop();
+    let frames: String = (0..4)
+        .map(|_| format!("<iframe srcdoc='{}'></iframe>", open.replace("\"\"", "1")))
+        .collect();
+    let mut rt = runtime();
+    rt.load(Document::parse(&format!("<!doctype html>{frames}")).unwrap());
+    let thread = cancel_after(&rt.cancel_flag(), Duration::from_millis(200));
+    let started = Instant::now();
+    let e = rt
+        .run_page(&SettleOptions::default(), |_| None)
+        .unwrap_err();
+    thread.join().unwrap();
+    assert!(cancelled(&e), "{e:?}");
+    eprintln!("cancelled frames after {:?}", started.elapsed());
+    assert!(started.elapsed() < scaled(Duration::from_millis(1500)));
+}
+
+fn big_xml() -> String {
+    format!("<a>{}</a>", "<b c=\"d\">e</b>".repeat(400_000))
+}
+
+#[test]
+fn a_stop_ends_an_xml_parse() {
+    let page = big_xml();
+    let started = Instant::now();
+    let deadline = started + Duration::from_millis(50);
+    let e =
+        Document::parse_xml_stoppable(&page, DomLimits::default(), || Instant::now() >= deadline)
+            .unwrap_err();
+    assert_eq!(e, DomError::Stopped);
+    eprintln!("stopped XML after {:?}", started.elapsed());
+    assert!(started.elapsed() < scaled(Duration::from_millis(1000)));
+}
+
+#[test]
+fn a_stop_ends_xml_in_a_long_prolog_and_in_a_long_text() {
+    for page in [
+        format!("{}<a/>", "<!-- c -->".repeat(50_000)),
+        format!("<a>{}</a>", "<!-- c -->".repeat(50_000)),
+    ] {
+        assert_eq!(
+            Document::parse_xml_stoppable(&page, DomLimits::default(), || true).unwrap_err(),
+            DomError::Stopped
+        );
+    }
+}
+
+#[test]
+fn an_unstopped_xml_parse_is_the_same_parse() {
+    let page = "<a xmlns='urn:x'><b/></a>";
+    let a = Document::parse_xml_stoppable(page, DomLimits::default(), || false).unwrap();
+    assert_eq!(a.to_html(), Document::parse_xml(page).unwrap().to_html());
+}
+
+/// A long element or attribute name counts as it is written.
+#[test]
+fn to_html_bounded_checks_names() {
+    let long = "a".repeat(1 << 20);
+    for page in [format!("<p {long}=1>"), format!("<{long}>")] {
+        let doc = Document::parse(&page).unwrap();
+        assert_eq!(
+            doc.to_html_bounded(1 << 16, || false).unwrap_err(),
+            DomError::OutputLimit { limit: 1 << 16 }
+        );
+    }
+}

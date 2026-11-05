@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<title>Delivery report</title>
+<style>
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Noto Sans"; src: url("../../fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; }
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; padding: 0; background: #ffffff; color: #1f2933; }
+body { font-family: "Noto Sans"; font-size: 14px; line-height: 22px; }
+h1 { font-size: 26px; line-height: 34px; margin: 0 0 12px; }
+p { margin: 0 0 10px; }
+.warning { padding: 12px; background: #fdecea; color: #b42318; font-weight: 700; }
+.row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #d9e2ec; }
+</style>
+<noscript><style>#report { display: none; }</style></noscript>
+</head>
+<body>
+<noscript><p class="warning">Please enable JavaScript to see this report.</p></noscript>
+<main id="report"><h1>Delivery report</h1><p>This page's script builds the report. Its noscript message and the noscript style that hides the report apply only without scripts.</p><div class="row"><span>Parcels sent</span><span>1,284</span></div><div class="row"><span>Delivered on time</span><span>1,247</span></div><div class="row"><span>Returned</span><span>9</span></div></main>
+<script>
+const rows = [["Parcels sent", "1,284"], ["Delivered on time", "1,247"], ["Returned", "9"]];
+const report = document.getElementById("report");
+const title = document.createElement("h1");
+title.textContent = "Delivery report";
+report.appendChild(title);
+const intro = document.createElement("p");
+intro.textContent = "This page's script builds the report. Its noscript message and the noscript style that hides the report apply only without scripts.";
+report.appendChild(intro);
+for (const [name, value] of rows) {
+  const row = document.createElement("div");
+  row.className = "row";
+  const left = document.createElement("span");
+  left.textContent = name;
+  const right = document.createElement("span");
+  right.textContent = value;
+  row.append(left, right);
+  report.appendChild(row);
+}
+</script>
+<noscript><p class="warning">Scripts are off, so the report above is empty.</p></noscript>
+
+
+</body></html>

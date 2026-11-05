@@ -1,0 +1,8 @@
+title = "Delivery report"
+renderer = "none"
+library_version = "none: an inline script"
+lang = "en"
+fonts = ["Noto Sans 400", "Noto Sans 700"]
+page_size = "A4 (210mm x 297mm), 15mm margins"
+tests = "<noscript> with scripts on, in head and body: Chrome shows neither message and doesn't apply the style that hides the report, so neither may reach the printer. A failure reads as text missing or extra in the PDF: 'Please enable JavaScript', 'Scripts are off', or an empty page."
+needs = "E2-02 tree; E2-08 page scripts and the printer-safe output, which drops <noscript>"

@@ -341,12 +341,14 @@ where
 /// html5ever does it) into the detached node `holder`: the parser's root
 /// element ends up as `holder`'s only child, and the content under it.
 /// `stop` is asked between chunks; `Parsed::over_limit` says if it stopped.
+/// `scripting` is the tree builder's flag, from the context's node document.
 pub(crate) fn parse_fragment(
     mutr: &mut DocumentMutator<'_>,
     context: usize,
     holder: usize,
     html: &str,
     limits: ParseLimits,
+    scripting: bool,
     stop: impl Fn() -> bool,
 ) -> Parsed {
     let deepest = Rc::new(Cell::new(0u32));
@@ -367,7 +369,7 @@ pub(crate) fn parse_fragment(
         max_attributes: limits.max_attributes,
         merged: Cell::new(0),
     };
-    let parser = driver::parse_fragment_for_element(sink, opts(true), context, false, None);
+    let parser = driver::parse_fragment_for_element(sink, opts(scripting), context, false, None);
     let (mut parsed, stopped) = feed(parser, html, &created, || {
         stop()
             || over_style.get()
