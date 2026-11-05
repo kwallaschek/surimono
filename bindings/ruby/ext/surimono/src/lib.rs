@@ -87,7 +87,7 @@ fn renderer_new(
     if let Some(max) = max_islands {
         options = options.max_islands(max);
     }
-    let (keep_scripts, layout_queries, resources) = page;
+    let (keep_scripts, layout_queries, resources, _) = page;
     options = options.keep_scripts(keep_scripts);
     options = options.layout_queries(match layout_queries.as_str() {
         "throw" => surimono::LayoutQueries::Throw,

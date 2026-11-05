@@ -387,7 +387,7 @@ fn a_page_warns_and_still_renders() {
     let err = text(&o.stderr);
     for line in [
         "script error: \"ReferenceError: boom",
-        "Script \"a.js\" not loaded: no resource loader",
+        "Script \"a.js\" not loaded: \"no resource loader",
         "Image \"a.png\" not loaded",
         "timers were left",
     ] {

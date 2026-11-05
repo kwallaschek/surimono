@@ -406,9 +406,9 @@ fn must_go(element: &tree::Element, keep_scripts: bool) -> bool {
     match element.local() {
         "noscript" => true,
         "script" => {
-            !keep_scripts
-                && !(element.name.ns == html5ever::ns!(html)
-                    && element.attr("type").is_some_and(is_island_type))
+            let island =
+                element.is_html("script") && element.attr("type").is_some_and(is_island_type);
+            !keep_scripts && !island
         }
         _ => false,
     }
