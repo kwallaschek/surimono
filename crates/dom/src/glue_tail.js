@@ -38,6 +38,40 @@
     enumerable: true, configurable: false,
   });
 
+  // The sandbox's `performance`, with the brand HR Time gives it: an event
+  // target, whose `now` stays the prelude's virtual clock.
+  if (performanceObject !== undefined) {
+    const p = create(null);
+    p.m = masks[I_Performance]; p.g = 0; p.h = 0; p.w = performanceObject;
+    new Brand(performanceObject, p);
+    setPrototypeOf(performanceObject, protos[I_Performance]);
+  }
+
+  // HTML §7.3.3 named access on the Window object, as WebIDL §3.7.4's named
+  // properties object: between Window.prototype and EventTarget.prototype, so
+  // anything a script defines hides a name. Not a Proxy, as `exotic` is: the
+  // engine reads a global through the prototype chain, and a Proxy there
+  // would turn a ReferenceError into undefined. So the object gets a getter
+  // for each `id` of the parsed tree before the first script (`start`); what
+  // a script adds later has no name here. At most MAX_WINDOW_NAMES.
+  const windowProperties = create(protos[I_EventTarget]);
+  setPrototypeOf(protos[I_Window], windowProperties);
+  const MAX_WINDOW_NAMES = 4096;
+  function nameElements(g) {
+    let count = 0;
+    nameList(call(OP_idNames, g, root()), (name) => {
+      if (name === '' || count === MAX_WINDOW_NAMES || rhas(G, name)) return;
+      count++;
+      defineProperty(windowProperties, name, {
+        get: function () {
+          const r = current() === g ? wrap(g, call(OP_getElementById, g, root(), name)) : null;
+          return r === null ? undefined : r;
+        },
+        enumerable: false, configurable: true,
+      });
+    });
+  }
+
   // The rest of the Window-reflecting set: what only Window has.
   for (const name in handlerNames[I_Window]) {
     if (handlerNames[I_HTMLElement][name] !== true) reflected[name] = true;
@@ -157,6 +191,7 @@
   // loop has left the timer by then, so a timer a script sets starts from
   // nesting level 0, as a parser's script does in a browser (HTML §8.7).
   return function start(g) {
+    nameElements(g);
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
       fire(documentState(), 'readystatechange');

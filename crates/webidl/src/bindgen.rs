@@ -54,11 +54,35 @@ pub struct BindInterface {
 /// attribute with a member of the same name in the init dictionary (DOM §2.5
 /// "inner event creation steps"). Its dictionary becomes a `D_<name>` function
 /// that reads and converts the members in WebIDL's order.
-const JS_INTERFACES: &[&str] = &["EventTarget", "Event", "Window", "MutationObserver"];
+const JS_INTERFACES: &[&str] = &[
+    "EventTarget",
+    "Event",
+    "Window",
+    "MutationObserver",
+    "AbortController",
+    "AbortSignal",
+    "Performance",
+];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
 /// `H.<Interface>_<member>`, as for [`JS_INTERFACES`].
-const JS_MEMBERS: &[(&str, &str)] = &[("Document", "createEvent")];
+const JS_MEMBERS: &[(&str, &str)] = &[
+    ("Document", "createEvent"),
+    ("HTMLElement", "click"),
+    ("HTMLInputElement", "form"),
+    ("HTMLInputElement", "indeterminate"),
+    ("HTMLButtonElement", "form"),
+    ("HTMLButtonElement", "type"),
+    ("HTMLSelectElement", "form"),
+    ("HTMLTextAreaElement", "form"),
+    ("HTMLFieldSetElement", "form"),
+    ("HTMLOutputElement", "form"),
+    ("HTMLLabelElement", "form"),
+    ("HTMLLabelElement", "control"),
+    ("HTMLFormElement", "submit"),
+    ("HTMLFormElement", "reset"),
+    ("HTMLFormElement", "requestSubmit"),
+];
 
 /// In a table's member list: every attribute and operation in the IDL,
 /// and the constructor. For event interfaces, whose members need no Rust.
@@ -76,6 +100,9 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("observerDisconnect", "h.observer_disconnect(a.uint(0)?)"),
     ("observerTake", "h.observer_take(a.uint(0)?)"),
     ("recordsPending", "h.records_pending()"),
+    ("radioCheck", "h.radio_check(this)"),
+    ("handlerElement", "h.handler_element()"),
+    ("idNames", "h.id_names()"),
 ];
 
 /// A member name that isn't in the IDL. CSSOM defines
@@ -111,6 +138,16 @@ const GLUE_OPS: &[(&str, &str)] = &[
     ("Element", "getAttributeNames"),
     ("Document", "body"),
     ("Document", "documentElement"),
+    ("Document", "getElementById"),
+    ("Node", "isConnected"),
+    ("Element", "setAttribute"),
+    ("Element", "removeAttribute"),
+    ("Element", "querySelector"),
+    ("Element", "firstElementChild"),
+    ("Element", "nextElementSibling"),
+    ("HTMLInputElement", "type"),
+    ("HTMLInputElement", "checked"),
+    ("HTMLInputElement", "set_checked"),
 ];
 
 /// IDL types of event handler IDL attributes (HTML §8.1.7.1).
@@ -527,7 +564,10 @@ impl Bound<'_, '_> {
             return Ok(());
         }
         if self.js_impl || JS_MEMBERS.contains(&(self.iface.name.as_str(), name)) {
-            return self.js_attribute(name, ty, readonly);
+            return self.js_attribute(name, ty, readonly, ext_attrs);
+        }
+        if self.reflected_attribute(name, ty, readonly, ext_attrs) {
+            return Ok(());
         }
         let rust = rust_name(name);
         let getter = self.trait_call(&rust, &[], true);
@@ -547,6 +587,7 @@ impl Bound<'_, '_> {
             let setter = format!("set_{}", rust.trim_end_matches('_'));
             let setter = self.trait_call(&setter, &[arg], true);
             let op = self.out.op(&setter);
+            self.note_glue_op(&format!("set_{name}"), op);
             let x = js_arg(&c, ty, "v", "s.g");
             let _ = write!(
                 self.out.js,
@@ -619,7 +660,13 @@ impl Bound<'_, '_> {
 
     /// A member of a [`JS_INTERFACES`] interface: the IDL's name and
     /// conversion, the glue's body.
-    fn js_attribute(&mut self, name: &str, ty: &Type, readonly: bool) -> Result<(), GenError> {
+    fn js_attribute(
+        &mut self,
+        name: &str,
+        ty: &Type,
+        readonly: bool,
+        ext_attrs: &[ExtAttr],
+    ) -> Result<(), GenError> {
         let (id, iface) = (self.id, self.iface.name.clone());
         let _ = write!(
             self.out.js,
@@ -632,9 +679,54 @@ impl Bound<'_, '_> {
                 self.out.js,
                 ", function (v) {{ H.set_{iface}_{name}(self(this, {id}), {x}); }}"
             );
+        } else if has_ext(ext_attrs, "Replaceable") {
+            let _ = write!(
+                self.out.js,
+                ", function (v) {{ self(this, {id}); replaceable(this, {}, v); }}",
+                js_string(name)
+            );
         }
         self.out.js.push_str(");\n");
         Ok(())
+    }
+
+    /// An attribute that `[Reflect]` ties to a content attribute (HTML
+    /// §2.6.1), for the types that need no more than the attribute's text.
+    /// Written for a listed member with no method on the host, so a new one
+    /// costs a table entry. Returns whether it wrote one.
+    fn reflected_attribute(
+        &mut self,
+        name: &str,
+        ty: &Type,
+        readonly: bool,
+        ext_attrs: &[ExtAttr],
+    ) -> bool {
+        let Some(r) = ext_attrs.iter().find(|a| a.name == "Reflect") else {
+            return false;
+        };
+        if readonly {
+            return false;
+        }
+        let TypeKind::Named(n) = &ty.kind else {
+            return false;
+        };
+        let content = match &r.value {
+            ExtAttrValue::String(s) => s.clone(),
+            _ => name.to_ascii_lowercase(),
+        };
+        let content = js_string(&content);
+        let id = self.id;
+        let (get, set) = match n.as_str() {
+            "boolean" if !ty.nullable => ("reflectBool", "setReflectBool"),
+            s if is_string(s) && !ty.nullable => ("reflectStr", "setReflectStr"),
+            _ => return false,
+        };
+        let _ = writeln!(
+            self.out.js,
+            "attr({id}, {}, function () {{ return {get}(self(this, {id}), {content}); }}, function (v) {{ {set}(self(this, {id}), {content}, v); }});",
+            js_string(name)
+        );
+        true
     }
 
     /// `x` converted for a hand-written member: as for a native one, except
@@ -675,19 +767,28 @@ impl Bound<'_, '_> {
         (params, exprs)
     }
 
-    fn js_operation(&mut self, name: &str, args: &[Argument]) {
+    fn js_operation(&mut self, name: &str, args: &[Argument], is_static: bool) {
         let (id, iface) = (self.id, self.iface.name.clone());
         let (params, exprs) = self.js_impl_arguments(args);
         let required = params.len();
-        let mut body = format!("const s = self(this, {id}); const argc = arguments.length; ");
+        let mut body = if is_static {
+            "const argc = arguments.length; ".to_owned()
+        } else {
+            format!("const s = self(this, {id}); const argc = arguments.length; ")
+        };
         if required > 0 {
             let _ = write!(body, "need(argc, {required}, {}); ", js_string(name));
         }
-        let mut all = vec!["s".to_owned()];
+        let mut all = if is_static {
+            Vec::new()
+        } else {
+            vec!["s".to_owned()]
+        };
         all.extend(exprs);
+        let define = if is_static { "staticOp" } else { "op" };
         let _ = writeln!(
             self.out.js,
-            "op({id}, {}, function {name}({}) {{ {body}return H.{iface}_{name}({}); }});",
+            "{define}({id}, {}, function {name}({}) {{ {body}return H.{iface}_{name}({}); }});",
             js_string(name),
             params.join(", "),
             all.join(", ")
@@ -713,7 +814,14 @@ impl Bound<'_, '_> {
         };
         let id = self.id;
         if self.js_impl || JS_MEMBERS.contains(&(self.iface.name.as_str(), name)) {
-            self.js_operation(name, args);
+            let is_static = matches!(
+                &mm.member.kind,
+                MemberKind::Operation {
+                    is_static: true,
+                    ..
+                }
+            );
+            self.js_operation(name, args, is_static);
             return Ok(());
         }
         let ArgCode {
@@ -1281,10 +1389,14 @@ pub fn generate_bindings(
     };
 
     let mut js = note("//");
-    for name in JS_INTERFACES
-        .iter()
-        .chain(&["Node", "HTMLElement", "Document"])
-    {
+    for name in JS_INTERFACES.iter().chain(&[
+        "Node",
+        "HTMLElement",
+        "Document",
+        "HTMLBodyElement",
+        "HTMLFrameSetElement",
+        "HTMLFormElement",
+    ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
         }
@@ -1392,7 +1504,6 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "preventDefault",
             "defaultPrevented",
             "composed",
-            "isTrusted",
             "timeStamp",
             "initEvent",
         ],
@@ -1424,7 +1535,37 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     event("DeviceOrientationEvent"),
     BindInterface {
         name: "Window",
-        members: &["devicePixelRatio"],
+        members: &[
+            "devicePixelRatio",
+            "event",
+            "top",
+            "parent",
+            "frames",
+            "length",
+            "closed",
+            "frameElement",
+            "opener",
+        ],
+    },
+    // The sandbox's object has the members that exist so far.
+    BindInterface {
+        name: "Performance",
+        members: &[],
+    },
+    BindInterface {
+        name: "AbortController",
+        members: &["constructor", "signal", "abort"],
+    },
+    BindInterface {
+        name: "AbortSignal",
+        members: &[
+            "abort",
+            "timeout",
+            "any",
+            "aborted",
+            "reason",
+            "throwIfAborted",
+        ],
     },
     BindInterface {
         name: "Node",
@@ -1506,7 +1647,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLElement",
-        members: &["title", "lang", "dataset", "style"],
+        members: &["title", "lang", "dataset", "style", "click"],
     },
     BindInterface {
         name: "SVGElement",
@@ -1679,28 +1820,60 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLInputElement",
-        members: &["value", "type", "name", "checked"],
+        members: &[
+            "value",
+            "type",
+            "name",
+            "checked",
+            "defaultChecked",
+            "defaultValue",
+            "disabled",
+            "form",
+            "indeterminate",
+        ],
     },
     // HTML §3.2.2: the interface of every element in the spec's index, so
     // `instanceof` and constructor names are right; their members come as
     // pages need them.
-    element("HTMLAreaElement"),
+    BindInterface {
+        name: "HTMLAreaElement",
+        members: &["href", "rel"],
+    },
     element("HTMLBaseElement"),
     element("HTMLBodyElement"),
     element("HTMLBRElement"),
-    element("HTMLButtonElement"),
+    BindInterface {
+        name: "HTMLButtonElement",
+        members: &["disabled", "form", "name", "type", "value"],
+    },
     element("HTMLCanvasElement"),
     element("HTMLDataElement"),
     element("HTMLDataListElement"),
-    element("HTMLDetailsElement"),
+    BindInterface {
+        name: "HTMLDetailsElement",
+        members: &["name", "open"],
+    },
     element("HTMLDialogElement"),
     element("HTMLDirectoryElement"),
     element("HTMLDivElement"),
     element("HTMLDListElement"),
     element("HTMLEmbedElement"),
-    element("HTMLFieldSetElement"),
+    BindInterface {
+        name: "HTMLFieldSetElement",
+        members: &["disabled", "form", "name"],
+    },
     element("HTMLFontElement"),
-    element("HTMLFormElement"),
+    BindInterface {
+        name: "HTMLFormElement",
+        members: &[
+            "name",
+            "noValidate",
+            "target",
+            "submit",
+            "requestSubmit",
+            "reset",
+        ],
+    },
     element("HTMLFrameElement"),
     element("HTMLFrameSetElement"),
     element("HTMLHeadElement"),
@@ -1708,7 +1881,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLHRElement"),
     element("HTMLHtmlElement"),
     element("HTMLIFrameElement"),
-    element("HTMLLabelElement"),
+    BindInterface {
+        name: "HTMLLabelElement",
+        members: &["form", "htmlFor", "control"],
+    },
     element("HTMLLegendElement"),
     element("HTMLLIElement"),
     element("HTMLMapElement"),
@@ -1724,14 +1900,20 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLOListElement"),
     element("HTMLOptGroupElement"),
     element("HTMLOptionElement"),
-    element("HTMLOutputElement"),
+    BindInterface {
+        name: "HTMLOutputElement",
+        members: &["form", "name"],
+    },
     element("HTMLParagraphElement"),
     element("HTMLParamElement"),
     element("HTMLPictureElement"),
     element("HTMLPreElement"),
     element("HTMLProgressElement"),
     element("HTMLQuoteElement"),
-    element("HTMLSelectElement"),
+    BindInterface {
+        name: "HTMLSelectElement",
+        members: &["disabled", "form", "name"],
+    },
     element("HTMLSlotElement"),
     element("HTMLSourceElement"),
     element("HTMLSpanElement"),
@@ -1742,7 +1924,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLTableElement"),
     element("HTMLTableRowElement"),
     element("HTMLTableSectionElement"),
-    element("HTMLTextAreaElement"),
+    BindInterface {
+        name: "HTMLTextAreaElement",
+        members: &["disabled", "form", "name"],
+    },
     element("HTMLTimeElement"),
     element("HTMLTitleElement"),
     element("HTMLTrackElement"),

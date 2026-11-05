@@ -23,6 +23,8 @@ use crate::{Document, DomError};
 const GLUE: &str = concat!(
     include_str!("glue_head.js"),
     include_str!("glue_events.js"),
+    include_str!("glue_abort.js"),
+    include_str!("glue_activation.js"),
     include_str!("generated/bindings.js"),
     include_str!("glue_tail.js"),
 );

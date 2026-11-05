@@ -51,6 +51,7 @@
   const charCodeAt = String.prototype.charCodeAt, fromCharCode = String.fromCharCode;
   const fround = Math.fround;
   const PromiseCtor = Promise, promiseResolve = Promise.resolve;
+  const DOMExceptionCtor = G.DOMException, decodeURI_ = decodeURIComponent;
   const TE = TypeError;
   const symbolTag = Symbol.toStringTag;
 
@@ -202,11 +203,31 @@
     defineProperty(ctors[id], name, d);
     defineProperty(protos[id], name, d);
   }
+  // WebIDL §3.7.6: a [Global] interface's members are the global's own.
+  const holder = (id) => (id === I_Window ? G : protos[id]);
   function attr(id, name, get, set) {
-    defineProperty(protos[id], name, { get, set, enumerable: true, configurable: true });
+    defineProperty(holder(id), name, { get, set, enumerable: true, configurable: true });
   }
   function op(id, name, f) {
-    defineProperty(protos[id], name, { value: f, writable: true, enumerable: true, configurable: true });
+    defineProperty(holder(id), name, { value: f, writable: true, enumerable: true, configurable: true });
+  }
+  function staticOp(id, name, f) {
+    defineProperty(ctors[id], name, { value: f, writable: true, enumerable: true, configurable: true });
+  }
+  // WebIDL §3.7.6: writing a [Replaceable] attribute makes a data property.
+  function replaceable(o, name, v) {
+    defineProperty(o, name, { value: v, writable: true, enumerable: true, configurable: true });
+  }
+  // HTML §2.6.1, in terms of the content attribute's text.
+  function reflectStr(s, name) {
+    const v = call(OP_getAttribute, s.g, s.h, name);
+    return v === null ? '' : v;
+  }
+  function setReflectStr(s, name, v) { call(OP_setAttribute, s.g, s.h, name, str(v)); }
+  function reflectBool(s, name) { return call(OP_getAttribute, s.g, s.h, name) !== null; }
+  function setReflectBool(s, name, v) {
+    if (v) call(OP_setAttribute, s.g, s.h, name, '');
+    else call(OP_removeAttribute, s.g, s.h, name);
   }
   function iterable(id) {
     const p = protos[id];

@@ -580,6 +580,111 @@ impl Document {
         })
     }
 
+    /// The element whose `on*` attributes are the window's (HTML §8.1.7.1): the
+    /// body or frameset element whose attribute was written last, or the
+    /// document's body element. 0 for none.
+    pub(crate) fn handler_element(&mut self) -> BindingResult<u32> {
+        if let Some(h) = self.handler_source {
+            return Ok(h);
+        }
+        match Document::body(self) {
+            Some(id) => self.handle_for(id).map_err(|e| self.fail(e)),
+            None => Ok(0),
+        }
+    }
+
+    /// Every element's `id` in tree order, each followed by a newline, for
+    /// named access on the window (HTML §7.3.3). The tree has at most
+    /// `max_nodes` nodes, and the text is the document's.
+    pub(crate) fn id_names(&mut self) -> BindingResult<String> {
+        let mut names = String::new();
+        let mut stack = vec![self.root()];
+        while let Some(at) = stack.pop() {
+            self.poll()?;
+            stack.extend(self.children(at).iter().rev().copied());
+            if let Some(id) = self.attribute(at, "id") {
+                names.push_str(&id);
+                names.push('\n');
+            }
+        }
+        Ok(names)
+    }
+
+    /// Radio input activation (HTML §4.10.5.1.15): checks `this`, unchecks the
+    /// rest of its group, and returns the handle of the one that was checked,
+    /// or 0, for undoing it. `set_checked` on `true` does the same.
+    pub(crate) fn radio_check(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let id = self.node_of(this)?;
+        let other = self.uncheck_group(id)?;
+        Document::set_attribute(self, id, "checked", "").map_err(|e| self.fail(e))?;
+        match other {
+            Some(o) => self.handle_for(o).map_err(|e| self.fail(e)),
+            None => Ok(0),
+        }
+    }
+
+    /// Unchecks the other radio buttons of `id`'s group (HTML §4.10.5.1.15: same
+    /// tree, same form owner, same non-empty name); returns the first that was
+    /// checked. Polls the deadline: its length is the tree's.
+    fn uncheck_group(&mut self, id: usize) -> BindingResult<Option<usize>> {
+        if self
+            .attribute(id, "type")
+            .is_none_or(|t| !t.eq_ignore_ascii_case("radio"))
+        {
+            return Ok(None);
+        }
+        let Some(name) = self.attribute(id, "name").filter(|n| !n.is_empty()) else {
+            return Ok(None);
+        };
+        let owner = self.radio_owner(id);
+        let mut top = id;
+        while let Some(p) = self.parent(top) {
+            top = p;
+        }
+        let mut found = None;
+        let mut stack = vec![top];
+        while let Some(at) = stack.pop() {
+            self.poll()?;
+            stack.extend(self.children(at).iter().rev().copied());
+            if at == id || !self.is_radio_in(at, &name) || self.radio_owner(at) != owner {
+                continue;
+            }
+            if self.attribute(at, "checked").is_some() {
+                found.get_or_insert(at);
+                Document::remove_attribute(self, at, "checked");
+            }
+        }
+        Ok(found)
+    }
+
+    fn is_radio_in(&self, id: usize, name: &str) -> bool {
+        self.element_name(id)
+            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "input")
+            && self
+                .attribute(id, "type")
+                .is_some_and(|t| t.eq_ignore_ascii_case("radio"))
+            && self.attribute(id, "name").is_some_and(|n| n == name)
+    }
+
+    /// What identifies a radio button's form owner: its `form` attribute's
+    /// text, or its nearest ancestor form.
+    fn radio_owner(&self, id: usize) -> (Option<String>, Option<usize>) {
+        if let Some(f) = self.attribute(id, "form") {
+            return (Some(f), None);
+        }
+        let mut at = self.parent(id);
+        while let Some(p) = at {
+            if self
+                .element_name(p)
+                .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "form")
+            {
+                return (None, Some(p));
+            }
+            at = self.parent(p);
+        }
+        (None, None)
+    }
+
     pub(crate) fn observer_new(&mut self) -> BindingResult<u32> {
         Ok(self.new_observer())
     }
@@ -2086,6 +2191,24 @@ impl idl::HTMLTemplateElement for Document {
     }
 }
 
+impl idl::HTMLAreaElement for Document {
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected_url(this, "href")
+    }
+
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "href", &value)
+    }
+
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "rel")
+    }
+
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "rel", &value)
+    }
+}
+
 impl idl::HTMLAnchorElement for Document {
     fn href(&mut self, this: ObjectId) -> BindingResult<String> {
         self.reflected_url(this, "href")
@@ -2232,6 +2355,7 @@ impl idl::HTMLInputElement for Document {
     fn set_checked(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
         let id = self.node_of(this)?;
         if value {
+            self.uncheck_group(id)?;
             Document::set_attribute(self, id, "checked", "").map_err(|e| self.fail(e))
         } else {
             Document::remove_attribute(self, id, "checked");
