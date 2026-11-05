@@ -16,6 +16,9 @@ use std::time::{Duration, Instant};
 
 use surimono_islands::{IslandError, IslandRequest, IslandRunner, Limits, RunnerOptions};
 
+mod common;
+use common::scaled;
+
 /// A small registered renderer that does some work, so a render holds the
 /// runner's locks and runs the sandbox for a while.
 const TINY: &str = r#"
@@ -30,7 +33,7 @@ function entry(specJson, ctx) {
 fn runner() -> IslandRunner {
     let r = IslandRunner::with_estimated_text_metrics(RunnerOptions {
         pool_size: 2,
-        limits: Limits::default().with_time(Duration::from_secs(5)),
+        limits: Limits::default().with_time(scaled(Duration::from_secs(5))),
         ..RunnerOptions::default()
     })
     .unwrap();
@@ -104,7 +107,10 @@ fn child(shared: &IslandRunner, owned: Option<IslandRunner>, i: usize) -> i32 {
     0
 }
 
-/// A thread that starts and joins `std::thread`s until `stop` goes up.
+/// A thread that starts and joins `std::thread`s until `stop` goes up. Only
+/// when `common::time_scale()` is 1: ASan's builds set it, and ASan's own
+/// `dead_threads_stats_lock`, which its fork handling doesn't cover, is held
+/// by a thread on its way out, so there this would hang the child in ASan.
 fn spawn_churn(stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         while !stop.load(Ordering::Relaxed) {
@@ -155,8 +161,8 @@ fn fork_stress_child() {
             }
         })
     };
-    let churn = spawn_churn(stop.clone());
-    const HANG: Duration = Duration::from_secs(30);
+    let churn = (common::time_scale() == 1).then(|| spawn_churn(stop.clone()));
+    let hang = scaled(Duration::from_secs(30));
     const AT_ONCE: usize = 4;
     let (mut ok, mut hung, mut failed) = (0usize, 0usize, Vec::new());
     let mut running: Vec<(libc::pid_t, Instant)> = Vec::new();
@@ -176,7 +182,7 @@ fn fork_stress_child() {
                         failed.push(status);
                     }
                     running.swap_remove(i);
-                } else if started.elapsed() > HANG {
+                } else if started.elapsed() > hang {
                     // SAFETY: as above; it is still ours until reaped.
                     unsafe {
                         libc::kill(pid, libc::SIGKILL);
@@ -215,7 +221,9 @@ fn fork_stress_child() {
     reap(&mut running, 0);
     stop.store(true, Ordering::Relaxed);
     busy.join().unwrap();
-    churn.join().unwrap();
+    if let Some(churn) = churn {
+        churn.join().unwrap();
+    }
     // The parent's own runners are unaffected.
     if let Some(r) = &owned {
         tiny(r, 10).unwrap();
@@ -232,8 +240,11 @@ fn fork_stress_child() {
 /// the lock `std::thread` keeps for all threads.
 #[test]
 fn a_forked_child_can_start_threads_whatever_the_parent_is_doing() {
+    if common::time_scale() != 1 {
+        return; // See `spawn_churn`.
+    }
     const FORKS: usize = 5_000;
-    const HANG: Duration = Duration::from_secs(30);
+    let hang = scaled(Duration::from_secs(30));
     let stop = Arc::new(AtomicBool::new(false));
     let churn = spawn_churn(stop.clone());
     let mut hung = 0;
@@ -267,7 +278,7 @@ fn a_forked_child_can_start_threads_whatever_the_parent_is_doing() {
                 assert!(libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0);
                 break;
             }
-            if started.elapsed() > HANG {
+            if started.elapsed() > hang {
                 // SAFETY: as above; it is still ours until reaped.
                 unsafe {
                     libc::kill(pid, libc::SIGKILL);
@@ -292,7 +303,16 @@ fn a_forked_child_can_start_threads_whatever_the_parent_is_doing() {
 #[test]
 fn forks_never_hang() {
     let exe = std::env::current_exe().unwrap();
+    // ASan's quarantine has spin locks its fork handling doesn't cover, and
+    // a thread that frees memory holds them, so a build under ASan needs it
+    // off here or the child hangs inside `free` (6 of 7 hangs in 1,500 forks).
+    // Elsewhere nothing reads this. Only this process goes without it.
+    let asan = std::env::var("ASAN_OPTIONS").unwrap_or_default();
     let mut child = std::process::Command::new(exe)
+        .env(
+            "ASAN_OPTIONS",
+            format!("{asan}:quarantine_size_mb=0:thread_local_quarantine_size_kb=0"),
+        )
         .args(["fork_stress_child", "--exact", "--ignored", "--nocapture"])
         .stdout(std::process::Stdio::piped())
         .spawn()
