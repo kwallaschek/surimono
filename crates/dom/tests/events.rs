@@ -1513,7 +1513,7 @@ fn a_limit_in_a_javascript_link_ends_the_page() {
         .run_page(&SettleOptions::default(), |_| None)
         .unwrap_err();
     assert!(
-        matches!(e, DomError::Sandbox(SandboxError::TimeLimit { .. })),
+        matches!(e, DomError::Sandbox(SandboxError::TimeLimit)),
         "{e:?}"
     );
 }
