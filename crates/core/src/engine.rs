@@ -537,7 +537,7 @@ unsafe extern "C" {
     /// Defined only by the patched QuickJS (patch 22, level 5):
     /// `JS_FreeRuntime` stores in `*count` how many objects were still alive.
     fn surimono_set_leak_count(rt: *mut qjs::JSRuntime, count: *mut u32);
-    /// Defined only by the patched QuickJS (patch 27, level 7): which limit
+    /// Defined only by the patched QuickJS (patch 36, level 9): which limit
     /// made the engine throw `value`: 0 none, 1 stack, 2 memory. Runs no
     /// script.
     fn surimono_limit_error(value: qjs::JSValue) -> std::ffi::c_int;
@@ -615,11 +615,11 @@ pub fn release_free_memory() {
     }
 }
 
-/// The lowest engine patch level the sandbox runs on: 7, the mark on the
-/// engine's own limit errors (P2-RT-05) on top of level 6, the checks in
-/// `JS_NewObjectFromShape` and for destructured parameters (P1-RT-36) (see
+/// The lowest engine patch level the sandbox runs on: 9, the mark on the
+/// engine's own limit errors (P2-RT-05) on top of level 8, the duplicate-key
+/// check of a proxy's `ownKeys` in O(n log n) (P2-RT-04) (see
 /// `vendor/rquickjs-sys/PATCHES.md`).
-pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 7;
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 9;
 
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse

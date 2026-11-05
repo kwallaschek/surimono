@@ -14,8 +14,9 @@ concurrency:
   group: full-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only for every job but publish (below).
 permissions:
-  contents: write # publish logs to the ci-results branch
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,21 +28,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-24.04-arm]
+        # macos-15 (Apple silicon): GitHub retires the macos-14 image on
+        # 2 November 2026, and its scheduled brownouts already cancel runs.
+        os: [macos-15, ubuntu-24.04-arm]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
       MATRIX_KEY: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain || rustup toolchain install
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.4"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: scripts/ci/job.sh test-${{ matrix.os }} scripts/ci/test.sh
+      # Logs and result for the publish job; this job has no write token.
       - if: always()
-        run: scripts/ci/publish-results.sh "${{ job.status }}"
+        run: scripts/ci/job-status.sh "${{ job.status }}"
+      - if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ci-out-${{ github.job }}-${{ env.MATRIX_KEY }}
+          path: ci-out
+          retention-days: 3
 
   ruby:
     strategy:
@@ -53,17 +65,26 @@ jobs:
     env:
       MATRIX_KEY: ruby-${{ matrix.ruby }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain || rustup toolchain install
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
           working-directory: bindings/ruby
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: scripts/ci/job.sh ruby-${{ matrix.ruby }} scripts/ci/ruby.sh
+      # Logs and result for the publish job; this job has no write token.
       - if: always()
-        run: scripts/ci/publish-results.sh "${{ job.status }}"
+        run: scripts/ci/job-status.sh "${{ job.status }}"
+      - if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ci-out-${{ github.job }}-${{ env.MATRIX_KEY }}
+          path: ci-out
+          retention-days: 3
 
   native-gems:
     strategy:
@@ -75,21 +96,30 @@ jobs:
     env:
       MATRIX_KEY: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.4"
           bundler-cache: true
           working-directory: bindings/ruby
       - run: scripts/ci/job.sh gem-${{ matrix.platform }} scripts/ci/native-gem.sh ${{ matrix.platform }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         if: success()
         with:
           name: gem-${{ matrix.platform }}
           path: bindings/ruby/pkg/*.gem
           retention-days: 14
+      # Logs and result for the publish job; this job has no write token.
       - if: always()
-        run: scripts/ci/publish-results.sh "${{ job.status }}"
+        run: scripts/ci/job-status.sh "${{ job.status }}"
+      - if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ci-out-${{ github.job }}-${{ env.MATRIX_KEY }}
+          path: ci-out
+          retention-days: 3
 
   linux-extra:
     strategy:
@@ -101,14 +131,49 @@ jobs:
     env:
       MATRIX_KEY: ${{ matrix.check }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain || rustup toolchain install
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.4"
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: ${{ matrix.check }}
       - run: scripts/ci/job.sh ${{ matrix.check }} scripts/ci/${{ matrix.check }}.sh
+      # Logs and result for the publish job; this job has no write token.
       - if: always()
-        run: scripts/ci/publish-results.sh "${{ job.status }}"
+        run: scripts/ci/job-status.sh "${{ job.status }}"
+      - if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ci-out-${{ github.job }}-${{ env.MATRIX_KEY }}
+          path: ci-out
+          retention-days: 3
+
+  # The only job with a write token. After the others (whatever their result),
+  # it pushes their logs and results to the ci-results branch, for the fleet,
+  # which can read git but not the Actions API. It runs the default branch's
+  # scripts on the build jobs' artifacts, so no code under test runs where the
+  # token is.
+  publish:
+    needs: [test, ruby, native-gems, linux-extra]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          pattern: ci-out-*
+          path: results
+      - run: scripts/ci/publish-results.sh --from results
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NEEDS: ${{ toJSON(needs) }}
