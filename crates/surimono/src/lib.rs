@@ -59,6 +59,7 @@ mod options;
 mod page;
 mod pages;
 mod prepass;
+mod print;
 mod renderer;
 mod svg;
 

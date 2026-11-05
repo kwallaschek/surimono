@@ -410,3 +410,71 @@ fn a_cancel_ends_a_page_at_its_next_load() {
     drop(loader);
     assert_eq!(calls.get(), 1);
 }
+
+/// fulgur's parse: blitz-dom with a `file:` base, as `parse_inner` sets it up
+/// (fulgur 0.40.0 `src/blitz_adapter.rs`). It panics on URLs it can't resolve.
+fn printer_parses(html: &str) {
+    let config = blitz_dom::DocumentConfig {
+        base_url: Some("file:///".to_owned()),
+        ..blitz_dom::DocumentConfig::default()
+    };
+    drop(blitz_html::HtmlDocument::from_html(html, config));
+}
+
+#[test]
+fn what_a_script_writes_cant_crash_the_printer() {
+    let r = renderer(options());
+    let out = page(
+        &r,
+        r#"<!doctype html><head><style id=s></style><body><p id=a>x</p>
+        <script>
+          document.getElementById('s').textContent = '@import "http://["; @font-face { src: url("http://[") }';
+          document.getElementById('a').style.setProperty('background-image', 'url("http://[")');
+          const i = document.createElement('img');
+          i.setAttribute('src', 'http://[');
+          document.body.append(i);
+          const l = document.createElement('link');
+          l.rel = 'stylesheet'; l.setAttribute('href', 'http://[');
+          document.head.append(l);
+        </script>"#,
+    );
+    assert!(!out.html.contains("http://["), "{}", out.html);
+    printer_parses(&out.html);
+}
+
+#[test]
+fn more_css_than_a_printer_can_take_is_a_typed_error() {
+    let r = renderer(options());
+    let e = r
+        .render_page(
+            "<!doctype html><body><script>
+              const s = document.createElement('style');
+              s.textContent = 'a{' + '--x:1;'.repeat(3000) + 'all:inherit;'.repeat(1000) + '}';
+              document.head.append(s);
+            </script>",
+        )
+        .map(|_| ())
+        .unwrap_err();
+    assert_eq!(e.kind(), "document-limit", "{e}");
+}
+
+#[test]
+fn a_style_attribute_prints_as_the_page_wrote_it() {
+    let r = renderer(options());
+    let out = page(
+        &r,
+        r#"<!doctype html><body><p id=a style="color: red">x</p><svg style="fill: blue"></svg>
+        <script>document.getElementById('a').style.marginTop = '1px';</script>"#,
+    );
+    assert!(
+        out.html
+            .contains(r#"<p id="a" style="color: red; margin-top: 1px;">"#),
+        "{}",
+        out.html
+    );
+    assert!(
+        out.html.contains(r#"<svg style="fill: blue">"#),
+        "{}",
+        out.html
+    );
+}

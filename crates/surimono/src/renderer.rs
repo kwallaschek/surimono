@@ -14,6 +14,7 @@ use crate::loader::{Loader, Session, inline_stylesheets};
 use crate::page::Page;
 use crate::pages::PagePool;
 use crate::prepass::{self, Document, ErrorPolicy};
+use crate::print;
 use crate::svg::SanitizedSvg;
 
 /// Renders a document's islands to SVG.
@@ -488,8 +489,11 @@ impl Renderer {
             }
             None => ran.html,
         };
+        // Islands' SVG is sanitised, so what could hurt a printer is in place
+        // by now.
+        let screened = print::screen_page(&printed)?;
         Ok(Page {
-            html: self.render(&printed, cancel)?,
+            html: self.render(&screened, cancel)?,
             report,
         })
     }
