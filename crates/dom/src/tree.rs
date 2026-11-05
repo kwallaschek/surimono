@@ -490,6 +490,9 @@ impl Document {
             NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                 let name = e.name.clone();
                 let attrs = e.attrs().to_vec();
+                // Copying a long `style` counts for more than one step.
+                let style = e.attr(blitz_dom::local_name!("style"));
+                self.poll_by(style.map_or(0, str::len))?;
                 self.create_element_with(name, attrs)
             }
             NodeData::Document => {
@@ -825,7 +828,7 @@ fn selector_combinators(selector: &Selector<SelectorImpl>) -> usize {
 
 /// The sandbox stops the script at its next check, so this is what the
 /// script never gets to see: the call fails with `TimeLimit`.
-fn timed_out() -> BindingError {
+pub(crate) fn timed_out() -> BindingError {
     BindingError::TypeError("the time limit has passed".to_owned())
 }
 

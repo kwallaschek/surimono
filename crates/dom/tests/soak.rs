@@ -69,6 +69,14 @@ const SCRIPT: &str = r#"
     sum += out.textContent.length;
     out.textContent = '';
   }
+  // Stylo interns these names and URLs while it checks each value.
+  const styled = document.getElementById('r4').style;
+  for (let k = 0; k < 20; k++) {
+    styled.fontFamily = 'f' + i + '-' + k + ', serif';
+    styled.backgroundImage = 'url(u' + i + '-' + k + '.png)';
+    styled.cssText += ' animation-name: a' + i + '-' + k + ';';
+    sum += styled.length;
+  }
   const kept = document.getElementById('r3');
   document.getElementById('t').textContent = 'cleared ' + i;
   if (i % 50 === 49) document.body.appendChild(kept).appendChild(document);

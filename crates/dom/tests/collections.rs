@@ -339,6 +339,192 @@ fn what_the_libraries_do() {
     );
 }
 
+/// Each case is `[script, expected]`, run on a fresh `p`; the expected values
+/// came from Chrome 153.0.8010.12 (`p.style.cssText`).
+fn assert_style_cases(cases: &[(&str, &str)]) {
+    for (script, chrome) in cases {
+        let (r, _) = eval_body(&format!(
+            "const s = p.style; {script}; s.cssText + '|' + (p.getAttribute('style') ?? '')"
+        ));
+        let want = format!("{chrome}|{chrome}");
+        assert_eq!(r, want, "{script}");
+    }
+}
+
+#[test]
+fn set_property_needs_a_supported_name() {
+    assert_style_cases(&[
+        ("s.setProperty('bogus', '1')", ""),
+        ("s.setProperty('color: red; x', '1')", ""),
+        ("s.setProperty('--', '1')", ""),
+        ("s.setProperty('COLOR', 'red')", "color: red;"),
+        // A custom name is any text, escaped: it can't add a declaration.
+        ("s.setProperty('--a b', '1')", "--a\\ b: 1;"),
+        (
+            "s.setProperty('--a: 1; color', '1')",
+            "--a\\:\\ 1\\;\\ color: 1;",
+        ),
+        // A real property stylo doesn't know: SVG reads it, so it stays.
+        ("s.setProperty('fill', 'red')", "fill: red;"),
+        ("s.breakInside = 'avoid'", "break-inside: avoid;"),
+        // Legacy aliases.
+        ("s.webkitTransform = 'none'", "transform: none;"),
+        ("s.wordWrap = 'break-word'", "overflow-wrap: break-word;"),
+        // Not attributes: expandos.
+        ("s['--x'] = '1'", ""),
+        ("s['Font-Size'] = '1px'", ""),
+    ]);
+}
+
+#[test]
+fn a_value_cannot_leave_its_declaration() {
+    assert_style_cases(&[
+        ("s.color = 'red; display: none'", ""),
+        ("s.setProperty('color', 'red; display: none')", ""),
+        ("s.color = 'red !important'", ""),
+        ("s.setProperty('color', 'red !important')", ""),
+        ("s.color = 'red;'", ""),
+        ("s.color = 'red)'", ""),
+        ("s.setProperty('--x', 'a;b')", ""),
+        ("s.setProperty('--x', ')')", ""),
+        (
+            "s.fontFamily = \"'\"; s.color = 'red'",
+            "font-family: \"\"; color: red;",
+        ),
+        (
+            "s.backgroundImage = \"url('a\"; s.color = 'red'",
+            "background-image: url(\"a\"); color: red;",
+        ),
+        (
+            "s.color = 'rgb(1,2,3'; s.width = '1px'",
+            "color: rgb(1,2,3); width: 1px;",
+        ),
+    ]);
+}
+
+#[test]
+fn an_invalid_value_changes_nothing() {
+    assert_style_cases(&[
+        ("s.color = 'red'; s.color = 'notacolor'", "color: red;"),
+        ("s.cssText = 'color: red; color: notacolor'", "color: red;"),
+        ("s.setProperty('width', 'red')", ""),
+        ("s.color = ' '", ""),
+    ]);
+}
+
+#[test]
+fn null_value_of_set_property_removes() {
+    // [LegacyNullToEmptyString] on the required `value` and the optional
+    // `priority`.
+    assert_style_cases(&[
+        (
+            "s.width = '1px'; s.color = 'red'; s.setProperty('color', null)",
+            "width: 1px;",
+        ),
+        ("s.setProperty('width', '2px', null)", "width: 2px;"),
+        ("s.setProperty('width', '2px', 'x')", ""),
+    ]);
+}
+
+/// Values Chrome accepts must get through stylo. `layout.grid.enabled` and
+/// friends are set by blitz-dom's document constructor.
+#[test]
+fn common_values_are_valid() {
+    for (name, value) in [
+        ("display", "grid"),
+        ("display", "inline-flex"),
+        ("display", "none"),
+        ("position", "sticky"),
+        ("overflow", "clip"),
+        ("width", "fit-content"),
+        ("height", "min-content"),
+        ("color", "rgb(1 2 3)"),
+        ("color", "color-mix(in srgb, red, blue)"),
+        ("font-size", "clamp(1px, 2px, 3px)"),
+        ("inset", "0"),
+        ("gap", "1px"),
+        ("aspect-ratio", "1"),
+        ("background", "linear-gradient(red, blue)"),
+        ("background-image", "url(a.png)"),
+        ("transform", "rotate(1deg)"),
+        ("box-shadow", "0 0 1px red"),
+        ("text-decoration", "underline wavy"),
+        ("border-radius", "1px"),
+        ("font", "12px serif"),
+        ("flex", "1"),
+        ("grid-template-columns", "repeat(3, 1fr)"),
+        ("columns", "2"),
+        ("object-fit", "cover"),
+        ("line-height", "1.5"),
+        ("transition", "all 1s"),
+        ("margin", "0 auto"),
+        ("width", "calc(100% - 1px)"),
+        ("height", "100vh"),
+        ("font-family", "'A B', serif"),
+        ("white-space", "pre-wrap"),
+        ("word-break", "break-all"),
+        ("list-style", "none"),
+        ("outline", "1px solid red"),
+    ] {
+        let (r, _) = eval_body(&format!(
+            r#"p.style.setProperty("{name}", "{value}"); p.style.getPropertyValue("{name}")"#
+        ));
+        // As written, strings in double quotes as serialized.
+        assert_eq!(r, value.replace('\'', "\""), "{name}: {value}");
+    }
+}
+
+#[test]
+fn style_on_svg_and_rule() {
+    // cssom.idl: SVGElement includes ElementCSSInlineStyle, and an inline
+    // style has no parent rule. Chrome 153.0.8010.12.
+    let (r, _) = eval_body(
+        r#"const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        r.style.fill = 'red'; r.style.strokeWidth = '2';
+        const other = document.createElementNS('urn:x', 'y');
+        [r.getAttribute('style'), r instanceof SVGElement, r instanceof Element,
+         p instanceof SVGElement, typeof other.style, r.style.parentRule].join('|')"#,
+    );
+    assert_eq!(r, "fill: red; stroke-width: 2;|true|true|false|undefined|");
+}
+
+#[test]
+fn inline_style() {
+    // CSSOM §6.6 CSSStyleDeclaration, §6.7 CSSStyleProperties; WPT
+    // css/cssom/cssstyledeclaration-*.html.
+    let (r, body) = eval_body(
+        r#"const s = p.style;
+        const out = [s === p.style, s.length, s.color, s.cssText, s instanceof CSSStyleDeclaration];
+        s.color = 'red'; s.fontSize = '1.2em'; s.cssFloat = 'left';
+        out.push(s.length, s[0], s[1], s[2], s[3], s.item(1), s.item(9), s.color, s.fontSize);
+        out.push(s.getPropertyValue('font-size'), s.getPropertyValue('FONT-SIZE'), s['font-size']);
+        s.setProperty('margin-top', '1px', 'important');
+        out.push(s.getPropertyPriority('margin-top'), s.marginTop, s.cssText);
+        out.push(s.removeProperty('color'), s.color, s.removeProperty('color'));
+        s.setProperty('height', '2px', 'bogus'); out.push(s.height);
+        s.setProperty('--My-Var', '1'); out.push(s.getPropertyValue('--My-Var'));
+        s.fontSize = ''; s.marginTop = null; out.push(s.fontSize, s.marginTop);
+        s.expando = 'kept'; out.push(s.expando, p.getAttribute('style'));
+        out.push(delete s.cssFloat, s.cssFloat);
+        l1.style = 'color: blue'; out.push(l1.style.color, l1.getAttribute('style'));
+        l2.style.cssText = 'width: 1px; width: 2px'; out.push(l2.style.width, l2.style.length);
+        l2.setAttribute('style', 'top: 0'); out.push(l2.style.top);
+        out.push(Object.keys(l2.style).join('+'));
+        out.join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "true|0|||true|3|color|font-size|float||font-size||red|1.2em|1.2em|1.2em|1.2em|\
+         important|1px|color: red; font-size: 1.2em; float: left; margin-top: 1px !important;|\
+         red||||1|||kept|float: left; --My-Var: 1;|true|left|\
+         blue|color: blue;|2px|1|0|0"
+    );
+    assert!(
+        body.contains(r#"style="float: left; --My-Var: 1;""#),
+        "{body}"
+    );
+}
+
 #[test]
 fn collections_iterate_as_webidl_says() {
     // WebIDL §3.7.8; WPT dom/collections/HTMLCollection-iterator.html: an

@@ -30,6 +30,7 @@ pub const STUB_INTERFACES: &[&str] = &[
     "Node",
     "Element",
     "HTMLElement",
+    "SVGElement",
     "Document",
     "DocumentFragment",
     "CharacterData",
@@ -41,6 +42,7 @@ pub const STUB_INTERFACES: &[&str] = &[
     "NamedNodeMap",
     "DOMTokenList",
     "DOMStringMap",
+    "CSSStyleDeclaration",
 ];
 
 /// Typedefs and nested types deeper than this are an error (a typedef cycle).

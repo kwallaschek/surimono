@@ -126,7 +126,7 @@ fn operation(r: &mut Rng) -> String {
     let tag = quoted(r.pick(TAGS));
     let attr = quoted(r.pick(ATTRS));
     let value = quoted(r.pick(VALUES));
-    let body = match r.below(36) {
+    let body = match r.below(38) {
         0 => format!("keep(document.createElement({tag}))"),
         1 => format!("keep(document.createTextNode({value}))"),
         2 => format!("keep(document.createComment({value}))"),
@@ -175,6 +175,10 @@ fn operation(r: &mut Rng) -> String {
             "[at({a}).innerHTML, at({b}).outerHTML, document.getElementsByTagName({tag}).length]"
         ),
         34 => format!("at({a}).getElementsByClassName({value})[0]; at({b}).children.length"),
+        35 => format!("at({a}).style.cssText = {value}; at({b}).style.color = {value}"),
+        36 => format!(
+            "at({a}).style.setProperty('margin', {value}); at({b}).style.removeProperty('color')"
+        ),
         // Reads: every node type, whatever state it reached.
         _ => format!(
             "[at({a}).textContent, at({b}).nodeName, at({c}).isConnected, document.getElementById({value})]"
