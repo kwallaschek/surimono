@@ -35,7 +35,9 @@ const CANCEL_POLL: Duration = Duration::from_millis(5);
 /// per tree level), as for the island workers.
 const STACK_HEADROOM: usize = 8 * 1024 * 1024;
 
-/// How every page in a pool runs.
+/// How every page in a pool runs. The layout-query policy (E2-07) goes here,
+/// with its [`Options`](crate::Options) setter next to `page_budget_ms`, and
+/// reaches the runtime where [`run_job`] makes it.
 #[derive(Debug, Clone)]
 pub(crate) struct PagePoolOptions {
     pub(crate) sandbox: SandboxOptions,
