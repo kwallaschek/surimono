@@ -815,10 +815,15 @@ impl Document {
 
     /// Sets the URL of the page's document (`document.URL`), which the
     /// documents it makes through `DOMParser` take on. `about:blank` until set.
+    /// An XML page's `contentType` then goes by the URL's extension, as a
+    /// frame's does, for want of a Content-Type.
     pub fn set_url(&mut self, url: &str) {
         let root = self.root();
         if let Some(d) = self.docs.get_mut(&root) {
             d.url = Arc::from(url);
+            if !d.html {
+                d.content_type = frame_content_type(url).unwrap_or(APPLICATION_XHTML);
+            }
         }
     }
 

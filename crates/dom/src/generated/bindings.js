@@ -7,16 +7,16 @@ const I_CustomEvent = 2;
 const I_ErrorEvent = 3;
 const I_Window = 4;
 const I_MutationObserver = 27;
-const I_DOMRectReadOnly = 101;
-const I_DOMRect = 102;
-const I_DOMRectList = 103;
-const I_DOMParser = 99;
-const I_XMLSerializer = 100;
+const I_DOMRectReadOnly = 37;
+const I_DOMRect = 38;
+const I_DOMRectList = 39;
+const I_DOMParser = 35;
+const I_XMLSerializer = 36;
 const I_Node = 5;
 const I_Element = 6;
 const I_HTMLElement = 7;
 const I_Document = 9;
-const I_HTMLIFrameElement = 67;
+const I_HTMLIFrameElement = 63;
 
 // EventTarget
 iface(0, "EventTarget", -1, function EventTarget() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_EventTarget(new.target); });
@@ -409,161 +409,177 @@ attr(34, "type", function () { const s = self(this, 34); const r = call(259, s.g
 attr(34, "name", function () { const s = self(this, 34); const r = call(261, s.g, s.h); return r; }, function (v) { const s = self(this, 34); call(262, s.g, s.h, str(v)); });
 attr(34, "checked", function () { const s = self(this, 34); const r = call(263, s.g, s.h); return r; }, function (v) { const s = self(this, 34); call(264, s.g, s.h, !!v); });
 
-// HTMLHtmlElement
-iface(35, "HTMLHtmlElement", 7, null);
+// DOMParser
+iface(35, "DOMParser", -1, function DOMParser() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMParser(new.target); });
+op(35, "parseFromString", function parseFromString(a0, a1) { const s = self(this, 35); const argc = arguments.length; need(argc, 2, "parseFromString"); return H.DOMParser_parseFromString(s, str(a0), a1); });
 
-// HTMLHeadElement
-iface(36, "HTMLHeadElement", 7, null);
+// XMLSerializer
+iface(36, "XMLSerializer", -1, function XMLSerializer() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_XMLSerializer(new.target); });
+op(36, "serializeToString", function serializeToString(a0) { const s = self(this, 36); const argc = arguments.length; need(argc, 1, "serializeToString"); return H.XMLSerializer_serializeToString(s, self(a0, 5)); });
 
-// HTMLTitleElement
-iface(37, "HTMLTitleElement", 7, null);
+// DOMRectReadOnly
+iface(37, "DOMRectReadOnly", -1, function DOMRectReadOnly() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRectReadOnly(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
+attr(37, "x", function () { return H.DOMRectReadOnly_x(self(this, 37)); });
+attr(37, "y", function () { return H.DOMRectReadOnly_y(self(this, 37)); });
+attr(37, "width", function () { return H.DOMRectReadOnly_width(self(this, 37)); });
+attr(37, "height", function () { return H.DOMRectReadOnly_height(self(this, 37)); });
+attr(37, "top", function () { return H.DOMRectReadOnly_top(self(this, 37)); });
+attr(37, "right", function () { return H.DOMRectReadOnly_right(self(this, 37)); });
+attr(37, "bottom", function () { return H.DOMRectReadOnly_bottom(self(this, 37)); });
+attr(37, "left", function () { return H.DOMRectReadOnly_left(self(this, 37)); });
+op(37, "toJSON", function toJSON() { const s = self(this, 37); const argc = arguments.length; return H.DOMRectReadOnly_toJSON(s); });
+
+// DOMRect
+iface(38, "DOMRect", 37, function DOMRect() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRect(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
+attr(38, "x", function () { return H.DOMRect_x(self(this, 38)); }, function (v) { H.set_DOMRect_x(self(this, 38), v); });
+attr(38, "y", function () { return H.DOMRect_y(self(this, 38)); }, function (v) { H.set_DOMRect_y(self(this, 38), v); });
+attr(38, "width", function () { return H.DOMRect_width(self(this, 38)); }, function (v) { H.set_DOMRect_width(self(this, 38), v); });
+attr(38, "height", function () { return H.DOMRect_height(self(this, 38)); }, function (v) { H.set_DOMRect_height(self(this, 38), v); });
+
+// DOMRectList
+iface(39, "DOMRectList", -1, null);
+attr(39, "length", function () { return H.DOMRectList_length(self(this, 39)); });
+
+// HTMLAreaElement
+iface(40, "HTMLAreaElement", 7, null);
+
+// HTMLBaseElement
+iface(41, "HTMLBaseElement", 7, null);
 
 // HTMLBodyElement
-iface(38, "HTMLBodyElement", 7, null);
-handlers(38, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
-
-// HTMLDivElement
-iface(39, "HTMLDivElement", 7, null);
-
-// HTMLSpanElement
-iface(40, "HTMLSpanElement", 7, null);
-
-// HTMLParagraphElement
-iface(41, "HTMLParagraphElement", 7, null);
-
-// HTMLHeadingElement
-iface(42, "HTMLHeadingElement", 7, null);
+iface(42, "HTMLBodyElement", 7, null);
+handlers(42, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
 
 // HTMLBRElement
 iface(43, "HTMLBRElement", 7, null);
 
-// HTMLHRElement
-iface(44, "HTMLHRElement", 7, null);
-
-// HTMLPreElement
-iface(45, "HTMLPreElement", 7, null);
-
-// HTMLQuoteElement
-iface(46, "HTMLQuoteElement", 7, null);
-
-// HTMLOListElement
-iface(47, "HTMLOListElement", 7, null);
-
-// HTMLUListElement
-iface(48, "HTMLUListElement", 7, null);
-
-// HTMLMenuElement
-iface(49, "HTMLMenuElement", 7, null);
-
-// HTMLLIElement
-iface(50, "HTMLLIElement", 7, null);
-
-// HTMLDListElement
-iface(51, "HTMLDListElement", 7, null);
-
-// HTMLDirectoryElement
-iface(52, "HTMLDirectoryElement", 7, null);
-
-// HTMLAreaElement
-iface(53, "HTMLAreaElement", 7, null);
-
-// HTMLBaseElement
-iface(54, "HTMLBaseElement", 7, null);
-
 // HTMLButtonElement
-iface(55, "HTMLButtonElement", 7, null);
+iface(44, "HTMLButtonElement", 7, null);
 
 // HTMLCanvasElement
-iface(56, "HTMLCanvasElement", 7, null);
+iface(45, "HTMLCanvasElement", 7, null);
 
 // HTMLDataElement
-iface(57, "HTMLDataElement", 7, null);
+iface(46, "HTMLDataElement", 7, null);
 
 // HTMLDataListElement
-iface(58, "HTMLDataListElement", 7, null);
+iface(47, "HTMLDataListElement", 7, null);
 
 // HTMLDetailsElement
-iface(59, "HTMLDetailsElement", 7, null);
+iface(48, "HTMLDetailsElement", 7, null);
 
 // HTMLDialogElement
-iface(60, "HTMLDialogElement", 7, null);
+iface(49, "HTMLDialogElement", 7, null);
+
+// HTMLDirectoryElement
+iface(50, "HTMLDirectoryElement", 7, null);
+
+// HTMLDivElement
+iface(51, "HTMLDivElement", 7, null);
+
+// HTMLDListElement
+iface(52, "HTMLDListElement", 7, null);
 
 // HTMLEmbedElement
-iface(61, "HTMLEmbedElement", 7, null);
+iface(53, "HTMLEmbedElement", 7, null);
 
 // HTMLFieldSetElement
-iface(62, "HTMLFieldSetElement", 7, null);
+iface(54, "HTMLFieldSetElement", 7, null);
 
 // HTMLFontElement
-iface(63, "HTMLFontElement", 7, null);
+iface(55, "HTMLFontElement", 7, null);
 
 // HTMLFormElement
-iface(64, "HTMLFormElement", 7, null);
+iface(56, "HTMLFormElement", 7, null);
 
 // HTMLFrameElement
-iface(65, "HTMLFrameElement", 7, null);
+iface(57, "HTMLFrameElement", 7, null);
 
 // HTMLFrameSetElement
-iface(66, "HTMLFrameSetElement", 7, null);
-handlers(66, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
+iface(58, "HTMLFrameSetElement", 7, null);
+handlers(58, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
+
+// HTMLHeadElement
+iface(59, "HTMLHeadElement", 7, null);
+
+// HTMLHeadingElement
+iface(60, "HTMLHeadingElement", 7, null);
+
+// HTMLHRElement
+iface(61, "HTMLHRElement", 7, null);
+
+// HTMLHtmlElement
+iface(62, "HTMLHtmlElement", 7, null);
 
 // HTMLIFrameElement
-iface(67, "HTMLIFrameElement", 7, null);
-attr(67, "src", function () { const s = self(this, 67); const r = call(265, s.g, s.h); return r; }, function (v) { const s = self(this, 67); call(266, s.g, s.h, str(v)); });
-attr(67, "srcdoc", function () { const s = self(this, 67); const r = call(267, s.g, s.h); return r; }, function (v) { const s = self(this, 67); call(268, s.g, s.h, str(v)); });
-attr(67, "name", function () { const s = self(this, 67); const r = call(269, s.g, s.h); return r; }, function (v) { const s = self(this, 67); call(270, s.g, s.h, str(v)); });
-attr(67, "contentDocument", function () { const s = self(this, 67); const r = call(271, s.g, s.h); return wrap(s.g, r); });
+iface(63, "HTMLIFrameElement", 7, null);
+attr(63, "src", function () { const s = self(this, 63); const r = call(265, s.g, s.h); return r; }, function (v) { const s = self(this, 63); call(266, s.g, s.h, str(v)); });
+attr(63, "srcdoc", function () { const s = self(this, 63); const r = call(267, s.g, s.h); return r; }, function (v) { const s = self(this, 63); call(268, s.g, s.h, str(v)); });
+attr(63, "name", function () { const s = self(this, 63); const r = call(269, s.g, s.h); return r; }, function (v) { const s = self(this, 63); call(270, s.g, s.h, str(v)); });
+attr(63, "contentDocument", function () { const s = self(this, 63); const r = call(271, s.g, s.h); return wrap(s.g, r); });
 
 // HTMLLabelElement
-iface(68, "HTMLLabelElement", 7, null);
+iface(64, "HTMLLabelElement", 7, null);
 
 // HTMLLegendElement
-iface(69, "HTMLLegendElement", 7, null);
+iface(65, "HTMLLegendElement", 7, null);
+
+// HTMLLIElement
+iface(66, "HTMLLIElement", 7, null);
 
 // HTMLMapElement
-iface(70, "HTMLMapElement", 7, null);
+iface(67, "HTMLMapElement", 7, null);
 
 // HTMLMarqueeElement
-iface(71, "HTMLMarqueeElement", 7, null);
+iface(68, "HTMLMarqueeElement", 7, null);
 
 // HTMLMediaElement
-iface(72, "HTMLMediaElement", 7, null);
-konst(72, "NETWORK_EMPTY", 0);
-konst(72, "NETWORK_IDLE", 1);
-konst(72, "NETWORK_LOADING", 2);
-konst(72, "NETWORK_NO_SOURCE", 3);
-konst(72, "HAVE_NOTHING", 0);
-konst(72, "HAVE_METADATA", 1);
-konst(72, "HAVE_CURRENT_DATA", 2);
-konst(72, "HAVE_FUTURE_DATA", 3);
-konst(72, "HAVE_ENOUGH_DATA", 4);
+iface(69, "HTMLMediaElement", 7, null);
+konst(69, "NETWORK_EMPTY", 0);
+konst(69, "NETWORK_IDLE", 1);
+konst(69, "NETWORK_LOADING", 2);
+konst(69, "NETWORK_NO_SOURCE", 3);
+konst(69, "HAVE_NOTHING", 0);
+konst(69, "HAVE_METADATA", 1);
+konst(69, "HAVE_CURRENT_DATA", 2);
+konst(69, "HAVE_FUTURE_DATA", 3);
+konst(69, "HAVE_ENOUGH_DATA", 4);
 
 // HTMLAudioElement
-iface(73, "HTMLAudioElement", 72, null);
+iface(70, "HTMLAudioElement", 69, null);
 
 // HTMLVideoElement
-iface(74, "HTMLVideoElement", 72, null);
+iface(71, "HTMLVideoElement", 69, null);
+
+// HTMLMenuElement
+iface(72, "HTMLMenuElement", 7, null);
 
 // HTMLMetaElement
-iface(75, "HTMLMetaElement", 7, null);
+iface(73, "HTMLMetaElement", 7, null);
 
 // HTMLMeterElement
-iface(76, "HTMLMeterElement", 7, null);
+iface(74, "HTMLMeterElement", 7, null);
 
 // HTMLModElement
-iface(77, "HTMLModElement", 7, null);
+iface(75, "HTMLModElement", 7, null);
 
 // HTMLObjectElement
-iface(78, "HTMLObjectElement", 7, null);
+iface(76, "HTMLObjectElement", 7, null);
+
+// HTMLOListElement
+iface(77, "HTMLOListElement", 7, null);
 
 // HTMLOptGroupElement
-iface(79, "HTMLOptGroupElement", 7, null);
+iface(78, "HTMLOptGroupElement", 7, null);
 
 // HTMLOptionElement
-iface(80, "HTMLOptionElement", 7, null);
+iface(79, "HTMLOptionElement", 7, null);
 
 // HTMLOutputElement
-iface(81, "HTMLOutputElement", 7, null);
+iface(80, "HTMLOutputElement", 7, null);
+
+// HTMLParagraphElement
+iface(81, "HTMLParagraphElement", 7, null);
 
 // HTMLParamElement
 iface(82, "HTMLParamElement", 7, null);
@@ -571,85 +587,69 @@ iface(82, "HTMLParamElement", 7, null);
 // HTMLPictureElement
 iface(83, "HTMLPictureElement", 7, null);
 
+// HTMLPreElement
+iface(84, "HTMLPreElement", 7, null);
+
 // HTMLProgressElement
-iface(84, "HTMLProgressElement", 7, null);
+iface(85, "HTMLProgressElement", 7, null);
+
+// HTMLQuoteElement
+iface(86, "HTMLQuoteElement", 7, null);
 
 // HTMLSelectElement
-iface(85, "HTMLSelectElement", 7, null);
+iface(87, "HTMLSelectElement", 7, null);
 
 // HTMLSlotElement
-iface(86, "HTMLSlotElement", 7, null);
+iface(88, "HTMLSlotElement", 7, null);
 
 // HTMLSourceElement
-iface(87, "HTMLSourceElement", 7, null);
+iface(89, "HTMLSourceElement", 7, null);
+
+// HTMLSpanElement
+iface(90, "HTMLSpanElement", 7, null);
 
 // HTMLStyleElement
-iface(88, "HTMLStyleElement", 7, null);
+iface(91, "HTMLStyleElement", 7, null);
 
 // HTMLTableCaptionElement
-iface(89, "HTMLTableCaptionElement", 7, null);
+iface(92, "HTMLTableCaptionElement", 7, null);
 
 // HTMLTableCellElement
-iface(90, "HTMLTableCellElement", 7, null);
+iface(93, "HTMLTableCellElement", 7, null);
 
 // HTMLTableColElement
-iface(91, "HTMLTableColElement", 7, null);
+iface(94, "HTMLTableColElement", 7, null);
 
 // HTMLTableElement
-iface(92, "HTMLTableElement", 7, null);
+iface(95, "HTMLTableElement", 7, null);
 
 // HTMLTableRowElement
-iface(93, "HTMLTableRowElement", 7, null);
+iface(96, "HTMLTableRowElement", 7, null);
 
 // HTMLTableSectionElement
-iface(94, "HTMLTableSectionElement", 7, null);
+iface(97, "HTMLTableSectionElement", 7, null);
 
 // HTMLTextAreaElement
-iface(95, "HTMLTextAreaElement", 7, null);
+iface(98, "HTMLTextAreaElement", 7, null);
 
 // HTMLTimeElement
-iface(96, "HTMLTimeElement", 7, null);
+iface(99, "HTMLTimeElement", 7, null);
+
+// HTMLTitleElement
+iface(100, "HTMLTitleElement", 7, null);
 
 // HTMLTrackElement
-iface(97, "HTMLTrackElement", 7, null);
-konst(97, "NONE", 0);
-konst(97, "LOADING", 1);
-konst(97, "LOADED", 2);
-konst(97, "ERROR", 3);
+iface(101, "HTMLTrackElement", 7, null);
+konst(101, "NONE", 0);
+konst(101, "LOADING", 1);
+konst(101, "LOADED", 2);
+konst(101, "ERROR", 3);
+
+// HTMLUListElement
+iface(102, "HTMLUListElement", 7, null);
 
 // HTMLUnknownElement
-iface(98, "HTMLUnknownElement", 7, null);
-
-// DOMParser
-iface(99, "DOMParser", -1, function DOMParser() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMParser(new.target); });
-op(99, "parseFromString", function parseFromString(a0, a1) { const s = self(this, 99); const argc = arguments.length; need(argc, 2, "parseFromString"); return H.DOMParser_parseFromString(s, str(a0), a1); });
-
-// XMLSerializer
-iface(100, "XMLSerializer", -1, function XMLSerializer() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_XMLSerializer(new.target); });
-op(100, "serializeToString", function serializeToString(a0) { const s = self(this, 100); const argc = arguments.length; need(argc, 1, "serializeToString"); return H.XMLSerializer_serializeToString(s, self(a0, 5)); });
-
-// DOMRectReadOnly
-iface(101, "DOMRectReadOnly", -1, function DOMRectReadOnly() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRectReadOnly(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
-attr(101, "x", function () { return H.DOMRectReadOnly_x(self(this, 101)); });
-attr(101, "y", function () { return H.DOMRectReadOnly_y(self(this, 101)); });
-attr(101, "width", function () { return H.DOMRectReadOnly_width(self(this, 101)); });
-attr(101, "height", function () { return H.DOMRectReadOnly_height(self(this, 101)); });
-attr(101, "top", function () { return H.DOMRectReadOnly_top(self(this, 101)); });
-attr(101, "right", function () { return H.DOMRectReadOnly_right(self(this, 101)); });
-attr(101, "bottom", function () { return H.DOMRectReadOnly_bottom(self(this, 101)); });
-attr(101, "left", function () { return H.DOMRectReadOnly_left(self(this, 101)); });
-op(101, "toJSON", function toJSON() { const s = self(this, 101); const argc = arguments.length; return H.DOMRectReadOnly_toJSON(s); });
-
-// DOMRect
-iface(102, "DOMRect", 101, function DOMRect() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRect(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
-attr(102, "x", function () { return H.DOMRect_x(self(this, 102)); }, function (v) { H.set_DOMRect_x(self(this, 102), v); });
-attr(102, "y", function () { return H.DOMRect_y(self(this, 102)); }, function (v) { H.set_DOMRect_y(self(this, 102), v); });
-attr(102, "width", function () { return H.DOMRect_width(self(this, 102)); }, function (v) { H.set_DOMRect_width(self(this, 102), v); });
-attr(102, "height", function () { return H.DOMRect_height(self(this, 102)); }, function (v) { H.set_DOMRect_height(self(this, 102), v); });
-
-// DOMRectList
-iface(103, "DOMRectList", -1, null);
-attr(103, "length", function () { return H.DOMRectList_length(self(this, 103)); });
+iface(103, "HTMLUnknownElement", 7, null);
 
 // CSSStyleDeclaration
 iface(104, "CSSStyleDeclaration", -1, null);

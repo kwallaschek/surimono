@@ -1,0 +1,28 @@
+# The WPT runner: runs wpt/manifest.toml's tests through the real testharness.js
+# on surimono-dom (wpt/README.md, "Runner"). A standalone workspace, like
+# bench/rust, so a test tool's dependencies stay out of the library's Cargo.lock
+# and cargo-deny, and nothing in the published crates depends on it.
+[package]
+name = "surimono-wpt-runner"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[dependencies]
+surimono-core = { path = "../../crates/core" }
+surimono-dom = { path = "../../crates/dom" }
+serde_json = "1"
+toml = "1"
+
+# The same engine as the library: QuickJS with the repo's patches.
+[patch.crates-io]
+rquickjs-sys = { path = "../../vendor/rquickjs-sys" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 1

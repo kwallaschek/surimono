@@ -13,6 +13,8 @@
   for (const i in ctors) {
     defineProperty(G, names[i], { value: ctors[i], writable: true, configurable: true });
   }
+  // HTML §3.1.1: the name is kept for old pages, and is Document's.
+  defineProperty(G, 'HTMLDocument', { value: ctors[I_Document], writable: true, configurable: true });
   // [LegacyUnforgeable] `window` and `document`; [Replaceable] `self`.
   defineProperty(G, 'window', { value: G, enumerable: true, configurable: false });
   defineProperty(G, 'self', { value: G, writable: true, enumerable: true, configurable: true });

@@ -28,3 +28,14 @@ is pinned by sha256 in `fixtures/real-world/manifest.toml`.
 | Alpine.js | 3.17.5 | MIT | https://github.com/alpinejs/alpine at 8d3d9a2f98385d4c879f4b5be080a0221279ed4d | `lib/alpinejs-3.17.5/LICENSE.md`, from that commit: the npm tarball has none (`LICENSE-NOTE.md` there) |
 | @vue/reactivity and @vue/shared, inlined in Alpine's `cdn.min.js` | range ~3.5.40 | MIT | https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.40.tgz | `lib/alpinejs-3.17.5/LICENSE-vue-reactivity` |
 | D3 | 7.9.1 | ISC | https://github.com/d3/d3 at 78db4998f838eb555548dfe8b44f3a5cb83e4695 | `lib/d3-7.9.1/LICENSE` |
+
+## Web Platform Tests (`wpt/tests/`)
+
+The test files of the slices in `wpt/slices.toml`, with `resources/testharness.js`
+and the scripts they name, unmodified under WPT's own paths at the pinned commit
+(sha256 of each in `wpt/manifest.toml`, `python3 -I wpt/tools/vendor.py --check`).
+Test-only, like everything here.
+
+| Files | Licence | Source | Licence file |
+|---|---|---|---|
+| web-platform-tests, 744 files | BSD-3-Clause | https://github.com/web-platform-tests/wpt at 8b4b06ff53a47f1041e0e59f894d9e929963904c | `wpt/tests/LICENSE.md` |

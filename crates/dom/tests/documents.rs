@@ -1365,3 +1365,36 @@ fn inner_and_outer_html_of_an_xml_document_are_xml() {
     let x = r#"xmlns="http://www.w3.org/1999/xhtml""#;
     assert_eq!(got, format!("<br {x} /><b {x}>&lt;</b>|<br {x} />"));
 }
+
+/// With no Content-Type, an XML page's type goes by its URL's extension.
+#[test]
+fn an_xml_page_takes_its_type_from_its_url() {
+    for (url, expected, namespace) in [
+        ("https://x.test/a.xml", "application/xml", ""),
+        ("https://x.test/a.svg?q", "image/svg+xml", ""),
+        (
+            "https://x.test/a.xht#f",
+            "application/xhtml+xml",
+            "http://www.w3.org/1999/xhtml",
+        ),
+        (
+            "https://x.test/a.xhtml",
+            "application/xhtml+xml",
+            "http://www.w3.org/1999/xhtml",
+        ),
+        (
+            "https://x.test/a",
+            "application/xhtml+xml",
+            "http://www.w3.org/1999/xhtml",
+        ),
+    ] {
+        let mut doc = Document::parse_xml("<a/>").unwrap();
+        doc.set_url(url);
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(doc);
+        let got: String = rt
+            .eval("document.contentType + ' ' + (document.createElement('b').namespaceURI || '')")
+            .unwrap();
+        assert_eq!(got, format!("{expected} {namespace}"), "{url}");
+    }
+}
