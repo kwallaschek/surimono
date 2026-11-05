@@ -23,7 +23,7 @@
   // A new wrapper of a hand-written interface. `target` is new.target.
   function make(id, target) {
     const s = create(null);
-    s.m = masks[id]; s.g = 0; s.h = 0;
+    s.m = brands[id]; s.g = 0; s.h = 0;
     const w = new Brand(create(protos[id]), s);
     s.w = w;
     if (target !== undefined) adopt(w, target, id);
@@ -32,6 +32,57 @@
 
   // WebIDL dictionary conversion (§3.2.17): undefined and null are the empty
   // dictionary; other non-objects are a TypeError.
+  // Conversions for what stays a JavaScript value (WebIDL §3.2); the generated
+  // dictionary converters use them.
+  function inst(x, id) {
+    const s = stateOf(x);
+    if (s === null || s.m[id] !== true) throw new TE('Argument is not a ' + names[id]);
+    return x;
+  }
+  function unbound(x) { throw new TE('no script can have a value of this interface'); }
+  function objectOf(x) {
+    if (!isObject(x)) throw new TE('the value is not an object');
+    return x;
+  }
+  function dbl(x) {
+    const v = +x;
+    if (v - v !== 0) throw new TE('the value is not a finite number');
+    return v;
+  }
+  function flt(x) {
+    const v = fround(+x);
+    if (v - v !== 0) throw new TE('the value is not a finite number');
+    return v;
+  }
+  function toPromise(x) { return apply(promiseResolve, PromiseCtor, [x]); }
+  function oneOf(x, values) {
+    for (let i = 0; i < values.length; i++) if (values[i] === x) return x;
+    throw new TE('the value is not one of the enumeration');
+  }
+  function seq(x, each) {
+    if (!isObject(x)) throw new TE('not a sequence');
+    const method = x[symbolIterator];
+    if (typeof method !== 'function') throw new TE('not iterable');
+    const it = apply(method, x, []);
+    if (!isObject(it)) throw new TE('the iterator is not an object');
+    const next = it.next;
+    const out = list();
+    for (;;) {
+      const r = apply(next, it, []);
+      if (!isObject(r)) throw new TE('the iterator result is not an object');
+      if (r.done) return realArray(out);
+      add(out, each(r.value));
+    }
+  }
+  function asciiLower(x) {
+    let out = '';
+    for (let i = 0; i < x.length; i++) {
+      const c = apply(charCodeAt, x, [i]);
+      out += c >= 65 && c <= 90 ? fromCharCode(c + 32) : x[i];
+    }
+    return out;
+  }
+
   function dictionary(d, what) {
     if (d === undefined || d === null) return create(null);
     if (typeof d !== 'object' && typeof d !== 'function') {
@@ -52,25 +103,47 @@
     if (s.l === undefined && create_) s.l = list();
     return s.l;
   }
+  // §2.7.3 "default passive value".
+  function defaultPassive(s, type) {
+    if (type !== 'touchstart' && type !== 'touchmove' && type !== 'wheel' && type !== 'mousewheel') {
+      return false;
+    }
+    if (s === windowState) return true;
+    if (s.m[I_Node] !== true) return false;
+    const g = s.g;
+    if (g !== current()) return false;
+    const h = s.h;
+    return h === root() || h === call(OP_documentElement, g, root()) || h === call(OP_body, g, root());
+  }
   H.EventTarget_addEventListener = (s, type, callback, options) => {
-    // §2.7.3 "flatten more". `signal` isn't read: AbortSignal isn't bound.
+    // §2.7.3 "flatten more".
     const capture = flatten(options);
-    let once = false, passive = false;
+    let once = false, passive, signal = null;
     if (isObject(options)) {
       once = !!options.once;
-      passive = !!options.passive;
+      passive = options.passive;
+      if (passive !== undefined) passive = !!passive;
+      const given = options.signal;
+      if (given !== undefined) signal = self(given, I_AbortSignal);
     }
     if (callback === null || callback === undefined) return;
     if (typeof callback !== 'object' && typeof callback !== 'function') {
       throw new TE('addEventListener: the listener is not an object');
     }
+    if (signal !== null && signal.aborted) return;
     syncHandlers(s);
     const l = listenersOf(s, true);
     for (let i = 0; i < l.n; i++) {
       const e = l[i];
       if (e.type === type && e.callback === callback && e.capture === capture) return;
     }
-    addListener(l, type, callback, capture, once, passive);
+    if (passive === undefined) passive = defaultPassive(s, type);
+    const e = addListener(l, type, callback, capture, once, passive);
+    if (signal !== null) {
+      add(signal.algorithms, () => {
+        for (let i = 0; i < l.n; i++) if (l[i] === e) { removeAt(l, i); return; }
+      });
+    }
   };
   function addListener(l, type, callback, capture, once, passive) {
     const e = create(null);
@@ -108,20 +181,30 @@
   // except for `load` (HTML §13.2.7: the event's target stays the document
   // and the window's listeners get it, but it doesn't come from the tree).
   function parentOf(s, event) {
-    if ((s.m & nodeBit) === 0) return null;
+    if (s.m[I_Node] !== true) return null;
     const p = wrap(s.g, call(OP_parentNode, s.g, s.h));
     if (p !== null) return stateOf(p);
     if (s.h === root() && s.g === current() && event.type !== 'load') return windowState;
     return null;
   }
 
+  // HTML §7.2 `window.event`: the event of the listener running.
+  let currentEvent;
+  H.Window_event = () => currentEvent;
+
   // §2.9 "dispatch". No shadow trees, so no retargeting and no slots.
   function dispatch(target, event) {
     event.dispatching = true;
     event.target = target.w;
+    const activating = event.m[I_MouseEvent] === true && event.type === 'click';
+    let activation = activating && hasActivation(target) ? target : null;
     const path = list();
-    for (let at = target; at !== null; at = parentOf(at, event)) add(path, at);
+    for (let at = target; at !== null; at = parentOf(at, event)) {
+      add(path, at);
+      if (activating && event.bubbles && activation === null && hasActivation(at)) activation = at;
+    }
     event.path = path;
+    const saved = activation === null ? null : preActivate(activation);
     for (let i = path.n - 1; i >= 0; i--) {
       event.eventPhase = i === 0 ? 2 : 1;
       invoke(path[i], event, true);
@@ -137,6 +220,10 @@
     event.dispatching = false;
     event.stop = false;
     event.stopNow = false;
+    if (activation !== null) {
+      if (event.canceled) cancelActivation(activation, saved);
+      else runActivation(activation, event);
+    }
     return !event.canceled;
   }
 
@@ -144,6 +231,14 @@
   // the others still run.
   function invoke(target, event, capturing) {
     if (event.stop) return;
+    // A form keeps its descendants' submit and reset to itself: WPT
+    // Event-dispatch-single-activation-behavior.html and Chrome, the spec has
+    // no word on nested forms.
+    if (!capturing && target.m[I_HTMLFormElement] === true && event.target !== target.w &&
+        (event.type === 'submit' || event.type === 'reset')) {
+      event.stop = true;
+      return;
+    }
     event.currentTarget = target.w;
     syncHandlers(target);
     const all = target.l;
@@ -156,6 +251,8 @@
         for (let k = 0; k < all.n; k++) if (all[k] === e) { removeAt(all, k); break; }
       }
       event.passive = e.passive;
+      const outer = currentEvent;
+      currentEvent = event.w;
       try {
         const cb = e.callback;
         if (typeof cb === 'function') {
@@ -168,6 +265,7 @@
       } catch (x) {
         reportException(x);
       }
+      currentEvent = outer;
       event.passive = false;
       if (event.stopNow) break;
     }
@@ -182,25 +280,31 @@
     s.isTrusted = false; s.target = null;
     s.type = type; s.bubbles = bubbles; s.cancelable = cancelable;
   }
+  // [LegacyUnforgeable]: an own accessor on each event, the same one on all
+  // (WebIDL §3.7.5), so a page can't replace what a listener reads.
+  const isTrustedGetter = { get isTrusted() { return self(this, I_Event).isTrusted; } };
+  const isTrustedDescriptor = rdescriptor(isTrustedGetter, 'isTrusted');
+  isTrustedDescriptor.enumerable = true;
+  isTrustedDescriptor.configurable = false;
+  setPrototypeOf(isTrustedDescriptor, null);
+
   // A new event's fields.
   function initEvent(s, type, bubbles, cancelable) {
+    defineProperty(s.w, 'isTrusted', isTrustedDescriptor);
     initialize(s, type, bubbles, cancelable);
     s.composed = false; s.dispatching = false; s.passive = false;
     s.currentTarget = null; s.eventPhase = 0;
     s.timeStamp = now();
   }
-  function eventInit(s, type, d, what) {
-    d = dictionary(d, what);
-    const bubbles = !!d.bubbles, cancelable = !!d.cancelable, composed = !!d.composed;
-    initEvent(s, type, bubbles, cancelable);
-    s.composed = composed;
-    return d;
-  }
-  H.new_Event = (target, type, d) => {
-    const s = make(I_Event, target);
-    eventInit(s, type, d, 'Event');
+  // §2.5 "inner event creation steps"; `d` is the converted dictionary, and
+  // the generated attributes of event interfaces read its members.
+  function newEvent(id, target, type, d) {
+    const s = make(id, target);
+    initEvent(s, type, d.bubbles, d.cancelable);
+    s.composed = d.composed;
+    s.d = d;
     return s.w;
-  };
+  }
   H.Event_type = (s) => s.type;
   H.Event_target = (s) => s.target;
   H.Event_srcElement = (s) => s.target;
@@ -223,44 +327,131 @@
   H.Event_preventDefault = cancel;
   H.Event_defaultPrevented = (s) => s.canceled;
   H.Event_composed = (s) => s.composed;
-  H.Event_isTrusted = (s) => s.isTrusted;
   H.Event_timeStamp = (s) => s.timeStamp;
   H.Event_initEvent = (s, type, bubbles, cancelable) => {
     if (!s.dispatching) initialize(s, type, bubbles, cancelable);
   };
 
-  H.new_CustomEvent = (target, type, d) => {
-    const s = make(I_CustomEvent, target);
-    const init = eventInit(s, type, d, 'CustomEvent');
-    const detail = init.detail;
-    s.detail = detail === undefined ? null : detail;
-    return s.w;
-  };
-  H.CustomEvent_detail = (s) => s.detail;
   H.CustomEvent_initCustomEvent = (s, type, bubbles, cancelable, detail) => {
     if (s.dispatching) return;
     initialize(s, type, bubbles, cancelable);
-    s.detail = detail === undefined ? null : detail;
+    s.d.detail = detail;
   };
 
-  H.new_ErrorEvent = (target, type, d) => {
-    const s = make(I_ErrorEvent, target);
-    const init = eventInit(s, type, d, 'ErrorEvent');
-    const message = init.message, filename = init.filename;
-    s.message = message === undefined ? '' : str(message);
-    s.filename = filename === undefined ? '' : str(filename);
-    s.lineno = init.lineno >>> 0;
-    s.colno = init.colno >>> 0;
-    s.error = init.error;
+  // The legacy initializers: "if the dispatch flag is set, return", then the
+  // attributes given.
+  H.UIEvent_initUIEvent = (s, type, bubbles, cancelable, view, detail) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    s.d.view = view === null ? null : view.w; s.d.detail = detail;
+  };
+  H.MouseEvent_initMouseEvent = (s, type, bubbles, cancelable, view, detail, screenX, screenY,
+    clientX, clientY, ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.view = view === null ? null : view.w; d.detail = detail;
+    d.screenX = screenX; d.screenY = screenY; d.clientX = clientX; d.clientY = clientY;
+    d.ctrlKey = ctrlKey; d.altKey = altKey; d.shiftKey = shiftKey; d.metaKey = metaKey;
+    d.button = button;
+    d.relatedTarget = relatedTarget === null ? null : relatedTarget.w;
+  };
+  H.KeyboardEvent_initKeyboardEvent = (s, type, bubbles, cancelable, view, key, location,
+    ctrlKey, altKey, shiftKey, metaKey) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.view = view === null ? null : view.w; d.key = key; d.location = location;
+    d.ctrlKey = ctrlKey; d.altKey = altKey; d.shiftKey = shiftKey; d.metaKey = metaKey;
+  };
+  H.CompositionEvent_initCompositionEvent = (s, type, bubbles, cancelable, view, data) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    s.d.view = view === null ? null : view.w; s.d.data = data;
+  };
+  H.TextEvent_data = (s) => (s.textData === undefined ? '' : s.textData);
+  H.TextEvent_initTextEvent = (s, type, bubbles, cancelable, view, data) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    s.d.view = view === null ? null : view.w; s.textData = data;
+  };
+  H.MessageEvent_initMessageEvent = (s, type, bubbles, cancelable, data, origin, lastEventId, source, ports) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.data = data; d.origin = origin; d.lastEventId = lastEventId; d.source = source;
+    d.ports = ports === undefined ? realArray(list()) : ports;
+  };
+  H.StorageEvent_initStorageEvent = (s, type, bubbles, cancelable, key, oldValue, newValue, url, area) => {
+    if (s.dispatching) return;
+    initialize(s, type, bubbles, cancelable);
+    const d = s.d;
+    d.key = key; d.oldValue = oldValue; d.newValue = newValue; d.url = url; d.storageArea = area;
+  };
+
+  // UI Events "getModifierState": the two kinds of key are stored differently.
+  const modifiers = create(null);
+  modifiers.Alt = 'altKey'; modifiers.Control = 'ctrlKey'; modifiers.Meta = 'metaKey';
+  modifiers.Shift = 'shiftKey';
+  for (const k of ['AltGraph', 'CapsLock', 'Fn', 'FnLock', 'Hyper', 'NumLock', 'ScrollLock', 'Super',
+    'Symbol', 'SymbolLock']) modifiers[k] = 'modifier' + k;
+  function modifierState(s, key) {
+    const field = modifiers[key];
+    return field === undefined ? false : !!s.d[field];
+  }
+  H.MouseEvent_getModifierState = modifierState;
+  H.KeyboardEvent_getModifierState = modifierState;
+  // CSSOM View §12: with no layout and no scrolling yet, every box's origin
+  // is the page's, so all these are the client coordinates. Phase 3 gives
+  // offsetX and offsetY their target's padding edge.
+  H.MouseEvent_pageX = (s) => s.d.clientX;
+  H.MouseEvent_pageY = (s) => s.d.clientY;
+  H.MouseEvent_x = (s) => s.d.clientX;
+  H.MouseEvent_y = (s) => s.d.clientY;
+  H.MouseEvent_offsetX = (s) => s.d.clientX;
+  H.MouseEvent_offsetY = (s) => s.d.clientY;
+  H.MouseEvent_layerX = (s) => s.d.clientX;
+  H.MouseEvent_layerY = (s) => s.d.clientY;
+  // A new sequence each time, of what the init gave: no real input arrives.
+  function freshCopy(a) {
+    const l = list();
+    for (let i = 0; i < a.length; i++) add(l, a[i]);
+    return realArray(l);
+  }
+  H.PointerEvent_getCoalescedEvents = (s) => freshCopy(s.d.coalescedEvents);
+  H.PointerEvent_getPredictedEvents = (s) => freshCopy(s.d.predictedEvents);
+  // Pointer Events §5.1, the defaults for a device with no tilt. A given pair
+  // isn't converted to the other pair.
+  const orDefault = (v, d) => (v === undefined ? d : v);
+  H.PointerEvent_tiltX = (s) => orDefault(s.d.tiltX, 0);
+  H.PointerEvent_tiltY = (s) => orDefault(s.d.tiltY, 0);
+  H.PointerEvent_altitudeAngle = (s) => orDefault(s.d.altitudeAngle, 1.5707963267948966);
+  H.PointerEvent_azimuthAngle = (s) => orDefault(s.d.azimuthAngle, 0);
+  H.BeforeUnloadEvent_returnValue = (s) => (s.returnText === undefined ? '' : s.returnText);
+  H.set_BeforeUnloadEvent_returnValue = (s, v) => { s.returnText = v; };
+
+  // DOM §4.5 createEvent: the legacy names, compared as ASCII lowercase.
+  const eventNames = create(null);
+  H.Document_createEvent = (doc, name) => {
+    const id = eventNames[asciiLower(name)];
+    if (id === undefined) throwDom('NotSupportedError', 'createEvent: unknown interface');
+    const s = make(id);
+    initEvent(s, '', false, false);
+    s.initialized = false;
+    s.d = eventInits[id]();
     return s.w;
   };
-  H.ErrorEvent_message = (s) => s.message;
-  H.ErrorEvent_filename = (s) => s.filename;
-  H.ErrorEvent_lineno = (s) => s.lineno;
-  H.ErrorEvent_colno = (s) => s.colno;
-  H.ErrorEvent_error = (s) => s.error;
 
   H.Window_devicePixelRatio = () => 1;
+  // One browsing context, with nothing around it.
+  H.Window_top = () => G;
+  H.Window_parent = () => G;
+  H.Window_frames = () => G;
+  H.Window_length = () => 0;
+  H.Window_closed = () => false;
+  H.Window_frameElement = () => null;
+  H.Window_opener = (s) => (s.opener === undefined ? null : s.opener);
+  H.set_Window_opener = (s, v) => { s.opener = v; };
 
   // ------ MutationObserver (DOM §4.3) ------
   //
@@ -381,9 +572,10 @@
   // ------ Firing, and the page's life (HTML §13.2.7 "the end") ------
 
   // §2.10 "fire an event".
-  function fire(target, type, bubbles, cancelable) {
+  function fire(target, type, bubbles, cancelable, composed) {
     const s = make(I_Event);
     initEvent(s, type, !!bubbles, !!cancelable);
+    s.composed = !!composed;
     s.isTrusted = true;
     return dispatch(target, s);
   }
@@ -410,7 +602,8 @@
     const s = make(I_ErrorEvent);
     initEvent(s, 'error', false, true);
     s.isTrusted = true;
-    s.message = message; s.filename = ''; s.lineno = 0; s.colno = 0; s.error = x;
+    s.d = eventInits[I_ErrorEvent]();
+    s.d.message = message; s.d.error = x;
     reporting = true;
     let notHandled;
     try {
@@ -451,7 +644,7 @@
     if (e === undefined) {
       e = create(null);
       e.value = null; e.pending = false; e.raw = null; e.scope = null;
-      e.attr = null; e.entry = null;
+      e.attr = null; e.from = 0; e.entry = null;
       s.hm[name] = e;
     }
     return e;
@@ -478,8 +671,8 @@
       seen[name] = true;
       const raw = call(OP_getAttribute, g, h, name);
       const e = handlerState(s, name);
-      if (e.attr === raw) return;
-      e.attr = raw; e.raw = raw; e.value = null; e.pending = true; e.scope = wrap(g, h);
+      if (e.attr === raw && e.from === h) return;
+      e.attr = raw; e.from = h; e.raw = raw; e.value = null; e.pending = true; e.scope = wrap(g, h);
       activate(s, name, e);
     });
     if (s.hm === undefined) return;
@@ -492,10 +685,13 @@
     if (s === windowState) {
       const g = current();
       if (g === 0) return;
-      const body = call(OP_body, g, root());
-      if (body === 0 || body === null) return;
+      // Any body or frameset element's attributes reach the window: the last
+      // one written, or the document's body.
+      const body = call(OP_handlerElement, g, root());
+      if (body === 0) return;
       syncFrom(s, g, body, (name) => reflected[name]);
-    } else if ((s.m & (1 << I_HTMLElement)) !== 0) {
+    } else if (s.m[I_HTMLElement] === true || s.m[I_SVGElement] === true) {
+      // GlobalEventHandlers, the same set on both (HTML §8.1.7.2.1).
       const known = handlerNames[I_HTMLElement];
       syncFrom(s, s.g, s.h, (name) => known[name] === true && !reflects(s, name));
     }
@@ -538,9 +734,9 @@
     // and does nothing.
     if (typeof callback !== 'function') return;
     const v = stateOf(event);
-    const special = s === windowState && v.type === 'error' && (v.m & (1 << I_ErrorEvent)) !== 0;
+    const special = s === windowState && v.type === 'error' && v.m[I_ErrorEvent] === true;
     const result = special
-      ? apply(callback, s.w, [v.message, v.filename, v.lineno, v.colno, v.error])
+      ? apply(callback, s.w, [v.d.message, v.d.filename, v.d.lineno, v.d.colno, v.d.error])
       : apply(callback, s.w, [event]);
     if (result === special) v.canceled = true;
   }
@@ -553,7 +749,8 @@
       const name = list_[i];
       known[name] = true;
       // The body element's are the window's.
-      const owner = (s) => (id === I_HTMLElement && reflects(s, name) ? windowState : s);
+      const forwards = id === I_HTMLBodyElement || id === I_HTMLFrameSetElement;
+      const owner = (s) => (forwards || (id === I_HTMLElement && reflects(s, name)) ? windowState : s);
       attr(id, name, function () {
         return handlerValue(owner(self(this, id)), name);
       }, function (v) {

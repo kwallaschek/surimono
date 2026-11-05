@@ -2,14 +2,14 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
 use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, IntoJs, Object, Value};
 use surimono_core::{
-    Deadline, Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport,
+    Bytecode, Deadline, Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport,
     limit_error,
 };
 use surimono_webidl::runtime::{BindingError, ObjectId};
@@ -23,9 +23,32 @@ use crate::{Document, DomError};
 const GLUE: &str = concat!(
     include_str!("glue_head.js"),
     include_str!("glue_events.js"),
+    include_str!("glue_abort.js"),
+    include_str!("glue_activation.js"),
     include_str!("generated/bindings.js"),
     include_str!("glue_tail.js"),
 );
+
+/// The name the glue's function has on the global object between
+/// [`Sandbox::eval_bytecode`] and [`install`], with no page script between them.
+const GLUE_GLOBAL: &str = "__surimonoGlue";
+
+/// The glue, compiled once per process: it is about 150 KB of source, and every
+/// page gets a new context.
+static GLUE_BYTECODE: OnceLock<Bytecode> = OnceLock::new();
+
+/// Puts the glue's function on the global object for [`install`].
+fn load_glue(sandbox: &mut Sandbox) -> Result<(), SandboxError> {
+    let bytecode = match GLUE_BYTECODE.get() {
+        Some(b) => b,
+        None => {
+            let source = format!("globalThis.{GLUE_GLOBAL} = {GLUE}");
+            let compiled = sandbox.compile(&source, "glue.js")?;
+            GLUE_BYTECODE.get_or_init(|| compiled)
+        }
+    };
+    sandbox.eval_bytecode(bytecode)
+}
 
 /// State the native functions share with [`DomRuntime`]. The functions
 /// hold an `Rc` to this slot, not to a document: the document is moved in
@@ -122,8 +145,9 @@ pub struct PageReport {
     /// Promises rejected with no handler at the end of a microtask
     /// checkpoint: an exception in an async function or a promise reaction
     /// that no script handled. They are not in `uncaught`: no `error` event
-    /// fires for them, so no listener can cancel them. A limit is never here:
-    /// it fails the call.
+    /// fires for them, so no listener can cancel them. A limit nearly never
+    /// is, since it fails the call: the exception is one reached while Rust
+    /// reads the reason (see "Errors" in `DESIGN.md`).
     pub unhandled_rejections: u64,
     /// The first few reasons, as messages, each cut to a few KiB.
     pub rejections: Vec<String>,
@@ -208,6 +232,9 @@ impl DomRuntime {
     /// and its microtasks are a task: a limit reached in them fails the call,
     /// whether in the script, a listener or a promise nothing handled, and a
     /// promise left rejected counts in the next report.
+    ///
+    /// The script and that checkpoint are two sandbox calls with a deadline
+    /// each, so a hostile script can use up to twice [`Limits::time`].
     pub fn eval<T>(&mut self, source: &str) -> Result<T, DomError>
     where
         T: for<'js> FromJs<'js>,
@@ -242,6 +269,11 @@ impl DomRuntime {
     where
         T: for<'js> FromJs<'js>,
     {
+        if !self.installed {
+            self.begin_call();
+            let loaded = load_glue(&mut self.sandbox);
+            self.finish_call(loaded)?;
+        }
         self.begin_call();
         let Self {
             sandbox,
@@ -370,6 +402,9 @@ impl DomRuntime {
         }
         self.reset()?;
         self.begin_call();
+        let loaded = load_glue(&mut self.sandbox);
+        self.finish_call(loaded)?;
+        self.begin_call();
         let Self {
             sandbox,
             host,
@@ -468,7 +503,9 @@ fn install<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>
         script_field(ctx, host, |s| s.source.is_none())?,
     )?;
     n.set("runScript", native_run_script(ctx, host)?)?;
-    let glue: Function<'js> = ctx.eval(GLUE)?;
+    let globals = ctx.globals();
+    let glue: Function<'js> = globals.get(GLUE_GLOBAL)?;
+    globals.remove(GLUE_GLOBAL)?;
     glue.call((n,))
 }
 

@@ -717,7 +717,7 @@ fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
     let r: String = rt
         .eval(
             r#"{ let s = 'b';
-            for (let i = 0; i < 20; i++) s = ':is(' + s + '+b+b+b+b+b+b+b)';
+            for (let i = 0; i < 8; i++) s = ':is(' + s + '+b+b+b+b+b+b+b+b+b)';
             try { document.body.lastElementChild.matches(s); 'none'; } catch (e) { e.name; } }"#,
         )
         .unwrap();
@@ -736,14 +736,16 @@ fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
 
 #[test]
 fn the_worst_selector_allowed_fits_the_stack_headroom() {
-    // 32 levels of nesting and 128 combinators on the path, every combinator
+    // 8 levels of nesting and 64 combinators on the path, every combinator
     // matching, called from the deepest frame that can still make the call.
     const SCRIPT: &str = r#"
-        const own = 128 - 4 * 30;
-        let s = 'b' + '+b'.repeat(4);
-        for (let i = 1; i < 30; i++) s = ':is(' + s + ')' + '+b'.repeat(4);
-        s = s + '+b'.repeat(own);
+        let s = 'b';
+        for (let i = 0; i < 8; i++) s = ':is(' + s + ')' + '+b'.repeat(8);
         const last = document.body.lastElementChild;
+        for (const over of [':is(' + s + ')', s + '+b']) {
+          try { last.matches(over); throw new Error('accepted'); }
+          catch (e) { if (e.name !== 'SyntaxError') throw e; }
+        }
         let done = -1, hit = false;
         function f(n) {
           try { f(n + 1); } catch (e) {
@@ -752,21 +754,51 @@ fn the_worst_selector_allowed_fits_the_stack_headroom() {
           }
         }
         f(0);
-        done > 100 && hit"#;
-    let limits = limits();
-    let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + 64 * 1024;
+        String(done > 100 && hit)"#;
     let page = format!("<!doctype html><body>{}", "<b></b>".repeat(400));
-    let r = std::thread::Builder::new()
-        .stack_size(size)
-        .spawn(move || {
-            let mut rt = DomRuntime::new(limits).unwrap();
-            rt.load(Document::parse(&page).unwrap());
-            rt.eval::<bool>(SCRIPT)
-        })
-        .unwrap()
-        .join()
-        .expect("no stack overflow");
-    assert_eq!(r, Ok(true));
+    assert_eq!(on_the_headroom(page, SCRIPT).as_deref(), Ok("true"));
+}
+
+/// Nesting is what the selector parser sees, whatever is in comments, strings
+/// and escapes: closing brackets there used to hide real levels from the cap,
+/// and enough of them aborted the process.
+#[test]
+fn hidden_closing_brackets_do_not_hide_nesting() {
+    const SCRIPT: &str = r#"
+        const out = [];
+        const last = document.body.lastElementChild;
+        const apis = [s => last.matches(s), s => document.querySelector(s), s => last.closest(s)];
+        const name = f => { try { f(); return 'none'; } catch (e) { return e.name; } };
+        for (const level of [':is(/*)*/', ':not(/*]*/', ':where(/*)]*/',
+                             ':is([a=")"]', ":is([a=')']", ':is([a="\\")"]', ":is([a='\\')']",
+                             ':is([a=\\)]', ':is(\\)', ':i\\73(/*)*/']) {
+          for (const api of apis) out.push(name(() => api(level.repeat(5000) + 'b')));
+          // At the cap and one past it.
+          const at = level.repeat(8) + 'b', past = level.repeat(9) + 'b';
+          for (const api of apis) {
+            if (name(() => api(past)) !== 'SyntaxError') out.push('past ' + level);
+            if (level.includes('(/*') && name(() => api(at)) !== 'none') out.push('at ' + level);
+          }
+        }
+        // Every kind of block counts, in `:is()`'s forgiving recovery too: curly
+        // blocks are nesting the selector grammar has no use for, and they aborted
+        // the process as well. 60000 is under the 128 KiB length cap.
+        for (const op of ['{', '[', '(']) {
+          for (const api of apis) out.push(name(() => api(':is(' + op.repeat(60000))));
+        }
+        // Nothing here nests at all, so none of it is refused.
+        for (const s of ['b/*' + '('.repeat(20) + '*/', 'b[a="' + '('.repeat(20) + '"]',
+                         "b[a='" + '['.repeat(20) + "']", 'b' + '\\('.repeat(20)]) {
+          for (const api of apis) out.push(name(() => api(s)));
+        }
+        out.join()"#;
+    let page = "<!doctype html><body><b></b>".to_owned();
+    let refused = vec!["SyntaxError"; (10 + 3) * 3];
+    let accepted = vec!["none"; 4 * 3];
+    assert_eq!(
+        on_the_headroom(page, SCRIPT).as_deref(),
+        Ok([refused, accepted].concat().join(",").as_str())
+    );
 }
 
 #[test]
@@ -1013,16 +1045,37 @@ fn tampering_after_use_cannot_read_or_forge_handles() {
     assert_eq!(out, EXPECTED);
 }
 
+/// Runs `script` against `page` on a thread with the room the sandbox asks for
+/// and [`SLACK`], and gives its result as text. A debug build's frames fit that;
+/// AddressSanitizer's red zones make them several times larger, and its builds
+/// set the time scale (`scripts/ci/asan.sh`), so that stretches the room too.
+fn on_the_headroom(page: String, script: &'static str) -> Result<String, DomError> {
+    let limits = limits();
+    let room = Sandbox::STACK_HEADROOM_BYTES + SLACK;
+    let size = limits.stack_bytes + room * common::time_scale() as usize;
+    std::thread::Builder::new()
+        .stack_size(size)
+        .spawn(move || {
+            let mut rt = DomRuntime::new(limits).unwrap();
+            rt.load(Document::parse(&page).unwrap());
+            rt.eval::<String>(script)
+        })
+        .unwrap()
+        .join()
+        .expect("no stack overflow")
+}
+
+/// The frames between a thread's start and the sandbox's stack check, and the
+/// part of the requested size that isn't usable stack (32 KiB was too little
+/// on Linux, debug build).
+const SLACK: usize = 64 * 1024;
+
 /// Runs `script` on a thread whose stack is only just large enough for the
 /// sandbox (`stack_bytes` plus [`Sandbox::STACK_HEADROOM_BYTES`], plus
 /// `SLACK` for this test's own frames), against a body-only page whose
 /// limits allow [`DomLimits::MAX_DEPTH`].
 /// On success, checks the `levels`-deep chain is in the serialization.
 fn on_a_tight_stack(script: &'static str, levels: usize) -> Result<i32, DomError> {
-    // The frames between the thread's start and the sandbox's stack check,
-    // and the part of the requested size that isn't usable stack (32 KiB
-    // was too little on Linux, debug build).
-    const SLACK: usize = 64 * 1024;
     let limits = limits();
     let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + SLACK;
     std::thread::Builder::new()
