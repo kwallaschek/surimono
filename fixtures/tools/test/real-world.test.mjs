@@ -9,7 +9,7 @@ import { FIXTURES_DIR, KINDS, listAllFixtures, listFixtures } from "../lib/fixtu
 
 const pages = listFixtures("real-world");
 
-test("each library has a page, and noscript-message has none", () => {
+test("each library has a page, and noscript-message has no library", () => {
   assert.deepEqual(pages.map((f) => f.name), ["alpine-invoice", "d3-charts", "highlightjs-code", "katex-autorender", "marked-report", "noscript-message"]);
 });
 
