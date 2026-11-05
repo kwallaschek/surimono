@@ -84,6 +84,15 @@ const JS_MEMBERS: &[(&str, &str)] = &[
     ("HTMLFormElement", "requestSubmit"),
 ];
 
+/// Attributes of event interfaces whose init dictionary member has no default,
+/// so the glue says what an omitted one reads as: `H.<Interface>_<member>`.
+const JS_FIELDS: &[(&str, &str)] = &[
+    ("PointerEvent", "tiltX"),
+    ("PointerEvent", "tiltY"),
+    ("PointerEvent", "altitudeAngle"),
+    ("PointerEvent", "azimuthAngle"),
+];
+
 /// In a table's member list: every attribute and operation in the IDL,
 /// and the constructor. For event interfaces, whose members need no Rust.
 const ALL_MEMBERS: &str = "*";
@@ -103,6 +112,7 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("radioCheck", "h.radio_check(this)"),
     ("handlerElement", "h.handler_element()"),
     ("idNames", "h.id_names()"),
+    ("labeledControl", "h.labeled_control(this)"),
 ];
 
 /// A member name that isn't in the IDL. CSSOM defines
@@ -555,10 +565,20 @@ impl Bound<'_, '_> {
         ext_attrs: &[ExtAttr],
     ) -> Result<(), GenError> {
         let id = self.id;
-        if self.event && self.iface.name != "Event" && self.fields.contains(name) {
+        if self.event
+            && self.iface.name != "Event"
+            && self.fields.contains(name)
+            && !JS_FIELDS.contains(&(self.iface.name.as_str(), name))
+        {
+            // A nullable member with no default was never written.
+            let body = if ty.nullable {
+                format!("const v = self(this, {id}).d.{name}; return v === undefined ? null : v;")
+            } else {
+                format!("return self(this, {id}).d.{name};")
+            };
             let _ = writeln!(
                 self.out.js,
-                "attr({id}, {}, function () {{ return self(this, {id}).d.{name}; }});",
+                "attr({id}, {}, function () {{ {body} }});",
                 js_string(name)
             );
             return Ok(());
@@ -674,7 +694,7 @@ impl Bound<'_, '_> {
             js_string(name)
         );
         if !readonly {
-            let x = self.js_impl_arg(ty, "v");
+            let x = self.js_impl_arg(ty, "v")?;
             let _ = write!(
                 self.out.js,
                 ", function (v) {{ H.set_{iface}_{name}(self(this, {id}), {x}); }}"
@@ -682,7 +702,7 @@ impl Bound<'_, '_> {
         } else if has_ext(ext_attrs, "Replaceable") {
             let _ = write!(
                 self.out.js,
-                ", function (v) {{ self(this, {id}); replaceable(this, {}, v); }}",
+                ", function (v) {{ self(this, {id}); replaceable(this === undefined || this === null ? G : this, {}, v); }}",
                 js_string(name)
             );
         }
@@ -731,45 +751,56 @@ impl Bound<'_, '_> {
 
     /// `x` converted for a hand-written member: as for a native one, except
     /// that bound objects stay records and what `conv` leaves alone
-    /// (dictionaries, callbacks, `any`) arrives as it came.
-    fn js_impl_arg(&self, ty: &Type, x: &str) -> String {
-        match conv(self.gen_, self.table, ty, 0) {
+    /// (dictionaries, callbacks, `any`) arrives as it came. In an event
+    /// interface, where that means the legacy initializers, it is converted as
+    /// a dictionary member would be: an unbound interface can only be null.
+    fn js_impl_arg(&mut self, ty: &Type, x: &str) -> Result<String, GenError> {
+        Ok(match conv(self.gen_, self.table, ty, 0) {
             Some(Conv::Obj(id)) if ty.nullable => {
                 format!("({x} === null || {x} === undefined ? null : self({x}, {id}))")
             }
             Some(Conv::Obj(id)) => format!("self({x}, {id})"),
             Some(c @ (Conv::Str(_) | Conv::Bool | Conv::Int(_))) => js_arg(&c, ty, x, ""),
+            _ if self.event => self.value_conv(ty, x, 0)?,
             _ => x.to_owned(),
-        }
+        })
     }
 
     /// Declared parameters and argument expressions of a hand-written
     /// member. An omitted optional argument takes its default, undefined
     /// for a dictionary; the glue reads dictionaries itself.
-    fn js_impl_arguments(&self, args: &[Argument]) -> (Vec<String>, Vec<String>) {
+    fn js_impl_arguments(
+        &mut self,
+        args: &[Argument],
+    ) -> Result<(Vec<String>, Vec<String>), GenError> {
         let mut params = Vec::new();
         let mut exprs = Vec::new();
         for (i, a) in args.iter().enumerate() {
             if a.optional {
                 let v = format!("o{i}");
                 let x = format!("(argc > {i} ? arguments[{i}] : undefined)");
-                let converted = self.js_impl_arg(&a.ty, &v);
+                let converted = self.js_impl_arg(&a.ty, &v)?;
                 let default = js_default(&a.default);
                 exprs.push(format!(
                     "((({v}) => {v} === undefined ? {default} : {converted})({x}))"
                 ));
             } else {
                 let p = format!("a{i}");
-                exprs.push(self.js_impl_arg(&a.ty, &p));
+                exprs.push(self.js_impl_arg(&a.ty, &p)?);
                 params.push(p);
             }
         }
-        (params, exprs)
+        Ok((params, exprs))
     }
 
-    fn js_operation(&mut self, name: &str, args: &[Argument], is_static: bool) {
+    fn js_operation(
+        &mut self,
+        name: &str,
+        args: &[Argument],
+        is_static: bool,
+    ) -> Result<(), GenError> {
         let (id, iface) = (self.id, self.iface.name.clone());
-        let (params, exprs) = self.js_impl_arguments(args);
+        let (params, exprs) = self.js_impl_arguments(args)?;
         let required = params.len();
         let mut body = if is_static {
             "const argc = arguments.length; ".to_owned()
@@ -793,6 +824,7 @@ impl Bound<'_, '_> {
             params.join(", "),
             all.join(", ")
         );
+        Ok(())
     }
 
     fn operation(&mut self, name: &str) -> Result<(), GenError> {
@@ -821,8 +853,7 @@ impl Bound<'_, '_> {
                     ..
                 }
             );
-            self.js_operation(name, args, is_static);
-            return Ok(());
+            return self.js_operation(name, args, is_static);
         }
         let ArgCode {
             params,
@@ -884,7 +915,7 @@ impl Bound<'_, '_> {
             return self.event_constructor(args);
         }
         if self.js_impl {
-            let (params, exprs) = self.js_impl_arguments(args);
+            let (params, exprs) = self.js_impl_arguments(args)?;
             let required = params.len();
             let name = &self.iface.name;
             let check = if required > 0 {
@@ -1914,6 +1945,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         name: "HTMLSelectElement",
         members: &["disabled", "form", "name"],
     },
+    element("HTMLSelectedContentElement"),
     element("HTMLSlotElement"),
     element("HTMLSourceElement"),
     element("HTMLSpanElement"),

@@ -89,26 +89,8 @@
 
   // HTML §4.10.4: the labeled control.
   function labeledControl(s) {
-    const id = attrOf(s, 'for');
-    if (id !== null) {
-      const c = wrap(s.g, call(OP_getElementById, s.g, root(), id));
-      if (c === null) return null;
-      const cs = stateOf(c);
-      return labelable(cs) ? cs : null;
-    }
-    const c = wrap(s.g, call(OP_querySelector, s.g, s.h,
-      'button,input:not([type=hidden i]),meter,output,progress,select,textarea'));
+    const c = wrap(s.g, call(OP_labeledControl, s.g, s.h));
     return c === null ? null : stateOf(c);
-  }
-  function labelable(s) {
-    switch (localOf(s)) {
-      case 'button': case 'meter': case 'output': case 'progress': case 'select': case 'textarea':
-        return true;
-      case 'input':
-        return call(OP_type, s.g, s.h) !== 'hidden';
-      default:
-        return false;
-    }
   }
   H.HTMLLabelElement_form = (s) => {
     const c = labeledControl(s);
@@ -232,7 +214,7 @@
     const old = open ? 'open' : 'closed';
     if (details.toggle !== undefined) return;
     details.toggle = old;
-    setTimeoutReal(() => {
+    task(() => {
       const e = make(I_ToggleEvent);
       initEvent(e, 'toggle', false, false);
       e.isTrusted = true;
@@ -260,7 +242,7 @@
     if (href === fragment) return;
     const old = fragment;
     fragment = href;
-    setTimeoutReal(() => {
+    task(() => {
       const e = make(I_HashChangeEvent);
       initEvent(e, 'hashchange', true, false);
       e.isTrusted = true;
@@ -278,7 +260,7 @@
     if (href[0] === '#') { followFragment(href); return; }
     if (asciiLower(apply(slice, href, [0, 11])) !== 'javascript:') return;
     const source = percentDecode(apply(slice, href, [11]));
-    setTimeoutReal(() => {
+    task(() => {
       try {
         n.runSource(apply(toWellFormed, source, []));
       } catch (x) {

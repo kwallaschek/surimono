@@ -49,7 +49,7 @@
   const symbolIterator = Symbol.iterator;
   const toWellFormed = String.prototype.toWellFormed;
   const charCodeAt = String.prototype.charCodeAt, fromCharCode = String.fromCharCode;
-  const fround = Math.fround;
+  const fround = Math.fround, trunc = Math.trunc;
   const PromiseCtor = Promise, promiseResolve = Promise.resolve;
   const DOMExceptionCtor = G.DOMException, decodeURI_ = decodeURIComponent;
   const TE = TypeError;
@@ -67,7 +67,7 @@
   const stateOf = Brand.of;
 
   // Interface objects, prototypes and brand sets by interface number.
-  const ctors = create(null), protos = create(null), masks = create(null), names = create(null);
+  const ctors = create(null), protos = create(null), brands = create(null), names = create(null);
   // Proxy handlers of legacy platform objects, by interface number.
   const exotics = create(null);
   // Bodies of hand-written members (glue_events.js); the window's record.
@@ -87,7 +87,7 @@
     if (w === undefined) {
       const i = call(0, g, h);
       const s = create(null);
-      s.g = g; s.h = h; s.m = masks[i];
+      s.g = g; s.h = h; s.m = brands[i];
       w = new Brand(create(protos[i]), s);
       s.w = w;
       const handler = exotics[i];
@@ -194,9 +194,9 @@
     ctors[id] = f; protos[id] = proto; names[id] = name;
     // One set per interface, shared by its wrappers.
     const m = create(null);
-    if (parent >= 0) for (const k in masks[parent]) m[k] = true;
+    if (parent >= 0) for (const k in brands[parent]) m[k] = true;
     m[id] = true;
-    masks[id] = m;
+    brands[id] = m;
   }
   function konst(id, name, value) {
     const d = { value, enumerable: true };
@@ -214,6 +214,14 @@
   function staticOp(id, name, f) {
     defineProperty(ctors[id], name, { value: f, writable: true, enumerable: true, configurable: true });
   }
+  // A task of the glue's own, on the virtual clock. A page can guess its
+  // timer's id, so `clearTimeout` refuses these (glue_tail.js).
+  const glueTasks = create(null);
+  function task(f, ms) {
+    const id = setTimeoutReal(() => { delete glueTasks[id]; f(); }, ms);
+    glueTasks[id] = true;
+  }
+
   // WebIDL §3.7.6: writing a [Replaceable] attribute makes a data property.
   function replaceable(o, name, v) {
     const d = create(null);

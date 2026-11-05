@@ -58,7 +58,10 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
 member names, checked against the vendored IDL) into two checked-in files,
 `src/generated/bindings.js` and `src/generated/dispatch.rs`; `tests/generated.rs`
 fails when they are stale. Only listed members exist in JavaScript, so a page's
-feature detection sees the truth. The hand-written glue is only infrastructure:
+feature detection sees the truth, with one caveat: every element's interface
+exists, members or not, so `typeof HTMLCanvasElement` is `function` though
+`getContext` isn't there, and a page that tests the constructor and then calls the
+method gets a TypeError where it would have taken its fallback (for COMPAT). The hand-written glue is only infrastructure:
 `glue_head.js` (brand, `wrap`, conversions, interface setup) and `glue_tail.js`.
 
 - **One native.** Every member is `call(op, generation, handle, ...args)`. The
@@ -296,6 +299,11 @@ script adds; `document.URL` isn't known, so a fragment link's `hashchange` has t
 fragments as its URLs. A body element's `on*`
 attributes reach the window from the last one written, not from each in turn.
 Radio groups key on a `form` attribute's text, not on the element it names.
+Setting `details.open` from a script queues no `toggle`; only a click on its summary
+does. Two elements with one `id` name the first on the window, not a collection.
+A form's reset restores neither `value` nor `checked`. `PointerEvent`'s tilt and
+altitude pairs aren't converted into each other. `DeviceMotionEvent`'s members are
+the converted dictionaries, not interfaces.
 
 ## MutationObserver
 
