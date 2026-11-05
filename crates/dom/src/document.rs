@@ -218,6 +218,8 @@ pub struct Document {
     pub(crate) deadline: Option<Deadline>,
     /// Steps since the last look at the clock (see [`Document::poll`]).
     ticks: Cell<u32>,
+    /// Entries of child lists passed by changes (see [`Document::list_steps`]).
+    list_steps: u64,
 }
 
 impl std::fmt::Debug for Document {
@@ -281,6 +283,7 @@ impl Document {
             fault: None,
             deadline: None,
             ticks: Cell::new(0),
+            list_steps: 0,
         };
         if doc.node_count() > limits.max_nodes {
             return Err(DomError::NodeLimit {
@@ -776,22 +779,30 @@ impl Document {
         self.inner.try_root_element().map(|n| n.id)
     }
 
-    /// The first HTML child of `<html>` with this local name.
-    fn html_child(&self, local: &str) -> Option<usize> {
-        let html = self.document_element()?;
-        self.node(html).children.iter().copied().find(|&c| {
-            self.node(c)
-                .element_data()
-                .is_some_and(|e| e.name.ns == ns!(html) && e.name.local.as_ref() == local)
-        })
+    /// Whether `id` is an HTML element with one of these local names.
+    fn is_html_element(&self, id: usize, locals: &[&str]) -> bool {
+        self.node(id)
+            .element_data()
+            .is_some_and(|e| e.name.ns == ns!(html) && locals.contains(&e.name.local.as_ref()))
+    }
+
+    /// The first child of the html element (HTML "the html element": the
+    /// document element, if it is one) with one of these local names.
+    fn html_child(&self, locals: &[&str]) -> Option<usize> {
+        let html = self
+            .document_element()
+            .filter(|&e| self.is_html_element(e, &["html"]))?;
+        let mut children = self.node(html).children.iter().copied();
+        children.find(|&c| self.is_html_element(c, locals))
     }
 
     pub(crate) fn head(&self) -> Option<usize> {
-        self.html_child("head")
+        self.html_child(&["head"])
     }
 
+    /// HTML "the body element": the first body or frameset child.
     pub(crate) fn body(&self) -> Option<usize> {
-        self.html_child("body")
+        self.html_child(&["body", "frameset"])
     }
 
     /// The first element in tree order under `top` with this ID. blitz-dom's
@@ -1259,6 +1270,7 @@ impl Document {
     /// one pass, however wide the list.
     pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
         self.version += 1;
+        self.count_list_steps(kept.len() + gone.len());
         self.take_children(id);
         for c in gone {
             self.set_parent(c, None);
@@ -1434,8 +1446,9 @@ impl Document {
 
     /// Detaches `id` from its parent; the subtree stays alive.
     pub(crate) fn detach(&mut self, id: usize) {
-        if self.node(id).parent.is_some() {
+        if let Some(parent) = self.node(id).parent {
             self.version += 1;
+            self.count_list_steps(self.children(parent).len());
             self.inner.mutate().remove_node(id);
         }
     }
@@ -1447,6 +1460,7 @@ impl Document {
     /// nothing points back to.
     pub(crate) fn place(&mut self, parent: usize, nodes: &[usize], before: Option<usize>) {
         self.version += 1;
+        self.count_list_steps(nodes.len() + before.map_or(0, |_| self.children(parent).len()));
         if self.is_in_style(parent) {
             for &n in nodes {
                 self.stash_text(n);
@@ -1456,6 +1470,19 @@ impl Document {
             Some(b) => self.inner.mutate().insert_nodes_before(b, nodes),
             None => self.inner.mutate().append_children(parent, nodes),
         }
+    }
+
+    fn count_list_steps(&mut self, entries: usize) {
+        self.list_steps = self.list_steps.saturating_add(entries as u64);
+    }
+
+    /// Entries of child lists passed so far by changes to the tree: a scan
+    /// of a parent's list counts its length. A deterministic measure of what
+    /// a change costs, so a test of "one pass, not one scan per child" doesn't
+    /// compare times on a loaded machine.
+    #[doc(hidden)]
+    pub fn list_steps(&self) -> u64 {
+        self.list_steps
     }
 
     /// Checks the tree's links and the byte count; for tests. Returns what
