@@ -141,7 +141,11 @@ fn soak(renders: usize, warm_up: usize) {
         let end = (at + step).min(renders);
         run(at..end);
         at = end;
-        println!("{at}: live {} B, resident {} KiB", quiet_live_bytes(), rss_kib());
+        println!(
+            "{at}: live {} B, resident {} KiB",
+            quiet_live_bytes(),
+            rss_kib()
+        );
     }
     let growth = quiet_live_bytes() - before;
     let rss_after = rss_kib();

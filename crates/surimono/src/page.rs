@@ -146,6 +146,136 @@ pub(crate) fn doctype(html: &str) -> Option<&str> {
     }
 }
 
+/// `html`, as [`Document::to_html`](surimono_dom::Document::to_html) writes it,
+/// without what shouldn't reach a printer: `<noscript>` and scripts, keeping
+/// island markers (the pre-pass renders those next).
+///
+/// The tree has scripting on, so a `<noscript>` holds raw text, but a printer
+/// parses with scripting off and would build that text as markup: "please
+/// enable JavaScript" on a page whose JavaScript ran. And a script that ran
+/// must not run twice if the renderer runs scripts, and is often most of a
+/// page's bytes. Other scripts don't print either.
+///
+/// This reads the serializer's output as the tree meant it, so it is not an
+/// HTML tokenizer: a noscript ends at its first `</noscript`, which is how the
+/// tree's parser ended it, whatever the text looks like to a parser with
+/// scripting off (`<noscript><!-- </noscript>` has to go without taking the
+/// rest of the page for a comment). lol_html would read that as a printer does.
+/// Linear: every scan moves past what it read.
+pub(crate) fn strip_for_print(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(at) = rest.find('<') {
+        let (text, from) = rest.split_at(at);
+        out.push_str(text);
+        rest = from;
+        if let Some(body) = rest.strip_prefix("<!--") {
+            let after = after_comment(body).unwrap_or("");
+            let (comment, tail) = rest.split_at(rest.len() - after.len());
+            out.push_str(comment);
+            rest = tail;
+            continue;
+        }
+        let Some(name) = tag_name(rest) else {
+            out.push('<');
+            rest = &rest[1..];
+            continue;
+        };
+        let end = tag_end(rest);
+        let (tag, tail) = rest.split_at(end);
+        let lower = name.to_ascii_lowercase();
+        let raw_text = matches!(
+            lower.as_str(),
+            "style" | "xmp" | "iframe" | "noembed" | "noframes"
+        );
+        match lower.as_str() {
+            "noscript" => rest = &tail[close_of(tail, "noscript")..],
+            "script" if !tag_is_island(tag) => rest = &tail[close_of(tail, "script")..],
+            "script" => {
+                let close = close_of(tail, "script");
+                out.push_str(tag);
+                out.push_str(&tail[..close]);
+                rest = &tail[close..];
+            }
+            _ if raw_text => {
+                let close = close_of(tail, &lower);
+                out.push_str(tag);
+                out.push_str(&tail[..close]);
+                rest = &tail[close..];
+            }
+            "plaintext" => {
+                out.push_str(rest);
+                return out;
+            }
+            _ => {
+                out.push_str(tag);
+                rest = tail;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// The tag name of a start tag at the start of `html`.
+fn tag_name(html: &str) -> Option<&str> {
+    let body = html.strip_prefix('<')?;
+    if !body.as_bytes().first()?.is_ascii_alphabetic() {
+        return None;
+    }
+    let end = body
+        .find(['\t', '\n', '\u{c}', '\r', ' ', '/', '>'])
+        .unwrap_or(body.len());
+    Some(&body[..end])
+}
+
+/// Where the start tag at the start of `html` ends. Attribute values are
+/// double-quoted, each straight after its `=`, by the serializer.
+fn tag_end(html: &str) -> usize {
+    let bytes = html.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'>' => return i + 1,
+            b'"' if i > 0 && bytes[i - 1] == b'=' => match html[i + 1..].find('"') {
+                Some(close) => i += close + 2,
+                None => return html.len(),
+            },
+            _ => i += 1,
+        }
+    }
+    html.len()
+}
+
+/// Where the first end tag of `name` in `html` ends, or the end of `html`.
+fn close_of(html: &str, name: &str) -> usize {
+    let bytes = html.as_bytes();
+    let mut from = 0;
+    while let Some(at) = html[from..].find("</") {
+        let start = from + at + 2;
+        let end = start + name.len();
+        let matches = bytes
+            .get(start..end)
+            .is_some_and(|b| b.eq_ignore_ascii_case(name.as_bytes()));
+        let closes = matches
+            && bytes
+                .get(end)
+                .is_none_or(|b| matches!(b, b'\t' | b'\n' | 0x0c | b'\r' | b' ' | b'/' | b'>'));
+        if closes {
+            return html[end..].find('>').map_or(html.len(), |gt| end + gt + 1);
+        }
+        from = start;
+    }
+    html.len()
+}
+
+fn tag_is_island(tag: &str) -> bool {
+    let needle = crate::prepass::ISLAND_TYPE.as_bytes();
+    tag.as_bytes()
+        .windows(needle.len())
+        .any(|w| w.eq_ignore_ascii_case(needle))
+}
+
 /// What follows a comment whose text starts at `body`, as the tokenizer ends
 /// a comment: `-->`, `--!>`, or at once with `>` or `->`.
 fn after_comment(body: &str) -> Option<&str> {
@@ -195,6 +325,66 @@ mod tests {
             ("", None),
         ] {
             assert_eq!(doctype(html), want, "{html:?}");
+        }
+    }
+
+    #[test]
+    fn noscript_and_scripts_are_dropped() {
+        let island = r#"<script type="application/vnd.surimono+json" data-renderer="t">{"a":"</b>"}</script>"#;
+        for (html, want) in [
+            ("<p>a</p>", "<p>a</p>".to_owned()),
+            (
+                "<noscript>Please enable JavaScript</noscript><p>a</p>",
+                "<p>a</p>".to_owned(),
+            ),
+            (
+                "<script>let a = '<noscript>';</script><p>a</p>",
+                "<p>a</p>".to_owned(),
+            ),
+            ("<script src=\"a.js\"></script>", String::new()),
+            (
+                "<script type=\"application/json\">{}</script>x",
+                "x".to_owned(),
+            ),
+            (island, island.to_owned()),
+            // What the tree held as raw text; a parser with scripting off
+            // reads this as the start of a comment.
+            ("<noscript><!-- </noscript><p>a</p>", "<p>a</p>".to_owned()),
+            (
+                "<noscript><style></noscript><p>a</p>",
+                "<p>a</p>".to_owned(),
+            ),
+            ("<NOSCRIPT>x</NOSCRIPT >y", "y".to_owned()),
+            // A longer name isn't the end tag.
+            ("<noscript>x</noscripts>y</noscript>z", "z".to_owned()),
+            // Text that only looks like these elements stays.
+            (
+                "<!-- <noscript>x</noscript> -->y",
+                "<!-- <noscript>x</noscript> -->y".to_owned(),
+            ),
+            (
+                "<style>a::after{content:'<noscript>'}</style>",
+                "<style>a::after{content:'<noscript>'}</style>".to_owned(),
+            ),
+            (
+                "<iframe><script>x</script></iframe>",
+                "<iframe><script>x</script></iframe>".to_owned(),
+            ),
+            (
+                "<p title=\"a>&quot;<noscript>\">b</p>",
+                "<p title=\"a>&quot;<noscript>\">b</p>".to_owned(),
+            ),
+            ("a < b <1> <", "a < b <1> <".to_owned()),
+            (
+                "<plaintext><noscript>x",
+                "<plaintext><noscript>x".to_owned(),
+            ),
+            // Cut short, nothing is lost that wasn't dropped anyway.
+            ("<noscript>x", String::new()),
+            ("<p title=\"x", "<p title=\"x".to_owned()),
+            ("<!-- x", "<!-- x".to_owned()),
+        ] {
+            assert_eq!(strip_for_print(html), want, "{html:?}");
         }
     }
 

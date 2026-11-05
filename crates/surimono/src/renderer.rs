@@ -408,7 +408,10 @@ impl Renderer {
     ///
     /// The result is the page's tree serialized, not the input with changes,
     /// so it isn't byte for byte what you wrote where nothing changed. It
-    /// starts with the input's doctype, if it had one.
+    /// starts with the input's doctype, if it had one. `<noscript>` and
+    /// `<script>` elements are gone: the scripts ran, and a printer that
+    /// parses with scripting off would print a noscript's "please enable
+    /// JavaScript".
     ///
     /// # Errors
     ///

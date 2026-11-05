@@ -96,6 +96,22 @@ fn islands_written_by_scripts_render() {
     );
     assert!(out.html.contains("<title>a</title>"), "{}", out.html);
     assert!(out.html.contains("<title>9</title>"), "{}", out.html);
+    assert!(!out.html.contains("<script"), "{}", out.html);
+}
+
+#[test]
+fn noscript_never_reaches_the_printer() {
+    let r = renderer(options());
+    let out = page(
+        &r,
+        "<!doctype html><head><noscript><style>p{display:none}</style></noscript></head><body>
+         <noscript>Please enable JavaScript</noscript>
+         <noscript><!-- </noscript><p id=a>kept</p>
+         <script>document.getElementById('a').textContent += '!'</script>",
+    );
+    assert!(!out.html.contains("enable"), "{}", out.html);
+    assert!(!out.html.contains("display:none"), "{}", out.html);
+    assert!(out.html.contains("<p id=\"a\">kept!</p>"), "{}", out.html);
 }
 
 #[test]
