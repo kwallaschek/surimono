@@ -10,15 +10,16 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Fri 6 Nov 2026, 03:00)
+## Now (Fri 6 Nov 2026, 08:15)
 
-Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged today: #104 #105 #123 #131 #133 #134 #135 #140 #141 #144 #146 #147. Merge freeze lifted; confirm full.yml on main (ASan, ARM, macOS were red on the selector stack, fixed by #144). Private upstream notes are in the Project doc claude/private-upstream-findings-2026-11-05.md; the repo is public, so keep them out of it. Kay still has to file those.
+Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged 5 to 6 Nov: #104 #105 #123 #131 #132 #133 #134 #135 #136 #139 #140 #141 #142 #144 #146 #147 #148. Private upstream notes: Project doc claude/private-upstream-findings-2026-11-05.md; Kay was told at 04:20 that they need his reports.
 
-Open, in merge order:
-- #132 (approved at 6456b2ad; main conflicts with the events stack) → #136 (BLOCK) → #139 (approved) → #142 (BLOCK) → #148 (BLOCK) → #145 (approved; regenerate WPT and COMPAT after).
-- #143 (head 70e88599; needs review; squash-merge it, because early commit messages shouldn't reach main; close #130 unmerged). After #132 and #148: swap the layout shim for set_layout_policy, use parse_stoppable, to_html_bounded, cancel_flag; AttributeLimit maps to PageDomLimit; root pins for html5ever, html-escape, stats_alloc.
-
-Local WPT with those stacks: dom/nodes 89.5%, dom/events 66.9%, domparsing 39.8%, timers 88.2%. Real-world DOM suite 5 of 5 on main; no PDF comparison yet.
+Open:
+- #143 (page API; approve needed after the shim swap; squash-merge; close #130 unmerged).
+- #149 (approved at 06a15a24, conflicts with main; delta review after).
+- #150 (fork hang; main's ASan is red until it lands).
+- #145 (WPT runner and frames; then regenerate WPT and COMPAT, P2-CF-03).
+Then: E2-12 Rails guide and checkpoint-3 checklist, CHANGELOG, rust.md limits; domparsing gap (E2-14). Digest Sun 8 Nov 20:00; checkpoint 3 Sun 22 Nov 11:00.
 
 ## Earlier (Thu 5 Nov 2026, 11:45)
 

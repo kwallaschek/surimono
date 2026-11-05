@@ -86,8 +86,11 @@ impl<'js> Args<'js> {
         self.number(i).map(|n| ObjectId(n as u64))
     }
 
-    /// A nullable interface: 0 is null.
+    /// A nullable interface: 0 is null, and so is an optional one's default.
     pub(crate) fn opt_id(&self, i: usize) -> BindingResult<Option<ObjectId>> {
+        if self.is_none(i) {
+            return Ok(None);
+        }
         self.id(i).map(|id| (id.0 != 0).then_some(id))
     }
 

@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
+use std::time::Instant;
 
 use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
@@ -17,7 +18,7 @@ use surimono_webidl::runtime::{BindingError, ObjectId};
 use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
-use crate::{Document, DomError};
+use crate::{Document, DomError, LayoutPolicy};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
@@ -26,6 +27,7 @@ const GLUE: &str = concat!(
     include_str!("glue_abort.js"),
     include_str!("glue_activation.js"),
     include_str!("generated/bindings.js"),
+    include_str!("glue_layout.js"),
     include_str!("glue_tail.js"),
 );
 
@@ -59,11 +61,15 @@ struct Host {
     doc: Option<Document>,
     /// The first fatal error of the current call (see [`DomError`]).
     fault: Option<DomError>,
+    /// What layout queries do; survives resets and documents.
+    layout: LayoutPolicy,
     /// The sandbox's cancel flag, raised by `limit`: a limit reported by the
     /// glue must stop the script like one the engine stops it for. Natives
     /// refuse to work while it is up, because the sandbox's watchdog sees it
-    /// a few milliseconds later. Only this file raises it, and the fault
-    /// says why, so a caller sees that limit and never `Cancelled`.
+    /// a few milliseconds later. Raised by this file, the fault says why, so
+    /// a caller sees that limit; raised through
+    /// [`DomRuntime::cancel_flag`], there is no fault and the call is
+    /// `Cancelled`.
     stop: Arc<AtomicBool>,
     /// The current call's deadline; host functions refuse to work after it.
     deadline: Option<Deadline>,
@@ -120,6 +126,12 @@ const CHECKPOINT: SettleOptions = SettleOptions {
     virtual_budget_ms: 0,
     max_tasks: 0,
 };
+
+/// Most times a page's frames are loaded in turn: a frame that a load's
+/// handler adds takes the next round. Each round is a full settle of the
+/// event loop, so this bounds the work with the time limit, which covers them
+/// all.
+const MAX_FRAME_ROUNDS: usize = 8;
 
 /// One `<script>` of the page.
 struct PageScript {
@@ -201,6 +213,22 @@ impl DomRuntime {
     /// [`DomError::StaleDocument`].
     pub fn load(&mut self, doc: Document) -> Option<Document> {
         self.host.borrow_mut().doc.replace(doc)
+    }
+
+    /// The flag that stops this runtime's call: raise it from any thread and
+    /// the script stops within a few milliseconds, native loops and parsers
+    /// included, frames' parses too, and the call fails with
+    /// `SandboxError::Cancelled`. The
+    /// call consumes it: the runtime rebuilds its context and works again. Raised
+    /// between calls, it stops the next one.
+    pub fn cancel_flag(&self) -> Arc<AtomicBool> {
+        self.host.borrow().stop.clone()
+    }
+
+    /// Chooses what scripts' layout queries do, from the next call on. The
+    /// default is [`LayoutPolicy::Zeros`].
+    pub fn set_layout_policy(&mut self, policy: LayoutPolicy) {
+        self.host.borrow_mut().layout = policy;
     }
 
     /// Takes the loaded document back. Wrappers still held by scripts fail
@@ -332,7 +360,10 @@ impl DomRuntime {
 
     /// Runs the loaded document as a page, in a fresh context: its scripts in order, then
     /// `DOMContentLoaded` and `load`, then the event loop until it settles;
-    /// all under one time limit. The order, all at virtual time 0 and before
+    /// all under one time limit, and each round of frames a script added
+    /// under another, checked between rounds, so at most about twice it.
+    /// `<iframe>`s load as documents without a browsing context of their own:
+    /// see "Frames" in DESIGN.md. The order, all at virtual time 0 and before
     /// any of the page's own timers, each step a task (HTML §13.2.7):
     ///
     /// 1. `readyState` is `loading`. Scripts in tree order, except `defer`.
@@ -400,6 +431,11 @@ impl DomRuntime {
             host.unhandled_rejections = 0;
             host.rejections.clear();
         }
+        // The parser's frames are asked for here and parsed in the first step
+        // of the lifecycle, before any script, and their `load` events fire
+        // before the window's, as they must: a page's `load` listener reads
+        // them. A script sees a frame as loaded from the start.
+        self.load_frames(&mut resolve)?;
         self.reset()?;
         self.begin_call();
         let loaded = load_glue(&mut self.sandbox);
@@ -421,23 +457,86 @@ impl DomRuntime {
             start.call::<_, ()>((g,))
         });
         self.finish_call(started)?;
+        let began = Instant::now();
         self.begin_call();
         let result = self.sandbox.run_until_settled(options);
-        let settle = self.finish_call(result)?;
-        let mut host = self.host.borrow_mut();
-        host.scripts.clear();
-        let mut errors = std::mem::take(&mut host.errors);
+        let mut settle = self.finish_call(result)?;
+        let mut uncaught = settle.uncaught;
+        let mut errors = Vec::new();
+        let mut rejected = settle.unhandled_rejections;
+        let mut rejections: Vec<String> = settle.rejections.iter().map(message_of).collect();
         for e in &settle.errors {
             keep(&mut errors, message_of(e));
         }
+        for _ in 0..MAX_FRAME_ROUNDS {
+            if !self.load_frames(&mut resolve)? {
+                break;
+            }
+            if began.elapsed() >= self.sandbox.limits().time {
+                return Err(SandboxError::TimeLimit.into());
+            }
+            self.begin_call();
+            let fired = self.sandbox.call::<_, ()>("__surimonoFrameLoads", ());
+            self.finish_call(fired)?;
+            self.begin_call();
+            let result = self.sandbox.run_until_settled(options);
+            settle = self.finish_call(result)?;
+            uncaught += settle.uncaught;
+            rejected += settle.unhandled_rejections;
+            for e in &settle.errors {
+                keep(&mut errors, message_of(e));
+            }
+            for e in &settle.rejections {
+                keep(&mut rejections, message_of(e));
+            }
+        }
+        let mut host = self.host.borrow_mut();
+        host.scripts.clear();
+        let mut all = std::mem::take(&mut host.errors);
+        for e in errors {
+            keep(&mut all, e);
+        }
+        settle.uncaught = uncaught;
+        settle.unhandled_rejections = rejected;
         Ok(PageReport {
-            uncaught: settle.uncaught + std::mem::take(&mut host.uncaught),
-            errors,
-            unhandled_rejections: settle.unhandled_rejections,
-            rejections: settle.rejections.iter().map(message_of).collect(),
+            uncaught: uncaught + std::mem::take(&mut host.uncaught),
+            errors: all,
+            unhandled_rejections: rejected,
+            rejections,
             settle,
             missing_scripts,
         })
+    }
+
+    /// Starts the loads of `<iframe>`s nothing has loaded yet (HTML §4.8.5):
+    /// `srcdoc`, the source of `src` from the page's resolver, or their
+    /// `about:blank`. Whether any was started. Asks the resolver here, between
+    /// calls, and parses nothing: a parse belongs in a sandbox call, the only
+    /// place the time limit and a cancel can be seen, so the glue's next step
+    /// does it, one native call per frame.
+    fn load_frames(
+        &mut self,
+        resolve: &mut impl FnMut(&str) -> Option<String>,
+    ) -> Result<bool, DomError> {
+        let mut guard = self.host.borrow_mut();
+        let Some(doc) = guard.doc.as_mut() else {
+            return Ok(false);
+        };
+        let frames = doc.frames_to_load();
+        let any = !frames.is_empty();
+        for (element, srcdoc, src) in frames {
+            match (srcdoc, src) {
+                (Some(text), _) => doc.queue_frame(element, Some(text), "about:srcdoc".to_owned()),
+                (None, Some(src)) => {
+                    // The fragment is the document's to read, not the source's.
+                    let plain = src.split('#').next().unwrap_or(&src);
+                    let url = doc.frame_url(&src);
+                    doc.queue_frame(element, resolve(plain), url);
+                }
+                (None, None) => doc.queue_frame(element, None, "about:blank".to_owned()),
+            }
+        }
+        Ok(any)
     }
 
     fn begin_call(&mut self) {
@@ -476,6 +575,9 @@ impl DomRuntime {
             // These outrank a fault: the script was stopped anyway.
             (_, Err(e)) if e.discards_state() => Err(e.into()),
             (Some(fault), _) => Err(fault),
+            // The caller's cancel, seen by a native or as the call ended by
+            // itself, before the watchdog looked.
+            (None, _) if stopped => Err(SandboxError::Cancelled.into()),
             (None, r) => r.map_err(DomError::from),
         }
     }
@@ -700,6 +802,8 @@ fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<
                     return Err(fault(&ctx, &mut host.fault, e));
                 }
                 doc.deadline.clone_from(&host.deadline);
+                doc.layout = host.layout;
+                doc.enter(h);
                 let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
                 if let Some(e) = doc.fault.take() {
                     return Err(fault(&ctx, &mut host.fault, e));

@@ -668,7 +668,7 @@ fn a_removed_attr_keeps_its_value_and_a_new_attribute_is_a_new_attr() {
         .eval(
             r#"const p = document.getElementById('p');
             p.setAttribute('k', 'old');
-            const a = p.getAttributeNode ? null : p.attributes.getNamedItem('k');
+            const a = p.attributes.getNamedItem('k');
             p.attributes.removeNamedItem('k');
             const out = [a.value, a.ownerElement];
             a.value = 'detached';
