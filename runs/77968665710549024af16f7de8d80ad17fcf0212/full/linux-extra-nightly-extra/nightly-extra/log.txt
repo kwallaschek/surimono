@@ -1,0 +1,1363 @@
+
+==> wpt: run the slices, publish wpt-results.json
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m serde_core v1.0.229
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m indexmap v2.14.2
+[1m[32m   Compiling[0m sha2 v0.10.9
+[1m[32m   Compiling[0m winnow v1.0.4
+[1m[32m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[32m   Compiling[0m serde v1.0.229
+[1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m to_shmem v0.2.0
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m euclid v0.22.14
+[1m[32m   Compiling[0m app_units v0.7.8
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m url v2.5.8
+[1m[32m   Compiling[0m stylo_atoms v0.8.0
+[1m[32m   Compiling[0m stylo_dom v0.8.0
+[1m[32m   Compiling[0m stylo_traits v0.8.0
+[1m[32m   Compiling[0m markup5ever v0.35.0
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m keyboard-types v0.7.0
+[1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m blitz-traits v0.2.0
+[1m[32m   Compiling[0m html5ever v0.35.0
+[1m[32m   Compiling[0m parley v0.6.0
+[1m[32m   Compiling[0m xml5ever v0.35.0
+[1m[32m   Compiling[0m serde_spanned v1.1.2
+[1m[32m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m toml v1.1.8+spec-1.1.0
+[1m[32m   Compiling[0m stylo_taffy v0.2.0
+[1m[32m   Compiling[0m blitz-dom v0.2.4
+[1m[32m   Compiling[0m blitz-html v0.2.0
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-wpt-runner v0.0.0 (/home/runner/work/surimono/surimono/wpt/runner)
+[1m[32m    Finished[0m `dev` profile [optimized + debuginfo] target(s) in 1m 31s
+[2/722] OK html/webappapis/timers/clearinterval-from-callback.any.html
+[1/722] OK html/webappapis/timers/arguments.html
+[3/722] OK html/webappapis/timers/cleartimeout-clearinterval.any.html
+[4/722] OK html/webappapis/timers/errors.html
+[5/722] OK html/webappapis/timers/evil-spec-example.any.html
+[6/722] OK html/webappapis/timers/missing-timeout-setinterval.any.html
+[7/722] OK html/webappapis/timers/negative-setinterval.any.html
+[8/722] OK html/webappapis/timers/negative-settimeout.any.html
+[9/722] TIMEOUT html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html
+[10/722] OK html/webappapis/timers/setinterval-settimeout-clamping.any.html
+[11/722] TIMEOUT html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html
+[12/722] OK html/webappapis/timers/settimeout-detached-iframe.html
+[13/722] OK html/webappapis/timers/settimeout-setinterval-handles.html
+[14/722] OK html/webappapis/timers/timer-nesting-not-inherited-in-microtask.html
+[15/722] OK html/webappapis/timers/type-long-setinterval.any.html
+[16/722] OK html/webappapis/timers/type-long-settimeout.any.html
+[17/722] OK html/webappapis/timers/zero-settimeout.any.html
+[18/722] TIMEOUT html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html
+[19/722] OK html/webappapis/microtask-queuing/queue-microtask-exceptions.any.html
+[20/722] OK html/webappapis/microtask-queuing/queue-microtask.any.html
+[22/722] ERROR dom/nodes/Attr-prefix-xhtml.xhtml
+[21/722] OK html/webappapis/microtask-queuing/queue-microtask.window.html
+[23/722] OK dom/nodes/Attr-prefix.html
+[24/722] OK dom/nodes/CharacterData-appendChild.html
+[25/722] OK dom/nodes/CharacterData-appendData.html
+[26/722] OK dom/nodes/CharacterData-data.html
+[27/722] OK dom/nodes/CharacterData-deleteData.html
+[28/722] OK dom/nodes/CharacterData-insertData.html
+[29/722] ERROR dom/nodes/CharacterData-remove.html
+[30/722] OK dom/nodes/CharacterData-replaceData.html
+[31/722] OK dom/nodes/CharacterData-substringData.html
+[32/722] OK dom/nodes/CharacterData-surrogates.html
+[33/722] OK dom/nodes/ChildNode-after.html
+[34/722] OK dom/nodes/ChildNode-before.html
+[35/722] OK dom/nodes/ChildNode-replaceWith.html
+[37/722] ERROR dom/nodes/Comment-in-doctype.xhtml
+[36/722] TIMEOUT dom/nodes/Comment-constructor.html
+[38/722] OK dom/nodes/DOMImplementation-createDocument-no-browsing-context.html
+[39/722] OK dom/nodes/DOMImplementation-createDocument.html
+[40/722] OK dom/nodes/DOMImplementation-createDocumentType.html
+[41/722] OK dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html
+[42/722] OK dom/nodes/DOMImplementation-createHTMLDocument.html
+[43/722] OK dom/nodes/DOMImplementation-hasFeature.html
+[44/722] TIMEOUT dom/nodes/Document-URL.html
+[46/722] OK dom/nodes/Document-adoptNode.html
+[45/722] OK dom/nodes/Document-adoptNode-DocumentFragment-with-host.window.html
+[47/722] TIMEOUT dom/nodes/Document-base-url-not-live.window.html
+[48/722] TIMEOUT dom/nodes/Document-characterSet-normalization-1.html
+[50/722] TIMEOUT dom/nodes/Document-cloneNode-about-base-url-relative.window.html
+[49/722] TIMEOUT dom/nodes/Document-characterSet-normalization-2.html
+[51/722] TIMEOUT dom/nodes/Document-cloneNode-about-base-url.window.html
+[52/722] OK dom/nodes/Document-cloneNode-base-url-xml.window.html
+[53/722] OK dom/nodes/Document-cloneNode-base-url.window.html
+[55/722] ERROR dom/nodes/Document-constructor-svg.svg
+[54/722] TIMEOUT dom/nodes/Document-cloneNode-srcdoc-base-url.window.html
+[56/722] OK dom/nodes/Document-constructor.html
+[57/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_bmp.html
+[58/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_css.html
+[59/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_datauri_02.html
+[61/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_html.html
+[60/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_gif.html
+[63/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_jpg.html
+[62/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_javascripturi.html
+[65/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_mimeheader_02.html
+[64/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_mimeheader_01.html
+[66/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_mimeheader_03.html
+[67/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_png.html
+[68/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_txt.html
+[69/722] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_xml.html
+[70/722] OK dom/nodes/Document-contentType/contentType/createDocument.html
+[71/722] OK dom/nodes/Document-contentType/contentType/createHTMLDocument.html
+[72/722] OK dom/nodes/Document-contentType/contentType/xhr_responseType_document.html
+[74/722] ERROR dom/nodes/Document-createCDATASection-xhtml.xhtml
+[73/722] ERROR dom/nodes/Document-createAttribute.html
+[75/722] OK dom/nodes/Document-createCDATASection.html
+[76/722] OK dom/nodes/Document-createComment.html
+[77/722] TIMEOUT dom/nodes/Document-createElement-namespace.html
+[78/722] OK dom/nodes/Document-createElement.html
+[80/722] OK dom/nodes/Document-createEvent-touchevent.window.html
+[79/722] OK dom/nodes/Document-createElementNS.html
+[81/722] OK dom/nodes/Document-createEvent.https.html
+[82/722] ERROR dom/nodes/Document-createProcessingInstruction-xhtml.xhtml
+[83/722] OK dom/nodes/Document-createProcessingInstruction.html
+[84/722] OK dom/nodes/Document-createTextNode.html
+[85/722] OK dom/nodes/Document-createTreeWalker.html
+[86/722] OK dom/nodes/Document-doctype.html
+[87/722] OK dom/nodes/Document-getElementById.html
+[88/722] OK dom/nodes/Document-getElementsByClassName.html
+[89/722] ERROR dom/nodes/Document-getElementsByTagName-xhtml.xhtml
+[90/722] OK dom/nodes/Document-getElementsByTagName.html
+[91/722] OK dom/nodes/Document-getElementsByTagNameNS.html
+[92/722] OK dom/nodes/Document-implementation.html
+[93/722] OK dom/nodes/Document-importNode.html
+[94/722] OK dom/nodes/DocumentFragment-constructor.html
+[95/722] OK dom/nodes/DocumentFragment-getElementById.html
+[97/722] ERROR dom/nodes/DocumentType-literal-xhtml.xhtml
+[96/722] OK dom/nodes/DocumentFragment-querySelectorAll-after-modification.html
+[98/722] OK dom/nodes/DocumentType-literal.html
+[100/722] ERROR dom/nodes/Element-childElement-null-svg.svg
+[101/722] ERROR dom/nodes/Element-childElement-null-xhtml.xhtml
+[99/722] ERROR dom/nodes/DocumentType-remove.html
+[103/722] ERROR dom/nodes/Element-childElementCount-dynamic-add-svg.svg
+[104/722] ERROR dom/nodes/Element-childElementCount-dynamic-add-xhtml.xhtml
+[102/722] OK dom/nodes/Element-childElement-null.html
+[106/722] ERROR dom/nodes/Element-childElementCount-dynamic-remove-svg.svg
+[107/722] ERROR dom/nodes/Element-childElementCount-dynamic-remove-xhtml.xhtml
+[105/722] OK dom/nodes/Element-childElementCount-dynamic-add.html
+[109/722] ERROR dom/nodes/Element-childElementCount-nochild-svg.svg
+[110/722] ERROR dom/nodes/Element-childElementCount-nochild-xhtml.xhtml
+[108/722] OK dom/nodes/Element-childElementCount-dynamic-remove.html
+[112/722] ERROR dom/nodes/Element-childElementCount-svg.svg
+[113/722] ERROR dom/nodes/Element-childElementCount-xhtml.xhtml
+[111/722] OK dom/nodes/Element-childElementCount-nochild.html
+[114/722] OK dom/nodes/Element-childElementCount.html
+[115/722] OK dom/nodes/Element-children.html
+[117/722] OK dom/nodes/Element-closest-null-selectors.html
+[118/722] OK dom/nodes/Element-closest.html
+[119/722] ERROR dom/nodes/Element-firstElementChild-entity-xhtml.xhtml
+[120/722] ERROR dom/nodes/Element-firstElementChild-entity.svg
+[121/722] ERROR dom/nodes/Element-firstElementChild-namespace-svg.svg
+[122/722] ERROR dom/nodes/Element-firstElementChild-namespace-xhtml.xhtml
+[123/722] OK dom/nodes/Element-firstElementChild-namespace.html
+[124/722] ERROR dom/nodes/Element-firstElementChild-svg.svg
+[125/722] ERROR dom/nodes/Element-firstElementChild-xhtml.xhtml
+[126/722] OK dom/nodes/Element-firstElementChild.html
+[127/722] OK dom/nodes/Element-getElementsByClassName.html
+[116/722] OK dom/nodes/Element-classlist.html
+[128/722] OK dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html
+[129/722] OK dom/nodes/Element-getElementsByTagName.html
+[130/722] OK dom/nodes/Element-getElementsByTagNameNS.html
+[131/722] OK dom/nodes/Element-hasAttribute.html
+[132/722] OK dom/nodes/Element-hasAttributes.html
+[133/722] OK dom/nodes/Element-insertAdjacentElement.html
+[135/722] ERROR dom/nodes/Element-lastElementChild-svg.svg
+[136/722] ERROR dom/nodes/Element-lastElementChild-xhtml.xhtml
+[134/722] OK dom/nodes/Element-insertAdjacentText.html
+[137/722] OK dom/nodes/Element-lastElementChild.html
+[138/722] OK dom/nodes/Element-matches-active-pseudo-class.html
+[139/722] OK dom/nodes/Element-matches-complex-nth-last-of-type.html
+[140/722] OK dom/nodes/Element-matches-disabled-pseudo-class.html
+[141/722] OK dom/nodes/Element-matches-namespaced-elements.html
+[142/722] TIMEOUT dom/nodes/Element-matches.html
+[143/722] ERROR dom/nodes/Element-nextElementSibling-svg.svg
+[144/722] ERROR dom/nodes/Element-nextElementSibling-xhtml.xhtml
+[146/722] ERROR dom/nodes/Element-previousElementSibling-svg.svg
+[147/722] ERROR dom/nodes/Element-previousElementSibling-xhtml.xhtml
+[145/722] OK dom/nodes/Element-nextElementSibling.html
+[148/722] OK dom/nodes/Element-previousElementSibling.html
+[149/722] OK dom/nodes/Element-querySelectorAll-context-element.html
+[150/722] OK dom/nodes/Element-remove.html
+[151/722] OK dom/nodes/Element-removeAttribute.html
+[152/722] OK dom/nodes/Element-removeAttributeNS.html
+[153/722] OK dom/nodes/Element-setAttribute-crbug-1138487.html
+[154/722] OK dom/nodes/Element-setAttribute.html
+[156/722] ERROR dom/nodes/Element-siblingElement-null-svg.svg
+[155/722] OK dom/nodes/Element-setAttributeNodeNS.html
+[157/722] ERROR dom/nodes/Element-siblingElement-null-xhtml.xhtml
+[158/722] OK dom/nodes/Element-siblingElement-null.html
+[159/722] OK dom/nodes/Element-tagName-adopt.html
+[160/722] OK dom/nodes/Element-tagName.html
+[161/722] TIMEOUT dom/nodes/Element-webkitMatchesSelector.html
+[163/722] OK dom/nodes/MutationObserver-callback-arguments.html
+[162/722] OK dom/nodes/MutationObserver-attributes.html
+[164/722] OK dom/nodes/MutationObserver-callback-order.window.html
+[165/722] OK dom/nodes/MutationObserver-callback-tricky.html
+[166/722] ERROR dom/nodes/MutationObserver-characterData.html
+[167/722] OK dom/nodes/MutationObserver-childList.html
+[168/722] TIMEOUT dom/nodes/MutationObserver-cross-realm-callback-report-exception.html
+[169/722] OK dom/nodes/MutationObserver-disconnect.html
+[170/722] OK dom/nodes/MutationObserver-document.html
+[171/722] OK dom/nodes/MutationObserver-inner-outer.html
+[172/722] OK dom/nodes/MutationObserver-overlapping-registrations.html
+[173/722] OK dom/nodes/MutationObserver-sanity.html
+[174/722] OK dom/nodes/MutationObserver-takeRecords.html
+[175/722] TIMEOUT dom/nodes/MutationObserver-textContent.html
+[177/722] ERROR dom/nodes/MutationObserver-xml-parser.xhtml
+[176/722] OK dom/nodes/MutationObserver-transient-registered-observers.window.html
+[178/722] OK dom/nodes/Node-appendChild-cereactions-vs-script.window.html
+[179/722] OK dom/nodes/Node-appendChild.html
+[180/722] OK dom/nodes/Node-baseURI.html
+[181/722] OK dom/nodes/Node-childNodes-cache-2.html
+[182/722] OK dom/nodes/Node-childNodes-cache.html
+[183/722] OK dom/nodes/Node-childNodes.html
+[184/722] OK dom/nodes/Node-cloneNode-XMLDocument.html
+[185/722] LIMIT dom/nodes/Node-cloneNode-document-allow-declarative-shadow-roots.window.html
+[186/722] OK dom/nodes/Node-cloneNode-document-with-doctype.html
+[187/722] OK dom/nodes/Node-cloneNode-external-stylesheet-no-bc.sub.html
+[188/722] OK dom/nodes/Node-cloneNode-parser-created-names.html
+[189/722] OK dom/nodes/Node-cloneNode-svg.html
+[190/722] OK dom/nodes/Node-cloneNode.html
+[191/722] ERROR dom/nodes/Node-compareDocumentPosition.html
+[192/722] OK dom/nodes/Node-constants.html
+[193/722] ERROR dom/nodes/Node-contains.html
+[194/722] OK dom/nodes/Node-insertBefore.html
+[195/722] OK dom/nodes/Node-isConnected-shadow-dom.html
+[197/722] ERROR dom/nodes/Node-isEqualNode-xhtml.xhtml
+[196/722] OK dom/nodes/Node-isConnected.html
+[198/722] OK dom/nodes/Node-isEqualNode.html
+[199/722] OK dom/nodes/Node-isSameNode.html
+[201/722] ERROR dom/nodes/Node-lookupPrefix.xhtml
+[200/722] ERROR dom/nodes/Node-lookupNamespaceURI.html
+[203/722] ERROR dom/nodes/Node-nodeName-xhtml.xhtml
+[202/722] OK dom/nodes/Node-mutation-adoptNode.html
+[204/722] OK dom/nodes/Node-nodeName.html
+[205/722] OK dom/nodes/Node-nodeValue.html
+[206/722] OK dom/nodes/Node-normalize-2.html
+[207/722] OK dom/nodes/Node-normalize.html
+[208/722] OK dom/nodes/Node-parentElement.html
+[209/722] TIMEOUT dom/nodes/Node-parentNode.html
+[210/722] ERROR dom/nodes/Node-properties.html
+[211/722] OK dom/nodes/Node-removeChild.html
+[212/722] OK dom/nodes/Node-replaceChild.html
+[213/722] ERROR dom/nodes/Node-textContent.html
+[214/722] OK dom/nodes/NodeList-Iterable.html
+[215/722] OK dom/nodes/NodeList-live-mutations.window.html
+[216/722] LIMIT dom/nodes/NodeList-static-length-getter-tampered-1.html
+[217/722] LIMIT dom/nodes/NodeList-static-length-getter-tampered-2.html
+[218/722] LIMIT dom/nodes/NodeList-static-length-getter-tampered-3.html
+[219/722] LIMIT dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html
+[220/722] LIMIT dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html
+[221/722] LIMIT dom/nodes/NodeList-static-length-getter-tampered-indexOf-3.html
+[222/722] OK dom/nodes/NonDocumentTypeChildNode-sibling-element.html
+[223/722] OK dom/nodes/ParentNode-append.html
+[224/722] OK dom/nodes/ParentNode-children.html
+[225/722] OK dom/nodes/ParentNode-prepend.html
+[226/722] OK dom/nodes/ParentNode-properties.html
+[227/722] OK dom/nodes/ParentNode-querySelector-All-comma-selector.html
+[228/722] OK dom/nodes/ParentNode-querySelector-All-multiple-not.html
+[230/722] ERROR dom/nodes/ParentNode-querySelector-All-xht.xht
+[229/722] OK dom/nodes/ParentNode-querySelector-All-scope.html
+[231/722] TIMEOUT dom/nodes/ParentNode-querySelector-All.html
+[232/722] OK dom/nodes/ParentNode-querySelector-argument-stringification.html
+[233/722] OK dom/nodes/ParentNode-querySelector-attribute-change.html
+[234/722] OK dom/nodes/ParentNode-querySelector-basic-has.html
+[235/722] OK dom/nodes/ParentNode-querySelector-case-insensitive.html
+[236/722] OK dom/nodes/ParentNode-querySelector-class-change.html
+[237/722] OK dom/nodes/ParentNode-querySelector-dupe-id.html
+[238/722] OK dom/nodes/ParentNode-querySelector-empty-attribute-value.html
+[239/722] OK dom/nodes/ParentNode-querySelector-escapes.html
+[240/722] OK dom/nodes/ParentNode-querySelector-host-pseudo-class.html
+[241/722] OK dom/nodes/ParentNode-querySelector-hyphen-prefix.html
+[242/722] OK dom/nodes/ParentNode-querySelector-innerHTML.html
+[243/722] OK dom/nodes/ParentNode-querySelector-invalid-comment-like.html
+[244/722] OK dom/nodes/ParentNode-querySelector-is-nested-pseudo-class.html
+[245/722] OK dom/nodes/ParentNode-querySelector-is-not.html
+[246/722] OK dom/nodes/ParentNode-querySelector-last-child-combinator.html
+[248/722] ERROR dom/nodes/ParentNode-querySelector-multiple-attributes-xml.xhtml
+[247/722] OK dom/nodes/ParentNode-querySelector-matches.html
+[249/722] ERROR dom/nodes/ParentNode-querySelector-namespace-tagname-attribute.html
+[250/722] OK dom/nodes/ParentNode-querySelector-nested-nth-child.html
+[251/722] OK dom/nodes/ParentNode-querySelector-nested.html
+[252/722] OK dom/nodes/ParentNode-querySelector-nth-of-type-complex.html
+[253/722] OK dom/nodes/ParentNode-querySelector-orphan-scope.html
+[254/722] OK dom/nodes/ParentNode-querySelector-parent-context.html
+[256/722] ERROR dom/nodes/ParentNode-querySelector-scope-numeric-id.xhtml
+[255/722] OK dom/nodes/ParentNode-querySelector-scope-in-not.html
+[257/722] OK dom/nodes/ParentNode-querySelector-scope.html
+[258/722] OK dom/nodes/ParentNode-querySelector-shadowroot-nth-child.html
+[259/722] OK dom/nodes/ParentNode-querySelector-svg-not-root.html
+[261/722] ERROR dom/nodes/ParentNode-querySelector-underscore-local-name.xhtml
+[260/722] OK dom/nodes/ParentNode-querySelector-tag-case.html
+[262/722] OK dom/nodes/ParentNode-querySelector-xml-capitalization.window.html
+[263/722] OK dom/nodes/ParentNode-querySelectorAll-case-insensitive-attribute-flag.html
+[264/722] ERROR dom/nodes/ParentNode-querySelectorAll-namespace.html
+[265/722] OK dom/nodes/ParentNode-querySelectorAll-nested-not-has.html
+[266/722] OK dom/nodes/ParentNode-querySelectorAll-not-descendant.html
+[267/722] OK dom/nodes/ParentNode-querySelectorAll-removed-elements.html
+[268/722] OK dom/nodes/ParentNode-querySelectorAll-scope-change.html
+[269/722] OK dom/nodes/ParentNode-querySelectorAll-scope-colon-id-class.html
+[270/722] OK dom/nodes/ParentNode-querySelectorAll-svg-append.html
+[271/722] OK dom/nodes/ParentNode-querySelectorAll-svg-class.html
+[272/722] OK dom/nodes/ParentNode-querySelectors-exclusive.html
+[273/722] OK dom/nodes/ParentNode-querySelectors-namespaces.html
+[274/722] OK dom/nodes/ParentNode-querySelectors-space-and-dash-attribute-value.html
+[275/722] OK dom/nodes/ParentNode-replaceChildren.html
+[276/722] ERROR dom/nodes/ProcessingInstruction-escapes-1.xhtml
+[277/722] ERROR dom/nodes/ProcessingInstruction-in-doctype.xhtml
+[278/722] ERROR dom/nodes/ProcessingInstruction-literal-1.xhtml
+[279/722] ERROR dom/nodes/ProcessingInstruction-literal-2.xhtml
+[280/722] TIMEOUT dom/nodes/Text-constructor.html
+[281/722] OK dom/nodes/Text-splitText.html
+[282/722] OK dom/nodes/Text-wholeText.html
+[283/722] OK dom/nodes/adoption.window.html
+[284/722] ERROR dom/nodes/append-on-Document.html
+[285/722] ERROR dom/nodes/attach-shadow-realm-after-adoption.html
+[286/722] OK dom/nodes/attributes-namednodemap-cross-document.window.html
+[287/722] OK dom/nodes/attributes-namednodemap.html
+[288/722] OK dom/nodes/attributes.html
+[290/722] ERROR dom/nodes/create-element-realm-after-adoption.html
+[289/722] OK dom/nodes/case.html
+[291/722] OK dom/nodes/getElementById-namespaced-id.html
+[292/722] OK dom/nodes/getElementsByClassName-01.htm
+[293/722] OK dom/nodes/getElementsByClassName-02.htm
+[294/722] OK dom/nodes/getElementsByClassName-03.htm
+[295/722] OK dom/nodes/getElementsByClassName-04.htm
+[296/722] OK dom/nodes/getElementsByClassName-05.htm
+[297/722] OK dom/nodes/getElementsByClassName-06.htm
+[298/722] OK dom/nodes/getElementsByClassName-07.htm
+[299/722] OK dom/nodes/getElementsByClassName-08.htm
+[300/722] OK dom/nodes/getElementsByClassName-09.htm
+[301/722] OK dom/nodes/getElementsByClassName-12.htm
+[302/722] OK dom/nodes/getElementsByClassName-13.htm
+[303/722] OK dom/nodes/getElementsByClassName-14.htm
+[304/722] OK dom/nodes/getElementsByClassName-15.htm
+[305/722] OK dom/nodes/getElementsByClassName-16.htm
+[306/722] OK dom/nodes/getElementsByClassName-17.htm
+[307/722] OK dom/nodes/getElementsByClassName-18.htm
+[308/722] OK dom/nodes/getElementsByClassName-19.htm
+[309/722] OK dom/nodes/getElementsByClassName-20.htm
+[310/722] OK dom/nodes/getElementsByClassName-21.htm
+[311/722] OK dom/nodes/getElementsByClassName-22.htm
+[312/722] OK dom/nodes/getElementsByClassName-23.htm
+[313/722] OK dom/nodes/getElementsByClassName-24.htm
+[314/722] OK dom/nodes/getElementsByClassName-25.htm
+[315/722] OK dom/nodes/getElementsByClassName-26.htm
+[316/722] OK dom/nodes/getElementsByClassName-27.htm
+[317/722] OK dom/nodes/getElementsByClassName-28.htm
+[318/722] OK dom/nodes/getElementsByClassName-29.htm
+[319/722] OK dom/nodes/getElementsByClassName-30.htm
+[320/722] TIMEOUT dom/nodes/getElementsByClassName-31.htm
+[321/722] OK dom/nodes/getElementsByClassName-32.html
+[322/722] OK dom/nodes/getElementsByClassName-empty-set.html
+[323/722] OK dom/nodes/getElementsByClassName-whitespace-class-names.html
+[324/722] OK dom/nodes/insert-adjacent.html
+[325/722] OK dom/nodes/insertion-removing-steps/Node-append-form-and-script-from-fragment.html
+[326/722] OK dom/nodes/insertion-removing-steps/Node-append-meta-referrer-and-script-from-fragment.html
+[327/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-button-from-div.html
+[328/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-custom-from-fragment.html
+[329/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-default-style-meta-from-fragment.html
+[330/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-div-from-fragment.html
+[332/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-source-from-fragment.html
+[331/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-iframe.html
+[333/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-style.html
+[334/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-in-script.html
+[335/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-with-mutation-observer-takeRecords.html
+[336/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-text-and-script-in-style.html
+[337/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-text-in-script.html
+[338/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts-from-fragment.html
+[339/722] OK dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts.html
+[340/722] OK dom/nodes/insertion-removing-steps/blur-event.window.html
+[341/722] OK dom/nodes/insertion-removing-steps/change-event.window.html
+[342/722] OK dom/nodes/insertion-removing-steps/frame-post-connection-steps.html
+[343/722] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-iframe.window.html
+[344/722] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-script.window.html
+[345/722] OK dom/nodes/insertion-removing-steps/later-script-removed-by-earlier-script.html
+[346/722] OK dom/nodes/insertion-removing-steps/script-does-not-run-on-child-removal.window.html
+[347/722] OK dom/nodes/live-collections-batched-mutations.window.html
+[348/722] OK dom/nodes/moveBefore/Node-moveBefore.html
+[349/722] OK dom/nodes/moveBefore/child-style-preserve.html
+[350/722] TIMEOUT dom/nodes/moveBefore/continue-css-animation-left.html
+[351/722] TIMEOUT dom/nodes/moveBefore/continue-css-animation-transform.html
+[352/722] OK dom/nodes/moveBefore/continue-css-transition-left-pseudo.html
+[353/722] OK dom/nodes/moveBefore/continue-css-transition-left.html
+[354/722] OK dom/nodes/moveBefore/continue-css-transition-transform-pseudo.html
+[355/722] OK dom/nodes/moveBefore/continue-css-transition-transform.html
+[356/722] TIMEOUT dom/nodes/moveBefore/css-animation-commit-styles.html
+[357/722] TIMEOUT dom/nodes/moveBefore/css-transition-cross-document.html
+[358/722] OK dom/nodes/moveBefore/css-transition-cross-shadow.html
+[359/722] OK dom/nodes/moveBefore/css-transition-to-disconnected-document.html
+[360/722] OK dom/nodes/moveBefore/css-transition-trigger.html
+[361/722] OK dom/nodes/moveBefore/custom-element-move-reactions.html
+[362/722] OK dom/nodes/moveBefore/fieldset-child-blur-event.html
+[363/722] OK dom/nodes/moveBefore/fieldset-child-date-input-blur-event.html
+[364/722] OK dom/nodes/moveBefore/fire-focusin-focusout.html
+[365/722] OK dom/nodes/moveBefore/focus-preserve.html
+[366/722] OK dom/nodes/moveBefore/focus-within.html
+[367/722] OK dom/nodes/moveBefore/fullscreen-preserve.html
+[368/722] OK dom/nodes/moveBefore/hover-style-update.html
+[369/722] TIMEOUT dom/nodes/moveBefore/iframe-document-preserve.window.html
+[370/722] OK dom/nodes/moveBefore/listed-form-element-reset.html
+[371/722] OK dom/nodes/moveBefore/live-range-updates.html
+[372/722] OK dom/nodes/moveBefore/modal-dialog.html
+[373/722] OK dom/nodes/moveBefore/moveBefore-child-list-selector-invalidation.html
+[374/722] OK dom/nodes/moveBefore/moveBefore-dir.html
+[375/722] OK dom/nodes/moveBefore/moveBefore-disconnected-id-map.html
+[376/722] OK dom/nodes/moveBefore/moveBefore-from-light-to-shadow.html
+[377/722] OK dom/nodes/moveBefore/moveBefore-id-map.html
+[378/722] OK dom/nodes/moveBefore/moveBefore-into-display-none.html
+[379/722] OK dom/nodes/moveBefore/moveBefore-lang.html
+[380/722] OK dom/nodes/moveBefore/moveBefore-name-map.html
+[381/722] OK dom/nodes/moveBefore/moveBefore-nodeiterator.html
+[382/722] OK dom/nodes/moveBefore/moveBefore-optgroup.html
+[383/722] OK dom/nodes/moveBefore/moveBefore-option-recalc-style.html
+[384/722] OK dom/nodes/moveBefore/moveBefore-selector-matching.html
+[385/722] ERROR dom/nodes/moveBefore/moveBefore-shadow-boundary-id-change.html
+[386/722] OK dom/nodes/moveBefore/moveBefore-shadow-host-id-map.html
+[387/722] OK dom/nodes/moveBefore/moveBefore-shadow-inside.html
+[388/722] OK dom/nodes/moveBefore/moveBefore-shadow-root.html
+[389/722] OK dom/nodes/moveBefore/moveBefore-size-query.html
+[390/722] OK dom/nodes/moveBefore/mutation-observer-moved-subtree.window.html
+[391/722] OK dom/nodes/moveBefore/mutation-observer.html
+[392/722] OK dom/nodes/moveBefore/nonce.html
+[393/722] OK dom/nodes/moveBefore/object-crash-regression.html
+[394/722] OK dom/nodes/moveBefore/pointer-events.html
+[395/722] OK dom/nodes/moveBefore/popover-preserve.html
+[396/722] ERROR dom/nodes/moveBefore/preserve-render-blocking-script.html
+[397/722] ERROR dom/nodes/moveBefore/preserve-render-blocking-style.html
+[398/722] TIMEOUT dom/nodes/moveBefore/relevant-mutations.html
+[399/722] OK dom/nodes/moveBefore/role-updates-after-move.html
+[400/722] OK dom/nodes/moveBefore/script-move-before.html
+[401/722] OK dom/nodes/moveBefore/select-option-optgroup.html
+[402/722] OK dom/nodes/moveBefore/selection-preserve.html
+[403/722] ERROR dom/nodes/moveBefore/slotchange-events.html
+[404/722] OK dom/nodes/moveBefore/style-applies.html
+[405/722] TIMEOUT dom/nodes/moveBefore/stylesheet-cascade-order.html
+[406/722] TIMEOUT dom/nodes/moveBefore/stylesheet-no-refetch.html
+[407/722] OK dom/nodes/moveBefore/throws-exception.html
+[409/722] OK dom/nodes/namespaced-attribute-mutations.html
+[410/722] OK dom/nodes/node-creation-realm.html
+[411/722] OK dom/nodes/node-realm-adoption-after-frame-removal.html
+[412/722] OK dom/nodes/node-realm-mixed-across-adoption.html
+[413/722] OK dom/nodes/node-realm-preserved-across-adoption.html
+[414/722] OK dom/nodes/node-realm-preserved-across-frameless-adoption.html
+[415/722] OK dom/nodes/post-connection-steps-shadow-tree.html
+[416/722] ERROR dom/nodes/prepend-on-Document.html
+[417/722] OK dom/nodes/processing-instruction-attributes.html
+[418/722] TIMEOUT dom/nodes/query-target-in-load-event.html
+[419/722] OK dom/nodes/querySelector-empty-id.html
+[420/722] OK dom/nodes/querySelector-id-nth-child.html
+[421/722] OK dom/nodes/querySelector-mixed-case.html
+[422/722] OK dom/nodes/remove-and-adopt-thcrash.html
+[423/722] OK dom/nodes/remove-next-sibling-during-replace-with.html
+[408/722] OK dom/nodes/name-validation.html
+[424/722] OK dom/nodes/remove-unscopable.html
+[425/722] OK dom/nodes/rootNode.html
+[426/722] OK dom/nodes/svg-template-querySelector.html
+[427/722] OK dom/events/AddEventListenerOptions-once.any.html
+[428/722] OK dom/events/AddEventListenerOptions-passive.any.html
+[429/722] OK dom/events/AddEventListenerOptions-signal.any.html
+[430/722] ERROR dom/events/Body-FrameSet-Event-Handlers.html
+[431/722] OK dom/events/CustomEvent.html
+[432/722] OK dom/events/Event-cancelBubble.html
+[433/722] ERROR dom/events/Event-constants.html
+[434/722] OK dom/events/Event-constructors.any.html
+[435/722] OK dom/events/Event-defaultPrevented-after-dispatch.html
+[437/722] OK dom/events/Event-dispatch-bubble-canceled.html
+[436/722] OK dom/events/Event-defaultPrevented.html
+[439/722] LIMIT dom/events/Event-dispatch-bubbles-true.html
+[438/722] LIMIT dom/events/Event-dispatch-bubbles-false.html
+[440/722] OK dom/events/Event-dispatch-click.html
+[441/722] OK dom/events/Event-dispatch-click.tentative.html
+[442/722] TIMEOUT dom/events/Event-dispatch-detached-click.html
+[443/722] OK dom/events/Event-dispatch-detached-input-and-change.html
+[444/722] OK dom/events/Event-dispatch-handlers-changed.html
+[445/722] OK dom/events/Event-dispatch-listener-order.window.html
+[446/722] OK dom/events/Event-dispatch-multiple-cancelBubble.html
+[447/722] OK dom/events/Event-dispatch-multiple-stopPropagation.html
+[448/722] OK dom/events/Event-dispatch-omitted-capture.html
+[449/722] TIMEOUT dom/events/Event-dispatch-on-disabled-elements.html
+[450/722] OK dom/events/Event-dispatch-order-at-target.html
+[451/722] OK dom/events/Event-dispatch-order.html
+[452/722] OK dom/events/Event-dispatch-other-document.html
+[453/722] OK dom/events/Event-dispatch-propagation-stopped.html
+[454/722] TIMEOUT dom/events/Event-dispatch-redispatch.html
+[455/722] OK dom/events/Event-dispatch-reenter.html
+[457/722] OK dom/events/Event-dispatch-target-moved.html
+[458/722] OK dom/events/Event-dispatch-target-removed.html
+[456/722] ERROR dom/events/Event-dispatch-single-activation-behavior.html
+[459/722] TIMEOUT dom/events/Event-dispatch-throwing-multiple-globals.html
+[460/722] OK dom/events/Event-dispatch-throwing.html
+[461/722] OK dom/events/Event-init-while-dispatching.html
+[462/722] OK dom/events/Event-initEvent.html
+[463/722] OK dom/events/Event-isTrusted.any.html
+[464/722] ERROR dom/events/Event-propagation.html
+[465/722] OK dom/events/Event-returnValue.html
+[466/722] OK dom/events/Event-stopImmediatePropagation.html
+[467/722] OK dom/events/Event-stopPropagation-cancel-bubbling.html
+[468/722] OK dom/events/Event-subclasses-constructors.html
+[469/722] TIMEOUT dom/events/Event-timestamp-cross-realm-getter.html
+[471/722] OK dom/events/Event-timestamp-high-resolution.https.html
+[470/722] OK dom/events/Event-timestamp-high-resolution.html
+[472/722] OK dom/events/Event-timestamp-safe-resolution.html
+[473/722] OK dom/events/Event-type-empty.html
+[474/722] OK dom/events/Event-type.html
+[475/722] TIMEOUT dom/events/EventListener-addEventListener.sub.window.html
+[476/722] OK dom/events/EventListener-handleEvent-cross-realm.html
+[477/722] OK dom/events/EventListener-handleEvent.html
+[478/722] OK dom/events/EventListener-incumbent-global-1.sub.html
+[479/722] OK dom/events/EventListener-incumbent-global-2.sub.html
+[480/722] TIMEOUT dom/events/EventListener-invoke-legacy.html
+[481/722] OK dom/events/EventListenerOptions-capture.html
+[482/722] OK dom/events/EventTarget-add-listener-platform-object.html
+[483/722] OK dom/events/EventTarget-add-remove-listener.any.html
+[484/722] OK dom/events/EventTarget-addEventListener.any.html
+[485/722] OK dom/events/EventTarget-constructible.any.html
+[486/722] OK dom/events/EventTarget-dispatchEvent-returnvalue.html
+[487/722] OK dom/events/EventTarget-dispatchEvent.html
+[488/722] OK dom/events/EventTarget-removeEventListener.any.html
+[489/722] OK dom/events/EventTarget-this-of-listener.html
+[490/722] OK dom/events/EventTarget-window-constructor.html
+[491/722] OK dom/events/KeyEvent-initKeyEvent.html
+[492/722] OK dom/events/click-on-absolute-pseudo.html
+[493/722] OK dom/events/element-click.html
+[494/722] OK dom/events/event-disabled-dynamic.html
+[495/722] OK dom/events/event-global-event-targets.html
+[496/722] TIMEOUT dom/events/event-global-extra.window.html
+[497/722] OK dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html
+[498/722] OK dom/events/event-global-is-still-set-when-reporting-exception-onerror.html
+[499/722] OK dom/events/event-global-replaceable.html
+[500/722] OK dom/events/event-global-set-before-handleEvent-lookup.window.html
+[501/722] OK dom/events/event-global.html
+[502/722] OK dom/events/event-handler-attribute-replace-preserves-passive.html
+[503/722] TIMEOUT dom/events/event-listener-not-fully-active-adopted-node.html
+[504/722] TIMEOUT dom/events/event-listener-not-fully-active-callback.html
+[505/722] TIMEOUT dom/events/event-listener-not-fully-active-navigated.html
+[506/722] TIMEOUT dom/events/event-listener-not-fully-active-target.html
+[507/722] OK dom/events/event-src-element-nullable.html
+[508/722] TIMEOUT dom/events/focus-event-document-move.html
+[509/722] TIMEOUT dom/events/handler-count.html?document
+[510/722] TIMEOUT dom/events/handler-count.html?element
+[511/722] TIMEOUT dom/events/handler-count.html?window
+[512/722] OK dom/events/label-default-action.html
+[513/722] OK dom/events/legacy-pre-activation-behavior.window.html
+[514/722] OK dom/events/mouse-event-retarget.html
+[515/722] OK dom/events/no-focus-events-at-clicking-editable-content-in-link.html
+[516/722] OK dom/events/non-cancelable-when-passive/generic-events-stay-cancelable.html
+[517/722] OK dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-body.html
+[518/722] OK dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-div.html
+[519/722] OK dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-document.html
+[520/722] OK dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-root.html
+[521/722] OK dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-window.html
+[522/722] OK dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-body.html
+[523/722] OK dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-div.html
+[524/722] OK dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-document.html
+[525/722] OK dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-root.html
+[526/722] OK dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-window.html
+[527/722] OK dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-body.html
+[528/722] OK dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-div.html
+[529/722] OK dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-document.html
+[530/722] OK dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-root.html
+[531/722] OK dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-window.html
+[532/722] OK dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-body.html
+[533/722] OK dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-div.html
+[534/722] OK dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-document.html
+[535/722] OK dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-root.html
+[536/722] OK dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-window.html
+[537/722] OK dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-body.html
+[538/722] OK dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-div.html
+[539/722] OK dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-document.html
+[540/722] OK dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-root.html
+[541/722] OK dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-window.html
+[542/722] OK dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-body.html
+[543/722] OK dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-div.html
+[544/722] OK dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-document.html
+[545/722] OK dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-root.html
+[546/722] OK dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-window.html
+[547/722] OK dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-body.html
+[548/722] OK dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-div.html
+[549/722] OK dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-document.html
+[550/722] OK dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-root.html
+[551/722] OK dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-window.html
+[552/722] OK dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-body.html
+[553/722] OK dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-div.html
+[554/722] OK dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-document.html
+[555/722] OK dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-root.html
+[556/722] OK dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-window.html
+[557/722] OK dom/events/non-cancelable-when-passive/synthetic-events-cancelable.html
+[558/722] OK dom/events/passive-by-default-non-node.html
+[559/722] ERROR dom/events/passive-by-default.html
+[560/722] OK dom/events/pointer-event-document-move.html
+[561/722] OK dom/events/preventDefault-during-activation-behavior.html
+[562/722] ERROR dom/events/relatedTarget.window.html
+[563/722] OK dom/events/remove-all-listeners.html
+[564/722] OK dom/events/scrolling/iframe-chains.html
+[565/722] TIMEOUT dom/events/scrolling/input-text-scroll-event-when-using-arrow-keys.html
+[566/722] TIMEOUT dom/events/scrolling/save-iframe-scroll-offset-when-display-none.html
+[567/722] TIMEOUT dom/events/scrolling/scroll-cross-origin-iframes.html
+[568/722] OK dom/events/scrolling/scroll-event-fired-to-element.html
+[569/722] TIMEOUT dom/events/scrolling/scroll-event-fired-to-iframe.html
+[570/722] OK dom/events/scrolling/scroll-event-not-fired-on-ancestor-style-change.html
+[571/722] OK dom/events/scrolling/scroll-events-fired-once-per-frame-across-display-none.html
+[572/722] ERROR dom/events/scrolling/scrollIntoView-in-onscroll-to-sticky.html
+[573/722] OK dom/events/scrolling/scrollend-event-fired-after-instant-scroll-in-microtask.html
+[574/722] OK dom/events/scrolling/scrollend-event-fired-after-layout-clamping.html
+[575/722] OK dom/events/scrolling/scrollend-event-fired-after-sequence-of-scrolls.tentative.html
+[576/722] OK dom/events/scrolling/scrollend-event-fired-after-snap.html
+[577/722] OK dom/events/scrolling/scrollend-event-fired-for-mandatory-snap-point-after-load.html
+[578/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-auto
+[579/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-smooth
+[580/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollTo-auto
+[581/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollTo-smooth
+[582/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollBy-auto
+[583/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollBy-smooth
+[584/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollTo-auto
+[585/722] ERROR dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollTo-smooth
+[586/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollLeft-auto
+[587/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollLeft-smooth
+[588/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollTop-auto
+[589/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollTop-smooth
+[590/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollLeft-auto
+[591/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollLeft-smooth
+[592/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollTop-auto
+[593/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollTop-smooth
+[594/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=nested-scrollIntoView
+[595/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-end-block-end-behavior-auto
+[596/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-start-block-start-behavior-smooth
+[597/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-end-block-end-behavior-auto
+[598/722] ERROR dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-start-block-start-behavior-smooth
+[599/722] OK dom/events/scrolling/scrollend-event-fired-to-document.html
+[600/722] ERROR dom/events/scrolling/scrollend-event-fired-to-element-with-overscroll-behavior.html
+[601/722] OK dom/events/scrolling/scrollend-event-fired-to-window.html
+[602/722] OK dom/events/scrolling/scrollend-event-fires-for-repeat-key-ending-after-scroll-container-end-is-reached.html
+[603/722] TIMEOUT dom/events/scrolling/scrollend-event-fires-on-visual-viewport.html
+[604/722] ERROR dom/events/scrolling/scrollend-event-fires-to-iframe-window.html
+[605/722] OK dom/events/scrolling/scrollend-event-for-user-scroll.html
+[606/722] OK dom/events/scrolling/scrollend-event-handler-content-attributes.html
+[607/722] OK dom/events/scrolling/scrollend-event-not-fired-after-removing-scroller.tentative.html
+[608/722] OK dom/events/scrolling/scrollend-event-not-fired-on-no-scroll.html
+[609/722] ERROR dom/events/scrolling/scrollend-fires-to-text-input.html
+[610/722] ERROR dom/events/scrolling/scrollend-with-snap-on-fractional-offset.html
+[611/722] OK dom/events/scrolling/visibility-hidden-scrolls.html
+[612/722] TIMEOUT dom/events/scrolling/wheel-event-composed.html
+[613/722] OK dom/events/scrolling/wheel-event-no-scroll-after-prevent-default.html
+[614/722] ERROR dom/events/scrolling/wheel-event-transactions-basic.html?include=scroll-over-scrollable-child
+[615/722] ERROR dom/events/scrolling/wheel-event-transactions-basic.html?include=target-basic
+[616/722] ERROR dom/events/scrolling/wheel-event-transactions-basic.html?include=transaction-not-bound-to-scroll-frame
+[617/722] OK dom/events/scrolling/wheel-event-transactions-multiple-action-chains.html
+[618/722] OK dom/events/scrolling/wheel-event-transactions-target-display-change.html?include=contents
+[619/722] OK dom/events/scrolling/wheel-event-transactions-target-display-change.html?include=none
+[620/722] OK dom/events/scrolling/wheel-event-transactions-target-elements.html
+[621/722] OK dom/events/scrolling/wheel-event-transactions-target-move.html
+[622/722] OK dom/events/scrolling/wheel-event-transactions-target-removal.html
+[623/722] OK dom/events/scrolling/wheel-event-transactions-target-resize.html?include=passive-false
+[624/722] OK dom/events/scrolling/wheel-event-transactions-target-resize.html?include=passive-true
+[625/722] ERROR dom/events/shadow-relatedTarget.html
+[626/722] ERROR dom/events/webkit-animation-end-event.html
+[627/722] ERROR dom/events/webkit-animation-iteration-event.html
+[628/722] ERROR dom/events/webkit-animation-start-event.html
+[629/722] ERROR dom/events/webkit-transition-end-event.html
+[630/722] OK dom/events/window-composed-path.html
+[631/722] OK dom/events/window-event-restored-after-throwing-onerror.html
+[632/722] OK domparsing/Comment-serialization-double-hyphen.html
+[633/722] ERROR domparsing/DOMParser-parseFromString-encoding.html
+[634/722] ERROR domparsing/DOMParser-parseFromString-html.html
+[635/722] OK domparsing/DOMParser-parseFromString-stylesheets.html
+[636/722] TIMEOUT domparsing/DOMParser-parseFromString-url-base-about.window.html
+[637/722] ERROR domparsing/DOMParser-parseFromString-url-base-pushstate.html
+[638/722] TIMEOUT domparsing/DOMParser-parseFromString-url-base.html
+[639/722] TIMEOUT domparsing/DOMParser-parseFromString-url-moretests.html
+[640/722] ERROR domparsing/DOMParser-parseFromString-url-pushstate.html
+[641/722] TIMEOUT domparsing/DOMParser-parseFromString-url.html
+[642/722] OK domparsing/DOMParser-parseFromString-xml-CDATA.html
+[643/722] OK domparsing/DOMParser-parseFromString-xml-doctype.html
+[644/722] OK domparsing/DOMParser-parseFromString-xml-empty-nodes.html
+[645/722] OK domparsing/DOMParser-parseFromString-xml-internal-subset.html
+[646/722] OK domparsing/DOMParser-parseFromString-xml-parsererror.html
+[647/722] OK domparsing/DOMParser-parseFromString-xml-scripting-support-disabled.html
+[648/722] OK domparsing/DOMParser-parseFromString-xml.html
+[649/722] OK domparsing/DOMParser-xml-character-entities.html
+[650/722] OK domparsing/XMLSerializer-serializeToString.html
+[652/722] ERROR domparsing/createContextualFragment-xhtml.xhtml
+[651/722] OK domparsing/createContextualFragment-external-scripts-async.html
+[653/722] OK domparsing/createContextualFragment.html
+[654/722] OK domparsing/domparser-spurious-attributes.html
+[655/722] TIMEOUT domparsing/html-insertion-methods-html-element.html
+[657/722] ERROR domparsing/innerhtml-01.xhtml
+[656/722] OK domparsing/html-unsafe-external-scripts-async.html
+[658/722] ERROR domparsing/innerhtml-03.xhtml
+[660/722] ERROR domparsing/innerhtml-05.xhtml
+[659/722] OK domparsing/innerhtml-04.html
+[661/722] OK domparsing/innerhtml-06.html
+[662/722] OK domparsing/innerhtml-07.html
+[663/722] OK domparsing/innerhtml-08.html
+[664/722] OK domparsing/innerhtml-empty-document-element.html
+[665/722] OK domparsing/innerhtml-li-autoclosing.html
+[666/722] OK domparsing/innerhtml-mxss.sub.html
+[667/722] OK domparsing/insert-adjacent-parent-errors.html
+[669/722] ERROR domparsing/insert_adjacent_html-xhtml.xhtml
+[668/722] OK domparsing/insert-adjacent.html
+[670/722] OK domparsing/insert_adjacent_html.html
+[671/722] OK domparsing/outerhtml-01.html
+[672/722] OK domparsing/outerhtml-02.html
+[673/722] TIMEOUT domparsing/outerhtml-03.html
+[674/722] OK domparsing/parsed-document-origin.window.html
+[675/722] OK domparsing/positional-html-into-script-safe.html
+[676/722] ERROR domparsing/positional-methods-with-parser-options.html
+[677/722] ERROR domparsing/positional-methods-with-trusted-types-no-createParserOptions.html
+[678/722] ERROR domparsing/positional-methods-with-trusted-types.html
+[680/722] OK domparsing/positional-template-child.html
+[681/722] ERROR domparsing/stream-html-reentrancy.html
+[679/722] OK domparsing/positional-methods.html
+[682/722] ERROR domparsing/style_attribute_html.html
+[683/722] OK domparsing/svg-template.html
+[684/722] OK domparsing/tentative/all-stream-methods-with-trusted-types-no-policy.html
+[685/722] OK domparsing/tentative/stream-append-html-unsafe.html
+[686/722] OK domparsing/tentative/stream-append-html.html
+[687/722] OK domparsing/tentative/stream-fragment-context.html
+[688/722] TIMEOUT domparsing/tentative/stream-html-abort-unblocks-rendering.html
+[689/722] ERROR domparsing/tentative/stream-html-custom-element-sanitizer.html
+[690/722] OK domparsing/tentative/stream-html-custom-element.html
+[691/722] OK domparsing/tentative/stream-html-defer-async-script.html
+[692/722] TIMEOUT domparsing/tentative/stream-html-element.html
+[693/722] ERROR domparsing/tentative/stream-html-parser-blocking-script.html
+[694/722] OK domparsing/tentative/stream-html-run-scripts-option.html
+[695/722] OK domparsing/tentative/stream-html-sanitizer-safe.html
+[697/722] OK domparsing/tentative/stream-html-script-safe.html
+[698/722] OK domparsing/tentative/stream-html-unsafe.html
+[696/722] OK domparsing/tentative/stream-html-sanitizer.html
+[699/722] OK domparsing/tentative/stream-html-with-declarative-shadow-root.html
+[700/722] ERROR domparsing/tentative/stream-html-with-trusted-types-adopt.html
+[701/722] ERROR domparsing/tentative/stream-html-with-trusted-types-createParserOptions-order.html
+[702/722] ERROR domparsing/tentative/stream-html-with-trusted-types-error-in-policy.html
+[703/722] TIMEOUT domparsing/tentative/stream-html-with-trusted-types-from-non-tt.html
+[704/722] ERROR domparsing/tentative/stream-html-with-trusted-types-no-createParserOptions.html
+[705/722] OK domparsing/tentative/stream-html-with-trusted-types-no-policy.html
+[706/722] ERROR domparsing/tentative/stream-html-with-trusted-types-pass-trusted.html
+[707/722] ERROR domparsing/tentative/stream-html-with-trusted-types-runScripts-cannot-be-turned-on.html
+[708/722] ERROR domparsing/tentative/stream-html-with-trusted-types-runScripts-off.html
+[709/722] ERROR domparsing/tentative/stream-html-with-trusted-types-sanitizer.html
+[710/722] OK domparsing/tentative/stream-html.html
+[711/722] OK domparsing/tentative/stream-insertion-logic.html
+[712/722] OK domparsing/tentative/stream-positional-template-child.html
+[714/722] ERROR domparsing/tentative/stream-sanitizer-customized-builtins.html
+[713/722] OK domparsing/tentative/stream-positional.html
+[716/722] OK domparsing/tentative/stream-sanitizer-resource-fetch.html
+[715/722] OK domparsing/tentative/stream-sanitizer-img-ctor.html
+[718/722] ERROR domparsing/tentative/unclosed-script-already-started.html
+[717/722] TIMEOUT domparsing/tentative/stream-tokenizer-context.html
+[719/722] ERROR domparsing/unsafe-and-trusted-types-external-scripts-async.html
+[720/722] OK domparsing/xml-parse-serialize-roundtrip.html
+[721/722] ERROR domparsing/xml-serialization.xhtml
+[722/722] OK domparsing/xmldomparser.html
+wrote /home/runner/work/surimono/surimono/ci-out/nightly-extra/wpt-results.json
+
+==> fixtures: tool tests (node, after npm ci)
+
+added 86 packages in 4s
+TAP version 13
+# Subtest: --out inside fixtures/ is refused
+ok 1 - --out inside fixtures/ is refused
+  ---
+  duration_ms: 56.8452
+  type: 'test'
+  ...
+# Subtest: a failed render writes a failing, stamped score for every comparison
+ok 2 - a failed render writes a failing, stamped score for every comparison
+  ---
+  duration_ms: 234.574274
+  type: 'test'
+  ...
+# Subtest: a render that depends on the time zone is caught and fails the run
+ok 3 - a render that depends on the time zone is caught and fails the run
+  ---
+  duration_ms: 507.453557
+  type: 'test'
+  ...
+# Subtest: a render that depends on the working directory or locale is caught too
+ok 4 - a render that depends on the working directory or locale is caught too
+  ---
+  duration_ms: 1999.853362
+  type: 'test'
+  ...
+# Subtest: a locale compiled into $LOCPATH is used for the second render
+ok 5 - a locale compiled into $LOCPATH is used for the second render
+  ---
+  duration_ms: 1001.231134
+  type: 'test'
+  ...
+# Subtest: byte-identical renders pass the determinism check
+ok 6 - byte-identical renders pass the determinism check
+  ---
+  duration_ms: 999.95147
+  type: 'test'
+  ...
+# Subtest: floors come from a baseline run, never from constants
+ok 7 - floors come from a baseline run, never from constants
+  ---
+  duration_ms: 263.216423
+  type: 'test'
+  ...
+# Subtest: the second render starts in a later second of the wall clock
+ok 8 - the second render starts in a later second of the wall clock
+  ---
+  duration_ms: 735.8731
+  type: 'test'
+  ...
+# Subtest: the second render tries a decimal-comma locale first
+ok 9 - the second render tries a decimal-comma locale first
+  ---
+  duration_ms: 3999.786115
+  type: 'test'
+  ...
+# Subtest: solid pixels are flat interiors, never edges or thin lines
+ok 10 - solid pixels are flat interiors, never edges or thin lines
+  ---
+  duration_ms: 3.129812
+  type: 'test'
+  ...
+# Subtest: near-match is colour-blind; the colour check is not
+ok 11 - near-match is colour-blind; the colour check is not
+  ---
+  duration_ms: 67.242055
+  type: 'test'
+  ...
+# Subtest: the same picture passes every check
+ok 12 - the same picture passes every check
+  ---
+  duration_ms: 11.87955
+  type: 'test'
+  ...
+# Subtest: a bar shifted by 1 px keeps its colour score at 0
+ok 13 - a bar shifted by 1 px keeps its colour score at 0
+  ---
+  duration_ms: 10.963771
+  type: 'test'
+  ...
+# Subtest: hue ignores anti-aliasing coverage but sees a different colour
+ok 14 - hue ignores anti-aliasing coverage but sees a different colour
+  ---
+  duration_ms: 4.322806
+  type: 'test'
+  ...
+# Subtest: hue does not judge position: a line with no ink near it in the other image is near-match's job
+ok 15 - hue does not judge position: a line with no ink near it in the other image is near-match's job
+  ---
+  duration_ms: 0.784586
+  type: 'test'
+  ...
+# Subtest: svgTexts reads <text> with tspans, entities, labels and titles
+ok 16 - svgTexts reads <text> with tspans, entities, labels and titles
+  ---
+  duration_ms: 1.032311
+  type: 'test'
+  ...
+# Subtest: svgTexts: a self-closing <text/> doesn't swallow the next element
+ok 17 - svgTexts: a self-closing <text/> doesn't swallow the next element
+  ---
+  duration_ms: 0.293604
+  type: 'test'
+  ...
+# Subtest: svgTexts: a <title> inside <text> is a label, not printed text
+ok 18 - svgTexts: a <title> inside <text> is a label, not printed text
+  ---
+  duration_ms: 0.893735
+  type: 'test'
+  ...
+# Subtest: text check accepts outlines that keep the string in aria-label
+ok 19 - text check accepts outlines that keep the string in aria-label
+  ---
+  duration_ms: 2.693554
+  type: 'test'
+  ...
+# Subtest: text check fails on a changed, missing or extra string
+ok 20 - text check fails on a changed, missing or extra string
+  ---
+  duration_ms: 0.350367
+  type: 'test'
+  ...
+# Subtest: multisetMinus counts duplicates
+ok 21 - multisetMinus counts duplicates
+  ---
+  duration_ms: 0.106344
+  type: 'test'
+  ...
+# Subtest: islandsOf cuts surimono's islands back out, in order, and reports error placeholders
+ok 22 - islandsOf cuts surimono's islands back out, in order, and reports error placeholders
+  ---
+  duration_ms: 1.128033
+  type: 'test'
+  ...
+# Subtest: svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+ok 23 - svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
+  ---
+  duration_ms: 1.234835
+  type: 'test'
+  ...
+# Subtest: font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
+ok 24 - font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
+  ---
+  duration_ms: 0.832546
+  type: 'test'
+  ...
+# Subtest: font check matches same-key texts one to one
+ok 25 - font check matches same-key texts one to one
+  ---
+  duration_ms: 0.612676
+  type: 'test'
+  ...
+# Subtest: font check candidates are <text> and outline groups, never chart marks
+ok 26 - font check candidates are <text> and outline groups, never chart marks
+  ---
+  duration_ms: 0.209247
+  type: 'test'
+  ...
+# Subtest: computedTextStyles is Chrome's view, and catches what svgTextStyles can't read
+ok 27 - computedTextStyles is Chrome's view, and catches what svgTextStyles can't read # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 256.766893
+  type: 'test'
+  ...
+# Subtest: text check: every copy counts, however it is drawn
+ok 28 - text check: every copy counts, however it is drawn
+  ---
+  duration_ms: 0.625636
+  type: 'test'
+  ...
+# Subtest: font check: an extra copy of a label, or a key Chrome has no text for, fails
+ok 29 - font check: an extra copy of a label, or a key Chrome has no text for, fails
+  ---
+  duration_ms: 0.398598
+  type: 'test'
+  ...
+# Subtest: outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
+ok 30 - outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
+  ---
+  duration_ms: 0.326666
+  type: 'test'
+  ...
+# Subtest: text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
+ok 31 - text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
+  ---
+  duration_ms: 0.80266
+  type: 'test'
+  ...
+# Subtest: stamped strings are decoded and normalised like Chrome's
+ok 32 - stamped strings are decoded and normalised like Chrome's
+  ---
+  duration_ms: 0.280796
+  type: 'test'
+  ...
+# Subtest: font check: a stamped group is an outline whatever it holds
+ok 33 - font check: a stamped group is an outline whatever it holds
+  ---
+  duration_ms: 7.05214
+  type: 'test'
+  ...
+# Subtest: matchWeight follows CSS Fonts 4 font matching
+ok 34 - matchWeight follows CSS Fonts 4 font matching
+  ---
+  duration_ms: 0.243962
+  type: 'test'
+  ...
+# Subtest: faces: names as the name table spells them; the fixture fonts' faces
+ok 35 - faces: names as the name table spells them; the fixture fonts' faces
+  ---
+  duration_ms: 0.553867
+  type: 'test'
+  ...
+# Subtest: font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
+ok 36 - font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
+  ---
+  duration_ms: 1.589684
+  type: 'test'
+  ...
+# Subtest: a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
+ok 37 - a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
+  ---
+  duration_ms: 0.407489
+  type: 'test'
+  ...
+# Subtest: text check: a stamped group's author label is still compared with Chrome's
+ok 38 - text check: a stamped group's author label is still compared with Chrome's
+  ---
+  duration_ms: 0.199749
+  type: 'test'
+  ...
+# Subtest: stamps are read as attributes, never from inside another attribute's value
+ok 39 - stamps are read as attributes, never from inside another attribute's value
+  ---
+  duration_ms: 0.325698
+  type: 'test'
+  ...
+# Subtest: hostileCases reads manifest.toml exactly as tomllib does
+ok 40 - hostileCases reads manifest.toml exactly as tomllib does
+  ---
+  duration_ms: 65.2959
+  type: 'test'
+  ...
+# Subtest: hostileCases: steps become numbered entries; a case without file or steps is an error
+ok 41 - hostileCases: steps become numbered entries; a case without file or steps is an error
+  ---
+  duration_ms: 0.61837
+  type: 'test'
+  ...
+# Subtest: launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback
+ok 42 - launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 327.628026
+  type: 'test'
+  ...
+# Subtest: launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing
+ok 43 - launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 0.752266
+  type: 'test'
+  ...
+# Subtest: offlineLaunch keeps Playwright's own disabled features
+ok 44 - offlineLaunch keeps Playwright's own disabled features # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 0.484596
+  type: 'test'
+  ...
+# Subtest: offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes
+ok 45 - offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes # SKIP Playwright's Chromium is not installed
+  ---
+  duration_ms: 0.434087
+  type: 'test'
+  ...
+# Subtest: all five libraries have a page
+ok 46 - all five libraries have a page
+  ---
+  duration_ms: 1.029531
+  type: 'test'
+  ...
+# Subtest: every kind is listed, and a name is found in any kind
+ok 47 - every kind is listed, and a name is found in any kind
+  ---
+  duration_ms: 2.783891
+  type: 'test'
+  ...
+# Subtest: alpine-invoice: everything it loads is committed under fixtures/
+ok 48 - alpine-invoice: everything it loads is committed under fixtures/
+  ---
+  duration_ms: 0.47857
+  type: 'test'
+  ...
+# Subtest: alpine-invoice: each font a stylesheet names has a vendored first choice
+ok 49 - alpine-invoice: each font a stylesheet names has a vendored first choice
+  ---
+  duration_ms: 0.224017
+  type: 'test'
+  ...
+# Subtest: alpine-invoice: no clock or random source, no measuring
+ok 50 - alpine-invoice: no clock or random source, no measuring
+  ---
+  duration_ms: 1.075792
+  type: 'test'
+  ...
+# Subtest: alpine-invoice: has its references
+ok 51 - alpine-invoice: has its references
+  ---
+  duration_ms: 0.270247
+  type: 'test'
+  ...
+# Subtest: d3-charts: everything it loads is committed under fixtures/
+ok 52 - d3-charts: everything it loads is committed under fixtures/
+  ---
+  duration_ms: 0.224237
+  type: 'test'
+  ...
+# Subtest: d3-charts: each font a stylesheet names has a vendored first choice
+ok 53 - d3-charts: each font a stylesheet names has a vendored first choice
+  ---
+  duration_ms: 0.0743
+  type: 'test'
+  ...
+# Subtest: d3-charts: no clock or random source, no measuring
+ok 54 - d3-charts: no clock or random source, no measuring
+  ---
+  duration_ms: 0.194782
+  type: 'test'
+  ...
+# Subtest: d3-charts: has its references
+ok 55 - d3-charts: has its references
+  ---
+  duration_ms: 0.216204
+  type: 'test'
+  ...
+# Subtest: highlightjs-code: everything it loads is committed under fixtures/
+ok 56 - highlightjs-code: everything it loads is committed under fixtures/
+  ---
+  duration_ms: 0.135888
+  type: 'test'
+  ...
+# Subtest: highlightjs-code: each font a stylesheet names has a vendored first choice
+ok 57 - highlightjs-code: each font a stylesheet names has a vendored first choice
+  ---
+  duration_ms: 0.125946
+  type: 'test'
+  ...
+# Subtest: highlightjs-code: no clock or random source, no measuring
+ok 58 - highlightjs-code: no clock or random source, no measuring
+  ---
+  duration_ms: 0.046288
+  type: 'test'
+  ...
+# Subtest: highlightjs-code: has its references
+ok 59 - highlightjs-code: has its references
+  ---
+  duration_ms: 0.061363
+  type: 'test'
+  ...
+# Subtest: katex-autorender: everything it loads is committed under fixtures/
+ok 60 - katex-autorender: everything it loads is committed under fixtures/
+  ---
+  duration_ms: 0.081507
+  type: 'test'
+  ...
+# Subtest: katex-autorender: each font a stylesheet names has a vendored first choice
+ok 61 - katex-autorender: each font a stylesheet names has a vendored first choice
+  ---
+  duration_ms: 0.355412
+  type: 'test'
+  ...
+# Subtest: katex-autorender: no clock or random source, no measuring
+ok 62 - katex-autorender: no clock or random source, no measuring
+  ---
+  duration_ms: 0.05628
+  type: 'test'
+  ...
+# Subtest: katex-autorender: has its references
+ok 63 - katex-autorender: has its references
+  ---
+  duration_ms: 0.078616
+  type: 'test'
+  ...
+# Subtest: marked-report: everything it loads is committed under fixtures/
+ok 64 - marked-report: everything it loads is committed under fixtures/
+  ---
+  duration_ms: 0.073057
+  type: 'test'
+  ...
+# Subtest: marked-report: each font a stylesheet names has a vendored first choice
+ok 65 - marked-report: each font a stylesheet names has a vendored first choice
+  ---
+  duration_ms: 0.028101
+  type: 'test'
+  ...
+# Subtest: marked-report: no clock or random source, no measuring
+ok 66 - marked-report: no clock or random source, no measuring
+  ---
+  duration_ms: 0.027278
+  type: 'test'
+  ...
+# Subtest: marked-report: has its references
+ok 67 - marked-report: has its references
+  ---
+  duration_ms: 0.044001
+  type: 'test'
+  ...
+# Subtest: both gfx checks run and pass
+ok 68 - both gfx checks run and pass
+  ---
+  duration_ms: 13.271868
+  type: 'test'
+  ...
+# Subtest: svg_inline failing still runs svg_outline, and fails the run
+ok 69 - svg_inline failing still runs svg_outline, and fails the run
+  ---
+  duration_ms: 12.465389
+  type: 'test'
+  ...
+# Subtest: svg_outline failing fails the run
+ok 70 - svg_outline failing fails the run
+  ---
+  duration_ms: 10.329087
+  type: 'test'
+  ...
+# Subtest: without cargo the checks are skipped locally
+ok 71 - without cargo the checks are skipped locally
+  ---
+  duration_ms: 5.405885
+  type: 'test'
+  ...
+# Subtest: without cargo on a CI runner the run fails
+ok 72 - without cargo on a CI runner the run fails
+  ---
+  duration_ms: 7.177386
+  type: 'test'
+  ...
+# Subtest: the gfx scripts' launch() gets the references' Chromium, unless they name a browser
+ok 73 - the gfx scripts' launch() gets the references' Chromium, unless they name a browser
+  ---
+  duration_ms: 236.183765
+  type: 'test'
+  ...
+# Subtest: verdict: a clean score passes; each failed check shows its own number
+ok 74 - verdict: a clean score passes; each failed check shows its own number
+  ---
+  duration_ms: 1.516366
+  type: 'test'
+  ...
+# Subtest: verdict: the font detail counts mismatches, missing and extra texts
+ok 75 - verdict: the font detail counts mismatches, missing and extra texts
+  ---
+  duration_ms: 0.259791
+  type: 'test'
+  ...
+# Subtest: passes is derived like compat.py's, never taken from the top-level pass alone
+ok 76 - passes is derived like compat.py's, never taken from the top-level pass alone
+  ---
+  duration_ms: 0.884424
+  type: 'test'
+  ...
+# Subtest: the shared verdict table
+ok 77 - the shared verdict table
+  ---
+  duration_ms: 0.506871
+  type: 'test'
+  ...
+# Subtest: scoresCell says ok only when a check's pass is exactly true
+ok 78 - scoresCell says ok only when a check's pass is exactly true
+  ---
+  duration_ms: 0.16056
+  type: 'test'
+  ...
+1..78
+# tests 78
+# suites 0
+# pass 73
+# fail 0
+# cancelled 0
+# skipped 5
+# todo 0
+# duration_ms 9932.635915
+
+==> fixtures: real-world suite (needs registry.npmjs.org)
+ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
+ok   vega 6.4.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   vega-lite 6.5.0 (required, BSD-3-Clause); embedded crates/islands/bundles/vega/vega.min.js checked
+ok   mermaid 12.2.0 (stretch, MIT); embedded build not recorded yet
+ok   marked 18.1.3 (required, MIT); embedded build not recorded yet
+ok   highlight.js 11.12.0 (required, BSD-3-Clause); embedded build not recorded yet
+ok   katex 0.19.1 (required, MIT); embedded build not recorded yet
+ok   alpinejs 3.17.5 (second to cut in phase 2, MIT); embedded build not recorded yet
+ok   d3 7.9.1 (required, ISC); embedded build not recorded yet
+
+==> gfx: fulgur print test
+Selecting previously unselected package poppler-data.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 215960 files and directories currently installed.)
+Preparing to unpack .../poppler-data_0.4.12-1_all.deb ...
+Unpacking poppler-data (0.4.12-1) ...
+Selecting previously unselected package libpoppler134:amd64.
+Preparing to unpack .../libpoppler134_24.02.0-1ubuntu9.11_amd64.deb ...
+Unpacking libpoppler134:amd64 (24.02.0-1ubuntu9.11) ...
+Selecting previously unselected package poppler-utils.
+Preparing to unpack .../poppler-utils_24.02.0-1ubuntu9.11_amd64.deb ...
+Unpacking poppler-utils (24.02.0-1ubuntu9.11) ...
+Setting up libpoppler134:amd64 (24.02.0-1ubuntu9.11) ...
+Setting up poppler-data (0.4.12-1) ...
+Setting up poppler-utils (24.02.0-1ubuntu9.11) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+[1m[32m   Compiling[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 1.86s
+[1m[32m     Running[0m tests/fulgur_print.rs (target/debug/deps/fulgur_print-bbb29cbda52eb748)
+
+running 2 tests
+test kept_island_text_prints_in_system_fonts_expected_failure ... ok
+test outlined_island_text_prints_without_system_fonts ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.93s
+
+
+==> core: out-of-memory full sweep (ignored test)
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 20.17s
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_core-8164f2258e16648f)
+
+running 1 test
+test sandbox::tests::out_of_memory_full_sweep has been running for over 60 seconds
+test sandbox::tests::out_of_memory_full_sweep ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 115 filtered out; finished in 153.20s
+
+
+==> core: main thread stack on x86_64-unknown-linux-musl
+Selecting previously unselected package musl:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 216529 files and directories currently installed.)
+Preparing to unpack .../musl_1.2.4-2_amd64.deb ...
+Unpacking musl:amd64 (1.2.4-2) ...
+Selecting previously unselected package musl-dev:amd64.
+Preparing to unpack .../musl-dev_1.2.4-2_amd64.deb ...
+Unpacking musl-dev:amd64 (1.2.4-2) ...
+Selecting previously unselected package musl-tools.
+Preparing to unpack .../musl-tools_1.2.4-2_amd64.deb ...
+Unpacking musl-tools (1.2.4-2) ...
+Setting up musl:amd64 (1.2.4-2) ...
+Setting up musl-dev:amd64 (1.2.4-2) ...
+Setting up musl-tools (1.2.4-2) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Not building database; man-db/auto-update is not 'true'.
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+info: downloading component rust-std
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 19.14s
+[1m[32m     Running[0m tests/main_thread_stack.rs (target/x86_64-unknown-linux-musl/debug/deps/main_thread_stack-74abadf253187fc8)
+main_thread_stack: ok, depth 6894 (857 at the default limit)
+
+==> git dependency recipe
+
+==> git dependency recipe: one-commit copy of HEAD
+
+==> git dependency recipe: with the patch, a program builds and renders (1.89.0)
+recipe-check: ok, 2 SVGs
+
+==> git dependency recipe: without the patch, the build fails at link time
+failed as the README says (undefined surimono_quickjs_patch_level)
+nightly extra checks run: 7

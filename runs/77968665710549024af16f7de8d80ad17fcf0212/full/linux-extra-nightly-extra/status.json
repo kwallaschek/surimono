@@ -1,0 +1,1 @@
+{"workflow":"full","job":"linux-extra","matrix":"nightly-extra","status":"failure","reported":"success","needs_result":"failure","reported_job":"linux-extra","sha":"77968665710549024af16f7de8d80ad17fcf0212","ref":"main","event":"push","run_id":"42012972106","attempt":"1","finished_at":"2026-11-05T11:31:06Z"}
