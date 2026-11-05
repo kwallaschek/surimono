@@ -117,7 +117,7 @@ fn members_outside_the_table_do_not_exist() {
     // Scripts feature-detect: a member that only threw would pass the test.
     let r = eval(
         PAGE,
-        "[typeof document.createEvent, 'attachShadow' in document.body, typeof Location].join()",
+        "[typeof document.elementsFromPoint, 'attachShadow' in document.body, typeof Location].join()",
     );
     assert_eq!(r, "undefined,false,undefined");
 }
@@ -266,4 +266,82 @@ fn the_body_element_is_the_first_body_or_frameset_child_of_html() {
         out.join()"#,
     );
     assert_eq!(r, "true,true,,");
+}
+
+#[test]
+fn every_element_has_its_interface() {
+    // HTML §3.2.2 "element interface", the element index (Elements) and §16
+    // for the obsolete ones.
+    let r = eval(
+        PAGE,
+        r#"
+        const of = (n) => {
+          const e = document.createElement(n);
+          const p = Object.getPrototypeOf(e);
+          return p.constructor.name + ':' + (e instanceof HTMLElement) + ':' +
+            Object.prototype.toString.call(e);
+        };
+        ['div', 'body', 'html', 'head', 'h3', 'tbody', 'td', 'blockquote', 'q', 'del', 'audio',
+         'xmp', 'acronym', 'section', 'x-widget', 'blink', 'applet', 'annotation-xml', 'frameset',
+         'selectedcontent']
+          .map(of).join('|')"#,
+    );
+    let want = [
+        "HTMLDivElement",
+        "HTMLBodyElement",
+        "HTMLHtmlElement",
+        "HTMLHeadElement",
+        "HTMLHeadingElement",
+        "HTMLTableSectionElement",
+        "HTMLTableCellElement",
+        "HTMLQuoteElement",
+        "HTMLQuoteElement",
+        "HTMLModElement",
+        "HTMLAudioElement",
+        "HTMLPreElement",
+        "HTMLElement",
+        "HTMLElement",
+        "HTMLElement",
+        "HTMLUnknownElement",
+        "HTMLUnknownElement",
+        "HTMLUnknownElement",
+        "HTMLFrameSetElement",
+        "HTMLSelectedContentElement",
+    ];
+    let want: Vec<String> = want
+        .iter()
+        .map(|n| format!("{n}:true:[object {n}]"))
+        .collect();
+    assert_eq!(r, want.join("|"));
+    // WebIDL §3.7: parents through the chain, and no constructing them.
+    let r = eval(
+        PAGE,
+        r#"
+        let threw = '';
+        try { new HTMLDivElement(); } catch (e) { threw = e.name; }
+        [document.createElement('video') instanceof HTMLMediaElement,
+         Object.getPrototypeOf(HTMLDivElement) === HTMLElement, threw,
+         document.createElementNS('http://www.w3.org/1999/xhtml', 'DIV') instanceof HTMLUnknownElement,
+         document.body instanceof HTMLBodyElement, HTMLDocument === Document,
+         Object.getOwnPropertyDescriptor(window, 'HTMLDocument').enumerable].join('|')"#,
+    );
+    assert_eq!(r, "true|true|TypeError|true|true|true|false");
+}
+
+#[test]
+fn brands_hold_past_32_interfaces() {
+    // Interfaces numbered above 31 keep their own brand: a getter of one
+    // doesn't accept a wrapper of another or of an ancestor.
+    let r = eval(
+        PAGE,
+        r#"
+        const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
+        const out = [];
+        for (const name of ['div', 'audio', 'tr', 'input']) {
+          try { desc.get.call(document.createElement(name)); out.push('ok'); }
+          catch (e) { out.push(e.name); }
+        }
+        out.join('|')"#,
+    );
+    assert_eq!(r, "TypeError|TypeError|TypeError|ok");
 }

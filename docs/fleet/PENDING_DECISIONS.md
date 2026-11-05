@@ -84,34 +84,7 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 
 ## 5 Nov batch, add to DECISIONS when the PR merges
 
-### #123 / #133 / #145 / #146 (CF)
-- 2026-11-05 · The four `.xml` WPT tests join the slices and report ERROR until there is an XML parser; `chrome_baseline.mjs --update` adds tests to a baseline and refuses another Chromium or commit; wpt.fyi's dom/nodes count is 15300 (#133) · A denominator shouldn't depend on parser work.
-- 2026-11-05 · `wpt/probes` holds pages run in Chromium and in surimono (runner `--probe`, test tool only) as evidence for COMPAT rows WPT doesn't pin (#133) · A row should cite something a reviewer can rerun.
 - 2026-11-05 · The runner parses `.xml` as XML too (#145); `support` in `wpt/slices.toml` lists files vendored for frames (#145); a real-world page may have no library, `renderer = "none"` (#146).
-
-### #131-#140 (DOM B)
-- 2026-11-05 · Wrapper brands are one null-prototype set per interface, not a bitmask; `GenError::TooManyInterfaces` is gone (#131) · The table was full at 31.
-- 2026-11-05 · Every element in HTML's index has its interface, name and brand only; elements not in the index that aren't valid custom element names are HTMLUnknownElement (#131) · HTML §3.2.2.
-- 2026-11-05 · `HTMLDocument` is `Document`, per HTML §7.2.2; Chrome keeps a separate interface (#131) · Conflict: spec wins; costs 20 subtests in passive-by-default.html.
-- 2026-11-05 · Every interface inheriting from `Event` is generated: constructor, dictionary converter in WebIDL's order, attributes from dictionary members; a dictionary member of an unbound interface can only be null (#134) · DOM §2.5.
-- 2026-11-05 · pointerevents, pointerlock, touch-events and orientation-event join the vendored IDL at the pinned webref commit (#134) · MouseEvent moved to Pointer Events.
-- 2026-11-05 · A form stops a descendant's `submit` and `reset` from bubbling past it (#135) · Spec silent on nested forms; WPT and Chrome expect it.
-- 2026-11-05 · Nothing leaves the document on activation: `submit` and `reset` fire and stop, `form.submit()` does nothing, a link runs only `javascript:` in a task or fires `hashchange` for a fragment (#135) · A page is printed, not used.
-- 2026-11-05 · Named window access is a getter per parsed `id`, at most 4,096, on the named properties object, not a Proxy (#135) · QuickJS reads globals through the prototype chain, so a Proxy turned ReferenceError into undefined.
-- 2026-11-05 · `[Reflect]` string and boolean attributes generate with no host method; a [Global]'s members are the window's own (#135).
-- 2026-11-05 · The glue is compiled once per process and loaded as bytecode through `Sandbox::compile` and `eval_bytecode` (#140) · It doubled and every page gets a context.
-
-### #132-#142 (DOM A)
-- 2026-11-05 · Layout queries default to zeros, answered as for an element with no box; `LayoutPolicy::Throw` ends the call with fatal `DomError::LayoutQuery`; internal `DomRuntime::set_layout_policy`, PKG exposes it (#132) · The brief's phase-2 policy.
-- 2026-11-05 · All documents of a render share one blitz slab; an extra document is a marker element and a node's document is an `owners` entry (#136) · Adoption keeps wrappers and handles, and one set of limits covers every document.
-- 2026-11-05 · Doctypes and processing instructions are comment nodes to blitz-dom and CDATA sections text nodes, with their kind in `specials`; the page's doctype is a child of the document (#136) · Layout skips them.
-- 2026-11-05 · `Document::set_url` (internal) gives the page's URL, default `about:blank` (#136).
-- 2026-11-05 · `document.cloneNode()` gives a document, overturning the 4 Nov line for that case (#136) · DOM §4.4.
-- 2026-11-05 · `DOMParser` makes a document in the render's slab with scripting off (#139) · Same limits as the page.
-- 2026-11-05 · XML parser is our own `crates/dom/src/xml.rs`, no dependency, no entity expansion; a reference to anything but the five predefined entities is a well-formedness error (#142) · Least attack surface; departs from browsers for internal-subset entities.
-- 2026-11-05 · Iframes are documents in the render's slab with no browsing context: no scripts, no navigation, `src` through the page's resolver, at most 64 frames and 8 rounds a render; parsed frames load before the page's scripts and fire `load` before the window's; script-added frames load after the page settles (#142) · 7,114 dom-nodes subtests mention iframes, and this adds no network path.
-- 2026-11-05 · `Document::parse_xml` and `parse_xml_with_limits` load a page as XHTML, internal (#142).
-
 ### #143 (PKG), supersedes #130's lines
 - 2026-11-05 · `Renderer::render_page`, `render_page_cancellable`, `render_page_loading` return `PageOutput { html, report }`; new `PageReport`, `SettleReason`, `ResourceLoader`, `ResourceKind`, `ResourceFailure`, `ResourceFailureReason`, `LayoutQueries`; `Options::layout_queries`, `keep_scripts`, `resource_loader`; errors `PageMemoryLimit`, `PageTimeLimit`, `PageStackOverflow`, `PageDomLimit`, `PageFailed`; CLI `--scripts`, `--keep-scripts`, `--layout-queries`, `--resource`, `--output-mb`; gem `render(html, scripts: true)`, `Surimono.render_page`, `Renderer#render_page(html, loader:, allow:)`, `Surimono::Page`, `PageReport` · The phase-2 public API.
 - 2026-11-05 · A page's output is written from the printer's parse (html5ever with blitz-html's settings, `print/tree.rs`), screened on that tree, repeated to a fixed point (at most 4 re-parses, else `PageFailed`); lol_html no longer checks page output; all comments are dropped · lol_html isn't the printer's parser (#143 review).
@@ -121,6 +94,3 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 - 2026-11-05 · An allowlisted stylesheet comes out as `<style>`; one that fails is removed and reported; a `<link>` off the list, or any link with no loader, stays for the printer · What a printer may read is its own configuration.
 - 2026-11-05 · A load function can run on the calling thread (`render_page_loading`), which a Ruby proc needs; a proc's exception ends the render and is raised from it. Allowlist tails refuse empty segments, `;`, `:` in the first segment, dot-only segments and escapes other than of letters, digits, space, `-`, `_`, `+`. `PagePool::drop` doesn't join.
 - 2026-11-05 · The live Blitz hand-off waits for a fulgur entry point; output stays serialized HTML · fulgur 0.40 parses inside `layout_to_drawables`, up to twice. Draft in docs/upstream/.
-
-### #144
-- 2026-11-05 · Selector caps lowered to 8 brackets and 64 combinators on a path (from 32 and 128) · Replaces the #96 line's numbers; the old caps overflowed the stack on aarch64 debug and ASan. `real_world.rs` compares fractions to 1e-9 relative outside x86_64 Linux; x86_64 Linux stays byte-exact against Chrome · QuickJS's Math uses the platform libm and V8 a fixed port.

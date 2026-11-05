@@ -245,6 +245,49 @@
     }
    }
   },
+  "images": {
+   "chrome": {
+    "log": [
+     "function",
+     "IMG 2",
+     "parsed load",
+     "created load",
+     "new load"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined",
+     "new ReferenceError"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "htmldoc": {
+   "chrome": {
+    "log": [
+     "function false HTMLDocument [object HTMLDocument]"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined false Document [object Document]"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
   "selectors": {
    "chrome": {
     "log": [

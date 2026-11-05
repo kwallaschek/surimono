@@ -7,7 +7,7 @@ or WPT, never from surimono's own output. Owned by the conformance researcher.
 |---|---|
 | `fonts/` | The pinned test fonts (Noto Sans, Noto Sans JP), used by Chrome and by surimono/fulgur alike. `fonts.toml` pins each file. |
 | `islands/<name>/` | Visual fixtures for phase 1: a page with chart islands, plus its Chrome references. |
-| `real-world/<name>/` | Phase 2 pages whose own scripts run (marked, highlight.js, KaTeX, Alpine.js, D3), plus their Chrome references. Libraries are vendored unmodified in `real-world/lib/` and pinned in `real-world/manifest.toml`. |
+| `real-world/<name>/` | Phase 2 pages whose own scripts run (marked, highlight.js, KaTeX, Alpine.js, D3, and `noscript-message`, with an inline script and no library), plus their Chrome references. Libraries are vendored unmodified in `real-world/lib/` and pinned in `real-world/manifest.toml`. |
 | `tools/` | The Chrome reference pipeline, the comparison tool and the fixture generator (Node, pinned by `package-lock.json`). |
 
 ## Island fixture format
@@ -94,6 +94,12 @@ surimono's side needs page scripts, so no real-world page is compared with
 surimono yet; `compare.sh <fixture> <pdf>` will compare the printed page, and
 `dom.html` is the expectation for serialized HTML. `meta.toml`'s `needs` says
 which tasks each page waits for.
+
+`noscript-message` says "Please enable JavaScript" in a `<noscript>`, and has a
+`<noscript><style>` that hides the report. Chrome runs the script, so its print has
+the report and neither message; `dom.html` keeps the `<noscript>` elements, as the
+DOM does. What must hold on surimono's side is the print, so the text never reaches
+the PDF.
 
 ## Pipeline
 

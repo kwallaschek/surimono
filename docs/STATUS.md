@@ -10,17 +10,16 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Thu 5 Nov 2026, 16:15)
+## Now (Fri 6 Nov 2026, 08:15)
 
-Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. #104 and #105 merged at 12:19. **Merge freeze: main's full.yml is red at 89343c8f** (P2-DOM-04: ASan stack overflow in selector matching in dom hostile; real_world d3 differs from Chrome in the last digit on macOS and ARM). No merges until it's green.
+Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged 5 to 6 Nov: #104 #105 #123 #131 #132 #133 #134 #135 #136 #139 #140 #141 #142 #144 #146 #147 #148. Private upstream notes: Project doc claude/private-upstream-findings-2026-11-05.md; Kay was told at 04:20 that they need his reports.
 
-Open PRs, all with green ci/linux, none with a current review. Merge in this order, stack by stack:
-- CF: #123 (head moved since its approval), then #133.
-- DOM B: #131, #134, #135, #140.
-- DOM A: #132, #136, #139, #142. #131 and #132 both remove the 31-interface cap: conflict in bindgen.rs, resolve when the second merges main.
-- PKG: #143 contains #130 and fixes its BLOCK: close #130 unmerged when #143 merges. #143 and #132 both carry E2-07: reconcile. #141 stands alone.
-
-Local rates on the stacks, not official until the runner and vendored frames land on e2-09b: dom/events 66.9% (B), dom/nodes 89.5%, domparsing 39.8% (A), timers 88.2%.
+Open:
+- #143 (page API; approve needed after the shim swap; squash-merge; close #130 unmerged).
+- #149 (approved at 06a15a24, conflicts with main; delta review after).
+- #150 (fork hang; main's ASan is red until it lands).
+- #145 (WPT runner and frames; then regenerate WPT and COMPAT, P2-CF-03).
+Then: E2-12 Rails guide and checkpoint-3 checklist, CHANGELOG, rust.md limits; domparsing gap (E2-14). Digest Sun 8 Nov 20:00; checkpoint 3 Sun 22 Nov 11:00.
 
 ## Earlier (Thu 5 Nov 2026, 11:45)
 

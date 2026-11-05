@@ -4,6 +4,7 @@
 //! code units, as in the spec.
 
 use blitz_dom::{LocalName, NodeData, QualName, ns};
+use cssparser::{Parser, ParserInput, Token};
 use html5ever::{Namespace, Prefix};
 use selectors::parser::{Component, Selector};
 use style::selector_parser::SelectorImpl;
@@ -17,8 +18,15 @@ use crate::select::Matcher;
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
 const XMLNS: &str = "http://www.w3.org/2000/xmlns/";
 
-/// Deepest bracket nesting accepted in a selector.
-const MAX_SELECTOR_NESTING: usize = 32;
+/// Deepest bracket nesting accepted in a selector. With
+/// [`MAX_SELECTOR_COMBINATORS`] it bounds the stack a query uses, which has to
+/// fit `Sandbox::STACK_HEADROOM_BYTES` at the deepest call a script can make.
+/// Measured for the worst selector allowed on x86_64 Linux, of that 256 KiB:
+/// 142 KiB with unoptimized dependencies (a plain `cargo run` downstream; the
+/// parser's frames, 14 KiB a level), 118 KiB in this workspace's debug profile,
+/// under 74 KiB in release. Frames differ by target and profile (32 levels and
+/// 128 combinators overflowed a debug build on aarch64 Linux).
+const MAX_SELECTOR_NESTING: usize = 8;
 
 /// Longest selector a query takes. The parser can't be stopped, and holds a
 /// few dozen bytes per selector in a comma list, in Rust. No real selector
@@ -28,8 +36,8 @@ const MAX_SELECTOR_BYTES: usize = 128 * 1024;
 /// Most combinators on any path through a selector, nested ones included:
 /// the matcher recurses once per combinator, on the stack. Real selectors
 /// have a dozen. Fits the stack with [`MAX_SELECTOR_NESTING`] levels on a
-/// 1 MiB thread (`tests/hostile.rs`).
-const MAX_SELECTOR_COMBINATORS: usize = 128;
+/// thread of the size the sandbox asks for (`tests/hostile.rs`).
+const MAX_SELECTOR_COMBINATORS: usize = 64;
 
 pub(crate) fn dom_error(name: &'static str, message: &str) -> BindingError {
     BindingError::DomException {
@@ -389,26 +397,18 @@ impl Document {
         r
     }
 
-    /// Selectors nest in brackets; the parser and the matcher recurse per
-    /// level. Refused here so that no script can reach the stack's end.
-    /// Brackets in strings count, on purpose: telling them apart needs the
-    /// CSS tokenizer's every rule (a `"` in an unquoted `url(` starts no
-    /// string, and `:is()` recovers from that token), and a wrong guess here
-    /// would let real nesting through. See "Deviations and gaps" in DESIGN.md.
+    /// Selectors nest in blocks; the parser and the matcher recurse per
+    /// level. Refused here so that no script can reach the stack's end. Counts
+    /// on cssparser's tokens, the ones the selector parser reads, so a bracket
+    /// in a comment, a string or an escape is nothing here as it is nothing
+    /// there.
     fn check_selector_text(selectors: &str) -> BindingResult<()> {
         if selectors.len() > MAX_SELECTOR_BYTES {
             return Err(dom_error("SyntaxError", "the selector is too long"));
         }
-        let mut depth = 0usize;
-        for b in selectors.bytes() {
-            match b {
-                b'(' | b'[' => depth += 1,
-                b')' | b']' => depth = depth.saturating_sub(1),
-                _ => {}
-            }
-            if depth > MAX_SELECTOR_NESTING {
-                return Err(dom_error("SyntaxError", "the selector nests too deeply"));
-            }
+        let mut input = ParserInput::new(selectors);
+        if !nests_within(&mut Parser::new(&mut input), MAX_SELECTOR_NESTING) {
+            return Err(dom_error("SyntaxError", "the selector nests too deeply"));
         }
         Ok(())
     }
@@ -1078,6 +1078,38 @@ impl Document {
         }
         Ok(true)
     }
+}
+
+/// Whether the blocks left in `parser` nest at most `room` levels. Recurses
+/// once per block, so never deeper than `room`; the parser skips the rest of
+/// the input on the way out.
+fn nests_within(parser: &mut Parser<'_, '_>, room: usize) -> bool {
+    while let Ok(token) = parser.next_including_whitespace() {
+        let opens_block = matches!(
+            token,
+            Token::Function(_)
+                | Token::ParenthesisBlock
+                | Token::SquareBracketBlock
+                | Token::CurlyBracketBlock
+        );
+        if !opens_block {
+            continue;
+        }
+        let Some(room) = room.checked_sub(1) else {
+            return false;
+        };
+        let inner = parser.parse_nested_block(|block| {
+            if nests_within(block, room) {
+                Ok(())
+            } else {
+                Err(block.new_custom_error::<(), ()>(()))
+            }
+        });
+        if inner.is_err() {
+            return false;
+        }
+    }
+    true
 }
 
 /// The most combinators on one path through `list`: a selector's own, plus

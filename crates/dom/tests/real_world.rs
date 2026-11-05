@@ -73,6 +73,58 @@ fn style_last(html: &str) -> String {
     out
 }
 
+/// The length of the number at the front of `s`: digits, and a fraction if
+/// there is one. 0 if `s` doesn't start with a digit.
+fn number_len(s: &str) -> usize {
+    let digits = |s: &str| s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+    let whole = digits(s);
+    match s[whole..].strip_prefix('.') {
+        Some(rest) if whole > 0 && digits(rest) > 0 => whole + 1 + digits(rest),
+        _ => whole,
+    }
+}
+
+/// `ours` with each fraction within 1e-9 (relative) of the one at the same
+/// place in `expected` replaced by that one; everything else stays, so a real
+/// difference still shows up in the comparison.
+fn adopt_close_floats(ours: &str, expected: &str) -> String {
+    let (mut a, mut b) = (ours, expected);
+    let mut out = String::with_capacity(ours.len());
+    loop {
+        let mut same = a
+            .bytes()
+            .zip(b.bytes())
+            .take_while(|(x, y)| x == y && !x.is_ascii_digit())
+            .count();
+        // Two different characters can share their first bytes.
+        while !a.is_char_boundary(same) {
+            same -= 1;
+        }
+        out.push_str(&a[..same]);
+        (a, b) = (&a[same..], &b[same..]);
+        let (m, n) = (number_len(a), number_len(b));
+        if m == 0 || n == 0 {
+            out.push_str(a);
+            return out;
+        }
+        let (x, y) = (&a[..m], &b[..n]);
+        let close = match (x.parse::<f64>(), y.parse::<f64>()) {
+            (Ok(p), Ok(q)) => (p - q).abs() <= 1e-9 * p.abs().max(q.abs()),
+            _ => false,
+        };
+        let fractions = x.contains('.') || y.contains('.');
+        out.push_str(if close && fractions { y } else { x });
+        (a, b) = (&a[m..], &b[n..]);
+    }
+}
+
+/// Math.sin and the like come from the platform's libm in QuickJS and from a
+/// fixed port in V8, so a page's computed coordinates can differ from Chrome's
+/// in the last digits on another libm (Apple's: `d3`'s centroids, one ulp). On
+/// x86_64 Linux, where the references hold exactly, nothing is forgiven; a
+/// fixed libm in the engine would make this unneeded (docs/COMPAT.md).
+const EXACT_FLOATS: bool = cfg!(all(target_os = "linux", target_arch = "x86_64"));
+
 fn check(name: &str) {
     let Some((ours, expected, report)) = run(name) else {
         eprintln!("{name}: no fixture here, skipped");
@@ -90,6 +142,11 @@ fn check(name: &str) {
         .strip_prefix("<!doctype html>")
         .unwrap_or(&expected)
         .to_owned();
+    let ours = if EXACT_FLOATS {
+        ours
+    } else {
+        adopt_close_floats(&ours, &expected)
+    };
     if let Ok(dir) = std::env::var("SURIMONO_REAL_WORLD_OUT") {
         std::fs::write(format!("{dir}/{name}.ours.html"), &ours).unwrap();
         std::fs::write(format!("{dir}/{name}.chrome.html"), &expected).unwrap();
@@ -110,6 +167,28 @@ fn check(name: &str) {
         around(&ours),
         around(&expected),
     );
+}
+
+#[test]
+fn only_close_fractions_are_adopted() {
+    let adopt = |a, b| adopt_close_floats(a, b);
+    assert_eq!(
+        adopt("(-52.15729913154639,1)", "(-52.157299131546395,1)"),
+        "(-52.157299131546395,1)"
+    );
+    // A real difference, in a fraction or a whole number, stays.
+    assert_eq!(adopt("x=1.5 y", "x=1.6 y"), "x=1.5 y");
+    assert_eq!(adopt("h1", "h2"), "h1");
+    assert_eq!(adopt("1000000000000", "1000000000001"), "1000000000000");
+    // So does anything after the first place the text parts apart.
+    assert_eq!(adopt("a 1.5 b 2.5", "a 1.5 c 2.50000000001"), "a 1.5 b 2.5");
+    assert_eq!(
+        adopt("0.1 1", "0.1 1.0000000000000002"),
+        "0.1 1.0000000000000002"
+    );
+    assert_eq!(adopt("", "1.5"), "");
+    // あ and い share two bytes.
+    assert_eq!(adopt("あ1.5", "い1.5"), "あ1.5");
 }
 
 #[test]
@@ -135,4 +214,9 @@ fn d3() {
 #[test]
 fn alpine() {
     check("alpine-invoice");
+}
+
+#[test]
+fn noscript_message() {
+    check("noscript-message");
 }

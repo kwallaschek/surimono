@@ -24,9 +24,19 @@ pub const FILES: &[(&str, &str)] = &[
     ("hr-time.idl", include_str!("../idl/hr-time.idl")),
     ("html.idl", include_str!("../idl/html.idl")),
     (
+        "orientation-event.idl",
+        include_str!("../idl/orientation-event.idl"),
+    ),
+    (
+        "pointerevents.idl",
+        include_str!("../idl/pointerevents.idl"),
+    ),
+    ("pointerlock.idl", include_str!("../idl/pointerlock.idl")),
+    (
         "resize-observer.idl",
         include_str!("../idl/resize-observer.idl"),
     ),
+    ("touch-events.idl", include_str!("../idl/touch-events.idl")),
     ("uievents.idl", include_str!("../idl/uievents.idl")),
     ("url.idl", include_str!("../idl/url.idl")),
     ("webidl.idl", include_str!("../idl/webidl.idl")),

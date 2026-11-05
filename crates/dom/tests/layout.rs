@@ -1,11 +1,11 @@
 //! The layout-query policy: expected values are CSSOM View's and CSSOM's
-//! answers for an element with no box, and Geometry's for `DOMRect`.
+//! answers for an element with no box, and Geometry's for `DOMRect` (§3).
 
 mod common;
 
 use common::limits;
 use surimono_core::SettleOptions;
-use surimono_dom::{Document, DomError, DomRuntime, LayoutPolicy};
+use surimono_dom::{Document, DomError, DomLimits, DomRuntime, LayoutPolicy};
 
 fn runtime(policy: Option<LayoutPolicy>) -> DomRuntime {
     let mut rt = DomRuntime::new(limits()).unwrap();
@@ -88,7 +88,7 @@ fn a_computed_style_ignores_the_inline_style_and_cant_be_written() {
             r#"{A}
             a.style.color = 'red';
             const c = getComputedStyle(a, '::before');
-            const out = [c.color, c === getComputedStyle(a)];
+            const out = [c.color, c === getComputedStyle(a), c instanceof CSSStyleDeclaration];
             for (const f of [() => {{ c.color = 'blue'; }}, () => c.setProperty('color', 'blue'),
                              () => c.removeProperty('color'), () => {{ c.cssText = 'top: 0'; }}]) {{
               try {{ f(); out.push('no'); }} catch (e) {{ out.push(e.name); }}
@@ -99,7 +99,7 @@ fn a_computed_style_ignores_the_inline_style_and_cant_be_written() {
         .unwrap();
     assert_eq!(
         got,
-        ",true,NoModificationAllowedError,NoModificationAllowedError,\
+        ",false,true,NoModificationAllowedError,NoModificationAllowedError,\
          NoModificationAllowedError,NoModificationAllowedError,color: red;"
     );
 }
@@ -157,7 +157,7 @@ fn throw_mode_leaves_the_dom_alone() {
     assert_eq!(got, "BODY6");
 }
 
-/// Geometry §6.
+/// Geometry §3.
 #[test]
 fn dom_rects() {
     let mut rt = runtime(None);
@@ -232,15 +232,44 @@ fn the_window_answers_with_no_document() {
     assert_eq!(rt.eval::<i32>("innerWidth").unwrap(), 0);
 }
 
-/// A loop of queries pays with the JS heap or the handle table.
+/// CSSOM §7.2 says [NewObject], and handles are never reused: each call gets a
+/// new wrapper over one handle, so a loop doesn't reach `max_handles`.
 #[test]
-fn a_computed_style_takes_one_handle_however_often_it_is_asked_for() {
-    let mut rt = runtime(None);
-    let same: bool = rt
+fn a_computed_style_is_a_new_object_over_one_handle() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let l = DomLimits {
+        max_handles: 200,
+        ..DomLimits::default()
+    };
+    rt.load(Document::parse_with_limits("<!doctype html><body><p id=a>x</p>", l).unwrap());
+    let distinct: bool = rt
         .eval(&format!(
-            "{A} let same = true; const c = getComputedStyle(a);
-             for (let i = 0; i < 2000; i++) same = same && getComputedStyle(a) === c; same"
+            "{A} let distinct = true, last = null;
+             for (let i = 0; i < 2000; i++) {{
+               const c = getComputedStyle(a);
+               distinct = distinct && c !== last && c.width === '';
+               last = c;
+             }}
+             distinct"
         ))
         .unwrap();
-    assert!(same);
+    assert!(distinct);
+}
+
+/// WebIDL §3.2.7: `elementFromPoint` takes restricted doubles.
+#[test]
+fn element_from_point_refuses_what_isnt_finite() {
+    let mut rt = runtime(None);
+    let got: String = rt
+        .eval(
+            "const out = [];
+             for (const a of [[NaN, 0], [0, NaN], [Infinity, 0], [0, -Infinity], ['x', 0]]) {
+               try { document.elementFromPoint(...a); out.push('no'); }
+               catch (e) { out.push(e.name); }
+             }
+             out.push(document.elementFromPoint('1', 2));
+             out.join()",
+        )
+        .unwrap();
+    assert_eq!(got, "TypeError,TypeError,TypeError,TypeError,TypeError,");
 }
