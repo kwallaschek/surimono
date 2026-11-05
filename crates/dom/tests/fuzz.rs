@@ -106,8 +106,8 @@ fn quoted(s: &str) -> String {
 
 /// Sets up `pool`, a growing list of nodes the operations draw from.
 const PRELUDE: &str = r#"
-// A frameset page has no body element, so its frameset stands in.
-globalThis.main = document.body ?? document.documentElement.lastChild;
+// On a frameset page the body element is the frameset (HTML "the body element").
+globalThis.main = document.body;
 globalThis.pool = [document.documentElement, document.head, main];
 // Half the picks go to the elements made here, which have the special handling.
 globalThis.at = (i) => pool[(i % 2 ? i : i >> 1) % (i % 2 ? pool.length : Math.min(60, pool.length))];

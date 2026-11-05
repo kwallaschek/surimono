@@ -26,8 +26,22 @@ The Rust crates and the Ruby gem share one version number.
   Ruby threads exist, instead of waiting for the render to end (#114). The gem
   runs a sleeping helper thread, `surimono-signal-pump`, for the length of such
   a render. Ruby 3.3 and later need none.
+- **The engine's time limits stop compiles, `JSON.parse` and regexp compiles at
+  the limit** (#125). They used to run on past it: a small JSON spec could
+  start a regexp compile that nothing interrupted. A compile from source now
+  runs under the render's time limit, so loading a bundle can fail with a time
+  limit error when the limit is short.
+- **Proxy `ownKeys` checks** (#126). The check of a proxy's `ownKeys` result is
+  no longer quadratic, and `Object.keys`, `Object.entries` and
+  `Object.getOwnPropertyDescriptors` now stop at the time limit.
 
-## [0.1.0] - 2026-11-04
+## [0.1.0] - 2026-11-04 (not released)
+
+> **Not released.** The `v0.1.0` tag exists, on commit `915d5cbf`, but no gem
+> was pushed to RubyGems, so the install lines below don't work. That commit
+> has a known gap: the time limit doesn't stop the regexp compiler, which is
+> fixed on `main` (#125). The first release is planned for v0.3. This entry is
+> kept as written for the planned release.
 
 The first release: chart islands.
 
