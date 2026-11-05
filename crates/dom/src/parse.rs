@@ -12,8 +12,10 @@
 //!   elements for most start tags, so a very deep tree would also cost
 //!   quadratic time inside one call that can't be interrupted;
 //! - style text: see [`stash_style_text`];
-//! - `style` attributes over [`style_attr::fits`]'s limits: blitz-dom hands
-//!   each to stylo as its element is made, so one never gets that far.
+//! - `style` attributes: blitz-dom hands each to stylo as its element is
+//!   made, in a call nothing can stop. One over [`style_attr::fits`]'s limits
+//!   ends the parse, and the rest stay away from stylo under another name
+//!   until the tree is built ([`style_attr::hide`]).
 
 use std::borrow::Cow;
 use std::cell::{Cell, Ref, RefCell};
@@ -48,6 +50,8 @@ pub(crate) struct Parsed {
     pub over_limit: bool,
     /// Feeding stopped at a `style` attribute over its limits.
     pub over_style: bool,
+    /// Elements whose `style` attributes are hidden from blitz-dom.
+    hidden_styles: Vec<usize>,
 }
 
 /// Stops feeding the parser once `max_nodes` were created or an element
@@ -86,8 +90,9 @@ impl Sink<'_, '_> {
     }
 
     /// Takes out the `style` attributes if any is over the limits, and
-    /// notes it: feeding stops, and the parse fails.
-    fn screen_style(&self, attrs: &mut Vec<Attribute>) {
+    /// notes it: feeding stops, and the parse fails. Otherwise hides them,
+    /// and says whether there were any.
+    fn screen_style(&self, attrs: &mut Vec<Attribute>) -> bool {
         let is_style = |a: &Attribute| a.name.local.as_ref() == "style";
         if attrs
             .iter()
@@ -96,6 +101,12 @@ impl Sink<'_, '_> {
             attrs.retain(|a| !is_style(a));
             self.over_style.set(true);
         }
+        let mut any = false;
+        for a in attrs.iter_mut().filter(|a| is_style(a)) {
+            style_attr::hide(&mut a.name);
+            any = true;
+        }
+        any
     }
 
     fn note_child(&self, parent: usize, child: usize) {
@@ -140,11 +151,14 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         flags: ElementFlags,
     ) -> usize {
         self.note_created();
-        self.screen_style(&mut attrs);
+        let hidden = self.screen_style(&mut attrs);
         let is_style = name.local.as_ref() == "style";
         let id = self.inner.create_element(name, attrs, flags);
         if is_style {
             self.styles.borrow_mut().push(id);
+        }
+        if hidden {
+            self.parsed.borrow_mut().hidden_styles.push(id);
         }
         id
     }
@@ -213,7 +227,9 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
     }
 
     fn add_attrs_if_missing(&self, target: &usize, mut attrs: Vec<Attribute>) {
-        self.screen_style(&mut attrs);
+        if self.screen_style(&mut attrs) {
+            self.parsed.borrow_mut().hidden_styles.push(*target);
+        }
         self.inner.add_attrs_if_missing(target, attrs);
     }
 
@@ -302,6 +318,7 @@ pub(crate) fn parse_fragment(
     parsed.over_limit = stopped;
     parsed.over_style = over_style.get();
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
+    reveal_styles(&mut *mutr, &parsed.hidden_styles);
     parsed
 }
 
@@ -335,7 +352,17 @@ pub(crate) fn parse_document(
     parsed.over_style = over_style.get();
     // Before `mutr` flushes, which is when blitz-dom reads style text.
     stash_style_text(&mut *mutr, &styles.borrow(), &mut parsed.strings);
+    reveal_styles(&mut *mutr, &parsed.hidden_styles);
     parsed
+}
+
+/// Gives the elements in `hidden` their `style` attributes back.
+fn reveal_styles(mutr: &mut DocumentMutator<'_>, hidden: &[usize]) {
+    for &id in hidden {
+        if let Some(e) = mutr.doc.get_node_mut(id).and_then(|n| n.element_data_mut()) {
+            style_attr::reveal(&mut e.attrs);
+        }
+    }
 }
 
 /// Moves the text under `styles` out of blitz-dom, into `out`.

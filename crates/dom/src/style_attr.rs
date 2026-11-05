@@ -9,14 +9,21 @@
 //! `break-inside`) is checked as tokens. Stored values stay as written, apart
 //! from comments, runs of whitespace and string quotes: a browser would
 //! compute them (`#F00`) and expand shorthands.
+//!
+//! Stylo's parse can't be interrupted, so blitz-dom never parses this
+//! attribute here (see [`hide`]). The only calls to stylo are one declaration
+//! at a time, from [`valid`], under [`MAX_CHECKED_VALUE`], with the deadline
+//! looked at in between. [`fits`] bounds what the printer's stylo gets.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
+use blitz_dom::Attribute;
 use blitz_traits::net::Url;
 use cssparser::{
     Delimiter, ParseError, ParseErrorKind, Parser, ParserInput, ToCss, Token, serialize_identifier,
 };
+use html5ever::{LocalName, QualName};
 use style::context::QuirksMode;
 use style::properties::{PropertyId, parse_style_attribute};
 use style::stylesheets::{CssRuleType, UrlExtraData};
@@ -25,32 +32,44 @@ use surimono_core::Deadline;
 use crate::DomError;
 use crate::css_properties::CSS_PROPERTIES;
 
-/// Most declarations in one `style` attribute. Every read parses the
-/// attribute here and each declaration goes through stylo, so this bounds the
-/// declarations such a read keeps, outside the JavaScript heap limit, and,
-/// with the deadline checked per declaration, its work. A write has its own
-/// bound, [`MAX_TOKENS`].
+/// Most declarations in one `style` attribute, empty ones included. Every
+/// read parses the attribute here and each declaration goes through stylo, so
+/// this bounds the declarations such a read keeps, outside the JavaScript heap
+/// limit, and, with the deadline checked per declaration, its work.
 pub(crate) const MAX_DECLARATIONS: usize = 4096;
 /// Most bytes in one `style` attribute or value; big enough for a `data:`
 /// image.
 pub(crate) const MAX_BYTES: usize = 8 << 20;
-/// Most CSS tokens in one `style` attribute, whitespace included. blitz-dom
-/// hands a whole attribute to stylo whenever it is set, in one call nothing
-/// can interrupt, and stylo's cost follows tokens, not bytes: at the 300 ns a
-/// byte of [`MAX_CHECKED_VALUE`], `a,a,…` costs about 20 ms here, where a
-/// `data:` image is one token. See [`fits`].
+/// Most CSS tokens in one `style` attribute, whitespace included. The
+/// printer's stylo takes a whole attribute in one call, and its cost follows
+/// tokens, not bytes: at the 300 ns a byte of [`MAX_CHECKED_VALUE`], `a,a,…`
+/// costs about 20 ms here, where a `data:` image is one token. See [`fits`].
 pub(crate) const MAX_TOKENS: usize = 1 << 16;
+/// Most list steps stylo may take over one attribute, as [`Budget::declare`]
+/// counts them. Stylo's `PropertyDeclarationBlock::push` walks the block for a
+/// property it already has, and `all` pushes every longhand, so a block's cost
+/// is its repeats times its size: 8,000 custom properties and 8,000
+/// `all:inherit;`, 60 KB, took 11 s.
+const MAX_PUSH_STEPS: u64 = 1 << 26;
+/// Most cells in the strings of one `grid-template-areas`, `grid-template` or
+/// `grid` declaration. Stylo tokenizes those strings again and interns each
+/// name, about 5 µs each: 150,000 names, 1 MB, took 787 ms. No other string
+/// costs more than its bytes. 4,096 is a 64 by 64 grid.
+const MAX_GRID_CELLS: usize = 4096;
 /// Deepest nesting of brackets in a value, for the recursion here and in
 /// stylo's `calc()`. A deeper value is invalid, and [`fits`] refuses an
 /// attribute holding one.
 const MAX_NESTING: usize = 32;
 /// Longest value this file's own check gives to stylo; a longer one (in
-/// practice a `data:` image) is checked as tokens only here, and meets stylo
-/// when the attribute is written, under [`MAX_TOKENS`]. A stylo parse can't be
-/// interrupted and costs up to about 300 ns a byte in a release build,
-/// whatever the property (timed over every property with long lists, sums and
-/// strings): 20 ms here, but past the time limit at [`MAX_BYTES`].
+/// practice a `data:` image) is checked as tokens only here. A stylo parse
+/// can't be interrupted and costs up to about 300 ns a byte in a release
+/// build (`stylo_cost_by_property_and_shape`): 20 ms here, but past the time
+/// limit at [`MAX_BYTES`].
 const MAX_CHECKED_VALUE: usize = 64 << 10;
+/// What a `style` attribute is called while blitz-dom builds its element. No
+/// parser or script can give an attribute this name: html5ever turns NUL into
+/// U+FFFD, and the DOM refuses it.
+const HIDDEN_STYLE: &str = "\0style";
 
 /// `url()` values are kept, not fetched; they need a base to parse.
 static BASE: LazyLock<UrlExtraData> = LazyLock::new(|| {
@@ -71,7 +90,7 @@ pub(crate) struct Declaration {
 /// Why parsing gave up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Stop {
-    /// Over [`MAX_DECLARATIONS`] or [`MAX_BYTES`].
+    /// Over the limits of [`fits`].
     TooLarge,
     /// The script's deadline passed.
     TimeLimit,
@@ -86,21 +105,37 @@ pub(crate) fn limit_error() -> DomError {
     }
 }
 
-/// Whether blitz-dom may be given `text` as a `style` attribute: within
-/// [`MAX_BYTES`], [`MAX_TOKENS`] and [`MAX_NESTING`]. Every path that sets the
-/// attribute goes through this first, the parser's included.
+/// Renames a `style` attribute so that blitz-dom doesn't see it. blitz-dom goes
+/// by the local name, parses the attribute as soon as it sees one, in a call
+/// nothing can stop, and keeps the result for a layout that doesn't run here.
+pub(crate) fn hide(name: &mut QualName) {
+    name.local = LocalName::from(HIDDEN_STYLE);
+}
+
+/// Undoes [`hide`].
+pub(crate) fn reveal(attrs: &mut [Attribute]) {
+    for a in attrs {
+        if a.name.local.as_ref() == HIDDEN_STYLE {
+            a.name.local = LocalName::from("style");
+        }
+    }
+}
+
+/// Whether `text` may be a `style` attribute: within [`MAX_BYTES`],
+/// [`MAX_DECLARATIONS`], [`MAX_TOKENS`], [`MAX_NESTING`], [`MAX_PUSH_STEPS`]
+/// and [`MAX_GRID_CELLS`]. Every path that sets the attribute goes through
+/// this first, the parser's included. What passes reaches the printer's stylo.
 pub(crate) fn fits(text: &str) -> bool {
-    size_check(text).is_none()
+    size_check(text, Budget::for_attribute()).is_none()
 }
 
 /// What is over the limits in `text`, if anything.
-fn size_check(text: &str) -> Option<Over> {
+fn size_check(text: &str, mut budget: Budget) -> Option<Over> {
     if text.len() > MAX_BYTES {
         return Some(Over::Size);
     }
     let mut input = ParserInput::new(text);
-    let mut left = MAX_TOKENS;
-    match spend_tokens(&mut Parser::new(&mut input), &mut left, 0) {
+    match spend_tokens(&mut Parser::new(&mut input), &mut budget, 0) {
         Ok(()) => None,
         Err(ParseError {
             kind: ParseErrorKind::Custom(over),
@@ -114,17 +149,134 @@ fn size_check(text: &str) -> Option<Over> {
 /// How text is over the limits of [`fits`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Over {
-    /// [`MAX_BYTES`] or [`MAX_TOKENS`].
+    /// All but [`MAX_NESTING`].
     Size,
     /// [`MAX_NESTING`].
     Depth,
 }
 
-/// Takes the tokens of `input` from `left`, entering blocks, whose contents
-/// the parser would otherwise skip. Fails when none are left, or too deep.
+/// What is left to spend on one attribute or value, and how far it has got.
+struct Budget {
+    tokens: usize,
+    /// Declarations are counted, for a whole attribute.
+    attribute: bool,
+    /// The next token that isn't whitespace or a comment starts a declaration.
+    at_start: bool,
+    declarations: usize,
+    /// Names seen, and how long stylo's list is with one each.
+    names: HashSet<String>,
+    block: usize,
+    push_steps: u64,
+    /// The current declaration's strings are grid areas.
+    in_grid: bool,
+    grid_cells: usize,
+}
+
+impl Budget {
+    fn for_attribute() -> Self {
+        Self {
+            tokens: MAX_TOKENS,
+            attribute: true,
+            at_start: true,
+            declarations: 0,
+            names: HashSet::new(),
+            block: 0,
+            push_steps: 0,
+            in_grid: false,
+            grid_cells: 0,
+        }
+    }
+
+    /// For the value of `property`, already [`normalized`].
+    fn for_value(property: &str) -> Self {
+        Self {
+            attribute: false,
+            in_grid: is_grid_areas(property),
+            ..Self::for_attribute()
+        }
+    }
+
+    /// Charges a token at the top level of an attribute, false if over.
+    fn top_level(&mut self, token: &Token<'_>) -> bool {
+        match token {
+            Token::WhiteSpace(_) | Token::Comment(_) => true,
+            Token::Semicolon => {
+                let empty = self.at_start;
+                self.at_start = true;
+                self.in_grid = false;
+                self.grid_cells = 0;
+                !empty || self.count_declaration()
+            }
+            _ if self.at_start => {
+                self.at_start = false;
+                let under = self.count_declaration();
+                match token {
+                    Token::Ident(name) => under && self.declare(normalized(name)),
+                    _ => under,
+                }
+            }
+            _ => true,
+        }
+    }
+
+    fn count_declaration(&mut self) -> bool {
+        self.declarations += 1;
+        self.declarations <= MAX_DECLARATIONS
+    }
+
+    /// Charges a declaration of `name` for stylo's pushes. A push finds a
+    /// property that is already there by walking the list, then closes the
+    /// gap: at most the list's length in steps, each a few ns. A custom
+    /// property is new unless its name was seen; any other may overlap a
+    /// shorthand, so is taken to be there. False if over.
+    fn declare(&mut self, name: String) -> bool {
+        self.in_grid = is_grid_areas(&name);
+        let pushes = longhands(&name);
+        let custom = is_custom(&name);
+        let first = self.names.insert(name);
+        if first {
+            self.block += pushes;
+        }
+        if !first || !custom {
+            self.push_steps = self
+                .push_steps
+                .saturating_add(pushes.saturating_mul(self.block) as u64);
+        }
+        self.push_steps <= MAX_PUSH_STEPS
+    }
+
+    /// Charges a string for the cells stylo would split it into, as
+    /// `TemplateAreasTokenizer` does; false if over.
+    fn string(&mut self, text: &str) -> bool {
+        if self.in_grid {
+            let cells = text
+                .split(|c: char| c.is_ascii_whitespace() || c == '.')
+                .filter(|cell| !cell.is_empty())
+                .count();
+            self.grid_cells = self.grid_cells.saturating_add(cells);
+        }
+        self.grid_cells <= MAX_GRID_CELLS
+    }
+}
+
+/// Whether strings in a value of `property` are grid areas.
+fn is_grid_areas(property: &str) -> bool {
+    matches!(property, "grid-template-areas" | "grid-template" | "grid")
+}
+
+/// How many longhands stylo pushes for a declaration of `property`.
+fn longhands(property: &str) -> usize {
+    PropertyId::parse_enabled_for_all_content(property)
+        .ok()
+        .and_then(|id| id.as_shorthand().ok())
+        .map_or(1, |shorthand| shorthand.longhands().count())
+}
+
+/// Takes the tokens of `input` from `budget`, entering blocks, whose contents
+/// the parser would otherwise skip. Fails when over it, or too deep.
 fn spend_tokens<'i>(
     input: &mut Parser<'i, '_>,
-    left: &mut usize,
+    budget: &mut Budget,
     depth: usize,
 ) -> Result<(), ParseError<'i, Over>> {
     while let Ok(token) = input.next_including_whitespace_and_comments() {
@@ -135,15 +287,22 @@ fn spend_tokens<'i>(
                 | Token::SquareBracketBlock
                 | Token::CurlyBracketBlock
         );
-        if *left == 0 {
+        let mut under = budget.tokens > 0;
+        if depth == 0 && budget.attribute {
+            under = budget.top_level(token) && under;
+        }
+        if let Token::QuotedString(text) = token {
+            under = budget.string(text) && under;
+        }
+        if !under {
             return Err(input.new_custom_error(Over::Size));
         }
         if block && depth == MAX_NESTING {
             return Err(input.new_custom_error(Over::Depth));
         }
-        *left -= 1;
+        budget.tokens -= 1;
         if block {
-            input.parse_nested_block(|p| spend_tokens(p, left, depth + 1))?;
+            input.parse_nested_block(|p| spend_tokens(p, budget, depth + 1))?;
         }
     }
     Ok(())
@@ -315,7 +474,7 @@ pub(crate) fn parse_value(
     value: &str,
     quirks: QuirksMode,
 ) -> Result<Option<String>, Stop> {
-    match size_check(value) {
+    match size_check(value, Budget::for_value(property)) {
         Some(Over::Size) => return Err(Stop::TooLarge),
         Some(Over::Depth) => return Ok(None),
         None => {}
@@ -622,7 +781,8 @@ mod tests {
         // Tokens inside a block count.
         assert!(!fits(&format!("x: f({})", "a,".repeat(MAX_TOKENS))));
         assert!(!fits(&format!("x: [{}]", "a ".repeat(MAX_TOKENS))));
-        // One token however long, in or out of a block.
+        // One token however long, in or out of a block, apart from grid areas
+        // (`what_fits_counts_grid_cells`).
         let data = "A".repeat(MAX_BYTES - 64);
         assert!(fits(&format!(
             "background: url(data:image/png;base64,{data})"
@@ -630,6 +790,87 @@ mod tests {
         assert!(fits(&format!("content: var(--x, '{data}')")));
         assert!(fits(&format!("/* {data} */ color: red")));
         assert!(!fits(&"x".repeat(MAX_BYTES + 1)));
+    }
+
+    #[test]
+    fn what_fits_counts_declarations() {
+        assert!(fits(&"a:b;".repeat(MAX_DECLARATIONS)));
+        assert!(!fits(&format!("{}a:b", "a:b;".repeat(MAX_DECLARATIONS))));
+        assert!(fits(&format!(
+            "{}  /* c */ ",
+            "a:b;".repeat(MAX_DECLARATIONS)
+        )));
+        // As `parse` counts: it gives up on what `fits` refuses, and only then.
+        for text in [
+            ";".repeat(MAX_DECLARATIONS),
+            ";".repeat(MAX_DECLARATIONS + 1),
+            format!("a:b;{}", " ; ".repeat(MAX_DECLARATIONS - 1)),
+            format!("a:b;{}", " ; ".repeat(MAX_DECLARATIONS)),
+            format!("--x:(;);{}", "a:b;".repeat(MAX_DECLARATIONS - 1)),
+            format!("--x:(;);{}", "a:b;".repeat(MAX_DECLARATIONS)),
+            format!("--x:{{;}};{}", "a:b;".repeat(MAX_DECLARATIONS)),
+        ] {
+            let read = parse(&text, NO_QUIRKS, None);
+            assert_eq!(fits(&text), read.is_ok(), "{}", &text[..16]);
+        }
+    }
+
+    #[test]
+    fn what_fits_counts_repeats_times_the_block() {
+        let all = "all:inherit;";
+        let pushes = longhands("all");
+        assert!(pushes > 100);
+        let customs: String = (0..1024).map(|i| format!("--a{i}:;")).collect();
+        let fitting = MAX_PUSH_STEPS as usize / pushes / (1024 + pushes);
+        assert!(fits(&(customs.clone() + &all.repeat(fitting))));
+        assert!(!fits(&(customs.clone() + &all.repeat(fitting + 1))));
+        // However it is spelled.
+        for spelling in ["ALL:inherit;", "\\61ll:inherit;", "a\\6c\\6c:inherit;"] {
+            assert!(!fits(&(customs.clone() + &spelling.repeat(fitting + 1))));
+        }
+        // Any shorthand, by its longhands.
+        assert_eq!(longhands("margin"), 4);
+        let long = "font:inherit;";
+        let pushes = longhands("font");
+        let block = 1024 + pushes;
+        let fitting = MAX_PUSH_STEPS as usize / pushes / block;
+        if fitting + 1024 < MAX_DECLARATIONS {
+            assert!(!fits(&(customs.clone() + &long.repeat(fitting + 1))));
+        }
+        // New custom properties aren't repeats.
+        let new: String = (0..MAX_DECLARATIONS).map(|i| format!("--a{i}:;")).collect();
+        assert!(fits(&new));
+    }
+
+    #[test]
+    fn what_fits_counts_grid_cells() {
+        let cells = |n: usize| (0..n).map(|i| format!("n{i} ")).collect::<String>();
+        for property in ["grid-template-areas", "grid-template", "grid", "GRID"] {
+            assert!(fits(&format!("{property}: '{}'", cells(MAX_GRID_CELLS))));
+            assert!(!fits(&format!(
+                "{property}: '{}'",
+                cells(MAX_GRID_CELLS + 1)
+            )));
+            assert!(!fits(&format!(
+                "{property}: 'a' '{}'",
+                cells(MAX_GRID_CELLS)
+            )));
+            assert!(!fits(&format!(
+                "{property}: '{}'",
+                "a.".repeat(MAX_GRID_CELLS + 1)
+            )));
+        }
+        // Per declaration.
+        let at_cap = format!("grid-template-areas: '{}'", cells(MAX_GRID_CELLS));
+        assert!(fits(&format!("{at_cap}; {at_cap}")));
+        // Other strings are one token.
+        let over = cells(MAX_GRID_CELLS + 1);
+        assert!(fits(&format!("content: '{over}'; --x: '{over}'")));
+        // As a value too, and a list of semicolons stays merely invalid.
+        let got = parse_value("grid-template-areas", &format!("'{over}'"), NO_QUIRKS);
+        assert_eq!(got, Err(Stop::TooLarge));
+        let semicolons = ";".repeat(MAX_DECLARATIONS + 1);
+        assert_eq!(parse_value("color", &semicolons, NO_QUIRKS), Ok(None));
     }
 
     #[test]
@@ -700,6 +941,192 @@ mod tests {
             parse("color: red", NO_QUIRKS, Some(&deadline)),
             Err(Stop::TimeLimit)
         );
+    }
+
+    /// Every value of every shape, at every size `fits` lets through, against
+    /// every property stylo knows: how long stylo takes, worst first. Run on a
+    /// release build; a new cost shape shows at the top.
+    /// `--release --lib -- --ignored --nocapture stylo_cost`
+    #[test]
+    #[ignore = "a survey, for a release build"]
+    fn stylo_cost_by_property_and_shape() {
+        type Shape = (
+            &'static str,
+            &'static str,
+            fn(usize) -> String,
+            &'static str,
+            &'static str,
+        );
+        let shapes: &[Shape] = &[
+            ("long string", "\"", |_| "a".into(), "", "\""),
+            ("string of names", "\"", |i| format!("n{i}"), " ", "\""),
+            (
+                "string of long names",
+                "\"",
+                |i| format!("{i:01024}"),
+                " ",
+                "\"",
+            ),
+            ("string of same", "\"", |_| "a".into(), " ", "\""),
+            ("string of dots", "\"", |_| ".".into(), " ", "\""),
+            ("string of escapes", "\"", |_| "\\61 ".into(), "", "\""),
+            ("strings", "", |i| format!("\"n{i} m{i}\""), " ", ""),
+            ("strings, commas", "", |i| format!("\"n{i}\""), ",", ""),
+            ("long ident", "", |_| "a".into(), "", ""),
+            ("idents", "", |_| "a".into(), " ", ""),
+            ("unique idents", "", |i| format!("n{i}"), " ", ""),
+            ("ident commas", "", |_| "a".into(), ",", ""),
+            ("unique commas", "", |i| format!("n{i}"), ",", ""),
+            ("ident slash", "", |_| "a".into(), "/", ""),
+            ("numbers", "", |_| "1".into(), " ", ""),
+            ("number commas", "", |_| "1".into(), ",", ""),
+            ("lengths", "", |_| "1px".into(), " ", ""),
+            ("length commas", "", |_| "1px".into(), ",", ""),
+            ("percent commas", "", |_| "1%".into(), ",", ""),
+            ("times", "", |_| "1s".into(), ",", ""),
+            ("colors", "", |_| "#fff".into(), " ", ""),
+            ("color commas", "", |_| "red".into(), ",", ""),
+            ("name number", "", |i| format!("n{i} 1"), " ", ""),
+            ("urls", "", |_| "url(a)".into(), " ", ""),
+            ("url commas", "", |_| "url(a)".into(), ",", ""),
+            ("functions", "", |_| "f(1)".into(), " ", ""),
+            ("function commas", "", |_| "f(1)".into(), ",", ""),
+            ("transforms", "", |_| "translate(1px)".into(), " ", ""),
+            ("shadows", "", |_| "1px 1px red".into(), ",", ""),
+            (
+                "gradient stops",
+                "linear-gradient(",
+                |_| "red".into(),
+                ",",
+                ")",
+            ),
+            (
+                "gradients",
+                "",
+                |_| "linear-gradient(red,red)".into(),
+                ",",
+                "",
+            ),
+            ("calc sum", "calc(", |_| "1px".into(), " + ", ")"),
+            ("calc product", "calc(1px", |_| "*1".into(), "", ")"),
+            ("min list", "min(", |_| "1px".into(), ",", ")"),
+            ("calcs", "", |_| "calc(1px + 1%)".into(), " ", ""),
+            ("line names", "", |i| format!("[n{i}] 1px"), " ", ""),
+            ("line name list", "[", |i| format!("n{i}"), " ", "]"),
+            ("repeat", "repeat(1000,", |_| "1px".into(), " ", ")"),
+            ("repeats", "", |_| "repeat(1000,1px)".into(), " ", ""),
+            ("var", "", |_| "var(--x)".into(), " ", ""),
+            ("var fallback", "", |_| "var(--x,1px)".into(), ",", ""),
+            ("attr", "", |_| "attr(a)".into(), " ", ""),
+            ("counters", "", |_| "counter(a)".into(), " ", ""),
+            ("unicode ranges", "", |_| "U+0-7F".into(), ",", ""),
+            ("beziers", "", |_| "cubic-bezier(0,0,1,1)".into(), ",", ""),
+            ("feature tags", "", |_| "\"liga\" 1".into(), ",", ""),
+            ("comments", "", |_| "/**/".into(), "", ""),
+            ("whitespace", "a", |_| " ".into(), "", ""),
+            ("block", "(", |_| "a".into(), " ", ")"),
+        ];
+        let mut rows: Vec<(f64, usize, &str, &str)> = Vec::new();
+        let properties: Vec<&str> = CSS_PROPERTIES
+            .iter()
+            .map(|(name, _)| *name)
+            .filter(|name| known_to_stylo(name))
+            .collect();
+        for (shape, open, item, sep, close) in shapes {
+            // The sizes that fit, for the longest property name.
+            let mut sized = Vec::new();
+            let (mut body, mut i, mut size) = (String::new(), 0, 1 << 12);
+            loop {
+                while body.len() < size {
+                    body.push_str(&item(i));
+                    body.push_str(sep);
+                    i += 1;
+                }
+                if !fits(&format!("mask-border-outset: {open}{body}{close}")) {
+                    break;
+                }
+                sized.push(body.clone());
+                if size == MAX_BYTES - 1024 {
+                    break;
+                }
+                size = (size * 4).min(MAX_BYTES - 1024);
+            }
+            for property in &properties {
+                let mut worst = (0.0_f64, 0);
+                for body in &sized {
+                    let whole = format!("{property}: {open}{body}{close}");
+                    if !fits(&whole) {
+                        break;
+                    }
+                    let started = std::time::Instant::now();
+                    let block =
+                        parse_style_attribute(&whole, &BASE, None, NO_QUIRKS, CssRuleType::Style);
+                    let took = started.elapsed().as_secs_f64() * 1e3;
+                    std::hint::black_box(block);
+                    if took > worst.0 {
+                        worst = (took, whole.len());
+                    }
+                }
+                rows.push((worst.0, worst.1, property, shape));
+            }
+        }
+        rows.sort_by(|a, b| b.0.total_cmp(&a.0));
+        println!("{} cases", rows.len());
+        for (ms, bytes, property, shape) in rows.iter().take(60) {
+            println!("{ms:9.1} ms {:8} KB  {property}: {shape}", bytes >> 10);
+        }
+    }
+
+    /// Blocks at [`MAX_PUSH_STEPS`] and [`MAX_DECLARATIONS`]: how long stylo
+    /// takes over the costliest that [`fits`] lets through.
+    #[test]
+    #[ignore = "a survey, for a release build"]
+    fn stylo_cost_of_repeats() {
+        let customs = |n: usize| (0..n).map(|i| format!("--a{i}:;")).collect::<String>();
+        let mut rows: Vec<(f64, String)> = Vec::new();
+        let mut try_it = |label: String, text: String| {
+            if !fits(&text) {
+                return;
+            }
+            let started = std::time::Instant::now();
+            let block = parse_style_attribute(&text, &BASE, None, NO_QUIRKS, CssRuleType::Style);
+            let took = started.elapsed().as_secs_f64() * 1e3;
+            std::hint::black_box(block);
+            rows.push((took, format!("{label}, {} KB", text.len() >> 10)));
+        };
+        for n in [16, 64, 128, 256, 512, 1024, 2048, 4000] {
+            for m in [16, 32, 64, 128, 256, 512, 1024, 2048, 4000] {
+                if n + m > MAX_DECLARATIONS {
+                    continue;
+                }
+                let block = customs(n);
+                for (name, one) in [
+                    ("all", "all:inherit;"),
+                    ("all var", "all:var(--x);"),
+                    ("font", "font:inherit;"),
+                    ("background", "background:red;"),
+                    ("margin", "margin:0;"),
+                    ("color", "color:red;"),
+                ] {
+                    try_it(
+                        format!("{n} custom, {m} {name}"),
+                        block.clone() + &one.repeat(m),
+                    );
+                    // Over and over, so that each goes in front of the other.
+                    let round: String = block.clone() + one;
+                    try_it(
+                        format!("{m} rounds of {n} custom and {name}"),
+                        round.repeat(m),
+                    );
+                }
+            }
+        }
+        try_it("4,000 repeats of 2".into(), "--a:;--b:;".repeat(2000));
+        try_it("2,048 custom twice".into(), customs(2048).repeat(2));
+        rows.sort_by(|a, b| b.0.total_cmp(&a.0));
+        for (ms, label) in rows.iter().take(25) {
+            println!("{ms:9.1} ms  {label}");
+        }
     }
 
     #[test]

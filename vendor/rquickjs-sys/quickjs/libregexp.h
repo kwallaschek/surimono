@@ -50,6 +50,10 @@ extern "C" {
 /* trailer length after the group name including the trailing '\0' */
 #define LRE_GROUP_NAME_TRAILER_LEN 2
 
+/* surimono: the error message lre_compile gives when lre_check_timeout told
+   it to stop. No syntax error has this text. */
+#define LRE_INTERRUPTED "interrupted"
+
 uint8_t *lre_compile(int *plen, char *error_msg, int error_msg_size,
                      const char *buf, size_t buf_len, int re_flags,
                      void *opaque);

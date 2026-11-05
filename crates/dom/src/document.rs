@@ -676,6 +676,12 @@ impl Document {
         self.generation
     }
 
+    fn element_mut(&mut self, id: usize) -> Option<&mut blitz_dom::ElementData> {
+        self.inner
+            .get_node_mut(id)
+            .and_then(|n| n.element_data_mut())
+    }
+
     pub(crate) fn node(&self, id: usize) -> &blitz_dom::Node {
         // Ids come from `resolve`, the tree's own links or blitz-dom's id
         // map; all name live nodes because every drop goes through
@@ -1221,7 +1227,15 @@ impl Document {
         self.recharge(credit, charge)?;
         self.note_attribute(id, &name);
         self.version += 1;
-        self.inner.mutate().set_attribute(id, name, value);
+        if name.local.as_ref() == "style" {
+            // Not through blitz-dom, which would give it to stylo in a call
+            // nothing can stop, for a layout that doesn't run here.
+            if let Some(e) = self.element_mut(id) {
+                e.attrs.set(name, value);
+            }
+        } else {
+            self.inner.mutate().set_attribute(id, name, value);
+        }
         Ok(())
     }
 
@@ -1373,15 +1387,13 @@ impl Document {
             .element_name(id)
             .is_some_and(|n| n.local.as_ref() == "link")
             && name.local.as_ref() == "href";
-        if is_link_href {
-            // blitz-dom's clear_attribute unloads the link's stylesheet here
-            // and hits `unreachable!` if it has none, which it never does:
-            // nothing loads. Nothing else depends on this attribute.
-            if let Some(e) = self
-                .inner
-                .get_node_mut(id)
-                .and_then(|n| n.element_data_mut())
-            {
+        // blitz-dom's clear_attribute unloads the link's stylesheet here and
+        // hits `unreachable!` if it has none, which it never does: nothing
+        // loads. Nothing else depends on this attribute. For `style`, it would
+        // parse what is left: it goes by the local name, of which an element
+        // can have several, in different namespaces.
+        if is_link_href || name.local.as_ref() == "style" {
+            if let Some(e) = self.element_mut(id) {
                 e.attrs.remove(&name);
             }
         } else {
@@ -1614,7 +1626,7 @@ impl Document {
     pub(crate) fn create_element_with(
         &mut self,
         name: QualName,
-        attrs: Vec<blitz_dom::Attribute>,
+        mut attrs: Vec<blitz_dom::Attribute>,
     ) -> Result<usize, DomError> {
         self.check_room()?;
         let attr_bytes: usize = attrs
@@ -1622,7 +1634,18 @@ impl Document {
             .map(|a| attribute_cost(&a.name, &a.value))
             .sum();
         self.recharge(0, attr_bytes.saturating_add(name_cost(&name)))?;
-        Ok(self.inner.mutate().create_element(name, attrs))
+        let mut hidden = false;
+        for a in &mut attrs {
+            if a.name.local.as_ref() == "style" {
+                style_attr::hide(&mut a.name);
+                hidden = true;
+            }
+        }
+        let id = self.inner.mutate().create_element(name, attrs);
+        if hidden && let Some(e) = self.element_mut(id) {
+            style_attr::reveal(&mut e.attrs);
+        }
+        Ok(id)
     }
 
     /// `createElement` for an HTML element; `None` for a name the DOM
@@ -2147,5 +2170,72 @@ fn escape_into(s: &str, attribute: bool, out: &mut String) {
             '>' => out.push_str("&gt;"),
             c => out.push(c),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::DomRuntime;
+    use surimono_core::Limits;
+
+    /// Elements with a block stylo parsed.
+    fn parsed_blocks(doc: &Document) -> usize {
+        (0..1000)
+            .filter_map(|id| doc.inner.get_node(id))
+            .filter_map(|n| n.element_data())
+            .filter(|e| e.style_attribute.is_some())
+            .count()
+    }
+
+    /// blitz-dom would parse each of these in a call nothing can stop.
+    #[test]
+    fn no_path_gives_a_style_attribute_to_stylo() {
+        let page = r#"<!doctype html><html style="color: red"><body style="color: red">
+            <p id="p" style="color: red"></p><template><b style="color: red"></b></template>
+            <body style="top: 0" class="x"><html style="top: 0" lang="ja"><b><i style="top: 0">
+            <p>x"#;
+        let mut rt = DomRuntime::new(Limits::default()).unwrap();
+        rt.load(Document::parse(page).unwrap());
+        let got: String = rt
+            .eval(
+                r#"const p = document.getElementById('p');
+                const body = document.body, xlink = 'http://www.w3.org/1999/xlink';
+                const out = [document.documentElement.getAttribute('style'),
+                    body.getAttribute('style'), [...body.attributes].map(a => a.name).join()];
+                p.setAttribute('style', 'top: 1px');
+                p.setAttributeNS(xlink, 'xlink:style', 'top: 2px');
+                p.style.left = '3px';
+                p.attributes.getNamedItem('style').value += 'right: 4px';
+                p.innerHTML = '<b style="top: 5px"></b>';
+                out.push(p.firstChild.outerHTML);
+                p.appendChild(p.cloneNode(true));
+                p.removeAttribute('style');
+                out.push(p.getAttributeNS(xlink, 'style'), p.lastChild.getAttribute('style'));
+                out.join('|')"#,
+            )
+            .unwrap();
+        assert_eq!(
+            got,
+            "color: red|color: red|style,class|<b style=\"top: 5px\"></b>|top: 2px|\
+             top: 1px; left: 3px;right: 4px"
+        );
+        let mut doc = rt.take().unwrap();
+        assert_eq!(parsed_blocks(&doc), 0);
+        // The check sees one when there is one.
+        let id = doc.inner.root_element().id;
+        let name = QualName::new(None, ns!(), LocalName::from("style"));
+        doc.inner.mutate().set_attribute(id, name, "top: 0");
+        assert_eq!(parsed_blocks(&doc), 1);
+    }
+
+    #[test]
+    fn a_style_attribute_keeps_its_place_and_namespace() {
+        let doc = Document::parse(r#"<p id="a" style="top: 0" class="b">"#).unwrap();
+        let html = doc.to_html();
+        assert!(
+            html.contains(r#"<p id="a" style="top: 0" class="b">"#),
+            "{html}"
+        );
     }
 }

@@ -110,8 +110,12 @@ crates):
 reaches the printing engine's blitz-dom, where the panic lives: the fulgur hand-off
 (E2-08) has to deal with that before it goes live.
 
-Phase 3 needs both back, for layout: flags set over the tree and screened CSS
-given to blitz-dom, both done once before layout, not while scripts mutate.
+- `style` attributes stay away from stylo (see Sandbox and limits); the tree has
+  the text, and elements have no `style_attribute` block.
+
+Phase 3 needs all three back, for layout: flags set over the tree, screened CSS
+given to blitz-dom and `flush_style_attribute` per element, all done once before
+layout, not while scripts mutate.
 
 ## Objects other than nodes
 
@@ -163,11 +167,27 @@ live and nothing is kept per element.
   (`#F00`), no shorthand expansion.
 - **Bounds.** One attribute may have 4,096 declarations, 65,536 CSS tokens and
   8 MiB (`DomError::StyleLimit`, fatal, because a read that fails can't be
-  answered). blitz-dom gives stylo the whole attribute each time it is set, in
-  a call that can't be interrupted, so nothing goes in over the tokens, bytes or
-  bracket depth (`style_attr::fits`): not `setAttribute`, `setProperty`, any
-  namespace's `style`, `innerHTML`, nor the page's own parse. Tokens, because
-  stylo's cost follows them: a `data:` URL is one.
+  answered). Everything `style_attr::fits` checks goes for `setAttribute`,
+  `setProperty`, any namespace's `style`, `innerHTML` and the page's own parse.
+- **Stylo.** A stylo parse can't be interrupted, and its cost has shapes tokens
+  don't show, so blitz-dom doesn't get to parse this attribute: it would on every
+  write, and on every element made, for a layout that doesn't run here.
+  `write_attribute` and `clear_attribute` change the attribute list directly, and
+  the parser and clones make elements with the attribute under a name no input
+  can have (`style_attr::hide`). A `style` read gives stylo one declaration of at
+  most 64 KiB at a time, with the deadline looked at in between, so an overrun is
+  one such parse; `stylo_cost_by_property_and_shape` (ignored; run on a release
+  build) times every property against 49 shapes at every size that fits.
+- **What the printer gets.** `fits` also bounds a single attribute for the
+  printer's stylo, and for layout in phase 3, which will flush these once,
+  between elements. Two costs need more than tokens. A push of a property the
+  block has walks the block, and `all` pushes every longhand, so 60 KB of
+  custom properties and `all:inherit` took 11 s: `Budget::declare` charges
+  longhands times block size, up to 2^26 steps. `grid-template-areas` and the
+  shorthands tokenize strings again and intern each name, so a declaration of
+  those has at most 4,096 cells, a 64 by 64 grid. A `var()` can carry such a
+  string out of a custom property, which isn't charged, and `<style>` text isn't
+  screened at all: E2-08 has to bound the printer's parse as a whole.
   Parsing is linear, looks at the deadline per declaration, and nests at most
   32 brackets, for the recursion here and in stylo's `calc()`.
 
