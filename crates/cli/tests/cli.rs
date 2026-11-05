@@ -354,3 +354,31 @@ fn a_failed_render_leaves_an_existing_output_alone() {
     assert_eq!(names, ["out.html"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn page_runs_the_documents_scripts() {
+    let html = "<!doctype html><body><script>
+        document.body.dataset.a = 40 + 2;
+        setTimeout(() => missing(), 5000);</script>
+        <script src='gone.js'></script>";
+    let o = run(&["page", "-", "--font", &font()], html);
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    let out = text(&o.stdout);
+    assert!(out.starts_with("<!doctype html>"), "{out}");
+    assert!(out.contains("data-a=\"42\""), "{out}");
+    let err = text(&o.stderr);
+    assert!(err.contains("missing script gone.js"), "{err}");
+    assert!(err.contains("uncaught exception"), "{err}");
+    // A clean page says nothing.
+    let o = run(&["page", "-", "--font", &font()], "<p>x</p>");
+    assert_eq!(code(&o), 0);
+    assert_eq!(text(&o.stderr), "");
+}
+
+#[test]
+fn a_page_over_a_limit_exits_with_the_limit_code() {
+    let html = "<script>for (;;) {}</script>";
+    let o = run(&["page", "-", "--font", &font(), "--time-ms", "50"], html);
+    assert_eq!(code(&o), 3, "{}", text(&o.stderr));
+    assert!(text(&o.stderr).contains("[time-limit]"));
+}

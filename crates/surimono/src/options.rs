@@ -8,6 +8,10 @@ use crate::ErrorPolicy;
 /// Resource limits for every script a renderer runs, applied to each island
 /// separately.
 ///
+/// [`Renderer::render_page`](crate::Renderer::render_page) applies them to the
+/// whole page instead: one heap and one `time` for all its scripts, timers and
+/// events, then the same again per island in it.
+///
 /// A script that goes over a limit stops with [`Error::MemoryLimit`],
 /// [`Error::TimeLimit`] or [`Error::StackOverflow`](crate::Error::StackOverflow);
 /// it never crashes or hangs the process.
@@ -116,6 +120,8 @@ pub struct Options {
     pub(crate) utc_offset_minutes: i32,
     pub(crate) text_mode: TextMode,
     pub(crate) max_islands: Option<usize>,
+    pub(crate) page_budget_ms: Option<u64>,
+    pub(crate) page_max_tasks: Option<u64>,
 }
 
 /// What happens to text in the SVG a renderer returns.
@@ -283,6 +289,25 @@ impl Options {
         self
     }
 
+    /// Sets how far a page's virtual clock may run, in milliseconds. Timers
+    /// jump to their due time instead of waiting, so this costs no real time
+    /// of its own; a timer due later never runs, and the page prints as it
+    /// stands. Default: 10,000.
+    /// [`Renderer::render_page`](crate::Renderer::render_page) only.
+    pub fn page_budget_ms(mut self, ms: u64) -> Self {
+        self.page_budget_ms = Some(ms);
+        self
+    }
+
+    /// Sets the most tasks (timers, animation frames, the steps of loading the
+    /// page) a page may run; past that it prints as it stands, and the report
+    /// says so. Default: 100,000.
+    /// [`Renderer::render_page`](crate::Renderer::render_page) only.
+    pub fn page_max_tasks(mut self, tasks: u64) -> Self {
+        self.page_max_tasks = Some(tasks);
+        self
+    }
+
     /// Sets local time's offset from UTC in minutes (540 for Japan), so dates
     /// on time axes show in that zone. From -720 to 840. Default: 0 (UTC).
     /// The host's time zone is never read.
@@ -307,6 +332,8 @@ impl fmt::Debug for Options {
             .field("utc_offset_minutes", &self.utc_offset_minutes)
             .field("text_mode", &self.text_mode)
             .field("max_islands", &self.max_islands)
+            .field("page_budget_ms", &self.page_budget_ms)
+            .field("page_max_tasks", &self.page_max_tasks)
             .finish()
     }
 }

@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! surimono render <in.html> -o <out.html> --font <file>... [options]
+//! surimono page <in.html> -o <out.html> --font <file>... [options]
 //! ```
 //!
 //! `-` reads standard input or writes standard output. Exit codes are typed;
@@ -14,15 +15,22 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
-use surimono::{Error, ErrorPolicy, Limits, Options, Renderer, TextMode};
+use surimono::{Error, ErrorPolicy, Limits, Options, PageReport, PageSettle, Renderer, TextMode};
 
 const HELP: &str = "\
 surimono: run a document's JavaScript without a browser, so browserless
-HTML-to-PDF engines can print it. In this version: chart islands.
+HTML-to-PDF engines can print it.
 
 Usage:
   surimono render <in.html> -o <out.html> --font <file>... [options]
+  surimono page <in.html> -o <out.html> --font <file>... [options]
   surimono --help | --version
+
+  render replaces chart islands and leaves the rest byte for byte. page first
+  runs the document's own scripts on a DOM until it settles, then does the same,
+  and writes the page as it stands. A script's exception doesn't fail a page: it
+  is reported on standard error. Nothing is fetched and no file is read for a
+  page: external scripts are reported as missing.
 
   <in.html> and <out.html> may be - for standard input and output.
   -o defaults to standard output.
@@ -55,6 +63,12 @@ Options:
                            default: all); empty names are ignored
   --max-islands <n>        Most islands one document may have (default 1000)
   --pool-size <n>          JavaScript runtimes kept (default: CPUs, at most 4)
+  --budget-ms <n>          page only: how far the virtual clock may run; later
+                           timers never run (default 10000)
+  --max-tasks <n>          page only: most timers and frames to run (default
+                           100000)
+
+  With page, the limits apply to the whole page, then to each island in it.
 
   The output file is written only after the render succeeded, through a
   temporary file renamed into place, so it is either complete or untouched.
@@ -66,10 +80,11 @@ Options:
 Exit codes:
   0  success
   1  an island failed (invalid marker, unknown renderer, script error, unusable
-     SVG), the document has more islands than --max-islands, or the document
-     couldn't be rewritten
+     SVG), the document has more islands than --max-islands, the document
+     couldn't be rewritten, or a page asked for something not supported yet
   2  usage error: unknown option or bad value
-  3  a script hit a limit (memory, time or stack)
+  3  a script hit a limit (memory, time or stack), or a page outgrew a limit of
+     the document (nodes, nesting, strings)
   4  invalid configuration: no font, a font or bundle that can't be used, limits
      out of range
   5  a file couldn't be read or written
@@ -110,9 +125,13 @@ impl Failure {
 
     fn from_error(e: &Error) -> Self {
         let exit = match e {
-            Error::MemoryLimit { .. } | Error::TimeLimit { .. } | Error::StackOverflow { .. } => {
-                Exit::Limit
-            }
+            Error::MemoryLimit { .. }
+            | Error::TimeLimit { .. }
+            | Error::StackOverflow { .. }
+            | Error::PageMemoryLimit
+            | Error::PageTimeLimit
+            | Error::PageStackOverflow
+            | Error::DocumentLimit(_) => Exit::Limit,
             Error::Font { .. } | Error::Bundle { .. } | Error::InvalidOptions(_) => Exit::Config,
             _ => Exit::Island,
         };
@@ -131,9 +150,13 @@ struct BundleArg {
     path: PathBuf,
 }
 
-/// The parsed `render` command.
+/// The parsed `render` or `page` command.
 #[derive(Debug, Default)]
 struct RenderArgs {
+    /// The `page` command: run the document's scripts first.
+    page: bool,
+    budget_ms: Option<u64>,
+    max_tasks: Option<u64>,
     input: Option<String>,
     output: Option<String>,
     fonts: Vec<PathBuf>,
@@ -164,13 +187,17 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
         None => return Err(Failure::usage("no command given")),
         Some(a) => a,
     };
-    match first.as_str() {
+    let page = match first.as_str() {
         "-h" | "--help" | "help" => return Ok(Command::Help),
         "-V" | "--version" => return Ok(Command::Version),
-        "render" => {}
+        "render" => false,
+        "page" => true,
         other => return Err(Failure::usage(format!("unknown command {other:?}"))),
-    }
-    let mut r = RenderArgs::default();
+    };
+    let mut r = RenderArgs {
+        page,
+        ..RenderArgs::default()
+    };
     let mut only_positional = false;
     while let Some(arg) = args.next().transpose()? {
         if only_positional || arg == "-" || !arg.starts_with('-') {
@@ -258,13 +285,15 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
             }
             "--max-islands" => r.max_islands = Some(number(&flag, &value()?)?),
             "--pool-size" => r.pool_size = Some(number(&flag, &value()?)?),
+            "--budget-ms" if page => r.budget_ms = Some(number(&flag, &value()?)?),
+            "--max-tasks" if page => r.max_tasks = Some(number(&flag, &value()?)?),
             other => return Err(Failure::usage(format!("unknown option {other:?}"))),
         }
     }
     if r.input.is_none() {
-        return Err(Failure::usage(
-            "render needs an input file (or - for stdin)",
-        ));
+        return Err(Failure::usage(format!(
+            "{first} needs an input file (or - for stdin)"
+        )));
     }
     Ok(Command::Render(Box::new(r)))
 }
@@ -328,6 +357,12 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
     if let Some(size) = args.pool_size {
         options = options.pool_size(size);
     }
+    if let Some(ms) = args.budget_ms {
+        options = options.page_budget_ms(ms);
+    }
+    if let Some(tasks) = args.max_tasks {
+        options = options.page_max_tasks(tasks);
+    }
     let input = match args.input.as_deref() {
         None | Some("-") => {
             let mut s = String::new();
@@ -339,9 +374,17 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
         Some(path) => fs::read_to_string(path).map_err(|e| Failure::io(path, &e))?,
     };
     let renderer = Renderer::new(options).map_err(|e| Failure::from_error(&e))?;
-    let output = renderer
-        .render_islands(&input)
-        .map_err(|e| Failure::from_error(&e))?;
+    let output = if args.page {
+        let page = renderer
+            .render_page(&input)
+            .map_err(|e| Failure::from_error(&e))?;
+        eprint!("{}", report_text(&page.report));
+        page.html
+    } else {
+        renderer
+            .render_islands(&input)
+            .map_err(|e| Failure::from_error(&e))?
+    };
     // Written only after the render succeeded, so a failure leaves no file.
     match args.output.as_deref() {
         None | Some("-") => {
@@ -354,6 +397,35 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
             write_atomically(Path::new(path), output.as_bytes()).map_err(|e| Failure::io(path, &e))
         }
     }
+}
+
+/// What a page's report has to say on standard error; nothing for a page that
+/// settled with nothing wrong.
+fn report_text(report: &PageReport) -> String {
+    let mut text = String::new();
+    if report.settle == PageSettle::TaskLimit {
+        text.push_str("surimono: warning: the page reached --max-tasks and may be unfinished\n");
+    }
+    for script in &report.missing_scripts {
+        text.push_str(&format!("surimono: warning: missing script {script}\n"));
+    }
+    for (count, kept, what) in [
+        (report.uncaught, &report.errors, "uncaught exception"),
+        (
+            report.unhandled_rejections,
+            &report.rejections,
+            "unhandled rejection",
+        ),
+    ] {
+        for message in kept {
+            text.push_str(&format!("surimono: warning: {what}: {message}\n"));
+        }
+        let more = count.saturating_sub(kept.len() as u64);
+        if more > 0 {
+            text.push_str(&format!("surimono: warning: {more} more of: {what}\n"));
+        }
+    }
+    text
 }
 
 /// Writes `bytes` to `path` through a temporary file in the same directory,
@@ -527,6 +599,32 @@ mod tests {
             Some(vec!["echarts".to_owned(), "mine".to_owned()])
         );
         assert_eq!((r.max_islands, r.pool_size), (Some(20), Some(2)));
+    }
+
+    #[test]
+    fn the_page_command_takes_the_same_options_and_its_own() {
+        let r = render_args(&[
+            "page",
+            "in.html",
+            "--font",
+            "a.ttf",
+            "--budget-ms",
+            "500",
+            "--max-tasks=9",
+            "--time-ms=100",
+        ]);
+        assert!(r.page);
+        assert_eq!((r.budget_ms, r.max_tasks), (Some(500), Some(9)));
+        assert_eq!(r.limits.time, Duration::from_millis(100));
+        assert!(!render_args(&["render", "in.html"]).page);
+        for bad in [
+            &["render", "a", "--budget-ms", "5"][..],
+            &["render", "a", "--max-tasks", "5"],
+            &["page"],
+            &["page", "a", "--budget-ms", "soon"],
+        ] {
+            assert!(parse(args(bad)).is_err(), "{bad:?}");
+        }
     }
 
     #[test]

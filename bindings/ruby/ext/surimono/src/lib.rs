@@ -41,6 +41,8 @@ fn renderer_new(
     utc_offset_minutes: i32,
     text: String,
     max_islands: Option<usize>,
+    page_budget_ms: Option<u64>,
+    page_max_tasks: Option<u64>,
 ) -> Result<Renderer, Error> {
     let mut options = surimono::Options::new()
         .limits(surimono::Limits {
@@ -83,6 +85,12 @@ fn renderer_new(
     if let Some(max) = max_islands {
         options = options.max_islands(max);
     }
+    if let Some(ms) = page_budget_ms {
+        options = options.page_budget_ms(ms);
+    }
+    if let Some(tasks) = page_max_tasks {
+        options = options.page_max_tasks(tasks);
+    }
     // Building compiles bundles and starts runtimes: release the GVL for it too.
     let built = ffi::without_gvl(ruby, move || surimono::Renderer::new(options))?;
     built
@@ -116,9 +124,52 @@ impl Renderer {
         }
     }
 
+    /// `[html, report]`, with the report as a Hash of plain values for
+    /// lib/surimono.rb. As [`render`](Self::render), for a page.
+    fn render_page(ruby: &Ruby, rb_self: &Self, html: RString) -> Result<RArray, Error> {
+        let html: Arc<str> = Arc::from(html.to_string()?);
+        loop {
+            let renderer = Arc::clone(&rb_self.0);
+            let doc = Arc::clone(&html);
+            let cancel = Arc::new(AtomicBool::new(false));
+            let flag = Arc::clone(&cancel);
+            let result = ffi::without_gvl_cancellable(ruby, &cancel, move || {
+                renderer.render_page_cancellable(&doc, &flag)
+            })?;
+            match result {
+                Ok(page) => {
+                    let answer = ruby.ary_new_capa(2);
+                    answer.push(ruby.str_new(&page.html))?;
+                    answer.push(page_report(ruby, &page.report)?)?;
+                    return Ok(answer);
+                }
+                // As in `render`: no exception to raise, so render again.
+                Err(surimono::Error::Cancelled) => continue,
+                Err(e) => return Err(to_ruby_error(ruby, &e)),
+            }
+        }
+    }
+
     fn renderers(&self) -> Vec<String> {
         self.0.renderers().to_vec()
     }
+}
+
+/// A page's report as a Hash.
+fn page_report(ruby: &Ruby, report: &surimono::PageReport) -> Result<RHash, Error> {
+    let hash = ruby.hash_new();
+    let key = |name: &str| ruby.to_symbol(name);
+    hash.aset(key("settle"), ruby.to_symbol(report.settle.name()))?;
+    hash.aset(key("virtual_ms"), report.virtual_ms)?;
+    hash.aset(key("tasks_run"), report.tasks_run)?;
+    hash.aset(key("timers_left"), report.timers_left)?;
+    hash.aset(key("uncaught"), report.uncaught)?;
+    hash.aset(key("errors"), report.errors.clone())?;
+    hash.aset(key("unhandled_rejections"), report.unhandled_rejections)?;
+    hash.aset(key("rejections"), report.rejections.clone())?;
+    hash.aset(key("missing_scripts"), report.missing_scripts.clone())?;
+    hash.aset(key("clean"), report.is_clean())?;
+    Ok(hash)
 }
 
 /// The Ruby exception for a surimono error: the class from lib/surimono.rb that
@@ -126,15 +177,18 @@ impl Renderer {
 fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
     use surimono::Error as E;
     let class_name = match e {
-        E::MemoryLimit { .. } => "MemoryLimitError",
-        E::TimeLimit { .. } => "TimeLimitError",
-        E::StackOverflow { .. } => "StackOverflowError",
+        E::MemoryLimit { .. } | E::PageMemoryLimit => "MemoryLimitError",
+        E::TimeLimit { .. } | E::PageTimeLimit => "TimeLimitError",
+        E::StackOverflow { .. } | E::PageStackOverflow => "StackOverflowError",
+        E::DocumentLimit(_) => "DocumentLimitError",
         E::JavaScript { .. } => "JavaScriptError",
         E::InvalidIsland { .. }
         | E::UnknownRenderer { .. }
         | E::Render { .. }
         | E::Html(_)
         | E::TooManyIslands { .. }
+        | E::Unsupported { .. }
+        | E::Page(_)
         | E::Cancelled => "RenderError",
         E::Font { .. } | E::Bundle { .. } | E::InvalidOptions(_) => "ConfigurationError",
         _ => "Error",
@@ -218,8 +272,9 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     module.define_singleton_method("precompiled_builtins", function!(precompiled_builtins, 0))?;
     module.define_singleton_method("_internal_panic_check", function!(internal_panic_check, 0))?;
     let class = module.define_class("Renderer", ruby.class_object())?;
-    class.define_singleton_method("_native_new", function!(renderer_new, 13))?;
+    class.define_singleton_method("_native_new", function!(renderer_new, 15))?;
     class.define_method("_render", method!(Renderer::render, 1))?;
+    class.define_method("_render_page", method!(Renderer::render_page, 1))?;
     class.define_method("renderers", method!(Renderer::renderers, 0))?;
     Ok(())
 }

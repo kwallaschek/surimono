@@ -3,11 +3,15 @@
 //! caller's fonts. This module converts between the facade's types and theirs,
 //! so neither crate's types appear in the public API.
 
+use surimono_core::SandboxOptions;
+use surimono_dom::DomLimits;
 use surimono_gfx::FontSet;
 use surimono_islands::{IslandError, IslandRunner, RunnerOptions, SandboxError};
 
 use crate::error::{Error, IslandRef};
 use crate::options::{Limits, Options};
+use crate::page::settle_options;
+use crate::pages::PagePoolOptions;
 
 /// The fonts from the options, in order. A font that can't be read is
 /// [`Error::Font`] with its position.
@@ -27,7 +31,7 @@ pub(crate) fn font_set(fonts: Vec<Vec<u8>>) -> Result<FontSet, Error> {
     clippy::field_reassign_with_default,
     reason = "field by field keeps compiling if the type becomes #[non_exhaustive]"
 )]
-fn core_limits(l: Limits) -> surimono_core::Limits {
+pub(crate) fn core_limits(l: Limits) -> surimono_core::Limits {
     let mut core = surimono_core::Limits::default();
     core.memory_bytes = l.memory_bytes;
     core.time = l.time;
@@ -60,6 +64,23 @@ pub(crate) fn runner(
         IslandError::InvalidOptions { message } => Error::InvalidOptions(message),
         other => Error::InvalidOptions(other.to_string()),
     })
+}
+
+/// How the renderer's page pool runs pages: the same limits, seed and clock
+/// as islands.
+pub(crate) fn page_pool_options(options: &Options) -> PagePoolOptions {
+    PagePoolOptions {
+        sandbox: SandboxOptions::default()
+            .with_limits(core_limits(options.limits))
+            .with_random_seed(options.seed)
+            .with_now_ms(options.now_ms.unwrap_or(crate::options::DEFAULT_NOW_MS))
+            .with_utc_offset_minutes(options.utc_offset_minutes),
+        settle: settle_options(options.page_budget_ms, options.page_max_tasks),
+        dom: DomLimits::default(),
+        pool_size: options
+            .pool_size
+            .unwrap_or_else(crate::options::default_pool_size),
+    }
 }
 
 /// The renderers compiled into this build, sorted: the islands crate's own

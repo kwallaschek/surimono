@@ -137,6 +137,35 @@ pub enum Error {
     /// the running island's script was stopped and the rest were skipped.
     #[error("the render was cancelled")]
     Cancelled,
+    /// A page's scripts used more memory than
+    /// [`Limits::memory_bytes`](crate::Limits::memory_bytes) allows.
+    #[error("the page's scripts exceeded the memory limit")]
+    PageMemoryLimit,
+    /// A page's scripts ran longer than [`Limits::time`](crate::Limits::time)
+    /// allows.
+    #[error("the page's scripts exceeded the time limit")]
+    PageTimeLimit,
+    /// A page's scripts recursed deeper than
+    /// [`Limits::stack_bytes`](crate::Limits::stack_bytes) allows.
+    #[error("the page's scripts exceeded the stack limit")]
+    PageStackOverflow,
+    /// The page, as written or as its scripts grew it, went over a limit of
+    /// the document itself: nodes, nesting, strings or a `style` attribute
+    /// too large to parse quickly.
+    #[error("{0}")]
+    DocumentLimit(String),
+    /// A page's script asked for something the web platform defines and
+    /// surimono doesn't do yet. It stops the page, so a script can't take a
+    /// refusal for the standard's answer.
+    #[error("{feature} is not supported yet")]
+    Unsupported {
+        /// What the script asked for.
+        feature: String,
+    },
+    /// A page couldn't be run, for a reason that isn't the page's scripts
+    /// reaching a limit.
+    #[error("the page could not be run: {0}")]
+    Page(String),
 }
 
 impl Error {
@@ -155,7 +184,13 @@ impl Error {
             | Error::InvalidOptions(_)
             | Error::Html(_)
             | Error::TooManyIslands { .. }
-            | Error::Cancelled => None,
+            | Error::Cancelled
+            | Error::PageMemoryLimit
+            | Error::PageTimeLimit
+            | Error::PageStackOverflow
+            | Error::DocumentLimit(_)
+            | Error::Unsupported { .. }
+            | Error::Page(_) => None,
         }
     }
 
@@ -165,9 +200,9 @@ impl Error {
         match self {
             Error::InvalidIsland { .. } => "invalid-island",
             Error::UnknownRenderer { .. } => "unknown-renderer",
-            Error::MemoryLimit { .. } => "memory-limit",
-            Error::TimeLimit { .. } => "time-limit",
-            Error::StackOverflow { .. } => "stack-overflow",
+            Error::MemoryLimit { .. } | Error::PageMemoryLimit => "memory-limit",
+            Error::TimeLimit { .. } | Error::PageTimeLimit => "time-limit",
+            Error::StackOverflow { .. } | Error::PageStackOverflow => "stack-overflow",
             Error::JavaScript { .. } => "javascript",
             Error::Render { .. } => "render",
             Error::Font { .. } => "font",
@@ -176,6 +211,9 @@ impl Error {
             Error::Html(_) => "html",
             Error::TooManyIslands { .. } => "too-many-islands",
             Error::Cancelled => "cancelled",
+            Error::DocumentLimit(_) => "document-limit",
+            Error::Unsupported { .. } => "unsupported",
+            Error::Page(_) => "page",
         }
     }
 }
@@ -228,6 +266,17 @@ mod tests {
         for (e, kind) in [
             (Error::TooManyIslands { max: 1000 }, "too-many-islands"),
             (Error::Cancelled, "cancelled"),
+            (Error::PageMemoryLimit, "memory-limit"),
+            (Error::PageTimeLimit, "time-limit"),
+            (Error::PageStackOverflow, "stack-overflow"),
+            (Error::DocumentLimit("x".into()), "document-limit"),
+            (
+                Error::Unsupported {
+                    feature: "x".into(),
+                },
+                "unsupported",
+            ),
+            (Error::Page("x".into()), "page"),
         ] {
             assert_eq!(e.kind(), kind);
             assert!(e.island().is_none());

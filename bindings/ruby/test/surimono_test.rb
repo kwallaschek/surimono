@@ -780,4 +780,82 @@ class SurimonoTest < Minitest::Test
     end
     assert_equal "time-limit", e.kind
   end
+
+  def page_renderer(**options)
+    Surimono::Renderer.new(fonts: FONTS, bundles: BUNDLES, **options)
+  end
+
+  def test_render_page_runs_scripts_and_reports
+    page = Surimono.render_page(<<~HTML, fonts: FONTS, bundles: BUNDLES)
+      <!doctype html><body><script>
+        document.body.dataset.sum = 40 + 2;
+        setTimeout(() => { missing(); }, 3000);
+      </script>#{island}<script src="gone.js"></script>
+    HTML
+    assert_instance_of Surimono::Page, page
+    assert page.html.start_with?("<!doctype html>"), page.html
+    assert_includes page.html, 'data-sum="42"'
+    assert_includes page.html, "<svg"
+    assert_equal Encoding::UTF_8, page.html.encoding
+    assert_equal page.html, page.to_s
+    assert_equal page.html, String.new(page)
+    assert_equal :settled, page.settle
+    assert_equal 3000, page.virtual_ms
+    assert_equal 1, page.uncaught
+    assert_match(/missing/, page.errors.first)
+    assert_equal ["gone.js"], page.missing_scripts
+    refute page.clean?
+    assert page_renderer.render_page("<p>x</p>").clean?
+  end
+
+  def test_render_page_budget_and_task_limit
+    tick = "<body><script>setInterval(() => {}, 300)</script>"
+    assert_equal :budget_reached, page_renderer(page_budget_ms: 1000).render_page(tick).settle
+    assert_equal :task_limit, page_renderer(page_max_tasks: 8).render_page(tick).settle
+    assert_raises(ArgumentError) { page_renderer(page_budget_ms: 0) }
+    assert_raises(ArgumentError) { page_renderer(page_max_tasks: "9") }
+  end
+
+  def test_render_page_same_input_same_output
+    html = "<body><script>document.body.textContent = Math.random() + ' ' + Date.now()</script>"
+    a = page_renderer(seed: 3).render_page(html)
+    assert_equal a.html, page_renderer(seed: 3).render_page(html).html
+    refute_equal a.html, page_renderer(seed: 4).render_page(html).html
+  end
+
+  def test_render_page_limits_are_typed_errors
+    renderer = page_renderer(limits: { time_ms: 100, memory_mb: 8 })
+    error = assert_raises(Surimono::TimeLimitError) { renderer.render_page("<script>for (;;) {}</script>") }
+    assert_equal "time-limit", error.kind
+    assert_nil error.island_index
+    assert_raises(Surimono::MemoryLimitError) do
+      renderer.render_page("<script>const a = []; for (;;) a.push(new Array(1e5).fill(1));</script>")
+    end
+    assert_raises(Surimono::StackOverflowError) { renderer.render_page("<script>(function f() { f(); })()</script>") }
+    assert_raises(Surimono::DocumentLimitError) { renderer.render_page("<div>" * 5000) }
+    error = assert_raises(Surimono::RenderError) { renderer.render_page("<script>document.cloneNode()</script>") }
+    assert_equal "unsupported", error.kind
+    assert renderer.render_page("<p>x</p>").clean?
+  end
+
+  def test_render_page_rejects_what_render_rejects
+    assert_raises(ArgumentError) { page_renderer.render_page(nil) }
+  end
+
+  def test_render_page_timeout_stops_it
+    renderer = page_renderer(limits: { time_ms: 60_000 })
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    assert_raises(Timeout::Error) { Timeout.timeout(0.2) { renderer.render_page("<script>for (;;) {}</script>") } }
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 10
+    assert renderer.render_page("<p>x</p>").clean?
+  end
+
+  def test_render_page_leaves_other_threads_running
+    renderer = page_renderer(limits: { time_ms: 300 })
+    ticks = 0
+    ticker = Thread.new { loop { ticks += 1; sleep 0.005 } }
+    assert_raises(Surimono::TimeLimitError) { renderer.render_page("<script>for (;;) {}</script>") }
+    ticker.kill
+    assert_operator ticks, :>, 5
+  end
 end

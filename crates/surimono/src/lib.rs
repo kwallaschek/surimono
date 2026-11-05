@@ -11,6 +11,10 @@
 //! swaps the marker for it. Everything else in the document stays byte for
 //! byte as it was.
 //!
+//! It also runs whole pages: [`Renderer::render_page`] runs a page's own
+//! scripts on a DOM with no browser, on a virtual clock, until it settles, and
+//! gives back HTML to print with what the scripts did.
+//!
 //! Cargo features, both on by default: `echarts` builds in the `echarts`
 //! renderer (Apache ECharts), and `vega` the `vega` and `vega-lite` renderers.
 //!
@@ -51,12 +55,15 @@ mod backend;
 mod charref;
 mod error;
 mod options;
+mod page;
+mod pages;
 mod prepass;
 mod renderer;
 mod svg;
 
 pub use error::{Error, IslandRef};
 pub use options::{DEFAULT_NOW_MS, Limits, Options, TextMode};
+pub use page::{Page, PageReport, PageSettle};
 pub use prepass::ErrorPolicy;
 pub use renderer::Renderer;
 

@@ -60,9 +60,16 @@ module Surimono
     end
   end
 
+  # A page outgrew a limit of the document itself (nodes, nesting, strings, a
+  # style attribute too large to parse quickly), as written or through its
+  # scripts.
+  class DocumentLimitError < Error; end
+
   # An island couldn't be rendered for another reason: a malformed marker, an
   # unknown renderer, unusable renderer output, more islands than max_islands
-  # (kind "too-many-islands"), or markup too ambiguous to rewrite.
+  # (kind "too-many-islands"), or markup too ambiguous to rewrite. Also a page
+  # that asked for something not supported yet (kind "unsupported") or that
+  # couldn't run at all (kind "page").
   class RenderError < Error; end
   # The renderer's options are invalid: a font that can't be read, a limit out
   # of range, an unknown renderer name or a bundle that can't be used.
@@ -70,6 +77,53 @@ module Surimono
   # A bug in surimono itself (kind "internal"), e.g. a Rust panic during a
   # render. The process keeps running; please report it with the message.
   class InternalError < Error; end
+
+  # A page after its scripts ran. #html (also #to_s and #to_str, so a Page goes
+  # wherever a String does) is the page as it stood when it settled. The rest
+  # says what its scripts did. A script's exception doesn't fail a page, as it
+  # doesn't in a browser, so check #clean? if a page that prints wrong matters.
+  class Page
+    # The HTML to print (UTF-8).
+    attr_reader :html
+    # :settled, :budget_reached (timers were left, due after page_budget_ms) or
+    # :task_limit (stopped at page_max_tasks, maybe part way).
+    attr_reader :settle
+    # Virtual milliseconds that passed, and tasks run.
+    attr_reader :virtual_ms, :tasks_run
+    # Timers and animation frames that never ran.
+    attr_reader :timers_left
+    # How many exceptions nothing caught, and the first few messages.
+    attr_reader :uncaught, :errors
+    # How many promises rejected with no handler, and the first few reasons.
+    attr_reader :unhandled_rejections, :rejections
+    # The src of each external script that couldn't be had.
+    attr_reader :missing_scripts
+
+    def initialize(html, report)
+      @html = html
+      @settle = report.fetch(:settle).to_s.tr("-", "_").to_sym
+      @virtual_ms = report.fetch(:virtual_ms)
+      @tasks_run = report.fetch(:tasks_run)
+      @timers_left = report.fetch(:timers_left)
+      @uncaught = report.fetch(:uncaught)
+      @errors = report.fetch(:errors)
+      @unhandled_rejections = report.fetch(:unhandled_rejections)
+      @rejections = report.fetch(:rejections)
+      @missing_scripts = report.fetch(:missing_scripts)
+      @clean = report.fetch(:clean)
+    end
+
+    # Whether nothing went wrong: no exception, no rejected promise, every
+    # script found, and the page wasn't stopped at the task limit.
+    def clean?
+      @clean
+    end
+
+    def to_s
+      @html
+    end
+    alias to_str to_s
+  end
 
   # Renders a document's islands. Build one per configuration and reuse it: it
   # keeps JavaScript runtimes with the renderers compiled, and it is safe to
@@ -121,6 +175,10 @@ module Surimono
     #                (fulgur 0.40 doesn't).
     # pool_size::    JavaScript runtimes (threads) kept for concurrent renders
     #                (default: CPU count, at most 4; at most 64).
+    # page_budget_ms:: render_page only: how far a page's virtual clock may run;
+    #                later timers never run (default 10000).
+    # page_max_tasks:: render_page only: most timers and frames a page may run
+    #                (default 100000).
     #
     # A Renderer survives fork: built before Puma's preload_app! (or
     # fork_worker), Unicorn or Resque forks, it starts its runtimes and text
@@ -144,7 +202,8 @@ module Surimono
     # rejects (a limit out of range, an unknown renderer name, a font or
     # bundle that can't be used) raise ConfigurationError.
     def self.new(fonts: [], limits: {}, seed: 0, error_policy: :fail, renderers: nil, bundles: {}, pool_size: nil,
-                 now: nil, utc_offset_minutes: 0, text: :outlines, max_islands: nil)
+                 now: nil, utc_offset_minutes: 0, text: :outlines, max_islands: nil,
+                 page_budget_ms: nil, page_max_tasks: nil)
       lim = normalize_limits(limits)
       _native_new(
         Array(fonts).map { |f| font_data(f) },
@@ -159,7 +218,9 @@ module Surimono
         normalize_now(now),
         normalize_offset(utc_offset_minutes),
         normalize_text(text),
-        max_islands && positive_integer(max_islands, "max_islands")
+        max_islands && positive_integer(max_islands, "max_islands"),
+        page_budget_ms && positive_integer(page_budget_ms, "page_budget_ms"),
+        page_max_tasks && positive_integer(page_max_tasks, "page_max_tasks")
       )
     end
 
@@ -180,6 +241,29 @@ module Surimono
       return _render(html) unless SIGNAL_PUMP && Thread.current.equal?(Thread.main) && Thread.list.size > 1
 
       with_signal_pump { _render(html) }
+    end
+
+    # Runs html as a page: its own scripts run on a DOM with no browser until it
+    # settles, on a virtual clock (timers fire at once, with Date moved on;
+    # Math.random starts from seed and Date from now, so same input, same
+    # output), then its islands render, those its scripts wrote included.
+    # Returns a Surimono::Page. Nothing is fetched: an external script is
+    # reported in Page#missing_scripts.
+    #
+    # limits apply to the whole page, then to each island in it. Raises
+    # TimeLimitError, MemoryLimitError or StackOverflowError (with no island) or
+    # DocumentLimitError past a limit, and the usual errors for its islands.
+    # Interrupts stop the running script, as for render. Takes html as render
+    # does.
+    def render_page(html)
+      raise ArgumentError, "html must be a String, got #{html.class}" unless html.respond_to?(:to_str)
+
+      html = Renderer.send(:utf8, html.to_str)
+      Page.new(*if SIGNAL_PUMP && Thread.current.equal?(Thread.main) && Thread.list.size > 1
+                  with_signal_pump { _render_page(html) }
+                else
+                  _render_page(html)
+                end)
     end
 
     # Ruby 3.2 passes a signal on to a render on the main thread only through
@@ -236,7 +320,7 @@ module Surimono
       end
     end
 
-    private :_render, :with_signal_pump
+    private :_render, :_render_page, :with_signal_pump
 
     class << self
       private
@@ -385,6 +469,16 @@ module Surimono
     # font data, build a Renderer once and keep it.
     def render(html, **options)
       renderer_for(options).render(html)
+    end
+
+    # Runs html as a page (see Renderer#render_page) with a renderer for these
+    # options, kept as for Surimono.render. Returns a Surimono::Page.
+    #
+    #   page = Surimono.render_page(html, fonts: ["fonts/NotoSans-Regular.ttf"])
+    #   Rails.logger.warn(page.errors.join("\n")) unless page.clean?
+    #   pdf = Fulgur::Engine.new.render_html(page.html)
+    def render_page(html, **options)
+      renderer_for(options).render_page(html)
     end
 
     private

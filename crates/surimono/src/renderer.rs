@@ -10,6 +10,8 @@ use surimono_islands::{IslandRequest, IslandRunner};
 use crate::Options;
 use crate::backend;
 use crate::error::Error;
+use crate::page::Page;
+use crate::pages::PagePool;
 use crate::prepass::{self, Document, ErrorPolicy};
 use crate::svg::SanitizedSvg;
 
@@ -99,11 +101,13 @@ fn this_generation() -> Result<u64, Error> {
     surimono_core::fork_generation().map_err(|e| Error::InvalidOptions(e.to_string()))
 }
 
-/// One process's runner and measurer.
+/// One process's runner, measurer and page workers.
 struct Local {
     /// Measures text for renderers and outlines it in their SVG.
     measurer: TextMeasurer,
     runner: IslandRunner,
+    /// Runs pages; holds no thread until the first one.
+    pages: PagePool,
 }
 
 /// Process state given up on in this process; see [`abandon`].
@@ -156,6 +160,9 @@ fn last_claimed(slots: &[Slot]) -> usize {
 /// Most islands one document may have by default; see [`Options::max_islands`].
 pub(crate) const DEFAULT_MAX_ISLANDS: usize = 1000;
 
+/// Largest [`Options::page_budget_ms`]: what a JavaScript number holds exactly.
+const MAX_PAGE_BUDGET_MS: u64 = (1 << 53) - 1;
+
 impl Renderer {
     /// Builds a renderer: loads the fonts, checks the limits, starts the
     /// runtime pool and compiles your bundles. Built-in renderers compile on
@@ -166,7 +173,8 @@ impl Renderer {
     /// [`Error::Font`] for a font file that can't be read,
     /// [`Error::InvalidOptions`] for no fonts, limits out of range (including a
     /// zero time limit), a pool size or `max_islands` of 0 or an unknown name
-    /// in [`Options::renderers`], and [`Error::Bundle`] for a bundle that can't
+    /// in [`Options::renderers`] or a [`Options::page_budget_ms`] over 2^53 - 1,
+    /// and [`Error::Bundle`] for a bundle that can't
     /// be used.
     pub fn new(mut options: Options) -> Result<Self, Error> {
         if options.limits.time.is_zero() {
@@ -181,6 +189,14 @@ impl Renderer {
             return Err(Error::InvalidOptions(
                 "max_islands must be at least 1".into(),
             ));
+        }
+        if options
+            .page_budget_ms
+            .is_some_and(|ms| ms > MAX_PAGE_BUDGET_MS)
+        {
+            return Err(Error::InvalidOptions(format!(
+                "page_budget_ms must be at most {MAX_PAGE_BUDGET_MS}"
+            )));
         }
         if options.fonts.is_empty() {
             return Err(Error::InvalidOptions(
@@ -370,6 +386,62 @@ impl Renderer {
         self.render(html, Some(cancel))
     }
 
+    /// Runs `html` as a page: its own scripts run on a DOM until it settles,
+    /// then its islands render, and the result is HTML any PDF engine can
+    /// print, with a report of what the scripts did.
+    ///
+    /// Classic scripts run in order, inline or external, then `DOMContentLoaded`
+    /// and `load`, then timers, animation frames and microtasks, on a virtual
+    /// clock: a `setTimeout(f, 3000)` runs at once, with the clock at 3,000 ms.
+    /// The page has settled when nothing is due within
+    /// [`Options::page_budget_ms`], or after [`Options::page_max_tasks`].
+    /// `Math.random` starts from [`Options::seed`] and `Date` from
+    /// [`Options::now_ms`], so the same renderer, options and input always give
+    /// the same bytes. Modules don't run, and a script a script inserts doesn't
+    /// run yet. Nothing is fetched: an external script is reported in
+    /// [`PageReport::missing_scripts`](crate::PageReport::missing_scripts).
+    ///
+    /// Island markers in the page when it settles render as in
+    /// [`render_islands`](Self::render_islands), including those its scripts
+    /// wrote. [`Limits`](crate::Limits) apply to the page as a whole, and
+    /// again to each island.
+    ///
+    /// The result is the page's tree serialized, not the input with changes,
+    /// so it isn't byte for byte what you wrote where nothing changed. It
+    /// starts with the input's doctype, if it had one.
+    ///
+    /// # Errors
+    ///
+    /// A script's exception doesn't fail the page; it goes in the report.
+    /// [`Error::PageMemoryLimit`], [`Error::PageTimeLimit`] and
+    /// [`Error::PageStackOverflow`] if the scripts hit a limit,
+    /// [`Error::DocumentLimit`] if the document outgrows what surimono holds
+    /// for it, [`Error::Unsupported`] if a script asks for what isn't done yet,
+    /// [`Error::Page`] if the page can't run at all, and any error of
+    /// [`render_islands`](Self::render_islands) from its islands.
+    pub fn render_page(&self, html: &str) -> Result<Page, Error> {
+        self.page(html, None)
+    }
+
+    /// [`render_page`](Self::render_page) that stops early once `cancel` is
+    /// true, with [`Error::Cancelled`]; as
+    /// [`render_islands_cancellable`](Self::render_islands_cancellable).
+    ///
+    /// # Errors
+    ///
+    /// As [`render_page`](Self::render_page), plus [`Error::Cancelled`].
+    pub fn render_page_cancellable(&self, html: &str, cancel: &AtomicBool) -> Result<Page, Error> {
+        self.page(html, Some(cancel))
+    }
+
+    fn page(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<Page, Error> {
+        let ran = self.local()?.pages.run(html, cancel)?;
+        Ok(Page {
+            html: self.render(&ran.html, cancel)?,
+            report: ran.report,
+        })
+    }
+
     fn render(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<String, Error> {
         let document = Document {
             policy: self.policy,
@@ -442,7 +514,12 @@ fn start_local(options: &Options, fonts: &FontSet) -> Result<Local, Error> {
                 },
             })?;
     }
-    Ok(Local { measurer, runner })
+    let pages = PagePool::new(backend::page_pool_options(options));
+    Ok(Local {
+        measurer,
+        runner,
+        pages,
+    })
 }
 
 #[cfg(test)]
@@ -715,6 +792,7 @@ mod tests {
             Renderer::new(options().pool_size(65)),
             Renderer::new(options().utc_offset_minutes(15 * 60)),
             Renderer::new(options().now_ms(i64::MAX)),
+            Renderer::new(options().page_budget_ms(1 << 53)),
         ] {
             assert!(matches!(r, Err(Error::InvalidOptions(_))), "{r:?}");
         }
