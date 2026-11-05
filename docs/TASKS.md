@@ -173,7 +173,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P2-PKG-01 · PKG · todo · CI job building wpt/runner and publishing wpt-results.json; renderer.rs:328 doc says up to twice the time limit per bundle from source and forked first renders; surimono.rb first-load caveat
 - P2-RT-04 · RT · done (#126) · Proxy ownKeys duplicate check quadratic and unpolled: sorted copy, engine patch level 8
 - P2-RT-05 · RT · doing (#127 blocked) · Unhandled rejections reported; a limit error inside a promise ends the call typed (needed by #104)
-- P2-DOM-02 · DOM · review (#128 approved) · Deterministic normalize test, selector weight, frameset document.body
+- P2-DOM-02 · DOM · done (#128) · Deterministic normalize test, selector weight, frameset document.body
 - P2-DX-02 · DX · todo · README, guides and CHANGELOG on main say nothing is released yet (no gem on RubyGems, Kay 5 Nov); install from a clone until v0.3
 - P2-RT-03 · RT · done (#125) · The QuickJS parser never polls the time limit: a 60 MiB source with a 50 ms limit took 8.8 s before TimeLimit (#124 probe). Test eval(hugeString) and page scripts; add parser polls in the vendored engine or a source-size cap in the sandbox
 - P2-CF-02 · CF · todo · COMPAT requests from the DOM stack (reports for #94 #96 #97 #104 #105): cloneNode(document), surrogate offsets, selector gaps and caps, style validity, nomodule, window.event, isTrusted, listeners' microtask checkpoint, on* gaps, unhandledrejection, ErrorEvent fields; spec-vs-Chrome row on important-declaration order; dom/events denominator 748 vs 848; vendor.py .xml gap; wpt/README notes (#123 review)
