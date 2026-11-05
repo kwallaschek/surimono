@@ -6,6 +6,8 @@
 //! (the GVL really is released), `test_interrupted_renders_raise_and_free_memory`
 //! and `test_interrupt_around_renderer_new` (an interrupt never jumps over Rust
 //! frames), `test_timeout_cancels_the_rest_of_the_document`,
+//! `test_timeout_stops_the_running_island`,
+//! `test_kill_stops_the_running_island`,
 //! `test_signal_cancels_the_rest_of_the_document` and
 //! `test_wakeup_renders_again` (the unblock function), `test_fonts_from_paths_and_data`
 //! (byte copies), and the error tests (errors come back through the GVL
@@ -73,8 +75,9 @@ where
 /// lock, on whichever thread took the signal (possibly one of the runner's
 /// workers), which could race with the call returning and the flag going
 /// away. Without it Ruby only calls it from `rb_threadptr_interrupt`, under
-/// that lock (signals reach it through the timer thread, or on Ruby 3.2 a
-/// helper thread for a single-threaded main thread).
+/// that lock (signals reach it through the timer thread; on Ruby 3.2, through
+/// Ruby's helper thread for a single-threaded main thread, or the gem's
+/// `surimono-signal-pump` in lib/surimono.rb when other threads exist).
 unsafe extern "C" fn unblock(data: *mut c_void) {
     // SAFETY: `data` is the `&AtomicBool` given to `nogvl`, which outlives
     // the rb_thread_call_without_gvl call. Ruby calls the unblock function

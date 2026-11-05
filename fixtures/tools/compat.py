@@ -67,6 +67,8 @@ class CompatError(Exception):
     """Results that can't be reported honestly (duplicates, bad files)."""
 BEGIN = "<!-- hand-written: begin -->"
 END = "<!-- hand-written: end -->"
+# docs/SPEC.md, Memory: Grover's peak over surimono's, summed PSS.
+MEMORY_TARGET = 5
 
 DEFAULT_HAND_WRITTEN = """## Known gaps
 
@@ -628,6 +630,54 @@ def wpt_section(results_file: Path | None) -> list[str]:
     return lines
 
 
+def peak_pss(results: dict, key: str):
+    """A system's median cold peak (summed PSS), or None if it wasn't measured."""
+    r = results.get(key)
+    if not isinstance(r, dict) or r.get("status") != "measured":
+        return None
+    peak = r.get("summary", {}).get("cold_peak_pss_mb")
+    median = peak.get("median") if isinstance(peak, dict) else None
+    return median if isinstance(median, (int, float)) and median > 0 else None
+
+
+def memory_ratios(results: dict, chrome_key: str) -> list[str]:
+    """"5.8× Ruby"-style ratios of Chrome's peak over each measured system."""
+    chrome = peak_pss(results, chrome_key)
+    if chrome is None:
+        return []
+    systems = (("surimono-ruby", "Ruby"), ("surimono-rust", "Rust"))
+    return [f"{chrome / peak_pss(results, k):.1f}× {label}" for k, label in systems if peak_pss(results, k)]
+
+
+def memory_note(results: dict) -> list[str]:
+    """The memory target and how the run stands against it, from the run's own peaks."""
+    grover = memory_ratios(results, "grover")
+    if not grover:
+        return []
+    text = (
+        f"Memory target (`docs/SPEC.md`): at least {MEMORY_TARGET}× lower peak (summed PSS) than Grover, set by Kay at checkpoint 2 "
+        f"(4 Nov 2026, down from 10×). Measured, cold: {' and '.join(grover)}."
+    )
+    fulgur = peak_pss(results, "fulgur-prerendered")
+    if fulgur:
+        text += (
+            f" fulgur alone, with no JavaScript, reaches {peak_pss(results, 'grover') / fulgur:.1f}×, "
+            "which is why the target isn't higher: it is expected to bound surimono's ratio, not a proven bound."
+        )
+    shell = memory_ratios(results, "grover-shell")
+    if shell:
+        text += f" Against Grover on chrome-headless-shell, the leanest Chrome it can run: {' and '.join(shell)}."
+    return [text, ""]
+
+
+def summary_of(bench_file: Path) -> str:
+    """Where a reader finds the run's summary.md: its path when it is committed."""
+    summary = bench_file.resolve().parent / "summary.md"
+    if summary.is_relative_to(ROOT) and summary.exists():
+        return f"`{summary.relative_to(ROOT).as_posix()}`"
+    return "that run's summary.md"
+
+
 def bench_section(bench_file: Path | None) -> list[str]:
     lines = ["### Speed and memory against Grover", ""]
     if not bench_file:
@@ -639,7 +689,7 @@ def bench_section(bench_file: Path | None) -> list[str]:
     lines.append(
         f"From `bench/run.sh` on {'GitHub Actions' if m.get('ci') else 'a local machine'}, commit {v.get('surimono_commit', '?')[:9]}, "
         f"{data.get('method', {}).get('runs', '?')} runs; Chromium {v.get('chromium', '?')}, grover {v.get('grover', '?')}, fulgur {v.get('fulgur_gem', '?')}. "
-        "Medians; peak memory is summed PSS over the process tree. The full table is in that run's summary.md."
+        f"Medians; peak memory is summed PSS over the process tree. The full table is in {summary_of(bench_file)}."
     )
     lines += ["", "| System | Cold | Warm | Peak memory, cold | Status |", "|---|---|---|---|---|"]
     for key, r in res.items():
@@ -655,7 +705,7 @@ def bench_section(bench_file: Path | None) -> list[str]:
         fmt = lambda x, u: f"{x:,.0f} {u}" if isinstance(x, (int, float)) else "—"  # noqa: E731
         lines.append(f"| {r.get('label', key)} | {fmt(cold, 'ms')} | {fmt(warm, 'ms')} | {fmt(mem, 'MB')} | {note} |")
     lines.append("")
-    return lines
+    return lines + memory_note(res)
 
 
 # ---------------------------------------------------------------- document

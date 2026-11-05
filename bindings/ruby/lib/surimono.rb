@@ -124,14 +124,20 @@ module Surimono
     #
     # A Renderer survives fork: built before Puma's preload_app! (or
     # fork_worker), Unicorn or Resque forks, it starts its runtimes and text
-    # measurer again in each child on first use.
+    # measurer and compiles your bundles again in each child on first use.
     #
     # Interrupts (Timeout.timeout, Rack::Timeout, Thread#raise, Thread#kill,
-    # SIGTERM) stop a render before its next island and raise as usual; the
-    # island already running ends within its own time_ms. On Ruby 3.2, a
-    # render on the main thread while other threads exist runs a sleeping
-    # helper thread, "surimono-signal-pump", for its length, so that signals
-    # reach it; Ruby 3.3 and later need none.
+    # SIGTERM) stop a render, its running island included, and raise as usual.
+    # On Ruby 3.2, a render on the main thread while other threads exist runs a
+    # sleeping helper thread, "surimono-signal-pump", for its length, so that
+    # signals reach it; Ruby 3.3 and later need none.
+    #
+    # An interrupt doesn't stop a bundle while it loads; it takes effect right
+    # after, so that render can outlast your timeout. This matters on the first
+    # render in a forked child, which compiles every bundle: each can take
+    # twice time_ms (a compile, then a check run), and one too large to compile
+    # within time_ms takes as long as its size needs before it fails. The
+    # built-in renderers are precompiled and load quickly.
     #
     # Bad argument types or values raise ArgumentError; a font path that
     # can't be read raises the usual Errno error; options the native side
@@ -190,15 +196,31 @@ module Surimono
     # Runs the block with the signal pump. The pump only sleeps; it stops on its
     # own once `done` is set, so even an interrupt that lands between
     # Thread.new and the assignment can't leave it running, and the ensure
-    # wakes and joins it so it never outlives the render.
+    # wakes and joins it so it never outlives the render. It is a convenience:
+    # an exception raised into it is dropped (pump.join would raise it out of
+    # render, after the whole document), and with no thread to be had the
+    # render goes ahead without it, so signals wait as they would on any
+    # blocking C call.
     def with_signal_pump
       done = false
       pump = nil
       begin
-        pump = Thread.new do
-          Thread.current.name = "surimono-signal-pump"
-          Thread.current.report_on_exception = false
-          sleep SIGNAL_PUMP_INTERVAL until done
+        begin
+          pump = Thread.new do
+            begin
+              sleep SIGNAL_PUMP_INTERVAL until done
+            rescue Exception # rubocop:disable Lint/RescueException
+              retry # Thread#raise from outside; Thread#kill can't be rescued
+            end
+          end
+        rescue ThreadError
+          pump = nil # a thread limit, or a frozen ThreadGroup
+        end
+        if pump
+          # From here, not from its block: Ruby runs a new thread only once
+          # this one lets it, so it never shows up unnamed.
+          pump.name = "surimono-signal-pump"
+          pump.report_on_exception = false
         end
         yield
       ensure

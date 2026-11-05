@@ -5,14 +5,15 @@ engines can print it.
 
 surimono is a Rust library, a Ruby gem and a command-line tool. It runs the scripts a document needs in
 a sandboxed QuickJS runtime and returns HTML that an engine such as
-[fulgur](https://github.com/fulgur-rs/fulgur) can print. Version 0.1 does this
-for charts: it finds chart *islands* in your HTML, draws them as SVG with
+[fulgur](https://github.com/fulgur-rs/fulgur) can print. Today it does this for
+charts: it finds chart *islands* in your HTML, draws them as SVG with
 ECharts or Vega, and inlines the SVG.
 
-> **Status:** v0.1, the first release, comes as the `surimono` Ruby gem and
-> as a command-line tool you build from source. The Rust crates aren't on
-> crates.io yet; Rust projects can use them from this repository (see
-> [Install](#install)).
+> **Status:** not released. There is no gem on RubyGems and no crate on
+> crates.io, so `gem install surimono` doesn't work, and the first release is
+> planned for v0.3. Until then, use the gem, the crates and the command-line
+> tool from a clone of this repository (see [Install](#install)). This README
+> describes what `main` does today.
 
 ## Why
 
@@ -23,10 +24,31 @@ Chrome's memory use and start-up time. surimono runs only the JavaScript the
 document needs, without a browser, and then gets out of the way.
 
 <!-- bench: grover-vs-surimono -->
-_Time and peak memory against Grover, cold and warm, will be shown here once the
-benchmark in `bench/` has results. Until then this README gives no numbers._
+Median time and peak memory per document for a six-page report with six charts,
+cold (a new process) and warm (a long-lived process):
 
-## What v0.1 does
+| | Grover (Chrome) | Grover (chrome-headless-shell) | surimono + fulgur, Ruby | surimono + fulgur, Rust |
+|---|---|---|---|---|
+| Time, cold | 1,698 ms | 1,284 ms | 694 ms | 570 ms |
+| Time, warm | 1,268 ms | 1,009 ms | 538 ms | 538 ms |
+| Peak memory, cold | 589 MB | 383 MB | 101 MB | 74 MB |
+| Peak memory, warm | 712 MB | 494 MB | 128 MB | 87 MB |
+
+In the ratios here, cold comes first. Against Grover on Chrome, that is 2.4× and
+2.4× faster in Ruby (Rust: 3.0× and 2.4×), with 5.8× and 5.6× lower peak memory
+(Rust: 8.0× and 8.2×). The project's targets are at least 2× and 5×. The gap to
+chrome-headless-shell, the leanest Chrome a Grover user can run, is smaller:
+1.8× and 1.9× faster with 3.8× and 3.8× lower peak memory in Ruby, below both
+targets, and 2.3× and 1.9× with 5.2× and 5.7× in Rust.
+
+Peak memory is PSS summed over the process tree. These numbers are one run on
+GitHub Actions, at commit `15b530e0`, and times vary from run to run
+with the machine. The report is shaped around fulgur 0.40's layout gaps, so it
+is not a typical Rails template. See the [full results](bench/results/15b530e0/summary.md),
+whose memory verdicts use the earlier 10× target, and the
+[method](bench/README.md).
+
+## What it does today
 
 - **Islands.** It replaces each
   `<script type="application/vnd.surimono+json" data-renderer="…">` marker in
@@ -50,8 +72,8 @@ benchmark in `bench/` has results. Until then this README gives no numbers._
 
 ## What it is not
 
-- **Not a browser.** v0.1 runs island renderers only. The page's own `<script>`
-  elements pass through untouched and are not run.
+- **Not a browser.** Today it runs island renderers only. The page's own
+  `<script>` elements pass through untouched and are not run.
 - **Not for websites.** It doesn't fetch pages, styles, images or data, and it
   has no network access.
 - **Not a PDF engine.** Pair it with fulgur or any engine that prints HTML with
@@ -59,21 +81,38 @@ benchmark in `bench/` has results. Until then this README gives no numbers._
 
 ## Install
 
-**Ruby** (CRuby 3.2 to 4.0), from RubyGems:
+Nothing is released yet, so everything here installs from this repository. The
+first release is planned for v0.3.
+
+**Ruby** (CRuby 3.2 to 4.0): there is no gem on RubyGems, so
+`gem install surimono` doesn't work. Build the gem from a clone instead. That
+needs Rust 1.89 or later, a C compiler and libclang (rb-sys generates its Ruby
+bindings with bindgen).
+
+```sh
+git clone https://github.com/kwallaschek/surimono
+cd surimono/bindings/ruby
+bundle install
+bundle exec rake compile   # builds the extension; expect several minutes
+```
+
+Then point your app's Gemfile at the clone:
 
 ```ruby
 # Gemfile
-gem "surimono"
+gem "surimono", path: "/path/to/surimono/bindings/ruby"
 gem "fulgur"   # or another browserless PDF engine
 ```
 
-or `gem install surimono` outside Bundler. Precompiled gems cover x86_64 and
-aarch64 Linux (glibc) and x86_64 and arm64 macOS. On other platforms the gem
-builds from source and needs Rust 1.87 or later, a C compiler and libclang
-(rb-sys generates its Ruby bindings with bindgen). fulgur's gem 0.40.0
-supports Ruby 3.1 to 3.4, so the pair runs on Ruby 3.2 to 3.4 today.
+Bundler doesn't compile a gem from `path:`, so run `rake compile` first, and
+again after you pull. fulgur's gem 0.40.0 supports Ruby 3.1 to 3.4, so the pair
+runs on Ruby 3.2 to 3.4 today.
 
-**Rust** (1.87 or later; a C compiler builds QuickJS):
+*Planned for the first release, not available today:* `gem "surimono"` from
+RubyGems, with precompiled gems for x86_64 and aarch64 Linux (glibc) and x86_64
+and arm64 macOS.
+
+**Rust** (1.89 or later; a C compiler builds QuickJS):
 
 The Rust crates aren't on crates.io yet. surimono needs a patched QuickJS, and
 a crates.io release can't carry the patch until the fixes are upstream or
@@ -92,17 +131,13 @@ rquickjs-sys = { git = "https://github.com/kwallaschek/surimono", branch = "main
 Without the `[patch.crates-io]` entry the build fails at link time with
 `undefined reference to surimono_quickjs_patch_level`. Cargo finds
 `rquickjs-sys` in the repository's `vendor/` folder. Keep both entries on the
-same branch or `rev` so they come from one commit. On Rust 1.87, put
-`edition = "2024"` and `rust-version = "1.87"` in your package so that Cargo
-picks dependency versions that build on 1.87; some current releases need 1.88.
+same branch or `rev` so they come from one commit.
 
 ECharts and Vega are Cargo features, both on by default: `echarts` adds the
 `echarts` renderer, `vega` adds `vega` and `vega-lite`. To leave Vega out, add
 `default-features = false, features = ["echarts"]` to the `surimono` line.
-fulgur 0.40 depends on krilla 0.7, which needs Rust 1.89, so a project that
-uses both needs 1.89.
 
-**Command line:** build it from a clone of the repository, with Rust 1.87 or
+**Command line:** build it from a clone of the repository, with Rust 1.89 or
 later and a C compiler, as for the crates.
 
 ```sh
@@ -256,9 +291,13 @@ N × the time limit. Two things bound a whole document:
   `too-many-islands` before any island runs.
 - **Cancellation.** In Ruby, `Timeout.timeout`, `Rack::Timeout`,
   `Thread#raise` or a signal handler that raises in the rendering thread stops
-  a render before its next island. In Rust,
+  a render, its running island included. In Rust,
   `Renderer::render_islands_cancellable` takes an `AtomicBool` to the same
-  effect. An island already running ends within its own time limit.
+  effect. Loading a bundle is the exception: it isn't interrupted, and a cancel
+  takes effect when it ends. Precompiled built-ins load in place. A built-in
+  compiled from source on first use, or your own bundle compiled at a forked
+  process's first render, can take up to twice the time limit (one limit to
+  compile, one to run it once), plus any wait for a free runtime.
 
 The SVG that comes back is cleaned before it is inlined: no `<script>`, event
 handlers, style sheets, `<foreignObject>`, animation or external URLs, and
@@ -304,10 +343,10 @@ Pass the same font files to surimono and to your PDF engine.
   order you passed them, for example Japanese after a Latin font. List fonts
   explicitly rather than with a glob.
 
-## Limits of v0.1
+## Current limits
 
 - **Page scripts don't run.** Only islands do. Running the page's own scripts on
-  a real DOM is planned for v0.2.
+  a real DOM is planned for v0.3.
 - **Scripts can't measure layout.** `getBoundingClientRect` and friends are
   planned for v0.3. Documents that need them still need Chrome for now.
 - **Specs are JSON.** You can't pass JavaScript functions, such as an ECharts
@@ -330,12 +369,13 @@ Pass the same font files to surimono and to your PDF engine.
   heatmap images) aren't supported.
 - **Dense charts are slow.** A chart with thousands of marks can take more than
   a second in QuickJS and may need a time limit above the default 2 s.
-- **QuickJS is not V8.** Heavy charts run slower than in Chrome. The benchmark
-  will show by how much.
-- **Mermaid is not included in v0.1.**
-- **Platforms.** No Windows or musl gems yet.
-- **Rust crates come from the repository.** They aren't on crates.io yet; see
-  [Install](#install).
+- **QuickJS is not V8.** Heavy charts run slower than in Chrome. The
+  [benchmark](#why) times whole documents, so it doesn't show by how much.
+- **Mermaid is not included.**
+- **Platforms.** CI covers Linux (glibc) and macOS; there is no Windows or musl
+  support yet.
+- **Everything comes from the repository.** Nothing is on RubyGems or crates.io
+  yet; see [Install](#install).
 
 ## Compatibility
 
@@ -345,11 +385,13 @@ hidden.
 
 ## Roadmap
 
-| Version | Adds |
-|---|---|
-| 0.1 | Chart islands (this release) |
-| 0.2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock |
-| 0.3 | Layout queries answered from the same layout the PDF is printed from; Canvas2D as vectors |
+v0.3 is planned as the first release and will carry all three phases.
+
+| Phase | Adds | State |
+|---|---|---|
+| 1 | Chart islands | On `main`; the `v0.1.0` tag marks it, but it was not released |
+| 2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock | In progress |
+| 3 | Layout queries answered from the same layout the PDF is printed from; Canvas2D as vectors | Planned |
 
 ## Licence
 

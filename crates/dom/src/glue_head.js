@@ -1,7 +1,8 @@
 // The JavaScript half of the DOM bindings: this head, the generated
 // generated/bindings.js and glue_tail.js make one function. It is called
 // once per context, before any page script runs, with the native functions;
-// it returns nothing and leaves no way to reach them.
+// it returns the function that queues a page's lifecycle, kept by Rust, and
+// leaves scripts no way to reach any of them.
 //
 // A wrapper is an ordinary object carrying a state record { g, h, m } in a
 // private class field (#s), stamped on by `Brand`: g is the document's
@@ -24,10 +25,12 @@
   const current = n.current, root = n.currentRoot, stale = n.stale;
   const report = n.report, throwDom = n.throwDom;
   const G = globalThis;
-  // Scheduled before any script can replace them. The prelude's timers.
-  const setTimeoutReal = G.setTimeout;
+  // The prelude's, before any script can replace them; glue_tail.js puts
+  // its own in their place.
+  const setTimeoutReal = G.setTimeout, setIntervalReal = G.setInterval;
+  const clearTimeoutReal = G.clearTimeout;
+  const requestFrameReal = G.requestAnimationFrame;
   const queueMicrotaskReal = G.queueMicrotask;
-  const schedule = (f, ms) => setTimeoutReal(f, ms);
   const performanceNow = G.performance === undefined ? undefined : G.performance.now;
   const performanceObject = G.performance;
   const now = () => (performanceNow === undefined ? 0 : apply(performanceNow, performanceObject, []));
@@ -38,7 +41,7 @@
   const rget = Reflect.get, rset = Reflect.set, rhas = Reflect.has, rdelete = Reflect.deleteProperty;
   const rownKeys = Reflect.ownKeys, rdefine = Reflect.defineProperty;
   const rdescriptor = Reflect.getOwnPropertyDescriptor;
-  const ProxyCtor = Proxy;
+  const ProxyCtor = Proxy, FunctionCtor = Function;
   const indexOf = String.prototype.indexOf, slice = String.prototype.slice;
   const arrayProto = Array.prototype;
   const arrayForEach = arrayProto.forEach, arrayKeys = arrayProto.keys;
@@ -90,10 +93,11 @@
     return w;
   }
 
-  // The record of `this` for a member of interface `id`. An undefined `this`
-  // is the global object (WebIDL §3.7.6), for `addEventListener(...)`.
+  // The record of `this` for a member of interface `id`. An undefined or
+  // null `this` is the global object (WebIDL §3.7.6), for
+  // `addEventListener(...)`.
   function self(o, id) {
-    const s = stateOf(o === undefined ? G : o);
+    const s = stateOf(o === undefined || o === null ? G : o);
     if (s === null || (s.m & (1 << id)) === 0) throw new TE('Illegal invocation');
     return s;
   }
@@ -130,12 +134,13 @@
     return apply(call, undefined, l);
   }
 
-  // Splits a newline-joined list into a real array, without its setters:
-  // names can't contain a newline. `defineProperty` with a null-prototype
-  // descriptor reads nothing a script can have changed.
+  // Splits a newline-joined list, or one with a newline after every name
+  // (where a name may be empty), without an array's setters: names can't
+  // contain a newline. `defineProperty` with a null-prototype descriptor
+  // reads nothing a script can have changed.
   function nameList(joined, each) {
     let at = 0;
-    while (at <= joined.length && joined.length > 0) {
+    while (at < joined.length) {
       let end = apply(indexOf, joined, ['\n', at]);
       if (end < 0) end = joined.length;
       each(apply(slice, joined, [at, end]));
@@ -164,7 +169,9 @@
 
   // `(boolean or ImportNodeOptions)`.
   function deepFlag(x) {
-    if (typeof x === 'object' && x !== null) return !x.selfOnly;
+    // null isn't a boolean, so it is an empty dictionary: deep.
+    if (x === null) return true;
+    if (isObject(x)) return !x.selfOnly;
     return !!x;
   }
 
@@ -217,6 +224,11 @@
   function exotic(id, x) {
     const ops = create(null);
     for (const k in x) ops[k] = x[k];
+    // WebIDL §3.7.8: an interface with an indexed getter gets @@iterator,
+    // with or without `iterable<>`'s other members.
+    if (ops.item !== undefined) {
+      defineProperty(protos[id], symbolIterator, { value: arrayValues, writable: true, configurable: true });
+    }
     const length = (s) => call(ops.length, s.g, s.h);
     const itemAt = (s, i) => {
       const r = call(ops.item, s.g, s.h, i);
@@ -230,12 +242,15 @@
       return ops.namedWraps ? wrap(s.g, r) ?? undefined : r;
     };
     // The property's value, or undefined if the object doesn't supply it.
+    const indexed = (k) => ops.item !== undefined && indexKey(k) >= 0;
     const lookup = (t, k) => {
       const s = stateOf(t);
-      const i = indexKey(k);
-      if (i >= 0 && ops.item !== undefined) return i < length(s) ? itemAt(s, i) : undefined;
+      if (indexed(k)) { const i = indexKey(k); return i < length(s) ? itemAt(s, i) : undefined; }
       return named(s, t, k);
     };
+    // WebIDL §3.9 "named property visibility": own properties hide a name,
+    // and so does the prototype chain, without [LegacyOverrideBuiltIns].
+    const visible = (t, k) => (ops.overrides ? rdescriptor(t, k) === undefined : !rhas(t, k));
     const h = create(null);
     h.get = function (t, k, r) { const v = lookup(t, k); return v !== undefined ? v : rget(t, k, r); };
     h.has = function (t, k) { return lookup(t, k) !== undefined || rhas(t, k); };
@@ -244,8 +259,8 @@
       if (v === undefined) return rdescriptor(t, k);
       const d = create(null);
       d.value = v; d.configurable = true;
-      d.writable = indexKey(k) < 0 && ops.set !== undefined;
-      d.enumerable = indexKey(k) >= 0 || !ops.unenumerable;
+      d.writable = !indexed(k) && ops.set !== undefined;
+      d.enumerable = indexed(k) || !ops.unenumerable;
       return d;
     };
     // Whether a write to `k` goes to the named setter. With `knownOnly`,
@@ -259,12 +274,15 @@
       call(ops.set, s.g, s.h, str(k), ops.knownOnly && v === null ? '' : str(v));
     };
     h.set = function (t, k, v, r) {
-      if (indexKey(k) >= 0 && ops.item !== undefined) return false;
+      // WebIDL §3.9.2: only when the object itself is the receiver, not
+      // something that inherits from it.
+      if (stateOf(r) !== stateOf(t)) return rset(t, k, v, r);
+      if (indexed(k)) return false;
       if (settable(t, k)) { store(t, k, v); return true; }
       return rset(t, k, v, r);
     };
     h.defineProperty = function (t, k, d) {
-      if (indexKey(k) >= 0 && ops.item !== undefined) return false;
+      if (indexed(k)) return false;
       if (settable(t, k)) { store(t, k, d.value); return true; }
       return rdefine(t, k, d);
     };
@@ -272,8 +290,8 @@
       const present = lookup(t, k) !== undefined;
       if (!present) return rdelete(t, k);
       // CSSOM's attributes live on a prototype: deleting does nothing.
-      if (ops.knownOnly && indexKey(k) < 0) return true;
-      if (indexKey(k) >= 0 || ops.del === undefined) return false;
+      if (ops.knownOnly && !indexed(k)) return true;
+      if (indexed(k) || ops.del === undefined) return false;
       const s = stateOf(t);
       call(ops.del, s.g, s.h, str(k));
       return true;
@@ -288,7 +306,7 @@
       }
       if (ops.named !== undefined) {
         nameList(call(1, s.g, s.h), (name) => {
-          if (indexKey(name) < 0 && !rhas(t, name)) keys[n++] = name;
+          if (!indexed(name) && visible(t, name)) keys[n++] = name;
         });
       }
       const own = rownKeys(t);

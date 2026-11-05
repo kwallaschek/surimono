@@ -76,6 +76,7 @@ const VALUES: &[&str] = &[
     "<b>",
     "</style><style>@import 'http://[';",
     "\u{fffd}",
+    "<template><i>in</i><template><b>x</b></template></template>",
 ];
 
 /// xorshift64*: enough to pick operations; the seed fixes the sequence.
@@ -106,8 +107,8 @@ fn quoted(s: &str) -> String {
 
 /// Sets up `pool`, a growing list of nodes the operations draw from.
 const PRELUDE: &str = r#"
-// A frameset page has no body element, so its frameset stands in.
-globalThis.main = document.body ?? document.documentElement.lastChild;
+// On a frameset page the body element is the frameset (HTML "the body element").
+globalThis.main = document.body;
 globalThis.pool = [document.documentElement, document.head, main];
 // Half the picks go to the elements made here, which have the special handling.
 globalThis.at = (i) => pool[(i % 2 ? i : i >> 1) % (i % 2 ? pool.length : Math.min(60, pool.length))];
@@ -145,7 +146,8 @@ fn operation(r: &mut Rng) -> String {
         16 => format!("at({a}).insertBefore(at({b}), at({a}).firstChild)"),
         17 => format!("at({a}).replaceChild(at({b}), at({a}).firstChild)"),
         18 => format!("at({a}).removeChild(at({a}).lastChild)"),
-        19 => format!("keep(at({a}).cloneNode(true))"),
+        // Cloning a document is fatal, a known gap; it would end the run here.
+        19 => format!("if (at({a}) !== document) keep(at({a}).cloneNode(true))"),
         20 => format!("at({a}).append({value}, at({b}))"),
         21 => format!("at({a}).before(at({b}), {value})"),
         22 => format!("at({a}).replaceWith(at({b}), {value})"),

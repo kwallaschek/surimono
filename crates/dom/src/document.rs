@@ -1,14 +1,45 @@
 //! A parsed document and the handle table that scripts address it through.
 
+use std::borrow::Cow;
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
+use surimono_core::Deadline;
+use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
+use crate::style_attr;
+
+/// Infra's ASCII whitespace.
+const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
+
+/// Whether `s` is a JavaScript MIME type essence string (MIME Sniffing §4.6:
+/// "JavaScript MIME type essence match"), ignoring ASCII case.
+fn is_javascript_mime_essence(s: &str) -> bool {
+    const ESSENCES: [&str; 16] = [
+        "application/ecmascript",
+        "application/javascript",
+        "application/x-ecmascript",
+        "application/x-javascript",
+        "text/ecmascript",
+        "text/javascript",
+        "text/javascript1.0",
+        "text/javascript1.1",
+        "text/javascript1.2",
+        "text/javascript1.3",
+        "text/javascript1.4",
+        "text/javascript1.5",
+        "text/jscript",
+        "text/livescript",
+        "text/x-ecmascript",
+        "text/x-javascript",
+    ];
+    ESSENCES.iter().any(|e| e.eq_ignore_ascii_case(s))
+}
 
 /// Generations are unique in the process, so a wrapper can never match a
 /// document other than its own. Starts at 1; 0 is never a generation.
@@ -34,7 +65,9 @@ pub struct DomLimits {
     pub max_handles: usize,
     /// Most bytes of strings the document may hold: text, comment data,
     /// element names, and attribute names and values (with
-    /// [`ATTRIBUTE_COST`] each), parsed and from scripts together. Counted on write and credited on overwrite and
+    /// [`ATTRIBUTE_COST`] each), parsed and from scripts together, and the
+    /// names and values script objects keep (live lists' names, removed
+    /// `Attr`s). Counted on write and credited on overwrite and
     /// on drop. These strings live in Rust, outside the JavaScript heap
     /// limit, and one JavaScript string can be stored on many nodes.
     pub max_text_bytes: usize,
@@ -154,7 +187,8 @@ pub(crate) enum Object {
     Style(usize),
     /// A `MutationRecord`.
     Record(Box<MutationRecord>),
-    /// An `Attr`: its element, its name, and its value if removed since.
+    /// An `Attr`: its element, its name, and, once it has left the element,
+    /// its value (charged, see [`Document::retained_bytes`]).
     Attr(usize, QualName, Option<String>),
 }
 
@@ -180,6 +214,17 @@ struct Registration {
     filter: Vec<String>,
 }
 
+impl Registration {
+    /// What it is charged; see [`Document::add_registration`].
+    fn cost(&self) -> usize {
+        REGISTRATION_COST + self.filter.iter().map(String::len).sum::<usize>()
+    }
+}
+
+/// What one registration is charged beyond its filter's strings: they live
+/// in Rust, and one observer can be registered on every node.
+pub const REGISTRATION_COST: usize = 64;
+
 const CHILD_LIST: u32 = 1;
 const ATTRIBUTES: u32 = 2;
 const CHARACTER_DATA: u32 = 4;
@@ -198,6 +243,9 @@ pub(crate) enum Owned {
     Style,
     Attr(QualName),
 }
+
+/// Steps of a native's loop between looks at the clock.
+const POLL_EVERY: u32 = 256;
 
 /// A handle as JavaScript holds it, with the document's generation. Neither
 /// is a pointer or a blitz node id.
@@ -225,17 +273,26 @@ pub struct Document {
     list_cache: Option<(Handle, u64, Vec<usize>)>,
     /// Entries in static lists so far, bounded by [`Self::static_limit`].
     static_entries: usize,
+    /// Bytes held in `objects` and `owned` rather than in nodes: list names
+    /// (kept as long as the document, for `[SameObject]`-style identity) and
+    /// the values of removed `Attr`s. Part of `held_bytes`.
+    retained_bytes: usize,
     /// Mutation observers: registrations by node, and each observer's queue
     /// of record handles, by observer number. Empty until a page observes,
     /// and mutations check that first.
     registrations: HashMap<usize, Vec<Registration>>,
-    record_queues: Vec<Vec<Handle>>,
+    record_queues: Vec<VecDeque<Handle>>,
+    /// Records in all queues: asked after every native call once a page
+    /// observes, so it can't walk them.
+    queued_records: usize,
+    /// The part of `held_bytes` no node accounts for: registrations, and
+    /// strings in mutation records. Records last as long as their handles,
+    /// which is the document's life.
+    observer_bytes: usize,
     /// See [`Document::empty_list`]; 0 until made.
     empty_list: Handle,
     /// `<template>` to its content fragment.
     templates: HashMap<usize, usize>,
-    /// The running call's time limit, for work inside one native call.
-    pub(crate) deadline: Option<surimono_core::Deadline>,
     /// Blitz node id to its handle, 0 for none yet.
     node_to_handle: Vec<Handle>,
     /// Strings blitz-dom doesn't hold, by node id: comment data
@@ -255,6 +312,12 @@ pub struct Document {
     cursor: Cell<(usize, usize)>,
     /// A fatal error a binding met, for the native call to report.
     pub(crate) fault: Option<DomError>,
+    /// The running call's deadline, set for each native call.
+    pub(crate) deadline: Option<Deadline>,
+    /// Steps since the last look at the clock (see [`Document::poll`]).
+    ticks: Cell<u32>,
+    /// Entries of child lists passed by changes (see [`Document::list_steps`]).
+    list_steps: u64,
 }
 
 impl std::fmt::Debug for Document {
@@ -309,11 +372,13 @@ impl Document {
             version: 0,
             list_cache: None,
             static_entries: 0,
+            retained_bytes: 0,
             registrations: HashMap::new(),
             record_queues: Vec::new(),
+            queued_records: 0,
+            observer_bytes: 0,
             empty_list: 0,
             templates: parsed.templates.into_iter().collect(),
-            deadline: None,
             node_to_handle: Vec::new(),
             side_data: parsed.strings.into_iter().collect(),
             held_bytes: 0,
@@ -321,11 +386,17 @@ impl Document {
             ready_state: 2,
             cursor: Cell::new((0, 0)),
             fault: None,
+            deadline: None,
+            ticks: Cell::new(0),
+            list_steps: 0,
         };
         if doc.node_count() > limits.max_nodes {
             return Err(DomError::NodeLimit {
                 limit: limits.max_nodes,
             });
+        }
+        if parsed.over_style {
+            return Err(style_attr::limit_error());
         }
         if doc.height(doc.root()) - 1 > limits.max_depth || parsed.over_limit {
             return Err(DomError::TreeTooDeep {
@@ -369,13 +440,11 @@ impl Document {
                 max_nodes: room,
                 max_depth: levels,
             },
-            || {
-                deadline
-                    .as_ref()
-                    .is_some_and(surimono_core::Deadline::passed)
-            },
+            || deadline.as_ref().is_some_and(Deadline::passed),
         );
         self.side_data.extend(parsed.strings);
+        // Before the count: a walk goes through a template to its content.
+        self.templates.extend(parsed.templates);
         // Charged here and credited by the drops below if it is refused. The
         // holder is charged already. Orphans count until they go.
         let bytes = self.bytes_under(holder) - self.node_bytes(holder);
@@ -404,9 +473,7 @@ impl Document {
         if let Some(n) = self.inner.get_node_mut(holder) {
             n.children = content;
         }
-        let timed_out = deadline
-            .as_ref()
-            .is_some_and(surimono_core::Deadline::passed);
+        let timed_out = deadline.as_ref().is_some_and(Deadline::passed);
         let limit = if self.node_count() > self.limits.max_nodes {
             Some(DomError::NodeLimit {
                 limit: self.limits.max_nodes,
@@ -418,6 +485,10 @@ impl Document {
         } else {
             self.check_depth(parent, self.height(holder) - 1).err()
         };
+        if parsed.over_style {
+            self.drop_subtree(holder);
+            return Err(style_attr::limit_error());
+        }
         if limit.is_some() || timed_out || parsed.over_limit {
             self.drop_subtree(holder);
             return match limit {
@@ -434,8 +505,12 @@ impl Document {
     /// `id`'s children, serialized (HTML §13.3, `innerHTML`).
     pub(crate) fn inner_html(&self, id: usize) -> String {
         let mut out = String::new();
-        let top = self.templates.get(&id).copied().unwrap_or(id);
-        for &c in self.children(top) {
+        let top = if self.is_html_template(id) {
+            self.template_of(id)
+        } else {
+            Some(id)
+        };
+        for &c in top.iter().flat_map(|&t| self.children(t)) {
             self.serialize(c, &mut out);
         }
         out
@@ -448,11 +523,37 @@ impl Document {
         out
     }
 
+    /// One step of a loop whose length a script controls, inside a native.
+    /// The sandbox can't interrupt a native, so such a loop ends itself:
+    /// past the deadline this is an exception. As at the start of a native,
+    /// no fault is recorded: the engine stops the script at its next check,
+    /// so the call fails with `TimeLimit` even if the script catches this.
+    pub(crate) fn poll(&self) -> BindingResult<()> {
+        self.poll_by(1)
+    }
+
+    /// [`poll`](Self::poll) for a step that does `work` units of work.
+    pub(crate) fn poll_by(&self, work: usize) -> BindingResult<()> {
+        let work = u32::try_from(work).unwrap_or(u32::MAX);
+        let ticks = self.ticks.get().saturating_add(work);
+        if ticks < POLL_EVERY {
+            self.ticks.set(ticks);
+            return Ok(());
+        }
+        self.ticks.set(0);
+        if self.deadline.as_ref().is_some_and(Deadline::passed) {
+            return Err(BindingError::TypeError(
+                "surimono: the time limit has passed".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     /// The document's serialization: the `<html>` element's outer HTML, by
     /// the HTML Standard's fragment serialization algorithm (§13.3) for
     /// elements (HTML, SVG and MathML) with their attributes, text and
-    /// comments, with scripting disabled, as blitz-html parsed the
-    /// document. Iterative, so tree depth can't overflow the stack.
+    /// comments, with scripting enabled, as the document was parsed.
+    /// Iterative, so tree depth can't overflow the stack.
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         if let Some(id) = self.document_element() {
@@ -485,12 +586,7 @@ impl Document {
                             // noembed, noframes or plaintext element (an SVG
                             // <style> or <script> is escaped), or a noscript
                             // element when scripting is enabled for the
-                            // node. It isn't here: blitz-html 0.2.0 parses
-                            // with `scripting_enabled: false`, so noscript
-                            // content is parsed as markup and its text must
-                            // be escaped to survive a reparse. Written raw,
-                            // `<noscript>&lt;b&gt;</noscript>` would come
-                            // back as a real <b> element.
+                            // node, as it always is here (see `parse::opts`).
                             let raw = node
                                 .parent
                                 .and_then(|p| self.node(p).element_data())
@@ -505,6 +601,7 @@ impl Document {
                                                 | "noembed"
                                                 | "noframes"
                                                 | "plaintext"
+                                                | "noscript"
                                         )
                                 });
                             if raw {
@@ -556,13 +653,15 @@ impl Document {
                             if !void {
                                 stack.push(Step::Close(id));
                                 // §13.3: a template's content, not its
-                                // children, of which it has none when parsed.
-                                let content = self.templates.get(&id).copied();
-                                if let Some(c) = content {
-                                    let kids = &self.node(c).children;
-                                    stack.extend(kids.iter().rev().map(|&k| Step::Open(k)));
-                                }
-                                stack.extend(node.children.iter().rev().map(|&c| Step::Open(c)));
+                                // children, of which a script can give it
+                                // some; one a script made may have no
+                                // content yet.
+                                let kids: &[usize] = if self.is_html_template(id) {
+                                    self.template_of(id).map_or(&[], |c| &self.node(c).children)
+                                } else {
+                                    &node.children
+                                };
+                                stack.extend(kids.iter().rev().map(|&k| Step::Open(k)));
                             }
                         }
                     }
@@ -578,6 +677,12 @@ impl Document {
 
     pub(crate) fn generation(&self) -> u64 {
         self.generation
+    }
+
+    fn element_mut(&mut self, id: usize) -> Option<&mut blitz_dom::ElementData> {
+        self.inner
+            .get_node_mut(id)
+            .and_then(|n| n.element_data_mut())
     }
 
     pub(crate) fn node(&self, id: usize) -> &blitz_dom::Node {
@@ -622,6 +727,15 @@ impl Document {
         if let Some(&h) = self.owned.get(&(owner, key.clone())) {
             return Ok(h);
         }
+        // Lists and `Attr`s keep their names for the document's life, here
+        // and in the object: strings a script picks, outside the JS heap.
+        let bytes = match &key {
+            Owned::List(ListKind::ByTag(s) | ListKind::ByClass(s)) => s.len().saturating_mul(2),
+            Owned::Attr(name) => name_cost(name),
+            _ => 0,
+        };
+        self.recharge(0, bytes)?;
+        self.retained_bytes += bytes;
         let h = self.new_handle(make())?;
         self.owned.insert((owner, key), h);
         Ok(h)
@@ -665,39 +779,46 @@ impl Document {
     }
 
     /// The nodes of live list `kind` under `owner`, cached for `handle`.
-    pub(crate) fn live_nodes(&mut self, handle: Handle, owner: usize, kind: &ListKind) -> &[usize] {
+    pub(crate) fn live_nodes(
+        &mut self,
+        handle: Handle,
+        owner: usize,
+        kind: &ListKind,
+    ) -> BindingResult<&[usize]> {
         let fresh = self
             .list_cache
             .as_ref()
             .is_some_and(|(h, v, _)| *h == handle && *v == self.version);
         if !fresh {
-            let nodes = self.compute_list(owner, kind);
+            let nodes = self.compute_list(owner, kind)?;
             self.list_cache = Some((handle, self.version, nodes));
         }
-        self.list_cache
+        Ok(self
+            .list_cache
             .as_ref()
-            .map_or(&[], |(_, _, n)| n.as_slice())
+            .map_or(&[], |(_, _, n)| n.as_slice()))
     }
 
     /// Descendant elements of `top` in tree order that satisfy `keep`.
     pub(crate) fn descendants(
         &self,
         top: usize,
-        mut keep: impl FnMut(usize) -> bool,
-    ) -> Vec<usize> {
+        mut keep: impl FnMut(usize) -> BindingResult<bool>,
+    ) -> BindingResult<Vec<usize>> {
         let mut out = Vec::new();
         let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
         while let Some(n) = stack.pop() {
-            if self.kind(n) == Some(Kind::Element) && keep(n) {
+            self.poll()?;
+            if self.kind(n) == Some(Kind::Element) && keep(n)? {
                 out.push(n);
             }
             stack.extend(self.children(n).iter().rev().copied());
         }
-        out
+        Ok(out)
     }
 
-    fn compute_list(&self, owner: usize, kind: &ListKind) -> Vec<usize> {
-        match kind {
+    fn compute_list(&self, owner: usize, kind: &ListKind) -> BindingResult<Vec<usize>> {
+        Ok(match kind {
             ListKind::ChildNodes => self.children(owner).to_vec(),
             ListKind::Children => self
                 .children(owner)
@@ -709,29 +830,59 @@ impl Document {
                 let lower = name.to_ascii_lowercase();
                 self.descendants(owner, |n| {
                     let Some(e) = self.element_name(n) else {
-                        return false;
+                        return Ok(false);
                     };
                     // DOM §4.2.6.2: lower-cased against HTML elements.
                     let wanted = if e.ns == ns!(html) { &lower } else { name };
-                    name == "*" || qualified_is(e, wanted)
-                })
+                    Ok(name == "*" || qualified_is(e, wanted))
+                })?
             }
-            ListKind::ByClass(names) => {
-                let wanted: Vec<&str> = names.split_ascii_whitespace().collect();
-                if wanted.is_empty() {
-                    return Vec::new();
-                }
-                self.descendants(owner, |n| {
-                    let class = self.attribute(n, "class").unwrap_or_default();
-                    wanted.iter().all(|w| {
-                        class.split_ascii_whitespace().any(|c| {
-                            // Case-insensitive in quirks mode (DOM §4.2.6.2).
-                            c == *w || (self.quirks && c.eq_ignore_ascii_case(w))
-                        })
-                    })
-                })
+            ListKind::ByClass(names) => self.elements_with_classes(owner, names)?,
+        })
+    }
+
+    /// `getElementsByClassName`: linear in the names and in the classes
+    /// read, however many of each there are. Only looked up, so hash order
+    /// can't reach any output.
+    fn elements_with_classes(&self, owner: usize, names: &str) -> BindingResult<Vec<usize>> {
+        // Case-insensitive in quirks mode (DOM §4.2.6.2).
+        let folded = |s| {
+            if self.quirks {
+                Cow::Owned(str::to_ascii_lowercase(s))
+            } else {
+                Cow::Borrowed(s)
             }
+        };
+        let mut wanted: HashMap<Cow<'_, str>, usize> = HashMap::new();
+        for name in names.split_ascii_whitespace() {
+            self.poll()?;
+            let next = wanted.len();
+            wanted.entry(folded(name)).or_insert(next);
         }
+        if wanted.is_empty() {
+            return Ok(Vec::new());
+        }
+        // The last element each name was seen on, as a count, so a name
+        // repeated in one `class` isn't counted twice.
+        let mut seen = vec![0usize; wanted.len()];
+        let mut element = 0;
+        self.descendants(owner, |n| {
+            let Some(class) = self.find_attribute(n, "class") else {
+                return Ok(false);
+            };
+            self.poll_by(class.value.len() / 16)?;
+            element += 1;
+            let mut found = 0;
+            for token in class.value.split_ascii_whitespace() {
+                if let Some(&i) = wanted.get(folded(token).as_ref())
+                    && seen[i] != element
+                {
+                    seen[i] = element;
+                    found += 1;
+                }
+            }
+            Ok(found == wanted.len())
+        })
     }
 
     pub(crate) fn kind(&self, id: usize) -> Option<Kind> {
@@ -758,22 +909,30 @@ impl Document {
         self.inner.try_root_element().map(|n| n.id)
     }
 
-    /// The first HTML child of `<html>` with this local name.
-    fn html_child(&self, local: &str) -> Option<usize> {
-        let html = self.document_element()?;
-        self.node(html).children.iter().copied().find(|&c| {
-            self.node(c)
-                .element_data()
-                .is_some_and(|e| e.name.ns == ns!(html) && e.name.local.as_ref() == local)
-        })
+    /// Whether `id` is an HTML element with one of these local names.
+    fn is_html_element(&self, id: usize, locals: &[&str]) -> bool {
+        self.node(id)
+            .element_data()
+            .is_some_and(|e| e.name.ns == ns!(html) && locals.contains(&e.name.local.as_ref()))
+    }
+
+    /// The first child of the html element (HTML "the html element": the
+    /// document element, if it is one) with one of these local names.
+    fn html_child(&self, locals: &[&str]) -> Option<usize> {
+        let html = self
+            .document_element()
+            .filter(|&e| self.is_html_element(e, &["html"]))?;
+        let mut children = self.node(html).children.iter().copied();
+        children.find(|&c| self.is_html_element(c, locals))
     }
 
     pub(crate) fn head(&self) -> Option<usize> {
-        self.html_child("head")
+        self.html_child(&["head"])
     }
 
+    /// HTML "the body element": the first body or frameset child.
     pub(crate) fn body(&self) -> Option<usize> {
-        self.html_child("body")
+        self.html_child(&["body", "frameset"])
     }
 
     /// The first element in tree order under `top` with this ID. blitz-dom's
@@ -814,88 +973,108 @@ impl Document {
     }
 
     /// Classic scripts in tree order, for the page lifecycle: (node, `src`
-    /// value, text, defer). `module` and other types aren't run (HTML
-    /// §4.12.1.1); a parser-inserted `async` script keeps its tree position,
-    /// which is one of the orders the spec allows and the deterministic one.
+    /// value, text, defer), as HTML §4.12.1.1 "prepare the script element"
+    /// picks them. `module` and other types don't run. A parser-inserted
+    /// `async` script keeps its tree position, which is one of the orders
+    /// the spec allows and the deterministic one. Nothing inside `<template>`
+    /// runs: its contents are inert. `<noscript>` needs no such care: with
+    /// scripting on it is raw text, so the parser makes no script there.
     pub(crate) fn scripts(&self) -> Vec<(usize, Option<String>, String, bool)> {
         let mut out = Vec::new();
         let mut stack = vec![self.root()];
         while let Some(n) = stack.pop() {
-            stack.extend(self.children(n).iter().rev().copied());
-            let is_script = self
+            let html_name = self
                 .element_name(n)
-                .is_some_and(|q| q.ns == ns!(html) && q.local.as_ref() == "script");
-            if !is_script || !self.is_classic_script(n) {
+                .filter(|q| q.ns == ns!(html))
+                .map(|q| &*q.local);
+            if html_name == Some("template") {
+                continue;
+            }
+            stack.extend(self.children(n).iter().rev().copied());
+            if html_name != Some("script") || !self.is_classic_script(n) {
                 continue;
             }
             let src = self.attribute(n, "src");
-            let defer = src.is_some() && self.attribute(n, "defer").is_some();
-            out.push((n, src, self.text_content(n).unwrap_or_default(), defer));
+            let text = self.child_text(n);
+            if src.is_none() && text.is_empty() {
+                continue;
+            }
+            let defer = src.is_some()
+                && self.attribute(n, "defer").is_some()
+                && self.attribute(n, "async").is_none();
+            out.push((n, src, text, defer));
         }
         out
     }
 
-    /// HTML §4.12.1.1: no `type` or a JavaScript MIME type, or `language`
-    /// in the old way. `nomodule` is ignored: modules don't run here, so the
-    /// fallback is what a page has for us.
+    /// HTML §4.12.1.1 "prepare the script element", the steps that give the
+    /// type string, for a classic script. `nomodule` is ignored, unlike the
+    /// standard: modules don't run here, so the fallback is what a page has
+    /// for us (a recorded departure).
     fn is_classic_script(&self, id: usize) -> bool {
         let ty = self.attribute(id, "type");
-        match ty.as_deref().map(str::trim) {
-            None | Some("") => true,
-            Some(t) => {
-                let t = t.to_ascii_lowercase();
-                matches!(
-                    t.as_str(),
-                    "text/javascript"
-                        | "application/javascript"
-                        | "application/x-javascript"
-                        | "text/ecmascript"
-                        | "application/ecmascript"
-                        | "text/jscript"
-                        | "text/x-javascript"
-                        | "text/x-ecmascript"
-                )
-            }
+        let language = self.attribute(id, "language");
+        match (ty.as_deref(), language.as_deref()) {
+            (Some(""), _) | (None, None | Some("")) => true,
+            (Some(ty), _) => is_javascript_mime_essence(ty.trim_matches(ASCII_WHITESPACE)),
+            (None, Some(language)) => is_javascript_mime_essence(&format!("text/{language}")),
         }
     }
 
+    /// A node's child text content (DOM §4.2.5): its Text children, joined.
+    fn child_text(&self, id: usize) -> String {
+        self.children(id)
+            .iter()
+            .filter(|&&c| matches!(self.node(c).data, NodeData::Text(_)))
+            .map(|&c| self.char_data(c))
+            .collect()
+    }
+
     /// The `<title>` element: the first in tree order (HTML §3.1.3).
-    fn title_element(&self) -> Option<usize> {
-        let top = self.document_element()?;
+    fn title_element(&self) -> BindingResult<Option<usize>> {
+        let Some(top) = self.document_element() else {
+            return Ok(None);
+        };
         let is_title = |n: usize| {
             self.element_name(n)
                 .is_some_and(|q| q.ns == ns!(html) && q.local.as_ref() == "title")
         };
         if is_title(top) {
-            return Some(top);
+            return Ok(Some(top));
         }
-        self.descendants(top, is_title).first().copied()
+        let found = self.descendants(top, |n| Ok(is_title(n)))?;
+        Ok(found.first().copied())
     }
 
-    /// `document.title`: the title's text, with whitespace stripped and
-    /// collapsed.
-    pub(crate) fn title(&self) -> String {
-        self.title_element()
-            .and_then(|t| self.text_content(t))
+    /// `document.title`: the title's child text content, with whitespace
+    /// stripped and collapsed (HTML §3.1.3).
+    pub(crate) fn title(&self) -> BindingResult<String> {
+        Ok(self
+            .title_element()?
+            .map(|t| self.child_text(t))
             .map(|t| t.split_ascii_whitespace().collect::<Vec<_>>().join(" "))
-            .unwrap_or_default()
+            .unwrap_or_default())
     }
 
     /// `document.title` set: the title's content, a new `<title>` in the
     /// head if there is none; nothing without a head.
-    pub(crate) fn set_title(&mut self, value: &str) -> Result<(), DomError> {
-        let title = match self.title_element() {
+    pub(crate) fn set_title(&mut self, value: &str) -> BindingResult<()> {
+        let title = match self.title_element()? {
             Some(t) => t,
             None => {
                 let Some(head) = self.head() else {
                     return Ok(());
                 };
-                let t = self.create_element("title")?.ok_or(DomError::NoDocument)?;
+                let created = self
+                    .create_element("title")
+                    .and_then(|t| t.ok_or(DomError::NoDocument));
+                let t = created.map_err(|e| self.fail(e))?;
                 self.place(head, &[t], None);
                 t
             }
         };
         self.set_text_content(title, value)
+            .map_err(|e| self.fail(e))
     }
 
     pub(crate) fn is_quirks(&self) -> bool {
@@ -1050,24 +1229,54 @@ impl Document {
         name: QualName,
         value: &str,
     ) -> Result<(), DomError> {
+        // Any namespace: blitz-dom goes by the local name.
+        if name.local.as_ref() == "style" && !style_attr::fits(value) {
+            return Err(style_attr::limit_error());
+        }
         let credit = self.attribute_bytes(id, &name);
         let charge = attribute_cost(&name, value);
         self.recharge(credit, charge)?;
         self.note_attribute(id, &name);
         self.version += 1;
-        self.inner.mutate().set_attribute(id, name, value);
+        if name.local.as_ref() == "style" {
+            // Not through blitz-dom, which would give it to stylo in a call
+            // nothing can stop, for a layout that doesn't run here.
+            if let Some(e) = self.element_mut(id) {
+                e.attrs.set(name, value);
+            }
+        } else {
+            self.inner.mutate().set_attribute(id, name, value);
+        }
         Ok(())
     }
 
     /// An `Attr` object for an attribute about to go keeps its value.
     fn keep_attr_value(&mut self, id: usize, name: &QualName) {
-        let Some(&h) = self.owned.get(&(id, Owned::Attr(name.clone()))) else {
+        // Out of the map: if the name comes back, it's a new attribute.
+        let Some(h) = self.owned.remove(&(id, Owned::Attr(name.clone()))) else {
             return;
         };
-        let value = self.attribute_value(id, name);
+        let value = self.attribute_value(id, name).unwrap_or_default();
+        // The attribute's own charge is credited next and covers this.
+        self.held_bytes = self.held_bytes.saturating_add(value.len());
+        self.retained_bytes += value.len();
         if let Some(Object::Attr(_, _, kept)) = self.object_mut(h) {
-            *kept = value;
+            *kept = Some(value);
         }
+    }
+
+    /// Writes the value of `handle`, an `Attr` no longer on its element.
+    pub(crate) fn set_kept_value(&mut self, handle: Handle, value: String) -> Result<(), DomError> {
+        let Some(Object::Attr(_, _, Some(kept))) = self.object_mut(handle) else {
+            return Ok(());
+        };
+        let old = kept.len();
+        self.recharge(old, value.len())?;
+        self.retained_bytes = self.retained_bytes - old + value.len();
+        if let Some(Object::Attr(_, _, kept)) = self.object_mut(handle) {
+            *kept = Some(value);
+        }
+        Ok(())
     }
 
     /// What attribute `name` of `id` is charged at the moment.
@@ -1093,12 +1302,14 @@ impl Document {
         }
     }
 
-    /// Bytes every node holds, reachable or not.
+    /// Bytes every node holds, reachable or not, and the script objects'.
     fn bytes_held(&self) -> usize {
         self.inner
             .tree()
             .iter()
-            .fold(0, |sum, (id, _)| sum.saturating_add(self.node_bytes(id)))
+            .fold(self.retained_bytes, |sum, (id, _)| {
+                sum.saturating_add(self.node_bytes(id))
+            })
     }
 
     /// Bytes the subtree at `top` holds, iteratively.
@@ -1187,15 +1398,13 @@ impl Document {
             .element_name(id)
             .is_some_and(|n| n.local.as_ref() == "link")
             && name.local.as_ref() == "href";
-        if is_link_href {
-            // blitz-dom's clear_attribute unloads the link's stylesheet here
-            // and hits `unreachable!` if it has none, which it never does:
-            // nothing loads. Nothing else depends on this attribute.
-            if let Some(e) = self
-                .inner
-                .get_node_mut(id)
-                .and_then(|n| n.element_data_mut())
-            {
+        // blitz-dom's clear_attribute unloads the link's stylesheet here and
+        // hits `unreachable!` if it has none, which it never does: nothing
+        // loads. Nothing else depends on this attribute. For `style`, it would
+        // parse what is left: it goes by the local name, of which an element
+        // can have several, in different namespaces.
+        if is_link_href || name.local.as_ref() == "style" {
+            if let Some(e) = self.element_mut(id) {
                 e.attrs.remove(&name);
             }
         } else {
@@ -1290,10 +1499,7 @@ impl Document {
                 } else {
                     Some(self.create_text(text)?)
                 };
-                self.remove_all_children(id);
-                if let Some(t) = t {
-                    self.place(id, &[t], None);
-                }
+                self.replace_all(id, t);
                 Ok(())
             }
             _ => Ok(()),
@@ -1310,20 +1516,25 @@ impl Document {
         Ok(())
     }
 
-    /// Removes every child of `id` (DOM "replace all" with nothing). A child
-    /// whose subtree holds a handle stays alive, detached; any other is
-    /// dropped.
+    /// Removes every child of `id`, with no mutation record. A child whose
+    /// subtree holds a handle stays alive, detached; any other is dropped.
     ///
     /// Iterative, and linear in the subtree: blitz-dom's own subtree drop
     /// recurses per level, and removing children one at a time scans the
     /// parent's list each time.
-    pub(crate) fn remove_all_children(&mut self, id: usize) {
-        if self.is_observed() && !self.children(id).is_empty() {
-            let removed = self.children(id).to_vec();
-            self.note_child_list(id, &[], &removed, None, None);
-        }
+    pub(crate) fn remove_children_quietly(&mut self, id: usize) {
+        let gone = self.children(id).to_vec();
+        self.replace_child_list(id, Vec::new(), gone);
+    }
+
+    /// Makes `kept` the children of `id` and removes `gone`, its other
+    /// children, as [`remove_children_quietly`](Self::remove_children_quietly)
+    /// does: one pass, however wide the list.
+    pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
         self.version += 1;
-        for c in self.take_children(id) {
+        self.count_list_steps(kept.len() + gone.len());
+        self.take_children(id);
+        for c in gone {
             self.set_parent(c, None);
             if self.subtree_has_handle(c) {
                 // No parent to update: this only updates blitz-dom's
@@ -1333,9 +1544,12 @@ impl Document {
                 self.drop_subtree(c);
             }
         }
-        // `id` has no children left; this does blitz-dom's restyle
+        // `id` has no children yet; this does blitz-dom's restyle
         // bookkeeping for it.
         self.inner.mutate().remove_and_drop_all_children(id);
+        if let Some(node) = self.inner.get_node_mut(id) {
+            node.children = kept;
+        }
     }
 
     fn subtree_has_handle(&self, top: usize) -> bool {
@@ -1424,7 +1638,7 @@ impl Document {
     pub(crate) fn create_element_with(
         &mut self,
         name: QualName,
-        attrs: Vec<blitz_dom::Attribute>,
+        mut attrs: Vec<blitz_dom::Attribute>,
     ) -> Result<usize, DomError> {
         self.check_room()?;
         let attr_bytes: usize = attrs
@@ -1432,7 +1646,18 @@ impl Document {
             .map(|a| attribute_cost(&a.name, &a.value))
             .sum();
         self.recharge(0, attr_bytes.saturating_add(name_cost(&name)))?;
-        Ok(self.inner.mutate().create_element(name, attrs))
+        let mut hidden = false;
+        for a in &mut attrs {
+            if a.name.local.as_ref() == "style" {
+                style_attr::hide(&mut a.name);
+                hidden = true;
+            }
+        }
+        let id = self.inner.mutate().create_element(name, attrs);
+        if hidden && let Some(e) = self.element_mut(id) {
+            style_attr::reveal(&mut e.attrs);
+        }
+        Ok(id)
     }
 
     /// `createElement` for an HTML element; `None` for a name the DOM
@@ -1503,7 +1728,16 @@ impl Document {
                 let next = self.sibling(id, true);
                 self.note_child_list(parent, &[], &[id], previous, next);
             }
+            self.detach_quietly(id);
+        }
+    }
+
+    /// [`detach`](Self::detach) with the "suppress observers" flag of DOM
+    /// §4.2.3 "remove".
+    pub(crate) fn detach_quietly(&mut self, id: usize) {
+        if let Some(parent) = self.node(id).parent {
             self.version += 1;
+            self.count_list_steps(self.children(parent).len());
             self.inner.mutate().remove_node(id);
         }
     }
@@ -1521,7 +1755,14 @@ impl Document {
             };
             self.note_child_list(parent, nodes, &[], previous, before);
         }
+        self.place_quietly(parent, nodes, before);
+    }
+
+    /// [`place`](Self::place) with the "suppress observers" flag of DOM
+    /// §4.2.3 "insert".
+    pub(crate) fn place_quietly(&mut self, parent: usize, nodes: &[usize], before: Option<usize>) {
         self.version += 1;
+        self.count_list_steps(nodes.len() + before.map_or(0, |_| self.children(parent).len()));
         if self.is_in_style(parent) {
             for &n in nodes {
                 self.stash_text(n);
@@ -1533,14 +1774,14 @@ impl Document {
         }
     }
 
-    fn is_observed(&self) -> bool {
+    pub(crate) fn is_observed(&self) -> bool {
         !self.registrations.is_empty()
     }
 
     /// DOM §4.3 "queue a mutation record": `wanted` picks the registrations
     /// on `target` and its ancestors that are interested; each observer once,
-    /// with the old value if any of its registrations asked. `old_value`
-    /// runs only if one did.
+    /// with the old value if any of its registrations asked; `record` is told
+    /// whether to copy it.
     fn queue_record(
         &mut self,
         target: usize,
@@ -1565,18 +1806,35 @@ impl Document {
             at = self.node(n).parent;
         }
         for (observer, old) in interested {
-            let Some(mut r) = record(self, old) else {
+            let Some(r) = record(self, old) else {
                 return;
             };
-            if !old {
-                r.old_value = None;
-            }
             match self.new_handle(Object::Record(Box::new(r))) {
-                Ok(h) => self.record_queues[observer as usize].push(h),
+                Ok(h) => {
+                    if let Some(q) = self.record_queues.get_mut(observer as usize) {
+                        q.push_back(h);
+                        self.queued_records += 1;
+                    }
+                }
                 Err(e) => {
                     self.fault.get_or_insert(e);
                     return;
                 }
+            }
+        }
+    }
+
+    /// Charges `bytes` of a record's strings to the document, for its life.
+    /// `None` and the call's fault if they don't fit.
+    fn charge_record(&mut self, bytes: usize) -> Option<()> {
+        match self.recharge(0, bytes) {
+            Ok(()) => {
+                self.observer_bytes += bytes;
+                Some(())
+            }
+            Err(e) => {
+                self.fault.get_or_insert(e);
+                None
             }
         }
     }
@@ -1597,15 +1855,15 @@ impl Document {
     }
 
     fn pin(&mut self, id: Option<usize>) -> Option<usize> {
-        if let Some(n) = id {
-            if let Err(e) = self.handle_for(n) {
-                self.fault.get_or_insert(e);
-            }
+        if let Some(n) = id
+            && let Err(e) = self.handle_for(n)
+        {
+            self.fault.get_or_insert(e);
         }
         id
     }
 
-    fn note_child_list(
+    pub(crate) fn note_child_list(
         &mut self,
         parent: usize,
         added: &[usize],
@@ -1656,7 +1914,17 @@ impl Document {
                     r.flags & HAS_FILTER == 0 || (name.ns == ns!() && r.filter.contains(&local));
                 (r.flags & ATTRIBUTES != 0 && listed).then_some(r.flags & ATTRIBUTE_OLD != 0)
             },
-            |doc, _| {
+            |doc, old| {
+                let namespace = Some(name.ns.to_string()).filter(|n| !n.is_empty());
+                let old_value = if old {
+                    doc.attribute_value(id, name)
+                } else {
+                    None
+                };
+                let strings = local.len()
+                    + namespace.as_ref().map_or(0, String::len)
+                    + old_value.as_ref().map_or(0, String::len);
+                doc.charge_record(strings)?;
                 let empty = doc.empty_list()?;
                 let target = doc.pin(Some(id))?;
                 Some(MutationRecord {
@@ -1667,8 +1935,8 @@ impl Document {
                     previous: None,
                     next: None,
                     attribute: Some(local.clone()),
-                    namespace: Some(name.ns.to_string()).filter(|n| !n.is_empty()),
-                    old_value: doc.attribute_value(id, name),
+                    namespace,
+                    old_value,
                 })
             },
         );
@@ -1681,7 +1949,9 @@ impl Document {
         self.queue_record(
             id,
             |r| (r.flags & CHARACTER_DATA != 0).then_some(r.flags & CHARACTER_OLD != 0),
-            |doc, _| {
+            |doc, old| {
+                let old_value = old.then(|| doc.char_data(id).to_owned());
+                doc.charge_record(old_value.as_ref().map_or(0, String::len))?;
                 let empty = doc.empty_list()?;
                 let target = doc.pin(Some(id))?;
                 Some(MutationRecord {
@@ -1693,61 +1963,91 @@ impl Document {
                     next: None,
                     attribute: None,
                     namespace: None,
-                    old_value: Some(doc.char_data(id).to_owned()),
+                    old_value,
                 })
             },
         );
     }
 
     pub(crate) fn new_observer(&mut self) -> u32 {
-        self.record_queues.push(Vec::new());
+        self.record_queues.push(VecDeque::new());
         u32::try_from(self.record_queues.len() - 1).unwrap_or(u32::MAX)
     }
 
     /// `observe`: a second call on one node replaces the first (§4.3.1).
+    /// Charged to [`DomLimits::max_text_bytes`]: filters are copies of
+    /// strings of any size, and registrations grow as observers × nodes.
     pub(crate) fn add_registration(
         &mut self,
         observer: u32,
         target: usize,
         flags: u32,
         names: &str,
-    ) {
-        let filter = if names.is_empty() {
+    ) -> Result<(), DomError> {
+        let credit = self
+            .registrations
+            .get(&target)
+            .into_iter()
+            .flatten()
+            .find(|x| x.observer == observer)
+            .map_or(0, Registration::cost);
+        let filter: Vec<String> = if names.is_empty() {
             Vec::new()
         } else {
             names.split('\n').map(str::to_owned).collect()
         };
-        let list = self.registrations.entry(target).or_default();
         let r = Registration {
             observer,
             flags,
             filter,
         };
+        let charge = r.cost();
+        self.recharge(credit, charge)?;
+        self.observer_bytes = (self.observer_bytes + charge).saturating_sub(credit);
+        let list = self.registrations.entry(target).or_default();
         match list.iter_mut().find(|x| x.observer == observer) {
             Some(old) => *old = r,
             None => list.push(r),
         }
+        Ok(())
     }
 
     /// `disconnect`: no registrations, no queued records.
     pub(crate) fn remove_registrations(&mut self, observer: u32) {
+        let mut freed = 0;
         self.registrations.retain(|_, list| {
-            list.retain(|r| r.observer != observer);
+            list.retain(|r| {
+                let keep = r.observer != observer;
+                if !keep {
+                    freed += r.cost();
+                }
+                keep
+            });
             !list.is_empty()
         });
+        self.credit(freed);
+        self.observer_bytes = self.observer_bytes.saturating_sub(freed);
         if let Some(q) = self.record_queues.get_mut(observer as usize) {
+            self.queued_records -= q.len();
             q.clear();
         }
     }
 
     /// The observer's oldest queued record, if any.
     pub(crate) fn next_record(&mut self, observer: u32) -> Option<Handle> {
-        let q = self.record_queues.get_mut(observer as usize)?;
-        (!q.is_empty()).then(|| q.remove(0))
+        let h = self.record_queues.get_mut(observer as usize)?.pop_front()?;
+        self.queued_records -= 1;
+        Some(h)
     }
 
     pub(crate) fn has_records(&self) -> bool {
-        self.record_queues.iter().any(|q| !q.is_empty())
+        self.queued_records > 0
+    }
+
+    /// Whether `id` is an HTML `<template>`.
+    pub(crate) fn is_html_template(&self, id: usize) -> bool {
+        self.element_name(id)
+            .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "template")
     }
 
     /// `<template>`'s content, if it has one yet.
@@ -1765,11 +2065,24 @@ impl Document {
         Ok(c)
     }
 
+    fn count_list_steps(&mut self, entries: usize) {
+        self.list_steps = self.list_steps.saturating_add(entries as u64);
+    }
+
+    /// Entries of child lists passed so far by changes to the tree: a scan
+    /// of a parent's list counts its length. A deterministic measure of what
+    /// a change costs, so a test of "one pass, not one scan per child" doesn't
+    /// compare times on a loaded machine.
+    #[doc(hidden)]
+    pub fn list_steps(&self) -> u64 {
+        self.list_steps
+    }
+
     /// Checks the tree's links and the byte count; for tests. Returns what
     /// is wrong, if anything.
     #[doc(hidden)]
     pub fn check_consistency(&self) -> Result<(), String> {
-        let held = self.bytes_held();
+        let held = self.bytes_held() + self.observer_bytes;
         for (id, node) in self.inner.tree().iter() {
             if let Some(p) = node.parent {
                 let Some(parent) = self.inner.get_node(p) else {
@@ -1884,5 +2197,72 @@ fn escape_into(s: &str, attribute: bool, out: &mut String) {
             '>' => out.push_str("&gt;"),
             c => out.push(c),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::DomRuntime;
+    use surimono_core::Limits;
+
+    /// Elements with a block stylo parsed.
+    fn parsed_blocks(doc: &Document) -> usize {
+        (0..1000)
+            .filter_map(|id| doc.inner.get_node(id))
+            .filter_map(|n| n.element_data())
+            .filter(|e| e.style_attribute.is_some())
+            .count()
+    }
+
+    /// blitz-dom would parse each of these in a call nothing can stop.
+    #[test]
+    fn no_path_gives_a_style_attribute_to_stylo() {
+        let page = r#"<!doctype html><html style="color: red"><body style="color: red">
+            <p id="p" style="color: red"></p><template><b style="color: red"></b></template>
+            <body style="top: 0" class="x"><html style="top: 0" lang="ja"><b><i style="top: 0">
+            <p>x"#;
+        let mut rt = DomRuntime::new(Limits::default()).unwrap();
+        rt.load(Document::parse(page).unwrap());
+        let got: String = rt
+            .eval(
+                r#"const p = document.getElementById('p');
+                const body = document.body, xlink = 'http://www.w3.org/1999/xlink';
+                const out = [document.documentElement.getAttribute('style'),
+                    body.getAttribute('style'), [...body.attributes].map(a => a.name).join()];
+                p.setAttribute('style', 'top: 1px');
+                p.setAttributeNS(xlink, 'xlink:style', 'top: 2px');
+                p.style.left = '3px';
+                p.attributes.getNamedItem('style').value += 'right: 4px';
+                p.innerHTML = '<b style="top: 5px"></b>';
+                out.push(p.firstChild.outerHTML);
+                p.appendChild(p.cloneNode(true));
+                p.removeAttribute('style');
+                out.push(p.getAttributeNS(xlink, 'style'), p.lastChild.getAttribute('style'));
+                out.join('|')"#,
+            )
+            .unwrap();
+        assert_eq!(
+            got,
+            "color: red|color: red|style,class|<b style=\"top: 5px\"></b>|top: 2px|\
+             top: 1px; left: 3px;right: 4px"
+        );
+        let mut doc = rt.take().unwrap();
+        assert_eq!(parsed_blocks(&doc), 0);
+        // The check sees one when there is one.
+        let id = doc.inner.root_element().id;
+        let name = QualName::new(None, ns!(), LocalName::from("style"));
+        doc.inner.mutate().set_attribute(id, name, "top: 0");
+        assert_eq!(parsed_blocks(&doc), 1);
+    }
+
+    #[test]
+    fn a_style_attribute_keeps_its_place_and_namespace() {
+        let doc = Document::parse(r#"<p id="a" style="top: 0" class="b">"#).unwrap();
+        let html = doc.to_html();
+        assert!(
+            html.contains(r#"<p id="a" style="top: 0" class="b">"#),
+            "{html}"
+        );
     }
 }

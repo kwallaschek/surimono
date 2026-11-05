@@ -339,6 +339,155 @@ fn what_the_libraries_do() {
     );
 }
 
+/// Each case is `[script, expected]`, run on a fresh `p`; the expected values
+/// came from Chrome 153.0.8010.12 (`p.style.cssText`).
+fn assert_style_cases(cases: &[(&str, &str)]) {
+    for (script, chrome) in cases {
+        let (r, _) = eval_body(&format!(
+            "const s = p.style; {script}; s.cssText + '|' + (p.getAttribute('style') ?? '')"
+        ));
+        let want = format!("{chrome}|{chrome}");
+        assert_eq!(r, want, "{script}");
+    }
+}
+
+#[test]
+fn set_property_needs_a_supported_name() {
+    assert_style_cases(&[
+        ("s.setProperty('bogus', '1')", ""),
+        ("s.setProperty('color: red; x', '1')", ""),
+        ("s.setProperty('--', '1')", ""),
+        ("s.setProperty('COLOR', 'red')", "color: red;"),
+        // A custom name is any text, escaped: it can't add a declaration.
+        ("s.setProperty('--a b', '1')", "--a\\ b: 1;"),
+        (
+            "s.setProperty('--a: 1; color', '1')",
+            "--a\\:\\ 1\\;\\ color: 1;",
+        ),
+        // A real property stylo doesn't know: SVG reads it, so it stays.
+        ("s.setProperty('fill', 'red')", "fill: red;"),
+        ("s.breakInside = 'avoid'", "break-inside: avoid;"),
+        // Legacy aliases.
+        ("s.webkitTransform = 'none'", "transform: none;"),
+        ("s.wordWrap = 'break-word'", "overflow-wrap: break-word;"),
+        // Not attributes: expandos.
+        ("s['--x'] = '1'", ""),
+        ("s['Font-Size'] = '1px'", ""),
+    ]);
+}
+
+#[test]
+fn a_value_cannot_leave_its_declaration() {
+    assert_style_cases(&[
+        ("s.color = 'red; display: none'", ""),
+        ("s.setProperty('color', 'red; display: none')", ""),
+        ("s.color = 'red !important'", ""),
+        ("s.setProperty('color', 'red !important')", ""),
+        ("s.color = 'red;'", ""),
+        ("s.color = 'red)'", ""),
+        ("s.setProperty('--x', 'a;b')", ""),
+        ("s.setProperty('--x', ')')", ""),
+        (
+            "s.fontFamily = \"'\"; s.color = 'red'",
+            "font-family: \"\"; color: red;",
+        ),
+        (
+            "s.backgroundImage = \"url('a\"; s.color = 'red'",
+            "background-image: url(\"a\"); color: red;",
+        ),
+        (
+            "s.color = 'rgb(1,2,3'; s.width = '1px'",
+            "color: rgb(1,2,3); width: 1px;",
+        ),
+    ]);
+}
+
+#[test]
+fn an_invalid_value_changes_nothing() {
+    assert_style_cases(&[
+        ("s.color = 'red'; s.color = 'notacolor'", "color: red;"),
+        ("s.cssText = 'color: red; color: notacolor'", "color: red;"),
+        ("s.setProperty('width', 'red')", ""),
+        ("s.color = ' '", ""),
+    ]);
+}
+
+#[test]
+fn null_value_of_set_property_removes() {
+    // [LegacyNullToEmptyString] on the required `value` and the optional
+    // `priority`.
+    assert_style_cases(&[
+        (
+            "s.width = '1px'; s.color = 'red'; s.setProperty('color', null)",
+            "width: 1px;",
+        ),
+        ("s.setProperty('width', '2px', null)", "width: 2px;"),
+        ("s.setProperty('width', '2px', 'x')", ""),
+    ]);
+}
+
+/// Values Chrome accepts must get through stylo. `layout.grid.enabled` and
+/// friends are set by blitz-dom's document constructor.
+#[test]
+fn common_values_are_valid() {
+    for (name, value) in [
+        ("display", "grid"),
+        ("display", "inline-flex"),
+        ("display", "none"),
+        ("position", "sticky"),
+        ("overflow", "clip"),
+        ("width", "fit-content"),
+        ("height", "min-content"),
+        ("color", "rgb(1 2 3)"),
+        ("color", "color-mix(in srgb, red, blue)"),
+        ("font-size", "clamp(1px, 2px, 3px)"),
+        ("inset", "0"),
+        ("gap", "1px"),
+        ("aspect-ratio", "1"),
+        ("background", "linear-gradient(red, blue)"),
+        ("background-image", "url(a.png)"),
+        ("transform", "rotate(1deg)"),
+        ("box-shadow", "0 0 1px red"),
+        ("text-decoration", "underline wavy"),
+        ("border-radius", "1px"),
+        ("font", "12px serif"),
+        ("flex", "1"),
+        ("grid-template-columns", "repeat(3, 1fr)"),
+        ("columns", "2"),
+        ("object-fit", "cover"),
+        ("line-height", "1.5"),
+        ("transition", "all 1s"),
+        ("margin", "0 auto"),
+        ("width", "calc(100% - 1px)"),
+        ("height", "100vh"),
+        ("font-family", "'A B', serif"),
+        ("white-space", "pre-wrap"),
+        ("word-break", "break-all"),
+        ("list-style", "none"),
+        ("outline", "1px solid red"),
+    ] {
+        let (r, _) = eval_body(&format!(
+            r#"p.style.setProperty("{name}", "{value}"); p.style.getPropertyValue("{name}")"#
+        ));
+        // As written, strings in double quotes as serialized.
+        assert_eq!(r, value.replace('\'', "\""), "{name}: {value}");
+    }
+}
+
+#[test]
+fn style_on_svg_and_rule() {
+    // cssom.idl: SVGElement includes ElementCSSInlineStyle, and an inline
+    // style has no parent rule. Chrome 153.0.8010.12.
+    let (r, _) = eval_body(
+        r#"const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        r.style.fill = 'red'; r.style.strokeWidth = '2';
+        const other = document.createElementNS('urn:x', 'y');
+        [r.getAttribute('style'), r instanceof SVGElement, r instanceof Element,
+         p instanceof SVGElement, typeof other.style, r.style.parentRule].join('|')"#,
+    );
+    assert_eq!(r, "fill: red; stroke-width: 2;|true|true|false|undefined|");
+}
+
 #[test]
 fn inline_style() {
     // CSSOM §6.6 CSSStyleDeclaration, §6.7 CSSStyleProperties; WPT
@@ -374,4 +523,207 @@ fn inline_style() {
         body.contains(r#"style="float: left; --My-Var: 1;""#),
         "{body}"
     );
+}
+
+#[test]
+fn collections_iterate_as_webidl_says() {
+    // WebIDL §3.7.8; WPT dom/collections/HTMLCollection-iterator.html: an
+    // indexed getter brings @@iterator, without `iterable<>`'s other members.
+    let r = eval(
+        r#"const out = [];
+        for (const c of u.children) out.push(c.id);
+        out.push([...u.children].length, [...u.attributes].map((a) => a.name).join('+'));
+        const c = u.children, a = u.attributes;
+        out.push(Symbol.iterator in c, 'values' in c, 'entries' in c, 'forEach' in c, 'keys' in c,
+                 'values' in a, 'forEach' in a);
+        const values = Array.prototype[Symbol.iterator];
+        out.push(HTMLCollection.prototype[Symbol.iterator] === values,
+                 NamedNodeMap.prototype[Symbol.iterator] === values,
+                 NodeList.prototype[Symbol.iterator] === values,
+                 DOMTokenList.prototype[Symbol.iterator] === values);
+        out.join()"#,
+    );
+    assert_eq!(
+        r,
+        "l1,l2,2,id+class+data-x-y+data-z,true,false,false,false,false,false,false,true,true,true,true"
+    );
+}
+
+#[test]
+fn insert_adjacent_html_around_head_and_body_implies_neither() {
+    // HTML §8.5; WPT domparsing/insert_adjacent_html.html, "Inserting kids of
+    // the <html> element should not do weird things with implied <body>/<head>
+    // tags".
+    let r = eval(
+        r#"document.body.insertAdjacentHTML('afterend', '<p>');
+        document.head.insertAdjacentHTML('beforebegin', '<p>');
+        document.documentElement.insertAdjacentHTML('beforeend', '<td>x</td><p>y');
+        document.documentElement.insertAdjacentHTML('afterbegin', '<i>z</i>');
+        const html = document.documentElement;
+        const names = [];
+        for (let n = html.firstChild; n; n = n.nextSibling) names.push(n.nodeName);
+        [document.getElementsByTagName('head').length,
+         document.getElementsByTagName('body').length, names.join('+'),
+         html.lastChild.textContent].join()"#,
+    );
+    assert_eq!(r, "1,1,I+P+HEAD+BODY+P+#text+P,y");
+}
+
+#[test]
+fn insert_adjacent_html_with_the_html_context_needs_no_body() {
+    // The context is a new element, so a page without a <body> works too.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse("<!doctype html><frameset></frameset>").unwrap());
+    let r: String = rt
+        .eval(
+            "const html = document.documentElement;
+            html.insertAdjacentHTML('beforeend', '<td>x</td>');
+            html.lastChild.nodeName + document.getElementsByTagName('frameset').length",
+        )
+        .unwrap();
+    assert_eq!(r, "#text1");
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn svg_names_keep_their_case_in_selectors() {
+    // Selectors 4 §6.1: type selectors and attribute names are ASCII
+    // case-insensitive only for HTML elements in an HTML document.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse(
+            r#"<!doctype html><body><svg viewBox="0 0 1 1"><defs><linearGradient id="g"></linearGradient><clipPath id="c"></clipPath></defs><foreignObject id="f"></foreignObject></svg><div id="d" title="t"></div>"#,
+        )
+        .unwrap(),
+    );
+    let r: String = rt
+        .eval(
+            r#"const id = (s) => { const e = document.querySelector(s); return e ? e.id || e.nodeName : 'null'; };
+            ['linearGradient', 'lineargradient', 'clipPath', 'clippath', 'foreignObject',
+             'foreignobject', '[viewBox]', '[viewbox]', 'DIV', 'div[TITLE]'].map(id).join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "g,null,c,null,f,null,svg,null,d,d");
+}
+
+#[test]
+fn dataset_names_as_the_wpt_lists_them() {
+    // WPT dom/collections/domstringmap-supported-property-names.html.
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(
+        Document::parse(
+            r#"<!doctype html><div id="edge1" data-="012"></div><div id="edge2" data-id-="012"></div>
+            <div id="user" data-id="1234567890" data-user="johndoe" data-date-of-birth></div>
+            <div id="user2" data-unique-id="1234567890"></div><div id="user3" data-unique-id="4324324241"></div>"#,
+        )
+        .unwrap(),
+    );
+    let r: String = rt
+        .eval(
+            r#"const names = (id) => JSON.stringify(Object.getOwnPropertyNames(document.getElementById(id).dataset));
+            document.getElementById('user2').dataset.middleName = 'mark';
+            document.getElementById('user3').setAttribute('data-age', 30);
+            ['edge1', 'edge2', 'user', 'user2', 'user3'].map(names).join()"#,
+        )
+        .unwrap();
+    assert_eq!(
+        r,
+        r#"[""],["id-"],["id","user","dateOfBirth"],["uniqueId","middleName"],["uniqueId","age"]"#
+    );
+}
+
+#[test]
+fn dataset_shows_what_shadows_a_builtin_and_numeric_names() {
+    // DOMStringMap is [LegacyOverrideBuiltIns] and has no indexed getter
+    // (HTML §3.2.6; WebIDL §3.9 "named property visibility").
+    let r = eval(
+        r#"p.setAttribute('data-to-string', 'x');
+        p.setAttribute('data-1', 'one');
+        const d = p.dataset;
+        const out = [Object.keys(d).join('+'), d.toString, d[1], 1 in d];
+        out.push(delete d[1], p.hasAttribute('data-1'), Object.keys(d).join('+'));
+        out.join()"#,
+    );
+    assert_eq!(r, "toString+1,x,one,true,true,false,toString");
+}
+
+#[test]
+fn inheriting_from_a_dataset_does_not_write_to_it() {
+    // WebIDL §3.9.2 [[Set]]: the setter runs only with the object as receiver.
+    let r = eval(
+        r#"const child = Object.create(p.dataset);
+        child.x = '1';
+        [p.hasAttribute('data-x'), Object.getOwnPropertyDescriptor(child, 'x').value].join()"#,
+    );
+    assert_eq!(r, "false,1");
+}
+
+#[test]
+fn a_removed_attr_keeps_its_value_and_a_new_attribute_is_a_new_attr() {
+    // DOM §4.9.2: removing sets the Attr's element to null; it keeps its value.
+    let mut rt = runtime();
+    let r: String = rt
+        .eval(
+            r#"const p = document.getElementById('p');
+            p.setAttribute('k', 'old');
+            const a = p.getAttributeNode ? null : p.attributes.getNamedItem('k');
+            p.attributes.removeNamedItem('k');
+            const out = [a.value, a.ownerElement];
+            a.value = 'detached';
+            p.setAttribute('k', 'new');
+            const b = p.attributes.getNamedItem('k');
+            out.push(a.value, a.ownerElement, b.value, b === a, b.ownerElement === p);
+            b.value = 'written';
+            out.push(p.getAttribute('k'), a.value);
+            out.join()"#,
+        )
+        .unwrap();
+    assert_eq!(r, "old,,detached,,new,false,true,written,detached");
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn two_attributes_with_one_qualified_name_list_it_once() {
+    // DOM §4.9.1: the supported names are an ordered set.
+    let r = eval(
+        r#"p.setAttributeNS('a', 'x:k', '1');
+        p.setAttributeNS('b', 'x:k', '2');
+        Object.getOwnPropertyNames(p.attributes).join()"#,
+    );
+    assert_eq!(r, "0,1,2,id,x:k");
+}
+
+#[test]
+fn scope_on_a_document_is_the_root_element() {
+    // Selectors 4 §3.3 (:scope with no scoping root): `:root`.
+    let r = eval(
+        r#"[document.querySelector(':scope') === document.documentElement,
+            document.querySelector(':scope > body') === document.body,
+            document.body.querySelector(':scope > ul') === u].join()"#,
+    );
+    assert_eq!(r, "true,true,true");
+}
+
+#[test]
+fn empty_ignores_comments_and_empty_text() {
+    // Selectors 3 §6.6.5.8 (Chrome agrees): text of zero length doesn't count.
+    let r = eval(
+        r#"const e = document.createElement('i');
+        document.body.append(e);
+        const out = [];
+        const empty = () => out.push(e.matches(':empty'));
+        empty();
+        e.append(document.createComment('c')); empty();
+        e.append(document.createTextNode('')); empty();
+        e.append(document.createTextNode(' ')); empty();
+        const s = document.createElement('style');
+        s.textContent = 'a{}';
+        out.push(s.matches(':empty'));
+        out.join()"#,
+    );
+    assert_eq!(r, "true,true,true,false,false");
 }

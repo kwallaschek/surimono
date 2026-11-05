@@ -13,8 +13,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only for every job but publish (below).
 permissions:
-  contents: write # publish logs to the ci-results branch
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,17 +28,53 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - run: rustup show active-toolchain || rustup toolchain install
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
         with:
           ruby-version: "3.4"
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
         with:
           tool: cargo-deny
       - name: checks
         run: scripts/ci/job.sh linux scripts/ci.sh
-      - name: publish results
-        if: always()
-        run: scripts/ci/publish-results.sh "${{ job.status }}"
+      # Logs and result for the publish job; this job has no write token.
+      - if: always()
+        run: scripts/ci/job-status.sh "${{ job.status }}"
+      - if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: ci-out-linux
+          path: ci-out
+          retention-days: 3
+
+  # The only job with a write token. After the others (whatever their result),
+  # it pushes their logs and results to the ci-results branch, for the fleet,
+  # which can read git but not the Actions API. It runs the default branch's
+  # scripts on the build jobs' artifacts, so no code under test runs where the
+  # token is.
+  publish:
+    needs: [linux]
+    # Fork pull requests get a read-only token whatever permissions: says,
+    # so their push would fail; their logs stay in the run.
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          pattern: ci-out-*
+          path: results
+      - run: scripts/ci/publish-results.sh --from results
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NEEDS: ${{ toJSON(needs) }}

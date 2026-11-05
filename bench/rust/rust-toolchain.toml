@@ -1,5 +1,6 @@
-# The bench crate links the fulgur crate, whose PDF stack (krilla 0.7) needs
-# rustc 1.89; the library itself stays on the workspace MSRV (1.87).
+# The bench crate is its own workspace with its own pinned toolchain, separate
+# from the library's MSRV pin. The fulgur crate's PDF stack (krilla 0.7) needs
+# rustc 1.89 or later.
 [toolchain]
 channel = "1.97.0"
 profile = "minimal"

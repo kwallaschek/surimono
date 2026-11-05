@@ -1,8 +1,8 @@
 //! `Document::to_html` against the HTML Standard's fragment serialization
 //! algorithm (https://html.spec.whatwg.org/#serialising-html-fragments,
 //! §13.3). Every expected string is what that algorithm gives for the tree
-//! the HTML parser builds (§13.2) with scripting disabled, which is how
-//! blitz-html 0.2.0 parses.
+//! the HTML parser builds (§13.2) with scripting enabled, since scripts run
+//! on this tree.
 
 use surimono_dom::Document;
 
@@ -56,11 +56,9 @@ fn raw_text_is_only_for_html_elements() {
 }
 
 #[test]
-fn noscript_is_not_raw_text_with_scripting_disabled() {
-    // With scripting disabled the parser treats <noscript> as an ordinary
-    // element (§13.2.6.4.7, "in body"), and §13.3 writes its text escaped
-    // because raw text applies to noscript only when scripting is enabled.
-    // Written raw, the decoded `<b>` would come back as an element.
+fn noscript_is_raw_text_with_scripting_enabled() {
+    // With scripting enabled the parser reads <noscript> as raw text
+    // (§13.2.6.4.7, "in body"), and §13.3 writes that text literally.
     let src = "<noscript>1 &lt; 2 &lt;b&gt; <i>x</i></noscript>";
     assert_eq!(body_html(src), src);
     let again = body_html(&body_html(src));

@@ -95,13 +95,30 @@ const OP_HOST: u32 = 2;
 /// The first operation number for generated members.
 const OP_FIRST: u32 = OP_HOST + HOST_OPS.len() as u32;
 
+/// Members the glue calls itself, for event paths and handler attributes:
+/// (interface, member). Each gets a `const OP_<member>` in `bindings.js`.
+const GLUE_OPS: &[(&str, &str)] = &[
+    ("Node", "parentNode"),
+    ("Element", "localName"),
+    ("Element", "getAttribute"),
+    ("Element", "getAttributeNames"),
+    ("Document", "body"),
+];
+
+/// IDL types of event handler IDL attributes (HTML §8.1.7.1).
+const EVENT_HANDLER_TYPES: &[&str] = &[
+    "EventHandler",
+    "OnErrorEventHandler",
+    "OnBeforeUnloadEventHandler",
+];
+
 /// Everything for one member's two halves.
 struct Out {
     js: String,
     arms: String,
     next_op: u32,
-    /// `Node.parentNode`'s operation, for event paths in the glue.
-    parent_node_op: u32,
+    /// The operations of [`GLUE_OPS`] members bound so far.
+    glue_ops: Vec<(&'static str, u32)>,
 }
 
 impl Out {
@@ -317,6 +334,43 @@ fn overloads<'m>(m: &'m MergedInterface, name: &str) -> Vec<&'m MergedMember> {
 }
 
 impl Bound<'_, '_> {
+    /// Keeps `op` for the glue if it is one of [`GLUE_OPS`].
+    fn note_glue_op(&mut self, member: &str, op: u32) {
+        let found = GLUE_OPS
+            .iter()
+            .find(|(i, m)| *i == self.iface.name && *m == member);
+        if let Some((_, m)) = found {
+            self.out.glue_ops.push((m, op));
+        }
+    }
+
+    /// The interface's event handler IDL attributes, including its mixins'.
+    /// The glue defines them all: they only need a name.
+    fn event_handlers(&mut self) {
+        let names: Vec<String> = self
+            .iface
+            .members
+            .iter()
+            .filter_map(|m| match &m.member.kind {
+                MemberKind::Attribute { name, ty, .. }
+                    if matches!(&ty.kind, TypeKind::Named(n)
+                        if EVENT_HANDLER_TYPES.contains(&n.as_str())) =>
+                {
+                    Some(js_string(name))
+                }
+                _ => None,
+            })
+            .collect();
+        if !names.is_empty() {
+            let _ = writeln!(
+                self.out.js,
+                "handlers({}, [{}]);",
+                self.id,
+                names.join(", ")
+            );
+        }
+    }
+
     fn unsupported(&self, member: &str, ty: &Type) -> GenError {
         GenError::UnsupportedType {
             interface: self.iface.name.clone(),
@@ -386,9 +440,7 @@ impl Bound<'_, '_> {
         let rust = rust_name(name);
         let getter = self.trait_call(&rust, &[], true);
         let op = self.out.op(&getter);
-        if self.iface.name == "Node" && name == "parentNode" {
-            self.out.parent_node_op = op;
-        }
+        self.note_glue_op(name, op);
         let ret = self.js_return(name, ty, "r", "s.g")?;
         let _ = write!(
             self.out.js,
@@ -428,8 +480,13 @@ impl Bound<'_, '_> {
         let mut rust_args = Vec::new();
         let mut variadic = None;
         for (i, (a, (_, rt))) in args.iter().zip(&params).enumerate() {
-            let c = conv(self.gen_, self.table, &a.ty, 0)
+            let mut c = conv(self.gen_, self.table, &a.ty, 0)
                 .ok_or_else(|| self.unsupported(member, &a.ty))?;
+            // On a required argument the parser hangs it on the argument, on
+            // an optional one on the type.
+            if let Conv::Str(null_to_empty) = &mut c {
+                *null_to_empty |= has_ext(&a.ext_attrs, "LegacyNullToEmptyString");
+            }
             rust_args.push(if matches!(c, Conv::Skip) {
                 "Value::Undefined".to_owned()
             } else {
@@ -575,6 +632,7 @@ impl Bound<'_, '_> {
         } = self.arguments(name, args, "s.g")?;
         let call = self.trait_call(&rust_name(name), &rust_args, true);
         let op = self.out.op(&call);
+        self.note_glue_op(name, op);
         let ret = self.js_return(name, return_type, "r", "s.g")?;
         let required = params.len();
         let mut body = format!("const s = self(this, {id}); const argc = arguments.length; ");
@@ -845,6 +903,7 @@ impl Bound<'_, '_> {
         if let Some(x) = self.exotic(spec.members)? {
             let _ = writeln!(self.out.js, "exotic({id}, {x});");
         }
+        self.event_handlers();
         Ok(())
     }
 }
@@ -868,7 +927,7 @@ pub fn generate_bindings(
         js: String::new(),
         arms: String::new(),
         next_op: OP_FIRST,
-        parent_node_op: 0,
+        glue_ops: Vec::new(),
     };
     for (id, spec) in table.iter().enumerate() {
         if bound_id(table, spec.name) != Some(id) {
@@ -904,7 +963,7 @@ pub fn generate_bindings(
     if let Some(id) = bound_id(table, "Node") {
         let _ = writeln!(js, "const nodeBit = 1 << {id};");
     }
-    for name in JS_INTERFACES {
+    for name in JS_INTERFACES.iter().chain(&["HTMLElement", "Document"]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
         }
@@ -914,7 +973,9 @@ pub fn generate_bindings(
     for (i, (name, _)) in HOST_OPS.iter().enumerate() {
         let _ = writeln!(js, "const OP_{name} = {};", OP_HOST + i as u32);
     }
-    let _ = writeln!(js, "const OP_parentNode = {};", out.parent_node_op);
+    for (member, op) in &out.glue_ops {
+        let _ = writeln!(js, "const OP_{member} = {op};");
+    }
     let mut rust = note("//");
     rust.push_str("\nuse surimono_webidl::runtime::{BindingError, BindingResult, ObjectId};\n");
     if out.arms.contains("Value::Undefined") {
@@ -1095,6 +1156,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &["title", "lang", "dataset", "style"],
     },
     BindInterface {
+        name: "SVGElement",
+        members: &["style"],
+    },
+    BindInterface {
         name: "Document",
         members: &[
             "documentElement",
@@ -1215,6 +1280,11 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         name: "DOMStringMap",
         members: &["named_getter", "named_setter", "named_deleter"],
     },
+    // Only for `parentRule`, always null on an inline style.
+    BindInterface {
+        name: "CSSRule",
+        members: &[],
+    },
     BindInterface {
         name: "MutationObserver",
         members: &["constructor", "observe", "disconnect", "takeRecords"],
@@ -1261,6 +1331,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         name: "CSSStyleDeclaration",
         members: &[
             "cssText",
+            "parentRule",
             "length",
             "item",
             "getPropertyValue",
