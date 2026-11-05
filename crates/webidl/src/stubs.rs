@@ -76,7 +76,7 @@ pub static INTERFACES: &[InterfaceInfo] = &[
     InterfaceInfo {
         name: "Element",
         parent: Some("Node"),
-        files: &["cssom-view.idl", "dom.idl", "html.idl"],
+        files: &["cssom-view.idl", "dom.idl", "html.idl", "pointerevents.idl", "pointerlock.idl"],
         members: &[
             MemberInfo { idl_name: "namespaceURI", rust_name: "namespace_uri", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "prefix", rust_name: "prefix", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
@@ -140,6 +140,10 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "innerHTML", rust_name: "inner_html", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "outerHTML", rust_name: "outer_html", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "insertAdjacentHTML", rust_name: "insert_adjacent_html", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setPointerCapture", rust_name: "set_pointer_capture", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "releasePointerCapture", rust_name: "release_pointer_capture", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "hasPointerCapture", rust_name: "has_pointer_capture", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "requestPointerLock", rust_name: "request_pointer_lock", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "getBoxQuads", rust_name: "get_box_quads", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "convertQuadFromNode", rust_name: "convert_quad_from_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "convertRectFromNode", rust_name: "convert_rect_from_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
@@ -172,7 +176,7 @@ pub static INTERFACES: &[InterfaceInfo] = &[
     InterfaceInfo {
         name: "HTMLElement",
         parent: Some("Element"),
-        files: &["cssom-view.idl", "cssom.idl", "html.idl"],
+        files: &["cssom-view.idl", "cssom.idl", "html.idl", "pointerevents.idl", "touch-events.idl"],
         members: &[
             MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
             MemberInfo { idl_name: "title", rust_name: "title", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
@@ -281,6 +285,21 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "onwebkitanimationstart", rust_name: "onwebkitanimationstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "onwebkittransitionend", rust_name: "onwebkittransitionend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "onwheel", rust_name: "onwheel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerover", rust_name: "onpointerover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerenter", rust_name: "onpointerenter", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerdown", rust_name: "onpointerdown", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointermove", rust_name: "onpointermove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerrawupdate", rust_name: "onpointerrawupdate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerup", rust_name: "onpointerup", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointercancel", rust_name: "onpointercancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerout", rust_name: "onpointerout", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerleave", rust_name: "onpointerleave", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ongotpointercapture", rust_name: "ongotpointercapture", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onlostpointercapture", rust_name: "onlostpointercapture", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchstart", rust_name: "ontouchstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchend", rust_name: "ontouchend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchmove", rust_name: "ontouchmove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchcancel", rust_name: "ontouchcancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "contentEditable", rust_name: "content_editable", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "enterKeyHint", rust_name: "enter_key_hint", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "isContentEditable", rust_name: "is_content_editable", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
@@ -296,7 +315,7 @@ pub static INTERFACES: &[InterfaceInfo] = &[
     InterfaceInfo {
         name: "SVGElement",
         parent: Some("Element"),
-        files: &["SVG.idl", "cssom.idl", "html.idl"],
+        files: &["SVG.idl", "cssom.idl", "html.idl", "pointerevents.idl", "touch-events.idl"],
         members: &[
             MemberInfo { idl_name: "className", rust_name: "class_name", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "ownerSVGElement", rust_name: "owner_svg_element", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
@@ -377,6 +396,21 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "onwebkitanimationstart", rust_name: "onwebkitanimationstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "onwebkittransitionend", rust_name: "onwebkittransitionend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "onwheel", rust_name: "onwheel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerover", rust_name: "onpointerover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerenter", rust_name: "onpointerenter", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerdown", rust_name: "onpointerdown", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointermove", rust_name: "onpointermove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerrawupdate", rust_name: "onpointerrawupdate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerup", rust_name: "onpointerup", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointercancel", rust_name: "onpointercancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerout", rust_name: "onpointerout", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerleave", rust_name: "onpointerleave", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ongotpointercapture", rust_name: "ongotpointercapture", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onlostpointercapture", rust_name: "onlostpointercapture", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchstart", rust_name: "ontouchstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchend", rust_name: "ontouchend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchmove", rust_name: "ontouchmove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchcancel", rust_name: "ontouchcancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "dataset", rust_name: "dataset", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "nonce", rust_name: "nonce", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "autofocus", rust_name: "autofocus", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
@@ -389,7 +423,7 @@ pub static INTERFACES: &[InterfaceInfo] = &[
     InterfaceInfo {
         name: "Document",
         parent: Some("Node"),
-        files: &["SVG.idl", "css-font-loading.idl", "cssom-view.idl", "cssom.idl", "dom.idl", "html.idl"],
+        files: &["SVG.idl", "css-font-loading.idl", "cssom-view.idl", "cssom.idl", "dom.idl", "html.idl", "pointerevents.idl", "pointerlock.idl", "touch-events.idl"],
         members: &[
             MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
             MemberInfo { idl_name: "implementation", rust_name: "implementation", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
@@ -474,6 +508,9 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "captureEvents", rust_name: "capture_events", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "releaseEvents", rust_name: "release_events", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "all", rust_name: "all", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "onpointerlockchange", rust_name: "onpointerlockchange", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerlockerror", rust_name: "onpointerlockerror", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "exitPointerLock", rust_name: "exit_pointer_lock", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "fonts", rust_name: "fonts", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "getBoxQuads", rust_name: "get_box_quads", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
             MemberInfo { idl_name: "convertQuadFromNode", rust_name: "convert_quad_from_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
@@ -484,6 +521,7 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "styleSheets", rust_name: "style_sheets", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "adoptedStyleSheets", rust_name: "adopted_style_sheets", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "activeElement", rust_name: "active_element", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "pointerLockElement", rust_name: "pointer_lock_element", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "children", rust_name: "children", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "firstElementChild", rust_name: "first_element_child", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "lastElementChild", rust_name: "last_element_child", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
@@ -573,6 +611,21 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "onwebkitanimationstart", rust_name: "onwebkitanimationstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "onwebkittransitionend", rust_name: "onwebkittransitionend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "onwheel", rust_name: "onwheel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerover", rust_name: "onpointerover", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerenter", rust_name: "onpointerenter", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerdown", rust_name: "onpointerdown", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointermove", rust_name: "onpointermove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerrawupdate", rust_name: "onpointerrawupdate", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerup", rust_name: "onpointerup", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointercancel", rust_name: "onpointercancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerout", rust_name: "onpointerout", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onpointerleave", rust_name: "onpointerleave", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ongotpointercapture", rust_name: "ongotpointercapture", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "onlostpointercapture", rust_name: "onlostpointercapture", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchstart", rust_name: "ontouchstart", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchend", rust_name: "ontouchend", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchmove", rust_name: "ontouchmove", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ontouchcancel", rust_name: "ontouchcancel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
         ],
     },
     InterfaceInfo {
@@ -783,6 +836,37 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "name", rust_name: "name", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "rev", rust_name: "rev", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "shape", rust_name: "shape", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "origin", rust_name: "origin", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "protocol", rust_name: "protocol", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "username", rust_name: "username", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "password", rust_name: "password", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "host", rust_name: "host", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hostname", rust_name: "hostname", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "port", rust_name: "port", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "pathname", rust_name: "pathname", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "search", rust_name: "search", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hash", rust_name: "hash", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "hreflang", rust_name: "hreflang", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "type", rust_name: "type_", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "href", rust_name: "href", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "target", rust_name: "target", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "HTMLAreaElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "alt", rust_name: "alt", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "coords", rust_name: "coords", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "shape", rust_name: "shape", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "download", rust_name: "download", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "ping", rust_name: "ping", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "rel", rust_name: "rel", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "relList", rust_name: "rel_list", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "referrerPolicy", rust_name: "referrer_policy", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "noHref", rust_name: "no_href", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "origin", rust_name: "origin", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
             MemberInfo { idl_name: "protocol", rust_name: "protocol", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
             MemberInfo { idl_name: "username", rust_name: "username", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
@@ -1290,7 +1374,7 @@ pub mod node_consts {
 ///
 /// Includes: GeometryUtils, ParentNode, NonDocumentTypeChildNode, ChildNode, Slottable.
 ///
-/// Members also from: cssom-view.idl, html.idl.
+/// Members also from: cssom-view.idl, html.idl, pointerevents.idl, pointerlock.idl.
 pub trait Element: Node {
     /// `readonly attribute DOMString? namespaceURI;` (dom.idl)
     fn namespace_uri(&mut self, this: ObjectId) -> BindingResult<Option<String>> {
@@ -1724,6 +1808,30 @@ pub trait Element: Node {
         Err(BindingError::NotImplemented("Element.insertAdjacentHTML"))
     }
 
+    /// `undefined setPointerCapture(long pointerId);` (pointerevents.idl)
+    fn set_pointer_capture(&mut self, this: ObjectId, pointer_id: i32) -> BindingResult<()> {
+        let _ = (this, pointer_id);
+        Err(BindingError::NotImplemented("Element.setPointerCapture"))
+    }
+
+    /// `undefined releasePointerCapture(long pointerId);` (pointerevents.idl)
+    fn release_pointer_capture(&mut self, this: ObjectId, pointer_id: i32) -> BindingResult<()> {
+        let _ = (this, pointer_id);
+        Err(BindingError::NotImplemented("Element.releasePointerCapture"))
+    }
+
+    /// `boolean hasPointerCapture(long pointerId);` (pointerevents.idl)
+    fn has_pointer_capture(&mut self, this: ObjectId, pointer_id: i32) -> BindingResult<bool> {
+        let _ = (this, pointer_id);
+        Err(BindingError::NotImplemented("Element.hasPointerCapture"))
+    }
+
+    /// `Promise<undefined> requestPointerLock(optional PointerLockOptions options = {});` (pointerlock.idl)
+    fn request_pointer_lock(&mut self, this: ObjectId, options: Value) -> BindingResult<Value> {
+        let _ = (this, options);
+        Err(BindingError::NotImplemented("Element.requestPointerLock"))
+    }
+
     /// `sequence<DOMQuad> getBoxQuads(optional BoxQuadOptions options = {});` (GeometryUtils, cssom-view.idl)
     fn get_box_quads(&mut self, this: ObjectId, options: Value) -> BindingResult<Vec<ObjectId>> {
         let _ = (this, options);
@@ -1891,7 +1999,7 @@ pub trait Element: Node {
 ///
 /// Includes: ElementCSSInlineStyle, GlobalEventHandlers, ElementContentEditable, HTMLOrSVGOrMathMLElement.
 ///
-/// Members also from: cssom-view.idl, cssom.idl.
+/// Members also from: cssom-view.idl, cssom.idl, pointerevents.idl, touch-events.idl.
 pub trait HTMLElement: Element {
     /// `[HTMLConstructor] constructor();` (html.idl)
     fn constructor(&mut self) -> BindingResult<ObjectId> {
@@ -3092,6 +3200,186 @@ pub trait HTMLElement: Element {
         Err(BindingError::NotImplemented("HTMLElement.onwheel"))
     }
 
+    /// `attribute EventHandler onpointerover;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerover(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointerover"))
+    }
+
+    /// `attribute EventHandler onpointerover;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerover(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointerover"))
+    }
+
+    /// `attribute EventHandler onpointerenter;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerenter(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointerenter"))
+    }
+
+    /// `attribute EventHandler onpointerenter;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerenter(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointerenter"))
+    }
+
+    /// `attribute EventHandler onpointerdown;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerdown(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointerdown"))
+    }
+
+    /// `attribute EventHandler onpointerdown;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerdown(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointerdown"))
+    }
+
+    /// `attribute EventHandler onpointermove;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointermove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointermove"))
+    }
+
+    /// `attribute EventHandler onpointermove;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointermove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointermove"))
+    }
+
+    /// `[SecureContext] attribute EventHandler onpointerrawupdate;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerrawupdate(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointerrawupdate"))
+    }
+
+    /// `[SecureContext] attribute EventHandler onpointerrawupdate;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerrawupdate(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointerrawupdate"))
+    }
+
+    /// `attribute EventHandler onpointerup;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerup(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointerup"))
+    }
+
+    /// `attribute EventHandler onpointerup;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerup(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointerup"))
+    }
+
+    /// `attribute EventHandler onpointercancel;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointercancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointercancel"))
+    }
+
+    /// `attribute EventHandler onpointercancel;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointercancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointercancel"))
+    }
+
+    /// `attribute EventHandler onpointerout;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerout(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointerout"))
+    }
+
+    /// `attribute EventHandler onpointerout;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerout(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointerout"))
+    }
+
+    /// `attribute EventHandler onpointerleave;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerleave(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onpointerleave"))
+    }
+
+    /// `attribute EventHandler onpointerleave;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerleave(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onpointerleave"))
+    }
+
+    /// `attribute EventHandler ongotpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn ongotpointercapture(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ongotpointercapture"))
+    }
+
+    /// `attribute EventHandler ongotpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_ongotpointercapture(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ongotpointercapture"))
+    }
+
+    /// `attribute EventHandler onlostpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn onlostpointercapture(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.onlostpointercapture"))
+    }
+
+    /// `attribute EventHandler onlostpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onlostpointercapture(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.onlostpointercapture"))
+    }
+
+    /// `attribute EventHandler ontouchstart;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ontouchstart"))
+    }
+
+    /// `attribute EventHandler ontouchstart;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ontouchstart"))
+    }
+
+    /// `attribute EventHandler ontouchend;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ontouchend"))
+    }
+
+    /// `attribute EventHandler ontouchend;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ontouchend"))
+    }
+
+    /// `attribute EventHandler ontouchmove;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchmove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ontouchmove"))
+    }
+
+    /// `attribute EventHandler ontouchmove;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchmove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ontouchmove"))
+    }
+
+    /// `attribute EventHandler ontouchcancel;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchcancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLElement.ontouchcancel"))
+    }
+
+    /// `attribute EventHandler ontouchcancel;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchcancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLElement.ontouchcancel"))
+    }
+
     /// `[CEReactions] attribute DOMString contentEditable;` (ElementContentEditable, html.idl)
     fn content_editable(&mut self, this: ObjectId) -> BindingResult<String> {
         let _ = this;
@@ -3193,7 +3481,7 @@ pub trait HTMLElement: Element {
 ///
 /// Includes: GlobalEventHandlers, HTMLOrSVGOrMathMLElement, ElementCSSInlineStyle.
 ///
-/// Members also from: cssom.idl, html.idl.
+/// Members also from: cssom.idl, html.idl, pointerevents.idl, touch-events.idl.
 pub trait SVGElement: Element {
     /// `[SameObject] readonly attribute SVGAnimatedString className;` (SVG.idl)
     fn class_name(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
@@ -4125,6 +4413,186 @@ pub trait SVGElement: Element {
         Err(BindingError::NotImplemented("SVGElement.onwheel"))
     }
 
+    /// `attribute EventHandler onpointerover;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerover(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointerover"))
+    }
+
+    /// `attribute EventHandler onpointerover;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerover(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointerover"))
+    }
+
+    /// `attribute EventHandler onpointerenter;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerenter(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointerenter"))
+    }
+
+    /// `attribute EventHandler onpointerenter;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerenter(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointerenter"))
+    }
+
+    /// `attribute EventHandler onpointerdown;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerdown(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointerdown"))
+    }
+
+    /// `attribute EventHandler onpointerdown;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerdown(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointerdown"))
+    }
+
+    /// `attribute EventHandler onpointermove;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointermove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointermove"))
+    }
+
+    /// `attribute EventHandler onpointermove;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointermove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointermove"))
+    }
+
+    /// `[SecureContext] attribute EventHandler onpointerrawupdate;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerrawupdate(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointerrawupdate"))
+    }
+
+    /// `[SecureContext] attribute EventHandler onpointerrawupdate;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerrawupdate(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointerrawupdate"))
+    }
+
+    /// `attribute EventHandler onpointerup;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerup(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointerup"))
+    }
+
+    /// `attribute EventHandler onpointerup;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerup(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointerup"))
+    }
+
+    /// `attribute EventHandler onpointercancel;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointercancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointercancel"))
+    }
+
+    /// `attribute EventHandler onpointercancel;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointercancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointercancel"))
+    }
+
+    /// `attribute EventHandler onpointerout;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerout(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointerout"))
+    }
+
+    /// `attribute EventHandler onpointerout;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerout(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointerout"))
+    }
+
+    /// `attribute EventHandler onpointerleave;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerleave(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onpointerleave"))
+    }
+
+    /// `attribute EventHandler onpointerleave;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerleave(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onpointerleave"))
+    }
+
+    /// `attribute EventHandler ongotpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn ongotpointercapture(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ongotpointercapture"))
+    }
+
+    /// `attribute EventHandler ongotpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_ongotpointercapture(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ongotpointercapture"))
+    }
+
+    /// `attribute EventHandler onlostpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn onlostpointercapture(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.onlostpointercapture"))
+    }
+
+    /// `attribute EventHandler onlostpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onlostpointercapture(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.onlostpointercapture"))
+    }
+
+    /// `attribute EventHandler ontouchstart;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ontouchstart"))
+    }
+
+    /// `attribute EventHandler ontouchstart;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ontouchstart"))
+    }
+
+    /// `attribute EventHandler ontouchend;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ontouchend"))
+    }
+
+    /// `attribute EventHandler ontouchend;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ontouchend"))
+    }
+
+    /// `attribute EventHandler ontouchmove;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchmove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ontouchmove"))
+    }
+
+    /// `attribute EventHandler ontouchmove;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchmove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ontouchmove"))
+    }
+
+    /// `attribute EventHandler ontouchcancel;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchcancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("SVGElement.ontouchcancel"))
+    }
+
+    /// `attribute EventHandler ontouchcancel;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchcancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("SVGElement.ontouchcancel"))
+    }
+
     /// `[SameObject] readonly attribute DOMStringMap dataset;` (HTMLOrSVGOrMathMLElement, html.idl)
     fn dataset(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
         let _ = this;
@@ -4190,7 +4658,7 @@ pub trait SVGElement: Element {
 ///
 /// Includes: FontFaceSource, GeometryUtils, NonElementParentNode, DocumentOrShadowRoot, ParentNode, XPathEvaluatorBase, GlobalEventHandlers.
 ///
-/// Members also from: SVG.idl, css-font-loading.idl, cssom-view.idl, cssom.idl, html.idl.
+/// Members also from: SVG.idl, css-font-loading.idl, cssom-view.idl, cssom.idl, html.idl, pointerevents.idl, pointerlock.idl, touch-events.idl.
 pub trait Document: Node {
     /// `constructor();` (dom.idl)
     fn constructor(&mut self) -> BindingResult<ObjectId> {
@@ -4773,6 +5241,36 @@ pub trait Document: Node {
         Err(BindingError::NotImplemented("Document.all"))
     }
 
+    /// `attribute EventHandler onpointerlockchange;` (pointerlock.idl)
+    fn onpointerlockchange(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerlockchange"))
+    }
+
+    /// `attribute EventHandler onpointerlockchange;` (pointerlock.idl)
+    fn set_onpointerlockchange(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerlockchange"))
+    }
+
+    /// `attribute EventHandler onpointerlockerror;` (pointerlock.idl)
+    fn onpointerlockerror(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerlockerror"))
+    }
+
+    /// `attribute EventHandler onpointerlockerror;` (pointerlock.idl)
+    fn set_onpointerlockerror(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerlockerror"))
+    }
+
+    /// `undefined exitPointerLock();` (pointerlock.idl)
+    fn exit_pointer_lock(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.exitPointerLock"))
+    }
+
     /// `readonly attribute FontFaceSet fonts;` (FontFaceSource, css-font-loading.idl)
     fn fonts(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
         let _ = this;
@@ -4837,6 +5335,12 @@ pub trait Document: Node {
     fn active_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
         let _ = this;
         Err(BindingError::NotImplemented("Document.activeElement"))
+    }
+
+    /// `readonly attribute Element? pointerLockElement;` (DocumentOrShadowRoot, pointerlock.idl)
+    fn pointer_lock_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.pointerLockElement"))
     }
 
     /// `[SameObject] readonly attribute HTMLCollection children;` (ParentNode, dom.idl)
@@ -5827,6 +6331,186 @@ pub trait Document: Node {
     fn set_onwheel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
         let _ = (this, value);
         Err(BindingError::NotImplemented("Document.onwheel"))
+    }
+
+    /// `attribute EventHandler onpointerover;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerover(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerover"))
+    }
+
+    /// `attribute EventHandler onpointerover;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerover(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerover"))
+    }
+
+    /// `attribute EventHandler onpointerenter;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerenter(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerenter"))
+    }
+
+    /// `attribute EventHandler onpointerenter;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerenter(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerenter"))
+    }
+
+    /// `attribute EventHandler onpointerdown;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerdown(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerdown"))
+    }
+
+    /// `attribute EventHandler onpointerdown;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerdown(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerdown"))
+    }
+
+    /// `attribute EventHandler onpointermove;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointermove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointermove"))
+    }
+
+    /// `attribute EventHandler onpointermove;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointermove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointermove"))
+    }
+
+    /// `[SecureContext] attribute EventHandler onpointerrawupdate;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerrawupdate(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerrawupdate"))
+    }
+
+    /// `[SecureContext] attribute EventHandler onpointerrawupdate;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerrawupdate(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerrawupdate"))
+    }
+
+    /// `attribute EventHandler onpointerup;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerup(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerup"))
+    }
+
+    /// `attribute EventHandler onpointerup;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerup(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerup"))
+    }
+
+    /// `attribute EventHandler onpointercancel;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointercancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointercancel"))
+    }
+
+    /// `attribute EventHandler onpointercancel;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointercancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointercancel"))
+    }
+
+    /// `attribute EventHandler onpointerout;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerout(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerout"))
+    }
+
+    /// `attribute EventHandler onpointerout;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerout(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerout"))
+    }
+
+    /// `attribute EventHandler onpointerleave;` (GlobalEventHandlers, pointerevents.idl)
+    fn onpointerleave(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onpointerleave"))
+    }
+
+    /// `attribute EventHandler onpointerleave;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onpointerleave(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onpointerleave"))
+    }
+
+    /// `attribute EventHandler ongotpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn ongotpointercapture(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.ongotpointercapture"))
+    }
+
+    /// `attribute EventHandler ongotpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_ongotpointercapture(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.ongotpointercapture"))
+    }
+
+    /// `attribute EventHandler onlostpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn onlostpointercapture(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.onlostpointercapture"))
+    }
+
+    /// `attribute EventHandler onlostpointercapture;` (GlobalEventHandlers, pointerevents.idl)
+    fn set_onlostpointercapture(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.onlostpointercapture"))
+    }
+
+    /// `attribute EventHandler ontouchstart;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchstart(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.ontouchstart"))
+    }
+
+    /// `attribute EventHandler ontouchstart;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchstart(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.ontouchstart"))
+    }
+
+    /// `attribute EventHandler ontouchend;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchend(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.ontouchend"))
+    }
+
+    /// `attribute EventHandler ontouchend;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchend(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.ontouchend"))
+    }
+
+    /// `attribute EventHandler ontouchmove;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchmove(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.ontouchmove"))
+    }
+
+    /// `attribute EventHandler ontouchmove;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchmove(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.ontouchmove"))
+    }
+
+    /// `attribute EventHandler ontouchcancel;` (GlobalEventHandlers, touch-events.idl)
+    fn ontouchcancel(&mut self, this: ObjectId) -> BindingResult<Value> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Document.ontouchcancel"))
+    }
+
+    /// `attribute EventHandler ontouchcancel;` (GlobalEventHandlers, touch-events.idl)
+    fn set_ontouchcancel(&mut self, this: ObjectId, value: Value) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("Document.ontouchcancel"))
     }
 }
 
@@ -6832,6 +7516,280 @@ pub trait HTMLAnchorElement: HTMLElement {
     fn set_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let _ = (this, value);
         Err(BindingError::NotImplemented("HTMLAnchorElement.target"))
+    }
+}
+
+/// IDL `interface HTMLAreaElement : HTMLElement` (html.idl).
+///
+/// Includes: HyperlinkElementUtils, HTMLHyperlinkElementUtils.
+pub trait HTMLAreaElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLAreaElement"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn alt(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.alt"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString alt;` (html.idl)
+    fn set_alt(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.alt"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString coords;` (html.idl)
+    fn coords(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.coords"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString coords;` (html.idl)
+    fn set_coords(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.coords"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shape;` (html.idl)
+    fn shape(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.shape"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString shape;` (html.idl)
+    fn set_shape(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.shape"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString download;` (html.idl)
+    fn download(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.download"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString download;` (html.idl)
+    fn set_download(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.download"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString ping;` (html.idl)
+    fn ping(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.ping"))
+    }
+
+    /// `[CEReactions, Reflect] attribute USVString ping;` (html.idl)
+    fn set_ping(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.ping"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn rel(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.rel"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString rel;` (html.idl)
+    fn set_rel(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.rel"))
+    }
+
+    /// `[SameObject, PutForwards=value, Reflect="rel"] readonly attribute DOMTokenList relList;` (html.idl)
+    fn rel_list(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.relList"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn referrer_policy(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions] attribute DOMString referrerPolicy;` (html.idl)
+    fn set_referrer_policy(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.referrerPolicy"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean noHref;` (html.idl)
+    fn no_href(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.noHref"))
+    }
+
+    /// `[CEReactions, Reflect] attribute boolean noHref;` (html.idl)
+    fn set_no_href(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.noHref"))
+    }
+
+    /// `readonly attribute USVString origin;` (HyperlinkElementUtils, html.idl)
+    fn origin(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.origin"))
+    }
+
+    /// `[CEReactions] attribute USVString protocol;` (HyperlinkElementUtils, html.idl)
+    fn protocol(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.protocol"))
+    }
+
+    /// `[CEReactions] attribute USVString protocol;` (HyperlinkElementUtils, html.idl)
+    fn set_protocol(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.protocol"))
+    }
+
+    /// `[CEReactions] attribute USVString username;` (HyperlinkElementUtils, html.idl)
+    fn username(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.username"))
+    }
+
+    /// `[CEReactions] attribute USVString username;` (HyperlinkElementUtils, html.idl)
+    fn set_username(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.username"))
+    }
+
+    /// `[CEReactions] attribute USVString password;` (HyperlinkElementUtils, html.idl)
+    fn password(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.password"))
+    }
+
+    /// `[CEReactions] attribute USVString password;` (HyperlinkElementUtils, html.idl)
+    fn set_password(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.password"))
+    }
+
+    /// `[CEReactions] attribute USVString host;` (HyperlinkElementUtils, html.idl)
+    fn host(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.host"))
+    }
+
+    /// `[CEReactions] attribute USVString host;` (HyperlinkElementUtils, html.idl)
+    fn set_host(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.host"))
+    }
+
+    /// `[CEReactions] attribute USVString hostname;` (HyperlinkElementUtils, html.idl)
+    fn hostname(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.hostname"))
+    }
+
+    /// `[CEReactions] attribute USVString hostname;` (HyperlinkElementUtils, html.idl)
+    fn set_hostname(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.hostname"))
+    }
+
+    /// `[CEReactions] attribute USVString port;` (HyperlinkElementUtils, html.idl)
+    fn port(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.port"))
+    }
+
+    /// `[CEReactions] attribute USVString port;` (HyperlinkElementUtils, html.idl)
+    fn set_port(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.port"))
+    }
+
+    /// `[CEReactions] attribute USVString pathname;` (HyperlinkElementUtils, html.idl)
+    fn pathname(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.pathname"))
+    }
+
+    /// `[CEReactions] attribute USVString pathname;` (HyperlinkElementUtils, html.idl)
+    fn set_pathname(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.pathname"))
+    }
+
+    /// `[CEReactions] attribute USVString search;` (HyperlinkElementUtils, html.idl)
+    fn search(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.search"))
+    }
+
+    /// `[CEReactions] attribute USVString search;` (HyperlinkElementUtils, html.idl)
+    fn set_search(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.search"))
+    }
+
+    /// `[CEReactions] attribute USVString hash;` (HyperlinkElementUtils, html.idl)
+    fn hash(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.hash"))
+    }
+
+    /// `[CEReactions] attribute USVString hash;` (HyperlinkElementUtils, html.idl)
+    fn set_hash(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.hash"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (HyperlinkElementUtils, html.idl)
+    fn hreflang(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString hreflang;` (HyperlinkElementUtils, html.idl)
+    fn set_hreflang(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.hreflang"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (HyperlinkElementUtils, html.idl)
+    fn type_(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.type"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString type;` (HyperlinkElementUtils, html.idl)
+    fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.type"))
+    }
+
+    /// `[CEReactions, ReflectSetter] stringifier attribute USVString href;` (HTMLHyperlinkElementUtils, html.idl)
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.href"))
+    }
+
+    /// `[CEReactions, ReflectSetter] stringifier attribute USVString href;` (HTMLHyperlinkElementUtils, html.idl)
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.href"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (HTMLHyperlinkElementUtils, html.idl)
+    fn target(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLAreaElement.target"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (HTMLHyperlinkElementUtils, html.idl)
+    fn set_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLAreaElement.target"))
     }
 }
 

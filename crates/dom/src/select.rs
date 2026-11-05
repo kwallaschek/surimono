@@ -242,7 +242,7 @@ impl Element for Guarded<'_> {
     }
 
     /// Selectors 4: names are ASCII case-insensitive only for HTML elements
-    /// in an HTML document, and every document here is an HTML one.
+    /// in an HTML document; the query knows which its document is.
     fn is_html_element_in_html_document(&self) -> bool {
         self.budget.html_document
             && self

@@ -75,6 +75,7 @@ fn files() -> Vec<(&'static str, String)> {
         ),
         ("no-harness.html", "<!doctype html><p>no harness".to_owned()),
         ("needs-xml.xhtml", String::new()),
+        ("needs-xml.xml", String::new()),
         ("aborts.html", PASS_AND_FAIL.to_owned()),
         ("exits.html", PASS_AND_FAIL.to_owned()),
         ("panics.html", PASS_AND_FAIL.to_owned()),
@@ -200,6 +201,7 @@ fn every_path_ends_in_a_value() {
 
     assert_eq!(status("no-harness.html"), "LIMIT");
     assert_eq!(status("needs-xml.xhtml"), "ERROR");
+    assert_eq!(status("needs-xml.xml"), "ERROR");
     assert_eq!(status("missing.html"), "ERROR");
 
     // A child that dies, or lies, is that test's result and no other's.
@@ -233,4 +235,67 @@ fn a_filter_keeps_only_its_tests() {
     assert_eq!(r["tests"].as_array().unwrap().len(), 1);
     assert_eq!(r["tests"][0]["test"], "pass-and-fail.html");
     fs::remove_dir_all(root).unwrap();
+}
+
+/// `--probe` on one page, with `extra` flags: its stdout, which must be JSON.
+fn probe(page: &Path, extra: &[&str]) -> Value {
+    let out = Command::new(env!("CARGO_BIN_EXE_surimono-wpt-runner"))
+        .arg("--probe")
+        .arg(page)
+        .args(extra)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    serde_json::from_str(std::str::from_utf8(&out.stdout).unwrap()).unwrap()
+}
+
+#[test]
+fn a_probe_reports_its_log_whatever_the_page_does() {
+    let dir = std::env::temp_dir().join(format!("wpt-probe-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    let write = |name: &str, html: &str| {
+        let file = dir.join(name);
+        fs::write(&file, html).unwrap();
+        file
+    };
+
+    // The page's global `L`, and a report with nothing in it.
+    let r = probe(
+        &write("log.html", "<!doctype html><script>var L=['a'];</script>"),
+        &[],
+    );
+    assert_eq!(r["log"], serde_json::json!(["a"]), "{r}");
+    assert_eq!(r["report"]["uncaught"], 0, "{r}");
+    assert_eq!(r["report"]["errors"], serde_json::json!([]), "{r}");
+    assert_eq!(r["report"]["unhandled_rejections"], 0, "{r}");
+    assert_eq!(r["report"]["rejections"], serde_json::json!([]), "{r}");
+
+    // A page that throws is an answer too, with the next script still run.
+    let r = probe(
+        &write(
+            "throws.html",
+            "<!doctype html><script>var L=['a'];throw new Error('boom');</script>\
+             <script>L.push('b');</script>",
+        ),
+        &[],
+    );
+    assert_eq!(r["log"], serde_json::json!(["a", "b"]), "{r}");
+    assert_eq!(r["report"]["uncaught"], 1, "{r}");
+    assert!(r["report"]["errors"].to_string().contains("boom"), "{r}");
+
+    // A page without `L` logs nothing, which isn't an empty log.
+    let r = probe(&write("no-log.html", "<!doctype html><p>x"), &[]);
+    assert_eq!(r["log"], Value::Null, "{r}");
+    assert_eq!(r["report"]["uncaught"], 0, "{r}");
+
+    // A limit, and a page that isn't there, come back as `failed`.
+    let r = probe(
+        &write("loop.html", "<!doctype html><script>for (;;) {}</script>"),
+        &["--time-limit-ms", "200"],
+    );
+    assert!(r["report"]["failed"].is_string(), "{r}");
+    assert_eq!(r["log"], Value::Null, "{r}");
+    let r = probe(&dir.join("missing.html"), &[]);
+    assert!(r["failed"].is_string(), "{r}");
+    fs::remove_dir_all(dir).unwrap();
 }
