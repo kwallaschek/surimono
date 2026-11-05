@@ -6,6 +6,7 @@
 set -euo pipefail
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/home/claude/target}"
 export CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+export PATH="$(cd "$(dirname "$0")" && pwd)/strip-bin:$PATH"   # disk: see strip-bin/cc
 mkdir -p "$CARGO_TARGET_DIR"
 exec 9>"$CARGO_TARGET_DIR/.fleet-build-lock"
 flock 9

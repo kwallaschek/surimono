@@ -10,7 +10,19 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Thu 5 Nov 2026, 11:45)
+## Now (Thu 5 Nov 2026, 16:15)
+
+Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. #104 and #105 merged at 12:19. **Merge freeze: main's full.yml is red at 89343c8f** (P2-DOM-04: ASan stack overflow in selector matching in dom hostile; real_world d3 differs from Chrome in the last digit on macOS and ARM). No merges until it's green.
+
+Open PRs, all with green ci/linux, none with a current review. Merge in this order, stack by stack:
+- CF: #123 (head moved since its approval), then #133.
+- DOM B: #131, #134, #135, #140.
+- DOM A: #132, #136, #139, #142. #131 and #132 both remove the 31-interface cap: conflict in bindgen.rs, resolve when the second merges main.
+- PKG: #143 contains #130 and fixes its BLOCK: close #130 unmerged when #143 merges. #143 and #132 both carry E2-07: reconcile. #141 stands alone.
+
+Local rates on the stacks, not official until the runner and vendored frames land on e2-09b: dom/events 66.9% (B), dom/nodes 89.5%, domparsing 39.8% (A), timers 88.2%.
+
+## Earlier (Thu 5 Nov 2026, 11:45)
 
 Session cse_011c8hfoqJ45246YxjoyFzH7 holds the fleet. Merged today: #97 #125 #126 #127 #128 #129 (engine patch level 9). Open: #104 (needs limit errors from promises, via #127), #105 (delta approved; contains #104), #123 (WPT, approved; base e2-04b).
 

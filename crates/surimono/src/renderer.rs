@@ -336,10 +336,9 @@ impl Renderer {
     ///
     /// From source, a bundle is compiled and then run once to check its entry
     /// function, and each step has its own time limit, so a load can take twice
-    /// [`Limits::time`](crate::Limits::time). The run stops at its limit. The
-    /// compile doesn't: the engine's parser never checks the time, so a source
-    /// too large to compile within the limit takes as long as its size needs
-    /// (memory limit permitting) and only then fails with the time limit error.
+    /// [`Limits::time`](crate::Limits::time), per bundle. Both stop at their
+    /// limit: a source too large to compile within it fails with the time limit
+    /// error, so a short limit can refuse a large bundle.
     ///
     /// Set it from another thread, a timer or a signal handler (storing to an
     /// `AtomicBool` is async-signal-safe). The Ruby gem sets it when the

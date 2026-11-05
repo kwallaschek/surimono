@@ -28,58 +28,58 @@ Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the 
 
 ### Hostile scripts
 
-59 cases, 60 results: 60 of 60 end as the manifest expects (results from 52d76a392aa32a89067b62ae8be0ea0ad5e162e1).
+78 cases, 79 results: 79 of 79 end as the manifest expects (results from 5e5fd6d4df3e1c52f0abfd018edc5c7f3f6535c2).
 
 <details><summary>All cases</summary>
 
 | Case | Expected | Got | Verdict |
 |---|---|---|---|
 | infinite-loop | TimeLimit | TimeLimit (2001 ms) | pass |
-| infinite-loop-try-catch | TimeLimit | TimeLimit (2002 ms) | pass |
+| infinite-loop-try-catch | TimeLimit | TimeLimit (2000 ms) | pass |
 | infinite-loop-in-finally | TimeLimit | TimeLimit (2001 ms) | pass |
 | microtask-flood | TimeLimit | TimeLimit (2001 ms) | pass |
-| microtask-flood-growing | TimeLimit or MemoryLimit | MemoryLimit (415 ms) | pass |
+| microtask-flood-growing | TimeLimit or MemoryLimit | MemoryLimit (434 ms) | pass |
 | microtask-await-loop | TimeLimit | TimeLimit (2001 ms) | pass |
 | regex-redos | TimeLimit | TimeLimit (2001 ms) | pass |
-| regex-redos-alternation | TimeLimit | TimeLimit (2000 ms) | pass |
+| regex-redos-alternation | TimeLimit | TimeLimit (2002 ms) | pass |
 | atomics-wait | Exception | Exception (0 ms) | pass |
-| native-loop-join-arraylike | TimeLimit or Exception or MemoryLimit | TimeLimit (2000 ms) | pass |
+| native-loop-join-arraylike | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
 | native-loop-join-holey | TimeLimit or Exception or MemoryLimit or Ok | TimeLimit (2001 ms) | pass |
-| native-loop-join-getter-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2000 ms) | pass |
+| native-loop-join-getter-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
 | native-loop-join-proxy | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
-| native-loop-reverse | TimeLimit or Exception or MemoryLimit | TimeLimit (2002 ms) | pass |
-| native-loop-copywithin | TimeLimit or Exception or MemoryLimit | TimeLimit (2002 ms) | pass |
-| native-loop-string-raw | TimeLimit or Exception or MemoryLimit | MemoryLimit (216 ms) | pass |
+| native-loop-reverse | TimeLimit or Exception or MemoryLimit | TimeLimit (2000 ms) | pass |
+| native-loop-copywithin | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| native-loop-string-raw | TimeLimit or Exception or MemoryLimit | MemoryLimit (321 ms) | pass |
 | native-loop-join-length-toctou | TimeLimit or Exception or MemoryLimit or Ok | Ok (0 ms) | pass |
 | native-loop-join-length-valueof | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
-| native-loop-typedarray-own-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
+| native-loop-typedarray-own-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2000 ms) | pass |
 | native-loop-dataview-length | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
-| native-loop-fill-typedarray-proto | TimeLimit or Exception or MemoryLimit | MemoryLimit (295 ms) | pass |
-| native-sort-typed-array | TimeLimit or Exception or MemoryLimit or Ok | Ok (1031 ms) | pass |
-| reentry-promise-executor | TimeLimit or MemoryLimit | TimeLimit (2000 ms) | pass |
+| native-loop-fill-typedarray-proto | TimeLimit or Exception or MemoryLimit | MemoryLimit (312 ms) | pass |
+| native-sort-typed-array | TimeLimit or Exception or MemoryLimit or Ok | Ok (1091 ms) | pass |
+| reentry-promise-executor | TimeLimit or MemoryLimit | TimeLimit (2003 ms) | pass |
 | reentry-promise-try | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
-| reentry-async-generator | TimeLimit or MemoryLimit | TimeLimit (2001 ms) | pass |
+| reentry-async-generator | TimeLimit or MemoryLimit | TimeLimit (2002 ms) | pass |
 | reentry-prepare-stack-trace | TimeLimit or Exception or MemoryLimit | TimeLimit (2001 ms) | pass |
-| reentry-disposable-stack | TimeLimit | TimeLimit (2001 ms) | pass |
-| alloc-arrays | MemoryLimit | MemoryLimit (95 ms) | pass |
+| reentry-disposable-stack | TimeLimit | TimeLimit (2002 ms) | pass |
+| alloc-arrays | MemoryLimit | MemoryLimit (98 ms) | pass |
 | alloc-string-doubling | MemoryLimit or Exception | Exception (0 ms) | pass |
-| alloc-string-repeat | MemoryLimit | MemoryLimit (3 ms) | pass |
-| alloc-typed-array | MemoryLimit | MemoryLimit (0 ms) | pass |
-| alloc-typed-arrays-many | MemoryLimit | MemoryLimit (1 ms) | pass |
-| alloc-object-graph | MemoryLimit | MemoryLimit (414 ms) | pass |
-| oom-caught-retry | MemoryLimit | MemoryLimit (101 ms) | pass |
-| oom-caught-continue | MemoryLimit | MemoryLimit (96 ms) | pass |
+| alloc-string-repeat | MemoryLimit | MemoryLimit (4 ms) | pass |
+| alloc-typed-array | MemoryLimit | MemoryLimit (1 ms) | pass |
+| alloc-typed-arrays-many | MemoryLimit | MemoryLimit (2 ms) | pass |
+| alloc-object-graph | MemoryLimit | MemoryLimit (320 ms) | pass |
+| oom-caught-retry | MemoryLimit | MemoryLimit (105 ms) | pass |
+| oom-caught-continue | MemoryLimit | MemoryLimit (104 ms) | pass |
 | recursion-plain | StackOverflow | StackOverflow (1 ms) | pass |
-| recursion-caught | Ok | Ok (0 ms) | pass |
-| recursion-getter | StackOverflow | StackOverflow (0 ms) | pass |
-| recursion-tostring | StackOverflow | StackOverflow (1 ms) | pass |
+| recursion-caught | Ok | Ok (1 ms) | pass |
+| recursion-getter | StackOverflow | StackOverflow (1 ms) | pass |
+| recursion-tostring | StackOverflow | StackOverflow (2 ms) | pass |
 | recursion-proxy | StackOverflow | StackOverflow (1 ms) | pass |
-| recursion-json-stringify | StackOverflow or Ok | StackOverflow (36 ms) | pass |
-| recursion-array-join | StackOverflow | StackOverflow (47 ms) | pass |
-| recursion-json-parse | StackOverflow or Ok | StackOverflow (4 ms) | pass |
-| recursion-parser | StackOverflow or Exception | StackOverflow (3 ms) | pass |
-| regex-deep-nesting | StackOverflow or Exception or Ok | Exception (1 ms) | pass |
-| deep-free-chain | Ok | Ok (88 ms) | pass |
+| recursion-json-stringify | StackOverflow or Ok | StackOverflow (42 ms) | pass |
+| recursion-array-join | StackOverflow | StackOverflow (34 ms) | pass |
+| recursion-json-parse | StackOverflow or Ok | StackOverflow (5 ms) | pass |
+| recursion-parser | StackOverflow or Exception | StackOverflow (5 ms) | pass |
+| regex-deep-nesting | StackOverflow or Exception or Ok | Exception (4 ms) | pass |
+| deep-free-chain | Ok | Ok (110 ms) | pass |
 | result-not-a-string | Exception | Exception (0 ms) | pass |
 | result-hostile-thenable | Exception or TimeLimit | Exception (0 ms) | pass |
 | promise-never-settles | Exception | Exception (0 ms) | pass |
@@ -88,10 +88,29 @@ Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the 
 | control-async | Ok | Ok (0 ms) | pass |
 | escape-require | Ok | Ok (0 ms) | pass |
 | escape-require-call | Exception | Exception (0 ms) | pass |
-| escape-dynamic-import | Ok or Exception | Ok (1 ms) | pass |
+| escape-dynamic-import | Ok or Exception | Ok (0 ms) | pass |
 | escape-network | Ok | Ok (0 ms) | pass |
-| escape-global-sniff | Ok | Ok (9 ms) | pass |
+| escape-global-sniff | Ok | Ok (4 ms) | pass |
 | escape-function-constructor | Ok | Ok (0 ms) | pass |
+| compile-statements | TimeLimit or MemoryLimit or Ok | MemoryLimit (454 ms) | pass |
+| compile-many-lets | TimeLimit or MemoryLimit | TimeLimit (2003 ms) | pass |
+| compile-many-lets-caught | TimeLimit or MemoryLimit | TimeLimit (2003 ms) | pass |
+| compile-new-function | TimeLimit or MemoryLimit | TimeLimit (2003 ms) | pass |
+| compile-many-vars | TimeLimit or MemoryLimit or Ok | TimeLimit (2003 ms) | pass |
+| compile-shrinking-jumps | TimeLimit or MemoryLimit | TimeLimit (2001 ms) | pass |
+| compile-eval-in-closures | TimeLimit or MemoryLimit or Ok | TimeLimit (2003 ms) | pass |
+| regexp-compile-alternatives | TimeLimit or MemoryLimit or Ok | TimeLimit (2001 ms) | pass |
+| regexp-compile-class | TimeLimit or MemoryLimit or Ok | TimeLimit (2001 ms) | pass |
+| regexp-compile-backreferences | TimeLimit or MemoryLimit or Ok | TimeLimit (2013 ms) | pass |
+| regexp-compile-class-strings | TimeLimit or MemoryLimit or Ok | MemoryLimit (1504 ms) | pass |
+| json-parse-numbers | TimeLimit or MemoryLimit or Ok | MemoryLimit (267 ms) | pass |
+| json-parse-objects | TimeLimit or MemoryLimit or Ok | MemoryLimit (167 ms) | pass |
+| ownkeys-reflect | TimeLimit or MemoryLimit | TimeLimit (2039 ms) | pass |
+| ownkeys-object-keys | TimeLimit or MemoryLimit | TimeLimit (2030 ms) | pass |
+| ownkeys-numeric | TimeLimit or MemoryLimit | MemoryLimit (331 ms) | pass |
+| ownkeys-duplicate-last | TimeLimit or MemoryLimit | TimeLimit (2036 ms) | pass |
+| ownkeys-one-key-throughout | TimeLimit or MemoryLimit | TimeLimit (2030 ms) | pass |
+| ownkeys-frozen-target | TimeLimit or MemoryLimit | TimeLimit (2033 ms) | pass |
 | pollution-across-renders step 1 | Ok | Ok (0 ms) | pass |
 | pollution-across-renders step 2 | Ok | Ok (0 ms) | pass |
 
@@ -130,7 +149,479 @@ Memory target (`docs/SPEC.md`): at least 5× lower peak (summed PSS) than Grover
 
 ### Web Platform Tests
 
-Not run yet: the runner needs the DOM and the event loop, and the tests aren't vendored (`wpt/README.md`).
+| Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |
+|---|---|---|---|---|---|---|
+| html/webappapis timers and microtask queuing | 2 | 30 | 34 | 88.2% | 90% | **below the target** |
+| dom/nodes | 2 | 2902 | 15253 | 19.0% | 70% | **below the target** |
+| dom/events | 2 | 84 | 748 | 11.2% | 70% | **below the target** |
+| domparsing | 2 | 124 | 909 | 13.6% | 60% | **below the target** |
+
+The same passes on the two denominators. Ours is what Chrome passes on a static server; wpt.fyi's is Chrome 156.0.8078.80 at the same commit (run 5143154416943104) on the same URLs. A target is met on ours; where the two rates fall on either side of it, both are reported.
+
+| Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count |
+|---|---|---|---|---|---|
+| html/webappapis timers and microtask queuing | 30 | 34 | 34 | 0 | 88.2% |
+| dom/nodes | 2902 | 15253 | 15286 | 33 | 19.0% |
+| dom/events | 84 | 748 | 848 | 100 | 9.9% |
+| domparsing | 124 | 909 | 913 | 4 | 13.6% |
+
+WPT 8b4b06ff53, 722 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 89343c8f62 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
+
+The most common causes, in subtests Chrome passes:
+
+| Subtests | Cause |
+|---|---|
+| 3727 | ERROR: TypeError: Illegal constructor |
+| 3344 | harness timed out before it |
+| 2133 | ERROR: needs an XML parser, which surimono-dom doesn't have |
+| 1018 | FAIL: cannot read property … of undefined |
+| 759 | NOTRUN: NOTRUN |
+| 509 | not reported |
+| 504 | FAIL: not a function |
+| 278 | ERROR: ReferenceError: trustedTypes is not defined |
+| 178 | FAIL: DOMParser is not defined |
+| 150 | FAIL: assert_throws_dom: function "function () { |
+| 127 | ERROR: TypeError: cannot read property 'createDocument' of undefined |
+| 120 | ERROR: 21 duplicate test names: "When clicking child <INPUT type=checkbox></INPUT> of parent <FORM><BUTTON></BUTTON></FORM>, only child should be activated.", "When clicking child <INPUT type=radio></INPUT>  |
+| 100 | ERROR: 20 duplicate test names: "touchstart listener is passive by default for HTMLElement", "touchstart listener is passive with {passive:undefined} for HTMLElement", "touchstart listener is non-passive wit |
+| 90 | ERROR: ReferenceError: history is not defined |
+| 87 | TIMEOUT: Test timed out |
+| 62 | ERROR: TypeError: not a function |
+| 52 | ERROR: TypeError: cannot read property 'insertRule' of undefined |
+| 48 | ERROR: ReferenceError: HTMLBodyElement is not defined |
+| 46 | FAIL: promise_test: Unhandled rejection with value: object … |
+| 44 | FAIL: assert_equals: expected … but got … |
+| 30 | FAIL: MouseEvent is not defined |
+| 16 | ERROR: ReferenceError: targetDiv is not defined |
+| 16 | FAIL: Illegal constructor |
+| 15 | FAIL: frames is not defined |
+| 14 | ERROR: ReferenceError: DOMParser is not defined |
+
+<details><summary>Every test that doesn't pass in full</summary>
+
+| Test | Passed | Of | Status |
+|---|---|---|---|
+| html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| html/webappapis/timers/settimeout-detached-iframe.html | 0 | 1 | OK |
+| html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Attr-prefix-xhtml.xhtml | 0 | 2 | ERROR |
+| dom/nodes/Attr-prefix.html | 0 | 6 | OK |
+| dom/nodes/CharacterData-appendChild.html | 4 | 9 | OK |
+| dom/nodes/CharacterData-remove.html | 0 | 12 | ERROR |
+| dom/nodes/CharacterData-surrogates.html | 0 | 8 | OK |
+| dom/nodes/Comment-constructor.html | 15 | 16 | TIMEOUT |
+| dom/nodes/DOMImplementation-createDocument-no-browsing-context.html | 0 | 5 | OK |
+| dom/nodes/DOMImplementation-createDocument.html | 1 | 426 | OK |
+| dom/nodes/DOMImplementation-createDocumentType.html | 0 | 82 | OK |
+| dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html | 0 | 1 | OK |
+| dom/nodes/DOMImplementation-createHTMLDocument.html | 0 | 13 | OK |
+| dom/nodes/DOMImplementation-hasFeature.html | 1 | 137 | OK |
+| dom/nodes/Document-adoptNode-DocumentFragment-with-host.window.html | 0 | 7 | OK |
+| dom/nodes/Document-adoptNode.html | 0 | 7 | OK |
+| dom/nodes/Document-base-url-not-live.window.html | 0 | 2 | TIMEOUT |
+| dom/nodes/Document-characterSet-normalization-1.html | 0 | 303 | TIMEOUT |
+| dom/nodes/Document-characterSet-normalization-2.html | 0 | 339 | TIMEOUT |
+| dom/nodes/Document-cloneNode-about-base-url-relative.window.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-cloneNode-about-base-url.window.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-cloneNode-base-url-xml.window.html | 0 | 2 | OK |
+| dom/nodes/Document-cloneNode-base-url.window.html | 0 | 5 | OK |
+| dom/nodes/Document-cloneNode-srcdoc-base-url.window.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-constructor-svg.svg | 0 | 4 | ERROR |
+| dom/nodes/Document-constructor.html | 0 | 5 | OK |
+| dom/nodes/Document-contentType/contentType/contenttype_css.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_datauri_02.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_gif.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_html.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_javascripturi.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_jpg.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_mimeheader_01.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_mimeheader_02.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_mimeheader_03.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_png.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_txt.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/contenttype_xml.html | 0 | 1 | TIMEOUT |
+| dom/nodes/Document-contentType/contentType/createDocument.html | 0 | 1 | OK |
+| dom/nodes/Document-contentType/contentType/createHTMLDocument.html | 0 | 1 | OK |
+| dom/nodes/Document-contentType/contentType/xhr_responseType_document.html | 0 | 1 | OK |
+| dom/nodes/Document-createAttribute.html | 0 | 36 | ERROR |
+| dom/nodes/Document-createCDATASection-xhtml.xhtml | 0 | 7 | ERROR |
+| dom/nodes/Document-createCDATASection.html | 0 | 1 | OK |
+| dom/nodes/Document-createElement-namespace.html | 1 | 51 | TIMEOUT |
+| dom/nodes/Document-createElement.html | 49 | 147 | OK |
+| dom/nodes/Document-createElementNS.html | 82 | 584 | OK |
+| dom/nodes/Document-createEvent-touchevent.window.html | 0 | 3 | OK |
+| dom/nodes/Document-createEvent.https.html | 0 | 265 | OK |
+| dom/nodes/Document-createProcessingInstruction-xhtml.xhtml | 0 | 12 | ERROR |
+| dom/nodes/Document-createProcessingInstruction.html | 1 | 12 | OK |
+| dom/nodes/Document-createTreeWalker.html | 1 | 5 | OK |
+| dom/nodes/Document-doctype.html | 0 | 2 | OK |
+| dom/nodes/Document-getElementById.html | 14 | 18 | OK |
+| dom/nodes/Document-getElementsByTagName-xhtml.xhtml | 0 | 10 | ERROR |
+| dom/nodes/Document-getElementsByTagNameNS.html | 0 | 14 | OK |
+| dom/nodes/Document-implementation.html | 0 | 2 | OK |
+| dom/nodes/Document-importNode.html | 0 | 5 | OK |
+| dom/nodes/DocumentType-literal-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/DocumentType-literal.html | 0 | 1 | OK |
+| dom/nodes/DocumentType-remove.html | 0 | 4 | ERROR |
+| dom/nodes/Element-childElement-null-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElement-null-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-add-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-add-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-remove-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-dynamic-remove-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-nochild-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-nochild-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-childElementCount-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-classlist.html | 1415 | 1420 | OK |
+| dom/nodes/Element-closest.html | 27 | 29 | OK |
+| dom/nodes/Element-firstElementChild-entity-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-entity.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-namespace-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-namespace-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-firstElementChild-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html | 0 | 1 | OK |
+| dom/nodes/Element-getElementsByTagNameNS.html | 0 | 16 | OK |
+| dom/nodes/Element-lastElementChild-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-lastElementChild-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-matches-disabled-pseudo-class.html | 0 | 11 | OK |
+| dom/nodes/Element-matches-namespaced-elements.html | 3 | 6 | OK |
+| dom/nodes/Element-matches.html | 0 | 669 | TIMEOUT |
+| dom/nodes/Element-nextElementSibling-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-nextElementSibling-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-previousElementSibling-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-previousElementSibling-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-siblingElement-null-svg.svg | 0 | 1 | ERROR |
+| dom/nodes/Element-siblingElement-null-xhtml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Element-tagName-adopt.html | 0 | 1 | OK |
+| dom/nodes/Element-tagName.html | 4 | 6 | OK |
+| dom/nodes/Element-webkitMatchesSelector.html | 0 | 669 | TIMEOUT |
+| dom/nodes/MutationObserver-callback-order.window.html | 2 | 3 | OK |
+| dom/nodes/MutationObserver-characterData.html | 0 | 23 | ERROR |
+| dom/nodes/MutationObserver-childList.html | 26 | 40 | OK |
+| dom/nodes/MutationObserver-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
+| dom/nodes/MutationObserver-document.html | 1 | 4 | OK |
+| dom/nodes/MutationObserver-textContent.html | 3 | 4 | TIMEOUT |
+| dom/nodes/MutationObserver-transient-registered-observers.window.html | 5 | 15 | OK |
+| dom/nodes/MutationObserver-xml-parser.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Node-appendChild-cereactions-vs-script.window.html | 0 | 1 | OK |
+| dom/nodes/Node-appendChild.html | 7 | 11 | OK |
+| dom/nodes/Node-baseURI.html | 4 | 9 | OK |
+| dom/nodes/Node-childNodes.html | 5 | 6 | OK |
+| dom/nodes/Node-cloneNode-XMLDocument.html | 0 | 1 | OK |
+| dom/nodes/Node-cloneNode-document-allow-declarative-shadow-roots.window.html | 0 | 1 | LIMIT |
+| dom/nodes/Node-cloneNode-document-with-doctype.html | 0 | 3 | OK |
+| dom/nodes/Node-cloneNode-external-stylesheet-no-bc.sub.html | 0 | 1 | OK |
+| dom/nodes/Node-cloneNode.html | 60 | 135 | OK |
+| dom/nodes/Node-compareDocumentPosition.html | 0 | 1444 | ERROR |
+| dom/nodes/Node-contains.html | 0 | 1482 | ERROR |
+| dom/nodes/Node-insertBefore.html | 11 | 40 | OK |
+| dom/nodes/Node-isConnected-shadow-dom.html | 0 | 2 | OK |
+| dom/nodes/Node-isConnected.html | 1 | 2 | OK |
+| dom/nodes/Node-isEqualNode-xhtml.xhtml | 0 | 14 | ERROR |
+| dom/nodes/Node-isEqualNode.html | 5 | 9 | OK |
+| dom/nodes/Node-isSameNode.html | 5 | 9 | OK |
+| dom/nodes/Node-lookupNamespaceURI.html | 0 | 75 | ERROR |
+| dom/nodes/Node-lookupPrefix.xhtml | 0 | 11 | ERROR |
+| dom/nodes/Node-mutation-adoptNode.html | 0 | 2 | OK |
+| dom/nodes/Node-nodeName-xhtml.xhtml | 0 | 7 | ERROR |
+| dom/nodes/Node-nodeName.html | 5 | 6 | OK |
+| dom/nodes/Node-nodeValue.html | 5 | 7 | OK |
+| dom/nodes/Node-normalize-2.html | 0 | 2 | OK |
+| dom/nodes/Node-normalize.html | 3 | 4 | OK |
+| dom/nodes/Node-parentElement.html | 11 | 12 | OK |
+| dom/nodes/Node-parentNode.html | 3 | 5 | TIMEOUT |
+| dom/nodes/Node-properties.html | 0 | 726 | ERROR |
+| dom/nodes/Node-removeChild.html | 10 | 28 | OK |
+| dom/nodes/Node-replaceChild.html | 9 | 29 | OK |
+| dom/nodes/Node-textContent.html | 0 | 81 | ERROR |
+| dom/nodes/NodeList-static-length-getter-tampered-1.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-2.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-3.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html | 0 | 1 | LIMIT |
+| dom/nodes/NodeList-static-length-getter-tampered-indexOf-3.html | 0 | 1 | LIMIT |
+| dom/nodes/ParentNode-append.html | 16 | 25 | OK |
+| dom/nodes/ParentNode-prepend.html | 14 | 22 | OK |
+| dom/nodes/ParentNode-querySelector-All-scope.html | 6 | 8 | OK |
+| dom/nodes/ParentNode-querySelector-All-xht.xht | 0 | 1975 | ERROR |
+| dom/nodes/ParentNode-querySelector-All.html | 0 | 1975 | TIMEOUT |
+| dom/nodes/ParentNode-querySelector-basic-has.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelector-case-insensitive.html | 0 | 2 | OK |
+| dom/nodes/ParentNode-querySelector-dupe-id.html | 0 | 2 | OK |
+| dom/nodes/ParentNode-querySelector-escapes.html | 66 | 68 | OK |
+| dom/nodes/ParentNode-querySelector-host-pseudo-class.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelector-multiple-attributes-xml.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelector-namespace-tagname-attribute.html | 0 | 8 | ERROR |
+| dom/nodes/ParentNode-querySelector-scope-numeric-id.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelector-shadowroot-nth-child.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelector-underscore-local-name.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelector-xml-capitalization.window.html | 0 | 3 | OK |
+| dom/nodes/ParentNode-querySelectorAll-namespace.html | 0 | 1 | ERROR |
+| dom/nodes/ParentNode-querySelectorAll-nested-not-has.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-querySelectorAll-scope-change.html | 0 | 1 | OK |
+| dom/nodes/ParentNode-replaceChildren.html | 20 | 28 | OK |
+| dom/nodes/ProcessingInstruction-escapes-1.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ProcessingInstruction-literal-1.xhtml | 0 | 1 | ERROR |
+| dom/nodes/ProcessingInstruction-literal-2.xhtml | 0 | 1 | ERROR |
+| dom/nodes/Text-constructor.html | 15 | 16 | TIMEOUT |
+| dom/nodes/adoption.window.html | 0 | 6 | OK |
+| dom/nodes/append-on-Document.html | 0 | 5 | ERROR |
+| dom/nodes/attach-shadow-realm-after-adoption.html | 0 | 3 | ERROR |
+| dom/nodes/attributes-namednodemap-cross-document.window.html | 0 | 2 | OK |
+| dom/nodes/attributes-namednodemap.html | 5 | 8 | OK |
+| dom/nodes/attributes.html | 53 | 67 | OK |
+| dom/nodes/case.html | 265 | 285 | OK |
+| dom/nodes/create-element-realm-after-adoption.html | 0 | 3 | ERROR |
+| dom/nodes/getElementById-namespaced-id.html | 0 | 4 | OK |
+| dom/nodes/getElementsByClassName-20.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-21.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-22.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-25.htm | 0 | 1 | OK |
+| dom/nodes/getElementsByClassName-31.htm | 0 | 1 | TIMEOUT |
+| dom/nodes/insert-adjacent.html | 8 | 14 | OK |
+| dom/nodes/insertion-removing-steps/Node-append-form-and-script-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-button-from-div.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-custom-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-default-style-meta-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-div-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-iframe.html | 0 | 4 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-source-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-and-style.html | 0 | 5 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-in-script.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-script-with-mutation-observer-takeRecords.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-text-and-script-in-style.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-text-in-script.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts-from-fragment.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/frame-post-connection-steps.html | 0 | 4 | OK |
+| dom/nodes/insertion-removing-steps/insertion-removing-steps-iframe.window.html | 0 | 1 | OK |
+| dom/nodes/insertion-removing-steps/insertion-removing-steps-script.window.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/Node-moveBefore.html | 2 | 32 | OK |
+| dom/nodes/moveBefore/child-style-preserve.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-animation-left.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/continue-css-animation-transform.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/continue-css-transition-left-pseudo.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-transition-left.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-transition-transform-pseudo.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/continue-css-transition-transform.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/css-animation-commit-styles.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/css-transition-cross-document.html | 0 | 1 | TIMEOUT |
+| dom/nodes/moveBefore/css-transition-cross-shadow.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/css-transition-to-disconnected-document.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/css-transition-trigger.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/custom-element-move-reactions.html | 0 | 7 | OK |
+| dom/nodes/moveBefore/fieldset-child-blur-event.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/fieldset-child-date-input-blur-event.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/fire-focusin-focusout.html | 0 | 5 | OK |
+| dom/nodes/moveBefore/focus-preserve.html | 0 | 5 | OK |
+| dom/nodes/moveBefore/focus-within.html | 0 | 5 | OK |
+| dom/nodes/moveBefore/iframe-document-preserve.window.html | 0 | 7 | TIMEOUT |
+| dom/nodes/moveBefore/listed-form-element-reset.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/live-range-updates.html | 0 | 3 | OK |
+| dom/nodes/moveBefore/modal-dialog.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-child-list-selector-invalidation.html | 0 | 9 | OK |
+| dom/nodes/moveBefore/moveBefore-dir.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-disconnected-id-map.html | 0 | 4 | OK |
+| dom/nodes/moveBefore/moveBefore-from-light-to-shadow.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-id-map.html | 0 | 4 | OK |
+| dom/nodes/moveBefore/moveBefore-into-display-none.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-lang.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-name-map.html | 0 | 3 | OK |
+| dom/nodes/moveBefore/moveBefore-nodeiterator.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-optgroup.html | 0 | 3 | OK |
+| dom/nodes/moveBefore/moveBefore-option-recalc-style.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-selector-matching.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-shadow-boundary-id-change.html | 0 | 2 | ERROR |
+| dom/nodes/moveBefore/moveBefore-shadow-host-id-map.html | 0 | 4 | OK |
+| dom/nodes/moveBefore/moveBefore-shadow-inside.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-shadow-root.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/moveBefore-size-query.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/mutation-observer-moved-subtree.window.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/mutation-observer.html | 0 | 2 | OK |
+| dom/nodes/moveBefore/nonce.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/object-crash-regression.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/popover-preserve.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/preserve-render-blocking-script.html | 0 | 1 | ERROR |
+| dom/nodes/moveBefore/preserve-render-blocking-style.html | 0 | 1 | ERROR |
+| dom/nodes/moveBefore/relevant-mutations.html | 0 | 2 | TIMEOUT |
+| dom/nodes/moveBefore/script-move-before.html | 0 | 2 | OK |
+| dom/nodes/moveBefore/select-option-optgroup.html | 0 | 2 | OK |
+| dom/nodes/moveBefore/slotchange-events.html | 0 | 4 | ERROR |
+| dom/nodes/moveBefore/style-applies.html | 0 | 1 | OK |
+| dom/nodes/moveBefore/throws-exception.html | 0 | 1 | OK |
+| dom/nodes/name-validation.html | 1 | 5 | OK |
+| dom/nodes/namespaced-attribute-mutations.html | 10 | 24 | OK |
+| dom/nodes/node-creation-realm.html | 0 | 12 | OK |
+| dom/nodes/node-realm-adoption-after-frame-removal.html | 0 | 2 | OK |
+| dom/nodes/node-realm-mixed-across-adoption.html | 0 | 2 | OK |
+| dom/nodes/node-realm-preserved-across-adoption.html | 0 | 5 | OK |
+| dom/nodes/node-realm-preserved-across-frameless-adoption.html | 0 | 4 | OK |
+| dom/nodes/post-connection-steps-shadow-tree.html | 0 | 1 | OK |
+| dom/nodes/prepend-on-Document.html | 0 | 5 | ERROR |
+| dom/nodes/processing-instruction-attributes.html | 0 | 140 | OK |
+| dom/nodes/query-target-in-load-event.html | 0 | 1 | TIMEOUT |
+| dom/nodes/querySelector-empty-id.html | 0 | 1 | OK |
+| dom/nodes/querySelector-id-nth-child.html | 1 | 2 | OK |
+| dom/nodes/remove-and-adopt-thcrash.html | 0 | 1 | OK |
+| dom/nodes/remove-next-sibling-during-replace-with.html | 0 | 1 | OK |
+| dom/nodes/remove-unscopable.html | 0 | 6 | OK |
+| dom/nodes/rootNode.html | 0 | 5 | OK |
+| dom/events/AddEventListenerOptions-signal.any.html | 0 | 11 | OK |
+| dom/events/Body-FrameSet-Event-Handlers.html | 0 | 48 | ERROR |
+| dom/events/CustomEvent.html | 0 | 3 | OK |
+| dom/events/Event-cancelBubble.html | 0 | 8 | OK |
+| dom/events/Event-constants.html | 0 | 4 | ERROR |
+| dom/events/Event-constructors.any.html | 12 | 14 | OK |
+| dom/events/Event-defaultPrevented-after-dispatch.html | 0 | 2 | OK |
+| dom/events/Event-defaultPrevented.html | 0 | 8 | OK |
+| dom/events/Event-dispatch-bubble-canceled.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-bubbles-false.html | 0 | 5 | LIMIT |
+| dom/events/Event-dispatch-bubbles-true.html | 0 | 5 | LIMIT |
+| dom/events/Event-dispatch-click.html | 1 | 33 | OK |
+| dom/events/Event-dispatch-click.tentative.html | 0 | 4 | OK |
+| dom/events/Event-dispatch-detached-click.html | 0 | 2 | TIMEOUT |
+| dom/events/Event-dispatch-detached-input-and-change.html | 0 | 12 | OK |
+| dom/events/Event-dispatch-handlers-changed.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-listener-order.window.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-multiple-cancelBubble.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-multiple-stopPropagation.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-omitted-capture.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-other-document.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-propagation-stopped.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-reenter.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-single-activation-behavior.html | 0 | 120 | ERROR |
+| dom/events/Event-dispatch-target-moved.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-target-removed.html | 0 | 1 | OK |
+| dom/events/Event-dispatch-throwing-multiple-globals.html | 0 | 2 | TIMEOUT |
+| dom/events/Event-init-while-dispatching.html | 2 | 5 | OK |
+| dom/events/Event-initEvent.html | 0 | 12 | OK |
+| dom/events/Event-isTrusted.any.html | 0 | 1 | OK |
+| dom/events/Event-propagation.html | 0 | 7 | ERROR |
+| dom/events/Event-returnValue.html | 6 | 7 | OK |
+| dom/events/Event-stopPropagation-cancel-bubbling.html | 0 | 1 | OK |
+| dom/events/Event-subclasses-constructors.html | 12 | 49 | OK |
+| dom/events/Event-timestamp-cross-realm-getter.html | 0 | 1 | TIMEOUT |
+| dom/events/Event-timestamp-high-resolution.html | 0 | 4 | OK |
+| dom/events/Event-timestamp-high-resolution.https.html | 0 | 1 | OK |
+| dom/events/Event-timestamp-safe-resolution.html | 0 | 1 | OK |
+| dom/events/Event-type-empty.html | 1 | 2 | OK |
+| dom/events/Event-type.html | 1 | 3 | OK |
+| dom/events/EventListener-addEventListener.sub.window.html | 0 | 1 | TIMEOUT |
+| dom/events/EventListener-handleEvent-cross-realm.html | 0 | 2 | OK |
+| dom/events/EventListener-incumbent-global-1.sub.html | 0 | 1 | OK |
+| dom/events/EventListener-incumbent-global-2.sub.html | 0 | 1 | OK |
+| dom/events/EventListener-invoke-legacy.html | 0 | 6 | TIMEOUT |
+| dom/events/EventTarget-add-listener-platform-object.html | 0 | 1 | OK |
+| dom/events/EventTarget-dispatchEvent-returnvalue.html | 0 | 2 | OK |
+| dom/events/EventTarget-dispatchEvent.html | 3 | 25 | OK |
+| dom/events/EventTarget-this-of-listener.html | 0 | 6 | OK |
+| dom/events/KeyEvent-initKeyEvent.html | 0 | 3 | OK |
+| dom/events/element-click.html | 0 | 3 | OK |
+| dom/events/event-disabled-dynamic.html | 0 | 1 | OK |
+| dom/events/event-global-event-targets.html | 0 | 5 | OK |
+| dom/events/event-global-extra.window.html | 0 | 6 | TIMEOUT |
+| dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html | 0 | 1 | OK |
+| dom/events/event-global-is-still-set-when-reporting-exception-onerror.html | 0 | 1 | OK |
+| dom/events/event-global-set-before-handleEvent-lookup.window.html | 0 | 1 | OK |
+| dom/events/event-global.html | 0 | 8 | OK |
+| dom/events/event-listener-not-fully-active-adopted-node.html | 0 | 5 | TIMEOUT |
+| dom/events/event-listener-not-fully-active-callback.html | 0 | 3 | TIMEOUT |
+| dom/events/event-listener-not-fully-active-navigated.html | 0 | 3 | TIMEOUT |
+| dom/events/event-listener-not-fully-active-target.html | 0 | 14 | TIMEOUT |
+| dom/events/label-default-action.html | 0 | 1 | OK |
+| dom/events/legacy-pre-activation-behavior.window.html | 0 | 1 | OK |
+| dom/events/mouse-event-retarget.html | 0 | 1 | OK |
+| dom/events/non-cancelable-when-passive/synthetic-events-cancelable.html | 6 | 12 | OK |
+| dom/events/passive-by-default-non-node.html | 1 | 2 | OK |
+| dom/events/passive-by-default.html | 0 | 100 | ERROR |
+| dom/events/preventDefault-during-activation-behavior.html | 0 | 1 | OK |
+| dom/events/relatedTarget.window.html | 0 | 3 | ERROR |
+| dom/events/scrolling/save-iframe-scroll-offset-when-display-none.html | 0 | 2 | TIMEOUT |
+| dom/events/scrolling/scroll-event-fired-to-element.html | 1 | 4 | OK |
+| dom/events/scrolling/scroll-event-fired-to-iframe.html | 0 | 4 | TIMEOUT |
+| dom/events/scrolling/scroll-event-not-fired-on-ancestor-style-change.html | 0 | 1 | OK |
+| dom/events/scrolling/scroll-events-fired-once-per-frame-across-display-none.html | 0 | 2 | OK |
+| dom/events/scrolling/scrollend-event-fired-after-instant-scroll-in-microtask.html | 0 | 1 | OK |
+| dom/events/scrolling/scrollend-event-fired-for-mandatory-snap-point-after-load.html | 0 | 1 | OK |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollBy-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollTo-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=root-scrollTo-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollBy-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollBy-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollTo-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-programmatic-scroll.html?include=subframe-scrollTo-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollLeft-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollLeft-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollTop-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=root-scrollTop-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollLeft-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollLeft-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollTop-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scroll-attr-change.html?include=subframe-scrollTop-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=nested-scrollIntoView | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-end-block-end-behavior-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-end-block-end-behavior-auto | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
+| dom/events/scrolling/scrollend-event-handler-content-attributes.html | 0 | 4 | OK |
+| dom/events/scrolling/scrollend-event-not-fired-after-removing-scroller.tentative.html | 0 | 3 | OK |
+| dom/events/scrolling/scrollend-fires-to-text-input.html | 0 | 5 | ERROR |
+| dom/events/scrolling/scrollend-with-snap-on-fractional-offset.html | 0 | 1 | ERROR |
+| dom/events/shadow-relatedTarget.html | 0 | 2 | ERROR |
+| dom/events/webkit-animation-end-event.html | 0 | 13 | ERROR |
+| dom/events/webkit-animation-iteration-event.html | 0 | 13 | ERROR |
+| dom/events/webkit-animation-start-event.html | 0 | 13 | ERROR |
+| dom/events/webkit-transition-end-event.html | 0 | 13 | ERROR |
+| dom/events/window-event-restored-after-throwing-onerror.html | 0 | 1 | OK |
+| domparsing/DOMParser-parseFromString-encoding.html | 0 | 4 | ERROR |
+| domparsing/DOMParser-parseFromString-html.html | 0 | 10 | ERROR |
+| domparsing/DOMParser-parseFromString-stylesheets.html | 0 | 6 | OK |
+| domparsing/DOMParser-parseFromString-url-base-about.window.html | 0 | 2 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-url-base-pushstate.html | 0 | 45 | ERROR |
+| domparsing/DOMParser-parseFromString-url-base.html | 0 | 45 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-url-moretests.html | 0 | 31 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-url-pushstate.html | 0 | 45 | ERROR |
+| domparsing/DOMParser-parseFromString-url.html | 0 | 45 | TIMEOUT |
+| domparsing/DOMParser-parseFromString-xml-CDATA.html | 0 | 8 | OK |
+| domparsing/DOMParser-parseFromString-xml-doctype.html | 0 | 3 | OK |
+| domparsing/DOMParser-parseFromString-xml-empty-nodes.html | 0 | 8 | OK |
+| domparsing/DOMParser-parseFromString-xml-internal-subset.html | 0 | 1 | OK |
+| domparsing/DOMParser-parseFromString-xml-parsererror.html | 0 | 23 | OK |
+| domparsing/DOMParser-parseFromString-xml-scripting-support-disabled.html | 0 | 12 | OK |
+| domparsing/DOMParser-parseFromString-xml.html | 0 | 8 | OK |
+| domparsing/DOMParser-xml-character-entities.html | 0 | 4 | OK |
+| domparsing/XMLSerializer-serializeToString.html | 0 | 27 | OK |
+| domparsing/createContextualFragment-xhtml.xhtml | 0 | 4 | ERROR |
+| domparsing/createContextualFragment.html | 0 | 35 | OK |
+| domparsing/domparser-spurious-attributes.html | 0 | 2 | OK |
+| domparsing/html-insertion-methods-html-element.html | 0 | 2 | TIMEOUT |
+| domparsing/innerhtml-03.xhtml | 0 | 8 | ERROR |
+| domparsing/innerhtml-empty-document-element.html | 0 | 1 | OK |
+| domparsing/innerhtml-mxss.sub.html | 30 | 60 | OK |
+| domparsing/insert_adjacent_html-xhtml.xhtml | 0 | 30 | ERROR |
+| domparsing/outerhtml-03.html | 3 | 4 | TIMEOUT |
+| domparsing/parsed-document-origin.window.html | 1 | 7 | OK |
+| domparsing/positional-html-into-script-safe.html | 0 | 13 | OK |
+| domparsing/positional-methods-with-parser-options.html | 0 | 105 | ERROR |
+| domparsing/positional-methods-with-trusted-types-no-createParserOptions.html | 0 | 120 | ERROR |
+| domparsing/positional-methods-with-trusted-types.html | 0 | 42 | ERROR |
+| domparsing/positional-methods.html | 0 | 8 | OK |
+| domparsing/style_attribute_html.html | 0 | 4 | ERROR |
+| domparsing/svg-template.html | 0 | 2 | OK |
+| domparsing/tentative/stream-html-with-trusted-types-adopt.html | 0 | 6 | ERROR |
+| domparsing/tentative/stream-html-with-trusted-types-from-non-tt.html | 0 | 6 | TIMEOUT |
+| domparsing/tentative/stream-html-with-trusted-types-no-createParserOptions.html | 0 | 5 | ERROR |
+| domparsing/tentative/stream-positional.html | 0 | 6 | OK |
+| domparsing/tentative/unclosed-script-already-started.html | 0 | 2 | ERROR |
+| domparsing/xml-parse-serialize-roundtrip.html | 0 | 2 | OK |
+| domparsing/xml-serialization.xhtml | 0 | 17 | ERROR |
+| domparsing/xmldomparser.html | 0 | 1 | OK |
+
+</details>
 
 <!-- hand-written: begin -->
 
@@ -146,15 +637,54 @@ Not run yet: the runner needs the DOM and the event loop, and the tests aren't v
 | `Number.prototype.toLocaleString` has no digit grouping in the sandbox: `(1234567.891).toLocaleString()` gives `"1234567.891"`; Chrome gives `"1,234,567.891"` (and the same for `"ja-JP"`) | quickjs-ng 0.16.2 (rquickjs-sys 0.14.0, `quickjs/quickjs.c`) defines `Number.prototype.toLocaleString` as `JS_CFUNC_MAGIC_DEF("toLocaleString", 0, js_number_toString, 1)`: `toString` in base 10, no grouping; the sandbox prelude (`crates/core/src/prelude.js`) replaces only `Date`'s `toLocale*` methods. A sandbox test asserting `"1234567.891"` is requested from the runtime engineer. Chrome's checked in Chromium 153.0.8010.12 (locale en-US, time zone UTC): `"1,234,567.891"` for both calls, `"0.5"` for `(0.5).toLocaleString()` | Axis labels and tooltips that format numbers through `toLocaleString` lose their thousands separators. ECharts 6.1.0 never calls it (its bundle has no `toLocaleString`); Vega 6.4.0's d3-format calls `toLocaleString("en")` only for `d` formats of 1e21 or more, and strips the commas |
 | `TextMode::Keep` (island text left as `<text>`) is an expected failure with fulgur 0.40: fulgur prints that text in system fonts, or not at all, never in the fonts registered with it (see "Inline SVG text prints in system fonts" under the fulgur gaps below) | `crates/gfx/tests/fulgur_print.rs` (P1-GFX-05) asserts the failure still happens, so a fixed fulgur or Blitz shows up there | That is why `TextMode::Outlines` is the default. Use Keep only with a PDF engine that sets inline SVG text in the registered fonts |
 | vegalite-line-ja's island, printed by fulgur, fails the shape check by 0.2 points: 10.2% (limit 10%) in the 32×32 window at 240,288, which holds the 10 px x-axis label "6月". The same SVG printed by Chrome passes (4.8%), and fulgur printing Chrome's SVG with real text scores 0.0% there. The glyphs are in place; their anti-aliasing differs: outlined text is a filled PDF path, Chrome's reference is font text | Checkpoint-2 runs from 6eb38139 (P1-CF-09) and 99c363cd (P1-CF-13), with the same scores (`fixtures/checkpoint-2/vegalite-line-ja/island-0-fulgur/`, side by side with `island-0-chrome/`) | Small CJK labels print a little differently from Chrome at 96 dpi; the page comparison of the same fixture passes (7.3%, fulgur's floor 1.3%). Not a checkpoint-2 gate failure (the gate is the Chrome-printed island) |
-| Comment nodes keep no data: a comment in the source parses to a node, but `data`, `nodeValue` and `textContent` read `""`, and `<!-- note -->` serializes as `<!---->`. The DOM Standard (§4.10, CharacterData) and the HTML Standard's serialization (§13.3: `<!--`, the data, `-->`) keep the text, and so does Chrome. surimono's own HTML serializer (`Document::to_html`) replaces blitz's `outer_html`, which doesn't escape text in 0.2.4, so that part is not a gap | blitz-dom 0.2.4's `NodeData::Comment` has no fields, so the text is gone after parsing (`crates/dom/src/document.rs`, `to_html` docs and `serialize`; `crates/dom/tests/serialize.rs`, `comments_keep_their_data`, ignored until Blitz keeps the data; P1-DOM-04, #82) | Comments print nothing, so pages look the same. Serialized HTML loses every comment's text, and a script that reads a comment as data (a template marker) sees an empty string. WPT subtests on comment data in dom/nodes and domparsing are expected to fail until Blitz keeps it |
 | `Date.parse` of a non-ISO string follows QuickJS, not V8: it accepts the zone names CET, CEST, WET, WEST, EET and EEST, and negative years. `Date.parse('Jan 1 2026 10:00 CET')` and `'Sep 13 275760 01:00 CEST'` give a time; Chromium 153.0.8010.12 gives `NaN` for those zones and for `'Apr 19 -271821 23:00 EST'`, and agrees on `PST` | `crates/core/src/prelude.js`, "Date.parse": a port of quickjs-ng's parser, so no string depends on the host's zone. ECMA-262 §21.4.3.2 leaves non-ISO formats to the implementation, so neither answer breaks the spec. Chrome's checked with `Date.parse` in that build | A script that parses those strings gets a date where Chrome gets an invalid one. Rare, since ISO strings behave the same everywhere |
-| `element.style` keeps values as written: declarations are split, not validated. After `style="color: notacolor; width: 10px"` or `style.color = "alsobad"` the bad value reads back, and a shorthand isn't expanded. Chromium 153.0.8010.12 drops it (`cssText` is `width: 10px;`, `style.color` is `""`); the `style` attribute itself reads back as written in both | `crates/dom/DESIGN.md`, "Inline style", and `crates/dom/src/style_attr.rs` (branch `e2-02d`, not on main yet). CSSOM §6.6 parses each value and ignores what fails | The printer ignores what it can't use, so pages look the same. A script that writes a value and reads it back to test support sees success. `getComputedStyle` is phase 3 |
-| There is no doctype node: `drop_doctype: true` in the parser, and `Document` binds no `doctype`. `document.doctype` is `undefined`, `document.firstChild` is `<html>` and `document.childNodes.length` is 1. Chromium 153.0.8010.12 gives a `DocumentType` (`nodeType` 10), and `childNodes.length` 2. Quirks mode is still read from the source, so `compatMode` is right | `crates/dom/src/parse.rs`, `crates/webidl/src/bindgen.rs` (branch `e2-02d`, not on main yet); `Document::to_html` starts at `<html>`. DOM §4.5, §4.6 | Scripts that read `document.doctype` or walk from `document.firstChild` see one node fewer. Serialized HTML has no doctype, so a reparse would be in quirks mode unless E2-08 adds one |
-| `<template>` has no `content`: blitz-html 0.2.0's sink returns the element itself as its contents, so a template's children are ordinary children, and `HTMLTemplateElement` isn't bound. `t.content` is `undefined`, `t.childNodes.length` counts the children, and `querySelector` finds nodes inside. In Chromium 153.0.8010.12, `t.content` is a `DocumentFragment` holding them and `t.childNodes.length` is 0 | `get_template_contents` in blitz-html 0.2.0 (`src/html_sink.rs`, marked TODO), `crates/dom/src/parse.rs` (branch `e2-02d`, not on main yet). HTML §4.12.3 | Libraries that clone `template.content` fail: Alpine's `x-for` and `x-if` do, so `fixtures/real-world/alpine-invoice` needs this (E2-04). Selectors also match template contents, which Chrome keeps out of the document tree |
-| `Attr` is a partial `Node`: `nodeType`, `nodeName`, `nodeValue`, `textContent` and `parentNode` answer, but other `Node` members throw a `TypeError`, "the member isn't available on this object". In Chromium 153.0.8010.12 `Attr` is a full `Node` | `Document::node_of` in `crates/dom/src/host.rs`, `crates/dom/tests/collections.rs`, `attributes_map` (branch `e2-02d`, not on main yet). DOM §4.9.2 | A script that calls a tree method on an `Attr` stops with an exception. Rare outside WPT, where dom/nodes tests of `Attr` will fail |
+| There is no doctype node: `drop_doctype: true` in the parser, and `Document` binds no `doctype`. `document.doctype` is `undefined`, `document.firstChild` is `<html>` and `document.childNodes.length` is 1 on a page with no comment beside it. Chromium 153.0.8010.12 gives a `DocumentType` (`nodeType` 10), and `childNodes.length` 2. Quirks mode is still read from the source, so `compatMode` is right | `crates/dom/src/parse.rs`, `crates/webidl/src/bindgen.rs`; `Document::to_html` starts at `<html>`. DOM §4.5, §4.6 | Scripts that read `document.doctype` or walk from `document.firstChild` see one node fewer. Serialized HTML has no doctype, so a reparse would be in quirks mode unless E2-08 adds one |
+| `Attr` is a partial `Node`: `nodeType`, `nodeName`, `nodeValue`, `textContent` and `parentNode` answer, but other `Node` members (`firstChild`, `childNodes`, `ownerDocument`, `isConnected`) throw a `TypeError`, "the member isn't available on this object". In Chromium 153.0.8010.12 `Attr` is a full `Node` | `Document::node_of` in `crates/dom/src/host.rs`, `crates/dom/tests/collections.rs`, `attributes_map`. DOM §4.9.2 | A script that calls a tree method on an `Attr` stops with an exception. Rare outside WPT, where dom/nodes tests of `Attr` will fail |
 | `while (…) await sleep(0)` never moves the virtual clock, and ends in `TaskLimit`. A timer set from a microtask starts at nesting level 0, so the 4 ms clamp never applies; with `var ready = false; setTimeout(() => ready = true, 100);` the flag is never set. Chromium 153.0.8010.12 keeps the level through microtasks and clamps from the seventh round, so the same loop ends. The spec wins for DOM behaviour | HTML, timer initialization steps: the level comes from the currently running task, and a microtask checkpoint makes the microtask that task. Pinned by `awaiting_a_zero_timer_does_not_move_the_clock` in `crates/core/tests/event_loop.rs`. Chrome's delays in ms (#99, fresh page per case, 3 runs): `await sleep(0)` 0.1 0 0 0 0 0 4.4 4.2 4.2; `setTimeout` from `queueMicrotask` 0 0 0 0 0 4.4 4.3 4.3; from `then` 0 0 0 0 0 4.2 4.3 4.2; a nested `setTimeout`, the control, 0 0 0 0 0 4.3 4.2 4.3, which matches surimono | A page that polls with `await sleep(0)` for something a later timer sets stops at the task limit, with the timer not run. Polling with a non-zero delay, or a plain nested `setTimeout`, moves the clock as in Chrome |
 | A NUL inside a string literal or a comment of a string handler (`setTimeout("log.push('a\0b'.length)")`, with a real NUL in the source) is reported as a `SyntaxError`, and the handler doesn't run. It is valid source: `SourceCharacter` in ECMA-262 (Source Text) is any code point, `eval` in the sandbox gives 3, and so does the handler in Chromium 153.0.8010.12. A NUL outside a literal is a `SyntaxError` everywhere | String handlers reach the parser as a C string (`Ctx::eval_raw` is private in rquickjs). Pinned by `nul_and_lone_surrogates_in_string_handlers` in `crates/core/tests/event_loop.rs`. Chrome's checked in that build with the test's own handlers: 3, and one `SyntaxError` for the NUL outside a literal | The page goes on and the error is in the settle report (`uncaught`), but that one handler does nothing. Rare: a string handler is legacy, and a NUL in one rarer |
 | A lone surrogate in a string handler reads as U+FFFD: `setTimeout("log.push('\ud800'.charCodeAt(0))")`, with a real lone surrogate in the source, gives 65533. `eval` in the sandbox and the handler in Chromium 153.0.8010.12 give 55296 | The handler's source reaches the parser as UTF-8, which can't hold a surrogate. Same test as the row above; Chrome's checked in that build | Only string handlers that hold unpaired surrogates in the source text. |
+| `window.parent`, `top`, `opener` and `location` don't exist in surimono-dom: `location.href` throws a `ReferenceError`, and `testharness.js` can't start without them. In Chrome each page has them. The WPT runner defines the missing names at the start of `testharness.js`'s script, `location` as plain data, so its rates don't depend on this gap and don't measure it either | `wpt/runner/src/main.rs`, `ENVIRONMENT`; `wpt/README.md`, "Harness environment". HTML, the `Window` object and `Location` | A page or library that reads `location` or `window.top` stops with an exception |
+| The WPT denominator is smaller than wpt.fyi's, and for dom/events by a lot: the Chrome baseline runs on a static server, not wptserve, so subtests that need its Python handlers, or a real browser's input and scrolling, aren't in it. A subtest we fail there can't lower a rate. Four `.xml` tests are in no slice at all (14 subtests Chrome passes, 0.09% of dom/nodes): `vendor.py` doesn't copy `.xml`, and they would report `ERROR` until there is an XML parser | `wpt/README.md`, "Baseline" and "Which tests can't run". Chrome's passes in the baseline against wpt.fyi's Chrome 156 run at the same commit: dom/nodes 15253 of 15286, dom/events 748 of 848, domparsing 909 of 913, timers and microtasks 34 of 34. The rates on both counts are in the table above | dom/events's baseline is 100 subtests short, 11.8%, so its rate is the most flattered: 524 passes would meet 70% of 748 and be 61.8% of 848. Report dom/events on both denominators against its target. The other areas differ by under 1% |
+| `document.cloneNode()` ends the whole call with `DomError::Unsupported`, whatever the script catches: a runtime holds one document, and blitz-dom can't make a second document node. DOM §4.4 and Chromium 153.0.8010.12 give a new `Document` | `crates/dom/tests/mutation.rs`, `cloning_a_document_is_a_known_gap`; `crates/dom/DESIGN.md`, "Deviations". In the WPT table three tests report `LIMIT` for it: `Node-cloneNode-document-allow-declarative-shadow-roots.window.html`, `Event-dispatch-bubbles-false.html`, `Event-dispatch-bubbles-true.html` | The page fails with a typed error. Comes with `DOMImplementation` (E2-13) |
+| Half a surrogate pair reads as U+FFFD: text is stored as UTF-8, which can't hold one. `createTextNode('😀x').deleteData(0, 1)` leaves `data.charCodeAt(0)` 65533 and `createTextNode('\ud800').data.charCodeAt(0)` is 65533. The DOM keeps the lone code unit (55357, 55296), since a DOM string is UTF-16 code units; `length` and offsets are right | `crates/dom/src/tree.rs`, `crates/dom/DESIGN.md`, "Half a surrogate pair". DOM §4.10 and §1.3 (strings). Probed on main 89343c8f | Only text cut inside a pair, or built from lone surrogates. Text that keeps its pairs is exact |
+| `:has()`, `:nth-child(… of S)` and `:dir()` are refused with a `SyntaxError`, as blitz-dom's parser configuration has them. Selectors 4 defines all three | `crates/dom/DESIGN.md`, "Selectors" under "Deviations". WPT `dom/nodes/ParentNode-querySelector-All.html` covers several. Probed on main 89343c8f | A script that uses them in `querySelector` or `matches` stops with the exception, unless it catches it |
+| `:enabled`, `:disabled`, `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:defined` and `:lang()` parse and match nothing: `document.querySelector('input:checked')` is null with a checked input on the page. Selectors 4 and HTML §4.16 (pseudo-classes) define each | Same places. Probed on main 89343c8f, each against a matching element | Scripts that look up form state or language through a selector find nothing, with no error |
+| `[a=b i]` is case-sensitive, and attribute selectors don't look at the namespace: with `a="B"`, `[a=b i]` finds nothing. Selectors 4 makes `i` compare ASCII case-insensitively | `crates/dom/DESIGN.md`, "Selectors". Probed on main 89343c8f | Rare: only selectors with the `i` flag |
+| `:scope` in a `DocumentFragment` query matches nothing: `fragment.querySelector(':scope > b')` is null with a `<b>` child. Selectors 4 makes the fragment the scoping root, so its top-level elements are `:scope`'s children. On an element and on a document `:scope` works | `crates/dom/DESIGN.md`, "Selectors"; `crates/dom/tests/collections.rs`, `scope_on_a_document_is_the_root_element`. Probed on main 89343c8f | Rare: only queries from a fragment or a template's content that use `:scope` |
+| These valid selectors are a `SyntaxError`, to keep hostile selectors off the stack and out of Rust's heap: longer than 128 KiB, more than 128 combinators on one path through the nested lists, or more than 32 nested brackets. Brackets inside strings and comments count too, so `[a="((((…"]` with 39 is refused | `crates/dom/DESIGN.md`, "Selector limits"; `crates/dom/tests/hostile.rs`, `hostile_selectors_are_typed_errors` and `the_worst_selector_allowed_fits_the_stack_headroom`. Probed on main 89343c8f: 33 nested `:is(` and 129 combinators refused, 30 and 127 accepted | No real page reaches these. A long attribute string full of brackets is the likeliest way in, and it is a catchable exception |
+| `element.style` decides validity with stylo, in Servo's configuration, where stylo knows the property, so values Chrome accepts are dropped: `display: -webkit-box`, system colours (`color: Canvas`), `font: caption`, `word-break: break-word`, `text-decoration: underline dotted red 1px`, `list-style-type: "x"`. `-webkit-print-color-adjust`, a legacy name alias of `print-color-adjust` in css-color-adjust-1, is dropped as well, and `print-color-adjust` itself is kept. The `style` attribute itself still reads back as written | `crates/dom/DESIGN.md`, "Inline style"; `crates/dom/src/style_attr.rs`; review of #97, which ran these in Chromium 153.0.8010.12. The alias is from the spec. Probed on main 89343c8f: `style.length` is 0 for each | Blitz parses with the same stylo, so the print doesn't change, but `style.length` and read-back differ. A value that printing can't use reads as unsupported, which is what a page's feature test should see. `-webkit-print-color-adjust` is common in print CSS, so a script reading it back sees nothing |
+| `element.style` keeps a value as written: no computed forms and no shorthand expansion. `color: #F00` reads back `#F00`, `color: rgb(255,0,0)` keeps its spacing, and after `margin: 1px` the `cssText` is `margin: 1px;`, `style.length` is 1 and `style.marginTop` is `""`. CSSOM §6.6 serializes values and expands shorthands. `--x: 'a'` is rewritten to `--x: "a"`, and `--x: var(--x 1px)` is stored where Chrome refuses it | `crates/dom/DESIGN.md`, "Inline style"; review of #97 for the custom properties. Probed on main 89343c8f | The printer reads the same text, so pages look the same. A script that reads a longhand back after setting a shorthand sees `""`, and one comparing colour strings sees the source form |
+| `element.style` values over 64 KiB are checked as tokens, not by stylo, so `style.setProperty('color', 'x'.repeat(70000))` stores a value a short one would lose. One `style` attribute may hold 4,096 declarations, 65,536 CSS tokens and 8 MiB, 32 nested brackets, 2^26 push steps in stylo's block, and 4,096 grid cells per `grid-template-areas`-like declaration. Over any of them is `DomError::StyleLimit`, fatal: the call ends however the script handles it, where Chrome has no such limits | `crates/dom/DESIGN.md`, "Bounds" and "What the printer gets"; `crates/dom/src/style_attr.rs`, `fits`. Probed on main 89343c8f: 5,000 custom properties end the run in `StyleLimit` | A generated page with over 4,096 declarations on one element fails with a typed error. A stylo parse can't be interrupted, so these bounds are what keeps the time limit honest |
+| MathML elements have no `style` and no `on*` members: `math.style` is `undefined` and `math.onclick` isn't there, and an `onclick` attribute on one doesn't run. `ElementCSSInlineStyle` and `GlobalEventHandlers` cover MathML elements. MathML elements have no interface bound (`constructor.name` is `Element`) | `crates/dom/DESIGN.md`, "Gaps"; `crates/webidl/src/bindgen.rs`. Probed on main 89343c8f | Scripts that style MathML through `.style` throw. The KaTeX page in `fixtures/real-world` still matches Chrome's DOM (#104) |
+| `on*` attributes on SVG elements don't run: `<rect onclick>` set by markup or `setAttribute` does nothing. The IDL attribute works, so `rect.onclick = f` runs. `<svg><script>` doesn't run either. In HTML §8.1.7.1 and SVG 2 both do | `crates/dom/DESIGN.md`, "Gaps"; review of #104, against Chrome. Probed on main 89343c8f | Printed pages rarely depend on this. A script inside an SVG image is silently skipped |
+| A handler's scope has no form owner: in `<form><input onclick="…">`, a bare name resolves in the element, the document and the global, and skips the form. HTML §8.1.7.1, "getting the current value of the event handler", puts the form element in the chain | `crates/dom/DESIGN.md`, "Gaps". Probed on main 89343c8f: a name on the form reads the global's value, and `elements` is undefined | Old inline form handlers that name a sibling field directly fail with a `ReferenceError` |
+| The handler attributes sit on `Window.prototype`, not on the window: `Object.getOwnPropertyDescriptor(window, 'onload')` is `undefined`. WebIDL puts a `[Global]` interface's members on the object itself. Setting and reading `window.onload` work | `crates/dom/DESIGN.md`, "Gaps"; `crates/dom/src/glue_tail.js`. Probed on main 89343c8f | Only code that inspects the descriptors |
+| No named access on `Window`: `<span id=x>` makes no global `x`, and `typeof x` is `undefined`. HTML, "Named access on the Window object", defines it | No binding exists (E2-13). `document.getElementById` is the supported way. Probed on main 89343c8f | Scripts that rely on ids as globals fail with a `ReferenceError`, in the WPT run as well (`targetDiv is not defined`, 16 subtests) |
+| No `window.event`: `'event' in window` is false, in a listener too. DOM §2.3 keeps it as a legacy extension of `Window` | `crates/dom/DESIGN.md`, "Gaps". Probed on main 89343c8f | Old inline handlers that read `event` as a global throw; the `event` argument of an attribute handler works |
+| `Event.isTrusted` is an ordinary accessor on `Event.prototype`, not `[LegacyUnforgeable]` on each event, so a script can redefine it. DOM §2.2 | `crates/dom/DESIGN.md`, "Gaps"; `crates/dom/src/glue_events.js`. Probed on main 89343c8f | Only a script that tampers with `isTrusted`, and nothing here treats trusted events differently |
+| No microtask checkpoint between the listeners of a browser-fired event (`load`, `DOMContentLoaded`): a microtask queued by the first listener runs after the last one, `L1,L2,micro`, where HTML's "clean up after running script" gives `L1,micro,L2` | `crates/dom/DESIGN.md`, "Gaps"; review of #104, confirmed against Chrome. `dispatchEvent` from a script gives `L1,L2,micro` in both, which is right | Order within one `load` only |
+| `AbortController` and `AbortSignal` aren't defined, and `signal` in listener options is ignored, so a page's own object changes nothing. DOM §3 | `crates/dom/DESIGN.md`, "Gaps". Probed on main 89343c8f: `new AbortController()` is a `ReferenceError` | A script that uses them stops with the exception. Fetch has no use here, which is the commonest reason to have one |
+| `unhandledrejection` and `rejectionhandled` don't fire. A rejection nobody handled goes in `PageReport::unhandled_rejections`, and that is decided at the microtask checkpoint, so a handler added by the next `<script>` still counts: with `q = Promise.reject()` and `q.catch()` in the next script we report 1, and Chrome 153 fires nothing. HTML "notify about rejected promises" queues a task and skips what is handled by then | `crates/core/src/event_loop.rs`, `notify_rejections`; `crates/dom/src/runtime.rs` (`unhandledrejection` isn't implemented); `crates/dom/tests/events.rs`, `rejections_nothing_handled_reach_the_report`; review of #104 for Chrome's result. Probed on main 89343c8f | A page's own listener never runs. The report can count a rejection Chrome wouldn't. A limit error inside a promise still ends the call typed |
+| `ErrorEvent`'s `filename`, `lineno` and `colno` are always `""`, 0 and 0. HTML §8.1.6.2 gives the script's URL and position | `crates/dom/DESIGN.md`, "Gaps". Probed on main 89343c8f | Error reports from a page carry the message only. Determinism doesn't need these empty; they are simply not tracked |
+| `MutationObserver` has no transient registrations: after `a.removeChild(p)`, a change inside `p`'s subtree isn't seen by a `subtree` observer of `a`. DOM §4.3 keeps watching a removed subtree until the observer's next notification | `crates/dom/DESIGN.md`, "MutationObserver". Probed on main 89343c8f: only the removal's record | Only a change made to a subtree in the same task it was removed. The Alpine page in `fixtures/real-world` still matches Chrome's DOM (#105) |
+| `noscript.innerHTML = '<i>z</i>'` makes an `I` element; Chrome makes one text node, because scripting is on. A `<noscript>` in a `<template>` serializes as `<b>q</b>` where Chrome gives `&lt;b&gt;q&lt;/b&gt;`. A parsed `<noscript>` is raw text, as in Chrome | Review of #104; `crates/dom/tests/serialize.rs`, `noscript_is_raw_text_with_scripting_enabled`. HTML's fragment parsing, with the scripting flag. Probed on main 89343c8f | Nothing inside runs either way. fulgur parses with scripting off, and E2-08 drops `<noscript>` at the hand-off |
+| `nomodule` is ignored: `<script nomodule>` runs. HTML's "prepare the script element" and Chromium skip it. This one is a choice, not a shortfall: modules don't run here, so the fallback is the only code a page has for us | `crates/dom/DESIGN.md`, "Events and the page's life"; `docs/DECISIONS.md`, 2026-11-04 (#104). Probed on main 89343c8f | A page with both a module and a `nomodule` bundle runs the second, which is the point |
+| A proxy's `ownKeys` check throws at the first non-configurable key of the target that the trap left out. ECMA-262 §10.5.11 reads every target descriptor first, and throws after. The only visible difference is a shorter trap log when the target is itself a proxy | Review of #126: 105 of 3,000 rounds differ from V8 in Node, the same before and after that PR. `vendor/rquickjs-sys` PATCHES.md, level 8 | None for a page, unless it logs the traps of a proxied proxy that breaks the invariant. The outcome, a `TypeError`, is the same |
+
+## Where the spec and Chromium disagree
+
+Every row is a conflict the fleet rule settles: the spec wins for DOM behaviour, so surimono follows the spec and differs from Chromium 153.0.8010.12. None of them changes how a page prints.
+
+| Behaviour | Spec, and surimono | Chromium 153 | Evidence |
+|---|---|---|---|
+| `!important` in a `style` attribute: where a declaration stays | CSSOM keeps source order: `height: 1px; color: red !important; width: 1px` reads back unchanged | Sometimes moves it after the normal ones: `height: 1px; width: 1px; color: red !important;`, yet keeps `color: red !important; width: 1px;` | `crates/dom/src/style_attr.rs`, `important_keeps_source_order`; review of #97 |
+| `style` attribute order in the serialized tag, when a script sets `element.style` and then another attribute | CSSOM §6.6 updates the attribute at once, so `style` comes first | Adds it lazily, when something reads the attributes, so it serializes last | `crates/dom/tests/real_world.rs`, `style_last`, which moves `style` to the end of each tag on both sides of the comparison (#104) |
+| `normalize()` on a lone text node | DOM §4.4 step 4, "replace data" (§4.10 step 4): one `characterData` record, with the old value | No record | `crates/dom/tests/observers.rs`, `normalize_queues_its_records_in_tree_order`; review of #105 |
+| `normalize()` merging several text nodes | One `characterData` record, then all the removals | One `characterData` and one removal per merged node, and an empty member of the run is removed before merging | Same test and review |
+| `previousSibling` in the record of `a.replaceChild(p, q)`, where `p` was `q`'s previous sibling | §4.2.3 reads it before adopting, so the record has `p` | Null | Review of #105. Probed on main 89343c8f |
+| `outerHTML` with text at the edge of the new content, beside a text node | DOM Parsing has no merge step: one record, adding the element and the text | Merges the text edge with the next text node: `add[B,"2z"]`, then a `characterData` and a removal | Review of #105. Probed on main 89343c8f |
+| `splitText` record order | §4.11: insert first, then replace data | `characterData` first | Review of #105. Probed on main 89343c8f |
+| A handler that returns `false` on a non-cancelable event | HTML §8.1.7.1 sets the canceled flag, whether or not the event can be canceled, so `dispatchEvent` returns `false` | `dispatchEvent` returns `true` | Review of #104; `crates/dom/src/glue_events.js`. Probed on main 89343c8f: `false`, `defaultPrevented` true |
 
 ## Printing gaps in fulgur 0.40.0 seen by the fixtures
 
