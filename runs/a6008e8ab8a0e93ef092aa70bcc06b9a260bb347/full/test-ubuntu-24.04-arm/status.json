@@ -1,0 +1,1 @@
+{"workflow":"full","job":"test","matrix":"ubuntu-24.04-arm","status":"failure","reported":"failure","needs_result":"failure","reported_job":"test","sha":"a6008e8ab8a0e93ef092aa70bcc06b9a260bb347","ref":"main","event":"push","run_id":"41940237219","attempt":"1","finished_at":"2026-11-05T01:03:12Z"}
