@@ -7,9 +7,9 @@ const I_CustomEvent = 2;
 const I_ErrorEvent = 3;
 const I_Window = 4;
 const I_MutationObserver = 27;
-const I_DOMRectReadOnly = 99;
-const I_DOMRect = 100;
-const I_DOMRectList = 101;
+const I_DOMRectReadOnly = 35;
+const I_DOMRect = 36;
+const I_DOMRectList = 37;
 const I_Node = 5;
 const I_Element = 6;
 const I_HTMLElement = 7;
@@ -404,166 +404,180 @@ attr(34, "type", function () { const s = self(this, 34); const r = call(253, s.g
 attr(34, "name", function () { const s = self(this, 34); const r = call(255, s.g, s.h); return r; }, function (v) { const s = self(this, 34); call(256, s.g, s.h, str(v)); });
 attr(34, "checked", function () { const s = self(this, 34); const r = call(257, s.g, s.h); return r; }, function (v) { const s = self(this, 34); call(258, s.g, s.h, !!v); });
 
-// HTMLHtmlElement
-iface(35, "HTMLHtmlElement", 7, null);
+// DOMRectReadOnly
+iface(35, "DOMRectReadOnly", -1, function DOMRectReadOnly() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRectReadOnly(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
+attr(35, "x", function () { return H.DOMRectReadOnly_x(self(this, 35)); });
+attr(35, "y", function () { return H.DOMRectReadOnly_y(self(this, 35)); });
+attr(35, "width", function () { return H.DOMRectReadOnly_width(self(this, 35)); });
+attr(35, "height", function () { return H.DOMRectReadOnly_height(self(this, 35)); });
+attr(35, "top", function () { return H.DOMRectReadOnly_top(self(this, 35)); });
+attr(35, "right", function () { return H.DOMRectReadOnly_right(self(this, 35)); });
+attr(35, "bottom", function () { return H.DOMRectReadOnly_bottom(self(this, 35)); });
+attr(35, "left", function () { return H.DOMRectReadOnly_left(self(this, 35)); });
+op(35, "toJSON", function toJSON() { const s = self(this, 35); const argc = arguments.length; return H.DOMRectReadOnly_toJSON(s); });
 
-// HTMLHeadElement
-iface(36, "HTMLHeadElement", 7, null);
+// DOMRect
+iface(36, "DOMRect", 35, function DOMRect() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRect(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
+attr(36, "x", function () { return H.DOMRect_x(self(this, 36)); }, function (v) { H.set_DOMRect_x(self(this, 36), v); });
+attr(36, "y", function () { return H.DOMRect_y(self(this, 36)); }, function (v) { H.set_DOMRect_y(self(this, 36), v); });
+attr(36, "width", function () { return H.DOMRect_width(self(this, 36)); }, function (v) { H.set_DOMRect_width(self(this, 36), v); });
+attr(36, "height", function () { return H.DOMRect_height(self(this, 36)); }, function (v) { H.set_DOMRect_height(self(this, 36), v); });
 
-// HTMLTitleElement
-iface(37, "HTMLTitleElement", 7, null);
-
-// HTMLBodyElement
-iface(38, "HTMLBodyElement", 7, null);
-handlers(38, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
-
-// HTMLDivElement
-iface(39, "HTMLDivElement", 7, null);
-
-// HTMLSpanElement
-iface(40, "HTMLSpanElement", 7, null);
-
-// HTMLParagraphElement
-iface(41, "HTMLParagraphElement", 7, null);
-
-// HTMLHeadingElement
-iface(42, "HTMLHeadingElement", 7, null);
-
-// HTMLBRElement
-iface(43, "HTMLBRElement", 7, null);
-
-// HTMLHRElement
-iface(44, "HTMLHRElement", 7, null);
-
-// HTMLPreElement
-iface(45, "HTMLPreElement", 7, null);
-
-// HTMLQuoteElement
-iface(46, "HTMLQuoteElement", 7, null);
-
-// HTMLOListElement
-iface(47, "HTMLOListElement", 7, null);
-
-// HTMLUListElement
-iface(48, "HTMLUListElement", 7, null);
-
-// HTMLMenuElement
-iface(49, "HTMLMenuElement", 7, null);
-
-// HTMLLIElement
-iface(50, "HTMLLIElement", 7, null);
-
-// HTMLDListElement
-iface(51, "HTMLDListElement", 7, null);
-
-// HTMLDirectoryElement
-iface(52, "HTMLDirectoryElement", 7, null);
+// DOMRectList
+iface(37, "DOMRectList", -1, null);
+attr(37, "length", function () { return H.DOMRectList_length(self(this, 37)); });
 
 // HTMLAreaElement
-iface(53, "HTMLAreaElement", 7, null);
+iface(38, "HTMLAreaElement", 7, null);
 
 // HTMLBaseElement
-iface(54, "HTMLBaseElement", 7, null);
+iface(39, "HTMLBaseElement", 7, null);
+
+// HTMLBodyElement
+iface(40, "HTMLBodyElement", 7, null);
+handlers(40, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
+
+// HTMLBRElement
+iface(41, "HTMLBRElement", 7, null);
 
 // HTMLButtonElement
-iface(55, "HTMLButtonElement", 7, null);
+iface(42, "HTMLButtonElement", 7, null);
 
 // HTMLCanvasElement
-iface(56, "HTMLCanvasElement", 7, null);
+iface(43, "HTMLCanvasElement", 7, null);
 
 // HTMLDataElement
-iface(57, "HTMLDataElement", 7, null);
+iface(44, "HTMLDataElement", 7, null);
 
 // HTMLDataListElement
-iface(58, "HTMLDataListElement", 7, null);
+iface(45, "HTMLDataListElement", 7, null);
 
 // HTMLDetailsElement
-iface(59, "HTMLDetailsElement", 7, null);
+iface(46, "HTMLDetailsElement", 7, null);
 
 // HTMLDialogElement
-iface(60, "HTMLDialogElement", 7, null);
+iface(47, "HTMLDialogElement", 7, null);
+
+// HTMLDirectoryElement
+iface(48, "HTMLDirectoryElement", 7, null);
+
+// HTMLDivElement
+iface(49, "HTMLDivElement", 7, null);
+
+// HTMLDListElement
+iface(50, "HTMLDListElement", 7, null);
 
 // HTMLEmbedElement
-iface(61, "HTMLEmbedElement", 7, null);
+iface(51, "HTMLEmbedElement", 7, null);
 
 // HTMLFieldSetElement
-iface(62, "HTMLFieldSetElement", 7, null);
+iface(52, "HTMLFieldSetElement", 7, null);
 
 // HTMLFontElement
-iface(63, "HTMLFontElement", 7, null);
+iface(53, "HTMLFontElement", 7, null);
 
 // HTMLFormElement
-iface(64, "HTMLFormElement", 7, null);
+iface(54, "HTMLFormElement", 7, null);
 
 // HTMLFrameElement
-iface(65, "HTMLFrameElement", 7, null);
+iface(55, "HTMLFrameElement", 7, null);
 
 // HTMLFrameSetElement
-iface(66, "HTMLFrameSetElement", 7, null);
-handlers(66, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
+iface(56, "HTMLFrameSetElement", 7, null);
+handlers(56, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
+
+// HTMLHeadElement
+iface(57, "HTMLHeadElement", 7, null);
+
+// HTMLHeadingElement
+iface(58, "HTMLHeadingElement", 7, null);
+
+// HTMLHRElement
+iface(59, "HTMLHRElement", 7, null);
+
+// HTMLHtmlElement
+iface(60, "HTMLHtmlElement", 7, null);
 
 // HTMLIFrameElement
-iface(67, "HTMLIFrameElement", 7, null);
+iface(61, "HTMLIFrameElement", 7, null);
 
 // HTMLLabelElement
-iface(68, "HTMLLabelElement", 7, null);
+iface(62, "HTMLLabelElement", 7, null);
 
 // HTMLLegendElement
-iface(69, "HTMLLegendElement", 7, null);
+iface(63, "HTMLLegendElement", 7, null);
+
+// HTMLLIElement
+iface(64, "HTMLLIElement", 7, null);
 
 // HTMLMapElement
-iface(70, "HTMLMapElement", 7, null);
+iface(65, "HTMLMapElement", 7, null);
 
 // HTMLMarqueeElement
-iface(71, "HTMLMarqueeElement", 7, null);
+iface(66, "HTMLMarqueeElement", 7, null);
 
 // HTMLMediaElement
-iface(72, "HTMLMediaElement", 7, null);
-konst(72, "NETWORK_EMPTY", 0);
-konst(72, "NETWORK_IDLE", 1);
-konst(72, "NETWORK_LOADING", 2);
-konst(72, "NETWORK_NO_SOURCE", 3);
-konst(72, "HAVE_NOTHING", 0);
-konst(72, "HAVE_METADATA", 1);
-konst(72, "HAVE_CURRENT_DATA", 2);
-konst(72, "HAVE_FUTURE_DATA", 3);
-konst(72, "HAVE_ENOUGH_DATA", 4);
+iface(67, "HTMLMediaElement", 7, null);
+konst(67, "NETWORK_EMPTY", 0);
+konst(67, "NETWORK_IDLE", 1);
+konst(67, "NETWORK_LOADING", 2);
+konst(67, "NETWORK_NO_SOURCE", 3);
+konst(67, "HAVE_NOTHING", 0);
+konst(67, "HAVE_METADATA", 1);
+konst(67, "HAVE_CURRENT_DATA", 2);
+konst(67, "HAVE_FUTURE_DATA", 3);
+konst(67, "HAVE_ENOUGH_DATA", 4);
 
 // HTMLAudioElement
-iface(73, "HTMLAudioElement", 72, null);
+iface(68, "HTMLAudioElement", 67, null);
 
 // HTMLVideoElement
-iface(74, "HTMLVideoElement", 72, null);
+iface(69, "HTMLVideoElement", 67, null);
+
+// HTMLMenuElement
+iface(70, "HTMLMenuElement", 7, null);
 
 // HTMLMetaElement
-iface(75, "HTMLMetaElement", 7, null);
+iface(71, "HTMLMetaElement", 7, null);
 
 // HTMLMeterElement
-iface(76, "HTMLMeterElement", 7, null);
+iface(72, "HTMLMeterElement", 7, null);
 
 // HTMLModElement
-iface(77, "HTMLModElement", 7, null);
+iface(73, "HTMLModElement", 7, null);
 
 // HTMLObjectElement
-iface(78, "HTMLObjectElement", 7, null);
+iface(74, "HTMLObjectElement", 7, null);
+
+// HTMLOListElement
+iface(75, "HTMLOListElement", 7, null);
 
 // HTMLOptGroupElement
-iface(79, "HTMLOptGroupElement", 7, null);
+iface(76, "HTMLOptGroupElement", 7, null);
 
 // HTMLOptionElement
-iface(80, "HTMLOptionElement", 7, null);
+iface(77, "HTMLOptionElement", 7, null);
 
 // HTMLOutputElement
-iface(81, "HTMLOutputElement", 7, null);
+iface(78, "HTMLOutputElement", 7, null);
+
+// HTMLParagraphElement
+iface(79, "HTMLParagraphElement", 7, null);
 
 // HTMLParamElement
-iface(82, "HTMLParamElement", 7, null);
+iface(80, "HTMLParamElement", 7, null);
 
 // HTMLPictureElement
-iface(83, "HTMLPictureElement", 7, null);
+iface(81, "HTMLPictureElement", 7, null);
+
+// HTMLPreElement
+iface(82, "HTMLPreElement", 7, null);
 
 // HTMLProgressElement
-iface(84, "HTMLProgressElement", 7, null);
+iface(83, "HTMLProgressElement", 7, null);
+
+// HTMLQuoteElement
+iface(84, "HTMLQuoteElement", 7, null);
 
 // HTMLSelectElement
 iface(85, "HTMLSelectElement", 7, null);
@@ -574,65 +588,51 @@ iface(86, "HTMLSlotElement", 7, null);
 // HTMLSourceElement
 iface(87, "HTMLSourceElement", 7, null);
 
+// HTMLSpanElement
+iface(88, "HTMLSpanElement", 7, null);
+
 // HTMLStyleElement
-iface(88, "HTMLStyleElement", 7, null);
+iface(89, "HTMLStyleElement", 7, null);
 
 // HTMLTableCaptionElement
-iface(89, "HTMLTableCaptionElement", 7, null);
+iface(90, "HTMLTableCaptionElement", 7, null);
 
 // HTMLTableCellElement
-iface(90, "HTMLTableCellElement", 7, null);
+iface(91, "HTMLTableCellElement", 7, null);
 
 // HTMLTableColElement
-iface(91, "HTMLTableColElement", 7, null);
+iface(92, "HTMLTableColElement", 7, null);
 
 // HTMLTableElement
-iface(92, "HTMLTableElement", 7, null);
+iface(93, "HTMLTableElement", 7, null);
 
 // HTMLTableRowElement
-iface(93, "HTMLTableRowElement", 7, null);
+iface(94, "HTMLTableRowElement", 7, null);
 
 // HTMLTableSectionElement
-iface(94, "HTMLTableSectionElement", 7, null);
+iface(95, "HTMLTableSectionElement", 7, null);
 
 // HTMLTextAreaElement
-iface(95, "HTMLTextAreaElement", 7, null);
+iface(96, "HTMLTextAreaElement", 7, null);
 
 // HTMLTimeElement
-iface(96, "HTMLTimeElement", 7, null);
+iface(97, "HTMLTimeElement", 7, null);
+
+// HTMLTitleElement
+iface(98, "HTMLTitleElement", 7, null);
 
 // HTMLTrackElement
-iface(97, "HTMLTrackElement", 7, null);
-konst(97, "NONE", 0);
-konst(97, "LOADING", 1);
-konst(97, "LOADED", 2);
-konst(97, "ERROR", 3);
+iface(99, "HTMLTrackElement", 7, null);
+konst(99, "NONE", 0);
+konst(99, "LOADING", 1);
+konst(99, "LOADED", 2);
+konst(99, "ERROR", 3);
+
+// HTMLUListElement
+iface(100, "HTMLUListElement", 7, null);
 
 // HTMLUnknownElement
-iface(98, "HTMLUnknownElement", 7, null);
-
-// DOMRectReadOnly
-iface(99, "DOMRectReadOnly", -1, function DOMRectReadOnly() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRectReadOnly(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
-attr(99, "x", function () { return H.DOMRectReadOnly_x(self(this, 99)); });
-attr(99, "y", function () { return H.DOMRectReadOnly_y(self(this, 99)); });
-attr(99, "width", function () { return H.DOMRectReadOnly_width(self(this, 99)); });
-attr(99, "height", function () { return H.DOMRectReadOnly_height(self(this, 99)); });
-attr(99, "top", function () { return H.DOMRectReadOnly_top(self(this, 99)); });
-attr(99, "right", function () { return H.DOMRectReadOnly_right(self(this, 99)); });
-attr(99, "bottom", function () { return H.DOMRectReadOnly_bottom(self(this, 99)); });
-attr(99, "left", function () { return H.DOMRectReadOnly_left(self(this, 99)); });
-op(99, "toJSON", function toJSON() { const s = self(this, 99); const argc = arguments.length; return H.DOMRectReadOnly_toJSON(s); });
-
-// DOMRect
-iface(100, "DOMRect", 99, function DOMRect() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRect(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
-attr(100, "x", function () { return H.DOMRect_x(self(this, 100)); }, function (v) { H.set_DOMRect_x(self(this, 100), v); });
-attr(100, "y", function () { return H.DOMRect_y(self(this, 100)); }, function (v) { H.set_DOMRect_y(self(this, 100), v); });
-attr(100, "width", function () { return H.DOMRect_width(self(this, 100)); }, function (v) { H.set_DOMRect_width(self(this, 100), v); });
-attr(100, "height", function () { return H.DOMRect_height(self(this, 100)); }, function (v) { H.set_DOMRect_height(self(this, 100), v); });
-
-// DOMRectList
-iface(101, "DOMRectList", -1, null);
-attr(101, "length", function () { return H.DOMRectList_length(self(this, 101)); });
+iface(101, "HTMLUnknownElement", 7, null);
 
 // CSSStyleDeclaration
 iface(102, "CSSStyleDeclaration", -1, null);

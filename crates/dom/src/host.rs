@@ -31,89 +31,107 @@ fn value_string(v: Value) -> String {
     }
 }
 
-/// HTML §3.2.2 "element's interface", from the elements' index and §16's
-/// obsolete features: the interface for an HTML element called `local`.
+/// HTML §3.2.2 "element interface", from the element index (§ Index) and the
+/// obsolete elements of §16.
 fn html_interface(local: &str) -> u32 {
-    use interface as i;
     match local {
-        "a" => i::HTML_ANCHOR_ELEMENT,
-        "area" => i::HTML_AREA_ELEMENT,
-        "audio" => i::HTML_AUDIO_ELEMENT,
-        "base" => i::HTML_BASE_ELEMENT,
-        "blockquote" | "q" => i::HTML_QUOTE_ELEMENT,
-        "body" => i::HTML_BODY_ELEMENT,
-        "br" => i::HTMLBR_ELEMENT,
-        "button" => i::HTML_BUTTON_ELEMENT,
-        "canvas" => i::HTML_CANVAS_ELEMENT,
-        "caption" => i::HTML_TABLE_CAPTION_ELEMENT,
-        "col" | "colgroup" => i::HTML_TABLE_COL_ELEMENT,
-        "data" => i::HTML_DATA_ELEMENT,
-        "datalist" => i::HTML_DATA_LIST_ELEMENT,
-        "del" | "ins" => i::HTML_MOD_ELEMENT,
-        "details" => i::HTML_DETAILS_ELEMENT,
-        "dialog" => i::HTML_DIALOG_ELEMENT,
-        "dir" => i::HTML_DIRECTORY_ELEMENT,
-        "div" => i::HTML_DIV_ELEMENT,
-        "dl" => i::HTMLD_LIST_ELEMENT,
-        "embed" => i::HTML_EMBED_ELEMENT,
-        "fieldset" => i::HTML_FIELD_SET_ELEMENT,
-        "font" => i::HTML_FONT_ELEMENT,
-        "form" => i::HTML_FORM_ELEMENT,
-        "frame" => i::HTML_FRAME_ELEMENT,
-        "frameset" => i::HTML_FRAME_SET_ELEMENT,
-        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => i::HTML_HEADING_ELEMENT,
-        "head" => i::HTML_HEAD_ELEMENT,
-        "hr" => i::HTMLHR_ELEMENT,
-        "html" => i::HTML_HTML_ELEMENT,
-        "iframe" => i::HTMLI_FRAME_ELEMENT,
-        "img" => i::HTML_IMAGE_ELEMENT,
-        "input" => i::HTML_INPUT_ELEMENT,
-        "label" => i::HTML_LABEL_ELEMENT,
-        "legend" => i::HTML_LEGEND_ELEMENT,
-        "li" => i::HTMLLI_ELEMENT,
-        "link" => i::HTML_LINK_ELEMENT,
-        "map" => i::HTML_MAP_ELEMENT,
-        "marquee" => i::HTML_MARQUEE_ELEMENT,
-        "menu" => i::HTML_MENU_ELEMENT,
-        "meta" => i::HTML_META_ELEMENT,
-        "meter" => i::HTML_METER_ELEMENT,
-        "object" => i::HTML_OBJECT_ELEMENT,
-        "ol" => i::HTMLO_LIST_ELEMENT,
-        "optgroup" => i::HTML_OPT_GROUP_ELEMENT,
-        "option" => i::HTML_OPTION_ELEMENT,
-        "output" => i::HTML_OUTPUT_ELEMENT,
-        "p" => i::HTML_PARAGRAPH_ELEMENT,
-        "param" => i::HTML_PARAM_ELEMENT,
-        "picture" => i::HTML_PICTURE_ELEMENT,
-        "pre" | "listing" | "xmp" => i::HTML_PRE_ELEMENT,
-        "progress" => i::HTML_PROGRESS_ELEMENT,
-        "script" => i::HTML_SCRIPT_ELEMENT,
-        "select" => i::HTML_SELECT_ELEMENT,
-        "slot" => i::HTML_SLOT_ELEMENT,
-        "source" => i::HTML_SOURCE_ELEMENT,
-        "span" => i::HTML_SPAN_ELEMENT,
-        "style" => i::HTML_STYLE_ELEMENT,
-        "table" => i::HTML_TABLE_ELEMENT,
-        "tbody" | "tfoot" | "thead" => i::HTML_TABLE_SECTION_ELEMENT,
-        "td" | "th" => i::HTML_TABLE_CELL_ELEMENT,
-        "template" => i::HTML_TEMPLATE_ELEMENT,
-        "textarea" => i::HTML_TEXT_AREA_ELEMENT,
-        "time" => i::HTML_TIME_ELEMENT,
-        "title" => i::HTML_TITLE_ELEMENT,
-        "tr" => i::HTML_TABLE_ROW_ELEMENT,
-        "track" => i::HTML_TRACK_ELEMENT,
-        "ul" => i::HTMLU_LIST_ELEMENT,
-        "video" => i::HTML_VIDEO_ELEMENT,
+        "a" => interface::HTML_ANCHOR_ELEMENT,
+        "area" => interface::HTML_AREA_ELEMENT,
+        "audio" => interface::HTML_AUDIO_ELEMENT,
+        "base" => interface::HTML_BASE_ELEMENT,
+        "blockquote" | "q" => interface::HTML_QUOTE_ELEMENT,
+        "body" => interface::HTML_BODY_ELEMENT,
+        "br" => interface::HTMLBR_ELEMENT,
+        "button" => interface::HTML_BUTTON_ELEMENT,
+        "canvas" => interface::HTML_CANVAS_ELEMENT,
+        "caption" => interface::HTML_TABLE_CAPTION_ELEMENT,
+        "col" | "colgroup" => interface::HTML_TABLE_COL_ELEMENT,
+        "data" => interface::HTML_DATA_ELEMENT,
+        "datalist" => interface::HTML_DATA_LIST_ELEMENT,
+        "del" | "ins" => interface::HTML_MOD_ELEMENT,
+        "details" => interface::HTML_DETAILS_ELEMENT,
+        "dialog" => interface::HTML_DIALOG_ELEMENT,
+        "dir" => interface::HTML_DIRECTORY_ELEMENT,
+        "div" => interface::HTML_DIV_ELEMENT,
+        "dl" => interface::HTMLD_LIST_ELEMENT,
+        "embed" => interface::HTML_EMBED_ELEMENT,
+        "fieldset" => interface::HTML_FIELD_SET_ELEMENT,
+        "font" => interface::HTML_FONT_ELEMENT,
+        "form" => interface::HTML_FORM_ELEMENT,
+        "frame" => interface::HTML_FRAME_ELEMENT,
+        "frameset" => interface::HTML_FRAME_SET_ELEMENT,
+        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => interface::HTML_HEADING_ELEMENT,
+        "head" => interface::HTML_HEAD_ELEMENT,
+        "hr" => interface::HTMLHR_ELEMENT,
+        "html" => interface::HTML_HTML_ELEMENT,
+        "iframe" => interface::HTMLI_FRAME_ELEMENT,
+        "img" => interface::HTML_IMAGE_ELEMENT,
+        "input" => interface::HTML_INPUT_ELEMENT,
+        "label" => interface::HTML_LABEL_ELEMENT,
+        "legend" => interface::HTML_LEGEND_ELEMENT,
+        "li" => interface::HTMLLI_ELEMENT,
+        "link" => interface::HTML_LINK_ELEMENT,
+        "map" => interface::HTML_MAP_ELEMENT,
+        "marquee" => interface::HTML_MARQUEE_ELEMENT,
+        "menu" => interface::HTML_MENU_ELEMENT,
+        "meta" => interface::HTML_META_ELEMENT,
+        "meter" => interface::HTML_METER_ELEMENT,
+        "object" => interface::HTML_OBJECT_ELEMENT,
+        "ol" => interface::HTMLO_LIST_ELEMENT,
+        "optgroup" => interface::HTML_OPT_GROUP_ELEMENT,
+        "option" => interface::HTML_OPTION_ELEMENT,
+        "output" => interface::HTML_OUTPUT_ELEMENT,
+        "p" => interface::HTML_PARAGRAPH_ELEMENT,
+        "param" => interface::HTML_PARAM_ELEMENT,
+        "picture" => interface::HTML_PICTURE_ELEMENT,
+        "pre" | "listing" | "xmp" => interface::HTML_PRE_ELEMENT,
+        "progress" => interface::HTML_PROGRESS_ELEMENT,
+        "script" => interface::HTML_SCRIPT_ELEMENT,
+        "select" => interface::HTML_SELECT_ELEMENT,
+        "slot" => interface::HTML_SLOT_ELEMENT,
+        "source" => interface::HTML_SOURCE_ELEMENT,
+        "span" => interface::HTML_SPAN_ELEMENT,
+        "style" => interface::HTML_STYLE_ELEMENT,
+        "table" => interface::HTML_TABLE_ELEMENT,
+        "tbody" | "tfoot" | "thead" => interface::HTML_TABLE_SECTION_ELEMENT,
+        "td" | "th" => interface::HTML_TABLE_CELL_ELEMENT,
+        "template" => interface::HTML_TEMPLATE_ELEMENT,
+        "textarea" => interface::HTML_TEXT_AREA_ELEMENT,
+        "time" => interface::HTML_TIME_ELEMENT,
+        "title" => interface::HTML_TITLE_ELEMENT,
+        "tr" => interface::HTML_TABLE_ROW_ELEMENT,
+        "track" => interface::HTML_TRACK_ELEMENT,
+        "ul" => interface::HTMLU_LIST_ELEMENT,
+        "video" => interface::HTML_VIDEO_ELEMENT,
         "abbr" | "acronym" | "address" | "article" | "aside" | "b" | "basefont" | "bdi" | "bdo"
         | "big" | "center" | "cite" | "code" | "dd" | "dfn" | "dt" | "em" | "figcaption"
         | "figure" | "footer" | "header" | "hgroup" | "i" | "kbd" | "main" | "mark" | "nav"
         | "nobr" | "noembed" | "noframes" | "noscript" | "plaintext" | "rb" | "rp" | "rt"
         | "rtc" | "ruby" | "s" | "samp" | "search" | "section" | "small" | "strike" | "strong"
-        | "sub" | "summary" | "sup" | "tt" | "u" | "var" | "wbr" => i::HTML_ELEMENT,
-        // A valid custom element name has a hyphen; no other has one here.
-        _ if local.contains('-') => i::HTML_ELEMENT,
-        _ => i::HTML_UNKNOWN_ELEMENT,
+        | "sub" | "summary" | "sup" | "tt" | "u" | "var" | "wbr" => interface::HTML_ELEMENT,
+        name if custom_element_name(name) => interface::HTML_ELEMENT,
+        _ => interface::HTML_UNKNOWN_ELEMENT,
     }
+}
+
+/// HTML §4.13.3 "valid custom element name", as far as it matters here: a
+/// name with a hyphen, starting with a lowercase ASCII letter, with no
+/// uppercase ASCII letter, and not one of the reserved names.
+fn custom_element_name(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_lowercase())
+        && name.contains('-')
+        && !name.contains(|c: char| c.is_ascii_uppercase())
+        && !matches!(
+            name,
+            "annotation-xml"
+                | "color-profile"
+                | "font-face"
+                | "font-face-src"
+                | "font-face-uri"
+                | "font-face-format"
+                | "font-face-name"
+                | "missing-glyph"
+        )
 }
 
 impl Document {

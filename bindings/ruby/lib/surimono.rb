@@ -134,10 +134,10 @@ module Surimono
     #
     # An interrupt doesn't stop a bundle while it loads; it takes effect right
     # after, so that render can outlast your timeout. This matters on the first
-    # render in a forked child, which compiles every bundle: each can take
-    # twice time_ms (a compile, then a check run), and one too large to compile
-    # within time_ms takes as long as its size needs before it fails. The
-    # built-in renderers are precompiled and load quickly.
+    # render in a forked child, which compiles every bundle, one after another:
+    # each can take twice time_ms (a compile, then a check run, each stopped at
+    # its limit), and one too large to compile within time_ms fails with a time
+    # limit error. The built-in renderers are precompiled and load quickly.
     #
     # Bad argument types or values raise ArgumentError; a font path that
     # can't be read raises the usual Errno error; options the native side

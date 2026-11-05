@@ -10,12 +10,14 @@ their targets in `slices.toml`. Owned by the conformance researcher.
 | `manifest.toml` | Generated: each test, what it needs, sha256 of every vendored file |
 | `tests/` | Generated: the vendored files, under WPT's own paths, with WPT's `LICENSE.md` |
 | `baseline/chrome.json` | Generated: every test and subtest Chrome reports at the pinned commit, with statuses ("Baseline") |
+| `results/wpt-results.json` | Generated: what surimono reports, with failure messages ("Results") |
+| `runner/` | The runner, a standalone crate ("Runner") |
+| `tools/chrome_baseline.mjs` | Writes the baseline in the pinned Chromium |
 | `tools/vendor.py` | Copies the slices from a local WPT checkout at the pinned commit; `--check` verifies them offline |
 | `tools/api_needs.py` | Ranks DOM interfaces by how many subtests they unblock, for the DOM engineer |
 
-**State:** `manifest.toml`, `tests/` and `baseline/` don't exist yet. This session
-has no read access to web-platform-tests/wpt, so nothing is vendored; the commit in
-`slices.toml` came from wpt.fyi's run metadata. With a checkout:
+To vendor again, with a checkout (a sparse, blobless clone of the slices and
+`resources/` is enough):
 
 ```
 git -C <wpt> checkout 8b4b06ff53a47f1041e0e59f894d9e929963904c
@@ -52,11 +54,29 @@ A test with no subtests counts once: passed when Chrome's status and ours are `O
 
 ## Baseline
 
-`wpt/baseline/chrome.json` is generated, never edited. The conformance researcher
-writes `wpt/tools/chrome_baseline.mjs` once the tests are vendored, because it
-needs the real `testharness.js`. It runs every test in the pinned Playwright
-Chromium, offline, through the same `testharnessreport.js` hook as the runner.
-wpt.fyi's numbers are not used: they come from another Chrome build.
+`wpt/baseline/chrome.json` is generated, never edited, by
+`wpt/tools/chrome_baseline.mjs --from <wpt checkout>`. It runs every URL in the
+manifest in the pinned Playwright Chromium's headless shell, on one
+`web-platform.test` origin, through the same hook as the runner, with wptrunner's
+timeouts (10 s, 60 s for `timeout=long`). wpt.fyi's numbers are not used: they come
+from another Chrome build.
+
+Nothing from the checkout runs on the host. A small static server in the script
+hands its files to Chromium as data, so it does what WPT's server does statically
+(`.any` and `.window` wrappers, `.headers` files, the common `.sub` substitutions),
+on plain HTTP with that origin marked secure, and not its Python handlers, apart
+from `encoding.py` and `contenttype_setter.py`, redone in the script because 654
+subtests hang on them: any other `.py` URL is a 404. A subtest that needs one fails in Chromium and leaves the
+denominator. **So the baseline is smaller than a full wptserve run**, and a
+rate can only be flattered by what those subtests would have scored. wpt.fyi's
+Chrome 156 summary at the same commit is the check on how much that is:
+Chrome's passes here against wpt.fyi's are dom/nodes 15253 of 15286, dom/events 748
+of 848 (scrolling and input tests that need a real driver), domparsing 909 of 913,
+timers and microtasks 34 of 34. Per URL, the baseline's count equals wpt.fyi's or is
+lower, never higher. dom/events is the one that matters: it is 11.8% short, so 524
+passes would meet 70% of 748 and be 61.8% of 848. Those wpt.fyi counts are in
+`slices.toml` (`[wpt_fyi]`), and `compat.py` prints every rate on both denominators;
+where the two fall on either side of a target, report both.
 
 ```json
 {
@@ -85,9 +105,18 @@ loader reads.
 
 ## Runner
 
-The runner sits on `surimono-dom` and the event loop (E2-02, E2-03), as an
-integration test in the DOM engineer's crate, reading `wpt/manifest.toml`. It
-stays internal: nothing in the facade, CLI or gem.
+`wpt/runner/` is a binary on `surimono-dom` and the event loop, reading
+`wpt/manifest.toml`. It is a standalone crate like `bench/rust`, with its own
+`Cargo.lock`, so a test tool stays out of the library's lockfile and cargo-deny, and
+it stays internal: nothing in the facade, CLI or gem.
+
+```
+cargo build --manifest-path wpt/runner/Cargo.toml --locked
+"$CARGO_TARGET_DIR/debug/surimono-wpt-runner" --root wpt --out wpt/results/wpt-results.json --commit "$(git rev-parse HEAD)"
+```
+
+With no `CARGO_TARGET_DIR` the binary is in `wpt/runner/target/debug/`. The fleet's
+machine sets one, and uses `scripts/fleet/wcargo.sh` for the build.
 
 For each URL of each `[[test]]`:
 
@@ -104,16 +133,19 @@ For each URL of each `[[test]]`:
 
    ```js
    setup({ output: false, explicit_timeout: true });
-   add_completion_callback((tests, status) =>
-     __surimonoWptReport(JSON.stringify({
+   add_completion_callback((tests, status) => {
+     self.__surimonoWptReport = JSON.stringify({
        status: status.status,
        message: status.message,
        tests: tests.map((t) => ({ name: t.name, status: t.status, message: t.message })),
-     })));
+     });
+   });
    ```
 
-   `__surimonoWptReport` is one native installed by the runner, for tests only.
-   The hook sends testharness.js's numeric codes; the runner maps them:
+   The runner reads that global back when the page settles, so the runtime gets
+   no test-only native. The hook sends testharness.js's numeric codes; the runner
+   maps them (checked against `Test.statuses` and `TestsStatus.statuses` in the
+   vendored file):
 
    | Code | Harness status | Subtest status |
    |---|---|---|
@@ -124,11 +156,14 @@ For each URL of each `[[test]]`:
    | 4 | | `PRECONDITION_FAILED` |
 
    An unknown code is a value, not a panic: harness `ERROR`, subtest `FAIL`.
-   These codes are from memory of testharness.js and must be checked against
-   the vendored file. `PRECONDITION_FAILED` isn't a pass, and doesn't count as one.
+   `PRECONDITION_FAILED` isn't a pass, and doesn't count as one.
 3. **Scripts and files.** `<script src>` resolves only inside `wpt/tests/`, with
    no network, through a test loader.
-4. **Limits and timeouts.** Default sandbox limits per test. `explicit_timeout`
+4. **Limits and timeouts.** Default sandbox limits per test, except 20 s of time
+   instead of 2 s, and a virtual budget of 60 s, wptrunner's long timeout. The
+   20 s is real time, and it makes a rate depend less on the build profile, not
+   not at all: the six `NodeList-static-length-getter-tampered` tests still hit
+   it on the dev profile, and a loaded machine can move a test that is near it. `explicit_timeout`
    turns the harness's own timer off, so the runner decides, wptrunner's model:
    when the page settles with no report, it calls the harness's global `timeout()`,
    and the report arrives as `TIMEOUT` with what finished and the rest `NOTRUN`.
@@ -136,36 +171,30 @@ For each URL of each `[[test]]`:
    and every subtest of that test counts as failed.
 5. **Isolation.** One document and one runtime per test file. A crash can't be
    caught in-process, so the runner shards files into child processes and
-   records a dead child as `CRASH` for the test it held.
+   records a dead child as `CRASH` for the test it held. A child still alive
+   after 120 s is killed and recorded as `LIMIT`.
 
-Rust interface:
+`tests/runner.rs` runs these paths on a small hostile manifest: the wrapper,
+`timeout()`, the sandbox limits, a page with no harness, and children that abort,
+exit, panic, print nonsense or hang (`SURIMONO_WPT_FAULT`, which only that test
+sets, because a page can't do those). `--time-limit-ms` and `--wall-limit-ms` keep
+it short; the suite itself runs on the defaults above.
 
-```rust
-/// One test to run: a URL of a `[[test]]` in wpt/manifest.toml.
-pub struct WptTest { pub slice: String, pub url: String, pub file: String, pub needs: Vec<String> }
+### Harness environment
 
-/// Runs one test; a failure of any kind is a value, never a panic.
-pub fn run_test(test: &WptTest, root: &Path, limits: Limits) -> TestResult;
+`testharness.js` reads `window.parent`, `window.top`, `window.opener` and `location`
+as soon as it loads, and `surimono-dom` has none of them yet. The runner defines
+the ones a page lacks, `parent` and `top` as the window, `opener` as null, and a
+plain `location` for the test's URL on WPT's default origin. They run at the start
+of `testharness.js`'s own script, so the document stays as WPT wrote it, and the
+vendored file is unchanged and still checked. A definition goes away by itself when
+surimono-dom has the name. `location` here is data with no behaviour, and the gap
+is in `COMPAT.md`.
 
-pub struct TestResult {
-    pub status: TestStatus,          // Ok, Error, Timeout, PreconditionFailed, Crash, Limit
-    pub message: Option<String>,
-    pub subtests: Vec<Subtest>,
-}
-pub struct Subtest { pub name: String, pub status: SubtestStatus, pub message: Option<String> }
-// SubtestStatus: Pass, Fail, Timeout, NotRun, PreconditionFailed
-```
-
-What the harness needs from E2-02, E2-03 and E2-04, beyond running a script list,
-a settle call that returns when the event loop is idle, and installing one native:
-
-- `window` as an event target, with `self` the same object;
-- `DOMContentLoaded`, then `load`, after the scripts: tests can't complete without it;
-- `error` and `unhandledrejection` on `window`, or uncaught failures vanish;
-- `location`, `document.title`, and `meta` and `script` element lookups;
-- `setTimeout` on the virtual clock, and `Promise`.
-
-This list is from memory of testharness.js too; check it when the file is vendored.
+The harness also needs `window` as an event target, with `self` the same object,
+`DOMContentLoaded` then `load` after the scripts, `error` and `unhandledrejection` on
+`window`, `document.title`, `meta` and `script` lookups, `setTimeout` on the virtual
+clock, and `Promise`; surimono-dom has all of those on main.
 
 ## Results
 
@@ -183,8 +212,16 @@ The runner writes `wpt-results.json`, which `compat.py --wpt` reads:
 ```
 
 `compat.py` scores each area against `baseline/chrome.json` and prints a table
-with the target, and refuses results from another WPT commit. The results file
-comes from CI, like the fixture and hostile results.
+with the target, the commonest causes and every test that doesn't pass in full, and
+refuses results from another WPT commit.
+
+`scripts/ci/wpt.sh` runs the suite nightly and publishes `wpt-results.json` to the
+`ci-results` branch, with no verdict: the runner exits 0 whatever the tests
+report. `wpt/results/wpt-results.json` is the run `docs/COMPAT.md` was last generated
+from, committed so that a checkout can regenerate that file without the network and
+a change in a rate reads as a diff, test by test. Replace it with a nightly's file,
+or a local run of the same commit, when the conformance researcher regenerates
+`COMPAT.md`.
 
 ## Which tests can't run
 
@@ -193,5 +230,12 @@ tests in `dom/` use iframes. `.sub.html` tests need wptserve's substitution, idl
 tests fetch `/interfaces/*.idl`, and XML tests need a parser. `api_needs.py` sets
 all of these aside so the ranking isn't misled, but they stay in the denominator:
 a target is met on all of the slice, or the gap goes in `COMPAT.md` for Kay's OK.
-How much this weighs is unknown until the files are vendored; one large
-idlharness file could dominate `domparsing`.
+`COMPAT.md`'s cause table shows how much each of these weighs.
+
+**Four tests are in no slice.** `vendor.py` copies `.xhtml`, `.xht` and `.svg` but
+not `.xml`, so `dom/nodes/Node-contains-xml.xml`, `Document-constructor-xml.xml`,
+`getElementsByClassName-10.xml` and `-11.xml` (14 subtests Chrome passes) are in no
+manifest and no baseline, and don't count in any rate. wpt.fyi's window-scope figure
+for dom/nodes is 15300 with them, and the 15286 above leaves them out. They would
+report `ERROR` until there is an XML parser, so the effect is 0.09% of dom/nodes.
+Adding them means a new baseline run in Chromium; do that with the XML parser.

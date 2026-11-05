@@ -10,6 +10,18 @@ commit = "8b4b06ff53a47f1041e0e59f894d9e929963904c"
 # A file above this size is left out and listed in the manifest (no big assets).
 max_file_bytes = 262144
 
+# What wpt.fyi's run above passes on the manifest's URLs, per area. Not a
+# denominator: compat.py prints each rate on this count next to the rate on
+# wpt/baseline/chrome.json, which can only be shorter (wpt/README.md, "Baseline").
+[wpt_fyi]
+run = "5143154416943104"
+chrome = "156.0.8078.80"
+[wpt_fyi.chrome_passes]
+"html/webappapis timers and microtask queuing" = 34
+"dom/nodes" = 15286
+"dom/events" = 848
+"domparsing" = 913
+
 [[slice]]
 id = "timers"
 area = "html/webappapis timers and microtask queuing"
