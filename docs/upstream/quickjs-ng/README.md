@@ -26,6 +26,8 @@ The patch numbers below are for this repository only (`vendor/rquickjs-sys/PATCH
 | 11 | [Interrupt granularity](11-interrupt-granularity.md) | minutes past a deadline | 14 |
 | 12 | [Superlinear natives never poll](12-superlinear-natives-no-poll.md) | seconds to hours past a deadline | 3, 15-17 |
 | 13 | [RegExp replace with `''`](13-regexp-replace-no-poll.md) | seconds past a deadline | 19, 20 |
+| 14 | [The parser never polls](14-parser-never-polls.md) | seconds to minutes past a deadline | 27-30 |
+| 15 | [A proxy's `ownKeys` result is checked in quadratic time](15-proxy-own-keys-quadratic.md) | seconds past a deadline | 32-34 |
 
 Dropped: the `JSON.stringify` element leak (part of patch 10) is fixed on master.
 

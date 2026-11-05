@@ -98,6 +98,7 @@ typedef struct {
     int has_named_captures; /* -1 = don't know, 0 = no, 1 = yes */
     void *opaque;
     DynBuf group_names;
+    bool interrupted; /* surimono: see re_parse_poll */
     union {
         char error_msg[TMP_BUF_SIZE];
         char tmp_buf[TMP_BUF_SIZE];
@@ -319,7 +320,12 @@ static int re_string_add(REStringList *s, int len, const uint32_t *buf)
 }
 
 /* a = a op b */
-static int re_string_list_op(REStringList *a, REStringList *b, int op)
+/* surimono: see re_parse_poll; a class's string list has one entry per
+   \q{} alternative, up to one per two bytes of the pattern. */
+static int re_parse_poll(REParseState *s);
+
+static int re_string_list_op(REParseState *s, REStringList *a, REStringList *b,
+                             int op)
 {
     int i, ret;
     REString *p, **pp;
@@ -332,6 +338,9 @@ static int re_string_list_op(REStringList *a, REStringList *b, int op)
         if (b->n_strings != 0) {
             for(i = 0; i < b->hash_size; i++) {
                 for(p = b->hash_table[i]; p != NULL; p = p->next) {
+                    /* surimono */
+                    if (re_parse_poll(s))
+                        return -1;
                     if (re_string_find2(a, p->len, p->buf, p->hash, true) < 0)
                         return -1;
                 }
@@ -346,6 +355,9 @@ static int re_string_list_op(REStringList *a, REStringList *b, int op)
                 p = *pp;
                 if (p == NULL)
                     break;
+                /* surimono */
+                if (re_parse_poll(s))
+                    return -1;
                 ret = re_string_find2(b, p->len, p->buf, p->hash, false);
                 if (op == CR_OP_SUB)
                     ret = !ret;
@@ -392,6 +404,11 @@ static int re_string_list_canonicalize(REParseState *s1,
 
         for(i = 0; i < a->hash_size; i++) {
             for(p = a->hash_table[i]; p != NULL; p = p->next) {
+                /* surimono */
+                if (re_parse_poll(s1)) {
+                    re_string_list_free(a);
+                    return -1;
+                }
                 for(j = 0; j < p->len; j++) {
                     p->buf[j] = lre_canonicalize(p->buf[j], is_unicode);
                 }
@@ -698,8 +715,28 @@ static int JS_PRINTF_FORMAT_ATTR(2, 3) re_parse_error(REParseState *s, JS_PRINTF
     return -1;
 }
 
+/* surimono: compiling a pattern is quadratic in places (each alternative and
+   quantifier moves the bytecode written so far, each class item merges into a
+   sorted table, each forward \k scans the pattern), and nothing polled:
+   'x|'.repeat(8 << 20) ran for minutes. Called per term, class item and
+   alternative, without a counter, because one step can cost milliseconds.
+   The error is an uncatchable interrupt, not a SyntaxError; see
+   js_compile_regexp. */
+static int re_parse_poll(REParseState *s)
+{
+    if (lre_check_timeout(s->opaque)) {
+        s->interrupted = true;
+        return re_parse_error(s, "%s", LRE_INTERRUPTED);
+    }
+    return 0;
+}
+
 static int re_parse_out_of_memory(REParseState *s)
 {
+    /* surimono: re_string_list_op and re_string_list_canonicalize fail the
+       same way after an interrupt, with the error already set. */
+    if (s->interrupted)
+        return -1;
     return re_parse_error(s, "out of memory");
 }
 
@@ -1024,7 +1061,13 @@ static int parse_class_string_disjunction(REParseState *s, REStringList *cr,
     p++;
     for(;;) {
         str.size = 0;
+        /* surimono */
+        if (re_parse_poll(s))
+            goto fail;
         while (*p != '}' && *p != '|') {
+            /* surimono */
+            if (re_parse_poll(s))
+                goto fail;
             c = get_class_atom(s, NULL, &p, true);
             if (c < 0)
                 goto fail;
@@ -1341,6 +1384,9 @@ static int re_emit_string_list(REParseState *s, const REStringList *sl)
 
         last_match_pos = -1;
         for(i = 0; i < n; i++) {
+            /* surimono */
+            if (re_parse_poll(s))
+                goto fail;
             p = tab[i];
             is_last = !has_empty_string && sl->cr.len == 0 && i == (n - 1);
             if (!is_last)
@@ -1447,6 +1493,9 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
     /* handle unions */
     is_first = true;
     for(;;) {
+        /* surimono */
+        if (re_parse_poll(s))
+            goto fail;
         if (*p == ']')
             break;
         if (*p == '[' && s->unicode_sets) {
@@ -1505,7 +1554,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
             class_atom:
                 if (c1 >= CLASS_RANGE_BASE) {
                 class_union:
-                    ret = re_string_list_op(cr, cr1, CR_OP_UNION);
+                    ret = re_string_list_op(s, cr, cr1, CR_OP_UNION);
                     re_string_list_free(cr1);
                     if (ret)
                         goto memory_error;
@@ -1521,6 +1570,9 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
             if (*p == '&' && p[1] == '&' && p[2] != '&') {
                 /* handle '&&' */
                 for(;;) {
+                    /* surimono */
+                    if (re_parse_poll(s))
+                        goto fail;
                     if (*p == ']') {
                         break;
                     } else if (*p == '&' && p[1] == '&' && p[2] != '&') {
@@ -1530,7 +1582,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
                     }
                     if (re_parse_class_set_operand(s, cr1, &p))
                         goto fail;
-                    ret = re_string_list_op(cr, cr1, CR_OP_INTER);
+                    ret = re_string_list_op(s, cr, cr1, CR_OP_INTER);
                     re_string_list_free(cr1);
                     if (ret)
                         goto memory_error;
@@ -1538,6 +1590,9 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
             } else if (*p == '-' && p[1] == '-') {
                 /* handle '--' */
                 for(;;) {
+                    /* surimono */
+                    if (re_parse_poll(s))
+                        goto fail;
                     if (*p == ']') {
                         break;
                     } else if (*p == '-' && p[1] == '-') {
@@ -1549,7 +1604,7 @@ static int re_parse_nested_class(REParseState *s, REStringList *cr, const uint8_
                     }
                     if (re_parse_class_set_operand(s, cr1, &p))
                         goto fail;
-                    ret = re_string_list_op(cr, cr1, CR_OP_SUB);
+                    ret = re_string_list_op(s, cr, cr1, CR_OP_SUB);
                     re_string_list_free(cr1);
                     if (ret)
                         goto memory_error;
@@ -2439,6 +2494,9 @@ static int re_parse_alternative(REParseState *s, bool is_backward_dir)
             break;
         if (*p == '|' || *p == ')')
             break;
+        /* surimono */
+        if (re_parse_poll(s))
+            return -1;
         term_start = s->byte_code.size;
         ret = re_parse_term(s, is_backward_dir);
         if (ret)
@@ -2471,6 +2529,9 @@ static int re_parse_disjunction(REParseState *s, bool is_backward_dir)
     if (re_parse_alternative(s, is_backward_dir))
         return -1;
     while (*s->buf_ptr == '|') {
+        /* surimono */
+        if (re_parse_poll(s))
+            return -1;
         s->buf_ptr++;
 
         len = s->byte_code.size - start;
