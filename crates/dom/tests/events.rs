@@ -4,6 +4,8 @@
 
 mod common;
 
+use std::time::Duration;
+
 use common::limits;
 use surimono_core::{SandboxError, SettleOptions};
 use surimono_dom::{Document, DomError, DomRuntime};
@@ -1310,7 +1312,9 @@ fn window_event_is_the_running_listeners_event() {
         addEventListener('error', (x) => { x.preventDefault(); log.push(window.event.type); });
         a.dispatchEvent(e);
         after = window.event;
+        Object.prototype.get = () => 7;
         window.event = 5;
+        delete Object.prototype.get;
         [own, before, inner, outer, after, log.join(), window.event].join('|')"#,
     );
     assert_eq!(r, "true||true|true||error|5");
@@ -1491,6 +1495,25 @@ fn a_javascript_link_runs_in_a_task() {
     );
     assert_eq!(log_of(&mut rt), "after,link");
     assert_eq!(report.uncaught, 1, "{:?}", report.errors);
+}
+
+#[test]
+fn a_limit_in_a_javascript_link_ends_the_page() {
+    // The link's task runs under the same time limit as any other.
+    let mut rt = DomRuntime::new(limits().with_time(common::scaled(Duration::from_millis(200))))
+        .unwrap();
+    rt.load(
+        Document::parse(
+            "<!doctype html><a id=a href='javascript:for(;;);'>x</a>
+             <script>document.getElementById('a').click();</script>",
+        )
+        .unwrap(),
+    );
+    let e = rt.run_page(&SettleOptions::default(), |_| None).unwrap_err();
+    assert!(
+        matches!(e, DomError::Sandbox(SandboxError::TimeLimit { .. })),
+        "{e:?}"
+    );
 }
 
 #[test]

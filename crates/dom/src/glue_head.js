@@ -216,7 +216,9 @@
   }
   // WebIDL §3.7.6: writing a [Replaceable] attribute makes a data property.
   function replaceable(o, name, v) {
-    defineProperty(o, name, { value: v, writable: true, enumerable: true, configurable: true });
+    const d = create(null);
+    d.value = v; d.writable = true; d.enumerable = true; d.configurable = true;
+    defineProperty(o, name, d);
   }
   // HTML §2.6.1, in terms of the content attribute's text.
   function reflectStr(s, name) {
