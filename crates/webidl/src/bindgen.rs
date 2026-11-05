@@ -59,6 +59,9 @@ const JS_INTERFACES: &[&str] = &[
     "Event",
     "Window",
     "MutationObserver",
+    "DOMRectReadOnly",
+    "DOMRect",
+    "DOMRectList",
     "AbortController",
     "AbortSignal",
     "Performance",
@@ -109,6 +112,8 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("observerDisconnect", "h.observer_disconnect(a.uint(0)?)"),
     ("observerTake", "h.observer_take(a.uint(0)?)"),
     ("recordsPending", "h.records_pending()"),
+    ("layoutQuery", "h.layout_query(a.string(0)?)"),
+    ("computedStyle", "h.computed_style(this)"),
     ("radioCheck", "h.radio_check(this)"),
     ("handlerElement", "h.handler_element()"),
     ("idNames", "h.id_names()"),
@@ -1422,6 +1427,7 @@ pub fn generate_bindings(
     let mut js = note("//");
     for name in JS_INTERFACES.iter().chain(&[
         "Node",
+        "Element",
         "HTMLElement",
         "Document",
         "HTMLBodyElement",
@@ -1863,6 +1869,30 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "form",
             "indeterminate",
         ],
+    },
+    // Layout queries, in `glue_layout.js`.
+    BindInterface {
+        name: "DOMRectReadOnly",
+        members: &[
+            "constructor",
+            "x",
+            "y",
+            "width",
+            "height",
+            "top",
+            "right",
+            "bottom",
+            "left",
+            "toJSON",
+        ],
+    },
+    BindInterface {
+        name: "DOMRect",
+        members: &["constructor", "x", "y", "width", "height"],
+    },
+    BindInterface {
+        name: "DOMRectList",
+        members: &["length"],
     },
     // HTML §3.2.2: the interface of every element in the spec's index, so
     // `instanceof` and constructor names are right; their members come as

@@ -6,7 +6,7 @@ use surimono_core::SandboxError;
 /// complete.
 ///
 /// The `StaleDocument`, `NoDocument`, `NodeLimit`, `TreeTooDeep`,
-/// `HandleLimit`, `TextLimit`, `StyleLimit` and `Unsupported` variants are
+/// `HandleLimit`, `TextLimit`, `StyleLimit`, `Unsupported` and `LayoutQuery` variants are
 /// *fatal to the call*: the binding throws into the script (so it stops where
 /// it is), and the call fails with this error even if the script caught the
 /// exception. Each means the script used a wrapper with no document behind it,
@@ -80,6 +80,14 @@ pub enum DomError {
     Unsupported {
         /// What the script asked for.
         feature: &'static str,
+    },
+    /// A script asked for layout under
+    /// [`LayoutPolicy::Throw`](crate::LayoutPolicy::Throw). Fatal, so a script
+    /// can't catch it and go on without the answer.
+    #[error("the script asked for layout through {member}, which isn't available")]
+    LayoutQuery {
+        /// The member it used, such as `getBoundingClientRect`.
+        member: String,
     },
     /// The runtime has no document loaded.
     #[error("no document is loaded")]
