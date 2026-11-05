@@ -3,7 +3,7 @@
 // for every URL in wpt/manifest.toml, at the commit slices.toml pins
 // (wpt/README.md, "Baseline"). Generated, never edited.
 //
-//   node wpt/tools/chrome_baseline.mjs --from CHECKOUT [--filter STR] [--out FILE]
+//   node wpt/tools/chrome_baseline.mjs --from CHECKOUT [--filter STR] [--out FILE] [--update]
 //
 // CHECKOUT is a web-platform-tests checkout at the pinned commit. This script
 // never runs anything from it on the host: a small static server here reads its
@@ -12,6 +12,10 @@
 // substitutions) and not its Python handlers, apart from two small ones redone
 // below: another .py URL is a 404, and a subtest that needs one fails in Chromium
 // and is left out of the denominator. The 404s are listed at the end.
+//
+// --update keeps the tests already in FILE and replaces only those --filter
+// picks, in manifest order. It refuses a FILE from another Chromium or commit,
+// so a baseline never mixes two browsers.
 
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
@@ -33,7 +37,7 @@ const filter = flag('--filter');
 const out = flag('--out') ?? path.join(wpt, 'baseline/chrome.json');
 const jobs = Number(flag('--jobs') ?? 2);
 if (!flag('--from') || !fs.existsSync(path.join(checkout, 'resources/testharness.js'))) {
-  console.error('usage: chrome_baseline.mjs --from WPT_CHECKOUT [--filter STR] [--out FILE] [--jobs N]');
+  console.error('usage: chrome_baseline.mjs --from WPT_CHECKOUT [--filter STR] [--out FILE] [--jobs N] [--update]');
   process.exit(1);
 }
 
@@ -224,8 +228,19 @@ server.close();
 server2.close();
 server.closeAllConnections();
 server2.closeAllConnections();
+let written = results;
+if (args.includes('--update')) {
+  const prior = JSON.parse(fs.readFileSync(out, 'utf8'));
+  if (prior.chromium !== version || prior.wpt_commit !== commit) {
+    console.error(`--update: ${out} is from Chromium ${prior.chromium} at ${prior.wpt_commit}, this run is ${version} at ${commit}`);
+    process.exit(1);
+  }
+  const fresh = new Map(results.map((r) => [r.test, r]));
+  const old = new Map(prior.tests.map((r) => [r.test, r]));
+  written = tests.map((t) => fresh.get(t.test) ?? old.get(t.test)).filter(Boolean);
+}
 fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, `${JSON.stringify({ schema: 1, wpt_commit: commit, chromium: version, tests: results }, null, 0).replaceAll('},{"slice"', '},\n{"slice"')}\n`);
+fs.writeFileSync(out, `${JSON.stringify({ schema: 1, wpt_commit: commit, chromium: version, tests: written }, null, 0).replaceAll('},{"slice"', '},\n{"slice"')}\n`);
 const count = (s) => results.filter((r) => r.status === s).length;
 console.error(`${results.length} tests: ${count('OK')} OK, ${count('TIMEOUT')} TIMEOUT, ${count('ERROR')} ERROR; ${missing.size} URLs not served`);
 for (const m of [...missing].sort()) console.error(`  404 ${m}`);

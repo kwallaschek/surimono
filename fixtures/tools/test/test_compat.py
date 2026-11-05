@@ -309,6 +309,14 @@ class CompatTest(unittest.TestCase):
         self.assertIn("**1 failing**: echarts-b", rw)
         self.assertIn("| vega | 6.4.0 | BSD-3-Clause | required | 1 | partly run |", rw)
 
+    def test_a_real_world_page_is_named_not_reported_as_missing(self):
+        rw_dir = self.root / "fixtures" / "real-world"
+        (rw_dir / "marked-report").mkdir(parents=True)
+        (rw_dir / "marked-report" / "meta.toml").write_text('renderer = "marked"\n')
+        (rw_dir / "manifest.toml").write_text('[[library]]\nname = "marked"\nversion = "1"\nlicense = "MIT"\nstatus = "required"\n')
+        rw = "\n".join(compat.real_world_section({}, {}))
+        self.assertIn("page `marked-report`: DOM compared with Chrome's", rw)
+
     def test_duplicate_fixture_scores_are_an_error(self):
         # The review's reproduction: a failing run next to a passing one.
         for run, passed in (("run-a", False), ("run-b", True)):

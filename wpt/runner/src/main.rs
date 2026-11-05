@@ -7,6 +7,7 @@
 //! surimono-wpt-runner --root wpt --out wpt-results.json [--jobs 2] [--filter STR]
 //!                     [--commit SHA] [--time-limit-ms N] [--wall-limit-ms N]
 //! surimono-wpt-runner --root wpt --one URL FILE   # child: one test, JSON on stdout
+//! surimono-wpt-runner --probe FILE [--time-limit-ms N]  # wpt/probes: one page, JSON on stdout
 //! ```
 
 use std::collections::BTreeMap;
@@ -118,6 +119,10 @@ fn main() -> ExitCode {
         };
         inject_fault(url);
         println!("{}", run_one(&root, url, file, limits.time));
+        return ExitCode::SUCCESS;
+    }
+    if let Some(file) = flag("--probe") {
+        println!("{}", probe(Path::new(&file), limits.time));
         return ExitCode::SUCCESS;
     }
     let Some(out) = flag("--out") else {
@@ -365,6 +370,39 @@ fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
     }
 }
 
+/// One page of `wpt/probes`: its global `L`, with the page report.
+fn probe(file: &Path, time_limit: Duration) -> Value {
+    let page = (|| {
+        let html = fs::read_to_string(file).map_err(|e| e.to_string())?;
+        let doc = Document::parse(&html).map_err(|e| e.to_string())?;
+        DomRuntime::new(Limits::default().with_time(time_limit))
+            .map_err(|e| e.to_string())
+            .map(|mut rt| {
+                rt.load(doc);
+                rt
+            })
+    })();
+    let mut rt = match page {
+        Ok(rt) => rt,
+        Err(e) => return json!({ "failed": e }),
+    };
+    let report = match rt.run_page(&SettleOptions::default(), |_| None) {
+        Ok(r) => json!({
+            "uncaught": r.uncaught,
+            "errors": r.errors,
+            "unhandled_rejections": r.unhandled_rejections,
+            "rejections": r.rejections,
+        }),
+        Err(e) => json!({ "failed": e.to_string() }),
+    };
+    let log = rt
+        .eval::<String>("JSON.stringify(typeof L === 'undefined' ? null : L)")
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .unwrap_or(Value::Null);
+    json!({ "log": log, "report": report })
+}
+
 fn read_report(rt: &mut DomRuntime) -> Option<String> {
     rt.eval::<String>("typeof __surimonoWptReport === 'string' ? __surimonoWptReport : ''")
         .ok()
@@ -417,7 +455,10 @@ fn clip(v: &Value) -> Value {
 /// The document for a test: its own file, or for `.any.js` and `.window.js` the
 /// page WPT's server wraps around it.
 fn page(root: &Path, file: &str) -> Result<String, String> {
-    if file.ends_with(".xhtml") || file.ends_with(".xht") || file.ends_with(".svg") {
+    if [".xhtml", ".xht", ".xml", ".svg"]
+        .iter()
+        .any(|ext| file.ends_with(ext))
+    {
         return Err("needs an XML parser, which surimono-dom doesn't have".to_owned());
     }
     let path = root.join("tests").join(file);
