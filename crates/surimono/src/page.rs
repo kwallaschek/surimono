@@ -68,6 +68,10 @@ pub struct PageReport {
     /// `src` of each external script that couldn't be had; the page ran
     /// without them, and each one's element got an `error` event.
     pub missing_scripts: Vec<String>,
+    /// `href` of each stylesheet a [`Loader`](crate::Loader) couldn't give.
+    /// Its `<link>` is gone. Without a loader nothing is looked at and links
+    /// stay in the page for your PDF engine.
+    pub missing_stylesheets: Vec<String>,
 }
 
 impl PageReport {
@@ -79,6 +83,7 @@ impl PageReport {
             && self.uncaught == 0
             && self.unhandled_rejections == 0
             && self.missing_scripts.is_empty()
+            && self.missing_stylesheets.is_empty()
     }
 
     /// The facade's report for the DOM crate's.
@@ -102,6 +107,7 @@ impl PageReport {
             unhandled_rejections: from.unhandled_rejections,
             rejections: from.rejections,
             missing_scripts: from.missing_scripts,
+            missing_stylesheets: Vec::new(),
         })
     }
 }
@@ -400,6 +406,7 @@ mod tests {
             unhandled_rejections: 0,
             rejections: vec![],
             missing_scripts: vec![],
+            missing_stylesheets: vec![],
         };
         assert!(report.is_clean());
         let budget = PageReport {
@@ -422,6 +429,10 @@ mod tests {
             },
             PageReport {
                 missing_scripts: vec!["a.js".into()],
+                ..report.clone()
+            },
+            PageReport {
+                missing_stylesheets: vec!["a.css".into()],
                 ..report
             },
         ] {

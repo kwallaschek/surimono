@@ -54,6 +54,7 @@
 mod backend;
 mod charref;
 mod error;
+mod loader;
 mod options;
 mod page;
 mod pages;
@@ -62,6 +63,7 @@ mod renderer;
 mod svg;
 
 pub use error::{Error, IslandRef};
+pub use loader::{Loader, ResourceKind};
 pub use options::{DEFAULT_NOW_MS, Limits, Options, TextMode};
 pub use page::{Page, PageReport, PageSettle};
 pub use prepass::ErrorPolicy;

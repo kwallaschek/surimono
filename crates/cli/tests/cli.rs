@@ -382,3 +382,33 @@ fn a_page_over_a_limit_exits_with_the_limit_code() {
     assert_eq!(code(&o), 3, "{}", text(&o.stderr));
     assert!(text(&o.stderr).contains("[time-limit]"));
 }
+
+#[test]
+fn assets_come_from_their_directory_and_nowhere_else() {
+    let dir = std::env::temp_dir().join(format!("surimono-assets-{}", std::process::id()));
+    let public = dir.join("public");
+    std::fs::create_dir_all(public.join("js")).unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(public.join("js/a.js"), "document.title = 'loaded';")
+        .unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(public.join("a.css"), "p{color:red}").unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(dir.join("secret.js"), "document.title = 'secret';")
+        .unwrap_or_else(|e| panic!("{e}"));
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(dir.join("secret.js"), public.join("link.js"))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let html = "<title>x</title><link rel=stylesheet href=a.css>
+        <script src=/js/a.js></script><script src=../secret.js></script>
+        <script src=/%2e%2e/secret.js></script><script src=/link.js></script>";
+    let root = public.display().to_string();
+    let o = run(&["page", "-", "--font", &font(), "--assets", &root], html);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    let out = text(&o.stdout);
+    assert!(out.contains("<title>loaded</title>"), "{out}");
+    assert!(out.contains("<style>p{color:red}</style>"), "{out}");
+    assert!(
+        text(&o.stderr).contains("missing script /link.js"),
+        "{}",
+        text(&o.stderr)
+    );
+}

@@ -10,6 +10,7 @@ use surimono_islands::{IslandRequest, IslandRunner};
 use crate::Options;
 use crate::backend;
 use crate::error::Error;
+use crate::loader::{Loader, Session, inline_stylesheets};
 use crate::page::Page;
 use crate::pages::PagePool;
 use crate::prepass::{self, Document, ErrorPolicy};
@@ -399,7 +400,9 @@ impl Renderer {
     /// [`Options::now_ms`], so the same renderer, options and input always give
     /// the same bytes. Modules don't run, and a script a script inserts doesn't
     /// run yet. Nothing is fetched: an external script is reported in
-    /// [`PageReport::missing_scripts`](crate::PageReport::missing_scripts).
+    /// [`PageReport::missing_scripts`](crate::PageReport::missing_scripts),
+    /// unless you pass a [`Loader`] to
+    /// [`render_page_with`](Self::render_page_with).
     ///
     /// Island markers in the page when it settles render as in
     /// [`render_islands`](Self::render_islands), including those its scripts
@@ -423,7 +426,21 @@ impl Renderer {
     /// [`Error::Page`] if the page can't run at all, and any error of
     /// [`render_islands`](Self::render_islands) from its islands.
     pub fn render_page(&self, html: &str) -> Result<Page, Error> {
-        self.page(html, None)
+        self.page(html, None, None)
+    }
+
+    /// [`render_page`](Self::render_page) with a [`Loader`] for the page's
+    /// external scripts and stylesheets. A stylesheet comes out as a `<style>`
+    /// holding what the loader gave, so a printer needs no access to it. An
+    /// `@import` or `url()` in it isn't followed. Images stay as they are, for
+    /// your PDF engine: no event fires for them, so a page never waits on one.
+    ///
+    /// # Errors
+    ///
+    /// As [`render_page`](Self::render_page), plus [`Error::InvalidOptions`]
+    /// for a base URL or allow entry that can't be used.
+    pub fn render_page_with(&self, html: &str, loader: &mut Loader<'_>) -> Result<Page, Error> {
+        self.page(html, None, Some(loader))
     }
 
     /// [`render_page`](Self::render_page) that stops early once `cancel` is
@@ -434,14 +451,46 @@ impl Renderer {
     ///
     /// As [`render_page`](Self::render_page), plus [`Error::Cancelled`].
     pub fn render_page_cancellable(&self, html: &str, cancel: &AtomicBool) -> Result<Page, Error> {
-        self.page(html, Some(cancel))
+        self.page(html, Some(cancel), None)
     }
 
-    fn page(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<Page, Error> {
-        let ran = self.local()?.pages.run(html, cancel)?;
+    /// [`render_page_with`](Self::render_page_with) that stops early once
+    /// `cancel` is true, as [`render_page_cancellable`](Self::render_page_cancellable).
+    /// A load that is running finishes first: it is your code.
+    ///
+    /// # Errors
+    ///
+    /// As [`render_page_with`](Self::render_page_with), plus
+    /// [`Error::Cancelled`].
+    pub fn render_page_with_cancellable(
+        &self,
+        html: &str,
+        loader: &mut Loader<'_>,
+        cancel: &AtomicBool,
+    ) -> Result<Page, Error> {
+        self.page(html, Some(cancel), Some(loader))
+    }
+
+    fn page(
+        &self,
+        html: &str,
+        cancel: Option<&AtomicBool>,
+        loader: Option<&mut Loader<'_>>,
+    ) -> Result<Page, Error> {
+        let mut session = loader
+            .map(|l| Session::new(l).map_err(Error::InvalidOptions))
+            .transpose()?;
+        let ran = self.local()?.pages.run(html, cancel, session.as_mut())?;
+        let mut report = ran.report;
+        let printed = match session.as_mut() {
+            Some(session) => {
+                inline_stylesheets(&ran.html, session, cancel, &mut report.missing_stylesheets)?
+            }
+            None => ran.html,
+        };
         Ok(Page {
-            html: self.render(&ran.html, cancel)?,
-            report: ran.report,
+            html: self.render(&printed, cancel)?,
+            report,
         })
     }
 

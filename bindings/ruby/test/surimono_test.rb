@@ -858,4 +858,44 @@ class SurimonoTest < Minitest::Test
     ticker.kill
     assert_operator ticks, :>, 5
   end
+
+  def test_render_page_loader
+    asked = []
+    loader = lambda do |url, kind|
+      asked << [url, kind]
+      { "http://localhost/a.js" => "document.title = Thread_ok;", "http://localhost/b.css" => "p{color:red}" }[url]
+    end
+    html = "<title>x</title><link rel=stylesheet href=/b.css><link rel=stylesheet href=/none.css>" \
+           "<script>var Thread_ok = 'loaded';</script><script src=/a.js></script><script src=/none.js></script>" \
+           "<script src=https://elsewhere.example/x.js></script>"
+    page = page_renderer.render_page(html, loader: loader, allow: ["/"])
+    assert_includes page.html, "<title>loaded</title>"
+    assert_includes page.html, "<style>p{color:red}</style>"
+    assert_equal ["/none.js", "https://elsewhere.example/x.js"], page.missing_scripts
+    assert_equal ["/none.css"], page.missing_stylesheets
+    assert_equal [["http://localhost/a.js", :script], ["http://localhost/none.js", :script],
+                  ["http://localhost/b.css", :stylesheet], ["http://localhost/none.css", :stylesheet]], asked
+    assert_includes Surimono.render_page("<script src=/a.js></script>", fonts: FONTS, loader: ->(*) { "1" }, allow: ["/"]).html, "<html>"
+  end
+
+  def test_render_page_loader_errors
+    html = "<script src=/a.js></script><script src=/b.js></script>"
+    calls = 0
+    error = assert_raises(KeyError) do
+      page_renderer.render_page(html, loader: ->(*) { calls += 1; raise KeyError, "boom" }, allow: ["/"])
+    end
+    assert_equal "boom", error.message
+    assert_equal 1, calls
+    assert_raises(Timeout::Error) do
+      Timeout.timeout(0.1) { page_renderer.render_page(html, loader: ->(*) { sleep 5 }, allow: ["/"]) }
+    end
+    assert_raises(TypeError) { page_renderer.render_page(html, loader: ->(*) { 1 }, allow: ["/"]) }
+    assert_raises(ArgumentError) { page_renderer.render_page(html, allow: ["/"]) }
+    assert_raises(ArgumentError) { page_renderer.render_page(html, loader: 1) }
+    assert_raises(ArgumentError) { page_renderer.render_page(html, loader: ->(*) {}, allow: "/") }
+    error = assert_raises(Surimono::ConfigurationError) do
+      page_renderer.render_page(html, loader: ->(*) {}, base_url: "nope")
+    end
+    assert_equal "invalid-options", error.kind
+  end
 end

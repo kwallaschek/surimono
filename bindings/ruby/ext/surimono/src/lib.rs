@@ -8,13 +8,14 @@
 
 // A library never writes to stdout or stderr; tests may.
 #![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
+use std::cell::RefCell;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use magnus::{
-    Error, ExceptionClass, KwArgs, RArray, RHash, RModule, RString, Ruby, function, method,
-    prelude::*,
+    Error, ExceptionClass, KwArgs, RArray, RHash, RModule, RString, Ruby, block::Proc, function,
+    method, prelude::*,
 };
 
 #[allow(unsafe_code)]
@@ -125,17 +126,49 @@ impl Renderer {
     }
 
     /// `[html, report]`, with the report as a Hash of plain values for
-    /// lib/surimono.rb. As [`render`](Self::render), for a page.
-    fn render_page(ruby: &Ruby, rb_self: &Self, html: RString) -> Result<RArray, Error> {
+    /// lib/surimono.rb. As [`render`](Self::render), for a page. `loader` is
+    /// `nil`, or `[proc, base_url, allow]`.
+    fn render_page(
+        ruby: &Ruby,
+        rb_self: &Self,
+        html: RString,
+        loader: Option<(Proc, Option<String>, Vec<String>)>,
+    ) -> Result<RArray, Error> {
         let html: Arc<str> = Arc::from(html.to_string()?);
         loop {
             let renderer = Arc::clone(&rb_self.0);
             let doc = Arc::clone(&html);
             let cancel = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&cancel);
-            let result = ffi::without_gvl_cancellable(ruby, &cancel, move || {
-                renderer.render_page_cancellable(&doc, &flag)
+            // A loader's exception, or an interrupt in it: it ends the render
+            // and is raised again here.
+            let raised: RefCell<Option<Error>> = RefCell::new(None);
+            let loader = loader.clone();
+            let stop = &cancel;
+            let store = &raised;
+            let result = ffi::without_gvl_cancellable(ruby, &cancel, move || match loader {
+                None => renderer.render_page_cancellable(&doc, &flag),
+                Some((proc, base, allow)) => {
+                    let mut l = surimono::Loader::new(|url, kind| {
+                        let outcome = ffi::with_gvl(|ruby| call_loader(ruby, proc, url, kind))?;
+                        outcome.unwrap_or_else(|e| {
+                            store.borrow_mut().get_or_insert(e);
+                            stop.store(true, Ordering::Release);
+                            None
+                        })
+                    });
+                    if let Some(base) = base {
+                        l = l.base_url(base);
+                    }
+                    for entry in allow {
+                        l = l.allow(entry);
+                    }
+                    renderer.render_page_with_cancellable(&doc, &mut l, &flag)
+                }
             })?;
+            if let Some(e) = raised.take() {
+                return Err(e);
+            }
             match result {
                 Ok(page) => {
                     let answer = ruby.ary_new_capa(2);
@@ -155,6 +188,17 @@ impl Renderer {
     }
 }
 
+/// What a loader proc gave for `url`: a String, or nil for nothing.
+fn call_loader(
+    ruby: &Ruby,
+    proc: Proc,
+    url: &str,
+    kind: surimono::ResourceKind,
+) -> Result<Option<Vec<u8>>, Error> {
+    let answer: Option<RString> = proc.call((url, ruby.to_symbol(kind.name())))?;
+    Ok(answer.map(ffi::string_bytes))
+}
+
 /// A page's report as a Hash.
 fn page_report(ruby: &Ruby, report: &surimono::PageReport) -> Result<RHash, Error> {
     let hash = ruby.hash_new();
@@ -168,6 +212,10 @@ fn page_report(ruby: &Ruby, report: &surimono::PageReport) -> Result<RHash, Erro
     hash.aset(key("unhandled_rejections"), report.unhandled_rejections)?;
     hash.aset(key("rejections"), report.rejections.clone())?;
     hash.aset(key("missing_scripts"), report.missing_scripts.clone())?;
+    hash.aset(
+        key("missing_stylesheets"),
+        report.missing_stylesheets.clone(),
+    )?;
     hash.aset(key("clean"), report.is_clean())?;
     Ok(hash)
 }
@@ -274,7 +322,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     let class = module.define_class("Renderer", ruby.class_object())?;
     class.define_singleton_method("_native_new", function!(renderer_new, 15))?;
     class.define_method("_render", method!(Renderer::render, 1))?;
-    class.define_method("_render_page", method!(Renderer::render_page, 1))?;
+    class.define_method("_render_page", method!(Renderer::render_page, 2))?;
     class.define_method("renderers", method!(Renderer::renderers, 0))?;
     Ok(())
 }

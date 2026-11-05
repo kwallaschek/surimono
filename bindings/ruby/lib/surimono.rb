@@ -98,6 +98,8 @@ module Surimono
     attr_reader :unhandled_rejections, :rejections
     # The src of each external script that couldn't be had.
     attr_reader :missing_scripts
+    # The href of each stylesheet a loader couldn't give.
+    attr_reader :missing_stylesheets
 
     def initialize(html, report)
       @html = html
@@ -110,6 +112,7 @@ module Surimono
       @unhandled_rejections = report.fetch(:unhandled_rejections)
       @rejections = report.fetch(:rejections)
       @missing_scripts = report.fetch(:missing_scripts)
+      @missing_stylesheets = report.fetch(:missing_stylesheets)
       @clean = report.fetch(:clean)
     end
 
@@ -247,22 +250,52 @@ module Surimono
     # settles, on a virtual clock (timers fire at once, with Date moved on;
     # Math.random starts from seed and Date from now, so same input, same
     # output), then its islands render, those its scripts wrote included.
-    # Returns a Surimono::Page. Nothing is fetched: an external script is
-    # reported in Page#missing_scripts.
+    # Returns a Surimono::Page.
+    #
+    # Nothing is fetched unless you pass a loader: an external script is reported
+    # in Page#missing_scripts, and <link>s stay for your PDF engine. Pass one to
+    # give the page its scripts and stylesheets:
+    #
+    #   loader = ->(url, kind) { Rails.root.join("public", URI(url).path[1..]).binread }
+    #   renderer.render_page(html, loader: loader, allow: ["/assets/"])
+    #
+    # loader:: called as loader.call(url, kind), with the absolute URL and
+    #          :script or :stylesheet, on this thread, one at a time, in document
+    #          order. Returns a String, read as UTF-8, or nil if there is none. An
+    #          exception in it ends the render and is raised from here. It isn't
+    #          interrupted, so give it its own timeout: past 10 seconds of loads,
+    #          1,000 of them or 256 MiB, the rest fail and the page goes on.
+    #          A stylesheet goes into the page as <style>; a url() or @import in it
+    #          isn't followed.
+    # allow::  what the page may load, nothing by default: URLs, absolute or
+    #          relative to base_url, http or https. Ending in / it means all under
+    #          that path, otherwise that one URL. Anything else never reaches
+    #          loader.
+    # base_url:: what the page's relative URLs resolve against, as if it had been
+    #          loaded from there (default "http://localhost/"). Never connected to.
     #
     # limits apply to the whole page, then to each island in it. Raises
     # TimeLimitError, MemoryLimitError or StackOverflowError (with no island) or
     # DocumentLimitError past a limit, and the usual errors for its islands.
     # Interrupts stop the running script, as for render. Takes html as render
     # does.
-    def render_page(html)
+    def render_page(html, loader: nil, allow: nil, base_url: nil)
       raise ArgumentError, "html must be a String, got #{html.class}" unless html.respond_to?(:to_str)
+      raise ArgumentError, "allow and base_url need a loader" if loader.nil? && !(allow.nil? && base_url.nil?)
 
+      native_loader = nil
+      unless loader.nil?
+        raise ArgumentError, "loader must respond to call, got #{loader.class}" unless loader.respond_to?(:call)
+        raise ArgumentError, "allow must be an Array of Strings" unless allow.nil? || (allow.is_a?(Array) && allow.all?(String))
+        raise ArgumentError, "base_url must be a String" unless base_url.nil? || base_url.is_a?(String)
+
+        native_loader = [loader.respond_to?(:to_proc) ? loader.to_proc : loader.method(:call).to_proc, base_url, allow || []]
+      end
       html = Renderer.send(:utf8, html.to_str)
       Page.new(*if SIGNAL_PUMP && Thread.current.equal?(Thread.main) && Thread.list.size > 1
-                  with_signal_pump { _render_page(html) }
+                  with_signal_pump { _render_page(html, native_loader) }
                 else
-                  _render_page(html)
+                  _render_page(html, native_loader)
                 end)
     end
 
@@ -477,8 +510,8 @@ module Surimono
     #   page = Surimono.render_page(html, fonts: ["fonts/NotoSans-Regular.ttf"])
     #   Rails.logger.warn(page.errors.join("\n")) unless page.clean?
     #   pdf = Fulgur::Engine.new.render_html(page.html)
-    def render_page(html, **options)
-      renderer_for(options).render_page(html)
+    def render_page(html, loader: nil, allow: nil, base_url: nil, **options)
+      renderer_for(options).render_page(html, loader: loader, allow: allow, base_url: base_url)
     end
 
     private

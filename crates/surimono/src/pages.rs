@@ -23,6 +23,7 @@ use surimono_core::{SandboxOptions, SettleOptions};
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
 use crate::error::Error;
+use crate::loader::{ResourceKind, Session};
 use crate::page::{PageReport, doctype, strip_for_print};
 
 /// How long a worker waits for a page before it ends and frees its runtime.
@@ -50,11 +51,24 @@ pub(crate) struct Ran {
     pub(crate) report: PageReport,
 }
 
+/// What a worker sends its caller.
+enum Message {
+    /// The source of an external script, from the caller's loader, which is
+    /// the caller's: it runs on the caller's thread, and in Ruby needs the GVL.
+    Need {
+        src: String,
+        answer: Sender<Option<String>>,
+    },
+    Done(Result<Ran, Error>),
+}
+
 struct Job {
     html: String,
     /// Raised to drop this job while it waits, and to stop its script.
     cancel: Arc<AtomicBool>,
-    reply: Sender<Result<Ran, Error>>,
+    /// Whether the caller has a loader to ask.
+    loads: bool,
+    reply: Sender<Message>,
 }
 
 #[derive(Default)]
@@ -110,7 +124,7 @@ impl Shared {
     /// next page at once sees this one as done).
     fn answer(&self, job: Job, answer: Result<Ran, Error>) {
         self.lock().in_flight -= 1;
-        let _ = job.reply.send(answer);
+        let _ = job.reply.send(Message::Done(answer));
     }
 }
 
@@ -137,20 +151,33 @@ impl PagePool {
     }
 
     /// Runs `html` as a page on a worker and waits for it. With `cancel` up
-    /// the call returns [`Error::Cancelled`] within a few milliseconds.
-    pub(crate) fn run(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<Ran, Error> {
+    /// the call returns [`Error::Cancelled`] within a few milliseconds, or
+    /// right after a load that is running. `session` answers on this thread.
+    pub(crate) fn run(
+        &self,
+        html: &str,
+        cancel: Option<&AtomicBool>,
+        mut session: Option<&mut Session<'_, '_>>,
+    ) -> Result<Ran, Error> {
         let raised = || cancel.is_some_and(|c| c.load(Ordering::Acquire));
         if raised() {
             return Err(Error::Cancelled);
         }
         let job_cancel = Arc::new(AtomicBool::new(false));
-        let answer = self.submit(html, Arc::clone(&job_cancel))?;
+        let messages = self.submit(html, Arc::clone(&job_cancel), session.is_some())?;
         loop {
-            match answer.recv_timeout(CANCEL_POLL) {
-                Ok(result) => return result,
-                Err(RecvTimeoutError::Timeout) if raised() => {
-                    job_cancel.store(true, Ordering::Release);
-                    return Err(Error::Cancelled);
+            let message = messages.recv_timeout(CANCEL_POLL);
+            if raised() {
+                job_cancel.store(true, Ordering::Release);
+                return Err(Error::Cancelled);
+            }
+            match message {
+                Ok(Message::Done(result)) => return result,
+                Ok(Message::Need { src, answer }) => {
+                    let text = session
+                        .as_mut()
+                        .and_then(|s| s.load(&src, ResourceKind::Script));
+                    let _ = answer.send(text);
                 }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => {
@@ -164,11 +191,13 @@ impl PagePool {
         &self,
         html: &str,
         cancel: Arc<AtomicBool>,
-    ) -> Result<Receiver<Result<Ran, Error>>, Error> {
+        loads: bool,
+    ) -> Result<Receiver<Message>, Error> {
         let (reply, answer) = mpsc::channel();
         let job = Job {
             html: html.to_owned(),
             cancel,
+            loads,
             reply,
         };
         let mut state = self.shared.lock();
@@ -232,7 +261,7 @@ fn work(shared: &Shared, idle_after: Duration) {
             continue;
         }
         let ran = catch_unwind(AssertUnwindSafe(|| {
-            run_job(&shared.options, &mut runtime, &job.html)
+            run_job(&shared.options, &mut runtime, &job)
         }))
         .unwrap_or_else(|_| Err(Error::Page("a page's worker panicked".to_owned())));
         if ran.is_err() {
@@ -253,8 +282,9 @@ fn work(shared: &Shared, idle_after: Duration) {
 fn run_job(
     options: &PagePoolOptions,
     runtime: &mut Option<DomRuntime>,
-    html: &str,
+    job: &Job,
 ) -> Result<Ran, Error> {
+    let html = job.html.as_str();
     let document = Document::parse_with_limits(html, options.dom).map_err(page_error)?;
     let rt = match runtime {
         Some(rt) => rt,
@@ -263,8 +293,20 @@ fn run_job(
         }
     };
     rt.load(document);
-    // Seam for E2-06: the loader answers here.
-    let report = rt.run_page(&options.settle, |_| None).map_err(page_error)?;
+    // Before the page's first script, and before its time limit starts.
+    let resolve = |src: &str| {
+        if !job.loads || job.cancel.load(Ordering::Acquire) {
+            return None;
+        }
+        let (answer, text) = mpsc::channel();
+        let need = Message::Need {
+            src: src.to_owned(),
+            answer,
+        };
+        job.reply.send(need).ok()?;
+        text.recv().ok().flatten()
+    };
+    let report = rt.run_page(&options.settle, resolve).map_err(page_error)?;
     let report = PageReport::new(report).map_err(Error::Page)?;
     let body = rt
         .with_document(Document::to_html)
@@ -327,17 +369,17 @@ mod tests {
     fn no_thread_until_the_first_page_and_none_after_it() {
         let p = pool(2, Duration::from_millis(30));
         assert_eq!(p.workers(), 0);
-        assert!(p.run("<p>x</p>", None).is_ok());
+        assert!(p.run("<p>x</p>", None, None).is_ok());
         wait_until("the worker ends when idle", || p.workers() == 0);
         // And the next page starts one again.
-        assert!(p.run("<p>y</p>", None).is_ok());
+        assert!(p.run("<p>y</p>", None, None).is_ok());
     }
 
     #[test]
     fn a_caller_at_a_time_uses_one_worker() {
         let p = pool(4, Duration::from_secs(5));
         for _ in 0..5 {
-            assert!(p.run("<p>x</p>", None).is_ok());
+            assert!(p.run("<p>x</p>", None, None).is_ok());
             assert!(p.workers() <= 1, "{}", p.workers());
         }
     }
@@ -348,7 +390,7 @@ mod tests {
         let threads: Vec<_> = (0..4)
             .map(|_| {
                 let p = Arc::clone(&p);
-                thread::spawn(move || p.run("<p>x</p>", None).is_ok())
+                thread::spawn(move || p.run("<p>x</p>", None, None).is_ok())
             })
             .collect();
         for t in threads {
@@ -362,7 +404,7 @@ mod tests {
         let p = pool(1, Duration::from_secs(5));
         let cancel = AtomicBool::new(true);
         assert!(matches!(
-            p.run("<p>x</p>", Some(&cancel)),
+            p.run("<p>x</p>", Some(&cancel), None),
             Err(Error::Cancelled)
         ));
         assert_eq!(p.workers(), 0);
@@ -376,7 +418,7 @@ mod tests {
             let cancel = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&cancel);
             let t = thread::spawn(move || {
-                let _ = p.run("<script>for (;;) {}</script>", Some(&flag));
+                let _ = p.run("<script>for (;;) {}</script>", Some(&flag), None);
             });
             thread::sleep(Duration::from_millis(50));
             cancel.store(true, Ordering::Release);

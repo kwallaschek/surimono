@@ -15,7 +15,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
-use surimono::{Error, ErrorPolicy, Limits, Options, PageReport, PageSettle, Renderer, TextMode};
+use surimono::{
+    Error, ErrorPolicy, Limits, Loader, Options, PageReport, PageSettle, Renderer, TextMode,
+};
 
 const HELP: &str = "\
 surimono: run a document's JavaScript without a browser, so browserless
@@ -30,7 +32,7 @@ Usage:
   runs the document's own scripts on a DOM until it settles, then does the same,
   and writes the page as it stands. A script's exception doesn't fail a page: it
   is reported on standard error. Nothing is fetched and no file is read for a
-  page: external scripts are reported as missing.
+  page unless you pass --assets: external scripts are reported as missing.
 
   <in.html> and <out.html> may be - for standard input and output.
   -o defaults to standard output.
@@ -67,6 +69,10 @@ Options:
                            timers never run (default 10000)
   --max-tasks <n>          page only: most timers and frames to run (default
                            100000)
+  --assets <dir>           page only: where the page's scripts and stylesheets
+                           are; /js/a.js is <dir>/js/a.js. Files outside <dir>
+                           aren't read, and nothing is ever fetched from the
+                           network. Stylesheets go into the page as <style>.
 
   With page, the limits apply to the whole page, then to each island in it.
 
@@ -157,6 +163,7 @@ struct RenderArgs {
     page: bool,
     budget_ms: Option<u64>,
     max_tasks: Option<u64>,
+    assets: Option<PathBuf>,
     input: Option<String>,
     output: Option<String>,
     fonts: Vec<PathBuf>,
@@ -287,6 +294,7 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
             "--pool-size" => r.pool_size = Some(number(&flag, &value()?)?),
             "--budget-ms" if page => r.budget_ms = Some(number(&flag, &value()?)?),
             "--max-tasks" if page => r.max_tasks = Some(number(&flag, &value()?)?),
+            "--assets" if page => r.assets = Some(PathBuf::from(value()?)),
             other => return Err(Failure::usage(format!("unknown option {other:?}"))),
         }
     }
@@ -375,9 +383,16 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
     };
     let renderer = Renderer::new(options).map_err(|e| Failure::from_error(&e))?;
     let output = if args.page {
-        let page = renderer
-            .render_page(&input)
-            .map_err(|e| Failure::from_error(&e))?;
+        let page = match &args.assets {
+            None => renderer.render_page(&input),
+            Some(dir) => {
+                let root = fs::canonicalize(dir)
+                    .map_err(|e| Failure::io(&dir.display().to_string(), &e))?;
+                let mut loader = Loader::new(|url, _| read_asset(&root, url)).allow("/");
+                renderer.render_page_with(&input, &mut loader)
+            }
+        }
+        .map_err(|e| Failure::from_error(&e))?;
         eprint!("{}", report_text(&page.report));
         page.html
     } else {
@@ -399,6 +414,37 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
     }
 }
 
+/// The file under `root` for a URL on the loader's default base, if it is
+/// there and really under `root` (a symbolic link may point anywhere). The
+/// allowlist has already taken `..` out of the URL.
+fn read_asset(root: &Path, url: &str) -> Option<Vec<u8>> {
+    let path = url.strip_prefix("http://localhost/")?;
+    let path = path.split(['?', '#']).next()?;
+    let file = fs::canonicalize(root.join(percent_decoded(path)?)).ok()?;
+    file.starts_with(root).then(|| fs::read(file).ok())?
+}
+
+/// `path` with `%XX` decoded; `None` if that isn't UTF-8.
+fn percent_decoded(path: &str) -> Option<String> {
+    let bytes = path.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = bytes.get(i + 1..i + 3).filter(|_| bytes[i] == b'%');
+        match hex.and_then(|h| u8::from_str_radix(std::str::from_utf8(h).ok()?, 16).ok()) {
+            Some(b) => {
+                out.push(b);
+                i += 3;
+            }
+            None => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
 /// What a page's report has to say on standard error; nothing for a page that
 /// settled with nothing wrong.
 fn report_text(report: &PageReport) -> String {
@@ -408,6 +454,9 @@ fn report_text(report: &PageReport) -> String {
     }
     for script in &report.missing_scripts {
         text.push_str(&format!("surimono: warning: missing script {script}\n"));
+    }
+    for sheet in &report.missing_stylesheets {
+        text.push_str(&format!("surimono: warning: missing stylesheet {sheet}\n"));
     }
     for (count, kept, what) in [
         (report.uncaught, &report.errors, "uncaught exception"),
@@ -612,19 +661,31 @@ mod tests {
             "500",
             "--max-tasks=9",
             "--time-ms=100",
+            "--assets",
+            "public",
         ]);
         assert!(r.page);
+        assert_eq!(r.assets, Some(PathBuf::from("public")));
         assert_eq!((r.budget_ms, r.max_tasks), (Some(500), Some(9)));
         assert_eq!(r.limits.time, Duration::from_millis(100));
         assert!(!render_args(&["render", "in.html"]).page);
         for bad in [
             &["render", "a", "--budget-ms", "5"][..],
             &["render", "a", "--max-tasks", "5"],
+            &["render", "a", "--assets", "d"],
             &["page"],
             &["page", "a", "--budget-ms", "soon"],
         ] {
             assert!(parse(args(bad)).is_err(), "{bad:?}");
         }
+    }
+
+    #[test]
+    fn percent_decoding() {
+        assert_eq!(percent_decoded("a%20b/c.js").as_deref(), Some("a b/c.js"));
+        assert_eq!(percent_decoded("100%").as_deref(), Some("100%"));
+        assert_eq!(percent_decoded("%zz").as_deref(), Some("%zz"));
+        assert_eq!(percent_decoded("%ff"), None);
     }
 
     #[test]

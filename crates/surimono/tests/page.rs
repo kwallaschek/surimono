@@ -6,7 +6,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use surimono::{Error, ErrorPolicy, Limits, Options, Page, PageSettle, Renderer};
+use surimono::{
+    Error, ErrorPolicy, Limits, Loader, Options, Page, PageSettle, Renderer, ResourceKind,
+};
 
 fn font() -> Vec<u8> {
     let path = concat!(
@@ -278,4 +280,133 @@ fn many_threads_share_one_renderer() {
             other => panic!("{other:?}"),
         }
     }
+}
+
+#[test]
+fn a_loader_gives_a_page_its_scripts_and_stylesheets() {
+    let r = renderer(options());
+    let mut asked = Vec::new();
+    let page = {
+        let mut loader = Loader::new(|url, kind| {
+            asked.push((url.to_owned(), kind));
+            match url {
+                "http://localhost/js/a.js" => Some(b"window.order = ['a'];".to_vec()),
+                "http://localhost/js/b.js" => Some(b"order.push('b');".to_vec()),
+                "http://localhost/css/p.css" => Some(b"p { color: red }".to_vec()),
+                _ => None,
+            }
+        })
+        .allow("/js/")
+        .allow("/css/");
+        r.render_page_with(
+            r#"<!doctype html><link rel="stylesheet" href="/css/p.css"><body>
+            <script src="js/b.js" defer></script>
+            <script src="js/a.js"></script>
+            <script src="js/none.js"></script>
+            <script src="https://elsewhere.example/x.js"></script>
+            <script>
+              addEventListener('load', () => {
+                document.body.dataset.order = order.join();
+                const l = document.createElement('link');
+                l.rel = 'stylesheet'; l.href = '/css/gone.css';
+                document.head.append(l);
+              });
+            </script>"#,
+            &mut loader,
+        )
+        .unwrap_or_else(|e| panic!("{e}"))
+    };
+    assert!(page.html.contains("data-order=\"a,b\""), "{}", page.html);
+    assert!(
+        page.html.contains("<style>p { color: red }</style>"),
+        "{}",
+        page.html
+    );
+    assert!(!page.html.contains("gone.css"), "{}", page.html);
+    assert_eq!(
+        page.report.missing_scripts,
+        ["js/none.js", "https://elsewhere.example/x.js"]
+    );
+    assert_eq!(page.report.missing_stylesheets, ["/css/gone.css"]);
+    // In tree order, one at a time, and never for what isn't listed.
+    assert_eq!(
+        asked,
+        [
+            ("http://localhost/js/b.js".to_owned(), ResourceKind::Script),
+            ("http://localhost/js/a.js".to_owned(), ResourceKind::Script),
+            (
+                "http://localhost/js/none.js".to_owned(),
+                ResourceKind::Script
+            ),
+            (
+                "http://localhost/css/p.css".to_owned(),
+                ResourceKind::Stylesheet
+            ),
+            (
+                "http://localhost/css/gone.css".to_owned(),
+                ResourceKind::Stylesheet
+            ),
+        ]
+    );
+}
+
+#[test]
+fn without_a_loader_links_stay_for_the_printer() {
+    let r = renderer(options());
+    let out = page(
+        &r,
+        "<link rel=stylesheet href=a.css><script src=a.js></script>",
+    );
+    assert!(
+        out.html
+            .contains("<link rel=\"stylesheet\" href=\"a.css\">"),
+        "{}",
+        out.html
+    );
+    assert_eq!(out.report.missing_scripts, ["a.js"]);
+    assert!(out.report.missing_stylesheets.is_empty());
+}
+
+#[test]
+fn slow_loads_dont_count_against_the_scripts_time_limit() {
+    let r = renderer(options().limits(Limits {
+        time: Duration::from_millis(200),
+        ..Limits::default()
+    }));
+    let mut loader = Loader::new(|_, _| {
+        std::thread::sleep(Duration::from_millis(100));
+        Some(b"document.title = 't'".to_vec())
+    })
+    .allow("/");
+    let html = "<title>x</title>".to_owned() + &"<script src=/a.js></script>".repeat(5);
+    let out = r.render_page_with(&html, &mut loader);
+    assert!(out.is_ok(), "{out:?}");
+}
+
+#[test]
+fn a_bad_loader_is_invalid_options() {
+    let r = renderer(options());
+    let mut loader = Loader::new(|_, _| None).base_url("nope");
+    assert!(matches!(
+        r.render_page_with("<p>x</p>", &mut loader),
+        Err(Error::InvalidOptions(_))
+    ));
+}
+
+#[test]
+fn a_cancel_ends_a_page_at_its_next_load() {
+    let r = renderer(options());
+    let cancel = AtomicBool::new(false);
+    let calls = std::cell::Cell::new(0);
+    let mut loader = Loader::new(|_, _| {
+        calls.set(calls.get() + 1);
+        cancel.store(true, Ordering::Release);
+        Some(Vec::new())
+    })
+    .allow("/");
+    let html = "<script src=/a.js></script><script src=/b.js></script>";
+    let out = r.render_page_with_cancellable(html, &mut loader, &cancel);
+    assert!(matches!(out, Err(Error::Cancelled)), "{out:?}");
+    drop(loader);
+    assert_eq!(calls.get(), 1);
 }
