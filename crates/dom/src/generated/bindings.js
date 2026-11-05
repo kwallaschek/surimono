@@ -378,17 +378,224 @@ attr(31, "height", function () { return H.DOMRect_height(self(this, 31)); }, fun
 iface(32, "DOMRectList", -1, null);
 attr(32, "length", function () { return H.DOMRectList_length(self(this, 32)); });
 
+// HTMLAreaElement
+iface(33, "HTMLAreaElement", 7, null);
+
+// HTMLBaseElement
+iface(34, "HTMLBaseElement", 7, null);
+
+// HTMLBodyElement
+iface(35, "HTMLBodyElement", 7, null);
+handlers(35, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
+
+// HTMLBRElement
+iface(36, "HTMLBRElement", 7, null);
+
+// HTMLButtonElement
+iface(37, "HTMLButtonElement", 7, null);
+
+// HTMLCanvasElement
+iface(38, "HTMLCanvasElement", 7, null);
+
+// HTMLDataElement
+iface(39, "HTMLDataElement", 7, null);
+
+// HTMLDataListElement
+iface(40, "HTMLDataListElement", 7, null);
+
+// HTMLDetailsElement
+iface(41, "HTMLDetailsElement", 7, null);
+
+// HTMLDialogElement
+iface(42, "HTMLDialogElement", 7, null);
+
+// HTMLDirectoryElement
+iface(43, "HTMLDirectoryElement", 7, null);
+
+// HTMLDivElement
+iface(44, "HTMLDivElement", 7, null);
+
+// HTMLDListElement
+iface(45, "HTMLDListElement", 7, null);
+
+// HTMLEmbedElement
+iface(46, "HTMLEmbedElement", 7, null);
+
+// HTMLFieldSetElement
+iface(47, "HTMLFieldSetElement", 7, null);
+
+// HTMLFontElement
+iface(48, "HTMLFontElement", 7, null);
+
+// HTMLFormElement
+iface(49, "HTMLFormElement", 7, null);
+
+// HTMLFrameElement
+iface(50, "HTMLFrameElement", 7, null);
+
+// HTMLFrameSetElement
+iface(51, "HTMLFrameSetElement", 7, null);
+handlers(51, ["onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
+
+// HTMLHeadElement
+iface(52, "HTMLHeadElement", 7, null);
+
+// HTMLHeadingElement
+iface(53, "HTMLHeadingElement", 7, null);
+
+// HTMLHRElement
+iface(54, "HTMLHRElement", 7, null);
+
+// HTMLHtmlElement
+iface(55, "HTMLHtmlElement", 7, null);
+
+// HTMLIFrameElement
+iface(56, "HTMLIFrameElement", 7, null);
+
+// HTMLLabelElement
+iface(57, "HTMLLabelElement", 7, null);
+
+// HTMLLegendElement
+iface(58, "HTMLLegendElement", 7, null);
+
+// HTMLLIElement
+iface(59, "HTMLLIElement", 7, null);
+
+// HTMLMapElement
+iface(60, "HTMLMapElement", 7, null);
+
+// HTMLMarqueeElement
+iface(61, "HTMLMarqueeElement", 7, null);
+
+// HTMLMediaElement
+iface(62, "HTMLMediaElement", 7, null);
+konst(62, "NETWORK_EMPTY", 0);
+konst(62, "NETWORK_IDLE", 1);
+konst(62, "NETWORK_LOADING", 2);
+konst(62, "NETWORK_NO_SOURCE", 3);
+konst(62, "HAVE_NOTHING", 0);
+konst(62, "HAVE_METADATA", 1);
+konst(62, "HAVE_CURRENT_DATA", 2);
+konst(62, "HAVE_FUTURE_DATA", 3);
+konst(62, "HAVE_ENOUGH_DATA", 4);
+
+// HTMLAudioElement
+iface(63, "HTMLAudioElement", 62, null);
+
+// HTMLVideoElement
+iface(64, "HTMLVideoElement", 62, null);
+
+// HTMLMenuElement
+iface(65, "HTMLMenuElement", 7, null);
+
+// HTMLMetaElement
+iface(66, "HTMLMetaElement", 7, null);
+
+// HTMLMeterElement
+iface(67, "HTMLMeterElement", 7, null);
+
+// HTMLModElement
+iface(68, "HTMLModElement", 7, null);
+
+// HTMLObjectElement
+iface(69, "HTMLObjectElement", 7, null);
+
+// HTMLOListElement
+iface(70, "HTMLOListElement", 7, null);
+
+// HTMLOptGroupElement
+iface(71, "HTMLOptGroupElement", 7, null);
+
+// HTMLOptionElement
+iface(72, "HTMLOptionElement", 7, null);
+
+// HTMLOutputElement
+iface(73, "HTMLOutputElement", 7, null);
+
+// HTMLParagraphElement
+iface(74, "HTMLParagraphElement", 7, null);
+
+// HTMLParamElement
+iface(75, "HTMLParamElement", 7, null);
+
+// HTMLPictureElement
+iface(76, "HTMLPictureElement", 7, null);
+
+// HTMLPreElement
+iface(77, "HTMLPreElement", 7, null);
+
+// HTMLProgressElement
+iface(78, "HTMLProgressElement", 7, null);
+
+// HTMLQuoteElement
+iface(79, "HTMLQuoteElement", 7, null);
+
+// HTMLSelectElement
+iface(80, "HTMLSelectElement", 7, null);
+
+// HTMLSlotElement
+iface(81, "HTMLSlotElement", 7, null);
+
+// HTMLSourceElement
+iface(82, "HTMLSourceElement", 7, null);
+
+// HTMLSpanElement
+iface(83, "HTMLSpanElement", 7, null);
+
+// HTMLStyleElement
+iface(84, "HTMLStyleElement", 7, null);
+
+// HTMLTableCaptionElement
+iface(85, "HTMLTableCaptionElement", 7, null);
+
+// HTMLTableCellElement
+iface(86, "HTMLTableCellElement", 7, null);
+
+// HTMLTableColElement
+iface(87, "HTMLTableColElement", 7, null);
+
+// HTMLTableElement
+iface(88, "HTMLTableElement", 7, null);
+
+// HTMLTableRowElement
+iface(89, "HTMLTableRowElement", 7, null);
+
+// HTMLTableSectionElement
+iface(90, "HTMLTableSectionElement", 7, null);
+
+// HTMLTextAreaElement
+iface(91, "HTMLTextAreaElement", 7, null);
+
+// HTMLTimeElement
+iface(92, "HTMLTimeElement", 7, null);
+
+// HTMLTitleElement
+iface(93, "HTMLTitleElement", 7, null);
+
+// HTMLTrackElement
+iface(94, "HTMLTrackElement", 7, null);
+konst(94, "NONE", 0);
+konst(94, "LOADING", 1);
+konst(94, "LOADED", 2);
+konst(94, "ERROR", 3);
+
+// HTMLUListElement
+iface(95, "HTMLUListElement", 7, null);
+
+// HTMLUnknownElement
+iface(96, "HTMLUnknownElement", 7, null);
+
 // CSSStyleDeclaration
-iface(33, "CSSStyleDeclaration", -1, null);
-attr(33, "cssText", function () { const s = self(this, 33); const r = call(224, s.g, s.h); return r; }, function (v) { const s = self(this, 33); call(225, s.g, s.h, str(v)); });
-attr(33, "parentRule", function () { const s = self(this, 33); const r = call(226, s.g, s.h); return wrap(s.g, r); });
-attr(33, "length", function () { const s = self(this, 33); const r = call(227, s.g, s.h); return r; });
-op(33, "item", function item(a0) { const s = self(this, 33); const argc = arguments.length; need(argc, 1, "item"); const r = call(228, s.g, s.h, (a0 >>> 0)); return r; });
-op(33, "getPropertyValue", function getPropertyValue(a0) { const s = self(this, 33); const argc = arguments.length; need(argc, 1, "getPropertyValue"); const r = call(229, s.g, s.h, str(a0)); return r; });
-op(33, "getPropertyPriority", function getPropertyPriority(a0) { const s = self(this, 33); const argc = arguments.length; need(argc, 1, "getPropertyPriority"); const r = call(230, s.g, s.h, str(a0)); return r; });
-op(33, "setProperty", function setProperty(a0, a1) { const s = self(this, 33); const argc = arguments.length; need(argc, 2, "setProperty"); const r = call(231, s.g, s.h, str(a0), (a1 === null ? '' : str(a1)), (((o2) => o2 === undefined ? "" : (o2 === null ? '' : str(o2)))((argc > 2 ? arguments[2] : undefined)))); return r; });
-op(33, "removeProperty", function removeProperty(a0) { const s = self(this, 33); const argc = arguments.length; need(argc, 1, "removeProperty"); const r = call(232, s.g, s.h, str(a0)); return r; });
-exotic(33, { length: 233, item: 234, itemWraps: false, named: 235, namedWraps: false, set: 236, knownOnly: true });
+iface(97, "CSSStyleDeclaration", -1, null);
+attr(97, "cssText", function () { const s = self(this, 97); const r = call(224, s.g, s.h); return r; }, function (v) { const s = self(this, 97); call(225, s.g, s.h, str(v)); });
+attr(97, "parentRule", function () { const s = self(this, 97); const r = call(226, s.g, s.h); return wrap(s.g, r); });
+attr(97, "length", function () { const s = self(this, 97); const r = call(227, s.g, s.h); return r; });
+op(97, "item", function item(a0) { const s = self(this, 97); const argc = arguments.length; need(argc, 1, "item"); const r = call(228, s.g, s.h, (a0 >>> 0)); return r; });
+op(97, "getPropertyValue", function getPropertyValue(a0) { const s = self(this, 97); const argc = arguments.length; need(argc, 1, "getPropertyValue"); const r = call(229, s.g, s.h, str(a0)); return r; });
+op(97, "getPropertyPriority", function getPropertyPriority(a0) { const s = self(this, 97); const argc = arguments.length; need(argc, 1, "getPropertyPriority"); const r = call(230, s.g, s.h, str(a0)); return r; });
+op(97, "setProperty", function setProperty(a0, a1) { const s = self(this, 97); const argc = arguments.length; need(argc, 2, "setProperty"); const r = call(231, s.g, s.h, str(a0), (a1 === null ? '' : str(a1)), (((o2) => o2 === undefined ? "" : (o2 === null ? '' : str(o2)))((argc > 2 ? arguments[2] : undefined)))); return r; });
+op(97, "removeProperty", function removeProperty(a0) { const s = self(this, 97); const argc = arguments.length; need(argc, 1, "removeProperty"); const r = call(232, s.g, s.h, str(a0)); return r; });
+exotic(97, { length: 233, item: 234, itemWraps: false, named: 235, namedWraps: false, set: 236, knownOnly: true });
 const OP_setReadyState = 2;
 const OP_observerNew = 3;
 const OP_observe = 4;

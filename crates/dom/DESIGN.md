@@ -9,9 +9,9 @@ or change.
 
 JavaScript never holds a pointer, an rquickjs class instance or a blitz node id.
 A node wrapper is a plain object carrying a record `{ g, h, m }` (generation,
-handle, a null-prototype set of the interfaces it is) in a private class field (`#s`, stamped on by a
+handle, interface set) in a private class field (`#s`, stamped on by a
 closure-private class in `src/glue_head.js`); members brand-check with
-`#s in o` and that set. Private fields can't
+`#s in o` and the set, one null-prototype object per interface. Private fields can't
 be read, written or intercepted through any prototype, Proxy or reflection, so
 a script can neither read nor forge a pair. Every accessor passes the pair to
 a native function, which resolves it through the loaded document on that call:
@@ -346,6 +346,12 @@ checkpoint and `Sandbox::run` doesn't, so `DomRuntime::eval` follows each script
 with a run of the loop whose options let no task start (`CHECKPOINT`). Other
 rejections go in the report (`PageReport::unhandled_rejections`).
 
+One residual: core reads a rejection's reason to report it, and a getter on the
+reason runs then. If that getter overflows the stack, the overflow is an
+exception in the read and the rejection counts as an ordinary one, not as a limit.
+The script gets nothing out of it: the getter's stack is gone, and the next
+overflow on the way to a native ends the call as usual.
+
 ## Sandbox and limits
 
 Every native's body runs under `Deadline::guard` through `guarded`, so a panic
@@ -356,7 +362,9 @@ state. `every_native_is_guarded` reads this file and fails on a native without i
 
 Every script runs through `surimono_core::Sandbox::run`, so the memory, time
 and stack limits, determinism and the no-I/O rule apply unchanged; crates/dom
-needed nothing new from core. Bindings are installed inside the first call on
+needed nothing new from core. `DomRuntime::eval` is two sandbox calls, the script
+and its checkpoint, with their own deadlines, so a hostile script can use up to
+twice `Limits.time` there; `run_page` is one call for everything after install. Bindings are installed inside the first call on
 a context (`glue.js` plus the natives) and again after the sandbox rebuilds
 itself following a limit error or a reset. Every native checks the call's
 `Deadline` first, as the islands' `measureText` does, so a loop of host calls

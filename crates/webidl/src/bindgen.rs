@@ -1020,6 +1020,11 @@ pub fn generate_bindings(
 /// a member whose setter isn't implemented yet.
 const GETTER_ONLY: &str = ":getter";
 
+/// An interface bound for its name and brand alone.
+const fn element(name: &'static str) -> BindInterface {
+    BindInterface { name, members: &[] }
+}
+
 /// What `surimono-dom` exposes, parents first. Every name must be a member
 /// of the interface in the vendored IDL (including mixins and partials).
 pub const DOM_BINDINGS: &[BindInterface] = &[
@@ -1353,6 +1358,73 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         name: "DOMRectList",
         members: &["length"],
     },
+    // HTML §3.2.2: the interface of every element in the spec's index, so
+    // `instanceof` and constructor names are right; their members come as
+    // pages need them.
+    element("HTMLAreaElement"),
+    element("HTMLBaseElement"),
+    element("HTMLBodyElement"),
+    element("HTMLBRElement"),
+    element("HTMLButtonElement"),
+    element("HTMLCanvasElement"),
+    element("HTMLDataElement"),
+    element("HTMLDataListElement"),
+    element("HTMLDetailsElement"),
+    element("HTMLDialogElement"),
+    element("HTMLDirectoryElement"),
+    element("HTMLDivElement"),
+    element("HTMLDListElement"),
+    element("HTMLEmbedElement"),
+    element("HTMLFieldSetElement"),
+    element("HTMLFontElement"),
+    element("HTMLFormElement"),
+    element("HTMLFrameElement"),
+    element("HTMLFrameSetElement"),
+    element("HTMLHeadElement"),
+    element("HTMLHeadingElement"),
+    element("HTMLHRElement"),
+    element("HTMLHtmlElement"),
+    element("HTMLIFrameElement"),
+    element("HTMLLabelElement"),
+    element("HTMLLegendElement"),
+    element("HTMLLIElement"),
+    element("HTMLMapElement"),
+    element("HTMLMarqueeElement"),
+    element("HTMLMediaElement"),
+    element("HTMLAudioElement"),
+    element("HTMLVideoElement"),
+    element("HTMLMenuElement"),
+    element("HTMLMetaElement"),
+    element("HTMLMeterElement"),
+    element("HTMLModElement"),
+    element("HTMLObjectElement"),
+    element("HTMLOListElement"),
+    element("HTMLOptGroupElement"),
+    element("HTMLOptionElement"),
+    element("HTMLOutputElement"),
+    element("HTMLParagraphElement"),
+    element("HTMLParamElement"),
+    element("HTMLPictureElement"),
+    element("HTMLPreElement"),
+    element("HTMLProgressElement"),
+    element("HTMLQuoteElement"),
+    element("HTMLSelectElement"),
+    element("HTMLSlotElement"),
+    element("HTMLSourceElement"),
+    element("HTMLSpanElement"),
+    element("HTMLStyleElement"),
+    element("HTMLTableCaptionElement"),
+    element("HTMLTableCellElement"),
+    element("HTMLTableColElement"),
+    element("HTMLTableElement"),
+    element("HTMLTableRowElement"),
+    element("HTMLTableSectionElement"),
+    element("HTMLTextAreaElement"),
+    element("HTMLTimeElement"),
+    element("HTMLTitleElement"),
+    element("HTMLTrackElement"),
+    element("HTMLUListElement"),
+    element("HTMLUnknownElement"),
     BindInterface {
         name: "CSSStyleDeclaration",
         members: &[

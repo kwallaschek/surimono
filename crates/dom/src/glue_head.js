@@ -6,8 +6,8 @@
 //
 // A wrapper is an ordinary object carrying a state record { g, h, m } in a
 // private class field (#s), stamped on by `Brand`: g is the document's
-// generation, h the handle, m the interfaces it is (a null-prototype set of
-// interface numbers: the concrete interface and its ancestors), w the wrapper, plus what glue_events.js keeps there. Private fields can't be read, written, listed or
+// generation, h the handle, m the set of interface numbers it brands for (the
+// concrete interface and its ancestors), w the wrapper, plus what glue_events.js keeps there. Private fields can't be read, written, listed or
 // intercepted through any prototype, Proxy or reflection, so scripts can
 // neither read nor forge a handle; `#s in o` is the brand check. Every
 // member passes the pair to Rust, which resolves it through the document on
@@ -62,7 +62,7 @@
   }
   const stateOf = Brand.of;
 
-  // Interface objects, prototypes and brand masks by interface number.
+  // Interface objects, prototypes and brand sets by interface number.
   const ctors = create(null), protos = create(null), masks = create(null), names = create(null);
   // Proxy handlers of legacy platform objects, by interface number.
   const exotics = create(null);
@@ -189,6 +189,7 @@
       setPrototypeOf(proto, protos[parent]);
     }
     ctors[id] = f; protos[id] = proto; names[id] = name;
+    // One set per interface, shared by its wrappers.
     const m = create(null);
     if (parent >= 0) for (const k in masks[parent]) m[k] = true;
     m[id] = true;
