@@ -335,6 +335,12 @@ needs = []
 
 [[test]]
 slice = "dom-nodes"
+file = "dom/nodes/Document-constructor-xml.xml"
+urls = ["dom/nodes/Document-constructor-xml.xml"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "dom-nodes"
 file = "dom/nodes/Document-constructor.html"
 urls = ["dom/nodes/Document-constructor.html"]
 needs = ["resources/testharness.js"]
@@ -1157,6 +1163,12 @@ needs = ["dom/constants.js", "resources/testharness.js"]
 
 [[test]]
 slice = "dom-nodes"
+file = "dom/nodes/Node-contains-xml.xml"
+urls = ["dom/nodes/Node-contains-xml.xml"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "dom-nodes"
 file = "dom/nodes/Node-contains.html"
 urls = ["dom/nodes/Node-contains.html"]
 needs = ["dom/common.js", "resources/testharness.js"]
@@ -1801,6 +1813,18 @@ needs = ["resources/testharness.js"]
 slice = "dom-nodes"
 file = "dom/nodes/getElementsByClassName-09.htm"
 urls = ["dom/nodes/getElementsByClassName-09.htm"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "dom-nodes"
+file = "dom/nodes/getElementsByClassName-10.xml"
+urls = ["dom/nodes/getElementsByClassName-10.xml"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "dom-nodes"
+file = "dom/nodes/getElementsByClassName-11.xml"
+urls = ["dom/nodes/getElementsByClassName-11.xml"]
 needs = ["resources/testharness.js"]
 
 [[test]]
@@ -5362,6 +5386,11 @@ sha256 = "3980a07ff9ca3803db2bfdc8fde9157cb95cbf30df78afe96d615f5d74497c74"
 bytes = 1885
 
 [[file]]
+path = "dom/nodes/Document-constructor-xml.xml"
+sha256 = "d359d697f6064ddfaa6d8a79b5731b50f99205ac0ced47d4a932ef290b667d8d"
+bytes = 1864
+
+[[file]]
 path = "dom/nodes/Document-constructor.html"
 sha256 = "01a310b769085a1671638dfe6f010642c5e6bcf8e654c272bb537b6211c7a0a1"
 bytes = 2205
@@ -6077,6 +6106,11 @@ sha256 = "43df38b7e3eeae941948a06cc6cd605619d8ec27364ad54a0e903ee080926737"
 bytes = 1158
 
 [[file]]
+path = "dom/nodes/Node-contains-xml.xml"
+sha256 = "1be8b5ef677e2c4cc86dec63faaca7796e9da7ebf477144db635673406577b71"
+bytes = 3609
+
+[[file]]
 path = "dom/nodes/Node-contains.html"
 sha256 = "c6a83057cbe24094aa8ad32e8b937e35f485d2f8685e5302e82e21b0850662b3"
 bytes = 1032
@@ -6640,6 +6674,16 @@ bytes = 411
 path = "dom/nodes/getElementsByClassName-09.htm"
 sha256 = "40ef4ba2a775462563719b63e412ca361286dbe43356c78584e2f7ee7ef84fa8"
 bytes = 452
+
+[[file]]
+path = "dom/nodes/getElementsByClassName-10.xml"
+sha256 = "347035f03b4368595194d6ba2ab6be81d782613ed03e5d0af6d88f0410634142"
+bytes = 594
+
+[[file]]
+path = "dom/nodes/getElementsByClassName-11.xml"
+sha256 = "7a4291ed2afeb6a44df9f69ad72bc8741e608ee5f4226753bbcb878b6358ada7"
+bytes = 876
 
 [[file]]
 path = "dom/nodes/getElementsByClassName-12.htm"
