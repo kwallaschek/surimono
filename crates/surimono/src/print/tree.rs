@@ -17,9 +17,8 @@
 //! - the input goes in through the same reader and decoder, so the parser's
 //!   buffers fall where a printer's do.
 //!
-//! What it writes back holds no literal U+FEFF, as a reference or not at all,
-//! so no reader can take one for a byte order mark, wherever its buffers fall.
-//! That covers output whose offsets moved later, as island drawings move them.
+//! What it writes back holds no literal U+FEFF, which keeps the printer's parse
+//! the same as ours.
 //!
 //! The tests below compare this tree with blitz-html's own.
 

@@ -252,6 +252,12 @@ module Surimono
     # An exception in a page doesn't raise, it goes in the report. A limit does:
     # MemoryLimitError, TimeLimitError, StackOverflowError or DomLimitError.
     #
+    # Print pages from people you don't trust in a process of your own: a timeout
+    # can't stop a thread, or catch what ends a process. Give the printer stack
+    # for the depth a page may reach: at least 2 MiB, and 8 MiB leaves room.
+    # Ruby's threads have 1 MiB unless RUBY_THREAD_MACHINE_STACK_SIZE says
+    # otherwise, which is what Puma and Sidekiq workers run on.
+    #
     # An interrupt raises at once, but a page already running goes on, unobserved,
     # until its time limit, taking one of pool_size's runtimes until then.
     def render_page(html, loader: nil, allow: nil)

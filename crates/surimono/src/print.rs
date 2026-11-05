@@ -48,12 +48,9 @@
 //!   property, so strings count in both. [`MAX_CELLS`] per declaration,
 //!   [`MAX_PAGE_CELLS`] over the page.
 //! - **Nesting:** [`MAX_NESTING`] brackets, for the recursion in stylo.
-//! - **References:** a custom property's `var()`s name others, and a chain of
-//!   them is followed link by link. [`MAX_VAR_CHAIN`] over the page, counting
-//!   every declaration of a name together, and every link in a cycle.
+//! - **References:** [`MAX_VAR_CHAIN`] links between custom properties over the
+//!   page, every declaration of a name counted together.
 //! - **Selectors:** [`MAX_COMBINATORS`] in one.
-//!
-//! The last two are set far below any stack: real pages have a handful of each.
 //!
 //! A page over any of those fails with
 //! [`Error::PageDomLimit`](crate::Error::PageDomLimit): there is nothing
@@ -72,10 +69,10 @@
 //! its own if pages come from people you don't trust: a timeout can't stop a
 //! thread, or catch what ends a process.
 
+mod chains;
 mod tree;
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -88,6 +85,7 @@ use url::Url;
 use crate::error::Error;
 use crate::prepass::is_island_type;
 use crate::resources::{Fetcher, inline_stylesheets};
+use chains::References;
 pub(crate) use tree::Tree;
 use tree::TreeLimits;
 pub(crate) use tree::too_long;
@@ -124,12 +122,10 @@ const MAX_ATTRIBUTE_BYTES: usize = 8 << 20;
 /// Most tokens in one `style` attribute, as `crates/dom` has.
 const MAX_ATTRIBUTE_TOKENS: usize = 1 << 16;
 /// Longest chain of custom properties naming each other through `var()`. Design
-/// tokens have under ten links (primitive, semantic, component, state). Each link
-/// may take a stack frame in a CSS engine: at an assumed 2 KiB each, a generous
-/// figure, 64 links are 128 KiB, an eighth of a Ruby thread's 1 MiB.
+/// tokens have under ten links (primitive, semantic, component, state).
 const MAX_VAR_CHAIN: usize = 64;
-/// Most combinators in one selector, by the same reckoning: handwritten CSS has
-/// under ten and generated nesting under thirty.
+/// Most combinators in one selector: handwritten CSS has under ten and generated
+/// nesting under thirty.
 const MAX_COMBINATORS: usize = 64;
 /// Tokens between looks at the gate.
 const GATE_TOKENS: usize = 1 << 12;
@@ -174,55 +170,6 @@ struct Budget {
     references: References,
 }
 
-/// Which custom properties name which, over the whole page.
-#[derive(Debug, Default)]
-struct References {
-    ids: HashMap<String, usize>,
-    /// By id: the ids its declarations name, with repeats.
-    names: Vec<Vec<usize>>,
-}
-
-impl References {
-    fn id(&mut self, name: &str) -> usize {
-        if let Some(&id) = self.ids.get(name) {
-            return id;
-        }
-        let id = self.names.len();
-        self.ids.insert(name.to_owned(), id);
-        self.names.push(Vec::new());
-        id
-    }
-
-    /// The longest chain there can be: the most links that end in a property
-    /// naming nothing, peeling those off layer by layer, plus every property
-    /// left, which are on or lead to a cycle.
-    fn longest_chain(&self) -> usize {
-        let mut waiting: Vec<usize> = self.names.iter().map(Vec::len).collect();
-        let mut named_by = vec![Vec::new(); self.names.len()];
-        for (id, names) in self.names.iter().enumerate() {
-            for &name in names {
-                named_by[name].push(id);
-            }
-        }
-        let mut links = vec![0; self.names.len()];
-        let mut ready: Vec<usize> = (0..waiting.len()).filter(|&i| waiting[i] == 0).collect();
-        let mut peeled = 0;
-        let mut longest = 0;
-        while let Some(id) = ready.pop() {
-            peeled += 1;
-            longest = longest.max(links[id]);
-            for &by in &named_by[id] {
-                links[by] = links[by].max(links[id] + 1);
-                waiting[by] -= 1;
-                if waiting[by] == 0 {
-                    ready.push(by);
-                }
-            }
-        }
-        longest + (self.names.len() - peeled)
-    }
-}
-
 impl Budget {
     fn over(&mut self, what: &'static str) {
         self.over.get_or_insert(what);
@@ -265,58 +212,13 @@ struct Block {
     /// The declaration's name is `grid…` or a custom property's.
     counts_cells: bool,
     cells: usize,
-    /// How deep this block's own tokens are read.
-    depth: usize,
-    /// The custom property being declared, if one is.
-    custom: Option<usize>,
-    /// The custom property whose value this block is part of, if any: all that
-    /// is in here is that property's.
-    within: Option<usize>,
-    /// Combinators so far in the selector this may turn out to be, and whether
-    /// the next token comes after one.
-    combinators: usize,
-    after_gap: bool,
-    /// A list in a pseudo-class goes on: space after its commas is no combinator.
-    after_comma: bool,
 }
 
 impl Block {
-    fn new(depth: usize, within: Option<usize>) -> Self {
+    fn new() -> Self {
         Self {
             at_name: true,
-            depth,
-            custom: within,
-            within,
             ..Self::default()
-        }
-    }
-
-    fn end_declaration(&mut self) {
-        self.at_name = true;
-        self.counts_cells = false;
-        self.cells = 0;
-        self.custom = self.within;
-        self.combinators = 0;
-        self.after_gap = false;
-    }
-
-    /// Notes a token of a selector, if this turns out to be one.
-    fn note_token(&mut self, depth: usize, token: &Token<'_>) {
-        match token {
-            Token::WhiteSpace(_) | Token::Comment(_) => self.after_gap |= !self.after_comma,
-            Token::Delim('>' | '+' | '~') => self.after_gap = true,
-            Token::Comma => {
-                if depth == self.depth {
-                    self.combinators = 0;
-                }
-                self.after_gap = false;
-                self.after_comma = true;
-            }
-            _ => {
-                self.combinators += usize::from(self.after_gap);
-                self.after_gap = false;
-                self.after_comma = false;
-            }
         }
     }
 }
@@ -326,12 +228,14 @@ fn resolves(url: &str) -> bool {
     Url::parse("file:///").is_ok_and(|base| base.join(url).is_ok())
 }
 
-/// What the first token inside a block means.
-#[derive(Debug, Clone, Copy)]
-enum First {
-    Url,
-    Reference,
-    Anything,
+/// What a piece of CSS is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Css {
+    Sheet,
+    /// A `style` attribute, which is one block.
+    Attribute,
+    /// A media list.
+    Media,
 }
 
 /// Reads tokens up to the end of this parser's block.
@@ -363,23 +267,19 @@ impl Screen<'_> {
             }
             let token = token.clone();
             let end = p.position().byte_index();
-            block.note_token(depth, &token);
             match &token {
                 Token::WhiteSpace(_) | Token::Comment(_) => continue,
                 Token::Semicolon => {
                     block.declarations += 1;
-                    if depth == block.depth {
-                        block.end_declaration();
-                    }
+                    block.at_name = true;
+                    block.counts_cells = false;
+                    block.cells = 0;
                     url_next = false;
                     continue;
                 }
                 Token::Ident(name) if block.at_name => {
                     block.at_name = false;
                     block.alls += u64::from(name.eq_ignore_ascii_case("all"));
-                    if name.starts_with("--") && block.within.is_none() {
-                        block.custom = Some(self.budget.references.id(name));
-                    }
                     block.counts_cells = name.starts_with("--")
                         || name
                             .get(..4)
@@ -405,55 +305,36 @@ impl Screen<'_> {
                 _ => {}
             }
             block.at_name = false;
-            let first = match &token {
-                Token::Function(f) if f.eq_ignore_ascii_case("url") => First::Url,
-                Token::Function(f) if f.eq_ignore_ascii_case("var") => First::Reference,
-                _ => First::Anything,
-            };
+            let is_url = matches!(&token, Token::Function(f) if f.eq_ignore_ascii_case("url"));
             url_next = false;
             match token {
                 Token::CurlyBracketBlock => {
-                    if block.combinators > MAX_COMBINATORS {
-                        self.budget.over("too many combinators in a selector");
-                    }
-                    let mut inner = Block::new(depth + 1, block.custom);
-                    self.nested(p, &mut inner, depth, First::Anything);
+                    let mut inner = Block::new();
+                    self.nested(p, &mut inner, depth, false);
                     self.close(&inner);
-                    block.end_declaration();
+                    block.at_name = true;
                 }
                 Token::Function(_) | Token::ParenthesisBlock | Token::SquareBracketBlock => {
-                    self.nested(p, block, depth, first)
+                    self.nested(p, block, depth, is_url)
                 }
                 _ => {}
             }
         }
     }
 
-    fn nested(&mut self, p: &mut Parser<'_, '_>, block: &mut Block, depth: usize, first: First) {
+    fn nested(&mut self, p: &mut Parser<'_, '_>, block: &mut Block, depth: usize, url: bool) {
         if depth >= MAX_NESTING {
             self.budget.over("nested too deeply");
             return;
         }
         let result: Result<(), cssparser::ParseError<'_, ()>> = p.parse_nested_block(|p| {
-            match first {
-                First::Url => self.first_string_is_url(p),
-                First::Reference => self.first_ident_is_named(p, block),
-                First::Anything => {}
+            if url {
+                self.first_string_is_url(p);
             }
             self.walk(p, block, depth + 1);
             Ok(())
         });
         drop(result);
-    }
-
-    /// `var(--name…)`: what the property being declared depends on.
-    fn first_ident_is_named(&mut self, p: &mut Parser<'_, '_>, block: &Block) {
-        let state = p.state();
-        if let (Some(from), Ok(Token::Ident(name))) = (block.custom, p.next()) {
-            let to = self.budget.references.id(name);
-            self.budget.references.names[from].push(to);
-        }
-        p.reset(&state);
     }
 
     /// `url("…")`: its string, if that comes first.
@@ -489,15 +370,15 @@ impl Screen<'_> {
 }
 
 /// `css` with what mustn't reach a printer replaced, if anything had to be,
-/// charged to `budget`. `attribute` for the text of a `style` attribute, which
-/// is one block.
+/// charged to `budget`.
 fn screen_css(
     css: &str,
-    attribute: bool,
+    kind: Css,
     budget: &mut Budget,
     gate: &Gate<'_>,
 ) -> Result<Option<String>, Error> {
     budget.bytes = budget.bytes.saturating_add(css.len());
+    let attribute = kind == Css::Attribute;
     if budget.bytes > MAX_CSS_BYTES || (attribute && css.len() > MAX_ATTRIBUTE_BYTES) {
         budget.over("too much CSS");
         return budget.stopped().map(|()| None);
@@ -515,7 +396,7 @@ fn screen_css(
         },
         fixes: Vec::new(),
     };
-    let mut top = Block::new(0, None);
+    let mut top = Block::new();
     top.at_name = attribute;
     screen.walk(&mut parser, &mut top, 0);
     if attribute {
@@ -523,6 +404,11 @@ fn screen_css(
     }
     let fixes = screen.fixes;
     budget.stopped()?;
+    match kind {
+        Css::Sheet => budget.references.read_sheet(css),
+        Css::Attribute => budget.references.read_attribute(css),
+        Css::Media => {}
+    }
     if fixes.is_empty() {
         return Ok(None);
     }
@@ -568,20 +454,18 @@ fn screen_attributes(
     let Some(element) = tree.element_mut(id) else {
         return Ok(());
     };
-    // A media list is CSS to a printer's engine, and holds no rule.
     let has_media = matches!(element.local(), "link" | "style");
-    if has_media {
-        element
-            .attrs
-            .retain(|a| a.name.local.as_ref() != "media" || !a.value.contains([';', '{', '}']));
-    }
     for a in &mut element.attrs {
-        let attribute = match a.name.local.as_ref() {
-            "style" => true,
-            "media" if has_media => false,
+        let kind = match a.name.local.as_ref() {
+            "style" => Css::Attribute,
+            "media" if has_media => Css::Media,
             _ => continue,
         };
-        if let Some(fixed) = screen_css(&a.value, attribute, budget, gate)? {
+        // A malformed media query is `not all` (Media Queries 4 §3.1).
+        if kind == Css::Media && a.value.contains([';', '{', '}']) {
+            a.value = "not all".into();
+        }
+        if let Some(fixed) = screen_css(&a.value, kind, budget, gate)? {
             a.value = fixed.as_str().into();
         }
     }
@@ -609,7 +493,7 @@ fn screen_style(
         return budget.stopped();
     }
     let css = decode_html_entities(&text);
-    let fixed = screen_css(&css, false, budget, gate)?;
+    let fixed = screen_css(&css, Css::Sheet, budget, gate)?;
     let foreign = tree
         .element(id)
         .is_some_and(|e| e.name.ns != html5ever::ns!(html));
@@ -657,6 +541,9 @@ fn screen_tree(tree: &mut Tree, keep_scripts: bool, gate: &Gate<'_>) -> Result<(
     }
     if budget.references.longest_chain() > MAX_VAR_CHAIN {
         budget.over("too long a chain of var() references");
+    }
+    if budget.references.combinators > MAX_COMBINATORS {
+        budget.over("too many combinators in a selector");
     }
     budget.stopped()
 }
@@ -1018,7 +905,7 @@ mod tests {
     }
 
     #[test]
-    fn no_byte_order_mark_stays_in_the_output() {
+    fn no_literal_feff_stays_in_the_output() {
         let mark = '\u{feff}';
         for html in [
             format!("<p>a{mark}b</p>"),
@@ -1050,9 +937,18 @@ mod tests {
                 "<style media=\"print\"></style>",
                 "<style media=\"print\"></style>",
             ),
-            ("<link rel=\"a\" media=\"a{b:c}\">", "<link rel=\"a\">"),
-            ("<link rel=\"a\" media=\"a;b\">", "<link rel=\"a\">"),
-            ("<style media=\"}\"></style>", "<style></style>"),
+            (
+                "<link rel=\"a\" media=\"a{b:c}\">",
+                "<link rel=\"a\" media=\"not all\">",
+            ),
+            (
+                "<link rel=\"a\" media=\"a;b\">",
+                "<link rel=\"a\" media=\"not all\">",
+            ),
+            (
+                "<style media=\"}\"></style>",
+                "<style media=\"not all\"></style>",
+            ),
             // Other elements' `media` is no CSS to a printer.
             ("<source media=\"a;b\">", "<source media=\"a;b\">"),
         ] {
@@ -1065,7 +961,7 @@ mod tests {
     }
 
     #[test]
-    fn a_foreign_style_has_no_end_tag_in_it() {
+    fn text_in_a_foreign_style_is_normalized() {
         for (html, want) in [
             (
                 "<svg><style>a{b:&lt;/style&gt;}</style></svg>",
@@ -1105,11 +1001,44 @@ mod tests {
                 .collect();
             over(&format!("<style>a{{{links}}}</style>"));
         }
+        // A `{}` in a value doesn't end the declaration, at any level.
+        for value in ["{}var(--v{i})", "[{}var(--v{i})]", "({})var(--v{i})"] {
+            let links: String = (0..=MAX_VAR_CHAIN)
+                .map(|i| format!("--v{}:{};", i + 1, value.replace("{i}", &i.to_string())))
+                .collect();
+            over(&format!("<style>a{{{links}}}</style>"));
+        }
+        // A selector that looks like a name is a selector.
+        for shape in [
+            "--s,a{{{}}}",
+            "@media all{{--s,a{{{}}}}}",
+            "a{{--s,b{{{}}}}}",
+        ] {
+            let links: String = (0..=MAX_VAR_CHAIN)
+                .map(|i| {
+                    let link = format!("--v{}:var(--v{i})", i + 1);
+                    shape
+                        .replace("{{{}}}", &format!("{{{link}}}"))
+                        .replace("{{", "{")
+                        .replace("}}", "}")
+                })
+                .collect();
+            over(&format!("<style>{links}</style>"));
+        }
         // A cycle counts each of its links.
-        let ring: String = (0..=MAX_VAR_CHAIN)
-            .map(|i| format!("--v{i}:var(--v{});", (i + 1) % (MAX_VAR_CHAIN + 1)))
+        let size = MAX_VAR_CHAIN + 2;
+        let ring: String = (0..size)
+            .map(|i| format!("--v{i}:var(--v{});", (i + 1) % size))
             .collect();
         over(&format!("<style>a{{{ring}}}</style>"));
+        // But not against what only uses it: these chains are two links long.
+        let users: String = (0..MAX_VAR_CHAIN * 2)
+            .map(|i| format!("--d{i}:var(--x);"))
+            .collect();
+        for shared in ["a{--x:var(--x,red)}", ".a{--x:var(--on)}.b{--on:var(--x)}"] {
+            let html = format!("<style>{shared}:root{{{users}}}</style>");
+            assert_eq!(ok(&html), html);
+        }
         // Many references aren't a chain, and leaves aren't links.
         let names: String = (0..4000).map(|i| format!("--a{i}:var(--b);")).collect();
         let many = format!(
@@ -1211,7 +1140,7 @@ mod tests {
         let mut budget = Budget::default();
         let long = "a ".repeat(GATE_TOKENS);
         assert!(matches!(
-            screen_css(&long, false, &mut budget, &gate),
+            screen_css(&long, Css::Sheet, &mut budget, &gate),
             Err(Error::PageTimeLimit)
         ));
     }

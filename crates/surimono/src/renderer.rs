@@ -408,7 +408,10 @@ impl Renderer {
     /// checks. A page with more CSS than is safe to parse, or markup past the
     /// document's limits however it got there, fails with
     /// [`Error::PageDomLimit`], as does output over
-    /// [`Limits::output_bytes`](crate::Limits::output_bytes); URLs Blitz can't
+    /// [`Limits::output_bytes`](crate::Limits::output_bytes). The limits on CSS
+    /// are far above real pages: among them, 64 links in a chain of custom
+    /// properties naming each other through `var()`, and 64 combinators in one
+    /// selector. URLs Blitz can't
     /// resolve, on which it panics, are taken out. All this after the scripts
     /// has one [`time`](crate::Limits::time) limit of its own and stops at a
     /// cancel. Selector matching and SVG parsing in the printer aren't bounded

@@ -46,7 +46,7 @@ fn page(i: usize) -> String {
         .map(|r| format!("<tr id=\"r{r}\"><td>k{i}-{r}</td></tr>"))
         .collect();
     format!(
-        r#"<!doctype html><html><head><title>p{i}</title><noscript><p>off</p></noscript></head>
+        r#"<!doctype html><html><head><title>p{i}</title><style media="print">:root{{--a:1;--b:var(--a)}}</style><noscript><p>off</p></noscript></head>
 <body><h1 id="title">Report {i}</h1><table id="t">{rows}</table><img src="a{i}.png"><div id="out"></div>
 <script type="application/vnd.surimono+json" data-renderer="echo">{{"n":{i}}}</script>
 <link rel="stylesheet" href="lib/app.css">
