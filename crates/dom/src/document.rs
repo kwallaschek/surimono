@@ -1692,10 +1692,10 @@ impl Document {
             // Same namespace and local name, so only the prefix differs: blitz-dom
             // has seen what it goes by, and the entry keeps its place.
             self.recharge(name_cost(&target), name_cost(&name))?;
-            if let Some(e) = self.element_mut(element) {
-                if let Some(a) = e.attrs.iter_mut().find(|a| a.name == target) {
-                    a.name = name.clone();
-                }
+            if let Some(e) = self.element_mut(element)
+                && let Some(a) = e.attrs.iter_mut().find(|a| a.name == target)
+            {
+                a.name = name.clone();
             }
         }
         self.credit(value.len());
