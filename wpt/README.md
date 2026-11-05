@@ -125,9 +125,8 @@ For each URL of each `[[test]]`:
    `.xml` and `.svg` with `Document::parse_xml`, as WPT's server sends them as XML. The
    document's URL is the test's on WPT's default origin (`Document::set_url`). A file
    that isn't well-formed is a `parsererror` document with no harness, so a `LIMIT`.
-   `parse_xml` makes every XML page `application/xhtml+xml`, where the server sends
-   `.xml` as `application/xml` and `.svg` as `image/svg+xml`; a subtest that reads
-   `contentType` on one of those fails.
+   `set_url` also gives an XML page its `contentType`, from the extension, as wptserve
+   does.
    For `.any.js` and `.window.js`, build the page WPT's server would wrap around it:
    `self.GLOBAL` (`isWindow()` true, `isWorker()` and `isShadowRealm()` false) set
    first, then `testharness.js`, `testharnessreport.js`, `<div id=log>`, the

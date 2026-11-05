@@ -28,9 +28,10 @@ fn page(script: &str) -> String {
 }
 
 const FRAME_TARGET: &str = "frame-target.xhtml";
-/// wptserve sends `.xhtml` and `.xht` as this. `.xml` and `.svg` have types of
-/// their own, which `Document::parse_xml` doesn't take, so nothing asserts them.
-const XHTML_TYPE: &str = "assert_equals(document.contentType, 'application/xhtml+xml');";
+/// What wptserve sends each extension as; `set_url` takes it from the URL.
+const XHTML_TYPE: &str = "application/xhtml+xml";
+const XML_TYPE: &str = "application/xml";
+const SVG_TYPE: &str = "image/svg+xml";
 
 /// A test that the document has the URL WPT's server gave it, then `more`.
 fn url_test(file: &str, more: &str) -> String {
@@ -43,12 +44,14 @@ fn url_test(file: &str, more: &str) -> String {
 }
 
 /// A page WPT's server sends as XML. DOM's `createElement` lowercases only in
-/// an HTML document, so its answer shows which parser ran, and `more` is what
-/// the extension adds.
-fn xml_page(file: &str, more: &str) -> String {
+/// an HTML document, so its answer shows which parser ran.
+fn xml_page(file: &str, content_type: &str) -> String {
     let test = url_test(
         file,
-        &format!("assert_equals(document.createElement('A').localName, 'A'); {more}"),
+        &format!(
+            "assert_equals(document.createElement('A').localName, 'A'); \
+             assert_equals(document.contentType, '{content_type}');"
+        ),
     );
     format!(
         r#"<html xmlns="http://www.w3.org/1999/xhtml"><head><title>x</title>
@@ -115,8 +118,8 @@ fn files() -> Vec<(&'static str, String)> {
         ),
         ("page.xhtml", xml_page("page.xhtml", XHTML_TYPE)),
         ("page.xht", xml_page("page.xht", XHTML_TYPE)),
-        ("page.xml", xml_page("page.xml", "")),
-        ("page.svg", xml_page("page.svg", "")),
+        ("page.xml", xml_page("page.xml", XML_TYPE)),
+        ("page.svg", xml_page("page.svg", SVG_TYPE)),
         ("not-well-formed.xhtml", "<html><p></html>".to_owned()),
         (
             "frames.html",
