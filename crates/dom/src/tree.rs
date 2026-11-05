@@ -17,8 +17,15 @@ use crate::{Document, DomError};
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
 const XMLNS: &str = "http://www.w3.org/2000/xmlns/";
 
-/// Deepest bracket nesting accepted in a selector.
-const MAX_SELECTOR_NESTING: usize = 32;
+/// Deepest bracket nesting accepted in a selector. With
+/// [`MAX_SELECTOR_COMBINATORS`] it bounds the stack a query uses, which has to
+/// fit `Sandbox::STACK_HEADROOM_BYTES` at the deepest call a script can make.
+/// Measured for the worst selector allowed on x86_64 Linux, of that 256 KiB:
+/// 142 KiB with unoptimized dependencies (a plain `cargo run` downstream; the
+/// parser's frames, 14 KiB a level), 118 KiB in this workspace's debug profile,
+/// under 74 KiB in release. Frames differ by target and profile (32 levels and
+/// 128 combinators overflowed a debug build on aarch64 Linux).
+const MAX_SELECTOR_NESTING: usize = 8;
 
 /// Longest selector a query takes. The parser can't be stopped, and holds a
 /// few dozen bytes per selector in a comma list, in Rust. No real selector
@@ -27,9 +34,9 @@ const MAX_SELECTOR_BYTES: usize = 128 * 1024;
 
 /// Most combinators on any path through a selector, nested ones included:
 /// the matcher recurses once per combinator, on the stack. Real selectors
-/// have a dozen. Fits the stack with [`MAX_SELECTOR_NESTING`] levels on a
-/// 1 MiB thread (`tests/hostile.rs`).
-const MAX_SELECTOR_COMBINATORS: usize = 128;
+/// have a dozen. Fits the stack with [`MAX_SELECTOR_NESTING`] levels on the
+/// headroom alone (`tests/hostile.rs`).
+const MAX_SELECTOR_COMBINATORS: usize = 64;
 
 pub(crate) fn dom_error(name: &'static str, message: &str) -> BindingError {
     BindingError::DomException {

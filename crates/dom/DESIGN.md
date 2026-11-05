@@ -404,12 +404,16 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   top-level elements its children). WPT dom/nodes/selectors.js covers several.
 - **Selector limits.** To keep hostile selectors off the stack and out of Rust's
   heap, these valid selectors are a `SyntaxError`: longer than 128 KiB, more
-  than 128 combinators on one path through the nested lists, or nesting more
-  than 32 brackets, counted with those in strings (`[a="(((…"]`) and comments.
+  than 64 combinators on one path through the nested lists, or nesting more
+  than 8 brackets, counted with those in strings (`[a="(((…"]`) and comments.
   Telling those apart needs the CSS tokenizer's every rule, and a wrong guess
   would let real nesting reach the parser's recursion, so the count stays
   conservative. `tests/hostile.rs` runs the worst allowed selector on the
-  stack headroom alone.
+  stack headroom alone. Frames aren't known at compile time, so the caps are
+  set from measurements with room to spare: that selector takes just over half
+  of the 256 KiB headroom in the slowest x86_64 build and under a third in
+  release (numbers at `MAX_SELECTOR_NESTING`). A check of the stack left, from a matcher step in
+  `Guarded`, would make it a proof; it needs core to export `stack_available`.
 - **`document.cloneNode()`.** §4.4 and WPT Node-cloneNode.html give a new
   `Document`; a runtime holds one document and blitz-dom can't make a second
   document node, so the call ends with `DomError::Unsupported`. That is a gap,

@@ -717,7 +717,7 @@ fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
     let r: String = rt
         .eval(
             r#"{ let s = 'b';
-            for (let i = 0; i < 20; i++) s = ':is(' + s + '+b+b+b+b+b+b+b)';
+            for (let i = 0; i < 8; i++) s = ':is(' + s + '+b+b+b+b+b+b+b+b+b)';
             try { document.body.lastElementChild.matches(s); 'none'; } catch (e) { e.name; } }"#,
         )
         .unwrap();
@@ -736,14 +736,16 @@ fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
 
 #[test]
 fn the_worst_selector_allowed_fits_the_stack_headroom() {
-    // 32 levels of nesting and 128 combinators on the path, every combinator
+    // 8 levels of nesting and 64 combinators on the path, every combinator
     // matching, called from the deepest frame that can still make the call.
     const SCRIPT: &str = r#"
-        const own = 128 - 4 * 30;
-        let s = 'b' + '+b'.repeat(4);
-        for (let i = 1; i < 30; i++) s = ':is(' + s + ')' + '+b'.repeat(4);
-        s = s + '+b'.repeat(own);
+        let s = 'b';
+        for (let i = 0; i < 8; i++) s = ':is(' + s + ')' + '+b'.repeat(8);
         const last = document.body.lastElementChild;
+        for (const over of [':is(' + s + ')', s + '+b']) {
+          try { last.matches(over); throw new Error('accepted'); }
+          catch (e) { if (e.name !== 'SyntaxError') throw e; }
+        }
         let done = -1, hit = false;
         function f(n) {
           try { f(n + 1); } catch (e) {
@@ -754,7 +756,11 @@ fn the_worst_selector_allowed_fits_the_stack_headroom() {
         f(0);
         done > 100 && hit"#;
     let limits = limits();
-    let size = limits.stack_bytes + Sandbox::STACK_HEADROOM_BYTES + 64 * 1024;
+    // The headroom is what a normal build gets. AddressSanitizer's red zones
+    // make every frame several times larger, and its builds set the time
+    // scale (`scripts/ci/asan.sh`), so that stretches the room as well.
+    let room = Sandbox::STACK_HEADROOM_BYTES + 64 * 1024;
+    let size = limits.stack_bytes + room * common::time_scale() as usize;
     let page = format!("<!doctype html><body>{}", "<b></b>".repeat(400));
     let r = std::thread::Builder::new()
         .stack_size(size)
