@@ -455,15 +455,19 @@ fn a_getter_that_never_returns_hits_the_time_limit() {
     assert_eq!(settle(&mut sb), Err(SandboxError::TimeLimit));
 }
 
+/// A getter that rejects again can't keep the checkpoint going: each read
+/// makes one more rejection, and reads stop with the last reason kept.
 #[test]
-fn rejections_that_keep_rejecting_hit_the_time_limit() {
-    let mut sb = sandbox_with(limits().with_time(scaled(Duration::from_millis(100))));
+fn rejections_that_keep_rejecting_end_with_the_kept_reasons() {
+    let mut sb = sandbox();
     sb.eval::<()>(
         "const o = { get name() { Promise.reject(o); return 'x' } };
          Promise.reject(o);",
     )
     .unwrap();
-    assert_eq!(settle(&mut sb), Err(SandboxError::TimeLimit));
+    let report = settle(&mut sb).unwrap();
+    assert_eq!(report.unhandled_rejections, 9);
+    assert_eq!(report.rejections.len(), 8);
 }
 
 /// The list's entries are outside the JavaScript heap.
