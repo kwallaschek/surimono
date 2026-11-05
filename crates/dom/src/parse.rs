@@ -39,6 +39,8 @@ const CHUNK: usize = 4096;
 pub(crate) struct Parsed {
     /// (node, data): comment data, and the text of `<style>` elements.
     pub strings: Vec<(usize, String)>,
+    /// (`<template>`, its content fragment).
+    pub templates: Vec<(usize, usize)>,
     /// Nodes the tree builder took out of the tree. It puts most back; what
     /// has no parent at the end (`<frameset>` drops the `<body>`) is an
     /// orphan for the caller to free.
@@ -201,8 +203,19 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
         self.inner.append_doctype_to_document(name, public, system);
     }
 
+    /// HTML §4.12.3: a template's content is a fragment outside the tree.
+    /// blitz-html answers with the template itself.
     fn get_template_contents(&self, target: &usize) -> usize {
-        self.inner.get_template_contents(target)
+        let mut parsed = self.parsed.borrow_mut();
+        if let Some(&(_, content)) = parsed.templates.iter().find(|(t, _)| t == target) {
+            return content;
+        }
+        let name = QualName::new(None, html5ever::ns!(), crate::document::fragment_name());
+        let content = self
+            .inner
+            .create_element(name, Vec::new(), ElementFlags::default());
+        parsed.templates.push((*target, content));
+        content
     }
 
     fn same_node(&self, x: &usize, y: &usize) -> bool {

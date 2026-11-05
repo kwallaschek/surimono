@@ -21,7 +21,8 @@
 // Array index setters can't observe or change what the bindings do.
 (function (n) {
   'use strict';
-  const call = n.call, current = n.current, root = n.currentRoot, stale = n.stale;
+  let call = n.call;
+  const current = n.current, root = n.currentRoot, stale = n.stale;
   const report = n.report, throwDom = n.throwDom;
   const G = globalThis;
   // The prelude's, before any script can replace them; glue_tail.js puts
@@ -164,6 +165,14 @@
       if ((typeof p === 'object' && p !== null) || typeof p === 'function') setPrototypeOf(w, p);
     }
     return w;
+  }
+
+  // `(boolean or ImportNodeOptions)`.
+  function deepFlag(x) {
+    // null isn't a boolean, so it is an empty dictionary: deep.
+    if (x === null) return true;
+    if (isObject(x)) return !x.selfOnly;
+    return !!x;
   }
 
   function iface(id, name, parent, ctor) {

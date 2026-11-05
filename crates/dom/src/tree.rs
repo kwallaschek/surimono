@@ -124,9 +124,21 @@ impl Document {
     }
 
     /// §4.2.3 "insert", after validity: `node`, or a fragment's children,
-    /// before `before`.
-    fn insert_checked(&mut self, parent: usize, node: usize, before: Option<usize>) {
+    /// before `before`; returns what went in. A fragment queues its own
+    /// record, and a node leaving another parent its, whatever `quiet` (the
+    /// "suppress observers" flag) says: that only covers the insertion.
+    fn insert_checked(
+        &mut self,
+        parent: usize,
+        node: usize,
+        before: Option<usize>,
+        quiet: bool,
+    ) -> Vec<usize> {
         let nodes = if self.kind(node) == Some(Kind::DocumentFragment) {
+            if self.is_observed() && !self.children(node).is_empty() {
+                let children = self.children(node).to_vec();
+                self.note_child_list(node, &[], &children, None, None);
+            }
             let children = self.take_children(node);
             for &c in &children {
                 self.set_parent(c, None);
@@ -136,7 +148,12 @@ impl Document {
             self.detach(node);
             vec![node]
         };
-        self.place(parent, &nodes, before);
+        if quiet {
+            self.place_quietly(parent, &nodes, before);
+        } else {
+            self.place(parent, &nodes, before);
+        }
+        nodes
     }
 
     /// §4.2.3 "pre-insert".
@@ -153,11 +170,11 @@ impl Document {
         } else {
             child
         };
-        self.insert_checked(parent, node, before);
+        self.insert_checked(parent, node, before, false);
         Ok(())
     }
 
-    /// §4.2.3 "replace".
+    /// §4.2.3 "replace": one record, with both the added and removed nodes.
     pub(crate) fn replace(
         &mut self,
         parent: usize,
@@ -169,9 +186,44 @@ impl Document {
         if before == Some(node) {
             before = self.sibling(node, true);
         }
-        self.detach(child);
-        self.insert_checked(parent, node, before);
+        let previous = self.sibling(child, false);
+        // "Adopt" comes first and isn't suppressed. It takes `child` itself
+        // away when the two are one, which leaves no one to remove.
+        self.detach(node);
+        let removed = if self.parent(child) == Some(parent) {
+            self.detach_quietly(child);
+            Some(child)
+        } else {
+            None
+        };
+        let added = self.insert_checked(parent, node, before, true);
+        if self.is_observed() {
+            let removed = removed.as_slice();
+            self.note_child_list(parent, &added, removed, previous, before);
+        }
         Ok(())
+    }
+
+    /// §4.2.3 "replace all": `parent`'s children go, `node` (which fits, and
+    /// may be a fragment) comes in, and one record tells both.
+    pub(crate) fn replace_all(&mut self, parent: usize, node: Option<usize>) {
+        let removed = if self.is_observed() {
+            let children = self.children(parent).to_vec();
+            // The record, queued last, must find them alive.
+            for &c in &children {
+                if let Err(e) = self.handle_for(c) {
+                    self.fault.get_or_insert(e);
+                }
+            }
+            children
+        } else {
+            Vec::new()
+        };
+        self.remove_children_quietly(parent);
+        let added = node.map_or_else(Vec::new, |n| self.insert_checked(parent, n, None, true));
+        if self.is_observed() && !(added.is_empty() && removed.is_empty()) {
+            self.note_child_list(parent, &added, &removed, None, None);
+        }
     }
 
     /// §4.2.3 "pre-remove".
@@ -186,8 +238,26 @@ impl Document {
     /// Puts a parsed fragment's children under `parent`, before `before`,
     /// and frees the fragment. The parse checked the limits.
     pub(crate) fn insert_parsed(&mut self, parent: usize, frag: usize, before: Option<usize>) {
-        self.insert_checked(parent, frag, before);
+        self.insert_checked(parent, frag, before, false);
         self.drop_subtree(frag);
+    }
+
+    /// `innerHTML` set: a parsed fragment replaces `parent`'s children.
+    pub(crate) fn replace_all_parsed(&mut self, parent: usize, frag: usize) {
+        self.replace_all(parent, Some(frag));
+        self.drop_subtree(frag);
+    }
+
+    /// `outerHTML` set: a parsed fragment replaces `child`.
+    pub(crate) fn replace_with_parsed(
+        &mut self,
+        parent: usize,
+        frag: usize,
+        child: usize,
+    ) -> BindingResult<()> {
+        let r = self.replace(parent, frag, child);
+        self.drop_subtree(frag);
+        r
     }
 
     /// Selectors nest in brackets; the parser and the matcher recurse per
@@ -375,8 +445,7 @@ impl Document {
             }
         });
         if r.is_ok() {
-            self.remove_all_children(parent);
-            self.insert_checked(parent, node, None);
+            self.replace_all(parent, Some(node));
         }
         self.finish_nodes(node, temporary);
         r
@@ -457,6 +526,7 @@ impl Document {
                 let c = self.children(n);
                 size += c.len();
                 stack.extend_from_slice(c);
+                stack.extend(self.template_of(n));
             }
             if let Err(e) = self.check_room_for(size) {
                 self.drop_subtree(copy);
@@ -464,6 +534,11 @@ impl Document {
             }
             let mut stack: Vec<(usize, usize)> = vec![(top, copy)];
             while let Some((from, to)) = stack.pop() {
+                // HTML §4.12.3 cloning steps: a template's content too.
+                if let Some(content) = self.template_of(from) {
+                    let new_content = self.template_content(to).map_err(|e| self.fail(e))?;
+                    stack.push((content, new_content));
+                }
                 let children: Vec<usize> = self.children(from).to_vec();
                 let mut made = Vec::with_capacity(children.len());
                 for c in children {
@@ -586,6 +661,9 @@ impl Document {
     /// nodes go before the joined text is written, so a merge never needs
     /// room for both copies.
     pub(crate) fn normalize_tree(&mut self, top: usize) -> BindingResult<()> {
+        if self.is_observed() {
+            return self.normalize_observed(top);
+        }
         let mut stack = vec![top];
         while let Some(n) = stack.pop() {
             let mut kept = Vec::with_capacity(self.children(n).len());
@@ -627,6 +705,62 @@ impl Document {
                 }
             }
         }
+        Ok(())
+    }
+
+    /// `normalize` with an observer about. Every step queues its own record,
+    /// in §4.4's order: for each text node in tree order, the joined text
+    /// (a record even if nothing joined it), then one removal for each node
+    /// merged into it. So nodes leave one at
+    /// a time and need the room for both copies, and a wide list is quadratic,
+    /// which each removal pays for in its poll.
+    fn normalize_observed(&mut self, top: usize) -> BindingResult<()> {
+        let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
+        while let Some(n) = stack.pop() {
+            self.poll()?;
+            if self.kind(n) != Some(Kind::Text) {
+                stack.extend(self.children(n).iter().rev().copied());
+                continue;
+            }
+            if self.char_data(n).is_empty() {
+                self.remove_observed(n)?;
+                continue;
+            }
+            let mut merged = Vec::new();
+            let mut joined = String::new();
+            let mut next = self.sibling(n, true);
+            while let Some(s) = next.filter(|&s| self.kind(s) == Some(Kind::Text)) {
+                self.poll()?;
+                joined.push_str(self.char_data(s));
+                merged.push(s);
+                next = self.sibling(s, true);
+            }
+            // Step 4 replaces data even when `joined` is empty, and "replace
+            // data" always queues its record.
+            let mut text = self.char_data(n).to_owned();
+            text.push_str(&joined);
+            self.set_text_data(n, &text).map_err(|e| self.fail(e))?;
+            // They are next on the stack, and may not outlive their removal.
+            stack.truncate(stack.len().saturating_sub(merged.len()));
+            for s in merged {
+                self.remove_observed(s)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Removes `id` with its record, freeing it if nothing can reach it.
+    fn remove_observed(&mut self, id: usize) -> BindingResult<()> {
+        let Some(parent) = self.parent(id) else {
+            return Ok(());
+        };
+        self.poll_by(self.children(parent).len())?;
+        let previous = self.sibling(id, false);
+        let next = self.sibling(id, true);
+        self.note_child_list(parent, &[], &[id], previous, next);
+        let kept = self.children(parent).iter().copied();
+        let kept = kept.filter(|&c| c != id).collect();
+        self.replace_child_list(parent, kept, vec![id]);
         Ok(())
     }
 

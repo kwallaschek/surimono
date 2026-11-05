@@ -78,7 +78,11 @@ fn check(name: &str) {
         eprintln!("{name}: no fixture here, skipped");
         return;
     };
-    assert_eq!(report.uncaught, 0, "{name}: {:?}", report.errors);
+    assert_eq!(
+        report.uncaught, 0,
+        "{name}: {:?} {:?}",
+        report.errors, report.settle.errors
+    );
     assert!(report.missing_scripts.is_empty(), "{name}");
     let (ours, expected) = (style_last(&squeeze(&ours)), style_last(&squeeze(&expected)));
     // `to_html` is the `<html>` element's outer HTML.
@@ -129,7 +133,6 @@ fn d3() {
 }
 
 #[test]
-#[ignore = "needs MutationObserver and template.content (E2-04, next slice)"]
 fn alpine() {
     check("alpine-invoice");
 }

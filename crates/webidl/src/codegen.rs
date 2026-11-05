@@ -43,6 +43,13 @@ pub const STUB_INTERFACES: &[&str] = &[
     "DOMTokenList",
     "DOMStringMap",
     "CSSStyleDeclaration",
+    "MutationRecord",
+    "HTMLTemplateElement",
+    "HTMLAnchorElement",
+    "HTMLImageElement",
+    "HTMLLinkElement",
+    "HTMLScriptElement",
+    "HTMLInputElement",
 ];
 
 /// Typedefs and nested types deeper than this are an error (a typedef cycle).
