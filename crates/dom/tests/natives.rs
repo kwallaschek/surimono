@@ -230,6 +230,157 @@ fn a_style_attribute_at_the_cap_stays_near_the_limit() {
     assert!(bounded(STYLED, script).is_none_or(|n| n == "64013"));
 }
 
+/// The ways a script can set a `style` attribute to the value of the
+/// expression `value`. All are refused; `cssText` goes through its own parse.
+fn refuse_on_every_write(value: &str) {
+    let p = "document.getElementById('p')";
+    for script in [
+        format!("{p}.setAttribute('style', {value})"),
+        format!("{p}.innerHTML = '<b style=\"' + {value} + '\">'"),
+        format!(
+            "{p}.setAttribute('style', ''); {p}.attributes.getNamedItem('style').value = {value}"
+        ),
+    ] {
+        style_refused(STYLED, &script);
+    }
+    // What it keeps of the text is written back. It keeps one `all`, and what
+    // stylo refuses goes, so this may be accepted.
+    let script = format!("try {{ {p}.style.cssText = {value} }} catch (e) {{}} 'ended'");
+    let mut rt = DomRuntime::new(limits().with_time(scaled(LIMIT))).unwrap();
+    rt.load(Document::parse(STYLED).unwrap());
+    let _: () = rt.eval("0").unwrap();
+    let started = Instant::now();
+    let r = rt.eval::<String>(&script);
+    let took = started.elapsed();
+    assert!(took < scaled(Duration::from_secs(2)), "{script}: {took:?}");
+    assert!(
+        matches!(&r, Err(DomError::StyleLimit { .. })) || r.as_deref() == Ok("ended"),
+        "{script}: {r:?}"
+    );
+}
+
+/// A block's cost in stylo is its repeats times its size: these took 11 s, 667 ms
+/// and 1.3 s in one host call under a 100 ms limit (review of #97). The last two
+/// stay under `MAX_DECLARATIONS` and go on `MAX_PUSH_STEPS`.
+#[test]
+fn a_style_of_repeats_over_the_block() {
+    let custom =
+        |n: u32| format!("Array.from({{length: {n}}}, (_, i) => '--a' + i + ':;').join('')");
+    for value in [
+        format!("{} + 'all:inherit;'.repeat(8000)", custom(8000)),
+        format!("{} + 'all:inherit;'.repeat(2048)", custom(2048)),
+        format!("{} + '\\\\61ll:inherit;'.repeat(2048)", custom(2048)),
+        format!("{} + 'ALL:inherit;'.repeat(2048)", custom(2048)),
+        format!("{0} + {0}", custom(10000)),
+    ] {
+        refuse_on_every_write(&value);
+    }
+}
+
+/// `grid-template-areas` tokenizes its strings again: 150,000 names, 1 MB,
+/// took 787 ms under a 100 ms limit (review of #97).
+#[test]
+fn a_style_of_many_grid_areas() {
+    let names = |n: u32| format!("Array.from({{length: {n}}}, (_, i) => 'n' + i).join(' ')");
+    for property in ["grid-template-areas", "grid-template", "grid"] {
+        for strings in [
+            format!("\"'\" + {} + \"'\"", names(150_000)),
+            format!("\"'a' \".repeat(5000) + \"'\" + {} + \"'\"", names(100)),
+        ] {
+            let value = format!("'{property}:' + {strings}");
+            refuse_on_every_write(&value);
+            style_refused(
+                STYLED,
+                &format!("document.getElementById('p').style.setProperty('{property}', {strings})"),
+            );
+        }
+    }
+    // Declarations are charged apart, and other strings not at all.
+    let script = format!(
+        "const p = document.getElementById('p');
+        const big = \"'\" + {} + \"'\";
+        p.setAttribute('style', 'grid-template-areas:' + big);
+        const one = p.style.gridTemplateAreas !== '';
+        p.setAttribute('style', 'content:' + big + ';--x:' + big + ';--y:' + big);
+        String(one && p.style.getPropertyValue('--x') !== '')",
+        names(4000),
+    );
+    assert_eq!(bounded(STYLED, &script).as_deref(), Some("true"));
+    let script = format!(
+        "const p = document.getElementById('p');
+        p.setAttribute('style', \"--x:'\" + {} + \"'\"); String(p.getAttribute('style').length > 1e6)",
+        names(150_000),
+    );
+    assert!(bounded(STYLED, &script).is_none_or(|s| s == "true"));
+}
+
+/// The longest a native can run past a time limit on `style`: each script
+/// writes or reads the worst values [`fits`] lets through until the limit, and
+/// prints by how much it was missed. For a release build.
+/// `--release --test natives -- --ignored --nocapture overrun`
+#[test]
+#[ignore = "timings, for a release build"]
+fn style_overrun_in_release() {
+    let list = "'font-family:' + 'a,'.repeat(32000) + 'a'";
+    let long = "'--x:\"' + 'a'.repeat(8e6) + '\"'";
+    let unique = "Array.from({length: 2047}, (_, i) => '--a' + i + ':;').join('')";
+    let rounds = format!("{unique} + 'all:inherit;'.repeat(16)");
+    // The review of #97's cases, refused before they get anywhere.
+    let custom = "Array.from({length: 8000}, (_, i) => '--a' + i + ':;').join('')";
+    let names = "Array.from({length: 150000}, (_, i) => 'n' + i).join(' ')";
+    for value in [
+        format!("const v = {custom} + 'all:inherit;'.repeat(8000);"),
+        format!("const v = 'grid-template-areas:\"' + {names} + '\"';"),
+    ] {
+        let p = "document.getElementById('p')";
+        for step in [
+            format!("{p}.setAttribute('style', v)"),
+            format!("{p}.innerHTML = '<b style=\\'' + v + '\\'>'"),
+        ] {
+            let limit = Duration::from_secs(5);
+            let mut rt = DomRuntime::new(limits().with_time(limit)).unwrap();
+            rt.load(Document::parse(STYLED).unwrap());
+            let _: () = rt.eval("0").unwrap();
+            let r = rt.eval::<()>(&format!("{value} globalThis.v = v"));
+            assert_eq!(r, Ok(()));
+            let started = Instant::now();
+            let r = rt.eval::<()>(&step);
+            println!("refused  {:9.1?} {r:?}", started.elapsed());
+        }
+    }
+    for (name, value) in [("list", list), ("string", long), ("repeats", &rounds)] {
+        let p = "document.getElementById('p')";
+        let v = format!("const v = {value}; const w = v + ' ';");
+        for (path, step) in [
+            (
+                "setAttribute",
+                format!("{p}.setAttribute('style', i % 2 ? v : w)"),
+            ),
+            (
+                "innerHTML",
+                format!("{p}.innerHTML = '<b style=\\'' + v + '\\'>'"),
+            ),
+            (
+                "cloneNode",
+                format!("{p}.setAttribute('style', v); {p}.cloneNode()"),
+            ),
+            (
+                "read",
+                format!("{p}.setAttribute('style', v); {p}.style.length"),
+            ),
+        ] {
+            let limit = Duration::from_millis(100);
+            let mut rt = DomRuntime::new(limits().with_time(limit)).unwrap();
+            rt.load(Document::parse(STYLED).unwrap());
+            let _: () = rt.eval("0").unwrap();
+            let started = Instant::now();
+            let r = rt.eval::<()>(&format!("{v} for (let i = 0;; i++) {{ {step} }}"));
+            let took = started.elapsed();
+            println!("{name:8} {path:13} {took:9.1?} {r:?}");
+        }
+    }
+}
+
 #[test]
 fn a_large_data_url_is_one_token() {
     let script = "const p = document.getElementById('p');

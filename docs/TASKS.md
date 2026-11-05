@@ -141,7 +141,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P1-DX-08 · DX+CF · done (#118 #119) · README.md:25-27 and COMPAT.md still say the Grover benchmark has no results; cite the committed/CI bench (5.8× Ruby, 8.0× Rust PSS; 2.4× time) once bench/ has the report (with P1-CF-33)
 - P1-PKG-23 · PKG · done (#116) · Nightly check of the Rust git-dependency + [patch] recipe; gemspec changelog_uri
 - P1-DOM-07 · DOM · todo · Drop the redundant publish lines in crates/dom and crates/webidl after the DOM stack lands
-- P1-DX-07 · DX · todo · After Kay tags v0.1.0: pin README, CHANGELOG and the Rust guide to tag = "v0.1.0" / git clone --branch v0.1.0 (main moves to phase 2)
+- P1-DX-07 · DX · cut · (no release before v0.3) After Kay tags v0.1.0: pin README, CHANGELOG and the Rust guide to tag = "v0.1.0" / git clone --branch v0.1.0 (main moves to phase 2)
 - P1-PKG-21 · PKG · todo · CLI users get no THIRD_PARTY_LICENSES.txt with cargo install: add a `surimono licenses` subcommand (embedded notices) or document where to get them
 - P1-PKG-18 · PKG · done (#108) · Wire render_cancellable through the facade: map SandboxError::Cancelled to Error::Cancelled, bypass the island error policy (#85 review)
 - P1-PKG-19 · PKG · done (#109) · Run crates/core's main_thread_stack test on x86_64-unknown-linux-musl in CI; wpt/tools checks in scripts/ci/fixtures.sh
@@ -161,7 +161,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 > Checkpoint 2 is signed off; phase-2 public API may land once its task is reviewed.
 - P2-ORC-01 · ORC · done (#117) · MSRV 1.89: toolchain, rust-version, docs, clippy
 - P2-RT-02 · RT · done (#121) · a_burst_after_a_long_gap_trims_once flaky on GitHub (main red): deterministic test; two workers idling together could both trim
-- P2-RT-01 · RT · review (#122) · #99 review follow-ups: wait tokens unique across reset() (generation in the token, test), wording at event_loop.rs:63 and :49; PATCHES.md item 25 says the JS_MAX_LOCAL_VARS path wasn't run (now it was: SIGSEGV from JS on unpatched master); generator `{} = {}` variant of too_many_destructured_parameters_is_a_syntax_error; sandbox.rs:462 rewrap
+- P2-RT-01 · RT · done (#122) · #99 review follow-ups: wait tokens unique across reset() (generation in the token, test), wording at event_loop.rs:63 and :49; PATCHES.md item 25 says the JS_MAX_LOCAL_VARS path wasn't run (now it was: SIGSEGV from JS on unpatched master); generator `{} = {}` variant of too_many_destructured_parameters_is_a_syntax_error; sandbox.rs:462 rewrap
 - P2-CF-01 · CF · done (#119) · COMPAT lines from #99: await sleep(0) vs Chrome 153, NUL and lone surrogate in string handlers, the "promise never settled" quote at COMPAT.md:126
 - P2-DX-01 · DX · done (#118) · Docs after #108: a cancel stops the running island (README:258, rust.md:195, islands.md:164, rails.md:331, surimono.rb:130 first-load caveat); CHANGELOG Unreleased: MSRV 1.89, cancel, Ruby 3.2 pump
 - E2-01 · DOM · todo · Bindings generated from WebIDL for DOM core, events, HTML elements in scope
@@ -171,7 +171,11 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - E2-05 · DOM · todo · DOMParser (first to cut)
 - E2-13 · DOM · todo · WPT wins after the stack: new Document(), document.implementation, iframes for selector/characterSet tests (decide scope), XML parser (decide), window.frames, MouseEvent, named access on Window, on* handlers, document.currentScript, document.body on frameset pages, style on SVG elements, error events for timer and microtask exceptions
 - P2-PKG-01 · PKG · todo · CI job building wpt/runner and publishing wpt-results.json; renderer.rs:328 doc says up to twice the time limit per bundle from source and forked first renders; surimono.rb first-load caveat
-- P2-RT-03 · RT · todo · The QuickJS parser never polls the time limit: a 60 MiB source with a 50 ms limit took 8.8 s before TimeLimit (#124 probe). Test eval(hugeString) and page scripts; add parser polls in the vendored engine or a source-size cap in the sandbox
+- P2-RT-04 · RT · done (#126) · Proxy ownKeys duplicate check quadratic and unpolled: sorted copy, engine patch level 8
+- P2-RT-05 · RT · doing (#127 blocked) · Unhandled rejections reported; a limit error inside a promise ends the call typed (needed by #104)
+- P2-DOM-02 · DOM · review (#128 approved) · Deterministic normalize test, selector weight, frameset document.body
+- P2-DX-02 · DX · todo · README, guides and CHANGELOG on main say nothing is released yet (no gem on RubyGems, Kay 5 Nov); install from a clone until v0.3
+- P2-RT-03 · RT · done (#125) · The QuickJS parser never polls the time limit: a 60 MiB source with a 50 ms limit took 8.8 s before TimeLimit (#124 probe). Test eval(hugeString) and page scripts; add parser polls in the vendored engine or a source-size cap in the sandbox
 - P2-CF-02 · CF · todo · COMPAT requests from the DOM stack (reports for #94 #96 #97 #104 #105): cloneNode(document), surrogate offsets, selector gaps and caps, style validity, nomodule, window.event, isTrusted, listeners' microtask checkpoint, on* gaps, unhandledrejection, ErrorEvent fields; spec-vs-Chrome row on important-declaration order; dom/events denominator 748 vs 848; vendor.py .xml gap; wpt/README notes (#123 review)
 - E2-06 · PKG · todo · Resource loader with allowlist, network off by default. Caps its waits: at most 1,000 waits started and 10 s real time per render, then external_abandon_all, fail the rest without opening a wait, let the page settle; delivers completions in a fixed order (#99 review)
 - E2-07 · DOM · todo · Layout-query policy (zeros or throw)

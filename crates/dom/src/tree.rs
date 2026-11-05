@@ -490,9 +490,7 @@ impl Document {
             NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                 let name = e.name.clone();
                 let attrs = e.attrs().to_vec();
-                // The copy's `style` goes through stylo, in one call: every
-                // attribute passed `style_attr::fits` on its way in, so this
-                // is bounded, but it counts for more than one step.
+                // Copying a long `style` counts for more than one step.
                 let style = e.attr(blitz_dom::local_name!("style"));
                 self.poll_by(style.map_or(0, str::len))?;
                 self.create_element_with(name, attrs)
