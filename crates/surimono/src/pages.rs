@@ -242,7 +242,7 @@ fn work(shared: &Shared, idle_after: Duration) {
         // Off the caller's clock: frees this page's heap now rather than at
         // the next page's start, and has a runtime ready for that page. A
         // runtime that can't reset isn't kept.
-        if !runtime.as_mut().is_some_and(|rt| rt.reset().is_ok()) {
+        if runtime.as_mut().is_none_or(|rt| rt.reset().is_err()) {
             runtime = DomRuntime::with_options(shared.options.sandbox.clone()).ok();
         }
     }
