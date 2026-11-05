@@ -23,6 +23,7 @@ vega = ["surimono-islands/vega"]
 
 [dependencies]
 surimono-core.workspace = true
+surimono-dom.workspace = true
 surimono-gfx.workspace = true
 # The workspace entry has default features off; the facade picks the islands
 # crate's features itself (see [features]).
@@ -47,6 +48,8 @@ blitz-dom.workspace = true
 blitz-html.workspace = true
 # tests/fork.rs forks (fork, waitpid, waitid, kill, _exit). MIT OR Apache-2.0.
 libc.workspace = true
+# tests/page_soak.rs counts live heap bytes, as crates/islands' soak test does.
+stats_alloc = "=0.1.10"
 
 [lints]
 workspace = true

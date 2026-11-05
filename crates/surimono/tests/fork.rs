@@ -72,6 +72,9 @@ const VEGA_LITE: &str = r#"{
   }
 }"#;
 
+/// A page with a script, for the facade's page workers.
+const PAGE: &str = "<!doctype html><body><script>document.body.id = 'ran';</script>";
+
 fn island(renderer: &str, width: u32, height: u32, spec: &str) -> String {
     format!(
         "<script type=\"application/vnd.surimono+json\" data-renderer=\"{renderer}\" \
@@ -124,6 +127,12 @@ fn svgs(out: &str) -> usize {
 
 /// What a forked child checks; 0 when all is well.
 fn child(shared: &Renderer, owned: Option<Renderer>, i: usize) -> i32 {
+    // Page workers are per process too.
+    match shared.render_page(PAGE) {
+        Ok(page) if page.html.contains("id=\"ran\"") && page.report.uncaught == 0 => {}
+        Ok(_) => return 15,
+        Err(_) => return 16,
+    }
     // The shared renderer works here: it starts this process's own pool.
     if i % FULL_EVERY == 0 {
         match shared.render_islands(&full_document()) {

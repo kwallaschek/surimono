@@ -4,7 +4,8 @@
 //! `Surimono::Renderer._native_new` with plain values. Rendering copies the HTML
 //! into Rust and releases the GVL, so other Ruby threads keep running; an
 //! interrupt (`Timeout`, `Thread#raise`, `Thread#kill`, a signal) stops the
-//! render, its running island included.
+//! render, its running island included. A page's scripts go on until their time
+//! limit, unobserved (see `surimono::Renderer::render_page_cancellable`).
 
 // A library never writes to stdout or stderr; tests may.
 #![cfg_attr(not(test), deny(clippy::print_stdout, clippy::print_stderr))]
@@ -41,6 +42,7 @@ fn renderer_new(
     utc_offset_minutes: i32,
     text: String,
     max_islands: Option<usize>,
+    page: (bool, String, RArray),
 ) -> Result<Renderer, Error> {
     let mut options = surimono::Options::new()
         .limits(surimono::Limits {
@@ -83,6 +85,20 @@ fn renderer_new(
     if let Some(max) = max_islands {
         options = options.max_islands(max);
     }
+    let (keep_scripts, layout_queries, resources) = page;
+    options = options.keep_scripts(keep_scripts);
+    options = options.layout_queries(match layout_queries.as_str() {
+        "throw" => surimono::LayoutQueries::Throw,
+        _ => surimono::LayoutQueries::Zeros,
+    });
+    if !resources.is_empty() {
+        let mut files = Vec::with_capacity(resources.len());
+        for pair in resources.into_iter() {
+            let (url, data) = <(String, RString)>::try_convert(pair)?;
+            files.push((url, ffi::string_bytes(data)));
+        }
+        options = options.resource_loader(surimono::ResourceLoader::from_map(files));
+    }
     // Building compiles bundles and starts runtimes: release the GVL for it too.
     let built = ffi::without_gvl(ruby, move || surimono::Renderer::new(options))?;
     built
@@ -116,9 +132,69 @@ impl Renderer {
         }
     }
 
+    /// `[html, report]`, with the report as a Hash for lib/surimono.rb.
+    fn render_page(ruby: &Ruby, rb_self: &Self, html: RString) -> Result<RArray, Error> {
+        let html: Arc<str> = Arc::from(html.to_string()?);
+        loop {
+            let renderer = Arc::clone(&rb_self.0);
+            let doc = Arc::clone(&html);
+            let cancel = Arc::new(AtomicBool::new(false));
+            let flag = Arc::clone(&cancel);
+            let result = ffi::without_gvl_cancellable(ruby, &cancel, move || {
+                renderer.render_page_cancellable(&doc, &flag)
+            })?;
+            match result {
+                Ok(page) => {
+                    let out = ruby.ary_new();
+                    out.push(ruby.str_new(&page.html))?;
+                    out.push(report_hash(ruby, &page.report)?)?;
+                    return Ok(out);
+                }
+                // As in `render`.
+                Err(surimono::Error::Cancelled) => continue,
+                Err(e) => return Err(to_ruby_error(ruby, &e)),
+            }
+        }
+    }
+
     fn renderers(&self) -> Vec<String> {
         self.0.renderers().to_vec()
     }
+}
+
+/// A page's report as plain Ruby values.
+fn report_hash(ruby: &Ruby, report: &surimono::PageReport) -> Result<RHash, Error> {
+    let hash = ruby.hash_new();
+    let settled = match report.settled {
+        surimono::SettleReason::Idle => "idle",
+        surimono::SettleReason::VirtualBudget => "virtual_budget",
+        surimono::SettleReason::TaskLimit => "task_limit",
+        _ => "other",
+    };
+    hash.aset(ruby.to_symbol("settled"), ruby.to_symbol(settled))?;
+    hash.aset(ruby.to_symbol("uncaught"), report.uncaught)?;
+    hash.aset(ruby.to_symbol("errors"), report.errors.clone())?;
+    hash.aset(
+        ruby.to_symbol("unhandled_rejections"),
+        report.unhandled_rejections,
+    )?;
+    hash.aset(ruby.to_symbol("rejections"), report.rejections.clone())?;
+    hash.aset(ruby.to_symbol("failed_count"), report.failed_count)?;
+    let failed = ruby.ary_new();
+    for f in &report.failed {
+        let entry = ruby.hash_new();
+        let kind = match f.kind {
+            surimono::ResourceKind::Script => "script",
+            surimono::ResourceKind::Image => "image",
+            _ => "other",
+        };
+        entry.aset(ruby.to_symbol("kind"), ruby.to_symbol(kind))?;
+        entry.aset(ruby.to_symbol("url"), f.url.as_str())?;
+        entry.aset(ruby.to_symbol("reason"), f.reason.to_string())?;
+        failed.push(entry)?;
+    }
+    hash.aset(ruby.to_symbol("failed"), failed)?;
+    Ok(hash)
 }
 
 /// The Ruby exception for a surimono error: the class from lib/surimono.rb that
@@ -126,15 +202,17 @@ impl Renderer {
 fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
     use surimono::Error as E;
     let class_name = match e {
-        E::MemoryLimit { .. } => "MemoryLimitError",
-        E::TimeLimit { .. } => "TimeLimitError",
-        E::StackOverflow { .. } => "StackOverflowError",
+        E::MemoryLimit { .. } | E::PageMemoryLimit => "MemoryLimitError",
+        E::TimeLimit { .. } | E::PageTimeLimit => "TimeLimitError",
+        E::StackOverflow { .. } | E::PageStackOverflow => "StackOverflowError",
+        E::PageDomLimit { .. } => "DomLimitError",
         E::JavaScript { .. } => "JavaScriptError",
         E::InvalidIsland { .. }
         | E::UnknownRenderer { .. }
         | E::Render { .. }
         | E::Html(_)
         | E::TooManyIslands { .. }
+        | E::PageFailed { .. }
         | E::Cancelled => "RenderError",
         E::Font { .. } | E::Bundle { .. } | E::InvalidOptions(_) => "ConfigurationError",
         _ => "Error",
@@ -218,8 +296,9 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     module.define_singleton_method("precompiled_builtins", function!(precompiled_builtins, 0))?;
     module.define_singleton_method("_internal_panic_check", function!(internal_panic_check, 0))?;
     let class = module.define_class("Renderer", ruby.class_object())?;
-    class.define_singleton_method("_native_new", function!(renderer_new, 13))?;
+    class.define_singleton_method("_native_new", function!(renderer_new, 14))?;
     class.define_method("_render", method!(Renderer::render, 1))?;
+    class.define_method("_render_page", method!(Renderer::render_page, 1))?;
     class.define_method("renderers", method!(Renderer::renderers, 0))?;
     Ok(())
 }

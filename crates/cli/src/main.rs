@@ -14,11 +14,15 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
-use surimono::{Error, ErrorPolicy, Limits, Options, Renderer, TextMode};
+use surimono::{
+    Error, ErrorPolicy, LayoutQueries, Limits, Options, PageReport, Renderer, ResourceLoader,
+    SettleReason, TextMode,
+};
 
 const HELP: &str = "\
 surimono: run a document's JavaScript without a browser, so browserless
-HTML-to-PDF engines can print it. In this version: chart islands.
+HTML-to-PDF engines can print it. Renders chart islands, and with --scripts
+the document's own scripts too.
 
 Usage:
   surimono render <in.html> -o <out.html> --font <file>... [options]
@@ -55,6 +59,20 @@ Options:
                            default: all); empty names are ignored
   --max-islands <n>        Most islands one document may have (default 1000)
   --pool-size <n>          JavaScript runtimes kept (default: CPUs, at most 4)
+  --scripts                Run the document's own scripts first, as a page, until
+                           it settles, under the limits above (one set for the
+                           page). The output is the document serialized, without
+                           <noscript>. No network and no files: see --resource.
+                           Script errors and resources the page didn't get go to
+                           standard error and don't fail the render
+  --keep-scripts           With --scripts: leave <script> elements in the output
+                           (default: remove all but island markers)
+  --layout-queries <p>     With --scripts, what getBoundingClientRect, offsetWidth
+                           and the like give, as nothing is laid out: zeros
+                           (default) or throw
+  --resource <url>=<file>  With --scripts: <script src=\"<url>\">, with the URL as
+                           written, loads this file, read once at the start. Only
+                           these load. Repeat it for more.
 
   The output file is written only after the render succeeded, through a
   temporary file renamed into place, so it is either complete or untouched.
@@ -66,10 +84,10 @@ Options:
 Exit codes:
   0  success
   1  an island failed (invalid marker, unknown renderer, script error, unusable
-     SVG), the document has more islands than --max-islands, or the document
-     couldn't be rewritten
+     SVG), the document has more islands than --max-islands, the document
+     couldn't be rewritten, or a page couldn't run
   2  usage error: unknown option or bad value
-  3  a script hit a limit (memory, time or stack)
+  3  a script hit a limit (memory, time, stack), or a page a limit of the DOM
   4  invalid configuration: no font, a font or bundle that can't be used, limits
      out of range
   5  a file couldn't be read or written
@@ -110,9 +128,13 @@ impl Failure {
 
     fn from_error(e: &Error) -> Self {
         let exit = match e {
-            Error::MemoryLimit { .. } | Error::TimeLimit { .. } | Error::StackOverflow { .. } => {
-                Exit::Limit
-            }
+            Error::MemoryLimit { .. }
+            | Error::TimeLimit { .. }
+            | Error::StackOverflow { .. }
+            | Error::PageMemoryLimit
+            | Error::PageTimeLimit
+            | Error::PageStackOverflow
+            | Error::PageDomLimit { .. } => Exit::Limit,
             Error::Font { .. } | Error::Bundle { .. } | Error::InvalidOptions(_) => Exit::Config,
             _ => Exit::Island,
         };
@@ -128,6 +150,13 @@ impl Failure {
 struct BundleArg {
     name: String,
     entry: String,
+    path: PathBuf,
+}
+
+/// A `--resource` argument: the URL as the page writes it, and its file.
+#[derive(Debug, PartialEq, Eq)]
+struct ResourceArg {
+    url: String,
     path: PathBuf,
 }
 
@@ -147,6 +176,10 @@ struct RenderArgs {
     renderers: Option<Vec<String>>,
     max_islands: Option<usize>,
     pool_size: Option<usize>,
+    scripts: bool,
+    keep_scripts: bool,
+    layout_queries: Option<LayoutQueries>,
+    resources: Vec<ResourceArg>,
 }
 
 enum Command {
@@ -258,6 +291,28 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
             }
             "--max-islands" => r.max_islands = Some(number(&flag, &value()?)?),
             "--pool-size" => r.pool_size = Some(number(&flag, &value()?)?),
+            "--scripts" | "--keep-scripts" => {
+                if inline.is_some() {
+                    return Err(Failure::usage(format!("{flag} takes no value")));
+                }
+                if flag == "--scripts" {
+                    r.scripts = true;
+                } else {
+                    r.keep_scripts = true;
+                }
+            }
+            "--layout-queries" => {
+                r.layout_queries = Some(match value()?.as_str() {
+                    "zeros" => LayoutQueries::Zeros,
+                    "throw" => LayoutQueries::Throw,
+                    other => {
+                        return Err(Failure::usage(format!(
+                            "--layout-queries must be zeros or throw, got {other:?}"
+                        )));
+                    }
+                });
+            }
+            "--resource" => r.resources.push(resource_arg(&value()?)?),
             other => return Err(Failure::usage(format!("unknown option {other:?}"))),
         }
     }
@@ -266,7 +321,25 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
             "render needs an input file (or - for stdin)",
         ));
     }
+    if !r.scripts && (r.keep_scripts || r.layout_queries.is_some() || !r.resources.is_empty()) {
+        return Err(Failure::usage(
+            "--keep-scripts, --layout-queries and --resource need --scripts",
+        ));
+    }
     Ok(Command::Render(Box::new(r)))
+}
+
+/// `<url>=<file>`, split at the last `=`, as a URL's query can have one.
+fn resource_arg(value: &str) -> Result<ResourceArg, Failure> {
+    match value.rsplit_once('=') {
+        Some((url, path)) if !url.is_empty() && !path.is_empty() => Ok(ResourceArg {
+            url: url.to_owned(),
+            path: PathBuf::from(path),
+        }),
+        _ => Err(Failure::usage(format!(
+            "--resource needs <url>=<file>, got {value:?}"
+        ))),
+    }
 }
 
 /// `<name>=<file>` or `<name>:<entry>=<file>`.
@@ -328,6 +401,21 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
     if let Some(size) = args.pool_size {
         options = options.pool_size(size);
     }
+    if let Some(queries) = args.layout_queries {
+        options = options.layout_queries(queries);
+    }
+    if args.scripts {
+        let mut files = Vec::with_capacity(args.resources.len());
+        for r in &args.resources {
+            let bytes =
+                fs::read(&r.path).map_err(|e| Failure::io(&r.path.display().to_string(), &e))?;
+            files.push((r.url.clone(), bytes));
+        }
+        options = options.keep_scripts(args.keep_scripts);
+        if !files.is_empty() {
+            options = options.resource_loader(ResourceLoader::from_map(files));
+        }
+    }
     let input = match args.input.as_deref() {
         None | Some("-") => {
             let mut s = String::new();
@@ -339,9 +427,17 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
         Some(path) => fs::read_to_string(path).map_err(|e| Failure::io(path, &e))?,
     };
     let renderer = Renderer::new(options).map_err(|e| Failure::from_error(&e))?;
-    let output = renderer
-        .render_islands(&input)
-        .map_err(|e| Failure::from_error(&e))?;
+    let output = if args.scripts {
+        let page = renderer
+            .render_page(&input)
+            .map_err(|e| Failure::from_error(&e))?;
+        warn(&page.report);
+        page.html
+    } else {
+        renderer
+            .render_islands(&input)
+            .map_err(|e| Failure::from_error(&e))?
+    };
     // Written only after the render succeeded, so a failure leaves no file.
     match args.output.as_deref() {
         None | Some("-") => {
@@ -353,6 +449,49 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
         Some(path) => {
             write_atomically(Path::new(path), output.as_bytes()).map_err(|e| Failure::io(path, &e))
         }
+    }
+}
+
+/// Tells standard error what didn't go well in a page that still rendered.
+fn warn(report: &PageReport) {
+    for message in &report.errors {
+        eprintln!("surimono: warning: script error: {message}");
+    }
+    if report.uncaught > report.errors.len() as u64 {
+        eprintln!(
+            "surimono: warning: {} script errors in all",
+            report.uncaught
+        );
+    }
+    for message in &report.rejections {
+        eprintln!("surimono: warning: unhandled rejection: {message}");
+    }
+    if report.unhandled_rejections > report.rejections.len() as u64 {
+        eprintln!(
+            "surimono: warning: {} unhandled rejections in all",
+            report.unhandled_rejections
+        );
+    }
+    for failed in &report.failed {
+        eprintln!(
+            "surimono: warning: {:?} {:?} not loaded: {}",
+            failed.kind, failed.url, failed.reason
+        );
+    }
+    if report.failed_count > report.failed.len() as u64 {
+        eprintln!(
+            "surimono: warning: {} resources not loaded in all",
+            report.failed_count
+        );
+    }
+    match report.settled {
+        SettleReason::TaskLimit => {
+            eprintln!("surimono: warning: the page stopped at its limit of tasks");
+        }
+        SettleReason::VirtualBudget => {
+            eprintln!("surimono: warning: timers were left after 10 s of virtual time");
+        }
+        _ => {}
     }
 }
 
@@ -494,6 +633,11 @@ mod tests {
             "--max-islands",
             "20",
             "--pool-size=2",
+            "--scripts",
+            "--keep-scripts",
+            "--layout-queries=throw",
+            "--resource",
+            "js/a.js?v=1=lib/a.js",
         ]);
         assert_eq!(r.input.as_deref(), Some("in.html"));
         assert_eq!(r.output.as_deref(), Some("out.html"));
@@ -527,6 +671,15 @@ mod tests {
             Some(vec!["echarts".to_owned(), "mine".to_owned()])
         );
         assert_eq!((r.max_islands, r.pool_size), (Some(20), Some(2)));
+        assert!(r.scripts && r.keep_scripts);
+        assert_eq!(r.layout_queries, Some(LayoutQueries::Throw));
+        assert_eq!(
+            r.resources,
+            vec![ResourceArg {
+                url: "js/a.js?v=1".into(),
+                path: PathBuf::from("lib/a.js")
+            }]
+        );
     }
 
     #[test]
@@ -536,6 +689,7 @@ mod tests {
         assert_eq!(r.output, None);
         assert_eq!(r.limits, Limits::default());
         assert_eq!(r.policy, ErrorPolicy::Fail);
+        assert!(!r.scripts);
         let r = render_args(&["render", "--", "-o"]);
         assert_eq!(r.input.as_deref(), Some("-o"));
     }
@@ -561,6 +715,13 @@ mod tests {
             &["render", "a", "--renderers", ","],
             &["render", "a", "--max-islands", "many"],
             &["render", "a", "--pool-size", "-2"],
+            &["render", "a", "--scripts=yes"],
+            &["render", "a", "--keep-scripts"],
+            &["render", "a", "--layout-queries", "zeros"],
+            &["render", "a", "--resource", "a.js=b.js"],
+            &["render", "a", "--scripts", "--layout-queries", "guess"],
+            &["render", "a", "--scripts", "--resource", "a.js"],
+            &["render", "a", "--scripts", "--resource", "=a.js"],
         ] {
             match parse(args(bad)) {
                 Err(f) => assert_eq!(f.exit, Exit::Usage, "{bad:?}"),
@@ -580,6 +741,21 @@ mod tests {
             (Error::MemoryLimit { island: island() }, Exit::Limit),
             (Error::InvalidOptions("x".into()), Exit::Config),
             (Error::Html("x".into()), Exit::Island),
+            (Error::PageTimeLimit, Exit::Limit),
+            (Error::PageMemoryLimit, Exit::Limit),
+            (Error::PageStackOverflow, Exit::Limit),
+            (
+                Error::PageDomLimit {
+                    message: "x".into(),
+                },
+                Exit::Limit,
+            ),
+            (
+                Error::PageFailed {
+                    message: "x".into(),
+                },
+                Exit::Island,
+            ),
             (Error::TooManyIslands { max: 3 }, Exit::Island),
             (
                 Error::Bundle {

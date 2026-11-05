@@ -11,6 +11,11 @@
 //! swaps the marker for it. Everything else in the document stays byte for
 //! byte as it was.
 //!
+//! [`Renderer::render_page`] goes further and runs the document's own scripts
+//! in the same kind of sandbox, against a DOM with no layout, on a virtual
+//! clock, until the page settles. Only that method runs them; with network
+//! and files off unless you pass a [`ResourceLoader`].
+//!
 //! Cargo features, both on by default: `echarts` builds in the `echarts`
 //! renderer (Apache ECharts), and `vega` the `vega` and `vega-lite` renderers.
 //!
@@ -51,14 +56,18 @@ mod backend;
 mod charref;
 mod error;
 mod options;
+mod page;
 mod prepass;
 mod renderer;
+mod resources;
 mod svg;
 
 pub use error::{Error, IslandRef};
-pub use options::{DEFAULT_NOW_MS, Limits, Options, TextMode};
+pub use options::{DEFAULT_NOW_MS, LayoutQueries, Limits, Options, TextMode};
+pub use page::{PageOutput, PageReport, SettleReason};
 pub use prepass::ErrorPolicy;
 pub use renderer::Renderer;
+pub use resources::{ResourceFailure, ResourceFailureReason, ResourceKind, ResourceLoader};
 
 /// Version of this crate, for diagnostics.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

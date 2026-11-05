@@ -780,4 +780,104 @@ class SurimonoTest < Minitest::Test
     end
     assert_equal "time-limit", e.kind
   end
+
+  PAGE = "<!doctype html><body><script>document.body.id = 'ran';</script>"
+
+  def page_renderer(**options)
+    Surimono::Renderer.new(fonts: FONTS, bundles: BUNDLES, **options)
+  end
+
+  def test_scripts_run_only_when_asked
+    r = page_renderer
+    assert_equal PAGE, r.render(PAGE)
+    assert_equal PAGE, r.render(PAGE, scripts: false)
+    want = %(<!doctype html><html><head></head><body id="ran"></body></html>)
+    assert_equal want, r.render(PAGE, scripts: true)
+    assert_equal want, Surimono.render(PAGE, scripts: true, fonts: FONTS)
+    assert_equal Encoding::UTF_8, r.render(PAGE, scripts: true).encoding
+  end
+
+  def test_render_page_reports_what_went_wrong
+    page = page_renderer.render_page(
+      "<img src=a.png><script src=a.js></script><script>boom();</script>" \
+      "<script>Promise.reject(new Error('later'));</script><script>setInterval(() => {}, 1);</script>"
+    )
+    assert_instance_of Surimono::Page, page
+    report = page.report
+    assert_instance_of Surimono::PageReport, report
+    assert_equal :virtual_budget, report.settled
+    assert_equal 1, report.uncaught
+    assert_match(/boom/, report.errors.first)
+    assert_equal 1, report.unhandled_rejections
+    assert_match(/later/, report.rejections.first)
+    assert_equal 2, report.failed_count
+    assert_equal({ kind: :script, url: "a.js", reason: "no resource loader was given" }, report.failed[0])
+    assert_equal :image, report.failed[1][:kind]
+    assert_equal "a.png", report.failed[1][:url]
+  end
+
+  def test_page_islands_and_scripts_kept_or_not
+    html = "<script>document.title = 'y';</script>#{island}<noscript>off</noscript>"
+    out = page_renderer.render(html, scripts: true)
+    assert_includes out, stub_svg
+    refute_includes out, "<script"
+    refute_includes out, "noscript"
+    out = page_renderer(keep_scripts: true).render(html, scripts: true)
+    assert_includes out, "document.title"
+    refute_includes out, "noscript"
+  end
+
+  def test_page_layout_queries
+    html = "<div id=a></div><script>document.body.dataset.w = document.getElementById('a').offsetWidth;</script>"
+    assert_includes page_renderer.render(html, scripts: true), %(data-w="0")
+    page = page_renderer(layout_queries: :throw).render_page(html)
+    assert_equal 1, page.report.uncaught
+    assert_match(/offsetWidth needs layout/, page.report.errors.first)
+    assert_raises(ArgumentError) { page_renderer(layout_queries: :guess) }
+  end
+
+  def test_page_resources_are_the_allowlist
+    r = page_renderer(resources: { "js/app.js" => "document.body.id = 'loaded';" })
+    page = r.render_page("<script src=js/app.js></script><script src=js/other.js></script>")
+    assert_includes page.html, %(id="loaded")
+    assert_equal 1, page.report.failed_count
+    assert_equal "not in the loader's allowlist", page.report.failed[0][:reason]
+    assert_raises(ArgumentError) { page_renderer(resources: ["a.js"]) }
+    assert_raises(ArgumentError) { page_renderer(resources: { "a.js" => 1 }) }
+  end
+
+  def test_page_limits_raise_typed_errors
+    quick = page_renderer(limits: { time_ms: 100 })
+    e = assert_raises(Surimono::TimeLimitError) { quick.render_page("<script>for (;;) {}</script>") }
+    assert_equal "time-limit", e.kind
+    assert_nil e.island_index
+    small = page_renderer(limits: { memory_mb: 8 })
+    assert_raises(Surimono::MemoryLimitError) do
+      small.render_page("<script>const a = []; for (;;) a.push(new Array(1e5).fill(1));</script>")
+    end
+    assert_raises(Surimono::StackOverflowError) do
+      small.render_page("<script>const f = () => f() + 1; f();</script>")
+    end
+    e = assert_raises(Surimono::DomLimitError) { small.render_page("<div>" * 5000) }
+    assert_equal "dom-limit", e.kind
+    assert_equal 0, quick.render_page(PAGE).report.uncaught
+  end
+
+  def test_other_threads_run_while_a_page_renders
+    r = page_renderer(limits: { time_ms: 300 })
+    ticks = 0
+    ticker = Thread.new { loop { ticks += 1; sleep 0.01 } }
+    assert_raises(Surimono::TimeLimitError) { r.render_page("<script>for (;;) {}</script>") }
+    ticker.kill
+    assert_operator ticks, :>, 5
+  end
+
+  def test_timeout_interrupts_a_page
+    r = page_renderer(pool_size: 1, limits: { time_ms: 1500 })
+    took = elapsed do
+      assert_raises(Timeout::Error) { Timeout.timeout(0.2) { r.render_page("<script>for (;;) {}</script>") } }
+    end
+    assert_operator took, :<, 1.2, "Timeout waited #{took.round(2)} s for the page"
+    assert_equal 0, r.render_page(PAGE).report.uncaught, "the renderer still works"
+  end
 end
