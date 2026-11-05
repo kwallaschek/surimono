@@ -29,6 +29,7 @@ use html5ever::tokenizer::TokenizerOpts;
 use html5ever::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeBuilderOpts, TreeSink};
 use html5ever::{Attribute, QualName};
 
+use crate::document::Special;
 use crate::style_attr;
 
 /// Bytes of HTML fed between limit checks.
@@ -39,6 +40,8 @@ const CHUNK: usize = 4096;
 pub(crate) struct Parsed {
     /// (node, data): comment data, and the text of `<style>` elements.
     pub strings: Vec<(usize, String)>,
+    /// (node, what it is): the doctype.
+    pub specials: Vec<(usize, Special)>,
     /// (`<template>`, its content fragment).
     pub templates: Vec<(usize, usize)>,
     /// Nodes the tree builder took out of the tree. It puts most back; what
@@ -199,8 +202,21 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
             .append_based_on_parent_node(element, prev_element, child);
     }
 
+    /// blitz-html ignores it. A comment node to blitz-dom, so it stays out
+    /// of layout; `Document` knows it for what it is.
     fn append_doctype_to_document(&self, name: StrTendril, public: StrTendril, system: StrTendril) {
-        self.inner.append_doctype_to_document(name, public, system);
+        self.note_created();
+        let id = self.inner.create_comment(StrTendril::new());
+        self.inner
+            .append(&self.document, NodeOrText::AppendNode(id));
+        self.parsed.borrow_mut().specials.push((
+            id,
+            Special::Doctype {
+                name: name.to_string(),
+                public_id: public.to_string(),
+                system_id: system.to_string(),
+            },
+        ));
     }
 
     /// HTML §4.12.3: a template's content is a fragment outside the tree.
@@ -254,7 +270,7 @@ fn opts() -> ParseOpts {
             // `<noscript>` ends the noscript and lands in the head.
             scripting_enabled: true,
             iframe_srcdoc: false,
-            drop_doctype: true,
+            drop_doctype: false,
             quirks_mode: QuirksMode::NoQuirks,
         },
     }

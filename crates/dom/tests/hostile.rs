@@ -309,9 +309,9 @@ fn a_frameset_frees_the_body_it_orphans() {
         doc.to_html(),
         "<html><head></head><frameset></frameset></html>"
     );
-    // The document node, `<html>`, `<head>` and `<frameset>`; the body, the
-    // div and the comment are gone, not only out of the tree.
-    assert_eq!(doc.node_count(), 4);
+    // The document node, the doctype, `<html>`, `<head>` and `<frameset>`; the
+    // body, the div and the comment are gone, not only out of the tree.
+    assert_eq!(doc.node_count(), 5);
 }
 
 /// An orphan's bytes count until it goes: a page can't hide them there.

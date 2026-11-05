@@ -117,6 +117,47 @@ Phase 3 needs all three back, for layout: flags set over the tree, screened CSS
 given to blitz-dom and `flush_style_attribute` per element, all done once before
 layout, not while scripts mutate.
 
+## Several documents
+
+A render can hold many documents (`new Document()`, `DOMImplementation`,
+`document.cloneNode()`), and blitz-dom has one document node per `BaseDocument`.
+Each extra document is an element in the same slab, named `#document`, which
+no script sees as an element: `kind` says `Document`. So:
+
+- A node moves between documents by a change of owner: no copy, no new handle,
+  and its wrapper stays good. `owners` maps nodes outside the page's document to
+  their document, so an ordinary page has an empty map and pays one `is_empty`.
+- One set of limits covers every document, because there is one slab, one handle
+  table and one byte count. A document bomb ends in `NodeLimit`; nothing about a
+  document grows outside them but its `DocInfo`, one per marker.
+- A document has a handle from birth, so it lasts as long as the render, like any
+  node with a handle.
+- Nothing else lives per document. `doc.body` and `getElementById` take `this`;
+  whether a node is in an HTML document is `owners` then `DocInfo`.
+
+`Document::enter`, run before each member, sets `making` to `this`'s document. New
+nodes join it through `born`, so `createElement`, `innerHTML`, `textContent`,
+`append("x")`, `splitText`, `cloneNode` and `importNode` needed no argument.
+Parser nodes don't pass through `born` and take a walk after the parse.
+
+Insertion and `adoptNode` run DOM's "adopt", linear in the subtree. Only the page
+is reachable from `run_page`: its scripts run, others never, and `to_html` writes
+only the page.
+
+blitz-dom has no doctype, processing instruction or CDATA section either. The
+first two are comment nodes to it, the last a text node, with the rest in
+`specials`: its layout then skips them, as it does comments. The page's doctype is
+one too, so `document.firstChild` is the doctype, as in a browser, and
+`node_count` is one higher than the tree of elements suggests. `HTML serialization`
+of the document leaves it out, because `to_html` starts at the document element.
+
+**Gaps.** Scripts in another document never run, and it has no browsing context
+(`defaultView` and `location` are null, as the standard says). The template contents
+owner document doesn't exist: a template's content stays in the template's document.
+`createDocumentType` follows the current "valid doctype name". A `splitText` of a
+CDATA section gives a CDATA section's data in a Text node, as the standard does.
+`Attr` isn't a whole `Node` (see COMPAT).
+
 ## Objects other than nodes
 
 The handle table holds `Object`s, not only nodes: live lists (`childNodes`,
@@ -430,11 +471,6 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   would let real nesting reach the parser's recursion, so the count stays
   conservative. `tests/hostile.rs` runs the worst allowed selector on the
   stack headroom alone.
-- **`document.cloneNode()`.** §4.4 and WPT Node-cloneNode.html give a new
-  `Document`; a runtime holds one document and blitz-dom can't make a second
-  document node, so the call ends with `DomError::Unsupported`. That is a gap,
-  not conformance (`tests/mutation.rs`, `cloning_a_document_is_a_known_gap`).
-  Comes with `DOMImplementation`.
 - **Half a surrogate pair.** Text is stored as UTF-8, which can't hold a lone
   surrogate, so a CharacterData offset inside a pair (`deleteData(0, 1)` on an
   emoji) leaves U+FFFD. The DOM keeps the lone code unit.
