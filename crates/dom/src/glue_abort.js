@@ -51,14 +51,19 @@
     s.reason = abortReason(reason);
     return s.w;
   };
-  // [EnforceRange] unsigned long long, on the virtual clock.
+  // [EnforceRange] unsigned long long, on the virtual clock. A timer's delay
+  // is a 32-bit integer; nothing past that is reached in a render's budget.
   H.AbortSignal_timeout = (milliseconds) => {
-    const v = +milliseconds;
-    if (v - v !== 0 || v < 0) throw new TE('timeout: the value is out of range');
+    const v = trunc(+milliseconds);
+    if (v - v !== 0 || v < 0 || v > 9007199254740991) {
+      throw new TE('timeout: the value is out of range');
+    }
     const s = newSignal();
-    setTimeoutReal(() => {
-      signalAbort(s, new DOMExceptionCtor('The operation timed out', 'TimeoutError'));
-    }, v);
+    if (v <= 2147483647) {
+      task(() => {
+        signalAbort(s, new DOMExceptionCtor('The operation timed out', 'TimeoutError'));
+      }, v);
+    }
     return s.w;
   };
   // §3.2.3 "create a dependent abort signal".

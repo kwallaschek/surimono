@@ -1549,6 +1549,7 @@ fn elements_are_named_on_the_window() {
     // that isn't there is still a ReferenceError.
     let (mut rt, _) = page(
         "<!doctype html><div id=one></div><p id=window></p><p id=setTimeout></p><i id=two></i>
+         <b id=three></b><b id=four></b><b id=five></b>
          <script>globalThis.log = [];
          log.push(one === document.getElementById('one'), typeof setTimeout, window === self);
          let threw = '';
@@ -1556,11 +1557,16 @@ fn elements_are_named_on_the_window() {
          log.push(threw, typeof nothing_here, 'one' in window);
          document.getElementById('two').remove();
          log.push(typeof two);
-         </script><script>var one = 5; log.push(window.one);</script>",
+         </script><script>var one = 5; log.push(window.one);
+         three = { x: 1 }; log.push(three.x, window.three.x);
+         window.four = 7; log.push(four);
+         (function () { 'use strict'; five = 8; })(); log.push(window.five);
+         log.push(Object.getOwnPropertyDescriptor(window, 'three') !== undefined);
+         </script>",
     );
     assert_eq!(
         log_of(&mut rt),
-        "true,function,true,ReferenceError,undefined,true,undefined,5"
+        "true,function,true,ReferenceError,undefined,true,undefined,5,1,1,7,8,true"
     );
 }
 
@@ -1580,4 +1586,144 @@ fn svg_elements_have_event_handlers() {
          </script>",
     );
     assert_eq!(log_of(&mut rt), "r,click,function,idl");
+}
+
+#[test]
+fn every_event_getter_answers_something() {
+    // WebIDL: an attribute's getter returns a value of its type, so undefined
+    // is only for `any`. Pointer Events §5.1 for the defaults.
+    let r = eval(
+        r#"const out = [];
+        for (const name of Object.getOwnPropertyNames(window)) {
+          const I = window[name];
+          if (typeof I !== 'function' || !(I.prototype instanceof Event)) continue;
+          let e;
+          try { e = new I('x', { promise: {} }); }
+          catch (x) { e = document.createEvent(name); }
+          for (let p = I.prototype; p !== Event.prototype; p = Object.getPrototypeOf(p)) {
+            for (const [k, d] of Object.entries(Object.getOwnPropertyDescriptors(p))) {
+              if (d.get && d.get.call(e) === undefined) out.push(name + '.' + k);
+            }
+          }
+        }
+        const p = new PointerEvent('x');
+        out.sort();
+        [out.join(), p.tiltX, p.tiltY, p.azimuthAngle, Math.abs(p.altitudeAngle - Math.PI / 2) < 1e-9,
+         new DeviceMotionEvent('x').acceleration, new PointerEvent('x', { tiltX: 5 }).tiltX].join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "ErrorEvent.error,PromiseRejectionEvent.reason|0|0|0|true||5"
+    );
+}
+
+#[test]
+fn legacy_initializers_convert_their_arguments() {
+    // WebIDL §3.2: HTML's initMessageEvent and initStorageEvent.
+    let r = eval(
+        r#"const out = [];
+        const m = document.createEvent('MessageEvent');
+        for (const f of [() => m.initMessageEvent('x', false, false, null, '', '', 5),
+          () => m.initMessageEvent('x', false, false, null, '', '', null, {}),
+          () => m.initMessageEvent('x', false, false, null, '', '', null, [1]),
+          () => document.createEvent('StorageEvent').initStorageEvent('x', false, false, null, null,
+            null, '', {})]) {
+          try { f(); out.push('no'); } catch (e) { out.push(e.name); }
+        }
+        m.initMessageEvent('y', true, false, 3, 'o', 'i', window, []);
+        const s = document.createEvent('StorageEvent');
+        s.initStorageEvent('z', false, false, 1, null, 'n', 2);
+        out.push(m.type, m.data, m.origin, m.source === window, m.ports.length, s.key, s.oldValue,
+          s.newValue, s.url);
+        out.join('|')"#,
+    );
+    assert_eq!(
+        r,
+        "TypeError|TypeError|TypeError|TypeError|y|3|o|true|0|1||n|2"
+    );
+}
+
+#[test]
+fn pointer_event_sequences_come_from_the_init() {
+    let r = eval(
+        r#"const q = new PointerEvent('q');
+        const p = new PointerEvent('y', { coalescedEvents: [q], predictedEvents: [q, q] });
+        const got = p.getCoalescedEvents();
+        [got.length, got[0] === q, got !== p.getCoalescedEvents(),
+         p.getPredictedEvents().length].join('|')"#,
+    );
+    assert_eq!(r, "1|true|true|2");
+}
+
+#[test]
+fn abort_signal_timeout_range() {
+    // WebIDL [EnforceRange] unsigned long long; a delay past a timer's range
+    // doesn't wrap around to now.
+    let (mut rt, _) = page(
+        "<!doctype html><script>globalThis.log = [];
+         for (const v of [-1, NaN, Infinity, 2 ** 53]) {
+           try { AbortSignal.timeout(v); log.push('no'); } catch (e) { log.push(e.name); }
+         }
+         for (const v of [2 ** 31, 2 ** 32 + 7, 1e12, 9007199254740991]) {
+           AbortSignal.timeout(v).addEventListener('abort', () => log.push('early ' + v));
+         }
+         AbortSignal.timeout(-0.5).addEventListener('abort', () => log.push('zero'));
+         </script>",
+    );
+    assert_eq!(
+        log_of(&mut rt),
+        "TypeError,TypeError,TypeError,TypeError,zero"
+    );
+}
+
+#[test]
+fn a_page_cant_clear_the_glues_tasks() {
+    // The next timer id after the page's own is the glue's task; clearing it
+    // changes nothing.
+    let (mut rt, _) = page(
+        "<!doctype html><details id=d><summary id=s>x</summary></details>
+         <a id=a href='#f'>l</a><script>globalThis.log = [];
+         addEventListener('hashchange', () => log.push('hash'));
+         const d = document.getElementById('d');
+         d.addEventListener('toggle', (e) => log.push(e.newState));
+         const near = setTimeout(() => {}, 0);
+         document.getElementById('s').click();
+         document.getElementById('a').click();
+         const signal = AbortSignal.timeout(5);
+         signal.addEventListener('abort', () => log.push('abort'));
+         for (let i = near; i < near + 8; i++) clearTimeout(i);
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "open,hash,abort");
+}
+
+#[test]
+fn a_replaceable_attribute_with_no_this_is_the_windows() {
+    // WebIDL §3.7.6: an undefined `this` is the global.
+    let r = eval(
+        r#"const set = Object.getOwnPropertyDescriptor(window, 'event').set;
+        (function () { 'use strict'; set.call(undefined, 9); })();
+        String(window.event)"#,
+    );
+    assert_eq!(r, "9");
+}
+
+#[test]
+fn a_labels_control_ignores_hidden_inputs_and_stays_in_its_tree() {
+    // HTML §4.10.4.
+    let r = eval(
+        r#"a.innerHTML = '<label id=l1><input type=HIDDEN><input id=v></label>' +
+          '<label id=l2 for=h></label><input id=h type=hidden><label id=l3 for=nope></label>';
+        const $ = (i) => document.getElementById(i);
+        const free = document.createElement('label');
+        free.htmlFor = 'inner';
+        const inner = document.createElement('input');
+        inner.id = 'inner';
+        free.append(inner);
+        const stray = document.createElement('label');
+        stray.htmlFor = 'v';
+        [$('l1').control === $('v'), $('l2').control, $('l3').control, free.control === inner,
+         stray.control].join('|')"#,
+    );
+    assert_eq!(r, "true|||true|");
 }

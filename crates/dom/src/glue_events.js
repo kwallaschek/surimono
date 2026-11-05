@@ -23,7 +23,7 @@
   // A new wrapper of a hand-written interface. `target` is new.target.
   function make(id, target) {
     const s = create(null);
-    s.m = masks[id]; s.g = 0; s.h = 0;
+    s.m = brands[id]; s.g = 0; s.h = 0;
     const w = new Brand(create(protos[id]), s);
     s.w = w;
     if (target !== undefined) adopt(w, target, id);
@@ -412,9 +412,21 @@
   H.MouseEvent_offsetY = (s) => s.d.clientY;
   H.MouseEvent_layerX = (s) => s.d.clientX;
   H.MouseEvent_layerY = (s) => s.d.clientY;
-  // No coalescing here: no real input arrives.
-  H.PointerEvent_getCoalescedEvents = () => realArray(list());
-  H.PointerEvent_getPredictedEvents = () => realArray(list());
+  // A new sequence each time, of what the init gave: no real input arrives.
+  function freshCopy(a) {
+    const l = list();
+    for (let i = 0; i < a.length; i++) add(l, a[i]);
+    return realArray(l);
+  }
+  H.PointerEvent_getCoalescedEvents = (s) => freshCopy(s.d.coalescedEvents);
+  H.PointerEvent_getPredictedEvents = (s) => freshCopy(s.d.predictedEvents);
+  // Pointer Events §5.1, the defaults for a device with no tilt. A given pair
+  // isn't converted to the other pair.
+  const orDefault = (v, d) => (v === undefined ? d : v);
+  H.PointerEvent_tiltX = (s) => orDefault(s.d.tiltX, 0);
+  H.PointerEvent_tiltY = (s) => orDefault(s.d.tiltY, 0);
+  H.PointerEvent_altitudeAngle = (s) => orDefault(s.d.altitudeAngle, 1.5707963267948966);
+  H.PointerEvent_azimuthAngle = (s) => orDefault(s.d.azimuthAngle, 0);
   H.BeforeUnloadEvent_returnValue = (s) => (s.returnText === undefined ? '' : s.returnText);
   H.set_BeforeUnloadEvent_returnValue = (s, v) => { s.returnText = v; };
 

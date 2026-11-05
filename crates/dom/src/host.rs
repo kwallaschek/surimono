@@ -85,6 +85,7 @@ fn html_interface(local: &str) -> u32 {
         "progress" => interface::HTML_PROGRESS_ELEMENT,
         "script" => interface::HTML_SCRIPT_ELEMENT,
         "select" => interface::HTML_SELECT_ELEMENT,
+        "selectedcontent" => interface::HTML_SELECTED_CONTENT_ELEMENT,
         "slot" => interface::HTML_SLOT_ELEMENT,
         "source" => interface::HTML_SOURCE_ELEMENT,
         "span" => interface::HTML_SPAN_ELEMENT,
@@ -608,6 +609,56 @@ impl Document {
             }
         }
         Ok(names)
+    }
+
+    /// A label's labeled control (HTML §4.10.4), or 0: with `for`, the first
+    /// element of the label's own tree with that `id`, if it is labelable;
+    /// otherwise the first labelable descendant. Polls the deadline.
+    pub(crate) fn labeled_control(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let label = self.node_of(this)?;
+        let wanted = self.attribute(label, "for");
+        let mut top = label;
+        if wanted.is_some() {
+            while let Some(p) = self.parent(top) {
+                top = p;
+            }
+        }
+        let mut found = None;
+        let mut stack = vec![top];
+        while let Some(at) = stack.pop() {
+            self.poll()?;
+            stack.extend(self.children(at).iter().rev().copied());
+            match &wanted {
+                Some(id) if !id.is_empty() && self.attribute(at, "id").as_ref() == Some(id) => {
+                    found = Some(at).filter(|&c| self.labelable(c));
+                    break;
+                }
+                None if at != label && self.labelable(at) => {
+                    found = Some(at);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        match found {
+            Some(c) => self.handle_for(c).map_err(|e| self.fail(e)),
+            None => Ok(0),
+        }
+    }
+
+    /// HTML §4.10.2, labelable elements. Form-associated custom elements
+    /// aren't there yet.
+    fn labelable(&self, id: usize) -> bool {
+        self.element_name(id).is_some_and(|n| {
+            n.ns == ns!(html)
+                && match n.local.as_ref() {
+                    "button" | "meter" | "output" | "progress" | "select" | "textarea" => true,
+                    "input" => !self
+                        .attribute(id, "type")
+                        .is_some_and(|t| t.eq_ignore_ascii_case("hidden")),
+                    _ => false,
+                }
+        })
     }
 
     /// Radio input activation (HTML §4.10.5.1.15): checks `this`, unchecks the
