@@ -16,7 +16,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use surimono_core::{SandboxError, SandboxOptions, SettleOptions, SettleOutcome};
-use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
+use surimono_dom::{Document, DomError, DomLimits, DomRuntime, LayoutPolicy};
 
 use crate::backend;
 use crate::error::Error;
@@ -86,33 +86,11 @@ struct Setup {
     /// How long everything after the scripts may take.
     finish_time: Duration,
     output_bytes: usize,
-    /// A script that puts the layout shim first in the tree.
-    add_shim: String,
+    layout: LayoutPolicy,
     /// A script that clears the settled page out for printing.
     cleanup: String,
     keep_scripts: bool,
     loader: Option<ResourceLoader>,
-}
-
-/// The classic script text of the layout shim, as a statement adding it.
-fn add_shim(queries: LayoutQueries) -> String {
-    let mode = match queries {
-        LayoutQueries::Zeros => "zeros",
-        LayoutQueries::Throw => "throw",
-    };
-    let shim = format!(
-        "(function (mode) {{ 'use strict';\n{}\n}})('{mode}');",
-        include_str!("layout_shim.js"),
-    );
-    let text = serde_json::Value::from(shim);
-    format!(
-        "(function () {{
-           const s = document.createElement('script');
-           s.textContent = {text};
-           const root = document.documentElement;
-           root.insertBefore(s, root.firstChild);
-         }})();"
-    )
 }
 
 fn cleanup(keep_scripts: bool) -> String {
@@ -141,9 +119,46 @@ pub(crate) struct CallerLoad<'a> {
     pub(crate) load: &'a mut dyn FnMut(&str) -> Result<Vec<u8>, String>,
 }
 
+/// How a caller stops its job, in whatever state it's in.
+#[derive(Default)]
+struct Stop {
+    raised: AtomicBool,
+    /// The running runtime's own flag, while the job has a runtime.
+    runtime: Mutex<Option<Arc<AtomicBool>>>,
+}
+
+impl Stop {
+    fn runtime(&self) -> MutexGuard<'_, Option<Arc<AtomicBool>>> {
+        self.runtime.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn raise(&self) {
+        self.raised.store(true, Ordering::Release);
+        if let Some(flag) = self.runtime().as_ref() {
+            flag.store(true, Ordering::Release);
+        }
+    }
+
+    /// Lets a raise reach `flag`, and fails if one already came.
+    fn attach(&self, flag: Arc<AtomicBool>) -> Result<(), Error> {
+        *self.runtime() = Some(flag);
+        if self.raised.load(Ordering::Acquire) {
+            return Err(Error::Cancelled);
+        }
+        Ok(())
+    }
+
+    /// Ends that, leaving the runtime's flag down for its next page.
+    fn detach(&self) {
+        if let Some(flag) = self.runtime().take() {
+            flag.store(false, Ordering::Release);
+        }
+    }
+}
+
 struct Job {
     html: String,
-    stop: Arc<AtomicBool>,
+    stop: Arc<Stop>,
     /// The allowlist of a caller's load function, if it has one.
     allow: Option<Vec<String>>,
     reply: Sender<Message>,
@@ -193,9 +208,7 @@ impl PagePool {
                     sandbox,
                     memory_bytes: options.limits.memory_bytes,
                     dom: DomLimits {
-                        // A serialized page holds its text at least once, and
-                        // the serializer can't be stopped: this keeps what it
-                        // has to write to a multiple of the limit.
+                        // A serialized page holds its text at least once.
                         max_text_bytes: options
                             .limits
                             .output_bytes
@@ -204,7 +217,10 @@ impl PagePool {
                     },
                     finish_time: options.limits.time,
                     output_bytes: options.limits.output_bytes,
-                    add_shim: add_shim(options.layout_queries),
+                    layout: match options.layout_queries {
+                        LayoutQueries::Zeros => LayoutPolicy::Zeros,
+                        LayoutQueries::Throw => LayoutPolicy::Throw,
+                    },
                     cleanup: cleanup(options.keep_scripts),
                     keep_scripts: options.keep_scripts,
                     loader: options.resource_loader.clone(),
@@ -218,10 +234,9 @@ impl PagePool {
     }
 
     /// Runs `html` as a page on a worker. With `cancel`, the call returns
-    /// [`Error::Cancelled`] within milliseconds of the flag going up; a page
-    /// still queued never starts, and a running one is left to stop at its
-    /// time limit, because [`DomRuntime`] offers no way to stop it from
-    /// outside. Its worker is busy until then.
+    /// [`Error::Cancelled`] within milliseconds of the flag going up. A page
+    /// still queued never starts, and a running one stops too, its worker free
+    /// again within milliseconds.
     pub(crate) fn run(
         &self,
         html: &str,
@@ -233,7 +248,7 @@ impl PagePool {
             return Err(Error::Cancelled);
         }
         let (reply, messages): (_, Receiver<Message>) = mpsc::channel();
-        let stop = Arc::new(AtomicBool::new(false));
+        let stop = Arc::new(Stop::default());
         {
             let mut state = self.shared.lock();
             let job = Job {
@@ -275,7 +290,7 @@ impl PagePool {
                 }
             }
             if raised() {
-                stop.store(true, Ordering::Release);
+                stop.raise();
                 return Err(Error::Cancelled);
             }
         }
@@ -344,7 +359,7 @@ fn work(shared: &Shared) {
             surimono_core::release_free_memory();
             continue;
         };
-        if job.stop.load(Ordering::Acquire) {
+        if job.stop.raised.load(Ordering::Acquire) {
             continue;
         }
         let result = catch_unwind(AssertUnwindSafe(|| {
@@ -365,23 +380,31 @@ fn work(shared: &Shared) {
 }
 
 fn run_page(setup: &Setup, runtime: &mut Option<DomRuntime>, job: &Job) -> PageResult {
-    let document = Document::parse_with_limits(&job.html, setup.dom).map_err(page_error)?;
+    // Parsing isn't under a script's limit, and has one of its own.
+    let parsing = Gate::new(&job.stop.raised, setup.finish_time);
+    let stop = || parsing.check().is_err();
+    let document = Document::parse_stoppable(&job.html, setup.dom, stop)
+        .map_err(|e| gated_error(e, &parsing))?;
     let rt = match runtime {
         Some(rt) => rt,
         None => {
-            runtime.insert(DomRuntime::with_options(setup.sandbox.clone()).map_err(page_error)?)
+            let mut rt = DomRuntime::with_options(setup.sandbox.clone()).map_err(page_error)?;
+            rt.set_layout_policy(setup.layout);
+            runtime.insert(rt)
         }
     };
     rt.load(document);
-    let result = run_loaded(setup, rt, job);
+    let result = job
+        .stop
+        .attach(rt.cancel_flag())
+        .and_then(|()| run_loaded(setup, rt, job));
+    job.stop.detach();
     // The document goes now, not with the next page.
     drop(rt.take());
     result
 }
 
 fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
-    // Run in a context the page never sees, before any of its code exists.
-    rt.eval::<()>(&setup.add_shim).map_err(page_error)?;
     let ask = |url: &str| {
         let (answer, bytes) = mpsc::channel();
         let need = Message::Need {
@@ -400,7 +423,7 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
         .run_page(&SettleOptions::default(), |url| fetcher.script(url))
         .map_err(page_error)?;
     // One deadline from here to the end, and a cancel reaches all of it.
-    let gate = Gate::new(&job.stop, setup.finish_time);
+    let gate = Gate::new(&job.stop.raised, setup.finish_time);
     gate.check()?;
     let settled = match page.settle.outcome {
         SettleOutcome::Settled if page.settle.settled_by_budget() => SettleReason::VirtualBudget,
@@ -420,15 +443,13 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
         message: format!("reading the page's summary: {e}"),
     })?;
     add_images(&mut fetcher.failures, &summary);
-    let body = rt
-        .with_document(Document::to_html)
-        .ok_or_else(|| page_error(DomError::NoDocument))?;
-    if body.len() > setup.output_bytes {
-        return Err(print::too_long(setup.output_bytes));
-    }
+    let stop = || gate.check().is_err();
+    let mut html = rt
+        .with_document(|document| document.to_html_bounded(setup.output_bytes, stop))
+        .ok_or_else(|| page_error(DomError::NoDocument))?
+        .map_err(|e| gated_error(e, &gate))?;
     // The parser drops the doctype; a renderer that goes by it gets the mode
     // the page ran in, standards or not. (Blitz always lays out as no-quirks.)
-    let mut html = body;
     if summary.standards {
         html.insert_str(0, "<!doctype html>");
     }
@@ -472,9 +493,20 @@ fn add_images(failures: &mut Failures, summary: &Summary) {
     failures.count += summary.images.saturating_sub(summary.urls.len() as u64);
 }
 
+/// [`page_error`], for a step stopped by `gate`: by a cancel or its deadline.
+fn gated_error(e: DomError, gate: &Gate<'_>) -> Error {
+    match e {
+        DomError::Stopped => gate.check().err().unwrap_or(Error::Cancelled),
+        other => page_error(other),
+    }
+}
+
 /// The public error for a page that failed.
 fn page_error(e: DomError) -> Error {
     match e {
+        DomError::Stopped => Error::Cancelled,
+        DomError::LayoutQuery { member } => Error::PageLayoutQuery { member },
+        DomError::OutputLimit { limit } => print::too_long(limit),
         DomError::Sandbox(SandboxError::Cancelled) => Error::Cancelled,
         DomError::Sandbox(SandboxError::MemoryLimit) => Error::PageMemoryLimit,
         DomError::Sandbox(SandboxError::TimeLimit) => Error::PageTimeLimit,
@@ -483,6 +515,7 @@ fn page_error(e: DomError) -> Error {
         | DomError::TreeTooDeep { .. }
         | DomError::HandleLimit { .. }
         | DomError::TextLimit { .. }
+        | DomError::AttributeLimit { .. }
         | DomError::StyleLimit { .. } => Error::PageDomLimit {
             message: e.to_string(),
         },

@@ -39,8 +39,9 @@ pub struct Limits {
     pub memory_bytes: usize,
     /// Longest one island may run: one deadline per island covering loading
     /// the renderer's bundle into a fresh runtime and drawing the island. A
-    /// page's scripts share one such limit, and everything after them
-    /// (serializing, loading stylesheets, the checks for a printer) another.
+    /// page's scripts share one such limit, its parse has another, and
+    /// everything after its scripts (serializing, loading stylesheets, the
+    /// checks for a printer) a third.
     /// Must be more than zero.
     pub time: Duration,
     /// Most bytes of native stack the JavaScript engine may use, from 64 KiB to 16 MiB.
@@ -145,8 +146,10 @@ pub enum LayoutQueries {
     /// and may draw at size 0. The default.
     #[default]
     Zeros,
-    /// Each query throws a `NotSupportedError` `DOMException`. Uncaught, it
-    /// goes in the report like any exception, so you see which pages measure.
+    /// The first query ends the render with
+    /// [`Error::PageLayoutQuery`](crate::Error::PageLayoutQuery), even if the
+    /// page catches the exception, for when you'd rather have no page than one
+    /// built on measurements that aren't real.
     Throw,
 }
 
@@ -333,8 +336,8 @@ impl Options {
         self
     }
 
-    /// Lets a page's external scripts and stylesheets load, through `loader`
-    /// only. Default: none, so network and files are off. See
+    /// Lets a page's external scripts, frames and stylesheets load, through
+    /// `loader` only. Default: none, so network and files are off. See
     /// [`ResourceLoader`].
     pub fn resource_loader(mut self, loader: ResourceLoader) -> Self {
         self.resource_loader = Some(loader);

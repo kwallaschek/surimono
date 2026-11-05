@@ -52,6 +52,18 @@ module Surimono
   # handles, bytes of text or the size of a style attribute.
   class DomLimitError < Error; end
 
+  # A page's script asked for layout with layout_queries: :throw. The render
+  # ends, even if the page catches the exception.
+  class LayoutQueryError < Error
+    # The member it used, such as "getBoundingClientRect".
+    attr_reader :member
+
+    def initialize(message = nil, member: nil, **details)
+      super(message, **details)
+      @member = member
+    end
+  end
+
   # An island's script threw. Named JavaScriptError because Ruby already has
   # a top-level ::ScriptError.
   class JavaScriptError < Error
@@ -153,11 +165,12 @@ module Surimono
     #                (default: CPU count, at most 4; at most 64).
     # layout_queries:: with page scripts, what getBoundingClientRect, offsetWidth
     #                and the like give, as nothing is laid out: :zeros (default)
-    #                or :throw (a NotSupportedError in the script).
+    #                or :throw, where the first one ends the render with
+    #                LayoutQueryError, even if the page catches the exception.
     # keep_scripts:: with page scripts, leave <script> elements in the result.
     #                Default false: all but island markers are removed.
-    # resources::    with page scripts, what <script src> and a stylesheet's
-    #                <link href> may load, as
+    # resources::    with page scripts, what <script src>, <iframe src> and a
+    #                stylesheet's <link href> may load, as
     #                { "url as written in the page" => source }. Only these load:
     #                no network and no files otherwise. Limits apply to a page's
     #                scripts as one, not per script.
@@ -250,7 +263,8 @@ module Surimono
     #          open anyway if you read files.
     #
     # An exception in a page doesn't raise, it goes in the report. A limit does:
-    # MemoryLimitError, TimeLimitError, StackOverflowError or DomLimitError.
+    # MemoryLimitError, TimeLimitError, StackOverflowError or DomLimitError, and
+    # LayoutQueryError with layout_queries: :throw.
     #
     # Print pages from people you don't trust in a process of your own: a timeout
     # can't stop a thread, or catch what ends a process. Give the printer stack
@@ -258,8 +272,8 @@ module Surimono
     # Ruby's threads have 1 MiB unless RUBY_THREAD_MACHINE_STACK_SIZE says
     # otherwise, which is what Puma and Sidekiq workers run on.
     #
-    # An interrupt raises at once, but a page already running goes on, unobserved,
-    # until its time limit, taking one of pool_size's runtimes until then.
+    # An interrupt raises at once, and stops the page's script within
+    # milliseconds, freeing its runtime.
     def render_page(html, loader: nil, allow: nil)
       raise ArgumentError, "allow needs a loader" if loader.nil? && !allow.nil?
 

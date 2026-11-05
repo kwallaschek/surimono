@@ -143,10 +143,18 @@ pub enum Error {
     #[error("the page's scripts exceeded the memory limit")]
     PageMemoryLimit,
     /// A page's scripts ran longer than the time limit allows, or what follows
-    /// them did: serializing, stylesheets and the checks for a printer share
-    /// one such limit of their own.
+    /// them did: its parse has one such limit, and serializing, stylesheets and
+    /// the checks for a printer share another.
     #[error("the page exceeded the time limit")]
     PageTimeLimit,
+    /// A page's script asked for layout under
+    /// [`LayoutQueries::Throw`](crate::LayoutQueries::Throw). The render ends
+    /// here, even if the page catches the exception.
+    #[error("the page's script asked for layout through {member}")]
+    PageLayoutQuery {
+        /// The member it used, such as `getBoundingClientRect`.
+        member: String,
+    },
     /// A page's scripts recursed deeper than the stack limit allows, and
     /// nothing caught it.
     #[error("the page's scripts exceeded the stack limit")]
@@ -194,6 +202,7 @@ impl Error {
             | Error::PageTimeLimit
             | Error::PageStackOverflow
             | Error::PageDomLimit { .. }
+            | Error::PageLayoutQuery { .. }
             | Error::PageFailed { .. } => None,
         }
     }
@@ -216,6 +225,7 @@ impl Error {
             Error::TooManyIslands { .. } => "too-many-islands",
             Error::Cancelled => "cancelled",
             Error::PageDomLimit { .. } => "dom-limit",
+            Error::PageLayoutQuery { .. } => "layout-query",
             Error::PageFailed { .. } => "page",
         }
     }
@@ -277,6 +287,12 @@ mod tests {
                     message: "x".into(),
                 },
                 "dom-limit",
+            ),
+            (
+                Error::PageLayoutQuery {
+                    member: "offsetWidth".into(),
+                },
+                "layout-query",
             ),
             (
                 Error::PageFailed {

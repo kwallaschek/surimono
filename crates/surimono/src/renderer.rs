@@ -458,10 +458,9 @@ impl Renderer {
     /// [`render_page`](Self::render_page) that stops early once `cancel` is
     /// true: the call ends with [`Error::Cancelled`] within milliseconds.
     ///
-    /// A page already running isn't stopped yet: it goes on, unobserved, until
-    /// its [time limit](crate::Limits::time), and its worker is taken until
-    /// then, so later pages may wait for it. Islands stop as in
-    /// [`render_islands_cancellable`](Self::render_islands_cancellable).
+    /// A running script stops within milliseconds, as does the parse before it
+    /// and the work after it, and the worker takes the next page. Islands stop
+    /// as in [`render_islands_cancellable`](Self::render_islands_cancellable).
     ///
     /// # Errors
     ///

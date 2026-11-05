@@ -332,53 +332,30 @@ fn layout_queries_answer_zeros_by_default() {
 }
 
 #[test]
-fn layout_queries_can_throw() {
+fn a_layout_query_can_end_the_render() {
     let r = renderer(options().layout_queries(LayoutQueries::Throw));
-    let out = page(
-        &r,
-        "<div id=a></div><script>
-           const a = document.getElementById('a');
-           const seen = [];
-           for (const f of [() => a.getBoundingClientRect(), () => a.offsetWidth,
-                            () => getComputedStyle(a), () => innerHeight]) {
-             try { f(); seen.push('no'); } catch (e) { seen.push(e.name); }
-           }
-           document.body.dataset.got = seen.join();
-         </script>
-         <script>a.getClientRects();</script>",
-    );
-    let name = "NotSupportedError";
-    let want = [name, name, name, name].join(",");
-    assert!(out.html.contains(&want), "{}", out.html);
-    assert_eq!(out.report.uncaught, 1);
-    assert!(
-        out.report.errors[0].contains("getClientRects() needs layout"),
-        "{:?}",
-        out.report
-    );
-}
-
-/// The shim is a script, but no page can see it in the tree, and its run takes
-/// no virtual time.
-#[test]
-fn the_shim_leaves_no_trace_in_the_tree() {
-    let out = page(
-        &renderer(options()),
-        "<!doctype html><html lang=en><head><script>
-           const root = document.documentElement;
-           root.dataset.got = [
-             document.querySelectorAll('script').length, root.firstChild.nodeName,
-             document.currentScript.textContent.length > 0,
-             Date.now() - new Date(2026, 0, 1).getTime(), performance.now(),
-           ].join();
-         </script>",
-    );
-    assert_eq!(out.report.uncaught, 0, "{:?}", out.report);
-    assert!(
-        out.html.contains("data-got=\"1,HEAD,true,0,0\""),
-        "{}",
-        out.html
-    );
+    for (query, member) in [
+        ("a.getBoundingClientRect()", "getBoundingClientRect"),
+        ("a.offsetWidth", "offsetWidth"),
+        ("getComputedStyle(a)", "getComputedStyle"),
+        ("innerHeight", "innerHeight"),
+    ] {
+        // Catching it changes nothing.
+        let html = format!(
+            "<div id=a></div><script>
+               const a = document.getElementById('a');
+               try {{ {query}; }} catch (e) {{ document.title = 'caught'; }}
+             </script>"
+        );
+        let e = r.render_page(&html).map(|_| ()).unwrap_err();
+        assert!(
+            matches!(&e, Error::PageLayoutQuery { member: m } if m.contains(member)),
+            "{query}: {e}"
+        );
+        assert_eq!(e.kind(), "layout-query");
+    }
+    // A page that doesn't ask renders, on the same renderer.
+    assert!(page(&r, "<p>x").html.contains("<p>x</p>"));
 }
 
 #[test]
@@ -461,9 +438,122 @@ fn a_cancel_ends_the_call_at_once() {
     let _ = setter.join();
     assert!(matches!(out, Err(Error::Cancelled)), "{out:?}");
     assert!(took < Duration::from_millis(400), "took {took:?}");
-    // The same renderer works; a page queued behind the abandoned one waits
-    // for its time limit at most.
+    // The same renderer works, at once, and the stop is gone with that page.
     assert_eq!(page(&r, PAGE).report.uncaught, 0);
+}
+
+/// A cancel frees the worker: with a time limit of a minute, the next page
+/// on a one-worker pool would otherwise wait for it.
+#[test]
+fn a_cancel_stops_a_running_script_and_goes_no_further() {
+    let r = renderer(options().pool_size(1).limits(Limits {
+        time: Duration::from_secs(60),
+        ..Limits::default()
+    }));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let setter = {
+        let cancel = Arc::clone(&cancel);
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            cancel.store(true, Ordering::Release);
+        })
+    };
+    let out = r.render_page_cancellable("<script>for (;;) {}</script>", &cancel);
+    let _ = setter.join();
+    assert!(matches!(out, Err(Error::Cancelled)), "{out:?}");
+    let started = Instant::now();
+    assert!(page(&r, "<p>x").html.contains("<p>x</p>"));
+    assert!(started.elapsed() < Duration::from_secs(20));
+}
+
+#[test]
+fn the_static_parse_has_a_limit_and_a_cancel() {
+    let attributes: Vec<String> = (0..60_000).map(|i| format!("a{i}")).collect();
+    let html = format!("<!doctype html><div {}>", attributes.join(" "));
+    let r = renderer(options().limits(Limits {
+        time: Duration::from_millis(100),
+        ..Limits::default()
+    }));
+    let e = r.render_page(&html).map(|_| ()).unwrap_err();
+    assert!(
+        matches!(e, Error::PageTimeLimit | Error::PageDomLimit { .. }),
+        "{e}"
+    );
+    let cancel = AtomicBool::new(false);
+    let r = renderer(options());
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            std::thread::sleep(Duration::from_millis(20));
+            cancel.store(true, Ordering::Release);
+        });
+        let out = r.render_page_cancellable(&html, &cancel);
+        assert!(out.is_err(), "{out:?}");
+    });
+}
+
+#[test]
+fn frames_load_through_the_allowlist() {
+    let loads = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&loads);
+    let loader = ResourceLoader::new(["frames/"], move |url| {
+        counted.fetch_add(1, Ordering::Relaxed);
+        match url {
+            "frames/a.html" => Ok(b"<p>in the frame</p>".to_vec()),
+            _ => Err("no such file".to_owned()),
+        }
+    });
+    let r = renderer(options().resource_loader(loader));
+    let out = page(
+        &r,
+        "<!doctype html><body><iframe id=f src='frames/a.html#part'></iframe>
+         <iframe src='other/secret.html'></iframe><iframe src='frames/../secret.html'></iframe>
+         <script>
+           addEventListener('load', () => {
+             const inner = document.getElementById('f').contentDocument;
+             document.body.dataset.got = inner.body.textContent;
+           });
+         </script>",
+    );
+    assert!(
+        out.html.contains("data-got=\"in the frame\""),
+        "{}",
+        out.html
+    );
+    assert_eq!(loads.load(Ordering::Relaxed), 1);
+    let reasons: Vec<_> = out.report.failed.iter().map(|f| &f.reason).collect();
+    assert_eq!(
+        reasons,
+        [
+            &ResourceFailureReason::NotAllowed,
+            &ResourceFailureReason::NotAllowed
+        ]
+    );
+    assert!(
+        out.report
+            .failed
+            .iter()
+            .all(|f| f.kind == ResourceKind::Script)
+    );
+}
+
+/// The message a page shows without scripts never reaches a printer, which
+/// parses with scripting off, nor does what it does to the page.
+#[test]
+fn a_noscript_message_never_prints() {
+    let path = repo().join("fixtures/real-world/noscript-message/input.html");
+    let html = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{e}"));
+    let r = renderer(options());
+    let out = page(&r, &html);
+    assert!(out.html.contains("Delivery report"), "{}", out.html);
+    for text in [
+        "Please enable JavaScript",
+        "Scripts are off",
+        "<noscript",
+        "display: none",
+    ] {
+        assert!(!out.html.contains(text), "{text}: {}", out.html);
+    }
+    printer_parses(&out.html);
 }
 
 #[test]

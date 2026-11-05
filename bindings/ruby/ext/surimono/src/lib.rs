@@ -256,6 +256,7 @@ fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
         E::TimeLimit { .. } | E::PageTimeLimit => "TimeLimitError",
         E::StackOverflow { .. } | E::PageStackOverflow => "StackOverflowError",
         E::PageDomLimit { .. } => "DomLimitError",
+        E::PageLayoutQuery { .. } => "LayoutQueryError",
         E::JavaScript { .. } => "JavaScriptError",
         E::InvalidIsland { .. }
         | E::UnknownRenderer { .. }
@@ -275,6 +276,9 @@ fn to_ruby_error(ruby: &Ruby, e: &surimono::Error) -> Error {
         }
         if let E::JavaScript { stack, .. } = e {
             details.aset(ruby.to_symbol("js_stack"), stack.clone())?;
+        }
+        if let E::PageLayoutQuery { member } = e {
+            details.aset(ruby.to_symbol("member"), member.clone())?;
         }
         Ok(())
     })

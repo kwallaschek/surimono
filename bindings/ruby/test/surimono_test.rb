@@ -830,9 +830,12 @@ class SurimonoTest < Minitest::Test
   def test_page_layout_queries
     html = "<div id=a></div><script>document.body.dataset.w = document.getElementById('a').offsetWidth;</script>"
     assert_includes page_renderer.render(html, scripts: true), %(data-w="0")
-    page = page_renderer(layout_queries: :throw).render_page(html)
-    assert_equal 1, page.report.uncaught
-    assert_match(/offsetWidth needs layout/, page.report.errors.first)
+    caught = "<div id=a></div><script>try { document.getElementById('a').offsetWidth; } catch (e) {}</script>"
+    [html, caught].each do |page|
+      e = assert_raises(Surimono::LayoutQueryError) { page_renderer(layout_queries: :throw).render_page(page) }
+      assert_equal "layout-query", e.kind
+      assert_includes e.member, "offsetWidth"
+    end
     assert_raises(ArgumentError) { page_renderer(layout_queries: :guess) }
   end
 

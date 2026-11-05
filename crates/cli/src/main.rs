@@ -71,7 +71,7 @@ Options:
                            (default: remove all but island markers)
   --layout-queries <p>     With --scripts, what getBoundingClientRect, offsetWidth
                            and the like give, as nothing is laid out: zeros
-                           (default) or throw
+                           (default), or throw: the first one fails the render
   --resource <url>=<file>  With --scripts: <script src=\"<url>\"> or a stylesheet's
                            <link href=\"<url>\">, with the URL as written, loads
                            this file, read once at the start. Only these load.
@@ -88,7 +88,8 @@ Exit codes:
   0  success
   1  an island failed (invalid marker, unknown renderer, script error, unusable
      SVG), the document has more islands than --max-islands, the document
-     couldn't be rewritten, or a page couldn't run
+     couldn't be rewritten, a page couldn't run, or it asked for layout under
+     --layout-queries throw
   2  usage error: unknown option or bad value
   3  a script hit a limit (memory, time, stack), or a page a limit of the DOM
   4  invalid configuration: no font, a font or bundle that can't be used, limits
@@ -761,6 +762,12 @@ mod tests {
                     message: "x".into(),
                 },
                 Exit::Limit,
+            ),
+            (
+                Error::PageLayoutQuery {
+                    member: "offsetWidth".into(),
+                },
+                Exit::Island,
             ),
             (
                 Error::PageFailed {

@@ -1,4 +1,5 @@
-//! What a page's `<script src>` and `<link rel="stylesheet">` may load:
+//! What a page's `<script src>`, `<iframe src>` and `<link rel="stylesheet">`
+//! may load:
 //! nothing, unless the caller says so.
 
 use std::collections::HashMap;
@@ -23,12 +24,13 @@ const MAX_KEPT_FAILURES: usize = 64;
 /// Longest URL or message kept in a report.
 const MAX_KEPT_BYTES: usize = 2 * 1024;
 
-/// Loads what a page's external scripts and stylesheets name, for a caller
-/// that wants them.
+/// Loads what a page's external scripts, frames and stylesheets name, for a
+/// caller that wants them.
 ///
 /// Without one, a render opens no network connection and reads no file: every
-/// `<script src>` fails with [`ResourceFailureReason::NoLoader`] in the report,
-/// and every `<link>` is left for the printer.
+/// `<script src>` and `<iframe src>` fails with
+/// [`ResourceFailureReason::NoLoader`] in the report, and every `<link>` is
+/// left for the printer.
 /// surimono itself never does any I/O for a page, with or without a loader:
 /// the only code that does is the function you pass in.
 ///
@@ -52,8 +54,13 @@ const MAX_KEPT_BYTES: usize = 2 * 1024;
 ///
 /// Scripts load one at a time, in document order, on the render's worker
 /// thread and before any script runs, so what they do can't depend on which
-/// finished first. Stylesheets load the same way once the scripts have settled,
-/// so a `<link>` a script added counts. The function runs once per URL in a
+/// finished first. An `<iframe src>` loads the same way, under the same
+/// allowlist, with its URL's `#fragment` taken off, and fails in the report as a
+/// [`ResourceKind::Script`]. Unlike a script, a frame can be added by one, so
+/// loads can happen while a page runs, under its time limit, and it can read
+/// back what it asked for: don't let through what a page mustn't see.
+/// Stylesheets load the same way once the scripts have settled, so a `<link>` a
+/// script added counts. The function runs once per URL in a
 /// render. One render makes at most 1,000 loads, takes at most 10 seconds of
 /// real time from the first, and holds at most
 /// [`Limits::memory_bytes`](crate::Limits::memory_bytes) of source, each use of
@@ -232,7 +239,7 @@ fn has_risky_escape(text: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ResourceKind {
-    /// A `<script src>`.
+    /// A `<script src>`, or an `<iframe src>`.
     Script,
     /// An `<img src>`.
     Image,
