@@ -9,9 +9,9 @@ or change.
 
 JavaScript never holds a pointer, an rquickjs class instance or a blitz node id.
 A node wrapper is a plain object carrying a record `{ g, h, m }` (generation,
-handle, interface bits) in a private class field (`#s`, stamped on by a
+handle, a null-prototype set of the interfaces it is) in a private class field (`#s`, stamped on by a
 closure-private class in `src/glue_head.js`); members brand-check with
-`#s in o` and the interface bit. Private fields can't
+`#s in o` and that set. Private fields can't
 be read, written or intercepted through any prototype, Proxy or reflection, so
 a script can neither read nor forge a pair. Every accessor passes the pair to
 a native function, which resolves it through the loaded document on that call:
@@ -117,6 +117,101 @@ Phase 3 needs all three back, for layout: flags set over the tree, screened CSS
 given to blitz-dom and `flush_style_attribute` per element, all done once before
 layout, not while scripts mutate.
 
+## Several documents
+
+A render can hold many documents (`new Document()`, `DOMImplementation`,
+`document.cloneNode()`), and blitz-dom has one document node per `BaseDocument`.
+Each extra document is an element in the same slab, named `#document`, which
+no script sees as an element: `kind` says `Document`. So:
+
+- A node moves between documents by a change of owner: no copy, no new handle,
+  and its wrapper stays good. `owners` maps nodes outside the page's document to
+  their document, so an ordinary page has an empty map and pays one `is_empty`.
+- One set of limits covers every document, because there is one slab, one handle
+  table and one byte count. A document bomb ends in `NodeLimit`; nothing about a
+  document grows outside them but its `DocInfo`, one per marker.
+- A document has a handle from birth, so it lasts as long as the render, like any
+  node with a handle.
+- Nothing else lives per document. `doc.body` and `getElementById` take `this`;
+  whether a node is in an HTML document is `owners` then `DocInfo`.
+
+`Document::enter`, run before each member, sets `making` to `this`'s document. New
+nodes join it through `born`, so `createElement`, `innerHTML`, `textContent`,
+`append("x")`, `splitText`, `cloneNode` and `importNode` needed no argument.
+Parser nodes don't pass through `born` and take a walk after the parse.
+
+Insertion and `adoptNode` run DOM's "adopt", linear in the subtree. Only the page
+is reachable from `run_page`: its scripts run, others never, and `to_html` writes
+only the page.
+
+blitz-dom has no doctype, processing instruction or CDATA section either. The
+first two are comment nodes to it, the last a text node, with the rest in
+`specials`: its layout then skips them, as it does comments. The page's doctype is
+one too, so `document.firstChild` is the doctype, as in a browser, and
+`node_count` is one higher than the tree of elements suggests. `HTML serialization`
+of the document leaves it out, because `to_html` starts at the document element.
+
+**Gaps.** Scripts in another document never run, and it has no browsing context
+(`defaultView` and `location` are null, as the standard says). The template contents
+owner document doesn't exist: a template's content stays in the template's document.
+`createDocumentType` follows the current "valid doctype name". A `splitText` of a
+CDATA section gives a CDATA section's data in a Text node, as the standard does.
+`Attr` isn't a whole `Node` (see COMPAT).
+
+## DOMParser
+
+`parseFromString` makes a document like any other in the render: html5ever's tree
+builder runs over the same `Sink`, with the new document's marker as its document,
+so style text, `style` attributes, templates and limits work as for the page. The
+scripting flag is off, as the standard says for a document with no browsing context,
+so `<noscript>` content is markup. A refused parse takes back all it made. The
+parser goes by chunks and looks at the clock between them. Nothing runs: no script,
+no `load`.
+
+## XML
+
+`src/xml.rs` is a hand-written XML 1.0 + Namespaces parser and DOM Parsing's XML
+serializer. A crate would bring code we don't need and doesn't bound what we care
+about; this one is 700 lines, uses `Document`'s constructors, so every limit holds,
+and is iterative. It reads no external entities and defines none from the internal
+subset, which it skips: a reference to any entity but the five predefined ones is a
+well-formedness error, so there is no entity bomb and output is no larger than
+input. XML 1.0 §5.1 allows that for a non-validating processor; browsers do define
+internal entities, a departure for COMPAT. Encoding declarations are checked for
+shape and ignored, since the input is already text.
+
+Input that isn't well-formed gives a `parsererror` document, as DOMParser's
+algorithm says, whose text is our message. `innerHTML` in an XML document parses
+XML in the context's namespaces, and such input is a `SyntaxError`.
+
+`Document::parse_xml` loads a page as XHTML; the document's `html` flag then decides
+names everywhere `owners` would, through `page_html`.
+
+## Frames
+
+Scope, chosen for what the selector and namespace tests need and for attack
+surface: an `<iframe>` gets a document in the render's slab, and no browsing
+context. No script in it runs, nothing navigates, nothing fetches: `src` goes to the
+page's resolver, the one external scripts use, and no resolver means no frame.
+
+- `contentDocument` is `about:blank` from the first read while connected, and null
+  when not (removal discards it).
+- `contentWindow`, and `defaultView` in a frame, are objects inheriting from the
+  page's window, with their own `document`. There is no realm: `frames[0].Node ===
+  Node`. Tests of realms fail, on purpose.
+- `run_page` loads the parser's frames before any script, firing their `load`
+  before the window's. Frames a script adds load when the page has settled, in
+  rounds (at most `MAX_FRAME_ROUNDS`), so a `load` comes after every ready timer, at
+  a point that doesn't depend on a resolver's speed. They don't delay the window's
+  `load`, unlike in a browser. The rounds share the time limit: it is checked
+  between them, so a page can overrun it by one settle at most. A render loads at
+  most `MAX_FRAMES` frames; the rest stay blank and fire nothing.
+- A frame's type goes by its URL's extension, there being no Content-Type.
+- `frames` is a list built per read, not the window, and `window[0]` doesn't exist.
+- `__surimonoFrameLoads` is a global, non-enumerable and fixed, because Rust has no
+  other way into the glue between settles that survives a sandbox rebuild. A script
+  calling it fires only what was due.
+
 ## Objects other than nodes
 
 The handle table holds `Object`s, not only nodes: live lists (`childNodes`,
@@ -193,7 +288,27 @@ live and nothing is kept per element.
 
 CSSOM defines the per-property attributes (`style.fontSize`) in prose, so the
 generator has a pseudo member for them: property names go to the host, others are
-ordinary expandos. `getComputedStyle` is phase 3.
+ordinary expandos. `getComputedStyle` is phase 3; see Layout queries.
+
+## Layout queries
+
+Nothing lays out in phase 2, so the brief's policy stands in: `LayoutPolicy`, set
+with `DomRuntime::set_layout_policy` (internal; PKG exposes it). `Zeros`, the
+default, answers as a browser does for an element with no box, which is an answer
+pages already handle: zeros, an empty `DOMRectList`, a null `offsetParent` and
+`elementFromPoint`, a read-only computed style with no properties. `Throw` ends
+the call with `DomError::LayoutQuery`, fatal so that a `try` can't go on without
+the answer. `src/glue_layout.js` holds the members, each asking Rust first through
+one operation, so phase 3 replaces one file. They aren't in the generator's table
+because `DOMRect` lives in the glue and a native can't return one.
+
+Bound as far as the policy goes: `getBoundingClientRect`, `getClientRects`,
+`client*`, `scroll*` (setters ask too, and scroll nothing), `offset*`,
+`elementFromPoint`, `getComputedStyle`, and the window's `innerWidth`, `innerHeight`,
+`outerWidth`, `outerHeight`, `scrollX`, `scrollY`, `pageXOffset`, `pageYOffset`.
+Not bound: `elementsFromPoint`, `scrollIntoView`, `scrollTo` and the rest that
+move or return sequences, `getBBox`. `pseudoElt` is converted and ignored.
+`DOMRectList` has `item` but no indexed properties, since it is always empty.
 
 ## Events and the page's life
 
@@ -410,11 +525,6 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   would let real nesting reach the parser's recursion, so the count stays
   conservative. `tests/hostile.rs` runs the worst allowed selector on the
   stack headroom alone.
-- **`document.cloneNode()`.** §4.4 and WPT Node-cloneNode.html give a new
-  `Document`; a runtime holds one document and blitz-dom can't make a second
-  document node, so the call ends with `DomError::Unsupported`. That is a gap,
-  not conformance (`tests/mutation.rs`, `cloning_a_document_is_a_known_gap`).
-  Comes with `DOMImplementation`.
 - **Half a surrogate pair.** Text is stored as UTF-8, which can't hold a lone
   surrogate, so a CharacterData offset inside a pair (`deleteData(0, 1)` on an
   emoji) leaves U+FFFD. The DOM keeps the lone code unit.

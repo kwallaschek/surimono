@@ -106,9 +106,9 @@ fn prototype_chain_follows_the_idl() {
     );
     assert_eq!(
         r,
-        "HTMLElement>Element>Node>EventTarget>Object|\
+        "HTMLDivElement>HTMLElement>Element>Node>EventTarget>Object|\
          Text>CharacterData>Node>EventTarget>Object|\
-         Document>Node>EventTarget>Object|true|[object HTMLElement]|false|false"
+         Document>Node>EventTarget>Object|true|[object HTMLDivElement]|false|false"
     );
 }
 

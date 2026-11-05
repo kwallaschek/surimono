@@ -50,6 +50,12 @@ pub const STUB_INTERFACES: &[&str] = &[
     "HTMLLinkElement",
     "HTMLScriptElement",
     "HTMLInputElement",
+    "XMLDocument",
+    "DOMImplementation",
+    "DocumentType",
+    "CDATASection",
+    "ProcessingInstruction",
+    "HTMLIFrameElement",
 ];
 
 /// Typedefs and nested types deeper than this are an error (a typedef cycle).
@@ -128,9 +134,6 @@ pub enum GenError {
         /// The type as written.
         ty: String,
     },
-    /// More interfaces than the wrappers' 31-bit brand mask can name.
-    #[error("too many bound interfaces")]
-    TooManyInterfaces,
     /// The interface's parent chain leads back to an interface already on it
     /// (`interface J : J`, or `A : B` and `B : A`).
     #[error("`{interface}` has an inheritance cycle: {}", chain.join(" : "))]

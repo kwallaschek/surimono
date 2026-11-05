@@ -55,6 +55,11 @@ const JS_INTERFACES: &[&str] = &[
     "ErrorEvent",
     "Window",
     "MutationObserver",
+    "DOMRectReadOnly",
+    "DOMRect",
+    "DOMRectList",
+    "DOMParser",
+    "XMLSerializer",
 ];
 
 /// Operations for the glue that aren't IDL members: the name its `OP_<name>`
@@ -69,6 +74,15 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("observerDisconnect", "h.observer_disconnect(a.uint(0)?)"),
     ("observerTake", "h.observer_take(a.uint(0)?)"),
     ("recordsPending", "h.records_pending()"),
+    ("layoutQuery", "h.layout_query(a.string(0)?)"),
+    ("computedStyle", "h.computed_style(this)"),
+    ("serializeXml", "h.serialize_xml(a.id(0)?)"),
+    ("nextFrameLoad", "h.next_frame_load()"),
+    ("isFrameDocument", "h.is_frame_document(this)"),
+    (
+        "parseFromString",
+        "h.parse_from_string(a.string(0)?, a.string(1)?)",
+    ),
 ];
 
 /// A member name that isn't in the IDL. CSSOM defines
@@ -915,9 +929,6 @@ pub fn generate_bindings(
     table: &[BindInterface],
     header: &str,
 ) -> Result<Bindings, GenError> {
-    if table.len() > 31 {
-        return Err(GenError::TooManyInterfaces);
-    }
     let mut gen_ = Gen {
         set,
         names: set.names(),
@@ -960,10 +971,13 @@ pub fn generate_bindings(
     };
 
     let mut js = note("//");
-    if let Some(id) = bound_id(table, "Node") {
-        let _ = writeln!(js, "const nodeBit = 1 << {id};");
-    }
-    for name in JS_INTERFACES.iter().chain(&["HTMLElement", "Document"]) {
+    for name in JS_INTERFACES.iter().chain(&[
+        "Node",
+        "Element",
+        "HTMLElement",
+        "Document",
+        "HTMLIFrameElement",
+    ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
         }
@@ -1078,6 +1092,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &[
             "nodeType",
             "nodeName",
+            "baseURI",
             "isConnected",
             "ownerDocument",
             "parentNode",
@@ -1095,6 +1110,9 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "cloneNode",
             "isEqualNode",
             "isSameNode",
+            "lookupPrefix",
+            "lookupNamespaceURI",
+            "isDefaultNamespace",
             "compareDocumentPosition",
             "contains",
             "insertBefore",
@@ -1125,8 +1143,15 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "setAttributeNS",
             "removeAttributeNS",
             "hasAttributeNS",
+            "getAttributeNode",
+            "getAttributeNodeNS",
+            "setAttributeNode",
+            "setAttributeNodeNS",
+            "removeAttributeNode",
+            "getElementsByTagNameNS",
             "closest",
             "matches",
+            "webkitMatchesSelector",
             "getElementsByTagName",
             "getElementsByClassName",
             "querySelector",
@@ -1162,6 +1187,17 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "Document",
         members: &[
+            "constructor",
+            "implementation",
+            "URL",
+            "documentURI",
+            "charset",
+            "inputEncoding",
+            "doctype",
+            "createCDATASection",
+            "createAttribute",
+            "createAttributeNS",
+            "createProcessingInstruction",
             "documentElement",
             "head",
             "body:getter",
@@ -1172,6 +1208,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "contentType",
             "getElementById",
             "getElementsByTagName",
+            "getElementsByTagNameNS",
             "getElementsByClassName",
             "querySelector",
             "querySelectorAll",
@@ -1189,6 +1226,31 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "prepend",
             "append",
             "replaceChildren",
+        ],
+    },
+    BindInterface {
+        name: "XMLDocument",
+        members: &[],
+    },
+    BindInterface {
+        name: "DOMImplementation",
+        members: &[
+            "createDocumentType",
+            "createDocument",
+            "createHTMLDocument",
+            "hasFeature",
+        ],
+    },
+    BindInterface {
+        name: "DocumentType",
+        members: &[
+            "name",
+            "publicId",
+            "systemId",
+            "before",
+            "after",
+            "replaceWith",
+            "remove",
         ],
     },
     BindInterface {
@@ -1235,8 +1297,16 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         members: &["constructor", "splitText", "wholeText"],
     },
     BindInterface {
+        name: "CDATASection",
+        members: &[],
+    },
+    BindInterface {
         name: "Comment",
         members: &["constructor"],
+    },
+    BindInterface {
+        name: "ProcessingInstruction",
+        members: &["target"],
     },
     BindInterface {
         name: "Attr",
@@ -1265,6 +1335,8 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "item",
             "getNamedItem",
             "getNamedItemNS",
+            "setNamedItem",
+            "setNamedItemNS",
             "removeNamedItem",
             "removeNamedItemNS",
         ],
@@ -1326,6 +1398,296 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "HTMLInputElement",
         members: &["value", "type", "name", "checked"],
+    },
+    // Elements' own interfaces: what `instanceof` and `Object.prototype.toString`
+    // answer. HTMLMediaElement comes before its children.
+    BindInterface {
+        name: "HTMLHtmlElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLHeadElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTitleElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLBodyElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLDivElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLSpanElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLParagraphElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLHeadingElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLBRElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLHRElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLPreElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLQuoteElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLOListElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLUListElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLMenuElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLLIElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLDListElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLDirectoryElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLAreaElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLBaseElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLButtonElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLCanvasElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLDataElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLDataListElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLDetailsElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLDialogElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLEmbedElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLFieldSetElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLFontElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLFormElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLFrameElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLFrameSetElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLIFrameElement",
+        members: &["src", "srcdoc", "name", "contentDocument"],
+    },
+    BindInterface {
+        name: "HTMLLabelElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLLegendElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLMapElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLMarqueeElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLMediaElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLAudioElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLVideoElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLMetaElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLMeterElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLModElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLObjectElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLOptGroupElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLOptionElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLOutputElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLParamElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLPictureElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLProgressElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLSelectElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLSlotElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLSourceElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLStyleElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTableCaptionElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTableCellElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTableColElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTableElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTableRowElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTableSectionElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTextAreaElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTimeElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLTrackElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "HTMLUnknownElement",
+        members: &[],
+    },
+    BindInterface {
+        name: "DOMParser",
+        members: &["constructor", "parseFromString"],
+    },
+    BindInterface {
+        name: "XMLSerializer",
+        members: &["constructor", "serializeToString"],
+    },
+    // Layout queries, in `glue_layout.js`.
+    BindInterface {
+        name: "DOMRectReadOnly",
+        members: &[
+            "constructor",
+            "x",
+            "y",
+            "width",
+            "height",
+            "top",
+            "right",
+            "bottom",
+            "left",
+            "toJSON",
+        ],
+    },
+    BindInterface {
+        name: "DOMRect",
+        members: &["constructor", "x", "y", "width", "height"],
+    },
+    BindInterface {
+        name: "DOMRectList",
+        members: &["length"],
     },
     BindInterface {
         name: "CSSStyleDeclaration",

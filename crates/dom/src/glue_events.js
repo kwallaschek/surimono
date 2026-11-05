@@ -108,7 +108,7 @@
   // except for `load` (HTML §13.2.7: the event's target stays the document
   // and the window's listeners get it, but it doesn't come from the tree).
   function parentOf(s, event) {
-    if ((s.m & nodeBit) === 0) return null;
+    if (!is(s, I_Node)) return null;
     const p = wrap(s.g, call(OP_parentNode, s.g, s.h));
     if (p !== null) return stateOf(p);
     if (s.h === root() && s.g === current() && event.type !== 'load') return windowState;
@@ -495,7 +495,7 @@
       const body = call(OP_body, g, root());
       if (body === 0 || body === null) return;
       syncFrom(s, g, body, (name) => reflected[name]);
-    } else if ((s.m & (1 << I_HTMLElement)) !== 0) {
+    } else if (is(s, I_HTMLElement)) {
       const known = handlerNames[I_HTMLElement];
       syncFrom(s, s.g, s.h, (name) => known[name] === true && !reflects(s, name));
     }
@@ -538,7 +538,7 @@
     // and does nothing.
     if (typeof callback !== 'function') return;
     const v = stateOf(event);
-    const special = s === windowState && v.type === 'error' && (v.m & (1 << I_ErrorEvent)) !== 0;
+    const special = s === windowState && v.type === 'error' && is(v, I_ErrorEvent);
     const result = special
       ? apply(callback, s.w, [v.message, v.filename, v.lineno, v.colno, v.error])
       : apply(callback, s.w, [event]);
