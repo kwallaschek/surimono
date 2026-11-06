@@ -10,17 +10,13 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Fri 6 Nov 2026, 15:40)
+## Now (Fri 6 Nov 2026, 17:10)
 
-Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Also merged: #145 #149 #150 #151 #152. Confirm full.yml on main, ASan especially, after #150.
+Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Phase-2 public API is on main: #143 squash-merged, #130 closed unmerged; also #153 and #156. ASan on main: two tests hit their time limit under ASan (events.rs:2139, ranges.rs:629): being scaled. #150's fork hang stayed away there.
 
-Open:
-- #143 (page API, head 39ef19f0; last delta unreviewed; switch page.rs:312 to spawn_host_thread; squash-merge; close #130 unmerged; final DECISIONS lines are in docs/fleet/PENDING_DECISIONS.md).
-- #153 (BLOCK) → #154 (approved) → #155 (BLOCK).
-- #156 (runner .sub; delta review; rows for #149 and #152-#155 go in after those merge, then regenerate results and COMPAT).
-Then: root pins html5ever, html-escape, stats_alloc; E2-12 Rails guide, checkpoint-3 checklist, rust.md limits, CHANGELOG; P2-RT-07 libm. Digest Sun 8 Nov 20:00, checkpoint 3 Sun 22 Nov 11:00.
+Open: #154 (BLOCK: a time limit in a new test, hostile.rs:1282), #155 (BLOCK: nested svg load must follow the spec, conflict logged). After those: CF adds rows from #156's body and regenerates results and COMPAT. Then E2-15 docs, E2-10b print comparison, P2-ORC-02 pins, P2-RT-07 libm, E2-11 musl (third to cut).
 
-Rates with those PRs: timers 91.2%, dom/nodes 92.7%, dom/events 75.7% (66.7% on wpt.fyi's denominator: say both at checkpoint 3), domparsing 61.6%. Kay's call at checkpoint 3: 300 subtests of unstable API (trustedTypes, positional HTML insertion).
+Rates with #154 and #155: timers 91.2%, dom/nodes 92.7%, dom/events 75.7% (66.7% on wpt.fyi's denominator: state both), domparsing 61.6%. Kay's call at checkpoint 3: 300 subtests of unstable API. Digest Sun 8 Nov 20:00, checkpoint 3 Sun 22 Nov 11:00.
 
 ## Earlier (Thu 5 Nov 2026, 11:45)
 
