@@ -13,6 +13,10 @@
   const ownerDocument_ = rdescriptor(nodeProto, 'ownerDocument').get;
   const parentNode_ = rdescriptor(nodeProto, 'parentNode').get;
   const textContent_ = rdescriptor(nodeProto, 'textContent');
+  const firstChild_ = rdescriptor(nodeProto, 'firstChild').get;
+  const nextSibling_ = rdescriptor(nodeProto, 'nextSibling').get;
+  const nodeValue_ = rdescriptor(nodeProto, 'nodeValue').get;
+  const nodeType_ = rdescriptor(nodeProto, 'nodeType').get;
   const firstElementChild_ = rdescriptor(elementProto, 'firstElementChild').get;
   const nextElementSibling_ = rdescriptor(elementProto, 'nextElementSibling').get;
   const namespaceURI_ = rdescriptor(elementProto, 'namespaceURI').get;
@@ -57,13 +61,13 @@
   };
   H.set_HTMLTableElement_caption = (s, v) => {
     H.HTMLTableElement_deleteCaption(s);
-    if (v !== null) insert(s.w, v.w, apply(firstElementChild_, s.w, []));
+    if (v !== null) insert(s.w, v.w, apply(firstChild_, s.w, []));
   };
   H.HTMLTableElement_createCaption = (s) => {
     let c = firstChild(s.w, 'caption');
     if (c === null) {
       c = make_(s.w, 'caption');
-      insert(s.w, c, apply(firstElementChild_, s.w, []));
+      insert(s.w, c, apply(firstChild_, s.w, []));
     }
     return c;
   };
@@ -375,10 +379,19 @@
     return p !== null && stateOf(p).m[I_Element] === true && isElement(p, 'optgroup') &&
       attrOf(stateOf(p), 'disabled') !== null;
   }
-  // Text with white space stripped and collapsed; `script` text isn't an
-  // option's, but an option has none unless a script puts it there.
+  // HTML §4.10.10: the descendant text but for scripts', white space stripped and
+  // collapsed. Nodes are nested at most `max_depth`, so this recursion is short.
+  function textWithoutScripts(node) {
+    let out = '';
+    for (let c = apply(firstChild_, node, []); c !== null; c = apply(nextSibling_, c, [])) {
+      const type = apply(nodeType_, c, []);
+      if (type === 3 || type === 4) out += apply(nodeValue_, c, []);
+      else if (type === 1 && apply(localName_, c, []) !== 'script') out += textWithoutScripts(c);
+    }
+    return out;
+  }
   function optionText(o) {
-    const text = apply(textContent_.get, o.w, []);
+    const text = textWithoutScripts(o.w);
     let out = '';
     let space = false;
     for (let i = 0; i < text.length; i++) {
