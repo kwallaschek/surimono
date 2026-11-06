@@ -123,6 +123,36 @@ class CompatTest(unittest.TestCase):
     def wpt_table(self, results):
         return "\n".join(compat.wpt_section(results))
 
+    def test_wpt_extra_area_has_its_own_table_and_leaves_the_rates_alone(self):
+        extra = [{"slice": "x", "test": "x.html", "file": "x.html", "status": "OK", "subtests": [{"name": "e", "status": "PASS"}]}]
+        self.wpt_tree(subtests=("one",), extra=extra)
+        with open(self.root / "wpt" / "slices.toml", "a") as f:
+            f.write('[[slice]]\nid = "x"\narea = "extra area"\nextra = true\n')
+        table = self.wpt_table(self.wpt_results(["one"]))
+        before, after = table.split("### Web Platform Tests, extra areas")
+        self.assertIn("| dom/nodes | 2 | 1 |", before)
+        self.assertNotIn("x.html", before)
+        self.assertIn("| extra area | 0 | 1 | 0.0% |", after)
+        self.assertIn("x.html", after)
+
+    def test_a_page_failing_as_its_floor_says_so(self):
+        real = self.root / "fixtures" / "real-world" / "p"
+        real.mkdir(parents=True)
+        (real / "input.html").write_text("x")
+        run = self.root / "run"
+        (run / "p" / "page").mkdir(parents=True)
+        (run / "p" / "floor").mkdir()
+        failing = {"subject": "p", "pass": False, "worst_window": 0.5, "pages": [{"pass": False, "failed": ["shape"]}]}
+        (run / "p" / "page" / "score.json").write_text(json.dumps(failing))
+        (run / "p" / "floor" / "score.json").write_text(json.dumps(failing))
+        (run / "p" / "determinism.json").write_text(json.dumps({"deterministic": True}))
+        lines, status = compat.pages_section(run)
+        self.assertEqual(status, {"p": "print fails, as fulgur fails on Chrome's own DOM"})
+        self.assertIn("0 of 1 pages pass", "\n".join(lines))
+        (run / "p" / "determinism.json").unlink()
+        with self.assertRaises(compat.CompatError):
+            compat.pages_section(run)
+
     def test_wpt_not_run_says_so(self):
         self.wpt_tree()
         self.assertIn("Not run yet", self.wpt_table(None))

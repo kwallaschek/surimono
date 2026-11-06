@@ -2,7 +2,7 @@
 """Generates docs/COMPAT.md from machine-readable test results.
 
     python3 -I fixtures/tools/compat.py [--fixtures DIR] [--hostile FILE] [--bench FILE] [--wpt FILE]
-                                        [--commit SHA] [--out docs/COMPAT.md] [--check]
+                                        [--pages DIR] [--commit SHA] [--out docs/COMPAT.md] [--check]
 
 Inputs (each optional; a missing one makes its section say "not run"):
 
@@ -19,6 +19,11 @@ Inputs (each optional; a missing one makes its section say "not run"):
   --wpt FILE      the WPT runner's results (wpt/README.md), scored against
                   wpt/baseline/chrome.json. Without the baseline, or with a
                   baseline missing a slice or a vendored test, it is an error.
+                  A slice with `extra = true` has no target and goes in a table
+                  of its own, so the areas' rates and causes stay comparable.
+  --pages DIR     print-pages.mjs's results for the real-world pages (a run's
+                  folder, fixtures/checkpoint-3): each page's print against
+                  Chrome and fulgur's floor, and its determinism.
 
 The real-world section comes from fixtures/real-world/manifest.toml plus the
 fixture results of each library's renderer.
@@ -485,7 +490,38 @@ def hostile_section(results_file: Path | None) -> list[str]:
     return lines
 
 
-def real_world_section(fixture_status: dict[str, str], meta: dict[str, dict]) -> list[str]:
+def pages_section(pages_dir: Path | None) -> tuple[list[str], dict[str, str]]:
+    """The real-world pages printed: print-pages.mjs's table, derived from each
+    page's own score files, and what the library table says of each page."""
+    lines = ["### Real-world pages printed", ""]
+    if pages_dir is None:
+        return lines + ["Not run.", ""], {}
+    pages = sorted(d.name for d in (ROOT / "fixtures" / "real-world").iterdir() if (d / "input.html").is_file())
+    lines += ["| Page | Printed by fulgur | Fulgur printing Chrome's DOM | Byte-identical |", "|---|---|---|---|"]
+    status = {}
+    for name in pages:
+        page = pages_dir / name / "page" / "score.json"
+        floor = pages_dir / name / "floor" / "score.json"
+        determinism = pages_dir / name / "determinism.json"
+        if not page.exists() or not floor.exists() or not determinism.exists():
+            raise CompatError(f"{pages_dir}: no result for the page {name}")
+        score, base = read_json(page), read_json(floor)
+        same = read_json(determinism).get("deterministic") is True
+        lines.append(f"| {name} | {cell(score)} | {cell(base)} | {'yes' if same else '**no**'} |")
+        if passed(score):
+            status[name] = "print passes"
+        else:
+            status[name] = "print fails" + (", as fulgur fails on Chrome's own DOM" if not passed(base) else "")
+    passing = sum(1 for s in status.values() if s == "print passes")
+    lines += [
+        "",
+        f"{passing} of {len(pages)} pages pass: `render_page`, then fulgur, against the Chrome references. `{pages_dir.name}/NOTES.md` says what each failure needs.",
+        "",
+    ]
+    return lines, status
+
+
+def real_world_section(fixture_status: dict[str, str], meta: dict[str, dict], printed: dict[str, str] | None = None) -> list[str]:
     manifest_file = ROOT / "fixtures" / "real-world" / "manifest.toml"
     lines = ["### Real-world libraries", ""]
     if not manifest_file.exists():
@@ -504,7 +540,8 @@ def real_world_section(fixture_status: dict[str, str], meta: dict[str, dict]) ->
         states = [fixture_status.get(f, "not run") for f in fixtures]
         if not fixtures and pages.get(r):
             names = ", ".join(f"`{p}`" for p in pages[r])
-            status = f"page {names}: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet"
+            prints = "; ".join(sorted({(printed or {}).get(p, "print not compared yet") for p in pages[r]}))
+            status = f"page {names}: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; {prints}"
         elif not fixtures:
             status = "no fixtures yet"
         elif all(s == "pass" for s in states):
@@ -640,9 +677,15 @@ def wpt_section(results_file: Path | None) -> list[str]:
             raise SystemExit(f"WPT baseline lacks {len(missing)} vendored tests, first {missing[0]}")
     ours = {t["test"]: t for t in results.get("tests", [])}
     areas: dict[str, dict] = {}
+    extra: dict[str, set[str]] = {}
     for sl in slices["slice"]:
+        if sl.get("extra"):
+            extra.setdefault(sl["area"], set()).add(sl["id"])
+            continue
         area = areas.setdefault(sl["area"], {"target": sl["target"], "phase": sl["phase"], "ids": set()})
         area["ids"].add(sl["id"])
+    extra_ids = set().union(*extra.values()) if extra else set()
+    measured = [t for t in baseline["tests"] if t.get("slice") not in extra_ids]
     lines += ["| Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |", "|---|---|---|---|---|---|---|"]
     shown: dict[str, tuple[int, int]] = {}
     for name, area in areas.items():
@@ -655,18 +698,50 @@ def wpt_section(results_file: Path | None) -> list[str]:
         lines.append(f"| {name} | {area['phase']} | {got} | {total} | {rate:.1f}% | {area['target']}% | {status} |")
     lines.append("")
     lines += wpt_fyi_note(slices, shown)
-    left_out = sum(1 for t in baseline["tests"] if t.get("status") != "OK")
+    left_out = sum(1 for t in measured if t.get("status") != "OK")
     lines += [
-        f"WPT {slices['commit'][:10]}, {len(baseline['tests'])} test URLs: Chromium {baseline.get('chromium', '?')} (`wpt/baseline/chrome.json`) "
+        f"WPT {slices['commit'][:10]}, {len(measured)} test URLs: Chromium {baseline.get('chromium', '?')} (`wpt/baseline/chrome.json`) "
         f"against surimono {str(results.get('surimono_commit', '?'))[:10]} (`wpt/results/`). {left_out} tests Chrome didn't finish here are left out (`wpt/README.md`).",
         "",
     ]
-    causes, rows = wpt_failures(baseline["tests"], ours)
+    causes, rows = wpt_failures(measured, ours)
     if causes:
         lines += ["The most common causes, in subtests Chrome passes:", "", "| Subtests | Cause |", "|---|---|"]
         for cause, n in causes[:WPT_CAUSES_SHOWN]:
             lines.append(f"| {n} | {cause.replace('|', '/')} |")
         lines += ["", "<details><summary>Every test that doesn't pass in full</summary>", "", "| Test | Passed | Of | Status |", "|---|---|---|---|"]
+        lines += [f"| {t} | {got} | {total} | {status} |" for t, got, total, status in rows]
+        lines += ["", "</details>", ""]
+    return lines + wpt_extra_section(extra, baseline["tests"], ours)
+
+
+def wpt_extra_section(extra: dict[str, set[str]], tests: list[dict], ours: dict[str, dict]) -> list[str]:
+    """Areas with no target in SPEC.md: their own table, causes and failures."""
+    if not extra:
+        return []
+    lines = [
+        "### Web Platform Tests, extra areas",
+        "",
+        "What the DOM stack added past the phase's slices. No target, and not in the rates above.",
+        "",
+        "| Area | Passed | Of (Chrome passes) | Rate | Top cause |",
+        "|---|---|---|---|---|",
+    ]
+    every = []
+    for name, ids in extra.items():
+        tests_of = [t for t in tests if t.get("slice") in ids]
+        every += tests_of
+        scores = [wpt_passed(t, ours.get(t["test"])) for t in tests_of]
+        got = sum(g for g, _ in scores)
+        total = sum(n for _, n in scores)
+        rate = 100 * got / total if total else 0.0
+        causes, _ = wpt_failures(tests_of, ours)
+        top = f"{causes[0][1]}: {causes[0][0].replace('|', '/')}" if causes else "none"
+        lines.append(f"| {name} | {got} | {total} | {rate:.1f}% | {top} |")
+    lines.append("")
+    causes, rows = wpt_failures(every, ours)
+    if rows:
+        lines += ["<details><summary>Every extra test that doesn't pass in full</summary>", "", "| Test | Passed | Of | Status |", "|---|---|---|---|"]
         lines += [f"| {t} | {got} | {total} | {status} |" for t, got, total, status in rows]
         lines += ["", "</details>", ""]
     return lines
@@ -765,8 +840,9 @@ def hand_written(existing: str | None) -> str:
     return DEFAULT_HAND_WRITTEN
 
 
-def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None, wpt: Path | None = None) -> str:
+def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commit: str, existing: str | None, determinism: dict[str, dict] | None = None, wpt: Path | None = None, pages: Path | None = None) -> str:
     meta = fixture_meta()
+    page_lines, page_status = pages_section(pages)
     producer = check_producers(scores + list((determinism or {}).values()))
     fx_lines, fx_status = fixtures_section(scores, meta, determinism)
     made_by = ""
@@ -789,11 +865,12 @@ def generate(scores: list[dict], hostile: Path | None, bench: Path | None, commi
         "",
         *fx_lines,
         *hostile_section(hostile),
-        *real_world_section(fx_status, meta),
+        *real_world_section(fx_status, meta, page_status),
         *bench_section(bench),
         "## Phase 2: scripts",
         "",
         *wpt_section(wpt),
+        *page_lines,
         BEGIN,
         "",
         hand_written(existing).rstrip("\n"),
@@ -810,16 +887,17 @@ def main() -> int:
     ap.add_argument("--hostile", type=Path)
     ap.add_argument("--bench", type=Path)
     ap.add_argument("--wpt", type=Path)
+    ap.add_argument("--pages", type=Path)
     ap.add_argument("--commit", default="this checkout")
     ap.add_argument("--out", type=Path, default=ROOT / "docs" / "COMPAT.md")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
-    for p in (args.fixtures, args.hostile, args.bench, args.wpt):
+    for p in (args.fixtures, args.hostile, args.bench, args.wpt, args.pages):
         if p and not p.exists():
             sys.exit(f"{p} does not exist")
     existing = args.out.read_text(encoding="utf-8") if args.out.exists() else None
     try:
-        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures), args.wpt)
+        text = generate(load_scores(args.fixtures), args.hostile, args.bench, args.commit, existing, load_determinism(args.fixtures), args.wpt, args.pages)
     except CompatError as e:
         print(f"compat.py: {e}", file=sys.stderr)
         return 1

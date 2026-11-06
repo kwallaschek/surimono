@@ -112,20 +112,33 @@ def toml_str(s: str) -> str:
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def slice_files(src: pathlib.Path, path: str) -> list[pathlib.Path]:
+    """What a slice's path names: a folder's files, a file, or a glob's matches."""
+    if "*" in path:
+        return sorted(src.glob(path))
+    top = src / path
+    return [top] if top.is_file() else sorted(top.rglob("*"))
+
+
 def vendor(src: pathlib.Path, root: pathlib.Path, slices: dict) -> None:
     head = subprocess.run(["git", "-C", str(src), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
     if head != slices["commit"]:
         raise SystemExit(f"checkout is at {head}, slices.toml pins {slices['commit']}")
     limit = slices["max_file_bytes"]
+    support_limit = slices.get("max_support_bytes", limit)
     wanted: set[str] = set(ALWAYS)
+    support: set[str] = set()
     skipped: list[str] = []
     entries: list[tuple[str, str, list[str], list[str]]] = []
     for sl in slices["slice"]:
+        excluded = tuple(f"{e}/" for e in sl.get("exclude", []))
         for top in sl["paths"]:
-            for f in sorted((src / top).rglob("*")):
+            for f in slice_files(src, top):
                 if not f.is_file() or f.is_symlink():
                     continue
                 rel = f.relative_to(src).as_posix()
+                if rel.startswith(excluded):
+                    continue
                 data = f.read_bytes()
                 text = data.decode("utf-8", "replace")
                 if not is_test(rel, text):
@@ -143,9 +156,10 @@ def vendor(src: pathlib.Path, root: pathlib.Path, slices: dict) -> None:
     for rel in slices.get("support", []):
         folder = src / rel
         if folder.is_dir() and not folder.is_symlink():
-            wanted.update(f.relative_to(src).as_posix() for f in sorted(folder.rglob("*")) if f.is_file() and not f.is_symlink())
+            support.update(f.relative_to(src).as_posix() for f in sorted(folder.rglob("*")) if f.is_file() and not f.is_symlink())
         else:
-            wanted.add(rel)
+            support.add(rel)
+    wanted |= support
     for rel in ALWAYS:
         f = safe_file(src, rel)
         if f is None or f.stat().st_size > limit:
@@ -158,7 +172,7 @@ def vendor(src: pathlib.Path, root: pathlib.Path, slices: dict) -> None:
     copies: list[tuple[str, bytes]] = []
     for rel in sorted(wanted):
         f = safe_file(src, rel)
-        if f is None or f.stat().st_size > limit:
+        if f is None or f.stat().st_size > (support_limit if rel in support else limit):
             lines += ["[[missing]]", f"file = {toml_str(rel)}", ""]
             continue
         data = f.read_bytes()

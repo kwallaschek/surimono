@@ -29,6 +29,7 @@ fn page(script: &str) -> String {
 
 const FRAME_TARGET: &str = "frame-target.xhtml";
 const SUB_SCRIPT: &str = "tokens.sub.js";
+const DATA_FILE: &str = "data.json";
 /// What wptserve sends each extension as; `set_url` takes it from the URL.
 const XHTML_TYPE: &str = "application/xhtml+xml";
 const XML_TYPE: &str = "application/xml";
@@ -136,6 +137,18 @@ fn files() -> Vec<(&'static str, String)> {
             "var from_script = '{{domains[www1]}}';\n".to_owned(),
         ),
         ("bad-token.sub.html", page("'{{nothing}}';")),
+        (
+            "fetches.html",
+            page(
+                "promise_test(() => fetch('data.json').then((r) => r.json()).then((j) => {\n\
+                   assert_equals(j.a, 1);\n\
+                 }), 'fetched');\n\
+                 promise_test(() => fetch('none.json').then((r) => {\n\
+                   assert_equals(r.status, 404);\n\
+                 }), 'absent');",
+            ),
+        ),
+        (DATA_FILE, "{\"a\": 1}".to_owned()),
         // The wrapper page is substituted too, named as its script, so no escaping.
         (
             "meta.sub.window.js",
@@ -188,7 +201,7 @@ fn tree(name: &str) -> PathBuf {
     let mut manifest = String::from("commit = \"abc\"\n");
     for (file, text) in files() {
         fs::write(tests.join(file), text).unwrap();
-        if ["helper.js", FRAME_TARGET, SUB_SCRIPT].contains(&file) {
+        if ["helper.js", FRAME_TARGET, SUB_SCRIPT, DATA_FILE].contains(&file) {
             continue;
         }
         let url = match file.strip_suffix(".js") {
@@ -302,6 +315,12 @@ fn every_path_ends_in_a_value() {
         assert_eq!(subtests(t), [("url", "PASS")], "{url}: {t}");
     }
     // `.sub.` files: a page and its script, on disk as WPT wrote them.
+    let t = test(&r, "fetches.html");
+    assert_eq!(
+        subtests(t),
+        [("fetched", "PASS"), ("absent", "PASS")],
+        "{t}"
+    );
     let t = test(&r, "tokens.sub.html");
     assert_eq!(subtests(t), [("tokens", "PASS")], "{t}");
     assert_eq!(status("bad-token.sub.html"), "ERROR");
@@ -333,7 +352,7 @@ fn every_path_ends_in_a_value() {
         .map(|t| t["test"].as_str().unwrap())
         .collect();
     // Every file but the helpers and the frame's target, and the missing one.
-    assert_eq!(urls.len(), files().len() - 2);
+    assert_eq!(urls.len(), files().len() - 3);
     assert_eq!(urls[..2], ["pass-and-fail.html", "wrapped.any.html?v=1"]);
     assert_eq!(*urls.last().unwrap(), "missing.html");
     fs::remove_dir_all(root).unwrap();

@@ -54,6 +54,10 @@ Scoring one test, in `compat.py`:
 
 A test with no subtests counts once: passed when Chrome's status and ours are `OK`.
 
+**Extra areas.** A slice with `extra = true` has no target: what the DOM stack added
+past the phase's slices (`url`, `encoding`, `atob`, `dom/traversal` and others). `compat.py`
+gives them a table of their own, so the rates against `docs/SPEC.md` stay comparable.
+
 ## Baseline
 
 `wpt/baseline/chrome.json` is generated, never edited, by
@@ -189,12 +193,16 @@ it short; the suite itself runs on the defaults above.
 ### Harness environment
 
 `testharness.js` reads `window.parent`, `window.top`, `window.opener` and `location`
-as soon as it loads, and `surimono-dom` has all but `location` now. The runner defines
-the ones a page lacks, so today a plain `location` for the test's URL on WPT's default
-origin. It runs at the start of `testharness.js`'s own script, so the document stays
-as WPT wrote it, and the vendored file is unchanged and still checked. A definition
-goes away by itself when surimono-dom has the name. `location` here is data with no
-behaviour, and the gap is in `COMPAT.md`.
+as soon as it loads, and `surimono-dom` has all of them now. The runner still defines
+any a page lacks, `location` as plain data for the test's URL on WPT's default origin,
+at the start of `testharness.js`'s own script, so the document stays as WPT wrote it
+and the vendored file is unchanged and still checked. A definition goes away by itself
+when surimono-dom has the name, as each of these has.
+
+`fetch` is the same kind of stand-in: the `url` slice loads its data with
+`fetch("resources/x.json")`. The runner finds `.json` URLs given to `fetch` or testharness.js's `fetch_json` as literals in
+the page and the scripts it names, reads them ahead, and defines a `fetch` that hands
+them out, with `ok`, `status`, `text()` and `json()`, and a 404 for the rest.
 
 The harness also needs `window` as an event target, with `self` the same object,
 `DOMContentLoaded` then `load` after the scripts, `error` on `window`, somewhere to
