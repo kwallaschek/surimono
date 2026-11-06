@@ -10,16 +10,17 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Fri 6 Nov 2026, 08:15)
+## Now (Fri 6 Nov 2026, 15:40)
 
-Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged 5 to 6 Nov: #104 #105 #123 #131 #132 #133 #134 #135 #136 #139 #140 #141 #142 #144 #146 #147 #148. Private upstream notes: Project doc claude/private-upstream-findings-2026-11-05.md; Kay was told at 04:20 that they need his reports.
+Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Also merged: #145 #149 #150 #151 #152. Confirm full.yml on main, ASan especially, after #150.
 
 Open:
-- #143 (page API; approve needed after the shim swap; squash-merge; close #130 unmerged).
-- #149 (approved at 06a15a24, conflicts with main; delta review after).
-- #150 (fork hang; main's ASan is red until it lands).
-- #145 (WPT runner and frames; then regenerate WPT and COMPAT, P2-CF-03).
-Then: E2-12 Rails guide and checkpoint-3 checklist, CHANGELOG, rust.md limits; domparsing gap (E2-14). Digest Sun 8 Nov 20:00; checkpoint 3 Sun 22 Nov 11:00.
+- #143 (page API, head 39ef19f0; last delta unreviewed; switch page.rs:312 to spawn_host_thread; squash-merge; close #130 unmerged; final DECISIONS lines are in docs/fleet/PENDING_DECISIONS.md).
+- #153 (BLOCK) → #154 (approved) → #155 (BLOCK).
+- #156 (runner .sub; delta review; rows for #149 and #152-#155 go in after those merge, then regenerate results and COMPAT).
+Then: root pins html5ever, html-escape, stats_alloc; E2-12 Rails guide, checkpoint-3 checklist, rust.md limits, CHANGELOG; P2-RT-07 libm. Digest Sun 8 Nov 20:00, checkpoint 3 Sun 22 Nov 11:00.
+
+Rates with those PRs: timers 91.2%, dom/nodes 92.7%, dom/events 75.7% (66.7% on wpt.fyi's denominator: say both at checkpoint 3), domparsing 61.6%. Kay's call at checkpoint 3: 300 subtests of unstable API (trustedTypes, positional HTML insertion).
 
 ## Earlier (Thu 5 Nov 2026, 11:45)
 
