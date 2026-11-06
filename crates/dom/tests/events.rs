@@ -2168,9 +2168,10 @@ fn a_timer_that_throws_reports_after_its_microtasks() {
     assert_eq!(log_of(&mut rt), "T,m,E1,em,E2");
 }
 
-/// HTML "run a classic script": reports first, cleans up after.
+/// The same order as a function's: a string timer's task has no script below it,
+/// so the checkpoint comes first. Chrome gives `T,E1,E2,m,em`; the spec wins.
 #[test]
-fn a_string_timer_that_throws_reports_before_its_microtasks() {
+fn a_string_timer_that_throws_reports_after_its_microtasks() {
     let (mut rt, _) = page(
         "<!doctype html><script>globalThis.log = [];
          addEventListener('error', (e) => { e.preventDefault(); log.push('E1'); queueMicrotask(() => log.push('em')); });
@@ -2178,7 +2179,7 @@ fn a_string_timer_that_throws_reports_before_its_microtasks() {
          setTimeout(\"log.push('T'); queueMicrotask(() => log.push('m')); throw new Error('x');\", 0);
          </script>",
     );
-    assert_eq!(log_of(&mut rt), "T,E1,E2,m,em");
+    assert_eq!(log_of(&mut rt), "T,m,E1,em,E2");
 }
 
 #[test]

@@ -80,3 +80,24 @@ fn comments_keep_their_data() {
     // §13.3: `<!--`, the comment's data, `-->`.
     assert_eq!(body_html("<p><!-- 売上 --></p>"), "<p><!-- 売上 --></p>");
 }
+
+/// HTML §13.3: scripting is disabled in template contents, whose owner document has
+/// no browsing context, so `noscript` text there is escaped, as Chromium 153 does.
+#[test]
+fn noscript_in_template_contents_is_escaped() {
+    let mut rt = surimono_dom::DomRuntime::new(surimono_core::Limits::default()).unwrap();
+    rt.load(
+        surimono_dom::Document::parse(
+            "<!doctype html><body><template id=t><noscript><b>a</b></noscript></template><noscript><i>x</i></noscript>",
+        )
+        .unwrap(),
+    );
+    let () = rt
+        .eval("document.getElementById('t').content.firstChild.textContent = '<b>&'; undefined")
+        .unwrap();
+    let html = rt.take().unwrap().to_html();
+    assert!(
+        html.contains("<template id=\"t\"><noscript>&lt;b&gt;&amp;</noscript></template><noscript><i>x</i></noscript>"),
+        "{html}"
+    );
+}

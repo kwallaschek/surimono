@@ -1616,7 +1616,9 @@ impl Document {
                             // noembed, noframes or plaintext element (an SVG
                             // <style> or <script> is escaped), or a noscript
                             // element when scripting is enabled for the
-                            // node, which is in the page's document only.
+                            // node, which is in the page's document only,
+                            // and never in template contents, whose
+                            // owner document has no browsing context.
                             let raw = node
                                 .parent
                                 .and_then(|p| self.node(p).element_data())
@@ -1625,7 +1627,10 @@ impl Document {
                                         && match e.name.local.as_ref() {
                                             "style" | "script" | "xmp" | "iframe" | "noembed"
                                             | "noframes" | "plaintext" => true,
-                                            "noscript" => self.owner_of_node(id) == self.root(),
+                                            "noscript" => {
+                                                self.owner_of_node(id) == self.root()
+                                                    && !self.in_template_contents(id)
+                                            }
                                             _ => false,
                                         }
                                 });
@@ -1721,6 +1726,15 @@ impl Document {
             }
         }
         Ok(())
+    }
+
+    /// Whether `id` is inside a template's contents: its tree's root is one.
+    fn in_template_contents(&self, id: usize) -> bool {
+        let mut top = id;
+        while let Some(p) = self.parent(top) {
+            top = p;
+        }
+        top != id && self.templates.values().any(|&c| c == top)
     }
 
     /// The live node count, parsed and created.
@@ -3117,6 +3131,11 @@ impl Document {
     }
 
     fn note_attribute(&mut self, id: usize, name: &QualName) {
+        // A style element's `type` or `media`, written at all, makes a new sheet in
+        // Chromium 153, as a change of its text does.
+        if name.ns == ns!() && matches!(name.local.as_ref(), "type" | "media") {
+            self.style_changed(id);
+        }
         if !self.is_observed() {
             return;
         }

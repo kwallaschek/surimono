@@ -223,8 +223,12 @@
   const parseInt_ = parseInt;
   H.HTMLTableCellElement_colSpan = (s) => spanOf(s, 'colspan', 1, 1000);
   H.HTMLTableCellElement_rowSpan = (s) => spanOf(s, 'rowspan', 0, 65534);
-  H.set_HTMLTableCellElement_colSpan = (s, v) => { call(OP_setAttribute, s.g, s.h, 'colspan', `${v}`); };
-  H.set_HTMLTableCellElement_rowSpan = (s, v) => { call(OP_setAttribute, s.g, s.h, 'rowspan', `${v}`); };
+  // HTML §2.6.1: an `unsigned long` past 2^31 - 1 writes the default instead.
+  function setUnsigned(s, name, v, fallback) {
+    call(OP_setAttribute, s.g, s.h, name, `${v > 2147483647 ? fallback : v}`);
+  }
+  H.set_HTMLTableCellElement_colSpan = (s, v) => { setUnsigned(s, 'colspan', v, 1); };
+  H.set_HTMLTableCellElement_rowSpan = (s, v) => { setUnsigned(s, 'rowspan', v, 1); };
   // §2.6.1 an enumerated attribute: the keywords, and nothing for anything else.
   H.HTMLTableCellElement_scope = (s) => {
     const v = asciiLower(reflectStr(s, 'scope'));
@@ -250,7 +254,7 @@
     const x = v === null ? NaN : parseInt_(v, 10);
     return x >= 0 && x <= 2147483647 ? x : 0;
   };
-  H.set_HTMLSelectElement_size = (s, v) => { call(OP_setAttribute, s.g, s.h, 'size', `${v}`); };
+  H.set_HTMLSelectElement_size = (s, v) => { setUnsigned(s, 'size', v, 0); };
   H.HTMLSelectElement_length = (s) => size(htmlList(s, OPTIONS));
   H.set_HTMLSelectElement_length = (s, v) => { setOptionCount(s, v); };
   // Not in the generator's table: `item` is a getter, and that would make `exotic`
@@ -452,6 +456,8 @@
   // the interface's, so `new Option() instanceof HTMLOptionElement`.
   function legacyFactory(name, id, f) {
     defineProperty(f, 'name', { value: name, configurable: true });
+    // WebIDL §3.7.4: every argument is optional, so `length` is 0.
+    defineProperty(f, 'length', { value: 0, configurable: true });
     defineProperty(f, 'prototype', { value: protos[id], writable: false });
     defineProperty(G, name, { value: f, writable: true, configurable: true });
   }
@@ -476,8 +482,8 @@
     if (new.target === undefined) throw new TE('Constructor requires new');
     const w = apply(createElementNS_, pageDocument(), [XHTML, 'img']);
     const i = stateOf(w);
-    if (width !== undefined) call(OP_setAttribute, i.g, i.h, 'width', `${width >>> 0}`);
-    if (height !== undefined) call(OP_setAttribute, i.g, i.h, 'height', `${height >>> 0}`);
+    if (width !== undefined) setUnsigned(i, 'width', width >>> 0, 0);
+    if (height !== undefined) setUnsigned(i, 'height', height >>> 0, 0);
     return w;
   });
 
@@ -671,8 +677,10 @@
       fireFocus(next, 'focusin', from);
     }
   }
+  // §6.6.4: focus is a navigable's, so a document with none has nothing to move.
   function focusElement(s) {
-    if (focusable(s)) changeFocus(documentOf(s), s);
+    const d = documentOf(s);
+    if (isPage(d) && focusable(s)) changeFocus(d, s);
   }
   function blurElement(s) {
     const d = documentOf(s);
@@ -686,8 +694,9 @@
   function tabIndexOf(s) {
     const v = attrOf(s, 'tabindex');
     if (v !== null) {
+      // §2.4.4.1: a value past a `long` is a parse error, so the default holds.
       const x = parseInt_(v, 10);
-      if (x === x) return x | 0;
+      if (x === x && x >= -2147483648 && x <= 2147483647) return x;
     }
     switch (localOf(s)) {
       case 'a': case 'area': case 'button': case 'iframe': case 'input': case 'object':

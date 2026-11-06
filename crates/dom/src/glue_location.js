@@ -201,6 +201,7 @@
   const typedBuffer = rdescriptor(typedProps, 'buffer').get;
   const typedOffset = rdescriptor(typedProps, 'byteOffset').get;
   const typedLength = rdescriptor(typedProps, 'length').get;
+  const typedBytes = rdescriptor(typedProps, 'byteLength').get;
   const viewProps = DataView.prototype, ViewCtor = DataView;
   const viewBuffer = rdescriptor(viewProps, 'buffer').get;
   const viewOffset = rdescriptor(viewProps, 'byteOffset').get;
@@ -221,10 +222,21 @@
     errorCtors[c.name] = c;
   }
   const isDetached = (b) => apply(abDetached, b, []);
+  const abResizable = rdescriptor(abProto, 'resizable').get;
+  const abMax = rdescriptor(abProto, 'maxByteLength').get;
+  // Whether a view of a resizable buffer follows its length. No getter says, so a
+  // view that reaches the buffer's end is taken to: what Chrome does for
+  // `new Uint8Array(rab)`, and wrong for one given a length that happens to reach it.
+  const tracks = (buffer, offset, bytes) =>
+    apply(abResizable, buffer, []) && offset + bytes === apply(abBytes, buffer, []);
   const domExceptionName = rdescriptor(DOMExceptionCtor.prototype, 'name').get;
   const domExceptionMessage = rdescriptor(DOMExceptionCtor.prototype, 'message').get;
+  // A resizable buffer stays resizable, with its maximum.
   function cloneBuffer(b) {
-    const out = new BufferCtor(apply(abBytes, b, []));
+    const length = apply(abBytes, b, []);
+    const out = apply(abResizable, b, [])
+      ? new BufferCtor(length, { maxByteLength: apply(abMax, b, []) })
+      : new BufferCtor(length);
     apply(bytesSet, new Bytes(out), [new Bytes(b)]);
     return out;
   }
@@ -288,11 +300,15 @@
     const tag = apply(typedTag, v, []);
     if (tag !== undefined) {
       const buffer = cloneValue(apply(typedBuffer, v, []), seen);
-      return new typedCtors[tag](buffer, apply(typedOffset, v, []), apply(typedLength, v, []));
+      const source = apply(typedBuffer, v, []), offset = apply(typedOffset, v, []);
+      if (tracks(source, offset, apply(typedBytes, v, []))) return new typedCtors[tag](buffer, offset);
+      return new typedCtors[tag](buffer, offset, apply(typedLength, v, []));
     }
     if (branded(viewLength, v)) {
       const buffer = cloneValue(apply(viewBuffer, v, []), seen);
-      return new ViewCtor(buffer, apply(viewOffset, v, []), apply(viewLength, v, []));
+      const source = apply(viewBuffer, v, []), offset = apply(viewOffset, v, []);
+      if (tracks(source, offset, apply(viewLength, v, []))) return new ViewCtor(buffer, offset);
+      return new ViewCtor(buffer, offset, apply(viewLength, v, []));
     }
     for (let i = 0; i < 4; i++) {
       if (branded(boxValueOf[i], v)) return ObjectCtor(apply(boxValueOf[i], v, []));

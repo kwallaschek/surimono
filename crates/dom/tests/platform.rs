@@ -333,6 +333,19 @@ fn a_dom_exception_clones() {
     );
 }
 
+/// Chromium 153: `true,16,12,8`, a resizable buffer stays one and a view that
+/// follows its length still does.
+#[test]
+fn a_resizable_buffer_clones_resizable() {
+    assert_eq!(
+        run("const rab = new ArrayBuffer(8, { maxByteLength: 16 });
+             const c = structuredClone({ rab, v: new Uint8Array(rab), f: new Uint8Array(rab, 0, 4) });
+             c.rab.resize(12);
+             [c.rab.resizable, c.rab.maxByteLength, c.v.length, c.f.length, c.v.buffer === c.rab].join()"),
+        "true,16,12,4,true"
+    );
+}
+
 #[test]
 fn structured_clone_transfers_buffers() {
     assert_eq!(
@@ -370,6 +383,40 @@ fn navigator_has_fixed_values() {
         caught("thrown(() => Object.create(Navigator.prototype).userAgent)"),
         "TypeError"
     );
+}
+
+/// Chromium 153's answers to `define`'s checks, in its order of reads.
+#[test]
+fn define_checks_callbacks_and_extends() {
+    assert_eq!(
+        caught(
+            r#"class A extends HTMLElement {}
+            A.prototype.connectedCallback = 1;
+            const order = [];
+            const P = new Proxy({}, { get(o, k) { order.push(String(k)); return undefined; } });
+            function C() {}
+            C.prototype = P;
+            customElements.define('x-f', C);
+            [thrown(() => customElements.define('x-a', A)),
+             thrown(() => customElements.define('x-b', class extends HTMLElement {}, { extends: 'x-c' })),
+             thrown(() => customElements.define('x-d', class extends HTMLElement {}, { extends: 'nonsense' })),
+             thrown(() => customElements.define('x-e', class extends HTMLElement {}, { extends: 'p' })),
+             customElements.get('x-a'), order.join(' ')].join()"#
+        ),
+        "TypeError,NotSupportedError,NotSupportedError,none,,connectedCallback disconnectedCallback \
+         connectedMoveCallback adoptedCallback attributeChangedCallback"
+    );
+}
+
+/// Review of #160: `a&a&a…` with no `=` searched to the end for each piece.
+#[test]
+fn a_query_with_no_equals_is_linear() {
+    let began = std::time::Instant::now();
+    assert_eq!(
+        run("String(new URLSearchParams('a&'.repeat(1 << 17)).size)"),
+        "131072"
+    );
+    assert!(began.elapsed() < common::scaled(std::time::Duration::from_secs(10)));
 }
 
 #[test]
