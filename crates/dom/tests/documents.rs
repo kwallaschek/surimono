@@ -801,14 +801,13 @@ fn default_view_and_location() {
         "const o = [new Document(), document.implementation.createHTMLDocument(''),
                     document.implementation.createDocument(null, null), document.cloneNode()];
          const none = o.every((d) => d.defaultView === null && d.location === null);
-         globalThis.location = 'here';
-         [none, document.defaultView === window, document.location].join()",
+         [none, document.defaultView === window, document.location === location].join()",
     );
-    assert_eq!(got, "true,true,here");
+    assert_eq!(got, "true,true,true");
     assert_eq!(
         eval("String(document.location)"),
-        "null",
-        "a window with no location"
+        "about:blank",
+        "a window with no URL"
     );
 }
 
