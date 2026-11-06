@@ -161,9 +161,10 @@ pub enum Error {
     PageStackOverflow,
     /// The document, as parsed or as its scripts changed it, passed a limit on
     /// the DOM: nodes, tree depth, node handles, bytes of text, attributes on
-    /// an element or the size of a `style` attribute. Catching the exception doesn't help a script. Also
-    /// a page whose output, as a printer would read it, is past those limits,
-    /// holds more CSS than is safe to parse, or is over
+    /// an element, ranges or the size of a `style` attribute. Catching the
+    /// exception doesn't help a script. Also a page whose output, as a printer
+    /// would read it, is past those limits, holds more CSS than is safe to
+    /// parse, or is over
     /// [`Limits::output_bytes`](crate::Limits::output_bytes). The message says
     /// which.
     #[error("the page reached a DOM limit: {message}")]

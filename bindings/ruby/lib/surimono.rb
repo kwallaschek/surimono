@@ -49,8 +49,8 @@ module Surimono
   # A script recursed deeper than limits[:stack_kb] allows.
   class StackOverflowError < Error; end
   # A page or its scripts passed a limit on the DOM: nodes, tree depth, node
-  # handles, bytes of text, attributes on an element or the size of a style
-  # attribute. Or its output has more CSS than is safe to parse, or is over
+  # handles, bytes of text, attributes on an element, ranges or the size of a
+  # style attribute. Or its output has more CSS than is safe to parse, or is over
   # limits[:output_mb].
   class DomLimitError < Error; end
 

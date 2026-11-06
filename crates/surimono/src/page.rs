@@ -516,11 +516,64 @@ fn page_error(e: DomError) -> Error {
         | DomError::HandleLimit { .. }
         | DomError::TextLimit { .. }
         | DomError::AttributeLimit { .. }
+        | DomError::RangeLimit { .. }
         | DomError::StyleLimit { .. } => Error::PageDomLimit {
             message: e.to_string(),
         },
+        // `DomError` is `#[non_exhaustive]`, so a new limit would land here
+        // without a word: `tests::every_dom_limit_is_a_page_dom_limit` fails
+        // until it is in the list above.
         other => Error::PageFailed {
             message: other.to_string(),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_dom_limit_is_a_page_dom_limit() {
+        let limits = [
+            ("NodeLimit", DomError::NodeLimit { limit: 1 }),
+            ("TreeTooDeep", DomError::TreeTooDeep { limit: 1 }),
+            ("HandleLimit", DomError::HandleLimit { limit: 1 }),
+            ("TextLimit", DomError::TextLimit { limit: 1 }),
+            ("AttributeLimit", DomError::AttributeLimit { limit: 1 }),
+            ("RangeLimit", DomError::RangeLimit { limit: 1 }),
+            ("OutputLimit", DomError::OutputLimit { limit: 1 }),
+            (
+                "StyleLimit",
+                DomError::StyleLimit {
+                    declarations: 1,
+                    tokens: 1,
+                    bytes: 1,
+                },
+            ),
+        ];
+        let names: Vec<&str> = limits.iter().map(|(name, _)| *name).collect();
+        for (name, e) in limits {
+            let mapped = page_error(e);
+            assert!(
+                matches!(mapped, Error::PageDomLimit { .. }),
+                "{name}: {mapped}"
+            );
+        }
+        // The enum as written: a limit it gains has to be listed above.
+        let source = include_str!("../../dom/src/error.rs");
+        let variants = source
+            .lines()
+            .filter_map(|line| line.strip_prefix("    "))
+            .filter(|line| line.starts_with(|c: char| c.is_ascii_uppercase()))
+            .map(|line| line.split(|c: char| !c.is_ascii_alphanumeric()).next());
+        let found: Vec<&str> = variants
+            .flatten()
+            .filter(|v| v.ends_with("Limit"))
+            .collect();
+        assert!(found.len() >= 7, "{found:?}");
+        for variant in found {
+            assert!(names.contains(&variant), "{variant} isn't listed");
+        }
     }
 }

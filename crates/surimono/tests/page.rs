@@ -301,6 +301,21 @@ fn limits_are_typed_and_the_renderer_carries_on() {
 }
 
 #[test]
+fn a_page_of_ranges_is_limited() {
+    let r = renderer(options());
+    let most = surimono_dom::DomLimits::DEFAULT_MAX_RANGES;
+    for wrap in ["%", "queueMicrotask(() => { % });"] {
+        let make = format!("for (let i = 0; i <= {most}; i++) document.createRange();");
+        let html = format!(
+            "<!doctype html><script>{}</script>",
+            wrap.replace('%', &make)
+        );
+        let e = r.render_page(&html).map(|_| ()).unwrap_err();
+        assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
+    }
+}
+
+#[test]
 fn the_markup_itself_is_limited() {
     let r = renderer(options());
     let deep = "<div>".repeat(5_000);
