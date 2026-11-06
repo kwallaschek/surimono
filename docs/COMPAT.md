@@ -152,40 +152,39 @@ Memory target (`docs/SPEC.md`): at least 5× lower peak (summed PSS) than Grover
 | Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |
 |---|---|---|---|---|---|---|
 | html/webappapis timers and microtask queuing | 2 | 31 | 34 | 91.2% | 90% | meets the target |
-| dom/nodes | 2 | 14164 | 15267 | 92.8% | 70% | meets the target |
+| dom/nodes | 2 | 14168 | 15267 | 92.8% | 70% | meets the target |
 | dom/events | 2 | 566 | 748 | 75.7% | 70% | meets the target |
-| domparsing | 2 | 560 | 909 | 61.6% | 60% | meets the target |
+| domparsing | 2 | 566 | 909 | 62.3% | 60% | meets the target |
 
 The same passes on the two denominators. Ours is what Chrome passes on a static server; wpt.fyi's is Chrome 156.0.8078.80 at the same commit (run 5143154416943104) on the same URLs. A target is met on ours; where the two rates fall on either side of it, both are reported.
 
 | Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count |
 |---|---|---|---|---|---|
 | html/webappapis timers and microtask queuing | 31 | 34 | 34 | 0 | 91.2% |
-| dom/nodes | 14164 | 15267 | 15300 | 33 | 92.6% |
+| dom/nodes | 14168 | 15267 | 15300 | 33 | 92.6% |
 | dom/events | 566 | 748 | 848 | 100 | 66.7% |
-| domparsing | 560 | 909 | 913 | 4 | 61.3% |
+| domparsing | 566 | 909 | 913 | 4 | 62.0% |
 
-WPT 8b4b06ff53, 726 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono e879ec95a4 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
+WPT 8b4b06ff53, 726 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 221530524e (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
 
 The most common causes, in subtests Chrome passes:
 
 | Subtests | Cause |
 |---|---|
 | 398 | FAIL: assert_equals: expected … but got … |
+| 310 | NOTRUN: NOTRUN |
 | 278 | ERROR: ReferenceError: trustedTypes is not defined |
-| 278 | NOTRUN: NOTRUN |
-| 157 | FAIL: not a function |
-| 100 | FAIL: promise_test: Unhandled rejection with value: object … |
+| 154 | FAIL: not a function |
+| 108 | FAIL: promise_test: Unhandled rejection with value: object … |
 | 68 | FAIL: the selector is not valid |
 | 66 | FAIL: assert_throws_dom: function "() => { |
-| 52 | ERROR: TypeError: cannot read property 'insertRule' of undefined |
-| 24 | TIMEOUT: Test timed out |
+| 28 | TIMEOUT: Test timed out |
 | 21 | not reported |
 | 16 | FAIL: promise_test: Unhandled rejection with value: … |
-| 14 | FAIL: cannot read property … of undefined |
 | 10 | FAIL: assert_equals: expected N but got N |
 | 9 | ERROR: TypeError: not a function |
 | 8 | FAIL: assert_array_equals: lengths differ, expected array […, …] length N, got […] length N |
+| 8 | FAIL: cannot read property … of undefined |
 | 7 | FAIL: assert_throws_dom: function … threw object … that is not a DOMException HierarchyRequestEr |
 | 7 | LIMIT: run_page: script exceeded the time limit |
 | 6 | ERROR: TypeError: Illegal invocation |
@@ -196,6 +195,7 @@ The most common causes, in subtests Chrome passes:
 | 5 | FAIL: assert_throws_dom: function "function() { |
 | 5 | FAIL: assert_true: expected true got false |
 | 4 | ERROR: Error: assert_equals: the meta charset must be in effect, making the main document windows-1252 expected "windows-1252" but got "UTF-8" |
+| 4 | FAIL: Illegal invocation |
 
 <details><summary>Every test that doesn't pass in full</summary>
 
@@ -225,7 +225,6 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Document-contentType/contentType/contenttype_txt.html | 0 | 1 | OK |
 | dom/nodes/Document-contentType/contentType/contenttype_xml.html | 0 | 1 | OK |
 | dom/nodes/Document-contentType/contentType/xhr_responseType_document.html | 0 | 1 | OK |
-| dom/nodes/Document-createTreeWalker.html | 1 | 5 | OK |
 | dom/nodes/Document-importNode.html | 4 | 5 | OK |
 | dom/nodes/Element-classlist.html | 1415 | 1420 | OK |
 | dom/nodes/Element-closest.html | 27 | 29 | OK |
@@ -395,12 +394,11 @@ The most common causes, in subtests Chrome passes:
 | dom/events/scrolling/scrollend-fires-to-text-input.html | 0 | 5 | TIMEOUT |
 | dom/events/scrolling/scrollend-with-snap-on-fractional-offset.html | 0 | 1 | OK |
 | dom/events/shadow-relatedTarget.html | 0 | 2 | ERROR |
-| dom/events/webkit-animation-end-event.html | 0 | 13 | ERROR |
-| dom/events/webkit-animation-iteration-event.html | 0 | 13 | ERROR |
-| dom/events/webkit-animation-start-event.html | 0 | 13 | ERROR |
-| dom/events/webkit-transition-end-event.html | 0 | 13 | ERROR |
+| dom/events/webkit-animation-end-event.html | 0 | 13 | TIMEOUT |
+| dom/events/webkit-animation-iteration-event.html | 0 | 13 | TIMEOUT |
+| dom/events/webkit-animation-start-event.html | 0 | 13 | TIMEOUT |
+| dom/events/webkit-transition-end-event.html | 0 | 13 | TIMEOUT |
 | domparsing/DOMParser-parseFromString-encoding.html | 0 | 4 | ERROR |
-| domparsing/DOMParser-parseFromString-stylesheets.html | 0 | 6 | OK |
 | domparsing/DOMParser-parseFromString-url-base-pushstate.html | 36 | 45 | OK |
 | domparsing/DOMParser-parseFromString-url-base.html | 36 | 45 | OK |
 | domparsing/DOMParser-parseFromString-url-pushstate.html | 36 | 45 | OK |
@@ -431,12 +429,12 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | url | 6469 | 9492 | 68.2% | 1220: not reported |
 | encoding, without streams | 11409 | 11582 | 98.5% | 94: TIMEOUT: Test timed out |
 | html/webappapis/atob | 380 | 380 | 100.0% | none |
-| dom/traversal | 1 | 1606 | 0.1% | 763: ERROR: ReferenceError: NodeFilter is not defined |
+| dom/traversal | 1600 | 1606 | 99.6% | 5: FAIL: nodeFilterGlobalObject is not defined |
 | html/semantics/tabular-data | 152 | 163 | 93.3% | 6: LIMIT: run_page: the document reached its limit of 100000 nodes |
 | form, select and option elements | 239 | 505 | 47.3% | 67: FAIL: assert_equals: expected (string) … but got (undefined) undefined |
 | html/semantics/text-level-semantics/the-a-element | 18 | 26 | 69.2% | 2: FAIL: Illegal invocation |
 | innerText and outerText | 374 | 1277 | 29.3% | 616: FAIL: assert_equals: expected … but got … |
-| css/cssom rule lists | 0 | 162 | 0.0% | 97: ERROR: TypeError: cannot read property 'cssRules' of undefined |
+| css/cssom rule lists | 40 | 162 | 24.7% | 83: FAIL: assert_equals: expected … but got … |
 
 <details><summary>Every extra test that doesn't pass in full</summary>
 
@@ -475,24 +473,8 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | encoding/unsupported-labels.window.html | 64 | 158 | TIMEOUT |
 | encoding/utf-32-from-win1252.html | 0 | 8 | OK |
 | encoding/utf-32.html | 3 | 8 | OK |
-| dom/traversal/NodeFilter-constants.html | 0 | 2 | ERROR |
-| dom/traversal/NodeIterator-removal-during-filtering.html | 0 | 3 | OK |
-| dom/traversal/NodeIterator-removal.html | 0 | 24 | OK |
-| dom/traversal/NodeIterator.html | 0 | 766 | OK |
 | dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html | 0 | 1 | OK |
 | dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html | 0 | 5 | OK |
-| dom/traversal/TreeWalker-acceptNode-filter.html | 0 | 12 | OK |
-| dom/traversal/TreeWalker-basic.html | 1 | 6 | OK |
-| dom/traversal/TreeWalker-currentNode.html | 0 | 4 | OK |
-| dom/traversal/TreeWalker-nextNode-detached-currentNode.window.html | 0 | 3 | OK |
-| dom/traversal/TreeWalker-previousNodeLastChildReject.html | 0 | 1 | OK |
-| dom/traversal/TreeWalker-previousSiblingLastChildSkip.html | 0 | 1 | OK |
-| dom/traversal/TreeWalker-realm.html | 0 | 2 | OK |
-| dom/traversal/TreeWalker-traversal-reject.html | 0 | 6 | OK |
-| dom/traversal/TreeWalker-traversal-skip-most.html | 0 | 2 | OK |
-| dom/traversal/TreeWalker-traversal-skip.html | 0 | 6 | OK |
-| dom/traversal/TreeWalker-walking-outside-a-tree.html | 0 | 1 | OK |
-| dom/traversal/TreeWalker.html | 0 | 761 | ERROR |
 | html/semantics/tabular-data/processing-model-1/col-span-limits.html | 2 | 5 | OK |
 | html/semantics/tabular-data/processing-model-1/rowspan-0-quirks.html | 1 | 2 | OK |
 | html/semantics/tabular-data/processing-model-1/rowspan-0.html | 1 | 2 | OK |
@@ -582,24 +564,21 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=true | 0 | 79 | OK |
 | html/dom/elements/the-innertext-and-outertext-properties/multiple-text-nodes.window.html | 0 | 1 | OK |
 | html/dom/elements/the-innertext-and-outertext-properties/outertext-setter.html | 2 | 43 | OK |
-| css/cssom/CSSStyleSheet.html | 0 | 17 | ERROR |
-| css/cssom/CSSRule-type.html | 0 | 14 | ERROR |
-| css/cssom/CSSRuleList.html | 0 | 1 | OK |
-| css/cssom/CSSStyleRule-selectorText-setter.html | 0 | 7 | ERROR |
-| css/cssom/CSSStyleRule-set-selectorText-namespace.html | 0 | 5 | ERROR |
-| css/cssom/CSSStyleRule-set-selectorText.html | 0 | 82 | ERROR |
-| css/cssom/CSSStyleRule.html | 0 | 10 | ERROR |
+| css/cssom/CSSStyleSheet.html | 15 | 17 | OK |
+| css/cssom/CSSRule-type.html | 1 | 14 | OK |
+| css/cssom/CSSStyleRule-selectorText-setter.html | 6 | 7 | OK |
+| css/cssom/CSSStyleRule-set-selectorText-namespace.html | 0 | 5 | OK |
+| css/cssom/CSSStyleRule-set-selectorText.html | 7 | 82 | OK |
+| css/cssom/CSSStyleRule.html | 5 | 10 | OK |
 | css/cssom/CSSGroupingRule-cssRules.html | 0 | 1 | OK |
 | css/cssom/CSSGroupingRule-insertRule-computed.html | 0 | 1 | OK |
 | css/cssom/CSSGroupingRule-insertRule.html | 0 | 7 | OK |
-| css/cssom/StyleSheetList.html | 0 | 1 | OK |
-| css/cssom/insertRule-across-context.html | 0 | 2 | OK |
+| css/cssom/insertRule-across-context.html | 1 | 2 | OK |
 | css/cssom/insertRule-charset-no-index.html | 0 | 2 | OK |
 | css/cssom/insertRule-font-face.html | 0 | 1 | OK |
-| css/cssom/insertRule-import-no-index.html | 0 | 2 | OK |
+| css/cssom/insertRule-import-no-index.html | 1 | 2 | OK |
 | css/cssom/insertRule-namespace-after-import.html | 0 | 2 | OK |
 | css/cssom/insertRule-namespace-no-index.html | 0 | 3 | OK |
-| css/cssom/insertRule-no-index.html | 0 | 2 | OK |
 | css/cssom/insertRule-syntax-error-01.html | 0 | 1 | OK |
 | css/cssom/rule-restrictions.html | 0 | 1 | OK |
 
@@ -663,7 +642,7 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | `document.write` and `document.writeln` don't exist: a `TypeError`. In Chromium 153.0.8010.12 the markup lands after the script | `wpt/probes`, `write`. HTML, "document.write()" | The script stops there. Common in older report templates |
 | Blitz lays out every document as no-quirks, whatever the doctype. A page with no doctype or an old one gets Chrome's quirks or limited-quirks layout there (the line-height and table-cell height quirks, among others) and standards layout here. `document.compatMode` and case-insensitive `#id` and `.class` in `querySelector` still follow the parser, so what scripts see is right and only layout differs | blitz-dom 0.2.4 fixes `QuirksMode::NoQuirks`: `src/document.rs` (the `Stylist`) and `quirks_mode()` in `src/stylo.rs`. [Quirks Mode](https://quirks.spec.whatwg.org/). No fixture measures it: every fixture is no-quirks | A template written without a doctype can print with different line heights and table sizes from Chrome. Add `<!doctype html>` |
 | `<img>` fires no `load` or `error`, as nothing loads: not a parsed one, a created one or a `new Image(2, 3)`. `Image` exists since #161, and `img.width` is undefined. Chromium 153.0.8010.12 fires `load` on all three and reads 2 | `wpt/probes`, `images`. HTML, "update the image data". `crates/dom/DESIGN.md`, "Tables, forms and links" | A script that waits for an image's `load` before it draws or finishes never goes on, and the page settles without that work |
-| Interfaces not bound. On `document`: `createTreeWalker`, `createNodeIterator` and `styleSheets` (#162 and #163 bind them). Globals: `TreeWalker`, `NodeIterator`, `CSSStyleSheet`, `matchMedia`, `trustedTypes`, `Selection` (next row), and the SVG interfaces below `SVGElement`, such as `SVGRectElement`. Chromium 153.0.8010.12 has them all | `wpt/probes`, `interfaces`; the WPT causes table above | A library that touches one stops with an exception |
+| Interfaces not bound: `matchMedia`, `trustedTypes`, `Selection` (below), the SVG interfaces below `SVGElement`, such as `SVGRectElement`, and in CSSOM `CSSNamespaceRule`, grouping rules' `cssRules` and `rule.style` (#163). Chromium 153.0.8010.12 has them all | `wpt/probes`, `interfaces`; the WPT causes table above | A library that touches one stops with an exception |
 | Frames have no browsing context. A script in one never runs: `srcdoc="<script>parent.ran=1</script>"` leaves `ran` unset, where Chromium 153.0.8010.12 sets it. No realm: `frames[0].Node === Node` here and not there. `frames` is a list, not the window, and `window[0]` doesn't exist. A frame a script adds loads after the page settles, so the window's `load` comes first; Chromium 153.0.8010.12 has the frame first. A frame's type goes by its URL's extension, there being no Content-Type. At most 64 frames and 8 load rounds a render | `wpt/probes`, `frames`, `framescript`, `frameorder`. `crates/dom/DESIGN.md`, "Frames" | A page that fills a frame by script, or talks to one, prints the frame without it. The 3 subtests timers and microtasks lose are this: cross-realm exception reports, which need a realm per frame. The area meets its 90% with them, at 91.2%. A frame is otherwise a real document, which is what the selector tests need |
 | A document with no browsing context still runs inline handlers: an `onclick` attribute in a `createHTMLDocument` or `DOMParser` document runs on a dispatched click, and `d.body.onload = f` sets the page's `window.onload`. HTML §8.1.7.1 gives null for both, since the document's browsing context is null and it isn't active. Chromium 153.0.8010.12 follows it. An IDL handler, `e.onclick = f`, runs in both | `wpt/probes`, `nobc`. `crates/dom/DESIGN.md`, "Gaps" under "Several documents". Review of #136 | Conformance only: no wider than the page's own scripts, which could run the same code. A template parsed with `DOMParser` could run a handler Chrome wouldn't |
 | `__surimonoFrameLoads` is a global of ours: non-enumerable, non-writable and non-configurable, but `Object.getOwnPropertyNames(window)` lists it. Calling it fires only frame `load`s already due | `wpt/probes`, `framefn`. `crates/dom/tests/documents.rs`, `the_frame_hook_cannot_be_replaced`. Review of #142 | A script that lists the window's names sees one more. Rust needs the name between settles, and a value held in Rust wouldn't survive a sandbox rebuild |
