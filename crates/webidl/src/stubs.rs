@@ -1123,6 +1123,55 @@ pub static INTERFACES: &[InterfaceInfo] = &[
             MemberInfo { idl_name: "marginWidth", rust_name: "margin_width", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
         ],
     },
+    InterfaceInfo {
+        name: "AbstractRange",
+        parent: None,
+        files: &["dom.idl"],
+        members: &[
+            MemberInfo { idl_name: "startContainer", rust_name: "start_container", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "startOffset", rust_name: "start_offset", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "endContainer", rust_name: "end_container", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "endOffset", rust_name: "end_offset", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "collapsed", rust_name: "collapsed", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
+        name: "Range",
+        parent: Some("AbstractRange"),
+        files: &["cssom-view.idl", "dom.idl", "html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "commonAncestorContainer", rust_name: "common_ancestor_container", kind: MemberInfoKind::Attribute { readonly: true, is_static: false } },
+            MemberInfo { idl_name: "setStart", rust_name: "set_start", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setEnd", rust_name: "set_end", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setStartBefore", rust_name: "set_start_before", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setStartAfter", rust_name: "set_start_after", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setEndBefore", rust_name: "set_end_before", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "setEndAfter", rust_name: "set_end_after", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "collapse", rust_name: "collapse", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "selectNode", rust_name: "select_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "selectNodeContents", rust_name: "select_node_contents", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "START_TO_START", rust_name: "START_TO_START", kind: MemberInfoKind::Const },
+            MemberInfo { idl_name: "START_TO_END", rust_name: "START_TO_END", kind: MemberInfoKind::Const },
+            MemberInfo { idl_name: "END_TO_END", rust_name: "END_TO_END", kind: MemberInfoKind::Const },
+            MemberInfo { idl_name: "END_TO_START", rust_name: "END_TO_START", kind: MemberInfoKind::Const },
+            MemberInfo { idl_name: "compareBoundaryPoints", rust_name: "compare_boundary_points", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "deleteContents", rust_name: "delete_contents", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "extractContents", rust_name: "extract_contents", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "cloneContents", rust_name: "clone_contents", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "insertNode", rust_name: "insert_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "surroundContents", rust_name: "surround_contents", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "cloneRange", rust_name: "clone_range", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "detach", rust_name: "detach", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "isPointInRange", rust_name: "is_point_in_range", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "comparePoint", rust_name: "compare_point", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "intersectsNode", rust_name: "intersects_node", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "", rust_name: "stringifier", kind: MemberInfoKind::Special },
+            MemberInfo { idl_name: "getClientRects", rust_name: "get_client_rects", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "getBoundingClientRect", rust_name: "get_bounding_client_rect", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+            MemberInfo { idl_name: "createContextualFragment", rust_name: "create_contextual_fragment", kind: MemberInfoKind::Operation { is_static: false, overloads: 1 } },
+        ],
+    },
 ];
 
 /// IDL `interface EventTarget` (dom.idl).
@@ -9557,4 +9606,212 @@ pub trait HTMLIFrameElement: HTMLElement {
         let _ = (this, value);
         Err(BindingError::NotImplemented("HTMLIFrameElement.marginWidth"))
     }
+}
+
+/// IDL `interface AbstractRange` (dom.idl).
+pub trait AbstractRange {
+    /// `readonly attribute Node startContainer;` (dom.idl)
+    fn start_container(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("AbstractRange.startContainer"))
+    }
+
+    /// `readonly attribute unsigned long startOffset;` (dom.idl)
+    fn start_offset(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("AbstractRange.startOffset"))
+    }
+
+    /// `readonly attribute Node endContainer;` (dom.idl)
+    fn end_container(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("AbstractRange.endContainer"))
+    }
+
+    /// `readonly attribute unsigned long endOffset;` (dom.idl)
+    fn end_offset(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let _ = this;
+        Err(BindingError::NotImplemented("AbstractRange.endOffset"))
+    }
+
+    /// `readonly attribute boolean collapsed;` (dom.idl)
+    fn collapsed(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let _ = this;
+        Err(BindingError::NotImplemented("AbstractRange.collapsed"))
+    }
+}
+
+/// IDL `interface Range : AbstractRange` (dom.idl).
+///
+/// Members also from: cssom-view.idl, html.idl.
+pub trait Range: AbstractRange {
+    /// `constructor();` (dom.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new Range"))
+    }
+
+    /// `readonly attribute Node commonAncestorContainer;` (dom.idl)
+    fn common_ancestor_container(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.commonAncestorContainer"))
+    }
+
+    /// `undefined setStart(Node node, unsigned long offset);` (dom.idl)
+    fn set_start(&mut self, this: ObjectId, node: ObjectId, offset: u32) -> BindingResult<()> {
+        let _ = (this, node, offset);
+        Err(BindingError::NotImplemented("Range.setStart"))
+    }
+
+    /// `undefined setEnd(Node node, unsigned long offset);` (dom.idl)
+    fn set_end(&mut self, this: ObjectId, node: ObjectId, offset: u32) -> BindingResult<()> {
+        let _ = (this, node, offset);
+        Err(BindingError::NotImplemented("Range.setEnd"))
+    }
+
+    /// `undefined setStartBefore(Node node);` (dom.idl)
+    fn set_start_before(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<()> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.setStartBefore"))
+    }
+
+    /// `undefined setStartAfter(Node node);` (dom.idl)
+    fn set_start_after(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<()> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.setStartAfter"))
+    }
+
+    /// `undefined setEndBefore(Node node);` (dom.idl)
+    fn set_end_before(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<()> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.setEndBefore"))
+    }
+
+    /// `undefined setEndAfter(Node node);` (dom.idl)
+    fn set_end_after(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<()> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.setEndAfter"))
+    }
+
+    /// `undefined collapse(optional boolean toStart = false);` (dom.idl)
+    fn collapse(&mut self, this: ObjectId, to_start: bool) -> BindingResult<()> {
+        let _ = (this, to_start);
+        Err(BindingError::NotImplemented("Range.collapse"))
+    }
+
+    /// `undefined selectNode(Node node);` (dom.idl)
+    fn select_node(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<()> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.selectNode"))
+    }
+
+    /// `undefined selectNodeContents(Node node);` (dom.idl)
+    fn select_node_contents(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<()> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.selectNodeContents"))
+    }
+
+    /// `short compareBoundaryPoints(unsigned short how, Range sourceRange);` (dom.idl)
+    fn compare_boundary_points(&mut self, this: ObjectId, how: u16, source_range: ObjectId) -> BindingResult<i16> {
+        let _ = (this, how, source_range);
+        Err(BindingError::NotImplemented("Range.compareBoundaryPoints"))
+    }
+
+    /// `[CEReactions] undefined deleteContents();` (dom.idl)
+    fn delete_contents(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.deleteContents"))
+    }
+
+    /// `[CEReactions, NewObject] DocumentFragment extractContents();` (dom.idl)
+    fn extract_contents(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.extractContents"))
+    }
+
+    /// `[CEReactions, NewObject] DocumentFragment cloneContents();` (dom.idl)
+    fn clone_contents(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.cloneContents"))
+    }
+
+    /// `[CEReactions] undefined insertNode(Node node);` (dom.idl)
+    fn insert_node(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<()> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.insertNode"))
+    }
+
+    /// `[CEReactions] undefined surroundContents(Node newParent);` (dom.idl)
+    fn surround_contents(&mut self, this: ObjectId, new_parent: ObjectId) -> BindingResult<()> {
+        let _ = (this, new_parent);
+        Err(BindingError::NotImplemented("Range.surroundContents"))
+    }
+
+    /// `[NewObject] Range cloneRange();` (dom.idl)
+    fn clone_range(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.cloneRange"))
+    }
+
+    /// `undefined detach();` (dom.idl)
+    fn detach(&mut self, this: ObjectId) -> BindingResult<()> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.detach"))
+    }
+
+    /// `boolean isPointInRange(Node node, unsigned long offset);` (dom.idl)
+    fn is_point_in_range(&mut self, this: ObjectId, node: ObjectId, offset: u32) -> BindingResult<bool> {
+        let _ = (this, node, offset);
+        Err(BindingError::NotImplemented("Range.isPointInRange"))
+    }
+
+    /// `short comparePoint(Node node, unsigned long offset);` (dom.idl)
+    fn compare_point(&mut self, this: ObjectId, node: ObjectId, offset: u32) -> BindingResult<i16> {
+        let _ = (this, node, offset);
+        Err(BindingError::NotImplemented("Range.comparePoint"))
+    }
+
+    /// `boolean intersectsNode(Node node);` (dom.idl)
+    fn intersects_node(&mut self, this: ObjectId, node: ObjectId) -> BindingResult<bool> {
+        let _ = (this, node);
+        Err(BindingError::NotImplemented("Range.intersectsNode"))
+    }
+
+    /// `stringifier;` (dom.idl)
+    fn stringifier(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range stringifier"))
+    }
+
+    /// `DOMRectList getClientRects();` (cssom-view.idl)
+    fn get_client_rects(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.getClientRects"))
+    }
+
+    /// `[NewObject] DOMRect getBoundingClientRect();` (cssom-view.idl)
+    fn get_bounding_client_rect(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let _ = this;
+        Err(BindingError::NotImplemented("Range.getBoundingClientRect"))
+    }
+
+    /// `[CEReactions, NewObject] DocumentFragment createContextualFragment((TrustedHTML or DOMString) string);` (html.idl)
+    fn create_contextual_fragment(&mut self, this: ObjectId, string: Value) -> BindingResult<ObjectId> {
+        let _ = (this, string);
+        Err(BindingError::NotImplemented("Range.createContextualFragment"))
+    }
+}
+
+/// Constants of `Range`.
+pub mod range_consts {
+    /// `const unsigned short START_TO_START = 0;` (dom.idl)
+    pub const START_TO_START: u16 = 0;
+
+    /// `const unsigned short START_TO_END = 1;` (dom.idl)
+    pub const START_TO_END: u16 = 1;
+
+    /// `const unsigned short END_TO_END = 2;` (dom.idl)
+    pub const END_TO_END: u16 = 2;
+
+    /// `const unsigned short END_TO_START = 3;` (dom.idl)
+    pub const END_TO_START: u16 = 3;
 }
