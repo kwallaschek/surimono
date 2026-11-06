@@ -5,7 +5,9 @@
 
 import contextlib
 import io
+import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -191,6 +193,29 @@ interface Element : Node { undefined setAttribute(DOMString name, DOMString valu
 interface CharacterData : Node { readonly attribute unsigned long length; };
 interface Event { constructor(DOMString type); };
 """
+
+
+class SubstitutionTests(unittest.TestCase):
+    TOOLS = pathlib.Path(__file__).resolve().parents[1]
+
+    @unittest.skipUnless(shutil.which("node"), "needs node")
+    def test_the_baseline_gives_what_the_vectors_say(self):
+        script = """
+import { readFileSync } from 'node:fs';
+import { substitute } from './substitute.mjs';
+for (const v of JSON.parse(readFileSync('sub-vectors.json', 'utf8'))) {
+  let got = null;
+  try { got = substitute(v.text, new URL(v.url, 'http://web-platform.test:8000/')); } catch {}
+  if (got !== v.want) console.log(JSON.stringify([v, got]));
+}
+"""
+        r = subprocess.run(["node", "--input-type=module", "-e", script], cwd=self.TOOLS, capture_output=True, text=True)
+        self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "", ""))
+
+    def test_the_vectors_refuse_some_and_keep_html_escaping(self):
+        vectors = json.loads((self.TOOLS / "sub-vectors.json").read_text(encoding="utf-8"))
+        self.assertTrue(any(v["want"] is None for v in vectors))
+        self.assertTrue(any("&amp;" in (v["want"] or "") for v in vectors))
 
 
 class ApiNeedsTests(unittest.TestCase):
