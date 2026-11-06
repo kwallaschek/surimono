@@ -11,6 +11,7 @@ mod css_properties;
 mod document;
 mod error;
 mod host;
+mod html;
 mod parse;
 mod range;
 mod runtime;

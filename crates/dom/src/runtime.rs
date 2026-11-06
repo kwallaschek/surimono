@@ -31,6 +31,7 @@ const GLUE: &str = concat!(
     include_str!("glue_activation.js"),
     include_str!("generated/bindings.js"),
     include_str!("glue_platform.js"),
+    include_str!("glue_html.js"),
     include_str!("glue_layout.js"),
     include_str!("glue_tail.js"),
 );

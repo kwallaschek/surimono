@@ -302,6 +302,30 @@ pub(crate) enum ListKind {
     ByClass(String),
     /// `document.scripts`: HTML `script` elements.
     Scripts,
+    /// `document.forms`.
+    Forms,
+    /// `document.images`.
+    Images,
+    /// `document.embeds`.
+    Embeds,
+    /// `document.links`: `a` and `area` with an `href`.
+    Links,
+    /// `document.anchors`: `a` with a `name`.
+    Anchors,
+    /// A table's `rows`.
+    TableRows,
+    /// A table's `tBodies`.
+    TableBodies,
+    /// A section's `rows`.
+    SectionRows,
+    /// A row's `cells`.
+    RowCells,
+    /// A select's `options`.
+    Options,
+    /// A select's `selectedOptions`.
+    SelectedOptions,
+    /// A form's `elements`.
+    FormControls,
 }
 
 /// One script-visible object behind a handle. Everything but `Node` is
@@ -1862,6 +1886,7 @@ impl Document {
                     .element_name(n)
                     .is_some_and(|e| e.ns == ns!(html) && e.local.as_ref() == "script"))
             })?,
+            other => self.html_list(owner, other)?,
         })
     }
 

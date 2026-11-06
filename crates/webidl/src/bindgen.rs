@@ -78,6 +78,13 @@ const JS_INTERFACES: &[&str] = &[
     "PluginArray",
     "MimeTypeArray",
     "CustomElementRegistry",
+    "HTMLTableElement",
+    "HTMLTableSectionElement",
+    "HTMLTableRowElement",
+    "HTMLTableCellElement",
+    "HTMLSelectElement",
+    "HTMLOptionElement",
+    "HTMLOptionsCollection",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
@@ -90,7 +97,6 @@ const JS_MEMBERS: &[(&str, &str)] = &[
     ("HTMLInputElement", "indeterminate"),
     ("HTMLButtonElement", "form"),
     ("HTMLButtonElement", "type"),
-    ("HTMLSelectElement", "form"),
     ("HTMLTextAreaElement", "form"),
     ("HTMLFieldSetElement", "form"),
     ("HTMLOutputElement", "form"),
@@ -99,6 +105,44 @@ const JS_MEMBERS: &[(&str, &str)] = &[
     ("HTMLFormElement", "submit"),
     ("HTMLFormElement", "reset"),
     ("HTMLFormElement", "requestSubmit"),
+    ("HTMLFormElement", "action"),
+    ("HTMLFormElement", "method"),
+    ("HTMLFormElement", "enctype"),
+    ("HTMLFormElement", "encoding"),
+    ("HTMLFormElement", "elements"),
+    ("HTMLFormElement", "length"),
+    ("HTMLTextAreaElement", "value"),
+    ("HTMLTextAreaElement", "defaultValue"),
+    ("Document", "cookie"),
+    ("Document", "activeElement"),
+    ("Document", "hasFocus"),
+    ("HTMLElement", "focus"),
+    ("HTMLElement", "blur"),
+    ("HTMLElement", "tabIndex"),
+    ("SVGElement", "focus"),
+    ("SVGElement", "blur"),
+    ("SVGElement", "tabIndex"),
+    ("HTMLAnchorElement", "origin"),
+    ("HTMLAnchorElement", "protocol"),
+    ("HTMLAnchorElement", "username"),
+    ("HTMLAnchorElement", "password"),
+    ("HTMLAnchorElement", "host"),
+    ("HTMLAnchorElement", "hostname"),
+    ("HTMLAnchorElement", "port"),
+    ("HTMLAnchorElement", "pathname"),
+    ("HTMLAnchorElement", "search"),
+    ("HTMLAnchorElement", "hash"),
+    ("HTMLAnchorElement", "text"),
+    ("HTMLAreaElement", "origin"),
+    ("HTMLAreaElement", "protocol"),
+    ("HTMLAreaElement", "username"),
+    ("HTMLAreaElement", "password"),
+    ("HTMLAreaElement", "host"),
+    ("HTMLAreaElement", "hostname"),
+    ("HTMLAreaElement", "port"),
+    ("HTMLAreaElement", "pathname"),
+    ("HTMLAreaElement", "search"),
+    ("HTMLAreaElement", "hash"),
 ];
 
 /// Attributes of event interfaces whose init dictionary member has no default,
@@ -148,6 +192,8 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("labeledControl", "h.labeled_control(this)"),
     ("svgElements", "h.svg_elements()"),
     ("frameAttached", "h.frame_attached(this)"),
+    ("htmlList", "h.html_list_of(this, a.uint(0)?)"),
+    ("listOwner", "h.list_owner(this)"),
     (
         "staticRange",
         "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
@@ -625,6 +671,11 @@ impl Bound<'_, '_> {
                 "attr({id}, {}, function () {{ {body} }});",
                 js_string(name)
             );
+            return Ok(());
+        }
+        // In an interface of the glue's, what the attribute's text answers needs no
+        // body there.
+        if self.js_impl && self.reflected_attribute(name, ty, readonly, ext_attrs) {
             return Ok(());
         }
         if self.js_impl || JS_MEMBERS.contains(&(self.iface.name.as_str(), name)) {
@@ -1519,6 +1570,12 @@ pub fn generate_bindings(
         "SVGElement",
         "Attr",
         "Range",
+        "HTMLCollection",
+        "HTMLFormControlsCollection",
+        "HTMLOptGroupElement",
+        "HTMLImageElement",
+        "HTMLAnchorElement",
+        "HTMLAreaElement",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
@@ -1809,11 +1866,22 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLElement",
-        members: &["title", "lang", "dataset", "style", "click"],
+        members: &[
+            "title",
+            "lang",
+            "dir",
+            "dataset",
+            "style",
+            "click",
+            "innerText",
+            "focus",
+            "blur",
+            "tabIndex",
+        ],
     },
     BindInterface {
         name: "SVGElement",
-        members: &["style"],
+        members: &["style", "focus", "blur", "tabIndex"],
     },
     BindInterface {
         name: "Document",
@@ -1852,6 +1920,15 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "createTextNode",
             "createComment",
             "createEvent",
+            "cookie",
+            "forms",
+            "images",
+            "embeds",
+            "plugins",
+            "links",
+            "anchors",
+            "activeElement",
+            "hasFocus",
             "importNode",
             "adoptNode",
             "children",
@@ -2016,7 +2093,11 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLAnchorElement",
-        members: &["href", "rel"],
+        members: &[
+            "href", "rel", "target", "download", "hreflang", "type", "ping", "text", "origin",
+            "protocol", "username", "password", "host", "hostname", "port", "pathname", "search",
+            "hash",
+        ],
     },
     BindInterface {
         name: "HTMLImageElement",
@@ -2124,7 +2205,11 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     // pages need them.
     BindInterface {
         name: "HTMLAreaElement",
-        members: &["href", "rel"],
+        members: &[
+            "href", "rel", "target", "download", "alt", "coords", "shape", "ping", "origin",
+            "protocol", "username", "password", "host", "hostname", "port", "pathname", "search",
+            "hash",
+        ],
     },
     element("HTMLBaseElement"),
     element("HTMLBodyElement"),
@@ -2156,6 +2241,14 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "name",
             "noValidate",
             "target",
+            "rel",
+            "acceptCharset",
+            "action",
+            "method",
+            "enctype",
+            "encoding",
+            "elements",
+            "length",
             "submit",
             "requestSubmit",
             "reset",
@@ -2189,7 +2282,19 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLObjectElement"),
     element("HTMLOListElement"),
     element("HTMLOptGroupElement"),
-    element("HTMLOptionElement"),
+    BindInterface {
+        name: "HTMLOptionElement",
+        members: &[
+            "disabled",
+            "form",
+            "label",
+            "defaultSelected",
+            "selected",
+            "value",
+            "text",
+            "index",
+        ],
+    },
     BindInterface {
         name: "HTMLOutputElement",
         members: &["form", "name"],
@@ -2202,7 +2307,21 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLQuoteElement"),
     BindInterface {
         name: "HTMLSelectElement",
-        members: &["disabled", "form", "name"],
+        members: &[
+            "disabled",
+            "form",
+            "multiple",
+            "name",
+            "required",
+            "size",
+            "type",
+            "options",
+            "length",
+            "add",
+            "selectedOptions",
+            "selectedIndex",
+            "value",
+        ],
     },
     element("HTMLSelectedContentElement"),
     element("HTMLSlotElement"),
@@ -2210,14 +2329,63 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLSpanElement"),
     element("HTMLStyleElement"),
     element("HTMLTableCaptionElement"),
-    element("HTMLTableCellElement"),
+    BindInterface {
+        name: "HTMLTableCellElement",
+        members: &[
+            "colSpan",
+            "rowSpan",
+            "headers",
+            "cellIndex",
+            "scope",
+            "abbr",
+        ],
+    },
     element("HTMLTableColElement"),
-    element("HTMLTableElement"),
-    element("HTMLTableRowElement"),
-    element("HTMLTableSectionElement"),
+    BindInterface {
+        name: "HTMLTableElement",
+        members: &[
+            "caption",
+            "createCaption",
+            "deleteCaption",
+            "tHead",
+            "createTHead",
+            "deleteTHead",
+            "tFoot",
+            "createTFoot",
+            "deleteTFoot",
+            "tBodies",
+            "createTBody",
+            "rows",
+            "insertRow",
+            "deleteRow",
+        ],
+    },
+    BindInterface {
+        name: "HTMLTableRowElement",
+        members: &[
+            "rowIndex",
+            "sectionRowIndex",
+            "cells",
+            "insertCell",
+            "deleteCell",
+        ],
+    },
+    BindInterface {
+        name: "HTMLTableSectionElement",
+        members: &["rows", "insertRow", "deleteRow"],
+    },
     BindInterface {
         name: "HTMLTextAreaElement",
-        members: &["disabled", "form", "name"],
+        members: &[
+            "disabled",
+            "form",
+            "name",
+            "placeholder",
+            "readOnly",
+            "required",
+            "value",
+            "defaultValue",
+        ],
     },
     element("HTMLTimeElement"),
     element("HTMLTitleElement"),
@@ -2319,6 +2487,15 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "CustomElementRegistry",
         members: &["define", "get", "getName", "whenDefined", "upgrade"],
+    },
+    // Their indexed and named properties are `HTMLCollection`'s: `glue_html.js`.
+    BindInterface {
+        name: "HTMLOptionsCollection",
+        members: &["length", "add", "remove", "selectedIndex"],
+    },
+    BindInterface {
+        name: "HTMLFormControlsCollection",
+        members: &[],
     },
 ];
 

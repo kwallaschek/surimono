@@ -574,6 +574,45 @@ stream drops a byte pushed back before it (`textdecoder-mistakes`, one subtest).
 Only the page's window has `atob` and the rest as functions that work: `frames[0].atob`
 needs a `this` of the page, like every window operation.
 
+## Tables, forms and links
+
+`src/html.rs` has the lists, as more `ListKind`s, so they are live the way
+`getElementsBy*` are, recomputed once per change of the tree. `src/glue_html.js` has the
+members that only move nodes, through the DOM's own members captured at install, so a
+script that deletes `Node.prototype.insertBefore` changes nothing and every limit
+holds on the way. `HTMLOptionsCollection` and `HTMLFormControlsCollection` borrow
+`HTMLCollection`'s proxy handler; the first adds the index setter.
+
+- **`selected` is the attribute**, as `checked` is for an input: what a script chooses
+  has to reach the printed page. Rust's `selected_options` runs the standard's
+  "selectedness setting algorithm" over the attributes on each read: a single select
+  has its last `selected` option, or its first enabled one at display size 1. A
+  script's `selectedIndex = -1` is a flag in the glue, since no attribute says it, so it
+  reads back; `selectedOptions` and the printer still see the first option. And
+  `defaultSelected` and `selected` are one thing.
+- **`textarea.value`** is its text, which is what gets printed, so `defaultValue` is the
+  same.
+- **`innerText`** can't know layout. Out of the tree it is `textContent`, as the
+  standard says. In the tree it is "rendered text collection" with each element's
+  display from the rendering section's defaults, the `hidden` attribute and an inline
+  `display: none`; a stylesheet isn't seen until phase 3, and neither are CSS
+  `white-space`, `text-transform` or `visibility`. The setter is the standard's.
+- **Focus** is a state in the document's record. Being rendered is being connected.
+  `focus()` and `blur()` fire `blur`, `focusout`, `focus`, `focusin` synchronously,
+  `activeElement` falls back to the body, and an element that leaves the tree loses
+  focus without an event. `:focus` doesn't match, there is no sequential navigation
+  and no `autofocus`.
+- **`document.cookie`** is empty and a write does nothing: no store exists, and a
+  render has no one to give cookies to.
+
+**Gaps** (for COMPAT). `form[0]`, `form.name` and `select[0]` don't exist; `namedItem` on
+`form.elements` gives the first element where the standard gives a `RadioNodeList` for
+several. `document.links` and the rest are `HTMLCollection`s with what the standard's
+name rules give, but `document.foo` for a form or image name isn't bound. `checkValidity`
+and its family aren't bound. `relList` isn't. `new Image()` loads nothing, so `onload`
+never fires. A `select` in another select's option list isn't looked for, as the
+standard's newest parsing allows.
+
 ## MutationObserver
 
 Registrations and record queues are in Rust, which sees the mutations

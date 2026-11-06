@@ -609,6 +609,10 @@ impl Document {
             Object::Static(_) | Object::Live(_, ListKind::ChildNodes) => {
                 return Ok(interface::NODE_LIST);
             }
+            Object::Live(_, ListKind::Options) => return Ok(interface::HTML_OPTIONS_COLLECTION),
+            Object::Live(_, ListKind::FormControls) => {
+                return Ok(interface::HTML_FORM_CONTROLS_COLLECTION);
+            }
             Object::Live(..) => return Ok(interface::HTML_COLLECTION),
             Object::Tokens(_) => return Ok(interface::DOM_TOKEN_LIST),
             Object::Attributes(_) => return Ok(interface::NAMED_NODE_MAP),
@@ -745,6 +749,28 @@ impl Document {
         };
         let h = self.object(doc)?;
         Ok(Handle::try_from(h.0).unwrap_or(0))
+    }
+
+    /// The list `this` keeps under `kind`, a number `glue_html.js` chooses.
+    pub(crate) fn html_list_of(&mut self, this: ObjectId, kind: u32) -> BindingResult<ObjectId> {
+        let list = match kind {
+            0 => ListKind::TableRows,
+            1 => ListKind::TableBodies,
+            2 => ListKind::SectionRows,
+            3 => ListKind::RowCells,
+            4 => ListKind::Options,
+            5 => ListKind::SelectedOptions,
+            _ => ListKind::FormControls,
+        };
+        self.live_list(this, list)
+    }
+
+    /// What live list `this` is under, for the members of `options`.
+    pub(crate) fn list_owner(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let Object::Live(owner, _) = self.object_at(this)? else {
+            return Err(BindingError::TypeError("not a list".to_owned()));
+        };
+        self.object(owner)
     }
 
     /// One of `Location`'s readings of document `this`'s URL (HTML §7.2.4).
@@ -1937,6 +1963,16 @@ impl idl::HTMLElement for Document {
         let id = self.node_of(this)?;
         self.owned_object(id, Owned::Style, move || Object::Style(id))
     }
+
+    fn inner_text(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Document::inner_text(self, id)
+    }
+
+    fn set_inner_text(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        Document::set_inner_text(self, id, &value).map_err(|e| self.fail(e))
+    }
 }
 
 impl idl::Document for Document {
@@ -2186,6 +2222,30 @@ impl idl::Document for Document {
 
     fn scripts(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
         self.live_list(this, ListKind::Scripts)
+    }
+
+    fn forms(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Forms)
+    }
+
+    fn images(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Images)
+    }
+
+    fn embeds(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Embeds)
+    }
+
+    fn plugins(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Embeds)
+    }
+
+    fn links(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Links)
+    }
+
+    fn anchors(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Anchors)
     }
 
     fn create_document_fragment(&mut self, _this: ObjectId) -> BindingResult<ObjectId> {
