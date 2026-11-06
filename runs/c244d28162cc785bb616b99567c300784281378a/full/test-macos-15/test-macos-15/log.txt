@@ -1,0 +1,242 @@
+rustc 1.89.0 (29483883e 2025-08-04)
+binary: rustc
+commit-hash: 29483883eed69d5fb4db01964cdf2af4d86e9cb2
+commit-date: 2025-08-04
+host: aarch64-apple-darwin
+release: 1.89.0
+LLVM version: 20.1.7
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/Users/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/Users/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/Users/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m surimono-gfx v0.1.0 (/Users/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-dom v0.1.0 (/Users/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-islands v0.1.0 (/Users/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.1.0 (/Users/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-cli v0.1.0 (/Users/runner/work/surimono/surimono/crates/cli)
+[1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/Users/runner/work/surimono/surimono/examples/rust-islands)
+[1m[32m   Compiling[0m surimono-ruby v0.1.0 (/Users/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 56.66s
+[1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono-9df8785f12b6f0da)
+
+running 103 tests
+test backend::tests::builtin_names_match_the_islands_crate ... ok
+test backend::tests::bundle_names_and_entries_are_checked ... ok
+test backend::tests::every_island_error_maps_to_a_public_error ... ok
+test charref::tests::numeric_references ... ok
+test backend::tests::fonts_must_be_fonts ... ok
+test charref::tests::named_references ... ok
+test charref::tests::plain_text_is_borrowed ... ok
+test error::tests::document_errors_have_no_island ... ok
+test error::tests::error_is_send_sync_static ... ok
+test error::tests::island_errors_name_the_island ... ok
+test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
+test options::tests::defaults ... ok
+test options::tests::builder_sets_everything ... ok
+test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
+test page::tests::every_dom_limit_is_a_page_dom_limit ... ok
+test prepass::tests::a_render_that_was_cancelled_ends_the_document_whatever_the_policy ... ok
+test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
+test prepass::tests::attributes_in_any_order_and_quoting ... ok
+test prepass::tests::cancel_skips_the_remaining_islands_whatever_the_policy ... ok
+test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::document_without_islands_is_unchanged ... ok
+test prepass::tests::documents_without_the_island_type_are_not_parsed ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::html_escaped_json_gets_a_hint ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
+test prepass::tests::keeps_id_and_class ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
+test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
+test prepass::tests::other_scripts_are_left_alone ... ok
+test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::placeholders_keep_the_island_size_and_style ... ok
+test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
+test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::too_many_islands_fail_before_any_island_runs ... ok
+test prepass::tests::type_must_be_written_without_character_references ... ok
+test prepass::tests::utf8_text_around_and_inside_islands ... ok
+test prepass::tests::wrapper_keeps_accessibility_and_style_attributes_only ... ok
+test print::tests::a_media_list_holds_no_rule ... ok
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+test page::tests::queued_jobs_outlive_a_worker_that_dies ... ok
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+test print::tests::a_page_cant_outspend_the_budget ... ok
+test print::tests::comments_go ... ok
+test print::tests::decoded_style_text_cant_end_its_element ... ok
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+test print::tests::a_style_element_over_several_chunks_is_read_whole ... ok
+test print::tests::nested_rules_are_read_once ... ok
+test print::tests::no_doctype_stays_no_doctype ... ok
+test print::tests::no_literal_feff_stays_in_the_output ... ok
+test print::tests::ordinary_css_goes_through_untouched ... ok
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+test print::tests::references_chain_only_so_far ... ok
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+
+thread '<unnamed>' panicked at crates/surimono/src/page.rs:420:13:
+a worker dying on purpose
+test page::tests::a_worker_that_dies_is_replaced ... ok
+test print::tests::scripts_and_noscript_go_however_they_got_here ... ok
+test print::tests::selectors_have_only_so_many_combinators ... ok
+test print::tests::strings_elsewhere_arent_cells ... ok
+test print::tests::text_in_a_foreign_style_is_normalized ... ok
+test print::tests::the_budget_reads_the_printers_css ... ok
+test print::tests::the_gate_stops_every_step ... ok
+test print::tests::the_output_is_a_fixed_point ... ok
+test print::tests::the_output_limit_is_a_typed_error ... ok
+test print::tests::urls_a_printer_cant_resolve_go ... ok
+test print::tests::limits_hold_on_the_printers_parse ... ok
+test print::tree::tests::the_tree_is_blitz_htmls ... ok
+test print::tree::tests::the_tree_is_blitz_htmls_wherever_a_read_ends ... ok
+test print::tests::scrambled_markup_settles_and_stays_clean ... ok
+test renderer::tests::a_cancel_stops_the_island_that_is_running ... ok
+test renderer::tests::a_forked_child_starts_its_own_runner_and_measurer ... ok
+test renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process ... ok
+test renderer::tests::an_island_is_clipped_to_its_declared_box ... ok
+test renderer::tests::builtins_come_first_then_bundles_in_order ... ok
+test renderer::tests::clock_options_reach_the_scripts ... ok
+test renderer::tests::dropping_a_renderer_from_another_process_does_not_join_its_threads ... ok
+test renderer::tests::hostile_svg_cannot_break_out_of_the_wrapper ... ok
+test renderer::tests::invalid_options ... ok
+test renderer::tests::many_threads_after_a_fork_share_one_new_slot ... ok
+test renderer::tests::many_threads_share_one_renderer ... ok
+test renderer::tests::a_cancelled_render_skips_the_remaining_islands ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test renderer::tests::script_failures_become_typed_errors ... ok
+test renderer::tests::text_is_measured_with_the_given_fonts ... ok
+test renderer::tests::too_many_fork_generations_is_an_error_not_a_hang ... ok
+test renderer::tests::unknown_and_disabled_renderers ... ok
+test resources::tests::a_refused_url_never_reaches_the_function ... ok
+test resources::tests::a_repeat_that_cant_fit_costs_nothing ... ok
+test resources::tests::caps_stop_loading_and_the_page_goes_on ... ok
+test resources::tests::failures_and_bad_bytes_are_typed ... ok
+test resources::tests::from_map_serves_its_urls_and_no_others ... ok
+test resources::tests::reports_stay_small ... ok
+test resources::tests::the_allowlist_matches_exactly_or_under_a_slash ... ok
+test resources::tests::without_a_loader_nothing_loads ... ok
+test svg::tests::markup_that_would_break_out_of_the_wrapper_is_an_error ... ok
+test svg::tests::outlining_text_without_fonts_says_what_to_do ... ok
+test svg::tests::scripts_and_handlers_are_removed_and_ids_prefixed ... ok
+test tests::every_builtin_is_precompiled ... ok
+test tests::version_is_set ... ok
+test print::tree::tests::scrambled_markup_makes_the_same_tree ... ok
+test renderer::tests::max_islands_caps_a_document ... ok
+
+test result: ok. 103 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.73s
+
+[1m[32m     Running[0m tests/breakout.rs (target/debug/deps/breakout-b6cd418ed69dc643)
+
+running 3 tests
+test the_check_catches_raw_breakouts ... ok
+test echarts_emphasis_colour_cannot_style_the_page ... ok
+test custom_bundle_svg_stays_in_its_box ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+[1m[32m     Running[0m tests/fixtures.rs (target/debug/deps/fixtures-022ae4c1eace3274)
+
+running 4 tests
+test keep_mode_keeps_text_in_the_registered_font ... ok
+test echarts_bar_simple_latin_becomes_sanitised_svg ... ok
+test two_echarts_islands_share_no_ids ... ok
+test every_checkpoint_fixture_renders ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.52s
+
+[1m[32m     Running[0m tests/fork.rs (target/debug/deps/fork-66be5398edce0306)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/page.rs (target/debug/deps/page-49cd10cd4e34f608)
+
+running 43 tests
+test a_cancel_ends_a_page_at_its_next_load ... ok
+test a_cancel_stops_a_running_script_and_goes_no_further ... ok
+test a_cancel_ends_the_call_at_once ... ok
+test a_failed_script_fires_error_and_the_page_goes_on ... ok
+test a_layout_query_can_end_the_render ... ok
+test a_load_function_runs_on_the_calling_thread ... ok
+test a_noscript_message_never_prints ... ok
+test a_page_can_remove_everything ... ok
+test a_page_cannot_get_in_the_way_of_the_cleanup ... ok
+test a_cancel_reaches_the_islands_after_a_page ... ok
+test a_page_of_ranges_is_limited ... ok
