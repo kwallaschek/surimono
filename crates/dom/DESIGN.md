@@ -623,7 +623,10 @@ steps"), which only Rust sees, so its pointer is in `src/traversal.rs` and
 with the result of removing `gone` one at a time. An iterator's pointer can't be known
 to be unreachable, so it stays until the document drops; each is charged 4 KiB against
 `max_text_bytes`, which caps them at 65,536, and each removal walks up from each
-iterator's reference, under `poll`. A page with no iterator pays one `is_empty`.
+iterator's reference, under `poll`. A list leaving at once costs one map of its
+children's neighbours, so `n` children under `m` iterators stay `n + m`. A page with no
+iterator pays one `is_empty`. `Attr` isn't a whole `Node`, so `createTreeWalker(attr)` and
+`createNodeIterator(attr)` are `TypeError`s, where Chrome takes them.
 
 ## Stylesheets
 

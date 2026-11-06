@@ -33,6 +33,10 @@
     return (result >>> 0) & 65535;
   }
   function traversal(id, root, whatToShow, filter) {
+    // WebIDL: a callback interface takes any object, and only that.
+    if (filter !== undefined && filter !== null && !isObject(filter)) {
+      throw new TE('the filter is not an object');
+    }
     const t = make(id);
     t.root = root.w; t.show = whatToShow; t.filter = filter === undefined ? null : filter;
     t.active = false;
