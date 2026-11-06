@@ -63,8 +63,9 @@ fn filters_take_every_form_the_standard_gives() {
              const k = document.createNodeIterator(r, 0xffffffff, () => { throw new RangeError('x'); });
              const again = document.createNodeIterator(r, 0xffffffff, () => { again.nextNode(); return 1; });
              [thrown(() => j.nextNode()), thrown(() => k.nextNode()), thrown(() => again.nextNode()),
-              thrown(() => document.createTreeWalker(null)), thrown(() => document.createNodeIterator())].join()"),
-        "TypeError,RangeError,InvalidStateError,TypeError,TypeError"
+              thrown(() => document.createTreeWalker(null)), thrown(() => document.createNodeIterator()),
+              thrown(() => document.createNodeIterator(r, -1, 'x')), thrown(() => document.createTreeWalker(r, -1, 1))].join()"),
+        "TypeError,RangeError,InvalidStateError,TypeError,TypeError,TypeError,TypeError"
     );
 }
 
@@ -216,6 +217,47 @@ fn a_long_walk_ends_with_the_limit() {
         matches!(e, DomError::Sandbox(SandboxError::TimeLimit)),
         "{e:?}"
     );
+}
+
+/// A list of `n` leaving at once under `m` iterators costs `n + m`, and the clock is
+/// looked at in between: review of #162, where this took a minute under a 1 s limit.
+#[test]
+fn a_wide_list_leaving_under_iterators_is_quick_or_typed() {
+    let page = format!("<!doctype html><body>{}", "<i></i>".repeat(90_000));
+    for (iterators, whole) in [(1, true), (4, true), (2_000, true), (4, false)] {
+        let l = common::scaled_limits(
+            surimono_core::Limits::default().with_time(std::time::Duration::from_secs(1)),
+        );
+        let mut rt = DomRuntime::new(l).unwrap();
+        rt.load(Document::parse(&page).unwrap());
+        let remove = if whole {
+            "document.body.textContent = '';"
+        } else {
+            // From the end, where a scan for the child is at its longest.
+            "for (;;) document.body.lastChild.remove();"
+        };
+        let began = std::time::Instant::now();
+        let got = rt.eval::<String>(&format!(
+            "for (let i = 0; i < {iterators}; i++) {{
+               const it = document.createNodeIterator(document.body);
+               it.nextNode(); it.nextNode(); it.previousNode();
+             }}
+             {remove}
+             'done'"
+        ));
+        let took = began.elapsed();
+        assert!(
+            took < common::scaled(std::time::Duration::from_secs(5)),
+            "{iterators}, {whole}: {took:?}"
+        );
+        match got {
+            Ok(s) => assert_eq!(s, "done"),
+            Err(e) => assert!(
+                matches!(e, DomError::Sandbox(SandboxError::TimeLimit)),
+                "{iterators}, {whole}: {e:?}"
+            ),
+        }
+    }
 }
 
 /// Pointers live outside the heap limit until the document drops.
