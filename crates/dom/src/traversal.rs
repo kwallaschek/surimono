@@ -14,6 +14,9 @@ pub(crate) struct LiveIterator {
     root: usize,
     reference: usize,
     before: bool,
+    /// The node a filter is looking at, which the steps follow too: a filter that
+    /// removes it leaves the walk on what took its place. Chrome's "candidate node".
+    trial: Option<(usize, bool)>,
 }
 
 fn bad_iterator() -> BindingError {
@@ -32,12 +35,17 @@ impl Document {
             root,
             reference: root,
             before: true,
+            trial: None,
         });
         Ok(self.iterators.len() as u32 - 1)
     }
 
     pub(crate) fn iterator_reference(&mut self, at: u32) -> BindingResult<ObjectId> {
-        let id = self.iterators.get(at as usize).ok_or_else(bad_iterator)?.reference;
+        let id = self
+            .iterators
+            .get(at as usize)
+            .ok_or_else(bad_iterator)?
+            .reference;
         self.object(id)
     }
 
@@ -53,10 +61,40 @@ impl Document {
         before: bool,
     ) -> BindingResult<()> {
         let id = self.node_of(node)?;
-        let it = self.iterators.get_mut(at as usize).ok_or_else(bad_iterator)?;
+        let it = self
+            .iterators
+            .get_mut(at as usize)
+            .ok_or_else(bad_iterator)?;
         it.reference = id;
         it.before = before;
         Ok(())
+    }
+
+    /// The pointer a filter is about to be asked about.
+    pub(crate) fn iterator_try(
+        &mut self,
+        at: u32,
+        node: ObjectId,
+        before: bool,
+    ) -> BindingResult<()> {
+        let id = self.node_of(node)?;
+        let it = self
+            .iterators
+            .get_mut(at as usize)
+            .ok_or_else(bad_iterator)?;
+        it.trial = Some((id, before));
+        Ok(())
+    }
+
+    pub(crate) fn iterator_trial_node(&mut self, at: u32) -> BindingResult<ObjectId> {
+        let it = self.iterators.get(at as usize).ok_or_else(bad_iterator)?;
+        let (id, _) = it.trial.ok_or_else(bad_iterator)?;
+        self.object(id)
+    }
+
+    pub(crate) fn iterator_trial_before(&mut self, at: u32) -> BindingResult<bool> {
+        let it = self.iterators.get(at as usize).ok_or_else(bad_iterator)?;
+        Ok(it.trial.is_some_and(|(_, before)| before))
     }
 
     /// `gone`, children of `parent`, are about to leave it, in that order: §6.1
@@ -68,36 +106,51 @@ impl Document {
             return;
         }
         for i in 0..self.iterators.len() {
-            let (root, reference, before) = {
-                let it = &self.iterators[i];
-                (it.root, it.reference, it.before)
-            };
-            let mut top = reference;
-            let found = loop {
-                if self.poll().is_err() {
-                    return;
-                }
-                match self.parent(top) {
-                    Some(p) if p == parent => break true,
-                    Some(p) => top = p,
-                    None => break false,
-                }
-            };
-            if !found || top == root || !gone.contains(&top) {
-                continue;
-            }
-            let moved = self.pointer_after_removal(root, parent, top, gone, before);
-            let Some((node, before)) = moved else {
+            let it = &self.iterators[i];
+            let (root, pointer, trial) = (it.root, (it.reference, it.before), it.trial);
+            let Some(moved) = self.pointer_moved(root, parent, gone, pointer) else {
                 return;
             };
-            if let Err(e) = self.handle_for(node) {
-                self.fault.get_or_insert(e);
-                return;
-            }
+            let moved_trial = match trial {
+                Some(t) => match self.pointer_moved(root, parent, gone, t) {
+                    Some(m) => Some(m),
+                    None => return,
+                },
+                None => None,
+            };
             let it = &mut self.iterators[i];
-            it.reference = node;
-            it.before = before;
+            (it.reference, it.before) = moved;
+            it.trial = moved_trial;
         }
+    }
+
+    /// Where pointer `(node, before)` is once `gone` has left `parent`, with a
+    /// handle; `None` if a limit stopped the walk.
+    fn pointer_moved(
+        &mut self,
+        root: usize,
+        parent: usize,
+        gone: &[usize],
+        (reference, before): (usize, bool),
+    ) -> Option<(usize, bool)> {
+        let mut top = reference;
+        let found = loop {
+            self.poll().ok()?;
+            match self.parent(top) {
+                Some(p) if p == parent => break true,
+                Some(p) => top = p,
+                None => break false,
+            }
+        };
+        if !found || top == root || !gone.contains(&top) {
+            return Some((reference, before));
+        }
+        let moved = self.pointer_after_removal(root, parent, top, gone, before)?;
+        if let Err(e) = self.handle_for(moved.0) {
+            self.fault.get_or_insert(e);
+            return None;
+        }
+        Some(moved)
     }
 
     /// Where a pointer on `top` goes when `gone` leaves `parent`, or `None` if the

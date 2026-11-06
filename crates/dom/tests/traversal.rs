@@ -7,7 +7,8 @@ use common::limits;
 use surimono_core::SandboxError;
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
-const TREE: &str = "<!doctype html><div id=r><a id=a>t1<b id=b>t2</b></a><!--c--><i id=i></i>t3</div>";
+const TREE: &str =
+    "<!doctype html><div id=r><a id=a>t1<b id=b>t2</b></a><!--c--><i id=i></i>t3</div>";
 
 fn runtime(page: &str) -> DomRuntime {
     let mut rt = DomRuntime::new(limits()).unwrap();
@@ -154,11 +155,13 @@ fn a_walker_goes_every_way() {
 fn a_walker_skips_and_rejects() {
     // FILTER_SKIP looks through a node; FILTER_REJECT leaves its subtree out.
     assert_eq!(
-        run("const skip = document.createTreeWalker(r, 1, (n) => n.id === 'a' ? 3 : 1);
+        run(
+            "const skip = document.createTreeWalker(r, 1, (n) => n.id === 'a' ? 3 : 1);
              const reject = document.createTreeWalker(r, 1, (n) => n.id === 'a' ? 2 : 1);
              const first = name(skip.firstChild());
              const next = name(skip.nextSibling());
-             [first, next, all(() => reject.nextNode())].join(' ')"),
+             [first, next, all(() => reject.nextNode())].join(' ')"
+        ),
         "b i i"
     );
 }
@@ -166,7 +169,8 @@ fn a_walker_skips_and_rejects() {
 #[test]
 fn a_filter_that_changes_the_tree_is_safe() {
     assert_eq!(
-        run("const i = document.createNodeIterator(r, 0xffffffff, (n) => {
+        run(
+            "const i = document.createNodeIterator(r, 0xffffffff, (n) => {
                if (n.id === 'a') r.textContent = '';
                return 1;
              });
@@ -175,8 +179,9 @@ fn a_filter_that_changes_the_tree_is_safe() {
              w.currentNode = r;
              r.append('x', 'y');
              const b = all(() => w.nextNode());
-             a + ' ' + b"),
-        "r,a,t1,b,t2 "
+             a + ' ' + b"
+        ),
+        "r,a "
     );
 }
 
