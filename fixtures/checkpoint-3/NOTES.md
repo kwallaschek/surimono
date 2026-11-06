@@ -5,7 +5,7 @@
 `surimono-page-check hostile`. This file is hand-written. Paths are relabelled after
 the run, so no machine path is committed. PNGs are reduced to 256 colours.
 
-**This run.** `surimono-page-check` in release mode from main at ca07c9c1, default
+**This run.** `surimono-page-check` in release mode from main at e879ec95 (after #149 to #161), default
 limits, fulgur-cli 0.40.0 from crates.io, Chromium 153.0.8010.12's committed
 references, on the fleet's Linux machine (poppler 24.02.0). `de_DE.UTF-8` isn't
 installed here, so the second process sets the variables and doesn't change libc's

@@ -1632,6 +1632,7 @@ dependencies = [
  "blitz-html",
  "blitz-traits",
  "cssparser",
+ "encoding_rs",
  "html5ever",
  "selectors",
  "stylo",

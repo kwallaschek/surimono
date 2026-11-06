@@ -124,11 +124,11 @@ Each island's SVG printed by Chrome (the checkpoint-2 gate), by fulgur, and the 
 | vega | 6.4.0 | BSD-3-Clause | required | 1 | pass (1 of 1 fixtures) |
 | vega-lite | 6.5.0 | BSD-3-Clause | required | 4 | **1 failing**: vegalite-line-ja |
 | mermaid | 12.2.0 | MIT | stretch | 0 | no fixtures yet |
-| marked | 18.1.3 | MIT | required | 0 | page `marked-report`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
-| highlight.js | 11.12.0 | BSD-3-Clause | required | 0 | page `highlightjs-code`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
-| katex | 0.19.1 | MIT | required | 0 | page `katex-autorender`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
-| alpinejs | 3.17.5 | MIT | second to cut in phase 2 | 0 | page `alpine-invoice`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
-| d3 | 7.9.1 | ISC | required | 0 | page `d3-charts`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print not compared yet |
+| marked | 18.1.3 | MIT | required | 0 | page `marked-report`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print fails, as fulgur fails on Chrome's own DOM |
+| highlight.js | 11.12.0 | BSD-3-Clause | required | 0 | page `highlightjs-code`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print passes |
+| katex | 0.19.1 | MIT | required | 0 | page `katex-autorender`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print fails, as fulgur fails on Chrome's own DOM |
+| alpinejs | 3.17.5 | MIT | second to cut in phase 2 | 0 | page `alpine-invoice`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print passes |
+| d3 | 7.9.1 | ISC | required | 0 | page `d3-charts`: DOM compared with Chrome's in `crates/dom/tests/real_world.rs`; print fails, as fulgur fails on Chrome's own DOM |
 
 ### Speed and memory against Grover
 
@@ -151,51 +151,51 @@ Memory target (`docs/SPEC.md`): at least 5× lower peak (summed PSS) than Grover
 
 | Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |
 |---|---|---|---|---|---|---|
-| html/webappapis timers and microtask queuing | 2 | 30 | 34 | 88.2% | 90% | **below the target** |
-| dom/nodes | 2 | 13928 | 15267 | 91.2% | 70% | meets the target |
-| dom/events | 2 | 544 | 748 | 72.7% | 70% | meets the target |
-| domparsing | 2 | 355 | 909 | 39.1% | 60% | **below the target** |
+| html/webappapis timers and microtask queuing | 2 | 31 | 34 | 91.2% | 90% | meets the target |
+| dom/nodes | 2 | 14164 | 15267 | 92.8% | 70% | meets the target |
+| dom/events | 2 | 566 | 748 | 75.7% | 70% | meets the target |
+| domparsing | 2 | 560 | 909 | 61.6% | 60% | meets the target |
 
 The same passes on the two denominators. Ours is what Chrome passes on a static server; wpt.fyi's is Chrome 156.0.8078.80 at the same commit (run 5143154416943104) on the same URLs. A target is met on ours; where the two rates fall on either side of it, both are reported.
 
 | Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count |
 |---|---|---|---|---|---|
-| html/webappapis timers and microtask queuing | 30 | 34 | 34 | 0 | 88.2% |
-| dom/nodes | 13928 | 15267 | 15300 | 33 | 91.0% |
-| dom/events | 544 | 748 | 848 | 100 | 64.2% |
-| domparsing | 355 | 909 | 913 | 4 | 38.9% |
+| html/webappapis timers and microtask queuing | 31 | 34 | 34 | 0 | 91.2% |
+| dom/nodes | 14164 | 15267 | 15300 | 33 | 92.6% |
+| dom/events | 566 | 748 | 848 | 100 | 66.7% |
+| domparsing | 560 | 909 | 913 | 4 | 61.3% |
 
-WPT 8b4b06ff53, 726 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 5dde7483b7 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
+WPT 8b4b06ff53, 726 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono e879ec95a4 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
 
 The most common causes, in subtests Chrome passes:
 
 | Subtests | Cause |
 |---|---|
-| 438 | FAIL: assert_equals: expected … but got … |
+| 398 | FAIL: assert_equals: expected … but got … |
 | 278 | ERROR: ReferenceError: trustedTypes is not defined |
-| 275 | NOTRUN: NOTRUN |
-| 206 | FAIL: not a function |
-| 94 | FAIL: promise_test: Unhandled rejection with value: object … |
-| 90 | ERROR: ReferenceError: history is not defined |
-| 72 | FAIL: assert_equals: The method should return the expected number of matches. expected N but got |
+| 278 | NOTRUN: NOTRUN |
+| 157 | FAIL: not a function |
+| 100 | FAIL: promise_test: Unhandled rejection with value: object … |
 | 68 | FAIL: the selector is not valid |
 | 66 | FAIL: assert_throws_dom: function "() => { |
 | 52 | ERROR: TypeError: cannot read property 'insertRule' of undefined |
-| 48 | FAIL: assert_not_equals: The method should return a match. got disallowed value null |
-| 36 | FAIL: assert_equals: document.URL expected … but got … |
-| 24 | FAIL: assert_equals: The method should not match anything. expected null but got Element node <p |
-| 24 | FAIL: assert_true: The element #pseudo-ui-inputN should match the selector. expected true got fa |
-| 24 | FAIL: cannot read property … of undefined |
 | 24 | TIMEOUT: Test timed out |
-| 22 | FAIL: assert_array_equals: expected property N to be … but got … (expected array ["http://web |
 | 21 | not reported |
-| 20 | FAIL: assert_true: The element #pseudo-lang-divN should match the selector. expected true got fa |
-| 14 | harness timed out before it |
-| 13 | FAIL: assert_true: expected true got false |
-| 13 | FAIL: cannot read property … of null |
+| 16 | FAIL: promise_test: Unhandled rejection with value: … |
+| 14 | FAIL: cannot read property … of undefined |
 | 10 | FAIL: assert_equals: expected N but got N |
 | 9 | ERROR: TypeError: not a function |
 | 8 | FAIL: assert_array_equals: lengths differ, expected array […, …] length N, got […] length N |
+| 7 | FAIL: assert_throws_dom: function … threw object … that is not a DOMException HierarchyRequestEr |
+| 7 | LIMIT: run_page: script exceeded the time limit |
+| 6 | ERROR: TypeError: Illegal invocation |
+| 6 | FAIL: assert_equals: expected (string) … but got (undefined) undefined |
+| 6 | FAIL: assert_equals: expected function "function handler() { |
+| 5 | ERROR: TypeError: cannot read property 'scrollTo' of undefined |
+| 5 | FAIL: assert_array_equals: lengths differ, expected array […] length N, got [] length N |
+| 5 | FAIL: assert_throws_dom: function "function() { |
+| 5 | FAIL: assert_true: expected true got false |
+| 4 | ERROR: Error: assert_equals: the meta charset must be in effect, making the main document windows-1252 expected "windows-1252" but got "UTF-8" |
 
 <details><summary>Every test that doesn't pass in full</summary>
 
@@ -203,7 +203,6 @@ The most common causes, in subtests Chrome passes:
 |---|---|---|---|
 | html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
 | html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
-| html/webappapis/timers/settimeout-detached-iframe.html | 0 | 1 | OK |
 | html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
 | dom/nodes/CharacterData-surrogates.html | 0 | 8 | OK |
 | dom/nodes/Comment-constructor.html | 15 | 16 | OK |
@@ -213,7 +212,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Document-characterSet-normalization-2.html | 0 | 339 | TIMEOUT |
 | dom/nodes/Document-cloneNode-about-base-url-relative.window.html | 0 | 1 | OK |
 | dom/nodes/Document-cloneNode-about-base-url.window.html | 0 | 1 | OK |
-| dom/nodes/Document-cloneNode-base-url.window.html | 3 | 5 | OK |
+| dom/nodes/Document-cloneNode-base-url.window.html | 4 | 5 | OK |
 | dom/nodes/Document-cloneNode-srcdoc-base-url.window.html | 0 | 1 | OK |
 | dom/nodes/Document-contentType/contentType/contenttype_css.html | 0 | 1 | OK |
 | dom/nodes/Document-contentType/contentType/contenttype_datauri_02.html | 0 | 1 | TIMEOUT |
@@ -233,36 +232,26 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/Element-firstElementChild-entity-xhtml.xhtml | 0 | 1 | LIMIT |
 | dom/nodes/Element-firstElementChild-entity.svg | 0 | 1 | LIMIT |
 | dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html | 0 | 1 | OK |
-| dom/nodes/Element-matches-disabled-pseudo-class.html | 0 | 11 | OK |
-| dom/nodes/Element-matches.html | 646 | 669 | OK |
-| dom/nodes/Element-webkitMatchesSelector.html | 646 | 669 | OK |
 | dom/nodes/MutationObserver-callback-order.window.html | 2 | 3 | OK |
-| dom/nodes/MutationObserver-characterData.html | 15 | 23 | OK |
-| dom/nodes/MutationObserver-childList.html | 26 | 40 | OK |
 | dom/nodes/MutationObserver-cross-realm-callback-report-exception.html | 0 | 1 | TIMEOUT |
 | dom/nodes/MutationObserver-document.html | 1 | 4 | OK |
 | dom/nodes/MutationObserver-transient-registered-observers.window.html | 5 | 15 | OK |
 | dom/nodes/MutationObserver-xml-parser.xhtml | 0 | 1 | OK |
 | dom/nodes/Node-appendChild-cereactions-vs-script.window.html | 0 | 1 | OK |
 | dom/nodes/Node-cloneNode-document-allow-declarative-shadow-roots.window.html | 0 | 1 | OK |
-| dom/nodes/Node-cloneNode-external-stylesheet-no-bc.sub.html | 0 | 1 | OK |
 | dom/nodes/Node-cloneNode.html | 133 | 135 | OK |
-| dom/nodes/Node-contains-xml.xml | 7 | 8 | OK |
 | dom/nodes/Node-isConnected-shadow-dom.html | 0 | 2 | OK |
-| dom/nodes/Node-normalize-2.html | 0 | 2 | OK |
 | dom/nodes/NodeList-static-length-getter-tampered-1.html | 0 | 1 | LIMIT |
 | dom/nodes/NodeList-static-length-getter-tampered-2.html | 0 | 1 | LIMIT |
 | dom/nodes/NodeList-static-length-getter-tampered-3.html | 0 | 1 | LIMIT |
 | dom/nodes/NodeList-static-length-getter-tampered-indexOf-1.html | 0 | 1 | LIMIT |
 | dom/nodes/NodeList-static-length-getter-tampered-indexOf-2.html | 0 | 1 | LIMIT |
 | dom/nodes/NodeList-static-length-getter-tampered-indexOf-3.html | 0 | 1 | LIMIT |
-| dom/nodes/ParentNode-querySelector-All-xht.xht | 1871 | 1975 | OK |
-| dom/nodes/ParentNode-querySelector-All.html | 1871 | 1975 | OK |
+| dom/nodes/ParentNode-querySelector-All-xht.xht | 1943 | 1975 | OK |
+| dom/nodes/ParentNode-querySelector-All.html | 1943 | 1975 | OK |
 | dom/nodes/ParentNode-querySelector-basic-has.html | 0 | 1 | OK |
-| dom/nodes/ParentNode-querySelector-case-insensitive.html | 0 | 2 | OK |
 | dom/nodes/ParentNode-querySelector-escapes.html | 66 | 68 | OK |
 | dom/nodes/ParentNode-querySelector-host-pseudo-class.html | 0 | 1 | OK |
-| dom/nodes/ParentNode-querySelector-namespace-tagname-attribute.html | 7 | 8 | OK |
 | dom/nodes/ParentNode-querySelector-shadowroot-nth-child.html | 0 | 1 | OK |
 | dom/nodes/ParentNode-querySelectorAll-nested-not-has.html | 0 | 1 | OK |
 | dom/nodes/ProcessingInstruction-escapes-1.xhtml | 0 | 1 | OK |
@@ -271,10 +260,6 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/attach-shadow-realm-after-adoption.html | 0 | 3 | ERROR |
 | dom/nodes/create-element-realm-after-adoption.html | 0 | 3 | ERROR |
 | dom/nodes/getElementById-namespaced-id.html | 0 | 4 | OK |
-| dom/nodes/getElementsByClassName-20.htm | 0 | 1 | OK |
-| dom/nodes/getElementsByClassName-21.htm | 0 | 1 | OK |
-| dom/nodes/getElementsByClassName-22.htm | 0 | 1 | OK |
-| dom/nodes/getElementsByClassName-25.htm | 0 | 1 | OK |
 | dom/nodes/insertion-removing-steps/Node-append-form-and-script-from-fragment.html | 0 | 1 | OK |
 | dom/nodes/insertion-removing-steps/Node-appendChild-script-and-button-from-div.html | 0 | 1 | OK |
 | dom/nodes/insertion-removing-steps/Node-appendChild-script-and-custom-from-fragment.html | 0 | 1 | OK |
@@ -311,7 +296,7 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/moveBefore/fire-focusin-focusout.html | 0 | 5 | OK |
 | dom/nodes/moveBefore/focus-preserve.html | 0 | 5 | OK |
 | dom/nodes/moveBefore/focus-within.html | 0 | 5 | OK |
-| dom/nodes/moveBefore/iframe-document-preserve.window.html | 0 | 7 | OK |
+| dom/nodes/moveBefore/iframe-document-preserve.window.html | 0 | 7 | TIMEOUT |
 | dom/nodes/moveBefore/listed-form-element-reset.html | 0 | 1 | OK |
 | dom/nodes/moveBefore/live-range-updates.html | 0 | 3 | OK |
 | dom/nodes/moveBefore/modal-dialog.html | 0 | 1 | OK |
@@ -342,11 +327,10 @@ The most common causes, in subtests Chrome passes:
 | dom/nodes/moveBefore/relevant-mutations.html | 0 | 2 | TIMEOUT |
 | dom/nodes/moveBefore/script-move-before.html | 0 | 2 | OK |
 | dom/nodes/moveBefore/select-option-optgroup.html | 0 | 2 | OK |
-| dom/nodes/moveBefore/slotchange-events.html | 0 | 4 | ERROR |
+| dom/nodes/moveBefore/slotchange-events.html | 0 | 4 | OK |
 | dom/nodes/moveBefore/style-applies.html | 0 | 1 | OK |
 | dom/nodes/moveBefore/throws-exception.html | 0 | 1 | OK |
 | dom/nodes/namespaced-attribute-mutations.html | 7 | 24 | OK |
-| dom/nodes/node-creation-realm.html | 11 | 12 | OK |
 | dom/nodes/node-realm-mixed-across-adoption.html | 1 | 2 | OK |
 | dom/nodes/post-connection-steps-shadow-tree.html | 0 | 1 | OK |
 | dom/nodes/processing-instruction-attributes.html | 10 | 140 | OK |
@@ -358,7 +342,6 @@ The most common causes, in subtests Chrome passes:
 | dom/events/Event-constructors.any.html | 12 | 14 | OK |
 | dom/events/Event-dispatch-detached-input-and-change.html | 8 | 12 | OK |
 | dom/events/Event-dispatch-listener-order.window.html | 0 | 1 | OK |
-| dom/events/Event-dispatch-single-activation-behavior.html | 98 | 120 | OK |
 | dom/events/Event-dispatch-throwing-multiple-globals.html | 0 | 2 | OK |
 | dom/events/Event-timestamp-high-resolution.https.html | 0 | 1 | OK |
 | dom/events/Event-timestamp-safe-resolution.html | 0 | 1 | LIMIT |
@@ -379,7 +362,7 @@ The most common causes, in subtests Chrome passes:
 | dom/events/mouse-event-retarget.html | 0 | 1 | OK |
 | dom/events/passive-by-default.html | 80 | 100 | OK |
 | dom/events/relatedTarget.window.html | 0 | 3 | ERROR |
-| dom/events/scrolling/save-iframe-scroll-offset-when-display-none.html | 0 | 2 | TIMEOUT |
+| dom/events/scrolling/save-iframe-scroll-offset-when-display-none.html | 0 | 2 | ERROR |
 | dom/events/scrolling/scroll-event-fired-to-element.html | 2 | 4 | OK |
 | dom/events/scrolling/scroll-event-fired-to-iframe.html | 0 | 4 | OK |
 | dom/events/scrolling/scroll-event-not-fired-on-ancestor-style-change.html | 0 | 1 | TIMEOUT |
@@ -407,7 +390,7 @@ The most common causes, in subtests Chrome passes:
 | dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=root-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
 | dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-end-block-end-behavior-auto | 0 | 1 | ERROR |
 | dom/events/scrolling/scrollend-event-fired-for-scrollIntoView.html?include=subframe-inline-start-block-start-behavior-smooth | 0 | 1 | ERROR |
-| dom/events/scrolling/scrollend-event-handler-content-attributes.html | 0 | 4 | OK |
+| dom/events/scrolling/scrollend-event-handler-content-attributes.html | 0 | 4 | TIMEOUT |
 | dom/events/scrolling/scrollend-event-not-fired-after-removing-scroller.tentative.html | 0 | 3 | OK |
 | dom/events/scrolling/scrollend-fires-to-text-input.html | 0 | 5 | TIMEOUT |
 | dom/events/scrolling/scrollend-with-snap-on-fractional-offset.html | 0 | 1 | OK |
@@ -418,19 +401,13 @@ The most common causes, in subtests Chrome passes:
 | dom/events/webkit-transition-end-event.html | 0 | 13 | ERROR |
 | domparsing/DOMParser-parseFromString-encoding.html | 0 | 4 | ERROR |
 | domparsing/DOMParser-parseFromString-stylesheets.html | 0 | 6 | OK |
-| domparsing/DOMParser-parseFromString-url-base-about.window.html | 0 | 2 | OK |
-| domparsing/DOMParser-parseFromString-url-base-pushstate.html | 0 | 45 | ERROR |
-| domparsing/DOMParser-parseFromString-url-base.html | 18 | 45 | OK |
-| domparsing/DOMParser-parseFromString-url-moretests.html | 10 | 31 | TIMEOUT |
-| domparsing/DOMParser-parseFromString-url-pushstate.html | 0 | 45 | ERROR |
-| domparsing/DOMParser-parseFromString-url.html | 18 | 45 | OK |
+| domparsing/DOMParser-parseFromString-url-base-pushstate.html | 36 | 45 | OK |
+| domparsing/DOMParser-parseFromString-url-base.html | 36 | 45 | OK |
+| domparsing/DOMParser-parseFromString-url-pushstate.html | 36 | 45 | OK |
+| domparsing/DOMParser-parseFromString-url.html | 36 | 45 | OK |
 | domparsing/DOMParser-parseFromString-xml-internal-subset.html | 0 | 1 | OK |
-| domparsing/DOMParser-parseFromString-xml-scripting-support-disabled.html | 8 | 12 | OK |
-| domparsing/XMLSerializer-serializeToString.html | 25 | 27 | OK |
-| domparsing/createContextualFragment-xhtml.xhtml | 0 | 4 | OK |
-| domparsing/createContextualFragment.html | 0 | 35 | OK |
+| domparsing/createContextualFragment.html | 34 | 35 | OK |
 | domparsing/html-insertion-methods-html-element.html | 0 | 2 | TIMEOUT |
-| domparsing/innerhtml-mxss.sub.html | 30 | 60 | OK |
 | domparsing/outerhtml-03.html | 3 | 4 | OK |
 | domparsing/parsed-document-origin.window.html | 5 | 7 | OK |
 | domparsing/positional-html-into-script-safe.html | 0 | 13 | OK |
@@ -444,6 +421,202 @@ The most common causes, in subtests Chrome passes:
 | domparsing/tentative/unclosed-script-already-started.html | 1 | 2 | OK |
 
 </details>
+
+### Web Platform Tests, extra areas
+
+What the DOM stack added past the phase's slices. No target, and not in the rates above.
+
+| Area | Passed | Of (Chrome passes) | Rate | Top cause |
+|---|---|---|---|---|
+| url | 6469 | 9492 | 68.2% | 1220: not reported |
+| encoding, without streams | 11409 | 11582 | 98.5% | 94: TIMEOUT: Test timed out |
+| html/webappapis/atob | 380 | 380 | 100.0% | none |
+| dom/traversal | 1 | 1606 | 0.1% | 763: ERROR: ReferenceError: NodeFilter is not defined |
+| html/semantics/tabular-data | 152 | 163 | 93.3% | 6: LIMIT: run_page: the document reached its limit of 100000 nodes |
+| form, select and option elements | 239 | 505 | 47.3% | 67: FAIL: assert_equals: expected (string) … but got (undefined) undefined |
+| html/semantics/text-level-semantics/the-a-element | 18 | 26 | 69.2% | 2: FAIL: Illegal invocation |
+| innerText and outerText | 374 | 1277 | 29.3% | 616: FAIL: assert_equals: expected … but got … |
+| css/cssom rule lists | 0 | 162 | 0.0% | 97: ERROR: TypeError: cannot read property 'cssRules' of undefined |
+
+<details><summary>Every extra test that doesn't pass in full</summary>
+
+| Test | Passed | Of | Status |
+|---|---|---|---|
+| url/IdnaTestV2.any.html | 1868 | 2627 | OK |
+| url/a-element-origin-xhtml.xhtml | 316 | 409 | OK |
+| url/a-element-origin.html | 0 | 409 | OK |
+| url/a-element-xhtml.xhtml?exclude=(file|javascript|mailto) | 562 | 702 | OK |
+| url/a-element-xhtml.xhtml?include=file | 42 | 87 | OK |
+| url/a-element-xhtml.xhtml?include=javascript | 12 | 13 | OK |
+| url/a-element-xhtml.xhtml?include=mailto | 12 | 14 | OK |
+| url/a-element.html?exclude=(file|javascript|mailto) | 0 | 702 | OK |
+| url/a-element.html?include=file | 0 | 87 | OK |
+| url/a-element.html?include=javascript | 0 | 13 | OK |
+| url/a-element.html?include=mailto | 0 | 14 | OK |
+| url/data-uri-fragment.html | 0 | 1 | TIMEOUT |
+| url/failure.html | 593 | 1151 | OK |
+| url/toascii.window.html | 676 | 739 | OK |
+| url/url-constructor.any.html?exclude=(file|javascript|mailto) | 690 | 705 | OK |
+| url/url-constructor.any.html?include=file | 74 | 87 | OK |
+| url/url-origin.any.html | 403 | 411 | OK |
+| url/url-setters-a-area.window.html?exclude=(file|javascript|mailto) | 433 | 447 | OK |
+| url/url-setters-a-area.window.html?include=file | 27 | 29 | OK |
+| url/url-setters.any.html?exclude=(file|javascript|mailto) | 214 | 224 | OK |
+| url/url-setters.any.html?include=file | 14 | 17 | OK |
+| url/urlencoded-parser.any.html | 35 | 105 | OK |
+| url/urlsearchparams-constructor.any.html | 26 | 27 | OK |
+| encoding/big5-encoder.html | 1 | 13 | OK |
+| encoding/encodeInto.any.html | 56 | 69 | OK |
+| encoding/iso-2022-jp-encoder.html | 1 | 12 | OK |
+| encoding/remove-only-one-bom.html | 0 | 3 | OK |
+| encoding/replacement-encodings.any.html | 0 | 12 | OK |
+| encoding/sniffing.html | 0 | 1 | OK |
+| encoding/unsupported-encodings.any.html | 0 | 14 | OK |
+| encoding/unsupported-labels.window.html | 64 | 158 | TIMEOUT |
+| encoding/utf-32-from-win1252.html | 0 | 8 | OK |
+| encoding/utf-32.html | 3 | 8 | OK |
+| dom/traversal/NodeFilter-constants.html | 0 | 2 | ERROR |
+| dom/traversal/NodeIterator-removal-during-filtering.html | 0 | 3 | OK |
+| dom/traversal/NodeIterator-removal.html | 0 | 24 | OK |
+| dom/traversal/NodeIterator.html | 0 | 766 | OK |
+| dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html | 0 | 1 | OK |
+| dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html | 0 | 5 | OK |
+| dom/traversal/TreeWalker-acceptNode-filter.html | 0 | 12 | OK |
+| dom/traversal/TreeWalker-basic.html | 1 | 6 | OK |
+| dom/traversal/TreeWalker-currentNode.html | 0 | 4 | OK |
+| dom/traversal/TreeWalker-nextNode-detached-currentNode.window.html | 0 | 3 | OK |
+| dom/traversal/TreeWalker-previousNodeLastChildReject.html | 0 | 1 | OK |
+| dom/traversal/TreeWalker-previousSiblingLastChildSkip.html | 0 | 1 | OK |
+| dom/traversal/TreeWalker-realm.html | 0 | 2 | OK |
+| dom/traversal/TreeWalker-traversal-reject.html | 0 | 6 | OK |
+| dom/traversal/TreeWalker-traversal-skip-most.html | 0 | 2 | OK |
+| dom/traversal/TreeWalker-traversal-skip.html | 0 | 6 | OK |
+| dom/traversal/TreeWalker-walking-outside-a-tree.html | 0 | 1 | OK |
+| dom/traversal/TreeWalker.html | 0 | 761 | ERROR |
+| html/semantics/tabular-data/processing-model-1/col-span-limits.html | 2 | 5 | OK |
+| html/semantics/tabular-data/processing-model-1/rowspan-0-quirks.html | 1 | 2 | OK |
+| html/semantics/tabular-data/processing-model-1/rowspan-0.html | 1 | 2 | OK |
+| html/semantics/tabular-data/processing-model-1/span-limits.html | 0 | 6 | LIMIT |
+| html/semantics/forms/the-form-element/form-action-submission-with-base-url.html | 0 | 3 | TIMEOUT |
+| html/semantics/forms/the-form-element/form-action-submission.html | 0 | 3 | TIMEOUT |
+| html/semantics/forms/the-form-element/form-attribute-form-owner.html | 1 | 4 | OK |
+| html/semantics/forms/the-form-element/form-autocomplete.html | 0 | 67 | OK |
+| html/semantics/forms/the-form-element/form-checkvalidity.html | 0 | 1 | OK |
+| html/semantics/forms/the-form-element/form-elements-filter.html | 1 | 2 | OK |
+| html/semantics/forms/the-form-element/form-elements-nameditem-01.html | 1 | 3 | OK |
+| html/semantics/forms/the-form-element/form-indexed-element-shadow.html | 0 | 1 | OK |
+| html/semantics/forms/the-form-element/form-indexed-element.html | 0 | 2 | OK |
+| html/semantics/forms/the-form-element/form-indexed-property-names.html | 0 | 1 | OK |
+| html/semantics/forms/the-form-element/form-nameditem.html | 5 | 14 | OK |
+| html/semantics/forms/the-form-element/form-requestsubmit.html | 0 | 10 | ERROR |
+| html/semantics/forms/the-select-element/common-HTMLOptionsCollection-add.html | 1 | 3 | OK |
+| html/semantics/forms/the-select-element/common-HTMLOptionsCollection.html | 6 | 8 | OK |
+| html/semantics/forms/the-select-element/customizable-select/base-appearance-inheritance.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-color-inheritance.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-disabled-invalid-nesting.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup-wrapper.html | 0 | 3 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup.html | 2 | 6 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-form-ancestor-select.html | 1 | 2 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-list-wrapped-optgroup.html | 1 | 2 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-list.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-selectedness-wrapper.html | 11 | 31 | OK |
+| html/semantics/forms/the-select-element/customizable-select/picker-icon-animation.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/placeholder-label-option-wrapper.html | 0 | 5 | OK |
+| html/semantics/forms/the-select-element/customizable-select/select-ask-for-reset-base-appearance.html | 0 | 2 | OK |
+| html/semantics/forms/the-select-element/customizable-select/select-base-appearance-computed-style.html | 0 | 9 | OK |
+| html/semantics/forms/the-select-element/customizable-select/select-options-id.html | 0 | 3 | OK |
+| html/semantics/forms/the-select-element/customizable-select/select-parsing.html | 10 | 17 | OK |
+| html/semantics/forms/the-select-element/customizable-select/select-picker-pseudo-box-type.html | 2 | 3 | OK |
+| html/semantics/forms/the-select-element/customizable-select/select-value-selectedOption.html | 6 | 11 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-attribute-change.html | 0 | 5 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-insertion-removal.html | 0 | 4 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-movebefore.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-mutations.html | 0 | 6 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested-select.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-option-insertion.html | 0 | 3 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-script-runs-once.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-queued-update.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select/selectedcontent-subtree-mutations.html | 0 | 2 | OK |
+| html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-keyboard-behavior.optional.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-option-optgroup-client-rects.html | 0 | 12 | OK |
+| html/semantics/forms/the-select-element/inserted-or-removed.html | 4 | 5 | OK |
+| html/semantics/forms/the-select-element/option-selectedness-script-mutation.html | 3 | 5 | OK |
+| html/semantics/forms/the-select-element/select-attribute-change-reset.html | 5 | 6 | OK |
+| html/semantics/forms/the-select-element/select-click-does-not-open-picker.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/select-insertion-inherited-style.html | 0 | 3 | OK |
+| html/semantics/forms/the-select-element/select-option-display-inherit.tentative.html | 1 | 3 | OK |
+| html/semantics/forms/the-select-element/select-required-attribute.tentative.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/select-selectedOptions-nesting.window.html | 7 | 11 | OK |
+| html/semantics/forms/the-select-element/select-selectedOptions.html | 8 | 10 | OK |
+| html/semantics/forms/the-select-element/select-setcustomvalidity.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/select-setter-dirtiness.html | 0 | 6 | OK |
+| html/semantics/forms/the-select-element/select-validity.html | 0 | 6 | OK |
+| html/semantics/forms/the-select-element/select-validity.tentative.html | 0 | 2 | OK |
+| html/semantics/forms/the-select-element/select-value.html | 3 | 4 | OK |
+| html/semantics/forms/the-select-element/select-willvalidate-readonly-attribute.html | 0 | 1 | OK |
+| html/semantics/forms/the-select-element/selected-index.html | 11 | 14 | OK |
+| html/semantics/forms/the-select-element/show-picker-cross-origin-iframe.html | 0 | 4 | TIMEOUT |
+| html/semantics/forms/the-select-element/show-picker-disabled.html | 0 | 1 | OK |
+| html/semantics/forms/the-option-element/option-element-constructor.html | 8 | 11 | OK |
+| html/semantics/forms/the-option-element/option-label.html | 9 | 12 | OK |
+| html/semantics/forms/the-option-element/option-selected.html | 1 | 3 | OK |
+| html/semantics/forms/the-option-element/option-text-recurse.html | 9 | 11 | OK |
+| html/semantics/forms/the-option-element/option-value.html | 9 | 12 | OK |
+| html/semantics/text-level-semantics/the-a-element/a-download-click-404.html | 0 | 1 | OK |
+| html/semantics/text-level-semantics/the-a-element/a-download-click-redirect-to-javascript.html | 0 | 1 | OK |
+| html/semantics/text-level-semantics/the-a-element/a-download-click.html | 0 | 1 | OK |
+| html/semantics/text-level-semantics/the-a-element/a-stringifier.html | 7 | 11 | OK |
+| html/semantics/text-level-semantics/the-a-element/a-type.historical.html | 0 | 1 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html | 0 | 9 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/getter-first-letter-marker-multicol.html | 0 | 1 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/getter.html | 0 | 273 | ERROR |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre | 0 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre&contenteditable=plaintext-only | 0 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre&contenteditable=true | 0 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-line | 43 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-line&contenteditable=plaintext-only | 0 | 32 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-line&contenteditable=true | 43 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap | 0 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=plaintext-only | 0 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=true | 0 | 79 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/multiple-text-nodes.window.html | 0 | 1 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/outertext-setter.html | 2 | 43 | OK |
+| css/cssom/CSSStyleSheet.html | 0 | 17 | ERROR |
+| css/cssom/CSSRule-type.html | 0 | 14 | ERROR |
+| css/cssom/CSSRuleList.html | 0 | 1 | OK |
+| css/cssom/CSSStyleRule-selectorText-setter.html | 0 | 7 | ERROR |
+| css/cssom/CSSStyleRule-set-selectorText-namespace.html | 0 | 5 | ERROR |
+| css/cssom/CSSStyleRule-set-selectorText.html | 0 | 82 | ERROR |
+| css/cssom/CSSStyleRule.html | 0 | 10 | ERROR |
+| css/cssom/CSSGroupingRule-cssRules.html | 0 | 1 | OK |
+| css/cssom/CSSGroupingRule-insertRule-computed.html | 0 | 1 | OK |
+| css/cssom/CSSGroupingRule-insertRule.html | 0 | 7 | OK |
+| css/cssom/StyleSheetList.html | 0 | 1 | OK |
+| css/cssom/insertRule-across-context.html | 0 | 2 | OK |
+| css/cssom/insertRule-charset-no-index.html | 0 | 2 | OK |
+| css/cssom/insertRule-font-face.html | 0 | 1 | OK |
+| css/cssom/insertRule-import-no-index.html | 0 | 2 | OK |
+| css/cssom/insertRule-namespace-after-import.html | 0 | 2 | OK |
+| css/cssom/insertRule-namespace-no-index.html | 0 | 3 | OK |
+| css/cssom/insertRule-no-index.html | 0 | 2 | OK |
+| css/cssom/insertRule-syntax-error-01.html | 0 | 1 | OK |
+| css/cssom/rule-restrictions.html | 0 | 1 | OK |
+
+</details>
+
+### Real-world pages printed
+
+| Page | Printed by fulgur | Fulgur printing Chrome's DOM | Byte-identical |
+|---|---|---|---|
+| alpine-invoice | pass (shape 0.0%) | pass (shape 0.0%) | yes |
+| d3-charts | **FAIL** (shape 100.0%; colour 100.0%; hue 100.0%) | **FAIL** (shape 100.0%; colour 100.0%; hue 100.0%) | yes |
+| highlightjs-code | pass (shape 0.0%) | pass (shape 0.0%) | yes |
+| katex-autorender | **FAIL** (shape 85.2%) | **FAIL** (shape 85.2%) | yes |
+| marked-report | **FAIL** (shape 67.5%; colour 84.8%; hue 100.0%) | **FAIL** (shape 67.5%; colour 84.8%; hue 100.0%) | yes |
+| noscript-message | **FAIL** (shape 100.0%; hue 100.0%) | **FAIL** (shape 100.0%; hue 100.0%) | yes |
+
+2 of 6 pages pass: `render_page`, then fulgur, against the Chrome references. `checkpoint-3/NOTES.md` says what each failure needs.
 
 <!-- hand-written: begin -->
 
@@ -465,11 +638,10 @@ The most common causes, in subtests Chrome passes:
 | `while (…) await sleep(0)` never moves the virtual clock, and ends in `TaskLimit`. A timer set from a microtask starts at nesting level 0, so the 4 ms clamp never applies; with `var ready = false; setTimeout(() => ready = true, 100);` the flag is never set. Chromium 153.0.8010.12 keeps the level through microtasks and clamps from the seventh round, so the same loop ends. The spec wins for DOM behaviour | HTML, timer initialization steps: the level comes from the currently running task, and a microtask checkpoint makes the microtask that task. Pinned by `awaiting_a_zero_timer_does_not_move_the_clock` in `crates/core/tests/event_loop.rs`. Chrome's delays in ms (#99, fresh page per case, 3 runs): `await sleep(0)` 0.1 0 0 0 0 0 4.4 4.2 4.2; `setTimeout` from `queueMicrotask` 0 0 0 0 0 4.4 4.3 4.3; from `then` 0 0 0 0 0 4.2 4.3 4.2; a nested `setTimeout`, the control, 0 0 0 0 0 4.3 4.2 4.3, which matches surimono | A page that polls with `await sleep(0)` for something a later timer sets stops at the task limit, with the timer not run. Polling with a non-zero delay, or a plain nested `setTimeout`, moves the clock as in Chrome |
 | A NUL inside a string literal or a comment of a string handler (`setTimeout("log.push('a\0b'.length)")`, with a real NUL in the source) is reported as a `SyntaxError`, and the handler doesn't run. It is valid source: `SourceCharacter` in ECMA-262 (Source Text) is any code point, `eval` in the sandbox gives 3, and so does the handler in Chromium 153.0.8010.12. A NUL outside a literal is a `SyntaxError` everywhere | String handlers reach the parser as a C string (`Ctx::eval_raw` is private in rquickjs). Pinned by `nul_and_lone_surrogates_in_string_handlers` in `crates/core/tests/event_loop.rs`. Chrome's checked in that build with the test's own handlers: 3, and one `SyntaxError` for the NUL outside a literal | The page goes on and the error is in the settle report (`uncaught`), but that one handler does nothing. Rare: a string handler is legacy, and a NUL in one rarer |
 | A lone surrogate in a string handler reads as U+FFFD: `setTimeout("log.push('\ud800'.charCodeAt(0))")`, with a real lone surrogate in the source, gives 65533. `eval` in the sandbox and the handler in Chromium 153.0.8010.12 give 55296 | The handler's source reaches the parser as UTF-8, which can't hold a surrogate. Same test as the row above; Chrome's checked in that build | Only string handlers that hold unpaired surrogates in the source text. |
-| `location` doesn't exist on the window: `typeof location` is `undefined`, and `location.href` a `ReferenceError`, in Chromium 153.0.8010.12 an object. `parent`, `top` and `opener` answer. `document.URL` is `about:blank` unless the caller gives a URL. The WPT runner defines `location` at the start of `testharness.js`'s script, as plain data, so its rates don't depend on this gap and don't measure it either | `wpt/probes`, `location`, `stalerows`. `wpt/runner/src/main.rs`, `ENVIRONMENT`; `wpt/README.md`, "Harness environment". HTML, `Location` | A page or library that reads `location` stops with an exception |
 | The WPT denominator is smaller than wpt.fyi's, and for dom/events by a lot: the Chrome baseline runs on a static server, not wptserve, so subtests that need its Python handlers, or a real browser's input and scrolling, aren't in it. A subtest we fail there can't lower a rate | `wpt/README.md`, "Baseline" and "Which tests can't run". Chrome's passes in the baseline against wpt.fyi's Chrome 156 run at the same commit: dom/nodes 15267 of 15300, dom/events 748 of 848, domparsing 909 of 913, timers and microtasks 34 of 34. The rates on both counts are in the table above | dom/events's baseline is 100 subtests short, 11.8%, so its rate is the most flattered: 524 passes would meet 70% of 748 and be 61.8% of 848. Report dom/events on both denominators against its target. The other areas differ by under 1% |
 | Half a surrogate pair reads as U+FFFD: text is stored as UTF-8, which can't hold one. `createTextNode('😀x').deleteData(0, 1)` leaves `data.charCodeAt(0)` 65533 and `createTextNode('\ud800').data.charCodeAt(0)` is 65533. The DOM keeps the lone code unit (56832, 55296), since a DOM string is UTF-16 code units; `length` and offsets are right | `crates/dom/src/tree.rs`, `crates/dom/DESIGN.md`, "Half a surrogate pair". DOM §4.10 and §1.3 (strings). Probed on main 89343c8f | Only text cut inside a pair, or built from lone surrogates. Text that keeps its pairs is exact |
-| `:has()`, `:nth-child(… of S)`, `:dir()` and `:in-range` are refused with a `SyntaxError`, as blitz-dom's parser configuration has them. Selectors 4 defines all four, and Chromium 153.0.8010.12 accepts them (`wpt/probes`, `selectors`) | `crates/dom/DESIGN.md`, "Selectors" under "Deviations". WPT `dom/nodes/ParentNode-querySelector-All.html` covers several. Probed on main 89343c8f | A script that uses them in `querySelector` or `matches` stops with the exception, unless it catches it |
-| `:enabled`, `:disabled`, `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:default`, `:valid`, `:invalid`, `:defined` and `:lang()` parse and match nothing: `document.querySelector('input:checked')` is null with a checked input on the page. Selectors 4 and HTML §4.16 (pseudo-classes) define each | Same places. Probed on main 89343c8f, each against a matching element | Scripts that look up form state or language through a selector find nothing, with no error |
+| `:has()`, `:nth-child(… of S)`, `:dir()`, `::first-line` and `::first-letter` are refused with a `SyntaxError`, as blitz-dom's parser configuration has them. Selectors 4 defines all of them, and Chromium 153.0.8010.12 accepts them; a pseudo-element matches nothing there | `wpt/probes`, `selectors`, `pseudos`. `crates/dom/DESIGN.md`, "Selectors" under "Deviations". WPT `dom/nodes/ParentNode-querySelector-All.html` covers several | A script that uses them in `querySelector` or `matches` stops with the exception, unless it catches it |
+| `:indeterminate`, `:default`, `:placeholder-shown`, `:valid` and `:invalid` parse and match nothing, and `input.indeterminate = true` isn't matched. The other form and language pseudo-classes and `:target` are answered, since #154. `checked` and `selected` are the attributes | `wpt/probes`, `pseudos`, `selectors`. `crates/dom/DESIGN.md`, "Selectors" | A script that finds invalid or default fields this way gets none |
 | `[a=b i]` is case-sensitive, and attribute selectors don't look at the namespace: with `a="B"`, `[a=b i]` finds nothing. Selectors 4 makes `i` compare ASCII case-insensitively | `crates/dom/DESIGN.md`, "Selectors". Probed on main 89343c8f | Rare: only selectors with the `i` flag |
 | `:scope` in a `DocumentFragment` query matches nothing: `fragment.querySelector(':scope > b')` is null with a `<b>` child. Selectors 4 makes the fragment the scoping root, so its top-level elements are `:scope`'s children. On an element and on a document `:scope` works. Chromium 153.0.8010.12 gives the same answer as surimono here (`wpt/probes`, `fragscope`), so this departs from Selectors 4, not from Chrome | `crates/dom/DESIGN.md`, "Selectors"; `crates/dom/tests/collections.rs`, `scope_on_a_document_is_the_root_element`. Probed on main 89343c8f | Rare: only queries from a fragment or a template's content that use `:scope` |
 | These valid selectors are a `SyntaxError`, to keep hostile selectors off the stack and out of Rust's heap: longer than 128 KiB, more than 64 combinators on one path through the nested lists, or more than 8 nested blocks, brackets and functions. Depth is counted on the CSS tokens, so only real nesting counts: brackets in a string, a comment or an escape count for nothing | `crates/dom/DESIGN.md`, "Selector limits"; `crates/dom/tests/hostile.rs`, `hostile_selectors_are_typed_errors`, `the_worst_selector_allowed_fits_the_stack_headroom` and `hidden_closing_brackets_do_not_hide_nesting`. `wpt/probes`, `selcaps` | No real page reaches these, and it is a catchable exception |
@@ -477,37 +649,45 @@ The most common causes, in subtests Chrome passes:
 | `element.style` keeps a value as written: no computed forms and no shorthand expansion. `color: #F00` reads back `#F00`, `color: rgb(255,0,0)` keeps its spacing, and after `margin: 1px` the `cssText` is `margin: 1px;`, `style.length` is 1 and `style.marginTop` is `""`. CSSOM §6.6 serializes values and expands shorthands. `--x: 'a'` is rewritten to `--x: "a"`, and `--x: var(--x 1px)` is stored where Chrome refuses it | `crates/dom/DESIGN.md`, "Inline style"; review of #97 for the custom properties. Probed on main 89343c8f | The printer reads the same text, so pages look the same. A script that reads a longhand back after setting a shorthand sees `""`, and one comparing colour strings sees the source form |
 | `element.style` values over 64 KiB are checked as tokens, not by stylo, so `style.setProperty('color', 'x'.repeat(70000))` stores a value a short one would lose. One `style` attribute may hold 4,096 declarations, 65,536 CSS tokens and 8 MiB, 32 nested brackets, 2^26 push steps in stylo's block, and 4,096 grid cells per `grid-template-areas`-like declaration. Over any of them is `DomError::StyleLimit`, fatal: the call ends however the script handles it, where Chrome has no such limits | `crates/dom/DESIGN.md`, "Bounds" and "What the printer gets"; `crates/dom/src/style_attr.rs`, `fits`. Probed on main 89343c8f: 5,000 custom properties end the run in `StyleLimit` | A generated page with over 4,096 declarations on one element fails with a typed error. A stylo parse can't be interrupted, so these bounds are what keeps the time limit honest |
 | MathML elements have no `style` and no `on*` members: `math.style` is `undefined` and `math.onclick` isn't there, and an `onclick` attribute on one doesn't run. `ElementCSSInlineStyle` and `GlobalEventHandlers` cover MathML elements. MathML elements have no interface bound (`constructor.name` is `Element`) | `crates/dom/DESIGN.md`, "Gaps"; `crates/webidl/src/bindgen.rs`. Probed on main 89343c8f | Scripts that style MathML through `.style` throw. The KaTeX page in `fixtures/real-world` still matches Chrome's DOM (#104) |
-| `<svg><script>` doesn't run, and `<svg onload>` never fires: Chromium 153.0.8010.12 runs both, the second once, before the window's `load`. Other `on*` attributes on SVG elements run, with no `evt` (next row) | `wpt/probes`, `svgh`, `onsvg2`. SVG 2, "Interactivity" (`load` on `svg` elements). `crates/dom/DESIGN.md`, "Gaps" | A script inside an SVG image is silently skipped. `<svg onload>` is the SVG handler likeliest to reach a print, since it needs no input |
-| An SVG element's handler has no `evt`: `<rect onclick="show(evt)">` is an uncaught `ReferenceError`. SVG 2 makes `evt` an alias of `event` in event handlers, and Chromium 153.0.8010.12 compiles SVG handlers with it. `event` works | `wpt/probes`, `svgh`. SVG 2, "Interactivity"; review of #140 | Old hand-written SVG uses `evt`; the handler stops at the first use |
+| `<svg><script>` doesn't run: Chromium 153.0.8010.12 runs it. `<svg onload>` fires, as the spec times it (below, under the spec conflicts), and other `on*` attributes on SVG elements run, with `evt` | `wpt/probes`, `onsvg2`, `svgh`. `crates/dom/DESIGN.md`, "Gaps" | A script inside an SVG image is silently skipped |
 | A handler's scope has no form owner: in `<form><input onclick="…">`, a bare name resolves in the element, the document and the global, and skips the form. HTML §8.1.7.1, "getting the current value of the event handler", puts the form element in the chain | `crates/dom/DESIGN.md`, "Gaps". Probed on main 89343c8f: a name on the form reads the global's value, and `elements` is undefined | Old inline form handlers that name a sibling field directly fail with a `ReferenceError` |
-| Named access on `Window` has parsed ids only: `<span id=x>` makes a global `x`, but `<img name=im>` doesn't, nor does an `id` a script adds, and two elements with one `id` give the first, not a collection. HTML §7.3.3 covers all three | `wpt/probes`, `named`. `crates/dom/DESIGN.md`, "Named access on the window" | Scripts that rely on a `name`, or on an `id` they added, as a global fail with a `ReferenceError`. `document.getElementById` is the supported way |
-| No microtask checkpoint between the listeners of a browser-fired event (`load`, `DOMContentLoaded`): a microtask queued by the first listener runs after the last one, `L1,L2,micro`, where HTML's "clean up after running script" gives `L1,micro,L2` | `crates/dom/DESIGN.md`, "Gaps"; review of #104, confirmed against Chrome. `dispatchEvent` from a script gives `L1,L2,micro` in both, which is right | Order within one `load` only |
-| `unhandledrejection` and `rejectionhandled` don't fire. A rejection nobody handled goes in `PageReport::unhandled_rejections`, and that is decided at the microtask checkpoint, so a handler added by the next `<script>` still counts: with `q = Promise.reject()` and `q.catch()` in the next script we report 1, and Chrome 153 fires nothing. HTML "notify about rejected promises" queues a task and skips what is handled by then | `crates/core/src/event_loop.rs`, `notify_rejections`; `crates/dom/src/runtime.rs` (`unhandledrejection` isn't implemented); `crates/dom/tests/events.rs`, `rejections_nothing_handled_reach_the_report`; review of #104 for Chrome's result. Probed on main 89343c8f | A page's own listener never runs. The report can count a rejection Chrome wouldn't. A limit error inside a promise still ends the call typed |
+| Named access on `Window` has parsed ids only: `<span id=x>` makes a global `x`, but `<img name=im>` doesn't, nor does an `id` a script adds, and two elements with one `id` give the first, not a collection. `document.foo` for a form or image name isn't bound either. HTML §7.3.3 and §3.1.6 cover them | `wpt/probes`, `named`, `formidx`. `crates/dom/DESIGN.md`, "Named access on the window" | Scripts that rely on a `name`, or on an `id` they added, as a global fail with a `ReferenceError`. `document.getElementById` is the supported way |
+| `rejectionhandled` doesn't fire. `unhandledrejection` does, with HTML's timing, since #149, and a rejection a later script handles before that task isn't counted | `wpt/probes`, `unhandled`. `crates/core/src/event_loop.rs`; `crates/dom/DESIGN.md`, "Gaps" | A page's `rejectionhandled` listener never runs |
 | `ErrorEvent`'s `filename`, `lineno` and `colno` are always `""`, 0 and 0. HTML §8.1.6.2 gives the script's URL and position | `crates/dom/DESIGN.md`, "Gaps". Probed on main 89343c8f | Error reports from a page carry the message only. Determinism doesn't need these empty; they are simply not tracked |
 | `MutationObserver` has no transient registrations: after `a.removeChild(p)`, a change inside `p`'s subtree isn't seen by a `subtree` observer of `a`. DOM §4.3 keeps watching a removed subtree until the observer's next notification | `crates/dom/DESIGN.md`, "MutationObserver". Probed on main 89343c8f: only the removal's record | Only a change made to a subtree in the same task it was removed. The Alpine page in `fixtures/real-world` still matches Chrome's DOM (#105) |
-| `noscript.innerHTML = '<i>z</i>'` makes an `I` element; Chrome makes one text node, because scripting is on. A `<noscript>` in a `<template>` serializes as `<b>q</b>` where Chrome gives `&lt;b&gt;q&lt;/b&gt;`. A parsed `<noscript>` is raw text, as in Chrome | Review of #104; `crates/dom/tests/serialize.rs`, `noscript_is_raw_text_with_scripting_enabled`. HTML's fragment parsing, with the scripting flag. Probed on main 89343c8f | Nothing inside runs either way. fulgur parses with scripting off, and E2-08 drops `<noscript>` at the hand-off |
+| `<noscript>` content in a `<template>` stays markup: `<template><noscript><b>q</b></noscript></template>` serializes as `<b>q</b>`, where Chromium 153.0.8010.12 gives `&lt;b&gt;q&lt;/b&gt;`, since scripting is on. It is kept raw on purpose: the facade's printer-safe screen needs it as the page wrote it. `noscript.innerHTML = '<i>z</i>'` on the page makes one text node, as in Chrome, and markup in a document with no browsing context | `wpt/probes`, `tmplnoscript`. `crates/dom/DESIGN.md`, "Several documents". #155 | Only a script that reads a template's `<noscript>` back |
 | `nomodule` is ignored: `<script nomodule>` runs. HTML's "prepare the script element" and Chromium skip it. This one is a choice, not a shortfall: modules don't run here, so the fallback is the only code a page has for us | `crates/dom/DESIGN.md`, "Events and the page's life"; `docs/DECISIONS.md`, 2026-11-04 (#104). Probed on main 89343c8f | A page with both a module and a `nomodule` bundle runs the second, which is the point |
 | A proxy's `ownKeys` check throws at the first non-configurable key of the target that the trap left out. ECMA-262 §10.5.11 reads every target descriptor first, and throws after. The only visible difference is a shorter trap log when the target is itself a proxy | Review of #126: 105 of 3,000 rounds differ from V8 in Node, the same before and after that PR. `vendor/rquickjs-sys` PATCHES.md, level 8 | None for a page, unless it logs the traps of a proxied proxy that breaks the invariant. The outcome, a `TypeError`, is the same |
 | The parser finishes before the first script, so a script sees the whole document: `document.getElementById('late')` finds an element written after the script, where Chrome gives `null`. `readyState` reads `loading` in both | `wpt/probes`, `partial`. `crates/dom/DESIGN.md`. HTML, the parser's script end tag steps | A script that relies on not yet seeing later markup behaves differently. The usual idioms (`DOMContentLoaded`, scripts at the end of `body`) don't notice |
 | A script inserted by a script doesn't run: `document.head.appendChild(script)` does nothing and reports nothing, where Chromium 153.0.8010.12 runs it at once | `wpt/probes`, `inserted`. `crates/dom/DESIGN.md`. HTML, "prepare the script element" | A loader or tag manager that adds its own scripts silently does nothing, and the page settles without them |
 | `document.write` and `document.writeln` don't exist: a `TypeError`. In Chromium 153.0.8010.12 the markup lands after the script | `wpt/probes`, `write`. HTML, "document.write()" | The script stops there. Common in older report templates |
 | Blitz lays out every document as no-quirks, whatever the doctype. A page with no doctype or an old one gets Chrome's quirks or limited-quirks layout there (the line-height and table-cell height quirks, among others) and standards layout here. `document.compatMode` and case-insensitive `#id` and `.class` in `querySelector` still follow the parser, so what scripts see is right and only layout differs | blitz-dom 0.2.4 fixes `QuirksMode::NoQuirks`: `src/document.rs` (the `Stylist`) and `quirks_mode()` in `src/stylo.rs`. [Quirks Mode](https://quirks.spec.whatwg.org/). No fixture measures it: every fixture is no-quirks | A template written without a doctype can print with different line heights and table sizes from Chrome. Add `<!doctype html>` |
-| `<img>` fires no `load` or `error`, and there is no `Image` constructor: `typeof Image` is `undefined`, and `new Image()` a `ReferenceError`. Chromium 153.0.8010.12 fires `load` on a parsed, a created and a `new Image(2, 3)` element | `wpt/probes`, `images`. HTML, "update the image data" and the `Image()` factory | A script that waits for an image's `load` before it draws or finishes never goes on, and the page settles without that work |
-| Interfaces not bound. On `document`: `createRange`, `createTreeWalker`, `createNodeIterator`, `styleSheets`. On `<style>`: `sheet`. Globals: `Range`, `TreeWalker`, `NodeIterator`, `history`, `matchMedia`, `Location`, `CSSStyleSheet`, `trustedTypes`, and the SVG interfaces below `SVGElement`, such as `SVGRectElement`. Chromium 153.0.8010.12 has them all | `wpt/probes`, `interfaces`; the WPT causes table above. Since #131 each HTML element has its own interface: `crates/dom/tests/nodes.rs` | The largest named causes left in the WPT rates: `trustedTypes` 278 subtests and `history` 90 in domparsing, `HTMLStyleElement.sheet` 52 in dom/events. A library that touches one stops with an exception |
-| Frames have no browsing context. A script in one never runs: `srcdoc="<script>parent.ran=1</script>"` leaves `ran` unset, where Chromium 153.0.8010.12 sets it. No realm: `frames[0].Node === Node` here and not there. `frames` is a list, not the window, and `window[0]` doesn't exist. A frame a script adds loads after the page settles, so the window's `load` comes first; Chromium 153.0.8010.12 has the frame first. A frame's type goes by its URL's extension, there being no Content-Type. At most 64 frames and 8 load rounds a render | `wpt/probes`, `frames`, `framescript`, `frameorder`. `crates/dom/DESIGN.md`, "Frames" | A page that fills a frame by script, or talks to one, prints the frame without it. All 4 subtests lost in timers and microtasks are this (three cross-realm exception reports, one detached frame's timer), so that area can't reach its 90% without a realm: 88.2%, for Kay's OK. A frame is otherwise a real document, which is what the selector tests need |
+| `<img>` fires no `load` or `error`, as nothing loads: not a parsed one, a created one or a `new Image(2, 3)`. `Image` exists since #161, and `img.width` is undefined. Chromium 153.0.8010.12 fires `load` on all three and reads 2 | `wpt/probes`, `images`. HTML, "update the image data". `crates/dom/DESIGN.md`, "Tables, forms and links" | A script that waits for an image's `load` before it draws or finishes never goes on, and the page settles without that work |
+| Interfaces not bound. On `document`: `createTreeWalker`, `createNodeIterator` and `styleSheets` (#162 and #163 bind them). Globals: `TreeWalker`, `NodeIterator`, `CSSStyleSheet`, `matchMedia`, `trustedTypes`, `Selection` (next row), and the SVG interfaces below `SVGElement`, such as `SVGRectElement`. Chromium 153.0.8010.12 has them all | `wpt/probes`, `interfaces`; the WPT causes table above | A library that touches one stops with an exception |
+| Frames have no browsing context. A script in one never runs: `srcdoc="<script>parent.ran=1</script>"` leaves `ran` unset, where Chromium 153.0.8010.12 sets it. No realm: `frames[0].Node === Node` here and not there. `frames` is a list, not the window, and `window[0]` doesn't exist. A frame a script adds loads after the page settles, so the window's `load` comes first; Chromium 153.0.8010.12 has the frame first. A frame's type goes by its URL's extension, there being no Content-Type. At most 64 frames and 8 load rounds a render | `wpt/probes`, `frames`, `framescript`, `frameorder`. `crates/dom/DESIGN.md`, "Frames" | A page that fills a frame by script, or talks to one, prints the frame without it. The 3 subtests timers and microtasks lose are this: cross-realm exception reports, which need a realm per frame. The area meets its 90% with them, at 91.2%. A frame is otherwise a real document, which is what the selector tests need |
 | A document with no browsing context still runs inline handlers: an `onclick` attribute in a `createHTMLDocument` or `DOMParser` document runs on a dispatched click, and `d.body.onload = f` sets the page's `window.onload`. HTML §8.1.7.1 gives null for both, since the document's browsing context is null and it isn't active. Chromium 153.0.8010.12 follows it. An IDL handler, `e.onclick = f`, runs in both | `wpt/probes`, `nobc`. `crates/dom/DESIGN.md`, "Gaps" under "Several documents". Review of #136 | Conformance only: no wider than the page's own scripts, which could run the same code. A template parsed with `DOMParser` could run a handler Chrome wouldn't |
 | `__surimonoFrameLoads` is a global of ours: non-enumerable, non-writable and non-configurable, but `Object.getOwnPropertyNames(window)` lists it. Calling it fires only frame `load`s already due | `wpt/probes`, `framefn`. `crates/dom/tests/documents.rs`, `the_frame_hook_cannot_be_replaced`. Review of #142 | A script that lists the window's names sees one more. Rust needs the name between settles, and a value held in Rust wouldn't survive a sandbox rebuild |
 | The XML parser defines no entities: a reference to anything but the five predefined ones is a well-formedness error, and the internal subset is skipped. `<!DOCTYPE a [<!ENTITY e "x">]><a>&e;</a>` gives a `parsererror` document, where Chromium 153.0.8010.12 gives `x`. XML 1.0 §5.1 allows that of a non-validating processor. Encoding declarations are read for shape and ignored, as in Chromium's `DOMParser` on a string | `wpt/probes`, `xmlent`. `crates/dom/DESIGN.md`, "XML". WPT `dom/nodes/Element-firstElementChild-entity-xhtml.xhtml` and `Element-firstElementChild-entity.svg` report `LIMIT`: the page is a `parsererror` document, so no harness runs | Chosen: no entity bomb, and output can't outgrow input. A document that defines its own entities comes out as a `parsererror` document |
 | There is no template contents owner document: `template.content.ownerDocument` is the template's document, with a `defaultView`. HTML's "appropriate template contents owner document" makes it a separate one with none, as in Chromium 153.0.8010.12 | `wpt/probes`, `tmplowner`. `crates/dom/DESIGN.md`, "Gaps" under "Several documents" | Content stays inert. Only a script that compares the owner, or reads `defaultView` from it |
 | Getting `innerHTML` or `outerHTML` in an XML document doesn't throw on content XML can't hold, such as U+000C in a text node. DOM Parsing asks for `InvalidStateError`, with "require well-formed" set. Chromium 153.0.8010.12 doesn't throw either, and `domparsing/innerhtml-01.xhtml` fails there too, so it is out of the denominator. Setting `innerHTML` in an XML document parses XML, and gives what Chromium gives in every case tried | `wpt/probes`, `xmlget`, `xmlinner` | Conformance only |
 | `<base>` counts only in the head: one in the body changes no URL, where Chromium 153.0.8010.12 takes the first in the document. `:target` matches nothing, even after a fragment link's click | `wpt/probes`, `basebody`, `target`. `crates/dom/DESIGN.md`. HTML, "The base element" | A relative link under a `<base>` in the body prints with its own URL. `:target` styles don't apply, as a printed page has no navigation to them anyway |
-| Layout members that aren't bound: `document.elementsFromPoint`, `caretPositionFromPoint`, an element's and the window's `scrollTo`, `scrollBy` and `scroll`, `scrollIntoView`, and SVG's `getBBox`, `getCTM` and `getScreenCTM`, all `undefined` here and functions in Chromium 153.0.8010.12. They don't go through `LayoutPolicy`, so a call is a `TypeError`. `getBoxQuads` is missing in both | `wpt/probes`, `unbound`. `crates/dom/DESIGN.md`, "Layout queries"; P2-DOM-06 | A chart library that calls `getBBox` stops with an exception. Phase 3's layout queries cover them |
+| Layout members that aren't bound: `document.caretPositionFromPoint`, and SVG's `getCTM` and `getScreenCTM`, all functions in Chromium 153.0.8010.12. The scroll methods, `elementsFromPoint` and `getBBox` go through `LayoutPolicy` since #155, and `getBBox` is on every SVG element, where SVG 2 has it on graphics elements | `wpt/probes`, `unbound`. `crates/dom/DESIGN.md`, "Layout queries" | A call to one of the three is a `TypeError`. Phase 3's layout queries cover them |
 | `getComputedStyle`'s `pseudoElt` is converted and ignored, and in phase 2 the style is empty anyway: `getComputedStyle(p, '::before').color` is `''`, and `rgb(1, 2, 3)` in Chromium 153.0.8010.12 | `wpt/probes`, `pseudo`. `crates/dom/DESIGN.md`, "Layout queries" | Reads as an element with no box. Scripts that measure pseudo-elements get nothing until phase 3 |
 | `DOMRectList` has `item` but no indexed properties: `getClientRects()[0]` is `undefined`, and `0 in list` false. The list is always empty today, so nothing more is lost: an element with a box has one rect in Chromium 153.0.8010.12 and none here | `wpt/probes`, `rectlist`. `crates/dom/DESIGN.md`, "Layout queries" | None until layout queries answer, which then need the indexed getter |
-| Setting `details.open` from a script queues no `toggle`; only a click on the summary does. Chromium 153.0.8010.12 fires one after the script | `wpt/probes`, `details`. HTML, "The details element". `crates/dom/DESIGN.md`, "Gaps" | A page that fills a panel when it opens, and opens it from a script, stays unfilled |
 | Properties stylo's Servo build doesn't know are only tokenised, so bad values stay: `fill: bad`, `stroke: bad` and `break-inside: bad` read back here, and Chromium 153.0.8010.12 drops them. `'webkitTransform' in el.style` is false (true in Chrome). `el.style` follows the first attribute named `style`, even one in a namespace: after `setAttributeNS('urn:y', 'style', 'top: 3px')`, `style.top` is `3px` here and empty in Chrome | `wpt/probes`, `stylevals`, `styleprops`. CSSOM §6.6 means the attribute in no namespace | Read-back only: the printer ignores a bad value. A `webkit` camelCase write becomes an expando |
 | A `<style>` with one empty text child isn't `:empty`; a `<p>` with one is, and in Chromium 153.0.8010.12 both are | `wpt/probes`, `styleempty`. Selectors 4, `:empty`; `is_empty` in `crates/dom/src/select.rs` | Only `<style>` elements matched with `:empty` |
 | A getter on a rejection reason that overflows the stack while Rust reads it counts as an ordinary rejection: `Promise.reject({get name(){f()}})` gives no `StackOverflow`, one `unhandled_rejections`, the text `a value of type object`, and the next script runs. Chrome doesn't read those properties, so it has no overflow to see, and reports the same one rejection | `wpt/probes`, `getter`. Review of #127; `crates/core/src/event_loop.rs` | Accepted: the overflow is in the script's own getter, nothing crashes or hangs, and the report isn't clean. Only the reason's text is less exact |
+| There is no `Selection`: `Selection`, `getSelection` and `document.getSelection` are undefined | `wpt/probes`, `selection`. `crates/dom/DESIGN.md`, "Ranges". Selection API | A script that reads the selection stops with an exception. A printed page has none to read |
+| An `Attr` can't be a range boundary: `range.setStart(attr, 0)` is an `InvalidNodeTypeError`, where the DOM and Chromium 153.0.8010.12 allow offset 0 | `wpt/probes`, `attrrange`. `Attr` isn't a whole `Node` here | Rare outside WPT |
+| Scripts in a contextual fragment don't run when appended, where Chromium 153.0.8010.12 runs them: the same gap as a script inserted by a script | `wpt/probes`, `ctxscript`. HTML §8.5 | A page that builds markup with `createContextualFragment` keeps the elements and loses the script |
+| `[LegacyUnforgeable]` isn't honoured on `Location`: its members are on the prototype, so `location.assign = f` replaces it, where in Chromium 153.0.8010.12 the assignment does nothing. On a frame's window `location` and `history` are writable data properties. `ancestorOrigins` isn't bound | `wpt/probes`, `unforge`. `crates/dom/DESIGN.md`, "Location and history" | Only a script that tampers with `location` |
+| Session history is per document and lives as long as the render: `history.length` doesn't join frames' entries, a state object is one object for its entry (`history.state.m = 1` survives going away and back), nothing survives a reload, and `<base target>` is ignored | `crates/dom/DESIGN.md`, "Location and history"; #153 | Only pages that navigate their own history |
+| `customElements` is a registry only: `define`, `get` and `whenDefined` work, but nothing is constructed or upgraded and no reaction runs, so `<x-a>` with a `connectedCallback` that fills it stays empty, where Chromium 153.0.8010.12 fills it | `wpt/probes`, `ceregistry`. `crates/dom/DESIGN.md`, "What the window has" | A page built from custom elements prints them empty |
+| `Intl`, `Blob`, `File`, `URL.createObjectURL`, streams (`ReadableStream`, `TextDecoderStream`), `FormData` and `Request` aren't there | `wpt/probes`, `intlblob`. `crates/dom/DESIGN.md`, "What the window has" | A script that formats with `Intl` or builds a `Blob` stops with an exception |
+| `URL` is the `url` crate, which differs from Chromium 153.0.8010.12 in a few places: `file:///w|/m` keeps its `|` (Chrome `%7C`), `new URL('/x', 'file:///C:/a')` keeps the drive letter (Chrome drops it), and removing the query of `data:space ?q` drops the space (Chrome keeps it). IDNA is older than the tests | `wpt/probes`, `urlcrate`; the `url` area below; `crates/dom/DESIGN.md`, "What the window has" | URLs a template builds from such strings serialize differently |
+| `structuredClone` refuses a `DOMRect` and the like, and a `SharedArrayBuffer`, and clones a generator as a plain object. A fatal decoding error mid-stream drops a byte pushed back before it. `frames[0].atob` and the rest need a `this` of the page | `wpt/probes`, `clonemisc`. `crates/dom/DESIGN.md`, "What the window has"; WPT `encoding/textdecoder-mistakes.any.js` | Rare in a template |
+| Forms: `form[0]`, `form.name` and `select[0]` don't exist, `form.elements.namedItem` gives the first element where HTML gives a `RadioNodeList`, and `checkValidity` and its family and `relList` aren't bound. A `select` inside another's options isn't looked for | `wpt/probes`, `formidx`. `crates/dom/DESIGN.md`, "Tables, forms and links" | A script that indexes a form or validates it stops with an exception |
+| `innerText` has no layout: it reads the rendering section's default display, `hidden` and inline `display: none`, and no stylesheet. `:focus` doesn't match, connected counts as rendered for `focus()`, and there's no sequential navigation and no `autofocus` | `crates/dom/DESIGN.md`, "Tables, forms and links"; the innerText area below | `innerText` on an element a stylesheet hides gives its text, where Chrome gives none |
 
 ## Where the spec and Chromium disagree
 
@@ -525,6 +705,11 @@ Every row is a conflict the fleet rule settles: the spec wins for DOM behaviour,
 | `[a="b" s]`, the case-sensitive flag | Selectors 4 defines `s`, and it matches here | `SyntaxError` | `wpt/probes`, `selectors` |
 | `HTMLDocument` | HTML §7.2.2: `window.HTMLDocument` is the `Document` interface object, so `HTMLDocument === Document`, and `document.constructor.name` is `Document` | A separate interface: `HTMLDocument === Document` is false, and the name is `HTMLDocument` | `wpt/probes`, `htmldoc`. `crates/dom/tests/nodes.rs` (#131). 20 subtests of `dom/events/passive-by-default.html` put that name in their own names, `… for HTMLDocument`, so ours report `… for Document` and they count as lost |
 | `label.control` with `for`, on a label not in a document | HTML §4.10.4 looks "in the tree", so a detached label finds the control beside it or inside it, and `click()` reaches it | Null, and the click goes nowhere: it looks only in the document | `wpt/probes`, `label`. Review of #135; `a_labels_control_ignores_hidden_inputs_and_stays_in_its_tree` in `crates/dom/tests/events.rs` |
+| A listener that throws: when the report comes | WebIDL "invoke a callback function" cleans up first, so the checkpoint comes before the report: `L1,m,E1,em,E2,L2` | Reports first: `L1,E1,E2,m,em,L2` | `wpt/probes`, `throwlistener`. Review of #149 |
+| A function timer that throws: when the report comes | The same text: `T,m,E1,em,E2`. A string timer is a classic script, reported inside its run: `T,E1,E2,m,em`, as in Chromium | `T,E1,E2,m,em` for both | `wpt/probes`, `throwtimer`. #155 and its review |
+| When `<svg onload>` fires | SVG 2 §15.2: once all the document's resources have loaded, so every `svg` in one step just before the window's `load`, in end-tag order | A nested `svg` fires as it closes, before `DOMContentLoaded`; an outermost one just before the window's `load`, in an order that isn't tree order | `wpt/probes`, `svgh`. `crates/dom/DESIGN.md`, "Events and the page's life"; review of #155 |
+| `history.state` after a same-URL navigation | HTML: the new entry has no state, so `popstate`'s state and `history.state` are null | Keeps `history.state` | `crates/dom/DESIGN.md`, "Location and history"; #153 |
+| `XMLSerializer` on an attribute whose prefix an ancestor binds to another namespace | DOM Parsing keeps the prefix when "local prefixes map does not contain prefix", and that map holds only this element's declarations: `<child xmlns:p="uri2" p:foobar="v"/>`. **surimono doesn't follow it here**: it gives `ns1`, as WPT and Chromium do | `<child xmlns:ns1="uri2" ns1:foobar="v"/>`, which `domparsing/XMLSerializer-serializeToString.html` expects | `wpt/probes`, `xmlprefix`. `crates/dom/src/xml.rs` |
 | A handler that returns `false` on a non-cancelable event | HTML §8.1.7.1 sets the canceled flag, whether or not the event can be canceled, so `dispatchEvent` returns `false` | `dispatchEvent` returns `true` | Review of #104; `crates/dom/src/glue_events.js`. Probed on main 89343c8f: `false`, `defaultPrevented` true |
 
 ## Printing gaps in fulgur 0.40.0 seen by the fixtures

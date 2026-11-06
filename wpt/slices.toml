@@ -9,6 +9,8 @@ source = "https://github.com/web-platform-tests/wpt"
 commit = "8b4b06ff53a47f1041e0e59f894d9e929963904c"
 # A file above this size is left out and listed in the manifest (no big assets).
 max_file_bytes = 262144
+# The same for a file under `support`: IdnaTestV2.json is data, not a test.
+max_support_bytes = 524288
 # Not tests, and named by no <script src>: files and folders that pages load in
 # frames, or name in strings. Each file comes with its WPT path and hash.
 support = [
@@ -28,6 +30,8 @@ support = [
   "domparsing/resources/domparser-iframe-base.html",
   "domparsing/resources/domparser-iframe-pushstate.html",
   "domparsing/resources/domparser-iframe.html",
+  "fetch/data-urls/resources/base64.json",
+  "url/resources",
 ]
 
 # What wpt.fyi's run above passes on the manifest's URLs, per area. Not a
@@ -76,3 +80,64 @@ area = "domparsing"
 paths = ["domparsing"]
 phase = 2
 target = 60
+
+# Extra areas: what the DOM stack added past the phase's slices. No target and no
+# place in SPEC.md: compat.py scores them in a table of their own, so the rates
+# above stay comparable. `exclude` drops paths; a path may be a glob.
+
+[[slice]]
+id = "url"
+area = "url"
+paths = ["url"]
+extra = true
+
+[[slice]]
+id = "encoding"
+area = "encoding, without streams"
+paths = ["encoding"]
+# legacy-mb-* are left out: a subtest per code point, over a million subtests
+# (64 MB of baseline and 73 MB of results), and none of them pass here.
+exclude = ["encoding/streams", "encoding/legacy-mb-japanese", "encoding/legacy-mb-korean", "encoding/legacy-mb-schinese", "encoding/legacy-mb-tchinese"]
+extra = true
+
+[[slice]]
+id = "atob"
+area = "html/webappapis/atob"
+paths = ["html/webappapis/atob"]
+extra = true
+
+[[slice]]
+id = "traversal"
+area = "dom/traversal"
+paths = ["dom/traversal"]
+extra = true
+
+[[slice]]
+id = "tabular-data"
+area = "html/semantics/tabular-data"
+paths = ["html/semantics/tabular-data"]
+extra = true
+
+[[slice]]
+id = "forms"
+area = "form, select and option elements"
+paths = ["html/semantics/forms/the-form-element", "html/semantics/forms/the-select-element", "html/semantics/forms/the-option-element"]
+extra = true
+
+[[slice]]
+id = "a-element"
+area = "html/semantics/text-level-semantics/the-a-element"
+paths = ["html/semantics/text-level-semantics/the-a-element"]
+extra = true
+
+[[slice]]
+id = "innertext"
+area = "innerText and outerText"
+paths = ["html/dom/elements/the-innertext-and-outertext-properties"]
+extra = true
+
+[[slice]]
+id = "cssom-rules"
+area = "css/cssom rule lists"
+paths = ["css/cssom/CSSStyleSheet.html", "css/cssom/CSSRule-type.html", "css/cssom/CSSRuleList.html", "css/cssom/CSSStyleRule*", "css/cssom/CSSGroupingRule-*", "css/cssom/StyleSheetList.html", "css/cssom/insertRule-*", "css/cssom/rule-restrictions.html"]
+extra = true

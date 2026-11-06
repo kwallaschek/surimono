@@ -1,6 +1,6 @@
 {
  "chromium": "153.0.8010.12",
- "surimono_commit": "5dde7483b7297ca38274e149bb9aef26fdc0d576",
+ "surimono_commit": "e879ec95a46888b907b649b4e1a9cc3cb3411f74",
  "cases": {
   "write": {
    "chrome": {
@@ -99,7 +99,7 @@
    },
    "surimono": {
     "log": [
-     "1 0 1"
+     "0 0 1"
     ],
     "report": {
      "errors": [],
@@ -157,13 +157,13 @@
      "AbortSignal function",
      "DOMParser function",
      "XMLSerializer function",
-     "Range undefined",
+     "Range function",
      "TreeWalker undefined",
      "NodeIterator undefined",
      "Document function",
      "XMLDocument function",
      "DOMImplementation function",
-     "history undefined",
+     "history object",
      "frames object",
      "HTMLIFrameElement function",
      "SVGElement function",
@@ -171,8 +171,8 @@
      "CSSStyleSheet undefined",
      "getComputedStyle function",
      "matchMedia undefined",
-     "Location undefined",
-     "object function undefined undefined undefined function function function function undefined [object HTMLBodyElement] HTMLBodyElement"
+     "Location function",
+     "object function function undefined undefined function function function function undefined [object HTMLBodyElement] HTMLBodyElement"
     ],
     "report": {
      "errors": [],
@@ -264,8 +264,8 @@
    },
    "surimono": {
     "log": [
-     "undefined",
-     "new ReferenceError"
+     "function",
+     "IMG undefined"
     ],
     "report": {
      "errors": [],
@@ -385,7 +385,7 @@
    },
    "surimono": {
     "log": [
-     "undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined"
+     "function undefined function function function function undefined function function function function undefined undefined"
     ],
     "report": {
      "errors": [],
@@ -524,7 +524,7 @@
    },
    "surimono": {
     "log": [
-     "0"
+     "1"
     ],
     "report": {
      "errors": [],
@@ -547,14 +547,14 @@
    "surimono": {
     "log": [
      "script",
+     "rect object object true",
+     "svg load",
      "window load"
     ],
     "report": {
-     "errors": [
-      "ReferenceError: evt is not defined"
-     ],
+     "errors": [],
      "rejections": [],
-     "uncaught": 1,
+     "uncaught": 0,
      "unhandled_rejections": 0
     }
    }
@@ -650,7 +650,7 @@
      "<?pi x?> <?pi x?> 1",
      "<![CDATA[x]]> <![CDATA[x]]> 1",
      "<a xmlns=\"http://www.w3.org/1999/xhtml\"><i></i></a>",
-     "undefined"
+     "function"
     ],
     "report": {
      "errors": [],
@@ -674,10 +674,434 @@
    "surimono": {
     "log": [
      "[object DocumentType] 10 2",
-     "object object null undefined",
+     "object object null object",
      "svg attr ran",
      "true true true function object",
      "0"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "ckptdetails": {
+   "chrome": {
+    "log": [
+     "T1",
+     "m",
+     "T2"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "T1",
+     "m",
+     "T2"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "ckpthash": {
+   "chrome": {
+    "log": [
+     "H1",
+     "m",
+     "H2"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "H1",
+     "m",
+     "H2"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "ckptframe": {
+   "chrome": {
+    "log": [
+     "F1",
+     "m",
+     "F2"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "F1",
+     "m",
+     "F2"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "throwlistener": {
+   "chrome": {
+    "log": [
+     "L1",
+     "E1",
+     "E2",
+     "m",
+     "em",
+     "L2"
+    ],
+    "pageErrors": [
+     "1"
+    ]
+   },
+   "surimono": {
+    "log": [
+     "L1",
+     "m",
+     "E1",
+     "em",
+     "E2",
+     "L2"
+    ],
+    "report": {
+     "errors": [
+      "1"
+     ],
+     "rejections": [],
+     "uncaught": 1,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "throwtimer": {
+   "chrome": {
+    "log": [
+     "T",
+     "E1",
+     "E2",
+     "m",
+     "em"
+    ],
+    "pageErrors": [
+     "1"
+    ]
+   },
+   "surimono": {
+    "log": [
+     "T",
+     "m",
+     "E1",
+     "em",
+     "E2"
+    ],
+    "report": {
+     "errors": [
+      "1"
+     ],
+     "rejections": [],
+     "uncaught": 1,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "selection": {
+   "chrome": {
+    "log": [
+     "function function function"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined undefined undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "attrrange": {
+   "chrome": {
+    "log": [
+     "ok true"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "InvalidNodeTypeError"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "ctxscript": {
+   "chrome": {
+    "log": [
+     "1 object"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined object"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "unforge": {
+   "chrome": {
+    "log": [
+     "false object",
+     "true"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined undefined",
+     "replaced",
+     "false"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "histclone": {
+   "chrome": {
+    "log": [
+     "false [object Object] undefined undefined",
+     "false [object ArrayBuffer] 3 undefined",
+     "false [object Uint8Array] 2 2",
+     "false [object Error] undefined undefined",
+     "false [object Boolean] undefined undefined",
+     "DataCloneError",
+     "false [object DOMRect] undefined undefined",
+     "true"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "false [object Object] undefined undefined",
+     "false [object ArrayBuffer] 3 undefined",
+     "false [object Uint8Array] 2 2",
+     "false [object Error] undefined undefined",
+     "false [object Boolean] undefined undefined",
+     "DataCloneError",
+     "DataCloneError",
+     "true"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "pseudos": {
+   "chrome": {
+    "log": [
+     ":indeterminate 0",
+     ":default 1",
+     ":placeholder-shown 1",
+     ":valid 4",
+     ":invalid 1",
+     "::first-line 0",
+     "p::first-letter 0",
+     "::before 0",
+     "1"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     ":indeterminate 0",
+     ":default 0",
+     ":placeholder-shown 0",
+     ":valid 0",
+     ":invalid 0",
+     "::first-line SyntaxError",
+     "p::first-letter SyntaxError",
+     "::before 0",
+     "0"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "xmlprefix": {
+   "chrome": {
+    "log": [
+     "<root xmlns:p=\"uri1\"><child xmlns:ns1=\"uri2\" ns1:foobar=\"v\"/></root>",
+     "<r xmlns:xx=\"uri\" xmlns:ns1=\"uri2\" ns1:name=\"value\"/>"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "<root xmlns:p=\"uri1\"><child xmlns:ns1=\"uri2\" ns1:foobar=\"v\"/></root>",
+     "<r xmlns:xx=\"uri\" xmlns:ns1=\"uri2\" ns1:name=\"value\"/>"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "tmplnoscript": {
+   "chrome": {
+    "log": [
+     "<noscript>&lt;b&gt;q&lt;/b&gt;</noscript> 1 3",
+     "<i>z</i> 3"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "<noscript><b>q</b></noscript> 1 3",
+     "<i>z</i> 1"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "formidx": {
+   "chrome": {
+    "log": [
+     "object object object object function [object RadioNodeList] object"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined undefined undefined undefined undefined [object HTMLInputElement] undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "ceregistry": {
+   "chrome": {
+    "log": [
+     "up function"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     " function"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "intlblob": {
+   "chrome": {
+    "log": [
+     "object function function function function function function function"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined undefined undefined undefined undefined undefined undefined undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "urlcrate": {
+   "chrome": {
+    "log": [
+     "file:///w%7C/m file:///x",
+     "\"data:space \""
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "file:///w|/m file:///C:/x",
+     "\"data:space\""
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "clonemisc": {
+   "chrome": {
+    "log": [
+     "[object DOMRect]"
+    ],
+    "pageErrors": [
+     "ReferenceError: SharedArrayBuffer is not defined"
+    ]
+   },
+   "surimono": {
+    "log": [
+     "DataCloneError",
+     "DataCloneError",
+     "[object Map]",
+     "[object Object]"
     ],
     "report": {
      "errors": [],
@@ -728,16 +1152,16 @@
      ":has(p) SyntaxError",
      ":nth-child(1 of p) SyntaxError",
      ":dir(ltr) SyntaxError",
-     ":enabled 0",
-     ":disabled 0",
-     ":checked 0",
-     ":required 0",
-     ":optional 0",
-     ":lang(ja) 0",
-     ":defined 0",
-     ":read-only 0",
-     ":read-write 0",
-     "[data-a=B i] 0",
+     ":enabled 4",
+     ":disabled 1",
+     ":checked 2",
+     ":required 1",
+     ":optional 3",
+     ":lang(ja) 9",
+     ":defined 8",
+     ":read-only 8",
+     ":read-write 1",
+     "[data-a=B i] 1",
      "[data-a=\"b\" s] 1",
      ":is(:is(p)) 1",
      ":not(p) 8",
@@ -1043,11 +1467,11 @@
    "surimono": {
     "log": [
      "D1",
-     "D2",
      "dmicro",
+     "D2",
      "L1",
-     "L2",
-     "micro"
+     "micro",
+     "L2"
     ],
     "report": {
      "errors": [],
@@ -1125,7 +1549,8 @@
    "surimono": {
     "log": [
      "function object",
-     "undefined"
+     "undefined",
+     "svg onload"
     ],
     "report": {
      "errors": [],
@@ -1181,14 +1606,14 @@
     "pageErrors": []
    },
    "surimono": {
-    "log": [],
+    "log": [
+     "ur 1"
+    ],
     "report": {
      "errors": [],
-     "rejections": [
-      "1"
-     ],
+     "rejections": [],
      "uncaught": 0,
-     "unhandled_rejections": 1
+     "unhandled_rejections": 0
     }
    }
   },
@@ -1205,11 +1630,9 @@
     ],
     "report": {
      "errors": [],
-     "rejections": [
-      "1"
-     ],
+     "rejections": [],
      "uncaught": 0,
-     "unhandled_rejections": 1
+     "unhandled_rejections": 0
     }
    }
   },
@@ -1226,11 +1649,9 @@
     ],
     "report": {
      "errors": [],
-     "rejections": [
-      "1"
-     ],
+     "rejections": [],
      "uncaught": 0,
-     "unhandled_rejections": 1
+     "unhandled_rejections": 0
     }
    }
   },
@@ -1243,11 +1664,9 @@
     "log": [],
     "report": {
      "errors": [],
-     "rejections": [
-      "1"
-     ],
+     "rejections": [],
      "uncaught": 0,
-     "unhandled_rejections": 1
+     "unhandled_rejections": 0
     }
    }
   },
@@ -1488,7 +1907,7 @@
    },
    "surimono": {
     "log": [
-     "undefined object object true"
+     "object object object true"
     ],
     "report": {
      "errors": [],

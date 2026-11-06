@@ -58,7 +58,7 @@ add_completion_callback((tests, status) => {
 /// as the start of `testharness.js`'s script, so the document stays as WPT wrote
 /// it and the vendored file is unchanged. `wpt/README.md`, "Harness environment".
 const ENVIRONMENT: &str = r#"
-(function (url) {
+(function (url, files) {
   const define = (name, value) => {
     if (!(name in self)) {
       Object.defineProperty(self, name, { value, configurable: true, writable: true });
@@ -74,6 +74,17 @@ const ENVIRONMENT: &str = r#"
   define("location", {
     href: url, origin, protocol, host, hostname, port, pathname: path,
     search: search || "", hash: hash || "", toString() { return url; },
+  });
+  // wpt/README.md, "Harness environment": what a test fetches is read ahead.
+  define("fetch", (input) => {
+    const parts = new URL(String(input), url);
+    const text = files[parts.pathname];
+    const found = text !== undefined;
+    return Promise.resolve({
+      ok: found, status: found ? 200 : 404, url: parts.href,
+      text: () => Promise.resolve(found ? text : ""),
+      json: () => found ? Promise.resolve(text).then(JSON.parse) : Promise.reject(new SyntaxError("not found")),
+    });
   });
 })
 "#;
@@ -361,11 +372,13 @@ fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
         ..SettleOptions::default()
     };
     let base = url.split(['?', '#']).next().unwrap_or(url).to_owned();
+    let fetched = fetched_files(root, &base, &source);
     let page_report = rt.run_page(&options, |src| {
         let source = resolve(root, &base, src)?;
         if src.ends_with("/testharness.js") {
             let href = serde_json::to_string(&href).ok()?;
-            return Some(format!("{ENVIRONMENT}({href});\n{source}"));
+            let files = serde_json::to_string(&fetched).ok()?;
+            return Some(format!("{ENVIRONMENT}({href}, {files});\n{source}"));
         }
         Some(source)
     });
@@ -536,9 +549,9 @@ fn page(root: &Path, file: &str, url: &str) -> Result<String, String> {
     Ok(head)
 }
 
-/// The source of a `<script src>` or an `<iframe src>`, only from `wpt/tests/`,
-/// no network. A URL on the test's own origin is a path there.
-fn resolve(root: &Path, base: &str, src: &str) -> Option<String> {
+/// A URL's path from WPT's root, without a leading slash: `None` if it leaves the
+/// root or is on another origin.
+fn normalized(base: &str, src: &str) -> Option<String> {
     let path = src.split(['?', '#']).next()?;
     let own = path.strip_prefix(ORIGIN).map(|p| format!("/{p}"));
     let path = own.as_deref().unwrap_or(path);
@@ -561,7 +574,13 @@ fn resolve(root: &Path, base: &str, src: &str) -> Option<String> {
             p => parts.push(p),
         }
     }
-    let normal = parts.join("/");
+    Some(parts.join("/"))
+}
+
+/// The source of a `<script src>` or an `<iframe src>`, only from `wpt/tests/`,
+/// no network. A URL on the test's own origin is a path there.
+fn resolve(root: &Path, base: &str, src: &str) -> Option<String> {
+    let normal = normalized(base, src)?;
     if format!("/{normal}") == HOOK_URL {
         return Some(HOOK.to_owned());
     }
@@ -576,6 +595,38 @@ fn resolve(root: &Path, base: &str, src: &str) -> Option<String> {
         .split_once('?')
         .map_or(String::new(), |(_, q)| format!("?{q}"));
     substitute(&text, &format!("{normal}{query}"), &normal).ok()
+}
+
+/// The strings in `text` that follow `start`, up to their closing quote.
+fn quoted_after<'a>(text: &'a str, start: &'a str) -> impl Iterator<Item = &'a str> {
+    text.split(start).skip(1).filter_map(|rest| {
+        let quote = rest.chars().next().filter(|c| "\"'`".contains(*c))?;
+        rest[1..].split(quote).next()
+    })
+}
+
+/// The `.json` files a page fetches with a literal URL, by absolute path, found
+/// in its text and in the scripts it names, through `fetch` or testharness.js's
+/// `fetch_json`: the runner's `fetch` hands them out.
+fn fetched_files(root: &Path, base: &str, page: &str) -> BTreeMap<String, String> {
+    let wrapped = base
+        .replace(".any.html", ".any.js")
+        .replace(".window.html", ".window.js");
+    let mut texts = vec![page.to_owned()];
+    texts.extend(resolve(root, base, &format!("/{wrapped}")));
+    for src in quoted_after(page, "src=") {
+        texts.extend(resolve(root, base, src));
+    }
+    let mut files = BTreeMap::new();
+    for text in &texts {
+        let urls = quoted_after(text, "fetch(").chain(quoted_after(text, "fetch_json("));
+        for url in urls.filter(|u| u.ends_with(".json")) {
+            if let (Some(path), Some(source)) = (normalized(base, url), resolve(root, base, url)) {
+                files.insert(format!("/{path}"), source);
+            }
+        }
+    }
+    files
 }
 
 /// Whether wptserve runs its `sub` pipe on this file, by name.
@@ -846,6 +897,21 @@ mod tests {
         }
         let r = substitute("{{uuid()}} {{$a:uuid()}} {{$a}}", "x", "x").unwrap();
         assert_eq!(r, [UUID, UUID, UUID].join(" "));
+    }
+
+    #[test]
+    fn a_page_fetches_what_it_or_its_scripts_name() {
+        let dir = std::env::temp_dir().join(format!("wpt-fetch-{}", std::process::id()));
+        fs::create_dir_all(dir.join("tests/a/data")).unwrap();
+        fs::write(dir.join("tests/a/data/x.json"), "[1]").unwrap();
+        fs::write(dir.join("tests/a/data/y.json"), "[2]").unwrap();
+        fs::write(dir.join("tests/a/h.js"), "fetch_json('data/y.json')").unwrap();
+        fs::write(dir.join("tests/a/t.any.js"), "fetch(\"data/x.json\")").unwrap();
+        let got = fetched_files(&dir, "a/t.any.html", "<script src=\"h.js\"></script>");
+        assert_eq!(got["/a/data/x.json"], "[1]");
+        assert_eq!(got["/a/data/y.json"], "[2]");
+        assert_eq!(got.len(), 2);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

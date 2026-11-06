@@ -4215,6 +4215,2034 @@ file = "domparsing/xmldomparser.html"
 urls = ["domparsing/xmldomparser.html"]
 needs = ["resources/testharness.js"]
 
+[[test]]
+slice = "url"
+file = "url/IdnaTestV2-removed.any.js"
+urls = ["url/IdnaTestV2-removed.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/IdnaTestV2.any.js"
+urls = ["url/IdnaTestV2.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/a-element-origin-xhtml.xhtml"
+urls = ["url/a-element-origin-xhtml.xhtml"]
+needs = ["resources/testharness.js", "url/resources/a-element-origin.js"]
+
+[[test]]
+slice = "url"
+file = "url/a-element-origin.html"
+urls = ["url/a-element-origin.html"]
+needs = ["resources/testharness.js", "url/resources/a-element-origin.js"]
+
+[[test]]
+slice = "url"
+file = "url/a-element-xhtml.xhtml"
+urls = ["url/a-element-xhtml.xhtml?exclude=(file|javascript|mailto)", "url/a-element-xhtml.xhtml?include=file", "url/a-element-xhtml.xhtml?include=javascript", "url/a-element-xhtml.xhtml?include=mailto"]
+needs = ["common/subset-tests-by-key.js", "resources/testharness.js", "url/resources/a-element.js"]
+
+[[test]]
+slice = "url"
+file = "url/a-element.html"
+urls = ["url/a-element.html?exclude=(file|javascript|mailto)", "url/a-element.html?include=file", "url/a-element.html?include=javascript", "url/a-element.html?include=mailto"]
+needs = ["common/subset-tests-by-key.js", "resources/testharness.js", "url/resources/a-element.js"]
+
+[[test]]
+slice = "url"
+file = "url/data-uri-fragment.html"
+urls = ["url/data-uri-fragment.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "url"
+file = "url/failure.html"
+urls = ["url/failure.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "url"
+file = "url/historical.any.js"
+urls = ["url/historical.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/idlharness.any.js"
+urls = ["url/idlharness.any.html"]
+needs = ["resources/WebIDLParser.js", "resources/idlharness.js"]
+
+[[test]]
+slice = "url"
+file = "url/javascript-urls.window.js"
+urls = ["url/javascript-urls.window.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/percent-encoding.window.js"
+urls = ["url/percent-encoding.window.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/toascii.window.js"
+urls = ["url/toascii.window.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/url-constructor.any.js"
+urls = ["url/url-constructor.any.html?exclude=(file|javascript|mailto)", "url/url-constructor.any.html?include=file", "url/url-constructor.any.html?include=javascript", "url/url-constructor.any.html?include=mailto"]
+needs = ["common/subset-tests-by-key.js"]
+
+[[test]]
+slice = "url"
+file = "url/url-origin.any.js"
+urls = ["url/url-origin.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/url-searchparams.any.js"
+urls = ["url/url-searchparams.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/url-setters-a-area.window.js"
+urls = ["url/url-setters-a-area.window.html?exclude=(file|javascript|mailto)", "url/url-setters-a-area.window.html?include=file", "url/url-setters-a-area.window.html?include=javascript", "url/url-setters-a-area.window.html?include=mailto"]
+needs = ["common/subset-tests-by-key.js"]
+
+[[test]]
+slice = "url"
+file = "url/url-setters-stripping.any.js"
+urls = ["url/url-setters-stripping.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/url-setters.any.js"
+urls = ["url/url-setters.any.html?exclude=(file|javascript|mailto)", "url/url-setters.any.html?include=file", "url/url-setters.any.html?include=javascript", "url/url-setters.any.html?include=mailto"]
+needs = ["common/subset-tests-by-key.js"]
+
+[[test]]
+slice = "url"
+file = "url/url-statics-canparse.any.js"
+urls = ["url/url-statics-canparse.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/url-statics-parse.any.js"
+urls = ["url/url-statics-parse.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/url-tojson.any.js"
+urls = ["url/url-tojson.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlencoded-parser.any.js"
+urls = ["url/urlencoded-parser.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-append.any.js"
+urls = ["url/urlsearchparams-append.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-constructor.any.js"
+urls = ["url/urlsearchparams-constructor.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-delete.any.js"
+urls = ["url/urlsearchparams-delete.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-foreach.any.js"
+urls = ["url/urlsearchparams-foreach.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-get.any.js"
+urls = ["url/urlsearchparams-get.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-getall.any.js"
+urls = ["url/urlsearchparams-getall.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-has.any.js"
+urls = ["url/urlsearchparams-has.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-set.any.js"
+urls = ["url/urlsearchparams-set.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-size.any.js"
+urls = ["url/urlsearchparams-size.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-sort.any.js"
+urls = ["url/urlsearchparams-sort.any.html"]
+needs = []
+
+[[test]]
+slice = "url"
+file = "url/urlsearchparams-stringifier.any.js"
+urls = ["url/urlsearchparams-stringifier.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/api-basics.any.js"
+urls = ["encoding/api-basics.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/api-invalid-label.any.js"
+urls = ["encoding/api-invalid-label.any.html?1-1000", "encoding/api-invalid-label.any.html?1001-2000", "encoding/api-invalid-label.any.html?2001-3000", "encoding/api-invalid-label.any.html?3001-last"]
+needs = ["common/subset-tests.js", "encoding/resources/encodings.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/api-replacement-encodings.any.js"
+urls = ["encoding/api-replacement-encodings.any.html"]
+needs = ["encoding/resources/encodings.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/api-surrogates-utf8.any.js"
+urls = ["encoding/api-surrogates-utf8.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/big5-encoder.html"
+urls = ["encoding/big5-encoder.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/bom-handling.html"
+urls = ["encoding/bom-handling.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/encodeInto.any.js"
+urls = ["encoding/encodeInto.any.html"]
+needs = ["common/sab.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/idlharness.any.js"
+urls = ["encoding/idlharness.any.html"]
+needs = ["resources/WebIDLParser.js", "resources/idlharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/iso-2022-jp-decoder.any.js"
+urls = ["encoding/iso-2022-jp-decoder.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/iso-2022-jp-encoder.html"
+urls = ["encoding/iso-2022-jp-encoder.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/json-document-utf8.html"
+urls = ["encoding/json-document-utf8.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/remove-only-one-bom.html"
+urls = ["encoding/remove-only-one-bom.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/replacement-encodings.any.js"
+urls = ["encoding/replacement-encodings.any.html"]
+needs = ["encoding/resources/decoding-helpers.js", "encoding/resources/encodings.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/sharedarraybuffer.https.html"
+urls = ["encoding/sharedarraybuffer.https.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/single-byte-decoder-iframe.window.js"
+urls = ["encoding/single-byte-decoder-iframe.window.html"]
+needs = ["encoding/resources/encodings.js", "encoding/resources/single-byte-decoder.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/single-byte-decoder.any.js"
+urls = ["encoding/single-byte-decoder.any.html?TextDecoder", "encoding/single-byte-decoder.any.html?XMLHttpRequest"]
+needs = ["encoding/resources/encodings.js", "encoding/resources/single-byte-decoder.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/sniffing.html"
+urls = ["encoding/sniffing.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-arguments.any.js"
+urls = ["encoding/textdecoder-arguments.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-byte-order-marks.any.js"
+urls = ["encoding/textdecoder-byte-order-marks.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-copy.any.js"
+urls = ["encoding/textdecoder-copy.any.html"]
+needs = ["common/sab.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-eof.any.js"
+urls = ["encoding/textdecoder-eof.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-fatal-single-byte.any.js"
+urls = ["encoding/textdecoder-fatal-single-byte.any.html?1-1000", "encoding/textdecoder-fatal-single-byte.any.html?1001-2000", "encoding/textdecoder-fatal-single-byte.any.html?2001-3000", "encoding/textdecoder-fatal-single-byte.any.html?3001-4000", "encoding/textdecoder-fatal-single-byte.any.html?4001-5000", "encoding/textdecoder-fatal-single-byte.any.html?5001-6000", "encoding/textdecoder-fatal-single-byte.any.html?6001-7000", "encoding/textdecoder-fatal-single-byte.any.html?7001-last"]
+needs = ["common/subset-tests.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-fatal-streaming.any.js"
+urls = ["encoding/textdecoder-fatal-streaming.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-fatal.any.js"
+urls = ["encoding/textdecoder-fatal.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-ignorebom.any.js"
+urls = ["encoding/textdecoder-ignorebom.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-labels.any.js"
+urls = ["encoding/textdecoder-labels.any.html"]
+needs = ["encoding/resources/encodings.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-mistakes.any.js"
+urls = ["encoding/textdecoder-mistakes.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-streaming.any.js"
+urls = ["encoding/textdecoder-streaming.any.html"]
+needs = ["common/sab.js", "encoding/resources/encodings.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/textdecoder-utf16-surrogates.any.js"
+urls = ["encoding/textdecoder-utf16-surrogates.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/textencoder-constructor-non-utf.any.js"
+urls = ["encoding/textencoder-constructor-non-utf.any.html"]
+needs = ["encoding/resources/encodings.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/textencoder-utf16-surrogates.any.js"
+urls = ["encoding/textencoder-utf16-surrogates.any.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/unsupported-encodings.any.js"
+urls = ["encoding/unsupported-encodings.any.html"]
+needs = ["encoding/resources/decoding-helpers.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/unsupported-labels.window.js"
+urls = ["encoding/unsupported-labels.window.html"]
+needs = []
+
+[[test]]
+slice = "encoding"
+file = "encoding/utf-32-from-win1252.html"
+urls = ["encoding/utf-32-from-win1252.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "encoding"
+file = "encoding/utf-32.html"
+urls = ["encoding/utf-32.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "atob"
+file = "html/webappapis/atob/base64.any.js"
+urls = ["html/webappapis/atob/base64.any.html"]
+needs = []
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/NodeFilter-constants.html"
+urls = ["dom/traversal/NodeFilter-constants.html"]
+needs = ["dom/constants.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/NodeIterator-removal-during-filtering.html"
+urls = ["dom/traversal/NodeIterator-removal-during-filtering.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/NodeIterator-removal.html"
+urls = ["dom/traversal/NodeIterator-removal.html"]
+needs = ["dom/common.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/NodeIterator.html"
+urls = ["dom/traversal/NodeIterator.html"]
+needs = ["dom/common.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html"
+urls = ["dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html"
+urls = ["dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-acceptNode-filter.html"
+urls = ["dom/traversal/TreeWalker-acceptNode-filter.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-basic.html"
+urls = ["dom/traversal/TreeWalker-basic.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-currentNode.html"
+urls = ["dom/traversal/TreeWalker-currentNode.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-nextNode-detached-currentNode.window.js"
+urls = ["dom/traversal/TreeWalker-nextNode-detached-currentNode.window.html"]
+needs = []
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-previousNodeLastChildReject.html"
+urls = ["dom/traversal/TreeWalker-previousNodeLastChildReject.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-previousSiblingLastChildSkip.html"
+urls = ["dom/traversal/TreeWalker-previousSiblingLastChildSkip.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-realm.html"
+urls = ["dom/traversal/TreeWalker-realm.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-traversal-reject.html"
+urls = ["dom/traversal/TreeWalker-traversal-reject.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-traversal-skip-most.html"
+urls = ["dom/traversal/TreeWalker-traversal-skip-most.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-traversal-skip.html"
+urls = ["dom/traversal/TreeWalker-traversal-skip.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker-walking-outside-a-tree.html"
+urls = ["dom/traversal/TreeWalker-walking-outside-a-tree.html"]
+needs = ["dom/traversal/support/assert-node.js", "resources/testharness.js"]
+
+[[test]]
+slice = "traversal"
+file = "dom/traversal/TreeWalker.html"
+urls = ["dom/traversal/TreeWalker.html"]
+needs = ["dom/common.js", "resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/attributes-common-to-td-and-th-elements/cellIndex.html"
+urls = ["html/semantics/tabular-data/attributes-common-to-td-and-th-elements/cellIndex.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/historical.html"
+urls = ["html/semantics/tabular-data/historical.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/processing-model-1/col-span-limits.html"
+urls = ["html/semantics/tabular-data/processing-model-1/col-span-limits.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/processing-model-1/rowspan-0-quirks.html"
+urls = ["html/semantics/tabular-data/processing-model-1/rowspan-0-quirks.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/processing-model-1/rowspan-0.html"
+urls = ["html/semantics/tabular-data/processing-model-1/rowspan-0.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/processing-model-1/span-limits.html"
+urls = ["html/semantics/tabular-data/processing-model-1/span-limits.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-caption-element/caption_001.html"
+urls = ["html/semantics/tabular-data/the-caption-element/caption_001.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/caption-methods.html"
+urls = ["html/semantics/tabular-data/the-table-element/caption-methods.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/createTBody.html"
+urls = ["html/semantics/tabular-data/the-table-element/createTBody.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/delete-caption.html"
+urls = ["html/semantics/tabular-data/the-table-element/delete-caption.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/insertRow-method-01.html"
+urls = ["html/semantics/tabular-data/the-table-element/insertRow-method-01.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/insertRow-method-02.html"
+urls = ["html/semantics/tabular-data/the-table-element/insertRow-method-02.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/insertRow-method-03.html"
+urls = ["html/semantics/tabular-data/the-table-element/insertRow-method-03.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/insertRow-tfoot-before-tbody.html"
+urls = ["html/semantics/tabular-data/the-table-element/insertRow-tfoot-before-tbody.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/parentless-props.html"
+urls = ["html/semantics/tabular-data/the-table-element/parentless-props.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/remove-row.html"
+urls = ["html/semantics/tabular-data/the-table-element/remove-row.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/tBodies.html"
+urls = ["html/semantics/tabular-data/the-table-element/tBodies.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/tFoot.html"
+urls = ["html/semantics/tabular-data/the-table-element/tFoot.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/tHead.html"
+urls = ["html/semantics/tabular-data/the-table-element/tHead.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/table-insertRow.html"
+urls = ["html/semantics/tabular-data/the-table-element/table-insertRow.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/table-rows-live-move.html"
+urls = ["html/semantics/tabular-data/the-table-element/table-rows-live-move.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-table-element/table-rows.html"
+urls = ["html/semantics/tabular-data/the-table-element/table-rows.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tbody-element/deleteRow.html"
+urls = ["html/semantics/tabular-data/the-tbody-element/deleteRow.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tbody-element/insertRow.html"
+urls = ["html/semantics/tabular-data/the-tbody-element/insertRow.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tbody-element/rows.html"
+urls = ["html/semantics/tabular-data/the-tbody-element/rows.html"]
+needs = ["html/semantics/tabular-data/html-table-section-element.js", "resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tfoot-element/rows.html"
+urls = ["html/semantics/tabular-data/the-tfoot-element/rows.html"]
+needs = ["html/semantics/tabular-data/html-table-section-element.js", "resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-thead-element/rows.html"
+urls = ["html/semantics/tabular-data/the-thead-element/rows.html"]
+needs = ["html/semantics/tabular-data/html-table-section-element.js", "resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tr-element/cells.html"
+urls = ["html/semantics/tabular-data/the-tr-element/cells.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tr-element/deleteCell.html"
+urls = ["html/semantics/tabular-data/the-tr-element/deleteCell.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tr-element/insertCell.html"
+urls = ["html/semantics/tabular-data/the-tr-element/insertCell.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tr-element/rowIndex.html"
+urls = ["html/semantics/tabular-data/the-tr-element/rowIndex.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "tabular-data"
+file = "html/semantics/tabular-data/the-tr-element/sectionRowIndex.html"
+urls = ["html/semantics/tabular-data/the-tr-element/sectionRowIndex.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-action-reflection-with-base-url.html"
+urls = ["html/semantics/forms/the-form-element/form-action-reflection-with-base-url.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-action-reflection.html"
+urls = ["html/semantics/forms/the-form-element/form-action-reflection.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-action-submission-with-base-url.html"
+urls = ["html/semantics/forms/the-form-element/form-action-submission-with-base-url.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-action-submission.html"
+urls = ["html/semantics/forms/the-form-element/form-action-submission.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-action.html"
+urls = ["html/semantics/forms/the-form-element/form-action.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-attribute-form-owner.html"
+urls = ["html/semantics/forms/the-form-element/form-attribute-form-owner.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-autocomplete.html"
+urls = ["html/semantics/forms/the-form-element/form-autocomplete.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-checkvalidity.html"
+urls = ["html/semantics/forms/the-form-element/form-checkvalidity.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-elements-filter.html"
+urls = ["html/semantics/forms/the-form-element/form-elements-filter.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-elements-form-owner.html"
+urls = ["html/semantics/forms/the-form-element/form-elements-form-owner.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-elements-interfaces-01.html"
+urls = ["html/semantics/forms/the-form-element/form-elements-interfaces-01.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-elements-matches.html"
+urls = ["html/semantics/forms/the-form-element/form-elements-matches.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-elements-nameditem-01.html"
+urls = ["html/semantics/forms/the-form-element/form-elements-nameditem-01.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-elements-nameditem-02.html"
+urls = ["html/semantics/forms/the-form-element/form-elements-nameditem-02.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-elements-sameobject.html"
+urls = ["html/semantics/forms/the-form-element/form-elements-sameobject.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-indexed-element-shadow.html"
+urls = ["html/semantics/forms/the-form-element/form-indexed-element-shadow.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-indexed-element.html"
+urls = ["html/semantics/forms/the-form-element/form-indexed-element.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-indexed-property-names.html"
+urls = ["html/semantics/forms/the-form-element/form-indexed-property-names.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-length.html"
+urls = ["html/semantics/forms/the-form-element/form-length.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-nameditem.html"
+urls = ["html/semantics/forms/the-form-element/form-nameditem.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-form-element/form-requestsubmit.html"
+urls = ["html/semantics/forms/the-form-element/form-requestsubmit.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/common-HTMLOptionsCollection-add.html"
+urls = ["html/semantics/forms/the-select-element/common-HTMLOptionsCollection-add.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/common-HTMLOptionsCollection-namedItem.html"
+urls = ["html/semantics/forms/the-select-element/common-HTMLOptionsCollection-namedItem.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/common-HTMLOptionsCollection.html"
+urls = ["html/semantics/forms/the-select-element/common-HTMLOptionsCollection.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/base-appearance-inheritance.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/base-appearance-inheritance.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/button-in-popover.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/button-in-popover.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/checkmark-animation.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/checkmark-animation.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/nested-options.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/nested-options.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-color-inheritance.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-color-inheritance.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-disabled-invalid-nesting.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-disabled-invalid-nesting.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup-wrapper.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup-wrapper.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-form-ancestor-select.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-form-ancestor-select.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-list-wrapped-optgroup.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-list-wrapped-optgroup.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-list.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-list.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/option-selectedness-wrapper.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/option-selectedness-wrapper.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/picker-icon-animation.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/picker-icon-animation.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/placeholder-label-option-wrapper.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/placeholder-label-option-wrapper.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-accessibility-minimum-target-size.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-accessibility-minimum-target-size.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-anchor-regression.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-anchor-regression.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-ask-for-reset-base-appearance.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-ask-for-reset-base-appearance.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-base-appearance-computed-style.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-base-appearance-computed-style.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-button-behaviors.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-button-behaviors.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-click-drag-option.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-click-drag-option.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-click-picker-light-dismiss.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-click-picker-light-dismiss.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-dialog-mode-focus.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-dialog-mode-focus.optional.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-disabled.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-disabled.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-events-2.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-events-2.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-events.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-events.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-focus-visible-with-mouse.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-focus-visible-with-mouse.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup-detailed.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup-detailed.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup.optional.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-initial-focus-display-animation.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-initial-focus-display-animation.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-input-parsing.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-input-parsing.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-inside-top-layer.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-inside-top-layer.html"]
+needs = ["html/semantics/popovers/resources/popover-utils.js", "resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-iterate-before-beginning.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-iterate-before-beginning.optional.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-keyboard-behavior.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-keyboard-behavior.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-keyboard-focus-change-for-hidden-options.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-keyboard-focus-change-for-hidden-options.optional.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-mouse-behavior.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-mouse-behavior.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-mousedown-slot-mutation.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-mousedown-slot-mutation.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-multiple-removed.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-multiple-removed.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-optgroup-arrow-keys.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-optgroup-arrow-keys.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-optgroup-tabindex-focus.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-optgroup-tabindex-focus.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-option-arrow-scroll.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-option-arrow-scroll.optional.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-option-hover-styles.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-option-hover-styles.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-options-id.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-options-id.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-parsing.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-parsing.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pick-option-dirtiness.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pick-option-dirtiness.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pick-option-keydown.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pick-option-keydown.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-animations.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-animations.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-exit-animation.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-exit-animation.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-hover-active-pseudo.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-hover-active-pseudo.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-hover-after-picking.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-hover-after-picking.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-interactive-element-focus.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-interactive-element-focus.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-option-animation-reopens.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-option-animation-reopens.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-option-hover-while-dragging.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-option-hover-while-dragging.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-option-optgroup-client-rects.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-option-optgroup-client-rects.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-popover-open-invalid.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-popover-open-invalid.tentative.html"]
+needs = ["css/support/parsing-testcommon.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-pseudo-box-type.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-pseudo-box-type.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-picker-starting-style.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-picker-starting-style.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-light-dismiss-invalidation.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pseudo-light-dismiss-invalidation.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-display.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-display.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-move-remove.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-move-remove.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-size.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-size.html"]
+needs = ["html/semantics/popovers/resources/popover-utils.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-top-layer.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-top-layer.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-pseudo-open.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-size-change.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-size-change.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-synthetic-events.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-synthetic-events.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-tabindex-order.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-tabindex-order.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-type-to-search.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-type-to-search.tentative.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-value-selectedOption.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-value-selectedOption.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/select-vertical-writing-mode-navigation.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/select-vertical-writing-mode-navigation.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-attribute-change.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-attribute-change.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-cloned-option-is-not-an-option.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-cloned-option-is-not-an-option.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-insertion-removal.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-insertion-removal.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-list-box-pick.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-list-box-pick.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-movebefore.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-movebefore.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-mutations.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-mutations.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested-select.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested-select.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-option-insertion.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-option-insertion.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-removal-csp-strict-dynamic.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-removal-csp-strict-dynamic.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-removal-script-runs-once.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-removal-script-runs-once.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-script-csp-strict-dynamic.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-script-csp-strict-dynamic.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-script-runs-once.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-script-runs-once.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-queued-update.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-queued-update.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-restore.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-restore.optional.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-subtree-mutations.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent-subtree-mutations.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontent.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontent.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/selectedcontentelement-attr.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/selectedcontentelement-attr.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance-timing.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance-timing.tentative.html"]
+needs = ["html/semantics/popovers/resources/popover-utils.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance.html"]
+needs = ["html/semantics/popovers/resources/popover-utils.js", "resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-keyboard-behavior.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-keyboard-behavior.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-mouse-behavior.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-mouse-behavior.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-home-end-pagedown-pageup.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-home-end-pagedown-pageup.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-option-optgroup-client-rects.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-option-optgroup-client-rects.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-typeahead.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-typeahead.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-listbox/selectedcontent-listbox.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-listbox/selectedcontent-listbox.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-keyboard-behavior.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-keyboard-behavior.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-mouse-behavior.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-mouse-behavior.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-validity-invalidation.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-validity-invalidation.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple-restore.optional.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple-restore.optional.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple.tentative.html"
+urls = ["html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/filterable-select/filterable-select-filtered-pseudo.tentative.html"
+urls = ["html/semantics/forms/the-select-element/filterable-select/filterable-select-filtered-pseudo.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/filterable-select/filterable-select-keyboard-behavior.tentative.html"
+urls = ["html/semantics/forms/the-select-element/filterable-select/filterable-select-keyboard-behavior.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/filterable-select/select-beforefilter.tentative.html"
+urls = ["html/semantics/forms/the-select-element/filterable-select/select-beforefilter.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/inserted-or-removed.html"
+urls = ["html/semantics/forms/the-select-element/inserted-or-removed.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/option-selectedness-script-mutation.html"
+urls = ["html/semantics/forms/the-select-element/option-selectedness-script-mutation.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-add-optgroup.html"
+urls = ["html/semantics/forms/the-select-element/select-add-optgroup.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-add.html"
+urls = ["html/semantics/forms/the-select-element/select-add.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-ancestor-subtree-removal.html"
+urls = ["html/semantics/forms/the-select-element/select-ancestor-subtree-removal.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-ask-for-reset.html"
+urls = ["html/semantics/forms/the-select-element/select-ask-for-reset.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-attribute-change-reset.html"
+urls = ["html/semantics/forms/the-select-element/select-attribute-change-reset.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-clear-reappend.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-clear-reappend.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-click-does-not-open-picker.html"
+urls = ["html/semantics/forms/the-select-element/select-click-does-not-open-picker.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-csp-style-src-attr.html"
+urls = ["html/semantics/forms/the-select-element/select-csp-style-src-attr.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-defineProperty.html"
+urls = ["html/semantics/forms/the-select-element/select-defineProperty.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-insertion-inherited-style.html"
+urls = ["html/semantics/forms/the-select-element/select-insertion-inherited-style.html"]
+needs = ["common/rendering-utils.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-label-click.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-label-click.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-listbox-touch.optional.html"
+urls = ["html/semantics/forms/the-select-element/select-listbox-touch.optional.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-many-options.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-many-options.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-multiple-resize-does-not-autoscroll.html"
+urls = ["html/semantics/forms/the-select-element/select-multiple-resize-does-not-autoscroll.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-multiple.html"
+urls = ["html/semantics/forms/the-select-element/select-multiple.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-named-getter.html"
+urls = ["html/semantics/forms/the-select-element/select-named-getter.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-option-display-inherit.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-option-display-inherit.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-option-focusable.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-option-focusable.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-popover-position-with-zoom.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-popover-position-with-zoom.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-remove.html"
+urls = ["html/semantics/forms/the-select-element/select-remove.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-required-attribute.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-required-attribute.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-restore-invalid-option.html"
+urls = ["html/semantics/forms/the-select-element/select-restore-invalid-option.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-selectedOptions-and-selected.html"
+urls = ["html/semantics/forms/the-select-element/select-selectedOptions-and-selected.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-selectedOptions-and-value.html"
+urls = ["html/semantics/forms/the-select-element/select-selectedOptions-and-value.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-selectedOptions-nesting.window.js"
+urls = ["html/semantics/forms/the-select-element/select-selectedOptions-nesting.window.html"]
+needs = []
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-selectedOptions.html"
+urls = ["html/semantics/forms/the-select-element/select-selectedOptions.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-setcustomvalidity.html"
+urls = ["html/semantics/forms/the-select-element/select-setcustomvalidity.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-setter-dirtiness.html"
+urls = ["html/semantics/forms/the-select-element/select-setter-dirtiness.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-tab-navigation.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-tab-navigation.tentative.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-user-selection-dirtiness.html"
+urls = ["html/semantics/forms/the-select-element/select-user-selection-dirtiness.html"]
+needs = ["resources/testdriver-actions.js", "resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-validity-option-descendants.html"
+urls = ["html/semantics/forms/the-select-element/select-validity-option-descendants.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-validity.html"
+urls = ["html/semantics/forms/the-select-element/select-validity.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-validity.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-validity.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-value-option.tentative.html"
+urls = ["html/semantics/forms/the-select-element/select-value-option.tentative.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-value.html"
+urls = ["html/semantics/forms/the-select-element/select-value.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/select-willvalidate-readonly-attribute.html"
+urls = ["html/semantics/forms/the-select-element/select-willvalidate-readonly-attribute.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/selected-index.html"
+urls = ["html/semantics/forms/the-select-element/selected-index.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/show-picker-being-cv-hidden.html"
+urls = ["html/semantics/forms/the-select-element/show-picker-being-cv-hidden.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/show-picker-being-rendered.html"
+urls = ["html/semantics/forms/the-select-element/show-picker-being-rendered.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/show-picker-cross-origin-iframe.html"
+urls = ["html/semantics/forms/the-select-element/show-picker-cross-origin-iframe.html"]
+needs = ["common/get-host-info.sub.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/show-picker-disabled.html"
+urls = ["html/semantics/forms/the-select-element/show-picker-disabled.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/show-picker-multiple.html"
+urls = ["html/semantics/forms/the-select-element/show-picker-multiple.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/show-picker-size.html"
+urls = ["html/semantics/forms/the-select-element/show-picker-size.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-select-element/show-picker-user-gesture.html"
+urls = ["html/semantics/forms/the-select-element/show-picker-user-gesture.html"]
+needs = ["resources/testdriver-vendor.js", "resources/testdriver.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-element-constructor.html"
+urls = ["html/semantics/forms/the-option-element/option-element-constructor.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-form.html"
+urls = ["html/semantics/forms/the-option-element/option-form.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-index.html"
+urls = ["html/semantics/forms/the-option-element/option-index.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-label.html"
+urls = ["html/semantics/forms/the-option-element/option-label.html"]
+needs = ["html/semantics/forms/the-option-element/option-label-value.js", "resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-selected.html"
+urls = ["html/semantics/forms/the-option-element/option-selected.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-text-backslash.html"
+urls = ["html/semantics/forms/the-option-element/option-text-backslash.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-text-label.html"
+urls = ["html/semantics/forms/the-option-element/option-text-label.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-text-recurse.html"
+urls = ["html/semantics/forms/the-option-element/option-text-recurse.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-text-setter.html"
+urls = ["html/semantics/forms/the-option-element/option-text-setter.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-text-spaces.html"
+urls = ["html/semantics/forms/the-option-element/option-text-spaces.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "forms"
+file = "html/semantics/forms/the-option-element/option-value.html"
+urls = ["html/semantics/forms/the-option-element/option-value.html"]
+needs = ["html/semantics/forms/the-option-element/option-label-value.js", "resources/testharness.js"]
+
+[[test]]
+slice = "a-element"
+file = "html/semantics/text-level-semantics/the-a-element/a-download-click-404.html"
+urls = ["html/semantics/text-level-semantics/the-a-element/a-download-click-404.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "a-element"
+file = "html/semantics/text-level-semantics/the-a-element/a-download-click-redirect-to-javascript.html"
+urls = ["html/semantics/text-level-semantics/the-a-element/a-download-click-redirect-to-javascript.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "a-element"
+file = "html/semantics/text-level-semantics/the-a-element/a-download-click.html"
+urls = ["html/semantics/text-level-semantics/the-a-element/a-download-click.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "a-element"
+file = "html/semantics/text-level-semantics/the-a-element/a-stringifier.html"
+urls = ["html/semantics/text-level-semantics/the-a-element/a-stringifier.html"]
+needs = ["common/stringifiers.js", "resources/testharness.js"]
+
+[[test]]
+slice = "a-element"
+file = "html/semantics/text-level-semantics/the-a-element/a-type.historical.html"
+urls = ["html/semantics/text-level-semantics/the-a-element/a-type.historical.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "a-element"
+file = "html/semantics/text-level-semantics/the-a-element/a.text-getter-01.html"
+urls = ["html/semantics/text-level-semantics/the-a-element/a.text-getter-01.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "a-element"
+file = "html/semantics/text-level-semantics/the-a-element/a.text-setter-01.html"
+urls = ["html/semantics/text-level-semantics/the-a-element/a.text-setter-01.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/getter-first-letter-marker-multicol.html"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/getter-first-letter-marker-multicol.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/getter.html"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/getter.html"]
+needs = ["html/dom/elements/the-innertext-and-outertext-properties/getter-tests.js", "resources/testharness.js"]
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/innertext-setter.html"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/innertext-setter.html"]
+needs = ["html/dom/elements/the-innertext-and-outertext-properties/innertext-setter-tests.js", "resources/testharness.js"]
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/innertext-whitespace-pre-line.html"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/innertext-whitespace-pre-line.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=normal", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=normal&contenteditable=plaintext-only", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=normal&contenteditable=true", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre&contenteditable=plaintext-only", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre&contenteditable=true", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-line", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-line&contenteditable=plaintext-only", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-line&contenteditable=true", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=plaintext-only", "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=true"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/multiple-text-nodes.window.js"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/multiple-text-nodes.window.html"]
+needs = []
+
+[[test]]
+slice = "innertext"
+file = "html/dom/elements/the-innertext-and-outertext-properties/outertext-setter.html"
+urls = ["html/dom/elements/the-innertext-and-outertext-properties/outertext-setter.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSStyleSheet.html"
+urls = ["css/cssom/CSSStyleSheet.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSRule-type.html"
+urls = ["css/cssom/CSSRule-type.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSRuleList.html"
+urls = ["css/cssom/CSSRuleList.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSStyleRule-selectorText-setter.html"
+urls = ["css/cssom/CSSStyleRule-selectorText-setter.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSStyleRule-set-selectorText-namespace.html"
+urls = ["css/cssom/CSSStyleRule-set-selectorText-namespace.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSStyleRule-set-selectorText.html"
+urls = ["css/cssom/CSSStyleRule-set-selectorText.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSStyleRule.html"
+urls = ["css/cssom/CSSStyleRule.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSGroupingRule-cssRules.html"
+urls = ["css/cssom/CSSGroupingRule-cssRules.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSGroupingRule-insertRule-computed.html"
+urls = ["css/cssom/CSSGroupingRule-insertRule-computed.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/CSSGroupingRule-insertRule.html"
+urls = ["css/cssom/CSSGroupingRule-insertRule.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/StyleSheetList.html"
+urls = ["css/cssom/StyleSheetList.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-across-context.html"
+urls = ["css/cssom/insertRule-across-context.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-charset-no-index.html"
+urls = ["css/cssom/insertRule-charset-no-index.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-font-face.html"
+urls = ["css/cssom/insertRule-font-face.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-import-no-index.html"
+urls = ["css/cssom/insertRule-import-no-index.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-namespace-after-import.html"
+urls = ["css/cssom/insertRule-namespace-after-import.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-namespace-no-index.html"
+urls = ["css/cssom/insertRule-namespace-no-index.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-no-index.html"
+urls = ["css/cssom/insertRule-no-index.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/insertRule-syntax-error-01.html"
+urls = ["css/cssom/insertRule-syntax-error-01.html"]
+needs = ["resources/testharness.js"]
+
+[[test]]
+slice = "cssom-rules"
+file = "css/cssom/rule-restrictions.html"
+urls = ["css/cssom/rule-restrictions.html"]
+needs = ["resources/testharness.js"]
+
 [[file]]
 path = "LICENSE.md"
 sha256 = "5fac07febb0e2a97fb0d7b0def149ec08b642e1ba4b9c345283ab1cbd2af6570"
@@ -4246,14 +6274,134 @@ sha256 = "d80fe78291976deb1e50bab4dc8d630f186f4bbabf421d06b7b965c66374940f"
 bytes = 559
 
 [[file]]
+path = "common/sab.js"
+sha256 = "7f684ef9aaf7ad29822cbf2ab110463836387da97d230665fa2693c894478047"
+bytes = 768
+
+[[file]]
+path = "common/stringifiers.js"
+sha256 = "c221f1db8b49d9100d31b9bbc9577d3df8528663d7c601b8e50527557401f7f5"
+bytes = 1626
+
+[[file]]
 path = "common/subset-tests-by-key.js"
 sha256 = "4f137c02ee8a07416cd3d8ce14cd30dca8cbc8258c32e56037860576c93ae836"
 bytes = 2362
 
 [[file]]
+path = "common/subset-tests.js"
+sha256 = "72643af8e7b9e580a754dd7201179e104437da2265d4a20a898eaa15c5d7cb32"
+bytes = 2035
+
+[[file]]
 path = "common/utils.js"
 sha256 = "8dd4c32ad80d3c332d62197595ca5bf57f63e6a1bd93117cf0b9dbc6a9468aca"
 bytes = 2503
+
+[[file]]
+path = "css/cssom/CSSGroupingRule-cssRules.html"
+sha256 = "a9256e58abf7e48c89b174a5936c686cd050825b86f74b10e4dd10248f0321dd"
+bytes = 1887
+
+[[file]]
+path = "css/cssom/CSSGroupingRule-insertRule-computed.html"
+sha256 = "d6917571b30a81d575d28e35abe6ee668169afa1289d7d8c9bb1891deddf7db6"
+bytes = 1217
+
+[[file]]
+path = "css/cssom/CSSGroupingRule-insertRule.html"
+sha256 = "aa522cf477df59acaf8993a24c51f51f5bb0c9690ad2b1614924984ad77734e9"
+bytes = 4087
+
+[[file]]
+path = "css/cssom/CSSRule-type.html"
+sha256 = "84836135f7816204b747a94da652cc7895afba6c29cfc5cb0955ee6bade28fe4"
+bytes = 3384
+
+[[file]]
+path = "css/cssom/CSSRuleList.html"
+sha256 = "4f1c5443f7b45586b8ffdbf0bd54040936c0aa15f6b45963630bb414be80fb9b"
+bytes = 1159
+
+[[file]]
+path = "css/cssom/CSSStyleRule-selectorText-setter.html"
+sha256 = "d678a17f9fc95f20b8ece66e015bd662126fe9f1c9ff41d5cd8449005016b253"
+bytes = 1470
+
+[[file]]
+path = "css/cssom/CSSStyleRule-set-selectorText-namespace.html"
+sha256 = "956ea1307cea6b860e81c9707dcd31642832190c7d091956df177511b2520821"
+bytes = 2155
+
+[[file]]
+path = "css/cssom/CSSStyleRule-set-selectorText.html"
+sha256 = "a86154276738e8ff120824993b74305935ae0c62908118f3db8a106b191f48f2"
+bytes = 5902
+
+[[file]]
+path = "css/cssom/CSSStyleRule.html"
+sha256 = "b6335a39e00ac0b1eff7a1538a7969dbc09400f480f6eef67936ea8eae0d2501"
+bytes = 4409
+
+[[file]]
+path = "css/cssom/CSSStyleSheet.html"
+sha256 = "f4c3016a67c5c51b547e1a41db6e0035a414f39ed26c529290d84c0751674fd4"
+bytes = 7237
+
+[[file]]
+path = "css/cssom/StyleSheetList.html"
+sha256 = "4eac97ab70f8359f43d11903216f938a1b9fdb0ebed8be6c1a680182b37e4569"
+bytes = 1522
+
+[[file]]
+path = "css/cssom/insertRule-across-context.html"
+sha256 = "e8e36d77ce86b9d5833bdabaf16e58e4694e4c5e96a40d2c878c442565bda9f3"
+bytes = 1303
+
+[[file]]
+path = "css/cssom/insertRule-charset-no-index.html"
+sha256 = "e8a33121d13894487a43314f2395006c3e85a9c5124e44e66f6bd917f35767d6"
+bytes = 1449
+
+[[file]]
+path = "css/cssom/insertRule-font-face.html"
+sha256 = "fc4c300d3b835a35fae70b91831642216ff329d678ba15b3005418aa87ec1ed8"
+bytes = 883
+
+[[file]]
+path = "css/cssom/insertRule-import-no-index.html"
+sha256 = "146da447a01f470af1f9297f24ff4c07319df90a83999d093faf5e25302f176f"
+bytes = 1497
+
+[[file]]
+path = "css/cssom/insertRule-namespace-after-import.html"
+sha256 = "5885f3082dffc0a6c99e75ba90bc1caa3dd5b0665beb874a587c164cad7378be"
+bytes = 3189
+
+[[file]]
+path = "css/cssom/insertRule-namespace-no-index.html"
+sha256 = "7eac0c1004bfebf1022d88c96ee0d8c7c2af059ce1c110e2a4038003c2ba7903"
+bytes = 1765
+
+[[file]]
+path = "css/cssom/insertRule-no-index.html"
+sha256 = "5ebb74d4035cbdf7a8fdf10fc4c615f0bce5fdf7f077bf93bf42bd3a2217dd29"
+bytes = 1490
+
+[[file]]
+path = "css/cssom/insertRule-syntax-error-01.html"
+sha256 = "277975cda910247c0d7362f0ca574dd9c4369efd9d1f8c6e3b0e21523a9fc44e"
+bytes = 625
+
+[[file]]
+path = "css/cssom/rule-restrictions.html"
+sha256 = "87c1f52594a71293d37686ab751901c465a25da25fe05166ec6b856954a69658"
+bytes = 2561
+
+[[file]]
+path = "css/support/parsing-testcommon.js"
+sha256 = "ac482e1e1908e9b98f8f1c4b2c457ec77ae5ad2baa074205c4b0f7812f4024b5"
+bytes = 7476
 
 [[file]]
 path = "dom/common.js"
@@ -7606,6 +9754,101 @@ sha256 = "1a69633f75ef39695462f9f487f67769c175544dc6f2ac9750f401e91deea251"
 bytes = 1078
 
 [[file]]
+path = "dom/traversal/NodeFilter-constants.html"
+sha256 = "cd6c9df1f40321d99fa6506ae8271d5416e2cf2e901f0e7900c5365d9b826449"
+bytes = 878
+
+[[file]]
+path = "dom/traversal/NodeIterator-removal-during-filtering.html"
+sha256 = "df919a487b2b594859523019ee248939d5401383c32c2e6401619b536688a163"
+bytes = 6278
+
+[[file]]
+path = "dom/traversal/NodeIterator-removal.html"
+sha256 = "f2094e37a4fc61156a788c9c4c4904082c1656972cffcc7831a8e7a2c1b7fd38"
+bytes = 6718
+
+[[file]]
+path = "dom/traversal/NodeIterator.html"
+sha256 = "094238200df2af6cc7fad30325bfeb5d41a8e6c94648d4c8e7676b685774a204"
+bytes = 7359
+
+[[file]]
+path = "dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html"
+sha256 = "60f6b728cbc8b93519872bb00cebf0866617c1586e879f60be43026590bcdba4"
+bytes = 842
+
+[[file]]
+path = "dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html"
+sha256 = "a4f33e1f404a79503ed68213cac44852c343e1ff94392fc8bf2321311a2d4dd8"
+bytes = 2527
+
+[[file]]
+path = "dom/traversal/TreeWalker-acceptNode-filter.html"
+sha256 = "1f5a16715630250717393cfe248657561faea62cacad854a0535ddbb452ebae4"
+bytes = 7564
+
+[[file]]
+path = "dom/traversal/TreeWalker-basic.html"
+sha256 = "5af8226112ff607bada1179fc8257aa6365c62229a05cd535003308c5f6c7f8d"
+bytes = 5413
+
+[[file]]
+path = "dom/traversal/TreeWalker-currentNode.html"
+sha256 = "6c248d24e55e35ced42d1d85a56e67a1fe4e2201ec23facd2ce0eca053fcf7e7"
+bytes = 3720
+
+[[file]]
+path = "dom/traversal/TreeWalker-nextNode-detached-currentNode.window.js"
+sha256 = "dfdfd2e0356ec67bd39be493389a7d37f71437c97091b028722d296f15ba4f36"
+bytes = 1210
+
+[[file]]
+path = "dom/traversal/TreeWalker-previousNodeLastChildReject.html"
+sha256 = "0f3da53e98c7697a0a7ef7a7b43195d7c4d882474457846a6ea6eda0cd17e399"
+bytes = 3105
+
+[[file]]
+path = "dom/traversal/TreeWalker-previousSiblingLastChildSkip.html"
+sha256 = "82413df438ed2c02e331920e9212285868d8373643551aa0fbd93c999f50b6bc"
+bytes = 3376
+
+[[file]]
+path = "dom/traversal/TreeWalker-realm.html"
+sha256 = "35b2465f1a116c6c6b976153e470be70de930fb6c31bdad2b8241319417a77f0"
+bytes = 1262
+
+[[file]]
+path = "dom/traversal/TreeWalker-traversal-reject.html"
+sha256 = "0f80f1de2b3af7b02bae1e45ad6b0fa499d86308039527671d4ce9109b97a2e1"
+bytes = 3552
+
+[[file]]
+path = "dom/traversal/TreeWalker-traversal-skip-most.html"
+sha256 = "fa727a2e69735bdd9d92b3241431d5f4acb861174f176680f29bcb72b6dae7ff"
+bytes = 2130
+
+[[file]]
+path = "dom/traversal/TreeWalker-traversal-skip.html"
+sha256 = "6f8f7a182afa8d090528e3fdfc05f106dfd9801b09861b4386fd8a1633fba11a"
+bytes = 3670
+
+[[file]]
+path = "dom/traversal/TreeWalker-walking-outside-a-tree.html"
+sha256 = "1b5af5f42844795e8b69080bd781424df522af266060207f471b303071b8c33e"
+bytes = 1451
+
+[[file]]
+path = "dom/traversal/TreeWalker.html"
+sha256 = "626168b6f17da54bf424cb0c5c3826e94a45f9d1bb33aca0e9341e1cefb8a470"
+bytes = 11488
+
+[[file]]
+path = "dom/traversal/support/assert-node.js"
+sha256 = "f0acc4e2b3b9b154a586126d25889c727c2b2f4118478d9359016255ce771096"
+bytes = 475
+
+[[file]]
 path = "domparsing/Comment-serialization-double-hyphen.html"
 sha256 = "479c9ee3448ced4952f8c6295a7f81e2a32cbc623b1207b14751321f2a8b0eaf"
 bytes = 1144
@@ -8119,8 +10362,1383 @@ path = "domparsing/xmldomparser.html"
 sha256 = "f386d47edfde39093faa5cad06c10cd5b049638472aa82b769859a7ca763d7ac"
 bytes = 384
 
+[[file]]
+path = "encoding/api-basics.any.js"
+sha256 = "fa0a7e0dadb315e6b8b9c2572f7e620b54f37148d3319af500a477f9d14a93a6"
+bytes = 2052
+
+[[file]]
+path = "encoding/api-invalid-label.any.js"
+sha256 = "a1ecb84af46501f1fbd585224c3361508ec0689e7dfca0d4f04cb281b3479955"
+bytes = 914
+
+[[file]]
+path = "encoding/api-replacement-encodings.any.js"
+sha256 = "0401e4275880ed9d652059d594fa382d4bf11d5e5bbb64b24b5aa238d9dd5e87"
+bytes = 538
+
+[[file]]
+path = "encoding/api-surrogates-utf8.any.js"
+sha256 = "66c441e9f6718f6e38c8bffeb52e25de785e8c4e1bc76d57b3cf1da98730b873"
+bytes = 1449
+
+[[file]]
+path = "encoding/big5-encoder.html"
+sha256 = "0d12de658370727092899ba8e6357b54a263838171ade191645b3a0290383176"
+bytes = 1887
+
+[[file]]
+path = "encoding/bom-handling.html"
+sha256 = "4d792a32751c9fda7fd473976d2c62c008d102124e3220de031a8075a679721d"
+bytes = 388
+
+[[file]]
+path = "encoding/encodeInto.any.js"
+sha256 = "b2c34ea99026d067f5130159ad09c4be48db7a17613047410b8f2079b67656d3"
+bytes = 4874
+
+[[file]]
+path = "encoding/idlharness.any.js"
+sha256 = "08b6e289aa9d2fe71226f909abe39eba05bb6994171a1e310ec15226a8ee77d6"
+bytes = 299
+
+[[file]]
+path = "encoding/iso-2022-jp-decoder.any.js"
+sha256 = "58a1d6da949d4bd09f966dc5c311624efba887474fa26310127d8e07417a704d"
+bytes = 3892
+
+[[file]]
+path = "encoding/iso-2022-jp-encoder.html"
+sha256 = "904fc0bc930138c6490c7243591a01a1476376e890c923cfe58fe9004f6fbabf"
+bytes = 1470
+
+[[file]]
+path = "encoding/json-document-utf8.html"
+sha256 = "de06d95b14aba7c6448753717a0201f84f5ddc3df34aeebe988280d49b34034c"
+bytes = 1646
+
+[[file]]
+path = "encoding/remove-only-one-bom.html"
+sha256 = "ba23029b3cdb7e8a7bf8a1223a4c9b12769b1956be796f56417e3ff14528e412"
+bytes = 671
+
+[[file]]
+path = "encoding/replacement-encodings.any.js"
+sha256 = "fd9ea5ba1800676284553dc88aae23e66bbcbd7496dd545ced679757e63081a7"
+bytes = 705
+
+[[file]]
+path = "encoding/resources/decoding-helpers.js"
+sha256 = "7c62e46fff92b508f461a4d5f22021a49d20e5d23159ef8ee7e7f58d13c568cb"
+bytes = 1112
+
+[[file]]
+path = "encoding/resources/encodings.js"
+sha256 = "1742a28bafab3e3de2fa4a394366af3796d45c46587a51ba98e4fa90ca64ea64"
+bytes = 9004
+
+[[file]]
+path = "encoding/resources/single-byte-decoder.js"
+sha256 = "c37feb2d219bd28e72f02d8559f55d1315d81b627371f2af797d117c606cc081"
+bytes = 16438
+
+[[file]]
+path = "encoding/sharedarraybuffer.https.html"
+sha256 = "1b3b7dd82bfc5ff41702a00d57c98dddbbf4fac6981df1b62aeaafbd373dd043"
+bytes = 362
+
+[[file]]
+path = "encoding/single-byte-decoder-iframe.window.js"
+sha256 = "63971f4ed768e17b821cb4c49224231a43be06c124f7b3f4fa741182e08abf76"
+bytes = 890
+
+[[file]]
+path = "encoding/single-byte-decoder.any.js"
+sha256 = "14b14ebdb501e03f2c0833514d0d4da9e7132548537beb22e577aedda75f9ae6"
+bytes = 1900
+
+[[file]]
+path = "encoding/sniffing.html"
+sha256 = "0e61c409779bfca7555f18749fb0ef0ed676a46b4356f0712ded2c880100e7c2"
+bytes = 448
+
+[[file]]
+path = "encoding/textdecoder-arguments.any.js"
+sha256 = "ac82bce4b2364615737cb2e1348c6a7cc6155b107afc79ecae22057694808d78"
+bytes = 1948
+
+[[file]]
+path = "encoding/textdecoder-byte-order-marks.any.js"
+sha256 = "dd73fab542fe5d7fea58b5ca7bffc916c3535dd0069bc537ae5f41d4c3996361"
+bytes = 1510
+
+[[file]]
+path = "encoding/textdecoder-copy.any.js"
+sha256 = "ea6c797666f6159b68a7525a47a5cc07fdae352dd5f3ee438ac0832ea50b95db"
+bytes = 729
+
+[[file]]
+path = "encoding/textdecoder-eof.any.js"
+sha256 = "cf01fd20aa0dc4ea6f450e276aeaed7e477bd58811bb2b0c97897e7ddb204ed1"
+bytes = 3828
+
+[[file]]
+path = "encoding/textdecoder-fatal-single-byte.any.js"
+sha256 = "a4c8f7664ccf35a7192e813341f591216e46dad696d113252364df050038dd8e"
+bytes = 3117
+
+[[file]]
+path = "encoding/textdecoder-fatal-streaming.any.js"
+sha256 = "f57d56e829f93ecf33b96d0bb640e693b3ea54bb1baae1fcd3309867de58658b"
+bytes = 1547
+
+[[file]]
+path = "encoding/textdecoder-fatal.any.js"
+sha256 = "083a058a10a2bdc77e1da32d0acda791b568a6701c49db10cec2bfa1f7b9eab8"
+bytes = 4710
+
+[[file]]
+path = "encoding/textdecoder-ignorebom.any.js"
+sha256 = "f0ecc2649c9d12e1ea0556d3eac82d78de15d9466301ec4997add573d39bebe1"
+bytes = 2390
+
+[[file]]
+path = "encoding/textdecoder-labels.any.js"
+sha256 = "be155d59592f430d7fcc0827d64a0c39e00a56e8c83323127178e6e18113654f"
+bytes = 1382
+
+[[file]]
+path = "encoding/textdecoder-mistakes.any.js"
+sha256 = "a33ebeaf55b64ecb476be889aa50a28e3460ed5abdf0c2963e98508eb35440e5"
+bytes = 29758
+
+[[file]]
+path = "encoding/textdecoder-streaming.any.js"
+sha256 = "082646a9a94c8803e5fb7b278f1299df5c6cb91f157afc31b3babb981e93be10"
+bytes = 4339
+
+[[file]]
+path = "encoding/textdecoder-utf16-surrogates.any.js"
+sha256 = "f04fabfe9a6fe3f24eb66e4967637cb73b6b874a33bd5214d27af1d38ed17f3f"
+bytes = 1273
+
+[[file]]
+path = "encoding/textencoder-constructor-non-utf.any.js"
+sha256 = "7d475912b1eb15e8bdd27f1b35797d1949c142134874715349a4679ba34a3c5d"
+bytes = 667
+
+[[file]]
+path = "encoding/textencoder-utf16-surrogates.any.js"
+sha256 = "9f62d3946b7734822ce9a1be906f9204718315df50c034f779afae894ae0753f"
+bytes = 1217
+
+[[file]]
+path = "encoding/unsupported-encodings.any.js"
+sha256 = "e40c58a455527ee78ce33bd7972f31c4fa00f5fcc31d8fbaa57a6c405cb9ddfd"
+bytes = 1356
+
+[[file]]
+path = "encoding/unsupported-labels.window.js"
+sha256 = "0535c9db070eeee3add37389aae61db5f322cc3f7abc291e2a512d826c7a95d4"
+bytes = 3257
+
+[[file]]
+path = "encoding/utf-32-from-win1252.html"
+sha256 = "275a301afe1b58e45c886da87afeb5da94fc122492f1a203561bf47936e66f14"
+bytes = 2339
+
+[[file]]
+path = "encoding/utf-32.html"
+sha256 = "a836009fd81533d62834c37cdc396387f5b21b329ff0ce3f875d13454131e1e9"
+bytes = 2297
+
+[[file]]
+path = "fetch/data-urls/resources/base64.json"
+sha256 = "0cdb75b4fcc46e4a6caa0e3b0005157a0d0be03e00bcf7b7054a045b1267568d"
+bytes = 1731
+
 [[missing]]
 file = "fullscreen/trusted-click.js"
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html"
+sha256 = "96ba023bdd1b0cf53e6f334efe01c024724d401d3813793926d9373aa297942a"
+bytes = 3547
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/getter-first-letter-marker-multicol.html"
+sha256 = "23723b7168a098f5fb850add5077a7fd41a0f26750e866c11ee8c5447158f94b"
+bytes = 703
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/getter-tests.js"
+sha256 = "6e7e09ae090688f4d735a73a45ffc43f7967ca2428f5fb5a3b59f8de4ea95f9b"
+bytes = 30251
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/getter.html"
+sha256 = "9d260097cb90c664c90445226edd366774fa2c47f2de9d7859991b429c47d01b"
+bytes = 2223
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/innertext-setter-tests.js"
+sha256 = "7cca2f82d2fae25e017e6c682511ffdfd62553f97324de448595f4dcbffd5368"
+bytes = 2973
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/innertext-setter.html"
+sha256 = "49309bc8780c5c09cd5b3e61604d5808e27240652eae7250ec8fca2070ac90cf"
+bytes = 2881
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/innertext-whitespace-pre-line.html"
+sha256 = "af4ffcd19b02e6bc71414d79ffcbe2c9f0f9271bde84002a71d2619507c45cfe"
+bytes = 1125
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html"
+sha256 = "49a5f8ed406ffe6b40964d40302db58c190681f2cf817e473507f04134f06569"
+bytes = 19121
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/multiple-text-nodes.window.js"
+sha256 = "c2d4aecddbdab331f7f5695ade8fef6ab019fbc2727f6fe07ef1ce4202b34509"
+bytes = 563
+
+[[file]]
+path = "html/dom/elements/the-innertext-and-outertext-properties/outertext-setter.html"
+sha256 = "ce15c5fb822ce49bda8b2a0048d03d64142491ea4ed02363b1d8f14dd11d6d15"
+bytes = 7706
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-action-reflection-with-base-url.html"
+sha256 = "5730de90c9c4f9db4983202f3f232d89e3e39cbc3bcb0b7604a95e83e4e4fb2e"
+bytes = 1236
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-action-reflection.html"
+sha256 = "23a2db695a6079220e5ff65f1acc22f49ebe6d2e47f9e5712c5c0093c29326f5"
+bytes = 1220
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-action-submission-with-base-url.html"
+sha256 = "fe06cd2851e87bcaa9c9baa2695e5f1d249c6896a3211639391c6dd44feae342"
+bytes = 2223
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-action-submission.html"
+sha256 = "41cd5694e19a18215c3b098ffb05e946f0cf60c764c4fb70da71b84d7cdab6f6"
+bytes = 2210
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-action.html"
+sha256 = "b4b7bc38f4fdf2606a11e928969f799b7ad18feb9df48b07c728080af5832ceb"
+bytes = 917
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-attribute-form-owner.html"
+sha256 = "e0c98ef731706bb189aa46350eab97c4c483ee20bf246adfb94188aa82e69a4c"
+bytes = 2894
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-autocomplete.html"
+sha256 = "b66209526161f8b3c5023af7e5fb54813318589ce39c75d2e0123e1d1755d831"
+bytes = 5740
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-checkvalidity.html"
+sha256 = "722d63cd6218f68083f5851d13efb891c5efa72c5f1403cae837b7d1a5f23e5b"
+bytes = 889
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-elements-filter.html"
+sha256 = "0c00e738a421f7db1aa2b8dd1d49b7968bc287524e102c7bf4726638c7588706"
+bytes = 8403
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-elements-form-owner.html"
+sha256 = "d9d38ec353e59a9ffbc3233262223369bf0f780308b4d1d09090ebfb32c33587"
+bytes = 767
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-elements-interfaces-01.html"
+sha256 = "9ad66edf403b213af775febc1f3cb783de4e9223bb7a5f78fbf806dc7f51171e"
+bytes = 815
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-elements-matches.html"
+sha256 = "a270bdd69df08daa53f535828ac2bda51db5dc24a13fa65de2b7b19fbf784833"
+bytes = 1931
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-elements-nameditem-01.html"
+sha256 = "d029a4b5f64e23902db23f9a4ae63465a47d29b9ad7c5852f7e954845f57dcf6"
+bytes = 1636
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-elements-nameditem-02.html"
+sha256 = "326be03a80626eb42777b7561498ebfa37f36d88a4484952625099c95483847d"
+bytes = 1020
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-elements-sameobject.html"
+sha256 = "2719b5048c52c3f0eb481fdb5ed3535fb5135bffce07a872511cc4138944bb92"
+bytes = 592
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-indexed-element-shadow.html"
+sha256 = "386470feb7a4417d8ec6ad5968a17ae791f7d5c7fdafb9daacb65f8cfa414e37"
+bytes = 962
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-indexed-element.html"
+sha256 = "01161206dfa624e5540cb61bf69b2eabc1fb47422d29a912bb77df46b6549664"
+bytes = 1433
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-indexed-property-names.html"
+sha256 = "e3fd53916923652c5234accda3e8c947c8d7e23a952bfa907984be93971180b9"
+bytes = 513
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-length.html"
+sha256 = "b1bc1d0971e96c721906c3021742ada82b76546a424ed95d115be89b3ae434b5"
+bytes = 729
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-nameditem.html"
+sha256 = "361de4eec80cee985b36f0281c55336096d8f03e6376c79ee4da582e10d12389"
+bytes = 13589
+
+[[file]]
+path = "html/semantics/forms/the-form-element/form-requestsubmit.html"
+sha256 = "2dabb9f77acf405bec50db85a1fe272777eb970c2e57a51290d5a5b473090bc4"
+bytes = 7664
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-element-constructor.html"
+sha256 = "a1dc2f907407405dc9d67effd5f96a0985513d8ab1c9641c30db5b9304d497d1"
+bytes = 4617
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-form.html"
+sha256 = "2795343edf5b397475d213d6d84fdfad97e6a6fde3ceee6b9a9fda39f797f37d"
+bytes = 920
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-index.html"
+sha256 = "be8d6cdfb337e4ba50448c1858c42e1d89873efc811ca6369671e324cddb2281"
+bytes = 1468
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-label-value.js"
+sha256 = "6e3d7ef406b0951d6e1c58988542e05c8a19d320d1f2e1dbb73263ff8864150e"
+bytes = 3009
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-label.html"
+sha256 = "26b3e1c8e5f47ca530576d40c7c96842da41849efa4615b42d31ac4ec57ddfb8"
+bytes = 427
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-selected.html"
+sha256 = "40ace430fedb0ab7acba5528dcf07a17fbe5e4d091931dfa204cddbd080597e0"
+bytes = 1592
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-text-backslash.html"
+sha256 = "bec7c4a49dedaca8b294099a9f89cbf1b14e4c3e64128f10bff4c5fd1e4f5183"
+bytes = 463
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-text-label.html"
+sha256 = "de1f3fc2b97e6c1de8efb28bb3a9bec974ca2d87bea1058ab3f6d2ae3aa012bd"
+bytes = 778
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-text-recurse.html"
+sha256 = "5b2a7069d8588296aad2d90a0bb256a277507de3b1a7b17428b6b2cb48f9dfc9"
+bytes = 4436
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-text-setter.html"
+sha256 = "0d38a4d3e7d0eb58a14517e57e068233c8af2bae0ad9f61e70be50749bdd324e"
+bytes = 1364
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-text-spaces.html"
+sha256 = "5e4f2d29046cd3091cf348253e4954a36da74c15445ce8aa5149cfce02768695"
+bytes = 3030
+
+[[file]]
+path = "html/semantics/forms/the-option-element/option-value.html"
+sha256 = "9b7e9d7d7ec03152f90ad1b4d2106c0a5ab54cb64c6ff116bb870faabdbbebec"
+bytes = 427
+
+[[file]]
+path = "html/semantics/forms/the-select-element/common-HTMLOptionsCollection-add.html"
+sha256 = "6f21a741f158dca03b57dc9ca754dd50fb7146739c496c3e2f19864567aa45e9"
+bytes = 2626
+
+[[file]]
+path = "html/semantics/forms/the-select-element/common-HTMLOptionsCollection-namedItem.html"
+sha256 = "f5822d6dd151aa0dd83b30a014e88b7c9a10bf3216163f021864d64f8f3c5c26"
+bytes = 1885
+
+[[file]]
+path = "html/semantics/forms/the-select-element/common-HTMLOptionsCollection.html"
+sha256 = "836efb8c1fcb93c367ccc3bceb707ff2d94f88563dcd8fded53d5514368dbb34"
+bytes = 4231
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-keyboard-behavior.optional.html"
+sha256 = "fd56d1e791137607c98ede77382b976100fcbc02353ae0807ad136f15e6c15c0"
+bytes = 10299
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-mouse-behavior.html"
+sha256 = "d1bcf31b32ff78b3272c5b856430ccf69c5e36c58262c8f1c7fdab4b325a92be"
+bytes = 4924
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-home-end-pagedown-pageup.optional.html"
+sha256 = "ac8d2ddf878ab84ae08e5cd06738ae886457b67acb77700e8f5dc6b4437f27f4"
+bytes = 3482
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-option-optgroup-client-rects.html"
+sha256 = "66094256192a7cf4984263aa0a30164374f2df1cad48d97a68fe292344c2fc1f"
+bytes = 7560
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-typeahead.optional.html"
+sha256 = "d94920d3eb69d0fc4dd461641dde53e58778c11a575e6d89b41421f8618e2c28"
+bytes = 2242
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-listbox/selectedcontent-listbox.html"
+sha256 = "eee1d4390527575b0f0c60ae6bb55a9614e3f3dc605c2e3a1469a56b8ba87001"
+bytes = 1649
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-keyboard-behavior.tentative.html"
+sha256 = "4df39b7bfd817ebe610a229886568a505ff40c72c8b1ca1c9c00090a71486b9d"
+bytes = 5459
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-mouse-behavior.tentative.html"
+sha256 = "24b46f418636c417590d3e8f065e3bb0f6228af591ff370c451da1a6e1c0ef85"
+bytes = 3550
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-validity-invalidation.tentative.html"
+sha256 = "de337d534821dcbde03e3c012eb1679278b2c6c31c693456896be95da7605a66"
+bytes = 2524
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple-restore.optional.html"
+sha256 = "35d2d458fd7e4ceba13b20ba940947e27c38f26146dac15acb1003ef1eec1951"
+bytes = 2169
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple.tentative.html"
+sha256 = "1cbabdd0b9216b71e88032f290f6cc8eea02cf022c051123f0b2340f466f6d47"
+bytes = 3784
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/base-appearance-inheritance.html"
+sha256 = "de87ee84fafeb27285e37ef1a92e990f3809b346597eb02114673fb9a81625cb"
+bytes = 1396
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/button-in-popover.html"
+sha256 = "5b978157dd4b3b43c16ff98cc3a1d58c5f47dd9457bc61d9745d901ff045aa26"
+bytes = 2775
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/checkmark-animation.html"
+sha256 = "72003f53cfb02d65f97161ddc428d59c05c7d5e7a743d787ac5cba3b782bcdb1"
+bytes = 1322
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/nested-options.html"
+sha256 = "1ce95eb9f7926ccf31dc932a8693bec446a950b60b5840a01568d106ec2f6fd6"
+bytes = 1460
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-color-inheritance.html"
+sha256 = "14884c06960a979734110480c52ba4078a4b64e918712b653e5a2b1784d449c6"
+bytes = 579
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-disabled-invalid-nesting.html"
+sha256 = "ba169f3ecc28daca264c44f1876702adf3f3b29162d7ead08798c24c22f91a9e"
+bytes = 1836
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup-wrapper.html"
+sha256 = "47ab919db7799627253a5626b73b7f57fc292a9d78111a26044c141a27f753e0"
+bytes = 2644
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup.html"
+sha256 = "596c2adb5d9555b3e24032005918bea2d6cf424615ce3a2a2dbd5c3ed935cb98"
+bytes = 4307
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-form-ancestor-select.html"
+sha256 = "4280f4a26946a820ba0863b9a779da47fb04c980849f3d686011cb70c9f39204"
+bytes = 1815
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-list-wrapped-optgroup.html"
+sha256 = "3741fb0e03e184fc819c50e839775071597a3b2ab4874904faa2dfdce9ef0887"
+bytes = 1587
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-list.html"
+sha256 = "c73fd2901e7f7bbe040307ef3a69e8f3670775b3e09b5f36d93d742fb81c8cbc"
+bytes = 2543
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/option-selectedness-wrapper.html"
+sha256 = "886197a165b7033de9927c5d6fd95b0e09508661beef8a9cb036284d0a59a50c"
+bytes = 8932
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/picker-icon-animation.html"
+sha256 = "6ef9b0c5e6aafa7bb825f296d53ccec86073691c66f246a0c60354d54c739c3f"
+bytes = 1156
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/placeholder-label-option-wrapper.html"
+sha256 = "4d8723f6480e622a853a5c5ec47f74bc759d2901719102742cf51f7c2bc1a2bd"
+bytes = 2449
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-accessibility-minimum-target-size.html"
+sha256 = "4dda6b23573944401e36536dbe8d3f5d7385273f88f491a710be05493f920a87"
+bytes = 1752
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-anchor-regression.html"
+sha256 = "4c299727d9f689ade9128dd771f7f41a2ce3db7a2354a8d3df428a9cdb6404e1"
+bytes = 1030
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-ask-for-reset-base-appearance.html"
+sha256 = "1d881f1131660ede6e7ea67c516ac1d3b5834d8f45b6b8d0c594309aeef0caa8"
+bytes = 1480
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-base-appearance-computed-style.html"
+sha256 = "a32f13f2cf5322af2c3ba4292a2181db1cbbd50c403c2085f09ce0e400e877fb"
+bytes = 7294
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-button-behaviors.html"
+sha256 = "6c1fdacb62aba005e13b76a43299c4b46ff5597da101d8a0f49866f561ae6063"
+bytes = 1996
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-click-drag-option.optional.html"
+sha256 = "c575d71991b8223b1a4e978587b9ae8ed6160229a0d30bd71323356b2c382a25"
+bytes = 4546
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-click-picker-light-dismiss.tentative.html"
+sha256 = "9b5ffc1d488b873943b5ae9e59b4eefdd6c924120e0b035ed892e8f6fb8e43bd"
+bytes = 1422
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-dialog-mode-focus.optional.html"
+sha256 = "0066d6f3c543259b72d3c696320a63dffea39c0b654710f5527dd48e47a9e597"
+bytes = 6617
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-disabled.html"
+sha256 = "4056f575e373a931f59d3b9529007bc060a65c8f33feb851095fede490dee835"
+bytes = 1501
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-events-2.optional.html"
+sha256 = "b67997be15b6f1259e8a169fa415fa520b75498872e44cb231a638917d229673"
+bytes = 8868
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-events.optional.html"
+sha256 = "5e30e023fcfae00254ba688729c0dbbeb895151ac82352e8f676ffc400be2148"
+bytes = 10886
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-focus-visible-with-mouse.html"
+sha256 = "ea66f31069257f44c80e368eddb64682d1866782875171732537f65e63a2e026"
+bytes = 1318
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup-detailed.optional.html"
+sha256 = "f2dc151aae3ca1b833e3a8ccfa2678f944849cea8c38c517125d2b333cc975cc"
+bytes = 6660
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup.optional.html"
+sha256 = "8c045ad150563bd7c7eb578368f144b960566a98aef7e21fb64342f7f49f95db"
+bytes = 2125
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-initial-focus-display-animation.html"
+sha256 = "f1036a372d9aa9898589b50ed4aa147ca8eda8d8995b1681a478f5acb641fbf1"
+bytes = 984
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-input-parsing.tentative.html"
+sha256 = "c49ae9b16381d8211de8e3cdf3a09daa4c17cc5932e0dc1a932adc4eca9639a2"
+bytes = 1553
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-inside-top-layer.html"
+sha256 = "31a46e3c5adfda5753ac3b4f7329ceb29285cfd17376bba462647d7ca2f630c8"
+bytes = 3447
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-iterate-before-beginning.optional.html"
+sha256 = "d69711e1d217ec99c44f4524e78bdf866239d8ef16adb7951f9a6d878b1d7a43"
+bytes = 3012
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-keyboard-behavior.optional.html"
+sha256 = "67662dac554da5e80c3ce013646b3fa409e26317bb33aadd215d4d221f8c4be2"
+bytes = 9443
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-keyboard-focus-change-for-hidden-options.optional.html"
+sha256 = "2f19546822ed3e9a47919b8ee60bfbf0b117af09c25761d80680e31fa94d36d7"
+bytes = 2623
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-mouse-behavior.html"
+sha256 = "1dd4a297d36e6f168c1ce2c28f84696d5502941ab1f2d96404a11c9b08f8ae0c"
+bytes = 5506
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-mousedown-slot-mutation.optional.html"
+sha256 = "12d23c986a6af787eddc047d2afb9d88bbb55140d66c05de19282b2961a59e08"
+bytes = 3353
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-multiple-removed.html"
+sha256 = "1b3ea335337116bfa51b6ca7e8ddeee607211d0c2e0e56d972307a3cc792309e"
+bytes = 694
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-optgroup-arrow-keys.optional.html"
+sha256 = "ac7a49f55fc4b88dc8ebfd50b87bb3a3528fb04071b120a70ffca0b591bc56c6"
+bytes = 2299
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-optgroup-tabindex-focus.html"
+sha256 = "20b0cf8c05c68e03d92df0bd3840b240febfbda0f5d693fd0c3c4d450cc9948f"
+bytes = 1145
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-option-arrow-scroll.optional.html"
+sha256 = "84a90e2302cfa8ef056c41828b2171b57541065c2d3956215c94b4e51397db05"
+bytes = 1877
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-option-hover-styles.html"
+sha256 = "c84da41454310faa0a50dad4abd971db6d5d3fe31b8bab94017f9a970a13b77b"
+bytes = 2021
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-options-id.html"
+sha256 = "f9bd59d61f10e9d1f63b511b1a19f0f8d1080d7e8e0d9791f161f2bd20e721ea"
+bytes = 4692
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-parsing.html"
+sha256 = "0a497ad9d9d757cbb2fdb55c1ea2129d2c34a32cebcacda2011d9966e855ab7c"
+bytes = 5352
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pick-option-dirtiness.html"
+sha256 = "2753a28389e26d89000601baf82fbe4430bf36a07e03da8c04553095869dace3"
+bytes = 1617
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pick-option-keydown.html"
+sha256 = "17933c158a0e62c38e9c7272c7799317adca3dfd56e1bf0f7da1f43f273de22b"
+bytes = 1610
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-animations.html"
+sha256 = "c6adc9f3f4f9753556ad483c82a4a866e6a3b461c93f67ce4bc4fbbe0792a7be"
+bytes = 1717
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-exit-animation.html"
+sha256 = "cbfdb46039b2cd2258429ada77662f7f4e46145ebe5c9d8c5812db863dd835d0"
+bytes = 1861
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-hover-active-pseudo.html"
+sha256 = "a8ebfae6d815723af08914d8377d7ee5f50e9d8e2b578ea9bb7a674143290ee9"
+bytes = 4153
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-hover-after-picking.html"
+sha256 = "4a362e89903ae166d12a71750e73c27e2656483ef34194d8296dbdd381c349d7"
+bytes = 1715
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-interactive-element-focus.optional.html"
+sha256 = "8977a9d26112d7874eb77d1936484e9eedac9fb4d8e22cd801ba7bb193632bbc"
+bytes = 1598
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-option-animation-reopens.html"
+sha256 = "04fb89fcee43d020f089a1fecb32d0ef1ee1bf3bed6a78106c83a9d6a2f858e2"
+bytes = 1525
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-option-hover-while-dragging.optional.html"
+sha256 = "25fb18a626bf1b979b7c759ab8972b3f1af29ceb2966b2ae391f1601496d76c8"
+bytes = 2865
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-option-optgroup-client-rects.html"
+sha256 = "ef2a88766ad25a6243285015427dd82ce1d79a03b7fe9e913861c2ae61d3a118"
+bytes = 6536
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-popover-open-invalid.tentative.html"
+sha256 = "389a94f7930910ae20af0011c60bdf5dbd28bc5dcf74ad1e520100b62e50825a"
+bytes = 520
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-pseudo-box-type.html"
+sha256 = "428dbb36f1d45b67509facd5f05af13110a35876c10c226cfef3fe0949d96710"
+bytes = 1349
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-picker-starting-style.html"
+sha256 = "a41a75ad3136aa7519824088552c06d3c5211b8b52066d940e9a0d7d55b1e2b5"
+bytes = 1518
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-light-dismiss-invalidation.html"
+sha256 = "f0e6a0be14b3571c4b3f326c915cbb7a0c17194f18552f9be53cb889f41eeedc"
+bytes = 1792
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-display.html"
+sha256 = "dd45c6e043d42c91c7e416a07fcf5596e1f9190206aec3643338421fbeed5c65"
+bytes = 2949
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-move-remove.html"
+sha256 = "ec726f9afaf69287d79957f3c0db0df0aab0596da271bf64a6174aa98d5fa7a9"
+bytes = 2671
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-size.html"
+sha256 = "339329ff6d7e0c456d8ff561d0db1fe5acfbfa9773baa64941e925168f74a59e"
+bytes = 3696
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open-top-layer.html"
+sha256 = "f1b8c4e9d992ccc98cfd2ae666eb93ec953614d96e753f4c5efd3cd8fd58321d"
+bytes = 3179
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-pseudo-open.html"
+sha256 = "6bb202f86044d3f0c53b3103fa1cebc3451ed7cd6be3be0e7f4f1acf79f1cc2c"
+bytes = 2185
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-size-change.html"
+sha256 = "9188d6f838e73f8f4a5a56d0dfd70621de0fd8da654caa813aa021504add8a35"
+bytes = 671
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-synthetic-events.html"
+sha256 = "1c115da4123593502dd696e15fdb101c25478e5927ecb26041da3250658c45a2"
+bytes = 3849
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-tabindex-order.html"
+sha256 = "834d9aa26b9b6c26ba6e82a2bed87be9e1fd52f58106d0afe677b394882719eb"
+bytes = 1134
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-type-to-search.tentative.html"
+sha256 = "d4945188bcc45b30db12a241e7408376396472065f1cbd746234fb3dcd732d73"
+bytes = 1922
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-value-selectedOption.html"
+sha256 = "d62c874c77dfde150cf1612b16f5883b1c07f10417f2cc5c0384261c916037d7"
+bytes = 9181
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/select-vertical-writing-mode-navigation.optional.html"
+sha256 = "fc7670bcff886a8d8aa33b9d0b11a43d8f7f2b843950d9615c5b3b897af49a12"
+bytes = 5331
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-attribute-change.html"
+sha256 = "1a97c731c9546eb7acb409bffe6d0c71b5c61facae64538a76d90e14363effad"
+bytes = 5765
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-cloned-option-is-not-an-option.tentative.html"
+sha256 = "effef41f0ac1fdef7c04a23b2e430b67722ef65a1462b98618983f81b923ebfa"
+bytes = 1870
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-insertion-removal.html"
+sha256 = "f068ce10a8c08ff8289f4f74a0a56cdd52d4831ae23f05a9c7e537d66703e6f9"
+bytes = 4664
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-list-box-pick.html"
+sha256 = "f587a8abb6c523a022990cab6052c101026c4f89d721587670f15026b2fcf9c1"
+bytes = 1915
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-movebefore.html"
+sha256 = "bf121e53ad3728cbebc3cf973eb6da5a0c44c218495e791cd4cf9a76ae85bd49"
+bytes = 2338
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-mutations.html"
+sha256 = "e4822366a576fec2ab1109aa5825de0f4e933590e63dfe3a3d0bd27959ae4aa3"
+bytes = 22484
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested-select.html"
+sha256 = "d335463103eada63448273ff6fa065fcf6a33ad7b866390726f308443b433295"
+bytes = 4893
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-nested.html"
+sha256 = "93625f20d177cbe42c14a12b1570887a12d477b697dd8540dd05f80eed6294e4"
+bytes = 2750
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-option-insertion.html"
+sha256 = "58c97a77b51d936dec9cb17d95cb605b7c76e7745205ea5f47be42b5c2e19996"
+bytes = 9767
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-removal-csp-strict-dynamic.tentative.html"
+sha256 = "f6be3f0f5ffb0518363ca81bd04078180297e0d6b6c6f006b03e858db2b75cd2"
+bytes = 1470
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-removal-script-runs-once.tentative.html"
+sha256 = "dc7bf35858e49848f097e197c309a4e8b39117f0e4b642dfbe672a8cb35ba009"
+bytes = 1214
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-script-csp-strict-dynamic.html"
+sha256 = "b77c9ee2dc91a9533b7181c9b77b9d9d516c33bb99b87b32665f8fd8b254d037"
+bytes = 1301
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-parser-script-runs-once.html"
+sha256 = "63dbecfc67de2a40174d36f8e6bd119ba4429d4704268100df0d3e415107fbbe"
+bytes = 1086
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-queued-update.html"
+sha256 = "028d3c2e4405260bb17dd85dc4a34c5855c145c08c36dd140d950601ee9c6832"
+bytes = 11461
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-restore.optional.html"
+sha256 = "f5261e6117e911380e09b2492aa3c8528d417b03bd5f37d380f73ace71ecf2ed"
+bytes = 3936
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent-subtree-mutations.html"
+sha256 = "456a2d3524cdf4e41b72bf364c4e7b3b9c107e09c569c477b86904cefd4e5954"
+bytes = 5096
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontent.html"
+sha256 = "6e6556530b24fbcf0d8ef647b73db9288011fc94aae65d0d5c4dae43bfa608eb"
+bytes = 13906
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/selectedcontentelement-attr.tentative.html"
+sha256 = "d806027ae8ba01ad2e12a0ba9d114882aa658c3a0c7397b631bdf4fe38cfbcac"
+bytes = 2599
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance-timing.tentative.html"
+sha256 = "c4577562f58100d81f72202930405c42f04ae1b4cd563e5b800d94139b8a7116"
+bytes = 2111
+
+[[file]]
+path = "html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance.html"
+sha256 = "c442191dc111724e50bd8bce1d8c5f6f3f86889161c6f7f705806670409b2eb0"
+bytes = 9695
+
+[[file]]
+path = "html/semantics/forms/the-select-element/filterable-select/filterable-select-filtered-pseudo.tentative.html"
+sha256 = "597bca6525e51866cbe383d9e3b5443db60108c05ad61d7565708f932c077566"
+bytes = 6051
+
+[[file]]
+path = "html/semantics/forms/the-select-element/filterable-select/filterable-select-keyboard-behavior.tentative.html"
+sha256 = "232ef852c26b4bebb40926e6f1748e8709e1f3c44120e31394696331a8951e8f"
+bytes = 8778
+
+[[file]]
+path = "html/semantics/forms/the-select-element/filterable-select/select-beforefilter.tentative.html"
+sha256 = "87bea384b08e9b7c38aed514f58d255293fb03b520ac299e518df53e00cd820f"
+bytes = 1756
+
+[[file]]
+path = "html/semantics/forms/the-select-element/inserted-or-removed.html"
+sha256 = "dd9b56322caee7b5b429e3b7f7748b394dbb8a40f51fbd4b6b8b08c8cd8a192a"
+bytes = 3750
+
+[[file]]
+path = "html/semantics/forms/the-select-element/option-selectedness-script-mutation.html"
+sha256 = "baba71dbecbeac36369e09f3ad297eafa334d1ee32a14d2a39112b6baf72fa81"
+bytes = 4619
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-add-optgroup.html"
+sha256 = "69465deecdba029b490e2e62a713842381c4458447f76b211d65227105b8c1da"
+bytes = 1227
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-add.html"
+sha256 = "6af88415b85d5c601016c9184d224eb9a2ce8b17df8ad92f19b4b31b2347b6c6"
+bytes = 1177
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-ancestor-subtree-removal.html"
+sha256 = "3ea32b669665f477cf9e4d9709224888d63ff068f2cb02c480b7561a7afd008a"
+bytes = 3792
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-ask-for-reset.html"
+sha256 = "4f9adc1e222793b325786b85d02d86b0288c45ea83d1db7168103e27cf2af722"
+bytes = 3157
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-attribute-change-reset.html"
+sha256 = "ffcf7e085cf1f0751afd6cf2b004ea3fc39e64782ec6816d5e66de359f1bdb76"
+bytes = 6964
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-clear-reappend.tentative.html"
+sha256 = "1c6e9cd4c3e5c76d892dc9835f6dff6b048e68c1fe8c3778bf18a32d3d197335"
+bytes = 926
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-click-does-not-open-picker.html"
+sha256 = "7ff2f6a649d2a18b01748378edcf1c00446d42387f10b361622333d003eb9bcf"
+bytes = 667
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-csp-style-src-attr.html"
+sha256 = "34f9923a4a4b0bae0e3c3f9f8f4e1f3446b437f30709e128e74825aa140d718f"
+bytes = 974
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-defineProperty.html"
+sha256 = "8a232a01d02a96590da46bef244eaf2d4974bcbc1d848facbc2226bdc6896a27"
+bytes = 604
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-insertion-inherited-style.html"
+sha256 = "3fe4625a76b81a474216c67af978c569933d805b446882df4ba15304740ce732"
+bytes = 2099
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-label-click.tentative.html"
+sha256 = "849bf6326e865e57b151de506af78d6dcf362bbd3bd5b0e04b664319dbff76d8"
+bytes = 5573
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-listbox-touch.optional.html"
+sha256 = "1afbd69ac45aef71b70957f77e8503cdb86b0ea0444866b886291f669c3aa4f3"
+bytes = 2038
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-many-options.tentative.html"
+sha256 = "86043fb078a29f50634153ec25cdfa8e0af3ed9c935876b4aec3271f47bf13a7"
+bytes = 4036
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-multiple-resize-does-not-autoscroll.html"
+sha256 = "7b6f00599c73d15906653c540f07de604a76ce2c94ad158ddc6468bee436d710"
+bytes = 2122
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-multiple.html"
+sha256 = "ecc4fbbc874d4d6e63ac9938a28b058785984d395dedd38e9f0681ad1f1b14a6"
+bytes = 1543
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-named-getter.html"
+sha256 = "3464f8e7033152f22068695ce0687f2a85c4e68e21ef1220b04cbdae6d17ff93"
+bytes = 1445
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-option-display-inherit.tentative.html"
+sha256 = "bc52b20c0254174a97daa850f75c0f0f30aae67ecdc4d76175feef9e8ad37807"
+bytes = 1331
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-option-focusable.tentative.html"
+sha256 = "46b93148adcc1820d5fac80c75c9db42bd9a9d292fbacca03f25e217fabfe1fa"
+bytes = 1484
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-popover-position-with-zoom.tentative.html"
+sha256 = "7bd884ae3a0d9b586f3e41698080ae444a37ec975316a4beb5b07379ae3337e9"
+bytes = 3779
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-remove.html"
+sha256 = "0629763acb491dc77fd443bce9046cfc64490b80393652af12b5112c74e4849b"
+bytes = 2379
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-required-attribute.tentative.html"
+sha256 = "ab3f9d5bc3cca6b93fc39516ff590649eefc5b7d8ab8a0b4a07005975652bb50"
+bytes = 1626
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-restore-invalid-option.html"
+sha256 = "71bd0ba149a55c60ec259ad94c6824c3739b7590a0d9c240b4428a42d3525284"
+bytes = 1434
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-selectedOptions-and-selected.html"
+sha256 = "0ed18ef8c3f857f84703988ee897b074a94f1ea3f0eb77f8a265393d839f2866"
+bytes = 740
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-selectedOptions-and-value.html"
+sha256 = "54ff33d41053eecd3db9c51e5fbe2c53001d39857e1ca749421e2c550a458b8a"
+bytes = 945
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-selectedOptions-nesting.window.js"
+sha256 = "46c2b68b2b9ef91f73620ba4f7bcbf24098d2db60304b8ba0b807b8f66b875da"
+bytes = 3621
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-selectedOptions.html"
+sha256 = "4f420d589fa6a7e6abadee7a0ab09154963afe043a646d36d78a3fdd0e95a973"
+bytes = 6302
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-setcustomvalidity.html"
+sha256 = "6cefc2f462fe6fc3955fc1cc24de24650fe4ab822ca301ae9f28a66b7578457a"
+bytes = 455
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-setter-dirtiness.html"
+sha256 = "c6b4c1ff8141fd22ee7f41f0edc36b7c6b7afa2f6bc29f6bbab35211ec268227"
+bytes = 3377
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-tab-navigation.tentative.html"
+sha256 = "06487c718d344ddc36480ccdb2c876c8bffa9263f44ee8c1d3a74b50ef5e1491"
+bytes = 1117
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-user-selection-dirtiness.html"
+sha256 = "9c51ee5fafbe2f2458961237094a8f7b69fcef0b49a47a3fbcf48a3834a726a2"
+bytes = 3034
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-validity-option-descendants.html"
+sha256 = "71f88ee42d65ff30b7df3004271ede54ed01d5638d156756c0839e8fc6294d38"
+bytes = 3566
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-validity.html"
+sha256 = "2b1a14affe7e5ac52bc9bac35b1602b87c876033d2b3304b558b6a3cd88b64e3"
+bytes = 6613
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-validity.tentative.html"
+sha256 = "47b4d2e88b100814e5d050b8b69af6856435110907e6e321513a787c1a616af6"
+bytes = 3556
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-value-option.tentative.html"
+sha256 = "62c473e97314be581726a6eda5cf96f00d327d45ee5defb83079b4dc6eb41c45"
+bytes = 797
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-value.html"
+sha256 = "99eb542ec722130b89cb24db8e832218df64c99abe209369dd59992ca9d37735"
+bytes = 1348
+
+[[file]]
+path = "html/semantics/forms/the-select-element/select-willvalidate-readonly-attribute.html"
+sha256 = "41dcb5048b1c286015ff91c1815795875718c57a855e18e18e9169948a4f86e5"
+bytes = 550
+
+[[file]]
+path = "html/semantics/forms/the-select-element/selected-index.html"
+sha256 = "2ea6b4806cd0c3827c5235be5604b612162cad94904b0980a974fa15f5701afc"
+bytes = 4434
+
+[[file]]
+path = "html/semantics/forms/the-select-element/show-picker-being-cv-hidden.html"
+sha256 = "24c5ae4ed95427e765b011da33a057a1878a2a38e01836c1289b446a0033f1cb"
+bytes = 883
+
+[[file]]
+path = "html/semantics/forms/the-select-element/show-picker-being-rendered.html"
+sha256 = "65aaf4133449c28c6c333f7d0aed078e0fb1e0dde50f807613c462ef275e5ffb"
+bytes = 796
+
+[[file]]
+path = "html/semantics/forms/the-select-element/show-picker-cross-origin-iframe.html"
+sha256 = "84571c9023d4714b1bb33fd54159d5c08d4060f978d2c623b94219a244f4df1c"
+bytes = 2826
+
+[[file]]
+path = "html/semantics/forms/the-select-element/show-picker-disabled.html"
+sha256 = "634167a8f50faeb6a1ab263effc42900f23eb85d8409d85032c266a9f4e70526"
+bytes = 516
+
+[[file]]
+path = "html/semantics/forms/the-select-element/show-picker-multiple.html"
+sha256 = "2675ee195297575e940b28f5fa69fb18c11bbb901db8f63d8a08509fdd5b4cba"
+bytes = 587
+
+[[file]]
+path = "html/semantics/forms/the-select-element/show-picker-size.html"
+sha256 = "a1e530bf614f708d21cf0cbe262320c4991d05e3caeeed6fef44cf2decde8685"
+bytes = 584
+
+[[file]]
+path = "html/semantics/forms/the-select-element/show-picker-user-gesture.html"
+sha256 = "ca708633a56a457cae94ab1c0fe8b2edce7b6afe17d97d493e097623286a34de"
+bytes = 1107
+
+[[file]]
+path = "html/semantics/popovers/resources/popover-utils.js"
+sha256 = "87a38acd704c6a02cdc1d92fe9315df641ca623d1be93c63d41c7d0084a04637"
+bytes = 8709
+
+[[file]]
+path = "html/semantics/tabular-data/attributes-common-to-td-and-th-elements/cellIndex.html"
+sha256 = "2c7759039649aa65d188b00b2c956dd01dba2b6811012f00f1d7e74d3866cacc"
+bytes = 2104
+
+[[file]]
+path = "html/semantics/tabular-data/historical.html"
+sha256 = "ad07b841f7ddeb3835db6aa44e3b489295bbf0b47bc60fd306b350adac1d0031"
+bytes = 818
+
+[[file]]
+path = "html/semantics/tabular-data/html-table-section-element.js"
+sha256 = "d3bed4141abcd1802ca3359baaac8116c87f5b859a4a483343421a0ef5e186e9"
+bytes = 796
+
+[[file]]
+path = "html/semantics/tabular-data/processing-model-1/col-span-limits.html"
+sha256 = "ed18e7229bed6d11ec44da10471a8bf9652b75672484482c558d11b42895a01b"
+bytes = 2976
+
+[[file]]
+path = "html/semantics/tabular-data/processing-model-1/rowspan-0-quirks.html"
+sha256 = "031a212a8324a2f462dbe52c9714375cae8bf8616830fd780008a802125c503d"
+bytes = 551
+
+[[file]]
+path = "html/semantics/tabular-data/processing-model-1/rowspan-0.html"
+sha256 = "f0127ca8d82def98cf9f359a1ffaf23c41ff34ca135707b9e6c8ed249ecdc5dd"
+bytes = 533
+
+[[file]]
+path = "html/semantics/tabular-data/processing-model-1/span-limits.html"
+sha256 = "6ae20b478520736ea38128de78cd04db4fd4ddff4ac9b0a68359e89865030964"
+bytes = 3462
+
+[[file]]
+path = "html/semantics/tabular-data/the-caption-element/caption_001.html"
+sha256 = "08b12b173ccab98d12c9f74f1d11e515ceaf610c251ce358d088f9fc25dd4614"
+bytes = 2597
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/caption-methods.html"
+sha256 = "f437d4dcbe95cc31004ad0ec6f4ea7366cd670fccf0bf534e64a3359548190f1"
+bytes = 9962
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/createTBody.html"
+sha256 = "557997a0aba715b992d06311d443af2566fe6e4927b7da931e0f58ccb8bc5f2f"
+bytes = 6503
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/delete-caption.html"
+sha256 = "16ee7bb0dd64838763b5337f21b51b991454b14b31dd7b84d0aef97b3db655bd"
+bytes = 3270
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/insertRow-method-01.html"
+sha256 = "dafee712e37f008b705df256b642d52308dd82d1e94dbff1a439e395fa624091"
+bytes = 669
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/insertRow-method-02.html"
+sha256 = "55e3d9ee33a6d98464a3e8e67a56b6fcab657e45f71fadf38cf00d7cee9e7c08"
+bytes = 1100
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/insertRow-method-03.html"
+sha256 = "e3ffd0341a220909e5cdd6c6b2408b1c0b213e3674bd8f4f74f1196c3b6553d6"
+bytes = 1177
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/insertRow-tfoot-before-tbody.html"
+sha256 = "e91d85e8897aae497d51e8ffca3a85b9282c327a0205b080577210d1acb24450"
+bytes = 939
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/parentless-props.html"
+sha256 = "1224883b15e287624d35e4a3dd285455fd6c0112b8e7136782958f18f7a81bd6"
+bytes = 1532
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/remove-row.html"
+sha256 = "0f7bfe9d9bf568e0245e1783a1a26518c71d2cb24e7e6a55b1a540cc6db43401"
+bytes = 1452
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/tBodies.html"
+sha256 = "1055a9daaf3753d265c73a178b789f60678e0207cd323199155b9b905dc914cf"
+bytes = 1300
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/tFoot.html"
+sha256 = "75715f6e1adaa239689dfecf3819aedeb350ed27fd1ac9d112e9754b50ac12d6"
+bytes = 1817
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/tHead.html"
+sha256 = "f31e044eee27f2e04bd5ee45d1c405578e00731c8f1b36c76aceb3dd3bbd3a9d"
+bytes = 1954
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/table-insertRow.html"
+sha256 = "570451341b5d2d133d34f69a2374e506283eae44c2cb05d9cbceea8bda798bfe"
+bytes = 2491
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/table-rows-live-move.html"
+sha256 = "e80963ce7dc0b86876fb4cb5fd21390ac1252abb4b6dcb84e52542ada53cf493"
+bytes = 923
+
+[[file]]
+path = "html/semantics/tabular-data/the-table-element/table-rows.html"
+sha256 = "44dca499022ba77f4ba1708973318b589a08c733c02e2b53a0e8342f9eccfa11"
+bytes = 7109
+
+[[file]]
+path = "html/semantics/tabular-data/the-tbody-element/deleteRow.html"
+sha256 = "4cab25c72e62825a95fac1e980b7ec8b595cb20a70410b5ec74a08acbb821545"
+bytes = 1636
+
+[[file]]
+path = "html/semantics/tabular-data/the-tbody-element/insertRow.html"
+sha256 = "1e0c1432a518a510ffaacfb1af68cf6f516319f090f7e2498025f5db75ceb0a9"
+bytes = 1551
+
+[[file]]
+path = "html/semantics/tabular-data/the-tbody-element/rows.html"
+sha256 = "348aec7fb90e1b970b839be5c4d32901f12c93958fb5e29f0781ca87bfa6d86c"
+bytes = 446
+
+[[file]]
+path = "html/semantics/tabular-data/the-tfoot-element/rows.html"
+sha256 = "eb5806377d0ad1fb83290db451d5972ac86e18347ede56839dc76b7a5a2db3e7"
+bytes = 446
+
+[[file]]
+path = "html/semantics/tabular-data/the-thead-element/rows.html"
+sha256 = "8bf76351167976600bec6b7505addf354878d5c242ab481c60ea600c16211299"
+bytes = 446
+
+[[file]]
+path = "html/semantics/tabular-data/the-tr-element/cells.html"
+sha256 = "7c9e4b2b368bb8302eac5fc66dded8d76a4b70f82520ccc434623c4ceec60276"
+bytes = 722
+
+[[file]]
+path = "html/semantics/tabular-data/the-tr-element/deleteCell.html"
+sha256 = "78b48d5d1209274a24a863d298d972bc8b6bae03dbb78189bb3c64be417605aa"
+bytes = 1528
+
+[[file]]
+path = "html/semantics/tabular-data/the-tr-element/insertCell.html"
+sha256 = "2173de9f489727aaffccc04bab6b61a96604a12694313b0526a26efd3bec7b2a"
+bytes = 1758
+
+[[file]]
+path = "html/semantics/tabular-data/the-tr-element/rowIndex.html"
+sha256 = "451375344f705d64c823a2584fec77a65c6da352e4972a367863905528a4abb2"
+bytes = 2882
+
+[[file]]
+path = "html/semantics/tabular-data/the-tr-element/sectionRowIndex.html"
+sha256 = "36a856f2e50a59cd005a9d50f24ba9d134150926b5547effa737a3c342dda449"
+bytes = 3649
+
+[[file]]
+path = "html/semantics/text-level-semantics/the-a-element/a-download-click-404.html"
+sha256 = "e7909d5489c7a406b93c4c3fdd01a92f57904380b2c79718182d63ff837661d5"
+bytes = 1066
+
+[[file]]
+path = "html/semantics/text-level-semantics/the-a-element/a-download-click-redirect-to-javascript.html"
+sha256 = "23ff162cc68f8c7eebcf3612092ba325bf08d285cd48831bb0c5ac262ca4d98e"
+bytes = 1316
+
+[[file]]
+path = "html/semantics/text-level-semantics/the-a-element/a-download-click.html"
+sha256 = "047157bdd1aece176f2be3929e47fc9c4bc992ce3ca5c76f66f4d6b74a17c9fe"
+bytes = 1264
+
+[[file]]
+path = "html/semantics/text-level-semantics/the-a-element/a-stringifier.html"
+sha256 = "7e6415172e289dba3de3782b963d1d5df9ade5bf19b5536ef063eadfa91362cc"
+bytes = 601
+
+[[file]]
+path = "html/semantics/text-level-semantics/the-a-element/a-type.historical.html"
+sha256 = "afb7069cf952ba5210c8172c8513ecf82e8e538a38dd4bcf5caf87d5b7f38476"
+bytes = 816
+
+[[file]]
+path = "html/semantics/text-level-semantics/the-a-element/a.text-getter-01.html"
+sha256 = "ee83cf91e792dce25e2f384d53cf7197100f5b1c2e22fe6f6438a4175f71e715"
+bytes = 1110
+
+[[file]]
+path = "html/semantics/text-level-semantics/the-a-element/a.text-setter-01.html"
+sha256 = "8bd5c02caf77e25937f6b19ad7b9ef1c09edd6974a9be6f6083a74325603ae04"
+bytes = 1380
+
+[[file]]
+path = "html/webappapis/atob/base64.any.js"
+sha256 = "0297126f8867772b48a24c4d979debe38732294571d64b8d689b6506a3f53b9a"
+bytes = 5255
 
 [[file]]
 path = "html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html"
@@ -8227,6 +11845,14 @@ path = "html/webappapis/timers/zero-settimeout.any.js"
 sha256 = "9498ad3fa54110a71d24feffbd2bba25fbe0dad4fc8d67fd56cff960f060fe27"
 bytes = 392
 
+[[missing]]
+file = "resources/WebIDLParser.js"
+
+[[file]]
+path = "resources/idlharness.js"
+sha256 = "93e8d18f3fe470966eaf0ac50aadc3882bf4db53c250e8f2161e1ca2a1bc7cd9"
+bytes = 146247
+
 [[file]]
 path = "resources/testdriver-actions.js"
 sha256 = "e2db9153f3850983f423383d004042845b87d2a3a4d388b3f4846c915f571027"
@@ -8249,6 +11875,226 @@ bytes = 198420
 
 [[missing]]
 file = "trusted-types/support/helper.sub.js"
+
+[[file]]
+path = "url/IdnaTestV2-removed.any.js"
+sha256 = "099cbbfcab23c97c19492cd41c92c355f0c8c101bfd4b1ea9e24471ca0608388"
+bytes = 823
+
+[[file]]
+path = "url/IdnaTestV2.any.js"
+sha256 = "77814a40292f7a23b57ad518a4cf1583b68b108055c227c1f4b73c27f9dcf1c5"
+bytes = 921
+
+[[file]]
+path = "url/a-element-origin-xhtml.xhtml"
+sha256 = "6012bba28a174b765191943c2116143374dbac3fa31029af6664f30bab8cff04"
+bytes = 503
+
+[[file]]
+path = "url/a-element-origin.html"
+sha256 = "22d3d11da2ee1e25cd48706decd890ea39963820279e9a416aa6a5cf4da94fa7"
+bytes = 336
+
+[[file]]
+path = "url/a-element-xhtml.xhtml"
+sha256 = "614a455cee94a1bb103ae6a91ac4ffd5030d30e2689e5e249ab8b445595e07d1"
+bytes = 787
+
+[[file]]
+path = "url/a-element.html"
+sha256 = "8d2e4b4118dfa3c31f826011e6f177385ef6a7347112fdc747079c46a236f714"
+bytes = 1019
+
+[[file]]
+path = "url/data-uri-fragment.html"
+sha256 = "4c93f62873c1404f9c7ccc34e274c421688bb428bebc8aaaa58c317e2258d251"
+bytes = 1189
+
+[[file]]
+path = "url/failure.html"
+sha256 = "473ffce642b6cbb43c0aa9cd2fc9cae9ceee517d5adb7945e878f83547fc5c5d"
+bytes = 2339
+
+[[file]]
+path = "url/historical.any.js"
+sha256 = "26ab7394f148921eafa0d952fe707d08af29a1203b5a579884c571b5e70491be"
+bytes = 1539
+
+[[file]]
+path = "url/idlharness.any.js"
+sha256 = "e844fb33d883373589526efc2b867968cc89989bbd43185c0ab42902f9d6637b"
+bytes = 329
+
+[[file]]
+path = "url/javascript-urls.window.js"
+sha256 = "e92e6e6307f72b356482ae4aa825284f12039da02af3f5c949254b91692b6395"
+bytes = 3108
+
+[[file]]
+path = "url/percent-encoding.window.js"
+sha256 = "8fc6df455d6eb2fe373bb55983286a769cce0352cb1cbba3fd18fc1e5f68485f"
+bytes = 1448
+
+[[file]]
+path = "url/resources/IdnaTestV2-removed.json"
+sha256 = "921d56cc415159e36883e26eeb6f9924f399c5fbb24645a9c661aa790e3f8e94"
+bytes = 2507
+
+[[file]]
+path = "url/resources/IdnaTestV2.json"
+sha256 = "84de621e5239676e59e5a3e68ef3e2b1acde9da5480a633d2ef446ef03238b76"
+bytes = 314263
+
+[[file]]
+path = "url/resources/a-element-origin.js"
+sha256 = "c3b99d0cd841c38f3ac961eacecaae3f8a38e087ee4c00bec8265e28ece24629"
+bytes = 1391
+
+[[file]]
+path = "url/resources/a-element.js"
+sha256 = "a37ac1cdf139388c16ec1e9f3e4fffb899a3815369e07761b8eacdc1e2c43241"
+bytes = 2273
+
+[[file]]
+path = "url/resources/percent-encoding.json"
+sha256 = "ac3d9ec89f51e3855f9967ef8414eb470653a25d385cb88cbc3dc1c4d878d71c"
+bytes = 967
+
+[[file]]
+path = "url/resources/percent-encoding.py"
+sha256 = "5983133a3aa18f6394ce6f06303812ad84703147e4b94e7f369d086c6688771f"
+bytes = 990
+
+[[file]]
+path = "url/resources/setters_tests.json"
+sha256 = "62e4b14bdaddd66b0f7d99bf066aed1c4a588667f4aa97bf26da212134fc24bf"
+bytes = 82134
+
+[[file]]
+path = "url/resources/toascii.json"
+sha256 = "644eba9d5b593df8095cfa307222f3014542ff9cc02d555f8e5660059d80470f"
+bytes = 9101
+
+[[file]]
+path = "url/resources/urltestdata-javascript-only.json"
+sha256 = "74eaf2f3b8246b1fe44c388e3ecf8eb8442e01f229418b634acecb9595caddfa"
+bytes = 902
+
+[[file]]
+path = "url/resources/urltestdata.json"
+sha256 = "81e85fd3c199c08ef9c34cf651b3580eeedd080316493bfaf277a6b5ff8cf652"
+bytes = 229610
+
+[[file]]
+path = "url/toascii.window.js"
+sha256 = "f6f4a99679b482159a9dad5525e124f78233a03a1e98c1ab871b58e675501cdb"
+bytes = 1846
+
+[[file]]
+path = "url/url-constructor.any.js"
+sha256 = "a3e629bad181d5fd9eb92c8403ce3c5e57b4d873ee8e87108e439ea3ff6bf066"
+bytes = 2057
+
+[[file]]
+path = "url/url-origin.any.js"
+sha256 = "8dd7c8f2d9fed48f923afbe4243fbfd172993214bd104ad77dc45e6fc1372ea1"
+bytes = 761
+
+[[file]]
+path = "url/url-searchparams.any.js"
+sha256 = "c8aac0f9c4ddcb1c7acf2b5848315e237b7edf84d1d91d61cc4608a1a4d32302"
+bytes = 2599
+
+[[file]]
+path = "url/url-setters-a-area.window.js"
+sha256 = "a2c95b540420c10fecc4f3e745901b7b85b2e4a9ac3039062d52c221ae60c271"
+bytes = 1535
+
+[[file]]
+path = "url/url-setters-stripping.any.js"
+sha256 = "a093710d40414f97a0644c066c006e9f3bc7559e083460836aec5f1e244a5798"
+bytes = 6877
+
+[[file]]
+path = "url/url-setters.any.js"
+sha256 = "24ed92338a1423b7e0952b0ff5bb0e8dd8fd349cee83a690af9ac83f0484d6c9"
+bytes = 1156
+
+[[file]]
+path = "url/url-statics-canparse.any.js"
+sha256 = "65aac5c10f153bc2ac851a0b88257a69dd5f4c92cb5e70a225b6fb06f1300de1"
+bytes = 855
+
+[[file]]
+path = "url/url-statics-parse.any.js"
+sha256 = "a0d32f83ad40a43682e3ffd6bf6f766932d84109785b428641f42b5ca3ccbf49"
+bytes = 1027
+
+[[file]]
+path = "url/url-tojson.any.js"
+sha256 = "dc5707460963a2cc4dd2e77d48b369ac174515b8fd2f76083f0ade9328b5551a"
+bytes = 123
+
+[[file]]
+path = "url/urlencoded-parser.any.js"
+sha256 = "9d3514f33a6bce8ab4d0163a77d79f0231ef30239ca237cf75f9e206a8b0c3e8"
+bytes = 3014
+
+[[file]]
+path = "url/urlsearchparams-append.any.js"
+sha256 = "b3fdef26237562dee586c7768af5b484b3ff9d372595d8a8e59b7ebd1099c19b"
+bytes = 1479
+
+[[file]]
+path = "url/urlsearchparams-constructor.any.js"
+sha256 = "165a7dcdff9a20b2bcef7e249e1609eb6383b6fdd74f85b4dac44d15ed12aa24"
+bytes = 9891
+
+[[file]]
+path = "url/urlsearchparams-delete.any.js"
+sha256 = "946cf6e91d89a4d40ca848430ec8298e2de6fbbd3a9d1efd7b47425ce90a55c1"
+bytes = 3169
+
+[[file]]
+path = "url/urlsearchparams-foreach.any.js"
+sha256 = "93e1c9dc0b32d13cdf6de9a100ab9c92a197ac361d1a8d6f164d562b433a4b8d"
+bytes = 2341
+
+[[file]]
+path = "url/urlsearchparams-get.any.js"
+sha256 = "0bfd999026f963ffc3f021cf509d1e8f3300cddd52c21ebffcd392d8d43bca34"
+bytes = 1050
+
+[[file]]
+path = "url/urlsearchparams-getall.any.js"
+sha256 = "f6501e719a9ab88c648d1bff0da30b2efda7aaa16d9e4220e95a952fdc17be8c"
+bytes = 1318
+
+[[file]]
+path = "url/urlsearchparams-has.any.js"
+sha256 = "568dcc6cb4b4ff7c9fbf59482bcde7b38c1c9da4247dd121894e1fedb8ddf352"
+bytes = 1702
+
+[[file]]
+path = "url/urlsearchparams-set.any.js"
+sha256 = "41771dec1616c4715c33a2a77b3125483c4bce24998e344222e9b8d1f49d68de"
+bytes = 986
+
+[[file]]
+path = "url/urlsearchparams-size.any.js"
+sha256 = "cc17292db2bc179bd2629be9867ded0b413de399a6ce1fbf8943d012894cac94"
+bytes = 985
+
+[[file]]
+path = "url/urlsearchparams-sort.any.js"
+sha256 = "cdfc1ef89cfcefa5fae94ebdeaa2a869c47b47b47d08aba4c7db0b6e44b31fca"
+bytes = 1811
+
+[[file]]
+path = "url/urlsearchparams-stringifier.any.js"
+sha256 = "14f7b8871fec6a02dbbe324a5f8943932ecb149285e5cc149fdf34ae769d52c0"
+bytes = 4490
 
 [[missing]]
 file = "visual-viewport/viewport_support.js"
