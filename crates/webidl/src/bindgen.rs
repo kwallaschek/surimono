@@ -175,6 +175,7 @@ const OP_FIRST: u32 = OP_HOST + HOST_OPS.len() as u32;
 /// (interface, member). Each gets a `const OP_<member>` in `bindings.js`.
 const GLUE_OPS: &[(&str, &str)] = &[
     ("Node", "parentNode"),
+    ("Node", "ownerDocument"),
     ("Element", "localName"),
     ("Element", "getAttribute"),
     ("Element", "getAttributeNames"),

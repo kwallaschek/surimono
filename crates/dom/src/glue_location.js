@@ -52,11 +52,10 @@
   H.Location_assign = (s, url) => { navigate(s.doc, url, false, true); };
   H.Location_replace = (s, url) => { navigate(s.doc, url, true, true); };
   H.Location_reload = staysHere;
+  // HTML §7.2.4: Rust answers empty for a fragment that is already the URL's.
   H.set_Location_hash = (s, v) => {
     const url = call(OP_urlFragment, s.doc.g, s.doc.h, `${v}`);
-    if (url !== '' && url !== call(OP_urlPart, s.doc.g, s.doc.h, 'href')) {
-      followFragment(s.doc, url, false);
-    }
+    if (url !== '') followFragment(s.doc, url, pageLoading && isPage(s.doc));
   };
 
   const noFragment = (url) => {
@@ -64,10 +63,21 @@
     return i < 0 ? url : apply(slice, url, [0, i]);
   };
 
-  // HTML §7.4.2 "navigate", for the URLs that don't leave the page.
+  // The page's lifecycle is running: until its `load` has fired, a Location
+  // navigation replaces (HTML §7.2.4 "Location-object navigate").
+  let pageLoading = false;
+
+  // HTML §7.4.2 "navigate", for the URLs that don't leave the page. The URL
+  // is parsed first, so its scheme is what the URL Standard says it is.
   function navigate(d, url, replace, fromScript) {
-    if (isPage(d) && asciiLower(apply(slice, url, [0, 11])) === 'javascript:') {
-      const source = percentDecode(apply(slice, url, [11]));
+    const target = call(OP_urlJoin, d.g, d.h, url);
+    if (target === '') {
+      if (fromScript) throwDom('SyntaxError', 'the URL can\'t be parsed');
+      return;
+    }
+    if (apply(slice, target, [0, 11]) === 'javascript:') {
+      if (!isPage(d)) return;
+      const source = percentDecode(apply(slice, target, [11]));
       task(() => {
         try {
           n.runSource(apply(toWellFormed, source, []));
@@ -77,34 +87,48 @@
       }, 0);
       return;
     }
-    const target = call(OP_urlJoin, d.g, d.h, url);
-    if (target === '') {
-      if (fromScript) throwDom('SyntaxError', 'the URL can\'t be parsed');
-      return;
-    }
     if (apply(indexOf, target, ['#']) >= 0 &&
         noFragment(target) === noFragment(call(OP_urlPart, d.g, d.h, 'href'))) {
-      followFragment(d, target, replace);
+      followFragment(d, target, replace || (fromScript && pageLoading && isPage(d)));
     }
   }
 
-  // HTML §7.4.2.3.3 "navigate to a fragment": the same document, a new entry,
-  // and `hashchange` in a task. A URL that is already the document's is no
-  // change, and fires nothing.
+  // HTML §7.4.2.3.3 "navigate to a fragment" and "update document for history
+  // step application": the same document, a new entry, `popstate` now and
+  // `hashchange` in a task, both at the page only. To the URL it already has,
+  // navigating is a replace of an equal entry: the state stays, and no
+  // fragment changed. Rust takes the URL first: a refusal changes nothing.
   function followFragment(d, url, replace) {
     const old = call(OP_urlPart, d.g, d.h, 'href');
-    const h = historyRecord(d);
-    if (replace) h.e[h.i] = entry(url, null);
-    else push(h, url, null);
-    h.state = null;
+    const same = url === old;
     call(OP_setDocumentUrl, d.g, d.h, url);
-    if (url !== old) task(() => { fireHashChange(old, url); }, 0);
+    const h = historyRecord(d);
+    if (!same) {
+      if (replace) h.e[h.i] = entry(url, null);
+      else push(h, url, null);
+      h.state = null;
+    }
+    if (!isPage(d)) return;
+    firePopState(h.state, false);
+    if (!same) task(() => { fireHashChange(old, url); }, 0);
   }
 
+  function firePopState(state, alone) {
+    const e = make(I_PopStateEvent);
+    initEvent(e, 'popstate', false, false);
+    e.isTrusted = true;
+    e.alone = alone;
+    e.d = eventInits[I_PopStateEvent]();
+    e.d.state = state;
+    dispatch(windowState, e);
+  }
+
+  // Always from a task of its own: see `fireInTask`.
   function fireHashChange(old, url) {
     const e = make(I_HashChangeEvent);
-    initEvent(e, 'hashchange', true, false);
+    initEvent(e, 'hashchange', false, false);
     e.isTrusted = true;
+    e.alone = true;
     e.d = eventInits[I_HashChangeEvent]();
     e.d.oldURL = old; e.d.newURL = url;
     dispatch(windowState, e);
@@ -216,10 +240,11 @@
         throwDom('SecurityError', 'the document\'s URL can\'t be rewritten to that URL');
       }
     }
+    // Rust takes the URL first: a refusal leaves the entries alone.
+    call(OP_setDocumentUrl, d.g, d.h, target);
     if (replace) h.e[h.i] = entry(target, state);
     else push(h, target, state);
     h.state = state;
-    call(OP_setDocumentUrl, d.g, d.h, target);
   }
   H.History_pushState = (h, data, unused, url) => { pushOrReplace(h, data, url, false); };
   H.History_replaceState = (h, data, unused, url) => { pushOrReplace(h, data, url, true); };
@@ -238,12 +263,7 @@
       h.state = x.state;
       call(OP_setDocumentUrl, d.g, d.h, x.url);
       if (!isPage(d)) return;
-      const e = make(I_PopStateEvent);
-      initEvent(e, 'popstate', false, false);
-      e.isTrusted = true;
-      e.d = eventInits[I_PopStateEvent]();
-      e.d.state = x.state;
-      dispatch(windowState, e);
+      firePopState(x.state, true);
       if (x.url !== old && noFragment(x.url) === noFragment(old)) fireHashChange(old, x.url);
     }, 0);
   }

@@ -321,6 +321,7 @@
   // loop has left the timer by then, so a timer a script sets starts from
   // nesting level 0, as a parser's script does in a browser (HTML §8.7).
   return function start(g) {
+    pageLoading = true;
     nameElements(g);
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
@@ -366,6 +367,7 @@
       s.currentTarget = null;
       s.path = undefined;
       s.dispatching = false;
+      pageLoading = false;
     });
   };
 })

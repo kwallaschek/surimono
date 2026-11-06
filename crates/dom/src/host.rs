@@ -783,19 +783,29 @@ impl Document {
         let doc = self.node_of(this)?;
         let base = self.base_url(doc);
         let joined = url::Url::parse(&base).and_then(|b| b.join(&text));
-        Ok(joined
-            .or_else(|_| url::Url::parse(&text))
-            .map_or_else(|_| String::new(), String::from))
+        let url = joined.or_else(|_| url::Url::parse(&text));
+        Ok(url
+            .map(String::from)
+            .ok()
+            .filter(|u| u.len() <= document::MAX_URL_BYTES)
+            .unwrap_or_default())
     }
 
     /// Document `this`'s URL with fragment `value`, a leading `#` dropped:
-    /// `location.hash`'s setter (HTML §7.2.4). Empty if it has no URL.
+    /// `location.hash`'s setter (HTML §7.2.4). Empty if it has no URL, the
+    /// fragment is the one it has, a missing one counting as empty, or the
+    /// result is over [`MAX_URL_BYTES`](document::MAX_URL_BYTES).
     pub(crate) fn url_fragment(&mut self, this: ObjectId, value: String) -> BindingResult<String> {
         let doc = self.node_of(this)?;
         let Ok(mut url) = url::Url::parse(Document::url(self, doc)) else {
             return Ok(String::new());
         };
+        let old = url.fragment().unwrap_or_default().to_owned();
         url.set_fragment(Some(value.strip_prefix('#').unwrap_or(&value)));
+        let fragment = url.fragment().unwrap_or_default();
+        if fragment == old || url.as_str().len() > document::MAX_URL_BYTES {
+            return Ok(String::new());
+        }
         Ok(url.into())
     }
 
@@ -833,8 +843,7 @@ impl Document {
         if url.len() > document::MAX_URL_BYTES {
             return Err(dom_error("SecurityError", "the URL is too long"));
         }
-        self.write_url(doc, &url);
-        Ok(())
+        self.write_url(doc, &url).map_err(|e| self.fail(e))
     }
 
     /// Parses one queued frame; whether there was one to parse.

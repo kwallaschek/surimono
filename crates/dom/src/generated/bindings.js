@@ -1336,6 +1336,7 @@ const OP_idNames = 23;
 const OP_labeledControl = 24;
 const OP_staticRange = 25;
 const OP_isConnected = 29;
+const OP_ownerDocument = 30;
 const OP_parentNode = 31;
 const OP_localName = 59;
 const OP_getAttributeNames = 68;

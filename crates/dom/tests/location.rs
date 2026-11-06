@@ -226,12 +226,12 @@ fn a_push_after_going_back_drops_the_entries_ahead() {
 fn a_fragment_changes_the_url_in_the_document() {
     assert_eq!(
         settled(
-            "addEventListener('hashchange', (e) => log.push(e.oldURL, e.newURL, location.hash));
+            "addEventListener('hashchange', (e) => log.push(e.oldURL, e.newURL, location.hash, e.bubbles));
              location.hash = '#next';
              log.push(document.URL)"
         ),
         "http://example.test:8080/a/b.html?q=1#next|\
-         http://example.test:8080/a/b.html?q=1#top|http://example.test:8080/a/b.html?q=1#next|#next"
+         http://example.test:8080/a/b.html?q=1#top|http://example.test:8080/a/b.html?q=1#next|#next|false"
     );
     assert_eq!(
         settled(
@@ -324,4 +324,155 @@ fn a_url_goes_with_the_render() {
     rt.load(Document::parse("<!doctype html><p>").unwrap());
     let r: String = rt.eval("location.href + ' ' + history.length").unwrap();
     assert_eq!(r, "about:blank 1");
+}
+
+/// HTML §7.2.4: the setter returns when the fragment is the one it has, a
+/// missing one counting as empty.
+#[test]
+fn setting_the_same_hash_does_nothing() {
+    let mut rt = runtime(Some("http://example.test/a"));
+    let () = rt
+        .eval(
+            "globalThis.log = [];
+             addEventListener('hashchange', () => log.push('hash'));
+             addEventListener('popstate', () => log.push('pop'));
+             location.hash = ''; location.hash = '#';
+             log.push(location.href, history.length); undefined",
+        )
+        .unwrap();
+    rt.run_until_settled(&SettleOptions::default()).unwrap();
+    let r: String = rt.eval("log.join('|')").unwrap();
+    assert_eq!(r, "http://example.test/a|1");
+}
+
+/// HTML §7.4.2: to the current URL, navigating replaces, and the state stays.
+#[test]
+fn navigating_to_the_current_url_adds_no_entry() {
+    assert_eq!(
+        settled(
+            "addEventListener('hashchange', () => log.push('hash'));
+             history.replaceState(7, '');
+             const n = history.length;
+             location.href = location.href;
+             location.assign(location.href);
+             log.push(history.length - n, history.state)"
+        ),
+        "0|7"
+    );
+    let mut rt = runtime(Some("http://example.test/a#s"));
+    let r: String = rt
+        .eval(
+            "const n = history.length, l = document.getElementById('l');
+             l.click(); l.click();
+             String(history.length - n)",
+        )
+        .unwrap();
+    assert_eq!(r, "0");
+}
+
+/// HTML "update document for history step application".
+#[test]
+fn a_fragment_fires_popstate_at_once_and_hashchange_later() {
+    assert_eq!(
+        settled(
+            "addEventListener('popstate', (e) => log.push('pop:' + e.state + ':' + location.hash));
+             addEventListener('hashchange', () => log.push('hash'));
+             location.hash = 'a';
+             log.push('sync')"
+        ),
+        "pop:null:#a|sync|hash"
+    );
+}
+
+/// HTML §7.2.4 "Location-object navigate".
+#[test]
+fn until_load_a_location_navigation_replaces() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let mut doc = Document::parse(
+        "<!doctype html><script>
+         globalThis.log = [];
+         location.hash = 'a'; log.push(history.length);
+         location.assign('#b'); log.push(history.length);
+         addEventListener('load', () => { location.hash = 'c'; log.push(history.length); });
+         setTimeout(() => { location.hash = 'd'; log.push(history.length); }, 1);
+         </script><a id=l href='#e'>x</a>",
+    )
+    .unwrap();
+    doc.set_url("http://example.test/");
+    rt.load(doc);
+    rt.run_page(&SettleOptions::default(), |_| None).unwrap();
+    let r: String = rt.eval("log.join() + ' ' + location.hash").unwrap();
+    assert_eq!(r, "1,1,1,2 #d");
+}
+
+#[test]
+fn a_frames_fragment_fires_nothing_at_the_page() {
+    assert_eq!(
+        settled(
+            "addEventListener('hashchange', () => log.push('hash'));
+             addEventListener('popstate', () => log.push('pop'));
+             const w = document.getElementById('f').contentWindow;
+             w.location.hash = 'x';
+             log.push(w.location.hash, location.hash)"
+        ),
+        "#x|#top"
+    );
+}
+
+#[test]
+fn a_link_acts_on_its_own_document_and_target() {
+    assert_eq!(
+        settled(
+            "const blank = document.createElement('a');
+             blank.href = '#x'; blank.target = '_blank'; blank.click();
+             const parsed = new DOMParser().parseFromString('<a href=\"#y\">p</a>', 'text/html').querySelector('a');
+             parsed.click();
+             const top = document.createElement('a');
+             top.href = '#z'; top.target = '_TOP'; top.click();
+             log.push(location.hash);
+             const d = document.getElementById('f').contentDocument;
+             const inner = d.body.appendChild(d.createElement('a'));
+             inner.href = '#w'; inner.click();
+             log.push(location.hash, d.location === null, d.URL)"
+        ),
+        "#z|#z|true|about:blank#w"
+    );
+}
+
+#[test]
+fn a_javascript_url_goes_by_its_parsed_scheme() {
+    for url in [
+        " javascript:log.push(1)",
+        "java\nscript:log.push(1)",
+        "JAVASCRIPT:log.push(1)",
+    ] {
+        assert_eq!(settled(&format!("location.href = {url:?}")), "1", "{url}");
+    }
+    assert_eq!(
+        settled(
+            "const a = document.createElement('a');
+             a.href = ' java\\tscript:log.push(2)'; a.click()"
+        ),
+        "2"
+    );
+}
+
+/// A refused URL changes neither the document nor the entries.
+#[test]
+fn a_refused_url_leaves_the_history_alone() {
+    assert_eq!(
+        settled(
+            "history.pushState(1, '', '/one'); history.pushState(2, '', '/two'); history.back();
+             setTimeout(() => {
+               const n = history.length, s = 'x'.repeat(3 * 1024 * 1024);
+               location.hash = s;
+               try { history.pushState(3, '', '#' + s); } catch (e) { log.push(e.name); }
+               try { location.href = '#' + s; } catch (e) { log.push(e.name); }
+               log.push(history.length === n, location.pathname + location.hash, history.state);
+               history.forward();
+             }, 1);
+             setTimeout(() => log.push(location.pathname), 2)"
+        ),
+        "SecurityError|SyntaxError|true|/one|1|/two"
+    );
 }

@@ -470,9 +470,19 @@ Session history is in the glue, per document, so it is under the memory limit an
 goes with the render. A state is cloned once when pushed: primitives, arrays, plain
 objects, `Date`, `RegExp`, `Map`, `Set`. Functions, symbols and platform objects
 are a `DataCloneError`, as they should be; `ArrayBuffer`, typed arrays and `Error`
-objects clone as plain objects, a gap. A URL is capped at 2 MiB (Chrome's limit),
-since Rust holds one per document: a longer one is the `SecurityError` `pushState`
-has for a URL it won't take.
+objects clone as plain objects, a gap. A script-set URL is charged to
+`max_text_bytes` until nothing holds it, because each `DOMParser` document keeps the
+URL it was made under, so a replaced URL can outlive its replacement. One URL is
+capped at 2 MiB, for memory: Chrome takes longer ones. Over the cap, `pushState`
+gives the `SecurityError` it has for a URL it won't take, `location.hash` does
+nothing, and `href`, `assign` and `replace` give a `SyntaxError`. A refusal leaves
+session history as it was.
+
+A fragment navigation fires `popstate` at once and `hashchange` in a task; a
+navigation to the URL already current is a replace that keeps the state. Until the
+page's `load` has fired, a `Location` navigation replaces. A link acts on its own
+document, and only for an empty `target`, `_self`, or on the page `_parent` and
+`_top`. A frame's fragment fires nothing at the page.
 
 A frame's window has its own `location`, `history` and `DOMParser`. The last is the
 one exception to "no realm": a parser's URL is that of the document of the global it
@@ -481,8 +491,16 @@ page's, so `frames[0].DOMParser.prototype.parseFromString.call(parser)` works ei
 way round.
 
 **Gaps.** `[LegacyUnforgeable]` isn't honoured: `Location`'s members are on its
-prototype, and a script can replace them. `ancestorOrigins` isn't bound. No
-`history.state` survives anything, there being no reload.
+prototype, and a script can replace them; on a frame's window, `location` and
+`history` are writable data properties, so `frames[0].location = '#z'` replaces the
+object. `ancestorOrigins` isn't bound. No `history.state` survives anything, there
+being no reload. `history.length` is per document, where a browser's is joint over
+frames. A state is one object for its entry, so `history.state.m = 1` survives a
+traversal away and back. The clone keeps no identity for a `Date` or `RegExp`
+referenced twice. It clones as plain objects what a browser refuses (`Proxy`,
+`Promise`, `WeakMap`, `WeakSet`, `Object(Symbol())`, generators, `arguments`), loses
+the value of `new Number(1)` and the like, and takes `RegExp.prototype` for a RegExp.
+`<base target>` is ignored.
 
 ## MutationObserver
 

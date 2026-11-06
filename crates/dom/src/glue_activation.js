@@ -236,10 +236,19 @@
   }
 
   // HTML §4.6.4 "follow the hyperlink": `navigate` does what doesn't leave
-  // the page.
+  // the page. A link acts on its own document, if that has a browsing context,
+  // and with a target only on one that stays in it (§7.3.1 "the rules for
+  // choosing a navigable"; a `<base target>` is a gap).
   function followLink(s) {
     const href = attrOf(s, 'href');
-    if (href !== null) navigate(documentState(), href, false, false);
+    if (href === null) return;
+    const d = stateOf(wrap(s.g, call(OP_ownerDocument, s.g, s.h)));
+    const page = isPage(d);
+    if (!page && !call(OP_isFrameDocument, d.g, d.h)) return;
+    const target = asciiLower(attrOf(s, 'target') || '');
+    const stays = target === '' || target === '_self' ||
+      (page && (target === '_parent' || target === '_top'));
+    if (stays) navigate(d, href, false, false);
   }
   function percentDecode(x) {
     try {
