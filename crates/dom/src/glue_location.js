@@ -94,22 +94,21 @@
   }
 
   // HTML §7.4.2.3.3 "navigate to a fragment" and "update document for history
-  // step application": the same document, a new entry, `popstate` now and
-  // `hashchange` in a task, both at the page only. To the URL it already has,
-  // navigating is a replace of an equal entry: the state stays, and no
-  // fragment changed. Rust takes the URL first: a refusal changes nothing.
+  // step application": the same document, a new entry with no state, `popstate`
+  // now and `hashchange` in a task, both at the page only. To the URL it already
+  // has, the navigation replaces (§7.4.2), and no fragment changed. The record
+  // comes first: it reads the URL for its first entry. Rust then takes the URL,
+  // so a refusal leaves the entries alone.
   function followFragment(d, url, replace) {
     const old = call(OP_urlPart, d.g, d.h, 'href');
     const same = url === old;
-    call(OP_setDocumentUrl, d.g, d.h, url);
     const h = historyRecord(d);
-    if (!same) {
-      if (replace) h.e[h.i] = entry(url, null);
-      else push(h, url, null);
-      h.state = null;
-    }
+    call(OP_setDocumentUrl, d.g, d.h, url);
+    if (replace || same) h.e[h.i] = entry(url, null);
+    else push(h, url, null);
+    h.state = null;
     if (!isPage(d)) return;
-    firePopState(h.state, false);
+    firePopState(null, false);
     if (!same) task(() => { fireHashChange(old, url); }, 0);
   }
 

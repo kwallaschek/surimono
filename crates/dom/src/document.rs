@@ -250,6 +250,9 @@ pub(crate) struct DocInfo {
     pub content_type: &'static str,
     /// An iframe's: a `defaultView`, though no script of its own.
     pub frame: bool,
+    /// That iframe, for the walk up to the page. It may have a newer document
+    /// by now: `frames` says.
+    pub frame_element: Option<usize>,
     /// One allocation, however many documents take the URL.
     pub url: Arc<str>,
     /// `url` came from a script, and is charged to `max_text_bytes`.
@@ -600,6 +603,7 @@ impl Document {
         );
         let info = DocInfo {
             url_charged: false,
+            frame_element: None,
             html: true,
             xml_interface: false,
             quirks: parsed.quirks,
@@ -885,6 +889,7 @@ impl Document {
     pub(crate) fn blank_info(&self, html: bool, content_type: &'static str) -> DocInfo {
         DocInfo {
             url_charged: false,
+            frame_element: None,
             html,
             xml_interface: false,
             quirks: false,
@@ -1165,6 +1170,7 @@ impl Document {
         };
         if let Some(info) = self.docs.get_mut(&d) {
             info.frame = true;
+            info.frame_element = Some(id);
         }
         self.frames.insert(id, d);
         Ok(Some(d))
@@ -1197,19 +1203,22 @@ impl Document {
     }
 
     /// Whether frame document `doc` is fully active: its `<iframe>` is
-    /// connected, in the page or in a frame that is. Each step goes up one
-    /// frame, so the loop is as long as the frames at most.
+    /// connected and still has it as its document, in the page or in a frame
+    /// that is. Linear in the chain, which `max_nodes` bounds, and each
+    /// frame's document can only be one element's.
     pub(crate) fn frame_is_attached(&self, doc: usize) -> bool {
         let mut at = doc;
         for _ in 0..=self.frames.len() {
             if at == self.root() {
                 return true;
             }
-            let element = self.frames.iter().find(|&(_, &d)| d == at);
-            match element {
-                Some((&e, _)) if self.is_connected(e) => at = self.owner_of_node(e),
-                _ => return false,
+            let Some(e) = self.info(at).frame_element else {
+                return false;
+            };
+            if self.frames.get(&e) != Some(&at) || !self.is_connected(e) {
+                return false;
             }
+            at = self.owner_of_node(e);
         }
         false
     }
@@ -1266,6 +1275,7 @@ impl Document {
         if let Some(d) = parsed {
             if let Some(info) = self.docs.get_mut(&d) {
                 info.frame = true;
+                info.frame_element = Some(id);
             }
             self.frames.insert(id, d);
         }

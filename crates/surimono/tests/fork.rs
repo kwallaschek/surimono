@@ -14,8 +14,8 @@
 #![allow(unsafe_code)]
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 
 use surimono::{Limits, Options, Renderer};
@@ -46,8 +46,25 @@ const FULL_EVERY: usize = 20;
 const NESTED_EVERY: usize = 10;
 const NESTED_FULL_EVERY: usize = 50;
 
-/// How long a forked process may take before it counts as hung.
-const HANG: Duration = Duration::from_secs(30);
+/// How long a forked process may take before it counts as hung; ASan's job
+/// scales it, as it does every wall-clock limit in a test. Forced before the
+/// first fork: a forked child reading the environment could block on the lock
+/// of a thread that isn't there.
+static HANG: LazyLock<Duration> = LazyLock::new(|| {
+    let scale = match std::env::var("SURIMONO_TEST_TIME_SCALE") {
+        Err(std::env::VarError::NotPresent) => 1,
+        Ok(s) if s.is_empty() => 1,
+        Ok(s) => s
+            .parse::<u32>()
+            .ok()
+            .filter(|n| *n >= 1)
+            .unwrap_or_else(|| {
+                panic!("SURIMONO_TEST_TIME_SCALE must be an integer of at least 1, not {s:?}")
+            }),
+        Err(e) => panic!("SURIMONO_TEST_TIME_SCALE: {e}"),
+    };
+    Duration::from_secs(30) * scale
+});
 
 const ECHARTS: &str = r#"{
   "animation": false,
@@ -197,7 +214,7 @@ fn grandchild(shared: &Renderer, full: bool) -> i32 {
         if r < 0 {
             return 24;
         }
-        if started.elapsed() > HANG {
+        if started.elapsed() > *HANG {
             // SAFETY: as above; it is still ours until reaped.
             unsafe {
                 libc::kill(pid, libc::SIGKILL);
@@ -215,6 +232,7 @@ fn grandchild(shared: &Renderer, full: bool) -> i32 {
 #[test]
 #[ignore = "helper: run in a child process by forks_never_hang"]
 fn fork_stress_child() {
+    LazyLock::force(&HANG);
     let forks: usize = std::env::var("SURIMONO_FORKS")
         .ok()
         .and_then(|n| n.parse().ok())
@@ -266,7 +284,7 @@ fn fork_stress_child() {
                         failed.push(status);
                     }
                     running.swap_remove(i);
-                } else if started.elapsed() > HANG {
+                } else if started.elapsed() > *HANG {
                     // SAFETY: as above; it is still ours until reaped.
                     unsafe {
                         libc::kill(pid, libc::SIGKILL);
@@ -333,7 +351,16 @@ fn forks_never_hang() {
     use std::os::unix::process::CommandExt;
 
     let exe = std::env::current_exe().unwrap_or_else(|e| panic!("{e}"));
+    // ASan's quarantine has spin locks its fork handling doesn't cover, and
+    // the rendering thread frees memory, so under ASan the child can hang
+    // inside `free` (crates/islands/tests/fork.rs, the same test). Elsewhere
+    // nothing reads this. Only this process goes without it.
+    let asan = std::env::var("ASAN_OPTIONS").unwrap_or_default();
     let mut child = std::process::Command::new(exe)
+        .env(
+            "ASAN_OPTIONS",
+            format!("{asan}:quarantine_size_mb=0:thread_local_quarantine_size_kb=0"),
+        )
         .args(["fork_stress_child", "--exact", "--ignored", "--nocapture"])
         .stdout(std::process::Stdio::piped())
         .process_group(0)

@@ -704,7 +704,10 @@ fn fragments_are_charged_and_their_orphans_freed() {
 fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
     // `selectors` recurses once per combinator: this aborted the process.
     let page = format!("<!doctype html><body>{}", "<b></b>".repeat(49_000));
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    // What this asserts is a `SyntaxError`, not a time: a loaded machine took
+    // the 49,000-element query past the default limit.
+    let time = scaled(Duration::from_secs(30));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
     rt.load(Document::parse(&page).unwrap());
     for combinator in ['+', '~', '>', ' '] {
         let script = format!(
