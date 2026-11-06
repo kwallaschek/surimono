@@ -28,6 +28,8 @@ mod engine;
 mod error;
 mod event_loop;
 mod fork_safe;
+#[allow(unsafe_code)]
+mod host_thread;
 mod limits;
 mod sandbox;
 mod watchdog;
@@ -42,6 +44,9 @@ pub use error::SandboxError;
 pub use event_loop::{
     EventLoopHandle, ExternalWait, LoopBridge, SettleOptions, SettleOutcome, SettleReport,
 };
+/// Not public API: for `surimono-islands`.
+#[doc(hidden)]
+pub use host_thread::{HostThread, spawn_host_thread};
 pub use limits::Limits;
 pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
 
