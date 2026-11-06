@@ -239,8 +239,8 @@ let pdf = engine.render(&page.html)?;
   no base applied. A stylesheet comes out as `<style>`, and a `url()` or `@import`
   in it isn't followed.
 - **The output is serialized**, so it isn't byte-identical to the input:
-  `<script>` and `<noscript>` are gone unless you pass `keep_scripts`, and so are
-  comments.
+  `<noscript>` and comments are always gone, and `<script>` too unless you pass
+  `keep_scripts`.
 
 The [Rails guide](docs/guide/rails.md#page-scripts) and the
 [Rust guide](docs/guide/rust.md#page-scripts) cover all of it, including how to
@@ -257,8 +257,11 @@ at `5dde7483b7`):
 | `dom/events` | 544 | 748 | 72.7% | 70%, met (64.2% of wpt.fyi's 848) |
 | `domparsing` | 355 | 909 | 39.1% | 60%, not met |
 
-Marked, highlight.js, KaTeX auto-render, Alpine.js and D3 pages have their DOM
-compared with Chrome's; how they print isn't compared yet.
+Six real-world pages, built with Alpine.js, highlight.js, D3, KaTeX and marked,
+were printed through `render_page` and fulgur 0.40.0 and compared with Chrome's
+print ([results](fixtures/checkpoint-3/index.md)): 2 of 6 pass, Alpine.js and
+highlight.js. The other 4 print the same as fulgur printing Chrome's own DOM, so
+those failures are fulgur's layout, not the page's scripts.
 
 What doesn't work yet:
 

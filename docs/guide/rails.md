@@ -363,8 +363,8 @@ so it isn't byte-identical to what you passed in:
 
 - Attributes are quoted, a missing `<head>` or `<body>` is added, and comments
   are gone.
-- `<script>` and `<noscript>` are gone, except island markers on their way to
-  becoming SVG. To keep the scripts, for an engine that would run them, pass
+- `<noscript>` is gone, and `<script>` too, except island markers on their way
+  to becoming SVG. To keep the scripts, for an engine that would run them, pass
   `keep_scripts: true` to `Surimono::Renderer.new`.
 - A page with no doctype or an old one comes out with no doctype;
   a standards-mode page comes out with `<!doctype html>`.
