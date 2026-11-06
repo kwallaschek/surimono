@@ -625,6 +625,34 @@ to be unreachable, so it stays until the document drops; each is charged 4 KiB a
 `max_text_bytes`, which caps them at 65,536, and each removal walks up from each
 iterator's reference, under `poll`. A page with no iterator pays one `is_empty`.
 
+## Stylesheets
+
+CSS-in-JS writes with `insertRule` into a `<style>` whose text stays empty, so a rule
+that stayed in the CSSOM would never be printed. `src/sheet.rs` divides text into
+top-level rules on cssparser's tokens, the way the printer's parser does, without
+stylo: a stylo parse can't be stopped, and nothing here needs a rule's meaning. Blocks
+are skipped by the tokenizer, iteratively, and the cost is linear in the text.
+`glue_sheet.js` has what scripts see: a sheet is read when first asked for and is a
+list of records in the heap, and a new text makes a new sheet, as in a browser. An
+edit also goes to Rust, which keeps the rules of that element, charged against
+`max_text_bytes`. `to_html` writes those in place of the element's text, while the text
+is the one they came from; `innerHTML` and `textContent` still give the text, as a
+browser's do.
+
+So what the printer gets from an edited sheet went through the facade's screen like any
+`<style>`, and nothing about `insertRule` is a path around it.
+
+**Gaps** (for COMPAT). No declaration is parsed: `cssText` is the rule's own text with
+spacing normalized around the block, `rule.style` isn't bound, and a rule Chrome would
+refuse for its selector or declarations stays. So `insertRule('!!! {}')` succeeds where
+Chrome gives a `SyntaxError`; a selector can't be judged without taking the printer's
+view of what is known. Grouping rules have no `cssRules`; a `@media` rule is one
+`CSSRule` of type 4 and `CSSMediaRule` isn't bound. `link.sheet` is null and
+`document.styleSheets` has only `<style>`s, because linked sheets arrive after settle.
+`media`, `disabled`, `replace`, `replaceSync`, `adoptedStyleSheets` and `new
+CSSStyleSheet()` aren't bound. An `svg` `<style>` has no `sheet`. Removing and
+re-inserting a style element keeps its sheet.
+
 ## MutationObserver
 
 Registrations and record queues are in Rust, which sees the mutations

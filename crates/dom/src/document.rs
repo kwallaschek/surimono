@@ -504,6 +504,9 @@ pub struct Document {
     pub(crate) free_decoders: Vec<u32>,
     /// `NodeIterator`s' pointers (`src/traversal.rs`), for as long as the document.
     pub(crate) iterators: Vec<crate::traversal::LiveIterator>,
+    /// Style elements whose rules a script edited (`src/sheet.rs`). Only looked up,
+    /// so its order can't reach any output.
+    pub(crate) sheets: HashMap<usize, crate::sheet::EditedSheet>,
     /// Boundary points by node, counted, so a mutation of a node with none
     /// doesn't look at `ranges`. Only looked up.
     pub(crate) range_points: HashMap<usize, u32>,
@@ -676,6 +679,7 @@ impl Document {
             decoders: Vec::new(),
             free_decoders: Vec::new(),
             iterators: Vec::new(),
+            sheets: HashMap::new(),
             range_points: HashMap::new(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
@@ -1530,7 +1534,8 @@ impl Document {
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         if let Some(id) = self.document_element() {
-            self.serialize(id, &mut out);
+            // The check never fails, so neither does this.
+            let _ = self.serialize_with(id, &mut out, true, &mut |_| Ok(()));
         }
         out
     }
@@ -1547,7 +1552,7 @@ impl Document {
         let mut out = String::new();
         if let Some(id) = self.document_element() {
             let mut steps = 0u32;
-            self.serialize_with(id, &mut out, &mut |out| {
+            self.serialize_with(id, &mut out, true, &mut |out| {
                 if out.len() > max_bytes {
                     return Err(DomError::OutputLimit { limit: max_bytes });
                 }
@@ -1566,15 +1571,17 @@ impl Document {
 
     fn serialize(&self, top: usize, out: &mut String) {
         // The check never fails, so neither does this.
-        let _ = self.serialize_with(top, out, &mut |_| Ok(()));
+        let _ = self.serialize_with(top, out, false, &mut |_| Ok(()));
     }
 
     /// Serializes `top`, calling `check` at each node and every
-    /// [`TEXT_SLICE`] bytes of a string, so a check sees the output grow.
+    /// [`TEXT_SLICE`] bytes of a string, so a check sees the output grow. With
+    /// `printing`, a style element writes the rules a script edited.
     fn serialize_with(
         &self,
         top: usize,
         out: &mut String,
+        printing: bool,
         check: &mut dyn FnMut(&str) -> Result<(), DomError>,
     ) -> Result<(), DomError> {
         enum Step {
@@ -1685,6 +1692,14 @@ impl Document {
                                 );
                             if !void {
                                 stack.push(Step::Close(id));
+                                if printing
+                                    && e.name.ns == ns!(html)
+                                    && e.name.local.as_ref() == "style"
+                                    && let Some(text) = self.edited_sheet_text(id)
+                                {
+                                    push_sliced(&text, true, false, out, check)?;
+                                    continue;
+                                }
                                 // §13.3: a template's content, not its
                                 // children, of which a script can give it
                                 // some; one a script made may have no
