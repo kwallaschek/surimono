@@ -28,6 +28,7 @@ fn page(script: &str) -> String {
 }
 
 const FRAME_TARGET: &str = "frame-target.xhtml";
+const SUB_SCRIPT: &str = "tokens.sub.js";
 /// What wptserve sends each extension as; `set_url` takes it from the URL.
 const XHTML_TYPE: &str = "application/xhtml+xml";
 const XML_TYPE: &str = "application/xml";
@@ -116,6 +117,34 @@ fn files() -> Vec<(&'static str, String)> {
                 "assert_equals(document.createElement('A').localName, 'a');",
             )),
         ),
+        (
+            "tokens.sub.html",
+            page(
+                "test(() => {\n\
+                   assert_equals('{{host}}:{{ports[http][0]}}', location.host);\n\
+                   assert_equals('{{location[path]}}', location.pathname);\n\
+                   assert_equals(from_script, 'www1.web-platform.test');\n\
+                 }, 'tokens');",
+            )
+            .replace(
+                "<script>test",
+                "<script src=\"tokens.sub.js\"></script><script>test",
+            ),
+        ),
+        (
+            SUB_SCRIPT,
+            "var from_script = '{{domains[www1]}}';\n".to_owned(),
+        ),
+        ("bad-token.sub.html", page("'{{nothing}}';")),
+        // The wrapper page is substituted too, named as its script, so no escaping.
+        (
+            "meta.sub.window.js",
+            "// META: title=a&{{host}}\n\
+             test(() => {\n\
+               assert_equals(document.title, 'a&web-platform.test');\n\
+             }, 'meta');\n"
+                .to_owned(),
+        ),
         ("page.xhtml", xml_page("page.xhtml", XHTML_TYPE)),
         ("page.xht", xml_page("page.xht", XHTML_TYPE)),
         ("page.xml", xml_page("page.xml", XML_TYPE)),
@@ -159,7 +188,7 @@ fn tree(name: &str) -> PathBuf {
     let mut manifest = String::from("commit = \"abc\"\n");
     for (file, text) in files() {
         fs::write(tests.join(file), text).unwrap();
-        if file == "helper.js" || file == FRAME_TARGET {
+        if ["helper.js", FRAME_TARGET, SUB_SCRIPT].contains(&file) {
             continue;
         }
         let url = match file.strip_suffix(".js") {
@@ -272,6 +301,12 @@ fn every_path_ends_in_a_value() {
         assert_eq!(t["status"], "OK", "{url}: {t}");
         assert_eq!(subtests(t), [("url", "PASS")], "{url}: {t}");
     }
+    // `.sub.` files: a page and its script, on disk as WPT wrote them.
+    let t = test(&r, "tokens.sub.html");
+    assert_eq!(subtests(t), [("tokens", "PASS")], "{t}");
+    assert_eq!(status("bad-token.sub.html"), "ERROR");
+    let t = test(&r, "meta.sub.window.html?v=1");
+    assert_eq!(subtests(t), [("meta", "PASS")], "{t}");
     // Not well-formed is a `parsererror` document, so no harness and no report.
     assert_eq!(status("not-well-formed.xhtml"), "LIMIT");
     // A frame's source comes from the vendored tests, also by an absolute URL.
@@ -297,8 +332,8 @@ fn every_path_ends_in_a_value() {
         .iter()
         .map(|t| t["test"].as_str().unwrap())
         .collect();
-    // Every file but the helper and the frame's target, and the missing one.
-    assert_eq!(urls.len(), files().len() - 1);
+    // Every file but the helpers and the frame's target, and the missing one.
+    assert_eq!(urls.len(), files().len() - 2);
     assert_eq!(urls[..2], ["pass-and-fail.html", "wrapped.any.html?v=1"]);
     assert_eq!(*urls.last().unwrap(), "missing.html");
     fs::remove_dir_all(root).unwrap();

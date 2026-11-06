@@ -120,7 +120,7 @@ def table(result: dict) -> str:
     for o in result["order"]:
         lines.append(f"| {o['interface']} | {o['completes']} | {o['touches']} | {o['reachable_after']} of {o['of']} |")
     if result["blocked"]:
-        lines += ["", "Set aside (browser features a one-document runner lacks): " + ", ".join(f"{k} {v}" for k, v in result["blocked"].items())]
+        lines += ["", "Set aside (what the runner can't offer): " + ", ".join(f"{k} {v}" for k, v in result["blocked"].items())]
     return "\n".join(lines)
 
 

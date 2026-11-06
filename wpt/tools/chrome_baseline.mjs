@@ -8,8 +8,8 @@
 // CHECKOUT is a web-platform-tests checkout at the pinned commit. This script
 // never runs anything from it on the host: a small static server here reads its
 // files as data for Chromium, on 127.0.0.1. So it covers what WPT's server does
-// statically (the .any/.window wrappers, .headers files, the common .sub
-// substitutions) and not its Python handlers, apart from two small ones redone
+// statically (the .any/.window wrappers, .headers files, .sub
+// substitution) and not its Python handlers, apart from two small ones redone
 // below: another .py URL is a 404, and a subtest that needs one fails in Chromium
 // and is left out of the denominator. The 404s are listed at the end.
 //
@@ -22,6 +22,7 @@ import { createServer } from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ALT_HOST, HOST, PORTS, substitute } from './substitute.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const wpt = path.resolve(here, '..');
@@ -41,9 +42,7 @@ if (!flag('--from') || !fs.existsSync(path.join(checkout, 'resources/testharness
   process.exit(1);
 }
 
-const HOST = 'web-platform.test';
-const PORTS = [8000, 8001];
-const ORIGIN = `http://${HOST}:${PORTS[0]}`;
+const ORIGIN = `http://${HOST}:${PORTS.http[0]}`;
 // The harness's own timer stays off, as in the surimono runner; these are
 // wptrunner's limits, on real time here.
 const TIMEOUT_MS = 10_000;
@@ -98,22 +97,6 @@ function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (c) => `&#${c.codePointAt(0)};`);
 }
 
-/** wptserve's common substitutions in .sub. files. */
-function substitute(text, url) {
-  return text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (all, expr) => {
-    const m = /^(\w+)(?:\[(.*?)\])?(?:\[(.*?)\])?$/.exec(expr);
-    if (!m) return all;
-    const [, name, a, b] = m;
-    if (name === 'host') return HOST;
-    if (name === 'ports') return String(PORTS[Number(b ?? 0)] ?? PORTS[0]);
-    if (name === 'domains') return a ? `${a}.${HOST}` : HOST;
-    if (name === 'hosts') return b ? `${b}.${HOST}` : HOST;
-    if (name === 'GET') return url.searchParams.get(a) ?? '';
-    if (name === 'location') return a === 'scheme' ? url.protocol.slice(0, -1) : url[{ server: 'origin', path: 'pathname', query: 'search' }[a] ?? a] ?? '';
-    return all;
-  });
-}
-
 function serve(req, res) {
   const url = new URL(req.url, ORIGIN);
   const send = (code, type, body, headers = {}) => {
@@ -133,7 +116,17 @@ function serve(req, res) {
     return send(200, type && subtype ? `${type}/${subtype}` : 'text/html', `<head>${meta}</head>`);
   }
   const wrapped = /\.(any|window)\.html$/.test(url.pathname) ? inside(url.pathname.replace(/\.html$/, '.js')) : null;
-  if (wrapped && fs.existsSync(wrapped)) return send(200, 'text/html', wrapper(url.pathname, fs.readFileSync(wrapped, 'utf8')));
+  if (wrapped && fs.existsSync(wrapped)) {
+    let page = wrapper(url.pathname, fs.readFileSync(wrapped, 'utf8'));
+    if (path.basename(wrapped).includes('.sub.')) {
+      try {
+        page = substitute(page, url, wrapped); // serve.py: the script's name decides the escaping.
+      } catch (e) {
+        return send(500, 'text/plain', String(e));
+      }
+    }
+    return send(200, 'text/html', page);
+  }
   const file = inside(url.pathname);
   if (!file || file.endsWith('.py') || !fs.statSync(file).isFile()) {
     if (!url.pathname.endsWith('favicon.ico')) missing.add(url.pathname);
@@ -147,7 +140,13 @@ function serve(req, res) {
     }
   }
   let body = fs.readFileSync(file);
-  if (path.basename(file).includes('.sub.')) body = substitute(body.toString('utf8'), url);
+  if (path.basename(file).includes('.sub.')) {
+    try {
+      body = substitute(body.toString('utf8'), url);
+    } catch (e) {
+      return send(500, 'text/plain', String(e)); // Where wptserve's template raises.
+    }
+  }
   const type = headers['Content-Type'] ?? TYPES[path.extname(file)] ?? 'application/octet-stream';
   delete headers['Content-Type'];
   send(200, type, body, headers);
@@ -206,11 +205,11 @@ const { commit, tests } = manifest();
 const todo = filter ? tests.filter((t) => t.test.includes(filter)) : tests;
 const server = createServer(serve);
 const server2 = createServer(serve);
-await new Promise((ok) => server.listen(PORTS[0], '127.0.0.1', ok));
-await new Promise((ok) => server2.listen(PORTS[1], '127.0.0.1', ok));
+await new Promise((ok) => server.listen(PORTS.http[0], '127.0.0.1', ok));
+await new Promise((ok) => server2.listen(PORTS.http[1], '127.0.0.1', ok));
 const browser = await chromium.launch({
   headless: true,
-  args: [`--host-resolver-rules=MAP ${HOST} 127.0.0.1, MAP *.${HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${ORIGIN}`],
+  args: [`--host-resolver-rules=MAP ${HOST} 127.0.0.1, MAP *.${HOST} 127.0.0.1, MAP ${ALT_HOST} 127.0.0.1, MAP *.${ALT_HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${ORIGIN}`],
 });
 const results = new Array(todo.length);
 let next = 0;

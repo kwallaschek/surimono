@@ -79,6 +79,28 @@ const ENVIRONMENT: &str = r#"
 "#;
 /// Where WPT's server would serve a test (wptserve's default host and port).
 const ORIGIN: &str = "http://web-platform.test:8000/";
+/// wptserve's `browser_host` and `alternate_hosts`.
+const HOST: &str = "web-platform.test";
+const ALT_HOST: &str = "not-web-platform.test";
+/// `tools/serve/serve.py`'s ports, with its "auto" entries fixed, as in
+/// `wpt/tools/substitute.mjs`.
+const PORTS: &[(&str, &[u16])] = &[
+    ("http", &[8000, 8001]),
+    ("http-local", &[8082]),
+    ("http-public", &[8083]),
+    ("https", &[8443, 8444]),
+    ("https-local", &[8445]),
+    ("https-public", &[8446]),
+    ("h2", &[9000]),
+    ("ws", &[8888]),
+    ("wss", &[8889]),
+    ("webtransport-h3", &[11000]),
+    ("dns", &[8053]),
+];
+/// Subdomains `{{domains[…]}}` knows. wptserve has more, none of them in the slices.
+const SUBDOMAINS: &[&str] = &["www", "www1", "www2", "nonexistent"];
+/// What `{{uuid()}}` gives: wptserve's is random, a test tool's output isn't.
+const UUID: &str = "00000000-0000-4000-8000-000000000000";
 
 #[derive(Clone, Copy)]
 struct TestLimits {
@@ -313,7 +335,7 @@ fn inject_fault(url: &str) {
 /// One test, in this process. Never panics on a test's account: the parent
 /// counts a panic as a crash, which is what it would be.
 fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
-    let source = match page(root, file) {
+    let source = match page(root, file, url) {
         Ok(source) => source,
         Err(e) => return failure("ERROR", e),
     };
@@ -468,12 +490,16 @@ fn is_xml(file: &str) -> bool {
 
 /// The document for a test: its own file, or for `.any.js` and `.window.js` the
 /// page WPT's server wraps around it.
-fn page(root: &Path, file: &str) -> Result<String, String> {
+fn page(root: &Path, file: &str, url: &str) -> Result<String, String> {
     let path = root.join("tests").join(file);
     let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let text = String::from_utf8_lossy(&bytes).into_owned();
     if !(file.ends_with(".any.js") || file.ends_with(".window.js")) {
-        return Ok(text);
+        return if is_substituted(file) {
+            substitute(&text, url, file)
+        } else {
+            Ok(text)
+        };
     }
     let mut head = String::from("<!doctype html>\n<meta charset=utf-8>\n");
     let mut scripts = String::new();
@@ -503,6 +529,10 @@ fn page(root: &Path, file: &str) -> Result<String, String> {
     head.push_str("<div id=log></div>\n");
     let name = file.rsplit('/').next().unwrap_or(file);
     head.push_str(&format!("<script src=\"{name}\"></script>\n"));
+    // serve.py runs the pipe on the wrapper too, named as the script.
+    if is_substituted(file) {
+        return substitute(&head, url, file);
+    }
     Ok(head)
 }
 
@@ -535,8 +565,233 @@ fn resolve(root: &Path, base: &str, src: &str) -> Option<String> {
     if format!("/{normal}") == HOOK_URL {
         return Some(HOOK.to_owned());
     }
-    let bytes = fs::read(root.join("tests").join(normal)).ok()?;
-    Some(String::from_utf8_lossy(&bytes).into_owned())
+    let bytes = fs::read(root.join("tests").join(&normal)).ok()?;
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    if !is_substituted(&normal) {
+        return Some(text);
+    }
+    let query = src
+        .split('#')
+        .next()?
+        .split_once('?')
+        .map_or(String::new(), |(_, q)| format!("?{q}"));
+    substitute(&text, &format!("{normal}{query}"), &normal).ok()
+}
+
+/// Whether wptserve runs its `sub` pipe on this file, by name.
+fn is_substituted(file: &str) -> bool {
+    file.rsplit('/').next().unwrap_or(file).contains(".sub.")
+}
+
+/// Whether wptserve escapes values in `file`: `wrap_pipeline` in its handlers.py,
+/// by extension.
+fn is_markup(file: &str) -> bool {
+    let name = file.rsplit('/').next().unwrap_or(file);
+    let extension = name.rsplit_once('.').map_or("", |(_, e)| e);
+    ["html", "htm", "xht", "xhtml", "xml", "svg"].contains(&extension)
+}
+
+/// wptserve's `sub` pipe on `text`, requested as `url` from the root of
+/// [`ORIGIN`], with `file` deciding the escaping: `wpt/README.md`, "Substitution".
+/// An error where wptserve's template raises, and on the few forms it has and
+/// this doesn't.
+fn substitute(text: &str, url: &str, file: &str) -> Result<String, String> {
+    let escaped = is_markup(file);
+    let mut out = String::with_capacity(text.len());
+    let mut variables = BTreeMap::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("{{") {
+        let body = &rest[start + 2..];
+        match body.find('}') {
+            Some(end) if body[end..].starts_with("}}") => {
+                out.push_str(&rest[..start]);
+                let value = evaluate(&body[..end], url, &mut variables)?;
+                if escaped {
+                    escape_into(&mut out, &value);
+                } else {
+                    out.push_str(&value);
+                }
+                rest = &body[end + 2..];
+            }
+            _ => {
+                out.push_str(&rest[..=start]);
+                rest = &rest[start + 1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+/// `html.escape(value, quote=True)`.
+fn escape_into(out: &mut String, value: &str) {
+    for c in value.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#x27;"),
+            c => out.push(c),
+        }
+    }
+}
+
+/// wptserve's tokens: `$name:`, a name, `[index]`, `(arguments)`. As in
+/// `re.Scanner`, what can't be read ends the list.
+fn tokens(mut text: &str) -> Vec<&str> {
+    let word = |s: &str| {
+        s.find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+            .unwrap_or(s.len())
+    };
+    let mut out = Vec::new();
+    loop {
+        let close = match text.chars().next() {
+            Some('[') => text.find(']'),
+            Some('(') => text.find(')'),
+            Some(_) => {
+                let start = usize::from(text.starts_with('$'));
+                let end = start + word(&text[start..]);
+                let var = start == 1 && end > 1 && text[end..].starts_with(':');
+                (end > start).then(|| if var { end } else { end - 1 })
+            }
+            None => None,
+        };
+        let Some(close) = close else { return out };
+        let (token, tail) = text.split_at(close + 1);
+        out.push(token);
+        text = tail;
+    }
+}
+
+/// `%XX` and `+` of a query value, as wptserve's `GET` reads them.
+fn decoded(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = (bytes[i] == b'%')
+            .then(|| value.get(i + 1..i + 3))
+            .flatten()
+            .and_then(|h| u8::from_str_radix(h, 16).ok());
+        match (hex, bytes[i]) {
+            (Some(byte), _) => {
+                out.push(byte);
+                i += 3;
+            }
+            (None, b'+') => {
+                out.push(b' ');
+                i += 1;
+            }
+            (None, byte) => {
+                out.push(byte);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// The value of one `{{…}}`.
+fn evaluate(
+    body: &str,
+    url: &str,
+    variables: &mut BTreeMap<String, String>,
+) -> Result<String, String> {
+    let bad = || format!("can't substitute {{{{{body}}}}}");
+    let mut list = tokens(body).into_iter();
+    let mut name = list.next().ok_or_else(bad)?;
+    let variable = name.strip_suffix(':');
+    if variable.is_some() {
+        name = list.next().ok_or_else(bad)?;
+    }
+    if name.starts_with(['[', '(']) {
+        return Err(bad());
+    }
+    let index = |list: &mut std::vec::IntoIter<&str>| -> Result<String, String> {
+        let token = list.next().ok_or_else(bad)?;
+        let inner = token.strip_prefix('[').and_then(|t| t.strip_suffix(']'));
+        inner.map(str::to_owned).ok_or_else(bad)
+    };
+    let domain = |host: &str, sub: String| match sub.as_str() {
+        "" => Ok(host.to_owned()),
+        s if SUBDOMAINS.contains(&s) => Ok(format!("{s}.{host}")),
+        _ => Err(bad()),
+    };
+    let (path, query) = url.split_once('?').unwrap_or((url, ""));
+    let value = if let Some(value) = variables.get(name) {
+        value.clone()
+    } else {
+        match name {
+            "host" => HOST.to_owned(),
+            "url_base" => "/".to_owned(),
+            "domains" => domain(HOST, index(&mut list)?)?,
+            "hosts" => match index(&mut list)?.as_str() {
+                "" => domain(HOST, index(&mut list)?)?,
+                "alt" => domain(ALT_HOST, index(&mut list)?)?,
+                _ => return Err(bad()),
+            },
+            "ports" => {
+                let protocol = index(&mut list)?;
+                // Python's int(): spaces and a sign pass, and a negative
+                // index counts from the end.
+                let number: i64 = index(&mut list)?.trim().parse().map_err(|_| bad())?;
+                let ports = PORTS
+                    .iter()
+                    .find(|(p, _)| *p == protocol)
+                    .ok_or_else(bad)?
+                    .1;
+                let from_end = usize::try_from(number.unsigned_abs()).ok();
+                let at = if number < 0 {
+                    from_end.and_then(|n| ports.len().checked_sub(n))
+                } else {
+                    from_end
+                };
+                ports.get(at.ok_or_else(bad)?).ok_or_else(bad)?.to_string()
+            }
+            "location" => {
+                let authority = ORIGIN.trim_end_matches('/');
+                let host = authority.trim_start_matches("http://");
+                match index(&mut list)?.as_str() {
+                    "server" => authority.to_owned(),
+                    "scheme" => "http".to_owned(),
+                    "host" => host.to_owned(),
+                    "hostname" => HOST.to_owned(),
+                    "port" => host.rsplit(':').next().unwrap_or(host).to_owned(),
+                    "path" | "pathname" => format!("/{path}"),
+                    "query" => format!("?{query}"),
+                    _ => return Err(bad()),
+                }
+            }
+            "GET" => {
+                let key = index(&mut list)?;
+                query
+                    .split('&')
+                    .filter(|pair| !pair.is_empty())
+                    .map(|pair| pair.split_once('=').unwrap_or((pair, "")))
+                    .find(|(k, _)| decoded(k) == key)
+                    .map_or(String::new(), |(_, v)| decoded(v))
+            }
+            "uuid" if list.next() == Some("()") => UUID.to_owned(),
+            "header_or_default" => {
+                let arguments = list.next().ok_or_else(bad)?;
+                let inner = arguments.trim_start_matches('(').trim_end_matches(')');
+                let given: Vec<&str> = inner.split(',').collect();
+                match given[..] {
+                    [_, default] => default.trim_start().to_owned(),
+                    _ => return Err(bad()),
+                }
+            }
+            _ => return Err(bad()),
+        }
+    };
+    if list.next().is_some() {
+        return Err(bad());
+    }
+    if let Some(variable) = variable {
+        variables.insert(variable.to_owned(), value.clone());
+    }
+    Ok(value)
 }
 
 #[cfg(test)]
@@ -576,6 +831,21 @@ mod tests {
             assert_eq!(r["status"], want);
         }
         assert_eq!(parse_report("not json")["status"], "ERROR");
+    }
+
+    /// `wpt/tools/sub-vectors.json`, shared with `substitute.mjs`.
+    #[test]
+    fn substitution_follows_wptserve() {
+        let text = include_str!("../../tools/sub-vectors.json");
+        let vectors: Value = serde_json::from_str(text).unwrap();
+        for v in vectors.as_array().unwrap() {
+            let url = v["url"].as_str().unwrap();
+            let file = url.split('?').next().unwrap();
+            let got = substitute(v["text"].as_str().unwrap(), url, file).ok();
+            assert_eq!(got.as_deref(), v["want"].as_str(), "{v}");
+        }
+        let r = substitute("{{uuid()}} {{$a:uuid()}} {{$a}}", "x", "x").unwrap();
+        assert_eq!(r, [UUID, UUID, UUID].join(" "));
     }
 
     #[test]
