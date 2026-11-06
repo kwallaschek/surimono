@@ -187,14 +187,16 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - E2-06 · PKG · done (#143; images fire no load events) · Resource loader with allowlist, network off by default. Caps its waits: at most 1,000 waits started and 10 s real time per render, then external_abandon_all, fail the rest without opening a wait, let the page settle; delivers completions in a fixed order (#99 review)
 - E2-07 · DOM+PKG · done (#132, #143) · Layout-query policy (zeros or throw)
 - E2-08 · PKG · done for serialized HTML (#143); live hand-off waits on a fulgur entry point · Output: serialized HTML, and the live Blitz document handed to fulgur behind a feature. Flush style attributes per element before the live hand-off with a test (nothing else does until phase 3; pick the no-namespace attribute); bound the printer's whole stylo parse (many capped attributes add up, <style> text unscreened, var() carries grid strings); screen script-set style text; text moved out of <style> stays empty in blitz; the hand-off must drop <noscript> because fulgur parses with scripting off (#93 #94 #104 reviews)
-- E2-09 · CF · doing (#123 merged; #145 after #142) · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing (first run #123: 73.5%, 18.8%, 10.8%, 13.5%; PKG job to publish wpt-results.json still needed)
+- E2-09 · CF · done (#123 #145 #151 #156 #165) · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing (first run #123: 73.5%, 18.8%, 10.8%, 13.5%; PKG job to publish wpt-results.json still needed)
 - E2-10 · CF · doing · Real-world suite: marked, highlight.js, KaTeX auto-render, Alpine.js (second to cut), D3 without measuring
 - P2-ORC-02 · ORC · todo · Root pins for html5ever, html-escape, stats_alloc, cssparser, url
 - E2-15 · DX · done (#157) · README, rust.md, rails.md, CHANGELOG for the page path; checkpoint-3 checklist
 - E2-10b · CF · done (#158: 2 of 6 pass; the rest equal their fulgur floor) · Print comparison for the real-world pages through render_page and fulgur against Chrome
-- E2-16 · DOM · doing (#160 #161 merged; #162 #163 open) · URL family, encoding, base64, structuredClone, navigator, HTML collections, tables, forms, TreeWalker, styleSheets
+- E2-16 · DOM · done (#160-#164) · URL family, encoding, base64, structuredClone, navigator, HTML collections, tables, forms, TreeWalker, styleSheets
 - P2-PKG-03 · PKG · done (#159) · MPL crates in about.toml; fork guard; page-check in CI
 - P2-DOM-07 · DOM · todo · A throwing string timer in WebIDL order; restore noscript escaping in template contents (#159 is on main); DESIGN.md stale lines at ~456 and ~565; #160 and #161 review leftovers (resizable buffers, define checks, a&a&a quadratic, number edge cases, focus with no browsing context)
+- P2-CF-05 · CF · done (#165) · Extra WPT areas, COMPAT regenerated, pages in COMPAT
+- P2-CF-06 · CF · todo · Rerun traversal and css/cssom after #162 #163; README WPT numbers to Docs
 - E2-11 · PKG · todo · musl native gems (third to cut)
 - E2-12 · DX · done (#157) · Rails guide for page scripts; checkpoint-3 checklist for Kay's own template
 

@@ -10,13 +10,11 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Fri 6 Nov 2026, 23:00)
+## Now (Sat 7 Nov 2026, 01:30)
 
-Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged since 17:10: #154 #155 #157 #158 #160 #161. Main's ruby and native-gems jobs stay red until #159 lands (about.toml); read full.yml after it.
+Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged since 23:00: #159 #162 #163 #164 #165. No PR is open. Phase 2's SPEC targets are met on our baseline (COMPAT.md at e879ec95): timers 91.2%, dom/nodes 92.8%, dom/events 75.7% (66.7% on wpt.fyi's count of 848: state both at checkpoint 3), domparsing 61.6%. Real-world pages: DOM 5 of 5 equal Chrome; print 2 of 6 pass, the other 4 equal fulgur printing Chrome's own DOM.
 
-Open: #159 (delta review at c5f21c51; merges with its DECISIONS lines), #162 (BLOCK: quadratic pointer update), #163 (approved delta; needs #162). After those: CF adds the rows queued in #156's body plus the DESIGN.md gaps, regenerates WPT results and COMPAT, adds the slices listed in #160-#163's bodies. forks_never_hang under load: #159.
-
-Then: DOM follow-ups in reviews of #161 and #163 (innerText across table sections, select.value on a disabled placeholder, replaced sheets, unterminated rule), P2-DOM-06 long token, P2-ORC-02 pins, P2-RT-07 libm, E2-11 musl (third to cut). Digest Sun 8 Nov 20:00, checkpoint 3 Sun 22 Nov 11:00.
+Next session, first: read full.yml on main (ruby and native-gems were red on about.toml until #159; ASan on time scales). Then in order: P2-CF-06 (rerun traversal and css/cssom, README WPT numbers via Docs), P2-DOM-07, P2-ORC-02 root pins, P2-RT-07 libm, E2-11 musl gems (third to cut), the follow-up ASan test that forks with the parent idle. Prepare the checkpoint-3 message (Sun 22 Nov 11:00) from docs/guide/checkpoint-3.md, COMPAT, fixtures/checkpoint-3, soak and determinism results. Digest due Sun 8 Nov 20:00 JST.
 
 ## Earlier (Thu 5 Nov 2026, 11:45)
 
