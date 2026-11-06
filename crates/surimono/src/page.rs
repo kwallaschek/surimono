@@ -21,7 +21,6 @@ use surimono_dom::{Document, DomError, DomLimits, DomRuntime, LayoutPolicy};
 
 use crate::backend;
 use crate::error::Error;
-use crate::fork_guard;
 use crate::options::{LayoutQueries, Options};
 use crate::print::{self, Finish, Gate};
 use crate::resources::{
@@ -393,7 +392,7 @@ fn work(life: &mut Life) {
                 }
             }
         };
-        let busy = fork_guard::busy();
+        let busy = surimono_core::busy();
         let Some(job) = job else {
             drop(runtime.take());
             surimono_core::release_free_memory();
@@ -403,14 +402,19 @@ fn work(life: &mut Life) {
         if job.stop.raised.load(Ordering::Acquire) {
             continue;
         }
-        let result = catch_unwind(AssertUnwindSafe(|| {
-            run_page(&shared.setup, &mut runtime, &job)
-        }))
-        .unwrap_or_else(|_| {
-            Err(Error::PageFailed {
-                message: "the page's worker panicked".into(),
-            })
-        });
+        let result = match &busy {
+            Err(e) => Err(Error::PageFailed {
+                message: e.to_string(),
+            }),
+            Ok(_) => catch_unwind(AssertUnwindSafe(|| {
+                run_page(&shared.setup, &mut runtime, &job)
+            }))
+            .unwrap_or_else(|_| {
+                Err(Error::PageFailed {
+                    message: "the page's worker panicked".into(),
+                })
+            }),
+        };
         // A runtime that failed may hold what it failed with.
         if result.is_err() {
             runtime = None;

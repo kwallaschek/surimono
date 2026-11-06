@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 
-use surimono::{Limits, Options, Renderer};
+use surimono::{Limits, Options, Renderer, ResourceLoader};
 
 /// A small registered renderer, so most children render quickly; every
 /// `FULL_EVERY`th child renders the ECharts and Vega-Lite document instead.
@@ -371,6 +371,86 @@ fn fork_stress_child() {
         renders.load(Ordering::Relaxed),
         started.elapsed().as_secs()
     );
+}
+
+/// Runs a page that signals from its load function, and calls `then` while the
+/// page is at or just past that load.
+fn with_a_page_in_its_load(
+    time: Duration,
+    html: &'static str,
+    wait_in_load: bool,
+    then: impl FnOnce(),
+) {
+    let (entered_tx, entered) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let released = std::sync::Mutex::new(released);
+    let entered_tx = std::sync::Mutex::new(entered_tx);
+    let loader = ResourceLoader::new(["a.js"], move |_| {
+        let _ = entered_tx
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .send(());
+        if wait_in_load {
+            let _ = released
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .recv();
+        }
+        Ok(b"1".to_vec())
+    });
+    let font = std::fs::read(repo().join("fixtures/fonts/NotoSans-Regular.ttf"))
+        .unwrap_or_else(|e| panic!("{e}"));
+    let r = Renderer::new(
+        Options::new()
+            .font(font)
+            .resource_loader(loader)
+            .limits(Limits {
+                time,
+                ..Limits::default()
+            }),
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    std::thread::scope(|s| {
+        let page = s.spawn(|| drop(r.render_page(html)));
+        entered.recv().unwrap_or_else(|e| panic!("{e}"));
+        then();
+        drop(release);
+        page.join().unwrap_or_else(|_| panic!("the page panicked"));
+    });
+}
+
+/// How long a `fork` of this process takes in the parent.
+fn fork_takes() -> Duration {
+    let started = Instant::now();
+    // SAFETY: as in `fork_stress_child`; this child only leaves.
+    let pid = unsafe { libc::fork() };
+    if pid == 0 {
+        // SAFETY: ends the child at once.
+        unsafe { libc::_exit(0) };
+    }
+    let took = started.elapsed();
+    assert!(pid > 0, "fork failed");
+    let mut status: libc::c_int = 0;
+    // SAFETY: `pid` is our own child, and `status` a valid place to write.
+    unsafe { libc::waitpid(pid, &mut status, 0) };
+    took
+}
+
+/// A page's scripts keep a `fork` waiting; its load function doesn't, because a
+/// Ruby load function needs what the forking thread holds.
+#[test]
+fn a_fork_waits_for_a_page_but_not_for_its_load() {
+    let html = "<script src=a.js></script><script>for (;;) {}</script>";
+    let time = Duration::from_millis(1500);
+    with_a_page_in_its_load(time, html, true, || {
+        let took = fork_takes();
+        assert!(took < Duration::from_secs(2), "took {took:?}");
+    });
+    with_a_page_in_its_load(time, html, false, || {
+        std::thread::sleep(Duration::from_millis(200));
+        let took = fork_takes();
+        assert!(took > Duration::from_millis(500), "took {took:?}");
+    });
 }
 
 /// A fork while another thread renders through a `Renderer` never leaves

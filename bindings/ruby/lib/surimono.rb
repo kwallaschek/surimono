@@ -274,6 +274,16 @@ module Surimono
     # Ruby's threads have 1 MiB unless RUBY_THREAD_MACHINE_STACK_SIZE says
     # otherwise, which is what Puma and Sidekiq workers run on.
     #
+    # A fork while pages render holds new ones back and waits for those running,
+    # for up to 5 seconds, with the VM lock held, so every Ruby thread of the
+    # process stops for that wait. A page can run for three times time_ms (parse,
+    # scripts, the rest), which can outlast it: the fork then goes ahead, and the
+    # child may stop for good at a lock the page held, so keep time_ms short in
+    # forking servers. A Puma, Unicorn or Resque parent that doesn't render never
+    # waits. Puma's fork_worker can freeze worker 0 for up to 5 seconds at a
+    # refork. Running as root, Ruby forks for system, backticks and spawn, so any
+    # of those can too: run as an ordinary user.
+    #
     # An interrupt raises at once, and stops the page's script within
     # milliseconds, freeing its runtime.
     def render_page(html, loader: nil, allow: nil)

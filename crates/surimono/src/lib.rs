@@ -55,8 +55,6 @@
 mod backend;
 mod charref;
 mod error;
-#[allow(unsafe_code)]
-mod fork_guard;
 mod options;
 mod page;
 mod prepass;

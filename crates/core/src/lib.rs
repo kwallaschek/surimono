@@ -27,6 +27,8 @@ mod embed;
 mod engine;
 mod error;
 mod event_loop;
+#[allow(unsafe_code)]
+mod fork_guard;
 mod fork_safe;
 #[allow(unsafe_code)]
 mod host_thread;
@@ -44,6 +46,9 @@ pub use error::SandboxError;
 pub use event_loop::{
     EventLoopHandle, ExternalWait, LoopBridge, SettleOptions, SettleOutcome, SettleReport,
 };
+/// Not public API: for `surimono`.
+#[doc(hidden)]
+pub use fork_guard::{Busy, busy, paused};
 /// Not public API: for `surimono-islands`.
 #[doc(hidden)]
 pub use host_thread::{HostThread, spawn_host_thread};
