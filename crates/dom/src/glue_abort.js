@@ -12,8 +12,9 @@
   function abortReason(reason) {
     return reason === undefined ? new DOMExceptionCtor('This operation was aborted', 'AbortError') : reason;
   }
-  // §3.2 "signal abort".
-  function signalAbort(s, reason) {
+  // §3.2 "signal abort". `inTask`: the caller is a task with no script on the
+  // stack, so each listener gets a checkpoint (`fireInTask`).
+  function signalAbort(s, reason, inTask) {
     if (s.aborted) return;
     s.aborted = true;
     s.reason = abortReason(reason);
@@ -26,14 +27,15 @@
         add(dependents, d);
       }
     }
-    runAbortSteps(s);
-    for (let i = 0; i < dependents.n; i++) runAbortSteps(dependents[i]);
+    runAbortSteps(s, inTask);
+    for (let i = 0; i < dependents.n; i++) runAbortSteps(dependents[i], inTask);
   }
-  function runAbortSteps(s) {
+  function runAbortSteps(s, inTask) {
     const algorithms = s.algorithms;
     s.algorithms = list();
     for (let i = 0; i < algorithms.n; i++) algorithms[i]();
-    fire(s, 'abort');
+    if (inTask) fireInTask(s, 'abort');
+    else fire(s, 'abort');
   }
   H.new_AbortController = (target) => {
     const s = make(I_AbortController, target);
@@ -53,6 +55,10 @@
   };
   // [EnforceRange] unsigned long long, on the virtual clock. A timer's delay
   // is a 32-bit integer; nothing past that is reached in a render's budget.
+  // The abort is a queued task in the spec and no timer: it runs in a microtask
+  // of its task, as a step of the page's life does (glue_tail.js), so a timer
+  // a listener sets starts from nesting level 0 and the checkpoint nests only
+  // in this one job.
   H.AbortSignal_timeout = (milliseconds) => {
     const v = trunc(+milliseconds);
     if (v - v !== 0 || v < 0 || v > 9007199254740991) {
@@ -60,9 +66,9 @@
     }
     const s = newSignal();
     if (v <= 2147483647) {
-      task(() => {
-        signalAbort(s, new DOMExceptionCtor('The operation timed out', 'TimeoutError'));
-      }, v);
+      task(() => queueMicrotaskReal(() => {
+        signalAbort(s, new DOMExceptionCtor('The operation timed out', 'TimeoutError'), true);
+      }), v);
     }
     return s.w;
   };

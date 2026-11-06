@@ -157,7 +157,6 @@ fn xml_serializer_on_attributes_and_taken_prefixes() {
             "const s = new XMLSerializer();
              const root = new DOMParser().parseFromString('<root xmlns:p=\"uri1\"><child/></root>', 'text/xml').documentElement;
              root.firstChild.setAttributeNS('uri2', 'p:foobar', 'v');
-             const c = new DOMParser().parseFromString('<a xmlns:q=\"u\"><b/></a><!-- -->', 'text/xml').documentElement;
              [s.serializeToString(document.createAttribute('x')), s.serializeToString(root)].join('|')",
         )
         .unwrap();
@@ -178,11 +177,10 @@ fn a_detached_frames_timers_never_run() {
             "globalThis.log = [];
              const a = document.getElementById('a'), b = document.getElementById('b');
              const w = a.contentWindow, gone = b.contentWindow;
-             const late = a.contentWindow;
              b.remove();
              log.push(typeof w.setTimeout(() => log.push('attached'), 0));
              gone.setTimeout(() => log.push('detached'), 0);
-             const t = w.setTimeout((x, y) => log.push(x + y), 1, 'a', 'b');
+             w.setTimeout((x, y) => log.push(x + y), 1, 'a', 'b');
              w.setTimeout(() => {}, 1);
              undefined",
         )
@@ -217,20 +215,127 @@ fn a_frame_loads_again_when_its_source_changes() {
     );
 }
 
-/// A frame that reloads itself forever ends at the render's rounds and frames.
+/// HTML §4.8.5: what does and doesn't start another load.
 #[test]
-fn a_frame_cant_reload_without_end() {
+fn reload_triggers() {
     let mut rt = runtime(
-        "<!doctype html><body><iframe id=f src='a.html'></iframe>
+        "<!doctype html><body><iframe id=d srcdoc='<i>doc</i>'></iframe><iframe id=s src='one.html'></iframe>
          <script>
-         globalThis.n = 0;
-         const f = document.getElementById('f');
-         f.onload = () => { n++; f.src = 'b' + n + '.html'; };
+         globalThis.log = [];
+         const d = document.getElementById('d'), s = document.getElementById('s');
+         let step = 0;
+         const seen = () => log.push(d.contentDocument.body.textContent + '/' + s.contentDocument.body.textContent);
+         let pending = 2;
+         const next = () => {
+           if (--pending > 0) return;
+           seen();
+           step++;
+           if (step === 1) {
+             // Neither of these loads anything.
+             d.src = 'two.html';
+             s.setAttributeNS('urn:x', 'src', 'x.html');
+             setTimeout(() => { log.push('quiet'); s.src = 'two.html'; pending = 1; }, 0);
+           } else if (step === 2) {
+             d.removeAttribute('srcdoc');
+             pending = 1;
+           }
+         };
+         d.onload = next; s.onload = next;
          </script>",
+        Some("http://e.test/"),
+    );
+    rt.run_page(&SettleOptions::default(), |url| {
+        Some(format!("<body>{}</body>", url.rsplit('/').next().unwrap()))
+    })
+    .unwrap();
+    let r: String = rt.eval("log.join('|')").unwrap();
+    assert_eq!(r, "doc/one.html|quiet|doc/two.html|two.html/two.html");
+}
+
+/// More frames than a render may load, each reloading itself: the loads stop
+/// at `MAX_FRAMES` (64), which a single frame's eight rounds can't reach.
+#[test]
+fn reloads_count_against_the_frames_of_a_render() {
+    let frames = "<iframe src='a.html'></iframe>".repeat(40);
+    let mut rt = runtime(
+        &format!(
+            "<!doctype html><body>{frames}
+             <script>
+             globalThis.loads = 0;
+             for (const f of document.querySelectorAll('iframe')) {{
+               f.onload = () => {{ loads++; f.src = 'b' + loads + '.html'; }};
+             }}
+             </script>"
+        ),
         Some("http://e.test/"),
     );
     rt.run_page(&SettleOptions::default(), |_| Some(String::new()))
         .unwrap();
-    let n: u32 = rt.eval("n").unwrap();
-    assert!((1..=64).contains(&n), "{n}");
+    let n: u32 = rt.eval("loads").unwrap();
+    assert_eq!(n, 64);
+}
+
+/// HTML §8.6: a frame whose parent frame has gone isn't fully active.
+#[test]
+fn a_nested_frames_timers_end_with_its_parent_frame() {
+    let mut rt = runtime("<!doctype html><body><iframe id=f></iframe>", None);
+    let () = rt
+        .eval(
+            "globalThis.log = [];
+             const f = document.getElementById('f');
+             const d = f.contentDocument;
+             const inner = d.body.appendChild(d.createElement('iframe'));
+             const w = inner.contentWindow;
+             w.setTimeout(() => log.push('nested'), 0);
+             f.remove();
+             w.setTimeout(() => log.push('after'), 0);
+             undefined",
+        )
+        .unwrap();
+    rt.run_until_settled(&SettleOptions::default()).unwrap();
+    let r: String = rt.eval("log.join()").unwrap();
+    assert_eq!(r, "");
+}
+
+#[test]
+fn target_ignores_the_case_and_escapes_of_its_name() {
+    let page = "<!doctype html><p id=t data-target=1>";
+    assert_eq!(ids(page, ":TARGET"), "t");
+    assert_eq!(ids(page, ":t\\61rget"), "t");
+    assert_eq!(ids(page, "[data-target]"), "t");
+}
+
+#[test]
+fn unknown_input_types_are_text() {
+    let page =
+        "<!doctype html><input id=a type=foo><input id=b type=datetime><input id=c type=file>
+        <input id=d type=range>";
+    assert_eq!(ids(page, "input:read-write"), "a,b");
+}
+
+/// HTML §6.8.1: only these values make a host; the others inherit.
+#[test]
+fn contenteditable_values() {
+    let page = "<!doctype html><p id=a contenteditable=inherit></p><p id=b contenteditable=bogus></p>
+        <div contenteditable=TRUE id=c><p id=d contenteditable=inherit></p><p id=e contenteditable=false><i id=f contenteditable=bogus></i></p></div>
+        <p id=g contenteditable=plaintext-only></p>";
+    assert_eq!(ids(page, "body :read-write"), "c,d,g");
+}
+
+#[test]
+fn one_select_has_one_selected_option() {
+    let page =
+        "<!doctype html><select><option id=a selected><option id=b selected><option id=c></select>
+        <select multiple><option id=d selected><option id=e selected></select>
+        <select size=3><option id=f selected><optgroup><option id=g selected></optgroup></select>
+        <option id=h selected>";
+    assert_eq!(ids(page, ":checked"), "b,d,e,g,h");
+}
+
+/// HTML §3.2.6.2: SVG elements too, and `xml:lang` first.
+#[test]
+fn lang_on_svg_and_xml_lang_priority() {
+    let page = r#"<!doctype html><svg id=a lang=ja></svg><svg id=b lang=ja xml:lang=de></svg><math id=c lang=ja></math>"#;
+    assert_eq!(ids(page, ":lang(ja)"), "a");
+    assert_eq!(ids(page, ":lang(de)"), "b");
 }

@@ -12,6 +12,13 @@
 //! answers "no such element" or "no match", the match ends quickly, and
 //! [`Matcher::stopped`] tells the caller.
 //!
+//! The matcher recurses for each combinator, on the stack. The caps on a
+//! selector keep that within `Sandbox::STACK_HEADROOM_BYTES`, by measurement;
+//! what makes it sure is that reaching an element also looks at the stack
+//! left, and below [`MIN_STACK_BYTES`] stops the match the same way and ends
+//! the call with [`SandboxError::StackOverflow`](surimono_core::SandboxError).
+//! The parser runs first, and its stack is only the caps' to bound.
+//!
 //! Blitz's own sibling lookups find the node's index by a scan per step, so
 //! they aren't used: [`Budget::index_in`] searches out from the last index it
 //! found, which costs little in tree order and is charged in any order.
@@ -48,13 +55,33 @@ use selectors::{Element, OpaqueElement, SelectorList};
 use style::context::QuirksMode;
 use style::selector_parser::NonTSPseudoClass;
 use style::selector_parser::SelectorImpl as Impl;
-use surimono_core::Deadline;
+use surimono_core::{Deadline, stack_available};
 
 use crate::document::{is_container_name, is_document_name};
 use crate::host::custom_element_name;
 
 /// Units of work between looks at the clock.
 const STEPS_PER_CHECK: usize = 4096;
+
+/// Stack a match must have left to go on to another element. Between two
+/// looks there is at most one combinator's recursion, or
+/// `MAX_SELECTOR_NESTING` levels of `:is()`, and a leaf test: at most a few
+/// KiB a level in an unoptimized build, and the worst selector allowed took
+/// under 142 KiB in all (see `MAX_SELECTOR_NESTING`).
+const MIN_STACK_BYTES: usize = 64 * 1024;
+
+#[cfg(test)]
+thread_local! {
+    /// A test's [`MIN_STACK_BYTES`].
+    pub(crate) static TEST_MIN_STACK: Cell<usize> = const { Cell::new(MIN_STACK_BYTES) };
+}
+
+fn min_stack() -> usize {
+    #[cfg(test)]
+    return TEST_MIN_STACK.get();
+    #[cfg(not(test))]
+    MIN_STACK_BYTES
+}
 
 /// The clock shared by one query.
 struct Budget {
@@ -91,9 +118,22 @@ impl Budget {
     }
 
     /// Whether matching should give up; counts reaching one element, where
-    /// the rest of the selector is tested.
+    /// the rest of the selector is tested, and looks at the stack left.
     fn reach(&self) -> bool {
-        self.charge(self.weight)
+        self.stack_low() || self.charge(self.weight)
+    }
+
+    /// Whether the stack is too short to go on; if so, stops the query and
+    /// ends the call.
+    fn stack_low(&self) -> bool {
+        if stack_available().is_none_or(|left| left >= min_stack()) {
+            return false;
+        }
+        self.stopped.set(true);
+        if let Some(deadline) = &self.deadline {
+            deadline.exceed_stack();
+        }
+        true
     }
 
     /// Whether matching should give up; counts `work` steps.
@@ -268,27 +308,26 @@ impl<'a> Guarded<'a> {
             .to_ascii_lowercase()
     }
 
-    /// An option with no `selected` is selected when it is the first option
-    /// that isn't disabled of a `select` that shows one (HTML §4.10.7's "ask
-    /// for a reset"), unless another one has `selected`.
+    /// HTML §4.10.7 "selectedness setting algorithm": in a `select` without
+    /// `multiple`, the last option with `selected`; with none, the first that
+    /// isn't disabled, if the `select` shows one.
     fn option_selected(&self) -> bool {
-        if self.has(local_name!("selected")) {
-            return true;
-        }
+        let own = self.has(local_name!("selected"));
         let mut select = self.up();
         if select.is_some_and(|p| p.html_name() == Some("optgroup")) {
             select = select.and_then(|p| p.up());
         }
         let Some(select) = select.filter(|p| p.html_name() == Some("select")) else {
-            return false;
+            return own;
         };
+        if select.has(local_name!("multiple")) {
+            return own;
+        }
         let size = select.node.attr(local_name!("size"));
         let display_size = size.and_then(|s| s.parse::<u32>().ok()).unwrap_or(1);
-        if select.has(local_name!("multiple")) || display_size > 1 {
-            return false;
-        }
         let mut stack: Vec<usize> = select.node.children.iter().rev().copied().collect();
         let mut first = None;
+        let mut last_selected = None;
         while let Some(id) = stack.pop() {
             if self.budget.over() {
                 return false;
@@ -300,7 +339,7 @@ impl<'a> Guarded<'a> {
             match at.html_name() {
                 Some("option") => {
                     if at.has(local_name!("selected")) {
-                        return false;
+                        last_selected = Some(id);
                     }
                     if first.is_none() && at.actually_disabled() == Some(false) {
                         first = Some(id);
@@ -310,7 +349,10 @@ impl<'a> Guarded<'a> {
                 _ => {}
             }
         }
-        first == Some(self.node.id)
+        match last_selected {
+            Some(s) => s == self.node.id,
+            None => display_size <= 1 && first == Some(self.node.id),
+        }
     }
 
     /// HTML §4.10.5.1: the types `required` applies to.
@@ -332,20 +374,19 @@ impl<'a> Guarded<'a> {
         match self.html_name() {
             Some("textarea") => mutable(self),
             Some("input") => {
-                let takes_text = matches!(
+                // An unknown type is the Text state, so go by the others.
+                let takes_text = !matches!(
                     self.input_type().as_str(),
-                    "" | "text"
-                        | "search"
-                        | "url"
-                        | "tel"
-                        | "email"
-                        | "password"
-                        | "date"
-                        | "month"
-                        | "week"
-                        | "time"
-                        | "datetime-local"
-                        | "number"
+                    "hidden"
+                        | "range"
+                        | "color"
+                        | "checkbox"
+                        | "radio"
+                        | "file"
+                        | "submit"
+                        | "image"
+                        | "reset"
+                        | "button"
                 );
                 takes_text && mutable(self)
             }
@@ -358,28 +399,42 @@ impl<'a> Guarded<'a> {
     fn is_editing_host(&self) -> bool {
         let mut at = Some(*self);
         while let Some(g) = at {
-            match g.node.attr(blitz_dom::LocalName::from("contenteditable")) {
-                Some(v) if v.eq_ignore_ascii_case("false") => return false,
-                Some(_) => return true,
-                None => at = g.up(),
+            let value = g.node.attr(blitz_dom::LocalName::from("contenteditable"));
+            let value = value.map(str::to_ascii_lowercase);
+            match value.as_deref() {
+                Some("" | "true" | "plaintext-only") => return true,
+                Some("false") => return false,
+                // Absent or anything else is the inherit state.
+                _ => at = g.up(),
             }
         }
         false
     }
 
-    /// HTML §3.2.6.2 "the language of a node": the nearest `xml:lang` or
-    /// `lang`, or none.
+    /// HTML §3.2.6.2 "the language of a node": the nearest `xml:lang`, or
+    /// `lang` in no namespace on an HTML or SVG element, or none. On one element
+    /// `xml:lang` has priority.
     fn language(&self) -> Option<&'a str> {
         let mut at = Some(*self);
         while let Some(g) = at {
+            let plain = g
+                .node
+                .element_data()
+                .is_some_and(|e| e.name.ns == ns!(html) || e.name.ns == ns!(svg));
+            let mut lang = None;
             for a in g.node.attrs().into_iter().flatten() {
-                let xml = a.name.ns == ns!(xml) && a.name.local.as_ref() == "lang";
-                let html = g.html_name().is_some()
-                    && a.name.ns.is_empty()
-                    && a.name.local.as_ref() == "lang";
-                if xml || html {
+                if a.name.local.as_ref() != "lang" {
+                    continue;
+                }
+                if a.name.ns == ns!(xml) {
                     return Some(a.value.as_str());
                 }
+                if plain && a.name.ns.is_empty() {
+                    lang = Some(a.value.as_str());
+                }
+            }
+            if lang.is_some() {
+                return lang;
             }
             at = g.up();
         }
@@ -727,5 +782,89 @@ impl Matcher {
     /// Whether the time limit passed, also between elements.
     pub(crate) fn stopped(&self) -> bool {
         self.budget.over()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::hint::black_box;
+
+    use super::*;
+    use crate::Document;
+
+    /// Goes down the stack until `left` bytes remain, then runs `f`.
+    #[inline(never)]
+    fn with_stack_left(left: usize, f: &mut dyn FnMut()) {
+        let pad = black_box([0u8; 1024]);
+        if stack_available().unwrap() > left {
+            with_stack_left(left, f);
+        } else {
+            f();
+        }
+        black_box(pad);
+    }
+
+    /// The real thing, with no JavaScript in the way: stack for a few of the
+    /// 64 combinators and not for all, and the match stops above the floor.
+    #[test]
+    fn a_match_short_of_stack_stops_before_it_overflows() {
+        if stack_available().is_none() {
+            return;
+        }
+        let page = format!("<!doctype html><body>{}", "<b></b>".repeat(100));
+        let selector = format!("b{}", "+b".repeat(64));
+        let worker = std::thread::Builder::new()
+            .stack_size(1024 * 1024)
+            .spawn(move || {
+                let doc = Document::parse(&page).unwrap();
+                let list = doc.selector_list(&selector).unwrap();
+                let body = doc.body(doc.root()).unwrap();
+                let last = *doc.children(body).last().unwrap();
+                let run = |matcher: &mut Matcher| {
+                    let found = matcher.matches(doc.node(last), None, &list);
+                    (found, matcher.stopped())
+                };
+                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector, true);
+                assert_eq!(run(&mut new()), (true, false));
+                let (mut stopped, mut lowest) = (false, usize::MAX);
+                with_stack_left(MIN_STACK_BYTES + 4 * 1024, &mut || {
+                    stopped = run(&mut new()) == (false, true);
+                    lowest = stack_available().unwrap();
+                });
+                assert!(stopped, "{lowest}");
+            })
+            .unwrap();
+        worker.join().expect("no stack overflow");
+    }
+
+    /// It ends the call with the typed error, however the script takes the
+    /// exception, on all three queries; `TEST_MIN_STACK` stands in for a stack
+    /// nearly gone, which the caps don't let a script reach.
+    #[test]
+    fn running_out_of_stack_ends_the_call_typed() {
+        use surimono_core::{Limits, SandboxError};
+
+        use crate::{DomError, DomRuntime};
+
+        for query in [
+            "document.querySelector('b')",
+            "document.body.firstChild.matches('b')",
+            "document.body.firstChild.closest('b')",
+        ] {
+            let mut rt = DomRuntime::new(Limits::default()).unwrap();
+            rt.load(Document::parse("<!doctype html><body><b></b>").unwrap());
+            rt.eval::<()>("globalThis.log = 'not run'").unwrap();
+            TEST_MIN_STACK.set(usize::MAX);
+            let run = rt.eval::<i32>(&format!("try {{ {query}; }} catch (e) {{}} 1"));
+            TEST_MIN_STACK.set(MIN_STACK_BYTES);
+            assert_eq!(
+                run,
+                Err(DomError::Sandbox(SandboxError::StackOverflow)),
+                "{query}"
+            );
+            // The state went with it, and the runtime works.
+            assert_eq!(rt.eval::<String>("typeof log").unwrap(), "undefined");
+            assert_eq!(rt.eval::<bool>("!!document.querySelector('b')"), Ok(true));
+        }
     }
 }

@@ -1,6 +1,6 @@
 {
  "chromium": "153.0.8010.12",
- "surimono_commit": "743883d6fc589ea536b53c58a807d39e1af8fe22",
+ "surimono_commit": "5dde7483b7297ca38274e149bb9aef26fdc0d576",
  "cases": {
   "write": {
    "chrome": {
@@ -54,14 +54,14 @@
      "textContent a",
      "parentNode null",
      "firstChild TypeError",
-     "ownerDocument TypeError",
+     "ownerDocument [object Document]",
      "childNodes TypeError",
-     "baseURI undefined",
+     "baseURI about:blank",
      "isConnected TypeError",
-     "ownerElement [object HTMLElement]",
+     "ownerElement [object HTMLParagraphElement]",
      "clone TypeError",
      "root TypeError",
-     "undefined"
+     "function"
     ],
     "report": {
      "errors": [],
@@ -80,7 +80,7 @@
    },
    "surimono": {
     "log": [
-     "undefined undefined undefined false"
+     "object object undefined true"
     ],
     "report": {
      "errors": [],
@@ -145,34 +145,34 @@
    },
    "surimono": {
     "log": [
-     "HTMLBodyElement undefined",
-     "HTMLHtmlElement undefined",
-     "HTMLDivElement undefined",
+     "HTMLBodyElement function",
+     "HTMLHtmlElement function",
+     "HTMLDivElement function",
      "HTMLInputElement function",
-     "MouseEvent undefined",
-     "UIEvent undefined",
-     "KeyboardEvent undefined",
+     "MouseEvent function",
+     "UIEvent function",
+     "KeyboardEvent function",
      "CustomEvent function",
-     "AbortController undefined",
-     "AbortSignal undefined",
-     "DOMParser undefined",
-     "XMLSerializer undefined",
+     "AbortController function",
+     "AbortSignal function",
+     "DOMParser function",
+     "XMLSerializer function",
      "Range undefined",
      "TreeWalker undefined",
      "NodeIterator undefined",
      "Document function",
-     "XMLDocument undefined",
-     "DOMImplementation undefined",
+     "XMLDocument function",
+     "DOMImplementation function",
      "history undefined",
-     "frames undefined",
-     "HTMLIFrameElement undefined",
+     "frames object",
+     "HTMLIFrameElement function",
      "SVGElement function",
      "SVGRectElement undefined",
      "CSSStyleSheet undefined",
-     "getComputedStyle undefined",
+     "getComputedStyle function",
      "matchMedia undefined",
      "Location undefined",
-     "undefined undefined undefined undefined undefined undefined undefined function function undefined [object HTMLElement] HTMLElement"
+     "object function undefined undefined undefined function function function function undefined [object HTMLBodyElement] HTMLBodyElement"
     ],
     "report": {
      "errors": [],
@@ -192,11 +192,14 @@
    },
    "surimono": {
     "log": [
-     "threw InternalError",
+     "ok 9 false",
      "after"
     ],
     "report": {
-     "failed": "cloning a document is not supported yet"
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
     }
    }
   },
@@ -210,11 +213,14 @@
    },
    "surimono": {
     "log": [
-     "threw InternalError",
+     "ok 9 HTML",
      "after"
     ],
     "report": {
-     "failed": "cloning a document is not supported yet"
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
     }
    }
   },
@@ -278,7 +284,400 @@
    },
    "surimono": {
     "log": [
-     "undefined false Document [object Document]"
+     "function true Document [object Document]"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "framefn": {
+   "chrome": {
+    "log": [
+     "false undefined"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "true function"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "nobc": {
+   "chrome": {
+    "log": [
+     "attr undefined",
+     "idl 1",
+     "parsed undefined",
+     "false false"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "attr 1",
+     "idl 1",
+     "parsed 1",
+     "true true"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "pseudo": {
+   "chrome": {
+    "log": [
+     "rgb(4, 5, 6) rgb(1, 2, 3) \"x\" false"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "   false"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "rectlist": {
+   "chrome": {
+    "log": [
+     "1 object function true [object DOMRectList] undefined"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "0 undefined function false [object DOMRectList] undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "unbound": {
+   "chrome": {
+    "log": [
+     "function function function function function function undefined function function function function function function"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "xmlent": {
+   "chrome": {
+    "log": [
+     "a x",
+     "a y",
+     "a x"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "parsererror undefined enti",
+     "a y",
+     "a x"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "tmplowner": {
+   "chrome": {
+    "log": [
+     "false null true null"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "true [object Window] true null"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "frames": {
+   "chrome": {
+    "log": [
+     "true true object 1 1 true false about:blank complete"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "false false undefined 1 1 true true about:blank complete"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "framescript": {
+   "chrome": {
+    "log": [
+     "ran 1"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "ran undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "frameorder": {
+   "chrome": {
+    "log": [
+     "frame load",
+     "window load"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "window load",
+     "frame load"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "basebody": {
+   "chrome": {
+    "log": [
+     "http://x.test/d/y http://x.test/d/"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "y about:blank"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "target": {
+   "chrome": {
+    "log": [
+     "1"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "0"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "svgh": {
+   "chrome": {
+    "log": [
+     "script",
+     "rect object object true",
+     "svg load",
+     "window load"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "script",
+     "window load"
+    ],
+    "report": {
+     "errors": [
+      "ReferenceError: evt is not defined"
+     ],
+     "rejections": [],
+     "uncaught": 1,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "details": {
+   "chrome": {
+    "log": [
+     "set",
+     "toggle true"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "set"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "label": {
+   "chrome": {
+    "log": [
+     "child true",
+     "for false",
+     "sibling false",
+     "clicks 0"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "child true",
+     "for true",
+     "sibling true",
+     "clicks 1"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "xmlget": {
+   "chrome": {
+    "log": [
+     "1",
+     "45",
+     "45"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "1",
+     "45",
+     "45"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "xmlinner": {
+   "chrome": {
+    "log": [
+     "<i xmlns=\"http://www.w3.org/1999/xhtml\"></i>x http://www.w3.org/1999/xhtml",
+     "<i> SyntaxError",
+     "&nbsp; SyntaxError",
+     "<i xmlns=\"urn:u\"/> <i xmlns=\"urn:u\"/> 1",
+     "<?pi x?> <?pi x?> 1",
+     "<![CDATA[x]]> <![CDATA[x]]> 1",
+     "<a xmlns=\"http://www.w3.org/1999/xhtml\"><i></i></a>",
+     "function"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "<i xmlns=\"http://www.w3.org/1999/xhtml\"></i>x http://www.w3.org/1999/xhtml",
+     "<i> SyntaxError",
+     "&nbsp; SyntaxError",
+     "<i xmlns=\"urn:u\"/> <i xmlns=\"urn:u\"/> 1",
+     "<?pi x?> <?pi x?> 1",
+     "<![CDATA[x]]> <![CDATA[x]]> 1",
+     "<a xmlns=\"http://www.w3.org/1999/xhtml\"><i></i></a>",
+     "undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "stalerows": {
+   "chrome": {
+    "log": [
+     "[object DocumentType] 10 2",
+     "object object null object",
+     "svg attr ran",
+     "true true true function object",
+     "0"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "[object DocumentType] 10 2",
+     "object object null undefined",
+     "svg attr ran",
+     "true true true function object",
+     "0"
     ],
     "report": {
      "errors": [],
@@ -383,14 +782,14 @@
    "surimono": {
     "log": [
      "is33 SyntaxError",
-     "is32 1",
-     "comb128 0",
+     "is32 SyntaxError",
+     "comb128 SyntaxError",
      "comb129 SyntaxError",
      "comb200 SyntaxError",
      "len129k SyntaxError",
      "longattr SyntaxError",
-     "str33 SyntaxError",
-     "comment33 SyntaxError"
+     "str33 0",
+     "comment33 1"
     ],
     "report": {
      "errors": [],
@@ -593,8 +992,8 @@
    },
    "surimono": {
     "log": [
-     "undefined false",
-     "false",
+     "undefined true",
+     "true",
      "true",
      "object"
     ],
@@ -617,7 +1016,7 @@
    },
    "surimono": {
     "log": [
-     "false null true",
+     "false [\"get\",\"set\",\"enumerable\",\"configurable\"] false",
      "dcl true",
      "load true"
     ],
@@ -698,9 +1097,10 @@
    "surimono": {
     "log": [
      "function function function",
-     "rect object [object SVGElement]",
+     "rect function [object SVGElement]",
+     "svg click",
      "div click",
-     "0",
+     "1",
      "body onload"
     ],
     "report": {
@@ -724,7 +1124,7 @@
    },
    "surimono": {
     "log": [
-     "object object",
+     "function object",
      "undefined"
     ],
     "report": {
@@ -762,13 +1162,13 @@
     "pageErrors": []
    },
    "surimono": {
-    "log": [],
+    "log": [
+     "end"
+    ],
     "report": {
-     "errors": [
-      "ReferenceError: AbortController is not defined"
-     ],
+     "errors": [],
      "rejections": [],
-     "uncaught": 1,
+     "uncaught": 0,
      "unhandled_rejections": 0
     }
    }
@@ -986,7 +1386,7 @@
    },
    "surimono": {
     "log": [
-     "undefined undefined 1 1 CSS1Compat"
+     "object html 10 2 CSS1Compat"
     ],
     "report": {
      "errors": [],
@@ -1088,7 +1488,7 @@
    },
    "surimono": {
     "log": [
-     "undefined undefined undefined false"
+     "undefined object object true"
     ],
     "report": {
      "errors": [],

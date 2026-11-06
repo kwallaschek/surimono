@@ -75,7 +75,7 @@ impl Document {
     /// tested after the ancestor check and before anything about `node`'s
     /// type. `replacing` is the child being replaced, for the document
     /// checks.
-    fn check_insert(
+    pub(crate) fn check_insert(
         &mut self,
         parent: usize,
         node: usize,
@@ -276,7 +276,9 @@ impl Document {
                 let children = self.children(node).to_vec();
                 self.note_child_list(node, &[], &children, None, None);
             }
-            let children = self.take_children(node);
+            let children = self.children(node).to_vec();
+            self.ranges_removing(node, &children);
+            self.take_children(node);
             for &c in &children {
                 self.set_parent(c, None);
             }
@@ -429,9 +431,10 @@ impl Document {
 
     fn matcher(&self, selectors: &str) -> Matcher {
         let html = self.info(self.making()).html;
-        // A cheap test first: finding the target walks the document.
-        let target = selectors.contains("target");
-        let target = target.then(|| self.target_element()).flatten();
+        // A cheap test first: finding the target walks the document. On text
+        // the pseudo-class's name is ASCII case-insensitive and may be escaped.
+        let wanted = selectors.contains('\\') || selectors.to_ascii_lowercase().contains(":target");
+        let target = wanted.then(|| self.target_element()).flatten();
         Matcher::new(
             self.quirks_mode(),
             self.deadline.clone(),
@@ -771,7 +774,7 @@ impl Document {
     }
 
     /// `id` and its ancestors, root first.
-    fn path(&self, id: usize) -> Vec<usize> {
+    pub(crate) fn path(&self, id: usize) -> Vec<usize> {
         let mut out = vec![id];
         let mut at = id;
         while let Some(p) = self.parent(at) {
@@ -823,7 +826,8 @@ impl Document {
     /// nodes go before the joined text is written, so a merge never needs
     /// room for both copies.
     pub(crate) fn normalize_tree(&mut self, top: usize) -> BindingResult<()> {
-        if self.is_observed() {
+        // One step at a time as well for ranges, which a merge carries over.
+        if self.is_observed() || !self.ranges.is_empty() {
             return self.normalize_observed(top);
         }
         let mut stack = vec![top];
@@ -870,7 +874,7 @@ impl Document {
         Ok(())
     }
 
-    /// `normalize` with an observer about. Every step queues its own record,
+    /// `normalize` with an observer or a range about. Every step queues its own record,
     /// in §4.4's order: for each text node in tree order, the joined text
     /// (a record even if nothing joined it), then one removal for each node
     /// merged into it. So nodes leave one at
@@ -890,9 +894,12 @@ impl Document {
             }
             let mut merged = Vec::new();
             let mut joined = String::new();
+            let mut length = self.node_length(n);
             let mut next = self.sibling(n, true);
             while let Some(s) = next.filter(|&s| self.is_exclusive_text(s)) {
-                self.poll()?;
+                self.poll_by(1 + self.ranges.len())?;
+                self.ranges_merging(n, s, length);
+                length = length.saturating_add(self.node_length(s));
                 joined.push_str(self.char_data(s));
                 merged.push(s);
                 next = self.sibling(s, true);
@@ -949,7 +956,11 @@ impl Document {
         let mut out = String::from_utf16_lossy(&units[..offset]);
         out.push_str(data);
         out.push_str(&String::from_utf16_lossy(&units[end..]));
-        self.set_text_content(id, &out).map_err(|e| self.fail(e))
+        self.write_char_data(id, &out).map_err(|e| self.fail(e))?;
+        let replaced = (end - offset) as u32;
+        let length = u32::try_from(data.encode_utf16().count()).unwrap_or(u32::MAX);
+        self.ranges_replaced_data(id, offset as u32, replaced, length);
+        Ok(())
     }
 
     /// §4.11 "substring data".
@@ -980,9 +991,11 @@ impl Document {
         if let Some(parent) = self.parent(id) {
             let next = self.sibling(id, true);
             self.pre_insert(parent, new, next)?;
+            self.ranges_split(id, new, parent, offset);
         }
         let head = String::from_utf16_lossy(&units[..at]);
         self.set_text_data(id, &head).map_err(|e| self.fail(e))?;
+        self.ranges_replaced_data(id, offset, (units.len() - at) as u32, 0);
         Ok(new)
     }
 

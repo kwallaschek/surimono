@@ -14,6 +14,7 @@ use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
+use crate::range::LiveRange;
 use crate::style_attr;
 use crate::xml;
 
@@ -33,6 +34,11 @@ fn frame_content_type(url: &str) -> Option<&'static str> {
         _ => None,
     }
 }
+
+/// The longest URL a script can give a document: one string in one call, on
+/// top of what `max_text_bytes` charges for all of them. Chrome takes longer
+/// ones; nothing a page prints needs them.
+pub(crate) const MAX_URL_BYTES: usize = 2 * 1024 * 1024;
 
 /// Infra's ASCII whitespace.
 const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
@@ -95,6 +101,10 @@ pub struct DomLimits {
     /// quadratic in its attributes, and so is any tree's for an element: a
     /// page has a few dozen.
     pub max_attributes: usize,
+    /// Most `Range`s made over the document's life. A range can't be known
+    /// to be unreachable, so it stays live until the document drops, and
+    /// mutations may have to look at all of them.
+    pub max_ranges: usize,
 }
 
 /// Bytes charged per attribute beyond its name and value: what the entry
@@ -118,6 +128,9 @@ impl DomLimits {
     pub const DEFAULT_MAX_TEXT_BYTES: usize = 256 * 1024 * 1024;
     /// 4,096 attributes, the printing pass's cap.
     pub const DEFAULT_MAX_ATTRIBUTES: usize = 4_096;
+    /// 65,536 ranges: a page that measures each label through a range of its
+    /// own, on a large chart, makes thousands.
+    pub const DEFAULT_MAX_RANGES: usize = 65_536;
 
     /// Checks the limits are in range: every limit at least 1, `max_depth`
     /// at most [`MAX_DEPTH`](Self::MAX_DEPTH), `max_handles` within `u32`.
@@ -132,6 +145,7 @@ impl DomLimits {
             || self.max_handles == 0
             || self.max_text_bytes == 0
             || self.max_attributes == 0
+            || self.max_ranges == 0
         {
             return bad("every DOM limit must be at least 1");
         }
@@ -153,6 +167,7 @@ impl Default for DomLimits {
             max_handles: Self::DEFAULT_MAX_HANDLES,
             max_text_bytes: Self::DEFAULT_MAX_TEXT_BYTES,
             max_attributes: Self::DEFAULT_MAX_ATTRIBUTES,
+            max_ranges: Self::DEFAULT_MAX_RANGES,
         }
     }
 }
@@ -237,6 +252,8 @@ pub(crate) struct DocInfo {
     pub frame: bool,
     /// One allocation, however many documents take the URL.
     pub url: Arc<str>,
+    /// `url` came from a script, and is charged to `max_text_bytes`.
+    pub url_charged: bool,
 }
 
 /// The element name that marks a `DocumentFragment`: blitz-dom has no such
@@ -299,6 +316,10 @@ pub(crate) enum Object {
     Dataset(usize),
     /// `style`.
     Style(usize),
+    /// A `Range`: its number in `Document::ranges`.
+    Range(u32),
+    /// A `StaticRange`, which never changes. Its nodes have handles.
+    StaticRange(Box<LiveRange>),
     /// `document.implementation`.
     Implementation(usize),
     /// `getComputedStyle`: empty and read-only until there is layout.
@@ -380,7 +401,7 @@ pub(crate) type Handle = u32;
 pub struct Document {
     inner: BaseDocument,
     generation: u64,
-    limits: DomLimits,
+    pub(crate) limits: DomLimits,
     /// Handle (1-based) minus one to its object.
     objects: Vec<Object>,
     /// The handles of per-owner objects. Only looked up, so its hash order
@@ -446,12 +467,17 @@ pub struct Document {
     frame_loads: VecDeque<Handle>,
     /// See [`Special`].
     specials: HashMap<usize, Special>,
+    /// Every `Range`, live until the document drops: see [`crate::range`].
+    pub(crate) ranges: Vec<LiveRange>,
+    /// Boundary points by node, counted, so a mutation of a node with none
+    /// doesn't look at `ranges`. Only looked up.
+    pub(crate) range_points: HashMap<usize, u32>,
     /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
     /// page lifecycle has run on is complete.
     ready_state: u32,
     /// The last (parent, index in its children) a sibling step found, so
     /// walking a wide parent's children isn't quadratic. Checked on use.
-    cursor: Cell<(usize, usize)>,
+    pub(crate) cursor: Cell<(usize, usize)>,
     /// A fatal error a binding met, for the native call to report.
     pub(crate) fault: Option<DomError>,
     /// The running call's deadline, set for each native call.
@@ -573,6 +599,7 @@ impl Document {
             stop,
         );
         let info = DocInfo {
+            url_charged: false,
             html: true,
             xml_interface: false,
             quirks: parsed.quirks,
@@ -609,6 +636,8 @@ impl Document {
             frame_sources: VecDeque::new(),
             frame_loads: VecDeque::new(),
             specials: parsed.specials.into_iter().collect(),
+            ranges: Vec::new(),
+            range_points: HashMap::new(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
             fault: None,
@@ -855,6 +884,7 @@ impl Document {
     /// `html`, or XML of `content_type`.
     pub(crate) fn blank_info(&self, html: bool, content_type: &'static str) -> DocInfo {
         DocInfo {
+            url_charged: false,
             html,
             xml_interface: false,
             quirks: false,
@@ -900,6 +930,31 @@ impl Document {
                 d.content_type = frame_content_type(url).unwrap_or(APPLICATION_XHTML);
             }
         }
+    }
+
+    /// A script's change of `doc`'s URL (`pushState`, a fragment). Rust holds
+    /// these outside the JS heap, and every document `DOMParser` makes keeps
+    /// the URL it was made under, so each is charged to `max_text_bytes` until
+    /// nothing holds it.
+    pub(crate) fn write_url(&mut self, doc: usize, url: &str) -> Result<(), DomError> {
+        let Some(d) = self.docs.get(&doc) else {
+            return Ok(());
+        };
+        if d.url.as_ref() == url {
+            return Ok(());
+        }
+        let credit = if d.url_charged && Arc::strong_count(&d.url) == 1 {
+            d.url.len()
+        } else {
+            0
+        };
+        self.recharge(credit, url.len())?;
+        self.observer_bytes = (self.observer_bytes + url.len()).saturating_sub(credit);
+        if let Some(d) = self.docs.get_mut(&doc) {
+            d.url = Arc::from(url);
+            d.url_charged = true;
+        }
+        Ok(())
     }
 
     /// Note a node of a kind blitz-dom doesn't have.
@@ -1141,11 +1196,38 @@ impl Document {
         out
     }
 
-    /// Whether document `doc` is the document of a connected `<iframe>`.
+    /// Whether frame document `doc` is fully active: its `<iframe>` is
+    /// connected, in the page or in a frame that is. Each step goes up one
+    /// frame, so the loop is as long as the frames at most.
     pub(crate) fn frame_is_attached(&self, doc: usize) -> bool {
-        self.frames
-            .iter()
-            .any(|(&e, &d)| d == doc && self.is_connected(e))
+        let mut at = doc;
+        for _ in 0..=self.frames.len() {
+            if at == self.root() {
+                return true;
+            }
+            let element = self.frames.iter().find(|&(_, &d)| d == at);
+            match element {
+                Some((&e, _)) if self.is_connected(e) => at = self.owner_of_node(e),
+                _ => return false,
+            }
+        }
+        false
+    }
+
+    /// HTML §4.8.5: which attribute changes "process the iframe attributes":
+    /// `srcdoc` set, changed or removed, and `src` likewise with no `srcdoc`.
+    fn note_frame_attribute(&mut self, id: usize, name: &QualName) {
+        if self.frames_started.is_empty() || !name.ns.is_empty() {
+            return;
+        }
+        let wanted = match name.local.as_ref() {
+            "srcdoc" => true,
+            "src" => self.attribute(id, "srcdoc").is_none(),
+            _ => false,
+        };
+        if wanted {
+            self.frames_started.remove(&id);
+        }
     }
 
     /// Keeps a frame's source until a call parses it, under that call's limits.
@@ -1617,7 +1699,7 @@ impl Document {
         Ok(self.node_to_handle[id])
     }
 
-    fn new_handle(&mut self, object: Object) -> Result<Handle, DomError> {
+    pub(crate) fn new_handle(&mut self, object: Object) -> Result<Handle, DomError> {
         if self.objects.len() >= self.limits.max_handles {
             return Err(DomError::HandleLimit {
                 limit: self.limits.max_handles,
@@ -2199,11 +2281,8 @@ impl Document {
         self.recharge(credit, charge)?;
         self.note_attribute(id, &name);
         self.version += 1;
-        // HTML §4.8.5 "process the iframe attributes": another load, in the
-        // next round, under the render's `MAX_FRAMES`.
-        if matches!(name.local.as_ref(), "src" | "srcdoc") {
-            self.frames_started.remove(&id);
-        }
+        // Another load, in the next round, under the render's `MAX_FRAMES`.
+        self.note_frame_attribute(id, &name);
         if name.local.as_ref() == "style" {
             // Not through blitz-dom, which would give it to stylo in a call
             // nothing can stop, for a layout that doesn't run here.
@@ -2404,6 +2483,7 @@ impl Document {
     }
 
     pub(crate) fn clear_attribute(&mut self, id: usize, name: QualName) {
+        self.note_frame_attribute(id, &name);
         self.keep_attr_value(id, &name);
         self.note_attribute(id, &name);
         self.version += 1;
@@ -2507,8 +2587,16 @@ impl Document {
     /// their data; the document ignores it.
     pub(crate) fn set_text_content(&mut self, id: usize, text: &str) -> Result<(), DomError> {
         match self.kind(id) {
-            Some(Kind::Text) => self.set_text_data(id, text),
-            Some(Kind::Comment | Kind::ProcessingInstruction) => self.set_side_data(id, text),
+            Some(Kind::Text | Kind::Comment | Kind::ProcessingInstruction) => {
+                // §4.11 "replace data", of all of it.
+                let count = self.has_range_point(id).then(|| self.node_length(id));
+                self.write_char_data(id, text)?;
+                if let Some(count) = count {
+                    let length = u32::try_from(text.encode_utf16().count()).unwrap_or(u32::MAX);
+                    self.ranges_replaced_data(id, 0, count, length);
+                }
+                Ok(())
+            }
             Some(Kind::Element | Kind::DocumentFragment) => {
                 // Made first: a refused write leaves the children alone.
                 let t = if text.is_empty() {
@@ -2520,6 +2608,15 @@ impl Document {
                 Ok(())
             }
             _ => Ok(()),
+        }
+    }
+
+    /// Writes a character data node's data; what happens to ranges is the
+    /// caller's.
+    pub(crate) fn write_char_data(&mut self, id: usize, text: &str) -> Result<(), DomError> {
+        match self.kind(id) {
+            Some(Kind::Text) => self.set_text_data(id, text),
+            _ => self.set_side_data(id, text),
         }
     }
 
@@ -2548,6 +2645,7 @@ impl Document {
     /// children, as [`remove_children_quietly`](Self::remove_children_quietly)
     /// does: one pass, however wide the list.
     pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
+        self.ranges_removing(id, &gone);
         self.version += 1;
         self.count_list_steps(kept.len() + gone.len());
         self.take_children(id);
@@ -2771,6 +2869,7 @@ impl Document {
     /// §4.2.3 "remove".
     pub(crate) fn detach_quietly(&mut self, id: usize) {
         if let Some(parent) = self.node(id).parent {
+            self.ranges_removing(parent, &[id]);
             self.version += 1;
             self.count_list_steps(self.children(parent).len());
             self.inner.mutate().remove_node(id);
@@ -2796,6 +2895,7 @@ impl Document {
     /// [`place`](Self::place) with the "suppress observers" flag of DOM
     /// §4.2.3 "insert".
     pub(crate) fn place_quietly(&mut self, parent: usize, nodes: &[usize], before: Option<usize>) {
+        self.ranges_inserting(parent, before, nodes.len());
         self.version += 1;
         self.count_list_steps(nodes.len() + before.map_or(0, |_| self.children(parent).len()));
         if self.is_in_style(parent) {
@@ -3118,6 +3218,16 @@ impl Document {
     #[doc(hidden)]
     pub fn check_consistency(&self) -> Result<(), String> {
         let held = self.bytes_held() + self.observer_bytes;
+        for (r, range) in self.ranges.iter().enumerate() {
+            for p in [range.start, range.end] {
+                if self.inner.get_node(p.node).is_none() || !self.has_handle(p.node) {
+                    return Err(format!("range {r} points at unpinned node {}", p.node));
+                }
+                if p.offset > self.node_length(p.node) {
+                    return Err(format!("range {r} is past the end of node {}", p.node));
+                }
+            }
+        }
         for (id, node) in self.inner.tree().iter() {
             if let Some(p) = node.parent {
                 let Some(parent) = self.inner.get_node(p) else {

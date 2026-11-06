@@ -1727,3 +1727,414 @@ fn a_labels_control_ignores_hidden_inputs_and_stays_in_its_tree() {
     );
     assert_eq!(r, "true|||true|");
 }
+
+/// The log of `html`, which has a global `log` to push to, and its report.
+fn logged(html: &str) -> (String, surimono_dom::PageReport) {
+    let (mut rt, report) = page(&format!(
+        "<!doctype html><script>globalThis.log = [];</script>{html}"
+    ));
+    (log_of(&mut rt), report)
+}
+
+/// HTML §8.1.5.7. Every log here is what Chromium 153 gives for the same page:
+/// `wpt/probes` for `unhandled*`, the rest by hand with the pinned Chromium.
+#[test]
+fn unhandledrejection_fires_at_the_window() {
+    let (log, report) = logged(
+        r#"<script>
+        addEventListener('unhandledrejection', (e) => {
+          log.push(e.reason, e.isTrusted, e.cancelable, e.bubbles, e.target === window,
+                   e.promise === q, window.event === e,
+                   e instanceof PromiseRejectionEvent, e.type);
+          e.preventDefault();
+        });
+        var q = Promise.reject(1);
+        </script>"#,
+    );
+    assert_eq!(
+        log,
+        "1,true,true,false,true,true,true,true,unhandledrejection"
+    );
+    assert_eq!(report.unhandled_rejections, 0);
+    assert!(report.rejections.is_empty());
+}
+
+/// `preventDefault` is what keeps it out of the report, not having a listener.
+#[test]
+fn only_a_cancelled_unhandledrejection_leaves_the_report() {
+    let (log, report) = logged(
+        r#"<script>
+        addEventListener('unhandledrejection', (e) => {
+          log.push(e.reason);
+          if (e.reason === 'keep') e.preventDefault();
+        });
+        Promise.reject('keep'); Promise.reject('report');
+        </script>"#,
+    );
+    assert_eq!(log, "keep,report");
+    assert_eq!(report.unhandled_rejections, 1);
+    assert_eq!(report.rejections, ["report"]);
+}
+
+#[test]
+fn onunhandledrejection_is_a_handler_that_can_cancel_by_returning_false() {
+    let (log, report) = logged(
+        "<script>onunhandledrejection = (e) => { log.push('on ' + e.reason); return false; };
+        Promise.reject(1);</script>",
+    );
+    assert_eq!(log, "on 1");
+    assert_eq!(report.unhandled_rejections, 0);
+}
+
+/// The cases the task's timing exists for: handled by the next script, by a
+/// timer set earlier, by a later timer already queued. Chromium 153 fires
+/// nothing in any of them; we used to count 1 in the first two.
+#[test]
+fn a_promise_handled_before_the_task_fires_nothing() {
+    const LISTEN: &str = "<script>addEventListener('unhandledrejection',
+        (e) => { log.push('ur ' + e.reason); });";
+    for (html, expected) in [
+        (
+            format!(
+                "{LISTEN} q = Promise.reject(1)</script><script>q.catch(() => {{}});log.push('caught')</script>"
+            ),
+            "caught",
+        ),
+        (
+            format!(
+                "{LISTEN} q = Promise.reject(1);setTimeout(() => {{q.catch(() => {{}});log.push('caught0')}}, 0)</script>"
+            ),
+            "caught0",
+        ),
+        (
+            format!(
+                "{LISTEN} setTimeout(() => {{log.push('T1');q = Promise.reject(1)}}, 0);
+              setTimeout(() => {{log.push('T2');q.catch(() => {{}})}}, 0);
+              setTimeout(() => log.push('T3'), 0)</script>"
+            ),
+            "T1,T2,T3",
+        ),
+        (
+            format!(
+                "{LISTEN} setTimeout(() => {{log.push('T1');q = Promise.reject(1);
+              setTimeout(() => {{log.push('T2');q.catch(() => {{}})}}, 0)}}, 0)</script>"
+            ),
+            "T1,T2",
+        ),
+    ] {
+        let (log, report) = logged(&html);
+        assert_eq!(log, expected);
+        assert_eq!(report.unhandled_rejections, 0, "{expected}");
+    }
+}
+
+#[test]
+fn a_listener_can_handle_a_later_promise_of_its_task() {
+    let (log, report) = logged(
+        r#"<script>
+        addEventListener('unhandledrejection', (e) => {
+          log.push('U ' + e.reason); p2.catch(() => {}); e.preventDefault();
+        });
+        var p1 = Promise.reject(1), p2 = Promise.reject(2), p3 = Promise.reject(3);
+        </script>"#,
+    );
+    assert_eq!(log, "U 1,U 3");
+    assert_eq!(report.unhandled_rejections, 0);
+}
+
+/// Its order against timers: behind one set by the same script, ahead of
+/// one due later, and each checkpoint with its own task.
+#[test]
+fn unhandledrejection_comes_in_a_task_of_its_own() {
+    const LISTEN: &str = "<script>addEventListener('unhandledrejection',
+        (e) => { log.push('U ' + e.reason); e.preventDefault(); });";
+    let (log, _) = logged(&format!(
+        "{LISTEN} setTimeout(() => {{log.push('T1');Promise.reject(1);
+          Promise.resolve().then(() => {{log.push('m1');Promise.reject(2)}});
+          setTimeout(() => log.push('T2'), 1)}}, 0)</script>"
+    ));
+    assert_eq!(log, "T1,m1,U 1,U 2,T2");
+    let (log, _) = logged(&format!(
+        "{LISTEN} (async () => {{await 0;throw 'a'}})();queueMicrotask(() => log.push('m'));
+          setTimeout(() => log.push('t'), 0)</script><script src=ok.js></script>
+          <script>log.push('s3')</script>"
+    ));
+    assert_eq!(log, "m,ext loading,s3,t,U a");
+    let (log, _) = logged(
+        "<script>addEventListener('unhandledrejection', (e) => {
+          log.push('U ' + e.reason); e.preventDefault();
+          if (e.reason < 3) Promise.reject(e.reason + 1);
+          setTimeout(() => log.push('T' + e.reason), 0);
+        });
+        Promise.reject(1)</script>",
+    );
+    assert_eq!(log, "U 1,T1,U 2,T2,U 3,T3");
+}
+
+/// A listener's microtasks run before the next listener (the event is fired
+/// from a task), and `window.event` is still the event while they do.
+#[test]
+fn unhandledrejection_listeners_get_a_checkpoint_each() {
+    let (log, _) = logged(
+        "<script>addEventListener('unhandledrejection', (e) => {
+          log.push('U1');
+          queueMicrotask(() => log.push(window.event === e));
+          e.preventDefault();
+        });
+        addEventListener('unhandledrejection', () => log.push('U2'));
+        Promise.reject(1)</script>",
+    );
+    assert_eq!(log, "U1,true,U2");
+}
+
+/// A listener that throws doesn't count as handling it, or stop the others.
+#[test]
+fn an_exception_in_an_unhandledrejection_listener_is_reported() {
+    let (log, report) = logged(
+        "<script>addEventListener('error', (e) => { log.push('err'); e.preventDefault(); });
+        addEventListener('unhandledrejection', () => { log.push('U'); throw new Error('x'); });
+        addEventListener('unhandledrejection', () => log.push('U2'));
+        Promise.reject(1)</script>",
+    );
+    assert_eq!(log, "U,err,U2");
+    assert_eq!(report.unhandled_rejections, 1);
+}
+
+/// A limit in a promise never reaches a listener, which could cancel it, and
+/// ends the page the same way; so does one reached inside a listener.
+#[test]
+fn a_limit_never_reaches_an_unhandledrejection_listener() {
+    const LISTEN: &str = "<!doctype html><script>globalThis.log = [];
+        function f() { f(); } async function g() { f(); }
+        addEventListener('unhandledrejection', (e) => { log.push('saw it'); e.preventDefault(); });
+        ";
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(&format!("{LISTEN}g();</script>")).unwrap());
+    let run = rt.run_page(&SettleOptions::default(), |_| None);
+    assert_eq!(run.unwrap_err(), OVERFLOW);
+
+    let html = "<!doctype html><script>function f() { f(); }
+        addEventListener('unhandledrejection', f);
+        addEventListener('unhandledrejection', () => { for (;;) {} });
+        Promise.reject(1);</script>";
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(html).unwrap());
+    let run = rt.run_page(&SettleOptions::default(), |_| None);
+    assert_eq!(run.unwrap_err(), OVERFLOW);
+}
+
+/// `eval` keeps a rejection for the next report, and a handler added before
+/// that goes in time, as with the next `<script>`.
+#[test]
+fn eval_is_a_script_for_the_task_too() {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(PAGE).unwrap());
+    rt.eval::<()>(
+        "globalThis.log = [];
+         addEventListener('unhandledrejection', (e) => log.push(e.reason));
+         globalThis.q = Promise.reject('late'); Promise.reject('fires');",
+    )
+    .unwrap();
+    rt.eval::<()>("q.catch(() => {})").unwrap();
+    assert_eq!(log_of(&mut rt), "");
+    let report = rt.run_until_settled(&SettleOptions::default()).unwrap();
+    assert_eq!(log_of(&mut rt), "fires");
+    assert_eq!(report.unhandled_rejections, 1);
+}
+
+/// HTML §8.1.6.3 "clean up after running script": the stack is empty after
+/// each listener of an event fired from a task, so that is a microtask
+/// checkpoint. Chromium 153: `L1 ; m true ; L2`, and the same at every step
+/// of the page's life.
+#[test]
+fn a_microtask_checkpoint_runs_between_the_listeners_of_a_fired_event() {
+    let (log, report) = logged(
+        r#"<script>
+        const note = (t, name, after) => {
+          t.addEventListener(name, (e) => {
+            log.push(after + '1');
+            Promise.resolve().then(() => log.push(after + 'm'));
+            queueMicrotask(() => log.push(window.event === e));
+          });
+          t.addEventListener(name, () => log.push(after + '2'));
+        };
+        note(window, 'load', 'L');
+        note(document, 'readystatechange', 'R');
+        note(document, 'DOMContentLoaded', 'D');
+        </script>"#,
+    );
+    let round = |n: &str| format!("{n}1,{n}m,true,{n}2");
+    assert_eq!(
+        log,
+        [round("R"), round("D"), round("R"), round("L")].join(",")
+    );
+    assert_eq!(report.uncaught, 0);
+    // Each listener's whole chain, and across targets of one dispatch.
+    let (log, _) = logged(
+        r#"<script>
+        document.addEventListener('DOMContentLoaded', () => {
+          log.push('D');
+          queueMicrotask(() => queueMicrotask(() => log.push('deep')));
+        });
+        addEventListener('DOMContentLoaded', () => log.push('W'));
+        </script>"#,
+    );
+    assert_eq!(log, "D,deep,W");
+}
+
+/// With a script on the stack the stack isn't empty: `dispatchEvent` and
+/// `click()` get no checkpoint, even for the `input` a browser fires
+/// (Chromium 153: `c1 ; c2 ; after ; cm`, `wpt/probes` `checkpoint2`), and
+/// nor does a `DOMContentLoaded` event a script keeps and sends round again
+/// (the same log in Chromium 153).
+#[test]
+fn no_checkpoint_under_a_running_script() {
+    let (log, _) = logged(
+        r#"<script>
+        const b = document.createElement('input');
+        b.type = 'checkbox';
+        b.addEventListener('click', () => { log.push('c1'); queueMicrotask(() => log.push('cm')); });
+        b.addEventListener('click', () => log.push('c2'));
+        b.addEventListener('input', () => { log.push('i1'); queueMicrotask(() => log.push('im')); });
+        b.addEventListener('input', () => log.push('i2'));
+        b.click();
+        log.push('after');
+        </script>"#,
+    );
+    assert_eq!(log, "c1,c2,after,cm");
+    let (log, _) = logged(
+        r#"<script>
+        let again;
+        document.addEventListener('DOMContentLoaded', (e) => { again = e; }, { once: true });
+        addEventListener('x', () => { log.push('x1'); queueMicrotask(() => log.push('m')); });
+        addEventListener('x', () => log.push('x2'));
+        addEventListener('load', () => setTimeout(() => {
+          again.initEvent('x');
+          dispatchEvent(again);
+          log.push('after');
+        }, 0));
+        </script>"#,
+    );
+    assert_eq!(log, "x1,x2,after,m");
+}
+
+/// DOM §3.2: `AbortSignal.timeout` signals abort from a queued task, so each
+/// listener gets a checkpoint, at the signal and at what depends on it. An
+/// abort from a script doesn't, in a timer or not. All four logs are Chromium
+/// 153's, run by hand.
+#[test]
+fn abort_signal_timeout_listeners_get_a_checkpoint_each() {
+    const LISTEN: &str = r#"
+        function listen(t, n) {
+          t.addEventListener('abort', () => {
+            log.push(n + '1');
+            queueMicrotask(() => log.push(n + 'm'));
+          });
+          t.addEventListener('abort', () => log.push(n + '2'));
+        }"#;
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        listen(AbortSignal.timeout(1), 'A');
+        </script>"
+    ));
+    assert_eq!(log, "A1,Am,A2");
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        const s = AbortSignal.timeout(1);
+        listen(s, 'S');
+        listen(AbortSignal.any([s]), 'D');
+        </script>"
+    ));
+    assert_eq!(log, "S1,Sm,S2,D1,Dm,D2");
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        const c = new AbortController();
+        listen(c.signal, 'A');
+        c.abort();
+        log.push('after');
+        </script>"
+    ));
+    assert_eq!(log, "A1,A2,after,Am");
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        const c = new AbortController();
+        listen(c.signal, 'A');
+        setTimeout(() => {{ c.abort(); log.push('after'); }}, 0);
+        </script>"
+    ));
+    assert_eq!(log, "A1,A2,after,Am");
+}
+
+/// The same limit rule as under `load`: the overflow in the checkpoint ends the
+/// page, and the next listener doesn't run.
+#[test]
+fn a_limit_in_an_abort_listeners_checkpoint_ends_the_page() {
+    let html = "<!doctype html><script>
+        function f() { f(); }
+        const s = AbortSignal.timeout(1);
+        s.addEventListener('abort', () => { queueMicrotask(f); });
+        s.addEventListener('abort', () => { for (;;) {} });
+        </script>";
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(html).unwrap());
+    let run = rt.run_page(&SettleOptions::default(), |_| None);
+    assert_eq!(run.unwrap_err(), OVERFLOW);
+}
+
+/// WebIDL's clean-up comes before inner invoke reports the exception, so the
+/// spec gives this order. Chromium 153 reports first, `L1 ; E1 ; E2 ; m ; em ;
+/// L2`; the spec wins for DOM behaviour (DECISIONS, 5 Nov).
+#[test]
+fn a_listeners_microtasks_run_before_its_exception_is_reported() {
+    let (log, report) = logged(
+        r#"<script>
+        addEventListener('error', (e) => {
+          log.push('E1'); queueMicrotask(() => log.push('em')); e.preventDefault();
+        });
+        addEventListener('error', () => log.push('E2'));
+        addEventListener('load', () => {
+          log.push('L1'); queueMicrotask(() => log.push('m')); throw new Error('x');
+        });
+        addEventListener('load', () => log.push('L2'));
+        </script>"#,
+    );
+    assert_eq!(log, "L1,m,E1,em,E2,L2");
+    assert_eq!(report.uncaught, 0);
+}
+
+/// A limit in those microtasks ends the page, with the error it would have
+/// had anywhere: no later listener runs, and an overflow in the listener
+/// itself runs no microtask.
+#[test]
+fn a_limit_in_a_listeners_checkpoint_ends_the_page() {
+    fn run(body: &str) -> DomError {
+        let html = format!(
+            "<!doctype html><script>globalThis.log = [];
+            function f() {{ f(); }}
+            addEventListener('error', (e) => {{ e.preventDefault(); }});
+            addEventListener('load', () => {{ {body} }});
+            addEventListener('load', () => {{ for (;;) {{}} }});
+            </script>"
+        );
+        let mut rt = DomRuntime::new(limits()).unwrap();
+        rt.load(Document::parse(&html).unwrap());
+        rt.run_page(&SettleOptions::default(), |_| None)
+            .unwrap_err()
+    }
+    assert_eq!(run("queueMicrotask(f);"), OVERFLOW);
+    assert_eq!(run("Promise.resolve().then(f);"), OVERFLOW);
+    assert_eq!(run("queueMicrotask(() => { for (;;) {} }); f();"), OVERFLOW);
+    let limits = limits().with_time(Duration::from_millis(50));
+    let mut rt = DomRuntime::new(limits).unwrap();
+    rt.load(
+        Document::parse(
+            "<!doctype html><script>addEventListener('load', () => {
+               queueMicrotask(() => { for (;;) {} });
+             });</script>",
+        )
+        .unwrap(),
+    );
+    let run = rt.run_page(&SettleOptions::default(), |_| None);
+    assert_eq!(run.unwrap_err(), DomError::Sandbox(SandboxError::TimeLimit));
+    assert_eq!(rt.eval::<i32>("1 + 1").unwrap(), 2);
+}
