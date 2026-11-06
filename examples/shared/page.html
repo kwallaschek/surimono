@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Invoice</title>
+  <link rel="stylesheet" href="/assets/page.css">
+</head>
+<body>
+  <h1 id="title">Invoice</h1>
+  <noscript><p>This invoice needs JavaScript.</p></noscript>
+
+  <table>
+    <thead><tr><th>Item</th><th>Quantity</th><th>Price</th><th>Amount</th></tr></thead>
+    <tbody id="lines"></tbody>
+  </table>
+  <p id="total"></p>
+  <div id="chart"></div>
+
+  <script type="application/json" id="invoice">
+    {
+      "number": "2026-0117",
+      "lines": [
+        { "item": "Design", "quantity": 12, "price": 90 },
+        { "item": "印刷 (printing)", "quantity": 3, "price": 240 },
+        { "item": "Delivery", "quantity": 1, "price": 35 }
+      ]
+    }
+  </script>
+  <script src="/assets/invoice.js"></script>
+</body>
+</html>
