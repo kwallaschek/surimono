@@ -309,7 +309,7 @@
     addOption(s, element, beforeArgument(before));
   }
   H.HTMLSelectElement_add = (s, element, before) => { selectAdd(s, element, before); };
-  function removeAt(s, index) {
+  function removeOptionAt(s, index) {
     const list = htmlList(s, OPTIONS);
     if (index < 0 || index >= size(list)) return;
     const o = at(list, index);
@@ -321,7 +321,7 @@
   op(I_HTMLSelectElement, 'remove', function remove_() {
     const s = self(this, I_HTMLSelectElement);
     if (arguments.length === 0) return apply(childRemove, this, []);
-    return removeAt(s, arguments[0] | 0);
+    return removeOptionAt(s, arguments[0] | 0);
   });
   defineProperty(protos[I_HTMLSelectElement].remove, 'name', { value: 'remove', configurable: true });
   function selectedIndexOf(s) {
@@ -367,7 +367,7 @@
   H.HTMLOptionsCollection_add = (l, element, before) => {
     selectAdd(stateOf(listOwner(l)), element, before);
   };
-  H.HTMLOptionsCollection_remove = (l, index) => { removeAt(stateOf(listOwner(l)), index); };
+  H.HTMLOptionsCollection_remove = (l, index) => { removeOptionAt(stateOf(listOwner(l)), index); };
   H.HTMLOptionsCollection_selectedIndex = (l) => selectedIndexOf(stateOf(listOwner(l)));
   H.set_HTMLOptionsCollection_selectedIndex = (l, i) => {
     H.set_HTMLSelectElement_selectedIndex(stateOf(listOwner(l)), i);
@@ -497,7 +497,7 @@
   // The setter of HTMLOptionsCollection: past the end, blank options come first.
   function setOption(l, index, value) {
     const s = stateOf(listOwner(l));
-    if (value === null) { removeAt(s, index); return; }
+    if (value === null) { removeOptionAt(s, index); return; }
     const o = stateOf(value);
     if (o === null || o.m[I_HTMLOptionElement] !== true) throw new TE('the value is not an option');
     const list = htmlList(s, OPTIONS);
