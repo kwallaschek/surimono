@@ -403,10 +403,9 @@ on first use. On a body or frameset element the Window-reflecting set is the
 window's. `document.currentScript` is the glue's, set from a script's run until
 a separate lifecycle step after its microtasks, which then fires its `load`.
 An `svg` element fires `load` as SVG 2 §15.2 says, once the document's resources have
-loaded: an outermost one in tree order, in a step just before the window's `load`. A
-nested one fires earlier, as in Chrome, which fires it as it closes; here that is a step
-after the parser-blocking scripts, in the order of the end tags, so it can't come
-between them. Chrome's order among outermost `svg`s isn't tree order.
+loaded: all of them in one step just before the window's `load`, in the order of their
+end tags. Chrome differs: a nested `svg` fires as it closes, before `DOMContentLoaded`,
+and its order among outermost ones isn't tree order. The spec wins.
 
 **Event interfaces.** Every interface inheriting from `Event` is generated
 whole (`JS_INTERFACES` in the generator): the constructor reads its dictionary

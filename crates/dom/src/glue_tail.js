@@ -340,14 +340,11 @@
     };
   }
 
-  // SVG 2 §15.2: `load` at an `svg` element when the document's resources have
-  // loaded. An outermost `svg` does, in tree order, just before the window's
-  // `load`. A nested one fires when the parser closes it in Chrome, and here,
-  // the parser being done before any script, after the parser-blocking
-  // scripts, in the order their end tags come. Rust has the list, which no
-  // script's getter can reach.
-  function svgLoads(g, outermost) {
-    nameList(call(OP_svgElements, g, root(), outermost), (h) => {
+  // SVG 2 §15.2: `load` at an `svg` element once the document's resources
+  // have loaded, in the order of the end tags, just before the window's. Rust
+  // has the list, which no script's getter can reach.
+  function svgLoads(g) {
+    nameList(call(OP_svgElements, g, root()), (h) => {
       const s = stateOf(wrap(g, +h));
       if (connected(s)) fireInTask(s, 'load');
     });
@@ -385,7 +382,6 @@
     for (let i = 0; i < scripts; i++) {
       if (!n.scriptDeferred(i)) turn(i);
     }
-    step(() => { svgLoads(g, false); });
     step(setState(1));
     for (let i = 0; i < scripts; i++) {
       if (n.scriptDeferred(i)) turn(i);
@@ -394,7 +390,7 @@
     step(setState(2));
     // The frames the parser found: `load` waits for them (HTML §4.8.5).
     step(frameLoads);
-    step(() => { svgLoads(g, true); });
+    step(() => { svgLoads(g); });
     step(() => {
       // HTML: `load` goes to the window, with the document as its target.
       const s = make(I_Event);

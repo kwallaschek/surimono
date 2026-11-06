@@ -942,31 +942,25 @@ impl Document {
         Ok(names)
     }
 
-    /// The handles of the page's `svg` elements, newline-joined: the outermost
-    /// in tree order, or the nested ones in the order their end tags come.
-    pub(crate) fn svg_elements(&mut self, outermost: bool) -> BindingResult<String> {
+    /// The handles of the page's `svg` elements, newline-joined, in the order
+    /// of their end tags.
+    pub(crate) fn svg_elements(&mut self) -> BindingResult<String> {
         let mut found = Vec::new();
-        // (node, inside an `svg`, children done).
-        let mut stack = vec![(self.root(), false, false)];
-        while let Some((at, inside, done)) = stack.pop() {
+        // (node, its children are done).
+        let mut stack = vec![(self.root(), false)];
+        while let Some((at, done)) = stack.pop() {
             self.poll()?;
             let svg = self
                 .element_name(at)
                 .is_some_and(|n| n.ns == ns!(svg) && n.local.as_ref() == "svg");
             if done {
-                if svg && inside != outermost {
-                    found.push(at);
-                }
+                found.push(at);
                 continue;
             }
-            if outermost && svg && !inside {
-                found.push(at);
+            if svg {
+                stack.push((at, true));
             }
-            if !(outermost && svg && !inside) {
-                stack.push((at, inside, true));
-            }
-            let below = inside || svg;
-            stack.extend(self.children(at).iter().rev().map(|&c| (c, below, false)));
+            stack.extend(self.children(at).iter().rev().map(|&c| (c, false)));
         }
         let mut out = String::new();
         for n in found {

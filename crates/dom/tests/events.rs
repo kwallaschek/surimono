@@ -2227,9 +2227,8 @@ fn document_scripts_is_a_live_collection() {
     );
 }
 
-/// SVG 2 §15.2, with the expectation from Chromium 153 on the same page: a
-/// nested `svg` before `DOMContentLoaded`, an outermost one after it and just
-/// before the window's `load`.
+/// SVG 2 §15.2: only when all the document's resources have loaded. Chrome
+/// fires a nested `svg` as it closes (`inner,dom,outer false,load`).
 #[test]
 fn svg_elements_fire_load() {
     let (mut rt, _) = page(
@@ -2238,10 +2237,10 @@ fn svg_elements_fire_load() {
          <script>addEventListener('DOMContentLoaded', () => log.push('dom'));
          addEventListener('load', () => log.push('load'));</script>",
     );
-    assert_eq!(log_of(&mut rt), "inner,dom,outer false,load");
+    assert_eq!(log_of(&mut rt), "dom,inner,outer false,load");
 }
 
-/// By end tags among nested ones, and in tree order among outermost ones.
+/// In the order of the end tags.
 #[test]
 fn svg_load_order_among_siblings() {
     let (mut rt, _) = page(
@@ -2250,7 +2249,7 @@ fn svg_load_order_among_siblings() {
          <svg onload=\"on('a')\"></svg><svg onload=\"on('b')\"></svg>
          <svg onload=\"on('c')\"><svg onload=\"on('d')\"></svg><svg onload=\"on('e')\"><svg onload=\"on('f')\"></svg></svg></svg>",
     );
-    assert_eq!(log_of(&mut rt), "d,f,e,a,b,c");
+    assert_eq!(log_of(&mut rt), "a,b,d,f,e,c");
 }
 
 #[test]

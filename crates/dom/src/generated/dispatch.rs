@@ -184,7 +184,7 @@ pub(crate) fn dispatch(
         22 => h.handler_element().map(Ret::from),
         23 => h.id_names().map(Ret::from),
         24 => h.labeled_control(this).map(Ret::from),
-        25 => h.svg_elements(a.boolean(0)?).map(Ret::from),
+        25 => h.svg_elements().map(Ret::from),
         26 => h.frame_attached(this).map(Ret::from),
         27 => h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?).map(Ret::from),
         28 => idl::Node::node_type(h, this).map(Ret::from),
