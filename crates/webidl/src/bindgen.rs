@@ -69,6 +69,7 @@ const JS_INTERFACES: &[&str] = &[
     "Performance",
     "Location",
     "History",
+    "StaticRange",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
@@ -136,7 +137,15 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("handlerElement", "h.handler_element()"),
     ("idNames", "h.id_names()"),
     ("labeledControl", "h.labeled_control(this)"),
+    (
+        "staticRange",
+        "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
+    ),
 ];
+
+/// A member name for an interface's bare `stringifier;`: its `toString`,
+/// answered by the host's `stringifier`.
+const STRINGIFIER: &str = "stringifier";
 
 /// A member name that isn't in the IDL. CSSOM defines
 /// `CSSStyleProperties`' per-property attributes (`style.fontSize`) in prose,
@@ -1340,6 +1349,7 @@ impl Bound<'_, '_> {
                     | "named_setter"
                     | "named_deleter"
                     | "iterable"
+                    | STRINGIFIER
                     | STYLE_PROPERTIES
             ) {
                 continue;
@@ -1389,6 +1399,22 @@ impl Bound<'_, '_> {
             });
         if let Some(s) = stringifies.filter(|s| members.contains(&s.as_str())) {
             let _ = writeln!(self.out.js, "stringifier({id}, {});", js_string(&s));
+        }
+        if members.contains(&STRINGIFIER) {
+            if !self
+                .iface
+                .members
+                .iter()
+                .any(|m| matches!(m.member.kind, MemberKind::Stringifier))
+            {
+                return Err(self.unknown(STRINGIFIER));
+            }
+            let call = self.trait_call(STRINGIFIER, &[], true);
+            let op = self.out.op(&call);
+            let _ = writeln!(
+                self.out.js,
+                "op({id}, \"toString\", function toString() {{ const s = self(this, {id}); return call({op}, s.g, s.h); }});"
+            );
         }
         if let Some(x) = self.exotic(&members)? {
             let _ = writeln!(self.out.js, "exotic({id}, {x});");
@@ -1461,6 +1487,7 @@ pub fn generate_bindings(
         "HTMLFrameSetElement",
         "HTMLFormElement",
         "SVGElement",
+        "Range",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
@@ -1763,6 +1790,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "doctype",
             "createCDATASection",
             "createAttribute",
+            "createRange",
             "createAttributeNS",
             "createProcessingInstruction",
             "documentElement",
@@ -1984,6 +2012,49 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "XMLSerializer",
         members: &["constructor", "serializeToString"],
+    },
+    BindInterface {
+        name: "AbstractRange",
+        members: &[
+            "startContainer",
+            "startOffset",
+            "endContainer",
+            "endOffset",
+            "collapsed",
+        ],
+    },
+    BindInterface {
+        name: "StaticRange",
+        members: &["constructor"],
+    },
+    BindInterface {
+        name: "Range",
+        members: &[
+            "constructor",
+            "commonAncestorContainer",
+            "setStart",
+            "setEnd",
+            "setStartBefore",
+            "setStartAfter",
+            "setEndBefore",
+            "setEndAfter",
+            "collapse",
+            "selectNode",
+            "selectNodeContents",
+            "compareBoundaryPoints",
+            "deleteContents",
+            "extractContents",
+            "cloneContents",
+            "insertNode",
+            "surroundContents",
+            "cloneRange",
+            "detach",
+            "isPointInRange",
+            "comparePoint",
+            "intersectsNode",
+            "createContextualFragment",
+            STRINGIFIER,
+        ],
     },
     // Layout queries, in `glue_layout.js`.
     BindInterface {

@@ -10,7 +10,9 @@ it isn't a result. Subtests are counted from the source (`test(`, `async_test(`,
 
 The greedy order answers "what next": at each step, the interface that completes
 the most subtests given the interfaces before it. A test that needs a browser
-feature surimono won't have (iframes, new windows, workers) is listed apart.
+feature surimono won't have (new windows, workers) is listed apart. Frames and XML
+pages run, so they aren't set aside; a test that needs a script in a frame or a
+realm of its own fails on that and shows in `COMPAT.md`.
 
 Usage: python3 -I wpt/tools/api_needs.py [--idl DIR] [--tests DIR] [--manifest FILE] [--json FILE]
 """
@@ -31,9 +33,8 @@ MEMBER_RE = re.compile(r"(?:^|\s)(\w+)\s*(?:\(|;|=)", re.M)
 IDENT_RE = re.compile(r"[A-Za-z_]\w*")
 PROP_RE = re.compile(r"\.\s*([A-Za-z_]\w*)")
 IDL_WORDS = {"attribute", "readonly", "const", "static", "getter", "setter", "deleter", "stringifier", "inherit", "undefined", "constructor"}
-# Things a one-document runner can't offer, by the text that needs them.
+# Things the runner can't offer, by the text that needs them.
 BLOCKERS = {
-    "iframe": re.compile(r"<iframe|createElement\(\s*[\"']iframe|contentWindow|contentDocument"),
     "new window": re.compile(r"window\.open\s*\("),
     "worker": re.compile(r"new\s+(?:Shared)?Worker\s*\(|fetch_tests_from_worker"),
     "xhr or fetch": re.compile(r"XMLHttpRequest|\bfetch\s*\("),
@@ -43,7 +44,6 @@ BLOCKERS = {
 # The same, decided by the file's name.
 NAME_BLOCKERS = {
     "server-side substitution": re.compile(r"\.sub\.[^/]*$"),
-    "xml parser": re.compile(r"\.(?:xhtml|xht|xml|svg)$"),
 }
 
 

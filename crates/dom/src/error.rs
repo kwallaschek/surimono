@@ -6,7 +6,7 @@ use surimono_core::SandboxError;
 /// complete.
 ///
 /// The `StaleDocument`, `NoDocument`, `NodeLimit`, `TreeTooDeep`,
-/// `HandleLimit`, `TextLimit`, `AttributeLimit`, `StyleLimit`, `Unsupported` and
+/// `HandleLimit`, `TextLimit`, `AttributeLimit`, `RangeLimit`, `StyleLimit`, `Unsupported` and
 /// `LayoutQuery` variants are
 /// *fatal to the call*: the binding throws into the script (so it stops where
 /// it is), and the call fails with this error even if the script caught the
@@ -94,6 +94,13 @@ pub enum DomError {
     /// [`DomLimits::max_attributes`](crate::DomLimits::max_attributes).
     #[error("an element reached the limit of {limit} attributes")]
     AttributeLimit {
+        /// The limit that was reached.
+        limit: usize,
+    },
+    /// The document has made
+    /// [`DomLimits::max_ranges`](crate::DomLimits::max_ranges) ranges.
+    #[error("the document made its limit of {limit} ranges")]
+    RangeLimit {
         /// The limit that was reached.
         limit: usize,
     },

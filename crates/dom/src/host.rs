@@ -155,7 +155,7 @@ impl Document {
         }
     }
 
-    fn object_at(&mut self, this: ObjectId) -> BindingResult<Object> {
+    pub(crate) fn object_at(&mut self, this: ObjectId) -> BindingResult<Object> {
         let generation = self.generation();
         let handle = Handle::try_from(this.0).unwrap_or(0);
         match self.resolve(generation, handle) {
@@ -326,7 +326,7 @@ impl Document {
     /// `context`, or of a new `<body>` element if there is none. In an XML
     /// document, as XML (DOM Parsing §2.1): input that isn't well-formed is a
     /// `SyntaxError`.
-    fn parse_fragment_in(
+    pub(crate) fn parse_fragment_in(
         &mut self,
         context: Option<usize>,
         parent: usize,
@@ -619,6 +619,8 @@ impl Document {
             Object::Implementation(_) => return Ok(interface::DOM_IMPLEMENTATION),
             Object::Record(_) => return Ok(interface::MUTATION_RECORD),
             Object::Attr(..) => return Ok(interface::ATTR),
+            Object::Range(_) => return Ok(interface::RANGE),
+            Object::StaticRange(_) => return Ok(interface::STATIC_RANGE),
         };
         Ok(match self.kind(id) {
             Some(Kind::Document) if self.info(id).xml_interface => interface::XML_DOCUMENT,
@@ -2128,6 +2130,14 @@ impl idl::Document for Document {
         }
         let copy = self.clone_tree(id, matches!(options, Value::Bool(true)))?;
         self.object(copy)
+    }
+
+    fn create_range(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        let id = self.node_of(this)?;
+        match self.new_range(id) {
+            Ok(h) => Ok(ObjectId(u64::from(h))),
+            Err(e) => Err(self.fail(e)),
+        }
     }
 
     fn create_document_fragment(&mut self, _this: ObjectId) -> BindingResult<ObjectId> {

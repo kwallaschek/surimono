@@ -4221,6 +4221,21 @@ sha256 = "5fac07febb0e2a97fb0d7b0def149ec08b642e1ba4b9c345283ab1cbd2af6570"
 bytes = 1500
 
 [[file]]
+path = "common/blank.html"
+sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+bytes = 0
+
+[[file]]
+path = "common/dummy.xhtml"
+sha256 = "b57b4bf4e92b8faaf5a49906776ad43b31c64c38a89e3e3b23155ba7173dd6c8"
+bytes = 123
+
+[[file]]
+path = "common/dummy.xml"
+sha256 = "11c8c8db88f191408a50edec6eb103a76f11804d4806407fc3bcfbfcde0b75e0"
+bytes = 30
+
+[[file]]
 path = "common/get-host-info.sub.js"
 sha256 = "9fa3d3004fbe6d0d6c1f46b8c8824afd8b84d72aade671b78e7bd964678cb9ca"
 bytes = 3523
@@ -5501,6 +5516,211 @@ sha256 = "7c779fb3a3e847a7b776f1a014b2f24781ef3a9bd0228edcc68805a57e7bdab8"
 bytes = 1150
 
 [[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_mathml.html"
+sha256 = "b6a2b1dfcead71632fc19b6aeedab8614b95e5bb4c7e1eff5333d17104cedbc8"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_mathml.svg"
+sha256 = "b6a2b1dfcead71632fc19b6aeedab8614b95e5bb4c7e1eff5333d17104cedbc8"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_mathml.xhtml"
+sha256 = "b6a2b1dfcead71632fc19b6aeedab8614b95e5bb4c7e1eff5333d17104cedbc8"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_mathml.xml"
+sha256 = "b6a2b1dfcead71632fc19b6aeedab8614b95e5bb4c7e1eff5333d17104cedbc8"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_svg.html"
+sha256 = "b12e0d83ce2357d80b89c57694814d0a3abdaf8c40724f2049af8b7f01b7812b"
+bytes = 11
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_svg.svg"
+sha256 = "b12e0d83ce2357d80b89c57694814d0a3abdaf8c40724f2049af8b7f01b7812b"
+bytes = 11
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_svg.xhtml"
+sha256 = "b12e0d83ce2357d80b89c57694814d0a3abdaf8c40724f2049af8b7f01b7812b"
+bytes = 11
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_svg.xml"
+sha256 = "b12e0d83ce2357d80b89c57694814d0a3abdaf8c40724f2049af8b7f01b7812b"
+bytes = 11
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_xhtml.html"
+sha256 = "b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_xhtml.svg"
+sha256 = "b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_xhtml.xhtml"
+sha256 = "b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/bare_xhtml.xml"
+sha256 = "b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628"
+bytes = 13
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/empty.html"
+sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+bytes = 0
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/empty.svg"
+sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+bytes = 0
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/empty.xhtml"
+sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+bytes = 0
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/empty.xml"
+sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+bytes = 0
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/generate.py"
+sha256 = "e9c3647ece16c4b7b1d699b7018bd21695f766ad00fd722c87c8a3120b26321d"
+bytes = 2130
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/mathml.html"
+sha256 = "b76fda5ff276abf4dcf7c215c8a1810dfb50022fc9fdff473dc3b31931220278"
+bytes = 60
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/mathml.svg"
+sha256 = "b76fda5ff276abf4dcf7c215c8a1810dfb50022fc9fdff473dc3b31931220278"
+bytes = 60
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/mathml.xhtml"
+sha256 = "b76fda5ff276abf4dcf7c215c8a1810dfb50022fc9fdff473dc3b31931220278"
+bytes = 60
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/mathml.xml"
+sha256 = "b76fda5ff276abf4dcf7c215c8a1810dfb50022fc9fdff473dc3b31931220278"
+bytes = 60
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/minimal_html.html"
+sha256 = "1ddeb53eae76115496b248a8cdd8a10eaa4dfdc61422effb7d8199ac788ef7c1"
+bytes = 30
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/minimal_html.svg"
+sha256 = "1ddeb53eae76115496b248a8cdd8a10eaa4dfdc61422effb7d8199ac788ef7c1"
+bytes = 30
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/minimal_html.xhtml"
+sha256 = "1ddeb53eae76115496b248a8cdd8a10eaa4dfdc61422effb7d8199ac788ef7c1"
+bytes = 30
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/minimal_html.xml"
+sha256 = "1ddeb53eae76115496b248a8cdd8a10eaa4dfdc61422effb7d8199ac788ef7c1"
+bytes = 30
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/svg.html"
+sha256 = "8d9b4b794affc5daf4eafa12e0c6294ab31aaeed330886145676bd6b832e8b98"
+bytes = 46
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/svg.svg"
+sha256 = "8d9b4b794affc5daf4eafa12e0c6294ab31aaeed330886145676bd6b832e8b98"
+bytes = 46
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/svg.xhtml"
+sha256 = "8d9b4b794affc5daf4eafa12e0c6294ab31aaeed330886145676bd6b832e8b98"
+bytes = 46
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/svg.xml"
+sha256 = "8d9b4b794affc5daf4eafa12e0c6294ab31aaeed330886145676bd6b832e8b98"
+bytes = 46
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml.html"
+sha256 = "99af9dacec3549256efe233625fc1f9fbb028aeb1e47fa7f109c18ce91eb5b32"
+bytes = 50
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml.svg"
+sha256 = "99af9dacec3549256efe233625fc1f9fbb028aeb1e47fa7f109c18ce91eb5b32"
+bytes = 50
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml.xhtml"
+sha256 = "99af9dacec3549256efe233625fc1f9fbb028aeb1e47fa7f109c18ce91eb5b32"
+bytes = 50
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml.xml"
+sha256 = "99af9dacec3549256efe233625fc1f9fbb028aeb1e47fa7f109c18ce91eb5b32"
+bytes = 50
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_changed.html"
+sha256 = "978fd97a51fcd12d91f2aaac2dcd1f7f557a3b6becfa503a6c3b878635807038"
+bytes = 256
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_changed.svg"
+sha256 = "978fd97a51fcd12d91f2aaac2dcd1f7f557a3b6becfa503a6c3b878635807038"
+bytes = 256
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_changed.xhtml"
+sha256 = "978fd97a51fcd12d91f2aaac2dcd1f7f557a3b6becfa503a6c3b878635807038"
+bytes = 256
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_changed.xml"
+sha256 = "978fd97a51fcd12d91f2aaac2dcd1f7f557a3b6becfa503a6c3b878635807038"
+bytes = 256
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_removed.html"
+sha256 = "14a1ddddf447bf176c24078ed32298610140914c0b8d409cde329e68fa7894c5"
+bytes = 233
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_removed.svg"
+sha256 = "14a1ddddf447bf176c24078ed32298610140914c0b8d409cde329e68fa7894c5"
+bytes = 233
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_removed.xhtml"
+sha256 = "14a1ddddf447bf176c24078ed32298610140914c0b8d409cde329e68fa7894c5"
+bytes = 233
+
+[[file]]
+path = "dom/nodes/Document-createElement-namespace-tests/xhtml_ns_removed.xml"
+sha256 = "14a1ddddf447bf176c24078ed32298610140914c0b8d409cde329e68fa7894c5"
+bytes = 233
+
+[[file]]
 path = "dom/nodes/Document-createElement-namespace.html"
 sha256 = "c2037330b704b3479b09345545a05f7e58a3280945eb9b5513eec5e87cb4df04"
 bytes = 4466
@@ -5769,6 +5989,11 @@ bytes = 609
 path = "dom/nodes/Element-getElementsByClassName.html"
 sha256 = "ead371428d6e577461717fcb02416631684cd995c56558be14b342726dfa5a83"
 bytes = 1415
+
+[[file]]
+path = "dom/nodes/Element-getElementsByTagName-change-document-HTMLNess-iframe.xml"
+sha256 = "9bd4e7da69e147e60c9d5d9124a0c57ef34363668a3b97e42c618d0756eafb7e"
+bytes = 8
 
 [[file]]
 path = "dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html"
@@ -6131,6 +6356,16 @@ sha256 = "3c2cc946c385d6919af65a9f0613243266f5e15fa12e78a580b2b48838db1d9d"
 bytes = 2926
 
 [[file]]
+path = "dom/nodes/Node-isEqualNode-iframe1.xml"
+sha256 = "c760a75b7fcb1a10c04c3135eb12f809d1de665f98a705ec143414c88a101699"
+bytes = 50
+
+[[file]]
+path = "dom/nodes/Node-isEqualNode-iframe2.xml"
+sha256 = "3afb42f1e746b01616a186dd5b51def1f5b3221655b78e9db2ffacc1575cd791"
+bytes = 46
+
+[[file]]
 path = "dom/nodes/Node-isEqualNode-xhtml.xhtml"
 sha256 = "17c7e5e5fdd03ee093b05f05aecf69773d32e05ab1ef0f8b5be7f5332e28e8bb"
 bytes = 3010
@@ -6189,6 +6424,11 @@ bytes = 3312
 path = "dom/nodes/Node-parentElement.html"
 sha256 = "a42535e6a243ce0180d6c29078aea6e458c6fc085a6a3720ce68f32b5738ae58"
 bytes = 3362
+
+[[file]]
+path = "dom/nodes/Node-parentNode-iframe.html"
+sha256 = "f9154eb551f07193ada78cb021ebd4ede3f9ea3af5f1502ed3c7b54d4c37de58"
+bytes = 17
 
 [[file]]
 path = "dom/nodes/Node-parentNode.html"
@@ -6284,6 +6524,16 @@ bytes = 4430
 path = "dom/nodes/ParentNode-querySelector-All-comma-selector.html"
 sha256 = "875364af9c92b1f89505f8a1b9ddda22a8eee3259cb3cceb6a6fb0c672e97bf9"
 bytes = 889
+
+[[file]]
+path = "dom/nodes/ParentNode-querySelector-All-content.html"
+sha256 = "40eff9f6df0986178d2e138c256369fd22f09a8d15ba03fd1bef2ac2c104f9e2"
+bytes = 15583
+
+[[file]]
+path = "dom/nodes/ParentNode-querySelector-All-content.xht"
+sha256 = "29547bc662e5507e069579c0dfd79169f6d4c7565b78916cadf007b66089200e"
+bytes = 15448
 
 [[file]]
 path = "dom/nodes/ParentNode-querySelector-All-multiple-not.html"
@@ -6799,6 +7049,11 @@ bytes = 981
 path = "dom/nodes/getElementsByClassName-whitespace-class-names.html"
 sha256 = "43440cfa9e8d15a3b0ac1f59f06a2b539c935212263cb545f77efa98df2817d2"
 bytes = 2019
+
+[[file]]
+path = "dom/nodes/getElementsByClassNameFrame.htm"
+sha256 = "b173080609ae91b0863a61b0e9af0f9636098a4d31af2541b690439df503d306"
+bytes = 126
 
 [[file]]
 path = "dom/nodes/insert-adjacent.html"
@@ -7599,6 +7854,11 @@ bytes = 14146
 path = "domparsing/positional-template-child.html"
 sha256 = "cfce8a830864ce2c0917ea860d9ba88bdf140330683ac83fd1f08c0e0c520f45"
 bytes = 949
+
+[[file]]
+path = "domparsing/resources/domparser-iframe.html"
+sha256 = "04564028438b5c08b3edc7e387797562f37895dcca671d8ccbe1ecedf26b9b7b"
+bytes = 156
 
 [[file]]
 path = "domparsing/resources/domparser-url-tests.js"
