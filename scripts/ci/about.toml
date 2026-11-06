@@ -10,8 +10,9 @@
 # reached through normal dependencies on the targets below (Stylo's come in
 # through surimono-dom, for page scripts). A crate deny.toml excepts that nothing
 # ships stays out of this file, so cargo-about's "config found for a crate not
-# present in the graph" warning always means something. check-mpl.py fails the build if this list names a
-# crate deny.toml doesn't allow, misses a shipped MPL-2.0 crate or names one
+# present in the graph" warning always means something. check-mpl.py fails the
+# build if this list names a crate deny.toml doesn't allow, misses a shipped
+# MPL-2.0 crate or names one
 # that isn't shipped, or if an MPL-2.0 crate comes from anywhere but crates.io.
 accepted = [
     "MIT",

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs exactly what .github/workflows/ci.yml runs on Linux: fmt, the offline
 # fixture verifiers, clippy (warnings are errors), tests, the WPT runner's own fmt,
-# clippy and tests, the Ruby gem's tests, the examples (examples/run.sh, skipped
-# while it doesn't exist) and cargo-deny.
+# clippy and tests, page-check's, the Ruby gem's tests, the examples
+# (examples/run.sh, skipped while it doesn't exist) and cargo-deny.
 # Usage: scripts/ci.sh [--no-deny] [--no-ruby]
 #   --no-ruby skips the Ruby extension (needs Ruby headers and libclang), the gem
 #             tests and the Ruby examples.
@@ -52,6 +52,7 @@ else
   run_examples --no-ruby
 fi
 scripts/ci/wpt-runner.sh
+scripts/ci/page-check.sh
 if [ "$run_deny" = 1 ]; then
   if command -v cargo-deny >/dev/null; then
     step "cargo-deny"; cargo deny --locked check
