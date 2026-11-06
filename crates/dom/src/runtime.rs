@@ -20,7 +20,7 @@ use surimono_webidl::runtime::{BindingError, ObjectId};
 use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
-use crate::{Document, DomError, LayoutPolicy, web};
+use crate::{Document, DomError, LayoutPolicy, sheet, web};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
@@ -33,6 +33,7 @@ const GLUE: &str = concat!(
     include_str!("glue_platform.js"),
     include_str!("glue_html.js"),
     include_str!("glue_traversal.js"),
+    include_str!("glue_sheet.js"),
     include_str!("glue_layout.js"),
     include_str!("glue_tail.js"),
 );
@@ -656,6 +657,8 @@ fn install_web<'js>(ctx: &Ctx<'js>, host: &Shared, n: &Object<'js>) -> rquickjs:
         "base64Decode",
         maybe_text_native(ctx, host, web::base64_decode)?,
     )?;
+    n.set("cssRules", text_native(ctx, host, sheet::rules_for_script)?)?;
+    n.set("cssRule", maybe_text_native(ctx, host, sheet::one_rule)?)?;
     n.set("utf8Encode", native_utf8_encode(ctx, host)?)?;
     n.set("decoderOpen", native_decoder_open(ctx, host)?)?;
     n.set("decoderFeed", native_decoder_feed(ctx, host)?)?;

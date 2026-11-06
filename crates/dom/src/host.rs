@@ -765,6 +765,12 @@ impl Document {
         self.live_list(this, list)
     }
 
+    /// What style element `this`'s sheet is read from.
+    pub(crate) fn style_text_of(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Ok(self.style_text(id))
+    }
+
     /// What live list `this` is under, for the members of `options`.
     pub(crate) fn list_owner(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
         let Object::Live(owner, _) = self.object_at(this)? else {

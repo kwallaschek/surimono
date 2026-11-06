@@ -16,6 +16,7 @@ mod parse;
 mod range;
 mod runtime;
 mod select;
+mod sheet;
 mod style_attr;
 mod traversal;
 mod tree;

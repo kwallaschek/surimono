@@ -87,6 +87,13 @@ const JS_INTERFACES: &[&str] = &[
     "HTMLOptionsCollection",
     "NodeIterator",
     "TreeWalker",
+    "CSSRule",
+    "CSSGroupingRule",
+    "CSSStyleRule",
+    "StyleSheet",
+    "CSSStyleSheet",
+    "StyleSheetList",
+    "CSSRuleList",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
@@ -116,6 +123,9 @@ const JS_MEMBERS: &[(&str, &str)] = &[
     ("HTMLTextAreaElement", "value"),
     ("HTMLTextAreaElement", "defaultValue"),
     ("Document", "cookie"),
+    ("Document", "styleSheets"),
+    ("HTMLStyleElement", "sheet"),
+    ("HTMLLinkElement", "sheet"),
     ("Document", "createNodeIterator"),
     ("Document", "createTreeWalker"),
     ("Document", "activeElement"),
@@ -198,6 +208,13 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("frameAttached", "h.frame_attached(this)"),
     ("htmlList", "h.html_list_of(this, a.uint(0)?)"),
     ("listOwner", "h.list_owner(this)"),
+    (
+        "sheetInsert",
+        "h.sheet_insert(this, a.uint(0)?, a.string(1)?)",
+    ),
+    ("sheetDelete", "h.sheet_delete(this, a.uint(0)?)"),
+    ("sheetGeneration", "h.style_generation(this)"),
+    ("sheetText", "h.style_text_of(this)"),
     ("iteratorNew", "h.iterator_new(this)"),
     ("iteratorReference", "h.iterator_reference(a.uint(0)?)"),
     ("iteratorBefore", "h.iterator_before(a.uint(0)?)"),
@@ -1593,6 +1610,7 @@ pub fn generate_bindings(
         "HTMLImageElement",
         "HTMLAnchorElement",
         "HTMLAreaElement",
+        "HTMLStyleElement",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
@@ -1938,6 +1956,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "createComment",
             "createEvent",
             "cookie",
+            "styleSheets",
             "createNodeIterator",
             "createTreeWalker",
             "forms",
@@ -2083,10 +2102,42 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         name: "DOMStringMap",
         members: &["named_getter", "named_setter", "named_deleter"],
     },
-    // Only for `parentRule`, always null on an inline style.
     BindInterface {
         name: "CSSRule",
+        members: &["cssText", "parentRule", "parentStyleSheet", "type"],
+    },
+    BindInterface {
+        name: "CSSGroupingRule",
         members: &[],
+    },
+    BindInterface {
+        name: "CSSStyleRule",
+        members: &["selectorText"],
+    },
+    BindInterface {
+        name: "StyleSheet",
+        members: &["type", "href", "ownerNode", "parentStyleSheet", "title"],
+    },
+    BindInterface {
+        name: "CSSStyleSheet",
+        members: &[
+            "ownerRule",
+            "cssRules",
+            "rules",
+            "insertRule",
+            "deleteRule",
+            "addRule",
+            "removeRule",
+        ],
+    },
+    // Their indexed properties are in `glue_sheet.js`, since they have no handle.
+    BindInterface {
+        name: "StyleSheetList",
+        members: &["length"],
+    },
+    BindInterface {
+        name: "CSSRuleList",
+        members: &["length"],
     },
     BindInterface {
         name: "MutationObserver",
@@ -2124,7 +2175,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLLinkElement",
-        members: &["href", "rel"],
+        members: &["href", "rel", "sheet"],
     },
     BindInterface {
         name: "HTMLScriptElement",
@@ -2346,7 +2397,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLSlotElement"),
     element("HTMLSourceElement"),
     element("HTMLSpanElement"),
-    element("HTMLStyleElement"),
+    BindInterface {
+        name: "HTMLStyleElement",
+        members: &["media", "type", "sheet"],
+    },
     element("HTMLTableCaptionElement"),
     BindInterface {
         name: "HTMLTableCellElement",
