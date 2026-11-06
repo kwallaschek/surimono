@@ -28,6 +28,7 @@ fn every_glue_member_is_written() {
         include_str!("../src/glue_activation.js"),
         include_str!("../src/glue_platform.js"),
         include_str!("../src/glue_html.js"),
+        include_str!("../src/glue_traversal.js"),
         include_str!("../src/glue_layout.js"),
         include_str!("../src/glue_tail.js"),
     );
