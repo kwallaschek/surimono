@@ -103,6 +103,19 @@ fn an_iterator_survives_removals() {
     );
 }
 
+/// §6.1: nothing moves when what leaves holds the iterator's root.
+#[test]
+fn an_iterator_inside_what_leaves_stays() {
+    assert_eq!(
+        run("const a = document.getElementById('a');
+             const i = document.createNodeIterator(document.getElementById('b'));
+             i.nextNode(); i.nextNode();
+             a.remove();
+             [name(i.referenceNode), i.pointerBeforeReferenceNode].join()"),
+        "t2,false"
+    );
+}
+
 #[test]
 fn an_iterator_survives_removing_all_children() {
     assert_eq!(
