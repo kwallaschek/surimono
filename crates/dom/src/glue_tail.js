@@ -69,7 +69,7 @@
         },
         // WebIDL §3.7.4 reports a writable data property, so an assignment
         // makes an own property of the window, as for `chart = init(...)`.
-        set: function (v) { replaceable(G, name, v); },
+        set: function (v) { ordinarySet(this === undefined || this === null ? G : this, name, v); },
         enumerable: false, configurable: true,
       });
     });
@@ -99,12 +99,16 @@
     const args = create(null);
     args.length = argc > 2 ? argc - 2 : 0;
     for (let i = 2; i < argc; i++) args[i - 2] = a[i];
+    // WebIDL "invoke a callback function" cleans up, which is the checkpoint,
+    // before the exception is reported; `error`'s listeners then each get one.
+    // HTML "run a classic script" reports first and cleans up after.
     const task = function () {
       try {
         if (isFunction) apply(handler, G, args);
         else n.runSource(apply(toWellFormed, handler, []));
       } catch (x) {
-        reportException(x);
+        if (isFunction && !n.limit(x)) n.checkpoint();
+        reportException(x, isFunction);
       }
     };
     return argc > 1 ? real(task, a[1]) : real(task);
@@ -263,7 +267,7 @@
     for (;;) {
       const h = call(OP_nextFrameLoad, g, root());
       if (h === 0) return;
-      fire(stateOf(wrap(g, h)), 'load');
+      fireInTask(stateOf(wrap(g, h)), 'load');
     }
   }
   // Called by `run_page` when frames have loaded. A script can call it too,
@@ -336,6 +340,16 @@
     };
   }
 
+  // SVG 2 §15.2: `load` at an `svg` element once the document's resources
+  // have loaded, in the order of the end tags, just before the window's. Rust
+  // has the list, which no script's getter can reach.
+  function svgLoads(g) {
+    nameList(call(OP_svgElements, g, root()), (h) => {
+      const s = stateOf(wrap(g, +h));
+      if (connected(s)) fireInTask(s, 'load');
+    });
+  }
+
   // Every step of the page's life is queued here, before any of its scripts
   // runs: same due time, earlier sequence numbers, so they all come before
   // the page's own timers, in this order, each a task with a microtask
@@ -376,6 +390,7 @@
     step(setState(2));
     // The frames the parser found: `load` waits for them (HTML §4.8.5).
     step(frameLoads);
+    step(() => { svgLoads(g); });
     step(() => {
       // HTML: `load` goes to the window, with the document as its target.
       const s = make(I_Event);
