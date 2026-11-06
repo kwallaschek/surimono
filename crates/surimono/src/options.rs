@@ -3,10 +3,11 @@
 use std::fmt;
 use std::time::Duration;
 
-use crate::ErrorPolicy;
+use crate::{ErrorPolicy, ResourceLoader};
 
 /// Resource limits for every script a renderer runs, applied to each island
-/// separately.
+/// separately, and to a page's scripts as one
+/// ([`Renderer::render_page`](crate::Renderer::render_page)).
 ///
 /// A script that goes over a limit stops with [`Error::MemoryLimit`],
 /// [`Error::TimeLimit`] or [`Error::StackOverflow`](crate::Error::StackOverflow);
@@ -37,11 +38,20 @@ pub struct Limits {
     /// Most bytes the JavaScript heap may use. At least 1 MiB.
     pub memory_bytes: usize,
     /// Longest one island may run: one deadline per island covering loading
-    /// the renderer's bundle into a fresh runtime and drawing the island. Must
-    /// be more than zero.
+    /// the renderer's bundle into a fresh runtime and drawing the island. A
+    /// page's scripts share one such limit, its parse has another, and
+    /// everything after its scripts (serializing, loading stylesheets, the
+    /// checks for a printer) a third.
+    /// Must be more than zero.
     pub time: Duration,
     /// Most bytes of native stack the JavaScript engine may use, from 64 KiB to 16 MiB.
     pub stack_bytes: usize,
+    /// Most bytes of HTML [`render_page`](crate::Renderer::render_page) may
+    /// give back, and of a page's text while it runs (up to the document's
+    /// own 256 MiB): past either, [`Error::PageDomLimit`](crate::Error::PageDomLimit).
+    /// Escaping can make a page's output many times what it holds, and a
+    /// printer would have to read all of it. At least 1 MiB.
+    pub output_bytes: usize,
 }
 
 impl Limits {
@@ -51,6 +61,8 @@ impl Limits {
     pub const DEFAULT_TIME: Duration = Duration::from_secs(2);
     /// Default stack limit: 512 KiB.
     pub const DEFAULT_STACK_BYTES: usize = 512 * 1024;
+    /// Default output limit: 64 MiB.
+    pub const DEFAULT_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 }
 
 impl Default for Limits {
@@ -59,6 +71,7 @@ impl Default for Limits {
             memory_bytes: Self::DEFAULT_MEMORY_BYTES,
             time: Self::DEFAULT_TIME,
             stack_bytes: Self::DEFAULT_STACK_BYTES,
+            output_bytes: Self::DEFAULT_OUTPUT_BYTES,
         }
     }
 }
@@ -116,6 +129,28 @@ pub struct Options {
     pub(crate) utc_offset_minutes: i32,
     pub(crate) text_mode: TextMode,
     pub(crate) max_islands: Option<usize>,
+    pub(crate) layout_queries: LayoutQueries,
+    pub(crate) keep_scripts: bool,
+    pub(crate) resource_loader: Option<ResourceLoader>,
+}
+
+/// What a page's script gets when it asks about layout
+/// (`getBoundingClientRect`, `offsetWidth`, `getComputedStyle` and the like).
+/// Nothing is laid out in this release, so no answer is the real one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum LayoutQueries {
+    /// Sizes and positions are 0, rectangle lists are empty and
+    /// `getComputedStyle(…).getPropertyValue()` is an empty string (its named
+    /// properties are undefined), so a page that only reads them carries on,
+    /// and may draw at size 0. The default.
+    #[default]
+    Zeros,
+    /// The first query ends the render with
+    /// [`Error::PageLayoutQuery`](crate::Error::PageLayoutQuery), even if the
+    /// page catches the exception, for when you'd rather have no page than one
+    /// built on measurements that aren't real.
+    Throw,
 }
 
 /// What happens to text in the SVG a renderer returns.
@@ -154,7 +189,8 @@ impl Options {
     /// Default options: default [`Limits`], seed 0, [`ErrorPolicy::Fail`],
     /// every built-in renderer, a pool sized to the machine, the clock at
     /// [`DEFAULT_NOW_MS`] in UTC, text as outlines, at most 1,000 islands per
-    /// document, and no fonts yet: add at least one with
+    /// document, zeros for a page's layout queries, its scripts removed from
+    /// the output, no resource loader, and no fonts yet: add at least one with
     /// [`font`](Self::font), or [`Renderer::new`](crate::Renderer::new) fails
     /// with [`Error::InvalidOptions`](crate::Error::InvalidOptions).
     pub fn new() -> Self {
@@ -283,6 +319,31 @@ impl Options {
         self
     }
 
+    /// Sets what a page's script gets from layout queries. Default:
+    /// [`LayoutQueries::Zeros`].
+    pub fn layout_queries(mut self, queries: LayoutQueries) -> Self {
+        self.layout_queries = queries;
+        self
+    }
+
+    /// Keeps `<script>` elements in the HTML
+    /// [`Renderer::render_page`](crate::Renderer::render_page) returns.
+    /// Default: every `<script>` but island markers is removed, whether it
+    /// ran or not, because the page has run and a later step mustn't run or
+    /// print it again.
+    pub fn keep_scripts(mut self, keep: bool) -> Self {
+        self.keep_scripts = keep;
+        self
+    }
+
+    /// Lets a page's external scripts, frames and stylesheets load, through
+    /// `loader` only. Default: none, so network and files are off. See
+    /// [`ResourceLoader`].
+    pub fn resource_loader(mut self, loader: ResourceLoader) -> Self {
+        self.resource_loader = Some(loader);
+        self
+    }
+
     /// Sets local time's offset from UTC in minutes (540 for Japan), so dates
     /// on time axes show in that zone. From -720 to 840. Default: 0 (UTC).
     /// The host's time zone is never read.
@@ -307,6 +368,9 @@ impl fmt::Debug for Options {
             .field("utc_offset_minutes", &self.utc_offset_minutes)
             .field("text_mode", &self.text_mode)
             .field("max_islands", &self.max_islands)
+            .field("layout_queries", &self.layout_queries)
+            .field("keep_scripts", &self.keep_scripts)
+            .field("resource_loader", &self.resource_loader)
             .finish()
     }
 }
@@ -327,6 +391,9 @@ mod tests {
         assert_eq!(o.pool_size, None);
         assert_eq!(o.max_islands, None);
         assert_eq!(o.text_mode, TextMode::Outlines);
+        assert_eq!(o.layout_queries, LayoutQueries::Zeros);
+        assert!(!o.keep_scripts);
+        assert!(o.resource_loader.is_none());
         assert_eq!(Limits::default().memory_bytes, 64 * 1024 * 1024);
         assert_eq!(Limits::default().time, Duration::from_secs(2));
         assert_eq!(Limits::default().stack_bytes, 512 * 1024);

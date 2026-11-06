@@ -354,3 +354,106 @@ fn a_failed_render_leaves_an_existing_output_alone() {
     assert_eq!(names, ["out.html"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn scripts_run_only_with_the_flag() {
+    let page = "<!doctype html><body><script>document.body.id = 'ran';</script>";
+    let f = font();
+    let o = run(&["render", "-", "--font", &f], page);
+    assert_eq!((code(&o), text(&o.stdout)), (0, page.to_owned()));
+    let o = run(&["render", "-", "--font", &f, "--scripts"], page);
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    assert_eq!(
+        text(&o.stdout),
+        "<!doctype html><html><head></head><body id=\"ran\"></body></html>"
+    );
+    assert_eq!(text(&o.stderr), "");
+    let o = run(
+        &["render", "-", "--font", &f, "--scripts", "--keep-scripts"],
+        page,
+    );
+    assert!(text(&o.stdout).contains("<script>"), "{}", text(&o.stdout));
+}
+
+#[test]
+fn a_page_warns_and_still_renders() {
+    let f = font();
+    let o = run(
+        &["render", "-", "--font", &f, "--scripts"],
+        "<img src=a.png><script src=a.js></script><script>boom();</script>\
+         <script>setInterval(() => {}, 1);</script>",
+    );
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    let err = text(&o.stderr);
+    for line in [
+        "script error: \"ReferenceError: boom",
+        "Script \"a.js\" not loaded: \"no resource loader",
+        "Image \"a.png\" not loaded",
+        "timers were left",
+    ] {
+        assert!(err.contains(line), "{line}: {err}");
+    }
+}
+
+#[test]
+fn page_limits_exit_with_the_limit_code() {
+    let f = font();
+    let o = run(
+        &["render", "-", "--font", &f, "--scripts", "--time-ms", "100"],
+        "<script>for (;;) {}</script>",
+    );
+    assert_eq!(code(&o), 3, "{}", text(&o.stderr));
+    assert!(
+        text(&o.stderr).contains("[time-limit]"),
+        "{}",
+        text(&o.stderr)
+    );
+    assert!(o.stdout.is_empty());
+}
+
+#[test]
+fn resources_are_files_named_on_the_command_line() {
+    let dir = temp_dir("resource");
+    let js = dir.join("app.js");
+    std::fs::write(&js, "document.body.id = 'loaded';").unwrap_or_else(|e| panic!("{e}"));
+    let resource = format!("js/app.js={}", js.display());
+    let f = font();
+    let o = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--scripts",
+            "--resource",
+            &resource,
+        ],
+        "<script src=js/app.js></script><script src=other.js></script>",
+    );
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    assert!(
+        text(&o.stdout).contains("id=\"loaded\""),
+        "{}",
+        text(&o.stdout)
+    );
+    assert!(
+        text(&o.stderr).contains("not in the loader's allowlist"),
+        "{}",
+        text(&o.stderr)
+    );
+    let missing = format!("a.js={}", dir.join("nope.js").display());
+    let o = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--scripts",
+            "--resource",
+            &missing,
+        ],
+        "<p>",
+    );
+    assert_eq!(code(&o), 5, "{}", text(&o.stderr));
+    let _ = std::fs::remove_dir_all(&dir);
+}

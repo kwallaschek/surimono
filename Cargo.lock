@@ -1795,14 +1795,20 @@ version = "0.1.0"
 dependencies = [
  "blitz-dom",
  "blitz-html",
+ "cssparser",
+ "html-escape",
+ "html5ever",
  "libc",
  "lol_html",
  "serde",
  "serde_json",
+ "stats_alloc",
  "surimono-core",
+ "surimono-dom",
  "surimono-gfx",
  "surimono-islands",
  "thiserror",
+ "url",
  "web_atoms",
 ]
 
