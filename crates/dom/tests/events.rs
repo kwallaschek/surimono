@@ -1727,3 +1727,16 @@ fn a_labels_control_ignores_hidden_inputs_and_stays_in_its_tree() {
     );
     assert_eq!(r, "true|||true|");
 }
+
+/// SVG 2 §15.5: an SVG element's handler names its parameter `evt`.
+#[test]
+fn svg_handlers_name_their_parameter_evt() {
+    let (mut rt, _) = page(
+        "<!doctype html><svg id=s onclick=\"log.push('svg ' + evt.type + ' ' + (typeof event))\"></svg>
+         <p id=p onclick=\"log.push('html ' + event.type)\"></p>
+         <script>globalThis.log = [];
+         document.getElementById('s').dispatchEvent(new Event('click'));
+         document.getElementById('p').click();</script>",
+    );
+    assert_eq!(log_of(&mut rt), "svg click object,html click");
+}

@@ -94,6 +94,25 @@
     askElement(self(this, I_Element), 'getClientRects');
     return make(I_DOMRectList).w;
   });
+  // CSSOM View §6.1 and SVG 2 §5.2. Nothing has a box, so nothing moves and
+  // nothing is hit; `Throw` ends the call, as for every query.
+  for (const name of ['scroll', 'scrollTo', 'scrollBy', 'scrollIntoView']) {
+    op(I_Element, name, function () { askElement(self(this, I_Element), name); });
+  }
+  op(I_Document, 'elementsFromPoint', function elementsFromPoint(x, y) {
+    const s = self(this, I_Document);
+    need(arguments.length, 2, 'elementsFromPoint');
+    restricted(x); restricted(y);
+    askElement(s, 'elementsFromPoint');
+    return [];
+  });
+  op(I_SVGElement, 'getBBox', function getBBox() {
+    askElement(self(this, I_SVGElement), 'getBBox');
+    return newRect(I_DOMRect, undefined, 0, 0, 0, 0);
+  });
+  for (const name of ['scroll', 'scrollTo', 'scrollBy']) {
+    op(I_Window, name, function () { self(this, I_Window); askDocument(name); });
+  }
   for (const name of ['clientTop', 'clientLeft', 'clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight']) {
     attr(I_Element, name, function () { askElement(self(this, I_Element), name); return 0; });
   }

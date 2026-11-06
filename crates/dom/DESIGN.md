@@ -325,8 +325,10 @@ Bound as far as the policy goes: `getBoundingClientRect`, `getClientRects`,
 `client*`, `scroll*` (setters ask too, and scroll nothing), `offset*`,
 `elementFromPoint`, `getComputedStyle`, and the window's `innerWidth`, `innerHeight`,
 `outerWidth`, `outerHeight`, `scrollX`, `scrollY`, `pageXOffset`, `pageYOffset`.
-Not bound: `elementsFromPoint`, `scrollIntoView`, `scrollTo` and the rest that
-move or return sequences, `getBBox`. `pseudoElt` is converted and ignored.
+`scroll`, `scrollTo`, `scrollBy` and `scrollIntoView` on elements (the first three on
+the window too) move nothing, `elementsFromPoint` hits nothing, and `getBBox` is a zero
+`DOMRect`, on every SVG element where SVG 2 has it on graphics elements only. `Throw`
+applies to all of them. `pseudoElt` is converted and ignored.
 `DOMRectList` has `item` but no indexed properties, since it is always empty.
 
 ## Events and the page's life

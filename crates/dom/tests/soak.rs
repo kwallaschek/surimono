@@ -88,6 +88,11 @@ const SCRIPT: &str = r#"
     out.appendChild(html.adoptNode(html.body.firstChild));
     sum += document.cloneNode(true).body.childNodes.length;
     sum += e.lookupNamespaceURI('q').length + xml.getElementsByTagNameNS('*', 'a' + i).length;
+    const parsed = new DOMParser().parseFromString('<a xmlns="urn:' + i + '"><b c="' + i + '"/></a>', 'text/xml');
+    sum += new XMLSerializer().serializeToString(parsed).length;
+    const frame = out.appendChild(document.createElement('iframe'));
+    sum += frame.contentDocument.body.childNodes.length + frame.contentWindow.document.URL.length;
+    frame.remove();
     out.textContent = '';
   }
   // Stylo interns these names and URLs while it checks each value.
