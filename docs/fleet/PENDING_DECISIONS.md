@@ -85,16 +85,6 @@ Known gap: allocation failure during runtime/context creation (real system OOM o
 ## 5 Nov batch, add to DECISIONS when the PR merges
 
 - 2026-11-05 · The runner parses `.xml` as XML too (#145); `support` in `wpt/slices.toml` lists files vendored for frames (#145); a real-world page may have no library, `renderer = "none"` (#146).
-### #132-#142 (DOM A)
-- 2026-11-05 · Layout queries default to zeros, answered as for an element with no box; `LayoutPolicy::Throw` ends the call with fatal `DomError::LayoutQuery`; internal `DomRuntime::set_layout_policy`, PKG exposes it (#132) · The brief's phase-2 policy.
-- 2026-11-05 · All documents of a render share one blitz slab; an extra document is a marker element and a node's document is an `owners` entry (#136) · Adoption keeps wrappers and handles, and one set of limits covers every document.
-- 2026-11-05 · Doctypes and processing instructions are comment nodes to blitz-dom and CDATA sections text nodes, with their kind in `specials`; the page's doctype is a child of the document (#136) · Layout skips them.
-- 2026-11-05 · `Document::set_url` (internal) gives the page's URL, default `about:blank` (#136).
-- 2026-11-05 · `document.cloneNode()` gives a document, overturning the 4 Nov line for that case (#136) · DOM §4.4.
-- 2026-11-05 · `DOMParser` makes a document in the render's slab with scripting off (#139) · Same limits as the page.
-- 2026-11-05 · XML parser is our own `crates/dom/src/xml.rs`, no dependency, no entity expansion; a reference to anything but the five predefined entities is a well-formedness error (#142) · Least attack surface; departs from browsers for internal-subset entities.
-- 2026-11-05 · Iframes are documents in the render's slab with no browsing context: no scripts, no navigation, `src` through the page's resolver, at most 64 frames and 8 rounds a render; parsed frames load before the page's scripts and fire `load` before the window's; script-added frames load after the page settles (#142) · 7,114 dom-nodes subtests mention iframes, and this adds no network path.
-- 2026-11-05 · `Document::parse_xml` and `parse_xml_with_limits` load a page as XHTML, internal (#142).
 ### #143 (PKG), supersedes #130's lines
 - 2026-11-05 · `Renderer::render_page`, `render_page_cancellable`, `render_page_loading` return `PageOutput { html, report }`; new `PageReport`, `SettleReason`, `ResourceLoader`, `ResourceKind`, `ResourceFailure`, `ResourceFailureReason`, `LayoutQueries`; `Options::layout_queries`, `keep_scripts`, `resource_loader`; errors `PageMemoryLimit`, `PageTimeLimit`, `PageStackOverflow`, `PageDomLimit`, `PageFailed`; CLI `--scripts`, `--keep-scripts`, `--layout-queries`, `--resource`, `--output-mb`; gem `render(html, scripts: true)`, `Surimono.render_page`, `Renderer#render_page(html, loader:, allow:)`, `Surimono::Page`, `PageReport` · The phase-2 public API.
 - 2026-11-05 · A page's output is written from the printer's parse (html5ever with blitz-html's settings, `print/tree.rs`), screened on that tree, repeated to a fixed point (at most 4 re-parses, else `PageFailed`); lol_html no longer checks page output; all comments are dropped · lol_html isn't the printer's parser (#143 review).

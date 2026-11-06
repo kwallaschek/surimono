@@ -69,6 +69,27 @@ const SCRIPT: &str = r#"
     sum += out.textContent.length;
     out.textContent = '';
   }
+  // Other documents, with names new to each render: they live in the render's
+  // slab and go with it.
+  for (let round = 0; round < 2; round++) {
+    const impl = document.implementation;
+    const html = impl.createHTMLDocument('t' + i);
+    const xml = impl.createDocument('urn:' + i, 'p:a' + i, impl.createDocumentType('d' + i, 'p', 's'));
+    const blank = new Document();
+    const e = blank.createElementNS('urn:' + i, 'q:e' + i);
+    e.appendChild(xml.createCDATASection('c' + i));
+    e.appendChild(xml.createProcessingInstruction('t' + i, 'd'));
+    blank.appendChild(e);
+    const attr = html.createAttributeNS('urn:' + i, 'q:n' + i);
+    attr.value = 'v' + i;
+    html.body.setAttributeNodeNS(attr);
+    html.body.removeAttributeNode(attr);
+    html.body.appendChild(html.importNode(e, true));
+    out.appendChild(html.adoptNode(html.body.firstChild));
+    sum += document.cloneNode(true).body.childNodes.length;
+    sum += e.lookupNamespaceURI('q').length + xml.getElementsByTagNameNS('*', 'a' + i).length;
+    out.textContent = '';
+  }
   // Stylo interns these names and URLs while it checks each value.
   const styled = document.getElementById('r4').style;
   for (let k = 0; k < 20; k++) {

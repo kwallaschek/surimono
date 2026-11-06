@@ -9,6 +9,22 @@ source = "https://github.com/web-platform-tests/wpt"
 commit = "8b4b06ff53a47f1041e0e59f894d9e929963904c"
 # A file above this size is left out and listed in the manifest (no big assets).
 max_file_bytes = 262144
+# Not tests, and named by no <script src>: files and folders that pages load in
+# frames, or name in strings. Each file comes with its WPT path and hash.
+support = [
+  "common/blank.html",
+  "common/dummy.xhtml",
+  "common/dummy.xml",
+  "dom/nodes/Document-createElement-namespace-tests",
+  "dom/nodes/Element-getElementsByTagName-change-document-HTMLNess-iframe.xml",
+  "dom/nodes/Node-isEqualNode-iframe1.xml",
+  "dom/nodes/Node-isEqualNode-iframe2.xml",
+  "dom/nodes/Node-parentNode-iframe.html",
+  "dom/nodes/ParentNode-querySelector-All-content.html",
+  "dom/nodes/ParentNode-querySelector-All-content.xht",
+  "dom/nodes/getElementsByClassNameFrame.htm",
+  "domparsing/resources/domparser-iframe.html",
+]
 
 # What wpt.fyi's run above passes on the manifest's URLs, per area. Not a
 # denominator: compat.py prints each rate on this count next to the rate on

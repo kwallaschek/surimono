@@ -51,6 +51,12 @@ pub const STUB_INTERFACES: &[&str] = &[
     "HTMLLinkElement",
     "HTMLScriptElement",
     "HTMLInputElement",
+    "XMLDocument",
+    "DOMImplementation",
+    "DocumentType",
+    "CDATASection",
+    "ProcessingInstruction",
+    "HTMLIFrameElement",
 ];
 
 /// Typedefs and nested types deeper than this are an error (a typedef cycle).

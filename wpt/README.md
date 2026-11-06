@@ -14,11 +14,11 @@ their targets in `slices.toml`. Owned by the conformance researcher.
 | `runner/` | The runner, a standalone crate ("Runner") |
 | `tools/chrome_baseline.mjs` | Writes the baseline in the pinned Chromium |
 | `probes/` | Small pages behind `docs/COMPAT.md`'s rows that WPT's slices don't pin, with what Chromium and surimono log for each; `run.mjs` regenerates `results.json` |
-| `tools/vendor.py` | Copies the slices from a local WPT checkout at the pinned commit; `--check` verifies them offline |
+| `tools/vendor.py` | Copies the slices, and `support` in `slices.toml`, from a local WPT checkout at the pinned commit; `--check` verifies them offline |
 | `tools/api_needs.py` | Ranks DOM interfaces by how many subtests they unblock, for the DOM engineer |
 
-To vendor again, with a checkout (a sparse, blobless clone of the slices and
-`resources/` is enough):
+To vendor again, with a checkout (a sparse, blobless clone of the slices,
+`resources/` and `common/` is enough):
 
 ```
 git -C <wpt> checkout 8b4b06ff53a47f1041e0e59f894d9e929963904c
@@ -121,8 +121,12 @@ machine sets one, and uses `scripts/fleet/wcargo.sh` for the build.
 
 For each URL of each `[[test]]`:
 
-1. **Document.** Parse the `.html` file. `.xhtml`, `.xht`, `.xml` and `.svg` tests need an
-   XML parser, which surimono-dom doesn't have: they report `ERROR` until it does.
+1. **Document.** Parse the `.html` file with `Document::parse`, and `.xhtml`, `.xht`,
+   `.xml` and `.svg` with `Document::parse_xml`, as WPT's server sends them as XML. The
+   document's URL is the test's on WPT's default origin (`Document::set_url`). A file
+   that isn't well-formed is a `parsererror` document with no harness, so a `LIMIT`.
+   `set_url` also gives an XML page its `contentType`, from the extension, as wptserve
+   does.
    For `.any.js` and `.window.js`, build the page WPT's server would wrap around it:
    `self.GLOBAL` (`isWindow()` true, `isWorker()` and `isShadowRealm()` false) set
    first, then `testharness.js`, `testharnessreport.js`, `<div id=log>`, the
@@ -184,13 +188,12 @@ it short; the suite itself runs on the defaults above.
 ### Harness environment
 
 `testharness.js` reads `window.parent`, `window.top`, `window.opener` and `location`
-as soon as it loads, and `surimono-dom` has none of them yet. The runner defines
-the ones a page lacks, `parent` and `top` as the window, `opener` as null, and a
-plain `location` for the test's URL on WPT's default origin. They run at the start
-of `testharness.js`'s own script, so the document stays as WPT wrote it, and the
-vendored file is unchanged and still checked. A definition goes away by itself when
-surimono-dom has the name. `location` here is data with no behaviour, and the gap
-is in `COMPAT.md`.
+as soon as it loads, and `surimono-dom` has all but `location` now. The runner defines
+the ones a page lacks, so today a plain `location` for the test's URL on WPT's default
+origin. It runs at the start of `testharness.js`'s own script, so the document stays
+as WPT wrote it, and the vendored file is unchanged and still checked. A definition
+goes away by itself when surimono-dom has the name. `location` here is data with no
+behaviour, and the gap is in `COMPAT.md`.
 
 The harness also needs `window` as an event target, with `self` the same object,
 `DOMContentLoaded` then `load` after the scripts, `error` on `window`, somewhere to
@@ -227,9 +230,14 @@ or a local run of the same commit, when the conformance researcher regenerates
 
 ## Which tests can't run
 
-A one-document runner has no iframes, new windows, workers or network, and many
-tests in `dom/` use iframes. `.sub.html` tests need wptserve's substitution, idlharness
-tests fetch `/interfaces/*.idl`, and XML tests need a parser. `api_needs.py` sets
-all of these aside so the ranking isn't misled, but they stay in the denominator:
-a target is met on all of the slice, or the gap goes in `COMPAT.md` for Kay's OK.
+There are no new windows, workers or network. An `<iframe>` gets a document and no
+browsing context (`crates/dom/DESIGN.md`, "Frames"): its `src` comes through the
+runner's resolver from `wpt/tests/`, and a script in it doesn't run. That is why
+`support` in `slices.toml` lists what frames load: the static files, with the WPT
+path and hash of any other vendored file. A frame that needs a `.py` handler, or its
+own script, gets nothing useful. `.sub.html` tests need wptserve's substitution and
+idlharness tests fetch `/interfaces/*.idl`. `api_needs.py` sets
+aside what needs a new window, a worker, the network, testdriver or wptserve, so the
+ranking isn't misled, but those stay in the denominator: a target is met on all of
+the slice, or the gap goes in `COMPAT.md` for Kay's OK.
 `COMPAT.md`'s cause table shows how much each of these weighs.

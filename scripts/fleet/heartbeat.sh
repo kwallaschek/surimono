@@ -21,6 +21,7 @@ work="$(mktemp -d)"
 git worktree add --quiet --detach "$work" HEAD
 (
   cd "$work"
+  git branch -D hb-tmp >/dev/null 2>&1 || true
   git checkout --quiet --orphan hb-tmp
   git rm -rfq --ignore-unmatch . && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
   printf '{"time":"%s","session":"%s","note":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${CLAUDE_CODE_REMOTE_SESSION_ID:-unknown}" "$note" > heartbeat.json
