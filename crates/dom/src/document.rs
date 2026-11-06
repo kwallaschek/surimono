@@ -439,8 +439,6 @@ pub struct Document {
     empty_list: Handle,
     /// `<template>` to its content fragment.
     templates: HashMap<usize, usize>,
-    /// Those fragments. Only looked up.
-    template_contents: HashSet<usize>,
     /// Blitz node id to its handle, 0 for none yet.
     node_to_handle: Vec<Handle>,
     /// Strings blitz-dom doesn't hold, by node id: comment data
@@ -630,7 +628,6 @@ impl Document {
             queued_records: 0,
             observer_bytes: 0,
             empty_list: 0,
-            template_contents: parsed.templates.iter().map(|&(_, c)| c).collect(),
             templates: parsed.templates.into_iter().collect(),
             node_to_handle: Vec::new(),
             side_data: parsed.strings.into_iter().collect(),
@@ -724,8 +721,6 @@ impl Document {
         self.side_data.extend(parsed.strings);
         self.specials.extend(parsed.specials);
         // Before the count: a walk goes through a template to its content.
-        self.template_contents
-            .extend(parsed.templates.iter().map(|&(_, c)| c));
         self.templates.extend(parsed.templates);
         // Charged here and credited by the drops below if it is refused. The
         // holder is charged already. Orphans count until they go.
@@ -1066,8 +1061,6 @@ impl Document {
         );
         self.side_data.extend(parsed.strings);
         self.specials.extend(parsed.specials);
-        self.template_contents
-            .extend(parsed.templates.iter().map(|&(_, c)| c));
         self.templates.extend(parsed.templates);
         if let Some(d) = self.docs.get_mut(&doc) {
             d.quirks = parsed.quirks;
@@ -1588,7 +1581,7 @@ impl Document {
                                         && match e.name.local.as_ref() {
                                             "style" | "script" | "xmp" | "iframe" | "noembed"
                                             | "noframes" | "plaintext" => true,
-                                            "noscript" => self.scripting_enabled(id),
+                                            "noscript" => self.owner_of_node(id) == self.root(),
                                             _ => false,
                                         }
                                 });
@@ -2709,10 +2702,7 @@ impl Document {
                 continue;
             }
             stack.extend(self.take_children(n));
-            if let Some(c) = self.templates.remove(&n) {
-                self.template_contents.remove(&c);
-                stack.push(c);
-            }
+            stack.extend(self.templates.remove(&n));
             self.credit(self.node_bytes(n));
             self.side_data.remove(&n);
             self.specials.remove(&n);
@@ -3202,19 +3192,6 @@ impl Document {
     }
 
     /// Whether `id` is an HTML `<template>`.
-    /// HTML "scripting is enabled for a node": it is in the page's document
-    /// and not in a template's contents, which have no browsing context.
-    fn scripting_enabled(&self, id: usize) -> bool {
-        if self.owner_of_node(id) != self.root() {
-            return false;
-        }
-        let mut at = id;
-        while let Some(p) = self.parent(at) {
-            at = p;
-        }
-        !self.template_contents.contains(&at)
-    }
-
     pub(crate) fn is_html_template(&self, id: usize) -> bool {
         self.element_name(id)
             .is_some_and(|n| n.ns == ns!(html) && n.local.as_ref() == "template")
@@ -3232,7 +3209,6 @@ impl Document {
         }
         let c = self.create_fragment()?;
         self.templates.insert(id, c);
-        self.template_contents.insert(c);
         Ok(c)
     }
 

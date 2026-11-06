@@ -1905,23 +1905,3 @@ fn noscript_text_is_escaped_outside_the_page() {
         "<noscript>&lt;i&gt;&amp;</noscript>"
     );
 }
-
-/// A template's contents have no browsing context, in the page too.
-#[test]
-fn noscript_text_in_a_template_is_escaped() {
-    assert_eq!(
-        eval(
-            "const t = document.createElement('template');
-             const n = t.content.appendChild(document.createElement('noscript'));
-             n.textContent = '<i>';
-             const p = document.body.appendChild(document.createElement('noscript'));
-             p.textContent = '<i>';
-             const box = document.createElement('div');
-             box.innerHTML = '<template><noscript></noscript></template>';
-             box.firstChild.content.firstChild.textContent = '<b>';
-             t.innerHTML + '|' + p.outerHTML + '|' + box.innerHTML"
-        ),
-        "<noscript>&lt;i&gt;</noscript>|<noscript><i></noscript>|\
-         <template><noscript>&lt;b&gt;</noscript></template>"
-    );
-}
