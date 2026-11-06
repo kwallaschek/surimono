@@ -1535,7 +1535,16 @@ mod tests {
     #[test]
     fn forks_never_hang() {
         let exe = std::env::current_exe().unwrap();
+        // ASan's quarantine has spin locks its fork handling doesn't cover,
+        // and the busy thread frees memory, so under ASan the child can hang
+        // inside `free` (crates/islands/tests/fork.rs, the same test). Elsewhere
+        // nothing reads this. Only this process goes without it.
+        let asan = std::env::var("ASAN_OPTIONS").unwrap_or_default();
         let mut child = std::process::Command::new(exe)
+            .env(
+                "ASAN_OPTIONS",
+                format!("{asan}:quarantine_size_mb=0:thread_local_quarantine_size_kb=0"),
+            )
             .args([
                 "engine::tests::fork_stress_child",
                 "--exact",
