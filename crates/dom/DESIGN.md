@@ -734,7 +734,8 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:lang()`,
   `:defined` and `:target` are answered in `select.rs`; `checked` and `selected` are
   the attributes, as everywhere here, and `:target` is the URL's fragment, in the
-  document queried. `:scope` in a
+  document queried, from the first script on: Chrome sets the target at the end of
+  parsing, so an inline script finds nothing there. `:scope` in a
   `DocumentFragment` query matches nothing (Selectors 4 makes the fragment's
   top-level elements its children). WPT dom/nodes/selectors.js covers several.
 - **Selector limits.** To keep hostile selectors off the stack and out of Rust's
