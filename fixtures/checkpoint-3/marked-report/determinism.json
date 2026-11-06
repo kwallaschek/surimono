@@ -1,0 +1,32 @@
+{
+  "subject": "marked-report",
+  "deterministic": true,
+  "sha256": [
+    "0445065572a7ed0c89a7d8e22bcc6bc77ffbcb6d70bb8ca3a5e53622b2994acb",
+    "0445065572a7ed0c89a7d8e22bcc6bc77ffbcb6d70bb8ca3a5e53622b2994acb",
+    "0445065572a7ed0c89a7d8e22bcc6bc77ffbcb6d70bb8ca3a5e53622b2994acb",
+    "0445065572a7ed0c89a7d8e22bcc6bc77ffbcb6d70bb8ca3a5e53622b2994acb"
+  ],
+  "runs": [
+    {
+      "name": "a",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "renders": 2,
+      "process": "fresh"
+    },
+    {
+      "name": "b",
+      "TZ": "Asia/Tokyo",
+      "LC_ALL": "de_DE.UTF-8",
+      "renders": 2,
+      "process": "fresh"
+    }
+  ],
+  "producer": {
+    "cli": "fixtures/tools/page-check",
+    "version": "render_page",
+    "sha256": "2d55626bfe6008b7ea010bc67d5e6fff2c5bbbf9b37a769ce8dab35c37152219",
+    "commit": "ca07c9c15630b591722782e0235d184da1e3c72f"
+  }
+}
