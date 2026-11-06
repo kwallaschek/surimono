@@ -142,7 +142,7 @@ impl Document {
                 None => break false,
             }
         };
-        if !found || top == root || !gone.contains(&top) {
+        if !found || !gone.contains(&top) || self.is_inclusive_ancestor(top, root) {
             return Some((reference, before));
         }
         let moved = self.pointer_after_removal(root, parent, top, gone, before)?;
