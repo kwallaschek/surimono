@@ -69,7 +69,7 @@
         },
         // WebIDL §3.7.4 reports a writable data property, so an assignment
         // makes an own property of the window, as for `chart = init(...)`.
-        set: function (v) { replaceable(this === undefined || this === null ? G : this, name, v); },
+        set: function (v) { ordinarySet(this === undefined || this === null ? G : this, name, v); },
         enumerable: false, configurable: true,
       });
     });
@@ -101,13 +101,14 @@
     for (let i = 2; i < argc; i++) args[i - 2] = a[i];
     // WebIDL "invoke a callback function" cleans up, which is the checkpoint,
     // before the exception is reported; `error`'s listeners then each get one.
+    // HTML "run a classic script" reports first and cleans up after.
     const task = function () {
       try {
         if (isFunction) apply(handler, G, args);
         else n.runSource(apply(toWellFormed, handler, []));
       } catch (x) {
-        if (!n.limit(x)) n.checkpoint();
-        reportException(x, true);
+        if (isFunction && !n.limit(x)) n.checkpoint();
+        reportException(x, isFunction);
       }
     };
     return argc > 1 ? real(task, a[1]) : real(task);
@@ -339,17 +340,17 @@
     };
   }
 
-  // SVG 2 §15.3.1: `load` at each `svg` element, innermost first, once the
-  // parser has finished with it. The parser finishes before any script here,
-  // so all of them come after the parser-blocking scripts, where a browser
-  // fires each as it closes.
-  function svgLoads(g) {
-    const d = wrap(g, root());
-    const list = apply(pageByTag, d, ['svg']);
-    for (let i = list.length - 1; i >= 0; i--) {
-      const s = stateOf(list[i]);
-      if (s !== null && is(s, I_SVGElement)) fireInTask(s, 'load');
-    }
+  // SVG 2 §15.2: `load` at an `svg` element when the document's resources have
+  // loaded. An outermost `svg` does, in tree order, just before the window's
+  // `load`. A nested one fires when the parser closes it in Chrome, and here,
+  // the parser being done before any script, after the parser-blocking
+  // scripts, in the order their end tags come. Rust has the list, which no
+  // script's getter can reach.
+  function svgLoads(g, outermost) {
+    nameList(call(OP_svgElements, g, root(), outermost), (h) => {
+      const s = stateOf(wrap(g, +h));
+      if (connected(s)) fireInTask(s, 'load');
+    });
   }
 
   // Every step of the page's life is queued here, before any of its scripts
@@ -384,7 +385,7 @@
     for (let i = 0; i < scripts; i++) {
       if (!n.scriptDeferred(i)) turn(i);
     }
-    step(() => { svgLoads(g); });
+    step(() => { svgLoads(g, false); });
     step(setState(1));
     for (let i = 0; i < scripts; i++) {
       if (n.scriptDeferred(i)) turn(i);
@@ -393,6 +394,7 @@
     step(setState(2));
     // The frames the parser found: `load` waits for them (HTML §4.8.5).
     step(frameLoads);
+    step(() => { svgLoads(g, true); });
     step(() => {
       // HTML: `load` goes to the window, with the document as its target.
       const s = make(I_Event);

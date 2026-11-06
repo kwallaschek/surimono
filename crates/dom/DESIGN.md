@@ -402,9 +402,11 @@ only points a page can observe a listener's place from. Raw text compiles once,
 on first use. On a body or frameset element the Window-reflecting set is the
 window's. `document.currentScript` is the glue's, set from a script's run until
 a separate lifecycle step after its microtasks, which then fires its `load`.
-Each outermost and nested `svg` element fires `load` once, innermost first, in a step
-after the parser-blocking scripts, where a browser fires each as it closes; `document.scripts`
-is the `getElementsByTagName('script')` list, so an SVG `script` is in it.
+An `svg` element fires `load` as SVG 2 §15.2 says, once the document's resources have
+loaded: an outermost one in tree order, in a step just before the window's `load`. A
+nested one fires earlier, as in Chrome, which fires it as it closes; here that is a step
+after the parser-blocking scripts, in the order of the end tags, so it can't come
+between them. Chrome's order among outermost `svg`s isn't tree order.
 
 **Event interfaces.** Every interface inheriting from `Event` is generated
 whole (`JS_INTERFACES` in the generator): the constructor reads its dictionary
@@ -424,7 +426,10 @@ which is what gets printed, so a form's reset can't restore it.
 
 **Named access on the window** is WebIDL's named properties object, between
 `Window.prototype` and `EventTarget.prototype`: a getter for each `id` in the
-parsed tree, made before the first script, at most 4,096. Not a Proxy: QuickJS
+parsed tree, made before the first script, at most 4,096. Writing follows OrdinarySet: the
+value lands on the receiver if it takes it. A refusal is silent, because a setter can't
+answer `false`: `Reflect.set` says `true`, and a strict-mode write to a frozen receiver
+doesn't throw. Not a Proxy: QuickJS
 reads a global through the prototype chain, and a Proxy there makes an undeclared
 name `undefined` instead of a ReferenceError.
 

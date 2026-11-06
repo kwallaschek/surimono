@@ -942,6 +942,41 @@ impl Document {
         Ok(names)
     }
 
+    /// The handles of the page's `svg` elements, newline-joined: the outermost
+    /// in tree order, or the nested ones in the order their end tags come.
+    pub(crate) fn svg_elements(&mut self, outermost: bool) -> BindingResult<String> {
+        let mut found = Vec::new();
+        // (node, inside an `svg`, children done).
+        let mut stack = vec![(self.root(), false, false)];
+        while let Some((at, inside, done)) = stack.pop() {
+            self.poll()?;
+            let svg = self
+                .element_name(at)
+                .is_some_and(|n| n.ns == ns!(svg) && n.local.as_ref() == "svg");
+            if done {
+                if svg && inside != outermost {
+                    found.push(at);
+                }
+                continue;
+            }
+            if outermost && svg && !inside {
+                found.push(at);
+            }
+            if !(outermost && svg && !inside) {
+                stack.push((at, inside, true));
+            }
+            let below = inside || svg;
+            stack.extend(self.children(at).iter().rev().map(|&c| (c, below, false)));
+        }
+        let mut out = String::new();
+        for n in found {
+            let h = self.object(n)?;
+            out.push_str(&h.0.to_string());
+            out.push('\n');
+        }
+        Ok(out)
+    }
+
     /// A label's labeled control (HTML §4.10.4), or 0: with `for`, the first
     /// element of the label's own tree with that `id`, if it is labelable;
     /// otherwise the first labelable descendant. Polls the deadline.
@@ -2156,7 +2191,7 @@ impl idl::Document for Document {
     }
 
     fn scripts(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
-        self.live_list(this, ListKind::ByTag("script".to_owned()))
+        self.live_list(this, ListKind::Scripts)
     }
 
     fn create_document_fragment(&mut self, _this: ObjectId) -> BindingResult<ObjectId> {

@@ -138,6 +138,7 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("handlerElement", "h.handler_element()"),
     ("idNames", "h.id_names()"),
     ("labeledControl", "h.labeled_control(this)"),
+    ("svgElements", "h.svg_elements(a.boolean(0)?)"),
     ("frameAttached", "h.frame_attached(this)"),
     (
         "staticRange",

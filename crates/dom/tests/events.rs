@@ -2166,6 +2166,19 @@ fn a_timer_that_throws_reports_after_its_microtasks() {
     assert_eq!(log_of(&mut rt), "T,m,E1,em,E2");
 }
 
+/// HTML "run a classic script": reports first, cleans up after.
+#[test]
+fn a_string_timer_that_throws_reports_before_its_microtasks() {
+    let (mut rt, _) = page(
+        "<!doctype html><script>globalThis.log = [];
+         addEventListener('error', (e) => { e.preventDefault(); log.push('E1'); queueMicrotask(() => log.push('em')); });
+         addEventListener('error', () => log.push('E2'));
+         setTimeout(\"log.push('T'); queueMicrotask(() => log.push('m')); throw new Error('x');\", 0);
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "T,E1,E2,m,em");
+}
+
 #[test]
 fn toggle_and_frame_load_check_point_between_listeners() {
     let (mut rt, _) = page(
@@ -2197,17 +2210,45 @@ fn document_scripts_is_a_live_collection() {
           document.scripts instanceof HTMLCollection].join()",
     );
     assert_eq!(r, "1,true,true");
+    // HTML: only script elements, so no SVG or other namespace's.
+    assert_eq!(
+        eval(
+            "const n = document.scripts.length;
+             const svg = 'http://www.w3.org/2000/svg';
+             document.body.appendChild(document.createElementNS(svg, 'script'));
+             document.body.appendChild(document.createElementNS('urn:x', 'script'));
+             const x = new DOMParser().parseFromString('<a><script/></a>', 'text/xml');
+             [document.scripts.length - n, document.getElementsByTagName('script').length - n,
+              x.scripts.length].join()"
+        ),
+        "0,2,0"
+    );
 }
 
-/// SVG 2 §15.3.1.
+/// SVG 2 §15.2, with the expectation from Chromium 153 on the same page: a
+/// nested `svg` before `DOMContentLoaded`, an outermost one after it and just
+/// before the window's `load`.
 #[test]
 fn svg_elements_fire_load() {
     let (mut rt, _) = page(
         "<!doctype html><script>globalThis.log = [];</script>
          <svg id=a onload=\"log.push('outer ' + evt.bubbles)\"><svg onload=\"log.push('inner')\"></svg></svg>
-         <script>addEventListener('DOMContentLoaded', () => log.push('dom'));</script>",
+         <script>addEventListener('DOMContentLoaded', () => log.push('dom'));
+         addEventListener('load', () => log.push('load'));</script>",
     );
-    assert_eq!(log_of(&mut rt), "inner,outer false,dom");
+    assert_eq!(log_of(&mut rt), "inner,dom,outer false,load");
+}
+
+/// By end tags among nested ones, and in tree order among outermost ones.
+#[test]
+fn svg_load_order_among_siblings() {
+    let (mut rt, _) = page(
+        "<!doctype html><script>globalThis.log = [];
+         const on = (id) => log.push(id);</script>
+         <svg onload=\"on('a')\"></svg><svg onload=\"on('b')\"></svg>
+         <svg onload=\"on('c')\"><svg onload=\"on('d')\"></svg><svg onload=\"on('e')\"><svg onload=\"on('f')\"></svg></svg></svg>",
+    );
+    assert_eq!(log_of(&mut rt), "d,f,e,a,b,c");
 }
 
 #[test]
@@ -2217,7 +2258,22 @@ fn setting_a_named_window_property_lands_on_the_receiver() {
          const o = Object.create(window);
          o.named = 1;
          log.push(o.named, window.named === document.getElementById('named'));
+         const frozen = Object.freeze(Object.create(window));
+         frozen.named = 1;
+         Reflect.set(window, 'named', 1, 5);
+         const fixed = Object.create(window);
+         Object.defineProperty(fixed, 'named', { value: 2 });
+         fixed.named = 3;
+         let got = 0;
+         const accessor = Object.create(window);
+         Object.defineProperty(accessor, 'named', { get() { return 4; }, set(v) { got = v; }, configurable: true });
+         Reflect.set(window, 'named', 5, accessor);
+         const plain = Object.create(window);
+         Object.defineProperty(plain, 'named', { value: 6, writable: true });
+         plain.named = 7;
+         log.push(frozen.named === document.getElementById('named'), fixed.named, accessor.named, got, plain.named,
+                  Object.getOwnPropertyDescriptor(plain, 'named').enumerable);
          </script>",
     );
-    assert_eq!(log_of(&mut rt), "1,true");
+    assert_eq!(log_of(&mut rt), "1,true,true,2,4,0,7,false");
 }

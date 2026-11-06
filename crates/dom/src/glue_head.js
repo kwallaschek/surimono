@@ -231,6 +231,23 @@
     glueTasks[id] = true;
   }
 
+  // ECMAScript OrdinarySet for a name found on the prototype chain, from
+  // there: the value lands on the receiver if it takes it. The refusals are
+  // silent, as a named property's has no way to answer `false`.
+  function ordinarySet(o, name, v) {
+    if ((typeof o !== 'object' && typeof o !== 'function') || o === null) return;
+    const own = rdescriptor(o, name);
+    if (own === undefined) {
+      const d = create(null);
+      d.value = v; d.writable = true; d.enumerable = true; d.configurable = true;
+      rdefine(o, name, d);
+    } else if (own.writable === true) {
+      const d = create(null);
+      d.value = v;
+      rdefine(o, name, d);
+    }
+  }
+
   // WebIDL §3.7.6: writing a [Replaceable] attribute makes a data property.
   function replaceable(o, name, v) {
     const d = create(null);
