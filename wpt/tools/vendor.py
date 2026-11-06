@@ -4,8 +4,10 @@
 Needs a checkout at exactly the commit pinned in wpt/slices.toml and uses no
 network. It copies, keeping WPT's paths under wpt/tests/: LICENSE.md,
 resources/testharness.js, every testharness test in a slice, and the files those
-tests name (<script src>, // META: script=). Reftests, manual tests and files above
-max_file_bytes stay out. A file named through a symlink, or outside the checkout,
+tests name (<script src>, // META: script=), and the files or folders under
+`support` in slices.toml, which tests load from frames or script at run time, where
+a scan can't see them. Reftests, manual tests and files above max_file_bytes stay
+out. A file named through a symlink, or outside the checkout,
 is never copied. It writes wpt/manifest.toml: per slice, each test, the URLs it
 runs at (wpt/README.md, "Test ids") and what it needs, plus sha256 and size of
 every vendored file. A test with no window variant (`// META: global=` naming
@@ -138,6 +140,12 @@ def vendor(src: pathlib.Path, root: pathlib.Path, slices: dict) -> None:
                 entries.append((sl["id"], rel, ids, deps))
                 wanted.add(rel)
                 wanted.update(deps)
+    for rel in slices.get("support", []):
+        folder = src / rel
+        if folder.is_dir() and not folder.is_symlink():
+            wanted.update(f.relative_to(src).as_posix() for f in sorted(folder.rglob("*")) if f.is_file() and not f.is_symlink())
+        else:
+            wanted.add(rel)
     for rel in ALWAYS:
         f = safe_file(src, rel)
         if f is None or f.stat().st_size > limit:
