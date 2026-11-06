@@ -238,10 +238,13 @@
   // HTML §4.6.4 "follow the hyperlink": `navigate` does what doesn't leave
   // the page. A link acts on its own document, if that has a browsing context,
   // and with a target only on one that stays in it (§7.3.1 "the rules for
-  // choosing a navigable"; a `<base target>` is a gap).
+  // choosing a navigable"; a `<base target>` is a gap). A `download` link has
+  // nowhere to save to, and only an `a` may follow from outside a document
+  // ("cannot navigate").
   function followLink(s) {
     const href = attrOf(s, 'href');
-    if (href === null) return;
+    if (href === null || attrOf(s, 'download') !== null) return;
+    if (localOf(s) !== 'a' && !connected(s)) return;
     const d = stateOf(wrap(s.g, call(OP_ownerDocument, s.g, s.h)));
     const page = isPage(d);
     if (!page && !call(OP_isFrameDocument, d.g, d.h)) return;
