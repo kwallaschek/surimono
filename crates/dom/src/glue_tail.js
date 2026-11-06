@@ -152,7 +152,16 @@
     return wrap(g, call(OP_parseFromString, g, root(), text, t));
   };
   H.new_XMLSerializer = (target) => make(I_XMLSerializer, target).w;
-  H.XMLSerializer_serializeToString = (s, node) => call(OP_serializeXml, node.g, node.h, node.h);
+  H.XMLSerializer_serializeToString = (s, node) => (
+    // DOM Parsing §3.2.1: an `Attr` serializes as nothing.
+    is(node, I_Attr) ? '' : call(OP_serializeXml, node.g, node.h, node.h));
+  // SVG 2 §4.5: the document's element, if it is an outermost `svg`.
+  H.Document_rootElement = (s) => {
+    const e = wrap(s.g, call(OP_documentElement, s.g, s.h));
+    if (e === null) return null;
+    const x = stateOf(e);
+    return is(x, I_SVGElement) && call(OP_localName, x.g, x.h) === 'svg' ? e : null;
+  };
 
   // Timer ids up to this one are the page's lifecycle, and no script may
   // cancel those (`start`), nor the glue's own tasks (`task`).
@@ -176,9 +185,25 @@
       const d = create(null);
       d.value = s.w; d.enumerable = true;
       defineProperty(w, 'document', d);
+      const t = create(null);
+      t.value = frameTimeout(s); t.writable = true; t.configurable = true;
+      defineProperty(w, 'setTimeout', t);
       s.frameWindow = w;
     }
     return s.frameWindow;
+  }
+  // A frame's timers are the page's, on one clock, but they are the frame's
+  // to lose: HTML §8.6 runs nothing for a document that isn't fully active.
+  const pageTimeout = G.setTimeout;
+  function frameTimeout(s) {
+    return function setTimeout(handler) {
+      if (typeof handler !== 'function') return 0;
+      const a = arguments;
+      a[0] = function () {
+        if (call(OP_frameAttached, s.g, s.h)) apply(handler, this, arguments);
+      };
+      return apply(pageTimeout, G, a);
+    };
   }
   attr(I_Document, 'defaultView', function () {
     const s = self(this, I_Document);

@@ -73,6 +73,7 @@ const JS_INTERFACES: &[&str] = &[
 /// `H.<Interface>_<member>`, as for [`JS_INTERFACES`].
 const JS_MEMBERS: &[(&str, &str)] = &[
     ("Document", "createEvent"),
+    ("Document", "rootElement"),
     ("HTMLElement", "click"),
     ("HTMLInputElement", "form"),
     ("HTMLInputElement", "indeterminate"),
@@ -129,6 +130,7 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("handlerElement", "h.handler_element()"),
     ("idNames", "h.id_names()"),
     ("labeledControl", "h.labeled_control(this)"),
+    ("frameAttached", "h.frame_attached(this)"),
 ];
 
 /// A member name that isn't in the IDL. CSSOM defines
@@ -1446,6 +1448,7 @@ pub fn generate_bindings(
         "HTMLFrameSetElement",
         "HTMLFormElement",
         "SVGElement",
+        "Attr",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
@@ -1726,6 +1729,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "doctype",
             "createCDATASection",
             "createAttribute",
+            "rootElement",
             "createAttributeNS",
             "createProcessingInstruction",
             "documentElement",

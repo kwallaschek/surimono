@@ -1141,6 +1141,13 @@ impl Document {
         out
     }
 
+    /// Whether document `doc` is the document of a connected `<iframe>`.
+    pub(crate) fn frame_is_attached(&self, doc: usize) -> bool {
+        self.frames
+            .iter()
+            .any(|(&e, &d)| d == doc && self.is_connected(e))
+    }
+
     /// Keeps a frame's source until a call parses it, under that call's limits.
     pub(crate) fn queue_frame(&mut self, id: usize, text: Option<String>, url: String) {
         self.frame_sources.push_back((id, text, url));
@@ -2192,6 +2199,11 @@ impl Document {
         self.recharge(credit, charge)?;
         self.note_attribute(id, &name);
         self.version += 1;
+        // HTML §4.8.5 "process the iframe attributes": another load, in the
+        // next round, under the render's `MAX_FRAMES`.
+        if matches!(name.local.as_ref(), "src" | "srcdoc") {
+            self.frames_started.remove(&id);
+        }
         if name.local.as_ref() == "style" {
             // Not through blitz-dom, which would give it to stylo in a call
             // nothing can stop, for a layout that doesn't run here.

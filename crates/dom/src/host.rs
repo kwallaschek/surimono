@@ -774,6 +774,12 @@ impl Document {
         Ok(self.info(id).frame)
     }
 
+    /// Whether frame document `this` still has its `<iframe>` in a page.
+    pub(crate) fn frame_attached(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(self.frame_is_attached(id))
+    }
+
     /// `XMLSerializer.serializeToString`.
     pub(crate) fn serialize_xml(&mut self, node: ObjectId) -> BindingResult<String> {
         let id = self.node_of(node)?;

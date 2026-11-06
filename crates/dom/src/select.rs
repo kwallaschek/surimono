@@ -39,7 +39,6 @@ use std::ptr::NonNull;
 
 use blitz_dom::{Node, NodeData, local_name, ns};
 use selectors::attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint};
-use style::selector_parser::NonTSPseudoClass;
 use selectors::bloom::BloomFilter;
 use selectors::matching::{
     self, ElementSelectorFlags, MatchingContext, MatchingForInvalidation, MatchingMode,
@@ -47,6 +46,7 @@ use selectors::matching::{
 };
 use selectors::{Element, OpaqueElement, SelectorList};
 use style::context::QuirksMode;
+use style::selector_parser::NonTSPseudoClass;
 use style::selector_parser::SelectorImpl as Impl;
 use surimono_core::Deadline;
 
@@ -327,9 +327,8 @@ impl<'a> Guarded<'a> {
 
     /// HTML §4.16.3 `:read-write`.
     fn read_write(&self) -> bool {
-        let mutable = |g: &Self| {
-            !g.has(local_name!("readonly")) && g.actually_disabled() != Some(true)
-        };
+        let mutable =
+            |g: &Self| !g.has(local_name!("readonly")) && g.actually_disabled() != Some(true);
         match self.html_name() {
             Some("textarea") => mutable(self),
             Some("input") => {
@@ -554,9 +553,7 @@ impl Element for Guarded<'_> {
             }
             NonTSPseudoClass::ReadWrite => self.read_write(),
             NonTSPseudoClass::ReadOnly => self.html_name().is_some() && !self.read_write(),
-            NonTSPseudoClass::Lang(range) => {
-                language_matches(self.language().unwrap_or(""), range)
-            }
+            NonTSPseudoClass::Lang(range) => language_matches(self.language().unwrap_or(""), range),
             NonTSPseudoClass::Target => self.budget.target == Some(self.node.id),
             NonTSPseudoClass::Defined => self
                 .node
