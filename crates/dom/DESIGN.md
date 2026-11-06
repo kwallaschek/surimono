@@ -226,6 +226,16 @@ page's resolver, the one external scripts use, and no resolver means no frame.
   the time limit, checked between rounds, so a page can take about twice it. A render
   starts at most `MAX_FRAMES` loads; the rest stay blank and fire nothing.
 - A frame's type goes by its URL's extension, there being no Content-Type.
+- Setting or removing `srcdoc`, and `src` on a frame with no `srcdoc`, in no
+  namespace, loads an `<iframe>` again in the next round (HTML §4.8.5), a new document
+  under the same `MAX_FRAMES`. The old window keeps the old document, where a browser's
+  window object would move on. A reload with nothing to load, such as `about:blank`
+  with no resolver answer or `srcdoc` removed with no `src`, keeps the document it
+  has and fires `load`.
+- A frame's window has its own `setTimeout`, on the page's clock, whose callbacks run
+  only while the frame is fully active: its `<iframe>` is connected, up the chain of
+  frames to the page. A string handler does nothing and returns 0, since no script
+  runs in a frame. Its other timers are the page's.
 - `frames` is a list built per read, not the window, and `window[0]` doesn't exist.
 - `__surimonoFrameLoads` is a global, non-enumerable and fixed, because Rust has no
   other way into the glue between settles that survives a sandbox rebuild. A script
@@ -717,11 +727,15 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 
 ## Deviations and gaps for E2-02
 
-- **Selectors.** `:has()`, `:nth-child(… of S)` and `:dir()` are refused with
-  a `SyntaxError`, as blitz-dom's parser configuration has them. `:enabled`,
-  `:disabled`, `:checked`, `:required`, `:optional`, `:lang()`, `:defined` and
-  `:read-only` parse and match nothing. `[a=b i]` is case-sensitive, and
-  attribute selectors don't look at the namespace. `:scope` in a
+- **Selectors.** `:has()`, `:nth-child(… of S)`, `:dir()`, `::first-line` and
+  `::first-letter` are refused with a `SyntaxError`, as blitz-dom's parser
+  configuration has them. `:indeterminate`, `:default`, `:placeholder-shown`,
+  `:valid` and `:invalid` parse and match nothing. `:enabled`, `:disabled`,
+  `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:lang()`,
+  `:defined` and `:target` are answered in `select.rs`; `checked` and `selected` are
+  the attributes, as everywhere here, and `:target` is the URL's fragment, in the
+  document queried, from the first script on: Chrome sets the target at the end of
+  parsing, so an inline script finds nothing there. `:scope` in a
   `DocumentFragment` query matches nothing (Selectors 4 makes the fragment's
   top-level elements its children). WPT dom/nodes/selectors.js covers several.
 - **Selector limits.** To keep hostile selectors off the stack and out of Rust's

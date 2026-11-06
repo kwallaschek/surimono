@@ -328,7 +328,7 @@ fn event_loop_through_the_runtime() {
 #[test]
 fn limits_in_a_page_end_it_with_a_typed_error_and_the_runtime_recovers() {
     let mut rt =
-        DomRuntime::new(limits().with_time(std::time::Duration::from_millis(300))).unwrap();
+        DomRuntime::new(limits().with_time(common::scaled(Duration::from_millis(300)))).unwrap();
     rt.load(Document::parse("<!doctype html><script>for (;;) {}</script>").unwrap());
     let r = rt.run_page(&SettleOptions::default(), |_| None);
     assert_eq!(
@@ -2116,7 +2116,9 @@ fn a_limit_in_a_listeners_checkpoint_ends_the_page() {
             addEventListener('load', () => {{ for (;;) {{}} }});
             </script>"
         );
-        let mut rt = DomRuntime::new(limits()).unwrap();
+        // What this asserts is the overflow: the time limit is for a hang.
+        let time = common::scaled(Duration::from_secs(30));
+        let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
         rt.load(Document::parse(&html).unwrap());
         rt.run_page(&SettleOptions::default(), |_| None)
             .unwrap_err()
@@ -2124,7 +2126,7 @@ fn a_limit_in_a_listeners_checkpoint_ends_the_page() {
     assert_eq!(run("queueMicrotask(f);"), OVERFLOW);
     assert_eq!(run("Promise.resolve().then(f);"), OVERFLOW);
     assert_eq!(run("queueMicrotask(() => { for (;;) {} }); f();"), OVERFLOW);
-    let limits = limits().with_time(Duration::from_millis(50));
+    let limits = limits().with_time(common::scaled(Duration::from_millis(50)));
     let mut rt = DomRuntime::new(limits).unwrap();
     rt.load(
         Document::parse(

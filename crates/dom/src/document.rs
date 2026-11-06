@@ -250,6 +250,9 @@ pub(crate) struct DocInfo {
     pub content_type: &'static str,
     /// An iframe's: a `defaultView`, though no script of its own.
     pub frame: bool,
+    /// That iframe, for the walk up to the page. It may have a newer document
+    /// by now: `frames` says.
+    pub frame_element: Option<usize>,
     /// One allocation, however many documents take the URL.
     pub url: Arc<str>,
     /// `url` came from a script, and is charged to `max_text_bytes`.
@@ -600,6 +603,7 @@ impl Document {
         );
         let info = DocInfo {
             url_charged: false,
+            frame_element: None,
             html: true,
             xml_interface: false,
             quirks: parsed.quirks,
@@ -885,6 +889,7 @@ impl Document {
     pub(crate) fn blank_info(&self, html: bool, content_type: &'static str) -> DocInfo {
         DocInfo {
             url_charged: false,
+            frame_element: None,
             html,
             xml_interface: false,
             quirks: false,
@@ -1165,6 +1170,7 @@ impl Document {
         };
         if let Some(info) = self.docs.get_mut(&d) {
             info.frame = true;
+            info.frame_element = Some(id);
         }
         self.frames.insert(id, d);
         Ok(Some(d))
@@ -1194,6 +1200,43 @@ impl Document {
             self.frames_started.insert(*n);
         }
         out
+    }
+
+    /// Whether frame document `doc` is fully active: its `<iframe>` is
+    /// connected and still has it as its document, in the page or in a frame
+    /// that is. Linear in the chain, which `max_nodes` bounds, and each
+    /// frame's document can only be one element's.
+    pub(crate) fn frame_is_attached(&self, doc: usize) -> bool {
+        let mut at = doc;
+        for _ in 0..=self.frames.len() {
+            if at == self.root() {
+                return true;
+            }
+            let Some(e) = self.info(at).frame_element else {
+                return false;
+            };
+            if self.frames.get(&e) != Some(&at) || !self.is_connected(e) {
+                return false;
+            }
+            at = self.owner_of_node(e);
+        }
+        false
+    }
+
+    /// HTML §4.8.5: which attribute changes "process the iframe attributes":
+    /// `srcdoc` set, changed or removed, and `src` likewise with no `srcdoc`.
+    fn note_frame_attribute(&mut self, id: usize, name: &QualName) {
+        if self.frames_started.is_empty() || !name.ns.is_empty() {
+            return;
+        }
+        let wanted = match name.local.as_ref() {
+            "srcdoc" => true,
+            "src" => self.attribute(id, "srcdoc").is_none(),
+            _ => false,
+        };
+        if wanted {
+            self.frames_started.remove(&id);
+        }
     }
 
     /// Keeps a frame's source until a call parses it, under that call's limits.
@@ -1232,6 +1275,7 @@ impl Document {
         if let Some(d) = parsed {
             if let Some(info) = self.docs.get_mut(&d) {
                 info.frame = true;
+                info.frame_element = Some(id);
             }
             self.frames.insert(id, d);
         }
@@ -1263,6 +1307,31 @@ impl Document {
         });
         let parsed = base.and_then(|b| url::Url::parse(&url).and_then(|u| u.join(&b)).ok());
         parsed.map_or(url, String::from)
+    }
+
+    /// HTML §7.4.6.3 "find a potential indicated element", for the document
+    /// being queried: an element with the URL's fragment, as written and then
+    /// percent-decoded, as its `id`, or an `<a>` with it as its `name`.
+    pub(crate) fn target_element(&self) -> Option<usize> {
+        let doc = self.making();
+        let url = url::Url::parse(self.url(doc)).ok()?;
+        let fragment = url.fragment().filter(|f| !f.is_empty())?;
+        let decoded = percent_decode(fragment);
+        let find = |wanted: &str| {
+            self.element_by_id(doc, wanted).or_else(|| {
+                let mut stack = vec![doc];
+                while let Some(n) = stack.pop() {
+                    if self.is_html_element(n, &["a"])
+                        && self.attribute(n, "name").as_deref() == Some(wanted)
+                    {
+                        return Some(n);
+                    }
+                    stack.extend(self.children(n).iter().rev());
+                }
+                None
+            })
+        };
+        find(fragment).or_else(|| find(&decoded))
     }
 
     /// `src`, resolved against the page's URL: what a frame's document is
@@ -2222,6 +2291,8 @@ impl Document {
         self.recharge(credit, charge)?;
         self.note_attribute(id, &name);
         self.version += 1;
+        // Another load, in the next round, under the render's `MAX_FRAMES`.
+        self.note_frame_attribute(id, &name);
         if name.local.as_ref() == "style" {
             // Not through blitz-dom, which would give it to stylo in a call
             // nothing can stop, for a layout that doesn't run here.
@@ -2422,6 +2493,7 @@ impl Document {
     }
 
     pub(crate) fn clear_attribute(&mut self, id: usize, name: QualName) {
+        self.note_frame_attribute(id, &name);
         self.keep_attr_value(id, &name);
         self.note_attribute(id, &name);
         self.version += 1;
@@ -3196,6 +3268,30 @@ fn name_cost(name: &QualName) -> usize {
 /// What one attribute is charged.
 fn attribute_cost(name: &QualName, value: &str) -> usize {
     ATTRIBUTE_COST + name_cost(name) + value.len()
+}
+
+/// URL's "percent-decode", then UTF-8 with replacement.
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = |b: u8| char::from(b).to_digit(16);
+        let value = (bytes[i] == b'%')
+            .then(|| Some(hex(*bytes.get(i + 1)?)? * 16 + hex(*bytes.get(i + 2)?)?))
+            .flatten();
+        match value {
+            Some(v) => {
+                out.push(v as u8);
+                i += 3;
+            }
+            None => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// An element's or attribute's qualified name (`prefix:local`).

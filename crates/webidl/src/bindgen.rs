@@ -76,6 +76,7 @@ const JS_INTERFACES: &[&str] = &[
 /// `H.<Interface>_<member>`, as for [`JS_INTERFACES`].
 const JS_MEMBERS: &[(&str, &str)] = &[
     ("Document", "createEvent"),
+    ("Document", "rootElement"),
     ("HTMLElement", "click"),
     ("HTMLInputElement", "form"),
     ("HTMLInputElement", "indeterminate"),
@@ -137,6 +138,7 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("handlerElement", "h.handler_element()"),
     ("idNames", "h.id_names()"),
     ("labeledControl", "h.labeled_control(this)"),
+    ("frameAttached", "h.frame_attached(this)"),
     (
         "staticRange",
         "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
@@ -1488,6 +1490,7 @@ pub fn generate_bindings(
         "HTMLFrameSetElement",
         "HTMLFormElement",
         "SVGElement",
+        "Attr",
         "Range",
     ]) {
         if let Some(id) = bound_id(table, name) {
@@ -1791,6 +1794,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "doctype",
             "createCDATASection",
             "createAttribute",
+            "rootElement",
             "createRange",
             "createAttributeNS",
             "createProcessingInstruction",
