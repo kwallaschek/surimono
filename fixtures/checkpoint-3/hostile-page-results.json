@@ -1,0 +1,718 @@
+{
+  "cases": [
+    {
+      "as_expected": true,
+      "id": "infinite-loop",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2045.5247449999997
+    },
+    {
+      "as_expected": true,
+      "id": "infinite-loop-try-catch",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2049.714117
+    },
+    {
+      "as_expected": true,
+      "id": "infinite-loop-in-finally",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2033.100674
+    },
+    {
+      "as_expected": true,
+      "id": "microtask-flood",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2031.321951
+    },
+    {
+      "as_expected": true,
+      "id": "microtask-flood-growing",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 475.504526
+    },
+    {
+      "as_expected": true,
+      "id": "microtask-await-loop",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2048.0102819999997
+    },
+    {
+      "as_expected": true,
+      "id": "regex-redos",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2023.477689
+    },
+    {
+      "as_expected": true,
+      "id": "regex-redos-alternation",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2025.581515
+    },
+    {
+      "as_expected": true,
+      "id": "atomics-wait",
+      "message": "TypeError: cannot block in this thread",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 38.448028
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-join-arraylike",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2046.914999
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-join-holey",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2034.0357400000005
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-join-getter-length",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2023.628013
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-join-proxy",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2041.012527
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-reverse",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2027.91903
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-copywithin",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2068.771428
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-string-raw",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 230.610954
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-join-length-toctou",
+      "message": null,
+      "outcome": "Ok",
+      "output": "finished",
+      "step": null,
+      "wall_ms": 29.083041
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-join-length-valueof",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2041.829111
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-typedarray-own-length",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2043.607421
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-dataview-length",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2050.462527
+    },
+    {
+      "as_expected": true,
+      "id": "native-loop-fill-typedarray-proto",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 241.303306
+    },
+    {
+      "as_expected": true,
+      "id": "native-sort-typed-array",
+      "message": null,
+      "outcome": "Ok",
+      "output": "sorted",
+      "step": null,
+      "wall_ms": 1053.665832
+    },
+    {
+      "as_expected": true,
+      "id": "reentry-promise-executor",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2052.038294
+    },
+    {
+      "as_expected": true,
+      "id": "reentry-promise-try",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2062.261131
+    },
+    {
+      "as_expected": true,
+      "id": "reentry-async-generator",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2045.351537
+    },
+    {
+      "as_expected": true,
+      "id": "reentry-prepare-stack-trace",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2046.635432
+    },
+    {
+      "as_expected": true,
+      "id": "reentry-disposable-stack",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2055.170483
+    },
+    {
+      "as_expected": true,
+      "id": "alloc-arrays",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 201.935333
+    },
+    {
+      "as_expected": true,
+      "id": "alloc-string-doubling",
+      "message": "InternalError: string too long",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 85.32459300000001
+    },
+    {
+      "as_expected": true,
+      "id": "alloc-string-repeat",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 36.583355999999995
+    },
+    {
+      "as_expected": true,
+      "id": "alloc-typed-array",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 38.710792
+    },
+    {
+      "as_expected": true,
+      "id": "alloc-typed-arrays-many",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 41.750433
+    },
+    {
+      "as_expected": true,
+      "id": "alloc-object-graph",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 501.177495
+    },
+    {
+      "as_expected": true,
+      "id": "oom-caught-retry",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 231.342203
+    },
+    {
+      "as_expected": true,
+      "id": "oom-caught-continue",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 219.1676
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-plain",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 32.988138
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-caught",
+      "message": null,
+      "outcome": "Ok",
+      "output": "caught:2,4,6",
+      "step": null,
+      "wall_ms": 67.126721
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-getter",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 58.43457
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-tostring",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 25.614291
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-proxy",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 32.254492000000006
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-json-stringify",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 91.902499
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-array-join",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 76.225321
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-json-parse",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 51.97056
+    },
+    {
+      "as_expected": true,
+      "id": "recursion-parser",
+      "message": null,
+      "outcome": "StackOverflow",
+      "output": null,
+      "step": null,
+      "wall_ms": 42.16669
+    },
+    {
+      "as_expected": true,
+      "id": "regex-deep-nesting",
+      "message": "SyntaxError: stack overflow",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 57.600698
+    },
+    {
+      "as_expected": true,
+      "id": "deep-free-chain",
+      "message": null,
+      "outcome": "Ok",
+      "output": "freed",
+      "step": null,
+      "wall_ms": 153.436463
+    },
+    {
+      "as_expected": true,
+      "id": "result-not-a-string",
+      "message": "object",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 75.86322
+    },
+    {
+      "as_expected": true,
+      "id": "result-hostile-thenable",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2024.30823
+    },
+    {
+      "as_expected": true,
+      "id": "promise-never-settles",
+      "message": "the page gave no answer",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 36.732304
+    },
+    {
+      "as_expected": true,
+      "id": "unhandled-rejection",
+      "message": null,
+      "outcome": "Ok",
+      "output": "ok",
+      "step": null,
+      "wall_ms": 69.477463
+    },
+    {
+      "as_expected": true,
+      "id": "control-sync",
+      "message": null,
+      "outcome": "Ok",
+      "output": "surimono:2:object",
+      "step": null,
+      "wall_ms": 32.075696
+    },
+    {
+      "as_expected": true,
+      "id": "control-async",
+      "message": null,
+      "outcome": "Ok",
+      "output": "async:ok",
+      "step": null,
+      "wall_ms": 26.866114
+    },
+    {
+      "as_expected": true,
+      "id": "escape-require",
+      "message": null,
+      "outcome": "Ok",
+      "output": "none",
+      "step": null,
+      "wall_ms": 27.717776
+    },
+    {
+      "as_expected": true,
+      "id": "escape-require-call",
+      "message": "ReferenceError: require is not defined",
+      "outcome": "Exception",
+      "output": null,
+      "step": null,
+      "wall_ms": 27.724048
+    },
+    {
+      "as_expected": true,
+      "id": "escape-dynamic-import",
+      "message": null,
+      "outcome": "Ok",
+      "output": "denied",
+      "step": null,
+      "wall_ms": 27.950028
+    },
+    {
+      "as_expected": true,
+      "id": "escape-network",
+      "message": null,
+      "outcome": "Ok",
+      "output": "denied",
+      "step": null,
+      "wall_ms": 26.364543
+    },
+    {
+      "as_expected": true,
+      "id": "escape-global-sniff",
+      "message": null,
+      "outcome": "Ok",
+      "output": "clean",
+      "step": null,
+      "wall_ms": 34.182114
+    },
+    {
+      "as_expected": true,
+      "id": "escape-function-constructor",
+      "message": null,
+      "outcome": "Ok",
+      "output": "undefined,undefined,undefined,undefined,undefined",
+      "step": null,
+      "wall_ms": 27.985442
+    },
+    {
+      "as_expected": true,
+      "id": "compile-statements",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 209.762885
+    },
+    {
+      "as_expected": true,
+      "id": "compile-many-lets",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2024.005092
+    },
+    {
+      "as_expected": true,
+      "id": "compile-many-lets-caught",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2036.240335
+    },
+    {
+      "as_expected": true,
+      "id": "compile-new-function",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2026.825971
+    },
+    {
+      "as_expected": true,
+      "id": "compile-many-vars",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2059.112944
+    },
+    {
+      "as_expected": true,
+      "id": "compile-shrinking-jumps",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2071.558044
+    },
+    {
+      "as_expected": true,
+      "id": "compile-eval-in-closures",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2037.050388
+    },
+    {
+      "as_expected": true,
+      "id": "regexp-compile-alternatives",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2023.855945
+    },
+    {
+      "as_expected": true,
+      "id": "regexp-compile-class",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2025.4054570000003
+    },
+    {
+      "as_expected": true,
+      "id": "regexp-compile-backreferences",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2032.108978
+    },
+    {
+      "as_expected": true,
+      "id": "regexp-compile-class-strings",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 748.5749390000001
+    },
+    {
+      "as_expected": true,
+      "id": "json-parse-numbers",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 407.320504
+    },
+    {
+      "as_expected": true,
+      "id": "json-parse-objects",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 168.30220400000002
+    },
+    {
+      "as_expected": true,
+      "id": "ownkeys-reflect",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2057.834379
+    },
+    {
+      "as_expected": true,
+      "id": "ownkeys-object-keys",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2080.428828
+    },
+    {
+      "as_expected": true,
+      "id": "ownkeys-numeric",
+      "message": null,
+      "outcome": "MemoryLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 472.682178
+    },
+    {
+      "as_expected": true,
+      "id": "ownkeys-duplicate-last",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2101.0281769999997
+    },
+    {
+      "as_expected": true,
+      "id": "ownkeys-one-key-throughout",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2097.109516
+    },
+    {
+      "as_expected": true,
+      "id": "ownkeys-frozen-target",
+      "message": null,
+      "outcome": "TimeLimit",
+      "output": null,
+      "step": null,
+      "wall_ms": 2069.874191
+    },
+    {
+      "as_expected": true,
+      "id": "pollution-across-renders",
+      "message": null,
+      "outcome": "Ok",
+      "output": "polluted",
+      "step": 1,
+      "wall_ms": 56.982249
+    },
+    {
+      "as_expected": true,
+      "id": "pollution-across-renders",
+      "message": null,
+      "outcome": "Ok",
+      "output": "undefined,2,object,x,undefined,undefined,false,undefined",
+      "step": 2,
+      "wall_ms": 24.291073
+    }
+  ],
+  "commit": "ca07c9c15630b591722782e0235d184da1e3c72f",
+  "harness": "fixtures/tools/page-check",
+  "schema": 1
+}

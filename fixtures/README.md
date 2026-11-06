@@ -90,16 +90,45 @@ rows and no `<table>`.
 `katex.min.css` also names `.woff` and `.ttf` files, which aren't vendored: Chrome
 takes the first `src` it supports, woff2, and E2-06's loader has to do the same.
 
-surimono's side needs page scripts, so no real-world page is compared with
-surimono yet; `compare.sh <fixture> <pdf>` will compare the printed page, and
-`dom.html` is the expectation for serialized HTML. `meta.toml`'s `needs` says
-which tasks each page waits for.
+`dom.html` is the expectation for serialized HTML, and `crates/dom/tests/real_world.rs`
+compares it. `meta.toml`'s `needs` says which tasks each page waits for, and
+`print_fonts` names a folder of fonts for the printer.
 
 `noscript-message` says "Please enable JavaScript" in a `<noscript>`, and has a
 `<noscript><style>` that hides the report. Chrome runs the script, so its print has
 the report and neither message; `dom.html` keeps the `<noscript>` elements, as the
 DOM does. What must hold on surimono's side is the print, so the text never reaches
 the PDF.
+
+## Printed pages
+
+`fixtures/tools/print-pages.mjs` runs each real-world page through the facade's
+`render_page` with default limits, prints it with fulgur 0.40.0 and compares the PDF
+with the Chrome reference by the metric below (page mode). `fixtures/checkpoint-3/`
+holds a run, and its `NOTES.md` says which machine and what each failure needs.
+
+```
+cargo build --release --manifest-path fixtures/tools/page-check/Cargo.toml --locked
+node fixtures/tools/print-pages.mjs --out DIR --check <target>/release/surimono-page-check --commit SHA
+```
+
+- **Determinism.** Each page renders twice on one `Renderer`, then twice in a fresh
+  process under another time zone and locale. All four must be byte-identical.
+- **The floor** is fulgur printing Chrome's own DOM, with `<noscript>` taken out and
+  stylesheets inlined as surimono does. A page that fails no worse than its floor
+  fails on fulgur, not on surimono.
+- **Fonts.** fulgur 0.40.0 doesn't load `@font-face` URLs, so `print_fonts` passes
+  a page's own fonts with `--font`, as a user has to.
+
+### Hostile scripts as pages
+
+`surimono-page-check hostile` runs `hostile/manifest.toml` through `render_page`, each
+case in its own child, under the manifest's limits, and writes the results format of
+`hostile/RESULTS_SCHEMA.md` with `as_expected` added. The page evaluates the case with a
+global `eval` and writes its completion value, or a promise's, into the document. A
+limit is the facade's typed error; an uncaught exception or an unusable result is
+`Exception`. So the expectations are the same ones an island has to meet, on a page's
+globals.
 
 ## Pipeline
 

@@ -1,0 +1,27 @@
+# Runs fixtures through the facade's render_page: the real-world pages, twice in
+# one process, and the hostile suite as pages (fixtures/README.md, "Printed pages").
+# A standalone workspace, like wpt/runner, so a test tool's dependencies stay out
+# of the library's Cargo.lock and cargo-deny.
+[package]
+name = "surimono-page-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[dependencies]
+surimono = { path = "../../../crates/surimono" }
+serde_json = "1"
+toml = "1"
+
+# The same engine as the library: QuickJS with the repo's patches.
+[patch.crates-io]
+rquickjs-sys = { path = "../../../vendor/rquickjs-sys" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 1

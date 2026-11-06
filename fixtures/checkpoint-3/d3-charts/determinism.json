@@ -1,0 +1,32 @@
+{
+  "subject": "d3-charts",
+  "deterministic": true,
+  "sha256": [
+    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
+    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
+    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
+    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d"
+  ],
+  "runs": [
+    {
+      "name": "a",
+      "TZ": "UTC",
+      "LC_ALL": "C.UTF-8",
+      "renders": 2,
+      "process": "fresh"
+    },
+    {
+      "name": "b",
+      "TZ": "Asia/Tokyo",
+      "LC_ALL": "de_DE.UTF-8",
+      "renders": 2,
+      "process": "fresh"
+    }
+  ],
+  "producer": {
+    "cli": "fixtures/tools/page-check",
+    "version": "render_page",
+    "sha256": "2d55626bfe6008b7ea010bc67d5e6fff2c5bbbf9b37a769ce8dab35c37152219",
+    "commit": "ca07c9c15630b591722782e0235d184da1e3c72f"
+  }
+}
