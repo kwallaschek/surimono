@@ -12,10 +12,11 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
-use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use surimono_core::{SandboxError, SandboxOptions, SettleOptions, SettleOutcome};
+use surimono_core::{
+    HostThread, SandboxError, SandboxOptions, SettleOptions, SettleOutcome, spawn_host_thread,
+};
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime, LayoutPolicy};
 
 use crate::backend;
@@ -170,7 +171,10 @@ struct State {
     /// Workers waiting for a job.
     idle: usize,
     closed: bool,
-    workers: Vec<JoinHandle<()>>,
+    /// Workers running, counted out by [`Life`] as they end.
+    live: usize,
+    /// Their handles, those seen finished dropped (detached) as new ones start.
+    workers: Vec<HostThread>,
 }
 
 struct Shared {
@@ -257,10 +261,10 @@ impl PagePool {
                 allow: caller.as_ref().map(|c| c.allow.to_vec()),
                 reply,
             };
-            if state.idle <= state.jobs.len() && state.workers.len() < self.shared.pool_size {
+            if state.idle <= state.jobs.len() && state.live < self.shared.pool_size {
                 // With another worker running, the job can wait for it.
                 if let Err(e) = spawn(&self.shared, &mut state)
-                    && state.workers.is_empty()
+                    && state.live == 0
                 {
                     return Err(e);
                 }
@@ -308,20 +312,54 @@ impl Drop for PagePool {
 }
 
 fn spawn(shared: &Arc<Shared>, state: &mut State) -> Result<(), Error> {
+    state.workers.retain(|w| !w.is_finished());
     let worker = Arc::clone(shared);
-    let handle = thread::Builder::new()
-        .name(format!("surimono-page-{}", state.workers.len()))
-        .stack_size(shared.stack_size)
-        .spawn(move || work(&worker))
-        .map_err(|e| Error::PageFailed {
-            message: format!("could not start a worker thread: {e}"),
-        })?;
+    // Not `std::thread`, which can hang here in a forked child: see
+    // `surimono_core`'s `host_thread`.
+    let handle = spawn_host_thread(c"surimono-page", shared.stack_size, move || {
+        // First, so that whatever ends this thread, it is counted out.
+        let mut life = Life {
+            shared: worker,
+            served: false,
+        };
+        work(&mut life);
+    })
+    .map_err(|e| Error::PageFailed {
+        message: format!("could not start a worker thread: {e}"),
+    })?;
     state.workers.push(handle);
+    state.live += 1;
     Ok(())
 }
 
+/// A worker thread from start to end, however it ends. A panic in a page is
+/// caught; this is for one outside it. Each such death has used up a job, so
+/// replacements can't loop on their own. Queued jobs with no worker left and
+/// none to be had are dropped, which their callers see as an error.
+struct Life {
+    shared: Arc<Shared>,
+    served: bool,
+}
+
+impl Drop for Life {
+    fn drop(&mut self) {
+        let shared = &self.shared;
+        let mut state = shared.lock();
+        state.live -= 1;
+        if state.closed || state.jobs.is_empty() || state.live >= shared.pool_size {
+            return;
+        }
+        let replaced = self.served && spawn(shared, &mut state).is_ok();
+        if !replaced && state.live == 0 {
+            state.jobs.clear();
+        }
+    }
+}
+
 /// One worker's life.
-fn work(shared: &Shared) {
+fn work(life: &mut Life) {
+    let shared = Arc::clone(&life.shared);
+    let shared = &*shared;
     let mut runtime: Option<DomRuntime> = None;
     loop {
         let job = {
@@ -359,6 +397,7 @@ fn work(shared: &Shared) {
             surimono_core::release_free_memory();
             continue;
         };
+        life.served = true;
         if job.stop.raised.load(Ordering::Acquire) {
             continue;
         }
@@ -376,6 +415,10 @@ fn work(shared: &Shared) {
         }
         // Nobody may be waiting any more: a cancelled caller has gone.
         let _ = job.reply.send(Message::Done(result));
+        #[cfg(test)]
+        if job.html == tests::DIE_AFTER {
+            panic!("a worker dying on purpose");
+        }
     }
 }
 
@@ -532,6 +575,45 @@ fn page_error(e: DomError) -> Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A page after which its worker's thread panics, outside the page.
+    pub(super) const DIE_AFTER: &str = "<!doctype html><title>die</title>";
+
+    fn pool() -> PagePool {
+        PagePool::new(&Options::new().pool_size(1))
+    }
+
+    #[test]
+    fn a_worker_that_dies_is_replaced() {
+        let pool = pool();
+        for _ in 0..20 {
+            assert!(pool.run(DIE_AFTER, None, None).is_ok());
+            let (html, _) = pool
+                .run("<p>x", None, None)
+                .unwrap_or_else(|e| panic!("{e}"));
+            assert!(html.contains("<p>x</p>"), "{html}");
+        }
+    }
+
+    #[test]
+    fn queued_jobs_outlive_a_worker_that_dies() {
+        let pool = Arc::new(pool());
+        std::thread::scope(|s| {
+            let pages: Vec<_> = (0..8)
+                .map(|i| {
+                    let pool = Arc::clone(&pool);
+                    s.spawn(move || {
+                        let html = if i % 2 == 0 { DIE_AFTER } else { "<p>x" };
+                        pool.run(html, None, None).map(|_| ())
+                    })
+                })
+                .collect();
+            for page in pages {
+                let done = page.join().unwrap_or_else(|_| panic!("a caller panicked"));
+                assert!(done.is_ok(), "{done:?}");
+            }
+        });
+    }
 
     #[test]
     fn every_dom_limit_is_a_page_dom_limit() {
