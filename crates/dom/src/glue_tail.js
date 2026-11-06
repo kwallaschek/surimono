@@ -69,7 +69,7 @@
         },
         // WebIDL §3.7.4 reports a writable data property, so an assignment
         // makes an own property of the window, as for `chart = init(...)`.
-        set: function (v) { replaceable(G, name, v); },
+        set: function (v) { replaceable(this === undefined || this === null ? G : this, name, v); },
         enumerable: false, configurable: true,
       });
     });
@@ -99,12 +99,15 @@
     const args = create(null);
     args.length = argc > 2 ? argc - 2 : 0;
     for (let i = 2; i < argc; i++) args[i - 2] = a[i];
+    // WebIDL "invoke a callback function" cleans up, which is the checkpoint,
+    // before the exception is reported; `error`'s listeners then each get one.
     const task = function () {
       try {
         if (isFunction) apply(handler, G, args);
         else n.runSource(apply(toWellFormed, handler, []));
       } catch (x) {
-        reportException(x);
+        if (!n.limit(x)) n.checkpoint();
+        reportException(x, true);
       }
     };
     return argc > 1 ? real(task, a[1]) : real(task);
@@ -263,7 +266,7 @@
     for (;;) {
       const h = call(OP_nextFrameLoad, g, root());
       if (h === 0) return;
-      fire(stateOf(wrap(g, h)), 'load');
+      fireInTask(stateOf(wrap(g, h)), 'load');
     }
   }
   // Called by `run_page` when frames have loaded. A script can call it too,
@@ -336,6 +339,19 @@
     };
   }
 
+  // SVG 2 §15.3.1: `load` at each `svg` element, innermost first, once the
+  // parser has finished with it. The parser finishes before any script here,
+  // so all of them come after the parser-blocking scripts, where a browser
+  // fires each as it closes.
+  function svgLoads(g) {
+    const d = wrap(g, root());
+    const list = apply(pageByTag, d, ['svg']);
+    for (let i = list.length - 1; i >= 0; i--) {
+      const s = stateOf(list[i]);
+      if (s !== null && is(s, I_SVGElement)) fireInTask(s, 'load');
+    }
+  }
+
   // Every step of the page's life is queued here, before any of its scripts
   // runs: same due time, earlier sequence numbers, so they all come before
   // the page's own timers, in this order, each a task with a microtask
@@ -368,6 +384,7 @@
     for (let i = 0; i < scripts; i++) {
       if (!n.scriptDeferred(i)) turn(i);
     }
+    step(() => { svgLoads(g); });
     step(setState(1));
     for (let i = 0; i < scripts; i++) {
       if (n.scriptDeferred(i)) turn(i);

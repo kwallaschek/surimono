@@ -402,6 +402,9 @@ only points a page can observe a listener's place from. Raw text compiles once,
 on first use. On a body or frameset element the Window-reflecting set is the
 window's. `document.currentScript` is the glue's, set from a script's run until
 a separate lifecycle step after its microtasks, which then fires its `load`.
+Each outermost and nested `svg` element fires `load` once, innermost first, in a step
+after the parser-blocking scripts, where a browser fires each as it closes; `document.scripts`
+is the `getElementsByTagName('script')` list, so an SVG `script` is in it.
 
 **Event interfaces.** Every interface inheriting from `Event` is generated
 whole (`JS_INTERFACES` in the generator): the constructor reads its dictionary
@@ -426,7 +429,8 @@ reads a global through the prototype chain, and a Proxy there makes an undeclare
 name `undefined` instead of a ReferenceError.
 
 **A checkpoint between listeners.** An event fired from a task of the page's life
-(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`), for
+(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`, an
+`iframe`'s and an `svg`'s `load`), `toggle`, `hashchange`, a traversal's `popstate`, for
 a rejected promise, or by `AbortSignal.timeout` (at the signal and at the signals
 that depend on it) has no script under its dispatch, so "clean up after running
 script" finds the stack empty after each listener and that is a microtask checkpoint
@@ -439,7 +443,8 @@ The checkpoint comes before inner invoke reports the listener's exception and wi
 `window.event` still set, as WebIDL's order gives; an `error` event reported from such
 a listener has one after each of its listeners too. Chrome reports first (`L1, E1, E2,
 m, em, L2`, the spec gives `L1, m, E1, em, E2, L2`). The spec wins for DOM behaviour;
-the conflict is in `docs/DECISIONS.md`.
+the conflict is in `docs/DECISIONS.md`. A timer that throws follows the same order
+(`T, m, E1, em, E2`). `requestAnimationFrame` and `queueMicrotask` callbacks don't yet.
 
 **Gaps** (each for docs/COMPAT.md): a
 handler's scope has no form owner; MathML elements have no `on*` attributes (no

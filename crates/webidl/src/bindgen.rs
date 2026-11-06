@@ -1793,6 +1793,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "inputEncoding",
             "doctype",
             "createCDATASection",
+            "scripts",
             "createAttribute",
             "rootElement",
             "createRange",

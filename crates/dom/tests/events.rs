@@ -1728,8 +1728,7 @@ fn a_labels_control_ignores_hidden_inputs_and_stays_in_its_tree() {
     assert_eq!(r, "true|||true|");
 }
 
-<<<<<<< HEAD
-/// SVG 2 §15.5: an SVG element's handler names its parameter `evt`.
+/// SVG 2 §15.8: an SVG element's handler names its parameter `evt`.
 #[test]
 fn svg_handlers_name_their_parameter_evt() {
     let (mut rt, _) = page(
@@ -1740,7 +1739,8 @@ fn svg_handlers_name_their_parameter_evt() {
          document.getElementById('p').click();</script>",
     );
     assert_eq!(log_of(&mut rt), "svg click object,html click");
-=======
+}
+
 /// The log of `html`, which has a global `log` to push to, and its report.
 fn logged(html: &str) -> (String, surimono_dom::PageReport) {
     let (mut rt, report) = page(&format!(
@@ -2150,5 +2150,74 @@ fn a_limit_in_a_listeners_checkpoint_ends_the_page() {
     let run = rt.run_page(&SettleOptions::default(), |_| None);
     assert_eq!(run.unwrap_err(), DomError::Sandbox(SandboxError::TimeLimit));
     assert_eq!(rt.eval::<i32>("1 + 1").unwrap(), 2);
->>>>>>> e2-14c
+}
+
+/// WebIDL "invoke a callback function": the checkpoint comes before the
+/// exception is reported, and `error`'s listeners each get theirs.
+#[test]
+fn a_timer_that_throws_reports_after_its_microtasks() {
+    let (mut rt, _) = page(
+        "<!doctype html><script>globalThis.log = [];
+         addEventListener('error', (e) => { e.preventDefault(); log.push('E1'); queueMicrotask(() => log.push('em')); });
+         addEventListener('error', () => log.push('E2'));
+         setTimeout(() => { log.push('T'); queueMicrotask(() => log.push('m')); throw new Error('x'); }, 0);
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "T,m,E1,em,E2");
+}
+
+#[test]
+fn toggle_and_frame_load_check_point_between_listeners() {
+    let (mut rt, _) = page(
+        "<!doctype html><details id=d><summary id=s>x</summary></details><iframe id=f></iframe>
+         <script>globalThis.log = [];
+         const both = (t, name) => {
+           t.addEventListener(name, () => { log.push(name + '1'); queueMicrotask(() => log.push('m')); });
+           t.addEventListener(name, () => log.push(name + '2'));
+         };
+         both(document.getElementById('d'), 'toggle');
+         both(document.getElementById('f'), 'load');
+         both(window, 'hashchange');
+         document.getElementById('s').click();
+         location.hash = 'x';
+         </script>",
+    );
+    assert_eq!(
+        log_of(&mut rt),
+        "load1,m,load2,toggle1,m,toggle2,hashchange1,m,hashchange2"
+    );
+}
+
+#[test]
+fn document_scripts_is_a_live_collection() {
+    let r = eval(
+        "const n = document.scripts.length;
+         document.body.appendChild(document.createElement('script'));
+         [document.scripts.length - n, document.scripts === document.scripts,
+          document.scripts instanceof HTMLCollection].join()",
+    );
+    assert_eq!(r, "1,true,true");
+}
+
+/// SVG 2 §15.3.1.
+#[test]
+fn svg_elements_fire_load() {
+    let (mut rt, _) = page(
+        "<!doctype html><script>globalThis.log = [];</script>
+         <svg id=a onload=\"log.push('outer ' + evt.bubbles)\"><svg onload=\"log.push('inner')\"></svg></svg>
+         <script>addEventListener('DOMContentLoaded', () => log.push('dom'));</script>",
+    );
+    assert_eq!(log_of(&mut rt), "inner,outer false,dom");
+}
+
+#[test]
+fn setting_a_named_window_property_lands_on_the_receiver() {
+    let (mut rt, _) = page(
+        "<!doctype html><p id=named></p><script>globalThis.log = [];
+         const o = Object.create(window);
+         o.named = 1;
+         log.push(o.named, window.named === document.getElementById('named'));
+         </script>",
+    );
+    assert_eq!(log_of(&mut rt), "1,true");
 }

@@ -2155,6 +2155,10 @@ impl idl::Document for Document {
         }
     }
 
+    fn scripts(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::ByTag("script".to_owned()))
+    }
+
     fn create_document_fragment(&mut self, _this: ObjectId) -> BindingResult<ObjectId> {
         let r = self.create_fragment();
         self.created(r)

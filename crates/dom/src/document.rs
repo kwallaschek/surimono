@@ -1560,23 +1560,18 @@ impl Document {
                             // noembed, noframes or plaintext element (an SVG
                             // <style> or <script> is escaped), or a noscript
                             // element when scripting is enabled for the
-                            // node, as it always is here (see `parse::opts`).
+                            // node, which is in the page's document only.
                             let raw = node
                                 .parent
                                 .and_then(|p| self.node(p).element_data())
                                 .is_some_and(|e| {
                                     e.name.ns == ns!(html)
-                                        && matches!(
-                                            e.name.local.as_ref(),
-                                            "style"
-                                                | "script"
-                                                | "xmp"
-                                                | "iframe"
-                                                | "noembed"
-                                                | "noframes"
-                                                | "plaintext"
-                                                | "noscript"
-                                        )
+                                        && match e.name.local.as_ref() {
+                                            "style" | "script" | "xmp" | "iframe" | "noembed"
+                                            | "noframes" | "plaintext" => true,
+                                            "noscript" => self.owner_of_node(id) == self.root(),
+                                            _ => false,
+                                        }
                                 });
                             push_sliced(self.char_data(id), raw, false, out, check)?;
                         }

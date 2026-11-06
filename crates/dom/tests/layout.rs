@@ -294,3 +294,21 @@ fn zeros_mode_for_what_moves_or_returns_lists() {
         .unwrap();
     assert_eq!(r, "0,0,0,0,0,true");
 }
+
+/// CSSOM View: one argument is a dictionary, and the functions have names.
+#[test]
+fn scroll_methods_convert_their_arguments() {
+    let mut rt = runtime(None);
+    let r: String = rt
+        .eval(&format!(
+            "{A} const name = (f) => {{ try {{ f(); return 'none'; }} catch (e) {{ return e.name; }} }};
+             [name(() => a.scrollTo(1)), name(() => scrollTo('x')), name(() => a.scrollBy({{ top: 1 }})),
+              name(() => scrollBy(null)), name(() => a.scroll()), name(() => a.scrollTo(1, 2)),
+              a.scrollTo.name, scrollBy.name, a.scroll.length].join()"
+        ))
+        .unwrap();
+    assert_eq!(
+        r,
+        "TypeError,TypeError,none,none,none,none,scrollTo,scrollBy,0"
+    );
+}
