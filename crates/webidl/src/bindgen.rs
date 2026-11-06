@@ -1608,6 +1608,7 @@ pub fn generate_bindings(
         "HTMLImageElement",
         "HTMLAnchorElement",
         "HTMLAreaElement",
+        "HTMLStyleElement",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");

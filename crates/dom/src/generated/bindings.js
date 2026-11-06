@@ -57,6 +57,7 @@ const I_HTMLOptGroupElement = 115;
 const I_HTMLImageElement = 65;
 const I_HTMLAnchorElement = 64;
 const I_HTMLAreaElement = 77;
+const I_HTMLStyleElement = 129;
 const I_CustomEvent = 2;
 const I_ErrorEvent = 3;
 const I_UIEvent = 4;
