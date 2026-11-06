@@ -21,6 +21,7 @@ use surimono_dom::{Document, DomError, DomLimits, DomRuntime, LayoutPolicy};
 
 use crate::backend;
 use crate::error::Error;
+use crate::fork_guard;
 use crate::options::{LayoutQueries, Options};
 use crate::print::{self, Finish, Gate};
 use crate::resources::{
@@ -392,6 +393,7 @@ fn work(life: &mut Life) {
                 }
             }
         };
+        let busy = fork_guard::busy();
         let Some(job) = job else {
             drop(runtime.take());
             surimono_core::release_free_memory();
@@ -413,6 +415,7 @@ fn work(life: &mut Life) {
         if result.is_err() {
             runtime = None;
         }
+        drop(busy);
         // Nobody may be waiting any more: a cancelled caller has gone.
         let _ = job.reply.send(Message::Done(result));
         #[cfg(test)]

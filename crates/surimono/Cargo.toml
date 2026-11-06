@@ -54,6 +54,10 @@ html5ever = "=0.35.0"
 # in the tree through blitz-dom. Exact pin; moves to the workspace root.
 html-escape = "=0.2.15"
 
+[target.'cfg(unix)'.dependencies]
+# pthread_atfork, in src/fork_guard.rs.
+libc.workspace = true
+
 [dev-dependencies]
 # tests/breakout.rs parses the facade's output with html5ever, through
 # blitz-html as fulgur does, to check islands stay in their box.

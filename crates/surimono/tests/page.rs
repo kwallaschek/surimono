@@ -21,6 +21,13 @@ const ECHO: &str = r#"function entry(specJson, ctx) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}"><desc>${spec.text}</desc></svg>`;
 }"#;
 
+/// `SURIMONO_TEST_TIME_SCALE`, which a slow build (ASan's job) sets, for
+/// limits that are about structure, not speed.
+fn time_scale() -> u32 {
+    let scale = std::env::var("SURIMONO_TEST_TIME_SCALE").ok();
+    scale.and_then(|s| s.parse().ok()).unwrap_or(1)
+}
+
 fn options() -> Options {
     let font = repo().join("fixtures/fonts/NotoSans-Regular.ttf");
     let bytes = std::fs::read(&font).unwrap_or_else(|e| panic!("{}: {e}", font.display()));
@@ -29,7 +36,7 @@ fn options() -> Options {
         .bundle("echo", ECHO, "entry")
         .pool_size(2)
         .limits(Limits {
-            time: Duration::from_secs(20),
+            time: Duration::from_secs(20) * time_scale(),
             ..Limits::default()
         })
 }

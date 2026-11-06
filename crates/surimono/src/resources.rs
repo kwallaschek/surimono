@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use html5ever::{LocalName, QualName};
 
 use crate::error::Error;
+use crate::fork_guard;
 use crate::print::{Gate, Tree};
 
 /// Most loads one render may start; the rest fail without calling the loader.
@@ -157,10 +158,10 @@ impl Source<'_> {
     }
 
     fn load(&self, url: &str) -> Result<Vec<u8>, String> {
-        match self {
+        fork_guard::paused(|| match self {
             Self::Shared(loader) => (loader.load)(url),
             Self::Caller { ask, .. } => ask(url),
-        }
+        })
     }
 }
 
