@@ -188,9 +188,53 @@
     d.value = v; d.writable = true; d.enumerable = true; d.configurable = true;
     rdefine(out, k, d);
   }
-  // HTML §2.7.3 StructuredSerializeForStorage and its deserialization in one
-  // step, for primitives, arrays, objects, Date, RegExp, Map and Set. Recursion
-  // ends at the sandbox's stack limit, and the copy is under its memory limit.
+  const objectProto = Object.prototype, objectToString = objectProto.toString;
+  const hasOwn = Object.prototype.hasOwnProperty, getProto = Object.getPrototypeOf;
+  const abProto = ArrayBuffer.prototype, BufferCtor = ArrayBuffer, Bytes = Uint8Array;
+  const abBytes = rdescriptor(abProto, 'byteLength').get;
+  const abDetached = rdescriptor(abProto, 'detached').get;
+  const sharedBytes = rdescriptor(SharedArrayBuffer.prototype, 'byteLength').get;
+  const abTransfer = abProto.transfer;
+  const bytesSet = Object.getPrototypeOf(Uint8Array.prototype).set;
+  const typedTag = rdescriptor(Object.getPrototypeOf(Uint8Array.prototype), Symbol.toStringTag).get;
+  const typedProps = Object.getPrototypeOf(Uint8Array.prototype);
+  const typedBuffer = rdescriptor(typedProps, 'buffer').get;
+  const typedOffset = rdescriptor(typedProps, 'byteOffset').get;
+  const typedLength = rdescriptor(typedProps, 'length').get;
+  const viewProps = DataView.prototype, ViewCtor = DataView;
+  const viewBuffer = rdescriptor(viewProps, 'buffer').get;
+  const viewOffset = rdescriptor(viewProps, 'byteOffset').get;
+  const viewLength = rdescriptor(viewProps, 'byteLength').get;
+  const typedCtors = create(null);
+  for (const c of [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array,
+                   Uint32Array, Float16Array, Float32Array, Float64Array, BigInt64Array,
+                   BigUint64Array]) {
+    typedCtors[c.name] = c;
+  }
+  const boxes = [Boolean, Number, String, BigInt];
+  const boxValueOf = [Boolean.prototype.valueOf, Number.prototype.valueOf,
+                      String.prototype.valueOf, BigInt.prototype.valueOf];
+  const ObjectCtor = Object, symbolValueOf = Symbol.prototype.valueOf;
+  const weakHas = [WeakMap.prototype.has, WeakSet.prototype.has];
+  const errorCtors = create(null);
+  for (const c of [Error, EvalError, RangeError, ReferenceError, SyntaxError, TypeError, URIError]) {
+    errorCtors[c.name] = c;
+  }
+  const isDetached = (b) => apply(abDetached, b, []);
+  function cloneBuffer(b) {
+    const out = new BufferCtor(apply(abBytes, b, []));
+    apply(bytesSet, new Bytes(out), [new Bytes(b)]);
+    return out;
+  }
+  // What only a plain object can be spared: the brand tests each cost a thrown
+  // exception, and a plain object is what a clone is mostly made of. A
+  // Symbol.toStringTag anywhere up the chain goes the long way, as anything
+  // built in that hides its class does.
+  const plain = (v) => getProto(v) === objectProto && !rhas(v, symbolTag) &&
+    apply(objectToString, v, []) === '[object Object]';
+  // HTML §2.7.3 StructuredSerializeInternal and its deserialization in one step.
+  // Recursion ends at the sandbox's stack limit, and the copy is under its
+  // memory limit.
   function cloneValue(v, seen) {
     const t = typeof v;
     if (t === 'symbol' || t === 'function') dataClone();
@@ -198,22 +242,72 @@
     if (stateOf(v) !== null) dataClone();
     const known = apply(mapGet, seen, [v]);
     if (known !== undefined) return known;
+    const kind = n.valueKind(v);
+    if (kind === 1 || kind === 3) dataClone();
+    if (kind === 2) return cloneError(v, seen);
     let out;
     if (isArray(v)) {
       out = new ArrayCtor(v.length);
-    } else if (branded(dateTime, v)) {
-      return new DateCtor(apply(dateTime, v, []));
-    } else if (branded(regexpSource, v)) {
-      return new RegExpCtor(apply(regexpSource, v, []), apply(regexpFlags, v, []));
-    } else if (branded(mapHas, v) || branded(setHas, v)) {
-      return cloneCollection(v, seen);
+    } else if (plain(v)) {
+      out = {};
     } else {
+      out = cloneBuiltIn(v, seen);
+      if (out !== undefined) {
+        apply(mapSet, seen, [v, out]);
+        return out;
+      }
       out = {};
     }
     apply(mapSet, seen, [v, out]);
     const keys = keysOf(v);
     const m = keys.length;
-    for (let i = 0; i < m; i++) own(out, keys[i], cloneValue(v[keys[i]], seen));
+    for (let i = 0; i < m; i++) {
+      const k = keys[i];
+      if (apply(hasOwn, v, [k])) own(out, k, cloneValue(v[k], seen));
+    }
+    return out;
+  }
+  // An object with a class of its own, or undefined for one that clones as a
+  // plain object. Map and Set are filled here, once `seen` has them.
+  function cloneBuiltIn(v, seen) {
+    if (branded(dateTime, v)) return new DateCtor(apply(dateTime, v, []));
+    if (v !== RegExpCtor.prototype && branded(regexpSource, v)) {
+      return new RegExpCtor(apply(regexpSource, v, []), apply(regexpFlags, v, []));
+    }
+    if (branded(mapHas, v) || branded(setHas, v)) return cloneCollection(v, seen);
+    if (branded(sharedBytes, v)) dataClone();
+    if (branded(abBytes, v)) {
+      if (isDetached(v)) dataClone();
+      return cloneBuffer(v);
+    }
+    const tag = apply(typedTag, v, []);
+    if (tag !== undefined) {
+      const buffer = cloneValue(apply(typedBuffer, v, []), seen);
+      return new typedCtors[tag](buffer, apply(typedOffset, v, []), apply(typedLength, v, []));
+    }
+    if (branded(viewLength, v)) {
+      const buffer = cloneValue(apply(viewBuffer, v, []), seen);
+      return new ViewCtor(buffer, apply(viewOffset, v, []), apply(viewLength, v, []));
+    }
+    for (let i = 0; i < 4; i++) {
+      if (branded(boxValueOf[i], v)) return ObjectCtor(apply(boxValueOf[i], v, []));
+    }
+    if (branded(symbolValueOf, v) || branded(weakHas[0], v) || branded(weakHas[1], v)) dataClone();
+    return undefined;
+  }
+  // §2.7.3: the name from the standard's list, own data `message` and `cause`. Chrome
+  // keeps `stack` too, which the standard allows.
+  function cloneError(v, seen) {
+    const name = v.name;
+    const ctor = (typeof name === 'string' ? errorCtors[name] : undefined) ?? errorCtors.Error;
+    const m = rdescriptor(v, 'message');
+    const message = m !== undefined && 'value' in m ? `${m.value}` : undefined;
+    const out = message === undefined ? new ctor() : new ctor(message);
+    const stack = rdescriptor(v, 'stack');
+    if (stack !== undefined && typeof stack.value === 'string') own(out, 'stack', stack.value);
+    apply(mapSet, seen, [v, out]);
+    const cause = rdescriptor(v, 'cause');
+    if (cause !== undefined && 'value' in cause) own(out, 'cause', cloneValue(cause.value, seen));
     return out;
   }
   function cloneCollection(v, seen) {

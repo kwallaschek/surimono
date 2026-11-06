@@ -212,6 +212,7 @@
       own(w, 'location', locationOf(s));
       own(w, 'history', historyRecord(s).w);
       own(w, 'DOMParser', frameParser(s));
+      own(w, 'navigator', navigatorState.w);
       const t = create(null);
       t.value = frameTimeout(s); t.writable = true; t.configurable = true;
       defineProperty(w, 'setTimeout', t);

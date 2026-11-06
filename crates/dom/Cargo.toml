@@ -26,6 +26,8 @@ selectors = "=0.32.0"
 cssparser = "=0.35.0"
 # Serializing reflected URL attributes. Same version as blitz-dom's.
 url = "=2.5.8"
+# TextDecoder's encodings. Same version as stylo's, so it adds nothing to a build.
+encoding_rs = "=0.8.35"
 
 [dev-dependencies]
 # Counts live heap bytes in the leak test, as crates/islands' soak test does.

@@ -491,10 +491,8 @@ made, with `popstate`. `Document.URL`, `baseURI`, the URLs of `DOMParser`'s docu
 and resolved URL attributes all follow.
 
 Session history is in the glue, per document, so it is under the memory limit and
-goes with the render. A state is cloned once when pushed: primitives, arrays, plain
-objects, `Date`, `RegExp`, `Map`, `Set`. Functions, symbols and platform objects
-are a `DataCloneError`, as they should be; `ArrayBuffer`, typed arrays and `Error`
-objects clone as plain objects, a gap. A script-set URL is charged to
+goes with the render. A state is cloned once when pushed, by `cloneValue`, which
+`structuredClone` shares (see "What the window has"). A script-set URL is charged to
 `max_text_bytes` until nothing holds it, because each `DOMParser` document keeps the
 URL it was made under, so a replaced URL can outlive its replacement. One URL is
 capped at 2 MiB, for memory: Chrome takes longer ones. Over the cap, `pushState`
@@ -523,13 +521,58 @@ prototype, and a script can replace them; on a frame's window, `location` and
 object. `ancestorOrigins` isn't bound. No `history.state` survives anything, there
 being no reload. `history.length` is per document, where a browser's is joint over
 frames. A state is one object for its entry, so `history.state.m = 1` survives a
-traversal away and back. The clone keeps no identity for a `Date` or `RegExp`
-referenced twice. It clones as plain objects what a browser refuses (`Proxy`,
-`Promise`, `WeakMap`, `WeakSet`, `Object(Symbol())`, generators, `arguments`), loses
-the value of `new Number(1)` and the like, and takes `RegExp.prototype` for a RegExp.
-`<base target>` is ignored. A `location.hash` in an inline script gets its `hashchange`
+traversal away and back. `<base target>` is ignored. A `location.hash` in an inline script gets its `hashchange`
 after the window's `load`, because the page's life was queued first; Chrome fires it
 before.
+
+## What the window has
+
+`src/glue_platform.js` and `src/web.rs`: what isn't about a node. Interfaces come
+from the IDL through `JS_INTERFACES`; the state stays in JavaScript values, and Rust
+takes and returns strings. Nothing here needs `unsafe`, so bytes cross as a string of
+U+0000 to U+00FF, built in chunks through a null-prototype list: slower than a
+borrowed slice, and rquickjs's slice is `unsafe`. `TextEncoder.encode` copies into an
+`ArrayBuffer` with `new_copy`: `ArrayBuffer::new` would keep the bytes outside the
+memory limit.
+
+- **URL.** A `URL` is its serialization in a record. Each getter and setter parses
+  it again in Rust through the `url` crate's `quirks` module, which is the URL
+  Standard's API. So what the crate gets wrong, we do (below), and there is one
+  parser. Input and output are capped at the 2 MiB of `MAX_URL_BYTES`, a `TypeError`
+  for a constructor or a setter. Parsing is linear, Punycode included:
+  `hostile_hosts_cost_little` runs six shapes at the cap.
+- **URLSearchParams.** A list of pairs in the glue. `sort` is a merge sort, so no
+  `Array.prototype` method runs; iterators are live, as WebIDL's pair iterators.
+  `searchParams` is made on first read, which nothing can observe.
+- **TextDecoder.** All of `encoding_rs`, which stylo already links. A decoder is
+  stateful and can't be serialized, so one mid-stream stays in `Document::decoders`,
+  each charged 4 KiB against `max_text_bytes`, because a script can keep any number
+  open; the end of a stream frees it, and the rest goes with the document.
+- **structuredClone.** `cloneValue` in `glue_location.js`. `valueKind` tells a Proxy,
+  an Error and a Promise apart, since no script-visible member does. A plain object
+  takes a fast path; the rest tries each built-in's brand. `transfer` clones, then
+  detaches, so a failed clone leaves the buffers. Recursion ends at the stack limit.
+- **navigator.** Constants: nothing may vary by machine, clock or version. `platform`
+  is empty, `onLine` and `cookieEnabled` are false, since there is no network and no
+  cookie store, `hardwareConcurrency` is 1. The user agent is
+  `Mozilla/5.0 (compatible; surimono)`.
+- **customElements.** A registry and nothing else: `define`, `get`, `getName` and
+  `whenDefined` work, nothing is constructed or upgraded, no reaction runs, and
+  `:defined` doesn't change. So `customElements.define` no longer stops a script, and
+  a page that fills its elements from `connectedCallback` prints them empty.
+  Reactions need a hook on every path that adds a node.
+
+**Gaps** (for COMPAT). `Intl` isn't in the engine. `Blob`, `File` and
+`URL.createObjectURL` aren't bound, nor are `TextDecoderStream` and streams. From the
+`url` crate: `file:///w|/m` keeps its `|` and a relative `/` loses a file URL's drive
+letter; a space before `?` or `#` in an opaque path isn't escaped, and removing a
+query leaves trailing spaces; IDNA is older than the tests (`CheckHyphens`, `xn--`
+labels that don't decode). `structuredClone` doesn't clone `DOMRect` and the like,
+refuses a `SharedArrayBuffer` where the standard shares it, and clones as plain objects
+generators and a `Map` given `Object.prototype`. A fatal error in the middle of a
+stream drops a byte pushed back before it (`textdecoder-mistakes`, one subtest).
+Only the page's window has `atob` and the rest as functions that work: `frames[0].atob`
+needs a `this` of the page, like every window operation.
 
 ## MutationObserver
 
