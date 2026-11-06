@@ -23,20 +23,25 @@ layout gaps, so it is not a typical Rails template. The
 
 Keep Grover, for now, for any document that needs one of these:
 
-- **The page's own scripts.** surimono runs island renderers only for now. Scripts
-  in the page are passed through and never run: anything that builds or changes
-  the DOM, Stimulus or Alpine.js controllers, KaTeX auto-render, highlight.js,
-  dates formatted in the browser, D3 code that appends elements. Page scripts on
-  a real DOM are planned for v0.3.
+- **Page scripts that `render_page` can't run yet.** `render_page` runs a page's
+  own scripts on a real DOM ([Rails guide](rails.md#page-scripts)), and
+  `Surimono.render` still doesn't. Of six real-world pages printed through
+  fulgur 0.40.0 and compared with Chrome's print, 2 pass, built with Alpine.js
+  and highlight.js. The other 4, among them D3, KaTeX and marked, print the same
+  as fulgur printing Chrome's own DOM, so those failures are fulgur's layout
+  ([results](../../fixtures/checkpoint-3/index.md)). Compare your own before you
+  switch. Modules, scripts a script inserts and `document.write` don't run.
 - **Scripts that measure layout.** `getBoundingClientRect`, `offsetWidth`,
   `getBBox`, `getComputedTextLength`, sizing a chart to its container, or text
-  fitting. Layout queries are planned for v0.3.
+  fitting. Layout queries answer zeros for now; real answers are planned for
+  v0.3.
 - **Canvas.** Chart.js and other libraries that draw on `<canvas>`. surimono has
   ECharts and Vega, which draw SVG. Canvas recorded as vectors, in the scope
   Chart.js uses, is planned for v0.3.
-- **The network.** Neither surimono nor fulgur fetches anything: no web fonts,
-  scripts, stylesheets or images from URLs, no `fetch` for chart data, and no
-  rendering of a live URL (`Grover.new("https://…")`).
+- **The network.** Neither surimono nor fulgur fetches anything: no web fonts or
+  images from URLs, no `fetch` for chart data, and no rendering of a live URL
+  (`Grover.new("https://…")`). A page's scripts and stylesheets come from files
+  you hand to `render_page`.
 - **Chrome features.** `wait_for_selector`, `execute_script`, screenshots
   (`to_png`, `to_jpeg`), cookies and authentication for URLs, and
   `header_template`/`footer_template` as HTML.
@@ -151,7 +156,7 @@ Grover's options map like this:
 | `display_header_footer`, `header_template`, `footer_template` | CSS page margin boxes: `@page { @bottom-right { content: "Page " counter(page) " / " counter(pages); } }` |
 | `wait_until`, `wait_for_selector` | Not needed. There is nothing to wait for: islands are drawn before printing. |
 | `display_url` (base URL for assets) | fulgur doesn't fetch. Register stylesheets with `assets.add_css_file` and images with `assets.add_image_file` (see fulgur's README). |
-| `execute_script` | Not available yet |
+| `execute_script` | Put the script in the page and use `render_page` |
 
 Options passed to `Fulgur::Engine.new` win over the CSS `@page` rule.
 

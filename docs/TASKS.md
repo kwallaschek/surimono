@@ -190,10 +190,12 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - E2-09 · CF · doing (#123 merged; #145 after #142) · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing (first run #123: 73.5%, 18.8%, 10.8%, 13.5%; PKG job to publish wpt-results.json still needed)
 - E2-10 · CF · doing · Real-world suite: marked, highlight.js, KaTeX auto-render, Alpine.js (second to cut), D3 without measuring
 - P2-ORC-02 · ORC · todo · Root pins for html5ever, html-escape, stats_alloc, cssparser, url
-- E2-15 · DX · doing · README, rust.md, rails.md, CHANGELOG for the page path; checkpoint-3 checklist
-- E2-10b · CF · doing · Print comparison for the real-world pages through render_page and fulgur against Chrome
+- E2-15 · DX · done (#157) · README, rust.md, rails.md, CHANGELOG for the page path; checkpoint-3 checklist
+- E2-10b · CF · done (#158: 2 of 6 pass; the rest equal their fulgur floor) · Print comparison for the real-world pages through render_page and fulgur against Chrome
+- E2-16 · DOM · doing (#160 #161 merged; #162 #163 open) · URL family, encoding, base64, structuredClone, navigator, HTML collections, tables, forms, TreeWalker, styleSheets
+- P2-PKG-03 · PKG · review (#159) · MPL crates in about.toml; fork guard; page-check in CI
 - E2-11 · PKG · todo · musl native gems (third to cut)
-- E2-12 · DX · todo · Rails guide for page scripts; checkpoint-3 checklist for Kay's own template
+- E2-12 · DX · done (#157) · Rails guide for page scripts; checkpoint-3 checklist for Kay's own template
 
 ## Phase 3: layout (v0.3, checkpoint 4 on Sun 31 Jan 2027 ~11:00), epics
 

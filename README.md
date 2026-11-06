@@ -5,9 +5,10 @@ engines can print it.
 
 surimono is a Rust library, a Ruby gem and a command-line tool. It runs the scripts a document needs in
 a sandboxed QuickJS runtime and returns HTML that an engine such as
-[fulgur](https://github.com/fulgur-rs/fulgur) can print. Today it does this for
-charts: it finds chart *islands* in your HTML, draws them as SVG with
-ECharts or Vega, and inlines the SVG.
+[fulgur](https://github.com/fulgur-rs/fulgur) can print. It does this in two
+ways: it finds chart *islands* in your HTML, draws them as SVG with ECharts or
+Vega and inlines the SVG, and on request it runs the page's own scripts against
+a DOM with no layout.
 
 > **Status:** not released. There is no gem on RubyGems and no crate on
 > crates.io, so `gem install surimono` doesn't work, and the first release is
@@ -17,11 +18,11 @@ ECharts or Vega, and inlines the SVG.
 
 ## Why
 
-Browserless PDF engines (fulgur, ironpress, rustyprint) start fast and use
-little memory, but they don't run scripts. So one chart in an invoice or report
-sends you back to Chrome through Grover, Ferrum or a Gotenberg sidecar, with
-Chrome's memory use and start-up time. surimono runs only the JavaScript the
-document needs, without a browser, and then gets out of the way.
+Browserless PDF engines (fulgur, ironpress, rustyprint) don't run scripts, so
+one chart in an invoice or report sends you back to Chrome through Grover,
+Ferrum or a Gotenberg sidecar, with Chrome's memory use and start-up time.
+surimono runs only the JavaScript the document needs, without a browser, and
+then gets out of the way.
 
 <!-- bench: grover-vs-surimono -->
 Median time and peak memory per document for a six-page report with six charts,
@@ -46,7 +47,9 @@ GitHub Actions, at commit `15b530e0`, and times vary from run to run
 with the machine. The report is shaped around fulgur 0.40's layout gaps, so it
 is not a typical Rails template. See the [full results](bench/results/15b530e0/summary.md),
 whose memory verdicts use the earlier 10× target, and the
-[method](bench/README.md).
+[method](bench/README.md). The report's scripts are all chart islands: no
+benchmark of a page's own scripts is committed yet, so these numbers say nothing
+about them.
 
 ## What it does today
 
@@ -54,6 +57,9 @@ whose memory verdicts use the earlier 10× target, and the
   `<script type="application/vnd.surimono+json" data-renderer="…">` marker in
   your HTML with the SVG its renderer draws. Everything else in the document
   stays byte for byte as it was.
+- **Page scripts.** `render_page` runs the document's own scripts as a browser
+  would, on a virtual clock until the page settles, and returns the HTML and a
+  report of what went wrong. See [Page scripts](#page-scripts).
 - **Built-in renderers.** `echarts` (Apache ECharts 6.1.0, server-side SVG),
   `vega-lite` (Vega-Lite 6.5.0) and `vega` (Vega 6.4.0). They ship as
   precompiled QuickJS bytecode, so a new process skips parsing and compiling
@@ -64,7 +70,7 @@ whose memory verdicts use the earlier 10× target, and the
 - **Chart text in your fonts.** Chart labels are measured and drawn with the
   font files you pass in, so they fit and look the same on any server.
 - **A sandbox.** Every script runs under memory, time and stack limits, with no
-  filesystem or network access.
+  filesystem or network access unless you pass a loader for a page's files.
 - **Ruby, Rust and a CLI.** The gem, the crate and the `surimono` command take
   the same options and give the same bytes for the same input.
 - **Safe to share and to fork.** One renderer serves many threads, and a
@@ -72,10 +78,10 @@ whose memory verdicts use the earlier 10× target, and the
 
 ## What it is not
 
-- **Not a browser.** Today it runs island renderers only. The page's own
-  `<script>` elements pass through untouched and are not run.
+- **Not a browser.** Nothing is laid out, and much of the web platform is
+  missing. See [Page scripts](#page-scripts) for what is.
 - **Not for websites.** It doesn't fetch pages, styles, images or data, and it
-  has no network access.
+  has no network access. A page gets only the files you hand it.
 - **Not a PDF engine.** Pair it with fulgur or any engine that prints HTML with
   inline SVG.
 
@@ -101,7 +107,7 @@ Then point your app's Gemfile at the clone:
 ```ruby
 # Gemfile
 gem "surimono", path: "/path/to/surimono/bindings/ruby"
-gem "fulgur"   # or another browserless PDF engine
+gem "fulgur", "0.40.0"   # or another browserless PDF engine
 ```
 
 Bundler doesn't compile a gem from `path:`, so run `rake compile` first, and
@@ -207,6 +213,76 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 More in the [Rust guide](docs/guide/rust.md).
 
+## Page scripts
+
+When a template's own scripts build the page, ask for them to run. `render` and
+`render_islands` never run them.
+
+```ruby
+page = Surimono.render_page(html, fonts: FONTS)
+page.report.uncaught   # exceptions nothing caught; the page goes on, as in a browser
+pdf = Fulgur::Engine.new(page_size: :a4, assets: assets).render_html(page.html)
+```
+
+```rust
+let page = renderer.render_page(&html)?;
+eprintln!("{} uncaught, {:?}", page.report.uncaught, page.report.settled);
+let pdf = engine.render(&page.html)?;
+```
+
+- **Timers run on a virtual clock**, so a `setTimeout` of a second costs no real
+  time, and a page gets 10 seconds of virtual time to settle.
+- **A page's scripts share one set of limits**, not one per script. A limit
+  raises and gives no page; an exception in a page goes in the report.
+- **No files by default.** An external script needs `resources:`, or a `loader:`
+  with `allow:` (a `ResourceLoader` in Rust). The URL reaches it as written, with
+  no base applied. A stylesheet comes out as `<style>`, and a `url()` or `@import`
+  in it isn't followed.
+- **The output is serialized**, so it isn't byte-identical to the input:
+  `<noscript>` and comments are always gone, and `<script>` too unless you pass
+  `keep_scripts`.
+
+The [Rails guide](docs/guide/rails.md#page-scripts) and the
+[Rust guide](docs/guide/rust.md#page-scripts) cover all of it, including how to
+print pages you don't trust.
+
+How much of the web platform works, in Web Platform Tests subtests, against what
+Chrome passes in the same run (from [docs/COMPAT.md](docs/COMPAT.md), surimono
+at `5dde7483b7`):
+
+| Area | Passed | Of | Rate | Phase 2 target |
+|---|---|---|---|---|
+| Timers and microtask queuing | 30 | 34 | 88.2% | 90%, not met |
+| `dom/nodes` | 13,928 | 15,267 | 91.2% | 70%, met |
+| `dom/events` | 544 | 748 | 72.7% | 70%, met (64.2% of wpt.fyi's 848) |
+| `domparsing` | 355 | 909 | 39.1% | 60%, not met |
+
+Six real-world pages, built with Alpine.js, highlight.js, D3, KaTeX and marked,
+were printed through `render_page` and fulgur 0.40.0 and compared with Chrome's
+print ([results](fixtures/checkpoint-3/index.md)): 2 of 6 pass, Alpine.js and
+highlight.js. The other 4 print the same as fulgur printing Chrome's own DOM, so
+those failures are fulgur's layout, not the page's scripts.
+
+What doesn't work yet:
+
+- **Layout queries answer zeros.** `getBoundingClientRect`, `offsetWidth` and
+  `getComputedStyle` give zeros and empty strings, or fail the render if you ask
+  for that (`layout_queries: :throw`), so a script that sizes things from them
+  may draw at size 0. Real answers are planned for v0.3.
+- **No canvas drawing.** A `<canvas>` has no `getContext`. Canvas as vectors, in
+  the scope Chart.js uses, is planned for v0.3.
+- **A script a script inserts doesn't run**, and `type="module"` scripts don't
+  run.
+- **No `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
+  `matchMedia`, `ResizeObserver` or `IntersectionObserver`**, and no
+  `document.write`.
+- **No `navigator`, `URL`, `URLSearchParams`, `TextEncoder`, `atob`, `Intl`,
+  `structuredClone`, `customElements` or shadow DOM.**
+- **Many element helpers are missing**, among them `innerText`, `focus`, a
+  table's `insertRow` and a `<select>`'s `options`.
+- **Images aren't loaded for a page**: no `load` or `error` event fires for one,
+  and there is no `Image` constructor. `src` stays for the PDF engine.
+
 ## Command-line example
 
 ```sh
@@ -218,15 +294,26 @@ surimono render report.html -o report.out.html \
 standard output. The output file is written only after the render succeeded.
 `surimono --help` lists every option (limits, `--seed`, `--now-ms`,
 `--utc-offset-minutes`, `--error-policy`, `--text`, `--bundle`,
-`--renderers`, `--max-islands`, `--pool-size`). Exit codes tell a script what
-to fix:
+`--renderers`, `--max-islands`, `--pool-size`).
+
+`--scripts` runs the page's own scripts first. A page's files come from
+`--resource`, with the URL as the page writes it, and what went wrong in the page
+goes to standard error without failing the render:
+
+```sh
+surimono render page.html -o page.out.html --font fonts/NotoSans-Regular.ttf \
+  --scripts --resource /assets/invoice.js=app/assets/invoice.js
+```
+
+`--keep-scripts`, `--layout-queries` and `--output-mb` go with it. Exit codes
+tell a script what to fix:
 
 | Code | Meaning |
 |---|---|
 | 0 | Success |
-| 1 | An island failed (bad marker, unknown renderer, script error, unusable SVG), more islands than `--max-islands`, or a document that can't be rewritten |
+| 1 | An island failed (bad marker, unknown renderer, script error, unusable SVG), more islands than `--max-islands`, a document that can't be rewritten, a page that couldn't run, or a layout query under `--layout-queries throw` |
 | 2 | Usage error: an unknown option or a bad value |
-| 3 | A script hit its memory, time or stack limit |
+| 3 | A script hit its memory, time or stack limit, or a page a limit of the DOM |
 | 4 | Invalid configuration: no font, a font or bundle that can't be used, limits out of range |
 | 5 | A file couldn't be read or written |
 
@@ -271,29 +358,34 @@ own bundles and fonts.
 
 ## Sandbox and determinism
 
-Every island runs in a fresh QuickJS runtime with these limits:
+Every island runs in a fresh QuickJS runtime, and every page gets new script
+state, with these limits:
 
 | Limit | Default | Ruby option | Error when exceeded |
 |---|---|---|---|
-| JavaScript heap | 64 MB | `limits: { memory_mb: }` | `Surimono::MemoryLimitError` / `Error::MemoryLimit` |
-| Running time | 2 s | `limits: { time_ms: }` | `Surimono::TimeLimitError` / `Error::TimeLimit` |
-| Stack | 512 KB | `limits: { stack_kb: }` | `Surimono::StackOverflowError` / `Error::StackOverflow` |
+| JavaScript heap | 64 MB | `limits: { memory_mb: }` | `Surimono::MemoryLimitError` / `Error::MemoryLimit`, `Error::PageMemoryLimit` |
+| Running time | 2 s | `limits: { time_ms: }` | `Surimono::TimeLimitError` / `Error::TimeLimit`, `Error::PageTimeLimit` |
+| Stack | 512 KB | `limits: { stack_kb: }` | `Surimono::StackOverflowError` / `Error::StackOverflow`, `Error::PageStackOverflow` |
+| A page's output | 64 MB | `limits: { output_mb: }` | `Surimono::DomLimitError` / `Error::PageDomLimit` |
 
 A script that hits a limit stops with that typed error. It doesn't crash or
-hang your process. Scripts get the JavaScript language and nothing else: no
-filesystem, network, module imports, DOM, timers or `console`. The built-in
-renderers bring the few stubs their libraries need.
+hang your process. An island's script gets the JavaScript language and nothing
+else: no filesystem, network, module imports, DOM, timers or `console`. The
+built-in renderers bring the few stubs their libraries need. A page's scripts
+also get a DOM and timers, and still no filesystem or network.
 
 The limits apply to each island, so a document with N islands can take up to
-N × the time limit. Two things bound a whole document:
+N × the time limit. A page's scripts share one time limit; its parse has another
+of the same length, and all that follows the scripts a third. Two things bound a
+whole document:
 
 - **`max_islands`** (default 1,000): a document with more islands fails with
   `too-many-islands` before any island runs.
 - **Cancellation.** In Ruby, `Timeout.timeout`, `Rack::Timeout`,
   `Thread#raise` or a signal handler that raises in the rendering thread stops
-  a render, its running island included. In Rust,
-  `Renderer::render_islands_cancellable` takes an `AtomicBool` to the same
-  effect. Loading a bundle is the exception: it isn't interrupted, and a cancel
+  a render, its running island or page script included. In Rust,
+  `Renderer::render_islands_cancellable` and
+  `Renderer::render_page_cancellable` take an `AtomicBool` to the same effect. Loading a bundle is the exception: it isn't interrupted, and a cancel
   takes effect when it ends. Precompiled built-ins load in place. A built-in
   compiled from source on first use, or your own bundle compiled at a forked
   process's first render, can take up to twice the time limit (one limit to
@@ -312,6 +404,12 @@ The same HTML and options give the same bytes on every run and every machine:
   `utc_offset_minutes:` (540 for Japan). The server's clock and time zone are
   never read.
 - Text is measured only with the fonts you pass in. System fonts are never read.
+- A page's timers run on a virtual clock, and its files come from you.
+
+Your PDF engine has no limits of its own. Print pages you don't trust in a
+process of your own, with its own timeout and stack size: the
+[Rails guide](docs/guide/rails.md#printing-pages-you-dont-trust) and the
+[Rust guide](docs/guide/rust.md#printing-pages-you-dont-trust) show how.
 
 ## Fonts
 
@@ -345,10 +443,10 @@ Pass the same font files to surimono and to your PDF engine.
 
 ## Current limits
 
-- **Page scripts don't run.** Only islands do. Running the page's own scripts on
-  a real DOM is planned for v0.3.
-- **Scripts can't measure layout.** `getBoundingClientRect` and friends are
-  planned for v0.3. Documents that need them still need Chrome for now.
+- **Scripts can't measure layout.** `getBoundingClientRect` and friends answer
+  zeros or fail the render, and real answers are planned for v0.3. Documents that
+  need them still need Chrome for now. [Page scripts](#page-scripts) lists what
+  else a page can't do yet.
 - **Specs are JSON.** You can't pass JavaScript functions, such as an ECharts
   `formatter` callback. Use the string templates the libraries offer
   (`"formatter": "{value} 円"`), or write your own bundle.
@@ -362,15 +460,15 @@ Pass the same font files to surimono and to your PDF engine.
   state. Tooltips and hover states don't exist in a PDF.
 - **The time limit is per island.** A document with many islands can take that
   many times as long; cap it with `max_islands` and cancel from outside (see
-  [Sandbox and determinism](#sandbox-and-determinism)).
+  [Sandbox and determinism](#sandbox-and-determinism)). The same goes for islands
+  in a page.
 - **Vega data and size.** Vega and Vega-Lite specs keep their own `width` and
   `height` (a Vega-Lite `"container"` size means the island's). Images, links
   and transforms that draw to a raster canvas (label placement, word clouds,
   heatmap images) aren't supported.
-- **Dense charts are slow.** A chart with thousands of marks can take more than
-  a second in QuickJS and may need a time limit above the default 2 s.
-- **QuickJS is not V8.** Heavy charts run slower than in Chrome. The
-  [benchmark](#why) times whole documents, so it doesn't show by how much.
+- **QuickJS is not V8.** It is an interpreter, so a dense chart may need a time
+  limit above the default 2 s. The [benchmark](#why) times whole documents, so
+  it doesn't show how a single chart compares with Chrome.
 - **Mermaid is not included.**
 - **Platforms.** CI covers Linux (glibc) and macOS; there is no Windows or musl
   support yet.
@@ -390,7 +488,7 @@ v0.3 is planned as the first release and will carry all three phases.
 | Phase | Adds | State |
 |---|---|---|
 | 1 | Chart islands | On `main`; the `v0.1.0` tag marks it, but it was not released |
-| 2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock | In progress |
+| 2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock | On `main`, in progress; two of four WPT targets met (see [Page scripts](#page-scripts)) |
 | 3 | Layout queries answered from the same layout the PDF is printed from; Canvas2D as vectors | Planned |
 
 ## Licence

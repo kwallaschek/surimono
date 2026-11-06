@@ -10,13 +10,13 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Fri 6 Nov 2026, 17:10)
+## Now (Fri 6 Nov 2026, 23:00)
 
-Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Phase-2 public API is on main: #143 squash-merged, #130 closed unmerged; also #153 and #156. ASan on main: two tests hit their time limit under ASan (events.rs:2139, ranges.rs:629): being scaled. #150's fork hang stayed away there.
+Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged since 17:10: #154 #155 #157 #158 #160 #161. Main's ruby and native-gems jobs stay red until #159 lands (about.toml); read full.yml after it.
 
-Open: #154 (BLOCK: a time limit in a new test, hostile.rs:1282), #155 (BLOCK: nested svg load must follow the spec, conflict logged). After those: CF adds rows from #156's body and regenerates results and COMPAT. Then E2-15 docs, E2-10b print comparison, P2-ORC-02 pins, P2-RT-07 libm, E2-11 musl (third to cut).
+Open: #159 (delta review at c5f21c51; merges with its DECISIONS lines), #162 (BLOCK: quadratic pointer update), #163 (approved delta; needs #162). After those: CF adds the rows queued in #156's body plus the DESIGN.md gaps, regenerates WPT results and COMPAT, adds the slices listed in #160-#163's bodies. forks_never_hang under load: #159.
 
-Rates with #154 and #155: timers 91.2%, dom/nodes 92.7%, dom/events 75.7% (66.7% on wpt.fyi's denominator: state both), domparsing 61.6%. Kay's call at checkpoint 3: 300 subtests of unstable API. Digest Sun 8 Nov 20:00, checkpoint 3 Sun 22 Nov 11:00.
+Then: DOM follow-ups in reviews of #161 and #163 (innerText across table sections, select.value on a disabled placeholder, replaced sheets, unterminated rule), P2-DOM-06 long token, P2-ORC-02 pins, P2-RT-07 libm, E2-11 musl (third to cut). Digest Sun 8 Nov 20:00, checkpoint 3 Sun 22 Nov 11:00.
 
 ## Earlier (Thu 5 Nov 2026, 11:45)
 

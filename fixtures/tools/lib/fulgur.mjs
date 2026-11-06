@@ -38,13 +38,17 @@ function fontconfig(workDir) {
   return conf;
 }
 
-/** fulgur render <html> -o <pdf> with only the fixture fonts. Throws with fulgur's output on failure. */
-export function fulgurPrint(htmlPath, pdfPath, workDir) {
+/**
+ * fulgur render <html> -o <pdf> with only the fixture fonts, and `extraFonts` for a page
+ * with its own: fulgur 0.40.0 doesn't load @font-face URLs. Throws with fulgur's output on failure.
+ */
+export function fulgurPrint(htmlPath, pdfPath, workDir, extraFonts = []) {
   const fonts = fs
     .readdirSync(FONTS_DIR)
     .filter((f) => /\.(ttf|otf)$/i.test(f))
     .sort()
-    .flatMap((f) => ["--font", path.join(FONTS_DIR, f)]);
+    .flatMap((f) => ["--font", path.join(FONTS_DIR, f)])
+    .concat(extraFonts.flatMap((f) => ["--font", f]));
   const r = spawnSync(fulgurBinary(), ["render", ...fonts, "--creation-date", "2026-01-01", "-o", pdfPath, htmlPath], {
     encoding: "utf8",
     env: { ...process.env, FONTCONFIG_FILE: fontconfig(workDir) },

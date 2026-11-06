@@ -1,9 +1,9 @@
 # Rust
 
 The `surimono` crate is the whole public API: a `Renderer` built from `Options`,
-a method that renders a document's islands (and a cancellable variant), and one
-error type. This guide
-pairs it with [fulgur](https://github.com/fulgur-rs/fulgur) to print PDFs.
+methods that render a document's islands or run it as a page (each with a
+cancellable variant), and one error type. This guide pairs it with
+[fulgur](https://github.com/fulgur-rs/fulgur) to print PDFs.
 
 For the marker format and the renderers, see the [islands guide](islands.md).
 
@@ -181,12 +181,27 @@ let options = Options::new()
 
 The host's clock and time zone are never read.
 
-`Limits` has public fields (`memory_bytes`, `time`, `stack_bytes`) and the
-constants `Limits::DEFAULT_MEMORY_BYTES`, `DEFAULT_TIME` and
-`DEFAULT_STACK_BYTES`. The memory limit must be at least 1 MiB and the stack
-limit between 64 KiB and 16 MiB. The time limit covers loading the renderer
-and drawing one island, not the whole document, so a document with N islands
-can take up to N × `time`. `max_islands` caps N.
+| `layout_queries(LayoutQueries)` | `Zeros` | What a page's layout queries give; see [Layout queries](#layout-queries) |
+| `keep_scripts(bool)` | `false` | Leaves `<script>` elements in a page's output |
+| `resource_loader(ResourceLoader)` | none | What a page may load; see [External files and frames](#external-files-and-frames) |
+
+### Limits
+
+Build `Limits` from the defaults, so a limit added later keeps its default in
+your code. The constants are `Limits::DEFAULT_MEMORY_BYTES`, `DEFAULT_TIME`,
+`DEFAULT_STACK_BYTES` and `DEFAULT_OUTPUT_BYTES`.
+
+| Field | Default | Allowed | For each island | For a page |
+|---|---|---|---|---|
+| `memory_bytes` | 64 MiB | at least 1 MiB | A fresh JavaScript heap | One heap for all its scripts |
+| `time` | 2 s | more than zero | One deadline over loading the renderer and drawing | One deadline for all its scripts, timers included; another of the same length for its parse, and another for everything after the scripts |
+| `stack_bytes` | 512 KiB | 64 KiB to 16 MiB | The engine's native stack | One limit for all its scripts |
+| `output_bytes` | 64 MiB | at least 1 MiB | Not used | The most HTML `render_page` gives back, and the most text a page may hold while it runs |
+
+Values out of range fail in `Renderer::new` with `Error::InvalidOptions`. A
+document with N islands can take up to N × `time`. `max_islands` caps N. A page
+takes at most about 3 × `time` before its islands, each of which then has its
+own `time`.
 
 ## Cancelling a render
 
@@ -215,6 +230,280 @@ Precompiled built-ins load in place. A built-in compiled from source on first
 use, or your own bundle compiled at a forked process's first render, can take
 up to twice `time` (one limit to compile, one to run it once), plus any wait
 for a free runtime.
+
+## Page scripts
+
+Island markers suit charts you can describe as JSON. When the document's own
+`<script>` elements build it, `render_page` runs them as a browser would, on a
+virtual clock until the page settles, then draws any island markers.
+`render_islands` never runs a page's scripts.
+
+```rust
+use surimono::{Error, Options, Renderer, SettleReason};
+
+fn main() -> Result<(), Error> {
+    let font = std::fs::read("fixtures/fonts/NotoSans-Regular.ttf").expect("the font");
+    let renderer = Renderer::new(Options::new().font(font))?;
+
+    let page = renderer.render_page(
+        "<!doctype html><p id=a>?</p>
+         <script>setTimeout(() => { document.querySelector('p').textContent = 'done'; }, 1000);</script>",
+    )?;
+
+    assert!(page.html.contains("<p id=\"a\">done</p>"));
+    assert_eq!(page.report.settled, SettleReason::Idle);
+    Ok(())
+}
+```
+
+`page.html` goes to fulgur. To print in the pipeline above:
+
+```rust
+impl PdfPipeline {
+    /// A page with scripts in, PDF bytes out. Logs what went wrong in the page.
+    pub fn render_page(&self, html: &str) -> Result<Vec<u8>, BoxError> {
+        let page = self.renderer.render_page(html)?;
+        for error in &page.report.errors {
+            eprintln!("page: {error}");
+        }
+        Ok(self.engine.render(&page.html)?)
+    }
+}
+```
+
+A `Renderer` starts the threads for pages on the first page, up to
+`Options::pool_size`. Like `render_islands`, the call blocks; use
+`spawn_blocking` in async code.
+
+### Report or error
+
+A page's own mistakes go in `PageReport` and the page goes on, as in a browser.
+A limit is an `Err`, and there is no page.
+
+| `PageReport` field | What it says |
+|---|---|
+| `settled` | `SettleReason::Idle` (nothing left to run), `VirtualBudget` (timers left after 10 seconds of virtual time, as with a `setInterval` nobody clears) or `TaskLimit` (100,000 tasks, with more due) |
+| `uncaught`, `errors` | Exceptions nothing caught, and the first few as messages |
+| `unhandled_rejections`, `rejections` | Promises rejected with no handler, and the first few reasons |
+| `failed_count`, `failed` | External scripts, images and stylesheets the page didn't get, and the first few as `ResourceFailure { kind, url, reason }` |
+
+`PageReport`, `PageOutput`, `ResourceFailure`, `SettleReason` and the kinds and
+reasons are `#[non_exhaustive]`. A report isn't always clean on a page that
+printed well: `VirtualBudget` is normal for a page with a clock in it, and every
+`<img src>` is listed, because surimono leaves images to the printer.
+
+| Error | When |
+|---|---|
+| `Error::PageMemoryLimit` | The page's scripts used more than `memory_bytes` |
+| `Error::PageTimeLimit` | The page ran past `time`; see [Limits](#limits) |
+| `Error::PageStackOverflow` | The page's scripts recursed deeper than `stack_bytes` allows, and nothing caught it |
+| `Error::PageDomLimit { message }` | The page or its scripts passed a limit on the DOM (nodes, depth, text, attributes), or its CSS passed a limit, or its output is over `output_bytes`. The message says which. |
+| `Error::PageLayoutQuery { member }` | Under `LayoutQueries::Throw`, a script asked for layout through `member` |
+| `Error::PageFailed { message }` | The page couldn't run, or used something the DOM defines and surimono doesn't do yet |
+
+Whatever the `ErrorPolicy`, these end the render. Islands in a page fail as in
+`render_islands`, under the policy. Their `kind()` strings are those of the
+island errors for the three script limits, then `dom-limit`, `layout-query` and
+`page`.
+
+### What comes out
+
+`page.html` is the document serialized from a parse, not your input with changes,
+so it isn't byte-identical to what you passed in:
+
+- Attributes are quoted, a missing `<head>` or `<body>` is added, and comments
+  are gone.
+- `<noscript>` is gone, and `<script>` too, except island markers on their way
+  to becoming SVG. `Options::keep_scripts(true)` keeps the scripts, for an engine
+  that would run them.
+- A page with no doctype or an old one comes out with no doctype;
+  a standards-mode page comes out with `<!doctype html>`.
+- The output is screened so the printer's parse matches ours.
+
+The same options, HTML and files give the same bytes. Scripts see `now_ms` and
+`utc_offset_minutes`, and `Math.random` follows `seed`. Timers run on a virtual
+clock, so a `setTimeout` of a second costs no real time.
+
+### External files and frames
+
+Without a `ResourceLoader` a page loads nothing: no network and no files. A
+`<script src>` or `<iframe src>` fails in the report, and a
+`<link rel="stylesheet">` stays in the output for the printer to deal with.
+
+`ResourceLoader::from_map` serves fixed bytes, with its URLs as the allowlist,
+matched exactly. `ResourceLoader::new` takes an allowlist and a function:
+
+```rust
+use surimono::{Options, Renderer, ResourceLoader};
+
+fn main() -> Result<(), surimono::Error> {
+    let font = std::fs::read("fixtures/fonts/NotoSans-Regular.ttf").expect("the font");
+    let loader = ResourceLoader::new(["/assets/"], |url| match url {
+        "/assets/title.js" => Ok(b"document.title = 'Q3';".to_vec()),
+        _ => Err("no such file".to_owned()),
+    });
+    let renderer = Renderer::new(Options::new().font(font).resource_loader(loader))?;
+    let page = renderer.render_page(
+        "<!doctype html><title></title><script src='/assets/title.js'></script>",
+    )?;
+    assert!(page.html.contains("<title>Q3</title>"));
+    Ok(())
+}
+```
+
+- **The URL is the attribute as written**, with no base applied.
+- **The allowlist** lets through a URL equal to an entry, and with an entry
+  ending in `/`, what is under it. Such an entry refuses paths that climb out of
+  it, but a function that reads files should still check what it opens.
+- **The function** must return the same bytes for the same URL, or the same input
+  stops giving the same output. It runs once per URL, on a worker thread, one
+  load at a time, and nothing interrupts it, so bound its own wait. After 10
+  seconds of loads, or 1,000 of them, the rest fail in the report and the page
+  goes on. Its `Err` message goes in the report too.
+- **Scripts load before the first script runs**, and stylesheets after the
+  scripts settle, where they count against the `time` for that step.
+- **A stylesheet comes out as `<style>`**, so the printer doesn't need the file.
+  A `url()` or `@import` in it isn't followed. A `<link>` off the list stays as
+  it was; a listed one that can't be had goes from the page and into the report.
+- **A frame** loads through the same function and list, with its `#fragment`
+  taken off, and a failed one reports as `ResourceKind::Script`. A script can add
+  a frame, so loads can happen while the page runs, under its time limit, and it
+  can read back what it asked for: don't let through what a page mustn't see. A
+  frame is a document with no browsing context: its scripts don't run, and a
+  render has at most 64 frames.
+
+`render_page_loading(html, allow, load, cancel)` takes a function for one render
+instead, which runs on the calling thread. That's for a function that can't leave
+that thread, such as a callback into another language.
+
+### Layout queries
+
+Nothing is laid out yet. Until phase 3 is done, `getBoundingClientRect`,
+`offsetWidth`, `getComputedStyle` and the like answer zeros and empty strings
+(`LayoutQueries::Zeros`), so a page that only reads them carries on, and one that
+sizes something from them may draw it at size 0. If you would rather have no page
+than a page built on those answers, use `LayoutQueries::Throw`:
+
+```rust
+use surimono::{Error, LayoutQueries, Options, Renderer};
+
+fn main() -> Result<(), Error> {
+    let font = std::fs::read("fixtures/fonts/NotoSans-Regular.ttf").expect("the font");
+    let options = Options::new().font(font).layout_queries(LayoutQueries::Throw);
+    let renderer = Renderer::new(options)?;
+    let html = "<div id=d></div><script>try { d.offsetWidth } catch (e) {}</script>";
+    match renderer.render_page(html) {
+        Err(Error::PageLayoutQuery { member }) => assert_eq!(member, "offsetWidth"),
+        other => panic!("{other:?}"),
+    }
+    Ok(())
+}
+```
+
+The render ends at the first query, even if the page catches the exception.
+
+### Cancelling a page
+
+`render_page_cancellable` takes an `AtomicBool`, as `render_islands_cancellable`
+does. Once it is true, a running script stops within milliseconds, as does the
+parse before it and the work after it, the worker takes the next page, and the
+call ends with `Error::Cancelled`. The flag doesn't carry into the next render.
+
+A `ResourceLoader`'s function isn't interrupted: the call still ends at once, but
+the worker is free only when the function returns. Under `render_page_loading`
+the function runs on your thread, so the flag is looked at when it returns.
+
+### What doesn't work yet
+
+- A script a script inserts doesn't run, so script loaders do nothing.
+- `type="module"` scripts don't run; `nomodule` scripts do.
+- There is no `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
+  `matchMedia`, `ResizeObserver` or `IntersectionObserver`.
+- There is no `navigator`, `URL`, `URLSearchParams`, `TextEncoder`, `atob`,
+  `btoa`, `Intl`, `structuredClone`, `customElements` or shadow DOM.
+- Many element helpers are missing, among them `innerText`, `focus`, a table's
+  `insertRow` and `rows`, a `<select>`'s `options` and a form's `elements`.
+  `textContent`, `createElement` and `append` work. Calling a missing method
+  stops that script, with `TypeError: not a function` in the report.
+- `document.write` doesn't exist, so the script that calls it stops there.
+- A `<canvas>` has no `getContext`; canvas drawing is planned for phase 3.
+- Images aren't loaded for a page: no `load` or `error` event fires for one, and
+  there is no `Image` constructor. `src` stays for the printer.
+
+[docs/COMPAT.md](../COMPAT.md) has the full list, with the test behind each row.
+
+### Printing pages you don't trust
+
+The printer has no limits of its own. If pages come from people you don't trust,
+print them in a process of your own, with its own timeout: a timeout can't stop a
+thread, or catch what ends a process. Give it stack for the depth a page may
+reach: at least 2 MiB, and 8 MiB leaves room. A Rust program's spawned threads
+have 2 MiB unless you say otherwise.
+
+A small binary does the printing, on a thread with that stack:
+
+```rust
+// src/bin/print-pdf.rs
+use std::process::ExitCode;
+
+type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
+const STACK_BYTES: usize = 8 * 1024 * 1024;
+
+fn print(html: String, pdf: String, fonts: Vec<String>) -> Result<(), BoxError> {
+    let mut assets = fulgur::AssetBundle::new();
+    for path in fonts {
+        assets.add_font_bytes(std::fs::read(path)?)?;
+    }
+    let engine = fulgur::Engine::builder().assets(assets).system_fonts(false).build();
+    std::fs::write(pdf, engine.render(&std::fs::read_to_string(html)?)?)?;
+    Ok(())
+}
+
+fn main() -> ExitCode {
+    let mut args = std::env::args().skip(1);
+    let (Some(html), Some(pdf)) = (args.next(), args.next()) else {
+        eprintln!("usage: print-pdf page.html out.pdf font...");
+        return ExitCode::from(2);
+    };
+    let fonts: Vec<String> = args.collect();
+    let printer = std::thread::Builder::new()
+        .stack_size(STACK_BYTES)
+        .spawn(move || print(html, pdf, fonts));
+    match printer.map(|thread| thread.join()) {
+        Ok(Ok(Ok(()))) => ExitCode::SUCCESS,
+        Ok(Ok(Err(e))) => {
+            eprintln!("{e}");
+            ExitCode::FAILURE
+        }
+        _ => ExitCode::FAILURE,
+    }
+}
+```
+
+The application runs it with a timeout, and kills it at the timeout:
+
+```rust
+use std::io;
+use std::process::{Command, ExitStatus};
+use std::time::{Duration, Instant};
+
+pub fn print_in_child(printer: &str, args: &[&str], time: Duration) -> io::Result<ExitStatus> {
+    let mut child = Command::new(printer).args(args).spawn()?;
+    let deadline = Instant::now() + time;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if Instant::now() >= deadline {
+            child.kill()?;
+            child.wait()?;
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+```
 
 ## Errors
 
@@ -250,6 +539,10 @@ far a script gets in its time depends on how busy the machine is.
 - `Font`, `Bundle` and `InvalidOptions` come from `Renderer::new`. `Html` means
   the markup was too ambiguous to rewrite safely. `TooManyIslands { max }` and
   `Cancelled` belong to the whole document and end it whatever the policy.
+- `PageMemoryLimit`, `PageTimeLimit`, `PageStackOverflow`, `PageDomLimit`,
+  `PageLayoutQuery` and `PageFailed` belong to a page: see
+  [Report or error](#report-or-error). An exception in a page's script isn't an
+  error at all.
 - `Error::kind()` returns a stable kebab-case name (`"time-limit"`), the same
   one the Ruby gem and placeholders use.
 
@@ -270,5 +563,7 @@ fn report_renders_the_same_twice() {
 }
 ```
 
-A runnable version of the island step, with its tests, is in
+`render_page` gives the same promise, with the same files from any loader.
+
+Runnable versions of the island step and the page step, with their tests, are in
 [`examples/rust-islands`](../../examples/rust-islands).

@@ -9,6 +9,36 @@ The Rust crates and the Ruby gem share one version number.
 
 ## [Unreleased]
 
+### Added
+
+- **Page scripts.** A document's own scripts run in the sandbox, against a DOM
+  with no layout, on a virtual clock until the page settles (#143):
+  `Renderer::render_page`, `render_page_cancellable` and `render_page_loading`
+  in Rust, returning `PageOutput { html, report }`; `Surimono.render_page`,
+  `Renderer#render_page(html, loader:, allow:)` and `render(html, scripts: true)`
+  in Ruby, with `Surimono::Page` and `Surimono::PageReport`; `--scripts`,
+  `--keep-scripts`, `--layout-queries`, `--resource` and `--output-mb` on the
+  CLI. `render` and `render_islands` still never run a page's scripts.
+- **Report or raise.** A page's uncaught exceptions, unhandled rejections and
+  files it didn't get go in a report, and the page goes on. Limits are errors:
+  `PageMemoryLimit`, `PageTimeLimit`, `PageStackOverflow`, `PageDomLimit`,
+  `PageLayoutQuery` and `PageFailed` in Rust; `DomLimitError`, `LayoutQueryError`
+  and `RenderError` with kind `"page"`, along with the existing limit errors, in
+  Ruby.
+- **`Limits::output_bytes`** (`limits[:output_mb]`, default 64 MiB) caps a page's
+  output and the text it may hold.
+- **No files by default.** A page loads only through a `ResourceLoader` (Ruby:
+  `resources:`, or `loader:` with `allow:`), which sees URLs as written. A
+  stylesheet it loads comes out as `<style>`; a `url()` or `@import` in it isn't
+  followed.
+- **Layout queries answer zeros, or fail the render** (`LayoutQueries`,
+  `layout_queries:`) until layout lands in phase 3.
+- **A page's output is serialized**, so it isn't byte-identical to the input:
+  `<script>` (unless `keep_scripts`), `<noscript>` and comments are gone, and it
+  is screened so the printer's parse matches ours.
+- **Docs.** Page scripts in the Rails and Rust guides and the README, a page
+  example in Rust and Ruby, and the [checkpoint 3 checklist](docs/guide/checkpoint-3.md).
+
 ### Changed
 
 - **Rust 1.89 is the minimum supported version**, up from 1.87 (#117). fulgur
