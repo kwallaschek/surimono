@@ -302,7 +302,7 @@ fn structured_clone_refuses_what_the_standard_refuses() {
              () => structuredClone(document), () => structuredClone(document.body),
              () => structuredClone(new URL('http://e.test'))].map(dce).join()"#
         ),
-        vec!["DataCloneError"; 12].join(",")
+        ["DataCloneError"; 12].join(",")
     );
     assert_eq!(caught("thrown(() => structuredClone())"), "TypeError");
 }
@@ -475,8 +475,10 @@ fn a_url_past_the_cap_is_refused() {
 /// limit; a stream's end gives the charge back, so ones that finish cost nothing.
 #[test]
 fn open_decoders_are_charged() {
-    let mut l = DomLimits::default();
-    l.max_text_bytes = 1024 * 1024;
+    let l = DomLimits {
+        max_text_bytes: 1024 * 1024,
+        ..DomLimits::default()
+    };
     let doc = Document::parse_with_limits(PAGE, l).unwrap();
     let mut rt = DomRuntime::new(limits()).unwrap();
     rt.load(doc);
