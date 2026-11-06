@@ -887,7 +887,7 @@ impl Document {
             let mut length = self.node_length(n);
             let mut next = self.sibling(n, true);
             while let Some(s) = next.filter(|&s| self.is_exclusive_text(s)) {
-                self.poll()?;
+                self.poll_by(1 + self.ranges.len())?;
                 self.ranges_merging(n, s, length);
                 length = length.saturating_add(self.node_length(s));
                 joined.push_str(self.char_data(s));

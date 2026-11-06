@@ -322,13 +322,13 @@ impl Document {
             }
         };
         let moved = self.root_of(node) != self.root_of(other.node) || wrong_way(self);
-        self.poll_by(self.depth(node))?;
-        let r2 = if moved {
+        let carried = if moved {
             self.set_point(r, !start, to)
         } else {
             Ok(())
         };
-        r2.and_then(|()| self.set_point(r, start, to))
+        carried
+            .and_then(|()| self.set_point(r, start, to))
             .map_err(|e| self.fail(e))
     }
 
@@ -385,7 +385,8 @@ impl Document {
     fn data_copy(&mut self, node: usize, from: u32, to: u32) -> BindingResult<usize> {
         let copy = self.clone_tree(node, false)?;
         let data = utf16_slice(self.char_data(node), from, to);
-        self.write_char_data(copy, &data).map_err(|e| self.fail(e))?;
+        self.write_char_data(copy, &data)
+            .map_err(|e| self.fail(e))?;
         Ok(copy)
     }
 
@@ -470,12 +471,17 @@ impl Document {
         Ok(())
     }
 
+    /// A step of a loop of removals of `n`: one removal scans the parent's
+    /// list and may look at every range.
+    fn poll_mutation(&self, n: usize) -> BindingResult<()> {
+        let list = self.parent(n).map_or(0, |p| self.children(p).len());
+        self.poll_by(list + self.ranges.len())
+    }
+
     /// Appends `nodes` to `parent`, each leaving where it was.
     fn move_into(&mut self, parent: usize, nodes: &[usize]) -> BindingResult<()> {
         for &n in nodes {
-            if let Some(from) = self.parent(n) {
-                self.poll_by(self.children(from).len())?;
-            }
+            self.poll_mutation(n)?;
             self.pre_insert(parent, n, None)?;
         }
         Ok(())
@@ -615,8 +621,8 @@ impl Document {
             self.replace_data(s.node, s.offset, length.saturating_sub(s.offset), "")?;
         }
         for n in gone {
+            self.poll_mutation(n)?;
             if let Some(parent) = self.parent(n) {
-                self.poll_by(self.children(parent).len())?;
                 self.pre_remove(parent, n)?;
             }
         }
@@ -642,7 +648,9 @@ impl Document {
         let mut reference = if start_kind == Some(Kind::Text) {
             Some(start.node)
         } else {
-            self.children(start.node).get(start.offset as usize).copied()
+            self.children(start.node)
+                .get(start.offset as usize)
+                .copied()
         };
         let parent = match reference {
             Some(c) => self.parent(c).ok_or_else(broken)?,
@@ -732,6 +740,30 @@ impl Document {
         Ok(out)
     }
 
+    /// HTML §8.5 `createContextualFragment`: the XML parser keeps `html`,
+    /// `head` and `body` elements, and what they hold goes in their place,
+    /// at any depth of such wrappers.
+    fn strip_html_wrappers(&mut self, frag: usize) -> BindingResult<()> {
+        let mut stack = self.take_children(frag);
+        stack.reverse();
+        let mut kept = Vec::with_capacity(stack.len());
+        while let Some(n) = stack.pop() {
+            self.poll()?;
+            self.set_parent(n, None);
+            let wrapper = self.element_name(n).is_some_and(|q| {
+                q.ns == ns!(html) && matches!(q.local.as_ref(), "html" | "head" | "body")
+            });
+            if wrapper {
+                stack.extend(self.take_children(n).into_iter().rev());
+                self.drop_subtree(n);
+            } else {
+                kept.push(n);
+            }
+        }
+        self.place_quietly(frag, &kept, None);
+        Ok(())
+    }
+
     /// A range method's point: what `isPointInRange` and `comparePoint` check.
     fn checked_point(&self, node: usize, offset: u32) -> BindingResult<Point> {
         if self.kind(node) == Some(Kind::DocumentType) {
@@ -771,12 +803,7 @@ impl Document {
     }
 
     /// `count` nodes join `parent` before `before`, which is still there.
-    pub(crate) fn ranges_inserting(
-        &mut self,
-        parent: usize,
-        before: Option<usize>,
-        count: usize,
-    ) {
+    pub(crate) fn ranges_inserting(&mut self, parent: usize, before: Option<usize>, count: usize) {
         // With no `before` they go last, past every offset.
         let Some(before) = before else { return };
         if !self.has_range_point(parent) {
@@ -787,7 +814,14 @@ impl Document {
         for (r, start, offset) in self.points_on(parent) {
             if u64::from(offset) > index {
                 let offset = offset.saturating_add(count);
-                self.move_point(r, start, Point { node: parent, offset });
+                self.move_point(
+                    r,
+                    start,
+                    Point {
+                        node: parent,
+                        offset,
+                    },
+                );
             }
         }
     }
@@ -796,7 +830,11 @@ impl Document {
     /// no longer than the range list, so a removal of a small subtree doesn't
     /// walk every range's ancestors.
     fn point_may_be_under(&self, gone: &[usize]) -> bool {
-        let mut budget = self.ranges.len().saturating_mul(2).saturating_add(gone.len());
+        let mut budget = self
+            .ranges
+            .len()
+            .saturating_mul(2)
+            .saturating_add(gone.len());
         let mut stack = gone.to_vec();
         while let Some(n) = stack.pop() {
             if self.range_touches(n) {
@@ -843,7 +881,14 @@ impl Document {
                     let at = (p.offset as usize).min(children_len(&gone_before));
                     let offset = p.offset - gone_before[at];
                     if offset != p.offset {
-                        self.move_point(r, start, Point { node: parent, offset });
+                        self.move_point(
+                            r,
+                            start,
+                            Point {
+                                node: parent,
+                                offset,
+                            },
+                        );
                     }
                     continue;
                 }
@@ -858,7 +903,14 @@ impl Document {
                             && let Some(&i) = index.get(&at)
                         {
                             let offset = i as u32 - gone_before[i];
-                            self.move_point(r, start, Point { node: parent, offset });
+                            self.move_point(
+                                r,
+                                start,
+                                Point {
+                                    node: parent,
+                                    offset,
+                                },
+                            );
                         }
                         break;
                     }
@@ -1139,7 +1191,10 @@ impl idl::Range for Document {
         let bounds = self.bounds(r)?;
         let cut = self.cut(bounds).ok_or_else(broken)?;
         let partial = cut.left.iter().chain(&cut.right);
-        if partial.into_iter().any(|&n| self.kind(n) != Some(Kind::Text)) {
+        if partial
+            .into_iter()
+            .any(|&n| self.kind(n) != Some(Kind::Text))
+        {
             return Err(dom_error(
                 "InvalidStateError",
                 "the range partially selects a node that isn't text",
@@ -1250,9 +1305,9 @@ impl idl::Range for Document {
         // HTML §8.5 `createContextualFragment`.
         let element = match self.kind(node) {
             Some(Kind::Element) => Some(node),
-            Some(Kind::Text | Kind::Comment) => {
-                self.parent(node).filter(|&p| self.kind(p) == Some(Kind::Element))
-            }
+            Some(Kind::Text | Kind::Comment) => self
+                .parent(node)
+                .filter(|&p| self.kind(p) == Some(Kind::Element)),
             _ => None,
         };
         let is_html_root = |d: &Self, e: usize| {
@@ -1271,6 +1326,9 @@ impl idl::Range for Document {
             // The time limit passed in the parse: the script stops here.
             return Err(crate::tree::timed_out());
         };
+        if !self.in_html_document(node) {
+            self.strip_html_wrappers(frag)?;
+        }
         self.object(frag)
     }
 

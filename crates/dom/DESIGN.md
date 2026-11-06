@@ -462,6 +462,50 @@ children it loses.
 
 Gap: no transient registrations for removed subtrees.
 
+## Ranges
+
+`src/range.rs`. A range is two boundary points in Rust, because Rust sees the
+mutations; the script holds a handle to `Object::Range`, a number in
+`Document::ranges`. The hooks sit in the primitives (`place_quietly`,
+`detach_quietly`, `replace_child_list`, and a fragment's children leaving in
+`insert_checked`) and in "replace data", "split" and `normalize`, so no path that
+changes the tree can miss them. `replace_child_list` removes many children in one
+pass over the ranges, with the result of removing them one at a time.
+
+Every node a boundary point names has a handle, so its slab slot isn't reused. A
+removal moves a boundary to the parent, which gets a handle then; out of handles,
+the boundary stays on a live node, a fault is recorded and the call fails.
+
+- **Bounds.** A range can't be known to be unreachable (wrappers have no weak
+  references), so it stays live until the document drops, and a mutation may have
+  to look at every range: `DomLimits::max_ranges` (65,536) ends in the typed
+  `RangeLimit`. A page with no ranges pays one `is_empty`. `range_points` counts
+  boundary points per node, so an insertion or data change elsewhere pays one
+  lookup, and a removal walks the removed subtree only up to about twice the
+  number of ranges. Past that it walks every range's ancestors under `poll`,
+  which is the `TimeLimit`; a walk stopped there leaves boundaries out of date in
+  a script that is already ending, so nothing here relies on them being right:
+  methods clamp, and a range out of one tree answers with an exception.
+- **Depth.** "Clone the contents" and "extract" recurse per partially contained
+  level in the standard. Here they walk two chains, the left one's contents
+  leaving from the bottom, the right one's from the top, which is the order the
+  recursion has for mutation records.
+- **What goes with a render.** All of it is in `Document`.
+- **`normalize`** goes step by step once a range exists, like with an observer:
+  quadratic on a wide list, and each removal pays for it in its poll.
+
+`StaticRange` is `Object::StaticRange`; its constructor reads the dictionary in the
+glue. `getClientRects` and `getBoundingClientRect` go through the layout policy, in
+`glue_layout.js`; a range's are zeros until phase 3.
+`createContextualFragment` is HTML §8.5, with the wrapper stripping of XML documents.
+
+**Gaps.** There is no `Selection`: no vendored test needs one but `moveBefore`'s,
+which fail on `moveBefore` first. An `Attr` can't be a boundary point (`Attr` isn't
+a whole `Node`): `InvalidNodeTypeError`, where the standard allows offset 0. Scripts
+in a contextual fragment don't run when appended, since no script a script inserts
+does yet. A range's offsets inside a surrogate pair have the same lossy edge as
+CharacterData's.
+
 ## Templates and reflected attributes
 
 A `<template>`'s content is a fragment outside the tree, in `Document::templates`.
