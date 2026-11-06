@@ -149,6 +149,14 @@ Why it is built this way:
   parent. fulgur makes no such promise, so build its engine in each worker,
   after the fork. The lazy `instance` above does that as long as nothing calls
   it before the fork; don't warm it up in an initializer.
+- **A `fork` can stall while pages render.** It holds new pages back and waits
+  for running ones, for up to 5 seconds, with Ruby's VM lock held, so every Ruby
+  thread in that process stops. A page can run for three times `time_ms` (parse,
+  scripts, the rest). If one outlasts the wait, the `fork` goes ahead and the
+  child may hang at a lock the page held, so keep `time_ms` short in forking
+  servers. A Puma, Unicorn or Resque parent that doesn't render never waits;
+  `fork_worker` can freeze worker 0 at a refork. As root, Ruby forks for
+  `system`, backticks and `spawn` too, so run as an ordinary user.
 - **`pool_size`** is the most islands this process renders at once. The pool
   starts with one JavaScript runtime and adds one only when renders overlap, up
   to `pool_size`, and a runtime idle for a couple of seconds frees its memory.

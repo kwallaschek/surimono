@@ -824,6 +824,29 @@ fn printer_parses(html: &str) {
         .unwrap_or_else(|_| panic!("the printer panicked"));
 }
 
+/// How many `script` and `noscript` elements a printer's tree holds outside an
+/// HTML template, whose contents stay inert. Text doesn't count, in or out of one.
+fn live_scripts(html: &str) -> usize {
+    let config = blitz_dom::DocumentConfig {
+        base_url: Some("file:///".to_owned()),
+        ..blitz_dom::DocumentConfig::default()
+    };
+    let doc = blitz_html::HtmlDocument::from_html(html, config);
+    let (mut live, mut stack) = (0, vec![0]);
+    while let Some(id) = stack.pop() {
+        let node = doc.get_node(id).unwrap_or_else(|| panic!("node {id}"));
+        if let blitz_dom::NodeData::Element(e) = &node.data {
+            let name = e.name.local.as_ref();
+            if name == "template" && e.name.ns.as_ref() == "http://www.w3.org/1999/xhtml" {
+                continue;
+            }
+            live += usize::from(matches!(name, "script" | "noscript"));
+        }
+        stack.extend(node.children.iter().copied());
+    }
+    live
+}
+
 /// `<!doctype html><body>` with `markup` written into a comment by a script,
 /// so it reaches the output whatever the page's own parser makes of it.
 fn through_a_comment(markup: &str) -> String {
@@ -857,8 +880,7 @@ fn what_counts_is_what_the_printers_parser_makes_of_it() {
     }
     for html in pages {
         let out = page(&r, &html);
-        assert!(!out.html.contains("alert("), "{html}: {}", out.html);
-        assert!(!out.html.contains(">NS<"), "{html}: {}", out.html);
+        assert_eq!(live_scripts(&out.html), 0, "{html}: {}", out.html);
         printer_parses(&out.html);
     }
 }

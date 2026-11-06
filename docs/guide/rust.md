@@ -113,6 +113,11 @@ impl PdfPipeline {
   measurer, sharing the font data with the parent and taking no lock a parent
   thread could have held. fulgur makes no such promise, so build its engine
   in the child, after the fork.
+- A `fork` holds new pages back and waits for running ones, for up to 5 seconds,
+  so a child doesn't inherit a lock one of them held. A page can run for three
+  times the time limit (parse, scripts, the rest). If it outlasts the wait, the
+  `fork` goes ahead and the child may hang at such a lock, so keep the limit
+  short in a process that forks. `posix_spawn` doesn't wait.
 
 ## Fonts
 
