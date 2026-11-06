@@ -218,6 +218,7 @@
       const e = make(I_ToggleEvent);
       initEvent(e, 'toggle', false, false);
       e.isTrusted = true;
+      e.alone = true;
       e.d = eventInits[I_ToggleEvent]();
       e.d.oldState = details.toggle;
       e.d.newState = attrOf(details, 'open') !== null ? 'open' : 'closed';

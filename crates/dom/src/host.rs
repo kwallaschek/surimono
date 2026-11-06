@@ -118,7 +118,7 @@ fn html_interface(local: &str) -> u32 {
 /// HTML §4.13.3 "valid custom element name", as far as it matters here: a
 /// name with a hyphen, starting with a lowercase ASCII letter, with no
 /// uppercase ASCII letter, and not one of the reserved names.
-fn custom_element_name(name: &str) -> bool {
+pub(crate) fn custom_element_name(name: &str) -> bool {
     name.starts_with(|c: char| c.is_ascii_lowercase())
         && name.contains('-')
         && !name.contains(|c: char| c.is_ascii_uppercase())
@@ -877,6 +877,12 @@ impl Document {
         Ok(self.info(id).frame)
     }
 
+    /// Whether frame document `this` still has its `<iframe>` in a page.
+    pub(crate) fn frame_attached(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(self.frame_is_attached(id))
+    }
+
     /// `XMLSerializer.serializeToString`.
     pub(crate) fn serialize_xml(&mut self, node: ObjectId) -> BindingResult<String> {
         let id = self.node_of(node)?;
@@ -934,6 +940,35 @@ impl Document {
             }
         }
         Ok(names)
+    }
+
+    /// The handles of the page's `svg` elements, newline-joined, in the order
+    /// of their end tags.
+    pub(crate) fn svg_elements(&mut self) -> BindingResult<String> {
+        let mut found = Vec::new();
+        // (node, its children are done).
+        let mut stack = vec![(self.root(), false)];
+        while let Some((at, done)) = stack.pop() {
+            self.poll()?;
+            let svg = self
+                .element_name(at)
+                .is_some_and(|n| n.ns == ns!(svg) && n.local.as_ref() == "svg");
+            if done {
+                found.push(at);
+                continue;
+            }
+            if svg {
+                stack.push((at, true));
+            }
+            stack.extend(self.children(at).iter().rev().map(|&c| (c, false)));
+        }
+        let mut out = String::new();
+        for n in found {
+            let h = self.object(n)?;
+            out.push_str(&h.0.to_string());
+            out.push('\n');
+        }
+        Ok(out)
     }
 
     /// A label's labeled control (HTML §4.10.4), or 0: with `for`, the first
@@ -2147,6 +2182,10 @@ impl idl::Document for Document {
             Ok(h) => Ok(ObjectId(u64::from(h))),
             Err(e) => Err(self.fail(e)),
         }
+    }
+
+    fn scripts(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        self.live_list(this, ListKind::Scripts)
     }
 
     fn create_document_fragment(&mut self, _this: ObjectId) -> BindingResult<ObjectId> {

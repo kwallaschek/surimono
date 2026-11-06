@@ -871,7 +871,7 @@ fn dom_parser_runs_no_script_and_parses_noscript_as_markup() {
            '<script>ran = 1</script><body onload="ran = 2"><noscript><b>x</b></noscript><img src=x onerror="ran = 3">',
            'text/html');
          [ran, d.querySelector('noscript').firstChild.nodeName,
-          d.scripts === undefined ? d.getElementsByTagName('script').length : 0].join()"#,
+          d.scripts.length].join()"#,
     );
     assert_eq!(got, "0,B,1");
 }
@@ -1888,5 +1888,20 @@ fn the_frame_hook_cannot_be_replaced() {
     assert_eq!(
         rt.eval::<String>("log.join()").unwrap(),
         "TypeError,false,false,load"
+    );
+}
+
+/// HTML §13.3: `noscript` text is raw only where scripting is enabled for the
+/// node, which a `DOMParser` document never has.
+#[test]
+fn noscript_text_is_escaped_outside_the_page() {
+    assert_eq!(
+        eval(
+            "const d = new DOMParser().parseFromString('<noscript>a &amp; <b>c</b></noscript>', 'text/html');
+             const n = d.querySelector('noscript');
+             n.textContent = '<i>&';
+             n.outerHTML"
+        ),
+        "<noscript>&lt;i&gt;&amp;</noscript>"
     );
 }
