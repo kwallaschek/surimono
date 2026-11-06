@@ -6,3 +6,4 @@ fonts = ["Noto Sans 400", "Noto Sans 700", "KaTeX fonts from the vendored packag
 page_size = "A4 (210mm x 297mm), 15mm margins"
 tests = "KaTeX auto-render walking text nodes: inline and display delimiters, fractions, matrices, cases, font variants; a pre stays untouched."
 needs = "E2-02 text nodes and tree walking; E2-06 local script and web fonts"
+print_fonts = "../lib/katex-0.19.1/fonts"
