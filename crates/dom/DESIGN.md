@@ -613,6 +613,18 @@ and its family aren't bound. `relList` isn't. `new Image()` loads nothing, so `o
 never fires. A `select` in another select's option list isn't looked for, as the
 standard's newest parsing allows.
 
+## Traversal
+
+`NodeIterator` and `TreeWalker` are in `src/glue_traversal.js`, because a filter is a
+script's function and each step can change the tree. A walker has no state outside
+its record. A `NodeIterator` must keep working as nodes are removed (§6.1 "pre-removing
+steps"), which only Rust sees, so its pointer is in `src/traversal.rs` and
+`iterators_removing` sits beside `ranges_removing` on the three paths nodes leave by,
+with the result of removing `gone` one at a time. An iterator's pointer can't be known
+to be unreachable, so it stays until the document drops; each is charged 4 KiB against
+`max_text_bytes`, which caps them at 65,536, and each removal walks up from each
+iterator's reference, under `poll`. A page with no iterator pays one `is_empty`.
+
 ## MutationObserver
 
 Registrations and record queues are in Rust, which sees the mutations

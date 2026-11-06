@@ -502,6 +502,8 @@ pub struct Document {
     pub(crate) decoders: Vec<Option<encoding_rs::Decoder>>,
     /// Slots of `decoders` with nothing in them.
     pub(crate) free_decoders: Vec<u32>,
+    /// `NodeIterator`s' pointers (`src/traversal.rs`), for as long as the document.
+    pub(crate) iterators: Vec<crate::traversal::LiveIterator>,
     /// Boundary points by node, counted, so a mutation of a node with none
     /// doesn't look at `ranges`. Only looked up.
     pub(crate) range_points: HashMap<usize, u32>,
@@ -673,6 +675,7 @@ impl Document {
             ranges: Vec::new(),
             decoders: Vec::new(),
             free_decoders: Vec::new(),
+            iterators: Vec::new(),
             range_points: HashMap::new(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
@@ -2688,6 +2691,7 @@ impl Document {
     /// children, as [`remove_children_quietly`](Self::remove_children_quietly)
     /// does: one pass, however wide the list.
     pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
+        self.iterators_removing(id, &gone);
         self.ranges_removing(id, &gone);
         self.version += 1;
         self.count_list_steps(kept.len() + gone.len());
@@ -2912,6 +2916,7 @@ impl Document {
     /// §4.2.3 "remove".
     pub(crate) fn detach_quietly(&mut self, id: usize) {
         if let Some(parent) = self.node(id).parent {
+            self.iterators_removing(parent, &[id]);
             self.ranges_removing(parent, &[id]);
             self.version += 1;
             self.count_list_steps(self.children(parent).len());

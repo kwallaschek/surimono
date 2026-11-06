@@ -17,6 +17,7 @@ mod range;
 mod runtime;
 mod select;
 mod style_attr;
+mod traversal;
 mod tree;
 mod web;
 mod xml;

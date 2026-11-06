@@ -85,6 +85,8 @@ const JS_INTERFACES: &[&str] = &[
     "HTMLSelectElement",
     "HTMLOptionElement",
     "HTMLOptionsCollection",
+    "NodeIterator",
+    "TreeWalker",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
@@ -114,6 +116,8 @@ const JS_MEMBERS: &[(&str, &str)] = &[
     ("HTMLTextAreaElement", "value"),
     ("HTMLTextAreaElement", "defaultValue"),
     ("Document", "cookie"),
+    ("Document", "createNodeIterator"),
+    ("Document", "createTreeWalker"),
     ("Document", "activeElement"),
     ("Document", "hasFocus"),
     ("HTMLElement", "focus"),
@@ -194,6 +198,13 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("frameAttached", "h.frame_attached(this)"),
     ("htmlList", "h.html_list_of(this, a.uint(0)?)"),
     ("listOwner", "h.list_owner(this)"),
+    ("iteratorNew", "h.iterator_new(this)"),
+    ("iteratorReference", "h.iterator_reference(a.uint(0)?)"),
+    ("iteratorBefore", "h.iterator_before(a.uint(0)?)"),
+    (
+        "iteratorSet",
+        "h.iterator_set(a.uint(0)?, a.id(1)?, a.boolean(2)?)",
+    ),
     (
         "staticRange",
         "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
@@ -1921,6 +1932,8 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "createComment",
             "createEvent",
             "cookie",
+            "createNodeIterator",
+            "createTreeWalker",
             "forms",
             "images",
             "embeds",
@@ -2521,6 +2534,35 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "HTMLFormControlsCollection",
         members: &[],
+    },
+    BindInterface {
+        name: "NodeIterator",
+        members: &[
+            "root",
+            "referenceNode",
+            "pointerBeforeReferenceNode",
+            "whatToShow",
+            "filter",
+            "nextNode",
+            "previousNode",
+            "detach",
+        ],
+    },
+    BindInterface {
+        name: "TreeWalker",
+        members: &[
+            "root",
+            "whatToShow",
+            "filter",
+            "currentNode",
+            "parentNode",
+            "firstChild",
+            "lastChild",
+            "previousSibling",
+            "nextSibling",
+            "previousNode",
+            "nextNode",
+        ],
     },
 ];
 
