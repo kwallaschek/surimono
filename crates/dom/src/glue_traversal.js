@@ -93,11 +93,18 @@
       } else {
         before = true;
       }
-      if (nodeFilter(t, node) === FILTER_ACCEPT) break;
+      const asked = node;
+      // A filter can remove what it is asked about, and the walk goes on from
+      // what took its place: Rust keeps this pointer right as well.
+      call(OP_iteratorTry, t.s.g, t.s.h, t.at, stateOf(node).h, before);
+      const result = nodeFilter(t, node);
+      node = wrap(t.s.g, call(OP_iteratorTrialNode, t.s.g, t.s.h, t.at));
+      before = call(OP_iteratorTrialBefore, t.s.g, t.s.h, t.at);
+      if (result === FILTER_ACCEPT) {
+        call(OP_iteratorSet, t.s.g, t.s.h, t.at, stateOf(node).h, before);
+        return asked;
+      }
     }
-    const n_ = stateOf(node);
-    call(OP_iteratorSet, t.s.g, t.s.h, t.at, n_.h, before);
-    return node;
   }
   H.NodeIterator_nextNode = (t) => iterate(t, true);
   H.NodeIterator_previousNode = (t) => iterate(t, false);

@@ -63,8 +63,14 @@ fn at_rule_kind(name: &str) -> Option<u16> {
         "counter-style" => 11,
         "supports" => 12,
         "font-feature-values" => 14,
-        "container" | "layer" | "property" | "scope" | "starting-style" | "font-palette-values"
-        | "position-try" | "view-transition" => 0,
+        "container"
+        | "layer"
+        | "property"
+        | "scope"
+        | "starting-style"
+        | "font-palette-values"
+        | "position-try"
+        | "view-transition" => 0,
         _ => return None,
     })
 }
@@ -99,8 +105,8 @@ fn parse_rules(text: &str) -> Vec<Rule> {
                 Token::CurlyBracketBlock => {
                     prelude_end = Some(at);
                     let mut from = None;
-                    let parsed: Result<(), cssparser::ParseError<'_, ()>> =
-                        parser.parse_nested_block(|p| {
+                    let parsed: Result<(), cssparser::ParseError<'_, ()>> = parser
+                        .parse_nested_block(|p| {
                             let begin = p.position();
                             while p.next_including_whitespace_and_comments().is_ok() {}
                             from = Some(p.slice_from(begin).trim().to_owned());
@@ -150,7 +156,12 @@ fn clean(text: &str) -> String {
 pub(crate) fn rules_for_script(text: &str) -> String {
     let mut out = String::new();
     for rule in parse_rules(&text.replace('\0', "\u{fffd}")) {
-        out.push_str(&format!("\0{}\0{}\0{}", rule.kind, rule.prelude, rule.text()));
+        out.push_str(&format!(
+            "\0{}\0{}\0{}",
+            rule.kind,
+            rule.prelude,
+            rule.text()
+        ));
     }
     out
 }
@@ -160,7 +171,12 @@ pub(crate) fn rules_for_script(text: &str) -> String {
 pub(crate) fn one_rule(text: &str) -> Option<String> {
     let mut rules = parse_rules(&text.replace('\0', "\u{fffd}"));
     let rule = rules.pop().filter(|_| rules.is_empty())?;
-    Some(format!("\0{}\0{}\0{}", rule.kind, rule.prelude, rule.text()))
+    Some(format!(
+        "\0{}\0{}\0{}",
+        rule.kind,
+        rule.prelude,
+        rule.text()
+    ))
 }
 
 fn no_element() -> BindingError {
@@ -181,11 +197,7 @@ impl Document {
         }
         self.sheets_forget(id);
         let rules: Vec<String> = parse_rules(&source).iter().map(Rule::text).collect();
-        let cost = source.len()
-            + rules
-                .iter()
-                .map(|r| r.len() + RULE_COST)
-                .sum::<usize>();
+        let cost = source.len() + rules.iter().map(|r| r.len() + RULE_COST).sum::<usize>();
         if self.charge_record(cost).is_none() {
             return Err(no_element());
         }
@@ -195,12 +207,8 @@ impl Document {
 
     fn sheets_forget(&mut self, id: usize) {
         if let Some(old) = self.sheets.remove(&id) {
-            let cost = old.source.len()
-                + old
-                    .rules
-                    .iter()
-                    .map(|r| r.len() + RULE_COST)
-                    .sum::<usize>();
+            let cost =
+                old.source.len() + old.rules.iter().map(|r| r.len() + RULE_COST).sum::<usize>();
             self.credit_record(cost);
         }
     }
@@ -260,7 +268,9 @@ mod tests {
     #[test]
     fn rules_divide_as_a_parser_divides_them() {
         assert_eq!(
-            kinds("a{color:red}\n/* c */ b , i { top: 0; } @media print { x { y: z } } @import 'u';"),
+            kinds(
+                "a{color:red}\n/* c */ b , i { top: 0; } @media print { x { y: z } } @import 'u';"
+            ),
             vec![
                 (1, "a { color:red; }".to_owned()),
                 (1, "b , i { top: 0; }".to_owned()),

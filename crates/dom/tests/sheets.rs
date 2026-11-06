@@ -91,16 +91,22 @@ fn a_selector_can_be_changed() {
 #[test]
 fn a_new_text_makes_a_new_sheet() {
     assert_eq!(
-        run("sheet.insertRule('i {}');
+        run(
+            "sheet.insertRule('i {}');
              s.textContent = 'z {}';
-             [s.sheet === sheet, s.sheet.cssRules.length, s.sheet.cssRules[0].selectorText].join()"),
+             [s.sheet === sheet, s.sheet.cssRules.length, s.sheet.cssRules[0].selectorText].join()"
+        ),
         "false,1,z"
     );
 }
 
 fn printed(script: &str) -> String {
     let mut rt = runtime(PAGE);
-    let () = rt.eval(&format!("const s = document.getElementById('s'); {script}; undefined")).unwrap();
+    let () = rt
+        .eval(&format!(
+            "const s = document.getElementById('s'); {script}; undefined"
+        ))
+        .unwrap();
     rt.take().unwrap().to_html()
 }
 
@@ -109,17 +115,25 @@ fn printed(script: &str) -> String {
 fn inserted_rules_reach_the_output() {
     let html = printed("s.sheet.insertRule('.css-1 { color: blue; }', 2)");
     assert!(
-        html.contains("<style id=\"s\">a { color: red; }\nb { top:0; }\n.css-1 { color: blue; }</style>"),
+        html.contains(
+            "<style id=\"s\">a { color: red; }\nb { top:0; }\n.css-1 { color: blue; }</style>"
+        ),
         "{html}"
     );
     let html = printed("s.sheet.deleteRule(0)");
-    assert!(html.contains("<style id=\"s\">b { top:0; }</style>"), "{html}");
+    assert!(
+        html.contains("<style id=\"s\">b { top:0; }</style>"),
+        "{html}"
+    );
     let html = printed(
         "const e = document.createElement('style');
          document.head.append(e);
          e.sheet.insertRule('.emotion { top: 0 }')",
     );
-    assert!(html.contains("<style>.emotion { top: 0; }</style>"), "{html}");
+    assert!(
+        html.contains("<style>.emotion { top: 0; }</style>"),
+        "{html}"
+    );
 }
 
 #[test]
@@ -134,7 +148,10 @@ fn a_script_still_sees_the_text() {
 #[test]
 fn a_sheet_a_script_left_alone_prints_as_written() {
     let html = printed("s.sheet.cssRules.length");
-    assert!(html.contains("<style id=\"s\">a { color: red } b{top:0}</style>"), "{html}");
+    assert!(
+        html.contains("<style id=\"s\">a { color: red } b{top:0}</style>"),
+        "{html}"
+    );
 }
 
 #[test]
