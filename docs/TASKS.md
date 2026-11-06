@@ -193,7 +193,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - E2-15 · DX · done (#157) · README, rust.md, rails.md, CHANGELOG for the page path; checkpoint-3 checklist
 - E2-10b · CF · done (#158: 2 of 6 pass; the rest equal their fulgur floor) · Print comparison for the real-world pages through render_page and fulgur against Chrome
 - E2-16 · DOM · doing (#160 #161 merged; #162 #163 open) · URL family, encoding, base64, structuredClone, navigator, HTML collections, tables, forms, TreeWalker, styleSheets
-- P2-PKG-03 · PKG · review (#159) · MPL crates in about.toml; fork guard; page-check in CI
+- P2-PKG-03 · PKG · done (#159) · MPL crates in about.toml; fork guard; page-check in CI
+- P2-DOM-07 · DOM · todo · A throwing string timer in WebIDL order; restore noscript escaping in template contents (#159 is on main); DESIGN.md stale lines at ~456 and ~565; #160 and #161 review leftovers (resizable buffers, define checks, a&a&a quadratic, number edge cases, focus with no browsing context)
 - E2-11 · PKG · todo · musl native gems (third to cut)
 - E2-12 · DX · done (#157) · Rails guide for page scripts; checkpoint-3 checklist for Kay's own template
 
