@@ -204,6 +204,22 @@ fn a_select_is_written_as_the_standard_says() {
     );
 }
 
+/// HTML §4.10.7: a script can leave a single select with nothing chosen.
+#[test]
+fn a_select_can_have_nothing_selected() {
+    assert_eq!(
+        run(SELECT, r#"const s = document.getElementById('s');
+            s.selectedIndex = -1;
+            const a = [s.selectedIndex, JSON.stringify(s.value)];
+            s.value = 'nothing';
+            a.push(s.selectedIndex);
+            s.value = '4';
+            a.push(s.selectedIndex, s.value);
+            a.join()"#),
+        "-1,\"\",-1,3,4"
+    );
+}
+
 #[test]
 fn form_controls_are_the_forms() {
     const PAGE: &str = "<!doctype html><form id=f action=go method=POST enctype=TEXT/plain>
