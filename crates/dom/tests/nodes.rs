@@ -117,7 +117,7 @@ fn members_outside_the_table_do_not_exist() {
     // Scripts feature-detect: a member that only threw would pass the test.
     let r = eval(
         PAGE,
-        "[typeof document.elementsFromPoint, 'attachShadow' in document.body, typeof Navigation].join()",
+        "[typeof document.caretPositionFromPoint, 'attachShadow' in document.body, typeof Navigation].join()",
     );
     assert_eq!(r, "undefined,false,undefined");
 }
