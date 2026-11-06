@@ -36,7 +36,7 @@ fn a_sheet_is_read_from_its_text() {
               r[0].cssText, r.item(1).cssText, r[0] === r[0], r[0].parentStyleSheet === sheet, r[0].parentRule,
               r[2], r.item(2), [...r].length, Object.keys(r).join()].join('|')"),
         "true|true|text/css||true|||true|2|true|true|true|true|1|a|a { color: red; }|b { top:0; }|true|true|||\
-         ||2|0,1"
+         |2|0,1"
     );
     assert_eq!(
         run("const list = document.styleSheets;
