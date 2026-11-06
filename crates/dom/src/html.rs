@@ -297,10 +297,10 @@ impl Document {
         let fragment = self.create_fragment()?;
         let normal = text.replace("\r\n", "\n").replace('\r', "\n");
         for (i, line) in normal.split('\n').enumerate() {
-            if i > 0 {
-                if let Some(br) = self.create_element("br")? {
-                    self.place(fragment, &[br], None);
-                }
+            if i > 0
+                && let Some(br) = self.create_element("br")?
+            {
+                self.place(fragment, &[br], None);
             }
             if !line.is_empty() {
                 let t = self.create_text(line)?;
