@@ -39,7 +39,8 @@ fn run(script: &str) -> String {
 }
 
 fn body_of(script: &str) -> (String, String) {
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    let time = scaled(Duration::from_secs(30));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     let r: String = rt.eval(&format!("{VARS}{script}")).unwrap();
     rt.with_document(Document::check_consistency)
