@@ -413,11 +413,27 @@ parsed tree, made before the first script, at most 4,096. Not a Proxy: QuickJS
 reads a global through the prototype chain, and a Proxy there makes an undeclared
 name `undefined` instead of a ReferenceError.
 
-**Gaps** (each for docs/COMPAT.md): no microtask checkpoint between the listeners of a
-browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`), because a
-checkpoint from inside a native needs core; a
+**A checkpoint between listeners.** An event fired from a task of the page's life
+(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`), for
+a rejected promise, or by `AbortSignal.timeout` (at the signal and at the signals
+that depend on it) has no script under its dispatch, so "clean up after running
+script" finds the stack empty after each listener and that is a microtask checkpoint
+(`L1,micro,L2`). The glue marks those events (`alone`, set by `fireInTask`) and calls
+`n.checkpoint`, which is core's `LoopBridge::checkpoint`. An event from `dispatchEvent`
+or from `click()` gets none, trusted or not: a script is on the stack (`L1,L2,micro`,
+as in Chrome). A limit in those microtasks comes back from the native typed and ends
+the call as `n.limit` does; a listener that overflowed the stack runs no checkpoint.
+The checkpoint comes before inner invoke reports the listener's exception and with
+`window.event` still set, as WebIDL's order gives; an `error` event reported from such
+a listener has one after each of its listeners too. Chrome reports first (`L1, E1, E2,
+m, em, L2`, the spec gives `L1, m, E1, em, E2, L2`). The spec wins for DOM behaviour;
+the conflict is in `docs/DECISIONS.md`.
+
+**Gaps** (each for docs/COMPAT.md): a
 handler's scope has no form owner; MathML elements have no `on*` attributes (no
-interface bound), and `<svg><script>` doesn't run; `unhandledrejection` doesn't fire.
+interface bound), and `<svg><script>` doesn't run; `rejectionhandled` doesn't fire.
+`toggle`, `hashchange` and an iframe's `load` come from tasks but get no checkpoint
+between listeners, so they give `L1,L2,micro` (Chromium 153 and HTML: `L1,micro,L2`).
 ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
 `Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
 two events at one virtual time have the same one. `HTMLDocument` is `Document`, as
@@ -491,8 +507,18 @@ async function or a promise reaction it rejects a promise instead: if nothing
 handled that promise when the microtasks have drained, core's rejection tracker
 ends the call, and handling it is catching it. Core's event loop has that
 checkpoint and `Sandbox::run` doesn't, so `DomRuntime::eval` follows each script
-with a run of the loop whose options let no task start (`CHECKPOINT`). Other
-rejections go in the report (`PageReport::unhandled_rejections`).
+with a run of the loop whose options let no task start (`CHECKPOINT`).
+
+Other rejections follow HTML's "notify about rejected promises". The checkpoint
+queues a task behind what is already queued, so the next `<script>` or a timer already
+due can still handle the promise. The task calls the hook the glue registered
+(`n.setRejectionHook`), which fires `unhandledrejection` at the window, cancelable,
+with a checkpoint after each listener; the promises left go in the report
+(`PageReport::unhandled_rejections`) unless a listener cancels the event, in the order
+they rejected. No limit error gets that far, so no listener sees or cancels one. A
+page's lifecycle steps were queued first, so the event comes after `load` for a
+rejection in a page script; Chrome's parser can yield earlier. If the event loop stops
+with the task still queued (`TaskLimit`), its promises are counted with no event.
 
 One residual: core reads a rejection's reason to report it, and a getter on the
 reason runs then. If that getter overflows the stack, the overflow is an
@@ -612,8 +638,13 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   headroom). Frames aren't known at compile time, so the caps are
   set from measurements with room to spare: that selector takes just over half
   of the 256 KiB headroom in the slowest x86_64 build and under a third in
-  release (numbers at `MAX_SELECTOR_NESTING`). A check of the stack left, from a matcher step in
-  `Guarded`, would make it a proof; it needs core to export `stack_available`.
+  release (numbers at `MAX_SELECTOR_NESTING`). `Guarded` also looks at the stack
+  left at each element it reaches (`surimono_core::stack_available`), and under
+  64 KiB stops the match and ends the call with `SandboxError::StackOverflow`,
+  sticky like a refused allocation, so a target whose frames outgrow the measurement
+  gets that error and not a crash. Selector parsing runs before `Guarded` and
+  can't be stopped, so its stack still rests on the caps. On a platform where
+  core can't tell the stack left, so does matching.
 - **Half a surrogate pair.** Text is stored as UTF-8, which can't hold a lone
   surrogate, so a CharacterData offset inside a pair (`deleteData(0, 1)` on an
   emoji) leaves U+FFFD. The DOM keeps the lone code unit.
