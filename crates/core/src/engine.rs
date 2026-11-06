@@ -99,6 +99,8 @@ const STOP_MEMORY: u32 = 2;
 const STOP_CANCEL: u32 = 4;
 /// [`LimitState::stop`] bit: a host function panicked.
 const STOP_PANIC: u32 = 8;
+/// [`LimitState::stop`] bit: a host function ran out of stack.
+const STOP_STACK: u32 = 16;
 
 impl LimitState {
     pub(crate) fn new(memory_limit: usize) -> Arc<Self> {
@@ -263,6 +265,18 @@ impl LimitState {
             .unwrap_or_default()
     }
 
+    /// Fails the running call with a stack overflow, for a host function that
+    /// is out of stack. Sticky, unlike the engine's own overflow: there is no
+    /// exception of the engine's to mark, and no script handles this one.
+    pub(crate) fn exceed_stack(&self) {
+        self.stop.fetch_or(STOP_STACK, Ordering::Release);
+    }
+
+    /// Whether a host function ran out of stack in the running call.
+    pub(crate) fn stack_exceeded(&self) -> bool {
+        self.stop.load(Ordering::Acquire) & STOP_STACK != 0
+    }
+
     /// Whether the running call was cancelled.
     pub(crate) fn cancelled(&self) -> bool {
         self.stop.load(Ordering::Acquire) & STOP_CANCEL != 0
@@ -325,7 +339,11 @@ impl LimitState {
     /// cancelled call, and stop at once after an out-of-memory error or a
     /// host function's panic so a script that catches it cannot keep going.
     pub(crate) fn should_interrupt(&self) -> bool {
-        let stop = self.oom() || self.cancelled() || self.panicked() || self.deadline_passed();
+        let stop = self.oom()
+            || self.cancelled()
+            || self.panicked()
+            || self.stack_exceeded()
+            || self.deadline_passed();
         #[cfg(any(test, feature = "test-hooks"))]
         if stop {
             crate::sandbox::test_hooks::note_stop_answer();
@@ -695,7 +713,9 @@ pub(crate) fn fork_generation_now() -> u64 {
 
 /// Bytes of stack left on this thread below the current frame, if the
 /// platform can tell (Linux and macOS); `None` elsewhere.
-pub(crate) fn stack_available() -> Option<usize> {
+#[doc(hidden)]
+#[inline]
+pub fn stack_available() -> Option<usize> {
     let sp = stack_pointer();
     STACK_LOW.with(|low| low.map(|low| sp.saturating_sub(low)))
 }

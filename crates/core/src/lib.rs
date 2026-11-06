@@ -36,12 +36,14 @@ mod watchdog;
 
 pub use embed::{compile_for_embedding, engine_fingerprint};
 #[doc(hidden)]
-pub use engine::{TeardownLeaks, limit_error, teardown_leaks};
+pub use engine::{TeardownLeaks, limit_error, stack_available, teardown_leaks};
 pub use engine::{fork_generation, release_free_memory};
 pub use error::SandboxError;
 /// Not public API: phase-2 scaffolding for `surimono-dom`.
 #[doc(hidden)]
-pub use event_loop::{EventLoopHandle, ExternalWait, SettleOptions, SettleOutcome, SettleReport};
+pub use event_loop::{
+    EventLoopHandle, ExternalWait, LoopBridge, SettleOptions, SettleOutcome, SettleReport,
+};
 /// Not public API: for `surimono-islands`.
 #[doc(hidden)]
 pub use host_thread::{HostThread, spawn_host_thread};

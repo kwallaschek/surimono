@@ -12,7 +12,7 @@ use rquickjs::promise::PromiseState;
 use rquickjs::{Context, Ctx, FromJs, Function, Object, Persistent, Runtime, Value};
 
 use crate::engine::{self, LimitAllocator, LimitState};
-use crate::event_loop::{self, EventLoopHandle, SettleOptions, SettleReport};
+use crate::event_loop::{self, EventLoopHandle, LoopBridge, SettleOptions, SettleReport};
 use crate::fork_safe::ForkSafeCell;
 use crate::{Limits, SandboxError};
 
@@ -175,7 +175,9 @@ impl Deadline {
     /// Whether the running call has passed its time limit or was cancelled
     /// ([`Sandbox::set_cancel_flag`]). Once this is true the call is over:
     /// it fails with [`SandboxError::TimeLimit`] or
-    /// [`SandboxError::Cancelled`] as soon as control returns to the engine.
+    /// [`SandboxError::Cancelled`] as soon as control returns to the engine
+    /// (or with [`SandboxError::StackOverflow`] after
+    /// [`exceed_stack`](Self::exceed_stack)).
     /// False when no call is running.
     ///
     /// It reads the same stop flag the engine polls, which the sandbox's
@@ -189,7 +191,20 @@ impl Deadline {
     /// was dropped always reports `true`, so a host function holding a
     /// stale handle refuses work instead of running unbounded.
     pub fn passed(&self) -> bool {
-        self.state.retired() || self.state.cancelled() || self.state.deadline_passed()
+        self.state.retired()
+            || self.state.cancelled()
+            || self.state.stack_exceeded()
+            || self.state.deadline_passed()
+    }
+
+    /// Not public API: ends the running call with
+    /// [`SandboxError::StackOverflow`], however the script handles what it
+    /// sees, for a host function that stopped because
+    /// [`stack_available`](crate::stack_available) says it is nearly out of
+    /// stack. [`passed`](Self::passed) is true from here on.
+    #[doc(hidden)]
+    pub fn exceed_stack(&self) {
+        self.state.exceed_stack();
     }
 }
 
@@ -652,6 +667,17 @@ impl Sandbox {
         })
     }
 
+    /// Not public API: the event loop's bridge for the current context, if
+    /// the sandbox has an event loop.
+    #[doc(hidden)]
+    pub fn loop_bridge(&self) -> Option<LoopBridge> {
+        self.event_loop.as_ref().map(|hooks| LoopBridge {
+            shared: hooks.shared.clone(),
+            rejections: hooks.rejections.clone(),
+            limit: self.state.clone(),
+        })
+    }
+
     /// Enters the context with the deadline armed, runs `body`, classifies
     /// its error, and rebuilds the sandbox after a limit error or a cancel.
     fn execute<R, B>(&mut self, body: B) -> Result<R, SandboxError>
@@ -851,8 +877,8 @@ const PRELUDE_SOURCE: &str = include_str!("prelude.js");
 static PRELUDE: ForkSafeCell<Vec<u8>> = ForkSafeCell::shared();
 
 /// What Rust keeps of a context's event loop: the queue, the prelude's
-/// dispatcher, and the rejected promises waiting for a handler, the only
-/// JavaScript values held from Rust.
+/// dispatcher, and the rejected promises waiting for a handler with the hook
+/// they go to, the only JavaScript values held from Rust.
 struct EventLoopHooks {
     shared: event_loop::Shared,
     /// Holds JavaScript values, so unlike `shared` it stays out of every
@@ -1049,6 +1075,9 @@ pub(crate) fn classify(ctx: &Ctx<'_>, state: &LimitState, e: rquickjs::Error) ->
     }
     if state.timed_out() {
         return SandboxError::TimeLimit;
+    }
+    if state.stack_exceeded() {
+        return SandboxError::StackOverflow;
     }
     match (e, exception) {
         (_, Some(value)) => exception_error(value),
