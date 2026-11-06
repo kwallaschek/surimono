@@ -163,6 +163,9 @@ the page's `window.onload`. No wider than a page's own scripts, which could run 
 same code; it matters only for conformance. `innerHTML` in an XML document parses and
 serializes as HTML on this branch. The template contents
 owner document doesn't exist: a template's content stays in the template's document.
+So `noscript` text in a template in the page serializes raw, where the spec and Chrome
+escape it, and the facade's screen of what a printer's parser makes of the output relies
+on seeing that markup (`crates/surimono/tests/page.rs`).
 `createDocumentType` follows the current "valid doctype name". A `splitText` of a
 CDATA section gives a CDATA section's data in a Text node, as the standard does.
 `Attr` isn't a whole `Node` (see COMPAT).
