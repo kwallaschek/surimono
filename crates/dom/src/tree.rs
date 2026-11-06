@@ -431,7 +431,16 @@ impl Document {
 
     fn matcher(&self, selectors: &str) -> Matcher {
         let html = self.info(self.making()).html;
-        Matcher::new(self.quirks_mode(), self.deadline.clone(), selectors, html)
+        // A cheap test first: finding the target walks the document.
+        let target = selectors.contains("target");
+        let target = target.then(|| self.target_element()).flatten();
+        Matcher::new(
+            self.quirks_mode(),
+            self.deadline.clone(),
+            selectors,
+            html,
+            target,
+        )
     }
 
     /// `querySelector(All)` (DOM §4.2.6): descendants of `top`, in tree
