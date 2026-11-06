@@ -313,14 +313,21 @@ fn inject_fault(url: &str) {
 /// One test, in this process. Never panics on a test's account: the parent
 /// counts a panic as a crash, which is what it would be.
 fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
-    let html = match page(root, file) {
-        Ok(html) => html,
+    let source = match page(root, file) {
+        Ok(source) => source,
         Err(e) => return failure("ERROR", e),
     };
-    let doc = match Document::parse(&html) {
+    let parsed = if is_xml(file) {
+        Document::parse_xml(&source)
+    } else {
+        Document::parse(&source)
+    };
+    let mut doc = match parsed {
         Ok(doc) => doc,
         Err(e) => return failure("ERROR", format!("parse: {e}")),
     };
+    let href = format!("{ORIGIN}{url}");
+    doc.set_url(&href);
     let limits = Limits::default().with_time(time_limit);
     let mut rt = match DomRuntime::new(limits) {
         Ok(rt) => rt,
@@ -335,7 +342,7 @@ fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
     let page_report = rt.run_page(&options, |src| {
         let source = resolve(root, &base, src)?;
         if src.ends_with("/testharness.js") {
-            let href = serde_json::to_string(&format!("{ORIGIN}{url}")).ok()?;
+            let href = serde_json::to_string(&href).ok()?;
             return Some(format!("{ENVIRONMENT}({href});\n{source}"));
         }
         Some(source)
@@ -452,15 +459,16 @@ fn clip(v: &Value) -> Value {
     }
 }
 
+/// Whether WPT's server sends this file as XML, so a browser parses it as XML.
+fn is_xml(file: &str) -> bool {
+    [".xhtml", ".xht", ".xml", ".svg"]
+        .iter()
+        .any(|ext| file.ends_with(ext))
+}
+
 /// The document for a test: its own file, or for `.any.js` and `.window.js` the
 /// page WPT's server wraps around it.
 fn page(root: &Path, file: &str) -> Result<String, String> {
-    if [".xhtml", ".xht", ".xml", ".svg"]
-        .iter()
-        .any(|ext| file.ends_with(ext))
-    {
-        return Err("needs an XML parser, which surimono-dom doesn't have".to_owned());
-    }
     let path = root.join("tests").join(file);
     let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let text = String::from_utf8_lossy(&bytes).into_owned();
@@ -498,9 +506,12 @@ fn page(root: &Path, file: &str) -> Result<String, String> {
     Ok(head)
 }
 
-/// The source of a `<script src>`, only from `wpt/tests/`, no network.
+/// The source of a `<script src>` or an `<iframe src>`, only from `wpt/tests/`,
+/// no network. A URL on the test's own origin is a path there.
 fn resolve(root: &Path, base: &str, src: &str) -> Option<String> {
     let path = src.split(['?', '#']).next()?;
+    let own = path.strip_prefix(ORIGIN).map(|p| format!("/{p}"));
+    let path = own.as_deref().unwrap_or(path);
     if path.contains("://") || path.starts_with("//") {
         return None;
     }
@@ -577,6 +588,14 @@ mod tests {
         assert_eq!(resolve(&dir, "a/b/t.html", "/a/x.js"), Some("x".into()));
         assert_eq!(resolve(&dir, "a/b/t.html", "../../../secret.js"), None);
         assert_eq!(resolve(&dir, "a/b/t.html", "https://e.test/x.js"), None);
+        assert_eq!(
+            resolve(&dir, "a/b/t.html", &format!("{ORIGIN}a/x.js")),
+            Some("x".into())
+        );
+        assert_eq!(
+            resolve(&dir, "a/b/t.html", &format!("{ORIGIN}../secret.js")),
+            None
+        );
         assert!(
             resolve(&dir, "a/t.html", HOOK_URL)
                 .unwrap()
