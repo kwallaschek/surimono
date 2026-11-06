@@ -30,15 +30,28 @@
     const d = pageState();
     return d === null ? null : locationOf(d);
   };
-  for (const name of ['href', 'origin', 'protocol', 'host', 'hostname', 'port', 'pathname', 'search', 'hash']) {
-    H['Location_' + name] = (s) => call(OP_urlPart, s.doc.g, s.doc.h, name);
-    // What these do is navigate, which stops here.
-    H['set_Location_' + name] = () => {};
-  }
+  const urlPart = (name) => (s) => call(OP_urlPart, s.doc.g, s.doc.h, name);
+  H.Location_href = urlPart('href');
+  H.Location_origin = urlPart('origin');
+  H.Location_protocol = urlPart('protocol');
+  H.Location_host = urlPart('host');
+  H.Location_hostname = urlPart('hostname');
+  H.Location_port = urlPart('port');
+  H.Location_pathname = urlPart('pathname');
+  H.Location_search = urlPart('search');
+  H.Location_hash = urlPart('hash');
+  // What these do is navigate, which stops here.
+  const staysHere = () => {};
+  H.set_Location_protocol = staysHere;
+  H.set_Location_host = staysHere;
+  H.set_Location_hostname = staysHere;
+  H.set_Location_port = staysHere;
+  H.set_Location_pathname = staysHere;
+  H.set_Location_search = staysHere;
   H.set_Location_href = (s, url) => { navigate(s.doc, url, false, true); };
   H.Location_assign = (s, url) => { navigate(s.doc, url, false, true); };
   H.Location_replace = (s, url) => { navigate(s.doc, url, true, true); };
-  H.Location_reload = () => {};
+  H.Location_reload = staysHere;
   H.set_Location_hash = (s, v) => {
     const url = call(OP_urlFragment, s.doc.g, s.doc.h, `${v}`);
     if (url !== '' && url !== call(OP_urlPart, s.doc.g, s.doc.h, 'href')) {
