@@ -57,6 +57,8 @@ pub const STUB_INTERFACES: &[&str] = &[
     "CDATASection",
     "ProcessingInstruction",
     "HTMLIFrameElement",
+    "AbstractRange",
+    "Range",
 ];
 
 /// Typedefs and nested types deeper than this are an error (a typedef cycle).
