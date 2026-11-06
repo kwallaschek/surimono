@@ -67,12 +67,16 @@ const JS_INTERFACES: &[&str] = &[
     "AbortController",
     "AbortSignal",
     "Performance",
+    "Location",
+    "History",
+    "StaticRange",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
 /// `H.<Interface>_<member>`, as for [`JS_INTERFACES`].
 const JS_MEMBERS: &[(&str, &str)] = &[
     ("Document", "createEvent"),
+    ("Document", "rootElement"),
     ("HTMLElement", "click"),
     ("HTMLInputElement", "form"),
     ("HTMLInputElement", "indeterminate"),
@@ -122,14 +126,28 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("isFrameDocument", "h.is_frame_document(this)"),
     (
         "parseFromString",
-        "h.parse_from_string(a.string(0)?, a.string(1)?)",
+        "h.parse_from_string(this, a.string(0)?, a.string(1)?)",
     ),
+    ("urlPart", "h.url_part(this, a.string(0)?)"),
+    ("urlJoin", "h.url_join(this, a.string(0)?)"),
+    ("urlFragment", "h.url_fragment(this, a.string(0)?)"),
+    ("urlRewrite", "h.url_rewrite(this, a.string(0)?)"),
+    ("setDocumentUrl", "h.set_document_url(this, a.string(0)?)"),
     ("inPage", "h.in_page(this)"),
     ("radioCheck", "h.radio_check(this)"),
     ("handlerElement", "h.handler_element()"),
     ("idNames", "h.id_names()"),
     ("labeledControl", "h.labeled_control(this)"),
+    ("frameAttached", "h.frame_attached(this)"),
+    (
+        "staticRange",
+        "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
+    ),
 ];
+
+/// A member name for an interface's bare `stringifier;`: its `toString`,
+/// answered by the host's `stringifier`.
+const STRINGIFIER: &str = "stringifier";
 
 /// A member name that isn't in the IDL. CSSOM defines
 /// `CSSStyleProperties`' per-property attributes (`style.fontSize`) in prose,
@@ -159,6 +177,7 @@ const OP_FIRST: u32 = OP_HOST + HOST_OPS.len() as u32;
 /// (interface, member). Each gets a `const OP_<member>` in `bindings.js`.
 const GLUE_OPS: &[(&str, &str)] = &[
     ("Node", "parentNode"),
+    ("Node", "ownerDocument"),
     ("Element", "localName"),
     ("Element", "getAttribute"),
     ("Element", "getAttributeNames"),
@@ -720,6 +739,14 @@ impl Bound<'_, '_> {
                 self.out.js,
                 ", function (v) {{ self(this, {id}); replaceable(this === undefined || this === null ? G : this, {}, v); }}",
                 js_string(name)
+            );
+        } else if let Some(fwd) = ext_attrs.iter().find(|a| a.name == "PutForwards") {
+            let ExtAttrValue::Ident(target) = &fwd.value else {
+                return Err(self.unsupported(name, ty));
+            };
+            let _ = write!(
+                self.out.js,
+                ", function (v) {{ H.{iface}_{name}(self(this, {id})).{target} = v; }}"
             );
         }
         self.out.js.push_str(");\n");
@@ -1325,6 +1352,7 @@ impl Bound<'_, '_> {
                     | "named_setter"
                     | "named_deleter"
                     | "iterable"
+                    | STRINGIFIER
                     | STYLE_PROPERTIES
             ) {
                 continue;
@@ -1374,6 +1402,22 @@ impl Bound<'_, '_> {
             });
         if let Some(s) = stringifies.filter(|s| members.contains(&s.as_str())) {
             let _ = writeln!(self.out.js, "stringifier({id}, {});", js_string(&s));
+        }
+        if members.contains(&STRINGIFIER) {
+            if !self
+                .iface
+                .members
+                .iter()
+                .any(|m| matches!(m.member.kind, MemberKind::Stringifier))
+            {
+                return Err(self.unknown(STRINGIFIER));
+            }
+            let call = self.trait_call(STRINGIFIER, &[], true);
+            let op = self.out.op(&call);
+            let _ = writeln!(
+                self.out.js,
+                "op({id}, \"toString\", function toString() {{ const s = self(this, {id}); return call({op}, s.g, s.h); }});"
+            );
         }
         if let Some(x) = self.exotic(&members)? {
             let _ = writeln!(self.out.js, "exotic({id}, {x});");
@@ -1446,6 +1490,8 @@ pub fn generate_bindings(
         "HTMLFrameSetElement",
         "HTMLFormElement",
         "SVGElement",
+        "Attr",
+        "Range",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
@@ -1595,6 +1641,28 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "closed",
             "frameElement",
             "opener",
+            "location",
+            "history",
+        ],
+    },
+    BindInterface {
+        name: "Location",
+        members: &[
+            "href", "origin", "protocol", "host", "hostname", "port", "pathname", "search", "hash",
+            "assign", "replace", "reload",
+        ],
+    },
+    BindInterface {
+        name: "History",
+        members: &[
+            "length",
+            "scrollRestoration",
+            "state",
+            "go",
+            "back",
+            "forward",
+            "pushState",
+            "replaceState",
         ],
     },
     // The sandbox's object has the members that exist so far.
@@ -1726,6 +1794,8 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "doctype",
             "createCDATASection",
             "createAttribute",
+            "rootElement",
+            "createRange",
             "createAttributeNS",
             "createProcessingInstruction",
             "documentElement",
@@ -1947,6 +2017,49 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     BindInterface {
         name: "XMLSerializer",
         members: &["constructor", "serializeToString"],
+    },
+    BindInterface {
+        name: "AbstractRange",
+        members: &[
+            "startContainer",
+            "startOffset",
+            "endContainer",
+            "endOffset",
+            "collapsed",
+        ],
+    },
+    BindInterface {
+        name: "StaticRange",
+        members: &["constructor"],
+    },
+    BindInterface {
+        name: "Range",
+        members: &[
+            "constructor",
+            "commonAncestorContainer",
+            "setStart",
+            "setEnd",
+            "setStartBefore",
+            "setStartAfter",
+            "setEndBefore",
+            "setEndAfter",
+            "collapse",
+            "selectNode",
+            "selectNodeContents",
+            "compareBoundaryPoints",
+            "deleteContents",
+            "extractContents",
+            "cloneContents",
+            "insertNode",
+            "surroundContents",
+            "cloneRange",
+            "detach",
+            "isPointInRange",
+            "comparePoint",
+            "intersectsNode",
+            "createContextualFragment",
+            STRINGIFIER,
+        ],
     },
     // Layout queries, in `glue_layout.js`.
     BindInterface {

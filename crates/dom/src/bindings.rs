@@ -161,6 +161,12 @@ impl From<bool> for Ret {
     }
 }
 
+impl From<i16> for Ret {
+    fn from(n: i16) -> Self {
+        Ret::Number(f64::from(n))
+    }
+}
+
 impl From<u16> for Ret {
     fn from(n: u16) -> Self {
         Ret::Number(f64::from(n))

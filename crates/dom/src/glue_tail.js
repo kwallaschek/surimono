@@ -149,10 +149,39 @@
       throw new TE('parseFromString: the type is not a DOMParserSupportedType');
     }
     const g = current();
-    return wrap(g, call(OP_parseFromString, g, root(), text, t));
+    const h = s.doc === undefined ? root() : s.doc.h;
+    return wrap(g, call(OP_parseFromString, g, h, text, t));
   };
   H.new_XMLSerializer = (target) => make(I_XMLSerializer, target).w;
-  H.XMLSerializer_serializeToString = (s, node) => call(OP_serializeXml, node.g, node.h, node.h);
+
+  // DOM §5.4. WebIDL §3.2.18: a dictionary's members in lexicographic order.
+  H.new_StaticRange = (target, init) => {
+    if (init === null || init === undefined || (typeof init !== 'object' && typeof init !== 'function')) {
+      throw new TE('StaticRangeInit is required');
+    }
+    const member = (k) => {
+      const v = init[k];
+      if (v === undefined) throw new TE(`StaticRangeInit.${k} is required`);
+      return v;
+    };
+    const g = current();
+    const endContainer = obj(member('endContainer'), I_Node, g);
+    const endOffset = member('endOffset') >>> 0;
+    const startContainer = obj(member('startContainer'), I_Node, g);
+    const startOffset = member('startOffset') >>> 0;
+    const h = call(OP_staticRange, g, root(), startContainer, startOffset, endContainer, endOffset);
+    return adopt(wrap(g, h), target, I_StaticRange);
+  };
+  H.XMLSerializer_serializeToString = (s, node) => (
+    // DOM Parsing §3.2.1: an `Attr` serializes as nothing.
+    is(node, I_Attr) ? '' : call(OP_serializeXml, node.g, node.h, node.h));
+  // SVG 2 §4.5: the document's element, if it is an outermost `svg`.
+  H.Document_rootElement = (s) => {
+    const e = wrap(s.g, call(OP_documentElement, s.g, s.h));
+    if (e === null) return null;
+    const x = stateOf(e);
+    return is(x, I_SVGElement) && call(OP_localName, x.g, x.h) === 'svg' ? e : null;
+  };
 
   // Timer ids up to this one are the page's lifecycle, and no script may
   // cancel those (`start`), nor the glue's own tasks (`task`).
@@ -176,9 +205,43 @@
       const d = create(null);
       d.value = s.w; d.enumerable = true;
       defineProperty(w, 'document', d);
+      own(w, 'location', locationOf(s));
+      own(w, 'history', historyRecord(s).w);
+      own(w, 'DOMParser', frameParser(s));
+      const t = create(null);
+      t.value = frameTimeout(s); t.writable = true; t.configurable = true;
+      defineProperty(w, 'setTimeout', t);
       s.frameWindow = w;
     }
     return s.frameWindow;
+  }
+  // A frame's timers are the page's, on one clock, but they are the frame's
+  // to lose: HTML §8.6 runs nothing for a document that isn't fully active.
+  const pageTimeout = G.setTimeout;
+  function frameTimeout(s) {
+    return function setTimeout(handler) {
+      if (arguments.length === 0) return apply(pageTimeout, G, []);
+      // A string would run in the frame, and no script runs there.
+      if (typeof handler !== 'function') return 0;
+      const a = arguments;
+      a[0] = function () {
+        if (call(OP_frameAttached, s.g, s.h)) apply(handler, this, arguments);
+      };
+      return apply(pageTimeout, G, a);
+    };
+  }
+  // A DOMParser's URL is its "associated document"'s, the document of the
+  // global it was made in (HTML §8.5.3), and that is what a frame's window
+  // differs in: its own constructor, on the one prototype.
+  function frameParser(d) {
+    const C = function DOMParser() {
+      if (new.target === undefined) throw new TE('Constructor requires new');
+      const p = make(I_DOMParser, new.target === C ? ctors[I_DOMParser] : new.target);
+      p.doc = d;
+      return p.w;
+    };
+    C.prototype = protos[I_DOMParser];
+    return C;
   }
   attr(I_Document, 'defaultView', function () {
     const s = self(this, I_Document);
@@ -235,8 +298,9 @@
   attr(I_Window, 'length', function () { self(this, I_Window); return childWindows().length; });
   attr(I_Document, 'location', function () {
     if (!isPage(self(this, I_Document))) return null;
-    const l = G.location;
-    return l === undefined ? null : l;
+    return H.Window_location();
+  }, function (v) {
+    if (isPage(self(this, I_Document))) H.Window_location().href = v;
   });
 
   // HTML §8.1.3.5: the running script's element, for the length of its run.
@@ -268,7 +332,7 @@
     }
     return () => {
       currentScript = null;
-      if (n.scriptExternal(i)) fire(stateOf(element), ok ? 'load' : 'error');
+      if (n.scriptExternal(i)) fireInTask(stateOf(element), ok ? 'load' : 'error');
     };
   }
 
@@ -284,10 +348,11 @@
   // loop has left the timer by then, so a timer a script sets starts from
   // nesting level 0, as a parser's script does in a browser (HTML §8.7).
   return function start(g) {
+    pageLoading = true;
     nameElements(g);
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
-      fire(documentState(), 'readystatechange');
+      fireInTask(documentState(), 'readystatechange');
     };
     const step = (f) => {
       lifecycleLast = setTimeoutReal(() => queueMicrotaskReal(f), 0);
@@ -307,7 +372,7 @@
     for (let i = 0; i < scripts; i++) {
       if (n.scriptDeferred(i)) turn(i);
     }
-    step(() => { fire(documentState(), 'DOMContentLoaded', true); });
+    step(() => { fireInTask(documentState(), 'DOMContentLoaded', true); });
     step(setState(2));
     // The frames the parser found: `load` waits for them (HTML §4.8.5).
     step(frameLoads);
@@ -316,6 +381,7 @@
       const s = make(I_Event);
       initEvent(s, 'load', false, false);
       s.isTrusted = true;
+      s.alone = true;
       s.dispatching = true;
       s.target = documentState().w;
       const path = list();
@@ -328,6 +394,7 @@
       s.currentTarget = null;
       s.path = undefined;
       s.dispatching = false;
+      pageLoading = false;
     });
   };
 })

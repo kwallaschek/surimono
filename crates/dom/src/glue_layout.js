@@ -113,6 +113,15 @@
   for (const name of ['scroll', 'scrollTo', 'scrollBy']) {
     op(I_Window, name, function () { self(this, I_Window); askDocument(name); });
   }
+  // CSSOM View §6.3 on ranges: the same answers, and phase 3 the real ones.
+  op(I_Range, 'getBoundingClientRect', function getBoundingClientRect() {
+    askElement(self(this, I_Range), 'getBoundingClientRect');
+    return newRect(I_DOMRect, undefined, 0, 0, 0, 0);
+  });
+  op(I_Range, 'getClientRects', function getClientRects() {
+    askElement(self(this, I_Range), 'getClientRects');
+    return make(I_DOMRectList).w;
+  });
   for (const name of ['clientTop', 'clientLeft', 'clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight']) {
     attr(I_Element, name, function () { askElement(self(this, I_Element), name); return 0; });
   }

@@ -12,6 +12,7 @@ mod document;
 mod error;
 mod host;
 mod parse;
+mod range;
 mod runtime;
 mod select;
 mod style_attr;

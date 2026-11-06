@@ -24,6 +24,7 @@ fn every_glue_member_is_written() {
     let glue = concat!(
         include_str!("../src/glue_events.js"),
         include_str!("../src/glue_abort.js"),
+        include_str!("../src/glue_location.js"),
         include_str!("../src/glue_activation.js"),
         include_str!("../src/glue_layout.js"),
         include_str!("../src/glue_tail.js"),

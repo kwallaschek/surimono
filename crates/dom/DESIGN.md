@@ -226,6 +226,16 @@ page's resolver, the one external scripts use, and no resolver means no frame.
   the time limit, checked between rounds, so a page can take about twice it. A render
   starts at most `MAX_FRAMES` loads; the rest stay blank and fire nothing.
 - A frame's type goes by its URL's extension, there being no Content-Type.
+- Setting or removing `srcdoc`, and `src` on a frame with no `srcdoc`, in no
+  namespace, loads an `<iframe>` again in the next round (HTML §4.8.5), a new document
+  under the same `MAX_FRAMES`. The old window keeps the old document, where a browser's
+  window object would move on. A reload with nothing to load, such as `about:blank`
+  with no resolver answer or `srcdoc` removed with no `src`, keeps the document it
+  has and fires `load`.
+- A frame's window has its own `setTimeout`, on the page's clock, whose callbacks run
+  only while the frame is fully active: its `<iframe>` is connected, up the chain of
+  frames to the page. A string handler does nothing and returns 0, since no script
+  runs in a frame. Its other timers are the page's.
 - `frames` is a list built per read, not the window, and `window[0]` doesn't exist.
 - `__surimonoFrameLoads` is a global, non-enumerable and fixed, because Rust has no
   other way into the glue between settles that survives a sandbox rebuild. A script
@@ -415,11 +425,27 @@ parsed tree, made before the first script, at most 4,096. Not a Proxy: QuickJS
 reads a global through the prototype chain, and a Proxy there makes an undeclared
 name `undefined` instead of a ReferenceError.
 
-**Gaps** (each for docs/COMPAT.md): no microtask checkpoint between the listeners of a
-browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`), because a
-checkpoint from inside a native needs core; a
+**A checkpoint between listeners.** An event fired from a task of the page's life
+(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`), for
+a rejected promise, or by `AbortSignal.timeout` (at the signal and at the signals
+that depend on it) has no script under its dispatch, so "clean up after running
+script" finds the stack empty after each listener and that is a microtask checkpoint
+(`L1,micro,L2`). The glue marks those events (`alone`, set by `fireInTask`) and calls
+`n.checkpoint`, which is core's `LoopBridge::checkpoint`. An event from `dispatchEvent`
+or from `click()` gets none, trusted or not: a script is on the stack (`L1,L2,micro`,
+as in Chrome). A limit in those microtasks comes back from the native typed and ends
+the call as `n.limit` does; a listener that overflowed the stack runs no checkpoint.
+The checkpoint comes before inner invoke reports the listener's exception and with
+`window.event` still set, as WebIDL's order gives; an `error` event reported from such
+a listener has one after each of its listeners too. Chrome reports first (`L1, E1, E2,
+m, em, L2`, the spec gives `L1, m, E1, em, E2, L2`). The spec wins for DOM behaviour;
+the conflict is in `docs/DECISIONS.md`.
+
+**Gaps** (each for docs/COMPAT.md): a
 handler's scope has no form owner; MathML elements have no `on*` attributes (no
-interface bound), and `<svg><script>` doesn't run; `unhandledrejection` doesn't fire.
+interface bound), and `<svg><script>` doesn't run; `rejectionhandled` doesn't fire.
+`toggle`, `hashchange` and an iframe's `load` come from tasks but get no checkpoint
+between listeners, so they give `L1,L2,micro` (Chromium 153 and HTML: `L1,micro,L2`).
 ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
 `Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
 two events at one virtual time have the same one. `HTMLDocument` is `Document`, as
@@ -428,8 +454,7 @@ differs from Chrome's. `offsetX`, `offsetY`, `layerX` and `layerY` are the clien
 coordinates until layout. Interactive form validation doesn't stop a submit.
 `TouchEvent`'s `touches` lists are plain arrays, and `Touch` isn't bound, so they
 can only be empty. Named access doesn't read `name` and doesn't see what a
-script adds; `document.URL` isn't known, so a fragment link's `hashchange` has the
-fragments as its URLs. A body element's `on*`
+script adds. A body element's `on*`
 attributes reach the window from the last one written, not from each in turn.
 Radio groups key on a `form` attribute's text, not on the element it names.
 Setting `details.open` from a script queues no `toggle`; only a click on its summary
@@ -437,6 +462,57 @@ does. Two elements with one `id` name the first on the window, not a collection.
 A form's reset restores neither `value` nor `checked`. `PointerEvent`'s tilt and
 altitude pairs aren't converted into each other. `DeviceMotionEvent`'s members are
 the converted dictionaries, not interfaces.
+
+## Location and history
+
+`src/glue_location.js`. `Location` and `History` are hand-written over the
+document's URL, which Rust holds and parses (the `url` crate, already a dependency).
+`Document::set_url` gives the page its URL; without one it is `about:blank`, and
+`location` answers for that.
+
+A printed page goes nowhere, so nothing leaves the document. What would load another
+document stops, as a link and a form's submit do, with no error: the page carries on
+and prints as it stands. `location.search = ...`, `reload()` and `go(0)` do nothing.
+What stays in the document happens: a fragment (a new entry, then `hashchange`), a
+`javascript:` URL, `pushState`, `replaceState` and traversal among the entries they
+made, with `popstate`. `Document.URL`, `baseURI`, the URLs of `DOMParser`'s documents
+and resolved URL attributes all follow.
+
+Session history is in the glue, per document, so it is under the memory limit and
+goes with the render. A state is cloned once when pushed: primitives, arrays, plain
+objects, `Date`, `RegExp`, `Map`, `Set`. Functions, symbols and platform objects
+are a `DataCloneError`, as they should be; `ArrayBuffer`, typed arrays and `Error`
+objects clone as plain objects, a gap. A script-set URL is charged to
+`max_text_bytes` until nothing holds it, because each `DOMParser` document keeps the
+URL it was made under, so a replaced URL can outlive its replacement. One URL is
+capped at 2 MiB, for memory: Chrome takes longer ones. Over the cap, `pushState`
+gives the `SecurityError` it has for a URL it won't take, `location.hash` does
+nothing, and `href`, `assign` and `replace` give a `SyntaxError`. A refusal leaves
+session history as it was.
+
+A fragment navigation fires `popstate` at once and `hashchange` in a task; a
+navigation to the URL already current is a replace that keeps the state. Until the
+page's `load` has fired, a `Location` navigation replaces. A link acts on its own
+document, and only for an empty `target`, `_self`, or on the page `_parent` and
+`_top`. A frame's fragment fires nothing at the page.
+
+A frame's window has its own `location`, `history` and `DOMParser`. The last is the
+one exception to "no realm": a parser's URL is that of the document of the global it
+was made in, and nothing else about `frames[0]` differs for it. Its prototype is the
+page's, so `frames[0].DOMParser.prototype.parseFromString.call(parser)` works either
+way round.
+
+**Gaps.** `[LegacyUnforgeable]` isn't honoured: `Location`'s members are on its
+prototype, and a script can replace them; on a frame's window, `location` and
+`history` are writable data properties, so `frames[0].location = '#z'` replaces the
+object. `ancestorOrigins` isn't bound. No `history.state` survives anything, there
+being no reload. `history.length` is per document, where a browser's is joint over
+frames. A state is one object for its entry, so `history.state.m = 1` survives a
+traversal away and back. The clone keeps no identity for a `Date` or `RegExp`
+referenced twice. It clones as plain objects what a browser refuses (`Proxy`,
+`Promise`, `WeakMap`, `WeakSet`, `Object(Symbol())`, generators, `arguments`), loses
+the value of `new Number(1)` and the like, and takes `RegExp.prototype` for a RegExp.
+`<base target>` is ignored.
 
 ## MutationObserver
 
@@ -463,6 +539,50 @@ Adopting a node from elsewhere still queues its own, as does a fragment for the
 children it loses.
 
 Gap: no transient registrations for removed subtrees.
+
+## Ranges
+
+`src/range.rs`. A range is two boundary points in Rust, because Rust sees the
+mutations; the script holds a handle to `Object::Range`, a number in
+`Document::ranges`. The hooks sit in the primitives (`place_quietly`,
+`detach_quietly`, `replace_child_list`, and a fragment's children leaving in
+`insert_checked`) and in "replace data", "split" and `normalize`, so no path that
+changes the tree can miss them. `replace_child_list` removes many children in one
+pass over the ranges, with the result of removing them one at a time.
+
+Every node a boundary point names has a handle, so its slab slot isn't reused. A
+removal moves a boundary to the parent, which gets a handle then; out of handles,
+the boundary stays on a live node, a fault is recorded and the call fails.
+
+- **Bounds.** A range can't be known to be unreachable (wrappers have no weak
+  references), so it stays live until the document drops, and a mutation may have
+  to look at every range: `DomLimits::max_ranges` (65,536) ends in the typed
+  `RangeLimit`. A page with no ranges pays one `is_empty`. `range_points` counts
+  boundary points per node, so an insertion or data change elsewhere pays one
+  lookup, and a removal walks the removed subtree only up to about twice the
+  number of ranges. Past that it walks every range's ancestors under `poll`,
+  which is the `TimeLimit`; a walk stopped there leaves boundaries out of date in
+  a script that is already ending, so nothing here relies on them being right:
+  methods clamp, and a range out of one tree answers with an exception.
+- **Depth.** "Clone the contents" and "extract" recurse per partially contained
+  level in the standard. Here they walk two chains, the left one's contents
+  leaving from the bottom, the right one's from the top, which is the order the
+  recursion has for mutation records.
+- **What goes with a render.** All of it is in `Document`.
+- **`normalize`** goes step by step once a range exists, like with an observer:
+  quadratic on a wide list, and each removal pays for it in its poll.
+
+`StaticRange` is `Object::StaticRange`; its constructor reads the dictionary in the
+glue. `getClientRects` and `getBoundingClientRect` go through the layout policy, in
+`glue_layout.js`; a range's are zeros until phase 3.
+`createContextualFragment` is HTML §8.5, with the wrapper stripping of XML documents.
+
+**Gaps.** There is no `Selection`: no vendored test needs one but `moveBefore`'s,
+which fail on `moveBefore` first. An `Attr` can't be a boundary point (`Attr` isn't
+a whole `Node`): `InvalidNodeTypeError`, where the standard allows offset 0. Scripts
+in a contextual fragment don't run when appended, since no script a script inserts
+does yet. A range's offsets inside a surrogate pair have the same lossy edge as
+CharacterData's.
 
 ## Templates and reflected attributes
 
@@ -493,8 +613,18 @@ async function or a promise reaction it rejects a promise instead: if nothing
 handled that promise when the microtasks have drained, core's rejection tracker
 ends the call, and handling it is catching it. Core's event loop has that
 checkpoint and `Sandbox::run` doesn't, so `DomRuntime::eval` follows each script
-with a run of the loop whose options let no task start (`CHECKPOINT`). Other
-rejections go in the report (`PageReport::unhandled_rejections`).
+with a run of the loop whose options let no task start (`CHECKPOINT`).
+
+Other rejections follow HTML's "notify about rejected promises". The checkpoint
+queues a task behind what is already queued, so the next `<script>` or a timer already
+due can still handle the promise. The task calls the hook the glue registered
+(`n.setRejectionHook`), which fires `unhandledrejection` at the window, cancelable,
+with a checkpoint after each listener; the promises left go in the report
+(`PageReport::unhandled_rejections`) unless a listener cancels the event, in the order
+they rejected. No limit error gets that far, so no listener sees or cancels one. A
+page's lifecycle steps were queued first, so the event comes after `load` for a
+rejection in a page script; Chrome's parser can yield earlier. If the event loop stops
+with the task still queued (`TaskLimit`), its promises are counted with no event.
 
 One residual: core reads a rejection's reason to report it, and a getter on the
 reason runs then. If that getter overflows the stack, the overflow is an
@@ -594,11 +724,14 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 
 ## Deviations and gaps for E2-02
 
-- **Selectors.** `:has()`, `:nth-child(… of S)` and `:dir()` are refused with
-  a `SyntaxError`, as blitz-dom's parser configuration has them. `:enabled`,
-  `:disabled`, `:checked`, `:required`, `:optional`, `:lang()`, `:defined` and
-  `:read-only` parse and match nothing. `[a=b i]` is case-sensitive, and
-  attribute selectors don't look at the namespace. `:scope` in a
+- **Selectors.** `:has()`, `:nth-child(… of S)`, `:dir()`, `::first-line` and
+  `::first-letter` are refused with a `SyntaxError`, as blitz-dom's parser
+  configuration has them. `:indeterminate`, `:default`, `:placeholder-shown`,
+  `:valid` and `:invalid` parse and match nothing. `:enabled`, `:disabled`,
+  `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:lang()`,
+  `:defined` and `:target` are answered in `select.rs`; `checked` and `selected` are
+  the attributes, as everywhere here, and `:target` is the URL's fragment, in the
+  document queried. `:scope` in a
   `DocumentFragment` query matches nothing (Selectors 4 makes the fragment's
   top-level elements its children). WPT dom/nodes/selectors.js covers several.
 - **Selector limits.** To keep hostile selectors off the stack and out of Rust's
@@ -614,8 +747,13 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   headroom). Frames aren't known at compile time, so the caps are
   set from measurements with room to spare: that selector takes just over half
   of the 256 KiB headroom in the slowest x86_64 build and under a third in
-  release (numbers at `MAX_SELECTOR_NESTING`). A check of the stack left, from a matcher step in
-  `Guarded`, would make it a proof; it needs core to export `stack_available`.
+  release (numbers at `MAX_SELECTOR_NESTING`). `Guarded` also looks at the stack
+  left at each element it reaches (`surimono_core::stack_available`), and under
+  64 KiB stops the match and ends the call with `SandboxError::StackOverflow`,
+  sticky like a refused allocation, so a target whose frames outgrow the measurement
+  gets that error and not a crash. Selector parsing runs before `Guarded` and
+  can't be stopped, so its stack still rests on the caps. On a platform where
+  core can't tell the stack left, so does matching.
 - **Half a surrogate pair.** Text is stored as UTF-8, which can't hold a lone
   surrogate, so a CharacterData offset inside a pair (`deleteData(0, 1)` on an
   emoji) leaves U+FFFD. The DOM keeps the lone code unit.

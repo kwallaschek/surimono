@@ -7,10 +7,14 @@
 //! the event itself belongs to the DOM. That a limit error ends the call is
 //! ours: it is the sandbox rule that hitting a limit gives a typed error.
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+use surimono_core::rquickjs::{self, Ctx, Exception, Function};
 use surimono_core::{
-    Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleReport, teardown_leaks,
+    Limits, Sandbox, SandboxError, SandboxOptions, SettleOptions, SettleOutcome, SettleReport,
+    teardown_leaks,
 };
 
 mod common;
@@ -638,4 +642,325 @@ fn getters_of_reasons_nobody_keeps_do_not_run() {
 fn a_limit_error_past_the_kept_reasons_still_ends_the_call() {
     let source = format!("{OVERFLOW} for (let i = 0; i < 20; i++) Promise.reject(i); f()");
     assert_eq!(run(&source), Err(SandboxError::StackOverflow));
+}
+
+/// A sandbox whose rejections go to the script function `hook`.
+fn hooked(hook: &str) -> Sandbox {
+    let mut sb = sandbox();
+    let bridge = sb.loop_bridge().unwrap();
+    sb.run(|ctx| {
+        bridge.set_rejection_hook(ctx, ctx.eval::<Function<'_>, _>(hook)?);
+        Ok(())
+    })
+    .unwrap();
+    sb
+}
+
+const LOG_HOOK: &str = "(p, r) => { log.push('hook ' + r); return true; }";
+
+fn log(sb: &mut Sandbox) -> String {
+    sb.eval::<String>("log.join()").unwrap()
+}
+
+/// HTML "notify about rejected promises": the checkpoint queues a task, so a
+/// handler added by anything before that task keeps the hook from running.
+/// Chromium 153 logs the same with `unhandledrejection` as the hook
+/// (`wpt/probes`, `unhandled3`).
+#[test]
+fn the_hook_runs_in_a_task_behind_what_is_already_queued() {
+    let mut sb = hooked(LOG_HOOK);
+    sb.eval::<()>(
+        "var q = Promise.reject(1), r = Promise.reject(2);
+         setTimeout(() => { log.push('timer'); q.catch(() => {}); }, 0);",
+    )
+    .unwrap();
+    // Nothing yet at the checkpoint: a task has to run.
+    let report = sb
+        .run_until_settled(&SettleOptions {
+            virtual_budget_ms: 0,
+            max_tasks: 0,
+        })
+        .unwrap();
+    assert_eq!(report.unhandled_rejections, 0);
+    assert_eq!(log(&mut sb), "");
+    sb.eval::<()>("r.catch(() => {}); Promise.reject(3)")
+        .unwrap();
+    let report = settle(&mut sb).unwrap();
+    assert_eq!(log(&mut sb), "timer,hook 3");
+    assert_eq!(reasons(&report), ["3"]);
+    assert_eq!((report.tasks_run, report.timers_left), (3, 0));
+}
+
+/// The hook decides what is counted, and its handlers count too: a hook can
+/// handle a later promise of the same task, which then doesn't reach it
+/// (Chromium 153: `U 1 ; U 3` with `p2.catch()` in the listener).
+#[test]
+fn the_hook_decides_what_is_counted() {
+    let mut sb =
+        hooked("(p, r) => { log.push(r); if (r === 1) p2.catch(() => {}); return r !== 3; }");
+    sb.eval::<()>("var p1 = Promise.reject(1), p2 = Promise.reject(2), p3 = Promise.reject(3);")
+        .unwrap();
+    sb.eval::<()>("Promise.reject(4)").unwrap();
+    let report = settle(&mut sb).unwrap();
+    assert_eq!(log(&mut sb), "1,3,4");
+    assert_eq!(reasons(&report), ["1", "4"]);
+}
+
+#[test]
+fn the_hook_gets_the_promise_and_the_reason() {
+    let mut sb = hooked("(p, r) => { log.push(p === q, r === e); return false; }");
+    sb.eval::<()>("var e = { a: 1 }, q = Promise.reject(e);")
+        .unwrap();
+    assert_eq!(settle(&mut sb).unwrap().unhandled_rejections, 0);
+    assert_eq!(log(&mut sb), "true,true");
+}
+
+/// Rejections from one task go to one task, and one from the hook waits for
+/// the next: Chromium 153 logs `T1 ; m1 ; U 1 ; U 2 ; T2`, and `U 1 ; T1 ; U 2 ;
+/// T2 ; U 3 ; T3` when each listener rejects and sets a timer.
+#[test]
+fn a_rejection_from_the_hook_waits_for_a_later_task() {
+    let mut sb = hooked(
+        "(p, r) => { log.push('U' + r);
+           if (r < 3) Promise.reject(r + 1);
+           setTimeout(() => log.push('T' + r), 0);
+           return false; }",
+    );
+    sb.eval::<()>("Promise.reject(1)").unwrap();
+    assert_eq!(settle(&mut sb).unwrap().unhandled_rejections, 0);
+    assert_eq!(log(&mut sb), "U1,T1,U2,T2,U3,T3");
+}
+
+#[test]
+fn an_exception_from_the_hook_is_reported_and_the_promise_counted() {
+    let mut sb = hooked("(p, r) => { log.push(r); throw new Error('in hook'); }");
+    sb.eval::<()>("Promise.reject(1); Promise.reject(2)")
+        .unwrap();
+    let report = settle(&mut sb).unwrap();
+    assert_eq!(log(&mut sb), "1,2");
+    assert_eq!((report.uncaught, report.unhandled_rejections), (2, 2));
+}
+
+/// A limit never runs through script, and doesn't wait for the task.
+#[test]
+fn a_limit_error_never_reaches_the_hook() {
+    for start in ["f()", "Promise.reject(1); f()", "f(); Promise.reject(1)"] {
+        let mut sb = hooked(LOG_HOOK);
+        sb.eval::<()>(&format!("{OVERFLOW} globalThis.seen = log; {start}"))
+            .unwrap();
+        assert_eq!(settle(&mut sb), Err(SandboxError::StackOverflow), "{start}");
+    }
+    // Rethrown from a catch, it is the same error object, with the same mark.
+    let mut sb = hooked("(p, r) => { spin(); }");
+    let source = format!(
+        "{OVERFLOW} var spin = () => {{ for (;;) {{}} }};
+         async function g() {{ try {{ r() }} catch (e) {{ throw e }} }} g()"
+    );
+    sb.eval::<()>(&source).unwrap();
+    assert_eq!(settle(&mut sb), Err(SandboxError::StackOverflow));
+}
+
+/// A limit reached in the hook ends the call, and stops the task.
+#[test]
+fn a_limit_in_the_hook_ends_the_call() {
+    let mut sb = hooked("(p, r) => { function f() { f() } log.push(r); f(); }");
+    sb.eval::<()>("Promise.reject(1); Promise.reject(2)")
+        .unwrap();
+    assert_eq!(settle(&mut sb), Err(SandboxError::StackOverflow));
+
+    let limits = limits().with_time(scaled(Duration::from_millis(50)));
+    let options = SandboxOptions::default()
+        .with_limits(limits)
+        .with_event_loop(true);
+    let mut sb = Sandbox::with_options(options).unwrap();
+    let bridge = sb.loop_bridge().unwrap();
+    sb.run(|ctx| {
+        let spin = ctx.eval::<Function<'_>, _>("() => { for (;;) {} }")?;
+        bridge.set_rejection_hook(ctx, spin);
+        Ok(())
+    })
+    .unwrap();
+    sb.eval::<()>("Promise.reject(1)").unwrap();
+    assert_eq!(settle(&mut sb), Err(SandboxError::TimeLimit));
+}
+
+/// The report loses no promise when the call stops with its task queued, and
+/// the hook doesn't run once the page is out of tasks. `max_tasks: 0` is the
+/// checkpoint a caller makes between scripts, and decides nothing.
+#[test]
+fn a_task_limit_counts_what_the_task_would_have_announced() {
+    let one = SettleOptions {
+        max_tasks: 1,
+        ..SettleOptions::default()
+    };
+    let mut sb = hooked(LOG_HOOK);
+    sb.eval::<()>("setTimeout(() => { log.push('t'); Promise.reject(1) }, 0); var i = setInterval(() => {}, 1)")
+        .unwrap();
+    let report = sb.run_until_settled(&one).unwrap();
+    assert_eq!(report.outcome, SettleOutcome::TaskLimit);
+    assert_eq!(reasons(&report), ["1"]);
+    assert_eq!((report.tasks_run, report.timers_left), (1, 1));
+    assert_eq!(log(&mut sb), "t");
+
+    // With nothing else queued the page has simply ended.
+    let mut sb = hooked(LOG_HOOK);
+    sb.eval::<()>("setTimeout(() => Promise.reject(1), 0)")
+        .unwrap();
+    let report = sb.run_until_settled(&one).unwrap();
+    assert_eq!(report.outcome, SettleOutcome::Settled);
+    assert_eq!(reasons(&report), ["1"]);
+    assert_eq!(log(&mut sb), "");
+}
+
+/// A sandbox with a global `native()` that runs a checkpoint, as a host's
+/// native does, and throws if that fails.
+fn with_checkpoint(mut sb: Sandbox) -> Sandbox {
+    let bridge = sb.loop_bridge().unwrap();
+    sb.run(|ctx| {
+        let bridge = Rc::new(bridge);
+        let native = Function::new(ctx.clone(), move |ctx: Ctx<'_>| -> rquickjs::Result<()> {
+            bridge
+                .checkpoint(&ctx)
+                .map_err(|e| Exception::throw_internal(&ctx, &e.to_string()))
+        })?;
+        ctx.globals().set("native", native)
+    })
+    .unwrap();
+    sb
+}
+
+/// What "clean up after running script" gives between two listeners: HTML
+/// §8.1.6.3, and Chromium 153's `L1,micro,L2`.
+#[test]
+fn a_checkpoint_from_a_native_runs_the_microtasks_there() {
+    let mut sb = with_checkpoint(sandbox());
+    sb.eval::<()>(
+        "setTimeout(() => {
+           log.push('L1');
+           queueMicrotask(() => {
+             log.push('m1');
+             Promise.resolve().then(() => log.push('m2'));
+           });
+           native();
+           log.push('L2');
+         }, 0)",
+    )
+    .unwrap();
+    settle(&mut sb).unwrap();
+    assert_eq!(log(&mut sb), "L1,m1,m2,L2");
+}
+
+/// It is a whole checkpoint, so it also notifies, and queues the task.
+#[test]
+fn a_checkpoint_from_a_native_notifies_about_rejected_promises() {
+    let mut sb = hooked(LOG_HOOK);
+    let bridge = sb.loop_bridge().unwrap();
+    sb.run(|ctx| {
+        let native = Function::new(ctx.clone(), move |ctx: Ctx<'_>| -> rquickjs::Result<()> {
+            assert_eq!(bridge.checkpoint(&ctx), Ok(()));
+            Ok(())
+        })?;
+        ctx.globals().set("native", native)
+    })
+    .unwrap();
+    sb.eval::<()>(
+        "setTimeout(() => { Promise.reject(1); native(); setTimeout(() => log.push('later'), 0); }, 0)",
+    )
+    .unwrap();
+    settle(&mut sb).unwrap();
+    // The task went in at the checkpoint, ahead of the timer set after it.
+    assert_eq!(log(&mut sb), "hook 1,later");
+}
+
+/// A native's checkpoint inside another does nothing, as HTML's "performing a
+/// microtask checkpoint" flag says, so microtasks can't pile up on the stack.
+#[test]
+fn a_checkpoint_inside_a_checkpoint_does_nothing() {
+    let mut sb = with_checkpoint(sandbox());
+    sb.eval::<()>(
+        "setTimeout(() => {
+           queueMicrotask(() => {
+             Promise.resolve().then(() => log.push('inner'));
+             native();
+             log.push('outer');
+           });
+           native();
+           log.push('end');
+         }, 0)",
+    )
+    .unwrap();
+    settle(&mut sb).unwrap();
+    assert_eq!(log(&mut sb), "outer,inner,end");
+}
+
+/// A limit inside the checkpoint comes back to the native, typed: stopping
+/// the script is the native's part, and the sticky limits need nothing more.
+#[test]
+fn a_limit_in_a_natives_checkpoint_comes_back_typed() {
+    let mut sb = sandbox();
+    let bridge = sb.loop_bridge().unwrap();
+    let seen = Rc::new(RefCell::new(None));
+    let note = seen.clone();
+    sb.run(|ctx| {
+        let native = Function::new(ctx.clone(), move |ctx: Ctx<'_>| {
+            *note.borrow_mut() = bridge.checkpoint(&ctx).err();
+        })?;
+        ctx.globals().set("native", native)
+    })
+    .unwrap();
+    sb.eval::<()>(&format!(
+        "{OVERFLOW} setTimeout(() => {{ f(); native(); }}, 0)"
+    ))
+    .unwrap();
+    settle(&mut sb).unwrap();
+    assert_eq!(seen.borrow().clone(), Some(SandboxError::StackOverflow));
+
+    let limits = limits().with_time(scaled(Duration::from_millis(50)));
+    let mut sb = with_checkpoint(sandbox_with(limits));
+    sb.eval::<()>(
+        "setTimeout(() => {
+           queueMicrotask(() => { for (;;) {} });
+           try { native(); } catch (e) {}
+           for (;;) {}
+         }, 0)",
+    )
+    .unwrap();
+    assert_eq!(settle(&mut sb), Err(SandboxError::TimeLimit));
+}
+
+/// A bridge belongs to one context: past its end it can't reach the next one,
+/// or hold a value of a runtime that is gone.
+#[test]
+fn a_stale_bridge_does_nothing() {
+    let mut sb = sandbox();
+    let stale = sb.loop_bridge().unwrap();
+    sb.reset().unwrap();
+    sb.run(|ctx| {
+        stale.set_rejection_hook(ctx, ctx.eval::<Function<'_>, _>("() => { throw 1 }")?);
+        assert_eq!(stale.checkpoint(ctx), Ok(()));
+        Ok(())
+    })
+    .unwrap();
+    sb.eval::<()>("var log = []; Promise.reject(1)").unwrap();
+    assert_eq!(settle(&mut sb).unwrap().unhandled_rejections, 1);
+    drop(sb);
+    drop(stale);
+    assert_eq!(teardown_leaks().objects, 0);
+}
+
+/// `exceed_stack` is sticky: no script catches it, on any path out of the
+/// call, and the next call starts clean.
+#[test]
+fn a_host_out_of_stack_ends_the_call() {
+    let mut sb = sandbox();
+    let deadline = sb.deadline();
+    let result = sb.run(|ctx| {
+        let stop = deadline.clone();
+        let native = Function::new(ctx.clone(), move || stop.exceed_stack())?;
+        ctx.globals().set("native", native)?;
+        ctx.eval::<(), _>("try { native(); } catch (e) {} 1")?;
+        Ok(deadline.passed())
+    });
+    assert_eq!(result, Err(SandboxError::StackOverflow));
+    assert_eq!(sb.eval::<i32>("1 + 1"), Ok(2));
 }
