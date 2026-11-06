@@ -442,8 +442,7 @@ differs from Chrome's. `offsetX`, `offsetY`, `layerX` and `layerY` are the clien
 coordinates until layout. Interactive form validation doesn't stop a submit.
 `TouchEvent`'s `touches` lists are plain arrays, and `Touch` isn't bound, so they
 can only be empty. Named access doesn't read `name` and doesn't see what a
-script adds; `document.URL` isn't known, so a fragment link's `hashchange` has the
-fragments as its URLs. A body element's `on*`
+script adds. A body element's `on*`
 attributes reach the window from the last one written, not from each in turn.
 Radio groups key on a `form` attribute's text, not on the element it names.
 Setting `details.open` from a script queues no `toggle`; only a click on its summary
@@ -451,6 +450,62 @@ does. Two elements with one `id` name the first on the window, not a collection.
 A form's reset restores neither `value` nor `checked`. `PointerEvent`'s tilt and
 altitude pairs aren't converted into each other. `DeviceMotionEvent`'s members are
 the converted dictionaries, not interfaces.
+
+## Location and history
+
+`src/glue_location.js`. `Location` and `History` are hand-written over the
+document's URL, which Rust holds and parses (the `url` crate, already a dependency).
+`Document::set_url` gives the page its URL; without one it is `about:blank`, and
+`location` answers for that.
+
+A printed page goes nowhere, so nothing leaves the document. What would load another
+document stops, as a link and a form's submit do, with no error: the page carries on
+and prints as it stands. `location.search = ...`, `reload()` and `go(0)` do nothing.
+What stays in the document happens: a fragment (a new entry, then `hashchange`), a
+`javascript:` URL, `pushState`, `replaceState` and traversal among the entries they
+made, with `popstate`. `Document.URL`, `baseURI`, the URLs of `DOMParser`'s documents
+and resolved URL attributes all follow.
+
+Session history is in the glue, per document, so it is under the memory limit and
+goes with the render. A state is cloned once when pushed: primitives, arrays, plain
+objects, `Date`, `RegExp`, `Map`, `Set`. Functions, symbols and platform objects
+are a `DataCloneError`, as they should be; `ArrayBuffer`, typed arrays and `Error`
+objects clone as plain objects, a gap. A script-set URL is charged to
+`max_text_bytes` until nothing holds it, because each `DOMParser` document keeps the
+URL it was made under, so a replaced URL can outlive its replacement. One URL is
+capped at 2 MiB, for memory: Chrome takes longer ones. Over the cap, `pushState`
+gives the `SecurityError` it has for a URL it won't take, `location.hash` does
+nothing, and `href`, `assign` and `replace` give a `SyntaxError`. A refusal leaves
+session history as it was.
+
+A fragment navigation fires `popstate` at once and `hashchange` in a task; a
+navigation to the URL already current is a replace (§7.4.2), which fires the `popstate`
+and no `hashchange`. Its entry has no state, as "navigate to a fragment" says: the
+classic history API state is never carried over. Chrome keeps `history.state` there;
+the spec wins. Until the
+page's `load` has fired, a `Location` navigation replaces. A link acts on its own
+document, and only for an empty `target`, `_self`, or on the page `_parent` and
+`_top`. A frame's fragment fires nothing at the page.
+
+A frame's window has its own `location`, `history` and `DOMParser`. The last is the
+one exception to "no realm": a parser's URL is that of the document of the global it
+was made in, and nothing else about `frames[0]` differs for it. Its prototype is the
+page's, so `frames[0].DOMParser.prototype.parseFromString.call(parser)` works either
+way round.
+
+**Gaps.** `[LegacyUnforgeable]` isn't honoured: `Location`'s members are on its
+prototype, and a script can replace them; on a frame's window, `location` and
+`history` are writable data properties, so `frames[0].location = '#z'` replaces the
+object. `ancestorOrigins` isn't bound. No `history.state` survives anything, there
+being no reload. `history.length` is per document, where a browser's is joint over
+frames. A state is one object for its entry, so `history.state.m = 1` survives a
+traversal away and back. The clone keeps no identity for a `Date` or `RegExp`
+referenced twice. It clones as plain objects what a browser refuses (`Proxy`,
+`Promise`, `WeakMap`, `WeakSet`, `Object(Symbol())`, generators, `arguments`), loses
+the value of `new Number(1)` and the like, and takes `RegExp.prototype` for a RegExp.
+`<base target>` is ignored. A `location.hash` in an inline script gets its `hashchange`
+after the window's `load`, because the page's life was queued first; Chrome fires it
+before.
 
 ## MutationObserver
 

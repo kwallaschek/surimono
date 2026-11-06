@@ -235,38 +235,23 @@
     return null;
   }
 
-  // HTML §7.4.2.3.3 "navigate to a fragment", without a document URL: the
-  // event's URLs are the fragments as written. `hashchange` fires in a task.
-  let fragment = '';
-  function followFragment(href) {
-    if (href === fragment) return;
-    const old = fragment;
-    fragment = href;
-    task(() => {
-      const e = make(I_HashChangeEvent);
-      initEvent(e, 'hashchange', true, false);
-      e.isTrusted = true;
-      e.d = eventInits[I_HashChangeEvent]();
-      e.d.oldURL = old; e.d.newURL = href;
-      dispatch(windowState, e);
-    }, 0);
-  }
-
-  // HTML §4.6.4 "follow the hyperlink", for the URLs that don't leave the
-  // page: a fragment, and a `javascript:` URL, which runs as a script in a task.
+  // HTML §4.6.4 "follow the hyperlink": `navigate` does what doesn't leave
+  // the page. A link acts on its own document, if that has a browsing context,
+  // and with a target only on one that stays in it (§7.3.1 "the rules for
+  // choosing a navigable"; a `<base target>` is a gap). A `download` link has
+  // nowhere to save to, and only an `a` may follow from outside a document
+  // ("cannot navigate").
   function followLink(s) {
     const href = attrOf(s, 'href');
-    if (href === null) return;
-    if (href[0] === '#') { followFragment(href); return; }
-    if (asciiLower(apply(slice, href, [0, 11])) !== 'javascript:') return;
-    const source = percentDecode(apply(slice, href, [11]));
-    task(() => {
-      try {
-        n.runSource(apply(toWellFormed, source, []));
-      } catch (x) {
-        reportException(x);
-      }
-    }, 0);
+    if (href === null || attrOf(s, 'download') !== null) return;
+    if (localOf(s) !== 'a' && !connected(s)) return;
+    const d = stateOf(wrap(s.g, call(OP_ownerDocument, s.g, s.h)));
+    const page = isPage(d);
+    if (!page && !call(OP_isFrameDocument, d.g, d.h)) return;
+    const target = asciiLower(attrOf(s, 'target') || '');
+    const stays = target === '' || target === '_self' ||
+      (page && (target === '_parent' || target === '_top'));
+    if (stays) navigate(d, href, false, false);
   }
   function percentDecode(x) {
     try {

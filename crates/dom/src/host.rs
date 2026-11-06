@@ -727,10 +727,12 @@ impl Document {
     /// `DOMParser.parseFromString`: the new document's handle.
     pub(crate) fn parse_from_string(
         &mut self,
+        this: ObjectId,
         text: String,
         content_type: String,
     ) -> BindingResult<u32> {
-        let url = self.info(self.root()).url.clone();
+        let parser_document = self.node_of(this)?;
+        let url = self.info(parser_document).url.clone();
         let parsed = match content_type.as_str() {
             "text/html" => self.parse_html_document(&text, url),
             "text/xml" => self.parse_xml_document(&text, "text/xml", url),
@@ -743,6 +745,105 @@ impl Document {
         };
         let h = self.object(doc)?;
         Ok(Handle::try_from(h.0).unwrap_or(0))
+    }
+
+    /// One of `Location`'s readings of document `this`'s URL (HTML §7.2.4).
+    pub(crate) fn url_part(&mut self, this: ObjectId, part: String) -> BindingResult<String> {
+        let doc = self.node_of(this)?;
+        let text = Document::url(self, doc);
+        if part == "href" {
+            return Ok(text.to_owned());
+        }
+        let Ok(url) = url::Url::parse(text) else {
+            return Ok(String::new());
+        };
+        let prefixed = |sign: char, s: Option<&str>| match s {
+            Some(s) if !s.is_empty() => format!("{sign}{s}"),
+            _ => String::new(),
+        };
+        let host = url.host_str().unwrap_or_default();
+        Ok(match part.as_str() {
+            "origin" => url.origin().ascii_serialization(),
+            "protocol" => format!("{}:", url.scheme()),
+            "host" => match url.port() {
+                Some(p) => format!("{host}:{p}"),
+                None => host.to_owned(),
+            },
+            "hostname" => host.to_owned(),
+            "port" => url.port().map_or_else(String::new, |p| p.to_string()),
+            "pathname" => url.path().to_owned(),
+            "search" => prefixed('?', url.query()),
+            "hash" => prefixed('#', url.fragment()),
+            _ => String::new(),
+        })
+    }
+
+    /// `text` resolved against document `this`'s base URL, or empty.
+    pub(crate) fn url_join(&mut self, this: ObjectId, text: String) -> BindingResult<String> {
+        let doc = self.node_of(this)?;
+        let base = self.base_url(doc);
+        let joined = url::Url::parse(&base).and_then(|b| b.join(&text));
+        let url = joined.or_else(|_| url::Url::parse(&text));
+        Ok(url
+            .map(String::from)
+            .ok()
+            .filter(|u| u.len() <= document::MAX_URL_BYTES)
+            .unwrap_or_default())
+    }
+
+    /// Document `this`'s URL with fragment `value`, a leading `#` dropped:
+    /// `location.hash`'s setter (HTML §7.2.4). Empty if it has no URL, the
+    /// fragment is the one it has, a missing one counting as empty, or the
+    /// result is over [`MAX_URL_BYTES`](document::MAX_URL_BYTES).
+    pub(crate) fn url_fragment(&mut self, this: ObjectId, value: String) -> BindingResult<String> {
+        let doc = self.node_of(this)?;
+        let Ok(mut url) = url::Url::parse(Document::url(self, doc)) else {
+            return Ok(String::new());
+        };
+        let old = url.fragment().unwrap_or_default().to_owned();
+        url.set_fragment(Some(value.strip_prefix('#').unwrap_or(&value)));
+        let fragment = url.fragment().unwrap_or_default();
+        if fragment == old || url.as_str().len() > document::MAX_URL_BYTES {
+            return Ok(String::new());
+        }
+        Ok(url.into())
+    }
+
+    /// `text` resolved against `this`'s base URL, if the document's URL
+    /// "can have its URL rewritten" to it (HTML §7.2.5), else empty.
+    pub(crate) fn url_rewrite(&mut self, this: ObjectId, text: String) -> BindingResult<String> {
+        let doc = self.node_of(this)?;
+        let target = self.url_join(this, text)?;
+        let (Ok(from), Ok(to)) = (
+            url::Url::parse(Document::url(self, doc)),
+            url::Url::parse(&target),
+        ) else {
+            return Ok(String::new());
+        };
+        let same_origin = from.scheme() == to.scheme()
+            && from.username() == to.username()
+            && from.password() == to.password()
+            && from.host() == to.host()
+            && from.port() == to.port();
+        let allowed = same_origin
+            && (matches!(to.scheme(), "http" | "https")
+                || (to.scheme() == "file" && from.path() == to.path())
+                || (from.path() == to.path() && from.query() == to.query()));
+        Ok(if allowed && target.len() <= document::MAX_URL_BYTES {
+            target
+        } else {
+            String::new()
+        })
+    }
+
+    /// Document `this`'s URL becomes `url`, which [`url_rewrite`](Self::url_rewrite)
+    /// or a fragment gave; no content type changes with it.
+    pub(crate) fn set_document_url(&mut self, this: ObjectId, url: String) -> BindingResult<()> {
+        let doc = self.node_of(this)?;
+        if url.len() > document::MAX_URL_BYTES {
+            return Err(dom_error("SecurityError", "the URL is too long"));
+        }
+        self.write_url(doc, &url).map_err(|e| self.fail(e))
     }
 
     /// Parses one queued frame; whether there was one to parse.

@@ -704,7 +704,10 @@ fn fragments_are_charged_and_their_orphans_freed() {
 fn too_many_combinators_are_a_syntax_error_not_a_stack_overflow() {
     // `selectors` recurses once per combinator: this aborted the process.
     let page = format!("<!doctype html><body>{}", "<b></b>".repeat(49_000));
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    // What this asserts is a `SyntaxError`, not a time: a loaded machine took
+    // the 49,000-element query past the default limit.
+    let time = scaled(Duration::from_secs(30));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
     rt.load(Document::parse(&page).unwrap());
     for combinator in ['+', '~', '>', ' '] {
         let script = format!(
@@ -1222,5 +1225,63 @@ fn deeply_nested_style_values_on_a_small_stack() {
         })
         .unwrap()
         .join()
+        .unwrap();
+}
+
+/// Each `DOMParser` document keeps the URL it was made under, so replaced URLs
+/// outlive the replacement, in Rust. They count against `max_text_bytes`.
+#[test]
+fn script_set_urls_count_against_the_string_limit() {
+    let limit = DomLimits {
+        max_text_bytes: 8 * 1024 * 1024,
+        ..DomLimits::default()
+    };
+    let mut rt = DomRuntime::new(limits().with_time(std::time::Duration::from_secs(30))).unwrap();
+    let mut doc = Document::parse_with_limits("<!doctype html><p>", limit).unwrap();
+    doc.set_url("http://example.test/");
+    rt.load(doc);
+    let r: Result<String, DomError> = rt.eval(
+        "const s = 'x'.repeat(1024 * 1024), p = new DOMParser();
+         try {
+           for (let i = 0; i < 100; i++) {
+             history.replaceState(null, '', '#' + i + s);
+             p.parseFromString('', 'text/html');
+           }
+         } catch (e) {}
+         'done'",
+    );
+    assert_eq!(
+        r,
+        Err(DomError::TextLimit {
+            limit: 8 * 1024 * 1024
+        })
+    );
+    rt.with_document(Document::check_consistency)
+        .unwrap()
+        .unwrap();
+}
+
+/// A URL nothing else holds goes when it is replaced, so a page moving
+/// through URLs pays for one, and the books still balance.
+#[test]
+fn replaced_urls_nothing_keeps_are_credited() {
+    let limit = DomLimits {
+        max_text_bytes: 4 * 1024 * 1024,
+        ..DomLimits::default()
+    };
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let mut doc = Document::parse_with_limits("<!doctype html><p>", limit).unwrap();
+    doc.set_url("http://example.test/");
+    rt.load(doc);
+    let n: u32 = rt
+        .eval(
+            "const s = 'x'.repeat(1024 * 1024); let i = 0;
+             for (; i < 50; i++) history.replaceState(null, '', '#' + i + s);
+             i",
+        )
+        .unwrap();
+    assert_eq!(n, 50);
+    rt.with_document(Document::check_consistency)
+        .unwrap()
         .unwrap();
 }

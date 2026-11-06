@@ -35,6 +35,11 @@ fn frame_content_type(url: &str) -> Option<&'static str> {
     }
 }
 
+/// The longest URL a script can give a document: one string in one call, on
+/// top of what `max_text_bytes` charges for all of them. Chrome takes longer
+/// ones; nothing a page prints needs them.
+pub(crate) const MAX_URL_BYTES: usize = 2 * 1024 * 1024;
+
 /// Infra's ASCII whitespace.
 const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
 
@@ -247,6 +252,8 @@ pub(crate) struct DocInfo {
     pub frame: bool,
     /// One allocation, however many documents take the URL.
     pub url: Arc<str>,
+    /// `url` came from a script, and is charged to `max_text_bytes`.
+    pub url_charged: bool,
 }
 
 /// The element name that marks a `DocumentFragment`: blitz-dom has no such
@@ -592,6 +599,7 @@ impl Document {
             stop,
         );
         let info = DocInfo {
+            url_charged: false,
             html: true,
             xml_interface: false,
             quirks: parsed.quirks,
@@ -876,6 +884,7 @@ impl Document {
     /// `html`, or XML of `content_type`.
     pub(crate) fn blank_info(&self, html: bool, content_type: &'static str) -> DocInfo {
         DocInfo {
+            url_charged: false,
             html,
             xml_interface: false,
             quirks: false,
@@ -921,6 +930,31 @@ impl Document {
                 d.content_type = frame_content_type(url).unwrap_or(APPLICATION_XHTML);
             }
         }
+    }
+
+    /// A script's change of `doc`'s URL (`pushState`, a fragment). Rust holds
+    /// these outside the JS heap, and every document `DOMParser` makes keeps
+    /// the URL it was made under, so each is charged to `max_text_bytes` until
+    /// nothing holds it.
+    pub(crate) fn write_url(&mut self, doc: usize, url: &str) -> Result<(), DomError> {
+        let Some(d) = self.docs.get(&doc) else {
+            return Ok(());
+        };
+        if d.url.as_ref() == url {
+            return Ok(());
+        }
+        let credit = if d.url_charged && Arc::strong_count(&d.url) == 1 {
+            d.url.len()
+        } else {
+            0
+        };
+        self.recharge(credit, url.len())?;
+        self.observer_bytes = (self.observer_bytes + url.len()).saturating_sub(credit);
+        if let Some(d) = self.docs.get_mut(&doc) {
+            d.url = Arc::from(url);
+            d.url_charged = true;
+        }
+        Ok(())
     }
 
     /// Note a node of a kind blitz-dom doesn't have.
