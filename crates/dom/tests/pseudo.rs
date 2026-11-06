@@ -9,7 +9,8 @@ use surimono_core::SettleOptions;
 use surimono_dom::{Document, DomRuntime};
 
 fn runtime(page: &str, url: Option<&str>) -> DomRuntime {
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    let time = common::scaled(std::time::Duration::from_secs(30));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
     let mut doc = Document::parse(page).unwrap();
     if let Some(u) = url {
         doc.set_url(u);

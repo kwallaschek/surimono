@@ -1236,7 +1236,7 @@ fn script_set_urls_count_against_the_string_limit() {
         max_text_bytes: 8 * 1024 * 1024,
         ..DomLimits::default()
     };
-    let mut rt = DomRuntime::new(limits().with_time(std::time::Duration::from_secs(30))).unwrap();
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(30)))).unwrap();
     let mut doc = Document::parse_with_limits("<!doctype html><p>", limit).unwrap();
     doc.set_url("http://example.test/");
     rt.load(doc);
@@ -1269,7 +1269,7 @@ fn replaced_urls_nothing_keeps_are_credited() {
         max_text_bytes: 4 * 1024 * 1024,
         ..DomLimits::default()
     };
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_secs(30)))).unwrap();
     let mut doc = Document::parse_with_limits("<!doctype html><p>", limit).unwrap();
     doc.set_url("http://example.test/");
     rt.load(doc);

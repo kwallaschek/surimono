@@ -359,6 +359,13 @@ to 20 times as long. Two options bound a whole document:
   worker's first render, can take up to twice `time_ms` (one limit to compile,
   one to run it once), plus any wait for a free runtime.
 
+The printer has no limits of its own. If pages come from people you don't trust,
+print them in a process of your own, not under a timeout: a timeout can't stop a
+thread, or catch what ends a process. Give that process stack for the depth a
+page may reach: at least 2 MiB, and 8 MiB leaves room. Ruby's threads, which
+Puma and Sidekiq run on, have 1 MiB unless `RUBY_THREAD_MACHINE_STACK_SIZE` says
+otherwise.
+
 ## Testing
 
 Test the island pass on its own; it is fast and needs no PDF parsing:

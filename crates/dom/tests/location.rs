@@ -11,7 +11,8 @@ use surimono_dom::{Document, DomError, DomRuntime};
 const URL: &str = "http://example.test:8080/a/b.html?q=1#top";
 
 fn runtime(url: Option<&str>) -> DomRuntime {
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    let time = common::scaled(std::time::Duration::from_secs(30));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
     let mut doc = Document::parse("<!doctype html><html><head></head><body><a id=l href='#s'>x</a><iframe id=f></iframe></body></html>").unwrap();
     if let Some(u) = url {
         doc.set_url(u);

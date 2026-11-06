@@ -23,6 +23,10 @@ support = [
   "dom/nodes/ParentNode-querySelector-All-content.html",
   "dom/nodes/ParentNode-querySelector-All-content.xht",
   "dom/nodes/getElementsByClassNameFrame.htm",
+  "domparsing/outerhtml-03-support.html",
+  "domparsing/resources/domparser-iframe-base-pushstate.html",
+  "domparsing/resources/domparser-iframe-base.html",
+  "domparsing/resources/domparser-iframe-pushstate.html",
   "domparsing/resources/domparser-iframe.html",
 ]
 

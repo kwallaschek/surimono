@@ -10,10 +10,12 @@ use surimono_islands::{IslandRequest, IslandRunner};
 use crate::Options;
 use crate::backend;
 use crate::error::Error;
+use crate::page::{CallerLoad, PageOutput, PagePool};
 use crate::prepass::{self, Document, ErrorPolicy};
 use crate::svg::SanitizedSvg;
 
-/// Renders a document's islands to SVG.
+/// Renders a document's islands to SVG, and runs its scripts when asked
+/// ([`render_page`](Self::render_page)).
 ///
 /// Build one per configuration and reuse it: it keeps a pool of JavaScript
 /// runtimes, compiles each renderer's bundle once, and measures text with the
@@ -104,6 +106,8 @@ struct Local {
     /// Measures text for renderers and outlines it in their SVG.
     measurer: TextMeasurer,
     runner: IslandRunner,
+    /// Runs page scripts; holds no thread until the first page.
+    pages: PagePool,
 }
 
 /// Process state given up on in this process; see [`abandon`].
@@ -172,6 +176,11 @@ impl Renderer {
         if options.limits.time.is_zero() {
             return Err(Error::InvalidOptions(
                 "limits.time is zero; every island would fail".into(),
+            ));
+        }
+        if options.limits.output_bytes < 1024 * 1024 {
+            return Err(Error::InvalidOptions(
+                "limits.output_bytes must be at least 1 MiB".into(),
             ));
         }
         if options.pool_size == Some(0) {
@@ -369,6 +378,148 @@ impl Renderer {
         self.render(html, Some(cancel))
     }
 
+    /// Runs `html`'s own scripts as a browser would, then renders its islands.
+    /// Only this method runs a document's scripts: `render_islands` never does.
+    ///
+    /// The document is parsed, its scripts run in order, `DOMContentLoaded` and
+    /// `load` fire, and timers run on a virtual clock until nothing is left or
+    /// 10 seconds of virtual time have passed, so a page's `setTimeout(f, 5000)`
+    /// costs no real time. Each render gets a new document and a new script
+    /// state. Everything runs in a sandbox under one set of
+    /// [`Limits`](crate::Limits): a [`time`](crate::Limits::time) for the whole
+    /// page, not per script. Then island markers, the page's own or ones its
+    /// scripts added, render as in [`render_islands`](Self::render_islands),
+    /// each with its own limits and the [`ErrorPolicy`].
+    ///
+    /// The result is the document serialized, ready for a PDF engine: unlike
+    /// `render_islands`, nothing stays byte for byte. `<noscript>` elements
+    /// are removed, because the engine parses with scripting off and would print them;
+    /// every `<script>` but island markers is removed unless
+    /// [`Options::keep_scripts`] says otherwise. A page that ran in standards
+    /// mode comes out with `<!doctype html>`, any other with no doctype, so a
+    /// limited-quirks doctype is lost. That matters only to a renderer that goes
+    /// by it: Blitz, and so fulgur, lays every page out as no-quirks. Comments
+    /// go.
+    ///
+    /// The output is what blitz-html's parser reads and writes it as, scripting
+    /// off, and comes out of checks on that reading, because a printer's parser
+    /// and CSS engine have no limits of their own and fulgur runs in your
+    /// process. Parsed that way it gives the same tree and passes the same
+    /// checks. A page with more CSS than is safe to parse, or markup past the
+    /// document's limits however it got there, fails with
+    /// [`Error::PageDomLimit`], as does output over
+    /// [`Limits::output_bytes`](crate::Limits::output_bytes). The limits on CSS
+    /// are far above real pages: among them, 64 links in a chain of custom
+    /// properties naming each other through `var()`, and 64 combinators in one
+    /// selector. URLs Blitz can't
+    /// resolve, on which it panics, are taken out. All this after the scripts
+    /// has one [`time`](crate::Limits::time) limit of its own and stops at a
+    /// cancel. Selector matching and SVG parsing in the printer aren't bounded
+    /// here, so run a printer that takes untrusted pages in a process of its
+    /// own: a timeout can't stop a thread, or catch what ends a process. Give
+    /// it stack for the depth this allows: at least 2 MiB, and 8 MiB leaves
+    /// room. Ruby's threads have 1 MiB unless `RUBY_THREAD_MACHINE_STACK_SIZE`
+    /// says otherwise.
+    ///
+    /// What this release doesn't do: scripts a script inserts don't run,
+    /// modules don't run (`nomodule` scripts do), nothing is laid out (see
+    /// [`LayoutQueries`](crate::LayoutQueries)) and images aren't loaded. An
+    /// external script needs a [`ResourceLoader`](crate::ResourceLoader). The
+    /// same renderer, options and input always give the same bytes.
+    ///
+    /// ```
+    /// use surimono::{Options, Renderer, SettleReason};
+    ///
+    /// # let font = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/fonts/NotoSans-Regular.ttf"))
+    /// #     .unwrap_or_else(|e| panic!("{e}"));
+    /// let renderer = Renderer::new(Options::new().font(font))?;
+    /// let page = renderer.render_page(
+    ///     "<!doctype html><p id=a>?</p>
+    ///      <script>setTimeout(() => { document.querySelector('p').textContent = 'done'; }, 1000);</script>",
+    /// )?;
+    /// assert_eq!(page.html, "<!doctype html><html><head></head><body><p id=\"a\">done</p>\n     </body></html>");
+    /// assert_eq!(page.report.settled, SettleReason::Idle);
+    /// assert_eq!(page.report.uncaught, 0);
+    /// # Ok::<(), surimono::Error>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// An uncaught exception doesn't fail the render, as a page in a browser
+    /// doesn't stop at one: see [`PageReport`](crate::PageReport). Limits do:
+    /// [`Error::PageMemoryLimit`], [`Error::PageTimeLimit`],
+    /// [`Error::PageStackOverflow`] and [`Error::PageDomLimit`], whatever the
+    /// error policy, as does [`Error::PageFailed`] for a page that can't run,
+    /// and [`Error::PageLayoutQuery`] under
+    /// [`LayoutQueries::Throw`](crate::LayoutQueries::Throw).
+    /// Islands fail as in [`render_islands`](Self::render_islands).
+    pub fn render_page(&self, html: &str) -> Result<PageOutput, Error> {
+        self.page(html, None)
+    }
+
+    /// [`render_page`](Self::render_page) that stops early once `cancel` is
+    /// true: the call ends with [`Error::Cancelled`] within milliseconds.
+    ///
+    /// A running script stops within milliseconds, as does the parse before it
+    /// and the work after it, and the worker takes the next page. A
+    /// [`ResourceLoader`](crate::ResourceLoader)'s function isn't interrupted:
+    /// the call still ends at once, but the worker is free only when it
+    /// returns. Islands stop as in
+    /// [`render_islands_cancellable`](Self::render_islands_cancellable).
+    ///
+    /// # Errors
+    ///
+    /// As [`render_page`](Self::render_page), plus [`Error::Cancelled`].
+    pub fn render_page_cancellable(
+        &self,
+        html: &str,
+        cancel: &AtomicBool,
+    ) -> Result<PageOutput, Error> {
+        self.page(html, Some(cancel))
+    }
+
+    fn page(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<PageOutput, Error> {
+        self.page_with(html, cancel, None)
+    }
+
+    /// [`render_page_cancellable`](Self::render_page_cancellable) with a load
+    /// function for this render, instead of an
+    /// [`Options::resource_loader`]. It runs on the calling thread, which is
+    /// what a Ruby proc needs, one call at a time; `allow` works as for a
+    /// [`ResourceLoader`](crate::ResourceLoader), with the same caps. A load
+    /// isn't interrupted by `cancel`, which is looked at when it returns.
+    ///
+    /// # Errors
+    ///
+    /// As [`render_page_cancellable`](Self::render_page_cancellable).
+    pub fn render_page_loading(
+        &self,
+        html: &str,
+        allow: &[String],
+        load: &mut dyn FnMut(&str) -> Result<Vec<u8>, String>,
+        cancel: &AtomicBool,
+    ) -> Result<PageOutput, Error> {
+        self.page_with(html, Some(cancel), Some(CallerLoad { allow, load }))
+    }
+
+    fn page_with(
+        &self,
+        html: &str,
+        cancel: Option<&AtomicBool>,
+        caller: Option<CallerLoad<'_>>,
+    ) -> Result<PageOutput, Error> {
+        let (html, report) = self.local()?.pages.run(html, cancel, caller)?;
+        let html = self.render(&html, cancel)?;
+        // Islands add their drawings to what the page's checks measured.
+        let max_bytes = self.options.limits.output_bytes;
+        if html.len() > max_bytes {
+            return Err(Error::PageDomLimit {
+                message: format!("the page's HTML is over the output limit of {max_bytes} bytes"),
+            });
+        }
+        Ok(PageOutput { html, report })
+    }
+
     fn render(&self, html: &str, cancel: Option<&AtomicBool>) -> Result<String, Error> {
         let document = Document {
             policy: self.policy,
@@ -441,7 +592,12 @@ fn start_local(options: &Options, fonts: &FontSet) -> Result<Local, Error> {
                 },
             })?;
     }
-    Ok(Local { measurer, runner })
+    let pages = PagePool::new(options);
+    Ok(Local {
+        measurer,
+        runner,
+        pages,
+    })
 }
 
 #[cfg(test)]
@@ -699,6 +855,10 @@ mod tests {
             },
             Limits {
                 time: Duration::ZERO,
+                ..Limits::default()
+            },
+            Limits {
+                output_bytes: 1024,
                 ..Limits::default()
             },
         ] {
