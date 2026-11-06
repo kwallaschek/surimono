@@ -638,23 +638,34 @@ are skipped by the tokenizer, iteratively, and the cost is linear in the text.
 `glue_sheet.js` has what scripts see: a sheet is read when first asked for and is a
 list of records in the heap, and a new text makes a new sheet, as in a browser. An
 edit also goes to Rust, which keeps the rules of that element, charged against
-`max_text_bytes`. `to_html` writes those in place of the element's text, while the text
-is the one they came from; `innerHTML` and `textContent` still give the text, as a
-browser's do.
+`max_text_bytes`. `to_html` writes those in place of the element's text, until the text
+next changes; `innerHTML` and `textContent` still give the text, as a browser's do.
+A generation per style element tells that, and not a compare of the text, because a
+browser's new sheet comes with any change, even back to the same text. It counts from
+the first read of `sheet`, on the paths nodes join and leave by and in
+`set_side_data`, and costs a page with no sheet one `is_empty`.
+
+CSS Syntax ends what is open at the end of its input without an error, so a rule's text
+is closed when it is written: `closed` ends a comment, string, `url(` or bracket left
+open. Otherwise `insertRule('b{/*')` would swallow every rule after it in the output,
+where a browser, which doesn't print rules from text, loses nothing.
 
 So what the printer gets from an edited sheet went through the facade's screen like any
 `<style>`, and nothing about `insertRule` is a path around it.
 
 **Gaps** (for COMPAT). No declaration is parsed: `cssText` is the rule's own text with
-spacing normalized around the block, `rule.style` isn't bound, and a rule Chrome would
-refuse for its selector or declarations stays. So `insertRule('!!! {}')` succeeds where
-Chrome gives a `SyntaxError`; a selector can't be judged without taking the printer's
-view of what is known. Grouping rules have no `cssRules`; a `@media` rule is one
+spacing normalized around the block (`b{top:0}` gives `b { top:0; }` where Chrome gives
+`b { top: 0px; }`, and an at-rule keeps its text), `rule.style` isn't bound, and a rule
+Chrome would refuse for its selector or declarations stays. So `insertRule('!!! {}')`
+and `selectorText = '!!!'` succeed where Chrome gives a `SyntaxError` and changes
+nothing; a selector can't be judged without taking the printer's view of what is
+known. Grouping rules have no `cssRules`; a `@media` rule is one
 `CSSRule` of type 4 and `CSSMediaRule` isn't bound. `link.sheet` is null and
 `document.styleSheets` has only `<style>`s, because linked sheets arrive after settle.
 `media`, `disabled`, `replace`, `replaceSync`, `adoptedStyleSheets` and `new
 CSSStyleSheet()` aren't bound. An `svg` `<style>` has no `sheet`. Removing and
-re-inserting a style element keeps its sheet.
+re-inserting a style element keeps its sheet and its edits, where Chrome makes a new
+one from the text.
 
 ## MutationObserver
 

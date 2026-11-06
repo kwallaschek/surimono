@@ -6,21 +6,26 @@
 //! parser divides them, and stylo never sees them here: a stylo parse can't be
 //! stopped. The script's view is in `glue_sheet.js`, in the heap. A sheet that has
 //! been edited has its rules here as well, charged, and `to_html` writes those in
-//! place of the element's text for as long as the text is the one they came from
-//! (a browser makes a new sheet when the text changes).
+//! place of the element's text until its text next changes: a browser makes a new
+//! sheet then, even for the same text, so what tells is a generation, not a compare.
 
 use cssparser::{Parser, ParserInput, Token};
 use surimono_webidl::runtime::{BindingError, BindingResult, ObjectId};
 
-use crate::document::Document;
+use crate::document::{Document, Kind};
 
 /// What one rule is charged beyond its text.
 const RULE_COST: usize = 64;
+/// CSSOM's `type` of the rules whose place in a sheet is fixed.
+const KIND_IMPORT: u16 = 3;
+const KIND_NAMESPACE: u16 = 10;
 
 /// A style element's edited rules.
 pub(crate) struct EditedSheet {
-    /// The text they came from.
-    source: String,
+    /// The element's generation they came from; see [`Document::style_changed`].
+    generation: u32,
+    /// What the rules are charged.
+    cost: usize,
     rules: Vec<String>,
 }
 
@@ -35,14 +40,119 @@ struct Rule {
     body: Option<String>,
 }
 
+/// CSS Syntax ends what is open at the end of its input without an error. Written out
+/// before anything else, that would swallow what follows, so `text` comes back with
+/// each open comment, string, `url(` and bracket closed, and without an escape that
+/// has nothing to escape. Linear, with a stack as deep as `text` is long.
+fn closed(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut open: Vec<u8> = Vec::new();
+    let mut i = 0;
+    let mut end = bytes.len();
+    let mut tail = String::new();
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\\' => {
+                if i + 1 == bytes.len() {
+                    end = i;
+                }
+                i += 2;
+                continue;
+            }
+            b'/' if bytes.get(i + 1) == Some(&b'*') => {
+                match text[i + 2..].find("*/") {
+                    Some(at) => i += at + 4,
+                    None => {
+                        tail.push_str("*/");
+                        break;
+                    }
+                }
+                continue;
+            }
+            quote @ (b'"' | b'\'') => {
+                i += 1;
+                loop {
+                    match bytes.get(i) {
+                        None => {
+                            tail.push(char::from(quote));
+                            break;
+                        }
+                        Some(b'\\') if i + 1 == bytes.len() => {
+                            end = i;
+                            i += 1;
+                        }
+                        Some(b'\\') => i += 2,
+                        // A newline ends a bad string, which is closed.
+                        Some(b'\n' | b'\r' | 0x0C) => break,
+                        Some(&c) => {
+                            i += 1;
+                            if c == quote {
+                                break;
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+            b'(' => {
+                let unquoted = i >= 3
+                    && text
+                        .get(i - 3..i)
+                        .is_some_and(|n| n.eq_ignore_ascii_case("url"))
+                    && !bytes[i + 1..]
+                        .iter()
+                        .find(|b| !b.is_ascii_whitespace())
+                        .is_some_and(|b| matches!(b, b'"' | b'\''));
+                if unquoted {
+                    i += 1;
+                    loop {
+                        match bytes.get(i) {
+                            None => {
+                                tail.push(')');
+                                break;
+                            }
+                            Some(b'\\') if i + 1 == bytes.len() => {
+                                end = i;
+                                i += 1;
+                            }
+                            Some(b'\\') => i += 2,
+                            Some(b')') => {
+                                i += 1;
+                                break;
+                            }
+                            Some(_) => i += 1,
+                        }
+                    }
+                    continue;
+                }
+                open.push(b')');
+            }
+            b'[' => open.push(b']'),
+            b'{' => open.push(b'}'),
+            c @ (b')' | b']' | b'}') => {
+                if open.last() == Some(&c) {
+                    open.pop();
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    let mut out = String::with_capacity(end + tail.len() + open.len());
+    out.push_str(&text[..end]);
+    out.push_str(&tail);
+    out.extend(open.iter().rev().map(|&c| char::from(c)));
+    out
+}
+
 impl Rule {
     /// CSSOM "serialize a CSS rule", as far as text allows: nothing inside a
     /// block is parsed, so it stays as written.
     fn text(&self) -> String {
-        match &self.body {
-            None => format!("{};", self.prelude),
-            Some(b) if b.is_empty() => format!("{} {{ }}", self.prelude),
-            Some(b) if b.ends_with(';') || b.ends_with('}') => {
+        match self.body.as_deref().map(closed).as_deref() {
+            None => format!("{};", closed(&self.prelude)),
+            Some("") => format!("{} {{ }}", self.prelude),
+            Some(b) if b.ends_with(';') || b.ends_with('}') || b.ends_with("*/") => {
                 format!("{} {{ {b} }}", self.prelude)
             }
             Some(b) => format!("{} {{ {b}; }}", self.prelude),
@@ -75,8 +185,49 @@ fn at_rule_kind(name: &str) -> Option<u16> {
     })
 }
 
+/// CSS Cascade and Namespaces: `@import` is a statement that comes before all but
+/// other imports and `@layer` statements, and `@namespace` a statement after imports
+/// and before all else. What is out of place is dropped.
+fn in_order(rules: Vec<Rule>) -> Vec<Rule> {
+    let (mut imports_over, mut namespaces_over) = (false, false);
+    let mut out = Vec::with_capacity(rules.len());
+    for rule in rules {
+        let keep = match rule.kind {
+            KIND_IMPORT => !imports_over,
+            KIND_NAMESPACE => !namespaces_over,
+            _ => true,
+        };
+        match rule.kind {
+            KIND_IMPORT => {}
+            KIND_NAMESPACE => imports_over = true,
+            0 if rule.body.is_none() => {}
+            _ => {
+                imports_over = true;
+                namespaces_over = true;
+            }
+        }
+        if keep {
+            out.push(rule);
+        }
+    }
+    out
+}
+
+/// Whether an at-rule of `kind` may take the shape it has: a statement for `@import`
+/// and `@namespace`, a block for the rest, and `@layer`, of type 0, either.
+fn shape_fits(kind: u16, name_is_layer: bool, has_block: bool) -> bool {
+    match kind {
+        KIND_IMPORT | KIND_NAMESPACE => !has_block,
+        _ => has_block || name_is_layer,
+    }
+}
+
 /// The rules of `text`, in order. What isn't a rule is dropped, as a parser does.
 fn parse_rules(text: &str) -> Vec<Rule> {
+    in_order(top_level_rules(text))
+}
+
+fn top_level_rules(text: &str) -> Vec<Rule> {
     let mut input = ParserInput::new(text);
     let mut parser = Parser::new(&mut input);
     let mut out = Vec::new();
@@ -86,21 +237,34 @@ fn parse_rules(text: &str) -> Vec<Rule> {
         let mut first = true;
         let mut prelude_end = None;
         let mut body = None;
+        let mut layer = false;
+        let mut semicolon = false;
         loop {
             let at = parser.position();
             let token = match parser.next_including_whitespace_and_comments() {
                 Ok(t) => t.clone(),
-                Err(_) => break,
+                Err(_) => {
+                    // The end of the input ends a statement.
+                    if kind != Some(1) && !first {
+                        prelude_end = Some(parser.position());
+                    }
+                    break;
+                }
             };
             match token {
                 Token::WhiteSpace(_) | Token::Comment(_) | Token::CDO | Token::CDC if first => {}
                 Token::AtKeyword(name) if first => {
                     first = false;
+                    layer = name.eq_ignore_ascii_case("layer");
                     kind = at_rule_kind(&name);
                 }
                 Token::Semicolon if kind != Some(1) => {
                     prelude_end = Some(at);
                     break;
+                }
+                Token::Semicolon => {
+                    first = false;
+                    semicolon = true;
                 }
                 Token::CurlyBracketBlock => {
                     prelude_end = Some(at);
@@ -124,9 +288,15 @@ fn parse_rules(text: &str) -> Vec<Rule> {
             return out;
         };
         let prelude = clean(parser.slice(start..end));
+        let fits = |k: u16| {
+            if k == 1 {
+                body.is_some() && !semicolon
+            } else {
+                shape_fits(k, layer, body.is_some())
+            }
+        };
         if !prelude.is_empty()
-            && let Some(kind) = kind
-            && (kind != 1 || body.is_some())
+            && let Some(kind) = kind.filter(|&k| fits(k))
         {
             out.push(Rule {
                 kind,
@@ -184,32 +354,69 @@ fn no_element() -> BindingError {
 }
 
 impl Document {
-    /// The element's text, as a sheet comes from it.
-    fn style_text(&self, id: usize) -> String {
-        self.text_content(id).unwrap_or_default()
+    /// What a sheet is read from: the text of the element's own Text children, as
+    /// HTML's "child text content" says.
+    pub(crate) fn style_text(&self, id: usize) -> String {
+        let mut out = String::new();
+        for &c in self.children(id) {
+            if self.kind(c) == Some(Kind::Text) {
+                out.push_str(self.char_data(c));
+            }
+        }
+        out
     }
 
-    /// Makes the rules of style element `this` editable here, from its text.
+    /// A style element's sheet generation, tracked from now on. Each change of its
+    /// children or of their text makes it a new sheet, so a page with no sheet read
+    /// pays one `is_empty` per mutation.
+    pub(crate) fn style_generation(&mut self, this: ObjectId) -> BindingResult<u32> {
+        let id = self.node_of(this)?;
+        Ok(*self.style_generations.entry(id).or_insert(1))
+    }
+
+    /// The text under style element `parent`, if it is one a sheet was read from,
+    /// has changed. `parent` is any node.
+    pub(crate) fn style_changed(&mut self, parent: usize) {
+        if !self.style_generations.is_empty()
+            && let Some(g) = self.style_generations.get_mut(&parent)
+        {
+            *g = g.wrapping_add(1);
+        }
+    }
+
+    /// Makes the rules of style element `id` editable here, from its text.
     fn edited(&mut self, id: usize) -> BindingResult<()> {
-        let source = self.style_text(id);
-        if self.sheets.get(&id).is_some_and(|s| s.source == source) {
+        let generation = self.style_generations.get(&id).copied().unwrap_or(0);
+        if self
+            .sheets
+            .get(&id)
+            .is_some_and(|s| s.generation == generation)
+        {
             return Ok(());
         }
         self.sheets_forget(id);
-        let rules: Vec<String> = parse_rules(&source).iter().map(Rule::text).collect();
-        let cost = source.len() + rules.iter().map(|r| r.len() + RULE_COST).sum::<usize>();
+        let rules: Vec<String> = parse_rules(&self.style_text(id))
+            .iter()
+            .map(Rule::text)
+            .collect();
+        let cost = rules.iter().map(|r| r.len() + RULE_COST).sum::<usize>();
         if self.charge_record(cost).is_none() {
             return Err(no_element());
         }
-        self.sheets.insert(id, EditedSheet { source, rules });
+        self.sheets.insert(
+            id,
+            EditedSheet {
+                generation,
+                cost,
+                rules,
+            },
+        );
         Ok(())
     }
 
     fn sheets_forget(&mut self, id: usize) {
         if let Some(old) = self.sheets.remove(&id) {
-            let cost =
-                old.source.len() + old.rules.iter().map(|r| r.len() + RULE_COST).sum::<usize>();
-            self.credit_record(cost);
+            self.credit_record(old.cost);
         }
     }
 
@@ -222,12 +429,14 @@ impl Document {
     ) -> BindingResult<()> {
         let id = self.node_of(this)?;
         self.edited(id)?;
-        if self.charge_record(text.len() + RULE_COST).is_none() {
+        let cost = text.len() + RULE_COST;
+        if self.charge_record(cost).is_none() {
             return Err(no_element());
         }
         let sheet = self.sheets.get_mut(&id).ok_or_else(no_element)?;
         let at = (index as usize).min(sheet.rules.len());
         sheet.rules.insert(at, text);
+        sheet.cost += cost;
         Ok(())
     }
 
@@ -238,19 +447,22 @@ impl Document {
         let sheet = self.sheets.get_mut(&id).ok_or_else(no_element)?;
         if (index as usize) < sheet.rules.len() {
             let gone = sheet.rules.remove(index as usize);
-            self.credit_record(gone.len() + RULE_COST);
+            let cost = gone.len() + RULE_COST;
+            sheet.cost -= cost;
+            self.credit_record(cost);
         }
         Ok(())
     }
 
-    /// What `to_html` writes in a style element whose rules were edited, if its
-    /// text is still the one they came from.
+    /// What `to_html` writes in a style element whose rules were edited, if nothing
+    /// has changed its text since.
     pub(crate) fn edited_sheet_text(&self, id: usize) -> Option<String> {
         if self.sheets.is_empty() {
             return None;
         }
         let sheet = self.sheets.get(&id)?;
-        (sheet.source == self.style_text(id)).then(|| sheet.rules.join("\n"))
+        let now = self.style_generations.get(&id).copied().unwrap_or(0);
+        (sheet.generation == now).then(|| sheet.rules.join("\n"))
     }
 }
 
@@ -269,13 +481,13 @@ mod tests {
     fn rules_divide_as_a_parser_divides_them() {
         assert_eq!(
             kinds(
-                "a{color:red}\n/* c */ b , i { top: 0; } @media print { x { y: z } } @import 'u';"
+                "@import 'u'; a{color:red}\n/* c */ b , i { top: 0; } @media print { x { y: z } }"
             ),
             vec![
+                (3, "@import 'u';".to_owned()),
                 (1, "a { color:red; }".to_owned()),
                 (1, "b , i { top: 0; }".to_owned()),
                 (4, "@media print { x { y: z } }".to_owned()),
-                (3, "@import 'u';".to_owned()),
             ]
         );
     }
@@ -298,6 +510,63 @@ mod tests {
         assert!(kinds("{ a: b }").is_empty());
         assert!(kinds("@nonsense x { y }").is_empty());
         assert_eq!(kinds("a { b: c").len(), 1);
+    }
+
+    #[test]
+    fn what_is_left_open_is_closed() {
+        for (text, want) in [
+            ("b{/*", "b { /**/ }"),
+            ("b{top:0px/* c", "b { top:0px/* c*/ }"),
+            ("b{content:\"x", "b { content:\"x\"; }"),
+            ("b{content:'x\\", "b { content:'x'; }"),
+            ("b{top:(1", "b { top:(1); }"),
+            ("b{top:[(1", "b { top:[(1)]; }"),
+            ("b{background:url(x", "b { background:url(x); }"),
+            ("b{background:url( 'x", "b { background:url( 'x'); }"),
+            (
+                "@media print { a { top: 0px",
+                "@media print { a { top: 0px} }",
+            ),
+            ("@import 'u", "@import 'u';"),
+            ("b{top:0px\\", "b { top:0px; }"),
+        ] {
+            assert_eq!(parse_rules(text)[0].text(), want, "{text}");
+        }
+    }
+
+    /// A rule that left something open is last in its own text, and with it
+    /// closed nothing after it in a sheet is swallowed.
+    #[test]
+    fn nothing_after_a_closed_rule_is_swallowed() {
+        for open in ["b{/*", "b{content:\"x", "b{top:(1", "b{top:url(x"] {
+            let first = parse_rules(open)[0].text();
+            let joined = format!("{first}\nc {{ top: 0px; }}");
+            assert_eq!(kinds(&joined).len(), 2, "{open}: {joined}");
+        }
+    }
+
+    #[test]
+    fn closing_keeps_what_is_closed_already() {
+        for text in [
+            "a: b; /* c */ d: url(x) \"e\" (f) [g]",
+            "a: '/*'; b: \"(\"",
+            "url(/*)",
+        ] {
+            assert_eq!(closed(text), text);
+        }
+    }
+
+    #[test]
+    fn what_a_parser_drops_is_dropped() {
+        let got = kinds("a;b{} c{} @media x; d{} @import 'u'; @namespace x 'y'; @import 'v' { }");
+        let names: Vec<&str> = got.iter().map(|(_, t)| t.as_str()).collect();
+        assert_eq!(names, ["c { }", "d { }"]);
+        let got = kinds("@layer a; @import 'u'; @namespace x 'y'; @import 'v'; b{}");
+        let names: Vec<&str> = got.iter().map(|(_, t)| t.as_str()).collect();
+        assert_eq!(
+            names,
+            ["@layer a;", "@import 'u';", "@namespace x 'y';", "b { }"]
+        );
     }
 
     #[test]

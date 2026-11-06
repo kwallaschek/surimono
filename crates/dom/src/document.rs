@@ -507,6 +507,9 @@ pub struct Document {
     /// Style elements whose rules a script edited (`src/sheet.rs`). Only looked up,
     /// so its order can't reach any output.
     pub(crate) sheets: HashMap<usize, crate::sheet::EditedSheet>,
+    /// Style elements a sheet was read from, and how many times their text changed.
+    /// Only looked up.
+    pub(crate) style_generations: HashMap<usize, u32>,
     /// Boundary points by node, counted, so a mutation of a node with none
     /// doesn't look at `ranges`. Only looked up.
     pub(crate) range_points: HashMap<usize, u32>,
@@ -680,6 +683,7 @@ impl Document {
             free_decoders: Vec::new(),
             iterators: Vec::new(),
             sheets: HashMap::new(),
+            style_generations: HashMap::new(),
             range_points: HashMap::new(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
@@ -2582,6 +2586,9 @@ impl Document {
         self.recharge(self.char_data(id).len(), data.len())?;
         self.note_character_data(id);
         self.side_data.insert(id, data.to_owned());
+        if let Some(parent) = self.parent(id) {
+            self.style_changed(parent);
+        }
         Ok(())
     }
 
@@ -2706,6 +2713,7 @@ impl Document {
     /// children, as [`remove_children_quietly`](Self::remove_children_quietly)
     /// does: one pass, however wide the list.
     pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
+        self.style_changed(id);
         self.iterators_removing(id, &gone);
         self.ranges_removing(id, &gone);
         self.version += 1;
@@ -2931,6 +2939,7 @@ impl Document {
     /// §4.2.3 "remove".
     pub(crate) fn detach_quietly(&mut self, id: usize) {
         if let Some(parent) = self.node(id).parent {
+            self.style_changed(parent);
             self.iterators_removing(parent, &[id]);
             self.ranges_removing(parent, &[id]);
             self.version += 1;
@@ -2958,6 +2967,7 @@ impl Document {
     /// [`place`](Self::place) with the "suppress observers" flag of DOM
     /// §4.2.3 "insert".
     pub(crate) fn place_quietly(&mut self, parent: usize, nodes: &[usize], before: Option<usize>) {
+        self.style_changed(parent);
         self.ranges_inserting(parent, before, nodes.len());
         self.version += 1;
         self.count_list_steps(nodes.len() + before.map_or(0, |_| self.children(parent).len()));

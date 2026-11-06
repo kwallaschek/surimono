@@ -277,6 +277,7 @@ impl Document {
                 self.note_child_list(node, &[], &children, None, None);
             }
             let children = self.children(node).to_vec();
+            self.style_changed(node);
             self.iterators_removing(node, &children);
             self.ranges_removing(node, &children);
             self.take_children(node);

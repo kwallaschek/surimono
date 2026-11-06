@@ -213,6 +213,8 @@ const HOST_OPS: &[(&str, &str)] = &[
         "h.sheet_insert(this, a.uint(0)?, a.string(1)?)",
     ),
     ("sheetDelete", "h.sheet_delete(this, a.uint(0)?)"),
+    ("sheetGeneration", "h.style_generation(this)"),
+    ("sheetText", "h.style_text_of(this)"),
     ("iteratorNew", "h.iterator_new(this)"),
     ("iteratorReference", "h.iterator_reference(a.uint(0)?)"),
     ("iteratorBefore", "h.iterator_before(a.uint(0)?)"),

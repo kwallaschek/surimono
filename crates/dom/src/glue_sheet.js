@@ -87,16 +87,27 @@
     s.list = indexed(l).w;
     return s;
   }
+  // HTML §4.2.6: a `type` of anything but CSS has no sheet.
+  function cssType(e) {
+    const t = attrOf(e, 'type');
+    return t === null || t === '' || asciiLower(t) === 'text/css';
+  }
+  // A sheet is its element's until the text next changes, even back to the same
+  // text, and only while the element is in a tree: Rust counts the changes.
+  const generation = (e) => call(OP_sheetGeneration, e.g, e.h);
   H.HTMLStyleElement_sheet = (e) => {
-    if (!connected(e)) return null;
-    const text = apply(textContent_.get, e.w, []);
-    if (e.sheet === undefined || e.sheet.source !== text) e.sheet = newSheet(e, text);
+    if (!connected(e) || !cssType(e)) return null;
+    const g = generation(e);
+    if (e.sheet === undefined || e.sheetGeneration !== g) {
+      e.sheet = newSheet(e, call(OP_sheetText, e.g, e.h));
+      e.sheetGeneration = g;
+    }
     return e.sheet.w;
   };
   H.HTMLLinkElement_sheet = () => null;
   H.StyleSheet_type = () => 'text/css';
   H.StyleSheet_href = () => null;
-  H.StyleSheet_ownerNode = (s) => s.owner.w;
+  H.StyleSheet_ownerNode = (s) => (current_(s) ? s.owner.w : null);
   H.StyleSheet_parentStyleSheet = () => null;
   H.StyleSheet_title = (s) => {
     const v = attrOf(s.owner, 'title');
@@ -106,7 +117,10 @@
   H.CSSStyleSheet_cssRules = (s) => s.list;
   H.CSSStyleSheet_rules = (s) => s.list;
   // A sheet its element has replaced still works, and is nothing to the page.
-  const current_ = (s) => s.owner.sheet === s;
+  function current_(s) {
+    const e = s.owner;
+    return e.sheet === s && e.sheetGeneration === generation(e) && connected(e);
+  }
   // CSSOM "insert a CSS rule", without what needs a rule's meaning: `@import`
   // comes before other rules, and a statement can't follow a style rule.
   function insertRule(s, text, index) {
@@ -119,6 +133,13 @@
           if (s.rules[i].kind !== 3) hierarchy('an @import comes before other rules');
         }
       } else {
+        if (kind === 10) {
+          for (let i = 0; i < s.rules.n; i++) {
+            if (s.rules[i].kind !== 3 && s.rules[i].kind !== 10) {
+              throwDom('InvalidStateError', 'a sheet with rules takes no @namespace');
+            }
+          }
+        }
         for (let i = index; i < s.rules.n; i++) {
           if (s.rules[i].kind === 3) hierarchy('an @import comes before other rules');
         }
@@ -153,7 +174,8 @@
   H.CSSRule_parentStyleSheet = (r) => (r.sheet === null ? null : r.sheet.w);
   H.CSSRule_type = (r) => r.kind;
   H.CSSStyleRule_selectorText = (r) => r.prelude;
-  // CSSOM: a selector that can't parse changes nothing.
+  // Only a selector with no rule's shape changes nothing: as for `insertRule`, what
+  // the selector means isn't judged.
   H.set_CSSStyleRule_selectorText = (r, v) => {
     const s = r.sheet;
     if (s === null) return;
@@ -180,7 +202,9 @@
         const m = size(elements);
         for (let i = 0; i < m; i++) {
           const e = stateOf(at(elements, i));
-          if (e.m[I_HTMLStyleElement] === true) add(out, H.HTMLStyleElement_sheet(e));
+          if (e.m[I_HTMLStyleElement] !== true) continue;
+          const sheet = H.HTMLStyleElement_sheet(e);
+          if (sheet !== null) add(out, sheet);
         }
         return out;
       };

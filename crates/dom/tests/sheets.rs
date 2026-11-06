@@ -1,6 +1,8 @@
 //! `document.styleSheets`, `sheet`, `cssRules`, `insertRule` and `deleteRule`
 //! against CSSOM §6, and that what a script inserts reaches the printed page, as it
-//! reaches the print of a browser.
+//! reaches the print of a browser. `cssText` here is what Chromium 153 gives for
+//! style rules, so each is written already in its form; at-rules and the output are
+//! our own text, where DESIGN.md says how they differ.
 
 mod common;
 
@@ -8,7 +10,7 @@ use common::limits;
 use surimono_core::SandboxError;
 use surimono_dom::{Document, DomError, DomLimits, DomRuntime};
 
-const PAGE: &str = "<!doctype html><html><head><style id=s>a { color: red } b{top:0}</style></head><body></body></html>";
+const PAGE: &str = "<!doctype html><html><head><style id=s>a { color: red } b { top: 0px; }</style></head><body></body></html>";
 
 fn runtime(page: &str) -> DomRuntime {
     let mut rt = DomRuntime::new(limits()).unwrap();
@@ -35,7 +37,7 @@ fn a_sheet_is_read_from_its_text() {
               sheet.rules === r, r[0] instanceof CSSStyleRule, r[0] instanceof CSSRule, r[0].type, r[0].selectorText,
               r[0].cssText, r.item(1).cssText, r[0] === r[0], r[0].parentStyleSheet === sheet, r[0].parentRule,
               r[2], r.item(2), [...r].length, Object.keys(r).join()].join('|')"),
-        "true|true|text/css||true|||true|2|true|true|true|true|1|a|a { color: red; }|b { top:0; }|true|true|||\
+        "true|true|text/css||true|||true|2|true|true|true|true|1|a|a { color: red; }|b { top: 0px; }|true|true|||\
          |2|0,1"
     );
     assert_eq!(
@@ -56,16 +58,16 @@ fn a_sheet_is_read_from_its_text() {
 fn rules_go_in_and_out() {
     assert_eq!(
         run("const r = sheet.cssRules;
-             const a = [sheet.insertRule('i { top: 1px; }'), sheet.insertRule('u{left:0}', 3), sheet.insertRule('@media print { p { x: y } }', 2)];
+             const a = [sheet.insertRule('i { top: 1px; }'), sheet.insertRule('u { left: 0px; }', 3), sheet.insertRule('@media print { p { x: y } }', 2)];
              a.push([...r].map((x) => x.type + ':' + x.cssText).join('/'));
              const gone = r[0];
              sheet.deleteRule(0);
              a.push(r.length, gone.parentStyleSheet, gone.cssText);
              sheet.removeRule();
-             a.push(sheet.addRule('q', 'top: 0'), r[r.length - 1].cssText, sheet.addRule('o', 'top: 1', 0), r[0].selectorText);
+             a.push(sheet.addRule('q', 'top: 0px'), r[r.length - 1].cssText, sheet.addRule('o', 'top: 1', 0), r[0].selectorText);
              a.join('|')"),
-        "0|3|2|1:i { top: 1px; }/1:a { color: red; }/4:@media print { p { x: y } }/1:b { top:0; }/1:u { left:0; }\
-         |4||i { top: 1px; }|-1|q { top: 0; }|-1|o"
+        "0|3|2|1:i { top: 1px; }/1:a { color: red; }/4:@media print { p { x: y } }/1:b { top: 0px; }/1:u { left: 0px; }\
+         |4||i { top: 1px; }|-1|q { top: 0px; }|-1|o"
     );
     assert_eq!(
         run("const dom = thrown;
@@ -116,13 +118,13 @@ fn inserted_rules_reach_the_output() {
     let html = printed("s.sheet.insertRule('.css-1 { color: blue; }', 2)");
     assert!(
         html.contains(
-            "<style id=\"s\">a { color: red; }\nb { top:0; }\n.css-1 { color: blue; }</style>"
+            "<style id=\"s\">a { color: red; }\nb { top: 0px; }\n.css-1 { color: blue; }</style>"
         ),
         "{html}"
     );
     let html = printed("s.sheet.deleteRule(0)");
     assert!(
-        html.contains("<style id=\"s\">b { top:0; }</style>"),
+        html.contains("<style id=\"s\">b { top: 0px; }</style>"),
         "{html}"
     );
     let html = printed(
@@ -141,7 +143,7 @@ fn a_script_still_sees_the_text() {
     assert_eq!(
         run("sheet.insertRule('i {}');
              [s.textContent, s.innerHTML, s.outerHTML].join('|')"),
-        "a { color: red } b{top:0}|a { color: red } b{top:0}|<style id=\"s\">a { color: red } b{top:0}</style>"
+        "a { color: red } b { top: 0px; }|a { color: red } b { top: 0px; }|<style id=\"s\">a { color: red } b { top: 0px; }</style>"
     );
 }
 
@@ -149,7 +151,7 @@ fn a_script_still_sees_the_text() {
 fn a_sheet_a_script_left_alone_prints_as_written() {
     let html = printed("s.sheet.cssRules.length");
     assert!(
-        html.contains("<style id=\"s\">a { color: red } b{top:0}</style>"),
+        html.contains("<style id=\"s\">a { color: red } b { top: 0px; }</style>"),
         "{html}"
     );
 }
@@ -158,6 +160,128 @@ fn a_sheet_a_script_left_alone_prints_as_written() {
 fn a_changed_text_beats_old_edits_in_the_output() {
     let html = printed("s.sheet.insertRule('i {}'); s.textContent = 'z {}'");
     assert!(html.contains("<style id=\"s\">z {}</style>"), "{html}");
+}
+
+/// Review of #163: nothing has to read `sheet` for the old one to be out.
+#[test]
+fn a_replaced_sheet_is_out_at_once() {
+    let html = printed(
+        "const old = s.sheet;
+         s.textContent = 'z {}';
+         old.insertRule('i {}', 0);
+         old.deleteRule(0)",
+    );
+    assert!(html.contains("<style id=\"s\">z {}</style>"), "{html}");
+    assert_eq!(
+        run("const old = sheet;
+             s.textContent = 'q {}';
+             [old.ownerNode, s.sheet.ownerNode === s].join()"),
+        ",true"
+    );
+}
+
+/// Chrome: back to the same text is a new sheet, with what the text says.
+#[test]
+fn the_same_text_again_is_a_new_sheet() {
+    assert_eq!(
+        run("s.textContent = 'p {}';
+             const one = s.sheet;
+             one.insertRule('a {}', 0);
+             s.textContent = 'q {}';
+             s.sheet;
+             s.textContent = 'p {}';
+             [s.sheet === one, s.sheet.cssRules.length].join()"),
+        "false,1"
+    );
+    let html = printed(
+        "s.textContent = 'p {}';
+         s.sheet.insertRule('a {}', 0);
+         s.textContent = 'q {}';
+         s.sheet;
+         s.textContent = 'p {}'",
+    );
+    assert!(html.contains("<style id=\"s\">p {}</style>"), "{html}");
+}
+
+/// Every way the text changes makes a new sheet.
+#[test]
+fn each_path_to_the_text_counts() {
+    assert_eq!(
+        run("const o = [];
+             const check = (f) => { const was = s.sheet; f(); o.push(s.sheet !== was); };
+             check(() => { s.firstChild.data = 'x {}'; });
+             check(() => { s.append('y {}'); });
+             check(() => { s.firstChild.remove(); });
+             check(() => { s.innerHTML = 'z {}'; });
+             check(() => { s.replaceChildren(); });
+             check(() => { s.textContent = 'w {}'; });
+             check(() => { s.firstChild.appendData(' '); });
+             o.join()"),
+        "true,true,true,true,true,true,true"
+    );
+}
+
+/// HTML's "child text content": an element's text isn't the sheet's.
+#[test]
+fn only_a_styles_own_text_is_read() {
+    assert_eq!(
+        run("const n = document.createElement('style');
+             n.append('a {}', document.createElement('b'));
+             n.lastChild.textContent = 'c {}';
+             document.head.append(n);
+             String(n.sheet.cssRules.length)"),
+        "1"
+    );
+}
+
+#[test]
+fn a_type_that_isnt_css_has_no_sheet() {
+    assert_eq!(
+        run("const n = document.createElement('style');
+             n.type = 'text/plain';
+             n.textContent = 'a {}';
+             document.head.append(n);
+             const u = document.createElement('style');
+             u.type = 'TEXT/CSS';
+             document.head.append(u);
+             [n.sheet, !!u.sheet, document.styleSheets.length].join()"),
+        ",true,2"
+    );
+}
+
+/// Review of #163: what the tokenizer left open must not swallow the next rule.
+#[test]
+fn an_unterminated_rule_keeps_the_next_one() {
+    for open in [
+        "b{/*",
+        "b{content:\"x",
+        "b{top:(1",
+        "b{background:url(x",
+        "b{content:'x\\\\",
+    ] {
+        let html = printed(&format!(
+            "s.textContent = '';
+             s.sheet.insertRule({open:?});
+             s.sheet.insertRule('c {{ top: 0px; }}', 1)"
+        ));
+        let at = html.find("<style").unwrap();
+        let tail = &html[at..];
+        assert!(tail.contains("\nc { top: 0px; }</style>"), "{open}: {tail}");
+    }
+}
+
+#[test]
+fn a_statement_keeps_its_place() {
+    assert_eq!(
+        run("const n = document.createElement('style');
+             document.head.append(n);
+             const r = n.sheet;
+             r.insertRule('@import \"u\"');
+             const a = [thrown(() => sheet.insertRule('@namespace x \"y\";', 1)), thrown(() => sheet.insertRule('@import \"u\";', 1)),
+                        thrown(() => sheet.insertRule('a;b {}')), thrown(() => sheet.insertRule('@media x;')), r.cssRules[0].type];
+             a.join()"),
+        "InvalidStateError,HierarchyRequestError,SyntaxError,SyntaxError,3"
+    );
 }
 
 #[test]
