@@ -324,7 +324,22 @@
     return removeOptionAt(s, arguments[0] | 0);
   });
   defineProperty(protos[I_HTMLSelectElement].remove, 'name', { value: 'remove', configurable: true });
+  // Whether a script chose nothing, which no attribute can say. It holds until an
+  // option is selected again.
+  function clearedBy(s) {
+    if (s.cleared !== true) return false;
+    const list = htmlList(s, OPTIONS);
+    const m = size(list);
+    for (let i = 0; i < m; i++) {
+      if (attrOf(stateOf(at(list, i)), 'selected') !== null) {
+        s.cleared = false;
+        return false;
+      }
+    }
+    return true;
+  }
   function selectedIndexOf(s) {
+    if (clearedBy(s)) return -1;
     const chosen = htmlList(s, SELECTED);
     return size(chosen) === 0 ? -1 : indexIn(htmlList(s, OPTIONS), at(chosen, 0));
   }
@@ -336,6 +351,7 @@
       const o = stateOf(at(list, i));
       if (o.w !== keep) call(OP_removeAttribute, o.g, o.h, 'selected');
     }
+    s.cleared = keep === null;
     if (keep !== null) {
       const k = stateOf(keep);
       call(OP_setAttribute, k.g, k.h, 'selected', '');
@@ -344,6 +360,7 @@
   H.HTMLSelectElement_selectedIndex = selectedIndexOf;
   H.set_HTMLSelectElement_selectedIndex = (s, i) => { selectOnly(s, at(htmlList(s, OPTIONS), i)); };
   H.HTMLSelectElement_value = (s) => {
+    if (clearedBy(s)) return '';
     const chosen = htmlList(s, SELECTED);
     const m = size(chosen);
     for (let i = 0; i < m; i++) {
