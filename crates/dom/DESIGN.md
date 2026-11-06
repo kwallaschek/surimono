@@ -586,9 +586,9 @@ holds on the way. `HTMLOptionsCollection` and `HTMLFormControlsCollection` borro
 - **`selected` is the attribute**, as `checked` is for an input: what a script chooses
   has to reach the printed page. Rust's `selected_options` runs the standard's
   "selectedness setting algorithm" over the attributes on each read: a single select
-  has its last `selected` option, or its first enabled one at display size 1. So
-  `selectedIndex = -1` and `value = 'no such'` on a single select of size 1 read back
-  the first option, where a browser gives -1 and an empty string, and
+  has its last `selected` option, or its first enabled one at display size 1. A
+  script's `selectedIndex = -1` is a flag in the glue, since no attribute says it, so it
+  reads back; `selectedOptions` and the printer still see the first option. And
   `defaultSelected` and `selected` are one thing.
 - **`textarea.value`** is its text, which is what gets printed, so `defaultValue` is the
   same.
