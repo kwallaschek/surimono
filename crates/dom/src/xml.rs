@@ -780,6 +780,8 @@ struct PrefixMap<'d> {
     pairs: HashMap<(Option<&'d str>, Cow<'d, str>), u32>,
     /// What was added, in order, for `undo`.
     added: Vec<(Option<&'d str>, Cow<'d, str>)>,
+    /// How many namespaces each prefix stands for in scope.
+    prefixes: HashMap<Cow<'d, str>, u32>,
 }
 
 impl<'d> PrefixMap<'d> {
@@ -789,7 +791,13 @@ impl<'d> PrefixMap<'d> {
             .or_default()
             .push(prefix.clone());
         *self.pairs.entry((ns, prefix.clone())).or_default() += 1;
+        *self.prefixes.entry(prefix.clone()).or_default() += 1;
         self.added.push((ns, prefix));
+    }
+
+    /// Whether `prefix` stands for a namespace in scope.
+    fn is_bound(&self, prefix: &str) -> bool {
+        self.prefixes.contains_key(prefix)
     }
 
     fn has(&self, ns: Option<&'d str>, prefix: Cow<'d, str>) -> bool {
@@ -816,6 +824,12 @@ impl<'d> PrefixMap<'d> {
                 list.pop();
                 if list.is_empty() {
                     self.by_namespace.remove(&ns);
+                }
+            }
+            if let Some(n) = self.prefixes.get_mut(&prefix) {
+                *n -= 1;
+                if *n == 0 {
+                    self.prefixes.remove(&prefix);
                 }
             }
             let key = (ns, prefix);
@@ -1025,11 +1039,13 @@ impl<'d> Serializer<'d> {
                         candidate = Some(Cow::Borrowed("xmlns"));
                     }
                 } else if candidate.is_none() {
+                    // WPT XMLSerializer-serializeToString.html: not a prefix
+                    // an ancestor binds to another namespace either.
                     let free = a
                         .name
                         .prefix
                         .as_deref()
-                        .filter(|p| !local_prefixes.contains_key(p));
+                        .filter(|p| !local_prefixes.contains_key(p) && !self.map.is_bound(p));
                     let prefix = match free {
                         Some(p) => Cow::Borrowed(p),
                         None => Cow::Owned(self.generate_prefix()),

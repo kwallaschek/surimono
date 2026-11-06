@@ -94,6 +94,40 @@
     askElement(self(this, I_Element), 'getClientRects');
     return make(I_DOMRectList).w;
   });
+  // CSSOM View §6.1 and SVG 2 §5.2. Nothing has a box, so nothing moves and
+  // nothing is hit; `Throw` ends the call, as for every query.
+  // `(ScrollToOptions)` or `(x, y)`: a lone argument is a dictionary, and two
+  // are numbers. Named as WebIDL names an operation.
+  function scrollArguments(a, name) {
+    if (a.length === 1) dictionary(a[0], name);
+    else if (a.length > 1) { +a[0]; +a[1]; }
+  }
+  for (const name of ['scroll', 'scrollTo', 'scrollBy']) {
+    op(I_Element, name, { [name]() {
+      const s = self(this, I_Element);
+      scrollArguments(arguments, name);
+      askElement(s, name);
+    } }[name]);
+    op(I_Window, name, { [name]() {
+      self(this, I_Window);
+      scrollArguments(arguments, name);
+      askDocument(name);
+    } }[name]);
+  }
+  op(I_Element, 'scrollIntoView', function scrollIntoView() {
+    askElement(self(this, I_Element), 'scrollIntoView');
+  });
+  op(I_Document, 'elementsFromPoint', function elementsFromPoint(x, y) {
+    const s = self(this, I_Document);
+    need(arguments.length, 2, 'elementsFromPoint');
+    restricted(x); restricted(y);
+    askElement(s, 'elementsFromPoint');
+    return [];
+  });
+  op(I_SVGElement, 'getBBox', function getBBox() {
+    askElement(self(this, I_SVGElement), 'getBBox');
+    return newRect(I_DOMRect, undefined, 0, 0, 0, 0);
+  });
   // CSSOM View §6.3 on ranges: the same answers, and phase 3 the real ones.
   op(I_Range, 'getBoundingClientRect', function getBoundingClientRect() {
     askElement(self(this, I_Range), 'getBoundingClientRect');

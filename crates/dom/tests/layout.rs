@@ -27,6 +27,13 @@ const QUERIES: &[(&str, &str)] = &[
     ("clientWidth", "a.clientWidth"),
     ("clientHeight", "a.clientHeight"),
     ("scrollTop", "a.scrollTop"),
+    ("scrollTo", "a.scrollTo(0, 1)"),
+    ("scrollBy", "a.scrollBy(0, 1)"),
+    ("scroll", "a.scroll(0, 1)"),
+    ("scrollIntoView", "a.scrollIntoView()"),
+    ("elementsFromPoint", "document.elementsFromPoint(1, 2)"),
+    ("getBBox", "document.getElementById('s').getBBox()"),
+    ("scrollTo", "window.scrollTo(0, 1)"),
     ("scrollLeft", "a.scrollLeft"),
     ("scrollTop", "a.scrollTop = 5"),
     ("scrollLeft", "a.scrollLeft = 5"),
@@ -272,4 +279,36 @@ fn element_from_point_refuses_what_isnt_finite() {
         )
         .unwrap();
     assert_eq!(got, "TypeError,TypeError,TypeError,TypeError,TypeError,");
+}
+
+/// Nothing has a box: nothing moves, nothing is hit, and the box is empty.
+#[test]
+fn zeros_mode_for_what_moves_or_returns_lists() {
+    let mut rt = runtime(None);
+    let r: String = rt
+        .eval(&format!(
+            "{A} a.scrollTo(5, 5); a.scrollBy(1, 1); a.scrollIntoView(); scrollTo(1, 2); window.scrollBy(1, 1);
+             const b = document.getElementById('s').getBBox();
+             [a.scrollTop, scrollY, document.elementsFromPoint(1, 2).length, b.x, b.width, b instanceof DOMRect].join()"
+        ))
+        .unwrap();
+    assert_eq!(r, "0,0,0,0,0,true");
+}
+
+/// CSSOM View: one argument is a dictionary, and the functions have names.
+#[test]
+fn scroll_methods_convert_their_arguments() {
+    let mut rt = runtime(None);
+    let r: String = rt
+        .eval(&format!(
+            "{A} const name = (f) => {{ try {{ f(); return 'none'; }} catch (e) {{ return e.name; }} }};
+             [name(() => a.scrollTo(1)), name(() => scrollTo('x')), name(() => a.scrollBy({{ top: 1 }})),
+              name(() => scrollBy(null)), name(() => a.scroll()), name(() => a.scrollTo(1, 2)),
+              a.scrollTo.name, scrollBy.name, a.scroll.length].join()"
+        ))
+        .unwrap();
+    assert_eq!(
+        r,
+        "TypeError,TypeError,none,none,none,none,scrollTo,scrollBy,0"
+    );
 }

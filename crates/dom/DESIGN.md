@@ -163,6 +163,9 @@ the page's `window.onload`. No wider than a page's own scripts, which could run 
 same code; it matters only for conformance. `innerHTML` in an XML document parses and
 serializes as HTML on this branch. The template contents
 owner document doesn't exist: a template's content stays in the template's document.
+So `noscript` text in a template in the page serializes raw, where the spec and Chrome
+escape it, and the facade's screen of what a printer's parser makes of the output relies
+on seeing that markup (`crates/surimono/tests/page.rs`).
 `createDocumentType` follows the current "valid doctype name". A `splitText` of a
 CDATA section gives a CDATA section's data in a Text node, as the standard does.
 `Attr` isn't a whole `Node` (see COMPAT).
@@ -226,6 +229,16 @@ page's resolver, the one external scripts use, and no resolver means no frame.
   the time limit, checked between rounds, so a page can take about twice it. A render
   starts at most `MAX_FRAMES` loads; the rest stay blank and fire nothing.
 - A frame's type goes by its URL's extension, there being no Content-Type.
+- Setting or removing `srcdoc`, and `src` on a frame with no `srcdoc`, in no
+  namespace, loads an `<iframe>` again in the next round (HTML §4.8.5), a new document
+  under the same `MAX_FRAMES`. The old window keeps the old document, where a browser's
+  window object would move on. A reload with nothing to load, such as `about:blank`
+  with no resolver answer or `srcdoc` removed with no `src`, keeps the document it
+  has and fires `load`.
+- A frame's window has its own `setTimeout`, on the page's clock, whose callbacks run
+  only while the frame is fully active: its `<iframe>` is connected, up the chain of
+  frames to the page. A string handler does nothing and returns 0, since no script
+  runs in a frame. Its other timers are the page's.
 - `frames` is a list built per read, not the window, and `window[0]` doesn't exist.
 - `__surimonoFrameLoads` is a global, non-enumerable and fixed, because Rust has no
   other way into the glue between settles that survives a sandbox rebuild. A script
@@ -325,8 +338,10 @@ Bound as far as the policy goes: `getBoundingClientRect`, `getClientRects`,
 `client*`, `scroll*` (setters ask too, and scroll nothing), `offset*`,
 `elementFromPoint`, `getComputedStyle`, and the window's `innerWidth`, `innerHeight`,
 `outerWidth`, `outerHeight`, `scrollX`, `scrollY`, `pageXOffset`, `pageYOffset`.
-Not bound: `elementsFromPoint`, `scrollIntoView`, `scrollTo` and the rest that
-move or return sequences, `getBBox`. `pseudoElt` is converted and ignored.
+`scroll`, `scrollTo`, `scrollBy` and `scrollIntoView` on elements (the first three on
+the window too) move nothing, `elementsFromPoint` hits nothing, and `getBBox` is a zero
+`DOMRect`, on every SVG element where SVG 2 has it on graphics elements only. `Throw`
+applies to all of them. `pseudoElt` is converted and ignored.
 `DOMRectList` has `item` but no indexed properties, since it is always empty.
 
 ## Events and the page's life
@@ -390,6 +405,10 @@ only points a page can observe a listener's place from. Raw text compiles once,
 on first use. On a body or frameset element the Window-reflecting set is the
 window's. `document.currentScript` is the glue's, set from a script's run until
 a separate lifecycle step after its microtasks, which then fires its `load`.
+An `svg` element fires `load` as SVG 2 §15.2 says, once the document's resources have
+loaded: all of them in one step just before the window's `load`, in the order of their
+end tags. Chrome differs: a nested `svg` fires as it closes, before `DOMContentLoaded`,
+and its order among outermost ones isn't tree order. The spec wins.
 
 **Event interfaces.** Every interface inheriting from `Event` is generated
 whole (`JS_INTERFACES` in the generator): the constructor reads its dictionary
@@ -409,12 +428,16 @@ which is what gets printed, so a form's reset can't restore it.
 
 **Named access on the window** is WebIDL's named properties object, between
 `Window.prototype` and `EventTarget.prototype`: a getter for each `id` in the
-parsed tree, made before the first script, at most 4,096. Not a Proxy: QuickJS
+parsed tree, made before the first script, at most 4,096. Writing follows OrdinarySet: the
+value lands on the receiver if it takes it. A refusal is silent, because a setter can't
+answer `false`: `Reflect.set` says `true`, and a strict-mode write to a frozen receiver
+doesn't throw. Not a Proxy: QuickJS
 reads a global through the prototype chain, and a Proxy there makes an undeclared
 name `undefined` instead of a ReferenceError.
 
 **A checkpoint between listeners.** An event fired from a task of the page's life
-(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`), for
+(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`, an
+`iframe`'s and an `svg`'s `load`), `toggle`, `hashchange`, a traversal's `popstate`, for
 a rejected promise, or by `AbortSignal.timeout` (at the signal and at the signals
 that depend on it) has no script under its dispatch, so "clean up after running
 script" finds the stack empty after each listener and that is a microtask checkpoint
@@ -427,7 +450,8 @@ The checkpoint comes before inner invoke reports the listener's exception and wi
 `window.event` still set, as WebIDL's order gives; an `error` event reported from such
 a listener has one after each of its listeners too. Chrome reports first (`L1, E1, E2,
 m, em, L2`, the spec gives `L1, m, E1, em, E2, L2`). The spec wins for DOM behaviour;
-the conflict is in `docs/DECISIONS.md`.
+the conflict is in `docs/DECISIONS.md`. A timer that throws follows the same order
+(`T, m, E1, em, E2`). `requestAnimationFrame` and `queueMicrotask` callbacks don't yet.
 
 **Gaps** (each for docs/COMPAT.md): a
 handler's scope has no form owner; MathML elements have no `on*` attributes (no
@@ -717,11 +741,15 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
 
 ## Deviations and gaps for E2-02
 
-- **Selectors.** `:has()`, `:nth-child(… of S)` and `:dir()` are refused with
-  a `SyntaxError`, as blitz-dom's parser configuration has them. `:enabled`,
-  `:disabled`, `:checked`, `:required`, `:optional`, `:lang()`, `:defined` and
-  `:read-only` parse and match nothing. `[a=b i]` is case-sensitive, and
-  attribute selectors don't look at the namespace. `:scope` in a
+- **Selectors.** `:has()`, `:nth-child(… of S)`, `:dir()`, `::first-line` and
+  `::first-letter` are refused with a `SyntaxError`, as blitz-dom's parser
+  configuration has them. `:indeterminate`, `:default`, `:placeholder-shown`,
+  `:valid` and `:invalid` parse and match nothing. `:enabled`, `:disabled`,
+  `:checked`, `:required`, `:optional`, `:read-only`, `:read-write`, `:lang()`,
+  `:defined` and `:target` are answered in `select.rs`; `checked` and `selected` are
+  the attributes, as everywhere here, and `:target` is the URL's fragment, in the
+  document queried, from the first script on: Chrome sets the target at the end of
+  parsing, so an inline script finds nothing there. `:scope` in a
   `DocumentFragment` query matches nothing (Selectors 4 makes the fragment's
   top-level elements its children). WPT dom/nodes/selectors.js covers several.
 - **Selector limits.** To keep hostile selectors off the stack and out of Rust's

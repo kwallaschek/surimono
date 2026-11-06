@@ -748,7 +748,10 @@
   // pastes source together, so `}, function () {` isn't, which gets a page
   // nothing it hasn't got in a script.
   function compile(s, name, e) {
-    const params = s === windowState && name === 'onerror' ? 'event,source,lineno,colno,error' : 'event';
+    // SVG's own scripts name the parameter `evt` (SVG 2 §15.8); HTML says `event`
+    // on elements in the HTML namespace.
+    const params = s === windowState && name === 'onerror' ? 'event,source,lineno,colno,error'
+      : is(s, I_SVGElement) ? 'evt' : 'event';
     try {
       new FunctionCtor(params, e.raw);
       const build = new FunctionCtor(

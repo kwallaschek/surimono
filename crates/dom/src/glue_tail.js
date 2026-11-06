@@ -69,7 +69,7 @@
         },
         // WebIDL §3.7.4 reports a writable data property, so an assignment
         // makes an own property of the window, as for `chart = init(...)`.
-        set: function (v) { replaceable(G, name, v); },
+        set: function (v) { ordinarySet(this === undefined || this === null ? G : this, name, v); },
         enumerable: false, configurable: true,
       });
     });
@@ -99,12 +99,16 @@
     const args = create(null);
     args.length = argc > 2 ? argc - 2 : 0;
     for (let i = 2; i < argc; i++) args[i - 2] = a[i];
+    // WebIDL "invoke a callback function" cleans up, which is the checkpoint,
+    // before the exception is reported; `error`'s listeners then each get one.
+    // HTML "run a classic script" reports first and cleans up after.
     const task = function () {
       try {
         if (isFunction) apply(handler, G, args);
         else n.runSource(apply(toWellFormed, handler, []));
       } catch (x) {
-        reportException(x);
+        if (isFunction && !n.limit(x)) n.checkpoint();
+        reportException(x, isFunction);
       }
     };
     return argc > 1 ? real(task, a[1]) : real(task);
@@ -172,7 +176,16 @@
     const h = call(OP_staticRange, g, root(), startContainer, startOffset, endContainer, endOffset);
     return adopt(wrap(g, h), target, I_StaticRange);
   };
-  H.XMLSerializer_serializeToString = (s, node) => call(OP_serializeXml, node.g, node.h, node.h);
+  H.XMLSerializer_serializeToString = (s, node) => (
+    // DOM Parsing §3.2.1: an `Attr` serializes as nothing.
+    is(node, I_Attr) ? '' : call(OP_serializeXml, node.g, node.h, node.h));
+  // SVG 2 §4.5: the document's element, if it is an outermost `svg`.
+  H.Document_rootElement = (s) => {
+    const e = wrap(s.g, call(OP_documentElement, s.g, s.h));
+    if (e === null) return null;
+    const x = stateOf(e);
+    return is(x, I_SVGElement) && call(OP_localName, x.g, x.h) === 'svg' ? e : null;
+  };
 
   // Timer ids up to this one are the page's lifecycle, and no script may
   // cancel those (`start`), nor the glue's own tasks (`task`).
@@ -199,9 +212,27 @@
       own(w, 'location', locationOf(s));
       own(w, 'history', historyRecord(s).w);
       own(w, 'DOMParser', frameParser(s));
+      const t = create(null);
+      t.value = frameTimeout(s); t.writable = true; t.configurable = true;
+      defineProperty(w, 'setTimeout', t);
       s.frameWindow = w;
     }
     return s.frameWindow;
+  }
+  // A frame's timers are the page's, on one clock, but they are the frame's
+  // to lose: HTML §8.6 runs nothing for a document that isn't fully active.
+  const pageTimeout = G.setTimeout;
+  function frameTimeout(s) {
+    return function setTimeout(handler) {
+      if (arguments.length === 0) return apply(pageTimeout, G, []);
+      // A string would run in the frame, and no script runs there.
+      if (typeof handler !== 'function') return 0;
+      const a = arguments;
+      a[0] = function () {
+        if (call(OP_frameAttached, s.g, s.h)) apply(handler, this, arguments);
+      };
+      return apply(pageTimeout, G, a);
+    };
   }
   // A DOMParser's URL is its "associated document"'s, the document of the
   // global it was made in (HTML §8.5.3), and that is what a frame's window
@@ -236,7 +267,7 @@
     for (;;) {
       const h = call(OP_nextFrameLoad, g, root());
       if (h === 0) return;
-      fire(stateOf(wrap(g, h)), 'load');
+      fireInTask(stateOf(wrap(g, h)), 'load');
     }
   }
   // Called by `run_page` when frames have loaded. A script can call it too,
@@ -309,6 +340,16 @@
     };
   }
 
+  // SVG 2 §15.2: `load` at an `svg` element once the document's resources
+  // have loaded, in the order of the end tags, just before the window's. Rust
+  // has the list, which no script's getter can reach.
+  function svgLoads(g) {
+    nameList(call(OP_svgElements, g, root()), (h) => {
+      const s = stateOf(wrap(g, +h));
+      if (connected(s)) fireInTask(s, 'load');
+    });
+  }
+
   // Every step of the page's life is queued here, before any of its scripts
   // runs: same due time, earlier sequence numbers, so they all come before
   // the page's own timers, in this order, each a task with a microtask
@@ -349,6 +390,7 @@
     step(setState(2));
     // The frames the parser found: `load` waits for them (HTML §4.8.5).
     step(frameLoads);
+    step(() => { svgLoads(g); });
     step(() => {
       // HTML: `load` goes to the window, with the document as its target.
       const s = make(I_Event);
