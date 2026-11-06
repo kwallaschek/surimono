@@ -111,10 +111,11 @@
       let end = apply(indexOf, q, ['&', at]);
       if (end < 0) end = q.length;
       if (end > at) {
-        const eq = apply(indexOf, q, ['=', at]);
-        const split = eq >= 0 && eq < end;
-        const name = apply(slice, q, [at, split ? eq : end]);
-        const value = split ? apply(slice, q, [eq + 1, end]) : '';
+        // Searched in the piece alone: `a&a&a…` with no `=` stays linear.
+        const piece = apply(slice, q, [at, end]);
+        const eq = apply(indexOf, piece, ['=']);
+        const name = eq < 0 ? piece : apply(slice, piece, [0, eq]);
+        const value = eq < 0 ? '' : apply(slice, piece, [eq + 1]);
         add(out, pair(n.formDecode(name), n.formDecode(value)));
       }
       at = end + 1;
@@ -477,6 +478,15 @@
     }
     return true;
   }
+  // An HTML element name with an interface of its own, which is what `extends` takes.
+  const unknownProto = () => protos[I_HTMLUnknownElement];
+  const documentCreateNS = protos[I_Document].createElementNS;
+  function knownElement(local) {
+    const g = current();
+    if (g === 0) return false;
+    const e = apply(documentCreateNS, wrap(g, root()), ['http://www.w3.org/1999/xhtml', local]);
+    return getPrototypeOf(e) !== unknownProto();
+  }
   H.Window_customElements = () => registry.w;
   H.CustomElementRegistry_define = (r, name, ctor, options) => {
     if (typeof ctor !== 'function') throw new TE('define: the constructor is not callable');
@@ -487,8 +497,24 @@
     if (apply(mapHas, r.byCtor, [ctor])) {
       throwDom('NotSupportedError', 'this constructor is already defined');
     }
+    // HTML §4.13.4 define, steps 7 and 14: `extends` must name a built-in HTML
+    // element, and each lifecycle callback present must be callable.
+    const extended = isObject(options) ? options.extends : undefined;
+    if (extended !== undefined && extended !== null) {
+      const local = `${extended}`;
+      if (validCustomName(local) || !knownElement(local)) {
+        throwDom('NotSupportedError', `${local} is not an element that can be extended`);
+      }
+    }
     const p = ctor.prototype;
     if (!isObject(p)) throw new TE('define: the constructor has no prototype object');
+    for (const callback of ['connectedCallback', 'disconnectedCallback', 'connectedMoveCallback',
+                            'adoptedCallback', 'attributeChangedCallback']) {
+      const f = p[callback];
+      if (f !== undefined && typeof f !== 'function') {
+        throw new TE(`define: ${callback} is not callable`);
+      }
+    }
     r.names[`$${name}`] = ctor;
     apply(mapSet, r.byCtor, [ctor, name]);
     const waiting = r.waiting[`$${name}`];

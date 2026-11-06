@@ -100,15 +100,16 @@
     args.length = argc > 2 ? argc - 2 : 0;
     for (let i = 2; i < argc; i++) args[i - 2] = a[i];
     // WebIDL "invoke a callback function" cleans up, which is the checkpoint,
-    // before the exception is reported; `error`'s listeners then each get one.
-    // HTML "run a classic script" reports first and cleans up after.
+    // before the exception is reported; `error`'s listeners then each get one. HTML
+    // §8.7's timer steps run a string as a function's body would be, from a task
+    // with no script below, so the same order holds for it (`T, m, E1, em, E2`).
     const task = function () {
       try {
         if (isFunction) apply(handler, G, args);
         else n.runSource(apply(toWellFormed, handler, []));
       } catch (x) {
-        if (isFunction && !n.limit(x)) n.checkpoint();
-        reportException(x, isFunction);
+        if (!n.limit(x)) n.checkpoint();
+        reportException(x, true);
       }
     };
     return argc > 1 ? real(task, a[1]) : real(task);
