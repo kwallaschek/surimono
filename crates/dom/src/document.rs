@@ -2,17 +2,37 @@
 
 use std::borrow::Cow;
 use std::cell::Cell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use blitz_dom::node::NodeFlags;
 use blitz_dom::{BaseDocument, DocumentConfig, LocalName, NodeData, QualName, ns};
+use html5ever::Namespace;
 use surimono_core::Deadline;
 use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
 use crate::style_attr;
+use crate::xml;
+
+/// Most `<iframe>`s loaded in a render. Each costs a parse, and a page can
+/// make them in a loop; later ones stay at `about:blank`, with no `load`.
+const MAX_FRAMES: usize = 64;
+
+/// The XML `contentType` of a frame at `url`, by its path's extension, or
+/// `None` for HTML.
+fn frame_content_type(url: &str) -> Option<&'static str> {
+    let path = url.split(['?', '#']).next().unwrap_or(url);
+    let extension = path.rsplit('/').next()?.rsplit_once('.')?.1;
+    match extension {
+        "xht" | "xhtml" => Some(APPLICATION_XHTML),
+        "xml" => Some(APPLICATION_XML),
+        "svg" => Some("image/svg+xml"),
+        _ => None,
+    }
+}
 
 /// Infra's ASCII whitespace.
 const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
@@ -71,6 +91,10 @@ pub struct DomLimits {
     /// on drop. These strings live in Rust, outside the JavaScript heap
     /// limit, and one JavaScript string can be stored on many nodes.
     pub max_text_bytes: usize,
+    /// Most attributes on one element. html5ever's cost for a tag is
+    /// quadratic in its attributes, and so is any tree's for an element: a
+    /// page has a few dozen.
+    pub max_attributes: usize,
 }
 
 /// Bytes charged per attribute beyond its name and value: what the entry
@@ -92,6 +116,8 @@ impl DomLimits {
     /// 256 MiB: far above a real page, inline images included, and small
     /// enough that a script hits this rather than the process's memory.
     pub const DEFAULT_MAX_TEXT_BYTES: usize = 256 * 1024 * 1024;
+    /// 4,096 attributes, the printing pass's cap.
+    pub const DEFAULT_MAX_ATTRIBUTES: usize = 4_096;
 
     /// Checks the limits are in range: every limit at least 1, `max_depth`
     /// at most [`MAX_DEPTH`](Self::MAX_DEPTH), `max_handles` within `u32`.
@@ -105,6 +131,7 @@ impl DomLimits {
             || self.max_depth == 0
             || self.max_handles == 0
             || self.max_text_bytes == 0
+            || self.max_attributes == 0
         {
             return bad("every DOM limit must be at least 1");
         }
@@ -125,18 +152,91 @@ impl Default for DomLimits {
             max_depth: Self::DEFAULT_MAX_DEPTH,
             max_handles: Self::DEFAULT_MAX_HANDLES,
             max_text_bytes: Self::DEFAULT_MAX_TEXT_BYTES,
+            max_attributes: Self::DEFAULT_MAX_ATTRIBUTES,
         }
     }
+}
+
+/// What a script's layout queries do until phase 3 answers them from real
+/// layout: `getBoundingClientRect`, `getClientRects`, `client*`, `scroll*`,
+/// `offset*`, `elementFromPoint`, `getComputedStyle` and the window's
+/// `innerWidth`, `outerWidth`, `scrollX` and the like.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum LayoutPolicy {
+    /// Answer as a browser does for an element with no box: zeros, an empty
+    /// rectangle list, a null `offsetParent` and `elementFromPoint`, and a
+    /// computed style with no properties. Pages that only measure keep going.
+    #[default]
+    Zeros,
+    /// End the call with [`DomError::LayoutQuery`], for callers who would
+    /// rather have no page than one built on made-up measurements.
+    Throw,
 }
 
 /// What kind of node a handle names, as the DOM's `nodeType` numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
     Element = 1,
+    /// Text, and `CDATASection` (`is_cdata`), which is a Text node.
     Text = 3,
+    ProcessingInstruction = 7,
     Comment = 8,
     Document = 9,
+    DocumentType = 10,
     DocumentFragment = 11,
+}
+
+/// What blitz-dom has no node for. A doctype and a processing instruction are
+/// comment nodes to it, so it and its layout skip them; a CDATA section is a
+/// text node. The kind is here, by node id. Only looked up.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Special {
+    Doctype {
+        name: String,
+        public_id: String,
+        system_id: String,
+    },
+    /// Its data is in `side_data`, as a comment's is.
+    Instruction {
+        target: String,
+    },
+    Cdata,
+}
+
+impl Special {
+    /// Strings it holds, charged to the document.
+    fn bytes(&self) -> usize {
+        match self {
+            Self::Doctype {
+                name,
+                public_id,
+                system_id,
+            } => name.len() + public_id.len() + system_id.len(),
+            Self::Instruction { target } => target.len(),
+            Self::Cdata => 0,
+        }
+    }
+}
+
+/// `contentType` of an HTML document.
+pub(crate) const TEXT_HTML: &str = "text/html";
+/// `contentType` of an XML document with no better type.
+pub(crate) const APPLICATION_XML: &str = "application/xml";
+const APPLICATION_XHTML: &str = "application/xhtml+xml";
+
+/// What differs between the documents of a render (DOM §4.5).
+#[derive(Debug, Clone)]
+pub(crate) struct DocInfo {
+    /// Its type is HTML, not XML (DOM "HTML document").
+    pub html: bool,
+    /// The interface is `XMLDocument`, not `Document`.
+    pub xml_interface: bool,
+    pub quirks: bool,
+    pub content_type: &'static str,
+    /// An iframe's: a `defaultView`, though no script of its own.
+    pub frame: bool,
+    /// One allocation, however many documents take the URL.
+    pub url: Arc<str>,
 }
 
 /// The element name that marks a `DocumentFragment`: blitz-dom has no such
@@ -150,9 +250,21 @@ pub(crate) fn fragment_name() -> LocalName {
     LocalName::from(FRAGMENT_NAME)
 }
 
-/// Whether `name` is the marker of a fragment.
-pub(crate) fn is_fragment_name(name: &QualName) -> bool {
-    name.local.as_ref() == FRAGMENT_NAME
+/// The element name that marks a document other than the slab's first: a
+/// blitz-dom document has one document node. All documents of a render live in
+/// one slab, so a node moves between them by a change of owner, a wrapper
+/// stays valid when it does, and one set of limits covers them all.
+const DOCUMENT_NAME: &str = "#document";
+
+/// Whether `name` is the marker of a fragment or of a document, which no
+/// script sees as an element.
+pub(crate) fn is_container_name(name: &QualName) -> bool {
+    matches!(name.local.as_ref(), FRAGMENT_NAME | DOCUMENT_NAME)
+}
+
+/// Whether `name` is the marker of a document.
+pub(crate) fn is_document_name(name: &QualName) -> bool {
+    name.local.as_ref() == DOCUMENT_NAME
 }
 
 /// Which elements a live list holds.
@@ -164,6 +276,8 @@ pub(crate) enum ListKind {
     Children,
     /// `getElementsByTagName`.
     ByTag(String),
+    /// `getElementsByTagNameNS`: namespace (`None` for `*`), local name.
+    ByTagNs(Option<String>, String),
     /// `getElementsByClassName`.
     ByClass(String),
 }
@@ -185,6 +299,10 @@ pub(crate) enum Object {
     Dataset(usize),
     /// `style`.
     Style(usize),
+    /// `document.implementation`.
+    Implementation(usize),
+    /// `getComputedStyle`: empty and read-only until there is layout.
+    Computed(usize),
     /// A `MutationRecord`.
     Record(Box<MutationRecord>),
     /// An `Attr`: its element, its name, and, once it has left the element,
@@ -241,6 +359,8 @@ pub(crate) enum Owned {
     Attributes,
     Dataset,
     Style,
+    Implementation,
+    Computed,
     Attr(QualName),
 }
 
@@ -302,8 +422,30 @@ pub struct Document {
     side_data: HashMap<usize, String>,
     /// Bytes held (see [`DomLimits::max_text_bytes`]).
     held_bytes: usize,
-    /// The document was parsed in quirks mode.
-    quirks: bool,
+    /// Each document node's own state (see [`DocInfo`]).
+    docs: HashMap<usize, DocInfo>,
+    /// The document of every node not in the first one, documents themselves
+    /// included (each is its own). Empty on an ordinary page, and looked at
+    /// through that first. Only looked up.
+    owners: HashMap<usize, usize>,
+    /// The document nodes made now belong to: the document of the running
+    /// member's `this` (see [`Document::enter`]).
+    making: usize,
+    /// The page's document is an HTML document: all of them are, on an
+    /// ordinary page, which saves the lookup.
+    page_html: bool,
+    /// An `<iframe>` to its document, once it has one.
+    frames: HashMap<usize, usize>,
+    /// `<iframe>`s whose load has been started. Each loads once.
+    frames_started: HashSet<usize>,
+    /// Loads started in this render, whatever became of them.
+    frame_count: usize,
+    /// Sources a resolver gave, to parse inside a call: (element, text, URL).
+    frame_sources: VecDeque<(usize, Option<String>, String)>,
+    /// Handles of `<iframe>`s whose `load` is due.
+    frame_loads: VecDeque<Handle>,
+    /// See [`Special`].
+    specials: HashMap<usize, Special>,
     /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
     /// page lifecycle has run on is complete.
     ready_state: u32,
@@ -314,6 +456,8 @@ pub struct Document {
     pub(crate) fault: Option<DomError>,
     /// The running call's deadline, set for each native call.
     pub(crate) deadline: Option<Deadline>,
+    /// What layout queries do, set for each native call.
+    pub(crate) layout: LayoutPolicy,
     /// The body or frameset element whose `on*` attribute was written last:
     /// its attributes are the window's. A handle, so its node stays.
     pub(crate) handler_source: Option<Handle>,
@@ -334,6 +478,42 @@ impl std::fmt::Debug for Document {
 }
 
 impl Document {
+    /// Parses `source` as an XML document (a page served as XHTML), with
+    /// the default [`DomLimits`]. See [`parse_xml_with_limits`](Self::parse_xml_with_limits).
+    pub fn parse_xml(source: &str) -> Result<Self, DomError> {
+        Self::parse_xml_with_limits(source, DomLimits::default())
+    }
+
+    /// Parses `source` as an XML document of type `application/xhtml+xml`.
+    /// Input that isn't well-formed gives a document with a `parsererror`
+    /// element, as DOMParser's does, so the page's scripts run on what a
+    /// browser would show. Fails on the same limits as [`parse_with_limits`](Self::parse_with_limits).
+    pub fn parse_xml_with_limits(source: &str, limits: DomLimits) -> Result<Self, DomError> {
+        Self::parse_xml_stoppable(source, limits, || false)
+    }
+
+    /// [`parse_xml_with_limits`](Self::parse_xml_with_limits) under a caller's
+    /// stop check, asked as tokens go by: once `stop` says so, the parse
+    /// fails with [`DomError::Stopped`] and frees what it made. This parse runs
+    /// outside any script's time limit, as [`parse_stoppable`](Self::parse_stoppable)'s does.
+    pub fn parse_xml_stoppable(
+        source: &str,
+        limits: DomLimits,
+        stop: impl Fn() -> bool,
+    ) -> Result<Self, DomError> {
+        let mut doc = Self::parse_with_limits("", limits)?;
+        let root = doc.root();
+        doc.remove_children_quietly(root);
+        if let Some(d) = doc.docs.get_mut(&root) {
+            d.html = false;
+            d.quirks = false;
+            d.content_type = APPLICATION_XHTML;
+        }
+        doc.page_html = false;
+        doc.fill_xml_until(root, source, &stop)?;
+        Ok(doc)
+    }
+
     /// Parses `html` with the default [`DomLimits`].
     pub fn parse(html: &str) -> Result<Self, DomError> {
         Self::parse_with_limits(html, DomLimits::default())
@@ -348,7 +528,28 @@ impl Document {
     /// range. The parser itself doesn't recurse per level, and a refused
     /// tree is freed without recursing (blitz-dom keeps nodes in a slab).
     pub fn parse_with_limits(html: &str, limits: DomLimits) -> Result<Self, DomError> {
+        Self::parse_stoppable(html, limits, || false)
+    }
+
+    /// [`parse_with_limits`](Self::parse_with_limits) under a caller's stop
+    /// check, asked between feeds of the parser: once `stop` says so, the
+    /// parse fails with [`DomError::Stopped`] and frees what it made. For input
+    /// a caller doesn't trust, because this parse runs outside any script's
+    /// time limit and one tag can cost quadratic time in its length until
+    /// [`DomLimits::max_attributes`] can see it, at the tag's end.
+    pub fn parse_stoppable(
+        html: &str,
+        limits: DomLimits,
+        stop: impl Fn() -> bool,
+    ) -> Result<Self, DomError> {
         limits.validate()?;
+        // `stop` may answer differently next time; what it said is kept.
+        let halted = Cell::new(false);
+        let stop = || {
+            let now = stop();
+            halted.set(halted.get() || now);
+            now
+        };
         let mut inner = BaseDocument::new(DocumentConfig::default());
         // Nothing is "in the document" as far as blitz-dom can tell. Its
         // hooks for elements joining the document have no use here (nothing
@@ -358,14 +559,27 @@ impl Document {
             .root_node_mut()
             .flags
             .remove(NodeFlags::IS_IN_DOCUMENT);
+        let root = inner.root_node().id;
         let parsed = parse::parse_document(
             &mut inner.mutate(),
+            root,
             html,
             ParseLimits {
                 max_nodes: limits.max_nodes,
                 max_depth: limits.max_depth,
+                max_attributes: limits.max_attributes,
             },
+            true,
+            stop,
         );
+        let info = DocInfo {
+            html: true,
+            xml_interface: false,
+            quirks: parsed.quirks,
+            content_type: TEXT_HTML,
+            frame: false,
+            url: Arc::from("about:blank"),
+        };
         let mut doc = Self {
             inner,
             generation: NEXT_GENERATION.fetch_add(1, Ordering::Relaxed),
@@ -385,11 +599,21 @@ impl Document {
             node_to_handle: Vec::new(),
             side_data: parsed.strings.into_iter().collect(),
             held_bytes: 0,
-            quirks: parsed.quirks,
+            docs: HashMap::from([(root, info)]),
+            owners: HashMap::new(),
+            making: root,
+            page_html: true,
+            frames: HashMap::new(),
+            frames_started: HashSet::new(),
+            frame_count: 0,
+            frame_sources: VecDeque::new(),
+            frame_loads: VecDeque::new(),
+            specials: parsed.specials.into_iter().collect(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
             fault: None,
             deadline: None,
+            layout: LayoutPolicy::default(),
             handler_source: None,
             ticks: Cell::new(0),
             list_steps: 0,
@@ -401,6 +625,14 @@ impl Document {
         }
         if parsed.over_style {
             return Err(style_attr::limit_error());
+        }
+        if parsed.over_attributes {
+            return Err(DomError::AttributeLimit {
+                limit: limits.max_attributes,
+            });
+        }
+        if halted.get() {
+            return Err(DomError::Stopped);
         }
         if doc.height(doc.root()) - 1 > limits.max_depth || parsed.over_limit {
             return Err(DomError::TreeTooDeep {
@@ -435,6 +667,9 @@ impl Document {
         // The parser's own root and holder add two levels.
         let levels = self.limits.max_depth.saturating_sub(self.depth(parent)) + 2;
         let deadline = self.deadline.clone();
+        // HTML §13.4: the flag is that of the context's node document, and only
+        // the page's has a browsing context.
+        let scripting = self.making == self.root();
         let parsed = parse::parse_fragment(
             &mut self.inner.mutate(),
             context,
@@ -443,10 +678,13 @@ impl Document {
             ParseLimits {
                 max_nodes: room,
                 max_depth: levels,
+                max_attributes: self.limits.max_attributes,
             },
+            scripting,
             || deadline.as_ref().is_some_and(Deadline::passed),
         );
         self.side_data.extend(parsed.strings);
+        self.specials.extend(parsed.specials);
         // Before the count: a walk goes through a template to its content.
         self.templates.extend(parsed.templates);
         // Charged here and credited by the drops below if it is refused. The
@@ -493,6 +731,12 @@ impl Document {
             self.drop_subtree(holder);
             return Err(style_attr::limit_error());
         }
+        if parsed.over_attributes {
+            self.drop_subtree(holder);
+            return Err(DomError::AttributeLimit {
+                limit: self.limits.max_attributes,
+            });
+        }
         if limit.is_some() || timed_out || parsed.over_limit {
             self.drop_subtree(holder);
             return match limit {
@@ -503,7 +747,573 @@ impl Document {
                 }),
             };
         }
+        // The parser's nodes didn't go through `born`.
+        if self.making != self.root() {
+            self.own_subtree(holder, self.making);
+        }
         Ok(Some(holder))
+    }
+
+    /// The document of the node `this` names, once `enter` has run: where the
+    /// member's new nodes go.
+    pub(crate) fn making(&self) -> usize {
+        self.making
+    }
+
+    /// The start of a member's call on object `this`: nodes it makes join
+    /// that object's document (DOM: "node document"). `new Text()` and other
+    /// constructors come with the first document as `this`.
+    pub(crate) fn enter(&mut self, this: Handle) {
+        let root = self.root();
+        self.making = root;
+        if self.owners.is_empty() {
+            return;
+        }
+        let owner = match this
+            .checked_sub(1)
+            .and_then(|i| self.objects.get(i as usize))
+        {
+            Some(
+                Object::Node(n)
+                | Object::Live(n, _)
+                | Object::Tokens(n)
+                | Object::Attributes(n)
+                | Object::Dataset(n)
+                | Object::Style(n)
+                | Object::Implementation(n)
+                | Object::Computed(n)
+                | Object::Attr(n, ..),
+            ) => *n,
+            _ => root,
+        };
+        self.making = self.owner_of_node(owner);
+    }
+
+    /// `id`'s node document; a document is its own.
+    pub(crate) fn owner_of_node(&self, id: usize) -> usize {
+        self.owners.get(&id).copied().unwrap_or_else(|| self.root())
+    }
+
+    /// The state of document `doc`.
+    pub(crate) fn info(&self, doc: usize) -> &DocInfo {
+        // Every document node has an entry, made with it, and lives as long
+        // as the slab; `doc` comes from `owners`, `making` or a `Kind::Document`.
+        self.docs
+            .get(&doc)
+            .unwrap_or_else(|| &self.docs[&self.root()])
+    }
+
+    /// Whether `id` is in an HTML document, not an XML one.
+    pub(crate) fn in_html_document(&self, id: usize) -> bool {
+        if self.owners.is_empty() {
+            return self.page_html;
+        }
+        self.info(self.owner_of_node(id)).html
+    }
+
+    fn set_owner(&mut self, id: usize, doc: usize) {
+        if doc == self.root() {
+            self.owners.remove(&id);
+        } else {
+            self.owners.insert(id, doc);
+        }
+    }
+
+    /// DOM §4.5 "adopt", after the removal: `top` and what it owns go to
+    /// `doc`. Linear in the subtree; nothing to do within one document.
+    pub(crate) fn adopt_subtree(&mut self, top: usize, doc: usize) {
+        if self.owner_of_node(top) != doc {
+            self.own_subtree(top, doc);
+            // What a live list answers depends on the document's type.
+            self.version += 1;
+        }
+    }
+
+    /// Makes `doc` the document of `top`, its subtree and its templates'
+    /// content, whatever they had.
+    fn own_subtree(&mut self, top: usize, doc: usize) {
+        let mut stack = vec![top];
+        while let Some(n) = stack.pop() {
+            self.set_owner(n, doc);
+            self.push_owned(n, &mut stack);
+        }
+    }
+
+    /// A new, empty document with a handle, so it lasts as long as the slab.
+    pub(crate) fn new_document(&mut self, info: DocInfo) -> Result<usize, DomError> {
+        self.check_room()?;
+        let name = QualName::new(None, ns!(), LocalName::from(DOCUMENT_NAME));
+        self.recharge(0, name_cost(&name))?;
+        let id = self.inner.mutate().create_element(name, Vec::new());
+        self.owners.insert(id, id);
+        self.docs.insert(id, info);
+        self.handle_for(id)?;
+        Ok(id)
+    }
+
+    /// A document as `DOMImplementation` and `new Document()` make them.
+    /// `html`, or XML of `content_type`.
+    pub(crate) fn blank_info(&self, html: bool, content_type: &'static str) -> DocInfo {
+        DocInfo {
+            html,
+            xml_interface: false,
+            quirks: false,
+            content_type,
+            frame: false,
+            url: Arc::from("about:blank"),
+        }
+    }
+
+    /// The `contentType` of `createDocument` for a document element in
+    /// namespace `ns_uri` (DOM §4.5.1).
+    pub(crate) fn xml_content_type(ns_uri: Option<&str>) -> &'static str {
+        match ns_uri {
+            Some("http://www.w3.org/1999/xhtml") => APPLICATION_XHTML,
+            Some("http://www.w3.org/2000/svg") => "image/svg+xml",
+            _ => APPLICATION_XML,
+        }
+    }
+
+    /// Runs `f` with `doc` as the document new nodes join.
+    pub(crate) fn making_in<R>(&mut self, doc: usize, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = std::mem::replace(&mut self.making, doc);
+        let r = f(self);
+        self.making = old;
+        r
+    }
+
+    /// Document `doc`'s URL. See [`Document::set_url`].
+    pub(crate) fn url(&self, doc: usize) -> &str {
+        &self.info(doc).url
+    }
+
+    /// Sets the URL of the page's document (`document.URL`), which the
+    /// documents it makes through `DOMParser` take on. `about:blank` until set.
+    /// An XML page's `contentType` then goes by the URL's extension, as a
+    /// frame's does, for want of a Content-Type. `pub` for the runner and the
+    /// facade; the crate is unpublished.
+    pub fn set_url(&mut self, url: &str) {
+        let root = self.root();
+        if let Some(d) = self.docs.get_mut(&root) {
+            d.url = Arc::from(url);
+            if !d.html {
+                d.content_type = frame_content_type(url).unwrap_or(APPLICATION_XHTML);
+            }
+        }
+    }
+
+    /// Note a node of a kind blitz-dom doesn't have.
+    pub(crate) fn special(&self, id: usize) -> Option<&Special> {
+        if self.specials.is_empty() {
+            return None;
+        }
+        self.specials.get(&id)
+    }
+
+    pub(crate) fn is_cdata(&self, id: usize) -> bool {
+        matches!(self.special(id), Some(Special::Cdata))
+    }
+
+    /// Whether `id` is a Text node and no CDATA section: DOM "exclusive Text
+    /// node", what `normalize` and `wholeText` go by.
+    pub(crate) fn is_exclusive_text(&self, id: usize) -> bool {
+        self.kind(id) == Some(Kind::Text) && !self.is_cdata(id)
+    }
+
+    /// A new `DocumentType`.
+    pub(crate) fn create_doctype(
+        &mut self,
+        name: &str,
+        public_id: &str,
+        system_id: &str,
+    ) -> Result<usize, DomError> {
+        self.check_room()?;
+        let special = Special::Doctype {
+            name: name.to_owned(),
+            public_id: public_id.to_owned(),
+            system_id: system_id.to_owned(),
+        };
+        self.recharge(0, special.bytes())?;
+        let id = self.inner.mutate().create_comment_node();
+        self.specials.insert(id, special);
+        self.born(id);
+        Ok(id)
+    }
+
+    /// A new `ProcessingInstruction`.
+    pub(crate) fn create_instruction(
+        &mut self,
+        target: &str,
+        data: &str,
+    ) -> Result<usize, DomError> {
+        self.check_room()?;
+        let special = Special::Instruction {
+            target: target.to_owned(),
+        };
+        self.recharge(0, special.bytes().saturating_add(data.len()))?;
+        let id = self.inner.mutate().create_comment_node();
+        self.side_data.insert(id, data.to_owned());
+        self.specials.insert(id, special);
+        self.born(id);
+        Ok(id)
+    }
+
+    /// A new `CDATASection`.
+    pub(crate) fn create_cdata(&mut self, data: &str) -> Result<usize, DomError> {
+        let id = self.create_text(data)?;
+        self.specials.insert(id, Special::Cdata);
+        Ok(id)
+    }
+
+    /// A node just made joins the document being made in.
+    fn born(&mut self, id: usize) {
+        if self.making != self.root() {
+            self.owners.insert(id, self.making);
+        }
+    }
+
+    /// DOMParser's `text/html` (HTML §8.5.3): a new document parsed from
+    /// `html`, with scripting off, its URL the page's. Fits the limits with
+    /// everything else in the render. `Ok(None)` if the time limit passed.
+    pub(crate) fn parse_html_document(
+        &mut self,
+        html: &str,
+        url: Arc<str>,
+    ) -> Result<Option<usize>, DomError> {
+        let mut info = self.blank_info(true, TEXT_HTML);
+        info.url = url;
+        let doc = self.new_document(info)?;
+        let room = self.limits.max_nodes.saturating_sub(self.node_count());
+        let deadline = self.deadline.clone();
+        let parsed = parse::parse_document(
+            &mut self.inner.mutate(),
+            doc,
+            html,
+            ParseLimits {
+                max_nodes: room,
+                max_depth: self.limits.max_depth,
+                max_attributes: self.limits.max_attributes,
+            },
+            false,
+            || deadline.as_ref().is_some_and(Deadline::passed),
+        );
+        self.side_data.extend(parsed.strings);
+        self.specials.extend(parsed.specials);
+        self.templates.extend(parsed.templates);
+        if let Some(d) = self.docs.get_mut(&doc) {
+            d.quirks = parsed.quirks;
+        }
+        // Charged here and credited by the drops below if it is refused.
+        let bytes = self.bytes_under(doc) - self.node_bytes(doc);
+        self.held_bytes = self.held_bytes.saturating_add(bytes);
+        for orphan in parsed.removed {
+            if self
+                .inner
+                .get_node(orphan)
+                .is_some_and(|n| n.parent.is_none())
+            {
+                self.held_bytes = self.held_bytes.saturating_add(self.bytes_under(orphan));
+                self.drop_orphan(orphan);
+            }
+        }
+        let timed_out = deadline.as_ref().is_some_and(Deadline::passed);
+        let over = parsed.over_limit && !timed_out && !parsed.over_attributes;
+        let limit = if self.node_count() > self.limits.max_nodes || over {
+            let deep = self.height(doc) - 1 > self.limits.max_depth;
+            Some(if deep {
+                DomError::TreeTooDeep {
+                    limit: self.limits.max_depth,
+                }
+            } else {
+                DomError::NodeLimit {
+                    limit: self.limits.max_nodes,
+                }
+            })
+        } else if self.held_bytes > self.limits.max_text_bytes {
+            Some(DomError::TextLimit {
+                limit: self.limits.max_text_bytes,
+            })
+        } else if self.height(doc) - 1 > self.limits.max_depth {
+            Some(DomError::TreeTooDeep {
+                limit: self.limits.max_depth,
+            })
+        } else {
+            None
+        };
+        if parsed.over_style || parsed.over_attributes || limit.is_some() || timed_out {
+            self.remove_children_quietly(doc);
+            if parsed.over_style {
+                return Err(style_attr::limit_error());
+            }
+            if parsed.over_attributes {
+                return Err(DomError::AttributeLimit {
+                    limit: self.limits.max_attributes,
+                });
+            }
+            return match limit {
+                Some(e) => Err(e),
+                None => Ok(None),
+            };
+        }
+        self.own_subtree(doc, doc);
+        Ok(Some(doc))
+    }
+
+    /// The most attributes an element may have.
+    pub(crate) fn max_attributes(&self) -> usize {
+        self.limits.max_attributes
+    }
+
+    /// The most bytes of strings a document may hold.
+    pub(crate) fn max_text_bytes(&self) -> usize {
+        self.limits.max_text_bytes
+    }
+
+    /// The deepest nesting allowed.
+    pub(crate) fn max_depth(&self) -> usize {
+        self.limits.max_depth
+    }
+
+    /// DOMParser for an XML type (HTML §8.5.3), or a frame's XML document: a
+    /// new `XMLDocument` of `content_type`. Input that isn't well-formed gives
+    /// a document holding only a `parsererror` element, as the standard says;
+    /// a limit is an error. `Ok(None)` if the time limit passed.
+    pub(crate) fn parse_xml_document(
+        &mut self,
+        text: &str,
+        content_type: &'static str,
+        url: Arc<str>,
+    ) -> Result<Option<usize>, DomError> {
+        let mut info = self.blank_info(false, content_type);
+        info.url = url;
+        info.xml_interface = true;
+        let doc = self.new_document(info)?;
+        self.fill_xml_document(doc, text)
+    }
+
+    /// `<iframe>` `id`'s document (HTML §4.8.5): none unless it is connected;
+    /// its initial `about:blank` until one has loaded.
+    pub(crate) fn frame_document(&mut self, id: usize) -> Result<Option<usize>, DomError> {
+        let owner = self.owner_of_node(id);
+        if !self.is_connected(id) || (owner != self.root() && !self.info(owner).frame) {
+            // Removal discards the browsing context, and a document with none
+            // of its own can't give one.
+            self.frames.remove(&id);
+            self.frames_started.remove(&id);
+            return Ok(None);
+        }
+        if let Some(&d) = self.frames.get(&id) {
+            return Ok(Some(d));
+        }
+        let Some(d) = self.parse_html_document("", Arc::from("about:blank"))? else {
+            return Ok(None);
+        };
+        if let Some(info) = self.docs.get_mut(&d) {
+            info.frame = true;
+        }
+        self.frames.insert(id, d);
+        Ok(Some(d))
+    }
+
+    /// `<iframe>`s in the page and its frames that haven't started to load,
+    /// in tree order: (element, `srcdoc`, `src`). At most `room` of them, so
+    /// a page's frames are bounded whatever it builds.
+    pub(crate) fn frames_to_load(&mut self) -> Vec<(usize, Option<String>, Option<String>)> {
+        let mut out = Vec::new();
+        let mut stack = vec![self.root()];
+        while let Some(n) = stack.pop() {
+            stack.extend(self.children(n).iter().rev().copied());
+            if !self.is_html_element(n, &["iframe"]) {
+                continue;
+            }
+            if let Some(&d) = self.frames.get(&n) {
+                stack.push(d);
+            }
+            if !self.frames_started.contains(&n) && self.frame_count + out.len() < MAX_FRAMES {
+                let src = self.attribute(n, "src").filter(|s| !s.is_empty());
+                out.push((n, self.attribute(n, "srcdoc"), src));
+            }
+        }
+        self.frame_count += out.len();
+        for (n, ..) in &out {
+            self.frames_started.insert(*n);
+        }
+        out
+    }
+
+    /// Keeps a frame's source until a call parses it, under that call's limits.
+    pub(crate) fn queue_frame(&mut self, id: usize, text: Option<String>, url: String) {
+        self.frame_sources.push_back((id, text, url));
+    }
+
+    /// Parses the next queued frame, inside a native call, so the time limit,
+    /// a cancel and the panic guard all reach the parse. Gives `<iframe>` its
+    /// document and queues its `load`. `text` `None` keeps what it has (a
+    /// failed load still fires `load`, as a 404 does). The type goes by the
+    /// URL's extension: there is no Content-Type here. A frame's scripts don't
+    /// run. `Ok(None)` if nothing is queued; `Ok(Some(false))` if the time
+    /// limit passed.
+    pub(crate) fn load_next_frame(&mut self) -> Result<Option<bool>, DomError> {
+        let Some((id, text, url)) = self.frame_sources.pop_front() else {
+            return Ok(None);
+        };
+        if !self.is_connected(id) {
+            return Ok(Some(true));
+        }
+        let url: Arc<str> = Arc::from(url);
+        let parsed = match text {
+            None => self.frame_document(id)?,
+            Some(text) => {
+                let parsed = match frame_content_type(&url) {
+                    Some(t) => self.parse_xml_document(&text, t, url)?,
+                    None => self.parse_html_document(&text, url)?,
+                };
+                if parsed.is_none() {
+                    return Ok(Some(false));
+                }
+                parsed
+            }
+        };
+        if let Some(d) = parsed {
+            if let Some(info) = self.docs.get_mut(&d) {
+                info.frame = true;
+            }
+            self.frames.insert(id, d);
+        }
+        let h = self.handle_for(id)?;
+        self.frame_loads.push_back(h);
+        Ok(Some(true))
+    }
+
+    /// The next `<iframe>` whose `load` is due, 0 for none.
+    pub(crate) fn next_frame(&mut self) -> Handle {
+        self.frame_loads.pop_front().unwrap_or(0)
+    }
+
+    /// HTML §2.4.1 "document base URL": the URL, or the first `<base href>`
+    /// in the head parsed against it. A `<base>` outside the head is ignored
+    /// here (a gap): reflected URLs read this often, and a walk of the head
+    /// stays small.
+    pub(crate) fn base_url(&self, doc: usize) -> String {
+        let url = self.url(doc).to_owned();
+        let Some(head) = self.head(doc) else {
+            return url;
+        };
+        let base = self.children(head).iter().find_map(|&c| {
+            if self.is_html_element(c, &["base"]) {
+                self.attribute(c, "href")
+            } else {
+                None
+            }
+        });
+        let parsed = base.and_then(|b| url::Url::parse(&url).and_then(|u| u.join(&b)).ok());
+        parsed.map_or(url, String::from)
+    }
+
+    /// `src`, resolved against the page's URL: what a frame's document is
+    /// called. The resolver is asked for `src` as the page spelled it, without
+    /// the fragment.
+    pub(crate) fn frame_url(&self, src: &str) -> String {
+        let base = url::Url::parse(&self.info(self.root()).url);
+        base.and_then(|b| b.join(src))
+            .map_or_else(|_| src.to_owned(), String::from)
+    }
+
+    /// Parses `text` under the empty document `doc`.
+    fn fill_xml_document(&mut self, doc: usize, text: &str) -> Result<Option<usize>, DomError> {
+        self.fill_xml_until(doc, text, &|| false)
+    }
+
+    /// [`fill_xml_document`](Self::fill_xml_document) under a stop check.
+    fn fill_xml_until(
+        &mut self,
+        doc: usize,
+        text: &str,
+        stop: &dyn Fn() -> bool,
+    ) -> Result<Option<usize>, DomError> {
+        let seed = HashMap::new();
+        let done = self.making_in(doc, |d| {
+            xml::parse(d, doc, text, xml::Mode::Document, &seed, 0, stop)
+        });
+        match done {
+            Ok(()) => Ok(Some(doc)),
+            Err(xml::Stop::Halted) => {
+                self.remove_children_quietly(doc);
+                Err(DomError::Stopped)
+            }
+            Err(xml::Stop::Limit(_)) => {
+                self.remove_children_quietly(doc);
+                match self.fault.take() {
+                    Some(e) => Err(e),
+                    None => Ok(None),
+                }
+            }
+            Err(xml::Stop::Malformed(message)) => {
+                self.remove_children_quietly(doc);
+                self.making_in(doc, |d| {
+                    let e = d.create_element_with(xml::error_name(), Vec::new())?;
+                    d.place_quietly(doc, &[e], None);
+                    let t = d.create_text(&message)?;
+                    d.place_quietly(e, &[t], None);
+                    Ok(Some(doc))
+                })
+            }
+        }
+    }
+
+    /// Parses `text` as XML element content into a new fragment, in the
+    /// document of `context`, with the namespaces in scope there (DOM Parsing
+    /// §2.1, "XML fragment parsing"). `Err` with the error for a `SyntaxError`
+    /// or a fatal stop.
+    pub(crate) fn parse_xml_fragment(
+        &mut self,
+        context: usize,
+        parent: usize,
+        text: &str,
+    ) -> Result<usize, xml::Stop> {
+        // Innermost first: a prefix seen stays as it is.
+        let mut scope: HashMap<String, Namespace> = HashMap::new();
+        let mut at = Some(context);
+        while let Some(n) = at {
+            for a in self.node(n).attrs().into_iter().flatten() {
+                self.poll_by(1 + a.value.len() / 64)?;
+                if a.name.ns.as_ref() == "http://www.w3.org/2000/xmlns/" {
+                    let prefix = match &a.name.prefix {
+                        Some(_) => a.name.local.to_string(),
+                        None => String::new(),
+                    };
+                    scope
+                        .entry(prefix)
+                        .or_insert_with(|| Namespace::from(a.value.as_str()));
+                }
+            }
+            if let Some(q) = self.element_name(n)
+                && !q.ns.is_empty()
+            {
+                let prefix = q.prefix.as_deref().unwrap_or("").to_owned();
+                scope.entry(prefix).or_insert_with(|| q.ns.clone());
+            }
+            at = self.parent(n);
+        }
+        let frag = self
+            .create_fragment()
+            .map_err(|e| xml::Stop::Limit(self.fail(e)))?;
+        let depth = self.depth(parent);
+        match xml::parse(
+            self,
+            frag,
+            text,
+            xml::Mode::Fragment,
+            &scope,
+            depth,
+            &|| false,
+        ) {
+            Ok(()) => Ok(frag),
+            Err(e) => {
+                self.drop_subtree(frag);
+                Err(e)
+            }
+        }
     }
 
     /// `id`'s children, serialized (HTML §13.3, `innerHTML`).
@@ -566,23 +1376,69 @@ impl Document {
         out
     }
 
+    /// [`to_html`](Self::to_html) for output a caller has to bound: at most
+    /// `max_bytes` (a little more may be built, never kept) or
+    /// [`DomError::OutputLimit`], and `stop` is asked as it goes, however long
+    /// a text is, ending in [`DomError::Stopped`].
+    pub fn to_html_bounded(
+        &self,
+        max_bytes: usize,
+        stop: impl Fn() -> bool,
+    ) -> Result<String, DomError> {
+        let mut out = String::new();
+        if let Some(id) = self.document_element() {
+            let mut steps = 0u32;
+            self.serialize_with(id, &mut out, &mut |out| {
+                if out.len() > max_bytes {
+                    return Err(DomError::OutputLimit { limit: max_bytes });
+                }
+                steps = steps.wrapping_add(1);
+                if steps % STOP_EVERY == 0 && stop() {
+                    return Err(DomError::Stopped);
+                }
+                Ok(())
+            })?;
+        }
+        if out.len() > max_bytes {
+            return Err(DomError::OutputLimit { limit: max_bytes });
+        }
+        Ok(out)
+    }
+
     fn serialize(&self, top: usize, out: &mut String) {
+        // The check never fails, so neither does this.
+        let _ = self.serialize_with(top, out, &mut |_| Ok(()));
+    }
+
+    /// Serializes `top`, calling `check` at each node and every
+    /// [`TEXT_SLICE`] bytes of a string, so a check sees the output grow.
+    fn serialize_with(
+        &self,
+        top: usize,
+        out: &mut String,
+        check: &mut dyn FnMut(&str) -> Result<(), DomError>,
+    ) -> Result<(), DomError> {
         enum Step {
             Open(usize),
             Close(usize),
         }
         let mut stack = vec![Step::Open(top)];
         while let Some(step) = stack.pop() {
+            check(out)?;
             match step {
                 Step::Close(id) => {
                     if let Some(e) = self.node(id).element_data() {
                         out.push_str("</");
-                        out.push_str(&e.name.local);
+                        push_sliced(&e.name.local, true, false, out, check)?;
                         out.push('>');
                     }
                 }
                 Step::Open(id) => {
                     let node = self.node(id);
+                    if matches!(self.kind(id), Some(Kind::Document | Kind::DocumentFragment)) {
+                        stack.extend(node.children.iter().rev().map(|&k| Step::Open(k)));
+                        continue;
+                    }
                     match &node.data {
                         NodeData::Text(_) => {
                             // §13.3: text is written unescaped when its
@@ -608,27 +1464,46 @@ impl Document {
                                                 | "noscript"
                                         )
                                 });
-                            if raw {
-                                out.push_str(self.char_data(id));
-                            } else {
-                                escape_into(self.char_data(id), false, out);
-                            }
+                            push_sliced(self.char_data(id), raw, false, out, check)?;
                         }
                         // §13.3: comment data goes out unescaped.
+                        NodeData::Comment if self.special(id).is_some() => {
+                            match self.special(id) {
+                                // §13.3: "<!DOCTYPE " and the name.
+                                Some(Special::Doctype { name, .. }) => {
+                                    out.push_str("<!DOCTYPE ");
+                                    out.push_str(name);
+                                    out.push('>');
+                                }
+                                // §13.3: "<?", target, a space, data, ">".
+                                Some(Special::Instruction { target }) => {
+                                    out.push_str("<?");
+                                    out.push_str(target);
+                                    out.push(' ');
+                                    out.push_str(self.char_data(id));
+                                    out.push('>');
+                                }
+                                _ => {}
+                            }
+                        }
                         NodeData::Comment => {
                             out.push_str("<!--");
-                            out.push_str(self.char_data(id));
+                            push_sliced(self.char_data(id), true, false, out, check)?;
                             out.push_str("-->");
                         }
                         NodeData::Document => {}
                         NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                             out.push('<');
-                            out.push_str(&e.name.local);
+                            push_sliced(&e.name.local, true, false, out, check)?;
                             for a in e.attrs() {
                                 out.push(' ');
-                                push_attribute_name(&a.name, out);
+                                if let Some(prefix) = attribute_prefix(&a.name) {
+                                    push_sliced(prefix, true, false, out, check)?;
+                                    out.push(':');
+                                }
+                                push_sliced(&a.name.local, true, false, out, check)?;
                                 out.push_str("=\"");
-                                escape_into(&a.value, true, out);
+                                push_sliced(&a.value, false, true, out, check)?;
                                 out.push('"');
                             }
                             out.push('>');
@@ -672,6 +1547,7 @@ impl Document {
                 }
             }
         }
+        Ok(())
     }
 
     /// The live node count, parsed and created.
@@ -735,6 +1611,9 @@ impl Document {
         // and in the object: strings a script picks, outside the JS heap.
         let bytes = match &key {
             Owned::List(ListKind::ByTag(s) | ListKind::ByClass(s)) => s.len().saturating_mul(2),
+            Owned::List(ListKind::ByTagNs(n, l)) => {
+                (n.as_ref().map_or(0, String::len) + l.len()).saturating_mul(2)
+            }
             Owned::Attr(name) => name_cost(name),
             _ => 0,
         };
@@ -837,10 +1716,19 @@ impl Document {
                         return Ok(false);
                     };
                     // DOM §4.2.6.2: lower-cased against HTML elements.
-                    let wanted = if e.ns == ns!(html) { &lower } else { name };
+                    let html = e.ns == ns!(html) && self.in_html_document(n);
+                    let wanted = if html { &lower } else { name };
                     Ok(name == "*" || qualified_is(e, wanted))
                 })?
             }
+            // DOM §4.2.6.2 "list of elements with namespace and local name".
+            ListKind::ByTagNs(namespace, local) => self.descendants(owner, |n| {
+                let Some(e) = self.element_name(n) else {
+                    return Ok(false);
+                };
+                let ns_ok = namespace.as_ref().is_none_or(|w| w == e.ns.as_ref());
+                Ok(ns_ok && (local == "*" || local == e.local.as_ref()))
+            })?,
             ListKind::ByClass(names) => self.elements_with_classes(owner, names)?,
         })
     }
@@ -851,7 +1739,7 @@ impl Document {
     fn elements_with_classes(&self, owner: usize, names: &str) -> BindingResult<Vec<usize>> {
         // Case-insensitive in quirks mode (DOM §4.2.6.2).
         let folded = |s| {
-            if self.quirks {
+            if self.is_quirks() {
                 Cow::Owned(str::to_ascii_lowercase(s))
             } else {
                 Cow::Borrowed(s)
@@ -895,9 +1783,14 @@ impl Document {
             NodeData::Element(e) if e.name.local.as_ref() == FRAGMENT_NAME => {
                 Some(Kind::DocumentFragment)
             }
+            NodeData::Element(e) if e.name.local.as_ref() == DOCUMENT_NAME => Some(Kind::Document),
             NodeData::Element(_) => Some(Kind::Element),
             NodeData::Text(_) => Some(Kind::Text),
-            NodeData::Comment => Some(Kind::Comment),
+            NodeData::Comment => Some(match self.special(id) {
+                Some(Special::Doctype { .. }) => Kind::DocumentType,
+                Some(Special::Instruction { .. }) => Kind::ProcessingInstruction,
+                _ => Kind::Comment,
+            }),
             // Layout-only boxes; never reachable from the tree links scripts
             // follow before layout.
             NodeData::AnonymousBlock(_) => None,
@@ -909,8 +1802,21 @@ impl Document {
         self.inner.root_node().id
     }
 
+    /// The page's document element.
     pub(crate) fn document_element(&self) -> Option<usize> {
-        self.inner.try_root_element().map(|n| n.id)
+        self.document_element_of(self.root())
+    }
+
+    /// `doc`'s document element: its element child, of which it has one.
+    pub(crate) fn document_element_of(&self, doc: usize) -> Option<usize> {
+        let mut children = self.children(doc).iter().copied();
+        children.find(|&c| self.kind(c) == Some(Kind::Element))
+    }
+
+    /// `doc`'s doctype child.
+    pub(crate) fn doctype_of(&self, doc: usize) -> Option<usize> {
+        let mut children = self.children(doc).iter().copied();
+        children.find(|&c| self.kind(c) == Some(Kind::DocumentType))
     }
 
     /// Whether `id` is an HTML element with one of these local names.
@@ -922,21 +1828,21 @@ impl Document {
 
     /// The first child of the html element (HTML "the html element": the
     /// document element, if it is one) with one of these local names.
-    fn html_child(&self, locals: &[&str]) -> Option<usize> {
+    fn html_child(&self, doc: usize, locals: &[&str]) -> Option<usize> {
         let html = self
-            .document_element()
+            .document_element_of(doc)
             .filter(|&e| self.is_html_element(e, &["html"]))?;
         let mut children = self.node(html).children.iter().copied();
         children.find(|&c| self.is_html_element(c, locals))
     }
 
-    pub(crate) fn head(&self) -> Option<usize> {
-        self.html_child(&["head"])
+    pub(crate) fn head(&self, doc: usize) -> Option<usize> {
+        self.html_child(doc, &["head"])
     }
 
     /// HTML "the body element": the first body or frameset child.
-    pub(crate) fn body(&self) -> Option<usize> {
-        self.html_child(&["body", "frameset"])
+    pub(crate) fn body(&self, doc: usize) -> Option<usize> {
+        self.html_child(doc, &["body", "frameset"])
     }
 
     /// The first element in tree order under `top` with this ID. blitz-dom's
@@ -1035,8 +1941,8 @@ impl Document {
     }
 
     /// The `<title>` element: the first in tree order (HTML §3.1.3).
-    fn title_element(&self) -> BindingResult<Option<usize>> {
-        let Some(top) = self.document_element() else {
+    fn title_element(&self, doc: usize) -> BindingResult<Option<usize>> {
+        let Some(top) = self.document_element_of(doc) else {
             return Ok(None);
         };
         let is_title = |n: usize| {
@@ -1052,9 +1958,9 @@ impl Document {
 
     /// `document.title`: the title's child text content, with whitespace
     /// stripped and collapsed (HTML §3.1.3).
-    pub(crate) fn title(&self) -> BindingResult<String> {
+    pub(crate) fn title(&self, doc: usize) -> BindingResult<String> {
         Ok(self
-            .title_element()?
+            .title_element(doc)?
             .map(|t| self.child_text(t))
             .map(|t| t.split_ascii_whitespace().collect::<Vec<_>>().join(" "))
             .unwrap_or_default())
@@ -1062,11 +1968,11 @@ impl Document {
 
     /// `document.title` set: the title's content, a new `<title>` in the
     /// head if there is none; nothing without a head.
-    pub(crate) fn set_title(&mut self, value: &str) -> BindingResult<()> {
-        let title = match self.title_element()? {
+    pub(crate) fn set_title(&mut self, doc: usize, value: &str) -> BindingResult<()> {
+        let title = match self.title_element(doc)? {
             Some(t) => t,
             None => {
-                let Some(head) = self.head() else {
+                let Some(head) = self.head(doc) else {
                     return Ok(());
                 };
                 let created = self
@@ -1081,12 +1987,13 @@ impl Document {
             .map_err(|e| self.fail(e))
     }
 
+    /// Whether the running member's document is in quirks mode.
     pub(crate) fn is_quirks(&self) -> bool {
-        self.quirks
+        self.info(self.making).quirks
     }
 
     pub(crate) fn quirks_mode(&self) -> style::context::QuirksMode {
-        if self.quirks {
+        if self.is_quirks() {
             style::context::QuirksMode::Quirks
         } else {
             style::context::QuirksMode::NoQuirks
@@ -1121,13 +2028,13 @@ impl Document {
         Some(found)
     }
 
-    /// Whether `id`'s tree is the document's.
+    /// Whether `id`'s tree is a document's.
     pub(crate) fn is_connected(&self, id: usize) -> bool {
         let mut at = id;
         while let Some(p) = self.node(at).parent {
             at = p;
         }
-        at == self.root()
+        self.kind(at) == Some(Kind::Document)
     }
 
     /// The node name for scripts: an HTML element's qualified name in upper
@@ -1137,13 +2044,18 @@ impl Document {
             NodeData::Document => "#document".to_owned(),
             NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                 let mut name = qualified_name(&e.name);
-                if e.name.ns == ns!(html) {
+                if e.name.ns == ns!(html) && self.in_html_document(id) {
                     name.make_ascii_uppercase();
                 }
                 name
             }
+            NodeData::Text(_) if self.is_cdata(id) => "#cdata-section".to_owned(),
             NodeData::Text(_) => "#text".to_owned(),
-            NodeData::Comment => "#comment".to_owned(),
+            NodeData::Comment => match self.special(id) {
+                Some(Special::Doctype { name, .. }) => name.clone(),
+                Some(Special::Instruction { target }) => target.clone(),
+                _ => "#comment".to_owned(),
+            },
         }
     }
 
@@ -1156,7 +2068,7 @@ impl Document {
     fn find_attribute(&self, id: usize, name: &str) -> Option<&blitz_dom::Attribute> {
         let e = self.node(id).element_data()?;
         let lower;
-        let name = if e.name.ns == ns!(html) {
+        let name = if e.name.ns == ns!(html) && self.in_html_document(id) {
             lower = name.to_ascii_lowercase();
             lower.as_str()
         } else {
@@ -1183,7 +2095,8 @@ impl Document {
         let qual = match self.find_attribute(id, name) {
             Some(a) => a.name.clone(),
             None => {
-                let html = self.element_name(id).is_some_and(|n| n.ns == ns!(html));
+                let html = self.element_name(id).is_some_and(|n| n.ns == ns!(html))
+                    && self.in_html_document(id);
                 let local = if html {
                     name.to_ascii_lowercase()
                 } else {
@@ -1245,6 +2158,11 @@ impl Document {
             return Err(style_attr::limit_error());
         }
         let credit = self.attribute_bytes(id, &name);
+        if credit == 0 && self.attribute_count(id) >= self.limits.max_attributes {
+            return Err(DomError::AttributeLimit {
+                limit: self.limits.max_attributes,
+            });
+        }
         let charge = attribute_cost(&name, value);
         self.recharge(credit, charge)?;
         self.note_attribute(id, &name);
@@ -1276,6 +2194,51 @@ impl Document {
         }
     }
 
+    /// A new `Attr` with no element, in document `doc`: an `Object::Attr`
+    /// whose owner is the document and which keeps its own value.
+    pub(crate) fn free_attr(&mut self, doc: usize, name: QualName) -> Result<Handle, DomError> {
+        let bytes = name_cost(&name);
+        self.recharge(0, bytes)?;
+        self.retained_bytes += bytes;
+        self.new_handle(Object::Attr(doc, name, Some(String::new())))
+    }
+
+    /// Puts the free `Attr` `handle` on `element` under `name`, with `value`,
+    /// which it held: DOM §4.9 "replace an attribute" if there is one, `old`,
+    /// whose object keeps the old value, and this one has its place.
+    pub(crate) fn attach_attr(
+        &mut self,
+        handle: Handle,
+        element: usize,
+        name: QualName,
+        value: String,
+        old: Option<QualName>,
+    ) -> Result<(), DomError> {
+        let target = old.clone().unwrap_or_else(|| name.clone());
+        if old.is_some() {
+            self.keep_attr_value(element, &target);
+        }
+        self.write_attribute(element, target.clone(), &value)?;
+        if target != name {
+            // Same namespace and local name, so only the prefix differs: blitz-dom
+            // has seen what it goes by, and the entry keeps its place.
+            self.recharge(name_cost(&target), name_cost(&name))?;
+            if let Some(e) = self.element_mut(element)
+                && let Some(a) = e.attrs.iter_mut().find(|a| a.name == target)
+            {
+                a.name = name.clone();
+            }
+        }
+        self.credit(value.len());
+        self.retained_bytes -= value.len();
+        self.owned.insert((element, Owned::Attr(name)), handle);
+        if let Some(Object::Attr(e, _, kept)) = self.object_mut(handle) {
+            *e = element;
+            *kept = None;
+        }
+        Ok(())
+    }
+
     /// Writes the value of `handle`, an `Attr` no longer on its element.
     pub(crate) fn set_kept_value(&mut self, handle: Handle, value: String) -> Result<(), DomError> {
         let Some(Object::Attr(_, _, Some(kept))) = self.object_mut(handle) else {
@@ -1302,7 +2265,10 @@ impl Document {
     fn node_bytes(&self, id: usize) -> usize {
         let node = self.node(id);
         match &node.data {
-            NodeData::Text(_) | NodeData::Comment => self.char_data(id).len(),
+            NodeData::Text(_) | NodeData::Comment => self
+                .char_data(id)
+                .len()
+                .saturating_add(self.special(id).map_or(0, Special::bytes)),
             NodeData::Element(e) | NodeData::AnonymousBlock(e) => e
                 .attrs()
                 .iter()
@@ -1474,6 +2440,9 @@ impl Document {
 
     /// `textContent`: `None` for the document (the DOM's null).
     pub(crate) fn text_content(&self, id: usize) -> Option<String> {
+        if matches!(self.kind(id), Some(Kind::Document | Kind::DocumentType)) {
+            return None;
+        }
         match &self.node(id).data {
             NodeData::Document => None,
             NodeData::Text(_) | NodeData::Comment => Some(self.char_data(id).to_owned()),
@@ -1502,7 +2471,7 @@ impl Document {
     pub(crate) fn set_text_content(&mut self, id: usize, text: &str) -> Result<(), DomError> {
         match self.kind(id) {
             Some(Kind::Text) => self.set_text_data(id, text),
-            Some(Kind::Comment) => self.set_side_data(id, text),
+            Some(Kind::Comment | Kind::ProcessingInstruction) => self.set_side_data(id, text),
             Some(Kind::Element | Kind::DocumentFragment) => {
                 // Made first: a refused write leaves the children alone.
                 let t = if text.is_empty() {
@@ -1589,6 +2558,8 @@ impl Document {
             stack.extend(self.templates.remove(&n));
             self.credit(self.node_bytes(n));
             self.side_data.remove(&n);
+            self.specials.remove(&n);
+            self.owners.remove(&n);
             self.inner.mutate().remove_and_drop_node(n);
         }
     }
@@ -1627,7 +2598,9 @@ impl Document {
     pub(crate) fn create_text(&mut self, text: &str) -> Result<usize, DomError> {
         self.check_room()?;
         self.recharge(0, text.len())?;
-        Ok(self.inner.mutate().create_text_node(text))
+        let id = self.inner.mutate().create_text_node(text);
+        self.born(id);
+        Ok(id)
     }
 
     pub(crate) fn create_comment(&mut self, data: &str) -> Result<usize, DomError> {
@@ -1635,6 +2608,7 @@ impl Document {
         self.recharge(0, data.len())?;
         let id = self.inner.mutate().create_comment_node();
         self.side_data.insert(id, data.to_owned());
+        self.born(id);
         Ok(id)
     }
 
@@ -1642,7 +2616,9 @@ impl Document {
         self.check_room()?;
         let name = QualName::new(None, ns!(), fragment_name());
         self.recharge(0, name_cost(&name))?;
-        Ok(self.inner.mutate().create_element(name, Vec::new()))
+        let id = self.inner.mutate().create_element(name, Vec::new());
+        self.born(id);
+        Ok(id)
     }
 
     /// A new element with `name` and copies of `attrs`.
@@ -1668,21 +2644,32 @@ impl Document {
         if hidden && let Some(e) = self.element_mut(id) {
             style_attr::reveal(&mut e.attrs);
         }
+        self.born(id);
         Ok(id)
     }
 
-    /// `createElement` for an HTML element; `None` for a name the DOM
-    /// rejects with InvalidCharacterError.
+    /// `createElement` (DOM §4.5): in the document being made in, whose type
+    /// decides the namespace and whether the name is lower-cased; `None` for a
+    /// name the DOM rejects with InvalidCharacterError.
     pub(crate) fn create_element(&mut self, name: &str) -> Result<Option<usize>, DomError> {
         if !is_valid_element_name(name) {
             return Ok(None);
         }
         self.check_room()?;
-        let lower = name.to_ascii_lowercase();
+        let info = self.info(self.making);
+        let (html_doc, xhtml) = (info.html, info.content_type == APPLICATION_XHTML);
+        let local = if html_doc {
+            name.to_ascii_lowercase()
+        } else {
+            name.to_owned()
+        };
+        let namespace = if html_doc || xhtml { ns!(html) } else { ns!() };
         // Before the atom exists: it holds the whole name, in Rust.
-        self.recharge(0, html_name_cost(&lower))?;
-        let qual = QualName::new(None, ns!(html), LocalName::from(lower));
-        Ok(Some(self.inner.mutate().create_element(qual, Vec::new())))
+        self.recharge(0, local.len() + namespace.len())?;
+        let qual = QualName::new(None, namespace, LocalName::from(local));
+        let id = self.inner.mutate().create_element(qual, Vec::new());
+        self.born(id);
+        Ok(Some(id))
     }
 
     /// Depth of `id` below the root of its tree.
@@ -2121,11 +3108,6 @@ fn name_cost(name: &QualName) -> usize {
     name.local.len() + name.ns.len() + name.prefix.as_ref().map_or(0, |p| p.len())
 }
 
-/// [`name_cost`] of an HTML element called `local`, before its name exists.
-fn html_name_cost(local: &str) -> usize {
-    local.len() + ns!(html).len()
-}
-
 /// What one attribute is charged.
 fn attribute_cost(name: &QualName, value: &str) -> usize {
     ATTRIBUTE_COST + name_cost(name) + value.len()
@@ -2171,12 +3153,12 @@ pub(crate) fn is_valid_attribute_name(name: &str) -> bool {
     !name.is_empty() && !name.contains(['\t', '\n', '\u{c}', '\r', ' ', '\0', '/', '=', '>'])
 }
 
-/// Writes an attribute's serialized name (HTML Standard §13.3, "serializing
-/// HTML fragments"): the local name without a namespace; `xml:`, `xmlns:`
-/// or `xlink:` plus the local name in those namespaces (`xmlns` alone for
-/// the `xmlns` attribute itself); the qualified name otherwise.
-fn push_attribute_name(name: &QualName, out: &mut String) {
-    let prefix = if name.ns == ns!() {
+/// The prefix of an attribute's serialized name (HTML Standard §13.3,
+/// "serializing HTML fragments"): none without a namespace; `xml`, `xmlns` or
+/// `xlink` in those namespaces (none for the `xmlns` attribute itself); its
+/// own prefix otherwise.
+fn attribute_prefix(name: &QualName) -> Option<&str> {
+    if name.ns == ns!() {
         None
     } else if name.ns == ns!(xml) {
         Some("xml")
@@ -2186,12 +3168,40 @@ fn push_attribute_name(name: &QualName, out: &mut String) {
         Some("xlink")
     } else {
         name.prefix.as_ref().map(|p| p.as_ref())
-    };
-    if let Some(prefix) = prefix {
-        out.push_str(prefix);
-        out.push(':');
     }
-    out.push_str(&name.local);
+}
+
+/// Bytes of a string written between looks at the output's size and the clock.
+const TEXT_SLICE: usize = 64 * 1024;
+
+/// Nodes and slices between asks of a stop check.
+const STOP_EVERY: u32 = 256;
+
+/// Writes `s`, as it is if `raw` and escaped otherwise, in slices with a
+/// `check` after each.
+fn push_sliced(
+    mut s: &str,
+    raw: bool,
+    attribute: bool,
+    out: &mut String,
+    check: &mut dyn FnMut(&str) -> Result<(), DomError>,
+) -> Result<(), DomError> {
+    while !s.is_empty() {
+        let mut end = TEXT_SLICE.min(s.len());
+        while !s.is_char_boundary(end) {
+            end += 1;
+        }
+        if raw {
+            out.push_str(&s[..end]);
+        } else {
+            escape_into(&s[..end], attribute, out);
+        }
+        s = &s[end..];
+        if !s.is_empty() {
+            check(out)?;
+        }
+    }
+    Ok(())
 }
 
 /// Escapes text or an attribute value as HTML serialization does (HTML

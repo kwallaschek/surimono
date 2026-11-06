@@ -6,7 +6,8 @@ use surimono_core::SandboxError;
 /// complete.
 ///
 /// The `StaleDocument`, `NoDocument`, `NodeLimit`, `TreeTooDeep`,
-/// `HandleLimit`, `TextLimit`, `StyleLimit` and `Unsupported` variants are
+/// `HandleLimit`, `TextLimit`, `AttributeLimit`, `StyleLimit`, `Unsupported` and
+/// `LayoutQuery` variants are
 /// *fatal to the call*: the binding throws into the script (so it stops where
 /// it is), and the call fails with this error even if the script caught the
 /// exception. Each means the script used a wrapper with no document behind it,
@@ -81,6 +82,31 @@ pub enum DomError {
         /// What the script asked for.
         feature: &'static str,
     },
+    /// A script asked for layout under
+    /// [`LayoutPolicy::Throw`](crate::LayoutPolicy::Throw). Fatal, so a script
+    /// can't catch it and go on without the answer.
+    #[error("the script asked for layout through {member}, which isn't available")]
+    LayoutQuery {
+        /// The member it used, such as `getBoundingClientRect`.
+        member: String,
+    },
+    /// An element would have more attributes than
+    /// [`DomLimits::max_attributes`](crate::DomLimits::max_attributes).
+    #[error("an element reached the limit of {limit} attributes")]
+    AttributeLimit {
+        /// The limit that was reached.
+        limit: usize,
+    },
+    /// [`Document::to_html_bounded`](crate::Document::to_html_bounded) would
+    /// have written more than its limit.
+    #[error("the document's HTML is over the limit of {limit} bytes")]
+    OutputLimit {
+        /// The limit that was reached.
+        limit: usize,
+    },
+    /// The caller's stop check ended a parse or a serialization.
+    #[error("stopped by the caller")]
+    Stopped,
     /// The runtime has no document loaded.
     #[error("no document is loaded")]
     NoDocument,

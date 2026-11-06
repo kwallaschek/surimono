@@ -215,3 +215,8 @@ fn d3() {
 fn alpine() {
     check("alpine-invoice");
 }
+
+#[test]
+fn noscript_message() {
+    check("noscript-message");
+}

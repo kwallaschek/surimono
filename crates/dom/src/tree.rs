@@ -10,9 +10,9 @@ use selectors::parser::{Component, Selector};
 use style::selector_parser::SelectorImpl;
 use surimono_webidl::runtime::{BindingError, BindingResult, Value};
 
-use crate::document::{Kind, is_valid_attribute_name, is_valid_element_name};
+use crate::Document;
+use crate::document::{Kind, Special, is_valid_attribute_name, is_valid_element_name};
 use crate::select::Matcher;
-use crate::{Document, DomError};
 
 /// The XML and XMLNS namespaces, for "validate and extract" (§1.5).
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
@@ -94,34 +94,25 @@ impl Document {
             return Err(not_found());
         }
         let kind = self.kind(node);
-        if !matches!(
-            kind,
-            Some(Kind::DocumentFragment | Kind::Element | Kind::Text | Kind::Comment)
-        ) {
+        // "If node is not a DocumentFragment, DocumentType, Element, or
+        // CharacterData node", and the next two steps' Text and doctype cases.
+        let parent_is_document = parent_kind == Some(Kind::Document);
+        let fits = match kind {
+            Some(
+                Kind::DocumentFragment
+                | Kind::Element
+                | Kind::Comment
+                | Kind::ProcessingInstruction,
+            ) => true,
+            Some(Kind::Text) => !parent_is_document,
+            Some(Kind::DocumentType) => parent_is_document,
+            _ => false,
+        };
+        if !fits {
             return Err(hierarchy());
         }
-        if parent_kind == Some(Kind::Document) {
-            // Another element than the one being replaced.
-            let other_element = self
-                .children(parent)
-                .iter()
-                .any(|&c| self.kind(c) == Some(Kind::Element) && Some(c) != replacing);
-            let bad = match kind {
-                Some(Kind::Text) => true,
-                Some(Kind::Element) => other_element,
-                Some(Kind::DocumentFragment) => {
-                    let elements = self.element_children(node);
-                    let text = self
-                        .children(node)
-                        .iter()
-                        .any(|&c| self.kind(c) == Some(Kind::Text));
-                    text || elements > 1 || (elements == 1 && other_element)
-                }
-                _ => false,
-            };
-            if bad {
-                return Err(hierarchy());
-            }
+        if parent_is_document {
+            self.check_document_child(parent, node, kind, child, replacing)?;
         }
         let height = if kind == Some(Kind::DocumentFragment) {
             self.height(node) - 1
@@ -129,6 +120,141 @@ impl Document {
             self.height(node)
         };
         self.check_depth(parent, height).map_err(|e| self.fail(e))
+    }
+
+    /// §4.2.3 "ensure pre-insert validity" step 6, and its counterpart in
+    /// "replace": what a document's children may be. `child` is the reference
+    /// child, and is `replacing` when replacing.
+    fn check_document_child(
+        &self,
+        parent: usize,
+        node: usize,
+        kind: Option<Kind>,
+        child: Option<usize>,
+        replacing: Option<usize>,
+    ) -> BindingResult<()> {
+        let is = |c: usize, k: Kind| self.kind(c) == Some(k);
+        let children = self.children(parent);
+        // Another child of this kind than the one being replaced.
+        let other = |k: Kind| children.iter().any(|&c| is(c, k) && Some(c) != replacing);
+        let at = child.and_then(|c| children.iter().position(|&x| x == c));
+        // Inserting: `child` is a doctype or one follows it. Replacing: one
+        // follows it, which leaves out `child` itself.
+        let skip = usize::from(replacing.is_some());
+        let doctype_after = at.is_some_and(|i| {
+            children[i + skip..]
+                .iter()
+                .any(|&c| is(c, Kind::DocumentType))
+        });
+        let element_blocked = other(Kind::Element) || doctype_after;
+        let bad = match kind {
+            Some(Kind::Element) => element_blocked,
+            Some(Kind::DocumentFragment) => {
+                let elements = self.element_children(node);
+                let text = self.children(node).iter().any(|&c| is(c, Kind::Text));
+                text || elements > 1 || (elements == 1 && element_blocked)
+            }
+            Some(Kind::DocumentType) => {
+                let element_before = match at {
+                    Some(i) => children[..i].iter().any(|&c| is(c, Kind::Element)),
+                    None => other(Kind::Element),
+                };
+                other(Kind::DocumentType) || element_before
+            }
+            _ => false,
+        };
+        if bad {
+            return Err(hierarchy());
+        }
+        Ok(())
+    }
+
+    /// The start of §4.4 "locate a namespace" and "locate a namespace prefix"
+    /// for a node that isn't an `Attr`: the element to look from, if any.
+    fn lookup_start(&self, id: usize) -> Option<usize> {
+        match self.kind(id) {
+            Some(Kind::Element) => Some(id),
+            Some(Kind::Document) => self.document_element_of(id),
+            Some(Kind::Text | Kind::Comment | Kind::ProcessingInstruction) => self
+                .parent(id)
+                .filter(|&p| self.kind(p) == Some(Kind::Element)),
+            _ => None,
+        }
+    }
+
+    /// §4.4 "locate a namespace" from `start`, for `prefix` (`None` for the
+    /// default namespace).
+    pub(crate) fn locate_namespace(
+        &self,
+        start: usize,
+        prefix: Option<&str>,
+    ) -> BindingResult<Option<String>> {
+        let mut at = self.lookup_start(start);
+        if at.is_some() {
+            // §4.4: these two are bound everywhere.
+            match prefix {
+                Some("xml") => return Ok(Some(XML.to_owned())),
+                Some("xmlns") => return Ok(Some(XMLNS.to_owned())),
+                _ => {}
+            }
+        }
+        while let Some(e) = at {
+            self.poll()?;
+            let name = self.element_name(e);
+            if let Some(n) = name
+                && !n.ns.is_empty()
+                && n.prefix.as_deref() == prefix
+            {
+                return Ok(Some(n.ns.to_string()));
+            }
+            let declared = self.node(e).attrs().into_iter().flatten().find(|a| {
+                a.name.ns.as_ref() == XMLNS
+                    && match prefix {
+                        Some(p) => {
+                            a.name.prefix.as_deref() == Some("xmlns") && a.name.local.as_ref() == p
+                        }
+                        None => a.name.prefix.is_none() && a.name.local.as_ref() == "xmlns",
+                    }
+            });
+            if let Some(a) = declared {
+                return Ok(Some(a.value.clone()).filter(|v| !v.is_empty()));
+            }
+            at = self
+                .parent(e)
+                .filter(|&p| self.kind(p) == Some(Kind::Element));
+        }
+        Ok(None)
+    }
+
+    /// §4.4 "locate a namespace prefix" from `start`.
+    pub(crate) fn locate_prefix(
+        &self,
+        start: usize,
+        namespace: &str,
+    ) -> BindingResult<Option<String>> {
+        let mut at = self.lookup_start(start);
+        while let Some(e) = at {
+            self.poll()?;
+            if let Some(n) = self.element_name(e)
+                && n.ns.as_ref() == namespace
+                && let Some(p) = &n.prefix
+            {
+                return Ok(Some(p.to_string()));
+            }
+            let declared = self
+                .node(e)
+                .attrs()
+                .into_iter()
+                .flatten()
+                .find(|a| a.name.prefix.as_deref() == Some("xmlns") && a.value == namespace);
+            if let Some(a) = declared {
+                return Ok(Some(a.name.local.to_string()));
+            }
+            at = self
+                .parent(e)
+                .filter(|&p| self.kind(p) == Some(Kind::Element));
+        }
+        Ok(None)
     }
 
     /// §4.2.3 "insert", after validity: `node`, or a fragment's children,
@@ -142,6 +268,9 @@ impl Document {
         before: Option<usize>,
         quiet: bool,
     ) -> Vec<usize> {
+        // §4.2.3: "adopt node into parent's node document". The removal from
+        // an old parent is below, and has its record there.
+        self.adopt_subtree(node, self.owner_of_node(parent));
         let nodes = if self.kind(node) == Some(Kind::DocumentFragment) {
             if self.is_observed() && !self.children(node).is_empty() {
                 let children = self.children(node).to_vec();
@@ -299,7 +428,8 @@ impl Document {
     }
 
     fn matcher(&self, selectors: &str) -> Matcher {
-        Matcher::new(self.quirks_mode(), self.deadline.clone(), selectors)
+        let html = self.info(self.making()).html;
+        Matcher::new(self.quirks_mode(), self.deadline.clone(), selectors, html)
     }
 
     /// `querySelector(All)` (DOM §4.2.6): descendants of `top`, in tree
@@ -514,11 +644,17 @@ impl Document {
     }
 
     /// §4.4 `cloneNode`. Iterative, and refuses up front if the copy
-    /// wouldn't fit. A document can't be cloned yet: a runtime holds one
-    /// (see "Deviations and gaps" in DESIGN.md), so `clone_one` ends the
-    /// script with [`DomError::Unsupported`], never a DOM exception.
+    /// wouldn't fit. A document's copy holds its own descendants' copies, as
+    /// "clone a node" says; the rest join the document being made in.
     pub(crate) fn clone_tree(&mut self, top: usize, deep: bool) -> BindingResult<usize> {
         let copy = self.clone_one(top)?;
+        if self.kind(top) == Some(Kind::Document) {
+            return self.making_in(copy, |d| d.clone_below(top, copy, deep));
+        }
+        self.clone_below(top, copy, deep)
+    }
+
+    fn clone_below(&mut self, top: usize, copy: usize, deep: bool) -> BindingResult<usize> {
         if deep {
             let mut size = 0;
             let mut stack = vec![top];
@@ -556,11 +692,28 @@ impl Document {
         let made = match &self.node(id).data {
             NodeData::Text(_) => {
                 let text = self.char_data(id).to_owned();
-                self.create_text(&text)
+                if self.is_cdata(id) {
+                    self.create_cdata(&text)
+                } else {
+                    self.create_text(&text)
+                }
             }
             NodeData::Comment => {
                 let data = self.char_data(id).to_owned();
-                self.create_comment(&data)
+                match self.special(id).cloned() {
+                    Some(Special::Doctype {
+                        name,
+                        public_id,
+                        system_id,
+                    }) => self.create_doctype(&name, &public_id, &system_id),
+                    Some(Special::Instruction { target }) => {
+                        self.create_instruction(&target, &data)
+                    }
+                    _ => self.create_comment(&data),
+                }
+            }
+            NodeData::Element(_) if self.kind(id) == Some(Kind::Document) => {
+                self.new_document(self.info(id).clone())
             }
             NodeData::Element(e) | NodeData::AnonymousBlock(e) => {
                 let name = e.name.clone();
@@ -570,11 +723,7 @@ impl Document {
                 self.poll_by(style.map_or(0, str::len))?;
                 self.create_element_with(name, attrs)
             }
-            NodeData::Document => {
-                return Err(self.fail(DomError::Unsupported {
-                    feature: "cloning a document",
-                }));
-            }
+            NodeData::Document => self.new_document(self.info(id).clone()),
         };
         made.map_err(|e| self.fail(e))
     }
@@ -584,9 +733,14 @@ impl Document {
         let mut stack = vec![(a, b)];
         while let Some((x, y)) = stack.pop() {
             let (nx, ny) = (self.node(x), self.node(y));
+            let kinds = (self.kind(x), self.kind(y));
             let same = match (&nx.data, &ny.data) {
+                _ if kinds.0 != kinds.1 => false,
+                _ if kinds.0 == Some(Kind::Document) => true,
                 (NodeData::Text(_), NodeData::Text(_)) | (NodeData::Comment, NodeData::Comment) => {
                     self.char_data(x) == self.char_data(y)
+                        && self.is_cdata(x) == self.is_cdata(y)
+                        && self.special(x) == self.special(y)
                 }
                 (NodeData::Element(p), NodeData::Element(q)) => {
                     p.name == q.name
@@ -597,7 +751,6 @@ impl Document {
                             })
                         })
                 }
-                (NodeData::Document, NodeData::Document) => true,
                 _ => false,
             };
             if !same || nx.children.len() != ny.children.len() {
@@ -673,7 +826,7 @@ impl Document {
             let mut in_run = false;
             for &c in self.children(n) {
                 self.poll()?;
-                if self.kind(c) != Some(Kind::Text) {
+                if !self.is_exclusive_text(c) {
                     in_run = false;
                     kept.push(c);
                     stack.push(c);
@@ -718,7 +871,7 @@ impl Document {
         let mut stack: Vec<usize> = self.children(top).iter().rev().copied().collect();
         while let Some(n) = stack.pop() {
             self.poll()?;
-            if self.kind(n) != Some(Kind::Text) {
+            if !self.is_exclusive_text(n) {
                 stack.extend(self.children(n).iter().rev().copied());
                 continue;
             }
@@ -729,7 +882,7 @@ impl Document {
             let mut merged = Vec::new();
             let mut joined = String::new();
             let mut next = self.sibling(n, true);
-            while let Some(s) = next.filter(|&s| self.kind(s) == Some(Kind::Text)) {
+            while let Some(s) = next.filter(|&s| self.is_exclusive_text(s)) {
                 self.poll()?;
                 joined.push_str(self.char_data(s));
                 merged.push(s);
@@ -1021,7 +1174,9 @@ mod tests {
     fn charged(combinator: &str) -> usize {
         let doc =
             Document::parse("<!doctype html><body><i><b></b><b></b><b id=l></b></i>").unwrap();
-        let id = doc.element_by_id(doc.body().unwrap(), "l").unwrap();
+        let id = doc
+            .element_by_id(doc.body(doc.root()).unwrap(), "l")
+            .unwrap();
         let selector = format!(":is({}x){combinator}b", "x,".repeat(1000));
         let list = doc.parse_selectors(&selector).unwrap();
         let mut matcher = doc.matcher(&selector);

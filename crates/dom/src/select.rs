@@ -49,7 +49,7 @@ use style::context::QuirksMode;
 use style::selector_parser::SelectorImpl as Impl;
 use surimono_core::{Deadline, stack_available};
 
-use crate::document::is_fragment_name;
+use crate::document::{is_container_name, is_document_name};
 
 /// Units of work between looks at the clock.
 const STEPS_PER_CHECK: usize = 4096;
@@ -87,6 +87,9 @@ struct Budget {
     /// What testing the whole selector on one element costs, at most: see
     /// [`element_weight`].
     weight: usize,
+    /// The query is in an HTML document, where HTML elements match
+    /// case-insensitively.
+    html_document: bool,
 }
 
 /// The steps one element's test of a selector of `bytes` bytes costs. Nothing
@@ -220,7 +223,7 @@ impl<'a> Guarded<'a> {
 
 fn is_fragment(node: &Node) -> bool {
     node.element_data()
-        .is_some_and(|e| is_fragment_name(&e.name))
+        .is_some_and(|e| is_container_name(&e.name))
 }
 
 impl Element for Guarded<'_> {
@@ -279,11 +282,13 @@ impl Element for Guarded<'_> {
     }
 
     /// Selectors 4: names are ASCII case-insensitive only for HTML elements
-    /// in an HTML document, and every document here is an HTML one.
+    /// in an HTML document; the query knows which its document is.
     fn is_html_element_in_html_document(&self) -> bool {
-        self.node
-            .element_data()
-            .is_some_and(|e| e.name.ns == ns!(html))
+        self.budget.html_document
+            && self
+                .node
+                .element_data()
+                .is_some_and(|e| e.name.ns == ns!(html))
     }
 
     fn has_local_name(&self, name: &<Impl as selectors::SelectorImpl>::BorrowedLocalName) -> bool {
@@ -390,9 +395,13 @@ impl Element for Guarded<'_> {
 
     /// Selectors 4 `:root`: the element whose parent is the document.
     fn is_root(&self) -> bool {
-        self.node
-            .parent
-            .is_some_and(|p| matches!(self.node.with(p).data, NodeData::Document))
+        self.node.parent.is_some_and(|p| {
+            let parent = self.node.with(p);
+            matches!(parent.data, NodeData::Document)
+                || parent
+                    .element_data()
+                    .is_some_and(|e| is_document_name(&e.name))
+        })
     }
 
     /// Once stopped, skips the sibling counts altogether.
@@ -415,7 +424,12 @@ pub(crate) struct Matcher {
 
 impl Matcher {
     /// A matcher for one query of the selector text `selector`.
-    pub(crate) fn new(quirks: QuirksMode, deadline: Option<Deadline>, selector: &str) -> Self {
+    pub(crate) fn new(
+        quirks: QuirksMode,
+        deadline: Option<Deadline>,
+        selector: &str,
+        html_document: bool,
+    ) -> Self {
         Self {
             caches: SelectorCaches::default(),
             budget: Budget {
@@ -425,6 +439,7 @@ impl Matcher {
                 stopped: Cell::new(false),
                 hint: Cell::new(0),
                 weight: element_weight(selector.len()),
+                html_document,
             },
             quirks,
         }
