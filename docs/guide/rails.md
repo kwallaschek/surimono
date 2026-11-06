@@ -3,7 +3,9 @@
 This guide turns a Rails view with charts into a PDF without Chrome: the view
 writes island markers, surimono draws them as SVG, and
 [fulgur](https://github.com/fulgur-rs/fulgur) prints the HTML. The same steps
-work with any engine that prints HTML with inline SVG.
+work with any engine that prints HTML with inline SVG. When a template's own
+scripts build the page, surimono can run those too: see
+[Page scripts](#page-scripts).
 
 The fulgur parts follow fulgur's Ruby gem 0.40.0.
 
@@ -26,7 +28,7 @@ Then point your app's Gemfile at the clone:
 ```ruby
 # Gemfile
 gem "surimono", path: "/path/to/surimono/bindings/ruby"
-gem "fulgur"
+gem "fulgur", "0.40.0"
 ```
 
 Bundler doesn't compile a gem from `path:`, so run `rake compile` first, and
@@ -287,17 +289,267 @@ end
 ActiveJob checks the handler declared last first, so `retry_on` must come after
 `discard_on` for time-limit errors to be retried.
 
+## Page scripts
+
+Island markers suit charts you can describe as JSON. When the template's own
+`<script>` elements build the page (filling tables, formatting numbers, drawing
+with a library), `render_page` runs them as a browser would, on a virtual clock
+until the page settles, then draws any island markers. Plain `render` never runs
+a page's scripts.
+
+```ruby
+page = Surimono.render_page(html, fonts: PDF_FONTS)
+page.html   # the page after its scripts ran, for fulgur
+page.report # what happened while it ran
+```
+
+`page` is a `Surimono::Page`. In the app, add it to the shared renderer from
+[One renderer, shared](#one-renderer-shared):
+
+```ruby
+# In PdfRenderer
+
+  # A page with scripts in, the Surimono::Page out.
+  def page(html, loader: nil, allow: nil)
+    @surimono.render_page(html, loader: loader, allow: allow)
+  end
+
+  # A page with scripts in, Fulgur::Pdf out. Logs what went wrong in the page.
+  def print_page(html)
+    page = page(html)
+    report = page.report
+    if report.uncaught.positive? || report.unhandled_rejections.positive? || report.failed_count.positive?
+      Rails.logger.warn("PDF page: #{report.to_h}")
+    end
+    @fulgur.render_html(page.html)
+  end
+```
+
+`renderer.render(html, scripts: true)` is the same render, returning only
+`page.html`; the report is lost.
+
+### Report or raise
+
+A page's own mistakes go in the report and the page goes on, as in a browser. A
+limit raises, and there is no page.
+
+| `page.report` | What it says |
+|---|---|
+| `settled` | Why it stopped: `:idle` (nothing left to run), `:virtual_budget` (timers left after 10 seconds of virtual time, as with a `setInterval` nobody clears) or `:task_limit` (100,000 tasks, with more due) |
+| `uncaught`, `errors` | Exceptions nothing caught, and the first few as messages |
+| `unhandled_rejections`, `rejections` | Promises rejected with no handler, and the first few reasons |
+| `failed_count`, `failed` | External scripts, images and stylesheets the page didn't get, and the first few as `{ kind:, url:, reason: }` Hashes, `kind` being `:script`, `:image` or `:stylesheet` |
+
+A report isn't always clean on a page that printed well: `:virtual_budget` is
+normal for a page with a clock in it, and every `<img src>` is listed, because
+surimono leaves images to the printer. Decide what your app treats as a failure;
+the sample above only logs.
+
+| Raised | When |
+|---|---|
+| `Surimono::MemoryLimitError` | The page's scripts used more than `limits[:memory_mb]` |
+| `Surimono::TimeLimitError` | The page ran past `limits[:time_ms]`; see [Page limits](#page-limits) |
+| `Surimono::StackOverflowError` | The page's scripts recursed deeper than `limits[:stack_kb]` allows, and nothing caught it |
+| `Surimono::DomLimitError` | The page or its scripts passed a limit on the DOM (nodes, depth, text, attributes), or its CSS passed a limit, or its output is over `limits[:output_mb]`. The message says which. |
+| `Surimono::LayoutQueryError` | With `layout_queries: :throw`, a script asked for layout; `#member` says through what |
+| `Surimono::RenderError`, kind `"page"` | The page couldn't run, or used something the DOM defines and surimono doesn't do yet |
+
+Islands in a page fail as they do anywhere, under `error_policy:`.
+
+### What comes out
+
+`page.html` is the document serialized from a parse, not your input with changes,
+so it isn't byte-identical to what you passed in:
+
+- Attributes are quoted, a missing `<head>` or `<body>` is added, and comments
+  are gone.
+- `<noscript>` is gone, and `<script>` too, except island markers on their way
+  to becoming SVG. To keep the scripts, for an engine that would run them, pass
+  `keep_scripts: true` to `Surimono::Renderer.new`.
+- A page with no doctype or an old one comes out with no doctype;
+  a standards-mode page comes out with `<!doctype html>`.
+- The output is screened so the printer's parse matches ours.
+
+The same HTML, options and files give the same bytes. Scripts see the clock in
+[Dates and time zones](#dates-and-time-zones), and `Math.random` follows `seed:`.
+Timers run on a virtual clock, so a `setTimeout` of a second costs no real time.
+
+### External files
+
+By default a page loads nothing: no network and no files. A `<script src>` or
+`<iframe src>` fails in the report, and a `<link rel="stylesheet">` stays in the
+output for the printer to deal with.
+
+For a fixed set of files, pass `resources:` to the renderer. The keys are the
+URLs exactly as the page writes them:
+
+```ruby
+renderer = Surimono::Renderer.new(
+  fonts: PDF_FONTS,
+  resources: {
+    "/assets/invoice.js" => File.read("app/assets/invoice.js"),
+    "/assets/page.css" => File.read("app/assets/page.css"),
+  },
+)
+```
+
+For a choice per render, pass a proc and an allowlist to `render_page`:
+
+```ruby
+loader = ->(url) { Rails.root.join("public", url.delete_prefix("/")).binread }
+page = renderer.render_page(html, loader: loader, allow: ["/assets/"])
+```
+
+- **The url is the attribute as written**, with no base applied: `../a.js`
+  arrives as `../a.js`, whatever `<base>` says. Rails' `javascript_include_tag`
+  adds a digest and writes `/assets/invoice-3f2a….js`, and with an asset host a
+  whole URL, so match what the page really has.
+- **`allow:`** takes URLs that reach the proc: an entry equal to one, or an entry
+  ending in `/` for what is under it. With no entry, nothing reaches it. An
+  ending `/` refuses paths that climb out of it, but check what you open anyway.
+- **The proc** returns a String, or `nil` if there is none, which goes in the
+  report. An exception in it ends the render and is raised from `render_page`.
+  It runs on your thread, one call at a time, in document order, once per URL.
+  Nothing interrupts it, so give it a timeout of its own. After 10 seconds of
+  loads, or 1,000 of them, the rest fail in the report and the page goes on.
+  Stylesheets load after the scripts, and count against `time_ms` too.
+- **Return the same bytes for the same URL**, or the same input stops giving the
+  same output.
+- **A stylesheet comes out as `<style>`**, so the printer doesn't need the file.
+  A `url()` or `@import` in it isn't followed. A `<link>` not on the list stays
+  as it was; a listed one that can't be had goes from the page and into the
+  report.
+- **A frame** (`<iframe src>`) loads through the same proc and list, with its
+  `#fragment` taken off, and a failed one reports as `:script`. A script can add
+  a frame and read what it loaded, so don't allow what a page mustn't see.
+
+### Page limits
+
+`limits:` applies to a page as one, not to each script in it:
+
+- **`time_ms`** is one deadline for all the page's scripts together, timers
+  included. Parsing the page has a limit of the same length, and so has
+  everything after the scripts (serializing, stylesheets, the checks for the
+  printer), so a page takes at most about three times `time_ms` before its
+  islands, and each island then has its own `time_ms`. Time spent in your loader
+  before the scripts is capped only by the 10 seconds above.
+- **`memory_mb`** and **`stack_kb`** are one heap and one stack for all of them.
+- **`output_mb`** (default 64, at least 1) caps the HTML `render_page` gives back
+  and the text a page may hold while it runs. Past it, `DomLimitError`.
+
+```ruby
+Surimono::Renderer.new(fonts: PDF_FONTS, limits: { time_ms: 1_000, output_mb: 8 })
+```
+
+Interrupts work as they do for islands: `Timeout.timeout` raises at once, and the
+page's script stops within milliseconds, which frees its runtime.
+
+```ruby
+page = Timeout.timeout(10) { PdfRenderer.instance.page(html) }
+```
+
+### Layout queries
+
+Nothing is laid out yet. Until phase 3 is done, `getBoundingClientRect`,
+`offsetWidth`, `getComputedStyle` and the like answer zeros and empty strings,
+so a page that only reads them carries on, and one that sizes something from
+them may draw it at size 0. If you would rather have no page than a page built
+on those answers, ask for an error:
+
+```ruby
+Surimono::Renderer.new(fonts: PDF_FONTS, layout_queries: :throw)
+```
+
+The first query then raises `Surimono::LayoutQueryError`, even if the page
+catches the exception.
+
+### What doesn't work yet
+
+- A script a script inserts doesn't run, so script loaders do nothing. Inline
+  and `src` scripts in the HTML do.
+- `type="module"` scripts don't run; `nomodule` scripts do.
+- There is no `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
+  `matchMedia`, `ResizeObserver` or `IntersectionObserver`.
+- There is no `navigator`, `URL`, `URLSearchParams`, `TextEncoder`, `atob`,
+  `btoa`, `Intl`, `structuredClone`, `customElements` or shadow DOM.
+- Many element helpers are missing, among them `innerText`, `focus`, a table's
+  `insertRow` and `rows`, a `<select>`'s `options` and a form's `elements`.
+  `textContent`, `createElement` and `append` work. Calling a missing method
+  stops that script, with `TypeError: not a function` in the report.
+- `document.write` doesn't exist, so the script that calls it stops there.
+- A `<canvas>` has no `getContext`; canvas drawing is planned for phase 3.
+- Images aren't loaded for a page: no `load` or `error` event fires for one, and
+  there is no `Image` constructor. `src` stays for the printer.
+- A frame's scripts don't run.
+
+[docs/COMPAT.md](../COMPAT.md) has the full list, with the test behind each row.
+
+### Printing pages you don't trust
+
+The printer has no limits of its own. If pages come from people you don't trust,
+print them in a process of your own, not under a timeout: a timeout can't stop a
+thread, or catch what ends a process. Give that process stack for the depth a
+page may reach: at least 2 MiB, and 8 MiB leaves room. Ruby's threads, which
+Puma and Sidekiq run on, have 1 MiB unless `RUBY_THREAD_MACHINE_STACK_SIZE` says
+otherwise.
+
+A small script does the printing. A child process's main thread takes its stack
+from `rlimit_stack`:
+
+```ruby
+# bin/print_pdf.rb
+require "bundler/setup"
+require "fulgur"
+
+html_path, pdf_path, *fonts = ARGV
+assets = Fulgur::AssetBundle.new
+fonts.each { |path| assets.add_font_file(path) }
+Fulgur::Engine.new(assets: assets).render_html(File.read(html_path, encoding: "UTF-8")).write_to_path(pdf_path)
+```
+
+The app runs it with a stack and a timeout, and kills it at the timeout:
+
+```ruby
+# app/lib/untrusted_printer.rb
+require "rbconfig"
+require "timeout"
+
+class UntrustedPrinter
+  class Failed < StandardError; end
+
+  STACK_BYTES = 8 * 1024 * 1024
+
+  def self.print(html_path, pdf_path, seconds: 30)
+    pid = Process.spawn(RbConfig.ruby, Rails.root.join("bin/print_pdf.rb").to_s, html_path, pdf_path, *PDF_FONTS,
+                        rlimit_stack: STACK_BYTES)
+    begin
+      _, status = Timeout.timeout(seconds) { Process.wait2(pid) }
+    rescue Timeout::Error
+      Process.kill("KILL", pid)
+      Process.wait(pid)
+      raise Failed, "the printer took more than #{seconds} s"
+    end
+    raise Failed, "the printer ended with #{status}" unless status.success?
+  end
+end
+```
+
+Run the page's scripts in the app or in that process, as you like: `render_page`
+has the limits above either way.
+
 ## Errors
 
 Everything surimono raises is a `Surimono::Error`, a `StandardError`:
 
 | Class | When |
 |---|---|
-| `Surimono::MemoryLimitError` | An island's script used more than `limits[:memory_mb]` |
-| `Surimono::TimeLimitError` | An island's script ran longer than `limits[:time_ms]` |
-| `Surimono::StackOverflowError` | An island's script recursed deeper than `limits[:stack_kb]` allows |
+| `Surimono::MemoryLimitError` | An island's or a page's script used more than `limits[:memory_mb]` |
+| `Surimono::TimeLimitError` | An island or a page ran longer than `limits[:time_ms]` |
+| `Surimono::StackOverflowError` | An island's or a page's script recursed deeper than `limits[:stack_kb]` allows |
+| `Surimono::DomLimitError` | A page passed a limit on the DOM, its CSS or `limits[:output_mb]` |
+| `Surimono::LayoutQueryError` | With `layout_queries: :throw`, a page's script asked for layout; `#member` names what it used |
 | `Surimono::JavaScriptError` | An island's script threw; `#js_stack` has the JavaScript stack |
-| `Surimono::RenderError` | A malformed marker, an unknown renderer, unusable output, more islands than `max_islands` (kind `"too-many-islands"`), or markup too ambiguous to rewrite |
+| `Surimono::RenderError` | A malformed marker, an unknown renderer, unusable output, more islands than `max_islands` (kind `"too-many-islands"`), markup too ambiguous to rewrite, or a page that can't run (kind `"page"`) |
 | `Surimono::ConfigurationError` | From `Renderer.new`: a font that can't be loaded, a limit out of range, an unknown renderer name, a bundle that can't be used |
 | `Surimono::InternalError` | A bug in surimono itself, such as a panic during a render. The process keeps running; please report it with the message. |
 
@@ -312,6 +564,10 @@ rescue Surimono::Error => e
   raise
 ```
 
+A page's own errors have no island, so `island_index` is `nil` on them. An
+exception in a page's script doesn't raise at all: see
+[Report or raise](#report-or-raise).
+
 Wrong argument types raise `ArgumentError`, and a missing font file raises
 `Errno::ENOENT`. fulgur raises `Fulgur::RenderError` and `Fulgur::AssetError`,
 both under `Fulgur::Error`.
@@ -325,7 +581,7 @@ attribute holds the kind and a comment inside it holds the message.
 ## Limits
 
 The defaults are 64 MB of JavaScript heap, 2 seconds and 512 KB of stack per
-island. They are generous for ECharts and Vega charts of report size. Raise them
+island. A page's scripts share one set: see [Page limits](#page-limits). They are generous for ECharts and Vega charts of report size. Raise them
 for very dense charts, and lower the time limit when documents come from users:
 
 ```ruby
@@ -359,12 +615,8 @@ to 20 times as long. Two options bound a whole document:
   worker's first render, can take up to twice `time_ms` (one limit to compile,
   one to run it once), plus any wait for a free runtime.
 
-The printer has no limits of its own. If pages come from people you don't trust,
-print them in a process of your own, not under a timeout: a timeout can't stop a
-thread, or catch what ends a process. Give that process stack for the depth a
-page may reach: at least 2 MiB, and 8 MiB leaves room. Ruby's threads, which
-Puma and Sidekiq run on, have 1 MiB unless `RUBY_THREAD_MACHINE_STACK_SIZE` says
-otherwise.
+The printer has no limits of its own: see
+[Printing pages you don't trust](#printing-pages-you-dont-trust).
 
 ## Testing
 
@@ -406,4 +658,8 @@ File.join(Gem.loaded_specs.fetch("surimono").full_gem_path, "THIRD_PARTY_LICENSE
 | A gap under every chart | The SVG is inline. Add `.surimono-island > svg { display: block; }`. |
 | A render takes far longer than `time_ms` | The limit is per island. Lower `max_islands:` or put a timeout around the call (see [Limits](#limits)). |
 | The first chart in each process is much slower than later ones | The chart libraries aren't loading precompiled bytecode. Check that `Surimono.precompiled_builtins` equals `Surimono.builtin_renderers.size`; if it doesn't, `SURIMONO_PRECOMPILE=0` was set when the gem was built or the app started, or the gem's precompiled bytecode doesn't fit its engine (a broken build). |
+| A table or chart a page's script should fill is empty | Check `page.report`. An exception stops that script, and a `<script src>` that didn't load is in `failed`. |
+| A chart library draws nothing, or at size 0 | It measures the page, and layout queries answer zeros until phase 3. `layout_queries: :throw` shows the first query. Use an island for the chart. |
+| `settled` is `:virtual_budget` | A timer was still set after 10 seconds of virtual time. Fine if the page had finished by then. |
+| Scripts or styles from a CDN or `/assets/` are missing | Nothing loads by default. Pass `resources:` or `loader:` with `allow:`, with URLs as the page writes them. |
 | `RenderError` "unknown renderer" | A typo in `data-renderer`, or the renderer isn't in `renderers:`. The message lists the enabled ones. |
