@@ -1,0 +1,18 @@
+{
+  "test": {
+    "result": "abandoned",
+    "outputs": {}
+  },
+  "ruby": {
+    "result": "failure",
+    "outputs": {}
+  },
+  "native-gems": {
+    "result": "failure",
+    "outputs": {}
+  },
+  "linux-extra": {
+    "result": "failure",
+    "outputs": {}
+  }
+}
