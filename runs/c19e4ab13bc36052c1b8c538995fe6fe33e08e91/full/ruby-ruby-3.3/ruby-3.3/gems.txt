@@ -1,0 +1,4 @@
+total 1760
+drwxr-xr-x  2 runner runner    4096 Nov  6 02:29 .
+drwxr-xr-x 10 runner runner    4096 Nov  6 02:29 ..
+-rw-r--r--  1 runner runner 1794048 Nov  6 02:30 surimono-0.1.0.gem
