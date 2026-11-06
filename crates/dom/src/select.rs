@@ -521,13 +521,13 @@ mod tests {
             .spawn(move || {
                 let doc = Document::parse(&page).unwrap();
                 let list = doc.selector_list(&selector).unwrap();
-                let body = doc.body().unwrap();
+                let body = doc.body(doc.root()).unwrap();
                 let last = *doc.children(body).last().unwrap();
                 let run = |matcher: &mut Matcher| {
                     let found = matcher.matches(doc.node(last), None, &list);
                     (found, matcher.stopped())
                 };
-                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector);
+                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector, true);
                 assert_eq!(run(&mut new()), (true, false));
                 let (mut stopped, mut lowest) = (false, usize::MAX);
                 with_stack_left(MIN_STACK_BYTES + 4 * 1024, &mut || {
