@@ -426,8 +426,7 @@ differs from Chrome's. `offsetX`, `offsetY`, `layerX` and `layerY` are the clien
 coordinates until layout. Interactive form validation doesn't stop a submit.
 `TouchEvent`'s `touches` lists are plain arrays, and `Touch` isn't bound, so they
 can only be empty. Named access doesn't read `name` and doesn't see what a
-script adds; `document.URL` isn't known, so a fragment link's `hashchange` has the
-fragments as its URLs. A body element's `on*`
+script adds. A body element's `on*`
 attributes reach the window from the last one written, not from each in turn.
 Radio groups key on a `form` attribute's text, not on the element it names.
 Setting `details.open` from a script queues no `toggle`; only a click on its summary
@@ -435,6 +434,39 @@ does. Two elements with one `id` name the first on the window, not a collection.
 A form's reset restores neither `value` nor `checked`. `PointerEvent`'s tilt and
 altitude pairs aren't converted into each other. `DeviceMotionEvent`'s members are
 the converted dictionaries, not interfaces.
+
+## Location and history
+
+`src/glue_location.js`. `Location` and `History` are hand-written over the
+document's URL, which Rust holds and parses (the `url` crate, already a dependency).
+`Document::set_url` gives the page its URL; without one it is `about:blank`, and
+`location` answers for that.
+
+A printed page goes nowhere, so nothing leaves the document. What would load another
+document stops, as a link and a form's submit do, with no error: the page carries on
+and prints as it stands. `location.search = ...`, `reload()` and `go(0)` do nothing.
+What stays in the document happens: a fragment (a new entry, then `hashchange`), a
+`javascript:` URL, `pushState`, `replaceState` and traversal among the entries they
+made, with `popstate`. `Document.URL`, `baseURI`, the URLs of `DOMParser`'s documents
+and resolved URL attributes all follow.
+
+Session history is in the glue, per document, so it is under the memory limit and
+goes with the render. A state is cloned once when pushed: primitives, arrays, plain
+objects, `Date`, `RegExp`, `Map`, `Set`. Functions, symbols and platform objects
+are a `DataCloneError`, as they should be; `ArrayBuffer`, typed arrays and `Error`
+objects clone as plain objects, a gap. A URL is capped at 2 MiB (Chrome's limit),
+since Rust holds one per document: a longer one is the `SecurityError` `pushState`
+has for a URL it won't take.
+
+A frame's window has its own `location`, `history` and `DOMParser`. The last is the
+one exception to "no realm": a parser's URL is that of the document of the global it
+was made in, and nothing else about `frames[0]` differs for it. Its prototype is the
+page's, so `frames[0].DOMParser.prototype.parseFromString.call(parser)` works either
+way round.
+
+**Gaps.** `[LegacyUnforgeable]` isn't honoured: `Location`'s members are on its
+prototype, and a script can replace them. `ancestorOrigins` isn't bound. No
+`history.state` survives anything, there being no reload.
 
 ## MutationObserver
 

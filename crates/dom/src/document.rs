@@ -35,6 +35,10 @@ fn frame_content_type(url: &str) -> Option<&'static str> {
     }
 }
 
+/// The longest URL a script can give a document, which is kept outside the JS
+/// heap, as long as any: Chrome's limit, and one per document.
+pub(crate) const MAX_URL_BYTES: usize = 2 * 1024 * 1024;
+
 /// Infra's ASCII whitespace.
 const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
 
@@ -920,6 +924,13 @@ impl Document {
             if !d.html {
                 d.content_type = frame_content_type(url).unwrap_or(APPLICATION_XHTML);
             }
+        }
+    }
+
+    /// A script's change of `doc`'s URL (`pushState`, a fragment).
+    pub(crate) fn write_url(&mut self, doc: usize, url: &str) {
+        if let Some(d) = self.docs.get_mut(&doc) {
+            d.url = Arc::from(url);
         }
     }
 

@@ -149,7 +149,8 @@
       throw new TE('parseFromString: the type is not a DOMParserSupportedType');
     }
     const g = current();
-    return wrap(g, call(OP_parseFromString, g, root(), text, t));
+    const h = s.doc === undefined ? root() : s.doc.h;
+    return wrap(g, call(OP_parseFromString, g, h, text, t));
   };
   H.new_XMLSerializer = (target) => make(I_XMLSerializer, target).w;
 
@@ -195,9 +196,25 @@
       const d = create(null);
       d.value = s.w; d.enumerable = true;
       defineProperty(w, 'document', d);
+      own(w, 'location', locationOf(s));
+      own(w, 'history', historyRecord(s).w);
+      own(w, 'DOMParser', frameParser(s));
       s.frameWindow = w;
     }
     return s.frameWindow;
+  }
+  // A DOMParser's URL is its "associated document"'s, the document of the
+  // global it was made in (HTML §8.5.3), and that is what a frame's window
+  // differs in: its own constructor, on the one prototype.
+  function frameParser(d) {
+    const C = function DOMParser() {
+      if (new.target === undefined) throw new TE('Constructor requires new');
+      const p = make(I_DOMParser, new.target === C ? ctors[I_DOMParser] : new.target);
+      p.doc = d;
+      return p.w;
+    };
+    C.prototype = protos[I_DOMParser];
+    return C;
   }
   attr(I_Document, 'defaultView', function () {
     const s = self(this, I_Document);
@@ -254,8 +271,9 @@
   attr(I_Window, 'length', function () { self(this, I_Window); return childWindows().length; });
   attr(I_Document, 'location', function () {
     if (!isPage(self(this, I_Document))) return null;
-    const l = G.location;
-    return l === undefined ? null : l;
+    return H.Window_location();
+  }, function (v) {
+    if (isPage(self(this, I_Document))) H.Window_location().href = v;
   });
 
   // HTML §8.1.3.5: the running script's element, for the length of its run.
