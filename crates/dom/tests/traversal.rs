@@ -146,7 +146,7 @@ fn a_walker_goes_every_way() {
              w.currentNode = document.body;
              log.push(name(w.parentNode()), name(w.nextNode()));
              log.join()"),
-        "b,a,b,null,r"
+        "b,a,b,HTML,HEAD"
     );
 }
 
@@ -176,7 +176,7 @@ fn a_filter_that_changes_the_tree_is_safe() {
              r.append('x', 'y');
              const b = all(() => w.nextNode());
              a + ' ' + b"),
-        "r,a x"
+        "r,a,t1,b,t2 "
     );
 }
 

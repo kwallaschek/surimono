@@ -6,11 +6,8 @@
   // sees removals (src/traversal.rs); a TreeWalker's is here, as nothing moves it.
 
   const FILTER_ACCEPT = 1, FILTER_REJECT = 2, FILTER_SKIP = 3;
-  const firstChild_ = rdescriptor(nodeProto, 'firstChild').get;
   const lastChild_ = rdescriptor(nodeProto, 'lastChild').get;
-  const nextSibling_ = rdescriptor(nodeProto, 'nextSibling').get;
   const previousSibling_ = rdescriptor(nodeProto, 'previousSibling').get;
-  const nodeType_ = rdescriptor(nodeProto, 'nodeType').get;
   const get = (getter, node) => apply(getter, node, []);
 
   // DOM §6 "filter": `t` is the iterator's or walker's record.
@@ -238,8 +235,7 @@
   // A legacy callback interface object (WebIDL §3.13): constants on a function no
   // one can call.
   {
-    const NodeFilter = function NodeFilter() { throw new TE('Illegal constructor'); };
-    delete NodeFilter.prototype;
+    const { NodeFilter } = { NodeFilter() { throw new TE('Illegal constructor'); } };
     for (const [name, value] of [
       ['FILTER_ACCEPT', 1], ['FILTER_REJECT', 2], ['FILTER_SKIP', 3], ['SHOW_ALL', 0xffffffff],
       ['SHOW_ELEMENT', 1], ['SHOW_ATTRIBUTE', 2], ['SHOW_TEXT', 4], ['SHOW_CDATA_SECTION', 8],

@@ -86,7 +86,7 @@ impl Document {
             if !found || top == root || !gone.contains(&top) {
                 continue;
             }
-            let moved = self.after_removal(root, parent, top, gone, before);
+            let moved = self.pointer_after_removal(root, parent, top, gone, before);
             let Some((node, before)) = moved else {
                 return;
             };
@@ -102,7 +102,7 @@ impl Document {
 
     /// Where a pointer on `top` goes when `gone` leaves `parent`, or `None` if the
     /// time limit stopped the walk.
-    fn after_removal(
+    fn pointer_after_removal(
         &self,
         root: usize,
         parent: usize,
