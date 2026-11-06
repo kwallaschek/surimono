@@ -188,13 +188,12 @@ it short; the suite itself runs on the defaults above.
 ### Harness environment
 
 `testharness.js` reads `window.parent`, `window.top`, `window.opener` and `location`
-as soon as it loads, and `surimono-dom` has none of them yet. The runner defines
-the ones a page lacks, `parent` and `top` as the window, `opener` as null, and a
-plain `location` for the test's URL on WPT's default origin. They run at the start
-of `testharness.js`'s own script, so the document stays as WPT wrote it, and the
-vendored file is unchanged and still checked. A definition goes away by itself when
-surimono-dom has the name. `location` here is data with no behaviour, and the gap
-is in `COMPAT.md`.
+as soon as it loads, and `surimono-dom` has all but `location` now. The runner defines
+the ones a page lacks, so today a plain `location` for the test's URL on WPT's default
+origin. It runs at the start of `testharness.js`'s own script, so the document stays
+as WPT wrote it, and the vendored file is unchanged and still checked. A definition
+goes away by itself when surimono-dom has the name. `location` here is data with no
+behaviour, and the gap is in `COMPAT.md`.
 
 The harness also needs `window` as an event target, with `self` the same object,
 `DOMContentLoaded` then `load` after the scripts, `error` on `window`, somewhere to
@@ -238,6 +237,7 @@ runner's resolver from `wpt/tests/`, and a script in it doesn't run. That is why
 path and hash of any other vendored file. A frame that needs a `.py` handler, or its
 own script, gets nothing useful. `.sub.html` tests need wptserve's substitution and
 idlharness tests fetch `/interfaces/*.idl`. `api_needs.py` sets
-all of these aside so the ranking isn't misled, but they stay in the denominator:
-a target is met on all of the slice, or the gap goes in `COMPAT.md` for Kay's OK.
+aside what needs a new window, a worker, the network, testdriver or wptserve, so the
+ranking isn't misled, but those stay in the denominator: a target is met on all of
+the slice, or the gap goes in `COMPAT.md` for Kay's OK.
 `COMPAT.md`'s cause table shows how much each of these weighs.

@@ -225,15 +225,20 @@ class ApiNeedsTests(unittest.TestCase):
         self.assertEqual(r["order"][0]["completes"], 3)
         self.assertEqual(r["order"][-1]["reachable_after"], 4)
 
-    def test_iframes_are_set_aside(self):
-        r = self.run_on({"a.html": '<iframe src="x"></iframe><script>test(()=>{})</script>'})
-        self.assertEqual(r["blocked"], {"iframe": 1})
+    def test_workers_are_set_aside(self):
+        r = self.run_on({"a.html": '<script>new Worker("x");test(()=>{})</script>'})
+        self.assertEqual(r["blocked"], {"worker": 1})
         self.assertEqual(r["subtests"], 0)
-        self.assertEqual(r["tests"][0]["blocked_by"], ["iframe"])
+        self.assertEqual(r["tests"][0]["blocked_by"], ["worker"])
 
-    def test_substitution_idl_and_xml_tests_are_set_aside(self):
-        r = self.run_on({"a.sub.html": "<script>test(()=>{})</script>", "b.html": "<script>idl_test([],[],()=>{})</script>", "c.xht": "<script>test(()=>{})</script>"})
-        self.assertEqual(r["blocked"], {"idl files from the server": 1, "server-side substitution": 1, "xml parser": 1})
+    def test_frames_and_xml_pages_count(self):
+        r = self.run_on({"a.html": '<iframe src="x"></iframe><script>test(()=>{})</script>', "c.xht": "<script>test(()=>{})</script>"})
+        self.assertEqual(r["blocked"], {})
+        self.assertEqual(r["subtests"], 2)
+
+    def test_substitution_and_idl_tests_are_set_aside(self):
+        r = self.run_on({"a.sub.html": "<script>test(()=>{})</script>", "b.html": "<script>idl_test([],[],()=>{})</script>"})
+        self.assertEqual(r["blocked"], {"idl files from the server": 1, "server-side substitution": 1})
 
     def test_without_a_manifest_it_says_so(self):
         err = io.StringIO()
