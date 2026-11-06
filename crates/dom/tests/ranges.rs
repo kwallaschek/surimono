@@ -24,7 +24,8 @@ const show = (rg) => {
 ";
 
 fn run_with(limit: DomLimits, script: &str) -> Result<String, DomError> {
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    let time = scaled(Duration::from_secs(30));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
     rt.load(Document::parse_with_limits(PAGE, limit).unwrap());
     let r: Result<String, DomError> = rt.eval(&format!("{VARS}{script}"));
     if let Some(check) = rt.with_document(Document::check_consistency) {
@@ -38,7 +39,8 @@ fn run(script: &str) -> String {
 }
 
 fn body_of(script: &str) -> (String, String) {
-    let mut rt = DomRuntime::new(limits()).unwrap();
+    let time = scaled(Duration::from_secs(30));
+    let mut rt = DomRuntime::new(limits().with_time(time)).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     let r: String = rt.eval(&format!("{VARS}{script}")).unwrap();
     rt.with_document(Document::check_consistency)
@@ -564,7 +566,7 @@ fn running_out_of_handles_in_a_removal_stays_typed() {
 /// removal is the worst walk there is, and the sandbox's limit still ends it.
 #[test]
 fn many_ranges_in_a_deep_tree_end_at_the_time_limit() {
-    let mut rt = DomRuntime::new(limits().with_time(Duration::from_millis(200))).unwrap();
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_millis(200)))).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     let start = Instant::now();
     let r: Result<String, DomError> = rt.eval(
@@ -585,7 +587,7 @@ fn many_ranges_in_a_deep_tree_end_at_the_time_limit() {
 /// for both in its polls, and ends at the time limit, not after it.
 #[test]
 fn a_wide_extract_stops_near_the_time_limit() {
-    let mut rt = DomRuntime::new(limits().with_time(Duration::from_millis(100))).unwrap();
+    let mut rt = DomRuntime::new(limits().with_time(scaled(Duration::from_millis(100)))).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     let start = Instant::now();
     let r: Result<u32, DomError> = rt.eval(
@@ -610,7 +612,7 @@ fn a_wide_extract_stops_near_the_time_limit() {
 #[test]
 fn leaked_ranges_cost_untouched_mutations_nothing() {
     let time = Limits::default().time;
-    let mut rt = DomRuntime::new(limits().with_time(time * 4)).unwrap();
+    let mut rt = DomRuntime::new(limits().with_time(scaled(time * 4))).unwrap();
     rt.load(Document::parse(PAGE).unwrap());
     let r: u32 = rt
         .eval(
