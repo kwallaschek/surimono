@@ -360,3 +360,12 @@ checkpoint and can overturn anything. Newest last.
 - 2026-11-06 · Spec conflict: a same-URL navigation leaves `history.state` null per the spec; Chrome keeps the old state (#153) · The spec wins for DOM behaviour.
 - 2026-11-06 · Spec conflict: a throwing function timer follows WebIDL (T,m,E1,em,E2); Chrome gives T,E1,E2,m,em (#155) · The spec wins for DOM behaviour.
 - 2026-11-06 · A frame's window has its own `DOMParser`, the one exception to "no realm", because a parser's URL is that of its global's document (#153).
+- 2026-11-06 · Real-world print results live in `fixtures/checkpoint-3/`, with a floor of fulgur printing Chrome's own DOM (#158) · A page that equals its floor fails on fulgur, not on surimono.
+- 2026-11-06 · The guides pin fulgur 0.40.0 (#157) · The unpinned gem resolves to 0.41.0, which surimono isn't tested with.
+- 2026-11-06 · SVG `load` follows SVG 2 §15.2: all `svg` elements just before the window's `load`, in end-tag order; Chrome fires a nested `svg` as it closes (#155) · The spec wins.
+- 2026-11-06 · `URL` is its serialization in the record; every member goes through the `url` crate's `quirks`, input and output capped at 2 MiB with a TypeError (#160).
+- 2026-11-06 · `TextDecoder` is all of `encoding_rs`, already linked through stylo; an open stream is charged 4 KiB against `max_text_bytes` (#160).
+- 2026-11-06 · `navigator` is constants: UA `Mozilla/5.0 (compatible; surimono)`, empty `platform`, `en-US`, `onLine` and `cookieEnabled` false, `hardwareConcurrency` 1 (#160) · Same input, same output.
+- 2026-11-06 · `customElements` is a registry only; nothing is constructed or upgraded (#160) · Reactions need a hook on every node-adding path. Kay can overturn.
+- 2026-11-06 · `structuredClone` shares history's clone; a transfer copies, then detaches, so a failed clone leaves the buffers. `Intl` stays out: it isn't in the engine (#160).
+- 2026-11-06 · `selected` is the attribute, like `checked` (#161) · What a script chooses must reach the print. `innerText` sees no stylesheet until phase 3; `document.cookie` is empty and a write does nothing; `:focus` doesn't match.
