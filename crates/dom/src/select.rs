@@ -824,7 +824,7 @@ mod tests {
                     let found = matcher.matches(doc.node(last), None, &list);
                     (found, matcher.stopped())
                 };
-                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector, true);
+                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector, true, None);
                 assert_eq!(run(&mut new()), (true, false));
                 let (mut stopped, mut lowest) = (false, usize::MAX);
                 with_stack_left(MIN_STACK_BYTES + 4 * 1024, &mut || {
