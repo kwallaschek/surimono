@@ -414,8 +414,9 @@ reads a global through the prototype chain, and a Proxy there makes an undeclare
 name `undefined` instead of a ReferenceError.
 
 **A checkpoint between listeners.** An event fired from a task of the page's life
-(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`) or for
-a rejected promise has no script under its dispatch, so "clean up after running
+(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`), for
+a rejected promise, or by `AbortSignal.timeout` (at the signal and at the signals
+that depend on it) has no script under its dispatch, so "clean up after running
 script" finds the stack empty after each listener and that is a microtask checkpoint
 (`L1,micro,L2`). The glue marks those events (`alone`, set by `fireInTask`) and calls
 `n.checkpoint`, which is core's `LoopBridge::checkpoint`. An event from `dispatchEvent`
@@ -431,6 +432,8 @@ the conflict is in `docs/DECISIONS.md`.
 **Gaps** (each for docs/COMPAT.md): a
 handler's scope has no form owner; MathML elements have no `on*` attributes (no
 interface bound), and `<svg><script>` doesn't run; `rejectionhandled` doesn't fire.
+`toggle`, `hashchange` and an iframe's `load` come from tasks but get no checkpoint
+between listeners, so they give `L1,L2,micro` (Chromium 153 and HTML: `L1,micro,L2`).
 ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
 `Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
 two events at one virtual time have the same one. `HTMLDocument` is `Document`, as

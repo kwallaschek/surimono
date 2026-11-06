@@ -594,8 +594,9 @@
     return dispatch(target, s);
   }
 
-  // The same from a task of the page's life, with no script on the stack:
-  // only those get a checkpoint after each listener (see `invoke`). `click()`
+  // The same from a task with no script on the stack, of the page's life or
+  // AbortSignal.timeout's: only those get a checkpoint after each listener
+  // (see `invoke`). `click()`
   // fires its `input` from inside the caller's script, so it uses `fire`.
   function fireInTask(target, type, bubbles) {
     const s = make(I_Event);

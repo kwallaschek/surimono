@@ -1985,7 +1985,8 @@ fn a_microtask_checkpoint_runs_between_the_listeners_of_a_fired_event() {
 /// With a script on the stack the stack isn't empty: `dispatchEvent` and
 /// `click()` get no checkpoint, even for the `input` a browser fires
 /// (Chromium 153: `c1 ; c2 ; after ; cm`, `wpt/probes` `checkpoint2`), and
-/// nor does a load event a script sends round again.
+/// nor does a `DOMContentLoaded` event a script keeps and sends round again
+/// (the same log in Chromium 153).
 #[test]
 fn no_checkpoint_under_a_running_script() {
     let (log, _) = logged(
@@ -2004,7 +2005,7 @@ fn no_checkpoint_under_a_running_script() {
     let (log, _) = logged(
         r#"<script>
         let again;
-        addEventListener('load', (e) => { again = e; }, { once: true });
+        document.addEventListener('DOMContentLoaded', (e) => { again = e; }, { once: true });
         addEventListener('x', () => { log.push('x1'); queueMicrotask(() => log.push('m')); });
         addEventListener('x', () => log.push('x2'));
         addEventListener('load', () => setTimeout(() => {
@@ -2015,6 +2016,69 @@ fn no_checkpoint_under_a_running_script() {
         </script>"#,
     );
     assert_eq!(log, "x1,x2,after,m");
+}
+
+/// DOM §3.2: `AbortSignal.timeout` signals abort from a queued task, so each
+/// listener gets a checkpoint, at the signal and at what depends on it. An
+/// abort from a script doesn't, in a timer or not. All four logs are Chromium
+/// 153's, run by hand.
+#[test]
+fn abort_signal_timeout_listeners_get_a_checkpoint_each() {
+    const LISTEN: &str = r#"
+        function listen(t, n) {
+          t.addEventListener('abort', () => {
+            log.push(n + '1');
+            queueMicrotask(() => log.push(n + 'm'));
+          });
+          t.addEventListener('abort', () => log.push(n + '2'));
+        }"#;
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        listen(AbortSignal.timeout(1), 'A');
+        </script>"
+    ));
+    assert_eq!(log, "A1,Am,A2");
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        const s = AbortSignal.timeout(1);
+        listen(s, 'S');
+        listen(AbortSignal.any([s]), 'D');
+        </script>"
+    ));
+    assert_eq!(log, "S1,Sm,S2,D1,Dm,D2");
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        const c = new AbortController();
+        listen(c.signal, 'A');
+        c.abort();
+        log.push('after');
+        </script>"
+    ));
+    assert_eq!(log, "A1,A2,after,Am");
+    let (log, _) = logged(&format!(
+        "<script>{LISTEN}
+        const c = new AbortController();
+        listen(c.signal, 'A');
+        setTimeout(() => {{ c.abort(); log.push('after'); }}, 0);
+        </script>"
+    ));
+    assert_eq!(log, "A1,A2,after,Am");
+}
+
+/// The same limit rule as under `load`: the overflow in the checkpoint ends the
+/// page, and the next listener doesn't run.
+#[test]
+fn a_limit_in_an_abort_listeners_checkpoint_ends_the_page() {
+    let html = "<!doctype html><script>
+        function f() { f(); }
+        const s = AbortSignal.timeout(1);
+        s.addEventListener('abort', () => { queueMicrotask(f); });
+        s.addEventListener('abort', () => { for (;;) {} });
+        </script>";
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(html).unwrap());
+    let run = rt.run_page(&SettleOptions::default(), |_| None);
+    assert_eq!(run.unwrap_err(), OVERFLOW);
 }
 
 /// WebIDL's clean-up comes before inner invoke reports the exception, so the
