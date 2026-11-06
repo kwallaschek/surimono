@@ -149,6 +149,14 @@ pub(crate) mod interface {
     pub(crate) const HTMLU_LIST_ELEMENT: u32 = 134;
     pub(crate) const HTML_UNKNOWN_ELEMENT: u32 = 135;
     pub(crate) const CSS_STYLE_DECLARATION: u32 = 136;
+    pub(crate) const URL: u32 = 137;
+    pub(crate) const URL_SEARCH_PARAMS: u32 = 138;
+    pub(crate) const TEXT_ENCODER: u32 = 139;
+    pub(crate) const TEXT_DECODER: u32 = 140;
+    pub(crate) const NAVIGATOR: u32 = 141;
+    pub(crate) const PLUGIN_ARRAY: u32 = 142;
+    pub(crate) const MIME_TYPE_ARRAY: u32 = 143;
+    pub(crate) const CUSTOM_ELEMENT_REGISTRY: u32 = 144;
 }
 
 /// Runs operation `op` on `this`, with `a` from JavaScript.

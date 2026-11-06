@@ -474,6 +474,10 @@ pub struct Document {
     specials: HashMap<usize, Special>,
     /// Every `Range`, live until the document drops: see [`crate::range`].
     pub(crate) ranges: Vec<LiveRange>,
+    /// `TextDecoder`s in the middle of a stream (`src/web.rs`), by slot.
+    pub(crate) decoders: Vec<Option<encoding_rs::Decoder>>,
+    /// Slots of `decoders` with nothing in them.
+    pub(crate) free_decoders: Vec<u32>,
     /// Boundary points by node, counted, so a mutation of a node with none
     /// doesn't look at `ranges`. Only looked up.
     pub(crate) range_points: HashMap<usize, u32>,
@@ -643,6 +647,8 @@ impl Document {
             frame_loads: VecDeque::new(),
             specials: parsed.specials.into_iter().collect(),
             ranges: Vec::new(),
+            decoders: Vec::new(),
+            free_decoders: Vec::new(),
             range_points: HashMap::new(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
@@ -2973,7 +2979,7 @@ impl Document {
 
     /// Charges `bytes` of a record's strings to the document, for its life.
     /// `None` and the call's fault if they don't fit.
-    fn charge_record(&mut self, bytes: usize) -> Option<()> {
+    pub(crate) fn charge_record(&mut self, bytes: usize) -> Option<()> {
         match self.recharge(0, bytes) {
             Ok(()) => {
                 self.observer_bytes += bytes;
@@ -2984,6 +2990,12 @@ impl Document {
                 None
             }
         }
+    }
+
+    /// Takes back what [`charge_record`](Self::charge_record) charged.
+    pub(crate) fn credit_record(&mut self, bytes: usize) {
+        self.credit(bytes);
+        self.observer_bytes = self.observer_bytes.saturating_sub(bytes);
     }
 
     /// The one empty static list records share. A failure is the call's

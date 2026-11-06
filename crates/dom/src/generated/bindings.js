@@ -16,6 +16,14 @@ const I_Performance = 30;
 const I_Location = 28;
 const I_History = 29;
 const I_StaticRange = 66;
+const I_URL = 137;
+const I_URLSearchParams = 138;
+const I_TextEncoder = 139;
+const I_TextDecoder = 140;
+const I_Navigator = 141;
+const I_PluginArray = 142;
+const I_MimeTypeArray = 143;
+const I_CustomElementRegistry = 144;
 const I_Node = 33;
 const I_Element = 34;
 const I_HTMLElement = 35;
@@ -588,6 +596,12 @@ attr(27, "frameElement", function () { return H.Window_frameElement(self(this, 2
 attr(27, "opener", function () { return H.Window_opener(self(this, 27)); }, function (v) { H.set_Window_opener(self(this, 27), v); });
 attr(27, "location", function () { return H.Window_location(self(this, 27)); }, function (v) { H.Window_location(self(this, 27)).href = v; });
 attr(27, "history", function () { return H.Window_history(self(this, 27)); });
+attr(27, "navigator", function () { return H.Window_navigator(self(this, 27)); });
+attr(27, "clientInformation", function () { return H.Window_clientInformation(self(this, 27)); }, function (v) { self(this, 27); replaceable(this === undefined || this === null ? G : this, "clientInformation", v); });
+attr(27, "customElements", function () { return H.Window_customElements(self(this, 27)); });
+op(27, "atob", function atob(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "atob"); return H.Window_atob(s, str(a0)); });
+op(27, "btoa", function btoa(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "btoa"); return H.Window_btoa(s, str(a0)); });
+op(27, "structuredClone", function structuredClone(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "structuredClone"); return H.Window_structuredClone(s, a0, (((o1) => o1 === undefined ? undefined : o1)((argc > 1 ? arguments[1] : undefined)))); });
 handlers(27, ["ondeviceorientation", "ondeviceorientationabsolute", "ondevicemotion", "onabort", "onauxclick", "onbeforeinput", "onbeforematch", "onbeforetoggle", "onblur", "oncancel", "oncanplay", "oncanplaythrough", "onchange", "onclick", "onclose", "oncommand", "oncontextlost", "oncontextmenu", "oncontextrestored", "oncopy", "oncuechange", "oncut", "ondblclick", "ondrag", "ondragend", "ondragenter", "ondragleave", "ondragover", "ondragstart", "ondrop", "ondurationchange", "onemptied", "onended", "onerror", "onfocus", "onformdata", "oninput", "oninvalid", "onkeydown", "onkeypress", "onkeyup", "onload", "onloadeddata", "onloadedmetadata", "onloadstart", "onmousedown", "onmouseenter", "onmouseleave", "onmousemove", "onmouseout", "onmouseover", "onmouseup", "onpaste", "onpause", "onplay", "onplaying", "onprogress", "onratechange", "onreset", "onresize", "onscroll", "onscrollend", "onsecuritypolicyviolation", "onseeked", "onseeking", "onselect", "onslotchange", "onstalled", "onsubmit", "onsuspend", "ontimeupdate", "ontoggle", "onvolumechange", "onwaiting", "onwebkitanimationend", "onwebkitanimationiteration", "onwebkitanimationstart", "onwebkittransitionend", "onwheel", "onpointerover", "onpointerenter", "onpointerdown", "onpointermove", "onpointerrawupdate", "onpointerup", "onpointercancel", "onpointerout", "onpointerleave", "ongotpointercapture", "onlostpointercapture", "ontouchstart", "ontouchend", "ontouchmove", "ontouchcancel", "onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"]);
 
 // Location
@@ -1314,6 +1328,89 @@ op(136, "getPropertyPriority", function getPropertyPriority(a0) { const s = self
 op(136, "setProperty", function setProperty(a0, a1) { const s = self(this, 136); const argc = arguments.length; need(argc, 2, "setProperty"); const r = call(310, s.g, s.h, str(a0), (a1 === null ? '' : str(a1)), (((o2) => o2 === undefined ? "" : (o2 === null ? '' : str(o2)))((argc > 2 ? arguments[2] : undefined)))); return r; });
 op(136, "removeProperty", function removeProperty(a0) { const s = self(this, 136); const argc = arguments.length; need(argc, 1, "removeProperty"); const r = call(311, s.g, s.h, str(a0)); return r; });
 exotic(136, { length: 312, item: 313, itemWraps: false, named: 314, namedWraps: false, set: 315, knownOnly: true });
+
+// URL
+iface(137, "URL", -1, function URL(a0) { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; need(argc, 1, "URL"); return H.new_URL(new.target, str(a0), (((o1) => o1 === undefined ? undefined : str(o1))((argc > 1 ? arguments[1] : undefined)))); });
+staticOp(137, "parse", function parse(a0) { const argc = arguments.length; need(argc, 1, "parse"); return H.URL_parse(str(a0), (((o1) => o1 === undefined ? undefined : str(o1))((argc > 1 ? arguments[1] : undefined)))); });
+staticOp(137, "canParse", function canParse(a0) { const argc = arguments.length; need(argc, 1, "canParse"); return H.URL_canParse(str(a0), (((o1) => o1 === undefined ? undefined : str(o1))((argc > 1 ? arguments[1] : undefined)))); });
+attr(137, "href", function () { return H.URL_href(self(this, 137)); }, function (v) { H.set_URL_href(self(this, 137), str(v)); });
+attr(137, "origin", function () { return H.URL_origin(self(this, 137)); });
+attr(137, "protocol", function () { return H.URL_protocol(self(this, 137)); }, function (v) { H.set_URL_protocol(self(this, 137), str(v)); });
+attr(137, "username", function () { return H.URL_username(self(this, 137)); }, function (v) { H.set_URL_username(self(this, 137), str(v)); });
+attr(137, "password", function () { return H.URL_password(self(this, 137)); }, function (v) { H.set_URL_password(self(this, 137), str(v)); });
+attr(137, "host", function () { return H.URL_host(self(this, 137)); }, function (v) { H.set_URL_host(self(this, 137), str(v)); });
+attr(137, "hostname", function () { return H.URL_hostname(self(this, 137)); }, function (v) { H.set_URL_hostname(self(this, 137), str(v)); });
+attr(137, "port", function () { return H.URL_port(self(this, 137)); }, function (v) { H.set_URL_port(self(this, 137), str(v)); });
+attr(137, "pathname", function () { return H.URL_pathname(self(this, 137)); }, function (v) { H.set_URL_pathname(self(this, 137), str(v)); });
+attr(137, "search", function () { return H.URL_search(self(this, 137)); }, function (v) { H.set_URL_search(self(this, 137), str(v)); });
+attr(137, "searchParams", function () { return H.URL_searchParams(self(this, 137)); });
+attr(137, "hash", function () { return H.URL_hash(self(this, 137)); }, function (v) { H.set_URL_hash(self(this, 137), str(v)); });
+op(137, "toJSON", function toJSON() { const s = self(this, 137); const argc = arguments.length; return H.URL_toJSON(s); });
+stringifier(137, "href");
+
+// URLSearchParams
+iface(138, "URLSearchParams", -1, function URLSearchParams() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_URLSearchParams(new.target, (((o0) => o0 === undefined ? "" : o0)((argc > 0 ? arguments[0] : undefined)))); });
+attr(138, "size", function () { return H.URLSearchParams_size(self(this, 138)); });
+op(138, "append", function append(a0, a1) { const s = self(this, 138); const argc = arguments.length; need(argc, 2, "append"); return H.URLSearchParams_append(s, str(a0), str(a1)); });
+op(138, "delete", { "delete"(a0) { const s = self(this, 138); const argc = arguments.length; need(argc, 1, "delete"); return H.URLSearchParams_delete(s, str(a0), (((o1) => o1 === undefined ? undefined : str(o1))((argc > 1 ? arguments[1] : undefined)))); } }["delete"]);
+op(138, "get", function get(a0) { const s = self(this, 138); const argc = arguments.length; need(argc, 1, "get"); return H.URLSearchParams_get(s, str(a0)); });
+op(138, "getAll", function getAll(a0) { const s = self(this, 138); const argc = arguments.length; need(argc, 1, "getAll"); return H.URLSearchParams_getAll(s, str(a0)); });
+op(138, "has", function has(a0) { const s = self(this, 138); const argc = arguments.length; need(argc, 1, "has"); return H.URLSearchParams_has(s, str(a0), (((o1) => o1 === undefined ? undefined : str(o1))((argc > 1 ? arguments[1] : undefined)))); });
+op(138, "set", function set(a0, a1) { const s = self(this, 138); const argc = arguments.length; need(argc, 2, "set"); return H.URLSearchParams_set(s, str(a0), str(a1)); });
+op(138, "sort", function sort() { const s = self(this, 138); const argc = arguments.length; return H.URLSearchParams_sort(s); });
+op(138, "toString", function toString() { return H.URLSearchParams_toString(self(this, 138)); });
+
+// TextEncoder
+iface(139, "TextEncoder", -1, function TextEncoder() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_TextEncoder(new.target); });
+attr(139, "encoding", function () { return H.TextEncoder_encoding(self(this, 139)); });
+op(139, "encode", function encode() { const s = self(this, 139); const argc = arguments.length; return H.TextEncoder_encode(s, (((o0) => o0 === undefined ? "" : str(o0))((argc > 0 ? arguments[0] : undefined)))); });
+op(139, "encodeInto", function encodeInto(a0, a1) { const s = self(this, 139); const argc = arguments.length; need(argc, 2, "encodeInto"); return H.TextEncoder_encodeInto(s, str(a0), a1); });
+
+// TextDecoder
+iface(140, "TextDecoder", -1, function TextDecoder() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_TextDecoder(new.target, (((o0) => o0 === undefined ? "utf-8" : str(o0))((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? undefined : o1)((argc > 1 ? arguments[1] : undefined)))); });
+attr(140, "encoding", function () { return H.TextDecoder_encoding(self(this, 140)); });
+attr(140, "fatal", function () { return H.TextDecoder_fatal(self(this, 140)); });
+attr(140, "ignoreBOM", function () { return H.TextDecoder_ignoreBOM(self(this, 140)); });
+op(140, "decode", function decode() { const s = self(this, 140); const argc = arguments.length; return H.TextDecoder_decode(s, (((o0) => o0 === undefined ? undefined : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? undefined : o1)((argc > 1 ? arguments[1] : undefined)))); });
+
+// Navigator
+iface(141, "Navigator", -1, null);
+attr(141, "appCodeName", function () { return H.Navigator_appCodeName(self(this, 141)); });
+attr(141, "appName", function () { return H.Navigator_appName(self(this, 141)); });
+attr(141, "appVersion", function () { return H.Navigator_appVersion(self(this, 141)); });
+attr(141, "platform", function () { return H.Navigator_platform(self(this, 141)); });
+attr(141, "product", function () { return H.Navigator_product(self(this, 141)); });
+attr(141, "productSub", function () { return H.Navigator_productSub(self(this, 141)); });
+attr(141, "userAgent", function () { return H.Navigator_userAgent(self(this, 141)); });
+attr(141, "vendor", function () { return H.Navigator_vendor(self(this, 141)); });
+attr(141, "vendorSub", function () { return H.Navigator_vendorSub(self(this, 141)); });
+attr(141, "language", function () { return H.Navigator_language(self(this, 141)); });
+attr(141, "languages", function () { return H.Navigator_languages(self(this, 141)); });
+attr(141, "onLine", function () { return H.Navigator_onLine(self(this, 141)); });
+attr(141, "cookieEnabled", function () { return H.Navigator_cookieEnabled(self(this, 141)); });
+attr(141, "plugins", function () { return H.Navigator_plugins(self(this, 141)); });
+attr(141, "mimeTypes", function () { return H.Navigator_mimeTypes(self(this, 141)); });
+op(141, "javaEnabled", function javaEnabled() { const s = self(this, 141); const argc = arguments.length; return H.Navigator_javaEnabled(s); });
+attr(141, "pdfViewerEnabled", function () { return H.Navigator_pdfViewerEnabled(self(this, 141)); });
+attr(141, "hardwareConcurrency", function () { return H.Navigator_hardwareConcurrency(self(this, 141)); });
+attr(141, "maxTouchPoints", function () { return H.Navigator_maxTouchPoints(self(this, 141)); });
+
+// PluginArray
+iface(142, "PluginArray", -1, null);
+attr(142, "length", function () { return H.PluginArray_length(self(this, 142)); });
+op(142, "refresh", function refresh() { const s = self(this, 142); const argc = arguments.length; return H.PluginArray_refresh(s); });
+
+// MimeTypeArray
+iface(143, "MimeTypeArray", -1, null);
+attr(143, "length", function () { return H.MimeTypeArray_length(self(this, 143)); });
+
+// CustomElementRegistry
+iface(144, "CustomElementRegistry", -1, null);
+op(144, "define", function define(a0, a1) { const s = self(this, 144); const argc = arguments.length; need(argc, 2, "define"); return H.CustomElementRegistry_define(s, str(a0), a1, (((o2) => o2 === undefined ? undefined : o2)((argc > 2 ? arguments[2] : undefined)))); });
+op(144, "get", function get(a0) { const s = self(this, 144); const argc = arguments.length; need(argc, 1, "get"); return H.CustomElementRegistry_get(s, str(a0)); });
+op(144, "getName", function getName(a0) { const s = self(this, 144); const argc = arguments.length; need(argc, 1, "getName"); return H.CustomElementRegistry_getName(s, a0); });
+op(144, "whenDefined", function whenDefined(a0) { const s = self(this, 144); const argc = arguments.length; need(argc, 1, "whenDefined"); return H.CustomElementRegistry_whenDefined(s, str(a0)); });
+op(144, "upgrade", function upgrade(a0) { const s = self(this, 144); const argc = arguments.length; need(argc, 1, "upgrade"); return H.CustomElementRegistry_upgrade(s, self(a0, 33)); });
 const OP_setReadyState = 2;
 const OP_observerNew = 3;
 const OP_observe = 4;

@@ -70,6 +70,14 @@ const JS_INTERFACES: &[&str] = &[
     "Location",
     "History",
     "StaticRange",
+    "URL",
+    "URLSearchParams",
+    "TextEncoder",
+    "TextDecoder",
+    "Navigator",
+    "PluginArray",
+    "MimeTypeArray",
+    "CustomElementRegistry",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
@@ -799,6 +807,12 @@ impl Bound<'_, '_> {
     /// interface, where that means the legacy initializers, it is converted as
     /// a dictionary member would be: an unbound interface can only be null.
     fn js_impl_arg(&mut self, ty: &Type, x: &str) -> Result<String, GenError> {
+        // A union of a sequence and a string: the glue tells them apart.
+        let by_hand = matches!(&ty.kind, TypeKind::Union(ts)
+            if ts.iter().any(|t| matches!(t.kind, TypeKind::Sequence(_))));
+        if by_hand {
+            return Ok(x.to_owned());
+        }
         Ok(match conv(self.gen_, self.table, ty, 0) {
             Some(Conv::Obj(id)) if ty.nullable => {
                 format!("({x} === null || {x} === undefined ? null : self({x}, {id}))")
@@ -861,13 +875,16 @@ impl Bound<'_, '_> {
         };
         all.extend(exprs);
         let define = if is_static { "staticOp" } else { "op" };
-        let _ = writeln!(
-            self.out.js,
-            "{define}({id}, {}, function {name}({}) {{ {body}return H.{iface}_{name}({}); }});",
-            js_string(name),
-            params.join(", "),
-            all.join(", ")
-        );
+        let quoted = js_string(name);
+        let params = params.join(", ");
+        let call = format!("{body}return H.{iface}_{name}({});", all.join(", "));
+        // A reserved word can name a method, not a function.
+        let f = if name == "delete" {
+            format!("{{ {quoted}({params}) {{ {call} }} }}[{quoted}]")
+        } else {
+            format!("function {name}({params}) {{ {call} }}")
+        };
+        let _ = writeln!(self.out.js, "{define}({id}, {quoted}, {f});");
         Ok(())
     }
 
@@ -1413,6 +1430,15 @@ impl Bound<'_, '_> {
             {
                 return Err(self.unknown(STRINGIFIER));
             }
+            if self.js_impl {
+                let _ = writeln!(
+                    self.out.js,
+                    "op({id}, \"toString\", function toString() {{ return H.{}_toString(self(this, {id})); }});",
+                    self.iface.name
+                );
+                self.event_handlers();
+                return Ok(());
+            }
             let call = self.trait_call(STRINGIFIER, &[], true);
             let op = self.out.op(&call);
             let _ = writeln!(
@@ -1644,6 +1670,12 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "opener",
             "location",
             "history",
+            "navigator",
+            "clientInformation",
+            "customElements",
+            "atob",
+            "btoa",
+            "structuredClone",
         ],
     },
     BindInterface {
@@ -2205,6 +2237,88 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "removeProperty",
             STYLE_PROPERTIES,
         ],
+    },
+    BindInterface {
+        name: "URL",
+        members: &[
+            "constructor",
+            "parse",
+            "canParse",
+            "href",
+            "origin",
+            "protocol",
+            "username",
+            "password",
+            "host",
+            "hostname",
+            "port",
+            "pathname",
+            "search",
+            "searchParams",
+            "hash",
+            "toJSON",
+        ],
+    },
+    BindInterface {
+        name: "URLSearchParams",
+        members: &[
+            "constructor",
+            "size",
+            "append",
+            "delete",
+            "get",
+            "getAll",
+            "has",
+            "set",
+            "sort",
+            STRINGIFIER,
+        ],
+    },
+    BindInterface {
+        name: "TextEncoder",
+        members: &["constructor", "encoding", "encode", "encodeInto"],
+    },
+    BindInterface {
+        name: "TextDecoder",
+        members: &["constructor", "encoding", "fatal", "ignoreBOM", "decode"],
+    },
+    BindInterface {
+        name: "Navigator",
+        members: &[
+            "appCodeName",
+            "appName",
+            "appVersion",
+            "platform",
+            "product",
+            "productSub",
+            "userAgent",
+            "vendor",
+            "vendorSub",
+            "language",
+            "languages",
+            "onLine",
+            "cookieEnabled",
+            "plugins",
+            "mimeTypes",
+            "javaEnabled",
+            "pdfViewerEnabled",
+            "hardwareConcurrency",
+            "maxTouchPoints",
+        ],
+    },
+    // Always empty. Their getters are the glue's, or `exotic` would ask Rust.
+    BindInterface {
+        name: "PluginArray",
+        members: &["length", "refresh"],
+    },
+    BindInterface {
+        name: "MimeTypeArray",
+        members: &["length"],
+    },
+    // A registry and no more: nothing is upgraded (`glue_platform.js`).
+    BindInterface {
+        name: "CustomElementRegistry",
+        members: &["define", "get", "getName", "whenDefined", "upgrade"],
     },
 ];
 

@@ -8,7 +8,9 @@ use std::time::Instant;
 
 use surimono_core::rquickjs::context::EvalOptions;
 use surimono_core::rquickjs::function::Rest;
-use surimono_core::rquickjs::{self, Ctx, Exception, FromJs, Function, IntoJs, Object, Value};
+use surimono_core::rquickjs::{
+    self, ArrayBuffer, Ctx, Exception, FromJs, Function, IntoJs, Object, Value,
+};
 use surimono_core::{
     Bytecode, Deadline, Limits, LoopBridge, Sandbox, SandboxError, SandboxOptions, SettleOptions,
     SettleReport, limit_error,
@@ -18,7 +20,7 @@ use surimono_webidl::runtime::{BindingError, ObjectId};
 use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
-use crate::{Document, DomError, LayoutPolicy};
+use crate::{Document, DomError, LayoutPolicy, web};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
@@ -28,6 +30,7 @@ const GLUE: &str = concat!(
     include_str!("glue_location.js"),
     include_str!("glue_activation.js"),
     include_str!("generated/bindings.js"),
+    include_str!("glue_platform.js"),
     include_str!("glue_layout.js"),
     include_str!("glue_tail.js"),
 );
@@ -628,10 +631,190 @@ fn install<'js>(
         script_field(ctx, host, |s| s.source.is_none())?,
     )?;
     n.set("runScript", native_run_script(ctx, host)?)?;
+    install_web(ctx, host, &n)?;
     let globals = ctx.globals();
     let glue: Function<'js> = globals.get(GLUE_GLOBAL)?;
     globals.remove(GLUE_GLOBAL)?;
     glue.call((n,))
+}
+
+/// The natives of `glue_platform.js`.
+fn install_web<'js>(ctx: &Ctx<'js>, host: &Shared, n: &Object<'js>) -> rquickjs::Result<()> {
+    n.set("urlParse", native_url_parse(ctx, host)?)?;
+    n.set("urlGet", native_url_get(ctx, host)?)?;
+    n.set("urlSet", native_url_set(ctx, host)?)?;
+    n.set("formEncode", text_native(ctx, host, web::form_encode)?)?;
+    n.set("formDecode", text_native(ctx, host, web::form_decode)?)?;
+    n.set("encodingName", text_native(ctx, host, web::encoding_name)?)?;
+    n.set(
+        "base64Encode",
+        maybe_text_native(ctx, host, web::base64_encode)?,
+    )?;
+    n.set(
+        "base64Decode",
+        maybe_text_native(ctx, host, web::base64_decode)?,
+    )?;
+    n.set("utf8Encode", native_utf8_encode(ctx, host)?)?;
+    n.set("decoderOpen", native_decoder_open(ctx, host)?)?;
+    n.set("decoderFeed", native_decoder_feed(ctx, host)?)?;
+    n.set("valueKind", native_value_kind(ctx, host)?)?;
+    Ok(())
+}
+
+/// A native from one string to another, for what needs no document.
+fn text_native<'js>(
+    ctx: &Ctx<'js>,
+    host: &Shared,
+    f: fn(&str) -> String,
+) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, text: String| -> rquickjs::Result<String> {
+            guarded(&host, &ctx, || Ok(f(&text)))
+        },
+    )
+}
+
+/// As [`text_native`], with null for no answer.
+fn maybe_text_native<'js>(
+    ctx: &Ctx<'js>,
+    host: &Shared,
+    f: fn(&str) -> Option<String>,
+) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, text: String| -> rquickjs::Result<Option<String>> {
+            guarded(&host, &ctx, || Ok(f(&text)))
+        },
+    )
+}
+
+/// `urlParse(input, base)`: the serialized URL, or null. `base` may be undefined.
+fn native_url_parse<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>,
+              input: String,
+              base: Option<String>|
+              -> rquickjs::Result<Option<String>> {
+            guarded(&host, &ctx, || Ok(web::url_parse(&input, base.as_deref())))
+        },
+    )
+}
+
+/// `urlGet(href, part)`.
+fn native_url_get<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, href: String, part: String| -> rquickjs::Result<String> {
+            guarded(&host, &ctx, || Ok(web::url_get(&href, &part)))
+        },
+    )
+}
+
+/// `urlSet(href, part, value)`: the new serialization, or null past the cap.
+fn native_url_set<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>,
+              href: String,
+              part: String,
+              value: String|
+              -> rquickjs::Result<Option<String>> {
+            guarded(&host, &ctx, || Ok(web::url_set(&href, &part, &value)))
+        },
+    )
+}
+
+/// `utf8Encode(text)`: an ArrayBuffer of its bytes. A copy into the engine's own
+/// memory, so it counts against the memory limit; `ArrayBuffer::new` would keep
+/// the bytes outside it. The glue makes the view, since rquickjs's `TypedArray`
+/// finds its constructor where a script can reach it.
+fn native_utf8_encode<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, text: String| -> rquickjs::Result<ArrayBuffer<'js>> {
+            guarded(&host, &ctx, || {
+                ArrayBuffer::new_copy(ctx.clone(), text.as_bytes())
+            })
+        },
+    )
+}
+
+/// `decoderOpen(name, ignoreBOM)`: a decoder's slot in the document.
+fn native_decoder_open<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, name: String, ignore_bom: bool| -> rquickjs::Result<u32> {
+            guarded(&host, &ctx, || {
+                let mut guard = host.borrow_mut();
+                let host = &mut *guard;
+                let Some(doc) = host.doc.as_mut() else {
+                    return Err(fault(&ctx, &mut host.fault, DomError::NoDocument));
+                };
+                match doc.decoder_open(&name, ignore_bom) {
+                    Some(slot) => Ok(slot),
+                    None => {
+                        let e = doc.fault.take().unwrap_or(DomError::NoDocument);
+                        Err(fault(&ctx, &mut host.fault, e))
+                    }
+                }
+            })
+        },
+    )
+}
+
+/// `decoderFeed(slot, bytes, last, fatal)`: `bytes` holds a byte per character;
+/// the text, or null for malformed input under `fatal`.
+fn native_decoder_feed<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>,
+              slot: u32,
+              bytes: String,
+              last: bool,
+              fatal: bool|
+              -> rquickjs::Result<Option<String>> {
+            guarded(&host, &ctx, || {
+                let mut guard = host.borrow_mut();
+                let host = &mut *guard;
+                let Some(doc) = host.doc.as_mut() else {
+                    return Err(fault(&ctx, &mut host.fault, DomError::NoDocument));
+                };
+                Ok(doc.decoder_feed(slot, &bytes, last, fatal))
+            })
+        },
+    )
+}
+
+/// `valueKind(v)`, what no script-visible member tells: 1 for a Proxy, 2 for an
+/// Error, 3 for a Promise, otherwise 0.
+fn native_value_kind<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, v: Value<'js>| -> rquickjs::Result<u32> {
+            guarded(&host, &ctx, || {
+                Ok(if v.is_proxy() {
+                    1
+                } else if v.is_error() {
+                    2
+                } else if v.is_promise() {
+                    3
+                } else {
+                    0
+                })
+            })
+        },
+    )
 }
 
 /// `checkpoint()`: the microtask checkpoint of "clean up after running
