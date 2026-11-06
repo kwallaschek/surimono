@@ -67,6 +67,8 @@ const JS_INTERFACES: &[&str] = &[
     "AbortController",
     "AbortSignal",
     "Performance",
+    "Location",
+    "History",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
@@ -122,8 +124,13 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("isFrameDocument", "h.is_frame_document(this)"),
     (
         "parseFromString",
-        "h.parse_from_string(a.string(0)?, a.string(1)?)",
+        "h.parse_from_string(this, a.string(0)?, a.string(1)?)",
     ),
+    ("urlPart", "h.url_part(this, a.string(0)?)"),
+    ("urlJoin", "h.url_join(this, a.string(0)?)"),
+    ("urlFragment", "h.url_fragment(this, a.string(0)?)"),
+    ("urlRewrite", "h.url_rewrite(this, a.string(0)?)"),
+    ("setDocumentUrl", "h.set_document_url(this, a.string(0)?)"),
     ("inPage", "h.in_page(this)"),
     ("radioCheck", "h.radio_check(this)"),
     ("handlerElement", "h.handler_element()"),
@@ -720,6 +727,14 @@ impl Bound<'_, '_> {
                 self.out.js,
                 ", function (v) {{ self(this, {id}); replaceable(this === undefined || this === null ? G : this, {}, v); }}",
                 js_string(name)
+            );
+        } else if let Some(fwd) = ext_attrs.iter().find(|a| a.name == "PutForwards") {
+            let ExtAttrValue::Ident(target) = &fwd.value else {
+                return Err(self.unsupported(name, ty));
+            };
+            let _ = write!(
+                self.out.js,
+                ", function (v) {{ H.{iface}_{name}(self(this, {id})).{target} = v; }}"
             );
         }
         self.out.js.push_str(");\n");
@@ -1595,6 +1610,28 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "closed",
             "frameElement",
             "opener",
+            "location",
+            "history",
+        ],
+    },
+    BindInterface {
+        name: "Location",
+        members: &[
+            "href", "origin", "protocol", "host", "hostname", "port", "pathname", "search", "hash",
+            "assign", "replace", "reload",
+        ],
+    },
+    BindInterface {
+        name: "History",
+        members: &[
+            "length",
+            "scrollRestoration",
+            "state",
+            "go",
+            "back",
+            "forward",
+            "pushState",
+            "replaceState",
         ],
     },
     // The sandbox's object has the members that exist so far.
