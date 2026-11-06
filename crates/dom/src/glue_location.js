@@ -221,6 +221,8 @@
     errorCtors[c.name] = c;
   }
   const isDetached = (b) => apply(abDetached, b, []);
+  const domExceptionName = rdescriptor(DOMExceptionCtor.prototype, 'name').get;
+  const domExceptionMessage = rdescriptor(DOMExceptionCtor.prototype, 'message').get;
   function cloneBuffer(b) {
     const out = new BufferCtor(apply(abBytes, b, []));
     apply(bytesSet, new Bytes(out), [new Bytes(b)]);
@@ -275,6 +277,9 @@
       return new RegExpCtor(apply(regexpSource, v, []), apply(regexpFlags, v, []));
     }
     if (branded(mapHas, v) || branded(setHas, v)) return cloneCollection(v, seen);
+    if (branded(domExceptionName, v)) {
+      return new DOMExceptionCtor(apply(domExceptionMessage, v, []), apply(domExceptionName, v, []));
+    }
     if (branded(sharedBytes, v)) dataClone();
     if (branded(abBytes, v)) {
       if (isDetached(v)) dataClone();

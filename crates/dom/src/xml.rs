@@ -93,6 +93,8 @@ struct Parser<'d, 'a> {
 
 /// Units of work between asks of the stop check.
 const STOP_EVERY: u32 = 256;
+/// The bytes a scan of one long token goes through between looks at the stop.
+const SCAN: usize = 64 * 1024;
 
 fn is_name_start(c: char) -> bool {
     matches!(c, ':' | '_' | 'A'..='Z' | 'a'..='z' | '\u{C0}'..='\u{D6}' | '\u{D8}'..='\u{F6}'
@@ -196,11 +198,35 @@ impl<'d, 'a> Parser<'d, 'a> {
         self.rest().chars().next()
     }
 
-    fn skip_space(&mut self) -> bool {
-        let rest = self.rest();
-        let n = rest.len() - rest.trim_start_matches(is_space).len();
-        self.at += n;
-        n > 0
+    /// Skips white space, however much, looking at the stop as it goes.
+    fn skip_space(&mut self) -> Parse<bool> {
+        let start = self.at;
+        loop {
+            let bytes = &self.rest().as_bytes();
+            let slice = &bytes[..bytes.len().min(SCAN)];
+            let n = slice
+                .iter()
+                .take_while(|&&b| is_space(char::from(b)))
+                .count();
+            self.at += n;
+            if n < SCAN {
+                return Ok(self.at > start);
+            }
+            self.tick(n / 64)?;
+        }
+    }
+
+    /// Where `s` first has a byte of `wanted`, in slices with the stop between them.
+    fn scan_for(&self, s: &str, wanted: &[u8]) -> Parse<Option<usize>> {
+        let mut base = 0;
+        for slice in s.as_bytes().chunks(SCAN) {
+            if let Some(i) = slice.iter().position(|b| wanted.contains(b)) {
+                return Ok(Some(base + i));
+            }
+            base += slice.len();
+            self.tick(slice.len() / 64)?;
+        }
+        Ok(None)
     }
 
     fn need(&mut self, s: &str) -> Parse<()> {
@@ -236,12 +262,21 @@ impl<'d, 'a> Parser<'d, 'a> {
     }
 
     fn check_chars(&self, s: &str) -> Parse<()> {
-        // A long run pays for itself in the clock.
-        self.tick(s.len() / 64)?;
-        match s.chars().find(|&c| !is_xml_char(c)) {
-            Some(c) => bad(format!("U+{:04X} isn't allowed in XML", c as u32)),
-            None => Ok(()),
+        // A long run pays for itself in the clock, and the stop is asked in slices.
+        let mut rest = s;
+        while !rest.is_empty() {
+            let mut end = rest.len().min(SCAN);
+            while !rest.is_char_boundary(end) {
+                end -= 1;
+            }
+            let (piece, after) = rest.split_at(end);
+            self.tick(piece.len() / 64)?;
+            if let Some(c) = piece.chars().find(|&c| !is_xml_char(c)) {
+                return bad(format!("U+{:04X} isn't allowed in XML", c as u32));
+            }
+            rest = after;
         }
+        Ok(())
     }
 
     fn quoted(&mut self) -> Parse<&'a str> {
@@ -322,7 +357,7 @@ impl<'d, 'a> Parser<'d, 'a> {
     /// normalized (§2.11).
     fn char_data(&mut self) -> Parse<()> {
         let rest = self.rest();
-        let end = rest.find('<').unwrap_or(rest.len());
+        let end = self.scan_for(rest, b"<")?.unwrap_or(rest.len());
         let run = &rest[..end];
         self.check_chars(run)?;
         if run.contains("]]>") {
@@ -330,7 +365,8 @@ impl<'d, 'a> Parser<'d, 'a> {
         }
         self.at += end;
         let mut inner = run;
-        while let Some(i) = inner.find(['&', '\r']) {
+        while let Some(i) = self.scan_for(inner, b"&\r")? {
+            self.tick(1)?;
             self.text.push_str(&inner[..i]);
             let c = inner.as_bytes()[i];
             inner = &inner[i + 1..];
@@ -374,7 +410,7 @@ impl<'d, 'a> Parser<'d, 'a> {
                 "{target:?} can't be a processing instruction target"
             ));
         }
-        let spaced = self.skip_space();
+        let spaced = self.skip_space()?;
         let data = self.until("?>", "processing instruction")?;
         if !spaced && !data.is_empty() {
             return bad("a space must follow a processing instruction's target");
@@ -409,7 +445,7 @@ impl<'d, 'a> Parser<'d, 'a> {
         self.at += 5;
         let mut seen = 0;
         loop {
-            let spaced = self.skip_space();
+            let spaced = self.skip_space()?;
             if self.eat("?>") {
                 break;
             }
@@ -417,9 +453,9 @@ impl<'d, 'a> Parser<'d, 'a> {
                 return bad("malformed XML declaration");
             }
             let name = self.name()?;
-            self.skip_space();
+            self.skip_space()?;
             self.need("=")?;
-            self.skip_space();
+            self.skip_space()?;
             let value = self.quoted()?;
             let (order, ok) = match name {
                 "version" => (
@@ -451,31 +487,31 @@ impl<'d, 'a> Parser<'d, 'a> {
 
     /// `<!DOCTYPE`, which is taken. The internal subset is skipped.
     fn doctype(&mut self, top: usize) -> Parse<()> {
-        if !self.skip_space() {
+        if !self.skip_space()? {
             return bad("malformed doctype");
         }
         let name = self.name()?;
-        let spaced = self.skip_space();
+        let spaced = self.skip_space()?;
         let (mut public_id, mut system_id) = ("", "");
         if spaced && self.eat("PUBLIC") {
-            if !self.skip_space() {
+            if !self.skip_space()? {
                 return bad("malformed doctype");
             }
             public_id = self.quoted()?;
-            if !self.skip_space() {
+            if !self.skip_space()? {
                 return bad("malformed doctype");
             }
             system_id = self.quoted()?;
         } else if spaced && self.eat("SYSTEM") {
-            if !self.skip_space() {
+            if !self.skip_space()? {
                 return bad("malformed doctype");
             }
             system_id = self.quoted()?;
         }
-        self.skip_space();
+        self.skip_space()?;
         if self.eat("[") {
             self.internal_subset()?;
-            self.skip_space();
+            self.skip_space()?;
         }
         self.need(">")?;
         let t = self
@@ -523,7 +559,7 @@ impl<'d, 'a> Parser<'d, 'a> {
         let mut seen: HashSet<&'a str> = HashSet::new();
         let scope_before = self.declared.len();
         let empty = loop {
-            let spaced = self.skip_space();
+            let spaced = self.skip_space()?;
             if self.eat("/>") {
                 break true;
             }
@@ -535,9 +571,9 @@ impl<'d, 'a> Parser<'d, 'a> {
             }
             self.tick(0)?;
             let attr = self.name()?;
-            self.skip_space();
+            self.skip_space()?;
             self.need("=")?;
-            self.skip_space();
+            self.skip_space()?;
             let value = self.attribute_value()?;
             if !seen.insert(attr) {
                 return bad(format!("attribute {attr:?} appears twice"));
@@ -641,7 +677,7 @@ impl<'d, 'a> Parser<'d, 'a> {
             if self.peek() != Some('<') {
                 if in_content {
                     self.char_data()?;
-                } else if !self.skip_space() {
+                } else if !self.skip_space()? {
                     return bad("text outside the document element");
                 }
                 continue;
@@ -663,7 +699,7 @@ impl<'d, 'a> Parser<'d, 'a> {
                     return bad("an end tag with no start tag");
                 };
                 let name = self.name()?;
-                self.skip_space();
+                self.skip_space()?;
                 self.need(">")?;
                 if name != o.name {
                     return bad(format!("</{name}> closes <{}>", o.name));
@@ -700,7 +736,7 @@ impl<'d, 'a> Parser<'d, 'a> {
         // The prolog's comments and instructions, up to a doctype or element.
         loop {
             self.tick(0)?;
-            self.skip_space();
+            self.skip_space()?;
             if self.eat("<!--") {
                 self.comment(top)?;
             } else if self.rest().starts_with("<?") {
@@ -713,7 +749,8 @@ impl<'d, 'a> Parser<'d, 'a> {
         if self.eat("<!DOCTYPE") {
             self.doctype(top)?;
         }
-        if self.src[self.at..].trim_start_matches(is_space).is_empty() {
+        self.skip_space()?;
+        if self.rest().is_empty() {
             return bad("no document element");
         }
         self.content(top, Mode::Document)?;

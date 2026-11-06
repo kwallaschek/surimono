@@ -8,7 +8,8 @@
   const XHTML = 'http://www.w3.org/1999/xhtml';
   const nodeProto = protos[I_Node], elementProto = protos[I_Element];
   const appendChild_ = nodeProto.appendChild, insertBefore_ = nodeProto.insertBefore;
-  const removeChild_ = nodeProto.removeChild;
+  const removeChild_ = nodeProto.removeChild, replaceChild_ = nodeProto.replaceChild;
+  const contains_ = nodeProto.contains;
   const createElementNS_ = protos[I_Document].createElementNS;
   const ownerDocument_ = rdescriptor(nodeProto, 'ownerDocument').get;
   const parentNode_ = rdescriptor(nodeProto, 'parentNode').get;
@@ -116,8 +117,7 @@
     const body = make_(s.w, 'tbody');
     const bodies = htmlList(s, TABLE_BODIES);
     const m = size(bodies);
-    const last = m === 0 ? null : apply(nextElementSibling_, at(bodies, m - 1), []);
-    insert(s.w, body, m === 0 ? null : last);
+    insert(s.w, body, m === 0 ? null : apply(nextSibling_, at(bodies, m - 1), []));
     return body;
   };
   H.HTMLTableElement_rows = (s) => htmlList(s, TABLE_ROWS);
@@ -289,7 +289,7 @@
       apply(appendChild_, s.w, [element]);
     } else {
       const p = apply(parentNode_, at_, []);
-      if (p === null || !apply(protos[I_Node].contains, s.w, [p])) {
+      if (p === null || !apply(contains_, s.w, [p])) {
         throwDom('NotFoundError', 'the reference node is not in the select');
       }
       insert(p, element, at_);
@@ -361,13 +361,10 @@
   H.set_HTMLSelectElement_selectedIndex = (s, i) => { selectOnly(s, at(htmlList(s, OPTIONS), i)); };
   H.HTMLSelectElement_value = (s) => {
     if (clearedBy(s)) return '';
+    // §4.10.7: the first selected option's, disabled or not: a disabled, selected
+    // first option is the usual placeholder.
     const chosen = htmlList(s, SELECTED);
-    const m = size(chosen);
-    for (let i = 0; i < m; i++) {
-      const o = stateOf(at(chosen, i));
-      if (!optionDisabled(o)) return optionValue(o);
-    }
-    return '';
+    return size(chosen) === 0 ? '' : optionValue(stateOf(at(chosen, 0)));
   };
   H.set_HTMLSelectElement_value = (s, v) => {
     const list = htmlList(s, OPTIONS);
@@ -390,12 +387,6 @@
     H.set_HTMLSelectElement_selectedIndex(stateOf(listOwner(l)), i);
   };
 
-  function optionDisabled(o) {
-    if (attrOf(o, 'disabled') !== null) return true;
-    const p = apply(parentNode_, o.w, []);
-    return p !== null && stateOf(p).m[I_Element] === true && isElement(p, 'optgroup') &&
-      attrOf(stateOf(p), 'disabled') !== null;
-  }
   // HTML §4.10.10: the descendant text but for scripts', white space stripped and
   // collapsed. Nodes are nested at most `max_depth`, so this recursion is short.
   function textWithoutScripts(node) {
@@ -524,7 +515,7 @@
       apply(appendChild_, s.w, [value]);
     } else {
       const old = at(list, index);
-      apply(protos[I_Node].replaceChild, apply(parentNode_, old, []), [value, old]);
+      apply(replaceChild_, apply(parentNode_, old, []), [value, old]);
     }
   }
 

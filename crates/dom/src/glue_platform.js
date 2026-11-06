@@ -334,10 +334,13 @@
   function bytesView(x) {
     if (x === undefined) return new U8(0);
     if (isView(x)) {
-      if (apply(taTag, x, []) !== undefined) {
-        return new U8(apply(taBuffer, x, []), apply(taOffset, x, []), apply(taByteLength, x, []));
+      const typed = apply(taTag, x, []) !== undefined;
+      const buffer = apply(typed ? taBuffer : dvBuffer, x, []);
+      if (branded(abLength, buffer) && isDetached(buffer)) return new U8(0);
+      if (typed) {
+        return new U8(buffer, apply(taOffset, x, []), apply(taByteLength, x, []));
       }
-      return new U8(apply(dvBuffer, x, []), apply(dvOffset, x, []), apply(dvLength, x, []));
+      return new U8(buffer, apply(dvOffset, x, []), apply(dvLength, x, []));
     }
     if (isObject(x) && (branded(abLength, x) || branded(sabLength, x))) {
       return apply(branded(abLength, x) ? abLength : sabLength, x, []) === 0 ? new U8(0) : new U8(x);
@@ -439,6 +442,7 @@
   H.PluginArray_refresh = () => {};
   H.MimeTypeArray_length = () => 0;
   for (const id of [I_PluginArray, I_MimeTypeArray]) {
+    defineProperty(protos[id], symbolIterator, { value: arrayValues, writable: true, configurable: true });
     op(id, 'item', function item() { self(this, id); return null; });
     op(id, 'namedItem', function namedItem() { self(this, id); return null; });
   }

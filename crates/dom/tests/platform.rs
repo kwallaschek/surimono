@@ -221,6 +221,20 @@ fn text_decoder_follows_the_encoding_standard() {
     );
 }
 
+/// Chromium 153: a view of a detached buffer decodes as nothing.
+#[test]
+fn a_detached_view_decodes_as_nothing() {
+    assert_eq!(
+        run("const b = new Uint8Array([97]);
+             structuredClone(b.buffer, { transfer: [b.buffer] });
+             const v = new DataView(new ArrayBuffer(1));
+             structuredClone(v.buffer, { transfer: [v.buffer] });
+             const d = new TextDecoder();
+             JSON.stringify([d.decode(b), d.decode(v)])"),
+        r#"["",""]"#
+    );
+}
+
 #[test]
 fn base64_is_on_the_window() {
     assert_eq!(
@@ -307,6 +321,18 @@ fn structured_clone_refuses_what_the_standard_refuses() {
     assert_eq!(caught("thrown(() => structuredClone())"), "TypeError");
 }
 
+/// Chromium 153: a DOMException keeps its name, message and code.
+#[test]
+fn a_dom_exception_clones() {
+    assert_eq!(
+        run(
+            "const e = structuredClone(new DOMException('a', 'AbortError'));
+             [e.name, e.message, e.code, e instanceof DOMException].join()"
+        ),
+        "AbortError,a,20,true"
+    );
+}
+
 #[test]
 fn structured_clone_transfers_buffers() {
     assert_eq!(
@@ -343,6 +369,14 @@ fn navigator_has_fixed_values() {
     assert_eq!(
         caught("thrown(() => Object.create(Navigator.prototype).userAgent)"),
         "TypeError"
+    );
+}
+
+#[test]
+fn empty_lists_iterate() {
+    assert_eq!(
+        run("String([...navigator.plugins, ...navigator.mimeTypes].length)"),
+        "0"
     );
 }
 
