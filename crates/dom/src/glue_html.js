@@ -13,6 +13,10 @@
   const ownerDocument_ = rdescriptor(nodeProto, 'ownerDocument').get;
   const parentNode_ = rdescriptor(nodeProto, 'parentNode').get;
   const textContent_ = rdescriptor(nodeProto, 'textContent');
+  const firstChild_ = rdescriptor(nodeProto, 'firstChild').get;
+  const nextSibling_ = rdescriptor(nodeProto, 'nextSibling').get;
+  const nodeValue_ = rdescriptor(nodeProto, 'nodeValue').get;
+  const nodeType_ = rdescriptor(nodeProto, 'nodeType').get;
   const firstElementChild_ = rdescriptor(elementProto, 'firstElementChild').get;
   const nextElementSibling_ = rdescriptor(elementProto, 'nextElementSibling').get;
   const namespaceURI_ = rdescriptor(elementProto, 'namespaceURI').get;
@@ -57,13 +61,13 @@
   };
   H.set_HTMLTableElement_caption = (s, v) => {
     H.HTMLTableElement_deleteCaption(s);
-    if (v !== null) insert(s.w, v.w, apply(firstElementChild_, s.w, []));
+    if (v !== null) insert(s.w, v.w, apply(firstChild_, s.w, []));
   };
   H.HTMLTableElement_createCaption = (s) => {
     let c = firstChild(s.w, 'caption');
     if (c === null) {
       c = make_(s.w, 'caption');
-      insert(s.w, c, apply(firstElementChild_, s.w, []));
+      insert(s.w, c, apply(firstChild_, s.w, []));
     }
     return c;
   };
@@ -375,10 +379,19 @@
     return p !== null && stateOf(p).m[I_Element] === true && isElement(p, 'optgroup') &&
       attrOf(stateOf(p), 'disabled') !== null;
   }
-  // Text with white space stripped and collapsed; `script` text isn't an
-  // option's, but an option has none unless a script puts it there.
+  // HTML §4.10.10: the descendant text but for scripts', white space stripped and
+  // collapsed. Nodes are nested at most `max_depth`, so this recursion is short.
+  function textWithoutScripts(node) {
+    let out = '';
+    for (let c = apply(firstChild_, node, []); c !== null; c = apply(nextSibling_, c, [])) {
+      const type = apply(nodeType_, c, []);
+      if (type === 3 || type === 4) out += apply(nodeValue_, c, []);
+      else if (type === 1 && apply(localName_, c, []) !== 'script') out += textWithoutScripts(c);
+    }
+    return out;
+  }
   function optionText(o) {
-    const text = apply(textContent_.get, o.w, []);
+    const text = textWithoutScripts(o.w);
     let out = '';
     let space = false;
     for (let i = 0; i < text.length; i++) {
@@ -544,31 +557,54 @@
     const url = call(OP_urlJoin, d.g, d.h, v);
     return url === '' ? null : url;
   }
-  function linkPart(id, part, empty) {
-    const name = names[id];
-    H[`${name}_${part}`] = (s) => {
-      const url = linkUrl(s);
-      return url === null ? empty : n.urlGet(url, part);
-    };
-    H[`set_${name}_${part}`] = (s, v) => {
-      const url = linkUrl(s);
-      if (url === null) return;
-      const next = n.urlSet(url, part, v);
-      if (next !== undefined) call(OP_setAttribute, s.g, s.h, 'href', next);
-    };
-  }
-  for (const id of [I_HTMLAnchorElement, I_HTMLAreaElement]) {
-    linkPart(id, 'origin', '');
-    linkPart(id, 'protocol', ':');
-    linkPart(id, 'username', '');
-    linkPart(id, 'password', '');
-    linkPart(id, 'host', '');
-    linkPart(id, 'hostname', '');
-    linkPart(id, 'port', '');
-    linkPart(id, 'pathname', '');
-    linkPart(id, 'search', '');
-    linkPart(id, 'hash', '');
-  }
+  const linkGet = (part, empty) => (s) => {
+    const url = linkUrl(s);
+    return url === null ? empty : n.urlGet(url, part);
+  };
+  const linkSet = (part) => (s, v) => {
+    const url = linkUrl(s);
+    if (url === null) return;
+    const next = n.urlSet(url, part, v);
+    if (next !== undefined) call(OP_setAttribute, s.g, s.h, 'href', next);
+  };
+  H.HTMLAnchorElement_origin = linkGet('origin', '');
+  H.HTMLAreaElement_origin = H.HTMLAnchorElement_origin;
+  H.HTMLAnchorElement_protocol = linkGet('protocol', ':');
+  H.HTMLAreaElement_protocol = H.HTMLAnchorElement_protocol;
+  H.set_HTMLAnchorElement_protocol = linkSet('protocol');
+  H.set_HTMLAreaElement_protocol = H.set_HTMLAnchorElement_protocol;
+  H.HTMLAnchorElement_username = linkGet('username', '');
+  H.HTMLAreaElement_username = H.HTMLAnchorElement_username;
+  H.set_HTMLAnchorElement_username = linkSet('username');
+  H.set_HTMLAreaElement_username = H.set_HTMLAnchorElement_username;
+  H.HTMLAnchorElement_password = linkGet('password', '');
+  H.HTMLAreaElement_password = H.HTMLAnchorElement_password;
+  H.set_HTMLAnchorElement_password = linkSet('password');
+  H.set_HTMLAreaElement_password = H.set_HTMLAnchorElement_password;
+  H.HTMLAnchorElement_host = linkGet('host', '');
+  H.HTMLAreaElement_host = H.HTMLAnchorElement_host;
+  H.set_HTMLAnchorElement_host = linkSet('host');
+  H.set_HTMLAreaElement_host = H.set_HTMLAnchorElement_host;
+  H.HTMLAnchorElement_hostname = linkGet('hostname', '');
+  H.HTMLAreaElement_hostname = H.HTMLAnchorElement_hostname;
+  H.set_HTMLAnchorElement_hostname = linkSet('hostname');
+  H.set_HTMLAreaElement_hostname = H.set_HTMLAnchorElement_hostname;
+  H.HTMLAnchorElement_port = linkGet('port', '');
+  H.HTMLAreaElement_port = H.HTMLAnchorElement_port;
+  H.set_HTMLAnchorElement_port = linkSet('port');
+  H.set_HTMLAreaElement_port = H.set_HTMLAnchorElement_port;
+  H.HTMLAnchorElement_pathname = linkGet('pathname', '');
+  H.HTMLAreaElement_pathname = H.HTMLAnchorElement_pathname;
+  H.set_HTMLAnchorElement_pathname = linkSet('pathname');
+  H.set_HTMLAreaElement_pathname = H.set_HTMLAnchorElement_pathname;
+  H.HTMLAnchorElement_search = linkGet('search', '');
+  H.HTMLAreaElement_search = H.HTMLAnchorElement_search;
+  H.set_HTMLAnchorElement_search = linkSet('search');
+  H.set_HTMLAreaElement_search = H.set_HTMLAnchorElement_search;
+  H.HTMLAnchorElement_hash = linkGet('hash', '');
+  H.HTMLAreaElement_hash = H.HTMLAnchorElement_hash;
+  H.set_HTMLAnchorElement_hash = linkSet('hash');
+  H.set_HTMLAreaElement_hash = H.set_HTMLAnchorElement_hash;
   H.HTMLAnchorElement_text = (s) => apply(textContent_.get, s.w, []);
   H.set_HTMLAnchorElement_text = (s, v) => { apply(textContent_.set, s.w, [v]); };
 

@@ -172,7 +172,7 @@ fn a_select_is_written_as_the_standard_says() {
             s.remove();
             a.push(s.isConnected);
             a.join()"#),
-        "5,6,Six,true,Zero,Mid,4,Mid,2,4,,6,Far,6,New,5,0,false"
+        "5,6,Six,true,Zero,Mid,5,Mid,2,4,,6,Far,6,New,5,0,false"
     );
 }
 
