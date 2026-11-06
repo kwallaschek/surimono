@@ -118,7 +118,7 @@ fn html_interface(local: &str) -> u32 {
 /// HTML §4.13.3 "valid custom element name", as far as it matters here: a
 /// name with a hyphen, starting with a lowercase ASCII letter, with no
 /// uppercase ASCII letter, and not one of the reserved names.
-fn custom_element_name(name: &str) -> bool {
+pub(crate) fn custom_element_name(name: &str) -> bool {
     name.starts_with(|c: char| c.is_ascii_lowercase())
         && name.contains('-')
         && !name.contains(|c: char| c.is_ascii_uppercase())

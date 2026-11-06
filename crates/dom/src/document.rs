@@ -1210,6 +1210,31 @@ impl Document {
         parsed.map_or(url, String::from)
     }
 
+    /// HTML §7.4.6.3 "find a potential indicated element", for the document
+    /// being queried: an element with the URL's fragment, as written and then
+    /// percent-decoded, as its `id`, or an `<a>` with it as its `name`.
+    pub(crate) fn target_element(&self) -> Option<usize> {
+        let doc = self.making();
+        let url = url::Url::parse(self.url(doc)).ok()?;
+        let fragment = url.fragment().filter(|f| !f.is_empty())?;
+        let decoded = percent_decode(fragment);
+        let find = |wanted: &str| {
+            self.element_by_id(doc, wanted).or_else(|| {
+                let mut stack = vec![doc];
+                while let Some(n) = stack.pop() {
+                    if self.is_html_element(n, &["a"])
+                        && self.attribute(n, "name").as_deref() == Some(wanted)
+                    {
+                        return Some(n);
+                    }
+                    stack.extend(self.children(n).iter().rev());
+                }
+                None
+            })
+        };
+        find(fragment).or_else(|| find(&decoded))
+    }
+
     /// `src`, resolved against the page's URL: what a frame's document is
     /// called. The resolver is asked for `src` as the page spelled it, without
     /// the fragment.
@@ -3111,6 +3136,30 @@ fn name_cost(name: &QualName) -> usize {
 /// What one attribute is charged.
 fn attribute_cost(name: &QualName, value: &str) -> usize {
     ATTRIBUTE_COST + name_cost(name) + value.len()
+}
+
+/// URL's "percent-decode", then UTF-8 with replacement.
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = |b: u8| char::from(b).to_digit(16);
+        let value = (bytes[i] == b'%')
+            .then(|| Some(hex(*bytes.get(i + 1)?)? * 16 + hex(*bytes.get(i + 2)?)?))
+            .flatten();
+        match value {
+            Some(v) => {
+                out.push(v as u8);
+                i += 3;
+            }
+            None => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// An element's or attribute's qualified name (`prefix:local`).

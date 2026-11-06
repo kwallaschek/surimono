@@ -26,12 +26,20 @@
 //! any tree's second level), comments and empty text don't stop `:empty`,
 //! and only HTML elements are matched case-insensitively (blitz-dom says
 //! every element is one, so `linearGradient` could never match).
+//!
+//! It also answers the pseudo-classes blitz-dom leaves false, all of which a
+//! page's own scripts ask about forms: `:enabled`, `:disabled`, `:checked`,
+//! `:required`, `:optional`, `:read-only`, `:read-write`, `:lang()`, `:defined`
+//! and `:target` (HTML §4.16.3, Selectors 4), and honours the `i` flag of
+//! attribute selectors. Walks up the tree and along an option's siblings are
+//! charged like any other.
 
 use std::cell::Cell;
 use std::ptr::NonNull;
 
 use blitz_dom::{Node, NodeData, local_name, ns};
 use selectors::attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint};
+use style::selector_parser::NonTSPseudoClass;
 use selectors::bloom::BloomFilter;
 use selectors::matching::{
     self, ElementSelectorFlags, MatchingContext, MatchingForInvalidation, MatchingMode,
@@ -43,6 +51,7 @@ use style::selector_parser::SelectorImpl as Impl;
 use surimono_core::Deadline;
 
 use crate::document::{is_container_name, is_document_name};
+use crate::host::custom_element_name;
 
 /// Units of work between looks at the clock.
 const STEPS_PER_CHECK: usize = 4096;
@@ -63,6 +72,8 @@ struct Budget {
     /// The query is in an HTML document, where HTML elements match
     /// case-insensitively.
     html_document: bool,
+    /// The document's target element (`:target`), if the query asks.
+    target: Option<usize>,
 }
 
 /// The steps one element's test of a selector of `bytes` bytes costs. Nothing
@@ -179,6 +190,242 @@ impl<'a> Guarded<'a> {
         self.budget
             .charge(attributes + value.map_or(0, str::len) / 16)
     }
+
+    /// The HTML element name, if this is one.
+    fn html_name(&self) -> Option<&str> {
+        let e = self.node.element_data()?;
+        (e.name.ns == ns!(html)).then_some(e.name.local.as_ref())
+    }
+
+    fn has(&self, name: blitz_dom::LocalName) -> bool {
+        self.node.attr(name).is_some()
+    }
+
+    /// The parent, if it is an element, charged as a step up.
+    fn up(&self) -> Option<Self> {
+        self.step(Element::parent_element(&self.node).filter(|p| !is_fragment(p)))
+    }
+
+    /// `fieldset`'s first `legend` child, if `child` is it.
+    fn is_first_legend(&self, child: &Self) -> bool {
+        if child.html_name() != Some("legend") {
+            return false;
+        }
+        for &c in &self.node.children {
+            if self.budget.over() {
+                return false;
+            }
+            let node = self.node.with(c);
+            let found = Self {
+                node,
+                budget: self.budget,
+            };
+            if found.html_name() == Some("legend") {
+                return c == child.node.id;
+            }
+        }
+        false
+    }
+
+    /// In a `fieldset` with `disabled`, outside its first `legend`.
+    fn in_disabled_fieldset(&self) -> bool {
+        let mut child = *self;
+        while let Some(at) = child.up() {
+            if at.html_name() == Some("fieldset")
+                && at.has(local_name!("disabled"))
+                && !at.is_first_legend(&child)
+            {
+                return true;
+            }
+            child = at;
+        }
+        false
+    }
+
+    /// HTML §4.16.3 "actually disabled": `None` if this isn't an element
+    /// that can be disabled at all.
+    fn actually_disabled(&self) -> Option<bool> {
+        let name = self.html_name()?;
+        let own = self.has(local_name!("disabled"));
+        Some(match name {
+            "button" | "input" | "select" | "textarea" | "fieldset" => {
+                own || self.in_disabled_fieldset()
+            }
+            "optgroup" => own,
+            "option" => {
+                own || self.up().is_some_and(|p| {
+                    p.html_name() == Some("optgroup") && p.has(local_name!("disabled"))
+                })
+            }
+            _ => return None,
+        })
+    }
+
+    fn input_type(&self) -> String {
+        self.node
+            .attr(local_name!("type"))
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+    }
+
+    /// An option with no `selected` is selected when it is the first option
+    /// that isn't disabled of a `select` that shows one (HTML §4.10.7's "ask
+    /// for a reset"), unless another one has `selected`.
+    fn option_selected(&self) -> bool {
+        if self.has(local_name!("selected")) {
+            return true;
+        }
+        let mut select = self.up();
+        if select.is_some_and(|p| p.html_name() == Some("optgroup")) {
+            select = select.and_then(|p| p.up());
+        }
+        let Some(select) = select.filter(|p| p.html_name() == Some("select")) else {
+            return false;
+        };
+        let size = select.node.attr(local_name!("size"));
+        let display_size = size.and_then(|s| s.parse::<u32>().ok()).unwrap_or(1);
+        if select.has(local_name!("multiple")) || display_size > 1 {
+            return false;
+        }
+        let mut stack: Vec<usize> = select.node.children.iter().rev().copied().collect();
+        let mut first = None;
+        while let Some(id) = stack.pop() {
+            if self.budget.over() {
+                return false;
+            }
+            let at = Self {
+                node: self.node.with(id),
+                budget: self.budget,
+            };
+            match at.html_name() {
+                Some("option") => {
+                    if at.has(local_name!("selected")) {
+                        return false;
+                    }
+                    if first.is_none() && at.actually_disabled() == Some(false) {
+                        first = Some(id);
+                    }
+                }
+                Some("optgroup") => stack.extend(at.node.children.iter().rev()),
+                _ => {}
+            }
+        }
+        first == Some(self.node.id)
+    }
+
+    /// HTML §4.10.5.1: the types `required` applies to.
+    fn required_applies(&self) -> bool {
+        match self.html_name() {
+            Some("select" | "textarea") => true,
+            Some("input") => !matches!(
+                self.input_type().as_str(),
+                "hidden" | "range" | "color" | "submit" | "image" | "reset" | "button"
+            ),
+            _ => false,
+        }
+    }
+
+    /// HTML §4.16.3 `:read-write`.
+    fn read_write(&self) -> bool {
+        let mutable = |g: &Self| {
+            !g.has(local_name!("readonly")) && g.actually_disabled() != Some(true)
+        };
+        match self.html_name() {
+            Some("textarea") => mutable(self),
+            Some("input") => {
+                let takes_text = matches!(
+                    self.input_type().as_str(),
+                    "" | "text"
+                        | "search"
+                        | "url"
+                        | "tel"
+                        | "email"
+                        | "password"
+                        | "date"
+                        | "month"
+                        | "week"
+                        | "time"
+                        | "datetime-local"
+                        | "number"
+                );
+                takes_text && mutable(self)
+            }
+            Some(_) => self.is_editing_host(),
+            None => false,
+        }
+    }
+
+    /// HTML §6.8.1: `contenteditable`, or inside one that isn't false.
+    fn is_editing_host(&self) -> bool {
+        let mut at = Some(*self);
+        while let Some(g) = at {
+            match g.node.attr(blitz_dom::LocalName::from("contenteditable")) {
+                Some(v) if v.eq_ignore_ascii_case("false") => return false,
+                Some(_) => return true,
+                None => at = g.up(),
+            }
+        }
+        false
+    }
+
+    /// HTML §3.2.6.2 "the language of a node": the nearest `xml:lang` or
+    /// `lang`, or none.
+    fn language(&self) -> Option<&'a str> {
+        let mut at = Some(*self);
+        while let Some(g) = at {
+            for a in g.node.attrs().into_iter().flatten() {
+                let xml = a.name.ns == ns!(xml) && a.name.local.as_ref() == "lang";
+                let html = g.html_name().is_some()
+                    && a.name.ns.is_empty()
+                    && a.name.local.as_ref() == "lang";
+                if xml || html {
+                    return Some(a.value.as_str());
+                }
+            }
+            at = g.up();
+        }
+        None
+    }
+}
+
+/// Selectors 4 §7.2 "extended filtering" (RFC 4647 §3.3.2) of a language
+/// tag by a range, ASCII case-insensitive. A `*` as the range's first subtag
+/// matches any first subtag; an empty range matches only an empty tag.
+fn language_matches(tag: &str, range: &str) -> bool {
+    if range.is_empty() {
+        return tag.is_empty();
+    }
+    let mut tags = tag.split('-');
+    let mut ranges = range.split('-');
+    let (Some(first_tag), Some(first_range)) = (tags.next(), ranges.next()) else {
+        return false;
+    };
+    if first_range != "*" && !first_range.eq_ignore_ascii_case(first_tag) {
+        return false;
+    }
+    if tag.is_empty() {
+        return false;
+    }
+    let mut wanted = ranges.next();
+    let mut have = tags.next();
+    while let Some(w) = wanted {
+        if w == "*" {
+            wanted = ranges.next();
+            continue;
+        }
+        let Some(h) = have else {
+            return false;
+        };
+        if w.eq_ignore_ascii_case(h) {
+            wanted = ranges.next();
+            have = tags.next();
+        } else if h.len() == 1 {
+            return false;
+        } else {
+            have = tags.next();
+        }
+    }
+    true
 }
 
 fn is_fragment(node: &Node) -> bool {
@@ -272,7 +519,15 @@ impl Element for Guarded<'_> {
         if self.charge_attribute(self.node.data.attr(local_name.0.clone())) {
             return false;
         }
-        Element::attr_matches(&self.node, ns, local_name, operation)
+        // blitz-dom ignores the case sensitivity the selector asks for.
+        self.node.attrs().into_iter().flatten().any(|a| {
+            a.name.local == local_name.0
+                && match ns {
+                    NamespaceConstraint::Any => true,
+                    NamespaceConstraint::Specific(n) => a.name.ns == n.0,
+                }
+                && operation.eval_str(&a.value)
+        })
     }
 
     fn match_non_ts_pseudo_class(
@@ -280,7 +535,35 @@ impl Element for Guarded<'_> {
         pc: &<Impl as selectors::SelectorImpl>::NonTSPseudoClass,
         context: &mut MatchingContext<'_, Impl>,
     ) -> bool {
-        Element::match_non_ts_pseudo_class(&self.node, pc, context)
+        match pc {
+            NonTSPseudoClass::Disabled => self.actually_disabled() == Some(true),
+            NonTSPseudoClass::Enabled => self.actually_disabled() == Some(false),
+            NonTSPseudoClass::Checked => match self.html_name() {
+                Some("input") => {
+                    matches!(self.input_type().as_str(), "checkbox" | "radio")
+                        && self.has(local_name!("checked"))
+                }
+                Some("option") => self.option_selected(),
+                _ => false,
+            },
+            NonTSPseudoClass::Required => {
+                self.required_applies() && self.has(local_name!("required"))
+            }
+            NonTSPseudoClass::Optional => {
+                self.required_applies() && !self.has(local_name!("required"))
+            }
+            NonTSPseudoClass::ReadWrite => self.read_write(),
+            NonTSPseudoClass::ReadOnly => self.html_name().is_some() && !self.read_write(),
+            NonTSPseudoClass::Lang(range) => {
+                language_matches(self.language().unwrap_or(""), range)
+            }
+            NonTSPseudoClass::Target => self.budget.target == Some(self.node.id),
+            NonTSPseudoClass::Defined => self
+                .node
+                .element_data()
+                .is_some_and(|e| e.name.ns != ns!(html) || !custom_element_name(&e.name.local)),
+            _ => Element::match_non_ts_pseudo_class(&self.node, pc, context),
+        }
     }
 
     fn match_pseudo_element(
@@ -389,6 +672,7 @@ impl Matcher {
         deadline: Option<Deadline>,
         selector: &str,
         html_document: bool,
+        target: Option<usize>,
     ) -> Self {
         Self {
             caches: SelectorCaches::default(),
@@ -400,6 +684,7 @@ impl Matcher {
                 hint: Cell::new(0),
                 weight: element_weight(selector.len()),
                 html_document,
+                target,
             },
             quirks,
         }
