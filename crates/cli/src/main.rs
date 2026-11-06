@@ -72,7 +72,8 @@ Options:
   --layout-queries <p>     With --scripts, what getBoundingClientRect, offsetWidth
                            and the like give, as nothing is laid out: zeros
                            (default), or throw: the first one fails the render
-  --resource <url>=<file>  With --scripts: <script src=\"<url>\"> or a stylesheet's
+  --resource <url>=<file>  With --scripts: <script src=\"<url>\">,
+                           <iframe src=\"<url>\"> or a stylesheet's
                            <link href=\"<url>\">, with the URL as written, loads
                            this file, read once at the start. Only these load.
                            Repeat it for more.

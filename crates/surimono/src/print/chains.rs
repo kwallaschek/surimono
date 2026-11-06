@@ -202,14 +202,28 @@ impl Reader<'_, '_> {
     }
 
     /// The most combinators in any entry of the selector list left in `input`,
-    /// those inside a pseudo-class added to the entry they're in. `None` for
-    /// what can't be a selector: no selector holds a `{` or a `;`.
-    fn combinators<'i>(&mut self, input: &mut Parser<'i, '_>) -> Option<usize> {
+    /// those inside a pseudo-class added to the entry they're in. `top` for a
+    /// whole selector: a `{` or a `;` there means it is none, so `None`. In a
+    /// bracket they end one entry of what may be a forgiving list, and the
+    /// others still count.
+    fn combinators<'i>(&mut self, input: &mut Parser<'i, '_>, top: bool) -> Option<usize> {
         let (mut most, mut here) = (0, 0);
-        let (mut started, mut gap) = (false, false);
+        let (mut started, mut gap, mut skipping) = (false, false, false);
         while let Ok(token) = input.next_including_whitespace_and_comments() {
+            if skipping && !matches!(token, Token::Comma) {
+                if self.references.stop(&self.gate) {
+                    return None;
+                }
+                continue;
+            }
+            skipping = false;
             let nested = match token {
-                Token::CurlyBracketBlock | Token::Semicolon => return None,
+                Token::CurlyBracketBlock | Token::Semicolon if top => return None,
+                Token::CurlyBracketBlock | Token::Semicolon => {
+                    here = 0;
+                    skipping = true;
+                    false
+                }
                 Token::WhiteSpace(_) | Token::Comment(_) | Token::Delim('>' | '+' | '~') => {
                     gap = true;
                     false
@@ -235,7 +249,7 @@ impl Reader<'_, '_> {
             }
             if nested {
                 let inner: Result<Option<usize>, Failure<'i>> =
-                    input.parse_nested_block(|inner| Ok(self.combinators(inner)));
+                    input.parse_nested_block(|inner| Ok(self.combinators(inner, false)));
                 here += inner.ok().flatten()?;
             }
         }
@@ -282,7 +296,7 @@ impl<'i> QualifiedRuleParser<'i> for Reader<'_, '_> {
     type Error = ();
 
     fn parse_prelude<'t>(&mut self, input: &mut Parser<'i, 't>) -> Result<usize, Failure<'i>> {
-        Ok(self.combinators(input).unwrap_or(0))
+        Ok(self.combinators(input, true).unwrap_or(0))
     }
 
     fn parse_block<'t>(

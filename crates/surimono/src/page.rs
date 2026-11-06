@@ -236,7 +236,7 @@ impl PagePool {
     /// Runs `html` as a page on a worker. With `cancel`, the call returns
     /// [`Error::Cancelled`] within milliseconds of the flag going up. A page
     /// still queued never starts, and a running one stops too, its worker free
-    /// again within milliseconds.
+    /// again within milliseconds, or when a shared loader's function returns.
     pub(crate) fn run(
         &self,
         html: &str,

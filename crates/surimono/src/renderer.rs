@@ -449,7 +449,9 @@ impl Renderer {
     /// doesn't stop at one: see [`PageReport`](crate::PageReport). Limits do:
     /// [`Error::PageMemoryLimit`], [`Error::PageTimeLimit`],
     /// [`Error::PageStackOverflow`] and [`Error::PageDomLimit`], whatever the
-    /// error policy, as does [`Error::PageFailed`] for a page that can't run.
+    /// error policy, as does [`Error::PageFailed`] for a page that can't run,
+    /// and [`Error::PageLayoutQuery`] under
+    /// [`LayoutQueries::Throw`](crate::LayoutQueries::Throw).
     /// Islands fail as in [`render_islands`](Self::render_islands).
     pub fn render_page(&self, html: &str) -> Result<PageOutput, Error> {
         self.page(html, None)
@@ -459,8 +461,11 @@ impl Renderer {
     /// true: the call ends with [`Error::Cancelled`] within milliseconds.
     ///
     /// A running script stops within milliseconds, as does the parse before it
-    /// and the work after it, and the worker takes the next page. Islands stop
-    /// as in [`render_islands_cancellable`](Self::render_islands_cancellable).
+    /// and the work after it, and the worker takes the next page. A
+    /// [`ResourceLoader`](crate::ResourceLoader)'s function isn't interrupted:
+    /// the call still ends at once, but the worker is free only when it
+    /// returns. Islands stop as in
+    /// [`render_islands_cancellable`](Self::render_islands_cancellable).
     ///
     /// # Errors
     ///

@@ -1072,6 +1072,22 @@ mod tests {
         // With no block, it's no rule.
         let unfinished = format!("<style>a{}</style>", " b".repeat(MAX_COMBINATORS + 1));
         assert_eq!(ok(&unfinished), unfinished);
+        // An entry that isn't one leaves the rest of a forgiving list.
+        let chain = format!(".a{}", "+.a".repeat(MAX_COMBINATORS + 5));
+        for selector in [
+            format!(":is({chain})"),
+            format!(":is({chain},{{}})"),
+            format!(":is({chain},;)"),
+            format!(":where({chain},{{}})"),
+            format!("{chain}+:is(.c,{{}})"),
+            format!(":is({{}},.c)+{chain}"),
+            format!("x{{{chain}+:is(.c,;)"),
+            format!("@media print{{{chain}+:is(.c,{{}})"),
+        ] {
+            let closers = selector.matches("x{").count() + selector.matches("@media").count();
+            let rest = "}".repeat(closers);
+            over(&format!("<style>{selector}{{color:red}}{rest}</style>"));
+        }
         // A list in a pseudo-class is no chain.
         let items = format!(
             "<style>:is({}a){{}}</style>",

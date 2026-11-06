@@ -466,29 +466,46 @@ fn a_cancel_stops_a_running_script_and_goes_no_further() {
     assert!(started.elapsed() < Duration::from_secs(20));
 }
 
+/// Past the deadline the parse has stopped short of the node limit, the only
+/// other way this page can end.
 #[test]
-fn the_static_parse_has_a_limit_and_a_cancel() {
-    let attributes: Vec<String> = (0..60_000).map(|i| format!("a{i}")).collect();
-    let html = format!("<!doctype html><div {}>", attributes.join(" "));
-    let r = renderer(options().limits(Limits {
-        time: Duration::from_millis(100),
+fn the_static_parse_has_a_limit() {
+    let font = repo().join("fixtures/fonts/NotoSans-Regular.ttf");
+    let font = std::fs::read(&font).unwrap_or_else(|e| panic!("{e}"));
+    let r = renderer(Options::new().font(font).limits(Limits {
+        time: Duration::from_millis(20),
         ..Limits::default()
     }));
+    let html = "<p>x</p>".repeat(1_000_000);
     let e = r.render_page(&html).map(|_| ()).unwrap_err();
-    assert!(
-        matches!(e, Error::PageTimeLimit | Error::PageDomLimit { .. }),
-        "{e}"
-    );
+    assert!(matches!(e, Error::PageTimeLimit), "{e}");
+}
+
+/// A cancel frees a one-worker pool: left to run, this parse takes the worker
+/// for far longer than the next page is given.
+#[test]
+fn a_cancel_stops_the_static_parse() {
+    let r = renderer(options().pool_size(1).limits(Limits {
+        time: Duration::from_secs(60),
+        ..Limits::default()
+    }));
+    let html = format!("<!doctype html><p>{}", "&lt;".repeat(2 << 20));
     let cancel = AtomicBool::new(false);
-    let r = renderer(options());
     std::thread::scope(|s| {
         s.spawn(|| {
-            std::thread::sleep(Duration::from_millis(20));
+            std::thread::sleep(Duration::from_millis(30));
             cancel.store(true, Ordering::Release);
         });
         let out = r.render_page_cancellable(&html, &cancel);
-        assert!(out.is_err(), "{out:?}");
+        assert!(matches!(out, Err(Error::Cancelled)), "{out:?}");
     });
+    let started = Instant::now();
+    assert!(page(&r, "<p>x").html.contains("<p>x</p>"));
+    let took = started.elapsed();
+    let unstopped = Instant::now();
+    let parsed = surimono_dom::Document::parse(&html);
+    assert!(parsed.is_ok());
+    assert!(took * 4 < unstopped.elapsed(), "took {took:?}");
 }
 
 #[test]
