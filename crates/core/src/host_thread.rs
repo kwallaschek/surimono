@@ -54,6 +54,7 @@ impl HostThread {
     }
 
     /// Waits for the thread to end.
+    #[cfg_attr(not(unix), allow(unused_mut))]
     pub fn join(mut self) {
         #[cfg(unix)]
         if let Some(thread) = self.thread.take() {
@@ -307,14 +308,28 @@ mod tests {
         thread.join();
     }
 
+    /// `usize::MAX / 2` rounds, and the kernel refuses it: `pthread_create`
+    /// fails, so `pthread_spawn` takes its body back and frees it (the count
+    /// shows it did, ASan that it did so once). `usize::MAX - 1024` stops
+    /// earlier, at the rounding.
     #[test]
     fn a_stack_too_large_for_the_address_space_is_an_error() {
-        let ran = Arc::new(AtomicBool::new(false));
-        let flag = ran.clone();
-        let spawned = spawn_host_thread(NAME, usize::MAX - 1024, move || {
-            flag.store(true, Ordering::SeqCst);
-        });
-        assert!(spawned.is_err());
-        assert!(!ran.load(Ordering::SeqCst));
+        for (size, code) in [
+            (usize::MAX / 2, libc::EAGAIN),
+            (usize::MAX - 1024, libc::EINVAL),
+        ] {
+            let ran = Arc::new(AtomicBool::new(false));
+            let flag = ran.clone();
+            let spawned = spawn_host_thread(NAME, size, move || {
+                flag.store(true, Ordering::SeqCst);
+            });
+            let error = spawned.unwrap_err();
+            #[cfg(target_os = "linux")]
+            assert_eq!(error.raw_os_error(), Some(code), "{size}");
+            #[cfg(not(target_os = "linux"))]
+            let _ = (error, code);
+            assert!(!ran.load(Ordering::SeqCst));
+            assert_eq!(Arc::strong_count(&ran), 1, "{size}");
+        }
     }
 }
