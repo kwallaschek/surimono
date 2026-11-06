@@ -152,6 +152,25 @@
     return wrap(g, call(OP_parseFromString, g, root(), text, t));
   };
   H.new_XMLSerializer = (target) => make(I_XMLSerializer, target).w;
+
+  // DOM §5.4. WebIDL §3.2.18: a dictionary's members in lexicographic order.
+  H.new_StaticRange = (target, init) => {
+    if (init === null || init === undefined || (typeof init !== 'object' && typeof init !== 'function')) {
+      throw new TE('StaticRangeInit is required');
+    }
+    const member = (k) => {
+      const v = init[k];
+      if (v === undefined) throw new TE(`StaticRangeInit.${k} is required`);
+      return v;
+    };
+    const g = current();
+    const endContainer = obj(member('endContainer'), I_Node, g);
+    const endOffset = member('endOffset') >>> 0;
+    const startContainer = obj(member('startContainer'), I_Node, g);
+    const startOffset = member('startOffset') >>> 0;
+    const h = call(OP_staticRange, g, root(), startContainer, startOffset, endContainer, endOffset);
+    return adopt(wrap(g, h), target, I_StaticRange);
+  };
   H.XMLSerializer_serializeToString = (s, node) => call(OP_serializeXml, node.g, node.h, node.h);
 
   // Timer ids up to this one are the page's lifecycle, and no script may
@@ -268,7 +287,7 @@
     }
     return () => {
       currentScript = null;
-      if (n.scriptExternal(i)) fire(stateOf(element), ok ? 'load' : 'error');
+      if (n.scriptExternal(i)) fireInTask(stateOf(element), ok ? 'load' : 'error');
     };
   }
 
@@ -287,7 +306,7 @@
     nameElements(g);
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
-      fire(documentState(), 'readystatechange');
+      fireInTask(documentState(), 'readystatechange');
     };
     const step = (f) => {
       lifecycleLast = setTimeoutReal(() => queueMicrotaskReal(f), 0);
@@ -307,7 +326,7 @@
     for (let i = 0; i < scripts; i++) {
       if (n.scriptDeferred(i)) turn(i);
     }
-    step(() => { fire(documentState(), 'DOMContentLoaded', true); });
+    step(() => { fireInTask(documentState(), 'DOMContentLoaded', true); });
     step(setState(2));
     // The frames the parser found: `load` waits for them (HTML §4.8.5).
     step(frameLoads);
@@ -316,6 +335,7 @@
       const s = make(I_Event);
       initEvent(s, 'load', false, false);
       s.isTrusted = true;
+      s.alone = true;
       s.dispatching = true;
       s.target = documentState().w;
       const path = list();

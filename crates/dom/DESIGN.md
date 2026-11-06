@@ -413,11 +413,27 @@ parsed tree, made before the first script, at most 4,096. Not a Proxy: QuickJS
 reads a global through the prototype chain, and a Proxy there makes an undeclared
 name `undefined` instead of a ReferenceError.
 
-**Gaps** (each for docs/COMPAT.md): no microtask checkpoint between the listeners of a
-browser-fired event (`L1,L2,micro`, the spec gives `L1,micro,L2`), because a
-checkpoint from inside a native needs core; a
+**A checkpoint between listeners.** An event fired from a task of the page's life
+(`readystatechange`, `DOMContentLoaded`, `load`, a script's `load` and `error`), for
+a rejected promise, or by `AbortSignal.timeout` (at the signal and at the signals
+that depend on it) has no script under its dispatch, so "clean up after running
+script" finds the stack empty after each listener and that is a microtask checkpoint
+(`L1,micro,L2`). The glue marks those events (`alone`, set by `fireInTask`) and calls
+`n.checkpoint`, which is core's `LoopBridge::checkpoint`. An event from `dispatchEvent`
+or from `click()` gets none, trusted or not: a script is on the stack (`L1,L2,micro`,
+as in Chrome). A limit in those microtasks comes back from the native typed and ends
+the call as `n.limit` does; a listener that overflowed the stack runs no checkpoint.
+The checkpoint comes before inner invoke reports the listener's exception and with
+`window.event` still set, as WebIDL's order gives; an `error` event reported from such
+a listener has one after each of its listeners too. Chrome reports first (`L1, E1, E2,
+m, em, L2`, the spec gives `L1, m, E1, em, E2, L2`). The spec wins for DOM behaviour;
+the conflict is in `docs/DECISIONS.md`.
+
+**Gaps** (each for docs/COMPAT.md): a
 handler's scope has no form owner; MathML elements have no `on*` attributes (no
-interface bound), and `<svg><script>` doesn't run; `unhandledrejection` doesn't fire.
+interface bound), and `<svg><script>` doesn't run; `rejectionhandled` doesn't fire.
+`toggle`, `hashchange` and an iframe's `load` come from tasks but get no checkpoint
+between listeners, so they give `L1,L2,micro` (Chromium 153 and HTML: `L1,micro,L2`).
 ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
 `Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
 two events at one virtual time have the same one. `HTMLDocument` is `Document`, as
@@ -462,6 +478,50 @@ children it loses.
 
 Gap: no transient registrations for removed subtrees.
 
+## Ranges
+
+`src/range.rs`. A range is two boundary points in Rust, because Rust sees the
+mutations; the script holds a handle to `Object::Range`, a number in
+`Document::ranges`. The hooks sit in the primitives (`place_quietly`,
+`detach_quietly`, `replace_child_list`, and a fragment's children leaving in
+`insert_checked`) and in "replace data", "split" and `normalize`, so no path that
+changes the tree can miss them. `replace_child_list` removes many children in one
+pass over the ranges, with the result of removing them one at a time.
+
+Every node a boundary point names has a handle, so its slab slot isn't reused. A
+removal moves a boundary to the parent, which gets a handle then; out of handles,
+the boundary stays on a live node, a fault is recorded and the call fails.
+
+- **Bounds.** A range can't be known to be unreachable (wrappers have no weak
+  references), so it stays live until the document drops, and a mutation may have
+  to look at every range: `DomLimits::max_ranges` (65,536) ends in the typed
+  `RangeLimit`. A page with no ranges pays one `is_empty`. `range_points` counts
+  boundary points per node, so an insertion or data change elsewhere pays one
+  lookup, and a removal walks the removed subtree only up to about twice the
+  number of ranges. Past that it walks every range's ancestors under `poll`,
+  which is the `TimeLimit`; a walk stopped there leaves boundaries out of date in
+  a script that is already ending, so nothing here relies on them being right:
+  methods clamp, and a range out of one tree answers with an exception.
+- **Depth.** "Clone the contents" and "extract" recurse per partially contained
+  level in the standard. Here they walk two chains, the left one's contents
+  leaving from the bottom, the right one's from the top, which is the order the
+  recursion has for mutation records.
+- **What goes with a render.** All of it is in `Document`.
+- **`normalize`** goes step by step once a range exists, like with an observer:
+  quadratic on a wide list, and each removal pays for it in its poll.
+
+`StaticRange` is `Object::StaticRange`; its constructor reads the dictionary in the
+glue. `getClientRects` and `getBoundingClientRect` go through the layout policy, in
+`glue_layout.js`; a range's are zeros until phase 3.
+`createContextualFragment` is HTML §8.5, with the wrapper stripping of XML documents.
+
+**Gaps.** There is no `Selection`: no vendored test needs one but `moveBefore`'s,
+which fail on `moveBefore` first. An `Attr` can't be a boundary point (`Attr` isn't
+a whole `Node`): `InvalidNodeTypeError`, where the standard allows offset 0. Scripts
+in a contextual fragment don't run when appended, since no script a script inserts
+does yet. A range's offsets inside a surrogate pair have the same lossy edge as
+CharacterData's.
+
 ## Templates and reflected attributes
 
 A `<template>`'s content is a fragment outside the tree, in `Document::templates`.
@@ -491,8 +551,18 @@ async function or a promise reaction it rejects a promise instead: if nothing
 handled that promise when the microtasks have drained, core's rejection tracker
 ends the call, and handling it is catching it. Core's event loop has that
 checkpoint and `Sandbox::run` doesn't, so `DomRuntime::eval` follows each script
-with a run of the loop whose options let no task start (`CHECKPOINT`). Other
-rejections go in the report (`PageReport::unhandled_rejections`).
+with a run of the loop whose options let no task start (`CHECKPOINT`).
+
+Other rejections follow HTML's "notify about rejected promises". The checkpoint
+queues a task behind what is already queued, so the next `<script>` or a timer already
+due can still handle the promise. The task calls the hook the glue registered
+(`n.setRejectionHook`), which fires `unhandledrejection` at the window, cancelable,
+with a checkpoint after each listener; the promises left go in the report
+(`PageReport::unhandled_rejections`) unless a listener cancels the event, in the order
+they rejected. No limit error gets that far, so no listener sees or cancels one. A
+page's lifecycle steps were queued first, so the event comes after `load` for a
+rejection in a page script; Chrome's parser can yield earlier. If the event loop stops
+with the task still queued (`TaskLimit`), its promises are counted with no event.
 
 One residual: core reads a rejection's reason to report it, and a getter on the
 reason runs then. If that getter overflows the stack, the overflow is an
@@ -612,8 +682,13 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   headroom). Frames aren't known at compile time, so the caps are
   set from measurements with room to spare: that selector takes just over half
   of the 256 KiB headroom in the slowest x86_64 build and under a third in
-  release (numbers at `MAX_SELECTOR_NESTING`). A check of the stack left, from a matcher step in
-  `Guarded`, would make it a proof; it needs core to export `stack_available`.
+  release (numbers at `MAX_SELECTOR_NESTING`). `Guarded` also looks at the stack
+  left at each element it reaches (`surimono_core::stack_available`), and under
+  64 KiB stops the match and ends the call with `SandboxError::StackOverflow`,
+  sticky like a refused allocation, so a target whose frames outgrow the measurement
+  gets that error and not a crash. Selector parsing runs before `Guarded` and
+  can't be stopped, so its stack still rests on the caps. On a platform where
+  core can't tell the stack left, so does matching.
 - **Half a surrogate pair.** Text is stored as UTF-8, which can't hold a lone
   surrogate, so a CharacterData offset inside a pair (`deleteData(0, 1)` on an
   emoji) leaves U+FFFD. The DOM keeps the lone code unit.

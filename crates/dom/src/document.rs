@@ -14,6 +14,7 @@ use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
+use crate::range::LiveRange;
 use crate::style_attr;
 use crate::xml;
 
@@ -95,6 +96,10 @@ pub struct DomLimits {
     /// quadratic in its attributes, and so is any tree's for an element: a
     /// page has a few dozen.
     pub max_attributes: usize,
+    /// Most `Range`s made over the document's life. A range can't be known
+    /// to be unreachable, so it stays live until the document drops, and
+    /// mutations may have to look at all of them.
+    pub max_ranges: usize,
 }
 
 /// Bytes charged per attribute beyond its name and value: what the entry
@@ -118,6 +123,9 @@ impl DomLimits {
     pub const DEFAULT_MAX_TEXT_BYTES: usize = 256 * 1024 * 1024;
     /// 4,096 attributes, the printing pass's cap.
     pub const DEFAULT_MAX_ATTRIBUTES: usize = 4_096;
+    /// 65,536 ranges: a page that measures each label through a range of its
+    /// own, on a large chart, makes thousands.
+    pub const DEFAULT_MAX_RANGES: usize = 65_536;
 
     /// Checks the limits are in range: every limit at least 1, `max_depth`
     /// at most [`MAX_DEPTH`](Self::MAX_DEPTH), `max_handles` within `u32`.
@@ -132,6 +140,7 @@ impl DomLimits {
             || self.max_handles == 0
             || self.max_text_bytes == 0
             || self.max_attributes == 0
+            || self.max_ranges == 0
         {
             return bad("every DOM limit must be at least 1");
         }
@@ -153,6 +162,7 @@ impl Default for DomLimits {
             max_handles: Self::DEFAULT_MAX_HANDLES,
             max_text_bytes: Self::DEFAULT_MAX_TEXT_BYTES,
             max_attributes: Self::DEFAULT_MAX_ATTRIBUTES,
+            max_ranges: Self::DEFAULT_MAX_RANGES,
         }
     }
 }
@@ -299,6 +309,10 @@ pub(crate) enum Object {
     Dataset(usize),
     /// `style`.
     Style(usize),
+    /// A `Range`: its number in `Document::ranges`.
+    Range(u32),
+    /// A `StaticRange`, which never changes. Its nodes have handles.
+    StaticRange(Box<LiveRange>),
     /// `document.implementation`.
     Implementation(usize),
     /// `getComputedStyle`: empty and read-only until there is layout.
@@ -380,7 +394,7 @@ pub(crate) type Handle = u32;
 pub struct Document {
     inner: BaseDocument,
     generation: u64,
-    limits: DomLimits,
+    pub(crate) limits: DomLimits,
     /// Handle (1-based) minus one to its object.
     objects: Vec<Object>,
     /// The handles of per-owner objects. Only looked up, so its hash order
@@ -446,12 +460,17 @@ pub struct Document {
     frame_loads: VecDeque<Handle>,
     /// See [`Special`].
     specials: HashMap<usize, Special>,
+    /// Every `Range`, live until the document drops: see [`crate::range`].
+    pub(crate) ranges: Vec<LiveRange>,
+    /// Boundary points by node, counted, so a mutation of a node with none
+    /// doesn't look at `ranges`. Only looked up.
+    pub(crate) range_points: HashMap<usize, u32>,
     /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
     /// page lifecycle has run on is complete.
     ready_state: u32,
     /// The last (parent, index in its children) a sibling step found, so
     /// walking a wide parent's children isn't quadratic. Checked on use.
-    cursor: Cell<(usize, usize)>,
+    pub(crate) cursor: Cell<(usize, usize)>,
     /// A fatal error a binding met, for the native call to report.
     pub(crate) fault: Option<DomError>,
     /// The running call's deadline, set for each native call.
@@ -609,6 +628,8 @@ impl Document {
             frame_sources: VecDeque::new(),
             frame_loads: VecDeque::new(),
             specials: parsed.specials.into_iter().collect(),
+            ranges: Vec::new(),
+            range_points: HashMap::new(),
             ready_state: 2,
             cursor: Cell::new((0, 0)),
             fault: None,
@@ -1585,7 +1606,7 @@ impl Document {
         Ok(self.node_to_handle[id])
     }
 
-    fn new_handle(&mut self, object: Object) -> Result<Handle, DomError> {
+    pub(crate) fn new_handle(&mut self, object: Object) -> Result<Handle, DomError> {
         if self.objects.len() >= self.limits.max_handles {
             return Err(DomError::HandleLimit {
                 limit: self.limits.max_handles,
@@ -2470,8 +2491,16 @@ impl Document {
     /// their data; the document ignores it.
     pub(crate) fn set_text_content(&mut self, id: usize, text: &str) -> Result<(), DomError> {
         match self.kind(id) {
-            Some(Kind::Text) => self.set_text_data(id, text),
-            Some(Kind::Comment | Kind::ProcessingInstruction) => self.set_side_data(id, text),
+            Some(Kind::Text | Kind::Comment | Kind::ProcessingInstruction) => {
+                // §4.11 "replace data", of all of it.
+                let count = self.has_range_point(id).then(|| self.node_length(id));
+                self.write_char_data(id, text)?;
+                if let Some(count) = count {
+                    let length = u32::try_from(text.encode_utf16().count()).unwrap_or(u32::MAX);
+                    self.ranges_replaced_data(id, 0, count, length);
+                }
+                Ok(())
+            }
             Some(Kind::Element | Kind::DocumentFragment) => {
                 // Made first: a refused write leaves the children alone.
                 let t = if text.is_empty() {
@@ -2483,6 +2512,15 @@ impl Document {
                 Ok(())
             }
             _ => Ok(()),
+        }
+    }
+
+    /// Writes a character data node's data; what happens to ranges is the
+    /// caller's.
+    pub(crate) fn write_char_data(&mut self, id: usize, text: &str) -> Result<(), DomError> {
+        match self.kind(id) {
+            Some(Kind::Text) => self.set_text_data(id, text),
+            _ => self.set_side_data(id, text),
         }
     }
 
@@ -2511,6 +2549,7 @@ impl Document {
     /// children, as [`remove_children_quietly`](Self::remove_children_quietly)
     /// does: one pass, however wide the list.
     pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
+        self.ranges_removing(id, &gone);
         self.version += 1;
         self.count_list_steps(kept.len() + gone.len());
         self.take_children(id);
@@ -2734,6 +2773,7 @@ impl Document {
     /// §4.2.3 "remove".
     pub(crate) fn detach_quietly(&mut self, id: usize) {
         if let Some(parent) = self.node(id).parent {
+            self.ranges_removing(parent, &[id]);
             self.version += 1;
             self.count_list_steps(self.children(parent).len());
             self.inner.mutate().remove_node(id);
@@ -2759,6 +2799,7 @@ impl Document {
     /// [`place`](Self::place) with the "suppress observers" flag of DOM
     /// §4.2.3 "insert".
     pub(crate) fn place_quietly(&mut self, parent: usize, nodes: &[usize], before: Option<usize>) {
+        self.ranges_inserting(parent, before, nodes.len());
         self.version += 1;
         self.count_list_steps(nodes.len() + before.map_or(0, |_| self.children(parent).len()));
         if self.is_in_style(parent) {
@@ -3081,6 +3122,16 @@ impl Document {
     #[doc(hidden)]
     pub fn check_consistency(&self) -> Result<(), String> {
         let held = self.bytes_held() + self.observer_bytes;
+        for (r, range) in self.ranges.iter().enumerate() {
+            for p in [range.start, range.end] {
+                if self.inner.get_node(p.node).is_none() || !self.has_handle(p.node) {
+                    return Err(format!("range {r} points at unpinned node {}", p.node));
+                }
+                if p.offset > self.node_length(p.node) {
+                    return Err(format!("range {r} is past the end of node {}", p.node));
+                }
+            }
+        }
         for (id, node) in self.inner.tree().iter() {
             if let Some(p) = node.parent {
                 let Some(parent) = self.inner.get_node(p) else {

@@ -67,6 +67,11 @@ const SCRIPT: &str = r#"
     }
     out.appendChild(ul);
     sum += out.textContent.length;
+    const range = document.createRange();
+    range.selectNodeContents(ul);
+    sum += String(range).length + range.cloneContents().childNodes.length;
+    range.setStart(ul.firstChild.firstChild, 1);
+    sum += range.extractContents().childNodes.length;
     out.textContent = '';
   }
   // Other documents, with names new to each render: they live in the render's

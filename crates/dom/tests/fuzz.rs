@@ -119,6 +119,9 @@ for (const t of TAGS) { const e = document.createElement(t); pool.push(e); pool.
 globalThis.small = (i) => { const n = at(i); return n === pool[0] || n === pool[1] || n === pool[2] ? pool[pool.length - 1] : n; };
 globalThis.keep = (n) => { if (n && pool.length < 400) pool.push(n); return n; };
 globalThis.op = (f) => { try { f(); } catch (e) {} };
+globalThis.ranges = [document.createRange()];
+globalThis.keep2 = (r) => { if (ranges.length < 40) ranges.push(r); return r; };
+globalThis.range = (i) => ranges[i % ranges.length];
 "#;
 
 /// One random operation, as source.
@@ -127,7 +130,7 @@ fn operation(r: &mut Rng) -> String {
     let tag = quoted(r.pick(TAGS));
     let attr = quoted(r.pick(ATTRS));
     let value = quoted(r.pick(VALUES));
-    let body = match r.below(43) {
+    let body = match r.below(47) {
         0 => format!("keep(document.createElement({tag}))"),
         1 => format!("keep(document.createTextNode({value}))"),
         2 => format!("keep(document.createComment({value}))"),
@@ -191,6 +194,18 @@ fn operation(r: &mut Rng) -> String {
             "const t = keep(document.createElement('template')); t.innerHTML = {value}; at({a}).appendChild(t.content.cloneNode(true)); at({b}).appendChild(t)"
         ),
         41 => format!("keep(document.importNode(at({a}), true))"),
+        43 => format!(
+            "const r = keep2(document.createRange()); r.setStart(at({a}), {b} % 3); r.setEnd(at({c}), {a} % 3)"
+        ),
+        44 => format!(
+            "const r = range({a}); [r.startContainer, r.endContainer, r.commonAncestorContainer, r.collapsed, String(r)]"
+        ),
+        45 => format!(
+            "const r = range({a}); const m = {b} % 5; if (m === 0) r.deleteContents(); else if (m === 1) keep(r.extractContents()); else if (m === 2) keep(r.cloneContents()); else if (m === 3) r.insertNode(at({c})); else r.surroundContents(at({c}))"
+        ),
+        46 => format!(
+            "const r = range({a}); r.selectNode(at({b})); keep(r.createContextualFragment({value})); keep2(r.cloneRange()); r.compareBoundaryPoints({c} % 4, range({b}))"
+        ),
         // Reads: every node type, whatever state it reached.
         _ => format!(
             "[at({a}).textContent, at({b}).nodeName, at({c}).isConnected, document.getElementById({value})]"
