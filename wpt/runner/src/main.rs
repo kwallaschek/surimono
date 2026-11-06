@@ -95,6 +95,7 @@ const PORTS: &[(&str, &[u16])] = &[
     ("ws", &[8888]),
     ("wss", &[8889]),
     ("webtransport-h3", &[11000]),
+    ("dns", &[8053]),
 ];
 /// Subdomains `{{domains[…]}}` knows. wptserve has more, none of them in the slices.
 const SUBDOMAINS: &[&str] = &["www", "www1", "www2", "nonexistent"];
@@ -495,7 +496,7 @@ fn page(root: &Path, file: &str, url: &str) -> Result<String, String> {
     let text = String::from_utf8_lossy(&bytes).into_owned();
     if !(file.ends_with(".any.js") || file.ends_with(".window.js")) {
         return if is_substituted(file) {
-            substitute(&text, url)
+            substitute(&text, url, file)
         } else {
             Ok(text)
         };
@@ -528,6 +529,10 @@ fn page(root: &Path, file: &str, url: &str) -> Result<String, String> {
     head.push_str("<div id=log></div>\n");
     let name = file.rsplit('/').next().unwrap_or(file);
     head.push_str(&format!("<script src=\"{name}\"></script>\n"));
+    // serve.py runs the pipe on the wrapper too, named as the script.
+    if is_substituted(file) {
+        return substitute(&head, url, file);
+    }
     Ok(head)
 }
 
@@ -570,7 +575,7 @@ fn resolve(root: &Path, base: &str, src: &str) -> Option<String> {
         .next()?
         .split_once('?')
         .map_or(String::new(), |(_, q)| format!("?{q}"));
-    substitute(&text, &format!("{normal}{query}")).ok()
+    substitute(&text, &format!("{normal}{query}"), &normal).ok()
 }
 
 /// Whether wptserve runs its `sub` pipe on this file, by name.
@@ -578,10 +583,20 @@ fn is_substituted(file: &str) -> bool {
     file.rsplit('/').next().unwrap_or(file).contains(".sub.")
 }
 
+/// Whether wptserve escapes values in `file`: `wrap_pipeline` in its handlers.py,
+/// by extension.
+fn is_markup(file: &str) -> bool {
+    let name = file.rsplit('/').next().unwrap_or(file);
+    let extension = name.rsplit_once('.').map_or("", |(_, e)| e);
+    ["html", "htm", "xht", "xhtml", "xml", "svg"].contains(&extension)
+}
+
 /// wptserve's `sub` pipe on `text`, requested as `url` from the root of
-/// [`ORIGIN`]: `wpt/README.md`, "Substitution". An error where wptserve's
-/// template raises, and on the few forms it has and this doesn't.
-fn substitute(text: &str, url: &str) -> Result<String, String> {
+/// [`ORIGIN`], with `file` deciding the escaping: `wpt/README.md`, "Substitution".
+/// An error where wptserve's template raises, and on the few forms it has and
+/// this doesn't.
+fn substitute(text: &str, url: &str, file: &str) -> Result<String, String> {
+    let escaped = is_markup(file);
     let mut out = String::with_capacity(text.len());
     let mut variables = BTreeMap::new();
     let mut rest = text;
@@ -591,15 +606,10 @@ fn substitute(text: &str, url: &str) -> Result<String, String> {
             Some(end) if body[end..].starts_with("}}") => {
                 out.push_str(&rest[..start]);
                 let value = evaluate(&body[..end], url, &mut variables)?;
-                for c in value.chars() {
-                    match c {
-                        '&' => out.push_str("&amp;"),
-                        '<' => out.push_str("&lt;"),
-                        '>' => out.push_str("&gt;"),
-                        '"' => out.push_str("&quot;"),
-                        '\'' => out.push_str("&#x27;"),
-                        c => out.push(c),
-                    }
+                if escaped {
+                    escape_into(&mut out, &value);
+                } else {
+                    out.push_str(&value);
                 }
                 rest = &body[end + 2..];
             }
@@ -611,6 +621,20 @@ fn substitute(text: &str, url: &str) -> Result<String, String> {
     }
     out.push_str(rest);
     Ok(out)
+}
+
+/// `html.escape(value, quote=True)`.
+fn escape_into(out: &mut String, value: &str) {
+    for c in value.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#x27;"),
+            c => out.push(c),
+        }
+    }
 }
 
 /// wptserve's tokens: `$name:`, a name, `[index]`, `(arguments)`. As in
@@ -709,13 +733,21 @@ fn evaluate(
             },
             "ports" => {
                 let protocol = index(&mut list)?;
-                let number: usize = index(&mut list)?.parse().map_err(|_| bad())?;
-                PORTS
+                // Python's int(): spaces and a sign pass, and a negative
+                // index counts from the end.
+                let number: i64 = index(&mut list)?.trim().parse().map_err(|_| bad())?;
+                let ports = PORTS
                     .iter()
                     .find(|(p, _)| *p == protocol)
-                    .and_then(|(_, ports)| ports.get(number))
                     .ok_or_else(bad)?
-                    .to_string()
+                    .1;
+                let from_end = usize::try_from(number.unsigned_abs()).ok();
+                let at = if number < 0 {
+                    from_end.and_then(|n| ports.len().checked_sub(n))
+                } else {
+                    from_end
+                };
+                ports.get(at.ok_or_else(bad)?).ok_or_else(bad)?.to_string()
             }
             "location" => {
                 let authority = ORIGIN.trim_end_matches('/');
@@ -735,7 +767,8 @@ fn evaluate(
                 let key = index(&mut list)?;
                 query
                     .split('&')
-                    .filter_map(|pair| pair.split_once('='))
+                    .filter(|pair| !pair.is_empty())
+                    .map(|pair| pair.split_once('=').unwrap_or((pair, "")))
                     .find(|(k, _)| decoded(k) == key)
                     .map_or(String::new(), |(_, v)| decoded(v))
             }
@@ -743,8 +776,11 @@ fn evaluate(
             "header_or_default" => {
                 let arguments = list.next().ok_or_else(bad)?;
                 let inner = arguments.trim_start_matches('(').trim_end_matches(')');
-                let (_, default) = inner.split_once(',').ok_or_else(bad)?;
-                default.trim_start().to_owned()
+                let given: Vec<&str> = inner.split(',').collect();
+                match given[..] {
+                    [_, default] => default.trim_start().to_owned(),
+                    _ => return Err(bad()),
+                }
             }
             _ => return Err(bad()),
         }
@@ -803,10 +839,12 @@ mod tests {
         let text = include_str!("../../tools/sub-vectors.json");
         let vectors: Value = serde_json::from_str(text).unwrap();
         for v in vectors.as_array().unwrap() {
-            let got = substitute(v["text"].as_str().unwrap(), v["url"].as_str().unwrap()).ok();
+            let url = v["url"].as_str().unwrap();
+            let file = url.split('?').next().unwrap();
+            let got = substitute(v["text"].as_str().unwrap(), url, file).ok();
             assert_eq!(got.as_deref(), v["want"].as_str(), "{v}");
         }
-        let r = substitute("{{uuid()}} {{$a:uuid()}} {{$a}}", "x").unwrap();
+        let r = substitute("{{uuid()}} {{$a:uuid()}} {{$a}}", "x", "x").unwrap();
         assert_eq!(r, [UUID, UUID, UUID].join(" "));
     }
 

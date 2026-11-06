@@ -8,7 +8,7 @@ export const ALT_HOST = 'not-web-platform.test';
 export const PORTS = {
   http: [8000, 8001], 'http-local': [8082], 'http-public': [8083],
   https: [8443, 8444], 'https-local': [8445], 'https-public': [8446],
-  h2: [9000], ws: [8888], wss: [8889], 'webtransport-h3': [11000],
+  h2: [9000], ws: [8888], wss: [8889], 'webtransport-h3': [11000], dns: [8053],
 };
 const SUBDOMAINS = new Set(['', 'www', 'www1', 'www2', 'nonexistent']);
 /** What `uuid()` gives. wptserve's is random; a test tool's output stays the same. */
@@ -60,13 +60,16 @@ function evaluate(body, url, variables) {
     value = domain(group ? ALT_HOST : HOST, index());
   } else if (name === 'ports') {
     const protocol = index();
-    value = PORTS[protocol]?.[Number(index())];
+    const number = index();
+    // Python's int(): spaces and a sign pass, and a negative index counts from the end.
+    if (Object.hasOwn(PORTS, protocol) && /^\s*[+-]?\d+\s*$/.test(number)) value = PORTS[protocol].at(Number(number));
   } else if (name === 'location') value = location(url, index());
   else if (name === 'GET') value = url.searchParams.get(index()) ?? '';
   else if (name === 'uuid') value = list.shift() === '()' ? UUID : undefined;
   else if (name === 'header_or_default') {
     const args = list.shift();
-    value = args?.startsWith('(') ? args.slice(1, -1).split(/,\s*/)[1] : undefined;
+    const given = args?.startsWith('(') ? args.slice(1, -1).split(/,\s*/) : [];
+    if (given.length === 2) value = given[1];
   }
   if (value === undefined || list.length) throw new Error(`can't substitute ${body}`);
   value = String(value);
@@ -76,8 +79,18 @@ function evaluate(body, url, variables) {
 
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' };
 
-/** `text` with its `{{…}}` replaced for a request of `url`, a URL. Throws where wptserve does, and on what isn't supported. */
-export function substitute(text, url) {
+const MARKUP = /\.(?:html|htm|xht|xhtml|xml|svg)$/;
+
+/**
+ * `text` with its `{{…}}` replaced for a request of `url`, a URL. Throws where wptserve does,
+ * and on what isn't supported. Values are escaped in markup, by the extension of `file`
+ * (handlers.py, `wrap_pipeline`), which is the URL's path unless a wrapper page names its script.
+ */
+export function substitute(text, url, file = url.pathname) {
   const variables = {};
-  return text.replace(/\{\{([^}]*)\}\}/g, (all, body) => evaluate(body, url, variables).replace(/[&<>"']/g, (c) => ESCAPES[c]));
+  const escaped = MARKUP.test(file);
+  return text.replace(/\{\{([^}]*)\}\}/g, (all, body) => {
+    const value = evaluate(body, url, variables);
+    return escaped ? value.replace(/[&<>"']/g, (c) => ESCAPES[c]) : value;
+  });
 }

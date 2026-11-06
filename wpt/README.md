@@ -206,16 +206,19 @@ register an `unhandledrejection` listener (the event itself doesn't fire: `COMPA
 
 wptserve runs its `sub` pipe on any file with `.sub.` in its name, so the runner and
 the baseline do too, as each file is read: the test page, a script, a frame. The file
-in `wpt/tests/` stays as WPT wrote it. Both follow `tools/wptserve/wptserve/pipes.py`
-at the pinned commit: `{{…}}` is matched by `{{([^}]*)}}`, and a value is HTML-escaped,
-which is the pipe's default.
+in `wpt/tests/` stays as WPT wrote it. A page wrapped around a `.sub.` script is
+substituted too, as `tools/serve/serve.py` does. Both follow `pipes.py` and `handlers.py`
+in `tools/wptserve/wptserve/` at the pinned commit: `{{…}}` is matched by `{{([^}]*)}}`,
+and `wrap_pipeline` HTML-escapes a value only in a file ending `.html`, `.htm`, `.xht`,
+`.xhtml`, `.xml` or `.svg`. A `.sub.js` isn't escaped, and neither is a wrapper page,
+which goes by its script's name.
 
 | Token | Gives |
 |---|---|
 | `{{host}}` | `web-platform.test` |
 | `{{domains[www1]}}` | `www1.web-platform.test`; also `www`, `www2`, `nonexistent`, and `[]` for the host |
 | `{{hosts[alt][www2]}}` | `www2.not-web-platform.test`; `[alt][]` is the host, and `[]` is the main host's group |
-| `{{ports[http][0]}}` | 8000. http 8000, 8001; https 8443, 8444; h2 9000 |
+| `{{ports[http][0]}}` | 8000. http 8000, 8001; https 8443, 8444; h2 9000; dns 8053 |
 | `{{location[path]}}` | The file's URL: `server`, `scheme`, `host`, `hostname`, `port`, `path`, `pathname`, `query` |
 | `{{GET[a]}}`, `{{url_base}}`, `{{header_or_default(X, d)}}` | A query parameter or `""`; `/`; `d`, as no header is set |
 | `{{uuid()}}` | A fixed value, where wptserve's is random |
@@ -224,9 +227,10 @@ which is the pipe's default.
 serve.py's "auto" ports are fixed: `http-local` 8082, `http-public` 8083, `https-local`
 8445, `https-public` 8446, `ws` 8888, `wss` 8889, `webtransport-h3` 11000. Where
 wptserve's template raises, the runner reports `ERROR` for a page and has no source
-for a script or frame, and the baseline's server answers 500. So do what isn't
-supported, none of it used in the slices: `headers`, `file_hash`, `fs_path`, non-ASCII
-subdomains and `?pipe=sub`.
+for a script or frame, and the baseline's server answers 500. So do the forms that
+aren't supported, none of them used in the slices: `headers`, `file_hash`, `fs_path`,
+indexing into a string, and non-ASCII or two-level subdomains such as `www.www1`.
+`?pipe=` in a URL isn't read at all, so that file is served by its name alone.
 
 `tools/sub-vectors.json` holds the cases for both implementations, written from
 reading `pipes.py`. wptserve itself isn't run, since nothing from a checkout runs here.

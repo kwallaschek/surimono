@@ -136,6 +136,15 @@ fn files() -> Vec<(&'static str, String)> {
             "var from_script = '{{domains[www1]}}';\n".to_owned(),
         ),
         ("bad-token.sub.html", page("'{{nothing}}';")),
+        // The wrapper page is substituted too, named as its script, so no escaping.
+        (
+            "meta.sub.window.js",
+            "// META: title=a&{{host}}\n\
+             test(() => {\n\
+               assert_equals(document.title, 'a&web-platform.test');\n\
+             }, 'meta');\n"
+                .to_owned(),
+        ),
         ("page.xhtml", xml_page("page.xhtml", XHTML_TYPE)),
         ("page.xht", xml_page("page.xht", XHTML_TYPE)),
         ("page.xml", xml_page("page.xml", XML_TYPE)),
@@ -296,6 +305,8 @@ fn every_path_ends_in_a_value() {
     let t = test(&r, "tokens.sub.html");
     assert_eq!(subtests(t), [("tokens", "PASS")], "{t}");
     assert_eq!(status("bad-token.sub.html"), "ERROR");
+    let t = test(&r, "meta.sub.window.html?v=1");
+    assert_eq!(subtests(t), [("meta", "PASS")], "{t}");
     // Not well-formed is a `parsererror` document, so no harness and no report.
     assert_eq!(status("not-well-formed.xhtml"), "LIMIT");
     // A frame's source comes from the vendored tests, also by an absolute URL.

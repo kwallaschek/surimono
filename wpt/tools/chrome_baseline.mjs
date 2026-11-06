@@ -116,7 +116,17 @@ function serve(req, res) {
     return send(200, type && subtype ? `${type}/${subtype}` : 'text/html', `<head>${meta}</head>`);
   }
   const wrapped = /\.(any|window)\.html$/.test(url.pathname) ? inside(url.pathname.replace(/\.html$/, '.js')) : null;
-  if (wrapped && fs.existsSync(wrapped)) return send(200, 'text/html', wrapper(url.pathname, fs.readFileSync(wrapped, 'utf8')));
+  if (wrapped && fs.existsSync(wrapped)) {
+    let page = wrapper(url.pathname, fs.readFileSync(wrapped, 'utf8'));
+    if (path.basename(wrapped).includes('.sub.')) {
+      try {
+        page = substitute(page, url, wrapped); // serve.py: the script's name decides the escaping.
+      } catch (e) {
+        return send(500, 'text/plain', String(e));
+      }
+    }
+    return send(200, 'text/html', page);
+  }
   const file = inside(url.pathname);
   if (!file || file.endsWith('.py') || !fs.statSync(file).isFile()) {
     if (!url.pathname.endsWith('favicon.ico')) missing.add(url.pathname);
