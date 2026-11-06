@@ -105,6 +105,8 @@
   H.CSSStyleSheet_ownerRule = () => null;
   H.CSSStyleSheet_cssRules = (s) => s.list;
   H.CSSStyleSheet_rules = (s) => s.list;
+  // A sheet its element has replaced still works, and is nothing to the page.
+  const current_ = (s) => s.owner.sheet === s;
   // CSSOM "insert a CSS rule", without what needs a rule's meaning: `@import`
   // comes before other rules, and a statement can't follow a style rule.
   function insertRule(s, text, index) {
@@ -121,7 +123,7 @@
           if (s.rules[i].kind === 3) hierarchy('an @import comes before other rules');
         }
       }
-      call(OP_sheetInsert, s.owner.g, s.owner.h, index, rule);
+      if (current_(s)) call(OP_sheetInsert, s.owner.g, s.owner.h, index, rule);
       for (let i = s.rules.n; i > index; i--) s.rules[i] = s.rules[i - 1];
       s.rules[index] = makeRule(s, kind, prelude, rule);
       s.rules.n++;
@@ -130,7 +132,7 @@
   }
   function deleteRule(s, index) {
     if (index >= s.rules.n) indexError('the index');
-    call(OP_sheetDelete, s.owner.g, s.owner.h, index);
+    if (current_(s)) call(OP_sheetDelete, s.owner.g, s.owner.h, index);
     s.rules[index].sheet = null;
     for (let i = index + 1; i < s.rules.n; i++) s.rules[i - 1] = s.rules[i];
     delete s.rules[--s.rules.n];
@@ -162,8 +164,10 @@
       if (kind !== 1) return;
       let at = 0;
       while (s.rules[at] !== r) at++;
-      call(OP_sheetDelete, s.owner.g, s.owner.h, at);
-      call(OP_sheetInsert, s.owner.g, s.owner.h, at, rule);
+      if (current_(s)) {
+        call(OP_sheetDelete, s.owner.g, s.owner.h, at);
+        call(OP_sheetInsert, s.owner.g, s.owner.h, at, rule);
+      }
       r.prelude = prelude; r.text = rule;
     });
   };

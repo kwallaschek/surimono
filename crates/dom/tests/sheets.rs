@@ -161,6 +161,18 @@ fn a_changed_text_beats_old_edits_in_the_output() {
 }
 
 #[test]
+fn a_replaced_sheet_is_nothing_to_the_page() {
+    let html = printed(
+        "const old = s.sheet;
+         s.textContent = 'z {}';
+         s.sheet;
+         old.insertRule('i {}');
+         old.deleteRule(0)",
+    );
+    assert!(html.contains("<style id=\"s\">z {}</style>"), "{html}");
+}
+
+#[test]
 fn rules_are_charged() {
     let l = DomLimits {
         max_text_bytes: 1024 * 1024,
