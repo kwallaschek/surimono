@@ -2,6 +2,8 @@
 //! forms and selects keep, and `innerText`. Members that only move nodes are in
 //! `glue_html.js`.
 
+use std::collections::HashMap;
+
 use blitz_dom::ns;
 use surimono_webidl::runtime::BindingResult;
 
@@ -13,7 +15,7 @@ use crate::style_attr;
 const UNRENDERED: &[&str] = &[
     "area", "audio", "base", "basefont", "canvas", "datalist", "embed", "head", "iframe", "input",
     "link", "meta", "meter", "noembed", "noframes", "noscript", "object", "param", "progress",
-    "rp", "script", "select", "style", "template", "textarea", "title", "video",
+    "rp", "script", "style", "template", "textarea", "title", "video",
 ];
 
 /// Elements that are blocks by the rendering section.
@@ -54,10 +56,13 @@ const BLOCKS: &[&str] = &[
     "menu",
     "nav",
     "ol",
+    "optgroup",
+    "option",
     "plaintext",
     "pre",
     "search",
     "section",
+    "select",
     "summary",
     "table",
     "ul",
@@ -238,7 +243,7 @@ impl Document {
             return false;
         };
         let list = style_attr::parse(&text, self.quirks_mode(), self.deadline.as_ref());
-        list.is_ok_and(|l| style_attr::value(&l, "display") == "none")
+        list.is_ok_and(|l| style_attr::value(&l, "display").eq_ignore_ascii_case("none"))
     }
 
     fn unrendered(&self, n: usize) -> bool {
@@ -257,6 +262,8 @@ impl Document {
             return Ok(self.text_content(id).unwrap_or_default());
         }
         let mut pieces = Vec::new();
+        // Each table's last rendered row, found once, since rows are many.
+        let mut last_rows: HashMap<usize, Option<usize>> = HashMap::new();
         // `false` is a first visit, `true` the way out.
         let mut stack = vec![(id, false)];
         while let Some((n, leaving)) = stack.pop() {
@@ -265,11 +272,25 @@ impl Document {
             if leaving {
                 match local {
                     "p" => pieces.push(Piece::Lines(2)),
-                    "td" | "th" if self.next_element(n).is_some() => {
-                        pieces.push(Piece::Hard('\t'));
+                    "td" | "th" => {
+                        if self.has_later_cell(n)? {
+                            pieces.push(Piece::Hard('\t'));
+                        }
                     }
-                    "tr" if self.next_element(n).is_some() => {
-                        pieces.push(Piece::Hard('\n'));
+                    "tr" => {
+                        if let Some(table) = self.nearest_table(n) {
+                            let last = match last_rows.get(&table) {
+                                Some(&last) => last,
+                                None => {
+                                    let last = self.last_rendered_row(table)?;
+                                    last_rows.insert(table, last);
+                                    last
+                                }
+                            };
+                            if last != Some(n) {
+                                pieces.push(Piece::Hard('\n'));
+                            }
+                        }
                     }
                     l if BLOCKS.contains(&l) => pieces.push(Piece::Lines(1)),
                     _ => {}
@@ -298,7 +319,13 @@ impl Document {
                         pieces.push(Piece::Lines(1));
                     }
                     stack.push((n, true));
-                    stack.extend(self.children(n).iter().rev().map(|&c| (c, false)));
+                    if local == "details" && self.attribute(n, "open").is_none() {
+                        // HTML §15.3.6: closed, only its summary has a box.
+                        let summary = self.html_children(n, &["summary"]).first().copied();
+                        stack.extend(summary.map(|c| (c, false)));
+                    } else {
+                        stack.extend(self.children(n).iter().rev().map(|&c| (c, false)));
+                    }
                 }
                 _ => {}
             }
@@ -306,14 +333,46 @@ impl Document {
         Ok(assemble(pieces))
     }
 
-    fn next_element(&self, n: usize) -> Option<usize> {
-        let parent = self.parent(n)?;
+    /// Whether a rendered cell follows `n` in its row.
+    fn has_later_cell(&self, n: usize) -> BindingResult<bool> {
+        let Some(parent) = self.parent(n) else {
+            return Ok(false);
+        };
         let siblings = self.children(parent);
-        let at = siblings.iter().position(|&c| c == n)?;
-        siblings[at + 1..]
+        self.poll_by(siblings.len())?;
+        let at = siblings
             .iter()
-            .copied()
-            .find(|&c| self.kind(c) == Some(Kind::Element))
+            .position(|&c| c == n)
+            .unwrap_or(siblings.len());
+        Ok(siblings
+            .iter()
+            .skip(at + 1)
+            .any(|&c| matches!(self.html_local(c), Some("td" | "th")) && !self.unrendered(c)))
+    }
+
+    /// The table row `n` is in: the nearest table, through a section or none.
+    fn nearest_table(&self, n: usize) -> Option<usize> {
+        let mut at = self.parent(n);
+        while let Some(p) = at {
+            if self.html_local(p) == Some("table") {
+                return Some(p);
+            }
+            at = self.parent(p);
+        }
+        None
+    }
+
+    fn last_rendered_row(&self, table: usize) -> BindingResult<Option<usize>> {
+        for row in self.table_rows(table).into_iter().rev() {
+            self.poll()?;
+            let hidden_section = self
+                .parent(row)
+                .is_some_and(|p| p != table && self.unrendered(p));
+            if !self.unrendered(row) && !hidden_section {
+                return Ok(Some(row));
+            }
+        }
+        Ok(None)
     }
 
     fn in_preformatted(&self, n: usize) -> bool {

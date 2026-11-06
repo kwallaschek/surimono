@@ -416,6 +416,64 @@ fn inner_text_reads_what_is_rendered() {
     );
 }
 
+/// Chromium 153's answers, from a probe of each page.
+#[test]
+fn inner_text_of_tables_and_controls() {
+    for (body, want) in [
+        (
+            "<table><thead><tr><td>a<td>b</thead><tbody><tr><td>c<td>d</tbody><tfoot><tr><td>e</table>",
+            "a\tb\nc\td\ne",
+        ),
+        (
+            "<table><tr><td>a</td><script></script></tr><tr><td>b</table>",
+            "a\nb",
+        ),
+        (
+            "<table><caption>c</caption><tr><td>a</table>after",
+            "c\na\nafter",
+        ),
+        ("<details><summary>s</summary>c</details>x", "s\nx"),
+        ("<details open><summary>s</summary>c</details>x", "s\nc\nx"),
+        (
+            "a<select><option>o1<option>o2</select>b<textarea>z</textarea>c<button>q</button>",
+            "a\no1\no2\nbcq",
+        ),
+        ("<div style='DISPLAY: NONE'>x</div>y", "y"),
+    ] {
+        let page = format!("<!doctype html><div id=d>{body}</div>");
+        assert_eq!(
+            run(&page, "document.getElementById('d').innerText"),
+            want,
+            "{body}"
+        );
+    }
+}
+
+/// Chromium 153's answer: the usual placeholder option keeps its value.
+#[test]
+fn a_disabled_selected_option_has_its_value() {
+    assert_eq!(
+        run(
+            "<!doctype html><select id=q><option disabled selected value=p>Pick</option><option>x</select>",
+            "const q = document.getElementById('q'); q.value + q.selectedIndex"
+        ),
+        "p0"
+    );
+}
+
+#[test]
+fn a_new_body_goes_right_after_the_last() {
+    assert_eq!(
+        run(
+            "<!doctype html><table id=t><tbody></tbody><!--c--><tfoot></tfoot></table>",
+            r#"const t = document.getElementById('t');
+            t.createTBody();
+            [...t.childNodes].map((n) => n.nodeName).join()"#
+        ),
+        "TBODY,TBODY,#comment,TFOOT"
+    );
+}
+
 /// Each list is rebuilt per change of the tree, not per read.
 #[test]
 fn a_read_loop_over_a_big_table_is_linear() {
@@ -459,6 +517,10 @@ fn replacing_dom_members_changes_nothing() {
         run(
             TABLE,
             r#"const t = document.getElementById('t');
+            const s = document.createElement('select');
+            const o = new Option('a');
+            s.add(o);
+            const list = s.options;
             for (const p of [Node.prototype, Element.prototype, HTMLCollection.prototype, Document.prototype]) {
               for (const k of Object.getOwnPropertyNames(p)) {
                 if (k !== 'constructor') { try { delete p[k]; } catch (e) {} }
@@ -466,6 +528,8 @@ fn replacing_dom_members_changes_nothing() {
             }
             const r = HTMLTableElement.prototype.insertRow.call(t, 0);
             HTMLTableRowElement.prototype.insertCell.call(r);
+            HTMLSelectElement.prototype.add.call(s, new Option('b'), o);
+            list[0] = new Option('c');
             String(HTMLTableRowElement.prototype.__lookupGetter__('cells').call(r).constructor.name)"#
         ),
         "HTMLCollection"

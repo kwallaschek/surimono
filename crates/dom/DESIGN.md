@@ -596,7 +596,10 @@ holds on the way. `HTMLOptionsCollection` and `HTMLFormControlsCollection` borro
   standard says. In the tree it is "rendered text collection" with each element's
   display from the rendering section's defaults, the `hidden` attribute and an inline
   `display: none`; a stylesheet isn't seen until phase 3, and neither are CSS
-  `white-space`, `text-transform` or `visibility`. The setter is the standard's.
+  `white-space`, `text-transform` or `visibility`. Rows break against the last row of
+  the nearest table, across sections, a closed `details` has only its summary, and
+  a `select` gives its options on lines of their own, as Chromium 153 does. The setter
+  is the standard's.
 - **Focus** is a state in the document's record. Being rendered is being connected.
   `focus()` and `blur()` fire `blur`, `focusout`, `focus`, `focusin` synchronously,
   `activeElement` falls back to the body, and an element that leaves the tree loses
@@ -853,8 +856,9 @@ scripts and in XML; html5ever only shows a tag at its end, so the cap alone does
 bound a hostile tag's time. `<html>` and `<body>` merge repeated tags' attributes,
 and those count together.
 
-`parse_xml_stoppable` does the same for XML, asked as tokens go by. XML's cost is
-linear (names are hash lookups), so its stop is for a large input, not a shape.
+`parse_xml_stoppable` does the same for XML, asked as tokens go by and every 64 KiB
+inside a long one: text, a run of references, white space. XML's cost is linear (names
+are hash lookups), so its stop is for a large input, not a shape.
 
 `Document::to_html_bounded` is `to_html` with a byte cap and a stop check, looked at
 per node and every 64 KiB of a string.

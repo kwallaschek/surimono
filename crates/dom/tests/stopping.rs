@@ -340,3 +340,23 @@ fn to_html_bounded_checks_names() {
         );
     }
 }
+
+/// Review of #148: one long token must not outlast the stop. A parse that didn't ask
+/// inside these ran to the end: 80 MB of `&amp;` took 625 ms against a 50 ms stop.
+#[test]
+fn a_long_xml_token_asks_the_stop() {
+    let cases = [
+        format!("<r>{}</r>", "&amp;".repeat(1 << 21)),
+        format!("<r>{}</r>", "x".repeat(32 << 20)),
+        format!("<r{}/>", " ".repeat(32 << 20)),
+        format!("<r{}a='b'/>", "\n".repeat(32 << 20)),
+    ];
+    for page in &cases {
+        let asked = std::cell::Cell::new(0_u32);
+        let got = Document::parse_xml_stoppable(page, DomLimits::default(), || {
+            asked.set(asked.get() + 1);
+            asked.get() > 8
+        });
+        assert!(matches!(got, Err(DomError::Stopped)), "{}", &page[..16]);
+    }
+}
