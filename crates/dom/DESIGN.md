@@ -489,7 +489,10 @@ nothing, and `href`, `assign` and `replace` give a `SyntaxError`. A refusal leav
 session history as it was.
 
 A fragment navigation fires `popstate` at once and `hashchange` in a task; a
-navigation to the URL already current is a replace that keeps the state. Until the
+navigation to the URL already current is a replace (§7.4.2), which fires the `popstate`
+and no `hashchange`. Its entry has no state, as "navigate to a fragment" says: the
+classic history API state is never carried over. Chrome keeps `history.state` there;
+the spec wins. Until the
 page's `load` has fired, a `Location` navigation replaces. A link acts on its own
 document, and only for an empty `target`, `_self`, or on the page `_parent` and
 `_top`. A frame's fragment fires nothing at the page.
@@ -510,7 +513,9 @@ traversal away and back. The clone keeps no identity for a `Date` or `RegExp`
 referenced twice. It clones as plain objects what a browser refuses (`Proxy`,
 `Promise`, `WeakMap`, `WeakSet`, `Object(Symbol())`, generators, `arguments`), loses
 the value of `new Number(1)` and the like, and takes `RegExp.prototype` for a RegExp.
-`<base target>` is ignored.
+`<base target>` is ignored. A `location.hash` in an inline script gets its `hashchange`
+after the window's `load`, because the page's life was queued first; Chrome fires it
+before.
 
 ## MutationObserver
 

@@ -345,19 +345,24 @@ fn setting_the_same_hash_does_nothing() {
     assert_eq!(r, "http://example.test/a|1");
 }
 
-/// HTML §7.4.2: to the current URL, navigating replaces, and the state stays.
+/// HTML §7.4.2: to the current URL, navigating replaces. "Navigate to a
+/// fragment": the state is never carried over, so `popstate` and `history.state`
+/// are null. Chrome keeps `history.state`, a conflict DESIGN.md records.
 #[test]
 fn navigating_to_the_current_url_adds_no_entry() {
     assert_eq!(
         settled(
             "addEventListener('hashchange', () => log.push('hash'));
+             addEventListener('popstate', (e) => log.push('pop:' + e.state));
              history.replaceState(7, '');
              const n = history.length;
              location.href = location.href;
+             log.push(history.length - n, history.state);
+             history.replaceState(8, '');
              location.assign(location.href);
-             log.push(history.length - n, history.state)"
+             log.push(history.state)"
         ),
-        "0|7"
+        "pop:null|0||pop:null|"
     );
     let mut rt = runtime(Some("http://example.test/a#s"));
     let r: String = rt
@@ -368,6 +373,37 @@ fn navigating_to_the_current_url_adds_no_entry() {
         )
         .unwrap();
     assert_eq!(r, "0");
+}
+
+/// The first entry is the URL from before the first navigation, on a page
+/// that has never touched `history`.
+#[test]
+fn back_after_a_first_fragment_navigation_restores_the_url() {
+    for navigate in [
+        "location.hash = 'x'",
+        "document.getElementById('l').click()",
+    ] {
+        let mut rt = runtime(Some("http://example.test/a"));
+        let () = rt
+            .eval(&format!(
+                "globalThis.log = [];
+                 addEventListener('popstate', () => log.push('pop ' + location.href));
+                 addEventListener('hashchange', (e) => log.push(e.oldURL + ' to ' + e.newURL));
+                 {navigate};
+                 setTimeout(() => {{ log.length = 0; history.back(); }}, 1);
+                 undefined"
+            ))
+            .unwrap();
+        rt.run_until_settled(&SettleOptions::default()).unwrap();
+        let r: String = rt.eval("log.join('|')").unwrap();
+        let fragment = if navigate.contains("hash") { "x" } else { "s" };
+        assert_eq!(
+            r,
+            format!(
+                "pop http://example.test/a|http://example.test/a#{fragment} to http://example.test/a"
+            )
+        );
+    }
 }
 
 /// HTML "update document for history step application".
@@ -474,5 +510,20 @@ fn a_refused_url_leaves_the_history_alone() {
              setTimeout(() => log.push(location.pathname), 2)"
         ),
         "SecurityError|SyntaxError|true|/one|1|/two"
+    );
+}
+
+/// HTML "cannot navigate", and `download`.
+#[test]
+fn a_detached_area_and_a_download_link_go_nowhere() {
+    assert_eq!(
+        settled(
+            "const area = document.createElement('area'); area.href = '#a'; area.click();
+             const a = document.getElementById('l'); a.href = '#b'; a.setAttribute('download', ''); a.click();
+             log.push(location.hash);
+             const loose = document.createElement('a'); loose.href = '#c'; loose.click();
+             log.push(location.hash)"
+        ),
+        "#top|#c"
     );
 }

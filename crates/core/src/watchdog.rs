@@ -36,6 +36,7 @@ use std::time::{Duration, Instant};
 use crate::SandboxError;
 use crate::engine::LimitState;
 use crate::fork_safe::ForkSafeCell;
+use crate::host_thread::spawn_host_thread;
 
 /// Identifies one armed call's timer: its deadline, then the call's
 /// sequence number, which makes keys unique and tells a stale timer from
@@ -96,13 +97,13 @@ fn start() -> Result<Arc<Registry>, SandboxError> {
         wake: Condvar::new(),
     });
     let thread_r = r.clone();
-    std::thread::Builder::new()
-        .name("surimono-watchdog".into())
-        .stack_size(256 * 1024)
-        .spawn(move || thread_r.run())
-        .map_err(|e| SandboxError::Engine {
+    // Not `std::thread`: this also runs first thing in a forked child (see
+    // `host_thread`). Detached, like the thread it lives as long as.
+    spawn_host_thread(c"surimono-watchd", 256 * 1024, move || thread_r.run()).map_err(|e| {
+        SandboxError::Engine {
             message: format!("could not start the sandbox's watchdog thread: {e}"),
-        })?;
+        }
+    })?;
     Ok(r)
 }
 
