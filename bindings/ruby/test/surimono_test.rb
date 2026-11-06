@@ -931,4 +931,24 @@ class SurimonoTest < Minitest::Test
     e = assert_raises(Surimono::DomLimitError) { r.render_page(html) }
     assert_equal "dom-limit", e.kind
   end
+
+  def test_a_fork_doesnt_wait_for_a_loader
+    skip "no fork here" unless Process.respond_to?(:fork)
+    entered = Queue.new
+    release = Queue.new
+    loader = lambda do |_url|
+      entered << true
+      release.pop
+      "1"
+    end
+    page = Thread.new { page_renderer.render_page("<script src=a.js></script>", loader: loader, allow: ["a.js"]) }
+    entered.pop
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    pid = fork { exit!(0) }
+    took = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    Process.wait(pid)
+    release << true
+    assert_equal 0, page.value.report.uncaught
+    assert_operator took, :<, 2, "a fork waited for a loader"
+  end
 end

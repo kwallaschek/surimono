@@ -421,6 +421,18 @@ impl Renderer {
     /// room. Ruby's threads have 1 MiB unless `RUBY_THREAD_MACHINE_STACK_SIZE`
     /// says otherwise.
     ///
+    /// A `fork` while pages render holds new ones back and waits for those
+    /// running, for up to 5 seconds, so a child doesn't inherit a lock one of
+    /// them held. A page can run for three times the time limit (its parse,
+    /// its scripts, the rest), which can outlast that: the `fork` then goes
+    /// ahead, and the child may stop for good at such a lock, so give forking
+    /// servers short limits. Ruby holds its VM lock across `fork`, so all of
+    /// the process's Ruby threads stop for that wait. A Puma, Unicorn or Resque
+    /// parent that doesn't render never waits, but Puma's `fork_worker` can
+    /// freeze worker 0 for up to 5 seconds at a refork, and as root, where Ruby
+    /// uses `fork` for `system`, backticks and `spawn`, any of those can. This
+    /// doesn't reach a printer: don't fork while fulgur runs in another thread.
+    ///
     /// What this release doesn't do: scripts a script inserts don't run,
     /// modules don't run (`nomodule` scripts do), nothing is laid out (see
     /// [`LayoutQueries`](crate::LayoutQueries)) and images aren't loaded. An
@@ -551,6 +563,7 @@ impl Renderer {
             };
             let svg =
                 answer.map_err(|e| backend::island_error(e, island.at.clone(), &self.enabled))?;
+            let _busy = surimono_core::busy().map_err(|e| Error::InvalidOptions(e.to_string()))?;
             SanitizedSvg::new(&svg, &island.at, &local.measurer, self.options.text_mode)
         })
     }

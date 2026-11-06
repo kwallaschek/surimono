@@ -157,10 +157,10 @@ impl Source<'_> {
     }
 
     fn load(&self, url: &str) -> Result<Vec<u8>, String> {
-        match self {
+        surimono_core::paused(|| match self {
             Self::Shared(loader) => (loader.load)(url),
             Self::Caller { ask, .. } => ask(url),
-        }
+        })
     }
 }
 

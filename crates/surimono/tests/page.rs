@@ -21,6 +21,13 @@ const ECHO: &str = r#"function entry(specJson, ctx) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${ctx.width}" height="${ctx.height}"><desc>${spec.text}</desc></svg>`;
 }"#;
 
+/// `SURIMONO_TEST_TIME_SCALE`, which a slow build (ASan's job) sets, for
+/// limits that are about structure, not speed.
+fn time_scale() -> u32 {
+    let scale = std::env::var("SURIMONO_TEST_TIME_SCALE").ok();
+    scale.and_then(|s| s.parse().ok()).unwrap_or(1)
+}
+
 fn options() -> Options {
     let font = repo().join("fixtures/fonts/NotoSans-Regular.ttf");
     let bytes = std::fs::read(&font).unwrap_or_else(|e| panic!("{}: {e}", font.display()));
@@ -29,7 +36,7 @@ fn options() -> Options {
         .bundle("echo", ECHO, "entry")
         .pool_size(2)
         .limits(Limits {
-            time: Duration::from_secs(20),
+            time: Duration::from_secs(20) * time_scale(),
             ..Limits::default()
         })
 }
@@ -817,6 +824,29 @@ fn printer_parses(html: &str) {
         .unwrap_or_else(|_| panic!("the printer panicked"));
 }
 
+/// How many `script` and `noscript` elements a printer's tree holds outside an
+/// HTML template, whose contents stay inert. Text doesn't count, in or out of one.
+fn live_scripts(html: &str) -> usize {
+    let config = blitz_dom::DocumentConfig {
+        base_url: Some("file:///".to_owned()),
+        ..blitz_dom::DocumentConfig::default()
+    };
+    let doc = blitz_html::HtmlDocument::from_html(html, config);
+    let (mut live, mut stack) = (0, vec![0]);
+    while let Some(id) = stack.pop() {
+        let node = doc.get_node(id).unwrap_or_else(|| panic!("node {id}"));
+        if let blitz_dom::NodeData::Element(e) = &node.data {
+            let name = e.name.local.as_ref();
+            if name == "template" && e.name.ns.as_ref() == "http://www.w3.org/1999/xhtml" {
+                continue;
+            }
+            live += usize::from(matches!(name, "script" | "noscript"));
+        }
+        stack.extend(node.children.iter().copied());
+    }
+    live
+}
+
 /// `<!doctype html><body>` with `markup` written into a comment by a script,
 /// so it reaches the output whatever the page's own parser makes of it.
 fn through_a_comment(markup: &str) -> String {
@@ -850,8 +880,7 @@ fn what_counts_is_what_the_printers_parser_makes_of_it() {
     }
     for html in pages {
         let out = page(&r, &html);
-        assert!(!out.html.contains("alert("), "{html}: {}", out.html);
-        assert!(!out.html.contains(">NS<"), "{html}: {}", out.html);
+        assert_eq!(live_scripts(&out.html), 0, "{html}: {}", out.html);
         printer_parses(&out.html);
     }
 }
