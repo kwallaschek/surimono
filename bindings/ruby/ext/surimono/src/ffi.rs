@@ -9,7 +9,9 @@
 //! `test_timeout_stops_the_running_island`,
 //! `test_kill_stops_the_running_island`,
 //! `test_signal_cancels_the_rest_of_the_document` and
-//! `test_wakeup_renders_again` (the unblock function), `test_fonts_from_paths_and_data`
+//! `test_wakeup_renders_again` (the unblock function),
+//! `test_render_page_loader` and `test_render_page_loader_errors` (taking the
+//! GVL back for a loader), `test_fonts_from_paths_and_data`
 //! (byte copies), and the error tests (errors come back through the GVL
 //! boundary). `test_panic_becomes_internal_error` covers the panic path.
 
@@ -64,6 +66,50 @@ where
     F: FnOnce() -> T,
 {
     nogvl(ruby, work, Some(cancel))
+}
+
+/// Runs `work` with the GVL, from inside [`without_gvl`]'s or
+/// [`without_gvl_cancellable`]'s closure, on the same thread. `work` may call
+/// Ruby through magnus, whose calls return Ruby's exceptions as `Err`; it must
+/// not let one jump past it. A panic in it comes back as `None`.
+pub(crate) fn with_gvl<T, F>(work: F) -> Option<T>
+where
+    F: FnOnce(&Ruby) -> T,
+{
+    struct Call<F, T> {
+        work: Option<F>,
+        result: Option<T>,
+    }
+
+    unsafe extern "C" fn trampoline<F, T>(data: *mut c_void) -> *mut c_void
+    where
+        F: FnOnce(&Ruby) -> T,
+    {
+        // SAFETY: `data` is the `*mut Call<F, T>` made below from a local that
+        // outlives this call: rb_thread_call_with_gvl runs this on the calling
+        // thread and returns only after it does, and nothing else touches it.
+        let call = unsafe { &mut *data.cast::<Call<F, T>>() };
+        if let (Some(work), Ok(ruby)) = (call.work.take(), Ruby::get()) {
+            // Unwinding out of an `extern "C"` function aborts the process.
+            call.result = panic::catch_unwind(AssertUnwindSafe(|| work(&ruby))).ok();
+        }
+        ptr::null_mut()
+    }
+
+    let mut call = Call {
+        work: Some(work),
+        result: None,
+    };
+    let data = (&mut call as *mut Call<F, T>).cast::<c_void>();
+    // SAFETY: the caller is a Ruby thread without the GVL: this is only called
+    // from a closure `nogvl` runs. `trampoline` gets `data`, a local that
+    // outlives the call. Ruby can't jump past this frame: magnus's calls in
+    // `work` protect themselves, and rb_thread_call_with_gvl raises nothing
+    // itself.
+    unsafe {
+        rb_sys::rb_thread_call_with_gvl(Some(trampoline::<F, T>), data);
+    }
+    call.result.take()
 }
 
 /// The unblock function: raises the cancel flag `data` points to. It runs on

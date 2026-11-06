@@ -41,8 +41,10 @@ impl fmt::Display for IslandRef {
 
 /// Everything that can go wrong in surimono.
 ///
-/// Island errors carry an [`IslandRef`] saying which island failed. New variants
-/// may be added in minor releases, so match with a wildcard arm.
+/// Island errors carry an [`IslandRef`] saying which island failed; a limit
+/// reached by a page's own scripts has `Page` in its name and the same
+/// [`kind`](Self::kind) as the island's. New variants may be added in minor
+/// releases, so match with a wildcard arm.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -137,6 +139,47 @@ pub enum Error {
     /// the running island's script was stopped and the rest were skipped.
     #[error("the render was cancelled")]
     Cancelled,
+    /// A page's scripts used more memory than the memory limit allows.
+    #[error("the page's scripts exceeded the memory limit")]
+    PageMemoryLimit,
+    /// A page's scripts ran longer than the time limit allows, or what follows
+    /// them did: its parse has one such limit, and serializing, stylesheets and
+    /// the checks for a printer share another.
+    #[error("the page exceeded the time limit")]
+    PageTimeLimit,
+    /// A page's script asked for layout under
+    /// [`LayoutQueries::Throw`](crate::LayoutQueries::Throw). The render ends
+    /// here, even if the page catches the exception.
+    #[error("the page's script asked for layout through {member}")]
+    PageLayoutQuery {
+        /// The member it used, such as `getBoundingClientRect`.
+        member: String,
+    },
+    /// A page's scripts recursed deeper than the stack limit allows, and
+    /// nothing caught it.
+    #[error("the page's scripts exceeded the stack limit")]
+    PageStackOverflow,
+    /// The document, as parsed or as its scripts changed it, passed a limit on
+    /// the DOM: nodes, tree depth, node handles, bytes of text, attributes on
+    /// an element, ranges or the size of a `style` attribute. Catching the
+    /// exception doesn't help a script. Also a page whose output, as a printer
+    /// would read it, is past those limits, holds more CSS than is safe to
+    /// parse, or is over
+    /// [`Limits::output_bytes`](crate::Limits::output_bytes). The message says
+    /// which.
+    #[error("the page reached a DOM limit: {message}")]
+    PageDomLimit {
+        /// Which limit.
+        message: String,
+    },
+    /// A page couldn't run, or used something the DOM defines and surimono
+    /// doesn't do yet. An exception in a page isn't this: see
+    /// [`PageReport::uncaught`](crate::PageReport::uncaught).
+    #[error("the page failed: {message}")]
+    PageFailed {
+        /// What went wrong.
+        message: String,
+    },
 }
 
 impl Error {
@@ -155,7 +198,13 @@ impl Error {
             | Error::InvalidOptions(_)
             | Error::Html(_)
             | Error::TooManyIslands { .. }
-            | Error::Cancelled => None,
+            | Error::Cancelled
+            | Error::PageMemoryLimit
+            | Error::PageTimeLimit
+            | Error::PageStackOverflow
+            | Error::PageDomLimit { .. }
+            | Error::PageLayoutQuery { .. }
+            | Error::PageFailed { .. } => None,
         }
     }
 
@@ -165,9 +214,9 @@ impl Error {
         match self {
             Error::InvalidIsland { .. } => "invalid-island",
             Error::UnknownRenderer { .. } => "unknown-renderer",
-            Error::MemoryLimit { .. } => "memory-limit",
-            Error::TimeLimit { .. } => "time-limit",
-            Error::StackOverflow { .. } => "stack-overflow",
+            Error::MemoryLimit { .. } | Error::PageMemoryLimit => "memory-limit",
+            Error::TimeLimit { .. } | Error::PageTimeLimit => "time-limit",
+            Error::StackOverflow { .. } | Error::PageStackOverflow => "stack-overflow",
             Error::JavaScript { .. } => "javascript",
             Error::Render { .. } => "render",
             Error::Font { .. } => "font",
@@ -176,6 +225,9 @@ impl Error {
             Error::Html(_) => "html",
             Error::TooManyIslands { .. } => "too-many-islands",
             Error::Cancelled => "cancelled",
+            Error::PageDomLimit { .. } => "dom-limit",
+            Error::PageLayoutQuery { .. } => "layout-query",
+            Error::PageFailed { .. } => "page",
         }
     }
 }
@@ -228,6 +280,27 @@ mod tests {
         for (e, kind) in [
             (Error::TooManyIslands { max: 1000 }, "too-many-islands"),
             (Error::Cancelled, "cancelled"),
+            (Error::PageMemoryLimit, "memory-limit"),
+            (Error::PageTimeLimit, "time-limit"),
+            (Error::PageStackOverflow, "stack-overflow"),
+            (
+                Error::PageDomLimit {
+                    message: "x".into(),
+                },
+                "dom-limit",
+            ),
+            (
+                Error::PageLayoutQuery {
+                    member: "offsetWidth".into(),
+                },
+                "layout-query",
+            ),
+            (
+                Error::PageFailed {
+                    message: "x".into(),
+                },
+                "page",
+            ),
         ] {
             assert_eq!(e.kind(), kind);
             assert!(e.island().is_none());

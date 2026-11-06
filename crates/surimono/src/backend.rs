@@ -35,6 +35,15 @@ fn core_limits(l: Limits) -> surimono_core::Limits {
     core
 }
 
+/// The sandbox options of a page: the same limits, seed and clock as an island.
+pub(crate) fn sandbox_options(options: &Options) -> surimono_core::SandboxOptions {
+    surimono_core::SandboxOptions::default()
+        .with_limits(core_limits(options.limits))
+        .with_random_seed(options.seed)
+        .with_now_ms(options.now_ms.unwrap_or(crate::options::DEFAULT_NOW_MS))
+        .with_utc_offset_minutes(options.utc_offset_minutes)
+}
+
 /// Starts the runner: worker pool, limits, seed, text measurement. Bundles are
 /// registered separately.
 #[allow(

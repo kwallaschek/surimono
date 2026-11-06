@@ -14,6 +14,7 @@ end
 #
 #   renderer = Surimono::Renderer.new(fonts: ["app/assets/fonts/NotoSans-Regular.ttf"])
 #   html = renderer.render(html)   # island markers replaced by SVG
+#   html = renderer.render(html, scripts: true)   # the page's scripts run first
 #
 # Island markers look like this:
 #
@@ -41,12 +42,29 @@ module Surimono
     end
   end
 
-  # An island's script used more memory than limits[:memory_mb] allows.
+  # A script used more memory than limits[:memory_mb] allows.
   class MemoryLimitError < Error; end
-  # An island's script ran longer than limits[:time_ms] allows.
+  # A script ran longer than limits[:time_ms] allows.
   class TimeLimitError < Error; end
-  # An island's script recursed deeper than limits[:stack_kb] allows.
+  # A script recursed deeper than limits[:stack_kb] allows.
   class StackOverflowError < Error; end
+  # A page or its scripts passed a limit on the DOM: nodes, tree depth, node
+  # handles, bytes of text, attributes on an element, ranges or the size of a
+  # style attribute. Or its output has more CSS than is safe to parse, or is over
+  # limits[:output_mb].
+  class DomLimitError < Error; end
+
+  # A page's script asked for layout with layout_queries: :throw. The render
+  # ends, even if the page catches the exception.
+  class LayoutQueryError < Error
+    # The member it used, such as "getBoundingClientRect".
+    attr_reader :member
+
+    def initialize(message = nil, member: nil, **details)
+      super(message, **details)
+      @member = member
+    end
+  end
 
   # An island's script threw. Named JavaScriptError because Ruby already has
   # a top-level ::ScriptError.
@@ -62,7 +80,9 @@ module Surimono
 
   # An island couldn't be rendered for another reason: a malformed marker, an
   # unknown renderer, unusable renderer output, more islands than max_islands
-  # (kind "too-many-islands"), or markup too ambiguous to rewrite.
+  # (kind "too-many-islands"), or markup too ambiguous to rewrite. Or a page
+  # couldn't run (kind "page"), though a page's own exception isn't this: see
+  # PageReport#uncaught.
   class RenderError < Error; end
   # The renderer's options are invalid: a font that can't be read, a limit out
   # of range, an unknown renderer name or a bundle that can't be used.
@@ -71,16 +91,37 @@ module Surimono
   # render. The process keeps running; please report it with the message.
   class InternalError < Error; end
 
-  # Renders a document's islands. Build one per configuration and reuse it: it
+  # What happened while a page ran, from Renderer#render_page. A page with an
+  # uncaught exception still renders, as it would in a browser.
+  #
+  # settled::              why it stopped: :idle (nothing left), :virtual_budget
+  #                        (timers left after 10 s of virtual time) or
+  #                        :task_limit (100,000 tasks, with more due)
+  # uncaught::             exceptions nothing caught
+  # errors::               the first few, as messages
+  # unhandled_rejections:: promises rejected with no handler
+  # rejections::           the first few reasons, as messages
+  # failed_count::         external scripts, images and stylesheets the page
+  #                        didn't get
+  # failed::               the first few, as { kind: :script, :image or
+  #                        :stylesheet, url:, reason: } Hashes
+  PageReport = Struct.new(:settled, :uncaught, :errors, :unhandled_rejections, :rejections, :failed_count,
+                          :failed, keyword_init: true)
+
+  # A rendered page: its html, and the PageReport as report.
+  Page = Struct.new(:html, :report, keyword_init: true)
+
+  # Renders a document's islands, and its scripts when asked. Build one per configuration and reuse it: it
   # keeps JavaScript runtimes with the renderers compiled, and it is safe to
   # share between threads. Rendering releases the GVL.
   class Renderer
-    LIMIT_KEYS = %i[memory_mb time_ms stack_kb].freeze
+    LIMIT_KEYS = %i[memory_mb time_ms stack_kb output_mb].freeze
     ERROR_POLICIES = %i[fail placeholder].freeze
+    LAYOUT_QUERIES = %i[zeros throw].freeze
     # Largest value accepted for a limit or pool_size, so every value fits the
     # native types; the native side checks the real ranges.
     MAX_OPTION = 2**31 - 1
-    private_constant :LIMIT_KEYS, :ERROR_POLICIES, :MAX_OPTION
+    private_constant :LIMIT_KEYS, :ERROR_POLICIES, :LAYOUT_QUERIES, :MAX_OPTION
 
     # fonts::        required, at least one: font files for measuring and
     #                outlining text, as paths (String or Pathname) or font data
@@ -90,7 +131,10 @@ module Surimono
     #                (1 or more, default 64), time_ms (default 2000; one
     #                deadline per island covering loading the renderer and
     #                drawing), stack_kb (64 to 16384, default 512). A document
-    #                with N islands can take up to N times time_ms.
+    #                with N islands can take up to N times time_ms. For a page,
+    #                time_ms is one limit for its scripts and another for all
+    #                that follows them, and output_mb (default 64) caps the
+    #                HTML it gives back and the text it may hold.
     # max_islands::  most islands one document may have (default 1000); a
     #                document with more raises RenderError (kind
     #                "too-many-islands") before any island runs. Together with
@@ -121,6 +165,17 @@ module Surimono
     #                (fulgur 0.40 doesn't).
     # pool_size::    JavaScript runtimes (threads) kept for concurrent renders
     #                (default: CPU count, at most 4; at most 64).
+    # layout_queries:: with page scripts, what getBoundingClientRect, offsetWidth
+    #                and the like give, as nothing is laid out: :zeros (default)
+    #                or :throw, where the first one ends the render with
+    #                LayoutQueryError, even if the page catches the exception.
+    # keep_scripts:: with page scripts, leave <script> elements in the result.
+    #                Default false: all but island markers are removed.
+    # resources::    with page scripts, what <script src>, <iframe src> and a
+    #                stylesheet's <link href> may load, as
+    #                { "url as written in the page" => source }. Only these load:
+    #                no network and no files otherwise. Limits apply to a page's
+    #                scripts as one, not per script.
     #
     # A Renderer survives fork: built before Puma's preload_app! (or
     # fork_worker), Unicorn or Resque forks, it starts its runtimes and text
@@ -144,7 +199,8 @@ module Surimono
     # rejects (a limit out of range, an unknown renderer name, a font or
     # bundle that can't be used) raise ConfigurationError.
     def self.new(fonts: [], limits: {}, seed: 0, error_policy: :fail, renderers: nil, bundles: {}, pool_size: nil,
-                 now: nil, utc_offset_minutes: 0, text: :outlines, max_islands: nil)
+                 now: nil, utc_offset_minutes: 0, text: :outlines, max_islands: nil,
+                 layout_queries: :zeros, keep_scripts: false, resources: {})
       lim = normalize_limits(limits)
       _native_new(
         Array(fonts).map { |f| font_data(f) },
@@ -159,27 +215,88 @@ module Surimono
         normalize_now(now),
         normalize_offset(utc_offset_minutes),
         normalize_text(text),
-        max_islands && positive_integer(max_islands, "max_islands")
+        max_islands && positive_integer(max_islands, "max_islands"),
+        [keep_scripts ? true : false, normalize_layout_queries(layout_queries), normalize_resources(resources),
+         lim[:output_mb] * 1024 * 1024]
       )
     end
 
-    # Runs what this version of surimono runs on a document, as enabled by the
-    # options, and returns the new HTML (UTF-8). In 0.1 that is the islands:
-    # every island marker is replaced with its SVG, and everything else is
-    # left byte for byte as it was. (Page scripts come in a later version, off
-    # until you turn them on.) Raises a Surimono::Error subclass when an island
-    # fails (with error_policy: :fail).
+    # Renders a document and returns the new HTML (UTF-8). Every island marker is
+    # replaced with its SVG and everything else is left byte for byte as it was.
+    # The document's own scripts don't run unless you pass scripts: true: then
+    # this is render_page(html).html. Raises a Surimono::Error subclass when an
+    # island fails (with error_policy: :fail) or a limit is reached.
     #
     # html in another encoding is transcoded to UTF-8 first; a
     # <meta charset> in it is left as written, so declare UTF-8 (or drop the
     # declaration) if the result goes to a renderer that reads it.
-    def render(html)
+    def render(html, scripts: false)
+      return render_page(html).html if scripts
+
+      with_html(html) { |doc| _render(doc) }
+    end
+
+    # Runs the document's own scripts as a browser would, on a virtual clock
+    # until the page settles, then renders its islands, and returns a Page with
+    # the html and a PageReport. The html is the document serialized: without
+    # <noscript>, and without <script> unless keep_scripts: true. Each render
+    # gets a new document and script state. Nothing is laid out and images
+    # aren't loaded.
+    #
+    # External scripts and stylesheets need resources: (see new), or a loader
+    # for this render:
+    #
+    #   loader = ->(url) { Rails.root.join("public", url.delete_prefix("/")).binread }
+    #   renderer.render_page(html, loader: loader, allow: ["/assets/"])
+    #
+    # loader:: called as loader.call(url) with the attribute as written, on this
+    #          thread, one at a time, in document order. Returns a String, or nil
+    #          if there is none. An exception in it ends the render and is raised
+    #          from here. It isn't interrupted, so give it a timeout of its own:
+    #          past 10 seconds of loads, or 1,000 of them, the rest fail and the
+    #          page goes on, and stylesheets count against time_ms too. A
+    #          stylesheet goes into the page as <style>; a url() or @import in it
+    #          isn't followed. Don't call render_page on the same renderer from
+    #          it, or from another fiber of this thread, while pool_size's
+    #          workers are all busy: the page waits for the loader and the loader
+    #          for a worker, until a Timeout ends it.
+    # allow::  the URLs that reach loader, nothing by default: an entry equal to
+    #          one, or an entry ending in / for what is under it. Check what you
+    #          open anyway if you read files.
+    #
+    # An exception in a page doesn't raise, it goes in the report. A limit does:
+    # MemoryLimitError, TimeLimitError, StackOverflowError or DomLimitError, and
+    # LayoutQueryError with layout_queries: :throw.
+    #
+    # Print pages from people you don't trust in a process of your own: a timeout
+    # can't stop a thread, or catch what ends a process. Give the printer stack
+    # for the depth a page may reach: at least 2 MiB, and 8 MiB leaves room.
+    # Ruby's threads have 1 MiB unless RUBY_THREAD_MACHINE_STACK_SIZE says
+    # otherwise, which is what Puma and Sidekiq workers run on.
+    #
+    # An interrupt raises at once, and stops the page's script within
+    # milliseconds, freeing its runtime.
+    def render_page(html, loader: nil, allow: nil)
+      raise ArgumentError, "allow needs a loader" if loader.nil? && !allow.nil?
+
+      native_loader = nil
+      unless loader.nil?
+        raise ArgumentError, "loader must respond to call, got #{loader.class}" unless loader.respond_to?(:call)
+        raise ArgumentError, "allow must be an Array of Strings" unless allow.nil? || (allow.is_a?(Array) && allow.all?(String))
+
+        native_loader = [loader.respond_to?(:to_proc) ? loader.to_proc : loader.method(:call).to_proc, allow || []]
+      end
+      out, report = with_html(html) { |doc| _render_page(doc, native_loader) }
+      Page.new(html: out, report: PageReport.new(**report))
+    end
+
+    def with_html(html)
       raise ArgumentError, "html must be a String, got #{html.class}" unless html.respond_to?(:to_str)
 
-      html = Renderer.send(:utf8, html.to_str)
-      return _render(html) unless SIGNAL_PUMP && Thread.current.equal?(Thread.main) && Thread.list.size > 1
+      doc = Renderer.send(:utf8, html.to_str)
+      return yield(doc) unless SIGNAL_PUMP && Thread.current.equal?(Thread.main) && Thread.list.size > 1
 
-      with_signal_pump { _render(html) }
+      with_signal_pump { yield(doc) }
     end
 
     # Ruby 3.2 passes a signal on to a render on the main thread only through
@@ -236,7 +353,7 @@ module Surimono
       end
     end
 
-    private :_render, :with_signal_pump
+    private :_render, :_render_page, :with_html, :with_signal_pump
 
     class << self
       private
@@ -263,7 +380,7 @@ module Surimono
         if given.key?(:stack_kb) && !(64..16_384).cover?(given[:stack_kb])
           raise ArgumentError, "limits[:stack_kb] must be from 64 to 16384, got #{given[:stack_kb]}"
         end
-        { memory_mb: 64, time_ms: 2000, stack_kb: 512 }.merge(given)
+        { memory_mb: 64, time_ms: 2000, stack_kb: 512, output_mb: 64 }.merge(given)
       end
 
       def normalize_now(now)
@@ -277,6 +394,23 @@ module Surimono
         return text.to_s if %i[outlines keep].include?(text.to_s.to_sym)
 
         raise ArgumentError, "text must be :outlines or :keep, got #{text.inspect}"
+      end
+
+      def normalize_layout_queries(queries)
+        return queries.to_s if LAYOUT_QUERIES.include?(queries.to_s.to_sym)
+
+        raise ArgumentError, "layout_queries must be :zeros or :throw, got #{queries.inspect}"
+      end
+
+      # [[url, source], ...]; source as bytes, whatever its encoding says.
+      def normalize_resources(resources)
+        raise ArgumentError, "resources must be a Hash, got #{resources.class}" unless resources.respond_to?(:to_hash)
+
+        resources.to_hash.map do |url, source|
+          raise ArgumentError, "a resource's source must be a String, got #{source.class}" unless source.is_a?(String)
+
+          [String(url), source]
+        end
       end
 
       def normalize_offset(minutes)
@@ -383,8 +517,20 @@ module Surimono
     # is not read again by a cached renderer), font data by its bytes, which
     # costs a hash of those bytes per call. For many configurations or large
     # font data, build a Renderer once and keep it.
-    def render(html, **options)
-      renderer_for(options).render(html)
+    #
+    # scripts: true runs the document's own scripts first: see
+    # Renderer#render_page.
+    def render(html, scripts: false, **options)
+      renderer_for(options).render(html, scripts: scripts)
+    end
+
+    # Runs html as a page (see Renderer#render_page) with a renderer for these
+    # options, kept as for render. Returns a Surimono::Page.
+    #
+    #   page = Surimono.render_page(html, fonts: ["fonts/NotoSans-Regular.ttf"])
+    #   pdf = Fulgur::Engine.new.render_html(page.html)
+    def render_page(html, loader: nil, allow: nil, **options)
+      renderer_for(options).render_page(html, loader: loader, allow: allow)
     end
 
     private

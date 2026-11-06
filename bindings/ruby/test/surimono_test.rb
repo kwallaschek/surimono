@@ -780,4 +780,155 @@ class SurimonoTest < Minitest::Test
     end
     assert_equal "time-limit", e.kind
   end
+
+  PAGE = "<!doctype html><body><script>document.body.id = 'ran';</script>"
+
+  def page_renderer(**options)
+    Surimono::Renderer.new(fonts: FONTS, bundles: BUNDLES, **options)
+  end
+
+  def test_scripts_run_only_when_asked
+    r = page_renderer
+    assert_equal PAGE, r.render(PAGE)
+    assert_equal PAGE, r.render(PAGE, scripts: false)
+    want = %(<!doctype html><html><head></head><body id="ran"></body></html>)
+    assert_equal want, r.render(PAGE, scripts: true)
+    assert_equal want, Surimono.render(PAGE, scripts: true, fonts: FONTS)
+    assert_equal Encoding::UTF_8, r.render(PAGE, scripts: true).encoding
+  end
+
+  def test_render_page_reports_what_went_wrong
+    page = page_renderer.render_page(
+      "<img src=a.png><script src=a.js></script><script>boom();</script>" \
+      "<script>Promise.reject(new Error('later'));</script><script>setInterval(() => {}, 1);</script>"
+    )
+    assert_instance_of Surimono::Page, page
+    report = page.report
+    assert_instance_of Surimono::PageReport, report
+    assert_equal :virtual_budget, report.settled
+    assert_equal 1, report.uncaught
+    assert_match(/boom/, report.errors.first)
+    assert_equal 1, report.unhandled_rejections
+    assert_match(/later/, report.rejections.first)
+    assert_equal 2, report.failed_count
+    assert_equal({ kind: :script, url: "a.js", reason: "no resource loader was given" }, report.failed[0])
+    assert_equal :image, report.failed[1][:kind]
+    assert_equal "a.png", report.failed[1][:url]
+  end
+
+  def test_page_islands_and_scripts_kept_or_not
+    html = "<script>document.title = 'y';</script>#{island}<noscript>off</noscript>"
+    out = page_renderer.render(html, scripts: true)
+    assert_includes out, stub_svg
+    refute_includes out, "<script"
+    refute_includes out, "noscript"
+    out = page_renderer(keep_scripts: true).render(html, scripts: true)
+    assert_includes out, "document.title"
+    refute_includes out, "noscript"
+  end
+
+  def test_page_layout_queries
+    html = "<div id=a></div><script>document.body.dataset.w = document.getElementById('a').offsetWidth;</script>"
+    assert_includes page_renderer.render(html, scripts: true), %(data-w="0")
+    caught = "<div id=a></div><script>try { document.getElementById('a').offsetWidth; } catch (e) {}</script>"
+    [html, caught].each do |page|
+      e = assert_raises(Surimono::LayoutQueryError) { page_renderer(layout_queries: :throw).render_page(page) }
+      assert_equal "layout-query", e.kind
+      assert_includes e.member, "offsetWidth"
+    end
+    assert_raises(ArgumentError) { page_renderer(layout_queries: :guess) }
+  end
+
+  def test_page_resources_are_the_allowlist
+    r = page_renderer(resources: { "js/app.js" => "document.body.id = 'loaded';" })
+    page = r.render_page("<script src=js/app.js></script><script src=js/other.js></script>")
+    assert_includes page.html, %(id="loaded")
+    assert_equal 1, page.report.failed_count
+    assert_equal "not in the loader's allowlist", page.report.failed[0][:reason]
+    assert_raises(ArgumentError) { page_renderer(resources: ["a.js"]) }
+    assert_raises(ArgumentError) { page_renderer(resources: { "a.js" => 1 }) }
+  end
+
+  def test_page_limits_raise_typed_errors
+    quick = page_renderer(limits: { time_ms: 100 })
+    e = assert_raises(Surimono::TimeLimitError) { quick.render_page("<script>for (;;) {}</script>") }
+    assert_equal "time-limit", e.kind
+    assert_nil e.island_index
+    small = page_renderer(limits: { memory_mb: 8 })
+    assert_raises(Surimono::MemoryLimitError) do
+      small.render_page("<script>const a = []; for (;;) a.push(new Array(1e5).fill(1));</script>")
+    end
+    assert_raises(Surimono::StackOverflowError) do
+      small.render_page("<script>const f = () => f() + 1; f();</script>")
+    end
+    e = assert_raises(Surimono::DomLimitError) { small.render_page("<div>" * 5000) }
+    assert_equal "dom-limit", e.kind
+    assert_equal 0, quick.render_page(PAGE).report.uncaught
+  end
+
+  def test_other_threads_run_while_a_page_renders
+    r = page_renderer(limits: { time_ms: 300 })
+    ticks = 0
+    ticker = Thread.new { loop { ticks += 1; sleep 0.01 } }
+    assert_raises(Surimono::TimeLimitError) { r.render_page("<script>for (;;) {}</script>") }
+    ticker.kill
+    assert_operator ticks, :>, 5
+  end
+
+  def test_timeout_interrupts_a_page
+    r = page_renderer(pool_size: 1, limits: { time_ms: 1500 })
+    took = elapsed do
+      assert_raises(Timeout::Error) { Timeout.timeout(0.2) { r.render_page("<script>for (;;) {}</script>") } }
+    end
+    assert_operator took, :<, 1.2, "Timeout waited #{took.round(2)} s for the page"
+    assert_equal 0, r.render_page(PAGE).report.uncaught, "the renderer still works"
+  end
+
+  def test_render_page_loader
+    asked = []
+    loader = lambda do |url|
+      asked << url
+      { "/a.js" => "document.title = 'loaded';", "/b.css" => "p{color:red}" }[url]
+    end
+    renderer = Surimono::Renderer.new(fonts: FONTS)
+    html = "<title>x</title><link rel=stylesheet href=/b.css><script src=/a.js></script>" \
+           "<script src=/none.js></script><script src=https://elsewhere.example/x.js></script>"
+    page = renderer.render_page(html, loader: loader, allow: ["/"])
+    assert_includes page.html, "<title>loaded</title>"
+    assert_includes page.html, "<style>p{color:red}</style>"
+    assert_equal ["/a.js", "/none.js", "/b.css"], asked
+    assert_includes Surimono.render_page("<script src=/a.js></script>", fonts: FONTS, loader: ->(_) { "1" }, allow: ["/"]).html, "<html>"
+  end
+
+  def test_render_page_loader_errors
+    renderer = Surimono::Renderer.new(fonts: FONTS)
+    html = "<script src=/a.js></script><script src=/b.js></script>"
+    calls = 0
+    error = assert_raises(KeyError) do
+      renderer.render_page(html, loader: ->(_) { calls += 1; raise KeyError, "boom" }, allow: ["/"])
+    end
+    assert_equal "boom", error.message
+    assert_equal 1, calls
+    assert_raises(Timeout::Error) do
+      Timeout.timeout(0.1) { renderer.render_page(html, loader: ->(_) { sleep 5 }, allow: ["/"]) }
+    end
+    assert_raises(TypeError) { renderer.render_page(html, loader: ->(_) { 1 }, allow: ["/"]) }
+    assert_raises(ArgumentError) { renderer.render_page(html, allow: ["/"]) }
+    assert_raises(ArgumentError) { renderer.render_page(html, loader: 1) }
+    assert_raises(ArgumentError) { renderer.render_page(html, loader: ->(_) {}, allow: "/") }
+    assert renderer.render_page("<p>x</p>").html
+  end
+
+  def test_a_failed_stylesheet_has_its_own_kind
+    html = "<!doctype html><link rel=stylesheet href=/x.css><p>x"
+    report = page_renderer.render_page(html, loader: ->(_url) {}, allow: ["/x.css"]).report
+    assert_equal [:stylesheet], report.failed.map { |f| f[:kind] }
+  end
+
+  def test_output_mb_limits_a_page
+    r = page_renderer(limits: { output_mb: 1 })
+    html = "<!doctype html><script>document.body.textContent = '<'.repeat(400000)</script>"
+    e = assert_raises(Surimono::DomLimitError) { r.render_page(html) }
+    assert_equal "dom-limit", e.kind
+  end
 end

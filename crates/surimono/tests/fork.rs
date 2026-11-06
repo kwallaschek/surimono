@@ -50,20 +50,20 @@ const NESTED_FULL_EVERY: usize = 50;
 /// scales it, as it does every wall-clock limit in a test. Forced before the
 /// first fork: a forked child reading the environment could block on the lock
 /// of a thread that isn't there.
-static HANG: LazyLock<Duration> = LazyLock::new(|| {
-    let scale = match std::env::var("SURIMONO_TEST_TIME_SCALE") {
-        Err(std::env::VarError::NotPresent) => 1,
-        Ok(s) if s.is_empty() => 1,
-        Ok(s) => s
-            .parse::<u32>()
-            .ok()
-            .filter(|n| *n >= 1)
-            .unwrap_or_else(|| {
-                panic!("SURIMONO_TEST_TIME_SCALE must be an integer of at least 1, not {s:?}")
-            }),
-        Err(e) => panic!("SURIMONO_TEST_TIME_SCALE: {e}"),
-    };
-    Duration::from_secs(30) * scale
+static HANG: LazyLock<Duration> = LazyLock::new(|| Duration::from_secs(30) * *SCALE);
+
+/// `SURIMONO_TEST_TIME_SCALE`, which only ASan's job sets.
+static SCALE: LazyLock<u32> = LazyLock::new(|| match std::env::var("SURIMONO_TEST_TIME_SCALE") {
+    Err(std::env::VarError::NotPresent) => 1,
+    Ok(s) if s.is_empty() => 1,
+    Ok(s) => s
+        .parse::<u32>()
+        .ok()
+        .filter(|n| *n >= 1)
+        .unwrap_or_else(|| {
+            panic!("SURIMONO_TEST_TIME_SCALE must be an integer of at least 1, not {s:?}")
+        }),
+    Err(e) => panic!("SURIMONO_TEST_TIME_SCALE: {e}"),
 });
 
 const ECHARTS: &str = r#"{
@@ -88,6 +88,9 @@ const VEGA_LITE: &str = r#"{
     "x": {"field": "total", "type": "quantitative"}
   }
 }"#;
+
+/// A page with a script, for the facade's page workers.
+const PAGE: &str = "<!doctype html><body><script>document.body.id = 'ran';</script>";
 
 fn island(renderer: &str, width: u32, height: u32, spec: &str) -> String {
     format!(
@@ -141,6 +144,12 @@ fn svgs(out: &str) -> usize {
 
 /// What a forked child checks; 0 when all is well.
 fn child(shared: &Renderer, owned: Option<Renderer>, i: usize) -> i32 {
+    // Page workers are per process too.
+    match shared.render_page(PAGE) {
+        Ok(page) if page.html.contains("id=\"ran\"") && page.report.uncaught == 0 => {}
+        Ok(_) => return 15,
+        Err(_) => return 16,
+    }
     // The shared renderer works here: it starts this process's own pool.
     if i % FULL_EVERY == 0 {
         match shared.render_islands(&full_document()) {
@@ -260,11 +269,27 @@ fn fork_stress_child() {
                     .render_islands(&full)
                     .unwrap_or_else(|e| panic!("{e}"));
                 assert_eq!(out, first, "the same output every time");
+                let page = shared.render_page(PAGE).unwrap_or_else(|e| panic!("{e}"));
+                assert_eq!(page.report.uncaught, 0);
                 n += 1;
                 renders.store(n, Ordering::Relaxed);
             }
         })
     };
+    // Threads starting and ending at the fork, as a child's workers have to
+    // survive. Not under ASan, whose fork handling can't take it either
+    // (crates/islands/tests/fork.rs).
+    let churn = (*SCALE == 1).then(|| {
+        let stop = stop.clone();
+        std::thread::spawn(move || {
+            while !stop.load(Ordering::Relaxed) {
+                let quick = std::thread::spawn(|| {});
+                quick
+                    .join()
+                    .unwrap_or_else(|_| panic!("an empty thread panicked"));
+            }
+        })
+    });
     const AT_ONCE: usize = 4;
     let (mut ok, mut hung, mut failed) = (0usize, 0usize, Vec::new());
     let mut running: Vec<(libc::pid_t, Instant)> = Vec::new();
@@ -325,6 +350,11 @@ fn fork_stress_child() {
     stop.store(true, Ordering::Relaxed);
     busy.join()
         .unwrap_or_else(|_| panic!("the busy thread panicked"));
+    if let Some(churn) = churn {
+        churn
+            .join()
+            .unwrap_or_else(|_| panic!("the churning thread panicked"));
+    }
     // The parent's own renderers are unaffected.
     assert_eq!(
         shared.render_islands(&full).ok().as_deref(),

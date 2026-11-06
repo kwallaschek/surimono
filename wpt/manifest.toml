@@ -7816,6 +7816,11 @@ sha256 = "b5b749d9dd3405db62bbd696cc95ba522159654c9066c43d0228314192cd61b0"
 bytes = 1878
 
 [[file]]
+path = "domparsing/outerhtml-03-support.html"
+sha256 = "0d9dacb66fea217b97428eacc9ab372fdf6e20bde449a499609a19ed0566e976"
+bytes = 43
+
+[[file]]
 path = "domparsing/outerhtml-03.html"
 sha256 = "bd2b7e26bb0e9edf7a625fb12a0dabc2ce0bd137d0ed96bea53f26ae3ee3818e"
 bytes = 2599
@@ -7854,6 +7859,21 @@ bytes = 14146
 path = "domparsing/positional-template-child.html"
 sha256 = "cfce8a830864ce2c0917ea860d9ba88bdf140330683ac83fd1f08c0e0c520f45"
 bytes = 949
+
+[[file]]
+path = "domparsing/resources/domparser-iframe-base-pushstate.html"
+sha256 = "0142c031e81320743c470ff8c7cd0a767328fcba025ef2441650bbff85f3b9b3"
+bytes = 320
+
+[[file]]
+path = "domparsing/resources/domparser-iframe-base.html"
+sha256 = "716d7787503718941f07094166317cdae2f5db6674eb48e2532c61a7d3e5b879"
+bytes = 204
+
+[[file]]
+path = "domparsing/resources/domparser-iframe-pushstate.html"
+sha256 = "05c0821cd834850cf9349449308c5cffcb5510a43c5e1ccdcf859c02acdf2480"
+bytes = 273
 
 [[file]]
 path = "domparsing/resources/domparser-iframe.html"
