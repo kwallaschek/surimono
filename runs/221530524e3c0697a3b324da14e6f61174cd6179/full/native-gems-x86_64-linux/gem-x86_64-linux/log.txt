@@ -43,9 +43,9 @@ checking for x86_64-linux-gnu-gcc-ar... yes
 checking for cargo... yes
 checking for install_name_tool... no
 checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
-/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
 cd -
 cd tmp/x86_64-linux/surimono/4.0.2
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
 checking for x86_64-linux-gnu-gcc... yes
 checking for x86_64-linux-gnu-g++... yes
 checking for x86_64-linux-gnu-gcc-ar... yes
@@ -68,25 +68,25 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling siphasher v1.0.4
    Compiling rand v0.8.8
    Compiling phf_shared v0.11.3
-   Compiling serde v1.0.229
-   Compiling phf_generator v0.11.3
    Compiling syn v3.0.9
    Compiling syn v2.0.119
+   Compiling serde v1.0.229
+   Compiling phf_generator v0.11.3
    Compiling cfg-if v1.0.5
-   Compiling version_check v0.9.5
    Compiling writeable v0.6.4
+   Compiling version_check v0.9.5
    Compiling generic-array v0.14.7
    Compiling parking_lot_core v0.9.12
+   Compiling synstructure v0.14.0
    Compiling litemap v0.8.3
    Compiling scopeguard v1.2.0
-   Compiling synstructure v0.14.0
    Compiling new_debug_unreachable v1.0.6
    Compiling lock_api v0.4.14
    Compiling phf_codegen v0.11.3
    Compiling parking_lot v0.12.5
    Compiling allocator-api2 v0.2.21
-   Compiling zerofrom-derive v0.1.8
    Compiling serde_derive v1.0.229
+   Compiling zerofrom-derive v0.1.8
    Compiling yoke-derive v0.8.4
    Compiling zerofrom v0.1.8
    Compiling zerovec-derive v0.11.7
@@ -94,44 +94,44 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling displaydoc v0.2.7
    Compiling phf_macros v0.11.3
    Compiling bytemuck_derive v1.12.1
+   Compiling precomputed-hash v0.1.1
    Compiling zerovec v0.11.9
    Compiling equivalent v1.0.3
-   Compiling precomputed-hash v0.1.1
    Compiling phf v0.11.3
    Compiling bitflags v2.13.2
-   Compiling shlex v2.0.1
    Compiling itoa v1.0.18
+   Compiling utf_types v1.0.0
+   Compiling libm v0.2.16
+   Compiling bytemuck v1.25.2
    Compiling find-msvc-tools v0.1.15
    Compiling tinystr v0.8.5
-   Compiling bytemuck v1.25.2
-   Compiling utf_types v1.0.0
-   Compiling icu_locale_core v2.2.0
-   Compiling libm v0.2.16
-   Compiling utf8_iter v1.1.0
    Compiling string_cache v0.8.9
-   Compiling cc v1.10.0
+   Compiling shlex v2.0.1
+   Compiling icu_locale_core v2.2.0
    Compiling potential_utf v0.1.6
+   Compiling cc v1.10.0
+   Compiling utf8_iter v1.1.0
    Compiling zerotrie v0.2.5
    Compiling string_cache_codegen v0.5.4
-   Compiling fnv v1.0.7
    Compiling ident_case v1.0.1
    Compiling autocfg v1.5.1
-   Compiling num-traits v0.2.19
-   Compiling icu_provider v2.2.0
+   Compiling fnv v1.0.7
    Compiling darling_core v0.20.11
+   Compiling icu_provider v2.2.0
    Compiling rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/vendor/rquickjs-sys)
+   Compiling num-traits v0.2.19
    Compiling icu_collections v2.2.0
    Compiling typenum v1.20.1
+   Compiling darling_macro v0.20.11
    Compiling core_maths v0.1.1
    Compiling synstructure v0.13.2
-   Compiling icu_properties_data v2.2.0
-   Compiling darling_macro v0.20.11
-   Compiling foldhash v0.2.0
    Compiling lazy_static v1.5.1
+   Compiling foldhash v0.2.0
    Compiling dtoa v1.0.11
-   Compiling log v0.4.34
-   Compiling icu_normalizer_data v2.2.0
+   Compiling icu_properties_data v2.2.0
    Compiling thiserror v2.0.21
+   Compiling icu_normalizer_data v2.2.0
+   Compiling log v0.4.34
    Compiling dtoa-short v0.3.5
    Compiling darling v0.20.11
    Compiling cssparser-macros v0.6.1
@@ -142,8 +142,8 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling cssparser v0.35.0
    Compiling thiserror-impl v2.0.21
    Compiling selectors v0.32.0
-   Compiling thin-vec v0.2.21
    Compiling smallbitvec v2.6.1
+   Compiling thin-vec v0.2.21
    Compiling crossbeam-utils v0.8.23
    Compiling memchr v2.8.3
    Compiling to_shmem v0.2.0
@@ -155,60 +155,60 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling hashbrown v0.17.1
    Compiling web_atoms v0.1.3
    Compiling font-types v0.10.1
-   Compiling glob v0.3.4
-   Compiling rustc-hash v2.1.3
    Compiling cpufeatures v0.2.17
    Compiling crossbeam-epoch v0.9.21
+   Compiling glob v0.3.4
+   Compiling rustc-hash v2.1.3
    Compiling sha2 v0.10.9
    Compiling clang-sys v1.9.1
    Compiling read-fonts v0.35.0
    Compiling idna_adapter v1.2.2
    Compiling font-types v0.12.7
-   Compiling rayon-core v1.13.0
-   Compiling percent-encoding v2.3.2
-   Compiling icu_locale_data v2.2.0
-   Compiling crossbeam-deque v0.8.8
    Compiling once_cell v1.21.4
-   Compiling read-fonts v0.41.0
+   Compiling icu_locale_data v2.2.0
+   Compiling rayon-core v1.13.0
+   Compiling crossbeam-deque v0.8.8
+   Compiling percent-encoding v2.3.2
    Compiling form_urlencoded v1.2.2
+   Compiling read-fonts v0.41.0
    Compiling idna v1.1.0
    Compiling surimono-core v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/core)
    Compiling aho-corasick v1.1.5
    Compiling euclid v0.22.14
    Compiling app_units v0.7.8
    Compiling stylo_atoms v0.8.0
-   Compiling minimal-lexical v0.2.1
-   Compiling mac v0.1.1
    Compiling regex-syntax v0.8.11
    Compiling void v1.0.2
-   Compiling icu_segmenter_data v2.2.0
-   Compiling same-file v1.0.6
+   Compiling minimal-lexical v0.2.1
    Compiling foldhash v0.1.5
-   Compiling hashbrown v0.15.5
+   Compiling icu_segmenter_data v2.2.0
+   Compiling mac v0.1.1
+   Compiling same-file v1.0.6
    Compiling walkdir v2.5.0
-   Compiling stylo_malloc_size_of v0.8.0
-   Compiling regex-automata v0.4.18
    Compiling futf v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling regex-automata v0.4.18
    Compiling nom v7.1.3
+   Compiling stylo_malloc_size_of v0.8.0
    Compiling url v2.5.8
    Compiling skrifa v0.44.0
    Compiling libloading v0.8.9
    Compiling memmap2 v0.9.12
-   Compiling linebender_resource_handle v0.1.1
-   Compiling arrayvec v0.7.8
+   Compiling utf-8 v0.7.6
    Compiling either v1.19.0
    Compiling bindgen v0.72.1
-   Compiling utf-8 v0.7.6
+   Compiling arrayvec v0.7.8
+   Compiling linebender_resource_handle v0.1.1
+   Compiling fontique v0.6.0
+   Compiling itertools v0.13.0
    Compiling tendril v0.4.3
    Compiling stylo v0.8.0
-   Compiling itertools v0.13.0
-   Compiling fontique v0.6.0
    Compiling swash v0.2.10
    Compiling icu_locale v2.2.0
-   Compiling cexpr v0.6.0
    Compiling regex v1.13.1
-   Compiling skrifa v0.37.0
+   Compiling cexpr v0.6.0
    Compiling harfrust v0.3.2
+   Compiling skrifa v0.37.0
    Compiling malloc_size_of_derive v0.1.3
    Compiling encoding_rs v0.8.35
    Compiling mime v0.3.17
@@ -227,36 +227,36 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling stylo_derive v0.8.0
    Compiling num-derive v0.4.2
    Compiling num_cpus v1.17.0
-   Compiling byteorder v1.5.0
-   Compiling static_assertions v1.1.0
-   Compiling atomic_refcell v0.1.14
    Compiling bytes v1.12.1
    Compiling unicode-segmentation v1.13.3
-   Compiling stylo_static_prefs v0.8.0
+   Compiling atomic_refcell v0.1.14
+   Compiling static_assertions v1.1.0
    Compiling matches v0.1.10
-   Compiling stylo_config v0.8.0
    Compiling shell-words v1.1.1
+   Compiling stylo_config v0.8.0
    Compiling grid v1.0.1
-   Compiling rb-sys-build v0.9.130
+   Compiling byteorder v1.5.0
+   Compiling stylo_static_prefs v0.8.0
    Compiling taffy v0.9.2
-   Compiling keyboard-types v0.7.0
+   Compiling rb-sys-build v0.9.130
    Compiling http v1.5.0
+   Compiling keyboard-types v0.7.0
    Compiling rquickjs v0.14.0
    Compiling byteorder-lite v0.1.0
+   Compiling cursor-icon v1.2.0
    Compiling zmij v1.0.23
    Compiling smol_str v0.2.2
    Compiling rb-sys-env v0.2.3
-   Compiling cursor-icon v1.2.0
    Compiling blitz-traits v0.2.0
    Compiling image v0.25.6
    Compiling rb-sys v0.9.130
    Compiling match_token v0.35.0
+   Compiling html-escape v0.2.15
+   Compiling color v0.3.3
+   Compiling fastrand v2.5.0
    Compiling slab v0.4.12
    Compiling debug_timer v0.1.3
    Compiling serde_json v1.0.154
-   Compiling color v0.3.3
-   Compiling fastrand v2.5.0
-   Compiling html-escape v0.2.15
    Compiling html5ever v0.35.0
    Compiling surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/islands)
    Compiling roxmltree v0.21.2
@@ -274,10 +274,10 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/dom)
    Compiling surimono v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/surimono)
    Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
-    Finished `release` profile [optimized] target(s) in 1m 54s
-/usr/bin/make
+    Finished `release` profile [optimized] target(s) in 1m 49s
 cd -
 cd tmp/x86_64-linux/surimono/4.0.2
+/usr/bin/make
 generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target/x86_64-unknown-linux-gnu/release/libsurimono.so (release)
 /usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target x86_64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target --lib --profile release -- -C linker=x86_64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/x86_64-linux-gnu/ruby-4.0.2/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
     Finished `release` profile [optimized] target(s) in 0.10s
@@ -580,7 +580,8 @@ cp vendor/rquickjs-sys/quickjs.bind.h tmp/x86_64-linux/stage/vendor/rquickjs-sys
 mkdir -p tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs
 cp vendor/rquickjs-sys/quickjs/LICENSE tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs/LICENSE
 cp vendor/rquickjs-sys/quickjs/README.md tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs/README.md
-cp vendor/rquickjs-sys/quickjs/builtin-array-fromasync.h tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs/builtin-array-fromasync.h
+cp vendor/rquickjs-sys/quickjs/builtin-array-fromasync.h tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs/builtin-array-fromasync.h(cd tmp/x86_64-linux/surimono/4.0.2 && /usr/bin/make install sitearchdir=../../../../lib/surimono sitelibdir=../../../../lib/surimono target_prefix=)
+
 cp vendor/rquickjs-sys/quickjs/builtin-array-fromasync.js tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs/builtin-array-fromasync.js
 cp vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.h tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.h
 cp vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.js tmp/x86_64-linux/stage/vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.js
@@ -618,7 +619,6 @@ cp vendor/rquickjs-sys/src/inlines/ptr_64.rs tmp/x86_64-linux/stage/vendor/rquic
 cp vendor/rquickjs-sys/src/lib.rs tmp/x86_64-linux/stage/vendor/rquickjs-sys/src/lib.rs
 mkdir -p lib/surimono/4.0
 mkdir -p tmp/x86_64-linux/stage/lib/surimono/4.0
-(cd tmp/x86_64-linux/surimono/4.0.2 && /usr/bin/make install sitearchdir=../../../../lib/surimono sitelibdir=../../../../lib/surimono target_prefix=)
 generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target/x86_64-unknown-linux-gnu/release/libsurimono.so (release)
 /usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target x86_64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target --lib --profile release -- -C linker=x86_64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/x86_64-linux-gnu/ruby-4.0.2/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
     Finished `release` profile [optimized] target(s) in 0.10s
@@ -637,9 +637,9 @@ checking for x86_64-linux-gnu-gcc-ar... yes
 checking for cargo... yes
 checking for install_name_tool... no
 checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
 cd -
 cd tmp/x86_64-linux/surimono/3.4.9
-/usr/bin/make
 generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target/x86_64-unknown-linux-gnu/release/libsurimono.so (release)
 /usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target x86_64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target --lib --profile release -- -C linker=x86_64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/x86_64-linux-gnu/ruby-3.4.9/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
    Compiling stable_deref_trait v1.2.1
@@ -649,52 +649,52 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling libc v0.2.191
    Compiling zerofrom v0.1.8
    Compiling yoke v0.8.4
-   Compiling cfg-if v1.0.5
    Compiling writeable v0.6.4
    Compiling zerovec v0.11.9
+   Compiling cfg-if v1.0.5
    Compiling litemap v0.8.3
    Compiling siphasher v1.0.4
    Compiling phf_shared v0.11.3
    Compiling parking_lot_core v0.9.12
-   Compiling scopeguard v1.2.0
    Compiling new_debug_unreachable v1.0.6
+   Compiling scopeguard v1.2.0
    Compiling lock_api v0.4.14
-   Compiling parking_lot v0.12.5
    Compiling tinystr v0.8.5
+   Compiling parking_lot v0.12.5
    Compiling precomputed-hash v0.1.1
    Compiling equivalent v1.0.3
    Compiling allocator-api2 v0.2.21
    Compiling icu_locale_core v2.2.0
    Compiling bytemuck v1.25.2
    Compiling phf v0.11.3
-   Compiling itoa v1.0.18
    Compiling utf_types v1.0.0
-   Compiling bitflags v2.13.2
+   Compiling itoa v1.0.18
    Compiling libm v0.2.16
-   Compiling utf8_iter v1.1.0
    Compiling potential_utf v0.1.6
+   Compiling bitflags v2.13.2
+   Compiling utf8_iter v1.1.0
    Compiling zerotrie v0.2.5
    Compiling icu_collections v2.2.0
    Compiling string_cache v0.8.9
    Compiling icu_provider v2.2.0
    Compiling num-traits v0.2.19
-   Compiling foldhash v0.2.0
-   Compiling dtoa v1.0.11
    Compiling log v0.4.34
-   Compiling dtoa-short v0.3.5
+   Compiling dtoa v1.0.11
+   Compiling foldhash v0.2.0
    Compiling icu_properties_data v2.2.0
    Compiling icu_normalizer_data v2.2.0
+   Compiling dtoa-short v0.3.5
    Compiling cssparser v0.35.0
    Compiling core_maths v0.1.1
    Compiling servo_arc v0.4.3
-   Compiling smallbitvec v2.6.1
    Compiling thin-vec v0.2.21
+   Compiling smallbitvec v2.6.1
    Compiling crossbeam-utils v0.8.23
    Compiling derive_more v2.1.1
+   Compiling to_shmem v0.2.0
    Compiling selectors v0.32.0
    Compiling icu_properties v2.2.0
    Compiling icu_normalizer v2.2.0
-   Compiling to_shmem v0.2.0
    Compiling hashbrown v0.17.1
    Compiling font-types v0.10.1
    Compiling rustc-hash v2.1.3
@@ -703,13 +703,13 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling web_atoms v0.1.3
    Compiling idna_adapter v1.2.2
    Compiling font-types v0.12.7
-   Compiling percent-encoding v2.3.2
    Compiling once_cell v1.21.4
-   Compiling rayon-core v1.13.0
-   Compiling crossbeam-deque v0.8.8
-   Compiling form_urlencoded v1.2.2
+   Compiling percent-encoding v2.3.2
    Compiling read-fonts v0.41.0
+   Compiling form_urlencoded v1.2.2
+   Compiling rayon-core v1.13.0
    Compiling icu_locale_data v2.2.0
+   Compiling crossbeam-deque v0.8.8
    Compiling idna v1.1.0
    Compiling euclid v0.22.14
    Compiling app_units v0.7.8
@@ -718,68 +718,68 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling foldhash v0.1.5
    Compiling hashbrown v0.15.5
    Compiling stylo_malloc_size_of v0.8.0
-   Compiling futf v0.1.5
    Compiling icu_segmenter_data v2.2.0
+   Compiling futf v0.1.5
    Compiling stylo_atoms v0.8.0
    Compiling url v2.5.8
    Compiling thiserror v2.0.21
    Compiling memmap2 v0.9.12
-   Compiling either v1.19.0
    Compiling utf-8 v0.7.6
    Compiling arrayvec v0.7.8
    Compiling linebender_resource_handle v0.1.1
+   Compiling either v1.19.0
    Compiling tendril v0.4.3
    Compiling icu_locale v2.2.0
-   Compiling fontique v0.6.0
    Compiling skrifa v0.37.0
-   Compiling skrifa v0.44.0
-   Compiling swash v0.2.10
    Compiling harfrust v0.3.2
+   Compiling skrifa v0.44.0
+   Compiling fontique v0.6.0
    Compiling rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/vendor/rquickjs-sys)
    Compiling generic-array v0.14.7
    Compiling encoding_rs v0.8.35
    Compiling mime v0.3.17
    Compiling typenum v1.20.1
-   Compiling parley v0.6.0
+   Compiling swash v0.2.10
    Compiling stylo_traits v0.8.0
    Compiling icu_segmenter v2.2.0
+   Compiling parley v0.6.0
    Compiling rayon v1.12.0
    Compiling markup5ever v0.35.0
    Compiling stylo v0.8.0
-   Compiling uluru v3.1.0
    Compiling itertools v0.14.0
+   Compiling uluru v3.1.0
    Compiling stylo_dom v0.8.0
    Compiling indexmap v2.14.2
    Compiling num-integer v0.1.47
    Compiling num_cpus v1.17.0
-   Compiling atomic_refcell v0.1.14
-   Compiling stylo_static_prefs v0.8.0
-   Compiling matches v0.1.10
-   Compiling static_assertions v1.1.0
-   Compiling stylo_config v0.8.0
-   Compiling lazy_static v1.5.1
-   Compiling bytes v1.12.1
-   Compiling unicode-segmentation v1.13.3
-   Compiling byteorder v1.5.0
-   Compiling grid v1.0.1
    Compiling memchr v2.8.3
+   Compiling byteorder v1.5.0
+   Compiling unicode-segmentation v1.13.3
+   Compiling atomic_refcell v0.1.14
+   Compiling lazy_static v1.5.1
+   Compiling grid v1.0.1
+   Compiling bytes v1.12.1
+   Compiling stylo_static_prefs v0.8.0
+   Compiling stylo_config v0.8.0
+   Compiling static_assertions v1.1.0
+   Compiling matches v0.1.10
    Compiling taffy v0.9.2
    Compiling http v1.5.0
    Compiling keyboard-types v0.7.0
-   Compiling cursor-icon v1.2.0
    Compiling smol_str v0.2.2
    Compiling byteorder-lite v0.1.0
+   Compiling cursor-icon v1.2.0
    Compiling image v0.25.6
    Compiling blitz-traits v0.2.0
    Compiling zmij v1.0.23
    Compiling crypto-common v0.1.7
    Compiling block-buffer v0.10.4
    Compiling surimono-core v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/core)
-   Compiling debug_timer v0.1.3
-   Compiling slab v0.4.12
    Compiling color v0.3.3
-   Compiling fastrand v2.5.0
    Compiling html-escape v0.2.15
+   Compiling slab v0.4.12
+   Compiling debug_timer v0.1.3
+   Compiling fastrand v2.5.0
    Compiling serde_json v1.0.154
    Compiling html5ever v0.35.0
    Compiling digest v0.10.7
@@ -802,36 +802,36 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/dom)
    Compiling surimono v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/surimono)
    Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
-    Finished `release` profile [optimized] target(s) in 1m 42s
+    Finished `release` profile [optimized] target(s) in 1m 35s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
 cd -
 mkdir -p tmp/x86_64-linux/stage/lib/surimono/3.4
 cp tmp/x86_64-linux/surimono/3.4.9/surimono.so tmp/x86_64-linux/stage/lib/surimono/3.4/surimono.so
 mkdir -p lib/surimono/3.3
 mkdir -p tmp/x86_64-linux/surimono/3.3.11
 cd tmp/x86_64-linux/surimono/3.3.11
-/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
 checking for x86_64-linux-gnu-gcc... yes
 checking for x86_64-linux-gnu-g++... yes
 checking for x86_64-linux-gnu-gcc-ar... yes
 checking for cargo... yes
 checking for install_name_tool... no
 checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
 cd -
 cd tmp/x86_64-linux/surimono/3.3.11
-/usr/bin/make
 generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target/x86_64-unknown-linux-gnu/release/libsurimono.so (release)
 /usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target x86_64-unknown-linux-gnu --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/x86_64-linux/target --lib --profile release -- -C linker=x86_64-linux-gnu-gcc -L native=/usr/local/rake-compiler/ruby/x86_64-linux-gnu/ruby-3.3.11/lib -C link-arg=-pipe -C link-arg=-lm -l pthread
    Compiling rb-sys v0.9.130
    Compiling magnus v0.9.3
    Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
-    Finished `release` profile [optimized] target(s) in 21.31s
+    Finished `release` profile [optimized] target(s) in 19.84s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
 cd -
 mkdir -p tmp/x86_64-linux/stage/lib/surimono/3.3
 cp tmp/x86_64-linux/surimono/3.3.11/surimono.so tmp/x86_64-linux/stage/lib/surimono/3.3/surimono.so
 mkdir -p lib/surimono/3.2
 mkdir -p tmp/x86_64-linux/surimono/3.2.11
 cd tmp/x86_64-linux/surimono/3.2.11
-/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
 checking for x86_64-linux-gnu-gcc... yes
 checking for x86_64-linux-gnu-g++... yes
 checking for x86_64-linux-gnu-gcc-ar... yes
@@ -846,7 +846,7 @@ generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sy
    Compiling rb-sys v0.9.130
    Compiling magnus v0.9.3
    Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
-    Finished `release` profile [optimized] target(s) in 21.90s
+    Finished `release` profile [optimized] target(s) in 19.83s
 Removing unneeded dependencies from native gemspec
 Removing source files from native gemspec
 cd -
@@ -941,9 +941,9 @@ cd pkg/surimono-0.1.0-x86_64-linux
 cd -
 '/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/pkg/surimono-0.1.0-x86_64-linux.gem' -> 'pkg/surimono-0.1.0-x86_64-linux.gem'
 total 24700
-drwxr-xr-x  2 runner runner     4096 Nov  6 21:56 .
-drwxr-xr-x 10 runner runner     4096 Nov  6 21:56 ..
--rw-r--r--  1 runner runner 25283584 Nov  6 21:56 surimono-0.1.0-x86_64-linux.gem
+drwxr-xr-x  2 runner runner     4096 Nov  7 20:42 .
+drwxr-xr-x 10 runner runner     4096 Nov  7 20:42 ..
+-rw-r--r--  1 runner runner 25283584 Nov  7 20:42 surimono-0.1.0-x86_64-linux.gem
 
 ==> check the gem's contents
 LICENSE-APACHE
@@ -1034,18 +1034,18 @@ Successfully installed surimono-0.1.0-x86_64-linux
 native extension: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0-x86_64-linux/lib/surimono/3.4/surimono.so
 precompiled built-ins: 3 of 3 (echarts, vega, vega-lite)
 + /opt/hostedtoolcache/Ruby/3.4.12/x64/bin/ruby -I /home/runner/work/surimono/surimono/bindings/ruby/test -e ARGV.each { |f| require f } /home/runner/work/surimono/surimono/bindings/ruby/test/gemspec_test.rb /home/runner/work/surimono/surimono/bindings/ruby/test/surimono_test.rb
-Run options: --seed 24019
+Run options: --seed 51793
 
 # Running:
 
-..............
-thread '<unnamed>' (11160) panicked at ext/surimono/src/lib.rs:324:9:
+...........
+thread '<unnamed>' (11205) panicked at ext/surimono/src/lib.rs:324:9:
 deliberate panic from Surimono._internal_panic_check
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-......................................../tmp/d20261106-11160-9i5tux/lib/surimono/version.rb:4: warning: already initialized constant Surimono::VERSION
+.........................................../tmp/d20261107-11205-87hcbf/lib/surimono/version.rb:4: warning: already initialized constant Surimono::VERSION
 /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0-x86_64-linux/lib/surimono/version.rb:4: warning: previous definition of VERSION was here
 .
 
-Finished in 7.977516s, 6.8944 runs/s, 47.1325 assertions/s.
+Finished in 8.149418s, 6.7489 runs/s, 46.1383 assertions/s.
 
 55 runs, 376 assertions, 0 failures, 0 errors, 0 skips
