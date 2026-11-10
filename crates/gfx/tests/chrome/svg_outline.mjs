@@ -13,9 +13,19 @@
 // device scale. Anti-aliasing of text and of paths differs slightly, so a
 // few edge pixels always differ. Control: the original with its font stack
 // replaced by system fonts (`serif`), the mismatch outlines exist to avoid.
+//
+// Raster settings: Chrome on Linux draws text with the host's fontconfig
+// render settings (hinting, LCD subpixel anti-aliasing), screen settings that
+// a printed page doesn't have and paths never get. Ubuntu runners default to
+// slight hinting and RGB subpixel text, which made vega's small labels differ
+// 4.87% from the same glyphs as paths (P2-GFX-01). Chrome therefore runs with
+// the host's fontconfig plus one rule: grayscale anti-aliasing, no hinting,
+// no colour fringes. Fonts, aliases and the `serif` of the control stay the
+// host's.
 
 import { createRequire } from 'node:module';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,7 +44,27 @@ const FONTS = [
 // Pass threshold for the outlined render (share of ink pixels that differ).
 const MAX_DIFF = 0.05;
 
-const browser = await playwright.chromium.launch();
+// The host's fontconfig, then print-like raster settings for every font.
+const fcDir = mkdtempSync(join(tmpdir(), 'surimono-outline-fc-'));
+const hostConfig = process.env.FONTCONFIG_FILE
+  ? resolve(process.env.FONTCONFIG_FILE.includes('/') ? '' : '/etc/fonts', process.env.FONTCONFIG_FILE)
+  : '/etc/fonts/fonts.conf';
+const unhinted = ['pattern', 'font'].map((target) => `<match target="${target}">
+    <edit name="antialias" mode="assign"><bool>true</bool></edit>
+    <edit name="hinting" mode="assign"><bool>false</bool></edit>
+    <edit name="hintstyle" mode="assign"><const>hintnone</const></edit>
+    <edit name="autohint" mode="assign"><bool>false</bool></edit>
+    <edit name="rgba" mode="assign"><const>none</const></edit>
+    <edit name="lcdfilter" mode="assign"><const>lcdnone</const></edit>
+  </match>`).join('\n  ');
+writeFileSync(join(fcDir, 'fonts.conf'), `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <include ignore_missing="yes">${hostConfig}</include>
+  ${unhinted}
+</fontconfig>
+`);
+const browser = await playwright.chromium.launch({ env: { ...process.env, FONTCONFIG_FILE: join(fcDir, 'fonts.conf') } });
 const context = await browser.newContext({ deviceScaleFactor: 2 });
 const page = await context.newPage();
 let current = '';
@@ -94,5 +124,6 @@ for (const name of names) {
     `control (system serif) ${(c.share * 100).toFixed(2)}%; ${pass ? 'ok' : 'FAIL'}`);
 }
 await browser.close();
+rmSync(fcDir, { recursive: true, force: true });
 console.log(ok ? 'OK' : 'FAIL');
 process.exit(ok ? 0 : 1);
