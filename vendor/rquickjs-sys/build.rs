@@ -91,6 +91,12 @@ fn get_wasi_sdk_path() -> PathBuf {
         .unwrap_or_else(download_wasi_sdk)
 }
 
+/// surimono (patch 38): the CORE-MATH functions in `quickjs/core-math/`.
+const SURIMONO_CORE_MATH: [&str; 22] = [
+    "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh", "cosh", "tanh", "asinh", "acosh",
+    "atanh", "exp", "expm1", "log", "log1p", "log2", "log10", "cbrt", "pow", "hypot",
+];
+
 fn main() {
     #[cfg(feature = "logging")]
     pretty_env_logger::init();
@@ -159,6 +165,11 @@ fn main() {
     builder
         .extra_warnings(false)
         .flag_if_supported("-Wno-implicit-const-int-float-conversion")
+        // surimono (patch 38): no fused multiply-add. GCC fuses `a * b + c` by
+        // default and Clang within an expression, on targets with FMA
+        // (aarch64), which rounds once where x86_64 rounds twice; ECMAScript
+        // rounds every operation, and CORE-MATH's error bounds assume it.
+        .flag_if_supported("-ffp-contract=off")
         //.flag("-Wno-array-bounds")
         //.flag("-Wno-format-truncation")
         ;
@@ -258,6 +269,18 @@ fn main() {
 
     for src in &source_files {
         builder.file(out_dir.join(src));
+    }
+
+    // surimono (patch 38): CORE-MATH's correctly rounded functions behind
+    // Math and `**`, compiled from their own directories so each finds its
+    // own `dint.h`. Each exports only its `cr_<name>`.
+    for name in SURIMONO_CORE_MATH {
+        builder.file(
+            src_dir
+                .join("core-math")
+                .join(name)
+                .join(format!("{name}.c")),
+        );
     }
 
     builder.compile("libquickjs.a");

@@ -48,6 +48,36 @@
 #include "libregexp.h"
 #include "dtoa.h"
 
+/* surimono: a fixed libm for Math and `**` (patch 38). The platform's sin,
+   pow and the rest round differently on glibc, musl and Apple's libm, so a
+   script's numbers depended on where it ran. These are CORE-MATH's correctly
+   rounded functions (quickjs/core-math/, MIT): the result is the exact value
+   rounded to nearest, the same bits on every platform by definition.
+   sqrt, floor, ceil, trunc, fabs, fmod and lrint are exact by IEEE 754 and
+   stay with the platform. */
+double cr_sin(double x);
+double cr_cos(double x);
+double cr_tan(double x);
+double cr_asin(double x);
+double cr_acos(double x);
+double cr_atan(double x);
+double cr_atan2(double y, double x);
+double cr_sinh(double x);
+double cr_cosh(double x);
+double cr_tanh(double x);
+double cr_asinh(double x);
+double cr_acosh(double x);
+double cr_atanh(double x);
+double cr_exp(double x);
+double cr_expm1(double x);
+double cr_log(double x);
+double cr_log1p(double x);
+double cr_log2(double x);
+double cr_log10(double x);
+double cr_cbrt(double x);
+double cr_pow(double x, double y);
+double cr_hypot(double x, double y);
+
 #if defined(EMSCRIPTEN) || defined(_MSC_VER)
 #define DIRECT_DISPATCH  0
 #else
@@ -8815,7 +8845,7 @@ static no_inline __exception int __js_poll_interrupts(JSContext *ctx)
    9: also the mark on the engine's own limit errors (p2-rt-05). */
 int surimono_quickjs_patch_level(void)
 {
-    return 9;
+    return 10;
 }
 
 /* surimono: with enabled = 0, every later allocation of this runtime goes
@@ -15286,7 +15316,7 @@ static double js_math_pow(double a, double b)
         d = NAN;
     } else {
         JS_X87_FPCW_SAVE_AND_ADJUST(fpcw);
-        d = pow(a, b);
+        d = cr_pow(a, b); /* surimono: patch 38 */
         JS_X87_FPCW_RESTORE(fpcw);
     }
     return d;
@@ -49202,7 +49232,7 @@ static JSValue js_math_hypot(JSContext *ctx, JSValueConst this_val,
             for (i = 1; i < argc; i++) {
                 if (JS_ToFloat64(ctx, &a, argv[i]))
                     return JS_EXCEPTION;
-                r = hypot(r, a);
+                r = cr_hypot(r, a); /* surimono: patch 38 */
             }
         }
     }
@@ -49520,7 +49550,8 @@ static JSValue js_math_random(JSContext *ctx, JSValueConst this_val,
     return js_float64(u.d - 1.0);
 }
 
-/* use local wrappers for math functions to
+/* surimono: the transcendental wrappers below call the fixed libm (patch 38).
+   use local wrappers for math functions to
    - avoid initializing data with dynamic library entry points.
    - avoid some overhead if the call can be inlined at compile or link time.
  */
@@ -49528,27 +49559,27 @@ static double js_math_fabs(double d) { return fabs(d); }
 static double js_math_floor(double d) { return floor(d); }
 static double js_math_ceil(double d) { return ceil(d); }
 static double js_math_sqrt(double d) { return sqrt(d); }
-static double js_math_acos(double d) { return acos(d); }
-static double js_math_asin(double d) { return asin(d); }
-static double js_math_atan(double d) { return atan(d); }
-static double js_math_atan2(double a, double b) { return atan2(a, b); }
-static double js_math_cos(double d) { return cos(d); }
-static double js_math_exp(double d) { return exp(d); }
-static double js_math_log(double d) { return log(d); }
-static double js_math_sin(double d) { return sin(d); }
-static double js_math_tan(double d) { return tan(d); }
+static double js_math_acos(double d) { return cr_acos(d); }
+static double js_math_asin(double d) { return cr_asin(d); }
+static double js_math_atan(double d) { return cr_atan(d); }
+static double js_math_atan2(double a, double b) { return cr_atan2(a, b); }
+static double js_math_cos(double d) { return cr_cos(d); }
+static double js_math_exp(double d) { return cr_exp(d); }
+static double js_math_log(double d) { return cr_log(d); }
+static double js_math_sin(double d) { return cr_sin(d); }
+static double js_math_tan(double d) { return cr_tan(d); }
 static double js_math_trunc(double d) { return trunc(d); }
-static double js_math_cosh(double d) { return cosh(d); }
-static double js_math_sinh(double d) { return sinh(d); }
-static double js_math_tanh(double d) { return tanh(d); }
-static double js_math_acosh(double d) { return acosh(d); }
-static double js_math_asinh(double d) { return asinh(d); }
-static double js_math_atanh(double d) { return atanh(d); }
-static double js_math_expm1(double d) { return expm1(d); }
-static double js_math_log1p(double d) { return log1p(d); }
-static double js_math_log2(double d) { return log2(d); }
-static double js_math_log10(double d) { return log10(d); }
-static double js_math_cbrt(double d) { return cbrt(d); }
+static double js_math_cosh(double d) { return cr_cosh(d); }
+static double js_math_sinh(double d) { return cr_sinh(d); }
+static double js_math_tanh(double d) { return cr_tanh(d); }
+static double js_math_acosh(double d) { return cr_acosh(d); }
+static double js_math_asinh(double d) { return cr_asinh(d); }
+static double js_math_atanh(double d) { return cr_atanh(d); }
+static double js_math_expm1(double d) { return cr_expm1(d); }
+static double js_math_log1p(double d) { return cr_log1p(d); }
+static double js_math_log2(double d) { return cr_log2(d); }
+static double js_math_log10(double d) { return cr_log10(d); }
+static double js_math_cbrt(double d) { return cr_cbrt(d); }
 
 static const JSCFunctionListEntry js_math_funcs[] = {
     JS_CFUNC_MAGIC_DEF("min", 2, js_math_min_max, 0 ),
