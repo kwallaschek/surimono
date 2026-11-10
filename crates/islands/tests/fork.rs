@@ -341,3 +341,135 @@ fn forks_never_hang() {
         "{line}"
     );
 }
+
+/// Child side of `a_fork_with_the_parent_idle_renders_in_the_child`, in its
+/// own process so nothing else runs in it: the parent renders, waits until
+/// its runner is idle, then forks; each child renders on a new runner (a
+/// built-in now and then), checks that the parent's runner refuses at once,
+/// and leaves. Under AddressSanitizer this keeps ASan's quarantine and
+/// thread registry on: with no other thread freeing memory or ending at the
+/// fork, none of their locks is held (`forks_never_hang` turns the
+/// quarantine off because its parent is never idle). SURIMONO_IDLE_FORKS sets
+/// the number of forks (default 20).
+#[test]
+#[ignore = "helper: run in a child process by a_fork_with_the_parent_idle_renders_in_the_child"]
+fn idle_fork_child() {
+    let forks: usize = std::env::var("SURIMONO_IDLE_FORKS")
+        .ok()
+        .and_then(|n| n.parse().ok())
+        .unwrap_or(20);
+    let parent = runner();
+    let hang = scaled(Duration::from_secs(60));
+    let (mut ok, mut hung, mut failed) = (0usize, 0usize, Vec::new());
+    for i in 0..forks {
+        // Render, then wait until the pool is idle again: every worker back
+        // in its queue, none freeing a runtime.
+        tiny(&parent, 2000).unwrap();
+        let idle_by = Instant::now() + scaled(Duration::from_secs(10));
+        while parent.stats().idle_workers != parent.stats().workers {
+            assert!(Instant::now() < idle_by, "the pool never went idle");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        std::thread::sleep(Duration::from_millis(20));
+        // SAFETY: fork has no preconditions. The child runs only this
+        // process's own code and leaves through `_exit`, so no destructor or
+        // test-harness code of the parent runs twice.
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            let code =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| idle_child(&parent, i)))
+                    .unwrap_or(2);
+            // SAFETY: ends the child at once; see above.
+            unsafe { libc::_exit(code) };
+        }
+        assert!(pid > 0, "fork failed");
+        let started = Instant::now();
+        let mut status: libc::c_int = 0;
+        loop {
+            // SAFETY: `pid` is our own child that we haven't reaped, and
+            // `status` is a valid place to write its status.
+            let r = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+            if r == pid {
+                if libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0 {
+                    ok += 1;
+                } else {
+                    failed.push(status);
+                }
+                break;
+            }
+            if started.elapsed() > hang {
+                // SAFETY: as above; it is still ours until reaped.
+                unsafe {
+                    libc::kill(pid, libc::SIGKILL);
+                    libc::waitpid(pid, &mut status, 0);
+                }
+                hung += 1;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    // The parent's runner is unaffected.
+    tiny(&parent, 10).unwrap();
+    println!("IDLE-FORK forks={forks} ok={ok} hung={hung} failed={failed:?}");
+}
+
+/// What a child of an idle parent checks; 0 when all is well.
+fn idle_child(parent: &IslandRunner, i: usize) -> i32 {
+    match tiny(parent, 10) {
+        Err(IslandError::Worker { message }) if message.contains("another process") => {}
+        _ => return 10,
+    }
+    let fresh = runner();
+    match tiny(&fresh, 1000) {
+        Ok(svg) if svg.contains("<desc>2997</desc>") => {}
+        _ => return 20,
+    }
+    #[cfg(feature = "echarts")]
+    if i % 5 == 0 {
+        match bar_chart(&fresh) {
+            Ok(svg) if svg.starts_with("<svg") => {}
+            _ => return 21,
+        }
+    }
+    let _ = i;
+    drop(fresh);
+    0
+}
+
+/// A process whose threads are all idle forks, and the child renders: under
+/// AddressSanitizer with its quarantine on, where `forks_never_hang` must
+/// turn it off (DECISIONS 2026-11-05). Runs `idle_fork_child` in its own
+/// process with the environment's `ASAN_OPTIONS` unchanged.
+#[test]
+fn a_fork_with_the_parent_idle_renders_in_the_child() {
+    let exe = std::env::current_exe().unwrap();
+    let mut child = std::process::Command::new(exe)
+        .args(["idle_fork_child", "--exact", "--ignored", "--nocapture"])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let started = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if started.elapsed() > scaled(Duration::from_secs(300)) {
+            let _ = child.kill();
+            panic!("the idle fork run itself hung");
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let mut out = String::new();
+    std::io::Read::read_to_string(&mut child.stdout.take().unwrap(), &mut out).unwrap();
+    assert!(status.success(), "{status:?}: {out}");
+    let line = out
+        .lines()
+        .find(|l| l.starts_with("IDLE-FORK "))
+        .unwrap_or_else(|| panic!("no result: {out}"));
+    println!("{line}");
+    assert!(
+        line.contains(" hung=0 ") && line.contains(" failed=[]"),
+        "{line}"
+    );
+}
