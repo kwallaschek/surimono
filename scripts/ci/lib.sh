@@ -123,3 +123,26 @@ asan_env() {
     echo "warning: no llvm-symbolizer found; ASan/LSan frames stay unsymbolized" >&2
   fi
 }
+
+# How native-gem.sh can try the gem it built for <platform> on a runner whose
+# RubyGems platform is <host> (E2-11). Prints one word:
+#   host    the runner's own platform: install and test it here;
+#   alpine  a musl gem of the runner's CPU: install and test it in Alpine's
+#           ruby image (musl), one container per Ruby version;
+#   none    another CPU or OS: content checks only.
+# RubyGems may name a glibc host x86_64-linux or x86_64-linux-gnu.
+gem_check_mode() {
+  local platform="$1" host="$2" base
+  case "$host" in
+    "$platform"|"$platform"-gnu) echo host; return 0 ;;
+  esac
+  case "$platform" in
+    *-linux-musl)
+      base="${platform%-musl}"
+      case "$host" in
+        "$base"|"$base"-gnu) echo alpine; return 0 ;;
+      esac
+      ;;
+  esac
+  echo none
+}

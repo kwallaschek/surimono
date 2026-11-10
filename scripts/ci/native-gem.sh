@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Cross-compiles a precompiled native gem with rb-sys-dock (full.yml, per platform).
-# Usage: scripts/ci/native-gem.sh <platform>   e.g. x86_64-linux, arm64-darwin
+# Usage: scripts/ci/native-gem.sh <platform>   e.g. x86_64-linux, arm64-darwin,
+#        x86_64-linux-musl
 #
 # rb-sys-dock mounts only the directory it is started in. The extension depends on
 # workspace crates outside bindings/ruby, so the gem is first staged into a
@@ -49,18 +50,40 @@ fi
 grep -qx 'THIRD_PARTY_LICENSES.txt' "$out/contents.txt" \
   || { echo "native gem has no THIRD_PARTY_LICENSES.txt" >&2; exit 1; }
 
-# Only a gem for this runner's own platform can be installed and run here, so
-# only that gem is installed, tested and checked for precompiled bytecode;
-# gems for other platforms get the content checks above and nothing more.
+# Only a gem the runner can load is installed, tested and checked for
+# precompiled bytecode: one for its own platform, here, and a musl gem for its
+# CPU, in Alpine's ruby image (gem_check_mode in lib.sh). Gems for other
+# platforms get the content checks above and nothing more.
 # gem:verify fails unless the gem has built-in renderers and
 # Surimono.precompiled_builtins equals their number: the cross-built library
 # carries bytecode its own engine accepts (SURIMONO_PRECOMPILE stays unset in
 # this job).
 host="$(ruby -e 'print Gem::Platform.local.to_s')"
-case "$host" in
-  "$platform"|"$platform"-gnu)
+case "$(gem_check_mode "$platform" "$host")" in
+  host)
     step "install $gem_file and run the tests (Ruby $(ruby -e 'print RUBY_VERSION'))"
     bundle exec rake "gem:verify[$gem_dir/$gem_file]"
+    ;;
+  alpine)
+    if ! command -v docker >/dev/null; then
+      # On GitHub a skip would turn the job green without having run the gem.
+      [ -z "${GITHUB_ACTIONS:-}" ] || { echo "docker is needed to test the $platform gem" >&2; exit 1; }
+      echo "no docker: $platform gem not installed or tested"
+      exit 0
+    fi
+    # The tag names the Alpine release, so a new one can't change the libc
+    # under the test unannounced. Bundler and rake come with Ruby there, so
+    # gem:verify's own code is loaded without the Rakefile and the build gems
+    # it needs. The repository is mounted at its own path, owned by the
+    # runner's user, so nothing in it ends up owned by root.
+    for v in ${rubies//,/ }; do
+      image="ruby:$v-alpine${ALPINE_VERSION:-3.23}"
+      step "install $gem_file and run the tests in $image"
+      docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+        -v "$REPO_ROOT:$REPO_ROOT" -w "$gem_dir" "$image" \
+        ruby -e 'require "bundler"; require "rake"; load "tasks/gem.rake"; SurimonoGem.verify_gem(ARGV[0])' \
+        "$gem_dir/$gem_file"
+    done
     ;;
   *) echo "host platform $host: $platform gem not installed, tested or checked for bytecode" ;;
 esac
