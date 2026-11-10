@@ -101,3 +101,71 @@ fn noscript_in_template_contents_is_escaped() {
         "{html}"
     );
 }
+
+/// What a printer builds from our output: blitz-html as fulgur uses it, which
+/// parses with scripting off. Each element's local name with its depth, and
+/// each text node's data, in tree order.
+fn printer_tree(html: &str) -> Vec<(usize, String)> {
+    let doc = blitz_html::HtmlDocument::from_html(html, blitz_dom::DocumentConfig::default());
+    let (mut out, mut stack) = (Vec::new(), vec![(0, 0)]);
+    while let Some((id, depth)) = stack.pop() {
+        let node = doc.get_node(id).unwrap_or_else(|| panic!("node {id}"));
+        match &node.data {
+            blitz_dom::NodeData::Element(e) => out.push((depth, e.name.local.to_string())),
+            blitz_dom::NodeData::Text(t) => out.push((depth, format!("#{}", t.content))),
+            _ => {}
+        }
+        stack.extend(node.children.iter().rev().map(|&c| (c, depth + 1)));
+    }
+    out
+}
+
+/// HTML §13.3 with §13.2.6.4.7: escaped `noscript` text in template contents is
+/// text to a printer whichever way it parses. With scripting off (blitz-html)
+/// the character references decode back to the same text; with it on, the
+/// element is raw text that holds no `</noscript`. Nothing a page or script put
+/// there becomes a `style`, a `script` or a deep tree in the printer's parse.
+#[test]
+fn noscript_in_template_contents_stays_text_to_a_printer() {
+    let deep = "<div>".repeat(500);
+    for text in [
+        "</template><style>@import 'http://[';</style>".to_owned(),
+        format!("</template>{deep}"),
+        "</noscript></template><script>alert(1)</script>".to_owned(),
+    ] {
+        // As a script wrote it, and as the page parsed it (scripting on: raw text,
+        // which `</noscript` ends).
+        let mut outputs = Vec::new();
+        if !text.contains("</noscript") {
+            let parsed =
+                format!("<!doctype html><body><template><noscript>{text}</noscript></template>");
+            outputs.push(Document::parse(&parsed).unwrap().to_html());
+        }
+        let mut rt = surimono_dom::DomRuntime::new(surimono_core::Limits::default()).unwrap();
+        rt.load(Document::parse("<!doctype html><body><template id=t></template>").unwrap());
+        let js = format!(
+            "const n = document.createElement('noscript'); n.textContent = '{}';\
+             document.getElementById('t').content.append(n); undefined",
+            text.replace('\\', "\\\\").replace('\'', "\\'")
+        );
+        let () = rt.eval(&js).unwrap();
+        outputs.push(rt.take().unwrap().to_html());
+        for html in outputs {
+            let tree = printer_tree(&html);
+            let at = tree
+                .iter()
+                .position(|(_, n)| n == "noscript")
+                .unwrap_or_else(|| panic!("{html}"));
+            let depth = tree[at].0;
+            assert_eq!(tree[at - 1], (depth - 1, "template".to_owned()), "{html}");
+            assert_eq!(tree[at + 1], (depth + 1, format!("#{text}")), "{html}");
+            let names: Vec<&str> = tree.iter().map(|(_, n)| n.as_str()).collect();
+            assert!(
+                !names
+                    .iter()
+                    .any(|n| matches!(*n, "style" | "script" | "div")),
+                "{html}"
+            );
+        }
+    }
+}
