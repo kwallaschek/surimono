@@ -5,31 +5,24 @@ adding or changing waits here until Kay copies it into `.github/workflows/` and
 pushes. Keep these files thin: all CI logic belongs in `scripts/ci.sh` and
 `scripts/ci/`.
 
-## Current proposal (copy all four files at once)
+## Current proposal: musl native gems (E2-11)
 
-Copy after the pull request that adds `scripts/ci/job-status.sh` and the
-`--from` mode of `scripts/ci/publish-results.sh` has merged: the new publish
-job runs the default branch's copy of that script.
+Copy `docs/ci/full.yml` to `.github/workflows/full.yml`. It is the only file
+that changes, and only on one line: the `native-gems` matrix adds
+`x86_64-linux-musl` and `aarch64-linux-musl` (rb-sys-dock images
+`rbsys/<platform>:0.9.130`; Rust targets `x86_64-unknown-linux-musl` and
+`aarch64-unknown-linux-musl`). The script side is already on main:
+`scripts/ci/native-gem.sh` builds them like the other platforms. On the x86_64
+runner it also installs the x86_64 musl gem and runs the gem's tests in Alpine's
+`ruby:<version>-alpine3.23` image for every Ruby from 3.2 to 4.0
+(`gem_check_mode` in `scripts/ci/lib.sh`). The aarch64 musl gem gets the same
+content checks as the aarch64 glibc gem. It costs two more Linux jobs a night
+and no macOS minutes. Copy it any time after the E2-11 pull request has merged.
+Before that, the jobs would run a native-gem.sh that can't test a musl gem.
 
-- **Token isolation.** Every workflow is `contents: read`. Build jobs write
-  `ci-out/job.json` (`job-status.sh`) and upload `ci-out/` as an artifact
-  named `ci-out-<job>[-<matrix>]`. A separate `publish` job (`needs:` all of
-  them, `if: always()`) is the only one with `contents: write`: it checks out
-  the default branch without persisted credentials, downloads the artifacts
-  and runs `publish-results.sh --from results`. No code under test runs in a
-  job that holds the write token. The script also runs git with hooks and
-  fsmonitor off and passes the token in `GIT_CONFIG_*` variables.
-- **macOS:** `macos-15` replaces `macos-14` in full.yml (GitHub retires the
-  macos-14 image on 2 November 2026).
-- **bench.yml:** installs bench/rust's toolchain, then caches both
-  workspaces (`. -> target` and `bench/rust -> ../../target/bench-rust`; the
-  target path is relative to the workspace), so fulgur's dependencies stop
-  rebuilding on every run.
-- New action pin: `actions/download-artifact` v5.0.0
-  (634f93cb2916e3fdff6788551b99b062d0335ce0, from `git ls-remote`).
-- ci.yml's `publish` skips fork pull requests (their token is read-only).
-- Lint: `actionlint -shellcheck= docs/ci/*.yml` (1.7.12) is clean.
+## Adopted
 
-One pull request after the copy, the old in-job mode
-(`publish-results.sh <status>`, which runs where code under test ran with
-the token) is removed from the script.
+- 5 Nov 2026: token isolation (a `publish` job, the only one with
+  `contents: write`), `macos-15`, the bench.yml caches and the
+  `actions/download-artifact` v5.0.0 pin. All four files under `docs/ci/`
+  matched `.github/workflows/` after that, until the proposal above.
