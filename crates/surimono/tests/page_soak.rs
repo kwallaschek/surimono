@@ -4,6 +4,22 @@
 //! bytes through a counting global allocator, which sees QuickJS and blitz-dom
 //! too; resident memory is printed only.
 //!
+//! What is measured is the live heap once the renderer is quiet: every page
+//! worker and island worker has gone idle and freed its runtime, which each
+//! does after 2 s without work (`page.rs` `RELEASE_IDLE_AFTER`,
+//! `RunnerOptions::DEFAULT_RELEASE_IDLE_AFTER`). Right after a round the heap
+//! depends on timing, not on how many pages ran (P2-PKG-04): a page worker
+//! holds its last page's script state until its next page starts, one that
+//! failed holds none, an island worker may still be resetting, and a round
+//! with a page that runs to its time limit leaves the other workers idle long
+//! enough to free theirs. Under ASan that put samples 0.64 MB apart from one
+//! round to the next with nothing growing. Those numbers are printed, not
+//! compared. A quiet renderer has freed its runtimes, so state kept from page
+//! to page inside a page worker's `DomRuntime` wouldn't show; there is little:
+//! each page starts a fresh script runtime, and a failed page frees the whole
+//! `DomRuntime` (here every 50 renders, so the old samples didn't see it
+//! either).
+//!
 //! The 10,000-render soak is `#[ignore]`d and runs in release with the other
 //! soaks (`scripts/ci/soak.sh`: `--ignored soak`); a 300-render version runs
 //! with the ordinary tests.
@@ -12,7 +28,7 @@ use std::alloc::System;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
 use surimono::{Error, Limits, Options, Renderer, ResourceLoader};
@@ -143,9 +159,42 @@ fn rss_kib() -> u64 {
         .unwrap_or(0)
 }
 
+/// How long a worker waits without work before it frees its runtime: the
+/// page pool's and the island runner's default, both 2 s.
+const RELEASE_IDLE_AFTER: Duration = Duration::from_secs(2);
+
+/// Live heap bytes once every worker has freed its runtime: after the idle
+/// release time with some margin, then when two readings 200 ms apart agree.
+fn quiet_live_bytes() -> i64 {
+    let started = Instant::now();
+    std::thread::sleep(RELEASE_IDLE_AFTER + Duration::from_millis(500));
+    let mut last = live_bytes();
+    loop {
+        std::thread::sleep(Duration::from_millis(200));
+        let now = live_bytes();
+        if now == last {
+            return now;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(60),
+            "the renderer never went quiet: live heap {last} then {now} bytes"
+        );
+        last = now;
+    }
+}
+
+struct Sample {
+    round: usize,
+    /// Right after the round; depends on timing, printed only.
+    busy: i64,
+    /// Once quiet: the signal.
+    quiet: i64,
+    rss_kib: u64,
+}
+
 fn run_soak(name: &str, rounds: usize, sample_every: usize, warm_up: usize) {
     let r = Arc::new(renderer());
-    let started = std::time::Instant::now();
+    let started = Instant::now();
     let mut samples = Vec::new();
     for round in 0..rounds {
         let callers: Vec<_> = (0..CALLERS)
@@ -160,27 +209,37 @@ fn run_soak(name: &str, rounds: usize, sample_every: usize, warm_up: usize) {
             }
         }
         if (round + 1) % sample_every == 0 {
-            samples.push((round + 1, live_bytes(), rss_kib()));
+            let busy = live_bytes();
+            let quiet = quiet_live_bytes();
+            samples.push(Sample {
+                round: round + 1,
+                busy,
+                quiet,
+                rss_kib: rss_kib(),
+            });
         }
     }
     let renders = rounds * CALLERS;
     eprintln!("{name}: {renders} renders in {:?}", started.elapsed());
-    for (n, live, rss) in &samples {
-        eprintln!("{name}: after round {n:>5}  live heap {live:>10} bytes  resident {rss:>8} KiB");
+    for s in &samples {
+        eprintln!(
+            "{name}: after round {:>5}  live heap {:>10} bytes, quiet {:>10}  resident {:>8} KiB",
+            s.round, s.busy, s.quiet, s.rss_kib
+        );
     }
     let warm = samples
         .iter()
-        .find(|s| s.0 == warm_up)
-        .map_or_else(|| panic!("no sample at {warm_up}"), |s| s.1);
+        .find(|s| s.round == warm_up)
+        .map_or_else(|| panic!("no sample at {warm_up}"), |s| s.quiet);
     let highest = samples
         .iter()
-        .filter(|s| s.0 >= warm_up)
-        .map(|s| s.1)
+        .filter(|s| s.round >= warm_up)
+        .map(|s| s.quiet)
         .max()
         .unwrap_or(warm);
-    let end = samples.last().map_or(warm, |s| s.1);
+    let end = samples.last().map_or(warm, |s| s.quiet);
     eprintln!(
-        "{name}: live heap from round {warm_up}: {warm} -> {end} bytes ({:+}, highest {highest}), limit +{MAX_LIVE_GROWTH}",
+        "{name}: quiet live heap from round {warm_up}: {warm} -> {end} bytes ({:+}, highest {highest}), limit +{MAX_LIVE_GROWTH}",
         end - warm
     );
     assert!(
