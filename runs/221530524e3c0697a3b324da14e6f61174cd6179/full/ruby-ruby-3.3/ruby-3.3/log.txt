@@ -31,22 +31,20 @@ cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/e
 [1m[32m   Compiling[0m syn v2.0.119
 [1m[32m   Compiling[0m phf_generator v0.11.3
 [1m[32m   Compiling[0m cfg-if v1.0.5
-[1m[32m   Compiling[0m version_check v0.9.5
 [1m[32m   Compiling[0m writeable v0.6.4
-[1m[32m   Compiling[0m generic-array v0.14.7
+[1m[32m   Compiling[0m version_check v0.9.5
 [1m[32m   Compiling[0m parking_lot_core v0.9.12
+[1m[32m   Compiling[0m generic-array v0.14.7
 [1m[32m   Compiling[0m litemap v0.8.3
+[1m[32m   Compiling[0m synstructure v0.14.0
 [1m[32m   Compiling[0m new_debug_unreachable v1.0.6
 [1m[32m   Compiling[0m scopeguard v1.2.0
 [1m[32m   Compiling[0m lock_api v0.4.14
-[1m[32m   Compiling[0m synstructure v0.14.0
 [1m[32m   Compiling[0m phf_codegen v0.11.3
 [1m[32m   Compiling[0m parking_lot v0.12.5
-[1m[32m   Compiling[0m allocator-api2 v0.2.21
 [1m[32m   Compiling[0m equivalent v1.0.3
 [1m[32m   Compiling[0m precomputed-hash v0.1.1
-[1m[32m   Compiling[0m bitflags v2.13.2
-[1m[32m   Compiling[0m utf_types v1.0.0
+[1m[32m   Compiling[0m allocator-api2 v0.2.21
 [1m[32m   Compiling[0m zerofrom-derive v0.1.8
 [1m[32m   Compiling[0m serde_derive v1.0.229
 [1m[32m   Compiling[0m yoke-derive v0.8.4
@@ -54,22 +52,24 @@ cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/e
 [1m[32m   Compiling[0m zerovec-derive v0.11.7
 [1m[32m   Compiling[0m yoke v0.8.4
 [1m[32m   Compiling[0m displaydoc v0.2.7
-[1m[32m   Compiling[0m bytemuck_derive v1.12.1
 [1m[32m   Compiling[0m phf_macros v0.11.3
+[1m[32m   Compiling[0m bytemuck_derive v1.12.1
 [1m[32m   Compiling[0m zerovec v0.11.9
 [1m[32m   Compiling[0m phf v0.11.3
-[1m[32m   Compiling[0m shlex v2.0.1
-[1m[32m   Compiling[0m libm v0.2.16
-[1m[32m   Compiling[0m itoa v1.0.18
-[1m[32m   Compiling[0m bytemuck v1.25.2
-[1m[32m   Compiling[0m tinystr v0.8.5
+[1m[32m   Compiling[0m bitflags v2.13.2
 [1m[32m   Compiling[0m find-msvc-tools v0.1.15
+[1m[32m   Compiling[0m libm v0.2.16
+[1m[32m   Compiling[0m tinystr v0.8.5
+[1m[32m   Compiling[0m bytemuck v1.25.2
+[1m[32m   Compiling[0m itoa v1.0.18
 [1m[32m   Compiling[0m icu_locale_core v2.2.0
+[1m[32m   Compiling[0m utf_types v1.0.0
+[1m[32m   Compiling[0m shlex v2.0.1
 [1m[32m   Compiling[0m cc v1.10.0
-[1m[32m   Compiling[0m potential_utf v0.1.6
-[1m[32m   Compiling[0m zerotrie v0.2.5
-[1m[32m   Compiling[0m string_cache v0.8.9
 [1m[32m   Compiling[0m utf8_iter v1.1.0
+[1m[32m   Compiling[0m potential_utf v0.1.6
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m zerotrie v0.2.5
 [1m[32m   Compiling[0m string_cache_codegen v0.5.4
 [1m[32m   Compiling[0m fnv v1.0.7
 [1m[32m   Compiling[0m autocfg v1.5.1
@@ -83,98 +83,98 @@ cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/e
 [1m[32m   Compiling[0m synstructure v0.13.2
 [1m[32m   Compiling[0m darling_macro v0.20.11
 [1m[32m   Compiling[0m core_maths v0.1.1
-[1m[32m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m log v0.4.34
 [1m[32m   Compiling[0m thiserror v2.0.21
+[1m[32m   Compiling[0m icu_properties_data v2.2.0
 [1m[32m   Compiling[0m lazy_static v1.5.1
 [1m[32m   Compiling[0m dtoa v1.0.11
-[1m[32m   Compiling[0m foldhash v0.2.0
-[1m[32m   Compiling[0m icu_properties_data v2.2.0
-[1m[32m   Compiling[0m log v0.4.34
+[1m[32m   Compiling[0m icu_normalizer_data v2.2.0
 [1m[32m   Compiling[0m dtoa-short v0.3.5
-[1m[32m   Compiling[0m cssparser-macros v0.6.1
 [1m[32m   Compiling[0m darling v0.20.11
-[1m[32m   Compiling[0m crypto-common v0.1.7
+[1m[32m   Compiling[0m cssparser-macros v0.6.1
 [1m[32m   Compiling[0m block-buffer v0.10.4
+[1m[32m   Compiling[0m crypto-common v0.1.7
 [1m[32m   Compiling[0m servo_arc v0.4.3
-[1m[32m   Compiling[0m cssparser v0.35.0
 [1m[32m   Compiling[0m derive_more-impl v2.1.1
+[1m[32m   Compiling[0m cssparser v0.35.0
 [1m[32m   Compiling[0m thiserror-impl v2.0.21
 [1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m smallbitvec v2.6.1
+[1m[32m   Compiling[0m memchr v2.8.3
 [1m[32m   Compiling[0m crossbeam-utils v0.8.23
 [1m[32m   Compiling[0m thin-vec v0.2.21
-[1m[32m   Compiling[0m memchr v2.8.3
-[1m[32m   Compiling[0m smallbitvec v2.6.1
 [1m[32m   Compiling[0m to_shmem v0.2.0
 [1m[32m   Compiling[0m digest v0.10.7
-[1m[32m   Compiling[0m icu_normalizer v2.2.0
 [1m[32m   Compiling[0m icu_properties v2.2.0
+[1m[32m   Compiling[0m icu_normalizer v2.2.0
 [1m[32m   Compiling[0m to_shmem_derive v0.1.0
 [1m[32m   Compiling[0m derive_more v2.1.1
 [1m[32m   Compiling[0m hashbrown v0.17.1
 [1m[32m   Compiling[0m web_atoms v0.1.3
 [1m[32m   Compiling[0m font-types v0.10.1
-[1m[32m   Compiling[0m crossbeam-epoch v0.9.21
-[1m[32m   Compiling[0m cpufeatures v0.2.17
 [1m[32m   Compiling[0m glob v0.3.4
 [1m[32m   Compiling[0m rustc-hash v2.1.3
-[1m[32m   Compiling[0m idna_adapter v1.2.2
+[1m[32m   Compiling[0m cpufeatures v0.2.17
+[1m[32m   Compiling[0m crossbeam-epoch v0.9.21
 [1m[32m   Compiling[0m sha2 v0.10.9
 [1m[32m   Compiling[0m clang-sys v1.9.1
 [1m[32m   Compiling[0m read-fonts v0.35.0
+[1m[32m   Compiling[0m idna_adapter v1.2.2
 [1m[32m   Compiling[0m font-types v0.12.7
-[1m[32m   Compiling[0m percent-encoding v2.3.2
-[1m[32m   Compiling[0m once_cell v1.21.4
 [1m[32m   Compiling[0m crossbeam-deque v0.8.8
+[1m[32m   Compiling[0m percent-encoding v2.3.2
 [1m[32m   Compiling[0m rayon-core v1.13.0
+[1m[32m   Compiling[0m once_cell v1.21.4
 [1m[32m   Compiling[0m icu_locale_data v2.2.0
 [1m[32m   Compiling[0m read-fonts v0.41.0
 [1m[32m   Compiling[0m form_urlencoded v1.2.2
-[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
 [1m[32m   Compiling[0m idna v1.1.0
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
 [1m[32m   Compiling[0m aho-corasick v1.1.5
-[1m[32m   Compiling[0m euclid v0.22.14
 [1m[32m   Compiling[0m app_units v0.7.8
+[1m[32m   Compiling[0m euclid v0.22.14
 [1m[32m   Compiling[0m stylo_atoms v0.8.0
-[1m[32m   Compiling[0m minimal-lexical v0.2.1
-[1m[32m   Compiling[0m regex-syntax v0.8.11
-[1m[32m   Compiling[0m same-file v1.0.6
-[1m[32m   Compiling[0m mac v0.1.1
-[1m[32m   Compiling[0m foldhash v0.1.5
 [1m[32m   Compiling[0m void v1.0.2
+[1m[32m   Compiling[0m minimal-lexical v0.2.1
+[1m[32m   Compiling[0m mac v0.1.1
+[1m[32m   Compiling[0m same-file v1.0.6
+[1m[32m   Compiling[0m regex-syntax v0.8.11
 [1m[32m   Compiling[0m icu_segmenter_data v2.2.0
-[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m foldhash v0.1.5
 [1m[32m   Compiling[0m hashbrown v0.15.5
-[1m[32m   Compiling[0m futf v0.1.5
 [1m[32m   Compiling[0m walkdir v2.5.0
 [1m[32m   Compiling[0m nom v7.1.3
 [1m[32m   Compiling[0m regex-automata v0.4.18
+[1m[32m   Compiling[0m futf v0.1.5
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
 [1m[32m   Compiling[0m url v2.5.8
 [1m[32m   Compiling[0m skrifa v0.44.0
 [1m[32m   Compiling[0m libloading v0.8.9
 [1m[32m   Compiling[0m memmap2 v0.9.12
+[1m[32m   Compiling[0m linebender_resource_handle v0.1.1
 [1m[32m   Compiling[0m either v1.19.0
 [1m[32m   Compiling[0m utf-8 v0.7.6
-[1m[32m   Compiling[0m bindgen v0.72.1
-[1m[32m   Compiling[0m linebender_resource_handle v0.1.1
 [1m[32m   Compiling[0m arrayvec v0.7.8
-[1m[32m   Compiling[0m stylo v0.8.0
-[1m[32m   Compiling[0m fontique v0.6.0
-[1m[32m   Compiling[0m tendril v0.4.3
+[1m[32m   Compiling[0m bindgen v0.72.1
 [1m[32m   Compiling[0m itertools v0.13.0
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m tendril v0.4.3
+[1m[32m   Compiling[0m fontique v0.6.0
 [1m[32m   Compiling[0m swash v0.2.10
 [1m[32m   Compiling[0m icu_locale v2.2.0
 [1m[32m   Compiling[0m regex v1.13.1
 [1m[32m   Compiling[0m cexpr v0.6.0
-[1m[32m   Compiling[0m skrifa v0.37.0
 [1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m skrifa v0.37.0
 [1m[32m   Compiling[0m malloc_size_of_derive v0.1.3
 [1m[32m   Compiling[0m encoding_rs v0.8.35
-[1m[32m   Compiling[0m mime v0.3.17
 [1m[32m   Compiling[0m shlex v1.3.0
+[1m[32m   Compiling[0m mime v0.3.17
 [1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m parley v0.6.0
 [1m[32m   Compiling[0m stylo_traits v0.8.0
 [1m[32m   Compiling[0m icu_segmenter v2.2.0
-[1m[32m   Compiling[0m parley v0.6.0
 [1m[32m   Compiling[0m rayon v1.12.0
 [1m[32m   Compiling[0m markup5ever v0.35.0
 [1m[32m   Compiling[0m uluru v3.1.0
@@ -185,36 +185,36 @@ cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/e
 [1m[32m   Compiling[0m stylo_derive v0.8.0
 [1m[32m   Compiling[0m num-derive v0.4.2
 [1m[32m   Compiling[0m num_cpus v1.17.0
-[1m[32m   Compiling[0m byteorder v1.5.0
-[1m[32m   Compiling[0m bytes v1.12.1
-[1m[32m   Compiling[0m atomic_refcell v0.1.14
-[1m[32m   Compiling[0m matches v0.1.10
-[1m[32m   Compiling[0m grid v1.0.1
-[1m[32m   Compiling[0m unicode-segmentation v1.13.3
 [1m[32m   Compiling[0m static_assertions v1.1.0
 [1m[32m   Compiling[0m stylo_static_prefs v0.8.0
 [1m[32m   Compiling[0m shell-words v1.1.1
+[1m[32m   Compiling[0m atomic_refcell v0.1.14
 [1m[32m   Compiling[0m stylo_config v0.8.0
-[1m[32m   Compiling[0m keyboard-types v0.7.0
-[1m[32m   Compiling[0m rb-sys-build v0.9.130
+[1m[32m   Compiling[0m matches v0.1.10
+[1m[32m   Compiling[0m bytes v1.12.1
+[1m[32m   Compiling[0m byteorder v1.5.0
+[1m[32m   Compiling[0m grid v1.0.1
+[1m[32m   Compiling[0m unicode-segmentation v1.13.3
 [1m[32m   Compiling[0m http v1.5.0
+[1m[32m   Compiling[0m keyboard-types v0.7.0
 [1m[32m   Compiling[0m taffy v0.9.2
+[1m[32m   Compiling[0m rb-sys-build v0.9.130
 [1m[32m   Compiling[0m rquickjs v0.14.0
-[1m[32m   Compiling[0m cursor-icon v1.2.0
-[1m[32m   Compiling[0m byteorder-lite v0.1.0
-[1m[32m   Compiling[0m zmij v1.0.23
-[1m[32m   Compiling[0m rb-sys-env v0.2.3
 [1m[32m   Compiling[0m smol_str v0.2.2
-[1m[32m   Compiling[0m blitz-traits v0.2.0
+[1m[32m   Compiling[0m rb-sys-env v0.2.3
+[1m[32m   Compiling[0m byteorder-lite v0.1.0
+[1m[32m   Compiling[0m cursor-icon v1.2.0
+[1m[32m   Compiling[0m zmij v1.0.23
 [1m[32m   Compiling[0m image v0.25.6
+[1m[32m   Compiling[0m blitz-traits v0.2.0
 [1m[32m   Compiling[0m rb-sys v0.9.130
 [1m[32m   Compiling[0m match_token v0.35.0
-[1m[32m   Compiling[0m debug_timer v0.1.3
+[1m[32m   Compiling[0m color v0.3.3
+[1m[32m   Compiling[0m fastrand v2.5.0
 [1m[32m   Compiling[0m serde_json v1.0.154
 [1m[32m   Compiling[0m html-escape v0.2.15
-[1m[32m   Compiling[0m color v0.3.3
+[1m[32m   Compiling[0m debug_timer v0.1.3
 [1m[32m   Compiling[0m slab v0.4.12
-[1m[32m   Compiling[0m fastrand v2.5.0
 [1m[32m   Compiling[0m html5ever v0.35.0
 [1m[32m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
 [1m[32m   Compiling[0m roxmltree v0.21.2
@@ -232,7 +232,7 @@ cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/e
 [1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
 [1m[32m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
 [1m[32m   Compiling[0m surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/ext/surimono)
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 2m 48s
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 2m 15s
 (cd tmp/x86_64-linux/surimono/3.3.13 && /usr/bin/gmake install sitearchdir=../../../../lib/surimono sitelibdir=../../../../lib/surimono target_prefix=)
 cd -
 mkdir -p tmp/x86_64-linux/stage/lib/surimono
@@ -246,23 +246,23 @@ cp lib/surimono.rb tmp/x86_64-linux/stage/lib/surimono.rb
 cp lib/surimono/version.rb tmp/x86_64-linux/stage/lib/surimono/version.rb
 generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
 cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/ext/surimono/Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.3.13/x64/lib -C link-arg=-lm -l pthread
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.12s
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.09s
 installing surimono.so to ../../../../lib/surimono
 /usr/bin/install -c -m 0755 surimono.so ../../../../lib/surimono
 cp tmp/x86_64-linux/surimono/3.3.13/surimono.so tmp/x86_64-linux/stage/lib/surimono/surimono.so
-/tmp/d20261108-5810-be1f79/lib/surimono/version.rb:4: warning: already initialized constant Surimono::VERSION
-/home/runner/work/surimono/surimono/bindings/ruby/lib/surimono/version.rb:4: warning: previous definition of VERSION was here
-Run options: --seed 55364
+Run options: --seed 43983
 
 # Running:
 
-.........
+.................................................
 thread '<unnamed>' panicked at bindings/ruby/ext/surimono/src/lib.rs:324:9:
 deliberate panic from Surimono._internal_panic_check
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-..............................................
+...../tmp/d20261110-5605-etukux/lib/surimono/version.rb:4: warning: already initialized constant Surimono::VERSION
+/home/runner/work/surimono/surimono/bindings/ruby/lib/surimono/version.rb:4: warning: previous definition of VERSION was here
+.
 
-Finished in 8.914335s, 6.1698 runs/s, 42.1793 assertions/s.
+Finished in 8.187919s, 6.7172 runs/s, 45.9213 assertions/s.
 
 55 runs, 376 assertions, 0 failures, 0 errors, 0 skips
 
@@ -278,7 +278,7 @@ Finished in 8.914335s, 6.1698 runs/s, 42.1793 assertions/s.
 [1m[32m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
 [1m[32m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
 [1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
-[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 35.92s
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 29.41s
 [1m[32m     Running[0m unittests src/bin/page.rs (target/debug/deps/page-13fb7d53b0a5bdcd)
 
 running 0 tests
@@ -294,55 +294,55 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 [1m[32m     Running[0m tests/example.rs (target/debug/deps/example-31245a00725bdde6)
 
 running 4 tests
-test a_broken_island_names_itself ... ok
 test writes_to_a_file_when_asked ... ok
+test a_broken_island_names_itself ... ok
 test renders_every_island_and_keeps_the_rest ... ok
 test same_input_same_output_across_processes ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
 [1m[32m     Running[0m tests/page.rs (target/debug/deps/page-1f8e45173f8e4bb6)
 
 running 5 tests
-test an_exception_goes_in_the_report_and_the_page_goes_on ... ok
 test a_file_off_the_list_goes_in_the_report ... ok
+test an_exception_goes_in_the_report_and_the_page_goes_on ... ok
 test the_page_ran_and_its_files_are_inlined ... ok
 test the_output_is_the_same_every_time ... ok
 test a_limit_fails_the_render ... ok
 
-test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.09s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s
 
 ==> example: rails-snippet
-Run options: --seed 52497
+Run options: --seed 24101
 
 # Running:
 
-....S..
+S......
 
-Finished in 0.205074s, 34.1341 runs/s, 121.9075 assertions/s.
+Finished in 0.160943s, 43.4937 runs/s, 155.3345 assertions/s.
 
 7 runs, 25 assertions, 0 failures, 0 errors, 1 skips
 
 You have skipped tests. Run with --verbose for details.
-Run options: --seed 17967
+Run options: --seed 21548
 
 # Running:
 
-.S......
+.......S
 
-Finished in 2.434153s, 3.2866 runs/s, 12.7354 assertions/s.
+Finished in 2.380365s, 3.3608 runs/s, 13.0232 assertions/s.
 
 8 runs, 31 assertions, 0 failures, 0 errors, 1 skips
 
 You have skipped tests. Run with --verbose for details.
 ==> example: the checkpoint-3 script on a page of ours
-rendered in 80 ms, 22307 bytes
+rendered in 62 ms, 22307 bytes
 settled: idle
 uncaught exceptions: 0
 unhandled rejections: 0
 not loaded: 0
 layout queries: none
-wrote /tmp/tmp.Gg2Ask5vGD/try.out.html
+wrote /tmp/tmp.vQZwQduZUR/try.out.html
 no fulgur gem, so no PDF
 ==> example: the same report through Rust and Ruby gives the same bytes
 ==> example: the same page through Rust and Ruby gives the same bytes
@@ -386,12 +386,12 @@ GET https://index.rubygems.org/info/rake-compiler-dock
 GET https://index.rubygems.org/quick/Marshal.4.8/rake-compiler-dock-1.12.0.gemspec.rz
 200 OK
 GET https://index.rubygems.org/quick/Marshal.4.8/rb_sys-0.9.130.gemspec.rz
-200 OK
-Downloading gem rb_sys-0.9.130.gem
-GET https://index.rubygems.org/gems/rb_sys-0.9.130.gem
 Downloading gem rake-compiler-dock-1.12.0.gem
 200 OK
 GET https://index.rubygems.org/gems/rake-compiler-dock-1.12.0.gem
+Downloading gem rb_sys-0.9.130.gem
+200 OK
+GET https://index.rubygems.org/gems/rb_sys-0.9.130.gem
 200 OK
 /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.dockerignore
 /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/rake-compiler-dock-1.12.0/.github/workflows/ci.yml
@@ -776,38 +776,39 @@ checking for cargo... yes
 checking for install_name_tool... no
 checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-["make", "DESTDIR=", "sitearchdir=./.gem.20261108-6864-a24y5q", "sitelibdir=./.gem.20261108-6864-a24y5q", "clean"]
+["make", "DESTDIR=", "sitearchdir=./.gem.20261110-6631-k4vrsv", "sitelibdir=./.gem.20261110-6631-k4vrsv", "clean"]
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-["make", "DESTDIR=", "sitearchdir=./.gem.20261108-6864-a24y5q", "sitelibdir=./.gem.20261108-6864-a24y5q"]
+["make", "DESTDIR=", "sitearchdir=./.gem.20261110-6631-k4vrsv", "sitelibdir=./.gem.20261110-6631-k4vrsv"]
 generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
 cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.3.13/x64/lib -C link-arg=-lm -l pthread
 [1m[32m   Compiling[0m proc-macro2 v1.0.107
-[1m[32m   Compiling[0m quote v1.0.47
 [1m[32m   Compiling[0m unicode-ident v1.0.27
+[1m[32m   Compiling[0m quote v1.0.47
 [1m[32m   Compiling[0m libc v0.2.191
 [1m[32m   Compiling[0m serde_core v1.0.229
 [1m[32m   Compiling[0m stable_deref_trait v1.2.1
 [1m[32m   Compiling[0m smallvec v1.16.4
-[1m[32m   Compiling[0m rand_core v0.6.4
 [1m[32m   Compiling[0m siphasher v1.0.4
-[1m[32m   Compiling[0m rand v0.8.8
+[1m[32m   Compiling[0m rand_core v0.6.4
 [1m[32m   Compiling[0m phf_shared v0.11.3
+[1m[32m   Compiling[0m rand v0.8.8
+[1m[32m   Compiling[0m serde v1.0.229
 [1m[32m   Compiling[0m syn v3.0.9
 [1m[32m   Compiling[0m syn v2.0.119
-[1m[32m   Compiling[0m serde v1.0.229
 [1m[32m   Compiling[0m phf_generator v0.11.3
 [1m[32m   Compiling[0m cfg-if v1.0.5
-[1m[32m   Compiling[0m writeable v0.6.4
 [1m[32m   Compiling[0m version_check v0.9.5
+[1m[32m   Compiling[0m writeable v0.6.4
 [1m[32m   Compiling[0m generic-array v0.14.7
 [1m[32m   Compiling[0m parking_lot_core v0.9.12
-[1m[32m   Compiling[0m synstructure v0.14.0
 [1m[32m   Compiling[0m litemap v0.8.3
+[1m[32m   Compiling[0m synstructure v0.14.0
 [1m[32m   Compiling[0m scopeguard v1.2.0
 [1m[32m   Compiling[0m new_debug_unreachable v1.0.6
 [1m[32m   Compiling[0m lock_api v0.4.14
 [1m[32m   Compiling[0m phf_codegen v0.11.3
 [1m[32m   Compiling[0m parking_lot v0.12.5
+[1m[32m   Compiling[0m precomputed-hash v0.1.1
 [1m[32m   Compiling[0m allocator-api2 v0.2.21
 [1m[32m   Compiling[0m zerofrom-derive v0.1.8
 [1m[32m   Compiling[0m serde_derive v1.0.229
@@ -819,82 +820,81 @@ cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimon
 [1m[32m   Compiling[0m phf_macros v0.11.3
 [1m[32m   Compiling[0m bytemuck_derive v1.12.1
 [1m[32m   Compiling[0m zerovec v0.11.9
-[1m[32m   Compiling[0m precomputed-hash v0.1.1
 [1m[32m   Compiling[0m equivalent v1.0.3
 [1m[32m   Compiling[0m phf v0.11.3
 [1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m itoa v1.0.18
 [1m[32m   Compiling[0m libm v0.2.16
 [1m[32m   Compiling[0m tinystr v0.8.5
-[1m[32m   Compiling[0m itoa v1.0.18
 [1m[32m   Compiling[0m bytemuck v1.25.2
 [1m[32m   Compiling[0m icu_locale_core v2.2.0
+[1m[32m   Compiling[0m shlex v2.0.1
 [1m[32m   Compiling[0m find-msvc-tools v0.1.15
 [1m[32m   Compiling[0m utf_types v1.0.0
-[1m[32m   Compiling[0m shlex v2.0.1
 [1m[32m   Compiling[0m cc v1.10.0
 [1m[32m   Compiling[0m utf8_iter v1.1.0
-[1m[32m   Compiling[0m potential_utf v0.1.6
 [1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m potential_utf v0.1.6
 [1m[32m   Compiling[0m zerotrie v0.2.5
 [1m[32m   Compiling[0m string_cache_codegen v0.5.4
-[1m[32m   Compiling[0m ident_case v1.0.1
 [1m[32m   Compiling[0m fnv v1.0.7
+[1m[32m   Compiling[0m ident_case v1.0.1
 [1m[32m   Compiling[0m autocfg v1.5.1
 [1m[32m   Compiling[0m num-traits v0.2.19
 [1m[32m   Compiling[0m darling_core v0.20.11
-[1m[32m   Compiling[0m icu_provider v2.2.0
 [1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m icu_provider v2.2.0
 [1m[32m   Compiling[0m icu_collections v2.2.0
 [1m[32m   Compiling[0m typenum v1.20.1
 [1m[32m   Compiling[0m synstructure v0.13.2
 [1m[32m   Compiling[0m core_maths v0.1.1
-[1m[32m   Compiling[0m lazy_static v1.5.1
+[1m[32m   Compiling[0m darling_macro v0.20.11
 [1m[32m   Compiling[0m icu_normalizer_data v2.2.0
-[1m[32m   Compiling[0m icu_properties_data v2.2.0
 [1m[32m   Compiling[0m thiserror v2.0.21
-[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m icu_properties_data v2.2.0
 [1m[32m   Compiling[0m dtoa v1.0.11
 [1m[32m   Compiling[0m log v0.4.34
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m lazy_static v1.5.1
 [1m[32m   Compiling[0m dtoa-short v0.3.5
-[1m[32m   Compiling[0m darling_macro v0.20.11
 [1m[32m   Compiling[0m cssparser-macros v0.6.1
 [1m[32m   Compiling[0m darling v0.20.11
-[1m[32m   Compiling[0m cssparser v0.35.0
 [1m[32m   Compiling[0m crypto-common v0.1.7
 [1m[32m   Compiling[0m block-buffer v0.10.4
 [1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m cssparser v0.35.0
 [1m[32m   Compiling[0m derive_more-impl v2.1.1
 [1m[32m   Compiling[0m thiserror-impl v2.0.21
 [1m[32m   Compiling[0m selectors v0.32.0
-[1m[32m   Compiling[0m thin-vec v0.2.21
-[1m[32m   Compiling[0m memchr v2.8.3
 [1m[32m   Compiling[0m crossbeam-utils v0.8.23
 [1m[32m   Compiling[0m smallbitvec v2.6.1
+[1m[32m   Compiling[0m thin-vec v0.2.21
+[1m[32m   Compiling[0m memchr v2.8.3
 [1m[32m   Compiling[0m to_shmem v0.2.0
 [1m[32m   Compiling[0m digest v0.10.7
 [1m[32m   Compiling[0m icu_properties v2.2.0
 [1m[32m   Compiling[0m icu_normalizer v2.2.0
 [1m[32m   Compiling[0m to_shmem_derive v0.1.0
-[1m[32m   Compiling[0m hashbrown v0.17.1
 [1m[32m   Compiling[0m derive_more v2.1.1
+[1m[32m   Compiling[0m hashbrown v0.17.1
 [1m[32m   Compiling[0m web_atoms v0.1.3
 [1m[32m   Compiling[0m font-types v0.10.1
-[1m[32m   Compiling[0m glob v0.3.4
-[1m[32m   Compiling[0m cpufeatures v0.2.17
-[1m[32m   Compiling[0m rustc-hash v2.1.3
 [1m[32m   Compiling[0m crossbeam-epoch v0.9.21
+[1m[32m   Compiling[0m rustc-hash v2.1.3
+[1m[32m   Compiling[0m cpufeatures v0.2.17
+[1m[32m   Compiling[0m glob v0.3.4
 [1m[32m   Compiling[0m sha2 v0.10.9
 [1m[32m   Compiling[0m clang-sys v1.9.1
 [1m[32m   Compiling[0m read-fonts v0.35.0
 [1m[32m   Compiling[0m idna_adapter v1.2.2
 [1m[32m   Compiling[0m font-types v0.12.7
-[1m[32m   Compiling[0m rayon-core v1.13.0
-[1m[32m   Compiling[0m percent-encoding v2.3.2
-[1m[32m   Compiling[0m crossbeam-deque v0.8.8
 [1m[32m   Compiling[0m icu_locale_data v2.2.0
+[1m[32m   Compiling[0m rayon-core v1.13.0
+[1m[32m   Compiling[0m crossbeam-deque v0.8.8
+[1m[32m   Compiling[0m percent-encoding v2.3.2
 [1m[32m   Compiling[0m once_cell v1.21.4
-[1m[32m   Compiling[0m form_urlencoded v1.2.2
 [1m[32m   Compiling[0m read-fonts v0.41.0
+[1m[32m   Compiling[0m form_urlencoded v1.2.2
 [1m[32m   Compiling[0m idna v1.1.0
 [1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/crates/core)
 [1m[32m   Compiling[0m aho-corasick v1.1.5
@@ -902,31 +902,31 @@ cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimon
 [1m[32m   Compiling[0m euclid v0.22.14
 [1m[32m   Compiling[0m stylo_atoms v0.8.0
 [1m[32m   Compiling[0m regex-syntax v0.8.11
-[1m[32m   Compiling[0m icu_segmenter_data v2.2.0
-[1m[32m   Compiling[0m mac v0.1.1
 [1m[32m   Compiling[0m minimal-lexical v0.2.1
-[1m[32m   Compiling[0m same-file v1.0.6
-[1m[32m   Compiling[0m foldhash v0.1.5
 [1m[32m   Compiling[0m void v1.0.2
-[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
-[1m[32m   Compiling[0m hashbrown v0.15.5
+[1m[32m   Compiling[0m foldhash v0.1.5
+[1m[32m   Compiling[0m mac v0.1.1
+[1m[32m   Compiling[0m icu_segmenter_data v2.2.0
+[1m[32m   Compiling[0m same-file v1.0.6
 [1m[32m   Compiling[0m walkdir v2.5.0
-[1m[32m   Compiling[0m regex-automata v0.4.18
-[1m[32m   Compiling[0m nom v7.1.3
 [1m[32m   Compiling[0m futf v0.1.5
+[1m[32m   Compiling[0m hashbrown v0.15.5
+[1m[32m   Compiling[0m regex-automata v0.4.18
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m nom v7.1.3
 [1m[32m   Compiling[0m url v2.5.8
 [1m[32m   Compiling[0m skrifa v0.44.0
 [1m[32m   Compiling[0m libloading v0.8.9
 [1m[32m   Compiling[0m memmap2 v0.9.12
 [1m[32m   Compiling[0m either v1.19.0
-[1m[32m   Compiling[0m arrayvec v0.7.8
-[1m[32m   Compiling[0m utf-8 v0.7.6
-[1m[32m   Compiling[0m bindgen v0.72.1
 [1m[32m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[32m   Compiling[0m bindgen v0.72.1
+[1m[32m   Compiling[0m utf-8 v0.7.6
+[1m[32m   Compiling[0m arrayvec v0.7.8
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m tendril v0.4.3
 [1m[32m   Compiling[0m fontique v0.6.0
 [1m[32m   Compiling[0m itertools v0.13.0
-[1m[32m   Compiling[0m tendril v0.4.3
-[1m[32m   Compiling[0m stylo v0.8.0
 [1m[32m   Compiling[0m swash v0.2.10
 [1m[32m   Compiling[0m icu_locale v2.2.0
 [1m[32m   Compiling[0m cexpr v0.6.0
@@ -935,12 +935,12 @@ cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimon
 [1m[32m   Compiling[0m harfrust v0.3.2
 [1m[32m   Compiling[0m malloc_size_of_derive v0.1.3
 [1m[32m   Compiling[0m encoding_rs v0.8.35
-[1m[32m   Compiling[0m mime v0.3.17
 [1m[32m   Compiling[0m shlex v1.3.0
+[1m[32m   Compiling[0m mime v0.3.17
 [1m[32m   Compiling[0m rquickjs-core v0.14.0
 [1m[32m   Compiling[0m stylo_traits v0.8.0
-[1m[32m   Compiling[0m parley v0.6.0
 [1m[32m   Compiling[0m icu_segmenter v2.2.0
+[1m[32m   Compiling[0m parley v0.6.0
 [1m[32m   Compiling[0m rayon v1.12.0
 [1m[32m   Compiling[0m markup5ever v0.35.0
 [1m[32m   Compiling[0m uluru v3.1.0
@@ -951,36 +951,36 @@ cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimon
 [1m[32m   Compiling[0m stylo_derive v0.8.0
 [1m[32m   Compiling[0m num-derive v0.4.2
 [1m[32m   Compiling[0m num_cpus v1.17.0
-[1m[32m   Compiling[0m stylo_static_prefs v0.8.0
-[1m[32m   Compiling[0m bytes v1.12.1
 [1m[32m   Compiling[0m static_assertions v1.1.0
+[1m[32m   Compiling[0m bytes v1.12.1
+[1m[32m   Compiling[0m grid v1.0.1
 [1m[32m   Compiling[0m atomic_refcell v0.1.14
-[1m[32m   Compiling[0m unicode-segmentation v1.13.3
+[1m[32m   Compiling[0m shell-words v1.1.1
+[1m[32m   Compiling[0m stylo_static_prefs v0.8.0
 [1m[32m   Compiling[0m matches v0.1.10
 [1m[32m   Compiling[0m byteorder v1.5.0
-[1m[32m   Compiling[0m shell-words v1.1.1
+[1m[32m   Compiling[0m unicode-segmentation v1.13.3
 [1m[32m   Compiling[0m stylo_config v0.8.0
-[1m[32m   Compiling[0m grid v1.0.1
-[1m[32m   Compiling[0m keyboard-types v0.7.0
-[1m[32m   Compiling[0m taffy v0.9.2
 [1m[32m   Compiling[0m rb-sys-build v0.9.130
+[1m[32m   Compiling[0m keyboard-types v0.7.0
 [1m[32m   Compiling[0m http v1.5.0
+[1m[32m   Compiling[0m taffy v0.9.2
 [1m[32m   Compiling[0m rquickjs v0.14.0
 [1m[32m   Compiling[0m rb-sys-env v0.2.3
+[1m[32m   Compiling[0m smol_str v0.2.2
+[1m[32m   Compiling[0m cursor-icon v1.2.0
 [1m[32m   Compiling[0m byteorder-lite v0.1.0
 [1m[32m   Compiling[0m zmij v1.0.23
-[1m[32m   Compiling[0m cursor-icon v1.2.0
-[1m[32m   Compiling[0m smol_str v0.2.2
 [1m[32m   Compiling[0m image v0.25.6
 [1m[32m   Compiling[0m blitz-traits v0.2.0
 [1m[32m   Compiling[0m rb-sys v0.9.130
 [1m[32m   Compiling[0m match_token v0.35.0
-[1m[32m   Compiling[0m slab v0.4.12
-[1m[32m   Compiling[0m fastrand v2.5.0
-[1m[32m   Compiling[0m color v0.3.3
-[1m[32m   Compiling[0m html-escape v0.2.15
-[1m[32m   Compiling[0m serde_json v1.0.154
 [1m[32m   Compiling[0m debug_timer v0.1.3
+[1m[32m   Compiling[0m slab v0.4.12
+[1m[32m   Compiling[0m color v0.3.3
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m html-escape v0.2.15
+[1m[32m   Compiling[0m fastrand v2.5.0
 [1m[32m   Compiling[0m html5ever v0.35.0
 [1m[32m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/crates/islands)
 [1m[32m   Compiling[0m roxmltree v0.21.2
@@ -998,49 +998,49 @@ cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimon
 [1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/crates/dom)
 [1m[32m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/crates/surimono)
 [1m[32m   Compiling[0m surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono)
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 2m 45s
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 2m 09s
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-["make", "DESTDIR=", "sitearchdir=./.gem.20261108-6864-a24y5q", "sitelibdir=./.gem.20261108-6864-a24y5q", "install"]
+["make", "DESTDIR=", "sitearchdir=./.gem.20261110-6631-k4vrsv", "sitelibdir=./.gem.20261110-6631-k4vrsv", "install"]
 generating /home/runner/work/surimono/surimono/target/release/libsurimono.so (release)
 cargo rustc  --manifest-path ./Cargo.toml --target-dir /home/runner/work/surimono/surimono/target --lib --profile release -- -C linker=gcc -L native=/opt/hostedtoolcache/Ruby/3.3.13/x64/lib -C link-arg=-lm -l pthread
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.12s
-installing surimono.so to ./.gem.20261108-6864-a24y5q/surimono
-/usr/bin/install -c -m 0755 surimono.so ./.gem.20261108-6864-a24y5q/surimono
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 0.10s
+installing surimono.so to ./.gem.20261110-6631-k4vrsv/surimono
+/usr/bin/install -c -m 0755 surimono.so ./.gem.20261110-6631-k4vrsv/surimono
 Cleaning gem artifacts
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-["make", "DESTDIR=", "sitearchdir=./.gem.20261108-6864-a24y5q", "sitelibdir=./.gem.20261108-6864-a24y5q", "clean"]
+["make", "DESTDIR=", "sitearchdir=./.gem.20261110-6631-k4vrsv", "sitelibdir=./.gem.20261110-6631-k4vrsv", "clean"]
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
 /opt/hostedtoolcache/Ruby/3.3.13/x64/bin/ruby extconf.rb
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-make DESTDIR\= sitearchdir\=./.gem.20261108-6864-a24y5q sitelibdir\=./.gem.20261108-6864-a24y5q clean
+make DESTDIR\= sitearchdir\=./.gem.20261110-6631-k4vrsv sitelibdir\=./.gem.20261110-6631-k4vrsv clean
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-make DESTDIR\= sitearchdir\=./.gem.20261108-6864-a24y5q sitelibdir\=./.gem.20261108-6864-a24y5q
+make DESTDIR\= sitearchdir\=./.gem.20261110-6631-k4vrsv sitelibdir\=./.gem.20261110-6631-k4vrsv
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-make DESTDIR\= sitearchdir\=./.gem.20261108-6864-a24y5q sitelibdir\=./.gem.20261108-6864-a24y5q install
+make DESTDIR\= sitearchdir\=./.gem.20261110-6631-k4vrsv sitelibdir\=./.gem.20261110-6631-k4vrsv install
 current directory: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/ext/surimono
-make DESTDIR\= sitearchdir\=./.gem.20261108-6864-a24y5q sitelibdir\=./.gem.20261108-6864-a24y5q clean
+make DESTDIR\= sitearchdir\=./.gem.20261110-6631-k4vrsv sitelibdir\=./.gem.20261110-6631-k4vrsv clean
 Successfully installed surimono-0.1.0
 3 gems installed
 + /opt/hostedtoolcache/Ruby/3.3.13/x64/bin/ruby -e require "surimono"; f = $LOADED_FEATURES.grep(%r{/surimono\.(so|bundle)\z}).first; abort("surimono loaded from #{f.inspect}, not the installed gem") unless f&.start_with?(ENV["GEM_HOME"]); puts "native extension: #{f}"; b = Surimono.builtin_renderers; n = Surimono.precompiled_builtins; abort("the installed gem has no built-in renderers") if b.empty?; puts "precompiled built-ins: #{n} of #{b.size} (#{b.join(", ")})"; want = ENV["SURIMONO_PRECOMPILE"] == "0" ? 0 : b.size; abort("#{n} of #{b.size} built-ins load precompiled bytecode, expected #{want}") unless n == want
 native extension: /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/lib/surimono/surimono.so
 precompiled built-ins: 3 of 3 (echarts, vega, vega-lite)
 + /opt/hostedtoolcache/Ruby/3.3.13/x64/bin/ruby -I /home/runner/work/surimono/surimono/bindings/ruby/test -e ARGV.each { |f| require f } /home/runner/work/surimono/surimono/bindings/ruby/test/gemspec_test.rb /home/runner/work/surimono/surimono/bindings/ruby/test/surimono_test.rb
-/tmp/d20261108-10115-jpg0ph/lib/surimono/version.rb:4: warning: already initialized constant Surimono::VERSION
+/tmp/d20261110-9890-rdgsx0/lib/surimono/version.rb:4: warning: already initialized constant Surimono::VERSION
 /home/runner/work/surimono/surimono/bindings/ruby/tmp/gemhome/gems/surimono-0.1.0/lib/surimono/version.rb:4: warning: previous definition of VERSION was here
-Run options: --seed 61466
+Run options: --seed 44374
 
 # Running:
 
-............
+.........................
 thread '<unnamed>' panicked at ext/surimono/src/lib.rs:324:9:
 deliberate panic from Surimono._internal_panic_check
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-...........................................
+..............................
 
-Finished in 8.574851s, 6.4141 runs/s, 43.8492 assertions/s.
+Finished in 8.420585s, 6.5316 runs/s, 44.6525 assertions/s.
 
 55 runs, 376 assertions, 0 failures, 0 errors, 0 skips
-total 2324
-drwxr-xr-x  2 runner runner    4096 Nov  8 20:54 .
-drwxr-xr-x 10 runner runner    4096 Nov  8 20:54 ..
--rw-r--r--  1 runner runner 2371584 Nov  8 20:54 surimono-0.1.0.gem
+total 2328
+drwxr-xr-x  2 runner runner    4096 Nov 10 00:32 .
+drwxr-xr-x 10 runner runner    4096 Nov 10 00:32 ..
+-rw-r--r--  1 runner runner 2372096 Nov 10 00:32 surimono-0.1.0.gem
