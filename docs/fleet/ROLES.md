@@ -6,6 +6,9 @@ starts with the common part.
 
 ## Common part (every specialist)
 
+- **Model: every agent runs on Fable 5.2** (Kay, 11 Nov). The orchestrator starts each subagent
+  with `model: "fable"`, and the scheduled resume uses `claude-fable-5-2`.
+
 - You are the <role> in the surimono fleet and report only to the orchestrator.
 - Read `CLAUDE.md` (rules, ownership, workflow), the brief
   (https://claude.ai/code/artifact/e7d73b62-6c99-4410-b3ca-5458d9a42045, or the
