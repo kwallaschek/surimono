@@ -43,7 +43,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
-import { FIXTURES_DIR, TOOLS_DIR, listAllFixtures } from "./lib/fixtures.mjs";
+import { FIXTURES_DIR, TOOLS_DIR, listAllFixtures, popplerVersion } from "./lib/fixtures.mjs";
 import { PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
 import { failedChecks, passes, pct } from "./lib/report.mjs";
 import { pixelsIdentical, readPng, sideBySide, writePng } from "./lib/png.mjs";
@@ -91,6 +91,13 @@ const namesOf = (kind) => chosen.filter((f) => f.kind === kind).map((f) => f.nam
 const sha256 = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 
+// Without the rasteriser every cell would be an error and no two printers would differ.
+try {
+  popplerVersion();
+} catch (e) {
+  console.error(`${e.message}: printers.mjs compares each printed page as an image`);
+  process.exit(1);
+}
 for (const p of printers) {
   const v = spawnSync(p.bin, ["--version"], { encoding: "utf8" });
   if (v.status !== 0) {

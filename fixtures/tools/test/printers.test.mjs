@@ -30,8 +30,14 @@ test.after(() => {
   for (const d of made) fs.rmSync(d, { recursive: true, force: true });
 });
 const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
+
+// The tools rasterise with poppler's pdftoppm, which a GitHub runner doesn't have when
+// these tests run. They test the tools, not a rasteriser, so `pdftoppm` is a stand-in
+// (test/fake-pdftoppm.mjs) found first on PATH, like every other binary here.
+const standIns = tmp();
+fs.writeFileSync(path.join(standIns, "pdftoppm"), `#!/bin/sh\nexec '${process.execPath}' '${path.join(here, "fake-pdftoppm.mjs")}' "$@"\n`, { mode: 0o755 });
 const node = (script, args, env = {}) =>
-  spawnSync(process.execPath, [path.join(tools, script), ...args], { encoding: "utf8", maxBuffer: 1 << 26, env: { ...process.env, FULGUR: "", FULGUR_TIMEOUT_MS: "", FAKE_SURIMONO_FROM: "", FAKE_SURIMONO_FAIL: "", FAKE_SURIMONO_LEAK: "", FAKE_FULGUR_FAIL: "", ...env } });
+  spawnSync(process.execPath, [path.join(tools, script), ...args], { encoding: "utf8", maxBuffer: 1 << 26, env: { ...process.env, PATH: `${standIns}${path.delimiter}${process.env.PATH}`, FULGUR: "", FULGUR_TIMEOUT_MS: "", FAKE_SURIMONO_FROM: "", FAKE_SURIMONO_FAIL: "", FAKE_SURIMONO_LEAK: "", FAKE_FULGUR_FAIL: "", ...env } });
 
 /** A fake fulgur as its own executable, with its version and page size fixed. */
 function printer(dir, name, env) {
@@ -52,6 +58,9 @@ test("print-pages.mjs --fulgur prints with that fulgur and --measure records eac
   assert.equal(row.fixture, PAGE);
   assert.equal(row.deterministic, true);
   // A black square isn't the page: the comparison ran on the fake's PDF and failed.
+  // If it didn't run at all, its reason is the message.
+  assert.equal(row.page.error, undefined, `the comparison died: ${row.page.error}`);
+  assert.equal(row.floor.error, undefined, `the comparison died: ${row.floor.error}`);
   assert.equal(row.page.pass, false);
   assert.equal(typeof row.page.worst_window, "number");
   for (const part of [row.page, row.floor]) {
@@ -129,6 +138,41 @@ test("a printer that dies is a failing score that says how it ended, never a mis
   }
 });
 
+test("without a rasteriser the tools stop at once and say what is missing", () => {
+  const out = tmp();
+  const bin = printer(out, "fulgur-a", {});
+  // A PATH with nothing on it: no pdftoppm, real or stand-in.
+  const empty = path.join(out, "empty-path");
+  fs.mkdirSync(empty);
+  const pages = node("print-pages.mjs", ["--out", path.join(out, "run"), "--check", fakeCheck, "--fulgur", bin, PAGE], { PATH: empty });
+  assert.equal(pages.status, 1, pages.stdout + pages.stderr);
+  assert.match(pages.stderr, /pdftoppm not found \(install poppler-utils\): print-pages\.mjs compares/);
+  assert.equal(fs.existsSync(path.join(out, "run", "print-pages.json")), false, "no results without a comparison");
+  const matrix = node("printers.mjs", ["--out", path.join(out, "run2"), "--surimono", fakeSurimono, "--check", fakeCheck, "--printer", `a=${bin}`, PAGE], { PATH: empty });
+  assert.equal(matrix.status, 1, matrix.stdout + matrix.stderr);
+  assert.match(matrix.stderr, /pdftoppm not found \(install poppler-utils\): printers\.mjs compares/);
+  assert.equal(fs.existsSync(path.join(out, "run2", "printers.json")), false);
+});
+
+test("a comparison that dies is a failing score with its reason, in the score and in the results", () => {
+  const out = tmp();
+  const bin = printer(out, "fulgur-a", {});
+  // A rasteriser that answers -v and then fails on every page.
+  const broken = path.join(out, "broken");
+  fs.mkdirSync(broken);
+  fs.writeFileSync(path.join(broken, "pdftoppm"), `#!/bin/sh\n[ "$1" = -v ] && { echo "pdftoppm version 0.0.0 (broken)" >&2; exit 0; }\necho "Syntax Error: no pages here" >&2\nexit 1\n`, { mode: 0o755 });
+  const r = node("print-pages.mjs", ["--out", path.join(out, "run"), "--check", fakeCheck, "--fulgur", bin, PAGE], { PATH: `${broken}${path.delimiter}${process.env.PATH}` });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const [row] = readJson(path.join(out, "run", "print-pages.json")).rows;
+  for (const part of [row.page, row.floor]) {
+    assert.equal(part.pass, false);
+    assert.match(part.error, /^compare\.mjs exited 1: Error: /);
+    assert.equal(part.worst_window, undefined);
+  }
+  assert.match(readJson(path.join(out, "run", PAGE, "page", "score.json")).error, /^compare\.mjs exited 1: Error: /);
+  assert.match(fs.readFileSync(path.join(out, "run", "index.md"), "utf8"), /\*\*FAIL\*\* \(render error: compare\.mjs exited 1: Error: /);
+});
+
 test("checkpoint.mjs --no-chrome runs no gate and says it isn't a checkpoint", () => {
   const out = tmp();
   const bin = printer(out, "fulgur-a", { FAKE_FULGUR_VERSION: "9.9.3" });
@@ -184,6 +228,7 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
   assert.deepEqual(result.printers.map((p) => [p.label, p.fulgur]), [["one", "1.0.0"], ["two", "1.0.1"], ["three", "2.0.0"]]);
   assert.deepEqual(result.rows.map((row) => row.key), [`real-world/${PAGE}/page`, `real-world/${PAGE}/floor`]);
   for (const row of result.rows) {
+    for (const [label, cell] of Object.entries(row.printers)) assert.equal(cell.error, undefined, `${row.key}, ${label}: the comparison died: ${cell.error}`);
     // Same pixels from one and two; three prints another page size, which fails "size" too.
     assert.equal(row.differs, true);
     assert.equal(row.pixels_identical, false);

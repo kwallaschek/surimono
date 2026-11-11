@@ -27,7 +27,9 @@
 // what they mean to the page. `print_fonts` in a page's meta.toml names a folder of
 // .woff2 fonts to pass with --font, as fulgur doesn't load @font-face URLs. Writes DIR/print-pages.json and DIR/index.md. Exits 0
 // when everything ran (a failing comparison is a result), 1 when a page's renders
-// differ or the run couldn't start, 2 on usage errors.
+// differ or the run couldn't start (pdftoppm missing, for one), 2 on usage errors.
+// A print or a comparison that died is a failing score with `error`, in score.json
+// and in print-pages.json, never a row without numbers and without a reason.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -35,7 +37,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
-import { FIXTURES_DIR, TOOLS_DIR, listFixtures } from "./lib/fixtures.mjs";
+import { FIXTURES_DIR, TOOLS_DIR, listFixtures, popplerVersion } from "./lib/fixtures.mjs";
 import { fulgurMeasure, fulgurPrint, fulgurVersion, pdfIdentity, useFulgur } from "./lib/fulgur.mjs";
 import { passes, pct, scoresCell, verdict } from "./lib/report.mjs";
 
@@ -49,6 +51,13 @@ if (!values.out || !values.check || !Number.isInteger(measureRuns) || measureRun
   process.exit(2);
 }
 useFulgur(values.fulgur);
+// Without the rasteriser no page can be compared: say so now, not as a score without numbers.
+try {
+  popplerVersion();
+} catch (e) {
+  console.error(`${e.message}: print-pages.mjs compares each printed page as an image`);
+  process.exit(1);
+}
 const keep = values["keep-prints"];
 const outRoot = path.resolve(values.out);
 const inside = path.relative(FIXTURES_DIR, outRoot);
@@ -96,7 +105,9 @@ function compare(fixture, pdf, dir) {
   process.stdout.write(r.stdout);
   const file = path.join(dir, "score.json");
   if (r.status !== 0 || !fs.existsSync(file)) {
-    return stamp(dir, { subject: fixture.name, pass: false, error: `compare.mjs exited ${r.status}: ${r.stderr}`, pages: [] });
+    // The reason first: a stack's first line is a file name.
+    const why = r.error?.message ?? /^\w*Error: .*$/m.exec(r.stderr ?? "")?.[0] ?? `${r.stderr ?? ""}`.trim().split("\n").pop();
+    return stamp(dir, { subject: fixture.name, pass: false, error: `compare.mjs exited ${r.status ?? r.signal}: ${why}\n${r.stderr ?? ""}`, pages: [] });
   }
   return stamp(dir, JSON.parse(fs.readFileSync(file, "utf8")));
 }
@@ -198,7 +209,7 @@ const md = [
   "",
 ].join("\n");
 fs.writeFileSync(path.join(outRoot, "index.md"), md);
-const stripped = rows.map(({ fixture, deterministic, sha256: hash, render_ms, report, page, floor }) => ({ fixture, deterministic, sha256: hash, render_ms, report, page: { pass: passes(page), worst_window: page.worst_window, pages: page.pages?.length, printed: page.printed, input: page.input, print: page.print }, floor: { pass: passes(floor), worst_window: floor.worst_window, printed: floor.printed, input: floor.input, print: floor.print } }));
+const stripped = rows.map(({ fixture, deterministic, sha256: hash, render_ms, report, page, floor }) => ({ fixture, deterministic, sha256: hash, render_ms, report, page: { pass: passes(page), error: page.error, printer: page.printer, worst_window: page.worst_window, pages: page.pages?.length, printed: page.printed, input: page.input, print: page.print }, floor: { pass: passes(floor), error: floor.error, printer: floor.printer, worst_window: floor.worst_window, printed: floor.printed, input: floor.input, print: floor.print } }));
 fs.writeFileSync(path.join(outRoot, "print-pages.json"), `${JSON.stringify({ fulgur, producer, rows: stripped }, null, 2)}\n`);
 console.log(`\n${md}`);
 process.exit(differ ? 1 : 0);
