@@ -6,7 +6,8 @@
 //
 //   FAKE_FULGUR_VERSION   what --version says after "fulgur " (default 0.0.0-fake)
 //   FAKE_FULGUR_PAGE      "a4" (default) or "letter": the page size
-//   FAKE_FULGUR_FAIL      "exit": exit 1 with a message; "abort": die by SIGABRT
+//   FAKE_FULGUR_FAIL      "exit": exit 1 with a message; "abort": die by SIGABRT;
+//                         "hang": never finish
 // Never a source of results.
 
 import fs from "node:fs";
@@ -27,6 +28,7 @@ if (process.env.FAKE_FULGUR_FAIL === "exit") {
   process.exit(1);
 }
 if (process.env.FAKE_FULGUR_FAIL === "abort") process.kill(process.pid, "SIGABRT");
+if (process.env.FAKE_FULGUR_FAIL === "hang") Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
 
 // 210 x 297 mm and 8.5 x 11 in, in points.
 const [w, h] = process.env.FAKE_FULGUR_PAGE === "letter" ? [612, 792] : [595.276, 841.89];

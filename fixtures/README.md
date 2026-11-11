@@ -142,13 +142,20 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
   --printer 0.40.0=<A>/bin/fulgur --printer 0.41.0=<B>/bin/fulgur
 ```
 
-- **Time and memory.** `--measure N` on either pipeline (printers.mjs passes its
-  `--runs`, 5 by default) hands the exact `fulgur render` command of each page to
-  `bench/tools/measure.py`: wall clock from spawn to exit over N unsampled runs, then
-  the peak of summed PSS over the process tree in N more runs under the Grover
-  benchmark's sampler. The median of each is reported. A print takes about 50 ms, so
-  the sampler runs every millisecond here, not every 10 ms as in the benchmark; the
+- **Time and memory.** After the scores, printers.mjs prints every page again with
+  the printers taking turns (`bench/tools/measure.py --commands`): a round prints
+  the page once with each printer, one round isn't measured, then come `--runs`
+  timed rounds (5 by default; wall clock from spawn to exit, not sampled) and as
+  many sampled ones (the peak of summed PSS over the process tree, the Grover
+  benchmark's sampler). Who starts moves on every round and every page. Measured
+  one printer after the other, the order of the run shows up as a difference. The
+  median of each is reported, every single run is in `printers.json`, and
+  `against_first` (the table "Time and memory against …" in `index.md`) sets each
+  printer against the first: the difference per page, and on how many pages every
+  run of one lies outside the other's. A print takes about 30 to 50 ms, so the
+  sampler runs every millisecond here, not every 10 ms as in the benchmark; the
   kernel's own peak RSS of the process (`max_rss_mb`) is in the JSON beside it.
+  `--measure N` on either pipeline measures its one printer the same way, alone.
 - **What differs.** A cell differs between two printers when its verdict or one of
   its scores, as printed, differs; only those cells get an image (Chrome, then each
   printer). `pixels_identical` says whether two printers put the same pixels on a

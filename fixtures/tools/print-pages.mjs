@@ -3,13 +3,16 @@
 // render_page (fixtures/tools/page-check), then fulgur, compared with the committed
 // Chrome references. Results as in fixtures/checkpoint-2.
 //
-//   node print-pages.mjs --out DIR --check BIN [--commit SHA] [--fulgur FULGUR] [--measure N] [fixture ...]
+//   node print-pages.mjs --out DIR --check BIN [--commit SHA] [--fulgur FULGUR] [--measure N]
+//                        [--keep-prints] [fixture ...]
 //
 // BIN is surimono-page-check; FULGUR (or $FULGUR) names fulgur if it isn't on PATH, so
 // one run prints with one fulgur and printers.mjs runs this once per version. With
 // --measure N each print is also timed and its memory sampled (bench/tools/measure.py,
 // N runs each) and lands in print-pages.json as `print`, next to `printed`, the
-// PDF's size and sha256. DIR must be
+// PDF's size and sha256. With --keep-prints what the printer was given stays in
+// DIR/.tree (each page's print-page.html and print-floor.html) and print-pages.json
+// names it as `input`, so printers.mjs can print the same thing again. DIR must be
 // outside fixtures/. In DIR/<fixture>/:
 //
 //   surimono.html      what render_page gave
@@ -38,14 +41,15 @@ import { passes, pct, scoresCell, verdict } from "./lib/report.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
-  options: { out: { type: "string" }, check: { type: "string" }, commit: { type: "string" }, fulgur: { type: "string" }, measure: { type: "string" } },
+  options: { out: { type: "string" }, check: { type: "string" }, commit: { type: "string" }, fulgur: { type: "string" }, measure: { type: "string" }, "keep-prints": { type: "boolean", default: false } },
 });
 const measureRuns = values.measure === undefined ? 0 : Number(values.measure);
 if (!values.out || !values.check || !Number.isInteger(measureRuns) || measureRuns < 0) {
-  console.error("usage: node print-pages.mjs --out DIR --check BIN [--commit SHA] [--fulgur FULGUR] [--measure N] [fixture ...]");
+  console.error("usage: node print-pages.mjs --out DIR --check BIN [--commit SHA] [--fulgur FULGUR] [--measure N] [--keep-prints] [fixture ...]");
   process.exit(2);
 }
 useFulgur(values.fulgur);
+const keep = values["keep-prints"];
 const outRoot = path.resolve(values.out);
 const inside = path.relative(FIXTURES_DIR, outRoot);
 if (!inside.startsWith("..") && !path.isAbsolute(inside)) {
@@ -97,14 +101,14 @@ function compare(fixture, pdf, dir) {
   return stamp(dir, JSON.parse(fs.readFileSync(file, "utf8")));
 }
 
-/** fulgur prints `html` as if it lay beside the page's input.html. */
-function print(tree, fixture, html, dir) {
+/** fulgur prints `html` (`part` is "page" or "floor") as if it lay beside the page's input.html. */
+function print(tree, fixture, html, dir, part) {
   const meta = fs.readFileSync(path.join(fixture.dir, "meta.toml"), "utf8");
   const own = /^print_fonts = "(.*)"$/m.exec(meta)?.[1];
   const ownDir = own && path.join(fixture.dir, own);
   const extra = ownDir ? fs.readdirSync(ownDir).filter((f) => f.endsWith(".woff2")).sort().map((f) => path.join(ownDir, f)) : [];
   fs.mkdirSync(dir, { recursive: true });
-  const standIn = path.join(tree, "real-world", fixture.name, "print.html");
+  const standIn = path.join(tree, "real-world", fixture.name, keep ? `print-${part}.html` : "print.html");
   fs.mkdirSync(path.dirname(standIn), { recursive: true });
   fs.writeFileSync(standIn, html);
   const pdf = path.join(dir, "print.pdf");
@@ -114,12 +118,13 @@ function print(tree, fixture, html, dir) {
     // What was printed, and the same print again, timed and sampled; kept beside the
     // score, not in score.json.
     score.printed = pdfIdentity(pdf);
+    if (keep) score.input = { html: standIn, fonts: extra };
     if (measureRuns) score.print = fulgurMeasure(standIn, pdf, dir, extra, measureRuns);
     return score;
   } catch (e) {
     return stamp(dir, { subject: fixture.name, pass: false, error: e.message, printer: e.printer, pages: [] });
   } finally {
-    fs.rmSync(standIn, { force: true });
+    if (!keep) fs.rmSync(standIn, { force: true });
     fs.rmSync(pdf, { force: true });
     fs.rmSync(path.join(dir, "fonts.conf"), { force: true });
     fs.rmSync(path.join(dir, "fontconfig-cache"), { recursive: true, force: true });
@@ -163,7 +168,7 @@ for (const fixture of fixtures) {
       path.join(dir, "determinism.json"),
       `${JSON.stringify({ subject: fixture.name, deterministic: row.deterministic, sha256: hashes, runs: RUNS.map((r) => ({ ...r, renders: 2, process: "fresh" })), producer }, null, 2)}\n`,
     );
-    row.page = print(tree, fixture, fs.readFileSync(files[0]), path.join(dir, "page"));
+    row.page = print(tree, fixture, fs.readFileSync(files[0]), path.join(dir, "page"), "page");
   }
   // A printer's parser has scripting off, so a <noscript> would show: Chrome's DOM without
   // them. fulgur reads nothing above its input's folder, so a stylesheet goes in as text.
@@ -171,11 +176,11 @@ for (const fixture of fixtures) {
     .readFileSync(path.join(fixture.dir, "reference", "dom.html"), "utf8")
     .replace(/<noscript\b[^]*?<\/noscript>/g, "")
     .replace(/<link rel="stylesheet" href="([^"]+)">/g, (all, href) => `<style>${fs.readFileSync(path.join(fixture.dir, href), "utf8")}</style>`);
-  row.floor = print(tree, fixture, chromeDom, path.join(dir, "floor"));
+  row.floor = print(tree, fixture, chromeDom, path.join(dir, "floor"), "floor");
   rows.push(row);
 }
 fs.rmSync(raw, { recursive: true, force: true });
-fs.rmSync(tree, { recursive: true, force: true });
+if (!keep) fs.rmSync(tree, { recursive: true, force: true });
 
 const image = (name, part) => (fs.existsSync(path.join(outRoot, name, part, "side-by-side-1.png")) ? `[image](${name}/${part}/side-by-side-1.png)` : "—");
 const md = [
@@ -193,7 +198,7 @@ const md = [
   "",
 ].join("\n");
 fs.writeFileSync(path.join(outRoot, "index.md"), md);
-const stripped = rows.map(({ fixture, deterministic, sha256: hash, render_ms, report, page, floor }) => ({ fixture, deterministic, sha256: hash, render_ms, report, page: { pass: passes(page), worst_window: page.worst_window, pages: page.pages?.length, printed: page.printed, print: page.print }, floor: { pass: passes(floor), worst_window: floor.worst_window, printed: floor.printed, print: floor.print } }));
+const stripped = rows.map(({ fixture, deterministic, sha256: hash, render_ms, report, page, floor }) => ({ fixture, deterministic, sha256: hash, render_ms, report, page: { pass: passes(page), worst_window: page.worst_window, pages: page.pages?.length, printed: page.printed, input: page.input, print: page.print }, floor: { pass: passes(floor), worst_window: floor.worst_window, printed: floor.printed, input: floor.input, print: floor.print } }));
 fs.writeFileSync(path.join(outRoot, "print-pages.json"), `${JSON.stringify({ fulgur, producer, rows: stripped }, null, 2)}\n`);
 console.log(`\n${md}`);
 process.exit(differ ? 1 : 0);

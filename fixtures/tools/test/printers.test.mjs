@@ -31,7 +31,7 @@ test.after(() => {
 });
 const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
 const node = (script, args, env = {}) =>
-  spawnSync(process.execPath, [path.join(tools, script), ...args], { encoding: "utf8", maxBuffer: 1 << 26, env: { ...process.env, FULGUR: "", FAKE_SURIMONO_FROM: "", FAKE_SURIMONO_FAIL: "", FAKE_SURIMONO_LEAK: "", FAKE_FULGUR_FAIL: "", ...env } });
+  spawnSync(process.execPath, [path.join(tools, script), ...args], { encoding: "utf8", maxBuffer: 1 << 26, env: { ...process.env, FULGUR: "", FULGUR_TIMEOUT_MS: "", FAKE_SURIMONO_FROM: "", FAKE_SURIMONO_FAIL: "", FAKE_SURIMONO_LEAK: "", FAKE_FULGUR_FAIL: "", ...env } });
 
 /** A fake fulgur as its own executable, with its version and page size fixed. */
 function printer(dir, name, env) {
@@ -56,11 +56,49 @@ test("print-pages.mjs --fulgur prints with that fulgur and --measure records eac
   assert.equal(typeof row.page.worst_window, "number");
   for (const part of [row.page, row.floor]) {
     assert.equal(part.print.runs, 1);
+    // The single runs are kept, so the medians can be recomputed.
+    assert.deepEqual(part.print.wall_ms_runs.length, 1);
+    assert.ok(Math.abs(part.print.wall_ms_runs[0] - part.print.wall_ms.median) <= 0.051, JSON.stringify(part.print));
+    assert.deepEqual(part.print.peak_pss_mb_runs, [part.print.peak_pss_mb.median]);
+    assert.equal(part.input, undefined, "no --keep-prints, no input kept");
     assert.ok(part.print.wall_ms.median > 0, JSON.stringify(part.print));
     assert.ok(part.print.peak_pss_mb.median > 0, JSON.stringify(part.print));
     assert.equal(part.print.memory_complete, true);
   }
   assert.match(fs.readFileSync(path.join(out, "run", "index.md"), "utf8"), /then fulgur 9\.9\.1\./);
+  assert.equal(fs.existsSync(path.join(out, "run", ".tree")), false);
+});
+
+test("--keep-prints leaves what the printer was given and names it", () => {
+  const out = tmp();
+  const bin = printer(out, "fulgur-a", {});
+  const r = node("print-pages.mjs", ["--out", path.join(out, "run"), "--check", fakeCheck, "--fulgur", bin, "--keep-prints", PAGE]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const [row] = readJson(path.join(out, "run", "print-pages.json")).rows;
+  assert.equal(row.page.input.html, path.join(out, "run", ".tree", "real-world", PAGE, "print-page.html"));
+  assert.equal(row.floor.input.html, path.join(out, "run", ".tree", "real-world", PAGE, "print-floor.html"));
+  assert.deepEqual(row.page.input.fonts, []);
+  // The page is fake-page-check's copy of Chrome's DOM; the floor is that DOM without <noscript>.
+  const dom = fs.readFileSync(path.join(repo, "fixtures", "real-world", PAGE, "reference", "dom.html"), "utf8");
+  assert.equal(fs.readFileSync(row.page.input.html, "utf8"), dom);
+  assert.doesNotMatch(fs.readFileSync(row.floor.input.html, "utf8"), /<noscript/);
+  assert.match(dom, /<noscript/);
+});
+
+test("a printer that never finishes is killed and reported as timed out", () => {
+  const out = tmp();
+  const bin = printer(out, "fulgur-hang", { FAKE_FULGUR_FAIL: "hang" });
+  const started = Date.now();
+  const r = node("print-pages.mjs", ["--out", path.join(out, "run"), "--check", fakeCheck, "--fulgur", bin, PAGE], { FULGUR_TIMEOUT_MS: "700" });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(Date.now() - started < 60_000, "the 120 s default wasn't used");
+  for (const part of ["page", "floor"]) {
+    const score = readJson(path.join(out, "run", PAGE, part, "score.json"));
+    assert.equal(score.pass, false);
+    assert.deepEqual(score.printer, { status: null, signal: "SIGKILL", timed_out: true });
+    assert.match(score.error, /fulgur didn't finish in 0\.7 s/);
+  }
+  assert.match(fs.readFileSync(path.join(out, "run", "index.md"), "utf8"), /\*\*0 of 1 pages pass\.\*\*/);
 });
 
 test("without --measure nothing is timed, and $FULGUR still names the printer", () => {
@@ -139,7 +177,7 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
   const same = printer(out, "fulgur-b", { FAKE_FULGUR_VERSION: "1.0.1" });
   const letter = printer(out, "fulgur-c", { FAKE_FULGUR_VERSION: "2.0.0", FAKE_FULGUR_PAGE: "letter" });
   const dir = path.join(out, "run");
-  const r = node("printers.mjs", ["--out", dir, "--surimono", fakeSurimono, "--check", fakeCheck, "--commit", "0123abc", "--runs", "1", "--printer", `one=${a}`, "--printer", `two=${same}`, "--printer", `three=${letter}`, PAGE]);
+  const r = node("printers.mjs", ["--out", dir, "--surimono", fakeSurimono, "--check", fakeCheck, "--commit", "0123abc", "--runs", "3", "--printer", `one=${a}`, "--printer", `two=${same}`, "--printer", `three=${letter}`, PAGE]);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const text = fs.readFileSync(path.join(dir, "printers.json"), "utf8");
   const result = JSON.parse(text);
@@ -149,18 +187,44 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
     // Same pixels from one and two; three prints another page size, which fails "size" too.
     assert.equal(row.differs, true);
     assert.equal(row.pixels_identical, false);
-    assert.deepEqual(row.printers.one, { ...row.printers.two, print: row.printers.one.print });
+    assert.deepEqual({ ...row.printers.one, print: null }, { ...row.printers.two, print: null });
     assert.match(row.printers.one.pdf.sha256, /^[0-9a-f]{64}$/);
     assert.ok(row.printers.one.pdf.bytes > 300);
     assert.equal(row.pdf_identical, false);
     assert.equal(row.printers.one.pass, false);
     assert.ok(!row.printers.one.failed.includes("size"));
     assert.ok(row.printers.three.failed.includes("size"), JSON.stringify(row.printers.three));
-    assert.ok(row.printers.three.print.wall_ms.median > 0);
+    for (const label of ["one", "two", "three"]) {
+      const p = row.printers[label].print;
+      assert.equal(p.wall_ms_runs.length, 3);
+      assert.equal(p.peak_pss_mb_runs.length, 3);
+      // The statistic is the middle run, rounded to 0.1.
+      assert.ok(Math.abs(p.wall_ms.median - [...p.wall_ms_runs].sort((a, b) => a - b)[1]) <= 0.051, JSON.stringify(p));
+      assert.ok(p.wall_ms.median > 0);
+    }
     assert.deepEqual(row.images, [`${PAGE}/${row.what}.png`]);
     assert.ok(fs.statSync(path.join(dir, row.images[0])).size > 1000);
   }
   assert.equal(result.totals.one.prints, 2);
+  // The printers take turns: who starts moves on every round, and on the next page.
+  assert.deepEqual(result.rows[0].print_order, { warmup_rounds: 1, timed_first: ["one", "two", "three"], sampled_first: ["one", "two", "three"] });
+  assert.deepEqual(result.rows[1].print_order.timed_first, ["two", "three", "one"]);
+  assert.equal(result.measurement.runs, 3);
+  // Each other printer against the first, from the runs in the file.
+  for (const label of ["two", "three"]) {
+    for (const field of ["wall_ms", "peak_pss_mb"]) {
+      const c = result.against_first[label][field];
+      assert.equal(c.pages, 2);
+      assert.equal(c.pages_lower + c.pages_equal + c.pages_higher, 2);
+      const diffs = result.rows.map((row) => Math.round((row.printers[label].print[field].median - row.printers.one.print[field].median) * 10) / 10);
+      assert.equal(c.per_page_difference.min, Math.min(...diffs));
+      assert.equal(c.per_page_difference.max, Math.max(...diffs));
+      assert.ok(c.pages_with_every_run_lower + c.pages_with_every_run_higher <= 2);
+    }
+  }
+  assert.equal(result.against_first.one, undefined);
+  // Nothing of the measuring pass is left behind.
+  assert.equal(fs.existsSync(path.join(dir, ".measure")), false);
   // Nothing committed names this machine.
   const md = fs.readFileSync(path.join(dir, "index.md"), "utf8");
   for (const where of [out, repo, os.tmpdir()]) {
@@ -168,6 +232,10 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
     assert.ok(!md.includes(where), `index.md names ${where}`);
   }
   assert.match(md, /fulgur 1\.0\.0 and fulgur 1\.0\.1 and fulgur 2\.0\.0/);
+  assert.match(md, /The printers take turns on each page/);
+  assert.match(md, /## Time and memory against one\n/);
+  assert.match(md, /\| two \| Print time \| [\d.]+ ms \| [\d.]+ ms \| [+−]?[\d.]+ ms /);
+  assert.match(md, /\| three \| Peak PSS \| [\d.]+ MB /);
   assert.match(md, /## Island fixture pages\n\nNone in this run\./);
   assert.match(md, /\| noscript-message \| surimono's page \| \*\*FAIL\*\* · [\d.]+% .*\| \*\*FAIL\*\* · [\d.]+% \(size 816×1056, Chrome's 794×1123; .*\| no \| no \| \[image\]\(noscript-message\/page\.png\) \|/);
 
