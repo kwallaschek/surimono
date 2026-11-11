@@ -10,7 +10,38 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Wed 11 Nov 2026, 11:10)
+## Now (Wed 11 Nov 2026, 19:45)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+The usage limit stopped all agents twice (11:40 to 14:10, about 15:10 to 19:10); they were resumed
+in place each time.
+
+- **Main is green** at ef2eaa30 (every full.yml job). The two failures at 3b4303ae (arm64
+  `forks_never_hang`, ASan time limit) did not repeat on the same code; P2-RT-10 is still finding
+  the cause (branch p2-rt-10, 2 commits: a deadline reported before its flag was up; the stress
+  run now says why a child failed).
+- **Merges wait for Kay's explicit OK in this session** (the safety check refuses them). Approved
+  and green: #174 (d627c628), #175 (0d7494ad). Approved, CI to confirm: #176 (b1c2ed91, squash).
+  Blocked by review, author fixing: #177 (q-cf-01).
+- Running: Q-PKG-02 printer-safe output (wt/q-pkg-02, uncommitted work), E3-00 layout spike
+  (wt/e3-00, 3 commits; private Blitz panic notes in .private-tmp/), P2-RT-10, #177 fixes.
+- Findings today: fulgur 0.41.0 prints exactly as 0.40.0; every print gap is root-caused
+  (docs/upstream, #176); workarounds alone pass d3-charts and noscript-message on stock fulgur;
+  fulgur's maintainer is building a replacement layout engine (Raikiri).
+- Kay's queue: allow merges; may the fleet install other printers (ironpress, rustyprint, forme);
+  his work email is the author of 167 public merge commits (GitHub "Keep my email addresses
+  private"; history needs a force-push only he can order); file docs/upstream drafts and the
+  private findings.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`. Then, if the
+agents above are not running (a new session can't resume them): continue each task from its pushed
+branch or worktree under /home/claude/wt/ with a new agent, never from scratch. After their
+reports: fresh reviews, Q-ORC-01's decision (which printer fixes we carry), then Q-CF-03, Q-CF-02,
+P2-CF-07, P2-CF-08, Q-GFX-02, P2-DX-05. Push docs to main once per round: every push restarts
+full.yml. Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 11:10)
 
 **Kay handed the fleet to session cse_011c8hfpYaknCZDyxDjnJSQG at 10:52 with full authority and one
 directive: make it work, print on par with Chrome-based tools in quality, be faster and use less
