@@ -381,7 +381,14 @@ fn page_output_is_printer_safe_unless_turned_off() {
         <pre>one\n</pre><svg width=640 height=208></svg><script>document.title = 'ran';</script>";
     let f = font();
     let plain = run(
-        &["render", "-", "--font", &f, "--scripts", "--no-printer-safe"],
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--scripts",
+            "--no-printer-safe",
+        ],
         page,
     );
     assert_eq!(code(&plain), 0, "{}", text(&plain.stderr));
@@ -395,11 +402,14 @@ fn page_output_is_printer_safe_unless_turned_off() {
         s|svg[width=\"640\"]:not(s|svg *){width:640px}\
         s|svg[height=\"208\"]:not(s|svg *){height:208px}}</style>";
     assert!(
-        safe.contains(&format!("<title>ran</title>{sheet}<style>svg {{ display: block }}")),
+        safe.contains(&format!(
+            "<title>ran</title>{sheet}<style>svg {{ display: block }}"
+        )),
         "{safe}"
     );
     assert_eq!(
-        safe.replace(sheet, "").replace("<pre>one</pre>", "<pre>one\n</pre>"),
+        safe.replace(sheet, "")
+            .replace("<pre>one</pre>", "<pre>one\n</pre>"),
         plain
     );
     // It is the page's output that is rewritten: without --scripts there is none.
