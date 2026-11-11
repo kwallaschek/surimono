@@ -10,7 +10,31 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sat 7 Nov 2026, 01:30)
+## Now (Wed 11 Nov 2026, 11:10)
+
+**Kay handed the fleet to session cse_011c8hfpYaknCZDyxDjnJSQG at 10:52 with full authority and one
+directive: make it work, print on par with Chrome-based tools in quality, be faster and use less
+memory** (DECISIONS 2026-11-11). Hard stops are unchanged.
+
+- Done since 7 Nov (all merged on 11 Nov, 07:40 to 10:49): #166 P2-DOM-07, #167 P2-CF-06, #168 P2-GFX-01, #169 P2-PKG-04,
+  #170 E2-11 musl gems, #171 P2-RT-07 (engine patch level 10), #172 P2-RT-09, #173 P2-DX-03.
+  No commits between 7 Nov 01:59 and 11 Nov 04:32.
+- Phase 2 targets, all met at 22153052 (COMPAT.md): timers 91.2%, dom/nodes 92.8%, dom/events and
+  domparsing above target. Real-world pages: DOM equal to Chrome's; print 2 of 6, the other 4 fail
+  in fulgur 0.40.0 alone (fixtures/checkpoint-3/NOTES.md).
+- In progress: #174 P2-DX-04 in review. Quality track started: Q-CF-01 printer matrix (CF),
+  Q-GFX-01 print-gap root causes (GFX), E3-00 layout design spike (DOM).
+- Main 5a3aa25f: full.yml and ci.yml were running at 11:00; read them before the next merge.
+- Blocked: nothing. Kay's queue (no deadline): file the docs/upstream drafts and the private
+  findings; confirm the employer open-source check.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`; fix a red main before
+anything else. Then merge #174 if approved; collect Q-CF-01, Q-GFX-01 and E3-00 reports and write
+Q-ORC-01's decision; start Q-CF-02 (page-path benchmark) and Q-PKG-01's design. Leftovers after that:
+P2-ORC-02 root pins, P2-PKG-01, E2-14, P2-DOM-06, E2-10. Checkpoint-3 evidence ready by Sun 15 Nov;
+digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Sat 7 Nov 2026, 01:30)
 
 Session cse_011c8hfpRCVhwbjSCxu8U5UF holds the fleet. Merged since 23:00: #159 #162 #163 #164 #165. No PR is open. Phase 2's SPEC targets are met on our baseline (COMPAT.md at e879ec95): timers 91.2%, dom/nodes 92.8%, dom/events 75.7% (66.7% on wpt.fyi's count of 848: state both at checkpoint 3), domparsing 61.6%. Real-world pages: DOM 5 of 5 equal Chrome; print 2 of 6 pass, the other 4 equal fulgur printing Chrome's own DOM.
 

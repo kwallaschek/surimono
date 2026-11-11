@@ -194,13 +194,31 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - E2-10b · CF · done (#158: 2 of 6 pass; the rest equal their fulgur floor) · Print comparison for the real-world pages through render_page and fulgur against Chrome
 - E2-16 · DOM · done (#160-#164) · URL family, encoding, base64, structuredClone, navigator, HTML collections, tables, forms, TreeWalker, styleSheets
 - P2-PKG-03 · PKG · done (#159) · MPL crates in about.toml; fork guard; page-check in CI
-- P2-DOM-07 · DOM · todo · A throwing string timer in WebIDL order; restore noscript escaping in template contents (#159 is on main); DESIGN.md stale lines at ~456 and ~565; #160 and #161 review leftovers (resizable buffers, define checks, a&a&a quadratic, number edge cases, focus with no browsing context)
+- P2-DOM-07 · DOM · done (#166) · A throwing string timer in WebIDL order; restore noscript escaping in template contents (#159 is on main); DESIGN.md stale lines at ~456 and ~565; #160 and #161 review leftovers (resizable buffers, define checks, a&a&a quadratic, number edge cases, focus with no browsing context)
 - P2-CF-05 · CF · done (#165) · Extra WPT areas, COMPAT regenerated, pages in COMPAT
-- P2-CF-06 · CF · todo · Rerun traversal and css/cssom after #162 #163; README WPT numbers to Docs
-- E2-11 · PKG · todo · musl native gems (third to cut)
+- P2-CF-06 · CF · done (#167) · Rerun traversal and css/cssom after #162 #163; README WPT numbers to Docs
+- E2-11 · PKG · done (#170) · musl native gems (third to cut)
 - E2-12 · DX · done (#157) · Rails guide for page scripts; checkpoint-3 checklist for Kay's own template
+- P2-GFX-01 · GFX · done (#168) · reference.yml `chrome` red since 3 Nov: svg_outline.mjs draws Chrome's text unhinted and in grayscale
+- P2-PKG-04 · PKG · done (#169) · Nightly ASan red since 7 Nov: the printer parses on one long-lived thread; the page soak measures a quiet renderer
+- P2-RT-07 · RT · done (#171) · Correctly rounded Math from CORE-MATH, the same bits on every platform (engine patch level 10)
+- P2-RT-09 · RT · done (#172) · ASan test that forks with the parent idle and renders in the child
+- P2-DX-03 · DX · done (#173) · README WPT numbers at 22153052; all four phase-2 targets met
+- P2-DX-04 · DX · review (#174) · "What doesn't work yet" lists after #160 to #166; CHANGELOG new globals
+
+## Quality track (from Kay's directive of 11 Nov: it works, prints on par with Chrome-based tools, faster, less memory)
+
+> Ranked above everything except a red main. Quality means the printed page against Chrome's.
+- Q-CF-01 · CF · todo · Printer matrix: print every checkpoint-2 and checkpoint-3 page with fulgur 0.40.0, the newest fulgur, and each other browserless printer that installs here (ironpress, rustyprint, forme), all fed surimono's output; score against the committed Chrome references, with time and peak PSS per printer; report in fixtures/printers/
+- Q-CF-02 · CF · todo · Page-path benchmark: the six real-world pages through render_page + printer against Grover and Ferrum (time cold and warm, summed PSS), in bench/ beside the islands report
+- Q-GFX-01 · GFX · todo · Root-cause the print gaps of fixtures/checkpoint-3/NOTES.md in fulgur 0.40 and blitz 0.2.4 sources: `<svg display:block>` ignoring width/height, single-side border colour, list markers, synthesized italic, inline `code` background, `<pre>` height, KaTeX vertical-align and inline-block struts, `@font-face` URLs. Per gap: where, the smallest patch, a test, whether the newest fulgur/Blitz has it; drafts in docs/upstream/ (by the orchestrator's assignment)
+- Q-PKG-01 · PKG · todo · One-call print path behind the facade's `fulgur` feature (Rust `print_pdf`, gem `to_pdf`, CLI `surimono pdf`) with the same fonts and page size for measuring and printing; design first, build after Q-CF-01 and Q-GFX-01 say which printer and which patches
+- Q-ORC-01 · ORC · todo · Decide from Q-CF-01 and Q-GFX-01: patched print path shipped by us, or upstream only; one DECISIONS line with the numbers
 
 ## Phase 3: layout (v0.3, checkpoint 4 on Sun 31 Jan 2027 ~11:00), epics
+
+> Started 11 Nov: all four phase-2 targets are met. Public API still waits for checkpoint 3.
+- E3-00 · DOM · todo · Design spike in crates/dom/DESIGN.md: lazy layout on blitz-dom 0.2.4 (resolve, invalidation on mutation, page width and fonts from options), which queries Blitz answers, cost per query, what a style-attribute flush needs; a prototype getBoundingClientRect behind a doc(hidden) switch with tests against Chrome probes
 
 - E3-01 · DOM · todo · getBoundingClientRect, getClientRects, offset and client sizes from Blitz layout, lazy layout with invalidation on mutation
 - E3-02 · DOM · todo · getComputedStyle, matchMedia('print'), document.fonts.ready
