@@ -209,16 +209,16 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 ## Quality track (from Kay's directive of 11 Nov: it works, prints on par with Chrome-based tools, faster, less memory)
 
 > Ranked above everything except a red main. Quality means the printed page against Chrome's.
-- Q-CF-01 · CF · todo · Printer matrix: print every checkpoint-2 and checkpoint-3 page with fulgur 0.40.0, the newest fulgur, and each other browserless printer that installs here (ironpress, rustyprint, forme), all fed surimono's output; score against the committed Chrome references, with time and peak PSS per printer; report in fixtures/printers/
+- Q-CF-01 · CF · doing · Printer matrix, first part running: fulgur 0.40.0 against the newest fulgur. Second part waits for Kay's OK to install and run the other printers on the fleet machine (ironpress, rustyprint, forme): the session's safety check refused it. Print every checkpoint-2 and checkpoint-3 page, all fed surimono's output; score against the committed Chrome references, with time and peak PSS per printer; report in fixtures/printers/
 - Q-CF-02 · CF · todo · Page-path benchmark: the six real-world pages through render_page + printer against Grover and Ferrum (time cold and warm, summed PSS), in bench/ beside the islands report
-- Q-GFX-01 · GFX · todo · Root-cause the print gaps of fixtures/checkpoint-3/NOTES.md in fulgur 0.40 and blitz 0.2.4 sources: `<svg display:block>` ignoring width/height, single-side border colour, list markers, synthesized italic, inline `code` background, `<pre>` height, KaTeX vertical-align and inline-block struts, `@font-face` URLs. Per gap: where, the smallest patch, a test, whether the newest fulgur/Blitz has it; drafts in docs/upstream/ (by the orchestrator's assignment)
+- Q-GFX-01 · GFX · doing · Root-cause the print gaps of fixtures/checkpoint-3/NOTES.md in fulgur 0.40 and blitz 0.2.4 sources: `<svg display:block>` ignoring width/height, single-side border colour, list markers, synthesized italic, inline `code` background, `<pre>` height, KaTeX vertical-align and inline-block struts, `@font-face` URLs. Per gap: where, the smallest patch, a test, whether the newest fulgur/Blitz has it; drafts in docs/upstream/ (by the orchestrator's assignment)
 - Q-PKG-01 · PKG · todo · One-call print path behind the facade's `fulgur` feature (Rust `print_pdf`, gem `to_pdf`, CLI `surimono pdf`) with the same fonts and page size for measuring and printing; design first, build after Q-CF-01 and Q-GFX-01 say which printer and which patches
 - Q-ORC-01 · ORC · todo · Decide from Q-CF-01 and Q-GFX-01: patched print path shipped by us, or upstream only; one DECISIONS line with the numbers
 
 ## Phase 3: layout (v0.3, checkpoint 4 on Sun 31 Jan 2027 ~11:00), epics
 
 > Started 11 Nov: all four phase-2 targets are met. Public API still waits for checkpoint 3.
-- E3-00 · DOM · todo · Design spike in crates/dom/DESIGN.md: lazy layout on blitz-dom 0.2.4 (resolve, invalidation on mutation, page width and fonts from options), which queries Blitz answers, cost per query, what a style-attribute flush needs; a prototype getBoundingClientRect behind a doc(hidden) switch with tests against Chrome probes
+- E3-00 · DOM · doing · Design spike in crates/dom/DESIGN.md: lazy layout on blitz-dom 0.2.4 (resolve, invalidation on mutation, page width and fonts from options), which queries Blitz answers, cost per query, what a style-attribute flush needs; a prototype getBoundingClientRect behind a doc(hidden) switch with tests against Chrome probes
 
 - E3-01 · DOM · todo · getBoundingClientRect, getClientRects, offset and client sizes from Blitz layout, lazy layout with invalidation on mutation
 - E3-02 · DOM · todo · getComputedStyle, matchMedia('print'), document.fonts.ready
