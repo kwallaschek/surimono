@@ -10,7 +10,37 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Wed 11 Nov 2026, 20:45)
+## Now (Wed 11 Nov 2026, 21:35)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+
+- **Kay's answers at 21:22:** merges allowed (green CI at the exact head plus a fresh review);
+  third-party printers may be installed on the fleet machine for comparison; rewrite main's
+  history to replace his work address with his gmail (Q-ORC-03, waits for his confirmation of
+  the address and a moment with no open PR).
+- **Merged 21:30:** #174, #175, #178 (merge commits), #176, #177 (squashes). Read full.yml on
+  the pushed head before the next merge. P2-RT-10 stays on watch for a week of nightlies.
+- **Open PRs, both blocked by review, authors fixing:** #179 E3-00 layout prototype (sheets must
+  be screened before the style engine; one expectation from our own output; wording to make
+  neutral), #180 Q-PKG-02 printer-safe output (26 of 187 pages differ in Chrome: shadow DOM,
+  `-webkit-border-*`, bidi, ruby; one loop without a deadline check). P2-DOM-08 (selector cut
+  in sheet.rs, a print-corrupting bug on main) follows on its own branch from the DOM agent.
+- Running: DOM agent (#179 fixes, then P2-DOM-08), PKG agent (#180 fixes), CF agent (Q-CF-03).
+- Kay's queue: confirm the gmail address for the rewrite; report the private findings upstream
+  (5 Nov file and the two 11 Nov files in the Claude project) and file the docs/upstream drafts.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`; a red main comes
+before everything. Then: fresh reviews of #179 and #180 once their authors push (new sessions
+can't resume this session's agents: continue from the pushed branches). Merge on green plus
+approval, as local merge commits by the fleet identity (squash where a branch's history must
+not reach main). Then by value for the directive: E3-01a (canvas and svg sizes), Q-PKG-03
+(print media), P2-CF-09 (Chrome-equivalence check in CI), Q-ORC-01's decision on printer
+patches after Q-CF-03, Q-GFX-03, Q-CF-02, P2-CF-07, P2-CF-08, Q-GFX-02, P2-RT-11, P2-DX-05,
+P2-ORC-03. Push docs to main once per round. Checkpoint-3 evidence by Sun 15 Nov; digest Sun
+15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 20:45)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.

@@ -127,7 +127,7 @@ Chrome's print is the reference. Measured on Chromium 153 prints rasterised at
 960 dpi (`list-style-position: outside`, one `<li>` per size; the content edge
 is the left edge of the item's content box, the baseline the bottom of an "H"
 in the item). The numbers move with the font: Noto Sans JP differs from Noto
-Sans at five of the eight sizes. "Size" is the symbol's width and height,
+Sans at seven of the eight sizes. "Size" is the symbol's width and height,
 "gap" the distance from the symbol's right edge to the content edge; the Noto
 Sans JP columns were measured the same way in the review of this draft.
 
