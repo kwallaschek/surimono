@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -38,6 +40,11 @@ class MeasureTest(unittest.TestCase):
         self.assertTrue(out["memory_complete"])
         self.assertGreaterEqual(out["samples_min"], 5)
         self.assertEqual(len(out["runs"]["timed"]), 3)
+        # The single runs behind the statistics, so a reader can recompute them.
+        self.assertEqual(out["wall_ms_runs"], [r["wall_ms"] for r in out["runs"]["timed"]])
+        self.assertEqual(out["max_rss_mb_runs"], [r["max_rss_mb"] for r in out["runs"]["timed"]])
+        self.assertEqual(out["peak_pss_mb_runs"], [r["memory"]["peak_pss_mb"] for r in out["runs"]["sampled"]])
+        self.assertEqual(len(out["peak_rss_mb_runs"]), 2)
         self.assertNotIn("memory", out["runs"]["timed"][0])  # timed runs aren't sampled
         self.assertIn("memory", out["runs"]["sampled"][0])
 
@@ -75,6 +82,77 @@ class MeasureTest(unittest.TestCase):
         self.assertEqual(fine["sample_interval_ms"], 1)
         self.assertGreater(fine["samples_min"], 2 * coarse["samples_min"])
         self.assertEqual(run("--runs", "1", "--interval-ms", "0", *cmd)[0], 2)
+
+    def test_a_command_that_writes_a_lot_to_stderr_is_not_blocked(self) -> None:
+        # 2 MB is far more than a pipe holds; read only after exit, it would hang until the timeout.
+        chatty = "import sys; sys.stderr.write('x' * 2_000_000); sys.stderr.write('the end'); sys.exit({code})"
+        code, out = run("--runs", "1", "--mem-runs", "1", "--timeout", "20", "--", PY, "-I", "-c", chatty.format(code=0))
+        self.assertEqual(code, 0, out)
+        self.assertLess(out["wall_ms"]["median"], 10_000)
+        code, out = run("--runs", "1", "--mem-runs", "1", "--timeout", "20", "--", PY, "-I", "-c", chatty.format(code=4))
+        self.assertEqual((code, out["error"], out["timed_out"]), (1, "exit 4", False))
+        self.assertTrue(out["stderr"].endswith("the end"))
+        self.assertLessEqual(len(out["stderr"]), 3000)
+
+    def commands_file(self, commands: list) -> str:
+        fd, path = tempfile.mkstemp(suffix=".json")
+        with os.fdopen(fd, "w") as f:
+            json.dump(commands, f)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_several_commands_take_turns(self) -> None:
+        small = [PY, "-I", "-c", "import time; time.sleep(0.05)"]
+        big = [PY, "-I", "-c", "import time; x = bytearray(30_000_000); time.sleep(0.15)"]
+        path = self.commands_file([{"label": "small", "cmd": small}, {"label": "big", "cmd": big}])
+        code, out = run("--runs", "3", "--mem-runs", "2", "--interval-ms", "1", "--commands", path)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out["timed_order"], [["small", "big"], ["big", "small"], ["small", "big"]])
+        self.assertEqual(out["sampled_order"], [["small", "big"], ["big", "small"]])
+        small_out, big_out = out["commands"]["small"], out["commands"]["big"]
+        self.assertEqual((len(small_out["wall_ms_runs"]), len(big_out["wall_ms_runs"])), (3, 3))
+        self.assertEqual((len(small_out["peak_pss_mb_runs"]), len(big_out["peak_pss_mb_runs"])), (2, 2))
+        self.assertGreater(min(big_out["wall_ms_runs"]), min(small_out["wall_ms_runs"]) + 50)
+        self.assertGreater(big_out["peak_pss_mb"]["median"], small_out["peak_pss_mb"]["median"] + 25)
+        self.assertEqual(small_out["wall_ms"]["n"], 3)
+        self.assertNotIn("runs", small_out)
+        # --offset moves who starts the first round: a caller changes it per page.
+        code, out = run("--runs", "2", "--mem-runs", "1", "--offset", "1", "--commands", path)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out["timed_order"], [["big", "small"], ["small", "big"]])
+        self.assertEqual(out["sampled_order"], [["big", "small"]])
+
+    def test_warmup_rounds_run_and_are_not_measured(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            # Each run appends its label to a file: every run shows, measured or not.
+            log = os.path.join(d, "log")
+            cmd = lambda label: [PY, "-I", "-c", f"open({log!r}, 'a').write({label!r})"]  # noqa: E731
+            path = self.commands_file([{"label": "a", "cmd": cmd("a")}, {"label": "b", "cmd": cmd("b")}])
+            code, out = run("--runs", "2", "--mem-runs", "1", "--warmup", "1", "--offset", "1", "--commands", path)
+            self.assertEqual(code, 0, out)
+            self.assertEqual(out["warmup_rounds"], 1)
+            self.assertEqual(out["commands"]["a"]["wall_ms"]["n"], 2)
+            # warm-up b a, timed b a, a b, sampled b a
+            self.assertEqual(open(log).read(), "ba" + "baab" + "ba")
+        self.assertEqual(run("--warmup", "1", "--", PY, "-c", "pass")[0], 2)
+
+    def test_round_order(self) -> None:
+        self.assertEqual([measure.round_order(["a", "b", "c"], i) for i in range(4)], [["a", "b", "c"], ["b", "c", "a"], ["c", "a", "b"], ["a", "b", "c"]])
+        self.assertEqual(measure.round_order(["a", "b"], 0, 3), ["b", "a"])
+
+    def test_a_failing_command_among_several_is_named(self) -> None:
+        path = self.commands_file([{"label": "good", "cmd": [PY, "-I", "-c", "pass"]}, {"label": "bad", "cmd": [PY, "-I", "-c", "import sys; sys.exit(5)"]}])
+        code, out = run("--runs", "1", "--mem-runs", "1", "--commands", path)
+        self.assertEqual((code, out["label"], out["error"]), (1, "bad", "exit 5"))
+        self.assertNotIn("commands", out)
+
+    def test_commands_usage(self) -> None:
+        good = self.commands_file([{"label": "a", "cmd": [PY, "-c", "pass"]}])
+        self.assertEqual(run("--commands", good, "--", PY, "-c", "pass")[0], 2)  # one or the other
+        for bad in ([], [{"label": "a"}], [{"label": "a", "cmd": []}], [{"label": "a", "cmd": ["x"]}, {"label": "a", "cmd": ["y"]}], {"label": "a"}):
+            self.assertEqual(run("--commands", self.commands_file(bad))[0], 2, bad)
+        self.assertEqual(run("--commands", good + ".missing")[0], 2)
+        self.assertEqual(run("--offset", "-1", "--commands", good)[0], 2)
 
     def test_usage(self) -> None:
         self.assertEqual(run("--runs", "1")[0], 2)
