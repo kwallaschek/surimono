@@ -38,8 +38,19 @@ The Rust crates and the Ruby gem share one version number.
   is screened so the printer's parse matches ours.
 - **Docs.** Page scripts in the Rails and Rust guides and the README, a page
   example in Rust and Ruby, and the [checkpoint 3 checklist](docs/guide/checkpoint-3.md).
+- **musl native gems, prepared** (#170): the gem build makes `x86_64-linux-musl`
+  and `aarch64-linux-musl` gems and tests the x86_64 one on Alpine Linux, Ruby
+  3.2 to 4.0. The nightly build runs them once its workflow change is adopted;
+  none has been built on CI yet, and none is released.
 
 ### Changed
+
+- **`Math` gives the same bits on every platform** (#171). `Math.sin`, `cos`,
+  `tan`, `asin`, `acos`, `atan`, `atan2`, the hyperbolic functions and their
+  inverses, `exp`, `expm1`, `log`, `log1p`, `log2`, `log10`, `cbrt`, `pow` (and
+  `**`) and `hypot` are correctly rounded, from CORE-MATH (MIT), instead of the
+  platform's C library. Some results change in the last bit; the chart and
+  real-world fixtures give the same bytes as before on x86_64 Linux.
 
 - **Rust 1.89 is the minimum supported version**, up from 1.87 (#117). fulgur
   0.40 needs it too.
