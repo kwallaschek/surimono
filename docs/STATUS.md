@@ -28,6 +28,11 @@ memory** (DECISIONS 2026-11-11). Hard stops are unchanged.
 - 11:35: Q-GFX-01 back (#176, needs review): every print gap root-caused; fulgur 0.41.0 fixes none;
   workarounds on our side alone make 4 of 6 real-world pages pass. Q-PKG-02 (printer-safe output)
   and Q-ORC-02 (fulgur's second layout backend, raikiri) started.
+- 11:50: the Fable 5.2 usage limit stopped the agents (resets 14:10 JST). Their work is in their
+  worktrees under /home/claude/wt/ and their branches: q-cf-01 (fulgur 0.40 vs newest; was at its
+  tests), q-pkg-02 (printer-safe output), e3-00 (layout spike), and the review of #176. This session
+  resumes them at 14:13; a new session that finds them stopped starts the same task ids again from
+  the pushed branches (list remote branches first).
 - **Blocked on Kay: merges.** The session's safety check refuses fleet merges until he allows them
   in this session. Waiting: #174 (approved, green), #176 (in review). Kay's queue (no deadline): file the docs/upstream drafts and the private
   findings; confirm the employer open-source check.
