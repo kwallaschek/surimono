@@ -17,7 +17,9 @@ works, prints on par with Chrome-based tools, faster, less memory). Every agent 
 Nothing ran from 21:40 on 11 Nov to 07:25 on 12 Nov: the usage limit stopped the agents and the
 scheduled resume task is paused (not by the fleet). Kay said "continue" at 07:25.
 
-- **Main is red** at d4f30d14 in one job, `linux-extra (nightly-extra)`: two tests of
+- 08:20: #182 (P2-CF-10) merged: the nightly ran the tool tests before it installed poppler.
+  The run on this push shows whether `nightly-extra` is green again; read it before the next merge.
+- (07:40) **Main was red** at d4f30d14 in one job, `linux-extra (nightly-extra)`: two tests of
   fixtures/tools/test/printers.test.mjs from #177 fail on the GitHub runner. Every other job is
   green, including arm64, ASan and soak on the merged #178. P2-CF-10 (CF agent) is on it, first.
 - **Standing permissions from Kay (11 Nov 21:22 and 21:27):** merges on green CI at the exact
