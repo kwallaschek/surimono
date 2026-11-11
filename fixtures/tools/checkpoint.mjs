@@ -3,7 +3,8 @@
 // outlines, the default) and fulgur, compared with the committed Chrome
 // references.
 //
-//   node checkpoint.mjs --out DIR --surimono BIN [--commit SHA] [--baseline BDIR] [fixture ...]
+//   node checkpoint.mjs --out DIR --surimono BIN [--commit SHA] [--baseline BDIR]
+//                       [--fulgur FULGUR] [--no-chrome] [--measure N] [fixture ...]
 //
 // BIN is the surimono CLI (`surimono render <in.html> -o <out.html> --font …`,
 // crates/cli), or $SURIMONO_BIN; --commit (or $SURIMONO_COMMIT) names the
@@ -25,6 +26,14 @@
 // different time zone, locale and working directory; the two outputs must be
 // byte-identical (docs/SPEC.md, determinism), recorded in determinism.json.
 //
+// --fulgur (or $FULGUR) names the fulgur to print with, so one run prints with one
+// fulgur and printers.mjs runs this once per version. --no-chrome leaves out the
+// Chrome-printed comparison of each island (the gate, which doesn't depend on the
+// printer), so such a run needs no Chromium and is never a checkpoint: index.md
+// says so and compat.py finds no gate in it. --measure N also times each page's
+// print and samples its memory (bench/tools/measure.py, N runs each), as `print`
+// in checkpoint.json.
+//
 // Nothing fails silently: when surimono, fulgur or a comparison dies before
 // compare.mjs writes its score, this writes a failing score.json with
 // "error" in its place, so compat.py reports a failure, never "not run".
@@ -43,7 +52,7 @@ import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import os from "node:os";
 import { FIXTURES_DIR, TOOLS_DIR, islandsOf, listFixtures } from "./lib/fixtures.mjs";
-import { fulgurPrint, fulgurVersion } from "./lib/fulgur.mjs";
+import { fulgurMeasure, fulgurPrint, fulgurVersion, useFulgur } from "./lib/fulgur.mjs";
 import { PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
 import { passes, pct, scoresCell, verdict } from "./lib/report.mjs";
 
@@ -55,13 +64,19 @@ const { values, positionals } = parseArgs({
     commit: { type: "string" },
     baseline: { type: "string" },
     kind: { type: "string", default: "islands" },
+    fulgur: { type: "string" },
+    "no-chrome": { type: "boolean", default: false },
+    measure: { type: "string" },
   },
 });
 const bin = values.surimono || process.env.SURIMONO_BIN;
-if (!values.out || !bin) {
-  console.error("usage: node checkpoint.mjs --out DIR --surimono BIN [--commit SHA] [--baseline BDIR] [fixture ...]   (or set SURIMONO_BIN)");
+const measureRuns = values.measure === undefined ? 0 : Number(values.measure);
+const withChrome = !values["no-chrome"];
+if (!values.out || !bin || !Number.isInteger(measureRuns) || measureRuns < 0) {
+  console.error("usage: node checkpoint.mjs --out DIR --surimono BIN [--commit SHA] [--baseline BDIR] [--fulgur FULGUR] [--no-chrome] [--measure N] [fixture ...]   (or set SURIMONO_BIN)");
   process.exit(2);
 }
+useFulgur(values.fulgur);
 const outRoot = path.resolve(values.out);
 const inFixtures = path.relative(FIXTURES_DIR, outRoot);
 if (!inFixtures.startsWith("..") && !path.isAbsolute(inFixtures)) {
@@ -251,13 +266,13 @@ for (const fixture of listFixtures(values.kind, positionals)) {
     const subject = (printer) => `${fixture.name} island ${i} (printed by ${printer})`;
     const why = failure ?? islands[i]?.error;
     if (why) {
-      row.islands.push({ chrome: errorScore(chromeDir, subject("chrome"), why), fulgur: errorScore(fulgurDir, subject("fulgur"), why) });
+      row.islands.push({ chrome: withChrome ? errorScore(chromeDir, subject("chrome"), why) : null, fulgur: errorScore(fulgurDir, subject("fulgur"), why) });
       continue;
     }
     const svg = path.join(dir, `island-${i}.svg`);
     fs.writeFileSync(svg, islands[i].svg);
     row.islands.push({
-      chrome: compare(["--island", String(i), "--printer", "chrome", fixture.dir, svg], chromeDir, subject("chrome")),
+      chrome: withChrome ? compare(["--island", String(i), "--printer", "chrome", fixture.dir, svg], chromeDir, subject("chrome")) : null,
       fulgur: compare(["--island", String(i), "--printer", "fulgur", fixture.dir, svg], fulgurDir, subject("fulgur")),
     });
   }
@@ -269,8 +284,10 @@ for (const fixture of listFixtures(values.kind, positionals)) {
       fs.mkdirSync(pageDir, { recursive: true });
       fulgurPrint(html, path.join(pageDir, "surimono-fulgur.pdf"), pageDir);
       row.page = compare([fixture.dir, path.join(pageDir, "surimono-fulgur.pdf")], pageDir, fixture.name);
+      // The same print again, timed and sampled; kept in checkpoint.json, not in score.json.
+      if (measureRuns) row.print = fulgurMeasure(html, path.join(pageDir, "surimono-fulgur.pdf"), pageDir, [], measureRuns);
     } catch (e) {
-      row.page = errorScore(pageDir, fixture.name, e.message);
+      row.page = stamp(pageDir, { subject: fixture.name, pass: false, error: String(e.message).trim(), printer: e.printer, pages: [] });
     }
   }
   rows.push(row);
@@ -296,14 +313,17 @@ function floorNote() {
   const most = (xs) => (xs.length ? pct(Math.max(...xs)) : "not measured (no scores in the baseline)");
   return `fulgur's own floor, measured by \`baseline.mjs\` (fulgur ${baseline.fulgur} printing Chrome's SVGs): at most ${most(pages)} on a page and ${most(isl)} on an island. A fulgur-printed score above its floor comes from surimono's SVG.`;
 }
-const all = rows.flatMap((r) => [...r.islands.flatMap((x) => [x.chrome, x.fulgur]), r.page]);
+const all = rows.flatMap((r) => [...r.islands.flatMap((x) => [x.chrome, x.fulgur]), r.page]).filter((s) => withChrome || s !== null);
 const gate = rows.flatMap((r) => r.islands.map((x) => x.chrome));
+const gateLine = withChrome
+  ? `**Gate (each island's SVG printed by Chrome): ${gate.filter(passes).length} of ${gate.length} pass.**`
+  : "**Not a checkpoint: run with `--no-chrome`, so the gate (each island's SVG printed by Chrome) wasn't run.**";
 const md = [
   "# Checkpoint 2: surimono against Chrome",
   "",
   `${versions.surimono} (\`${producer.cli}\`, sha256 ${producer.sha256?.slice(0, 12) ?? "?"}${producer.commit ? `, commit ${producer.commit}` : ""}), text as outlines (the default), fixture fonts only; fulgur ${versions.fulgur}. The second render runs in a later second of the wall clock with TZ=${RUNS[1].TZ}, ${RUNS[1].LANG}${RUNS[1].locale_installed ? "" : " (not installed here: only the environment variables change)"} and another working directory. Chrome references: \`fixtures/islands/*/reference/\` (Chromium 153, pinned). Generated by \`fixtures/tools/checkpoint.mjs\`.`,
   "",
-  `**Gate (each island's SVG printed by Chrome): ${gate.filter(passes).length} of ${gate.length} pass.** All comparisons: ${all.filter(passes).length} of ${all.length} pass. Byte-identical across two processes: ${rows.filter((r) => r.deterministic).length} of the ${rows.filter((r) => r.deterministic !== undefined).length} fixtures that rendered (${rows.length} in all).`,
+  `${gateLine} All comparisons: ${all.filter(passes).length} of ${all.length} pass. Byte-identical across two processes: ${rows.filter((r) => r.deterministic).length} of the ${rows.filter((r) => r.deterministic !== undefined).length} fixtures that rendered (${rows.length} in all).`,
   "",
   `A comparison passes when shape (worst 32×32 window of near-mismatched ink) ≤ ${pct(PASS_WORST_WINDOW)}, colour (solid areas) ≤ ${pct(PASS_COLOUR_WINDOW)}, hue (strokes) ≤ ${pct(PASS_HUE_WINDOW)}, the page size matches and, for islands, every Chrome string is there with the same declared font weight and style (\`fixtures/README.md\`). Scores are shape / colour / hue. Each image is Chrome | surimono | diff.`,
   "",
@@ -328,7 +348,7 @@ const md = [
   floorNote(),
   "",
 ].join("\n");
-fs.writeFileSync(path.join(outRoot, "checkpoint.json"), `${JSON.stringify({ versions, producer, rows }, null, 2)}\n`);
+fs.writeFileSync(path.join(outRoot, "checkpoint.json"), `${JSON.stringify({ versions, producer, chrome_gate: withChrome, rows }, null, 2)}\n`);
 fs.writeFileSync(path.join(outRoot, "index.md"), md);
 console.log(`\n${md}`);
 const differ = rows.filter((r) => r.deterministic === false).map((r) => r.fixture);
