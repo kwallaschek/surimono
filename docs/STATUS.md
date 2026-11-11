@@ -10,7 +10,39 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Wed 11 Nov 2026, 19:45)
+## Now (Wed 11 Nov 2026, 20:45)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+The usage limit has stopped the agents three times today; they are resumed in place each time.
+
+- **Main is green** at 08944100, the second full.yml in a row with every job green.
+- **Merges wait for Kay's explicit OK in this session.** Approved with green CI on the exact head:
+  #174 (d627c628), #175 (0d7494ad), #176 (b1c2ed91, squash), #177 (a139b2c6, squash),
+  #178 (4e3b8b3b). After merging #176: "five of the eight sizes" is seven
+  (docs/upstream/fulgur-layout-gaps-0.40.md:129).
+- Running: Q-PKG-02 printer-safe output (branch q-pkg-02 pushed, 3 commits, PR not open yet);
+  #179 E3-00 cleanup (cost note made private, `<ol start=0>`), then a fresh review.
+- **Blocked on Kay:** merges; installing and running third-party printers on the fleet machine
+  (`fulgur-raikiri` for Q-CF-03, ironpress, rustyprint, forme); his work email as author of 167
+  public merge commits; filing docs/upstream drafts and the private findings (5 Nov and 11 Nov
+  files in the Claude project).
+- Results today: fulgur 0.41.0 prints exactly as 0.40.0 (#177); every print gap root-caused
+  (#176); real layout works behind an internal switch (#179: 1.5 ms per layout at 100 nodes,
+  70 ms at 10,000, 3 to 6 KiB per node held); a real race in the time limit fixed (#178).
+  New print gaps from #179: `@media print` never applies in fulgur, `line-height: normal`
+  is 1.2, replaced elements aren't sized by attributes (Q-PKG-03, Q-GFX-03, E3-01a).
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`. Then: if Kay has
+allowed merges, merge the five approved PRs (heads above; re-check each head and its CI first;
+#176 and #177 by squash), then P2-ORC-03. Review #179 and Q-PKG-02's PR with fresh reviewers.
+Then by value for the directive: E3-01a (canvas and svg sizes), Q-PKG-03 (print media),
+Q-ORC-01's decision on printer patches (needs Q-CF-03 if Kay allows it), Q-GFX-03, Q-CF-02,
+P2-CF-07, P2-CF-08, Q-GFX-02, P2-RT-11, P2-DX-05. A new session can't resume this session's
+agents: continue each task from its pushed branch with a new agent, never from scratch. Push
+docs to main once per round. Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 19:45)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
