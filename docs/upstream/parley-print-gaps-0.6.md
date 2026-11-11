@@ -62,9 +62,10 @@ blitz-dom 0.2.4 on 0.6, and cargo will not pick a 0.6.x that does not exist. A
 fulgur user gets the fix when fulgur moves to Blitz 0.3, or if fulgur carries a
 `[patch]` of parley 0.6.
 
-**Workaround without touching the printer.** Costly: give the box an explicit
-width, or turn each forced line into its own block (`<div>` per line instead
-of `<br>`), which changes the DOM. `white-space: nowrap` does not help
+**Workaround without touching the printer.** None that is neutral in Chrome.
+An explicit width needs Chrome's max-content width and stops the box from
+shrinking when there is less room; a `<div>` per forced line instead of `<br>`
+changes what selectors match and puts a block inside an inline parent. `white-space: nowrap` does not help
 (blitz-dom 0.2.4 ignores it, B4 in `blitz-print-gaps-0.2.4.md`).
 
 **Proof.** fulgur-cli 0.40.0 rebuilt with the two lines prints the reproducer

@@ -7,7 +7,7 @@ and comparing rasters (surimono `fixtures/tools/compare.mjs`). Q-GFX-01
 (11 Nov 2026) traced each one to its source. Gaps whose cause is in Blitz or
 parley are in `blitz-print-gaps-0.2.4.md` (B1 to B6) and
 `parley-print-gaps-0.6.md` (P1, P2); this file has the ones in fulgur's own
-code (F1 to F9) and the scores for all of them.
+code (F1 to F10) and the scores for all of them.
 
 For every item: a few-line reproducer, what Chrome prints and the spec section,
 the cause (file and function in the fulgur 0.40.0 crate), the smallest patch,
@@ -104,10 +104,14 @@ with different colours still uses the first painted side's.
 **fulgur 0.41.0:** unchanged in `fulgur-blitz` (`convert/style/border.rs:11-13`
 is identical; ran, same raster). `fulgur-raikiri` resolves each side's colour.
 
-**Workaround without touching the printer.** Yes for the common case, exact:
-when only one side paints (the other three have zero width or `none`), write
-that side's colour to all four (`border-color: #d33`). No workaround for boxes
-with two or more different colours short of nested boxes.
+**Workaround without touching the printer.** Yes for the common case: when
+only one side paints, write that side's colour to all four (`border-color:
+#d33`). It prints the same in Chrome when the other three sides have a used
+width of 0, the colour is the one computed for print media, and the added
+declaration outranks nothing Chrome would apply (an inline style outranks
+author rules, so it must repeat the computed value, not guess it). An inline
+style cannot reach `::before` and `::after`; those need a rule. No workaround
+for boxes with two or more different colours short of nested boxes.
 
 ## F2. Bullet markers touch the text
 
@@ -116,13 +120,31 @@ with two or more different colours short of nested boxes.
 <ol><li>decimal</li></ol>
 ```
 
-**Chrome:** at 14 px Noto Sans the disc is 5 px wide and its right edge is
-12 px left of the item's content edge; circle and square likewise. "1." ends
-one space before the content edge. CSS Lists 3 §3.5: "CSS does not specify the
-precise location of the marker box", so Chrome is the reference: Blink places a symbol
-marker with its right edge `⌊2A/3⌋ + 7 − ⌊(⌊2A/3⌋ + 1) / 2⌋` px left of the
-content edge, where `A` is the font's ascent rounded to a pixel
-(`ListMarker::InlineMarginsForOutside` and `RelativeSymbolMarkerRect`).
+**Chrome:** "1." ends one space before the content edge. Disc, circle and
+square are drawn as shapes, not glyphs, with a gap to the text. CSS Lists 3
+§3.5: "CSS does not specify the precise location of the marker box", so
+Chrome's print is the reference. Measured on Chromium 153 prints rasterised at
+960 dpi (Noto Sans, `list-style-position: outside`, one `<li>` per size; the
+content edge is the left edge of the item's content box, the baseline the
+bottom of an "H" in the item):
+
+| `font-size` | Symbol's width and height | From the symbol's right edge to the content edge | Symbol's centre above the baseline |
+|---|---|---|---|
+| 10 px | 4 px | 10 px | 2.9 px |
+| 12 px | 4 px | 11 px | 3.9 px |
+| 14 px | 5 px | 12 px | 5.4 px |
+| 16 px | 6 px | 12 px | 4.9 px |
+| 18 px | 6 px | 13 px | 5.9 px |
+| 20 px | 7 px | 14 px | 7.4 px |
+| 24 px | 9 px | 15 px | 8.4 px |
+| 32 px | 11 px | 18 px | 10.4 px |
+
+Disc and square have the same box; the circle is a 1 px outline centred on
+that box's edge (its ink is 1 px wider and 0.5 px closer). All edges are on
+whole pixels. A straight line through the measurements: the symbol is about
+0.35 em, and its right edge about 7 px + 0.35 em from the content edge, both
+within 1 px from 10 to 32 px. Only this one font was measured; the numbers
+are observations, not Chrome's rule.
 
 **fulgur 0.40.0:** the bullet's ink ends 1.6 px before the text; numbers are
 right. The bullet is also not the one Blitz means: with Noto Sans JP it is the
@@ -144,9 +166,9 @@ font's own small `•`, 3 px wide. Page `marked-report`.
   Passing blitz-dom's `assets/moz-bullet-font.otf` with `--font` brings Blitz's
   bullet back (`pdffonts` then lists `Mozilla_Bullet`).
 
-**Smallest fix** for the gap (about 35 lines in `convert/list_item.rs`; trivial,
-low risk): widen the marker's reserved width for symbol markers by Chrome's
-distance.
+**Smallest fix** for the gap (about 20 lines in `convert/list_item.rs`; trivial,
+low risk): widen the marker's reserved width for symbol markers by the
+measured distance.
 
 ```diff
 @@ convert/list_item.rs, try_convert
@@ -158,29 +180,32 @@ distance.
 +            .as_ref()
 +            .is_some_and(|d| matches!(d.marker, crate::blitz_adapter::Marker::Char(_)))
 +        {
-+            marker_width = marker_width + symbol_marker_gap(doc, node);
++            marker_width = marker_width + symbol_marker_gap(node, /* advance − ink right edge of the marker glyph */);
 +        }
  …
-+/// Chrome's distance from a symbol marker's right edge to the content edge,
-+/// less the 0.113 em the Bullet font's glyph already leaves.
-+fn symbol_marker_gap(doc: &BaseDocument, node: &Node) -> crate::units::Pt {
++/// Distance from a symbol marker's right edge to the content edge, fitted to
++/// measurements of Chrome's prints (7 px + 0.35 em, within 1 px for 10 to 32 px),
++/// less the space the marker glyph leaves after its ink.
++fn symbol_marker_gap(node: &Node, glyph_right_bearing_px: f32) -> crate::units::Pt {
 +    let font_size_px = /* node's used font-size */;
-+    let ascent = /* first line's ascent of the item, or of its first anonymous block; else font_size_px */.round();
-+    let offset = (ascent * 2.0 / 3.0).floor();
-+    let diameter = ((offset + 1.0) / 2.0).floor();
-+    (offset + 7.0 - diameter - 0.113 * font_size_px).max(0.0).as_px().in_pt()
++    (7.0 + 0.35 * font_size_px - glyph_right_bearing_px).max(0.0).as_px().in_pt()
 +}
 ```
 
 The simpler variant, blitz-paint's fixed 8 px, is 3 lines and leaves the bullet
 about 2.5 px closer to the text than Chrome at 14 px.
 
-**The whole fix** (a day): draw disc, circle and square as shapes with Blink's
-geometry (a filled ellipse, a stroked ellipse and a filled square of
-`⌊(⌊2A/3⌋ + 1) / 2⌋` px, at the distance above), as Chrome does, instead of
-glyphs. Then neither the Bullet font nor a fallback font decides how a bullet
-looks. With the gap alone `marked-report` still fails on the bullets' size
-("Scores").
+**The whole fix** (a day): draw disc, circle and square as shapes (a filled
+ellipse, a 1 px stroked ellipse and a filled square) with the sizes and
+positions of the table above, instead of glyphs. Then neither the Bullet font
+nor a fallback font decides how a bullet looks. With the gap alone
+`marked-report` still fails on the bullets' size ("Scores").
+
+The Bullet font is no way out for surimono either: blitz-dom's
+`assets/moz-bullet-font.otf` ("Mozilla Bullet") carries no licence string in
+its name table and its licence has not been checked. It must be checked before
+anyone passes it to a printer or ships it; the `--font` run above was a probe
+on the fleet's machine only.
 
 **fulgur 0.41.0:** unchanged (`fulgur-blitz` `render.rs:3305`); ran, same
 raster.
@@ -197,7 +222,8 @@ page's CSS and what a tagged PDF calls a list label; not recommended.
 
 **Chrome:** slants the upright face. CSS Fonts 4 §2.4 and §2.8
 (`font-synthesis-style`, initially `auto`): when the family has no italic or
-oblique face the user agent synthesizes one; Blink shears by 1/4 (14°).
+oblique face the user agent synthesizes one. §2.4 gives `oblique` without an
+angle 14deg, the angle fontique also suggests.
 
 **fulgur 0.40.0:** upright. Page `marked-report` (`<em>` in Noto Sans JP, which
 has no italic).
@@ -298,10 +324,13 @@ rectangle is the text's width exactly.
 **fulgur 0.41.0:** unchanged in `fulgur-blitz` (`ShapedGlyphRun` has the same
 fields; ran, same raster). The release notes list inline backgrounds for Raikiri (#841).
 
-**Workaround without touching the printer.** Partly: `display: inline-block`
-on the element gives it a box fulgur paints, but an inline-block cannot break
-across lines, its background is the line's height, not the content area's, and
-F5 then applies. Acceptable for short `code` spans, wrong for long ones.
+**Workaround without touching the printer.** None that is neutral.
+`display: inline-block` on the element gives it a box fulgur paints, but it
+changes the print in Chrome too: an inline-block cannot break across lines,
+its background is as high as its line box, not the content area, vertical
+padding and border then grow the line, an ancestor's underline no longer runs
+under it, and spaces at its edges are dropped. F5 applies to it as well. Not a
+rewrite surimono should make on its own.
 
 ## F5. An inline-block in a wrapped paragraph directly under `<body>` is not painted
 
@@ -318,7 +347,11 @@ atomic inline-level box in the line).
 
 **fulgur 0.40.0:** the first box is painted; the second leaves a hole of its
 size: no background, no text. The same paragraph inside a `<div>` prints.
-Every inline-block, inline-flex and inline-table is affected. This is why
+Every inline-block, inline-flex and inline-table is affected, in every
+inline root directly under `<body>` with more than one line, whatever the
+element: a `<div>` of text, an `<li>`'s anonymous block, a heading (the fourth
+block of the reproducer in the scratch run was a `<div>` and had the same
+hole). This is why
 `E = mc²` is missing from page `katex-autorender`: KaTeX's `.katex-base` is an
 inline-block, the inline formula sits in a two-line `<p>` under `<body>`, and
 the display formulas, alone in their paragraphs, print.
@@ -361,12 +394,21 @@ at line boundaries" (#741) adds the same line splitting to the nested path
 (`:2749`). Ran fulgur-cli 0.41.0: the reproducer prints as in 0.40.0 (hole
 under `<body>`, painted inside a `<div>`).
 
-**Workaround without touching the printer.** Yes, two: wrap the body's
-children in one `<div>` (changes what `body > p` selects), or give a body-level
-paragraph that holds an inline box `break-inside: avoid`, which sends it down
-the block path (`pagination_layout.rs:732-736`; the paragraph then cannot
-split across pages). The second keeps the DOM. Ran both with the crates.io
-binary: all four boxes of the reproducer are painted.
+**Workaround without touching the printer.** Two, both run with the crates.io
+binary (all four boxes of the reproducer are painted), neither neutral in
+Chrome:
+
+- `break-inside: avoid` on a body-level inline root that holds an inline box
+  sends it down the block path (`pagination_layout.rs:732-736`). In fulgur
+  0.40.0 this changes no page break for a paragraph shorter than a page,
+  because fulgur already moves such a paragraph whole (F10). In Chrome it does
+  change one: a six-line paragraph that straddles a page boundary splits
+  3 + 3 without the declaration and moves whole with it (Chromium 153, the
+  reviewer's counter-example on PR #176). So it is right only as a form given
+  to fulgur, never as markup that must still print the same in Chrome, and for
+  a paragraph taller than a page it stops fulgur from splitting it at all.
+- Wrapping the body's children in one `<div>` changes what `body > x`
+  selects, breaks `body { display: flex }` or grid, and percentage heights.
 
 ## F6. The content width is cut to whole pixels
 
@@ -393,18 +435,35 @@ fraction is dropped, not rounded.
 lines; trivial, but the risk is medium: percentages and `vw` still see the
 integer): give the root element the exact width with a user-agent rule,
 `html { width: 680.315px }`, built from the resolved content width in
-`engine.rs` (`resolved_content_width_px`, `:263`). Rounding up instead of
-truncating (`.ceil() as u32`) is the one-token alternative; it errs toward
-fitting, by up to 1 px.
+`engine.rs` (`resolved_content_width_px`, `:263`), per page width where
+`@page` rules differ, and less the root's own horizontal margin, border and
+padding; as a user-agent rule it gives way to any author width on the root.
+Rounding up instead of truncating (`.ceil() as u32`) is the one-token
+alternative; it errs toward fitting, by up to 1 px.
 
 **fulgur 0.41.0:** unchanged (`fulgur-blitz` `blitz_adapter.rs:421`, `:628`;
 ran, the same 510.000 pt).
 
-**Workaround without touching the printer.** Yes, exact where the page states
-its size: surimono writes `html { width: <page width − margins> }` from the
-page's `@page` rule (or the caller's page size). Ran: with
-`html{width:680.315px}` fulgur 0.40.0 breaks `marked-report`'s first paragraph
-where Chrome does.
+**Workaround without touching the printer.** Conditional: surimono writes
+`html { width: <page area's width> }` from the page's `@page` rule (or the
+caller's page size). Ran: with `html{width:680.315px}` fulgur 0.40.0 breaks
+`marked-report`'s first paragraph where Chrome does. It prints the same in
+Chrome only when all of these hold; otherwise Chrome sees a root that overflows
+the page area and scales the whole document down:
+
+- the root has no author `width`, `min-width` or `max-width`;
+- the value is the page area's width less the root's horizontal margin, border
+  and padding. Counter-example (Chromium 153): with `html { padding: 0 40px }`
+  a block is 601 × 40 px in the original and 609 × 36 px with the rule;
+- every page box has the same width: no `:first`, `:left`, `:right` or named
+  page with another size or margin. Counter-example: with `@page :first {
+  margin: 15mm 40mm }` page 2's block is 680 px wide in the original and
+  492 px with the rule;
+- the value is rounded down, never to nearest;
+- the rule sits below every author rule.
+
+Where a condition fails, the rule is not written and the page prints as
+today.
 
 ## F7. A ligature's characters are missing from the PDF's text
 
@@ -516,18 +575,65 @@ The list this file had before Q-GFX-01, with what is now known:
    with system fonts (`blitz-svg-document-fonts.md`).
 7. **`@page` size rounding:** Chrome's, not fulgur's.
 
+## F10. A body-level paragraph that fits on one page is never split
+
+```html
+<style>@page { size: 400px 300px; margin: 0 } body { margin: 10px; font: 14px/22px "Noto Sans" } p { margin: 0 0 10px }</style>
+<p>Filler A.</p> … <p>Filler G.</p>          <!-- seven one-line paragraphs -->
+<p>Straddle: one two three … thirty-three.</p>  <!-- six lines; three fit on page 1 -->
+<p>After.</p>
+```
+
+**Chrome:** three lines of the paragraph on page 1, three on page 2
+(CSS Fragmentation 3 §4.1, a break between line boxes; `orphans` and `widows`
+are 2 initially, §3.3).
+
+**fulgur 0.40.0:** all six lines on page 2; page 1 ends after "Filler G."
+with the rest empty. Found by the reviewer of this draft (PR #176); every
+multi-page text document gets other page breaks than in Chrome.
+
+**Root cause.** In the body-level branch for a multi-line inline root,
+`pagination_layout.rs:746-750` runs before `fragment_inline_root`:
+
+```rust
+if cursor_y > 0.0 && cursor_y + para_total_h > self.page_height_px {
+    page_index += 1;
+    cursor_y = 0.0;
+}
+```
+
+The comment above it calls this the fallback "taken when the inline split path
+can't honour widow / orphan constraints within the strip", but the condition
+is only "the paragraph does not fit the rest of the page". So a paragraph
+shorter than a page always moves whole, and `fragment_inline_root`'s line
+splitting only ever runs for a paragraph taller than a page. Every inline root
+directly under `<body>` takes this branch, not only `<p>`.
+
+**Smallest fix** (a day with tests; not built): advance the page only when no
+legal split exists in the remaining strip, that is when fewer than `ORPHANS_MIN`
+lines fit there or fewer than `WIDOWS_MIN` would be left; otherwise let
+`fragment_inline_root` split from the current cursor, as it already does on a
+fresh page. Together with F5's fix, each inline box then has to be recorded on
+its line's page.
+
+**fulgur 0.41.0:** the same lines are in `fulgur-blitz`
+(`pagination_layout.rs:756-759`; read, not run).
+
+**Workaround without touching the printer.** None.
+
 ## Scores
 
 Method: `fixtures/tools/print-pages.mjs`'s "floor" (fulgur prints Chrome's own
 DOM, `reference/dom.html`, with the fixture fonts) scored by
 `fixtures/tools/compare.mjs` against the committed Chromium 153 references.
 Shape / colour / hue are worst-window shares; a page passes at or below 10%
-each. "Before" is fulgur-cli 0.40.0 from crates.io (`cargo install --locked`);
+for shape and colour and 30% for hue (`pass_hue_window: 0.3` in `score.json`). "Before" is fulgur-cli 0.40.0 from crates.io (`cargo install --locked`);
 fulgur-cli 0.41.0 from crates.io scores the same on all four pages and prints
 every reproducer in F1 to F5, B1, B2 and P1 pixel for pixel like 0.40.0 (ran).
 "After" is fulgur-cli 0.40.0 built from the crate sources with `[patch]`
 copies of fulgur, blitz-dom and parley carrying the sketches above (F1, F2's
-gap, F3, F4, F5, F7, B1, B2 with its fragmenter half, B3, P1), in a scratch
+gap at 12 px for 14 px text, F3, F4, F5, F7, B1, B2 with its fragmenter half,
+B3, P1), in a scratch
 directory outside the repository. Each fix sat behind a run-time switch; with
 all of them off the build's rasters are identical to the crates.io binary's on
 all four pages. 11 Nov 2026, the fleet's Linux machine, poppler 24.02.0.
@@ -564,25 +670,28 @@ checkpoint-2 template, which avoids P1 and F1 by construction.
 
 | # | Gap | Where | Size | Pages it turns green | Without touching the printer |
 |---|---|---|---|---|---|
-| 1 | B1 block `<svg>` size | blitz-dom | trivial | `d3-charts` (alone) | yes, exact |
-| 2 | F1 border colours | fulgur | trivial | `noscript-message` (alone) | yes for one painted side |
-| 3 | F5 inline-block not painted | fulgur | trivial | none alone; brings back content that is silently missing (`E = mc²`) | yes (`break-inside: avoid`) |
-| 4 | F6 content width | fulgur | trivial | none alone; needed by `marked-report` | yes, exact |
-| 5 | B2 trailing empty line | blitz-dom (and fulgur's fragmenter) | trivial | none alone; needed by `marked-report` | yes (DOM text one character shorter) |
-| 6 | P1 max-content width | parley 0.6 | trivial | none of the six; any header or address block with `<br>` in a flex row | costly |
+| 1 | B1 block `<svg>` size | blitz-dom | trivial | `d3-charts` (alone) | conditional: per property, only with no author declaration of it |
+| 2 | F1 border colours | fulgur | trivial | `noscript-message` (alone) | yes for one painted side, repeating the computed colour |
+| 3 | F5 inline-block not painted | fulgur | trivial | none alone; brings back content that is silently missing (`E = mc²`) | for fulgur only (`break-inside: avoid`); not neutral in Chrome |
+| 4 | F6 content width | fulgur | trivial | none alone; needed by `marked-report` | conditional: no author width on the root, its box subtracted, one page width, rounded down |
+| 5 | B2 trailing empty line | blitz-dom (and fulgur's fragmenter) | trivial | none alone; needed by `marked-report` | conditional: only a break that ends a line with content |
+| 6 | P1 max-content width | parley 0.6 | trivial | none of the six; any header or address block with `<br>` in a flex row | no (the rewrites change Chrome's print) |
 | 7 | F2 bullets | fulgur | trivial for the gap, a day as shapes | `marked-report`, with 4, 5 and 9 | no |
 | 8 | F7 ligature text | fulgur | trivial | none (not a pixel) | no |
-| 9 | F4 inline backgrounds | fulgur | a day | needed by `marked-report` | partly |
+| 9 | F4 inline backgrounds | fulgur | a day | needed by `marked-report` | no (`inline-block` is not neutral) |
 | 10 | F3 synthesized italic | fulgur | a day | none by score | no |
-| 11 | B3, F8 `@font-face` | blitz-dom, fulgur | trivial, a day | none (the fixtures pass fonts) | yes, exact |
-| 12 | B5 tables | blitz-dom | deep (in 0.3) | none of the six (they avoid tables) | partly |
+| 11 | B3, F8 `@font-face` | blitz-dom, fulgur | trivial, a day | none (the fixtures pass fonts) | yes while the family equals the font's name; an alias is conditional |
+| 12 | B5 tables | blitz-dom | deep (in 0.3) | none of the six (they avoid tables) | not yet (needs Chrome's widths) |
 | 13 | B4 inline layout for KaTeX | blitz-dom, parley | deep (partly in 0.3) | `katex-autorender` | no; an island instead |
 | 14 | P2 `text-spacing-trim` | stylo, blitz-dom, parley | deep | none (the fixtures opt out) | no |
+| 15 | F10 body-level paragraph never split | fulgur | a day | none of the six (one page each); page breaks of any multi-page text | no |
 
 First three: B1, F1 and F5. Each is a few lines, the first two turn a page
 green on their own, and the third is the only gap here where content
-disappears. All three also have a workaround surimono can apply to its own
-output today, so the pages do not have to wait for a release. `marked-report`
+disappears. All three have a workaround surimono can apply to the form it
+hands fulgur, under the conditions each section lists, so the pages do not
+have to wait for a release. None of the workarounds is unconditional, and
+F5's is not neutral in Chrome. `marked-report`
 comes next as a bundle (F6, B2, F2 as shapes, F4): about two and a half days
 of printer work for one page, though it is the page that looks like most
 people's documents.

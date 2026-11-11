@@ -49,8 +49,9 @@ fails 100% for this alone (`d3.select(...).append("svg").attr("width", w)` with
   `replaced_measure_function`, and `src/layout/replaced.rs:90-94` returns
   `known_dimensions` (with the aspect ratio applied) before it looks at
   `attr_size`. `synthesize_presentational_hints_for_legacy_attributes`
-  (`src/stylo.rs:887-915`) maps `width`/`height` for tables, cells and `hr`,
-  not for `svg` or `img`, so the style width stays `auto`.
+  (`src/stylo.rs:887-915`) maps `width` for `table`, `col`, `tr`, `td`, `th`
+  and `hr`, and `height` for `table`, `thead`, `tbody` and `tfoot`; neither for
+  `svg` or `img`, so the style width stays `auto`.
 
 An inline `<svg>` works because inline layout passes `known_dimensions: NONE`.
 
@@ -84,9 +85,26 @@ dimension attributes of `img`, `iframe`, `embed`, `video`, `object` and, with
 SVG length parsing, `svg`; `src/layout/replaced.rs` has a full
 `compute_replaced_layout`. Not in 0.2.4.
 
-**Workaround without touching the printer.** Yes, exact: write the attributes
-as CSS, `<svg width="640" height="208" style="width:640px;height:208px">`
-(only when the element has no CSS size of its own). No fidelity cost.
+**Workaround without touching the printer.** Conditional. Writing the
+attributes as an inline style, `<svg width="640" height="208"
+style="width:640px;height:208px">`, prints the same in Chrome only under these
+conditions, because an inline style outranks every author rule while a
+presentation attribute loses to all of them:
+
+- per property: write `width` only when no author declaration of `width`
+  applies to the element, and `height` only when none of `height` does. Any
+  value counts, `auto`, `inherit`, `unset` and `revert` included, and so does
+  `all`. Counter-example (Chrome 153): with the common reset `svg { display:
+  block; max-width: 100%; height: auto }` in a 200 px box, the original prints
+  200 × 65 px; with `style="width:640px;height:208px"` it prints a 200 × 208 px
+  box with the drawing letterboxed in it, and the text below moves 143 px.
+  Here `height` must not be written;
+- only on an `<svg>` whose parent is not an SVG element, and on `<img>`;
+- the value converted by the attribute's own rules: SVG lengths (`10em`,
+  `100mm`, percentages) for `<svg>`, HTML's dimension rules for `<img>`.
+
+Where a condition fails the element is left alone and prints as before the
+workaround.
 
 **Proof.** fulgur-cli 0.40.0 rebuilt with this patch alone prints `d3-charts`
 at 0.0% / 0.0% / 0.0% (before: 100% / 100% / 100%); the workaround, with the
@@ -156,11 +174,40 @@ content ends the final line box without starting a new one. Parley still emits
 an empty line after it … so that line is excluded from the measured height").
 Not in 0.2.4.
 
-**Workaround without touching the printer.** Yes: drop one trailing `\n` from
-the last text node of a `white-space: pre` block, and a `<br>` that is the last
-content of a block. The print is unchanged in Chrome; the cost is that the
-printed DOM is no longer byte-equal to the page's (text content one character
-shorter).
+**Workaround without touching the printer.** Conditional: drop the last
+forced break of a block. Two things have to be kept apart: whether fulgur then
+prints what Chrome prints for the original, and whether the rewritten markup
+still prints the same in Chrome (it has to, if the rewritten DOM is ever
+compared with Chrome's). Block heights at 14px/22px, Chromium 153 and fulgur
+0.40.0 (measured by the reviewer of this draft, PR #176):
+
+| Block | Chrome, original | Chrome, rewritten | fulgur, original | fulgur, rewritten |
+|---|---|---|---|---|
+| `one<br>` | 22 | 22 | 44 | 22 |
+| `one<br><br>` | 44 | 22 | 66 | 44 |
+| `<div><br></div>` | 22 | 0 | 44 | 0 |
+| `<pre>one\n\n</pre>` | 44 | 22 | 64 | 44 |
+
+The rule that follows from it:
+
+- Drop the last forced break only when the text before it on its line is not
+  empty (`one<br>`, `…two\n</pre>`). Then fulgur prints Chrome's height and
+  the rewrite is neutral in Chrome.
+- Two or more trailing breaks (`one<br><br>`, `one\n\n`): dropping one makes
+  fulgur print Chrome's original height, but the rewritten markup is one line
+  shorter in Chrome. Right as a form for fulgur only, not Chrome-neutral.
+- A block whose only content is the `<br>` (the empty paragraph rich-text
+  editors emit) is left alone: without the `<br>` it is 0 px high in both.
+  fulgur keeps printing it one line too tall; there is no workaround.
+- Not a `<br>` with `clear` (`<br clear="all">`, `br { clear: both }`): the
+  block would stop containing its floats.
+- Not when a selector can see the removal: `:last-child` on the sibling
+  before it (`<p><b>x</b><br></p>`), `:empty`, `br` itself.
+- The newline is preserved text under `white-space: pre`, `pre-wrap`,
+  `pre-line` and `break-spaces`, so the text-node half applies to all four.
+
+The cost in every case is that the printed DOM is no longer byte-equal to the
+page's.
 
 ## B3. `@font-face` in a `<style>` element is never fetched; a fetched font keeps its own family name
 
@@ -213,9 +260,12 @@ not checked.
 **Workaround without touching the printer.** Yes, and it is what a one-call
 print path should do anyway: surimono reads the page's `@font-face` rules,
 resolves each `src` under its own resource policy and hands the bytes to the
-printer (`AssetBundle::add_font_bytes`). Exact when the rule's family equals
-the font's own name; an aliased family additionally needs the rule rewritten to
-the font's name. See F8 in `fulgur-layout-gaps-0.40.md` for fulgur's own part
+printer (`AssetBundle::add_font_bytes`). No markup changes, so it is exact,
+while the rule's family equals the font's own name. An aliased family
+additionally needs the page's family names rewritten to the font's, and that
+is neutral only when the font's own name matches no other `@font-face` family
+in the page and one CSS family does not map to several internal family names
+(static instances named "X SemiBold" and the like). See F8 in `fulgur-layout-gaps-0.40.md` for fulgur's own part
 (it reads no file above the input's folder).
 
 ## B4. Inline-level layout: what KaTeX needs and 0.2.4 lacks
@@ -297,10 +347,12 @@ skipped (`:232-235`); `rowspan` is not read.
 0.3.0-beta.4's `table.rs` is 851 lines against 335, with `<col>`, `rowspan`
 and `max-content` tracks; not verified by running.
 
-**Workaround without touching the printer.** Partly: surimono knows each
-column's used width when its own layout queries exist (phase 3) and could
-write them as explicit cell widths on the first row, which 0.2.4 honours.
-That fixes widths, not borders or vertical alignment.
+**Workaround without touching the printer.** Not yet. Explicit cell widths on
+the first row are honoured by 0.2.4, so Chrome's column widths could be
+written there. But surimono does not have Chrome's widths: its own layout
+queries (phase 3) sit on this same Blitz table code and would return the wrong
+ones. It needs a table layout of surimono's own first. Even then it fixes
+widths, not borders or vertical alignment.
 
 ## B6. The viewport is whole pixels
 
