@@ -248,14 +248,19 @@ print pages you don't trust.
 
 How much of the web platform works, in Web Platform Tests subtests, against what
 Chrome passes in the same run (from [docs/COMPAT.md](docs/COMPAT.md), surimono
-at `5dde7483b7`):
+at `221530524e`, WPT at `8b4b06ff53`). All four phase 2 targets are met:
 
 | Area | Passed | Of | Rate | Phase 2 target |
 |---|---|---|---|---|
-| Timers and microtask queuing | 30 | 34 | 88.2% | 90%, not met |
-| `dom/nodes` | 13,928 | 15,267 | 91.2% | 70%, met |
-| `dom/events` | 544 | 748 | 72.7% | 70%, met (64.2% of wpt.fyi's 848) |
-| `domparsing` | 355 | 909 | 39.1% | 60%, not met |
+| Timers and microtask queuing | 31 | 34 | 91.2% | 90%, met |
+| `dom/nodes` | 14,168 | 15,267 | 92.8% | 70%, met |
+| `dom/events` | 566 | 748 | 75.7% | 70%, met (66.7% of wpt.fyi's 848) |
+| `domparsing` | 566 | 909 | 62.3% | 60%, met |
+
+wpt.fyi, running Chrome 156 at the same WPT commit, counts more subtests that
+Chrome passes (100 more in `dom/events`, 37 in the other three together). On its
+count `dom/events` is below the target; the other three stay above it.
+COMPAT.md has both tables.
 
 Six real-world pages, built with Alpine.js, highlight.js, D3, KaTeX and marked,
 were printed through `render_page` and fulgur 0.40.0 and compared with Chrome's
@@ -399,6 +404,8 @@ chart. Its text is then drawn as outlines (see [Fonts](#fonts)).
 The same HTML and options give the same bytes on every run and every machine:
 
 - `Math.random` is seeded (the `seed` option, default 0).
+- `Math.sin`, `Math.pow` and the other `Math` functions are correctly rounded,
+  so they don't depend on the machine's C library.
 - `Date` sees a fixed "now", 2026-01-01T00:00:00Z unless you set `now:`
   (Ruby) or `Options::now_ms` (Rust), and local time is UTC unless you set
   `utc_offset_minutes:` (540 for Japan). The server's clock and time zone are
@@ -488,7 +495,7 @@ v0.3 is planned as the first release and will carry all three phases.
 | Phase | Adds | State |
 |---|---|---|
 | 1 | Chart islands | On `main`; the `v0.1.0` tag marks it, but it was not released |
-| 2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock | On `main`, in progress; two of four WPT targets met (see [Page scripts](#page-scripts)) |
+| 2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock | On `main`, in progress; all four WPT targets met (see [Page scripts](#page-scripts)) |
 | 3 | Layout queries answered from the same layout the PDF is printed from; Canvas2D as vectors | Planned |
 
 ## Licence
