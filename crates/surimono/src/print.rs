@@ -67,6 +67,8 @@
 //! thread, or catch what ends a process.
 
 mod chains;
+mod rules;
+mod safe;
 mod tree;
 
 use std::borrow::Cow;
@@ -552,6 +554,8 @@ pub(crate) struct Finish {
     pub(crate) keep_scripts: bool,
     /// [`Limits::output_bytes`](crate::Limits::output_bytes).
     pub(crate) max_bytes: usize,
+    /// [`Options::printer_safe`](crate::Options::printer_safe).
+    pub(crate) printer_safe: bool,
 }
 
 /// A serialized page as a printer may have it; see the module docs. With a
@@ -581,16 +585,61 @@ pub(crate) fn finish_page(
     }
     let mut out = pass(&mut tree)?;
     drop(tree);
+    let mut settled = false;
     for _ in 0..MAX_PASSES {
         let again = pass(&mut Tree::parse(&out, limits, gate)?)?;
         if again == out {
-            return Ok(out);
+            settled = true;
+            break;
         }
         out = again;
     }
-    Err(Error::PageFailed {
-        message: format!("the page's markup still changed after {MAX_PASSES} parses"),
-    })
+    if !settled {
+        return Err(Error::PageFailed {
+            message: format!("the page's markup still changed after {MAX_PASSES} parses"),
+        });
+    }
+    if finish.printer_safe
+        && let Some(safe) = printer_safe(&out, limits, finish.max_bytes, gate, pass)?
+    {
+        return Ok(safe);
+    }
+    Ok(out)
+}
+
+/// `out`, a page that has settled, in its printer-safe form ([`safe`]), or
+/// `None` if nothing in it is rewritten.
+///
+/// The rewrite works on the printer's parse of the settled page, and what it
+/// writes has to be settled too: parsed and screened once more, it must come
+/// out the same, so the printer still gets a tree that passed every screen. A
+/// rewrite that doesn't, or that takes the page over a limit, is dropped, and
+/// the page goes out as it was. The deadline and a cancel end the render here
+/// as they do anywhere after the scripts.
+fn printer_safe(
+    out: &str,
+    limits: TreeLimits,
+    max_bytes: usize,
+    gate: &Gate<'_>,
+    pass: impl Fn(&mut Tree) -> Result<String, Error>,
+) -> Result<Option<String>, Error> {
+    // Nothing a rewrite starts from: most pages stop here.
+    if !["<svg", "<pre", "border-"].iter().any(|s| out.contains(s)) {
+        return Ok(None);
+    }
+    let mut tree = Tree::parse(out, limits, gate)?;
+    if !safe::rewrite(&mut tree, out.is_ascii(), gate)? {
+        return Ok(None);
+    }
+    let settled = tree.to_html(max_bytes, gate).and_then(|written| {
+        let again = pass(&mut Tree::parse(&written, limits, gate)?)?;
+        Ok((again == written).then_some(written))
+    });
+    match settled {
+        Ok(safe) => Ok(safe),
+        Err(e) if matches!(e, Error::Cancelled | Error::PageTimeLimit) => Err(e),
+        Err(_) => Ok(None),
+    }
 }
 
 #[cfg(test)]
@@ -605,6 +654,7 @@ mod tests {
         let finish = Finish {
             keep_scripts,
             max_bytes,
+            printer_safe: false,
         };
         finish_page(html, finish, None, &gate)
     }
@@ -1138,6 +1188,7 @@ mod tests {
         let finishing = Finish {
             keep_scripts: false,
             max_bytes: WIDE,
+            printer_safe: true,
         };
         let stop = AtomicBool::new(true);
         let gate = Gate::new(&stop, Duration::from_secs(60));
