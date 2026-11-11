@@ -141,6 +141,7 @@ the same six pages in both engines, but it is not a typical Rails template;
 | `tools/bench.py` | harness: runs, process-tree sampler, statistics, `results.json` |
 | `tools/summary.py` | `summary.md` from the results |
 | `tools/test_bench.py` | unit tests for both (`python3 -I -m unittest discover -s bench/tools -p 'test_*.py'`) |
+| `tools/measure.py` | time and peak memory of one command with the harness's sampler; the printer matrix (`fixtures/tools/printers.mjs`) measures each print with it. `tools/test_measure.py` tests it |
 | `tools/pages.mjs` | the Grover page (report plus library `<script>` tags) and the pre-rendered page (Chrome's SVGs inlined) |
 | `ruby/bench.rb` | one Ruby benchmark process (Grover, surimono, fulgur) |
 | `grover/` | pinned Puppeteer (`package-lock.json`) and the persistent-browser launcher |
