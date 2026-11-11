@@ -2168,7 +2168,8 @@ fn a_timer_that_throws_reports_after_its_microtasks() {
     assert_eq!(log_of(&mut rt), "T,m,E1,em,E2");
 }
 
-/// HTML "run a classic script": reports first, cleans up after.
+/// HTML "run a classic script" step 8: the exception is reported, then "clean up
+/// after running script" runs the checkpoint, as in Chromium 153.
 #[test]
 fn a_string_timer_that_throws_reports_before_its_microtasks() {
     let (mut rt, _) = page(

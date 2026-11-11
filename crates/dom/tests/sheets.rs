@@ -234,6 +234,29 @@ fn only_a_styles_own_text_is_read() {
     );
 }
 
+/// Chromium 153: writing `type` or `media` makes a new sheet, even the same value.
+#[test]
+fn a_type_or_media_write_makes_a_new_sheet() {
+    assert_eq!(
+        run("const o = [];
+             const was = s.sheet;
+             s.type = 'text/css';
+             o.push(s.sheet === was);
+             s.type = 'text/plain';
+             o.push(s.sheet);
+             s.type = '';
+             o.push(!!s.sheet);
+             const again = s.sheet;
+             s.media = 'print';
+             o.push(s.sheet === again);
+             o.join()"),
+        "false,,true,false"
+    );
+    let html =
+        printed("const old = s.sheet; old.insertRule('i {}', 0); s.type = 'text/css'; s.sheet");
+    assert!(!html.contains("i { }"), "{html}");
+}
+
 #[test]
 fn a_type_that_isnt_css_has_no_sheet() {
     assert_eq!(

@@ -362,14 +362,20 @@ impl Document {
         None
     }
 
+    /// The table's last rendered row in tree order, which is what `innerText` walks:
+    /// a `tfoot` before the body is not last, as in Chromium 153.
     fn last_rendered_row(&self, table: usize) -> BindingResult<Option<usize>> {
-        for row in self.table_rows(table).into_iter().rev() {
+        for &c in self.children(table).iter().rev() {
             self.poll()?;
-            let hidden_section = self
-                .parent(row)
-                .is_some_and(|p| p != table && self.unrendered(p));
-            if !self.unrendered(row) && !hidden_section {
-                return Ok(Some(row));
+            match self.html_local(c) {
+                Some("tr") if !self.unrendered(c) => return Ok(Some(c)),
+                Some("thead" | "tbody" | "tfoot") if !self.unrendered(c) => {
+                    let rows = self.html_children(c, &["tr"]);
+                    if let Some(&row) = rows.iter().rev().find(|&&r| !self.unrendered(r)) {
+                        return Ok(Some(row));
+                    }
+                }
+                _ => {}
             }
         }
         Ok(None)

@@ -153,6 +153,9 @@ fn a_select_reads_as_the_standard_says() {
     );
 }
 
+/// Our decision, not outside truth: `selected` is the attribute, so what a script
+/// chooses reaches the printed page (docs/DECISIONS.md). Chromium 153 leaves the
+/// attribute alone, so the `hasAttribute` and `outerHTML` values here are ours.
 #[test]
 fn a_select_is_written_as_the_standard_says() {
     assert_eq!(
@@ -439,6 +442,69 @@ fn inner_text_of_tables_and_controls() {
             "a\no1\no2\nbcq",
         ),
         ("<div style='DISPLAY: NONE'>x</div>y", "y"),
+    ] {
+        let page = format!("<!doctype html><div id=d>{body}</div>");
+        assert_eq!(
+            run(&page, "document.getElementById('d').innerText"),
+            want,
+            "{body}"
+        );
+    }
+}
+
+/// Chromium 153's answers to the number edge cases of reflection and factories.
+#[test]
+fn numbers_past_their_range_take_the_default() {
+    assert_eq!(
+        run(
+            "<!doctype html>",
+            r#"const d = document.createElement('div');
+            d.setAttribute('tabindex', '2147483648');
+            const td = document.createElement('td');
+            td.colSpan = 4294967295;
+            const a = [d.tabIndex, td.getAttribute('colspan')];
+            td.rowSpan = 4294967295;
+            const im = new Image(3, -1);
+            const sel = document.createElement('select');
+            sel.size = 4294967295;
+            a.push(td.getAttribute('rowspan'), im.getAttribute('width'), im.getAttribute('height'),
+                   Image.length, Option.length, sel.getAttribute('size'));
+            a.join()"#
+        ),
+        "-1,1,1,3,0,0,0,0"
+    );
+}
+
+/// Chromium 153: focus belongs to a navigable, which a made document hasn't got.
+#[test]
+fn focus_needs_a_browsing_context() {
+    assert_eq!(
+        run(
+            "<!doctype html>",
+            r#"const doc = document.implementation.createHTMLDocument('');
+            const i = doc.createElement('input');
+            doc.body.append(i);
+            let fired = false;
+            i.addEventListener('focus', () => { fired = true; });
+            i.focus();
+            [doc.activeElement === i, doc.activeElement.nodeName, fired].join()"#
+        ),
+        "false,BODY,false"
+    );
+}
+
+/// Chromium 153: rows go in tree order, so a foot before the body breaks a line.
+#[test]
+fn inner_text_follows_tree_order_for_a_foot_first() {
+    for (body, want) in [
+        (
+            "<table><tfoot><tr><td>f</tfoot><tbody><tr><td>b1<tr><td>b2</tbody></table>x",
+            "f\nb1\nb2\nx",
+        ),
+        (
+            "<table><tr><td>a</table><table><tfoot><tr><td>f</tfoot><tr><td>b</table>y",
+            "a\nf\nb\ny",
+        ),
     ] {
         let page = format!("<!doctype html><div id=d>{body}</div>");
         assert_eq!(

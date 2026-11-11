@@ -904,6 +904,25 @@ fn live_scripts(html: &str) -> usize {
     live
 }
 
+/// How many `name` elements a printer's tree holds, templates included: blitz-dom
+/// gives a template's `style` to stylo.
+fn printer_elements(html: &str, name: &str) -> usize {
+    let config = blitz_dom::DocumentConfig {
+        base_url: Some("file:///".to_owned()),
+        ..blitz_dom::DocumentConfig::default()
+    };
+    let doc = blitz_html::HtmlDocument::from_html(html, config);
+    let (mut found, mut stack) = (0, vec![0]);
+    while let Some(id) = stack.pop() {
+        let node = doc.get_node(id).unwrap_or_else(|| panic!("node {id}"));
+        if let blitz_dom::NodeData::Element(e) = &node.data {
+            found += usize::from(e.name.local.as_ref() == name);
+        }
+        stack.extend(node.children.iter().copied());
+    }
+    found
+}
+
 /// `<!doctype html><body>` with `markup` written into a comment by a script,
 /// so it reaches the output whatever the page's own parser makes of it.
 fn through_a_comment(markup: &str) -> String {
@@ -945,10 +964,31 @@ fn what_counts_is_what_the_printers_parser_makes_of_it() {
 #[test]
 fn what_only_a_printer_reads_as_css_is_screened() {
     let r = renderer(options());
+    // In template contents, scripting is off for the serializer (HTML §13.3), so
+    // the noscript's text is escaped: text in any printer, never a sheet.
+    let html = "<!doctype html><body><template><noscript></template>\
+         <style>@import 'http://[';</style></noscript>";
+    // The count sees a template's contents, so a zero below means something.
+    assert_eq!(
+        printer_elements("<template><style>p{}</style></template>", "style"),
+        1
+    );
+    let out = page(&r, html);
+    assert_eq!(
+        printer_elements(&out.html, "style"),
+        0,
+        "{html}: {}",
+        out.html
+    );
+    assert_eq!(printer_elements(&out.html, "script"), 0, "{}", out.html);
+    assert!(
+        out.html
+            .contains("<noscript>&lt;/template&gt;&lt;style&gt;"),
+        "{}",
+        out.html
+    );
+    printer_parses(&out.html);
     for html in [
-        "<!doctype html><body><template><noscript></template>\
-         <style>@import 'http://[';</style></noscript>"
-            .to_owned(),
         // Static, in HTML's raw text: blitz-dom decodes it all the same.
         "<!doctype html><style>@import &quot;http://[&quot;;</style>".to_owned(),
         through_a_comment("<svg><style>@import &quot;http://[&quot;;</style></svg>"),
@@ -970,18 +1010,18 @@ fn what_only_a_printer_reads_as_css_is_screened() {
         "--x:1;".repeat(4_000),
         "all:inherit;".repeat(2_000)
     );
-    for html in [
-        format!(
-            "<!doctype html><body><template><noscript></template><style>{css}</style></noscript>"
-        ),
-        through_a_comment(&format!(
-            "<svg><style>{}</style></svg>",
-            css.replace(';', "&#59 ")
-        )),
-    ] {
-        let e = r.render_page(&html).map(|_| ()).unwrap_err();
-        assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
-    }
+    let html = format!(
+        "<!doctype html><body><template><noscript></template><style>{css}</style></noscript>"
+    );
+    let out = page(&r, &html);
+    assert_eq!(printer_elements(&out.html, "style"), 0, "{}", out.html);
+    printer_parses(&out.html);
+    let html = through_a_comment(&format!(
+        "<svg><style>{}</style></svg>",
+        css.replace(';', "&#59 ")
+    ));
+    let e = r.render_page(&html).map(|_| ()).unwrap_err();
+    assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
 }
 
 /// Markup past the depth limit fails with `PageDomLimit`, however it got there.
@@ -989,13 +1029,24 @@ fn what_only_a_printer_reads_as_css_is_screened() {
 fn markup_only_a_printer_reads_is_limited_too() {
     let r = renderer(options());
     let deep = "<div>".repeat(20_000);
-    for html in [
-        format!("<!doctype html><body><template><noscript></template>{deep}</noscript>"),
-        through_a_comment(&format!("<template><noscript></template>{deep}</noscript>")),
-    ] {
-        let e = r.render_page(&html).map(|_| ()).unwrap_err();
-        assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
-    }
+    // Text in template contents (HTML §13.3 escapes it there): no tree to limit.
+    let out = page(
+        &r,
+        &format!("<!doctype html><body><template><noscript></template>{deep}</noscript>"),
+    );
+    assert_eq!(printer_elements(&out.html, "div"), 0);
+    assert_eq!(
+        printer_elements("<template><div><div></div></div></template>", "div"),
+        2
+    );
+    printer_parses(&out.html);
+    let e = r
+        .render_page(&through_a_comment(&format!(
+            "<template><noscript></template>{deep}</noscript>"
+        )))
+        .map(|_| ())
+        .unwrap_err();
+    assert!(matches!(e, Error::PageDomLimit { .. }), "{e}");
     // The deepest a page may be still reaches the printer, and survives it.
     let html = format!("<!doctype html><body>{}", "<div>".repeat(400));
     printer_parses(&page(&r, &html).html);

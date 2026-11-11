@@ -163,9 +163,9 @@ the page's `window.onload`. No wider than a page's own scripts, which could run 
 same code; it matters only for conformance. `innerHTML` in an XML document parses and
 serializes as HTML on this branch. The template contents
 owner document doesn't exist: a template's content stays in the template's document.
-So `noscript` text in a template in the page serializes raw, where the spec and Chrome
-escape it, and the facade's screen of what a printer's parser makes of the output relies
-on seeing that markup (`crates/surimono/tests/page.rs`).
+`noscript` text in a template's contents serializes escaped, as the spec and Chrome
+have it, though the contents are in the page's document here: their own owner
+document would have no browsing context.
 `createDocumentType` follows the current "valid doctype name". A `splitText` of a
 CDATA section gives a CDATA section's data in a Text node, as the standard does.
 `Attr` isn't a whole `Node` (see COMPAT).
@@ -451,13 +451,13 @@ The checkpoint comes before inner invoke reports the listener's exception and wi
 a listener has one after each of its listeners too. Chrome reports first (`L1, E1, E2,
 m, em, L2`, the spec gives `L1, m, E1, em, E2, L2`). The spec wins for DOM behaviour;
 the conflict is in `docs/DECISIONS.md`. A timer that throws follows the same order
-(`T, m, E1, em, E2`). `requestAnimationFrame` and `queueMicrotask` callbacks don't yet.
+(`T, m, E1, em, E2`); a string handler is a classic script, reported before
+its cleanup (`T, E1, E2, m, em`), as in Chrome. `requestAnimationFrame` and
+`queueMicrotask` callbacks don't yet.
 
 **Gaps** (each for docs/COMPAT.md): a
 handler's scope has no form owner; MathML elements have no `on*` attributes (no
 interface bound), and `<svg><script>` doesn't run; `rejectionhandled` doesn't fire.
-`toggle`, `hashchange` and an iframe's `load` come from tasks but get no checkpoint
-between listeners, so they give `L1,L2,micro` (Chromium 153 and HTML: `L1,micro,L2`).
 ErrorEvent `filename`, `lineno` and `colno` are always empty and 0.
 `Event.timeStamp` is the virtual clock, so it is 0 at the start of a page, and
 two events at one virtual time have the same one. `HTMLDocument` is `Document`, as
@@ -564,10 +564,12 @@ memory limit.
 
 **Gaps** (for COMPAT). `Intl` isn't in the engine. `Blob`, `File` and
 `URL.createObjectURL` aren't bound, nor are `TextDecoderStream` and streams. From the
-`url` crate: `file:///w|/m` keeps its `|` and a relative `/` loses a file URL's drive
-letter; a space before `?` or `#` in an opaque path isn't escaped, and removing a
-query leaves trailing spaces; IDNA is older than the tests (`CheckHyphens`, `xn--`
-labels that don't decode). `structuredClone` doesn't clone `DOMRect` and the like,
+`url` crate: a space before `?` or `#` in an opaque path stays a space, where the URL
+Standard escapes the last one as `%20`, and removing the query of such a URL strips
+its trailing spaces, where the standard keeps them with the last escaped; IDNA is
+older than the tests (`CheckHyphens`, `xn--` labels that don't decode). On Windows
+drive letters (`file:///w|/m`, a relative `/` against `file://h/C:/a/b`) the crate gives
+what the URL Standard says now, and WPT's failures there are its older expectations. `structuredClone` doesn't clone `DOMRect` and the like,
 refuses a `SharedArrayBuffer` where the standard shares it, and clones as plain objects
 generators and a `Map` given `Object.prototype`. A fatal error in the middle of a
 stream drops a byte pushed back before it (`textdecoder-mistakes`, one subtest).

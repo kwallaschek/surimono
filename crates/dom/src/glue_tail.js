@@ -101,7 +101,8 @@
     for (let i = 2; i < argc; i++) args[i - 2] = a[i];
     // WebIDL "invoke a callback function" cleans up, which is the checkpoint,
     // before the exception is reported; `error`'s listeners then each get one.
-    // HTML "run a classic script" reports first and cleans up after.
+    // A string is a classic script: HTML "run a classic script" reports with the
+    // script's context still on the stack and cleans up after (`T, E1, E2, m, em`).
     const task = function () {
       try {
         if (isFunction) apply(handler, G, args);
