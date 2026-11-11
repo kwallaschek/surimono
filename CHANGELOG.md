@@ -36,6 +36,31 @@ The Rust crates and the Ruby gem share one version number.
 - **A page's output is serialized**, so it isn't byte-identical to the input:
   `<script>` (unless `keep_scripts`), `<noscript>` and comments are gone, and it
   is screened so the printer's parse matches ours.
+- **Platform globals for page scripts** (#160): `URL` and `URLSearchParams`
+  (input and output capped at 2 MiB, past which they throw a `TypeError`),
+  `TextEncoder`, `TextDecoder` (every encoding of the Encoding Standard),
+  `atob`, `btoa` and `structuredClone`. `navigator` is fixed values: user
+  agent `Mozilla/5.0 (compatible; surimono)`, `en-US`, an empty `platform`,
+  `onLine` and `cookieEnabled` false, `hardwareConcurrency` 1.
+  `customElements` is a registry only: a defined element is never constructed
+  or upgraded. `Intl` isn't there: it isn't in the engine.
+- **HTML members templates use** (#161): `innerText`; `focus`, `blur`,
+  `tabIndex`, `document.activeElement` and `hasFocus`; tables (`rows`,
+  `cells`, `insertRow`, `deleteRow`, `insertCell` and the rest); selects and
+  options (`options`, `selectedIndex`, `value`, `new Option`); a form's
+  `elements`; `textarea.value`; URL parts on `a` and `area`;
+  `document.forms`, `links`, `images` and `anchors`; `new Image`. An option's
+  `selected` is its attribute, as `checked` is, so what a script chooses is
+  printed. `innerText` sees no stylesheet until phase 3, `document.cookie` is
+  empty and a write does nothing, and `:focus` doesn't match.
+- **Tree traversal** (#162): `document.createTreeWalker`,
+  `document.createNodeIterator` and `NodeFilter`. Each `NodeIterator` counts
+  4 KiB against the text a page may hold, until the page ends.
+- **Style sheets from scripts** (#163): `document.styleSheets`, a style
+  element's `sheet`, `cssRules`, `insertRule`, `deleteRule`, `addRule` and
+  `removeRule`. Rules a script inserts are printed, so CSS-in-JS styles reach
+  the PDF. `insertRule` checks a rule's structure, not its selectors or
+  declarations.
 - **Docs.** Page scripts in the Rails and Rust guides and the README, a page
   example in Rust and Ruby, and the [checkpoint 3 checklist](docs/guide/checkpoint-3.md).
 - **musl native gems, prepared** (#170): the gem build makes `x86_64-linux-musl`

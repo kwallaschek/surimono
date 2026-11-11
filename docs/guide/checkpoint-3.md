@@ -88,8 +88,8 @@ Then open `page.pdf` next to what Grover prints for the same page.
 | `FAILED: Surimono::MemoryLimitError` or `StackOverflowError` | The scripts passed the 64 MB heap or the stack limit | Send this back, with the name of the library if you know it |
 | `not in the loader's allowlist` | The URL isn't under `/`, such as a CDN or a relative path | Copy the file under `--assets`, and write its URL with a leading `/` |
 | `the loader failed: the loader gave nothing` | `--assets` is the wrong folder, or the file isn't built | Check that the URL exists under that folder. With Rails, run `bin/rails assets:precompile` first. |
-| `ReferenceError: navigator is not defined` | The platform feature doesn't exist here yet | Send this back. The same goes for `URL`, `fetch` and the others in the [Rails guide](rails.md#what-doesnt-work-yet). |
-| `TypeError: not a function` | A method doesn't exist here yet, such as `insertRow`, or `document.write` | Send this back |
+| `ReferenceError: fetch is not defined` | The platform feature doesn't exist here yet | Send this back. The same goes for `XMLHttpRequest`, `localStorage`, `matchMedia` and the others in the [Rails guide](rails.md#what-doesnt-work-yet). |
+| `TypeError: not a function` | A method doesn't exist here yet, such as `document.write` or `attachShadow` | Send this back |
 | No styles in the PDF | The stylesheet didn't load, so a `<link>` is left in `page.out.html`, which fulgur doesn't fetch | Add `--assets`, or fix its URL |
 | Text in the wrong font, blank or as boxes | The CSS names a generic family, or a font not passed in | [Name your fonts in CSS](rails.md#name-your-fonts-in-css), and add `--font` |
 | A chart is empty, or at size 0 | It measured the page | Expected until phase 3. Use an island: [the Rails guide](rails.md#the-view) shows the helper. |
