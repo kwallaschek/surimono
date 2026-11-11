@@ -1594,6 +1594,31 @@ mod tests {
         assert_eq!(err, SandboxError::TimeLimit);
     }
 
+    /// P2-RT-10: one forked child of 3,000 in `forks_never_hang` saw its
+    /// endless loop end with something other than `TimeLimit`. The watchdog
+    /// raises the flag in two steps, and a thread can be held between them
+    /// (in a forked child the second step's code page isn't mapped yet).
+    /// The call's own clock check must not stop the script meanwhile with
+    /// no flag up, which made the time limit an exception, "interrupted".
+    #[test]
+    fn a_watchdog_held_while_it_raises_the_flag_is_still_a_time_limit() {
+        let mut sb = Sandbox::new(limits().with_time(Duration::from_millis(50))).unwrap();
+        let state = sb.state.clone();
+        state.raise_stall_ms.store(300, Ordering::Release);
+        let start = Instant::now();
+        let result = sb.run(|ctx| {
+            // Past the deadline, with the watchdog between its two steps.
+            while !state.raise_stalled.load(Ordering::Acquire) {
+                assert!(start.elapsed() < Duration::from_secs(60), "never raised");
+                std::thread::yield_now();
+            }
+            ctx.eval::<(), _>("for (;;) {}")
+        });
+        assert_eq!(result, Err(SandboxError::TimeLimit));
+        assert!(start.elapsed() >= Duration::from_millis(300));
+        assert_eq!(sb.eval::<i32>("6 * 7"), Ok(42));
+    }
+
     #[test]
     fn time_limit_is_per_call() {
         // Three calls that each take 60% of a 1 s budget all succeed: the
