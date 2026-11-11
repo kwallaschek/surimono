@@ -481,10 +481,18 @@
   // An HTML element name with an interface of its own, which is what `extends` takes.
   const unknownProto = () => protos[I_HTMLUnknownElement];
   const documentCreateNS = protos[I_Document].createElementNS;
+  // It creates a detached element to ask, which a script could do itself. A name
+  // createElementNS refuses (`1x`) is no element's, so not one to extend either.
   function knownElement(local) {
     const g = current();
     if (g === 0) return false;
-    const e = apply(documentCreateNS, wrap(g, root()), ['http://www.w3.org/1999/xhtml', local]);
+    let e;
+    try {
+      e = apply(documentCreateNS, wrap(g, root()), ['http://www.w3.org/1999/xhtml', local]);
+    } catch (x) {
+      if (n.limit(x)) throw x;
+      return false;
+    }
     return getPrototypeOf(e) !== unknownProto();
   }
   H.Window_customElements = () => registry.w;

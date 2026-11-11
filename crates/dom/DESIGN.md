@@ -451,7 +451,8 @@ The checkpoint comes before inner invoke reports the listener's exception and wi
 a listener has one after each of its listeners too. Chrome reports first (`L1, E1, E2,
 m, em, L2`, the spec gives `L1, m, E1, em, E2, L2`). The spec wins for DOM behaviour;
 the conflict is in `docs/DECISIONS.md`. A timer that throws follows the same order
-(`T, m, E1, em, E2`), a string handler as well. `requestAnimationFrame` and
+(`T, m, E1, em, E2`); a string handler is a classic script, reported before
+its cleanup (`T, E1, E2, m, em`), as in Chrome. `requestAnimationFrame` and
 `queueMicrotask` callbacks don't yet.
 
 **Gaps** (each for docs/COMPAT.md): a

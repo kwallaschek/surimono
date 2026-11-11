@@ -385,7 +385,9 @@ fn navigator_has_fixed_values() {
     );
 }
 
-/// Chromium 153's answers to `define`'s checks, in its order of reads.
+/// Chromium 153's answers to `define`'s checks, in its order of reads. `1x` is no
+/// element name, so its interface is HTMLUnknownElement: HTML define step 7 gives
+/// NotSupportedError.
 #[test]
 fn define_checks_callbacks_and_extends() {
     assert_eq!(
@@ -400,10 +402,11 @@ fn define_checks_callbacks_and_extends() {
             [thrown(() => customElements.define('x-a', A)),
              thrown(() => customElements.define('x-b', class extends HTMLElement {}, { extends: 'x-c' })),
              thrown(() => customElements.define('x-d', class extends HTMLElement {}, { extends: 'nonsense' })),
+             thrown(() => customElements.define('x-g', class extends HTMLElement {}, { extends: '1x' })),
              thrown(() => customElements.define('x-e', class extends HTMLElement {}, { extends: 'p' })),
              customElements.get('x-a'), order.join(' ')].join()"#
         ),
-        "TypeError,NotSupportedError,NotSupportedError,none,,connectedCallback disconnectedCallback \
+        "TypeError,NotSupportedError,NotSupportedError,NotSupportedError,none,,connectedCallback disconnectedCallback \
          connectedMoveCallback adoptedCallback attributeChangedCallback"
     );
 }

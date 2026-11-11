@@ -1592,6 +1592,8 @@ impl Document {
             Open(usize),
             Close(usize),
         }
+        // Template contents' roots, gathered at the first noscript text that asks.
+        let mut contents: Option<HashSet<usize>> = None;
         let mut stack = vec![Step::Open(top)];
         while let Some(step) = stack.pop() {
             check(out)?;
@@ -1629,7 +1631,7 @@ impl Document {
                                             | "noframes" | "plaintext" => true,
                                             "noscript" => {
                                                 self.owner_of_node(id) == self.root()
-                                                    && !self.in_template_contents(id)
+                                                    && !self.in_template_contents(id, &mut contents)
                                             }
                                             _ => false,
                                         }
@@ -1729,12 +1731,16 @@ impl Document {
     }
 
     /// Whether `id` is inside a template's contents: its tree's root is one.
-    fn in_template_contents(&self, id: usize) -> bool {
+    /// `contents` caches the set of those roots for one serialization.
+    fn in_template_contents(&self, id: usize, contents: &mut Option<HashSet<usize>>) -> bool {
         let mut top = id;
         while let Some(p) = self.parent(top) {
             top = p;
         }
-        top != id && self.templates.values().any(|&c| c == top)
+        top != id
+            && contents
+                .get_or_insert_with(|| self.templates.values().copied().collect())
+                .contains(&top)
     }
 
     /// The live node count, parsed and created.
