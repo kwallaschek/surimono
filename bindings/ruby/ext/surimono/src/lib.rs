@@ -43,7 +43,7 @@ fn renderer_new(
     utc_offset_minutes: i32,
     text: String,
     max_islands: Option<usize>,
-    page: (bool, String, RArray, usize),
+    page: (bool, String, RArray, usize, bool),
 ) -> Result<Renderer, Error> {
     let mut options = surimono::Options::new()
         .limits(surimono::Limits {
@@ -87,8 +87,10 @@ fn renderer_new(
     if let Some(max) = max_islands {
         options = options.max_islands(max);
     }
-    let (keep_scripts, layout_queries, resources, _) = page;
-    options = options.keep_scripts(keep_scripts);
+    let (keep_scripts, layout_queries, resources, _, printer_safe) = page;
+    options = options
+        .keep_scripts(keep_scripts)
+        .printer_safe(printer_safe);
     options = options.layout_queries(match layout_queries.as_str() {
         "throw" => surimono::LayoutQueries::Throw,
         _ => surimono::LayoutQueries::Zeros,
