@@ -9,6 +9,7 @@ or WPT, never from surimono's own output. Owned by the conformance researcher.
 | `islands/<name>/` | Visual fixtures for phase 1: a page with chart islands, plus its Chrome references. |
 | `real-world/<name>/` | Phase 2 pages whose own scripts run (marked, highlight.js, KaTeX, Alpine.js, D3, and `noscript-message`, with an inline script and no library), plus their Chrome references. Libraries are vendored unmodified in `real-world/lib/` and pinned in `real-world/manifest.toml`. |
 | `tools/` | The Chrome reference pipeline, the comparison tool and the fixture generator (Node, pinned by `package-lock.json`). |
+| `checkpoint-2/`, `checkpoint-3/`, `printers/` | Committed runs: the island fixtures and the real-world pages against Chrome, and the same pages printed by two versions of fulgur. Each has a hand-written `NOTES.md`. |
 
 ## Island fixture format
 
@@ -151,7 +152,8 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
 - **What differs.** A cell differs between two printers when its verdict or one of
   its scores, as printed, differs; only those cells get an image (Chrome, then each
   printer). `pixels_identical` says whether two printers put the same pixels on a
-  page at 96 dpi, whatever the scores say.
+  page at 96 dpi, whatever the scores say, and `pdf_identical` whether they wrote
+  the same file.
 - **A printer that dies.** A printer gets 120 s per page. One that exits with an
   error, is killed by a signal or runs out of time leaves a failing score that says
   which, never a missing cell.
