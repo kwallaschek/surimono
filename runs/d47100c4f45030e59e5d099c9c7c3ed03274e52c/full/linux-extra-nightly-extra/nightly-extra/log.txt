@@ -1,0 +1,51 @@
+
+==> wpt: run the slices, publish wpt-results.json
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-wpt-runner v0.0.0 (/home/runner/work/surimono/surimono/wpt/runner)
+[1m[32m    Finished[0m `dev` profile [optimized + debuginfo] target(s) in 38.24s
+[2/1101] OK html/webappapis/timers/clearinterval-from-callback.any.html
+[1/1101] OK html/webappapis/timers/arguments.html
+[3/1101] OK html/webappapis/timers/cleartimeout-clearinterval.any.html
+[4/1101] OK html/webappapis/timers/errors.html
+[5/1101] OK html/webappapis/timers/evil-spec-example.any.html
+[6/1101] OK html/webappapis/timers/missing-timeout-setinterval.any.html
+[8/1101] OK html/webappapis/timers/negative-settimeout.any.html
+[7/1101] OK html/webappapis/timers/negative-setinterval.any.html
+[10/1101] OK html/webappapis/timers/setinterval-settimeout-clamping.any.html
+[9/1101] TIMEOUT html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html
+[11/1101] TIMEOUT html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html
+[12/1101] OK html/webappapis/timers/settimeout-detached-iframe.html
+[13/1101] OK html/webappapis/timers/settimeout-setinterval-handles.html
+[14/1101] OK html/webappapis/timers/timer-nesting-not-inherited-in-microtask.html
+[16/1101] OK html/webappapis/timers/type-long-settimeout.any.html
+[15/1101] OK html/webappapis/timers/type-long-setinterval.any.html
+[17/1101] OK html/webappapis/timers/zero-settimeout.any.html
+[18/1101] TIMEOUT html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html
+[20/1101] OK html/webappapis/microtask-queuing/queue-microtask.any.html
+[19/1101] OK html/webappapis/microtask-queuing/queue-microtask-exceptions.any.html
+[21/1101] OK html/webappapis/microtask-queuing/queue-microtask.window.html
+[22/1101] OK dom/nodes/Attr-prefix-xhtml.xhtml
+[23/1101] OK dom/nodes/Attr-prefix.html
+[24/1101] OK dom/nodes/CharacterData-appendChild.html
+[25/1101] OK dom/nodes/CharacterData-appendData.html
+[26/1101] OK dom/nodes/CharacterData-data.html
+[27/1101] OK dom/nodes/CharacterData-deleteData.html
+[28/1101] OK dom/nodes/CharacterData-insertData.html
+[29/1101] OK dom/nodes/CharacterData-remove.html
+[30/1101] OK dom/nodes/CharacterData-replaceData.html
+[31/1101] OK dom/nodes/CharacterData-substringData.html
+[32/1101] OK dom/nodes/CharacterData-surrogates.html
+[33/1101] OK dom/nodes/ChildNode-after.html
+[34/1101] OK dom/nodes/ChildNode-before.html
+[36/1101] OK dom/nodes/Comment-constructor.html
+[35/1101] OK dom/nodes/ChildNode-replaceWith.html
+[37/1101] OK dom/nodes/Comment-in-doctype.xhtml
+[38/1101] OK dom/nodes/DOMImplementation-createDocument-no-browsing-context.html
+[40/1101] OK dom/nodes/DOMImplementation-createDocumentType.html
+[39/1101] OK dom/nodes/DOMImplementation-createDocument.html
