@@ -88,9 +88,10 @@ SVG length parsing, `svg`; `src/layout/replaced.rs` has a full
 as CSS, `<svg width="640" height="208" style="width:640px;height:208px">`
 (only when the element has no CSS size of its own). No fidelity cost.
 
-**Proof.** fulgur-cli 0.40.0 rebuilt with this patch: `d3-charts` goes from
-shape 100% / colour 100% / hue 100% to the scores in
-`fulgur-layout-gaps-0.40.md` ("Scores").
+**Proof.** fulgur-cli 0.40.0 rebuilt with this patch alone prints `d3-charts`
+at 0.0% / 0.0% / 0.0% (before: 100% / 100% / 100%); the workaround, with the
+unpatched binary, gives the same. Method in `fulgur-layout-gaps-0.40.md`
+("Scores").
 
 ## B2. A forced break at the end of a block adds an empty line
 
@@ -143,6 +144,12 @@ risk):
 +}
 ```
 
+An embedder that walks Parley's lines itself has to skip the same line.
+fulgur does, in its fragmenter (`pagination_layout.rs:2323`,
+`collect_inline_line_metrics`): with the block height fixed and that function
+unchanged, the box after a body-level `<pre>` is still placed one line too low
+(seen in the scratch build; three lines there fix it).
+
 **Newer releases.** Fixed the same way in 0.3.0-beta.4
 (`src/layout/inline.rs:845-862`: "A forced line break … at the end of the inline
 content ends the final line box without starting a new one. Parley still emits
@@ -166,8 +173,8 @@ body { font: 20px "Noto Sans" }
 ```
 
 **Chrome:** loads the font and uses it (CSS Fonts 4 §4.3, the `src`
-descriptor). The `font-family` descriptor is the name CSS matches, "overriding
-the name in the underlying font data" (§4.2).
+descriptor). The `font-family` descriptor is the name CSS matches, whatever
+family name the font file carries (§4.2).
 
 **blitz-dom 0.2.4:** the provider is never asked for the font. The same rule in
 a linked stylesheet is fetched.
@@ -223,7 +230,7 @@ Each line is one reproducer inside `<p>…</p>`; `.b` is
 | `a<span style="margin-right:20px">b</span>c`, `padding`, `border` on an inline | space, border and background around `b` | none | CSS 2.2 §8.3, §8.5 |
 | `x<span style="position:relative;top:-8px">y</span>`, the same on an inline-block | moved | not moved (a block is) | CSS 2.2 §9.4.3 |
 | `<span style="white-space:nowrap">no wrap in this span</span>` in a narrow block | one line | wraps | CSS Text 3 §3 |
-| `<div style="width:min-content">min content width</div>` | one word wide | full width | CSS Sizing 3 §4.1 |
+| `<div style="width:min-content">min content width</div>` | one word wide | full width | CSS Sizing 3, `min-content` |
 | `<td style="height:60px;vertical-align:bottom">` (and the default, `middle`) | at the bottom (middle) | at the top | CSS 2.2 §17.5.3 |
 | a line holding an inline-block with text | line height from the box's own baseline | the box's whole height sits above the baseline, so the line grows by the text's descent | CSS 2.2 §10.8.1 |
 
@@ -241,6 +248,8 @@ height only; parley 0.6.0 has no vertical alignment (its `InlineBox` is `id`,
 `index`, `width`, `height`) and seats every box with its bottom on the
 baseline. `stylo_to_parley::style` (`src/stylo_to_parley.rs:105-207`) passes
 no wrap mode (also `font_features: &[]`, default `word_spacing` and `locale`).
+stylo_taffy 0.2.0 maps `min-content`, `max-content` and `fit-content` sizes to
+`auto` (`src/convert.rs:76-81`).
 Tables are laid out as a CSS grid (`src/layout/table.rs`), where a cell is a
 grid item placed at the start.
 

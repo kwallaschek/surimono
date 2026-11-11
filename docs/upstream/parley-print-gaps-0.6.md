@@ -14,7 +14,7 @@ read.
 ```
 
 **Chrome:** the right item is as wide as its widest line, "Prepared 1
-November", and has three lines. CSS Sizing 3 §4.1: the max-content size is the
+November", and has three lines. CSS Sizing 3: the max-content size is the
 size of the box when no soft wrap opportunity is taken; a forced break still
 ends a line, so the width is the widest of the forced lines.
 
@@ -78,7 +78,7 @@ with three lines in the right item, as Chrome does (scores and method in
 ```
 
 **Chrome** (since 123): `text-spacing-trim: normal` is the initial value
-(CSS Text 4 §8.2). It sets the full-width opening bracket at the line start
+(CSS Text 4, `text-spacing-trim`). It sets the full-width opening bracket at the line start
 flush, and halves the advance of a closing punctuation mark that is followed by
 another full-width punctuation mark ("）、" and "」。"), using the font's
 `halt`/`chws` data. The sample is about 1.5 em shorter than the sum of its
