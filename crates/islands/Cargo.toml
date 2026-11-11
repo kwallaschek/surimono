@@ -44,7 +44,7 @@ roxmltree.workspace = true
 # Reads fixtures/hostile/manifest.toml in the hostile-suite harness.
 toml = "=1.1.8"
 # Counts live heap bytes in the soak test.
-stats_alloc = "=0.1.10"
+stats_alloc.workspace = true
 
 # fork, waitpid and _exit in the fork stress test (tests/fork.rs).
 [target.'cfg(unix)'.dev-dependencies]

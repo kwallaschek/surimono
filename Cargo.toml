@@ -65,6 +65,13 @@ roxmltree = "=0.21.2"
 sha2 = "=0.10.9"
 # Unix process and thread calls (core: stack bounds; fork tests in islands and surimono).
 libc = "=0.2.191"
+# HTML, CSS and URL parsing (dom and the facade), and the allocation counter
+# the soak tests read (dom, islands, the facade).
+html5ever = "=0.35.0"
+html-escape = "=0.2.15"
+cssparser = "=0.35.0"
+url = "=2.5.8"
+stats_alloc = "=0.1.10"
 
 # Common
 thiserror = "2"
