@@ -33,6 +33,13 @@ memory** (DECISIONS 2026-11-11). Hard stops are unchanged.
   tests), q-pkg-02 (printer-safe output), e3-00 (layout spike), and the review of #176. This session
   resumes them at 14:13; a new session that finds them stopped starts the same task ids again from
   the pushed branches (list remote branches first).
+- 14:20: limit reset; the four agents were resumed in place (same worktrees). **Main is red** in
+  full.yml at 3b4303ae (docs-only commit): `test (ubuntu-24.04-arm)` on core's `forks_never_hang`
+  (1 child of 3000 failed, none hung; the job passed on 90427b9e) and `linux-extra (asan)` on
+  `limits_are_typed_and_the_renderer_carries_on` (time limit). P2-RT-10 (RT) is on both.
+  Every push to main cancels the running full.yml: batch docs pushes, one per merge round.
+- Open PRs: #174 (approved, green), #175 P2-ORC-02 root pins (from the previous session; needs a
+  fresh review), #176 (in review).
 - **Blocked on Kay: merges.** The session's safety check refuses fleet merges until he allows them
   in this session. Waiting: #174 (approved, green), #176 (in review). Kay's queue (no deadline): file the docs/upstream drafts and the private
   findings; confirm the employer open-source check.

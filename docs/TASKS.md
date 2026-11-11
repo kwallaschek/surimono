@@ -189,7 +189,7 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - E2-08 · PKG · done for serialized HTML (#143); live hand-off waits on a fulgur entry point · Output: serialized HTML, and the live Blitz document handed to fulgur behind a feature. Flush style attributes per element before the live hand-off with a test (nothing else does until phase 3; pick the no-namespace attribute); bound the printer's whole stylo parse (many capped attributes add up, <style> text unscreened, var() carries grid strings); screen script-set style text; text moved out of <style> stays empty in blitz; the hand-off must drop <noscript> because fulgur parses with scripting off (#93 #94 #104 reviews)
 - E2-09 · CF · done (#123 #145 #151 #156 #165) · WPT slices with expectations: timers and microtasks, dom/nodes, dom/events, domparsing (first run #123: 73.5%, 18.8%, 10.8%, 13.5%; PKG job to publish wpt-results.json still needed)
 - E2-10 · CF · doing · Real-world suite: marked, highlight.js, KaTeX auto-render, Alpine.js (second to cut), D3 without measuring
-- P2-ORC-02 · ORC · todo · Root pins for html5ever, html-escape, stats_alloc, cssparser, url
+- P2-ORC-02 · ORC · review (#175) · Root pins for html5ever, html-escape, stats_alloc, cssparser, url
 - E2-15 · DX · done (#157) · README, rust.md, rails.md, CHANGELOG for the page path; checkpoint-3 checklist
 - E2-10b · CF · done (#158: 2 of 6 pass; the rest equal their fulgur floor) · Print comparison for the real-world pages through render_page and fulgur against Chrome
 - E2-16 · DOM · done (#160-#164) · URL family, encoding, base64, structuredClone, navigator, HTML collections, tables, forms, TreeWalker, styleSheets
@@ -205,6 +205,8 @@ Cut order if late: Mermaid, then Vega, then the CLI.
 - P2-RT-09 · RT · done (#172) · ASan test that forks with the parent idle and renders in the child
 - P2-DX-03 · DX · done (#173) · README WPT numbers at 22153052; all four phase-2 targets met
 - P2-DX-04 · DX · review (#174) · "What doesn't work yet" lists after #160 to #166; CHANGELOG new globals
+- P2-RT-10 · RT · doing · Red main (full.yml at 3b4303ae): arm64 `forks_never_hang` lost 1 child of 3000; ASan `limits_are_typed_and_the_renderer_carries_on` ran out of time. Cause, fix, and a stress run that says why a child failed
+- P2-DX-05 · DX · todo · #174 review follow-ups: CHANGELOG puts the 2 MiB cap on `URL` alone (a standalone `URLSearchParams` has none); rails.md:481 and rust.md:427 name both errors (missing globals give `ReferenceError`, missing members `TypeError: not a function`)
 
 ## Quality track (from Kay's directive of 11 Nov: it works, prints on par with Chrome-based tools, faster, less memory)
 
