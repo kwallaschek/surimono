@@ -25,7 +25,11 @@ memory** (DECISIONS 2026-11-11). Hard stops are unchanged.
 - In progress: #174 P2-DX-04 in review. Quality track started: Q-CF-01 printer matrix (CF),
   Q-GFX-01 print-gap root causes (GFX), E3-00 layout design spike (DOM).
 - Main 5a3aa25f: full.yml and ci.yml were running at 11:00; read them before the next merge.
-- Blocked: nothing. Kay's queue (no deadline): file the docs/upstream drafts and the private
+- 12:40: Q-GFX-01 back (#176, needs review): every print gap root-caused; fulgur 0.41.0 fixes none;
+  workarounds on our side alone make 4 of 6 real-world pages pass. Q-PKG-02 (printer-safe output)
+  and Q-ORC-02 (fulgur's second layout backend, raikiri) started.
+- **Blocked on Kay: merges.** The session's safety check refuses fleet merges until he allows them
+  in this session. Waiting: #174 (approved, green), #176 (in review). Kay's queue (no deadline): file the docs/upstream drafts and the private
   findings; confirm the employer open-source check.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`; fix a red main before
