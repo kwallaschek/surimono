@@ -32,7 +32,7 @@
 // printer), so such a run needs no Chromium and is never a checkpoint: index.md
 // says so and compat.py finds no gate in it. --measure N also times each page's
 // print and samples its memory (bench/tools/measure.py, N runs each), as `print`
-// in checkpoint.json.
+// in checkpoint.json, next to `printed`, the page PDF's size and sha256.
 //
 // Nothing fails silently: when surimono, fulgur or a comparison dies before
 // compare.mjs writes its score, this writes a failing score.json with
@@ -52,7 +52,7 @@ import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import os from "node:os";
 import { FIXTURES_DIR, TOOLS_DIR, islandsOf, listFixtures } from "./lib/fixtures.mjs";
-import { fulgurMeasure, fulgurPrint, fulgurVersion, useFulgur } from "./lib/fulgur.mjs";
+import { fulgurMeasure, fulgurPrint, fulgurVersion, pdfIdentity, useFulgur } from "./lib/fulgur.mjs";
 import { PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
 import { passes, pct, scoresCell, verdict } from "./lib/report.mjs";
 
@@ -284,7 +284,9 @@ for (const fixture of listFixtures(values.kind, positionals)) {
       fs.mkdirSync(pageDir, { recursive: true });
       fulgurPrint(html, path.join(pageDir, "surimono-fulgur.pdf"), pageDir);
       row.page = compare([fixture.dir, path.join(pageDir, "surimono-fulgur.pdf")], pageDir, fixture.name);
-      // The same print again, timed and sampled; kept in checkpoint.json, not in score.json.
+      // What was printed, and the same print again, timed and sampled; kept in
+      // checkpoint.json, not in score.json.
+      row.printed = pdfIdentity(path.join(pageDir, "surimono-fulgur.pdf"));
       if (measureRuns) row.print = fulgurMeasure(html, path.join(pageDir, "surimono-fulgur.pdf"), pageDir, [], measureRuns);
     } catch (e) {
       row.page = stamp(pageDir, { subject: fixture.name, pass: false, error: String(e.message).trim(), printer: e.printer, pages: [] });

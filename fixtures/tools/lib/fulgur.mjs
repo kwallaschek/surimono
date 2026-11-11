@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { FIXTURES_DIR } from "./fixtures.mjs";
 
@@ -83,6 +84,12 @@ export function fulgurPrint(htmlPath, pdfPath, workDir, extraFonts = []) {
     e.printer = { status: r.status, signal: r.signal, timed_out: timedOut };
     throw e;
   }
+}
+
+/** A printed PDF's size and hash: two printers that write the same bytes printed the same. */
+export function pdfIdentity(pdfPath) {
+  const data = fs.readFileSync(pdfPath);
+  return { bytes: data.length, sha256: crypto.createHash("sha256").update(data).digest("hex") };
 }
 
 const MEASURE = path.resolve(FIXTURES_DIR, "..", "bench", "tools", "measure.py");

@@ -20,7 +20,8 @@
 // are compared with. Naming fixtures runs only those (of either kind). DIR must be
 // outside fixtures/. Writes:
 //
-//   DIR/printers.json   every cell of every printer: verdict, scores, print time and memory
+//   DIR/printers.json   every cell of every printer: verdict, scores, the PDF's size and
+//                       sha256, print time and memory
 //   DIR/index.md        rows: pages; columns: the printers
 //   DIR/<fixture>/<cell>.png   Chrome | printer 1 | printer 2 | …, only for cells whose
 //                              verdict or scores differ between printers
@@ -39,7 +40,7 @@ import { FIXTURES_DIR, TOOLS_DIR, listAllFixtures } from "./lib/fixtures.mjs";
 import { PASS_COLOUR_WINDOW, PASS_HUE_WINDOW, PASS_WORST_WINDOW, referenceFiles } from "./lib/compare.mjs";
 import { failedChecks, passes, pct } from "./lib/report.mjs";
 import { pixelsIdentical, readPng, sideBySide, writePng } from "./lib/png.mjs";
-import { MEASURE_INTERVAL_MS } from "./lib/fulgur.mjs";
+import { MEASURE_INTERVAL_MS, pdfIdentity } from "./lib/fulgur.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -113,8 +114,14 @@ function pipeline(printer, kind) {
   return dir;
 }
 
+/** The PDF compare.mjs left in an island's folder, when a pipeline didn't say what it printed. */
+function pdfOf(dir) {
+  const file = path.join(dir, "surimono.pdf");
+  return fs.existsSync(file) ? pdfIdentity(file) : undefined;
+}
+
 /** What a cell keeps of a comparison's score.json: the verdict and its numbers, no paths. */
-function cellOf(dir, print) {
+function cellOf(dir, print, printed) {
   const file = path.join(dir, "score.json");
   const s = fs.existsSync(file) ? readJson(file) : { pass: false, error: "no score.json", pages: [] };
   const pages = Array.isArray(s.pages) ? s.pages : [];
@@ -133,6 +140,7 @@ function cellOf(dir, print) {
     font: s.font ? s.font.pass === true : undefined,
     error: s.error ? String(s.error) : undefined,
     printer_exit: s.printer,
+    pdf: printed ?? pdfOf(dir),
     print,
     raster,
   };
@@ -145,14 +153,14 @@ function cellsOf(printer) {
   const islands = namesOf("islands").length ? pipeline(printer, "islands") : null;
   for (const row of islands ? readJson(path.join(islands, "checkpoint.json")).rows : []) {
     outputs[`islands/${row.fixture}`] = row.sha256 ?? null;
-    cells.set(`islands/${row.fixture}/page`, { set: "islands", fixture: row.fixture, what: "page", ...cellOf(path.join(islands, row.fixture, "page"), row.print) });
+    cells.set(`islands/${row.fixture}/page`, { set: "islands", fixture: row.fixture, what: "page", ...cellOf(path.join(islands, row.fixture, "page"), row.print, row.printed) });
     row.islands.forEach((_, i) => cells.set(`islands/${row.fixture}/island-${i}`, { set: "islands", fixture: row.fixture, what: `island-${i}`, ...cellOf(path.join(islands, row.fixture, `island-${i}-fulgur`)) }));
   }
   const pages = namesOf("real-world").length ? pipeline(printer, "real-world") : null;
   for (const row of pages ? readJson(path.join(pages, "print-pages.json")).rows : []) {
     outputs[`real-world/${row.fixture}`] = row.sha256 ?? null;
-    cells.set(`real-world/${row.fixture}/page`, { set: "real-world", fixture: row.fixture, what: "page", ...cellOf(path.join(pages, row.fixture, "page"), row.page.print) });
-    cells.set(`real-world/${row.fixture}/floor`, { set: "real-world", fixture: row.fixture, what: "floor", ...cellOf(path.join(pages, row.fixture, "floor"), row.floor.print) });
+    cells.set(`real-world/${row.fixture}/page`, { set: "real-world", fixture: row.fixture, what: "page", ...cellOf(path.join(pages, row.fixture, "page"), row.page.print, row.page.printed) });
+    cells.set(`real-world/${row.fixture}/floor`, { set: "real-world", fixture: row.fixture, what: "floor", ...cellOf(path.join(pages, row.fixture, "floor"), row.floor.print, row.floor.printed) });
   }
   return { cells, outputs };
 }
@@ -185,6 +193,8 @@ const rows = keys.map((key) => {
   row.pixels_identical =
     cells.every((c) => c.raster.length && c.raster.length === first.raster.length) &&
     cells.every((c) => c.raster.every((f, i) => pixelsIdentical(readPng(f), readPng(first.raster[i]))));
+  // And whether they wrote the same PDF, byte for byte.
+  row.pdf_identical = cells.every((c) => c.pdf && c.pdf.sha256 === first.pdf?.sha256);
   if (row.differs) {
     const refs = referencesOf(first);
     const n = Math.max(refs.length, ...cells.map((c) => c.raster.length));
@@ -223,12 +233,12 @@ const print = (row, label, field) => row.printers[label].print?.[field]?.median;
 function table(set, measured) {
   const body = rows.filter((r) => r.set === set && (measured ? !r.what.startsWith("island-") : r.what.startsWith("island-")));
   if (!body.length) return ["None in this run."];
-  const head = ["Page", "Printed", ...labels, ...(measured ? [...labels.map((l) => `Time, ${l}`), ...labels.map((l) => `Peak PSS, ${l}`)] : []), "Same pixels", "Image"];
+  const head = ["Page", "Printed", ...labels, ...(measured ? [...labels.map((l) => `Time, ${l}`), ...labels.map((l) => `Peak PSS, ${l}`)] : []), "Same pixels", "Same PDF", "Image"];
   return [
     `| ${head.join(" | ")} |`,
     `|${head.map(() => "---").join("|")}|`,
     ...body.map((r) =>
-      `| ${[r.fixture, what(r.what), ...labels.map((l) => cellText(r.printers[l])), ...(measured ? [...labels.map((l) => ms(print(r, l, "wall_ms"))), ...labels.map((l) => mb(print(r, l, "peak_pss_mb")))] : []), r.pixels_identical ? "yes" : "no", image(r)].join(" | ")} |`,
+      `| ${[r.fixture, what(r.what), ...labels.map((l) => cellText(r.printers[l])), ...(measured ? [...labels.map((l) => ms(print(r, l, "wall_ms"))), ...labels.map((l) => mb(print(r, l, "peak_pss_mb")))] : []), r.pixels_identical ? "yes" : "no", r.pdf_identical ? "yes" : "no", image(r)].join(" | ")} |`,
     ),
   ];
 }
@@ -257,7 +267,7 @@ const md = [
   `The same pages printed by ${printers.map((p) => `fulgur ${p.version}`).join(" and ")}, fixture fonts only, each scored against the committed Chrome references (Chromium 153, pinned) by the metric and pass rule of \`fixtures/README.md\`: shape ≤ ${pct(PASS_WORST_WINDOW)}, colour ≤ ${pct(PASS_COLOUR_WINDOW)}, hue ≤ ${pct(PASS_HUE_WINDOW)}, same page size and count. surimono's output is the same bytes for every printer${values.commit ? ` (commit ${values.commit})` : ""}. Generated by \`fixtures/tools/printers.mjs\`.`,
   "",
   "A cell is the verdict and the shape score (the worst 32×32 window of near-mismatched ink), then any other check that failed. Time is the wall clock of one `fulgur render` process, the median of " +
-    `${runs} ${runs === 1 ? "run" : "runs"}; peak PSS is the peak of summed PSS over that process, the median of ${runs} more, sampled every ${MEASURE_INTERVAL_MS} ms (\`bench/tools/measure.py\`, the Grover benchmark's sampler). "Same pixels" says whether the printers' pages are pixel for pixel the same at 96 dpi. An image is there only where the verdict or a score differs: Chrome | ${labels.join(" | ")}.`,
+    `${runs} ${runs === 1 ? "run" : "runs"}; peak PSS is the peak of summed PSS over that process, the median of ${runs} more, sampled every ${MEASURE_INTERVAL_MS} ms (\`bench/tools/measure.py\`, the Grover benchmark's sampler). "Same pixels" says whether the printers' pages are pixel for pixel the same at 96 dpi, "Same PDF" whether the files are byte for byte the same. An image is there only where the verdict or a score differs: Chrome | ${labels.join(" | ")}.`,
   "",
   "| Printer | Real-world pages that pass | Their floors that pass | Island fixture pages that pass | Islands alone that pass | Cells that read differently from " + `${labels[0]} | Median print time | Median peak PSS | Largest peak PSS |`,
   "|---|---|---|---|---|---|---|---|---|",
@@ -266,7 +276,7 @@ const md = [
       `| fulgur ${printers.find((p) => p.label === l).version} | ${count(l, (r) => r.set === "real-world" && isPage(r))} of ${realPages} | ${count(l, (r) => r.what === "floor")} of ${realPages} | ${count(l, (r) => r.set === "islands" && isPage(r))} of ${islandPages} | ${count(l, (r) => r.what.startsWith("island-"))} of ${rows.filter((r) => r.what.startsWith("island-")).length} | ${l === labels[0] ? "—" : rows.filter((r) => signature({ ...r.printers[l] }) !== signature({ ...r.printers[labels[0]] })).length} | ${ms(totals[l].wall_ms_median)} | ${mb(totals[l].peak_pss_mb_median)} | ${mb(totals[l].peak_pss_mb_max)} |`,
   ),
   "",
-  `Medians are over the ${measuredRows.length} prints every printer finished (pages and floors).`,
+  `Medians are over the ${measuredRows.length} prints every printer finished (pages and floors). Of the ${rows.length} cells, ${rows.filter((r) => r.differs).length} read differently between printers, ${rows.filter((r) => r.pixels_identical).length} are the same pixels and ${rows.filter((r) => r.pdf_identical).length} the same PDF.`,
   "",
   "## Real-world pages",
   "",

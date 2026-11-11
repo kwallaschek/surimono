@@ -8,7 +8,8 @@
 // BIN is surimono-page-check; FULGUR (or $FULGUR) names fulgur if it isn't on PATH, so
 // one run prints with one fulgur and printers.mjs runs this once per version. With
 // --measure N each print is also timed and its memory sampled (bench/tools/measure.py,
-// N runs each) and lands in print-pages.json as `print`. DIR must be
+// N runs each) and lands in print-pages.json as `print`, next to `printed`, the
+// PDF's size and sha256. DIR must be
 // outside fixtures/. In DIR/<fixture>/:
 //
 //   surimono.html      what render_page gave
@@ -32,7 +33,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { FIXTURES_DIR, TOOLS_DIR, listFixtures } from "./lib/fixtures.mjs";
-import { fulgurMeasure, fulgurPrint, fulgurVersion, useFulgur } from "./lib/fulgur.mjs";
+import { fulgurMeasure, fulgurPrint, fulgurVersion, pdfIdentity, useFulgur } from "./lib/fulgur.mjs";
 import { passes, pct, scoresCell, verdict } from "./lib/report.mjs";
 
 const { values, positionals } = parseArgs({
@@ -110,7 +111,9 @@ function print(tree, fixture, html, dir) {
   try {
     fulgurPrint(standIn, pdf, dir, extra);
     const score = compare(fixture, pdf, dir);
-    // The same print again, timed and sampled; kept beside the score, not in score.json.
+    // What was printed, and the same print again, timed and sampled; kept beside the
+    // score, not in score.json.
+    score.printed = pdfIdentity(pdf);
     if (measureRuns) score.print = fulgurMeasure(standIn, pdf, dir, extra, measureRuns);
     return score;
   } catch (e) {
@@ -190,7 +193,7 @@ const md = [
   "",
 ].join("\n");
 fs.writeFileSync(path.join(outRoot, "index.md"), md);
-const stripped = rows.map(({ fixture, deterministic, sha256: hash, render_ms, report, page, floor }) => ({ fixture, deterministic, sha256: hash, render_ms, report, page: { pass: passes(page), worst_window: page.worst_window, pages: page.pages?.length, print: page.print }, floor: { pass: passes(floor), worst_window: floor.worst_window, print: floor.print } }));
+const stripped = rows.map(({ fixture, deterministic, sha256: hash, render_ms, report, page, floor }) => ({ fixture, deterministic, sha256: hash, render_ms, report, page: { pass: passes(page), worst_window: page.worst_window, pages: page.pages?.length, printed: page.printed, print: page.print }, floor: { pass: passes(floor), worst_window: floor.worst_window, printed: floor.printed, print: floor.print } }));
 fs.writeFileSync(path.join(outRoot, "print-pages.json"), `${JSON.stringify({ fulgur, producer, rows: stripped }, null, 2)}\n`);
 console.log(`\n${md}`);
 process.exit(differ ? 1 : 0);

@@ -150,6 +150,9 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
     assert.equal(row.differs, true);
     assert.equal(row.pixels_identical, false);
     assert.deepEqual(row.printers.one, { ...row.printers.two, print: row.printers.one.print });
+    assert.match(row.printers.one.pdf.sha256, /^[0-9a-f]{64}$/);
+    assert.ok(row.printers.one.pdf.bytes > 300);
+    assert.equal(row.pdf_identical, false);
     assert.equal(row.printers.one.pass, false);
     assert.ok(!row.printers.one.failed.includes("size"));
     assert.ok(row.printers.three.failed.includes("size"), JSON.stringify(row.printers.three));
@@ -166,7 +169,7 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
   }
   assert.match(md, /fulgur 1\.0\.0 and fulgur 1\.0\.1 and fulgur 2\.0\.0/);
   assert.match(md, /## Island fixture pages\n\nNone in this run\./);
-  assert.match(md, /\| noscript-message \| surimono's page \| \*\*FAIL\*\* · [\d.]+% .*\| \*\*FAIL\*\* · [\d.]+% \(size 816×1056, Chrome's 794×1123; .*\| no \| \[image\]\(noscript-message\/page\.png\) \|/);
+  assert.match(md, /\| noscript-message \| surimono's page \| \*\*FAIL\*\* · [\d.]+% .*\| \*\*FAIL\*\* · [\d.]+% \(size 816×1056, Chrome's 794×1123; .*\| no \| no \| \[image\]\(noscript-message\/page\.png\) \|/);
 
   // Two printers that print the same: no cell differs, no image.
   const dir2 = path.join(out, "run2");
@@ -175,6 +178,7 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
   for (const row of readJson(path.join(dir2, "printers.json")).rows) {
     assert.equal(row.differs, false);
     assert.equal(row.pixels_identical, true);
+    assert.equal(row.pdf_identical, true);
     assert.equal(row.images, undefined);
   }
   assert.equal(fs.existsSync(path.join(dir2, PAGE)), false);
