@@ -279,14 +279,16 @@ What doesn't work yet:
 - **A script a script inserts doesn't run**, and `type="module"` scripts don't
   run.
 - **No `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
-  `matchMedia`, `ResizeObserver` or `IntersectionObserver`**, and no
-  `document.write`.
-- **No `navigator`, `URL`, `URLSearchParams`, `TextEncoder`, `atob`, `Intl`,
-  `structuredClone`, `customElements` or shadow DOM.**
-- **Many element helpers are missing**, among them `innerText`, `focus`, a
-  table's `insertRow` and a `<select>`'s `options`.
+  `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `Intl` or shadow
+  DOM**, and no `document.write`.
+- **Some members answer as if there were no browser around the page.**
+  `innerText` sees no stylesheet until phase 3, only `hidden`, an inline
+  `display: none` and each element's default display. `document.cookie` is
+  empty and a write does nothing. `:focus` doesn't match. `customElements` is
+  a registry only: a defined element is never constructed or upgraded.
+  `navigator` is fixed values, the same on every machine.
 - **Images aren't loaded for a page**: no `load` or `error` event fires for one,
-  and there is no `Image` constructor. `src` stays for the PDF engine.
+  `new Image()` included. `src` stays for the PDF engine.
 
 ## Command-line example
 
