@@ -613,9 +613,11 @@ pub(crate) fn finish_page(
 /// The rewrite works on the printer's parse of the settled page, and what it
 /// writes has to be settled too: parsed and screened once more, it must come
 /// out the same, so the printer still gets a tree that passed every screen. A
-/// rewrite that doesn't, or that takes the page over a limit, is dropped, and
-/// the page goes out as it was. The deadline and a cancel end the render here
-/// as they do anywhere after the scripts.
+/// rewrite that doesn't, that takes the page over a limit, or that isn't
+/// done by the deadline everything after the scripts shares, is dropped, and
+/// the page goes out as it was: the pass is an improvement, and never the
+/// reason a page that rendered fails. A cancel ends the render here as it
+/// does anywhere.
 fn printer_safe(
     out: &str,
     limits: TreeLimits,
@@ -627,17 +629,20 @@ fn printer_safe(
     if !["<svg", "<pre", "border-"].iter().any(|s| out.contains(s)) {
         return Ok(None);
     }
-    let mut tree = Tree::parse(out, limits, gate)?;
-    if !safe::rewrite(&mut tree, out.is_ascii(), gate)? {
-        return Ok(None);
-    }
-    let settled = tree.to_html(max_bytes, gate).and_then(|written| {
+    let rewritten = || -> Result<Option<String>, Error> {
+        let mut tree = Tree::parse(out, limits, gate)?;
+        if !safe::rewrite(&mut tree, out.is_ascii(), gate)? {
+            return Ok(None);
+        }
+        let written = tree.to_html(max_bytes, gate)?;
         let again = pass(&mut Tree::parse(&written, limits, gate)?)?;
         Ok((again == written).then_some(written))
-    });
-    match settled {
+    };
+    match rewritten() {
         Ok(safe) => Ok(safe),
-        Err(e) if matches!(e, Error::Cancelled | Error::PageTimeLimit) => Err(e),
+        Err(Error::Cancelled) => Err(Error::Cancelled),
+        // Out of time, or over a limit with what the pass added: the page
+        // rendered, and an improvement that didn't fit isn't a failure.
         Err(_) => Ok(None),
     }
 }

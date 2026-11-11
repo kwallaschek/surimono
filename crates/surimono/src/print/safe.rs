@@ -10,80 +10,134 @@
 //!
 //! **The rule that decides what is rewritten:** Chrome must render the
 //! rewritten page exactly like the original, under any author style sheet and
-//! under paged media. A rewrite that could change what Chrome shows for some
-//! style sheet isn't made. Where that can't be shown from the page itself, the
-//! page is left as it is: the pass has no style engine (a stylo run can't be
-//! stopped, and nothing here may run unbounded), so every condition below is
-//! read off the printer's tree and the CSS's tokens ([`super::rules`]), and
-//! errs towards not rewriting.
+//! under paged media. The pass has no style engine (a stylo run can't be
+//! stopped, and nothing here may run unbounded), so it can't ask what Chrome
+//! would compute. It works the other way round: each rewrite has a list of
+//! everything it assumes about the page, and every item is either checked on
+//! the printer's tree and the CSS's tokens ([`super::rules`]) or the page is
+//! left alone. The checks are allow-lists wherever a list is possible: a page
+//! is rewritten when all it uses is on the lists of what the pass was
+//! measured against in Chromium, not when it merely avoids what is known to
+//! break.
 //!
-//! # The three rewrites
+//! # What every rewrite assumes
 //!
-//! **Size of a block `<svg>`** (blitz-dom ignores `width` and `height` on an
-//! `<svg>` that isn't inline). Chrome maps both attributes of an outermost
-//! `<svg>` to presentational hints: declarations just below the author origin.
-//! The pass adds the same declarations as the lowest thing in the author
-//! origin: a rule per attribute value, `svg[width="640"] { width: 640px }`, in
-//! an anonymous cascade layer of a style sheet placed before every author
-//! sheet. In Chrome it only repeats what the hint beneath it says, so every
-//! author declaration, layered or not, `!important` or not, still wins, and
-//! `revert` and `revert-layer` land on the same value as before. An inline
-//! `style` would outrank author rules the attribute loses to, which is why
-//! this isn't one. The selector is namespaced (a MathML element can be named
-//! `svg` too) and leaves out an `<svg>` inside another, whose attributes are no
-//! hints. Lengths are SVG's: a bare number is pixels.
+//! 1. **Chrome builds the tree the printer builds.** The pass reads
+//!    html5ever's tree as blitz-html sets it up, and Chrome's parser differs
+//!    from it: a `<template shadowrootmode>` becomes a shadow root (whose
+//!    `:host` and `::slotted()` rules outrank any document rule, and whose
+//!    content can follow a slotted node), `<noscript>` holds text, `<select>`
+//!    keeps more of its content, and MathML's `annotation-xml` can hold HTML.
+//!    Checked: every HTML element is on [`KNOWN_HTML`] or is a custom element,
+//!    no `<template>` has a `shadowroot…` attribute, and no `annotation-xml`.
+//! 2. **Nothing can look.** No script is left in the page (an island marker
+//!    is data): with [`Options::keep_scripts`](crate::Options::keep_scripts)
+//!    nothing is rewritten.
+//! 3. **All of the page's CSS is in the page and was read to the end**: no
+//!    linked style sheet, no `@import`, no at-rule the reader doesn't know
+//!    (one that could write declarations into a rule), nothing nested deeper
+//!    than a printer may be given. A [`ResourceLoader`](crate::ResourceLoader)
+//!    brings linked sheets into the page.
+//! 4. **The work is bounded**: [`MAX_STEPS`] steps, counted the same on every
+//!    machine, and the deadline everything after the scripts shares. Past
+//!    either, the page goes out as it was; only a cancel ends the render.
 //!
-//! **Colour of a border on one side** (fulgur paints all four sides in
-//! `border-top-color`). For each rule with a `border-bottom`, `-left` or
-//! `-right` that paints, the pass adds `border-top-color` with that side's
-//! colour, under the same selector, in the same lowest layer. It can only take
-//! effect where no author declaration sets the top border's colour, and it is
-//! invisible in Chrome as long as no top border paints there and nothing
-//! reads the colour another way. That holds when: every border style on the
-//! page comes from a shorthand that sets the colour too (no `border-style`
-//! longhand anywhere, so a top border that paints has an author colour that
-//! outranks the layer); the selector can't match an element the user agent
-//! gives a border (form controls, `<hr>`, `<fieldset>`, anything with
-//! `popover`); no `border`, `rules` or `frame` attribute gives a table one; no
-//! border declaration says `inherit`, and nothing says `revert-layer`. For the
-//! colour to be the one that prints, all the one-sided borders of the page
-//! have to be readable this way (plain rules, literal colours, no
-//! `!important`), so that the copies cascade among themselves as the
-//! originals do; otherwise none is copied.
+//! # The sheet two of the rewrites travel in
 //!
-//! **Newline ending a `<pre>`** (parley gives a layout ending in a newline one
-//! more line, and blitz-dom keeps it). Chrome ends the last line at that
-//! newline and starts no other, so the newline goes, when: it follows a
-//! visible character in the same text node (after an empty line it *is* the
-//! line: `<pre>one\n\n</pre>` is two lines in Chrome); the text is the last
-//! thing in the `<pre>`, through plain inline elements only; the `<pre>` is a
-//! block container whatever the page's CSS says (no rule that could match it
-//! declares another `display`, or `all`); no `::after` with `content` could
-//! put something behind the newline; and nothing says `preserve-spaces`.
-//! No selector sees a text node, and the node isn't emptied, so nothing else
-//! can tell.
+//! Sizes and border colours are rules in one new `<style>` in `<head>`: in an
+//! anonymous cascade layer, after the leading `<meta>`, `<title>` and `<base>`
+//! elements, so before every author sheet. The first layer is the lowest: a
+//! declaration there loses to every author declaration, layered or not,
+//! `!important` or not. It assumes:
 //!
-//! # What the added style sheet needs
+//! 5. **No selector can tell that `<head>` has one more element.** `<head>`
+//!    and what's in it are never rendered: no rule that may match `<head>`
+//!    declares a `display` other than `none`, or `all`. And nothing rendered
+//!    is matched by what `<head>` holds: every pseudo-class in the page's
+//!    selectors is on the reader's list of those that go by an element's own
+//!    state, its ancestors and its siblings (`:has()` is not on it), and
+//!    `<head>` already has an element, so `head:empty` says what it said.
+//! 6. **A browser decodes the page as before**: it is ASCII, or declares its
+//!    encoding ahead of the sheet.
+//! 7. **Chrome and the printer read the sheet alike**: it holds no `&`, `<`
+//!    or `\`, which blitz-dom decodes and Chrome doesn't.
 //!
-//! The first two rewrites travel in one new `<style>` in `<head>`, after the
-//! leading `<meta>`, `<title>` and `<base>` elements, where it precedes every
-//! author sheet without moving a `<meta charset>`. A new element is something
-//! selectors can see, so it is added only when the page's CSS can't:
+//! # Size of a block `<svg>`
 //!
-//! - all of the page's CSS is in the page (no linked style sheet, no
-//!   `@import`); load them with a [`ResourceLoader`](crate::ResourceLoader)
-//!   and they are;
-//! - no selector uses `:has()`, the only way a change inside `<head>` reaches
-//!   an element that is rendered;
-//! - no rule that could match `<head>` declares a `display` other than `none`,
-//!   or `all`, so what's in it stays unrendered;
-//! - `<head>` already has an element, so `head:empty` says what it said;
-//! - the page is ASCII or declares its encoding before the new element, so a
-//!   browser reading it from a file decodes it as before.
+//! blitz-dom ignores `width` and `height` on an `<svg>` that isn't inline.
+//! Chrome maps both attributes of an outermost `<svg>` to presentational
+//! hints: declarations just below the author origin. The pass adds a rule per
+//! attribute value, `svg[width="640"] { width: 640px }`. It assumes:
 //!
-//! And nothing is rewritten at all in a page that keeps its scripts
-//! ([`Options::keep_scripts`](crate::Options::keep_scripts)), since a script
-//! can see everything.
+//! 8. **Every element the rule matches has that hint, with that value.** Then
+//!    the rule only repeats, as the lowest thing in the author origin, what
+//!    the hint beneath it says: whatever wins the cascade wins it as before,
+//!    and `revert` and `revert-layer` land on the same value. This doesn't
+//!    depend on what any property means, so no property is checked. The
+//!    selector is namespaced (a MathML element can be named `svg`) and leaves
+//!    out an `<svg>` inside another, whose attributes are no hints; the value
+//!    is one of SVG's plain lengths (digits, a fraction, an absolute unit or
+//!    none); with assumption 1 the element is in the document's own tree.
+//! 9. **The attribute isn't animated**: no SMIL element in the page.
+//!
+//! An inline `style` would outrank author rules the attribute loses to, which
+//! is why this isn't one.
+//!
+//! # Colour of a border on one side
+//!
+//! fulgur paints all four sides in `border-top-color`. For each rule with a
+//! `border-bottom`, `-left` or `-right` that paints, the pass adds
+//! `border-top-color` with that side's colour, under the same selector. The
+//! copy can only take effect where no author declaration sets the top
+//! border's colour. It assumes:
+//!
+//! 10. **Where it takes effect, no top border paints.** Every border style on
+//!     the page comes from a shorthand that sets the colour too, so a top
+//!     border that paints has an author colour above the layer. Checked: every
+//!     property with `border` in its name is on [`BORDER_PROPERTIES`] (no
+//!     style longhand, no logical property, no `-webkit-border-…` alias), and
+//!     nothing declares `all`.
+//! 11. **The element has no border of the user agent's or of an attribute's.**
+//!     The selector can only match elements on [`BORDERLESS`] whose attributes
+//!     are all on [`PLAIN_ATTRIBUTES`] (so no `popover`), and no table part
+//!     has an attribute off it (so no `border`, `rules` or `frame`).
+//! 12. **Nothing reads the colour another way**: no border declaration says
+//!     `inherit` or `revert` (the user agent's table rows inherit theirs), and
+//!     nothing says `revert-layer`.
+//! 13. **The colour is the one that prints.** All one-sided borders of the
+//!     page are plain rules of sheets that always apply, unconditional, with
+//!     a literal colour and no `!important`, so the copies cascade among
+//!     themselves as the originals do. Otherwise none is copied.
+//!
+//! # Newline ending a `<pre>`
+//!
+//! parley gives a layout ending in a newline one more line, and blitz-dom
+//! keeps it. Chrome ends the last line at that newline and starts no other,
+//! so the newline goes. No selector sees a text node, and the node isn't
+//! emptied. It assumes:
+//!
+//! 14. **The newline ends a line that has content**: it follows a visible
+//!     character in the same text node. After an empty line it *is* the line.
+//! 15. **Nothing follows it in the `<pre>`**: the text is the last thing in
+//!     it, through elements on [`PLAIN_INLINE`] only (`<q>` adds a quote),
+//!     and no `::after` (or pseudo-element the reader doesn't know) with
+//!     `content` may match an element on that path.
+//! 16. **The `<pre>` is a block container, and the path is made of inline
+//!     boxes laid out left to right.** No rule that may match the `<pre>`
+//!     declares a `display` off [`BLOCK_DISPLAYS`], none that may match a
+//!     path element one off [`PATH_DISPLAYS`]. Chrome lays an inline's end
+//!     edge out after the break once bidi is involved, so: the `<pre>` and
+//!     the path have only attributes on [`PATH_ATTRIBUTES`] (no `dir`), no
+//!     ancestor has a `dir` other than `ltr`, the page has no `<bdi>` or
+//!     `<bdo>`, and the `<pre>` holds no right-to-left character or bidi
+//!     control.
+//! 17. **The page's CSS is CSS the newline was measured under.** Every
+//!     property declared anywhere in the page (an inherited one reaches the
+//!     `<pre>` from anywhere) is on [`NEWLINE_PROPERTIES`]: each was printed
+//!     by Chromium 153 on the `<pre>`, on its inline elements and on `<body>`,
+//!     with the newline and without, pixel for pixel the same. `direction`,
+//!     `unicode-bidi`, `writing-mode`, `white-space-collapse` and the rest
+//!     aren't on it; `white-space` is, with the six values measured.
 
 use cssparser::{Parser, ParserInput, Token};
 use html5ever::ns;
@@ -97,6 +151,130 @@ use crate::prepass::is_island_type;
 const MAX_RULES: usize = 256;
 /// Most bytes of it.
 const MAX_SHEET_BYTES: usize = 32 * 1024;
+/// Most steps the pass takes: nodes walked, CSS tokens read, and elements
+/// held against rules. A page of a few megabytes takes under a million.
+const MAX_STEPS: u64 = 1 << 24;
+
+/// The HTML elements the pass knows: Chrome's parser and html5ever's build the
+/// same tree from them. Not here, among others: `select`, `option`,
+/// `optgroup` and `datalist` (Chrome keeps more of a `<select>`), `noscript`,
+/// `rb` and `rtc`, `slot`, frames, and the raw-text relics. A custom element
+/// (a hyphen in its name) is known too: no parser treats one specially.
+const KNOWN_HTML: &[&str] = &[
+    "a",
+    "abbr",
+    "address",
+    "area",
+    "article",
+    "aside",
+    "audio",
+    "b",
+    "base",
+    "bdi",
+    "bdo",
+    "big",
+    "blockquote",
+    "body",
+    "br",
+    "button",
+    "canvas",
+    "caption",
+    "center",
+    "cite",
+    "code",
+    "col",
+    "colgroup",
+    "data",
+    "dd",
+    "del",
+    "details",
+    "dfn",
+    "dialog",
+    "div",
+    "dl",
+    "dt",
+    "em",
+    "embed",
+    "fieldset",
+    "figcaption",
+    "figure",
+    "font",
+    "footer",
+    "form",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "head",
+    "header",
+    "hgroup",
+    "hr",
+    "html",
+    "i",
+    "iframe",
+    "img",
+    "input",
+    "ins",
+    "kbd",
+    "label",
+    "legend",
+    "li",
+    "link",
+    "main",
+    "map",
+    "mark",
+    "menu",
+    "meta",
+    "meter",
+    "nav",
+    "nobr",
+    "object",
+    "ol",
+    "output",
+    "p",
+    "param",
+    "picture",
+    "pre",
+    "progress",
+    "q",
+    "rp",
+    "rt",
+    "ruby",
+    "s",
+    "samp",
+    "script",
+    "search",
+    "section",
+    "small",
+    "source",
+    "span",
+    "strike",
+    "strong",
+    "style",
+    "sub",
+    "summary",
+    "sup",
+    "table",
+    "tbody",
+    "td",
+    "template",
+    "textarea",
+    "tfoot",
+    "th",
+    "thead",
+    "time",
+    "title",
+    "tr",
+    "track",
+    "tt",
+    "u",
+    "ul",
+    "var",
+    "video",
+    "wbr",
+];
 
 /// HTML elements Chrome's own style sheet gives no border, in any state.
 const BORDERLESS: &[&str] = &[
@@ -168,18 +346,65 @@ const BORDERLESS: &[&str] = &[
     "wbr",
 ];
 
-/// Attributes that give an element, or a table's cells, a border.
-const BORDER_ATTRIBUTES: &[&str] = &[
-    "border",
-    "rules",
-    "frame",
-    "bordercolor",
-    "frameborder",
-    "noshade",
+/// The parts of a table: a `border`, `rules` or `frame` on one gives others a
+/// border.
+const TABLE_PARTS: &[&str] = &[
+    "table", "caption", "colgroup", "col", "thead", "tbody", "tfoot", "tr", "td", "th",
+];
+
+/// Attributes that give no element a border, of its own or of the user
+/// agent's: with `data-…`, `aria-…` and the names only a framework writes
+/// (see [`plain_attribute`]), all an element may have for a border colour to
+/// be copied onto it.
+const PLAIN_ATTRIBUTES: &[&str] = &[
+    "abbr",
+    "align",
+    "bgcolor",
+    "cellpadding",
+    "cellspacing",
+    "cite",
+    "class",
+    "colspan",
+    "datetime",
+    "dir",
+    "download",
+    "for",
+    "headers",
+    "height",
+    "hidden",
+    "href",
+    "id",
+    "lang",
+    "name",
+    "nowrap",
+    "open",
+    "rel",
+    "reversed",
+    "role",
+    "rowspan",
+    "scope",
+    "span",
+    "start",
+    "style",
+    "summary",
+    "tabindex",
+    "target",
+    "title",
+    "translate",
+    "type",
+    "valign",
+    "value",
+    "width",
+];
+
+/// All a `<pre>` whose newline goes, and the elements its last text is in, may
+/// have: nothing that sets a direction, or anything else, as a hint.
+const PATH_ATTRIBUTES: &[&str] = &[
+    "class", "href", "id", "name", "rel", "role", "style", "tabindex", "target", "title",
 ];
 
 /// Inline HTML elements a `<pre>`'s last text may be in: they add nothing
-/// after their content (`<q>` adds a quote) and hold only what's in the tree.
+/// after their content and hold only what's in the tree.
 const PLAIN_INLINE: &[&str] = &[
     "a", "abbr", "b", "cite", "code", "data", "del", "dfn", "em", "font", "i", "ins", "kbd",
     "mark", "s", "samp", "small", "span", "strong", "sub", "sup", "time", "tt", "u", "var",
@@ -208,38 +433,452 @@ const BLOCK_DISPLAYS: &[&str] = &[
     "none",
 ];
 
+/// `display` values an element between a `<pre>` and its last text may have.
+const PATH_DISPLAYS: &[&str] = &["inline", "inline-block", "block", "contents", "none"];
+
+/// `white-space` values the newline was measured under.
+const WHITE_SPACES: &[&str] = &[
+    "normal",
+    "pre",
+    "pre-wrap",
+    "pre-line",
+    "break-spaces",
+    "nowrap",
+];
+
+/// The properties with `border` in their name under which a border colour may
+/// be copied: none sets a border's style without its colour, and none is a
+/// logical or legacy name for one.
+const BORDER_PROPERTIES: &[&str] = &[
+    "border",
+    "border-bottom",
+    "border-bottom-color",
+    "border-bottom-left-radius",
+    "border-bottom-right-radius",
+    "border-bottom-width",
+    "border-collapse",
+    "border-color",
+    "border-image",
+    "border-left",
+    "border-left-color",
+    "border-left-width",
+    "border-radius",
+    "border-right",
+    "border-right-color",
+    "border-right-width",
+    "border-spacing",
+    "border-top",
+    "border-top-color",
+    "border-top-left-radius",
+    "border-top-right-radius",
+    "border-top-width",
+    "border-width",
+];
+
+/// The properties a `<pre>`'s last newline was measured under (assumption
+/// 17), sorted. Each was printed by Chromium 153 with a sample value on the
+/// `<pre>`, on the inline elements its last text is in (which had padding, a
+/// border and a margin), on `<body>` and on all of them, with the newline
+/// and without: the same pixels. `display` and `white-space` are here for
+/// the values on their own lists. Not here, among others: `direction`,
+/// `unicode-bidi`, `writing-mode`, `white-space-collapse`, `text-wrap-mode`,
+/// `line-clamp`, and anything prefixed that isn't listed.
+const NEWLINE_PROPERTIES: &[&str] = &[
+    "-moz-osx-font-smoothing",
+    "-webkit-appearance",
+    "-webkit-border-radius",
+    "-webkit-box-decoration-break",
+    "-webkit-box-shadow",
+    "-webkit-box-sizing",
+    "-webkit-font-smoothing",
+    "-webkit-overflow-scrolling",
+    "-webkit-print-color-adjust",
+    "-webkit-tap-highlight-color",
+    "-webkit-text-size-adjust",
+    "-webkit-transform",
+    "-webkit-transition",
+    "-webkit-user-select",
+    "accent-color",
+    "align-content",
+    "align-items",
+    "align-self",
+    "animation",
+    "appearance",
+    "aspect-ratio",
+    "background",
+    "background-attachment",
+    "background-clip",
+    "background-color",
+    "background-image",
+    "background-origin",
+    "background-position",
+    "background-repeat",
+    "background-size",
+    "block-size",
+    "border",
+    "border-block",
+    "border-block-end",
+    "border-block-start",
+    "border-bottom",
+    "border-bottom-color",
+    "border-bottom-left-radius",
+    "border-bottom-right-radius",
+    "border-bottom-style",
+    "border-bottom-width",
+    "border-collapse",
+    "border-color",
+    "border-image",
+    "border-inline",
+    "border-inline-end",
+    "border-inline-start",
+    "border-left",
+    "border-left-color",
+    "border-left-style",
+    "border-left-width",
+    "border-radius",
+    "border-right",
+    "border-right-color",
+    "border-right-style",
+    "border-right-width",
+    "border-spacing",
+    "border-style",
+    "border-top",
+    "border-top-color",
+    "border-top-left-radius",
+    "border-top-right-radius",
+    "border-top-style",
+    "border-top-width",
+    "border-width",
+    "bottom",
+    "box-decoration-break",
+    "box-shadow",
+    "box-sizing",
+    "break-after",
+    "break-before",
+    "break-inside",
+    "caption-side",
+    "caret-color",
+    "clear",
+    "clip-path",
+    "color",
+    "color-scheme",
+    "column-count",
+    "column-gap",
+    "column-rule",
+    "column-width",
+    "columns",
+    "contain",
+    "content",
+    "content-visibility",
+    "counter-increment",
+    "counter-reset",
+    "cursor",
+    "display",
+    "empty-cells",
+    "filter",
+    "flex",
+    "flex-basis",
+    "flex-direction",
+    "flex-grow",
+    "flex-shrink",
+    "flex-wrap",
+    "float",
+    "font",
+    "font-family",
+    "font-feature-settings",
+    "font-kerning",
+    "font-optical-sizing",
+    "font-size",
+    "font-size-adjust",
+    "font-stretch",
+    "font-style",
+    "font-synthesis",
+    "font-variant",
+    "font-variant-ligatures",
+    "font-variant-numeric",
+    "font-variation-settings",
+    "font-weight",
+    "gap",
+    "grid-area",
+    "grid-column",
+    "grid-template-columns",
+    "height",
+    "hyphens",
+    "image-rendering",
+    "inline-size",
+    "inset",
+    "isolation",
+    "justify-content",
+    "justify-items",
+    "justify-self",
+    "left",
+    "letter-spacing",
+    "line-break",
+    "line-height",
+    "list-style",
+    "list-style-position",
+    "list-style-type",
+    "margin",
+    "margin-block",
+    "margin-block-end",
+    "margin-block-start",
+    "margin-bottom",
+    "margin-inline",
+    "margin-inline-end",
+    "margin-inline-start",
+    "margin-left",
+    "margin-right",
+    "margin-top",
+    "max-block-size",
+    "max-height",
+    "max-inline-size",
+    "max-width",
+    "min-block-size",
+    "min-height",
+    "min-inline-size",
+    "min-width",
+    "mix-blend-mode",
+    "object-fit",
+    "object-position",
+    "opacity",
+    "order",
+    "orphans",
+    "outline",
+    "outline-color",
+    "outline-offset",
+    "outline-style",
+    "outline-width",
+    "overflow",
+    "overflow-wrap",
+    "overflow-x",
+    "overflow-y",
+    "padding",
+    "padding-block",
+    "padding-block-end",
+    "padding-block-start",
+    "padding-bottom",
+    "padding-inline",
+    "padding-inline-end",
+    "padding-inline-start",
+    "padding-left",
+    "padding-right",
+    "padding-top",
+    "page-break-after",
+    "page-break-before",
+    "page-break-inside",
+    "place-items",
+    "pointer-events",
+    "position",
+    "print-color-adjust",
+    "quotes",
+    "resize",
+    "right",
+    "scroll-behavior",
+    "tab-size",
+    "table-layout",
+    "text-align",
+    "text-align-last",
+    "text-decoration",
+    "text-decoration-color",
+    "text-decoration-line",
+    "text-decoration-skip-ink",
+    "text-decoration-style",
+    "text-decoration-thickness",
+    "text-emphasis",
+    "text-indent",
+    "text-overflow",
+    "text-rendering",
+    "text-shadow",
+    "text-size-adjust",
+    "text-spacing-trim",
+    "text-transform",
+    "text-underline-offset",
+    "text-underline-position",
+    "text-wrap",
+    "top",
+    "transform",
+    "transform-origin",
+    "transition",
+    "user-select",
+    "vertical-align",
+    "visibility",
+    "white-space",
+    "widows",
+    "width",
+    "will-change",
+    "word-break",
+    "word-spacing",
+    "word-wrap",
+    "z-index",
+    "zoom",
+];
+
 /// Units an SVG length and a CSS length share, with the same meaning.
 const ABSOLUTE_UNITS: &[&str] = &["px", "in", "cm", "mm", "pt", "pc"];
+
+/// Why the pass stops before its end.
+enum Stop {
+    /// It took [`MAX_STEPS`]: the page goes out as it was.
+    Budget,
+    /// The gate: a cancel, or the deadline.
+    Gate(Error),
+}
+
+/// What the pass has cost so far, and the gate it runs under.
+struct Work<'g> {
+    steps: u64,
+    gate: &'g Gate<'g>,
+}
+
+impl Work<'_> {
+    /// Counts `n` steps. Looks at the gate every few thousand.
+    fn step(&mut self, n: u64) -> Result<(), Stop> {
+        let before = self.steps;
+        self.steps = self.steps.saturating_add(n);
+        if self.steps > MAX_STEPS {
+            return Err(Stop::Budget);
+        }
+        if before >> 12 != self.steps >> 12 || before == 0 {
+            self.gate.check().map_err(Stop::Gate)?;
+        }
+        Ok(())
+    }
+}
+
+/// A `<pre>` whose text ends in a newline Chrome doesn't render, as far as
+/// the tree says.
+struct Pre {
+    /// The `<pre>`, then the elements its last text is in, outermost first.
+    path: Vec<usize>,
+    /// That text node.
+    text: usize,
+}
 
 /// What one walk over the tree finds.
 #[derive(Default)]
 struct Facts {
     head: Option<usize>,
-    /// A script that isn't an island marker is still in the page.
-    scripts: bool,
     /// A `<link>` to a style sheet: CSS that isn't in the page.
     links: bool,
     smil: bool,
-    border_attributes: bool,
+    /// A table part has an attribute that may give its cells a border.
+    table_attributes: bool,
     /// `<style>` elements, in any namespace and in templates: a printer reads
     /// them all, and Chrome some.
     styles: Vec<usize>,
     /// Elements with a `style` attribute.
     styled: Vec<usize>,
-    /// Elements that may have a border of the user agent's.
+    /// Elements that may have a border of the user agent's, or an attribute's.
     bordered: Vec<usize>,
     /// `width` and `height` values of outermost `<svg>` elements, each once,
     /// in document order.
     sizes: Vec<(&'static str, String)>,
-    /// HTML `<pre>` elements outside templates.
-    pres: Vec<usize>,
+    pres: Vec<Pre>,
 }
 
 fn is_svg(e: &Element) -> bool {
     e.name.ns == ns!(svg)
 }
 
-fn facts(tree: &Tree, gate: &Gate<'_>) -> Result<Facts, Error> {
+fn html_named(e: &Element, names: &[&str]) -> bool {
+    e.name.ns == ns!(html) && names.contains(&e.local())
+}
+
+/// Whether an attribute is one that styles nothing: on `names`, or a name no
+/// browser gives a meaning (`data-…`, `aria-…`, and what frameworks write:
+/// `x-data`, `v-if`, `@click`, `:class`, `hx-get`). HTML's own hyphenated
+/// attributes are the two listed.
+fn plain_attribute(name: &str, names: &[&str]) -> bool {
+    names.contains(&name)
+        || name.contains([':', '@', '.'])
+        || (name.contains('-') && !matches!(name, "http-equiv" | "accept-charset"))
+}
+
+fn plain_attributes(e: &Element, names: &[&str]) -> bool {
+    e.attrs
+        .iter()
+        .all(|a| a.name.ns == ns!() && plain_attribute(a.name.local.as_ref(), names))
+}
+
+/// Whether `c` is laid out right to left, or steers what is: Hebrew, Arabic
+/// and the other right-to-left scripts, and the bidi controls.
+fn right_to_left(c: char) -> bool {
+    matches!(
+        c,
+        '\u{590}'..='\u{8ff}' | '\u{200e}'..='\u{200f}' | '\u{202a}'..='\u{202e}'
+            | '\u{2066}'..='\u{2069}' | '\u{fb1d}'..='\u{fdff}' | '\u{fe70}'..='\u{feff}'
+            | '\u{10800}'..='\u{10fff}' | '\u{1e800}'..='\u{1efff}'
+    )
+}
+
+/// The newline ending `pre`, if the tree has nothing against dropping it:
+/// assumptions 14, 15 and 16, as far as they are the tree's.
+fn pre_newline(tree: &Tree, pre: usize, work: &mut Work<'_>) -> Result<Option<Pre>, Stop> {
+    let mut path = vec![pre];
+    let mut at = pre;
+    let text = loop {
+        work.step(1)?;
+        if !tree
+            .element(at)
+            .is_some_and(|e| plain_attributes(e, PATH_ATTRIBUTES))
+        {
+            return Ok(None);
+        }
+        let last = tree.nodes[at]
+            .children
+            .iter()
+            .rev()
+            .copied()
+            .find(|&c| !matches!(tree.nodes[c].data, Data::Comment));
+        let Some(last) = last else {
+            return Ok(None);
+        };
+        match &tree.nodes[last].data {
+            Data::Text(_) => break last,
+            Data::Element(e) if html_named(e, PLAIN_INLINE) => {
+                path.push(last);
+                at = last;
+            }
+            _ => return Ok(None),
+        }
+    };
+    let Data::Text(content) = &tree.nodes[text].data else {
+        return Ok(None);
+    };
+    let mut end = content.chars().rev();
+    if end.next() != Some('\n') || !end.next().is_some_and(visible) {
+        return Ok(None);
+    }
+    // Everything the `<pre>` holds is in its lines.
+    let mut stack = vec![pre];
+    while let Some(id) = stack.pop() {
+        let node = &tree.nodes[id];
+        if let Data::Text(t) = &node.data {
+            work.step(1 + t.len() as u64 / 64)?;
+            if t.chars().any(right_to_left) {
+                return Ok(None);
+            }
+        }
+        work.step(1)?;
+        stack.extend(node.children.iter().copied());
+    }
+    Ok(Some(Pre { path, text }))
+}
+
+/// What a node is in, for the walk.
+#[derive(Clone, Copy, Default)]
+struct Around {
+    /// An HTML `<template>`: nothing here is rendered by Chrome.
+    inert: bool,
+    /// An `<svg>`.
+    svg: bool,
+    /// An element with a `dir` that isn't `ltr`.
+    directed: bool,
+}
+
+/// Walks the tree. `None` if it holds something the pass doesn't know
+/// (assumptions 1 and 2): then nothing is rewritten.
+fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
     let mut facts = Facts::default();
     let html = tree.nodes[0]
         .children
@@ -253,18 +892,37 @@ fn facts(tree: &Tree, gate: &Gate<'_>) -> Result<Facts, Error> {
             .copied()
             .find(|&c| tree.element(c).is_some_and(|e| e.is_html("head")))
     });
-    let mut stack = vec![(0, false)];
-    while let Some((id, inert)) = stack.pop() {
-        gate.check()?;
+    // `<bdi>` and `<bdo>` set a direction with no attribute.
+    let mut bidi = false;
+    let mut pres = Vec::new();
+    let mut stack = vec![(0, Around::default())];
+    while let Some((id, around)) = stack.pop() {
+        work.step(1)?;
         let node = &tree.nodes[id];
-        let mut inside = inert;
+        let mut inside = around;
         if let Some(e) = tree.element(id) {
             let local = e.local();
-            inside |= e.is_html("template");
-            if local == "script" && !inert {
-                let island = e.is_html("script") && e.attr("type").is_some_and(is_island_type);
-                facts.scripts |= !island;
+            let html_element = e.name.ns == ns!(html);
+            work.step(e.attrs.len() as u64)?;
+            let known = if html_element {
+                KNOWN_HTML.contains(&local) || local.contains('-')
+            } else {
+                !local.eq_ignore_ascii_case("annotation-xml")
+            };
+            let shadow = e.is_html("template")
+                && e.attrs
+                    .iter()
+                    .any(|a| a.name.local.starts_with("shadowroot"));
+            let script = local.eq_ignore_ascii_case("script")
+                && !(e.is_html("script") && e.attr("type").is_some_and(is_island_type));
+            if !known || shadow || script {
+                return Ok(None);
             }
+            inside.inert |= e.is_html("template");
+            inside.directed |= e
+                .attr("dir")
+                .is_some_and(|d| !d.eq_ignore_ascii_case("ltr"));
+            bidi |= html_named(e, &["bdi", "bdo"]);
             if local.eq_ignore_ascii_case("link")
                 && e.attr("rel")
                     .is_some_and(|r| r.to_ascii_lowercase().contains("stylesheet"))
@@ -272,33 +930,25 @@ fn facts(tree: &Tree, gate: &Gate<'_>) -> Result<Facts, Error> {
                 facts.links = true;
             }
             facts.smil |= SMIL.iter().any(|s| local.eq_ignore_ascii_case(s));
-            for a in &e.attrs {
-                let name = a.name.local.as_ref();
-                facts.border_attributes |= BORDER_ATTRIBUTES.contains(&name);
-                if name == "style" {
-                    facts.styled.push(id);
-                }
+            if e.attr("style").is_some() {
+                facts.styled.push(id);
             }
             if local == "style" {
                 facts.styles.push(id);
             }
-            let html_element = e.name.ns == ns!(html);
-            let borderless = html_element
-                && e.attr("popover").is_none()
-                && (BORDERLESS.contains(&local) || local.contains('-'));
+            let plain = plain_attributes(e, PLAIN_ATTRIBUTES);
+            facts.table_attributes |= html_named(e, TABLE_PARTS) && !plain;
+            let borderless =
+                html_element && plain && (BORDERLESS.contains(&local) || local.contains('-'));
             if !borderless {
                 facts.bordered.push(id);
             }
-            if html_element && local == "pre" && !inert {
-                facts.pres.push(id);
+            if e.is_html("pre") && !around.inert && !inside.directed {
+                pres.push(id);
             }
-            let outermost = is_svg(e)
-                && local == "svg"
-                && !node
-                    .parent
-                    .and_then(|p| tree.element(p))
-                    .is_some_and(is_svg);
-            if outermost {
+            let svg = is_svg(e) && local == "svg";
+            // One the added rule can match: in no other `<svg>`, and rendered.
+            if svg && !around.svg && !around.inert {
                 for name in ["width", "height"] {
                     let value = e
                         .attrs
@@ -315,10 +965,16 @@ fn facts(tree: &Tree, gate: &Gate<'_>) -> Result<Facts, Error> {
                     }
                 }
             }
+            inside.svg |= svg;
         }
         stack.extend(node.children.iter().rev().map(|&c| (c, inside)));
     }
-    Ok(facts)
+    if !bidi {
+        for pre in pres {
+            facts.pres.extend(pre_newline(tree, pre, work)?);
+        }
+    }
+    Ok(Some(facts))
 }
 
 /// The CSS length that says what the SVG length `value` says, for the plain
@@ -350,7 +1006,8 @@ fn svg_length(value: &str) -> Option<String> {
 enum Word {
     /// In lower case.
     Ident(String),
-    /// A hash, or `rgb()` or `hsl()` of plain numbers, as written.
+    /// A hash of hex digits, or `rgb()` or `hsl()` of plain numbers, written
+    /// from its own tokens.
     Colour(String),
     /// A number or a length.
     Size,
@@ -359,21 +1016,24 @@ enum Word {
     Other,
 }
 
+/// `#` and the 3, 4, 6 or 8 hex digits of a colour, from the token's value.
+fn hash_colour(digits: &str) -> Word {
+    if matches!(digits.len(), 3 | 4 | 6 | 8) && digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Word::Colour(format!("#{digits}"))
+    } else {
+        Word::Other
+    }
+}
+
 /// The words of a declaration's value.
 fn words(value: &str) -> Vec<Word> {
     let mut input = ParserInput::new(value);
     let mut p = Parser::new(&mut input);
     let mut all = Vec::new();
-    loop {
-        let start = p.position();
-        let Ok(token) = p.next() else {
-            break;
-        };
+    while let Ok(token) = p.next() {
         let word = match token.clone() {
             Token::Ident(name) => Word::Ident(name.to_ascii_lowercase()),
-            Token::Hash(_) | Token::IDHash(_) => {
-                Word::Colour(p.slice_from(start).trim().to_owned())
-            }
+            Token::Hash(digits) | Token::IDHash(digits) => hash_colour(&digits),
             Token::Number { .. } | Token::Dimension { .. } => Word::Size,
             Token::Delim('!') => Word::Bang,
             Token::Function(name)
@@ -381,25 +1041,44 @@ fn words(value: &str) -> Vec<Word> {
                     .iter()
                     .any(|f| name.eq_ignore_ascii_case(f)) =>
             {
-                let plain: Result<bool, cssparser::ParseError<'_, ()>> =
-                    p.parse_nested_block(|p| {
-                        let mut plain = true;
-                        while let Ok(token) = p.next() {
-                            plain &= matches!(
-                                token,
-                                Token::Number { .. }
-                                    | Token::Percentage { .. }
-                                    | Token::Comma
-                                    | Token::Delim('/')
-                            );
+                let name = name.to_ascii_lowercase();
+                // Only numbers, percentages, commas and a slash, each written
+                // back as its own text.
+                let inner: Result<Option<String>, cssparser::ParseError<'_, ()>> = p
+                    .parse_nested_block(|p| {
+                        let mut text = String::new();
+                        loop {
+                            let start = p.position();
+                            let Ok(token) = p.next() else {
+                                break;
+                            };
+                            let plain =
+                                matches!(token, Token::Number { .. } | Token::Percentage { .. });
+                            let mark = match token {
+                                Token::Comma => Some(","),
+                                Token::Delim('/') => Some("/"),
+                                _ => None,
+                            };
+                            let own = p.slice_from(start).trim();
+                            let digits = own
+                                .bytes()
+                                .all(|b| b.is_ascii_digit() || b"+-.%".contains(&b));
+                            match mark {
+                                Some(mark) => text.push_str(mark),
+                                None if plain && digits && !own.is_empty() => {
+                                    if text.ends_with(|c: char| c.is_ascii_digit() || c == '%') {
+                                        text.push(' ');
+                                    }
+                                    text.push_str(own);
+                                }
+                                None => return Ok(None),
+                            }
                         }
-                        Ok(plain)
+                        Ok(Some(text))
                     });
-                let text = p.slice_from(start).trim();
-                if plain == Ok(true) && text.is_ascii() && !text.contains(['\\', '<', '&']) {
-                    Word::Colour(text.to_owned())
-                } else {
-                    Word::Other
+                match inner {
+                    Ok(Some(text)) => Word::Colour(format!("{name}({text})")),
+                    _ => Word::Other,
                 }
             }
             _ => Word::Other,
@@ -429,12 +1108,82 @@ fn one_ident(value: &str) -> Option<String> {
     }
 }
 
+/// What one look at every declaration of the page finds.
+#[derive(Default)]
+struct Sheet {
+    /// Rules that declare `display` or `all`.
+    display: Vec<usize>,
+    /// Rules that declare `content` or `all` for an `::after`, or for a
+    /// pseudo-element the reader doesn't know.
+    after: Vec<usize>,
+    /// Every property is on [`NEWLINE_PROPERTIES`], `white-space` with a value
+    /// on [`WHITE_SPACES`]: assumption 17.
+    measured: bool,
+    /// Every property with `border` in its name is on [`BORDER_PROPERTIES`],
+    /// none says `inherit` or `revert`, and nothing declares `all`:
+    /// assumptions 10 and 12.
+    borders: bool,
+}
+
+fn sheet(rules: &Rules, work: &mut Work<'_>) -> Result<Sheet, Stop> {
+    let mut sheet = Sheet {
+        measured: true,
+        borders: !rules.flags.revert_layer,
+        ..Sheet::default()
+    };
+    for (index, rule) in rules.rules.iter().enumerate() {
+        work.step(1 + rule.decls.len() as u64)?;
+        let (mut display, mut content) = (false, false);
+        for decl in &rule.decls {
+            let name = decl.name.as_str();
+            display |= matches!(name, "display" | "all");
+            content |= matches!(name, "content" | "all");
+            let custom = name.starts_with("--");
+            if !custom && NEWLINE_PROPERTIES.binary_search(&name).is_err() {
+                sheet.measured = false;
+            }
+            if name == "white-space"
+                && !one_ident(rules.value(rule, decl))
+                    .is_some_and(|v| WHITE_SPACES.contains(&v.as_str()))
+            {
+                sheet.measured = false;
+            }
+            if name == "all" {
+                sheet.borders = false;
+            }
+            if !custom && name.contains("border") {
+                let handed_on = || {
+                    words(rules.value(rule, decl)).iter().any(|w| {
+                        matches!(w, Word::Ident(v) if matches!(v.as_str(), "inherit" | "revert"))
+                    })
+                };
+                if !BORDER_PROPERTIES.contains(&name) || handed_on() {
+                    sheet.borders = false;
+                }
+            }
+        }
+        if display {
+            sheet.display.push(index);
+        }
+        if content && rule.subjects.iter().any(|s| s.after) {
+            sheet.after.push(index);
+        }
+    }
+    Ok(sheet)
+}
+
 /// Where the new `<style>` goes, if the page's CSS can't see one: `<head>` and
-/// the index among its children. See the module docs.
-fn carrier(tree: &Tree, facts: &Facts, rules: &Rules, ascii: bool) -> Option<(usize, usize)> {
+/// the index among its children. Assumptions 5 and 6.
+fn carrier(
+    tree: &Tree,
+    facts: &Facts,
+    rules: &Rules,
+    sheet: &Sheet,
+    ascii: bool,
+) -> Option<(usize, usize)> {
     let head = facts.head?;
     let element = tree.element(head)?;
-    if rules.flags.has {
+    if rules.flags.has || rules.flags.unknown_pseudo_class {
         return None;
     }
     let children = &tree.nodes[head].children;
@@ -448,7 +1197,12 @@ fn carrier(tree: &Tree, facts: &Facts, rules: &Rules, ascii: bool) -> Option<(us
             continue;
         };
         if e.is_html("meta") {
-            declared |= e.attr("charset").is_some() || e.attr("http-equiv").is_some();
+            let content_type = e
+                .attr("http-equiv")
+                .is_some_and(|h| h.eq_ignore_ascii_case("content-type"))
+                && e.attr("content")
+                    .is_some_and(|c| c.to_ascii_lowercase().contains("charset"));
+            declared |= e.attr("charset").is_some() || content_type;
         } else if !e.is_html("title") && !e.is_html("base") {
             at = i;
             break;
@@ -457,7 +1211,8 @@ fn carrier(tree: &Tree, facts: &Facts, rules: &Rules, ascii: bool) -> Option<(us
     if !ascii && !declared {
         return None;
     }
-    let shown = rules.rules.iter().any(|rule| {
+    let shown = sheet.display.iter().any(|&index| {
+        let rule = &rules.rules[index];
         rule.may_match(head, element)
             && rule
                 .decls
@@ -525,7 +1280,7 @@ fn colour_name(name: &str) -> bool {
 fn side_shorthand(value: &str) -> Side {
     let all = words(value);
     if let [Word::Ident(name)] = all.as_slice()
-        && matches!(name.as_str(), "initial" | "unset" | "revert")
+        && matches!(name.as_str(), "initial" | "unset")
     {
         return Side::Unpainted;
     }
@@ -553,7 +1308,7 @@ fn side_shorthand(value: &str) -> Side {
 fn side_colour(value: &str) -> Side {
     match words(value).as_slice() {
         [Word::Colour(text)] => Side::Colour(text.clone()),
-        [Word::Ident(name)] if matches!(name.as_str(), "initial" | "unset" | "revert") => {
+        [Word::Ident(name)] if matches!(name.as_str(), "initial" | "unset") => {
             Side::Colour("currentcolor".to_owned())
         }
         [Word::Ident(name)] if colour_name(name) => Side::Colour(name.clone()),
@@ -563,9 +1318,11 @@ fn side_colour(value: &str) -> Side {
 
 /// Whether a selector can be written into the added sheet as it is: nothing
 /// that means something else there (a namespace prefix, a nesting selector),
-/// or that a printer or a parser would read differently from Chrome.
+/// or that a printer or a parser would read differently from Chrome
+/// (assumption 7), and no comment.
 fn copyable(selector: &str) -> bool {
     !selector.is_empty()
+        && !selector.contains("/*")
         && selector
             .bytes()
             .all(|b| b == b' ' || b.is_ascii_graphic() && !b"&<\\|@{};".contains(&b))
@@ -597,40 +1354,28 @@ fn applies_everywhere(tree: &Tree, node: usize) -> bool {
 }
 
 /// The rules that give a one-sided border's colour to `border-top-color`, or
-/// none if the page's borders can't all be read; see the module docs.
+/// none if the page's borders can't all be read: assumptions 10 to 13.
 fn border_colours(
     tree: &Tree,
     facts: &Facts,
     rules: &Rules,
-    gate: &Gate<'_>,
-) -> Result<Vec<String>, Error> {
+    sheet: &Sheet,
+    work: &mut Work<'_>,
+) -> Result<Vec<String>, Stop> {
     const SIDES: [&str; 3] = ["border-bottom", "border-left", "border-right"];
     const TOP: [&str; 4] = ["border", "border-top", "border-color", "border-top-color"];
     let none = Ok(Vec::new());
-    if rules.flags.revert_layer || facts.border_attributes {
+    if !sheet.borders || facts.table_attributes {
         return none;
     }
     let mut copies = Vec::new();
     let mut bytes = 0;
     for rule in &rules.rules {
-        gate.check()?;
+        work.step(1)?;
         let mut colours = Vec::new();
         for decl in &rule.decls {
             let name = decl.name.as_str();
-            if name == "all" {
-                return none;
-            }
-            if !name.starts_with("border") {
-                continue;
-            }
             let value = rules.value(rule, decl);
-            let logical = name.starts_with("border-block") || name.starts_with("border-inline");
-            if name.ends_with("-style")
-                || logical
-                || words(value).contains(&Word::Ident("inherit".to_owned()))
-            {
-                return none;
-            }
             let side = if SIDES.contains(&name) {
                 side_shorthand(value)
             } else if SIDES
@@ -644,13 +1389,15 @@ fn border_colours(
             match side {
                 Side::Unpainted => {}
                 Side::Unknown => return none,
+                // One that may not apply when its rule does can't be copied.
+                Side::Colour(_) if decl.conditional => return none,
                 Side::Colour(colour) => colours.push(colour),
             }
         }
         if colours.is_empty() {
             continue;
         }
-        if !mirrors(tree, facts, rules, rule) {
+        if !mirrors(tree, facts, rules, rule, work)? {
             return none;
         }
         if rule.decls.iter().any(|d| TOP.contains(&d.name.as_str())) {
@@ -673,21 +1420,36 @@ fn border_colours(
 
 /// Whether `rule`, which paints one side, can be copied: a plain rule of a
 /// sheet that always applies, whose selector means the same in the added
-/// sheet and can't match a pseudo-element or an element with a border of the
-/// user agent's.
-fn mirrors(tree: &Tree, facts: &Facts, rules: &Rules, rule: &Rule) -> bool {
+/// sheet and can't match a pseudo-element or an element that may have a
+/// border of the user agent's or an attribute's.
+fn mirrors(
+    tree: &Tree,
+    facts: &Facts,
+    rules: &Rules,
+    rule: &Rule,
+    work: &mut Work<'_>,
+) -> Result<bool, Stop> {
     let Origin::Sheet(node) = rule.origin else {
-        return false;
+        return Ok(false);
     };
-    rule.plain
+    let readable = rule.plain
         && applies_everywhere(tree, node)
         && on_one_line(rules.selector(rule)).is_some_and(|s| copyable(&s))
         && !rule.subjects.is_empty()
-        && rule.subjects.iter().all(|s| !s.any && !s.pseudo_element)
-        && !facts.bordered.iter().any(|&id| {
-            tree.element(id)
-                .is_some_and(|e| rule.subjects.iter().any(|s| s.may_match(e)))
-        })
+        && rule.subjects.iter().all(|s| !s.any && !s.pseudo_element);
+    if !readable {
+        return Ok(false);
+    }
+    for &id in &facts.bordered {
+        work.step(1)?;
+        if tree
+            .element(id)
+            .is_some_and(|e| rule.subjects.iter().any(|s| s.may_match(e)))
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 /// Whether a line that ends in `c` has content, whatever the CSS: not white
@@ -705,125 +1467,137 @@ fn visible(c: char) -> bool {
 }
 
 /// The text nodes whose last newline Chrome doesn't render: the end of a
-/// `<pre>`; see the module docs.
-fn trailing_newlines(tree: &Tree, facts: &Facts, rules: &Rules) -> Vec<usize> {
-    if rules.flags.preserve_spaces {
-        return Vec::new();
-    }
+/// `<pre>`, where the page's CSS has nothing against it. Assumptions 15 to 17,
+/// as far as they are the CSS's.
+fn trailing_newlines(
+    tree: &Tree,
+    facts: &Facts,
+    rules: &Rules,
+    sheet: &Sheet,
+    work: &mut Work<'_>,
+) -> Result<Vec<usize>, Stop> {
     let mut found = Vec::new();
-    'pre: for &pre in &facts.pres {
-        // The elements the text is in, from the `<pre>` down.
-        let mut path = vec![pre];
-        let mut at = pre;
-        let text = loop {
-            let last = tree.nodes[at]
-                .children
-                .iter()
-                .rev()
-                .copied()
-                .find(|&c| !matches!(tree.nodes[c].data, Data::Comment));
-            let Some(last) = last else {
-                continue 'pre;
-            };
-            match &tree.nodes[last].data {
-                Data::Text(_) => break last,
-                Data::Element(e) if e.name.ns == ns!(html) && PLAIN_INLINE.contains(&e.local()) => {
-                    path.push(last);
-                    at = last;
+    if !sheet.measured {
+        return Ok(found);
+    }
+    'pre: for pre in &facts.pres {
+        for &index in &sheet.display {
+            let rule = &rules.rules[index];
+            for (depth, &id) in pre.path.iter().enumerate() {
+                work.step(1)?;
+                let Some(element) = tree.element(id) else {
+                    continue 'pre;
+                };
+                if !rule.may_match(id, element) {
+                    continue;
                 }
-                _ => continue 'pre,
-            }
-        };
-        let Data::Text(content) = &tree.nodes[text].data else {
-            continue;
-        };
-        let mut end = content.chars().rev();
-        if end.next() != Some('\n') || !end.next().is_some_and(visible) {
-            continue;
-        }
-        let Some(element) = tree.element(pre) else {
-            continue;
-        };
-        for rule in &rules.rules {
-            let inline = rule.may_match(pre, element)
-                && rule.decls.iter().any(|d| {
+                let allowed = if depth == 0 {
+                    BLOCK_DISPLAYS
+                } else {
+                    PATH_DISPLAYS
+                };
+                let other = rule.decls.iter().any(|d| {
                     d.name == "all"
                         || (d.name == "display"
                             && !one_ident(rules.value(rule, d))
-                                .is_some_and(|v| BLOCK_DISPLAYS.contains(&v.as_str())))
+                                .is_some_and(|v| allowed.contains(&v.as_str())))
                 });
-            let behind = |s: &Subject| {
-                s.after
-                    && path
-                        .iter()
-                        .any(|&id| tree.element(id).is_some_and(|e| s.may_match(e)))
-            };
-            let after = matches!(rule.origin, Origin::Sheet(_))
-                && rule
-                    .decls
-                    .iter()
-                    .any(|d| d.name == "content" || d.name == "all")
-                && rule.subjects.iter().any(behind);
-            if inline || after {
-                continue 'pre;
+                if other {
+                    continue 'pre;
+                }
             }
         }
-        found.push(text);
+        for &index in &sheet.after {
+            let rule = &rules.rules[index];
+            if !matches!(rule.origin, Origin::Sheet(_)) {
+                continue;
+            }
+            for &id in &pre.path {
+                work.step(1)?;
+                let behind =
+                    |s: &Subject| s.after && tree.element(id).is_some_and(|e| s.may_match(e));
+                if rule.subjects.iter().any(behind) {
+                    continue 'pre;
+                }
+            }
+        }
+        found.push(pre.text);
     }
-    found
+    Ok(found)
 }
 
 /// Rewrites `tree`, the printer's parse of a page that has passed every
 /// screen, into its printer-safe form, and says whether anything changed.
 /// `ascii` says whether the page's text is all ASCII. See the module docs.
+///
+/// `Ok(false)` also when the pass gave up at [`MAX_STEPS`]: the tree may then
+/// be half rewritten, and isn't to be used. The only errors are the gate's.
 pub(super) fn rewrite(tree: &mut Tree, ascii: bool, gate: &Gate<'_>) -> Result<bool, Error> {
-    let facts = facts(tree, gate)?;
-    if facts.scripts {
-        return Ok(false);
+    let mut work = Work { steps: 0, gate };
+    match rewrite_within(tree, ascii, &mut work) {
+        Ok(changed) => Ok(changed),
+        Err(Stop::Budget) => Ok(false),
+        Err(Stop::Gate(e)) => Err(e),
     }
-    let texts: Vec<(usize, String)> = facts
-        .styles
-        .iter()
-        .map(|&id| (id, tree.text_of(id)))
-        .collect();
-    let borders = texts.iter().any(|(_, css)| {
-        let css = css.to_ascii_lowercase();
-        ["border-bottom", "border-left", "border-right"]
-            .iter()
-            .any(|side| css.contains(side))
-    });
+}
+
+fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<bool, Stop> {
+    let Some(facts) = facts(tree, work)? else {
+        return Ok(false);
+    };
+    let mut texts = Vec::with_capacity(facts.styles.len());
+    let mut borders = false;
+    for &id in &facts.styles {
+        let css = tree.text_of(id);
+        work.step(1 + css.len() as u64 / 64)?;
+        if !borders {
+            let lower = css.to_ascii_lowercase();
+            borders = ["border-bottom", "border-left", "border-right"]
+                .iter()
+                .any(|side| lower.contains(side));
+        }
+        texts.push((id, css));
+    }
     if facts.sizes.is_empty() && facts.pres.is_empty() && !borders {
         return Ok(false);
     }
-    gate.check()?;
     let mut rules = Rules::default();
+    let mut read = 0;
     for (id, css) in texts {
-        rules.read_sheet(id, css, gate)?;
+        rules.read_sheet(id, css, work.gate).map_err(Stop::Gate)?;
+        work.step((rules.tokens() - read) as u64)?;
+        read = rules.tokens();
     }
     for &id in &facts.styled {
         let Some(e) = tree.element(id) else {
             continue;
         };
         for a in e.attrs.iter().filter(|a| a.name.local.as_ref() == "style") {
-            rules.read_attribute(id, a.value.to_string(), gate)?;
+            rules
+                .read_attribute(id, a.value.to_string(), work.gate)
+                .map_err(Stop::Gate)?;
+            work.step(1 + (rules.tokens() - read) as u64)?;
+            read = rules.tokens();
         }
     }
-    // CSS that isn't here, or wasn't read to its end, could say anything.
-    if rules.unread || rules.flags.import || facts.links {
+    // Assumption 3: CSS that isn't here, wasn't read to its end, or holds an
+    // at-rule the reader doesn't know could say anything.
+    let flags = rules.flags;
+    if rules.unread || flags.import || flags.unknown_at_rule || facts.links {
         return Ok(false);
     }
+    let sheet = sheet(&rules, work)?;
     let mut changed = false;
-    for text in trailing_newlines(tree, &facts, &rules) {
+    for text in trailing_newlines(tree, &facts, &rules, &sheet, work)? {
         if let Data::Text(content) = &mut tree.nodes[text].data {
             content.pop();
             changed = true;
         }
     }
-    gate.check()?;
-    if let Some((head, at)) = carrier(tree, &facts, &rules, ascii) {
+    if let Some((head, at)) = carrier(tree, &facts, &rules, &sheet, ascii) {
         let sizes = svg_sizes(&facts);
         let colours = if borders {
-            border_colours(tree, &facts, &rules, gate)?
+            border_colours(tree, &facts, &rules, &sheet, work)?
         } else {
             Vec::new()
         };
@@ -1057,6 +1831,11 @@ mod tests {
             ("@scope (head) { display: block }", ""),
             ("x|head { display: block }", ""),
             (deep.as_str(), ""),
+            // A pseudo-class or an at-rule the reader doesn't know.
+            ("a:popover-open { color: red }", ""),
+            ("div:host-context(p) { color: red }", ""),
+            (".x { @apply --mixin; }", ""),
+            ("@position-try --a { top: 0 }", ""),
         ];
         for (css, extra) in seen {
             let html = page(css, &format!("{SVG}{extra}"));
@@ -1177,7 +1956,7 @@ mod tests {
             rules_of(&page(css, ROWS)),
             [
                 "h1, h2 > b{border-top-color:red}",
-                "blockquote{border-top-color:rgb(0, 0, 0 / 50%)}",
+                "blockquote{border-top-color:rgb(0,0,0/50%)}",
                 "tr:not(:last-child) td{border-top-color:currentcolor}",
                 "a[href^=\"http\"]{border-top-color:hsl(10 20% 30%)}",
                 "a[href^=\"http\"]{border-top-color:transparent}",
@@ -1225,7 +2004,7 @@ mod tests {
             // A border of an attribute's.
             ("", "<table border=\"1\"><tr><td>a</td></tr></table>"),
             ("", "<table rules=\"rows\"><tr><td>a</td></tr></table>"),
-            ("", "<img border=\"2\" src=\"a.png\">"),
+            ("", "<img class=\"row\" border=\"2\" src=\"a.png\">"),
             // A one-sided border whose colour isn't known here.
             (".x { border-bottom: 1px solid var(--line) }", ROWS),
             (".x { border-bottom: 1px solid red !important }", ROWS),
@@ -1271,7 +2050,9 @@ mod tests {
             ".c { border-width: 2px; border-color: red green blue black }",
         ];
         for css in fine {
-            let html = page(&format!("{ROW}\n{css}"), &format!("{ROWS}<hr><input>"));
+            // An `<img border>` has a border of its own; the rule can't match it.
+            let body = format!("{ROWS}<hr><input><img border=\"2\" src=\"a.png\">");
+            let html = page(&format!("{ROW}\n{css}"), &body);
             assert_eq!(rules_of(&html), [".row{border-top-color:#d9e2ec}"], "{css}");
         }
     }
@@ -1503,5 +2284,458 @@ mod tests {
             finish_page(&html, finish, None, &late),
             Err(Error::PageTimeLimit)
         ));
+    }
+
+    const LIMITS: super::super::TreeLimits = super::super::TreeLimits {
+        max_nodes: 1 << 20,
+        max_depth: 512,
+        max_attributes: 4_096,
+    };
+
+    /// The reviewer's blocker 5. The pass is an improvement: out of time or
+    /// out of steps, the page goes out as it was, and only a cancel ends the
+    /// render.
+    #[test]
+    fn a_pass_that_doesnt_fit_gives_the_page_as_it_was() {
+        let html = page("svg { display: block }", SVG);
+        let settled = plain(&html);
+        let stop = AtomicBool::new(false);
+        let wide = Gate::new(&stop, Duration::from_secs(600));
+        let screen = |tree: &mut Tree| tree.to_html(WIDE, &wide);
+        let run =
+            |gate: &Gate<'_>| super::super::printer_safe(&settled, LIMITS, WIDE, gate, screen);
+        assert!(matches!(run(&wide), Ok(Some(_))));
+        let late = Gate::new(&stop, Duration::ZERO);
+        assert!(matches!(run(&late), Ok(None)), "the deadline: plain");
+        let stopped = AtomicBool::new(true);
+        let cancelled = Gate::new(&stopped, Duration::from_secs(600));
+        assert!(matches!(run(&cancelled), Err(Error::Cancelled)));
+    }
+
+    /// The reviewer's page: 20,000 `<pre>` and 20,000 rules, which took the
+    /// pass 7.6 s. Rules that declare no `display`, `all` or `content` cost a
+    /// `<pre>` nothing, so this is linear, and every newline goes.
+    #[test]
+    fn many_pres_and_many_rules_are_linear() {
+        let (mut css, mut body) = (String::new(), String::new());
+        for i in 0..20_000 {
+            css.push_str(&format!(".c{i}{{color:red}}"));
+            body.push_str("<pre>a\n</pre>");
+        }
+        let html = page(&css, &body);
+        let settled = plain(&html);
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::from_secs(600));
+        let mut tree = Tree::parse(&settled, LIMITS, &gate).unwrap_or_else(|e| panic!("{e}"));
+        let mut work = Work {
+            steps: 0,
+            gate: &gate,
+        };
+        assert!(matches!(
+            rewrite_within(&mut tree, true, &mut work),
+            Ok(true)
+        ));
+        // About six steps a `<pre>` and a few a rule: nowhere near a product.
+        assert!(work.steps < 1_000_000, "{}", work.steps);
+        let out = tree.to_html(WIDE, &gate).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(out.matches("<pre>a</pre>").count(), 20_000);
+    }
+
+    /// Where every `<pre>` does have to be held against every rule, the steps
+    /// run out, the same on every machine, and the page is the plain one.
+    #[test]
+    fn work_past_the_step_budget_is_given_up() {
+        let (mut css, mut body) = (String::new(), String::new());
+        for i in 0..6_000 {
+            css.push_str(&format!(".c{i}{{display:block}}"));
+            body.push_str("<pre>a\n</pre>");
+        }
+        let html = page(&css, &body);
+        let settled = plain(&html);
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::from_secs(600));
+        let mut tree = Tree::parse(&settled, LIMITS, &gate).unwrap_or_else(|e| panic!("{e}"));
+        let mut work = Work {
+            steps: 0,
+            gate: &gate,
+        };
+        assert!(matches!(
+            rewrite_within(&mut tree, true, &mut work),
+            Err(Stop::Budget)
+        ));
+        assert!(work.steps > MAX_STEPS);
+        assert_eq!(safe(&html), settled);
+        // And a cancel is seen in the middle of it.
+        let stopped = AtomicBool::new(false);
+        let cancel = Gate::new(&stopped, Duration::from_secs(600));
+        let mut tree = Tree::parse(&settled, LIMITS, &gate).unwrap_or_else(|e| panic!("{e}"));
+        let mut work = Work {
+            steps: 0,
+            gate: &cancel,
+        };
+        assert!(matches!(facts(&tree, &mut work), Ok(Some(_))));
+        stopped.store(true, std::sync::atomic::Ordering::Release);
+        assert!(matches!(
+            rewrite_within(&mut tree, true, &mut work),
+            Err(Stop::Gate(Error::Cancelled))
+        ));
+    }
+
+    const R: &str = "<rect width=\"100\" height=\"50\" fill=\"#2f6fb0\"/>";
+    const PRE: &str = "pre{background:#eef2f6;margin:0 0 10px;font:inherit}";
+
+    /// The reviewer's blocker 1: Chrome attaches a shadow root where the
+    /// printer's parser sees an inert template, and its `:host` and
+    /// `::slotted()` rules outrank the lowest layer.
+    #[test]
+    fn a_page_with_a_declarative_shadow_root_is_left_alone() {
+        let b1 = page(
+            "svg{display:block}",
+            &format!(
+                "<div><template shadowrootmode=\"open\"><style>::slotted(svg){{width:300px}}</style>\
+                 <slot></slot></template><svg width=\"100\" height=\"50\" viewBox=\"0 0 100 50\" \
+                 preserveAspectRatio=\"none\">{R}</svg></div>"
+            ),
+        );
+        let f1_host = page(
+            "section{padding:4px;border-bottom:4px solid #d33}",
+            "<section><template shadowrootmode=\"open\"><style>:host{border-top:4px solid}</style>\
+             <slot></slot></template>light</section>",
+        );
+        let f1_slotted = page(
+            ".row{padding:4px 0;border-bottom:4px solid #d33}",
+            "<section><template shadowrootmode=\"open\"><style>::slotted(div){border-top:4px solid}\
+             </style><slot></slot></template><div class=\"row\">light</div></section>",
+        );
+        let b2 = page(
+            PRE,
+            "<pre><span><template shadowrootmode=\"open\"><slot></slot><b>TAIL</b></template>\
+             one\n</span></pre>",
+        );
+        for html in [b1, f1_host, f1_slotted, b2] {
+            assert_eq!(safe(&html), plain(&html), "{html}");
+        }
+        // Any value, any case, and the attribute's older name; anywhere.
+        for template in [
+            "<template SHADOWROOTMODE=\"Closed\"></template>",
+            "<template shadowrootmode></template>",
+            "<template shadowroot=\"open\"></template>",
+            "<svg><foreignObject><div><template shadowrootmode=\"open\"></template></div></foreignObject></svg>",
+        ] {
+            let html = page(
+                ".row{border-bottom:1px solid #ccc}svg{display:block}",
+                &format!("<div>{template}</div>{SVG}{ROWS}<pre>a\n</pre>"),
+            );
+            assert_eq!(safe(&html), plain(&html), "{template}");
+        }
+        // A template with no shadow root is inert in Chrome too.
+        let inert = page(
+            "svg{display:block}",
+            &format!("<template x-if=\"a\"><p>x</p></template>{SVG}"),
+        );
+        assert_eq!(rules_of(&inert).len(), 2);
+    }
+
+    /// Assumption 1, the rest of it: markup Chrome's parser reads differently
+    /// from the printer's, and elements the pass doesn't know.
+    #[test]
+    fn a_tree_chrome_may_build_differently_is_left_alone() {
+        for extra in [
+            "<select><option>a</option></select>",
+            "<datalist><option>a</option></datalist>",
+            "<template><noscript><p>x</p></noscript></template>",
+            "<math><annotation-xml encoding=\"text/html\"><p>x</p></annotation-xml></math>",
+            "<ruby>a<rb>b</rb><rtc>c</rtc></ruby>",
+            "<slot>x</slot>",
+            "<marquee>x</marquee>",
+            "<unknownelement>x</unknownelement>",
+            "<xmp>x</xmp>",
+        ] {
+            let html = page(
+                ".row{border-bottom:1px solid #ccc}svg{display:block}",
+                &format!("{SVG}{ROWS}<pre>a\n</pre>{extra}"),
+            );
+            assert_eq!(safe(&html), plain(&html), "{extra}");
+        }
+        for extra in [
+            "<my-element some-attr>x</my-element>",
+            "<math><mi>x</mi><annotation>y</annotation></math>",
+            "<details><summary>s</summary>d</details><dialog>x</dialog>",
+            "<table><tr><td>a</td></tr></table><form><input><button>b</button></form>",
+        ] {
+            let html = page("svg{display:block}", &format!("{SVG}{extra}"));
+            assert_eq!(rules_of(&html).len(), 2, "{extra}");
+        }
+    }
+
+    /// The reviewer's blocker 2: Chrome's legacy names for the logical border
+    /// longhands, which set a style without a colour like any other.
+    #[test]
+    fn a_border_property_the_pass_doesnt_know_stops_the_copies() {
+        let row = ".row{padding:4px 0;border-bottom:4px solid #d33}";
+        let cases = [
+            (
+                ".row{padding:4px 0;border-bottom:4px solid #d33;-webkit-border-before-style:solid;\
+                 -webkit-border-before-width:4px}"
+                    .to_owned(),
+                "<div class=\"row\">a</div>",
+            ),
+            (
+                format!(
+                    "{row}@keyframes k{{from,to{{-webkit-border-before-width:4px;\
+                     -webkit-border-before-style:solid}}}}.row{{animation:k 1s infinite}}"
+                ),
+                "<div class=\"row\">a</div>",
+            ),
+            (
+                "div{writing-mode:vertical-rl;height:60px;border-bottom:4px solid #d33;\
+                 -webkit-border-start-style:solid;-webkit-border-start-width:4px}"
+                    .to_owned(),
+                "<div>a</div>",
+            ),
+            (
+                format!("{row}.row b{{border-top:4px solid;-webkit-border-before-color:inherit}}"),
+                "<div class=\"row\"><b>a</b></div>",
+            ),
+            // And whatever else has `border` in its name and isn't on the list.
+            (format!("{row}p{{-webkit-border-after:1px solid}}"), ROWS),
+            (format!("{row}p{{border-start-start-radius:2px}}"), ROWS),
+            (format!("{row}p{{border-shape:circle()}}"), ROWS),
+            (format!("{row}p{{BORDER-BLOCK-WIDTH:1px}}"), ROWS),
+            // `revert` hands a table row its user-agent `border-color: inherit`.
+            (
+                "table{border-collapse:collapse;border-bottom:4px solid #d33}\
+                 tr{border-top:4px solid;border-top-color:revert}"
+                    .to_owned(),
+                "<table><tr><td>a</td></tr></table>",
+            ),
+        ];
+        for (css, body) in cases {
+            let html = page(&css, body);
+            assert_eq!(safe(&html), plain(&html), "{css}");
+        }
+        // Not a property: a custom property's name can be anything.
+        let html = page(&format!("{row}:root{{--border-style:solid}}"), ROWS);
+        assert_eq!(rules_of(&html), [".row{border-top-color:#d33}"]);
+    }
+
+    #[test]
+    fn a_colour_is_copied_from_its_own_tokens() {
+        // The reviewer's N1: what precedes the token isn't part of it.
+        let html = page(
+            ".row{border-bottom:4px solid/* } p{color:red} */#d33}",
+            ROWS,
+        );
+        assert_eq!(rules_of(&html), [".row{border-top-color:#d33}"]);
+        let html = page(".row{border-bottom:4px solid rgb( 1 , 2,3 )}", ROWS);
+        assert_eq!(rules_of(&html), [".row{border-top-color:rgb(1,2,3)}"]);
+        for colour in [
+            "#d3",
+            "#ggg",
+            "#12345",
+            "rgb(/* x */1,2,3)",
+            "rgb(1,2,calc(3))",
+            "rgb(1 2 3 / var(--a))",
+            "rgb(1e2,2,3)",
+        ] {
+            let html = page(&format!(".row{{border-bottom:4px solid {colour}}}"), ROWS);
+            assert_eq!(added(&html), None, "{colour}");
+        }
+        // N4: a declaration that may not apply when its rule does.
+        let html = page(".row{@media screen{border-bottom:4px solid #d33}}", ROWS);
+        assert_eq!(added(&html), None);
+        // A selector with a comment in it isn't copied.
+        let html = page(".row/* x */{border-bottom:4px solid #d33}", ROWS);
+        assert_eq!(added(&html), None);
+    }
+
+    #[test]
+    fn a_border_is_copied_only_onto_elements_with_plain_attributes() {
+        for body in [
+            "<div class=\"row\" popover>a</div>",
+            "<div class=\"row\" contenteditable>a</div>",
+            "<div class=\"row\" futureattribute=\"x\">a</div>",
+            "<div class=\"row\">a</div><table frame=\"box\"><tr><td>b</td></tr></table>",
+            "<div class=\"row\">a</div><table><tr><td bordercolor=\"red\">b</td></tr></table>",
+        ] {
+            let html = page(ROW, body);
+            assert_eq!(added(&html), None, "{body}");
+        }
+        let html = page(
+            ROW,
+            "<div class=\"row\" id=\"a\" data-x=\"1\" aria-label=\"l\" x-data=\"{}\" @click=\"f\" \
+             :class=\"c\" title=\"t\" lang=\"ja\" dir=\"ltr\">a</div>\
+             <table width=\"100%\" cellpadding=\"2\"><tr><td colspan=\"2\" align=\"right\">b</td></tr></table>",
+        );
+        assert_eq!(rules_of(&html), [".row{border-top-color:#d9e2ec}"]);
+    }
+
+    /// The reviewer's blocker 3: with bidi in play Chrome lays an inline's end
+    /// edge out after the forced break, and the newline is what makes that line.
+    #[test]
+    fn a_newline_stays_where_bidi_may_be_involved() {
+        let two = "<pre><code>one\ntwo\n</code></pre><hr>";
+        let cases = [
+            (
+                "code{padding:2px 6px}".to_owned(),
+                "<pre><code dir=\"ltr\">one\ntwo\n</code></pre><hr>".to_owned(),
+                "",
+            ),
+            (
+                format!("{PRE}code{{unicode-bidi:isolate;border:1px solid #999}}"),
+                two.to_owned(),
+                "",
+            ),
+            (
+                format!(
+                    "{PRE}code{{padding:2px 6px;background:#fd0}}code{{direction:ltr;unicode-bidi:embed}}"
+                ),
+                two.to_owned(),
+                " dir=\"rtl\"",
+            ),
+            (
+                format!("{PRE}span{{padding:0 10px;background:#fd0}}"),
+                "<pre>x <span dir=\"rtl\">one!\n</span></pre><hr>".to_owned(),
+                "",
+            ),
+            (
+                format!("{PRE}span{{padding:0 10px;background:#fd0}}"),
+                "<pre dir=\"rtl\">x <span>one\n</span></pre><hr>".to_owned(),
+                "",
+            ),
+            (
+                format!("{PRE}span{{padding:0 10px;background:#fd0}}"),
+                "<pre>x <span dir=\"auto\">one!\n</span></pre><hr>".to_owned(),
+                "",
+            ),
+        ];
+        for (css, body, html_attributes) in cases {
+            let html = page(&css, &body).replace("<html>", &format!("<html{html_attributes}>"));
+            assert_eq!(safe(&html), plain(&html), "{css} {body}");
+        }
+        let span = "<pre>x <span>one\n</span></pre>";
+        for (css, body) in [
+            // A direction from anywhere: it is inherited.
+            ("body{direction:rtl}", span.to_owned()),
+            ("p{direction:ltr}", span.to_owned()),
+            ("span{unicode-bidi:plaintext}", span.to_owned()),
+            ("p{unicode-bidi:isolate-override}", span.to_owned()),
+            ("html{writing-mode:vertical-rl}", span.to_owned()),
+            ("", format!("<div dir=\"rtl\">{span}</div>")),
+            ("", format!("<div dir=\"auto\"><p>{span}</p></div>")),
+            ("", format!("<div dir=\"\">{span}</div>")),
+            ("", "<pre dir=\"ltr\">x <span>one\n</span></pre>".to_owned()),
+            (
+                "",
+                "<pre>x <a dir=\"ltr\" href=\"#\">one\n</a></pre>".to_owned(),
+            ),
+            ("", "<pre>x <span lang=\"he\">one\n</span></pre>".to_owned()),
+            ("", "<pre wrap>one\n</pre>".to_owned()),
+            ("", format!("{span}<p><bdi>x</bdi></p>")),
+            ("", format!("<bdo dir=\"ltr\">{span}</bdo>")),
+            // Right-to-left text, or a control, anywhere in the `<pre>`.
+            (
+                "",
+                "<pre>\u{5e9}\u{5dc}\u{5d5}\u{5dd} <span>one\n</span></pre>".to_owned(),
+            ),
+            ("", "<pre>x <span>\u{627}\u{644}!\n</span></pre>".to_owned()),
+            ("", "<pre>a\u{202e}b\nc\n</pre>".to_owned()),
+            ("", "<pre>a\u{2067}b\n</pre>".to_owned()),
+        ] {
+            let html = page(css, &body);
+            assert_eq!(safe(&html), plain(&html), "{css} {body}");
+        }
+        // Left to right, said or not: the newline goes.
+        for body in [
+            format!("<div dir=\"ltr\">{span}</div>"),
+            format!("<div dir=\"LTR\"><p>{span}</p></div>"),
+            "<p dir=\"rtl\">x</p><pre>x <span class=\"a\" title=\"t\">one\n</span></pre>"
+                .to_owned(),
+        ] {
+            let html = page(PRE, &body);
+            assert_eq!(cut(&html).as_deref(), Some("\n"), "{body}");
+        }
+    }
+
+    /// The reviewer's blocker 4, and assumption 17: the newline goes only
+    /// under CSS it was measured under.
+    #[test]
+    fn a_newline_stays_under_css_it_wasnt_measured_under() {
+        let ruby = page(
+            &format!("{PRE}span{{display:ruby-text}}b{{display:ruby}}"),
+            "<pre><b>x <span>one\n</span></b></pre><hr>",
+        );
+        assert_eq!(safe(&ruby), plain(&ruby));
+        let nested = "<pre class=\"p\"><b>x <span class=\"s\">one\n</span></b></pre>";
+        for css in [
+            // A `display` on the path that isn't on the list.
+            "span{display:ruby}",
+            ".s{display:inline-flex}",
+            "b{display:table-cell}",
+            "pre *{display:list-item}",
+            "b{display:var(--d)}",
+            "span{all:revert}",
+            // A property that isn't.
+            "p{-webkit-line-clamp:2}",
+            "body{text-combine-upright:all}",
+            "p{white-space-collapse:preserve}",
+            "p{text-wrap-mode:nowrap}",
+            "p{hanging-punctuation:last}",
+            "p{some-future-property:1}",
+            "@keyframes k{to{text-orientation:upright}}",
+            "p{white-space:pre wrap}",
+            "p{white-space:var(--w)}",
+        ] {
+            let html = page(css, nested);
+            assert_eq!(safe(&html), plain(&html), "{css}");
+        }
+        let styled = page("", "<pre><b style=\"display:ruby\">one\n</b></pre>");
+        assert_eq!(safe(&styled), plain(&styled));
+        let anywhere = page("", "<p style=\"direction:rtl\">x</p><pre>one\n</pre>");
+        assert_eq!(safe(&anywhere), plain(&anywhere));
+        for css in [
+            "span{display:inline-block}b{display:block}",
+            ".s{display:contents}.p{display:flow-root}",
+            "pre{white-space:pre-wrap;text-wrap:balance;text-align:justify;tab-size:2}",
+            "body{font:14px/22px serif;text-spacing-trim:space-all;--anything:direction}",
+            "span{padding:0 10px;border:1px solid;margin:0 4px;box-shadow:0 0 2px;outline:1px solid}",
+        ] {
+            let html = page(css, nested);
+            assert_eq!(cut(&html).as_deref(), Some("\n"), "{css}");
+        }
+        // The size of an `<svg>` doesn't go by what a property means.
+        let html = page(
+            "svg{display:block}p{some-future-property:1;direction:rtl}",
+            SVG,
+        );
+        assert_eq!(rules_of(&html).len(), 2);
+    }
+
+    #[test]
+    fn sizes_are_written_only_for_svgs_the_rule_can_match() {
+        // The reviewer's N3.
+        for body in [
+            format!("<template>{SVG}</template>"),
+            format!("<svg><foreignObject><div>{SVG}</div></foreignObject></svg>"),
+        ] {
+            let html = page("svg{display:block}", &body);
+            assert_eq!(added(&html), None, "{body}");
+        }
+    }
+
+    #[test]
+    fn only_a_charset_declares_the_encoding() {
+        // The reviewer's N2.
+        for meta in [
+            "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">",
+            "<meta http-equiv=\"refresh\" content=\"5\">",
+            "<meta http-equiv=\"content-type\" content=\"text/html\">",
+            "<meta name=\"charset\" content=\"utf-8\">",
+        ] {
+            let html = format!(
+                "<!doctype html><html><head>{meta}<style>p{{}}</style></head><body>売上{SVG}</body></html>"
+            );
+            assert_eq!(safe(&html), plain(&html), "{meta}");
+        }
     }
 }

@@ -11,6 +11,11 @@
 //! keyframe, a namespace prefix, a bracket that never closes) counts as a rule
 //! that matches everything. So "no rule that may match this element declares
 //! `display`" is true of the page whatever else is.
+//!
+//! The reader also says when a page's CSS holds something it doesn't know at
+//! all: an at-rule or a pseudo-class that isn't on its lists ([`Flags`]). The
+//! lists are what the pass was written and measured against; a page with
+//! anything else is one the pass can't speak for, and leaves alone.
 
 use std::ops::Range;
 
@@ -26,7 +31,124 @@ use crate::error::Error;
 pub(super) struct Decl {
     pub(super) name: String,
     pub(super) value: Range<usize>,
+    /// It is in an at-rule's block, inside its rule or around it: it may not
+    /// apply when the rule does.
+    pub(super) conditional: bool,
 }
+
+/// The at-rules this reader knows: what each holds, and that none of them
+/// brings in CSS from elsewhere or writes declarations into a rule. `@import`
+/// is known and has a flag of its own.
+const KNOWN_AT_RULES: &[&str] = &[
+    "charset",
+    "container",
+    "counter-style",
+    "font-face",
+    "font-feature-values",
+    "font-palette-values",
+    "import",
+    "keyframes",
+    "-webkit-keyframes",
+    "layer",
+    "media",
+    "namespace",
+    "page",
+    "property",
+    "scope",
+    "starting-style",
+    "supports",
+    // In `@page`.
+    "top-left-corner",
+    "top-left",
+    "top-center",
+    "top-right",
+    "top-right-corner",
+    "bottom-left-corner",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+    "bottom-right-corner",
+    "left-top",
+    "left-middle",
+    "left-bottom",
+    "right-top",
+    "right-middle",
+    "right-bottom",
+];
+
+/// The pseudo-classes this reader knows. Each matches an element by its own
+/// state or attributes, by its ancestors, or by its place among its siblings:
+/// none looks at what an element holds, as `:has()` does, so nothing put into
+/// `<head>` changes what any of them matches outside it.
+const KNOWN_PSEUDO_CLASSES: &[&str] = &[
+    "active",
+    "any-link",
+    "checked",
+    "default",
+    "defined",
+    "dir",
+    "disabled",
+    "empty",
+    "enabled",
+    "first",
+    "first-child",
+    "first-of-type",
+    "focus",
+    "focus-visible",
+    "focus-within",
+    "fullscreen",
+    "hover",
+    "in-range",
+    "indeterminate",
+    "invalid",
+    "is",
+    "lang",
+    "last-child",
+    "last-of-type",
+    "left",
+    "link",
+    "not",
+    "nth-child",
+    "nth-last-child",
+    "nth-last-of-type",
+    "nth-of-type",
+    "only-child",
+    "only-of-type",
+    "open",
+    "optional",
+    "out-of-range",
+    "placeholder-shown",
+    "read-only",
+    "read-write",
+    "required",
+    "right",
+    "root",
+    "scope",
+    "target",
+    "valid",
+    "visited",
+    "where",
+    "-webkit-any",
+    "-webkit-any-link",
+    "-webkit-autofill",
+    "-moz-any",
+    "-moz-any-link",
+    "-moz-focusring",
+    "-moz-placeholder",
+    "-ms-input-placeholder",
+];
+
+/// Pseudo-elements that put nothing after an element's content.
+const LEADING_PSEUDO_ELEMENTS: &[&str] = &[
+    "before",
+    "first-line",
+    "first-letter",
+    "marker",
+    "selection",
+    "placeholder",
+    "backdrop",
+    "file-selector-button",
+];
 
 /// What the last compound of one selector asks of an element.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -39,7 +161,8 @@ pub(super) struct Subject {
     pub(super) id: Option<String>,
     /// It selects a pseudo-element, not the element.
     pub(super) pseudo_element: bool,
-    /// That pseudo-element is, or may be, `::after`.
+    /// That pseudo-element is `::after`, or one this reader doesn't know:
+    /// it may put a box after the element's content.
     pub(super) after: bool,
 }
 
@@ -124,8 +247,10 @@ pub(super) struct Flags {
     pub(super) has: bool,
     /// `revert-layer`: a value that asks what a lower layer said.
     pub(super) revert_layer: bool,
-    /// `preserve-spaces`: a newline that becomes a space with a width.
-    pub(super) preserve_spaces: bool,
+    /// An at-rule that isn't in [`KNOWN_AT_RULES`].
+    pub(super) unknown_at_rule: bool,
+    /// A pseudo-class in a selector that isn't in [`KNOWN_PSEUDO_CLASSES`].
+    pub(super) unknown_pseudo_class: bool,
 }
 
 /// Every rule of a page.
@@ -209,6 +334,11 @@ impl Rules {
     /// The text of `rule`'s selector.
     pub(super) fn selector(&self, rule: &Rule) -> &str {
         &self.texts[rule.text][rule.prelude.clone()]
+    }
+
+    /// How many tokens were read: what reading cost.
+    pub(super) fn tokens(&self) -> usize {
+        self.tokens
     }
 }
 
@@ -298,7 +428,48 @@ impl Walk<'_, '_> {
 
     fn word(&mut self, name: &str) {
         self.flags.revert_layer |= name.eq_ignore_ascii_case("revert-layer");
-        self.flags.preserve_spaces |= name.eq_ignore_ascii_case("preserve-spaces");
+    }
+
+    fn at_keyword(&mut self, name: &str) {
+        let name = name.to_ascii_lowercase();
+        self.flags.import |= name == "import";
+        self.flags.unknown_at_rule |= !KNOWN_AT_RULES.contains(&name.as_str());
+    }
+
+    /// Looks at the pseudo-classes of the selectors at `prelude`, at any depth.
+    fn pseudo_classes(&mut self, prelude: Range<usize>) {
+        let css = self.css;
+        let mut input = ParserInput::new(&css[prelude]);
+        let mut p = Parser::new(&mut input);
+        self.pseudo_classes_in(&mut p, 0);
+    }
+
+    fn pseudo_classes_in(&mut self, p: &mut Parser<'_, '_>, depth: usize) {
+        // Colons just before this token: one for a pseudo-class.
+        let mut colons = 0;
+        while let Ok(token) = p.next_including_whitespace_and_comments() {
+            let token = token.clone();
+            if self.stop() {
+                return;
+            }
+            match &token {
+                Token::Colon => {
+                    colons += 1;
+                    continue;
+                }
+                Token::Ident(name) | Token::Function(name) if colons == 1 => {
+                    let name = name.to_ascii_lowercase();
+                    let known =
+                        KNOWN_PSEUDO_CLASSES.contains(&name.as_str()) || old_pseudo_element(&name);
+                    self.flags.unknown_pseudo_class |= !known;
+                }
+                _ => {}
+            }
+            colons = 0;
+            if opens(&token) {
+                self.nested(p, depth, |w, p| w.pseudo_classes_in(p, depth + 1));
+            }
+        }
     }
 
     fn function(&mut self, name: &str) {
@@ -331,9 +502,7 @@ impl Walk<'_, '_> {
             }
             match &token {
                 Token::Ident(name) => self.word(name),
-                Token::AtKeyword(name) => {
-                    self.flags.import |= name.eq_ignore_ascii_case("import");
-                }
+                Token::AtKeyword(name) => self.at_keyword(name),
                 Token::Function(name) => self.function(name),
                 _ => {}
             }
@@ -367,9 +536,18 @@ impl Walk<'_, '_> {
                     continue;
                 }
                 Token::CurlyBracketBlock if !item.custom() => {
+                    let prelude = item.start.unwrap_or(before)..before;
                     let inner = match &item.at {
-                        Some(name) => self.at_rule(name, context),
-                        None => self.rule(item.start.unwrap_or(before)..before, context),
+                        Some(name) => {
+                            if name == "scope" {
+                                self.pseudo_classes(prelude);
+                            }
+                            self.at_rule(name, context)
+                        }
+                        None => {
+                            self.pseudo_classes(prelude.clone());
+                            self.rule(prelude, context)
+                        }
                     };
                     self.nested(p, depth, |w, p| w.block(p, inner, depth + 1));
                     item = Item::default();
@@ -382,7 +560,7 @@ impl Walk<'_, '_> {
                     }
                 }
                 Token::AtKeyword(name) => {
-                    self.flags.import |= name.eq_ignore_ascii_case("import");
+                    self.at_keyword(name);
                     if item.count == 0 {
                         item.at = Some(name.to_ascii_lowercase());
                     }
@@ -415,6 +593,7 @@ impl Walk<'_, '_> {
         self.found.rules[owner].decls.push(Decl {
             name: name.clone(),
             value: start..end.max(start),
+            conditional: context.in_at,
         });
     }
 
@@ -558,14 +737,14 @@ fn subject(compound: &[Token<'_>]) -> Subject {
             Token::SquareBracketBlock => {}
             Token::Colon => match tokens.next() {
                 Some(Token::Colon) => {
-                    let after = match tokens.next() {
-                        Some(Token::Ident(name) | Token::Function(name)) => {
-                            name.eq_ignore_ascii_case("after")
-                        }
+                    let leading = match tokens.next() {
+                        Some(Token::Ident(name) | Token::Function(name)) => LEADING_PSEUDO_ELEMENTS
+                            .iter()
+                            .any(|known| name.eq_ignore_ascii_case(known)),
                         _ => return Subject::anything(),
                     };
                     s.pseudo_element = true;
-                    s.after |= after;
+                    s.after |= !leading;
                 }
                 Some(Token::Ident(name)) if old_pseudo_element(name) => {
                     s.pseudo_element = true;
@@ -707,6 +886,16 @@ mod tests {
             ..known(None, &["q"], None)
         };
         assert_eq!(subjects(".q::before{}"), [before]);
+        // One this reader doesn't know may put a box after the content too.
+        let unknown = Subject {
+            pseudo_element: true,
+            after: true,
+            ..known(None, &["q"], None)
+        };
+        assert_eq!(
+            subjects(".q::scroll-marker{} .q::-webkit-x{}"),
+            [unknown.clone(), unknown]
+        );
     }
 
     #[test]
@@ -739,10 +928,65 @@ mod tests {
         assert!(flags("@media print { @IMPORT url(x); }").import);
         assert!(flags("a:is(b, :has(c)) {}").has);
         assert!(flags("a { color: red; width: REVERT-LAYER }").revert_layer);
-        assert!(flags("a { white-space: preserve-spaces }").preserve_spaces);
         assert!(flags("a { --x: { y: revert-layer } }").revert_layer);
         let none = flags("a:not(.has) { content: \":has( revert-layer @import\" } /* :has( */");
-        assert!(!none.import && !none.has && !none.revert_layer && !none.preserve_spaces);
+        assert!(!none.import && !none.has && !none.revert_layer);
+        assert!(!none.unknown_at_rule && !none.unknown_pseudo_class);
+    }
+
+    #[test]
+    fn what_the_reader_doesnt_know_is_flagged() {
+        let flags = |css: &str| read(css).flags;
+        for css in [
+            "@apply --mixin;",
+            "a { @apply --mixin; }",
+            "@mixin --m() { color: red }",
+            "@function --f() { result: 1 }",
+            "@media print { @whatever { a {} } }",
+            "@position-try --x { top: 0 }",
+        ] {
+            assert!(flags(css).unknown_at_rule, "{css}");
+        }
+        for css in [
+            "@charset 'x'; @namespace s url(x); @layer a, b; @media print { a {} }",
+            "@page :first { margin: 0; @top-center { content: 'x' } }",
+            "@font-face { font-family: x } @keyframes k { from {} } @-webkit-keyframes k { to {} }",
+            "@supports (display: grid) { a {} } @container (min-width: 1px) { a {} }",
+            "@property --x { syntax: '*'; inherits: false } @scope (.a) to (.b) { c {} }",
+        ] {
+            assert!(!flags(css).unknown_at_rule, "{css}");
+        }
+        for css in [
+            "a:has-slotted {}",
+            "a:host(.b) c {}",
+            "a:is(b, :nth-child(2 of :state(x))) {}",
+            "a:not(:unknown) {}",
+            "@scope (a:popover-open) { b {} }",
+            "a { &:future-thing {} }",
+            "@media print { a:target-within {} }",
+        ] {
+            assert!(flags(css).unknown_pseudo_class, "{css}");
+        }
+        for css in [
+            "a:hover, b:not(.c):nth-child(2n + 1)::after, d:is(e, f:FIRST-CHILD) {}",
+            "a::-webkit-scrollbar, b::unknown-element, c:before, d::part(x) {}",
+            "a { color: red; background: url(x:y) } @media (orientation: portrait) { a {} }",
+            "a:-webkit-any-link, input:-moz-placeholder, :root, :lang(ja), :where(:focus-within) {}",
+            "a { b: c:d; } [x|y=\"a:b\"] {}",
+        ] {
+            assert!(!flags(css).unknown_pseudo_class, "{css}");
+        }
+    }
+
+    #[test]
+    fn a_declaration_knows_whether_it_is_conditional() {
+        let rules = read("a { b: c; @media print { d: e } f: g } @media print { h { i: j } }");
+        let all: Vec<_> = rules
+            .rules
+            .iter()
+            .flat_map(|r| r.decls.iter().map(|d| (d.name.as_str(), d.conditional)))
+            .collect();
+        assert_eq!(all, [("b", false), ("d", true), ("f", false), ("i", true)]);
     }
 
     #[test]
