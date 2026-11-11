@@ -17,18 +17,23 @@ fi
 note="${1:-working}"
 # Refuses (exit 3) when another live session holds the fleet; see owner-check.sh.
 scripts/fleet/owner-check.sh
+# Agents may send heartbeats at the same moment: hold a lock, and use a branch and
+# worktree of our own that are removed on any exit.
+exec 9>"${TMPDIR:-/tmp}/surimono-heartbeat.lock"
+flock -w 120 9
 work="$(mktemp -d)"
+br="hb-tmp-$$"
+cleanup() { git worktree remove --force "$work" >/dev/null 2>&1 || true; git branch -D "$br" >/dev/null 2>&1 || true; git worktree prune >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+git worktree prune
 git worktree add --quiet --detach "$work" HEAD
 (
   cd "$work"
-  git branch -D hb-tmp >/dev/null 2>&1 || true
-  git checkout --quiet --orphan hb-tmp
+  git checkout --quiet --orphan "$br"
   git rm -rfq --ignore-unmatch . && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
   printf '{"time":"%s","session":"%s","note":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${CLAUDE_CODE_REMOTE_SESSION_ID:-unknown}" "$note" > heartbeat.json
   git add heartbeat.json
   git -c user.name="surimono fleet" -c user.email="noreply@anthropic.com" commit --quiet -m "heartbeat: $note"
   git push --quiet --force origin HEAD:refs/heads/fleet-heartbeat
 )
-git worktree remove --force "$work"
-git branch -D hb-tmp >/dev/null 2>&1 || true
 echo "heartbeat sent"
