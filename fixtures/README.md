@@ -145,9 +145,9 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
   `--runs`, 5 by default) hands the exact `fulgur render` command of each page to
   `bench/tools/measure.py`: wall clock from spawn to exit over N unsampled runs, then
   the peak of summed PSS over the process tree in N more runs under the Grover
-  benchmark's sampler. The median of each is reported. A print takes a fraction of a
-  second, so the sampler sees it a few dozen times at most; the kernel's own peak RSS
-  of the process (`max_rss_mb`) is in the JSON beside it.
+  benchmark's sampler. The median of each is reported. A print takes about 50 ms, so
+  the sampler runs every millisecond here, not every 10 ms as in the benchmark; the
+  kernel's own peak RSS of the process (`max_rss_mb`) is in the JSON beside it.
 - **What differs.** A cell differs between two printers when its verdict or one of
   its scores, as printed, differs; only those cells get an image (Chrome, then each
   printer). `pixels_identical` says whether two printers put the same pixels on a

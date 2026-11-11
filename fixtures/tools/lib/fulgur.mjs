@@ -86,17 +86,19 @@ export function fulgurPrint(htmlPath, pdfPath, workDir, extraFonts = []) {
 }
 
 const MEASURE = path.resolve(FIXTURES_DIR, "..", "bench", "tools", "measure.py");
+/** A print lasts about 50 ms: the benchmark's 10 ms sampler would see it a handful of times. */
+export const MEASURE_INTERVAL_MS = 1;
 
 /**
  * Time and peak memory of the print fulgurPrint makes, by bench/tools/measure.py:
  * wall clock from spawn to exit (median of `runs` unsampled runs) and the peak
  * of summed PSS over the process tree (`runs` sampled runs), as the Grover
- * benchmark measures a cold run. Returns its summary without the single runs,
+ * benchmark measures a cold run, but sampled every MEASURE_INTERVAL_MS. Returns its summary without the single runs,
  * or { error } when a run failed: a number is measured or absent, never estimated.
  */
 export function fulgurMeasure(htmlPath, pdfPath, workDir, extraFonts = [], runs = 5) {
   const { bin, args, env } = fulgurCommand(htmlPath, pdfPath, workDir, extraFonts);
-  const r = spawnSync("python3", ["-I", MEASURE, "--runs", String(runs), "--mem-runs", String(runs), "--timeout", String(PRINT_TIMEOUT_MS / 1000), "--", bin, ...args], { encoding: "utf8", env, maxBuffer: 1 << 26 });
+  const r = spawnSync("python3", ["-I", MEASURE, "--runs", String(runs), "--mem-runs", String(runs), "--interval-ms", String(MEASURE_INTERVAL_MS), "--timeout", String(PRINT_TIMEOUT_MS / 1000), "--", bin, ...args], { encoding: "utf8", env, maxBuffer: 1 << 26 });
   let out;
   try {
     out = JSON.parse(r.stdout);

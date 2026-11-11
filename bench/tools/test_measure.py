@@ -67,6 +67,15 @@ class MeasureTest(unittest.TestCase):
         self.assertTrue(out["timed_out"])
         self.assertIn("timed out", out["error"])
 
+    def test_a_finer_interval_sees_a_short_command_more_often(self) -> None:
+        cmd = ["--", PY, "-I", "-c", "import time; time.sleep(0.2)"]
+        _, coarse = run("--runs", "1", "--mem-runs", "1", *cmd)
+        _, fine = run("--runs", "1", "--mem-runs", "1", "--interval-ms", "1", *cmd)
+        self.assertEqual(coarse["sample_interval_ms"], 10)
+        self.assertEqual(fine["sample_interval_ms"], 1)
+        self.assertGreater(fine["samples_min"], 2 * coarse["samples_min"])
+        self.assertEqual(run("--runs", "1", "--interval-ms", "0", *cmd)[0], 2)
+
     def test_usage(self) -> None:
         self.assertEqual(run("--runs", "1")[0], 2)
         self.assertEqual(run("--runs", "0", "--", PY, "-c", "pass")[0], 2)
