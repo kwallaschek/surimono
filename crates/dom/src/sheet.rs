@@ -235,18 +235,23 @@ fn top_level_rules(text: &str) -> Vec<Rule> {
         let start = parser.position();
         let mut kind = Some(1);
         let mut first = true;
-        let mut prelude_end = None;
+        // How much of what follows `start` is the prelude, in bytes.
+        let mut prelude_len = None;
         let mut body = None;
         let mut layer = false;
         let mut semicolon = false;
         loop {
-            let at = parser.position();
+            // Where a token starts is only known once it is read: after a
+            // `(`, a `[` or a function, the parser is still inside the
+            // brackets until the next read skips to their end. So the prelude
+            // is measured back from the end of the `;` or `{` that ends it,
+            // each one byte.
             let token = match parser.next_including_whitespace_and_comments() {
                 Ok(t) => t.clone(),
                 Err(_) => {
                     // The end of the input ends a statement.
                     if kind != Some(1) && !first {
-                        prelude_end = Some(parser.position());
+                        prelude_len = Some(parser.slice_from(start).len());
                     }
                     break;
                 }
@@ -259,7 +264,7 @@ fn top_level_rules(text: &str) -> Vec<Rule> {
                     kind = at_rule_kind(&name);
                 }
                 Token::Semicolon if kind != Some(1) => {
-                    prelude_end = Some(at);
+                    prelude_len = Some(parser.slice_from(start).len() - 1);
                     break;
                 }
                 Token::Semicolon => {
@@ -267,7 +272,7 @@ fn top_level_rules(text: &str) -> Vec<Rule> {
                     semicolon = true;
                 }
                 Token::CurlyBracketBlock => {
-                    prelude_end = Some(at);
+                    prelude_len = Some(parser.slice_from(start).len() - 1);
                     let mut from = None;
                     let parsed: Result<(), cssparser::ParseError<'_, ()>> = parser
                         .parse_nested_block(|p| {
@@ -284,10 +289,10 @@ fn top_level_rules(text: &str) -> Vec<Rule> {
                 _ => first = false,
             }
         }
-        let Some(end) = prelude_end else {
+        let Some(len) = prelude_len else {
             return out;
         };
-        let prelude = clean(parser.slice(start..end));
+        let prelude = clean(&parser.slice_from(start)[..len]);
         let fits = |k: u16| {
             if k == 1 {
                 body.is_some() && !semicolon
@@ -490,6 +495,100 @@ mod tests {
                 (4, "@media print { x { y: z } }".to_owned()),
             ]
         );
+    }
+
+    /// CSS Syntax 3 §5.4.3 "consume a qualified rule": everything up to the
+    /// `{}` block is the prelude, and a `()`, `[]` or function in it is one
+    /// component whatever follows it. CSSOM §6.4.3: `selectorText` is that
+    /// selector, and the rule's text starts with it.
+    #[test]
+    fn a_prelude_ends_at_its_block_whatever_comes_before_it() {
+        for (text, prelude) in [
+            (".a:not(.b){color:red}", ".a:not(.b)"),
+            (".a:not(.b) {color:red}", ".a:not(.b)"),
+            ("a[href=\"x\"]{color:red}", "a[href=\"x\"]"),
+            ("a[b]{color:red}", "a[b]"),
+            ("p:nth-child(2n+1){color:red}", "p:nth-child(2n+1)"),
+            (
+                "u:is(i):not(:where(b)){color:red}",
+                "u:is(i):not(:where(b))",
+            ),
+            ("a[title=\"{\"]{color:red}", "a[title=\"{\"]"),
+            ("a[title=')']{color:red}", "a[title=')']"),
+            ("a\\{b{color:red}", "a\\{b"),
+            ("a:not(/*{*/b){color:red}", "a:not(/*{*/b)"),
+        ] {
+            let rules = parse_rules(text);
+            assert_eq!(rules.len(), 1, "{text}");
+            assert_eq!(rules[0].kind, 1, "{text}");
+            assert_eq!(rules[0].prelude, prelude, "{text}");
+            assert_eq!(
+                rules[0].text(),
+                format!("{prelude} {{ color:red; }}"),
+                "{text}"
+            );
+        }
+    }
+
+    /// The same for at-rules (CSS Syntax 3 §5.4.2), minified: a statement ends at
+    /// its `;` and a block rule's prelude at its `{`, also right after a `)`.
+    #[test]
+    fn an_at_rule_ends_where_it_ends_whatever_comes_before() {
+        assert_eq!(
+            kinds(
+                "@import url(\"a.css\");@import url(\"b.css\") screen and (min-width:1px);\
+                 @namespace svg url(\"http://www.w3.org/2000/svg\");\
+                 @media (min-width:1px){a{b:c}}@supports (display:grid){d{e:f}}\
+                 @media screen and (max-width:9px){g:not(h){i:j}}@page :left{margin-left:4cm}\
+                 @keyframes k{from{top:0}to{top:1px}}@font-face{font-family:x}"
+            ),
+            vec![
+                (3, "@import url(\"a.css\");".to_owned()),
+                (
+                    3,
+                    "@import url(\"b.css\") screen and (min-width:1px);".to_owned()
+                ),
+                (
+                    10,
+                    "@namespace svg url(\"http://www.w3.org/2000/svg\");".to_owned()
+                ),
+                (4, "@media (min-width:1px) { a{b:c} }".to_owned()),
+                (12, "@supports (display:grid) { d{e:f} }".to_owned()),
+                (
+                    4,
+                    "@media screen and (max-width:9px) { g:not(h){i:j} }".to_owned()
+                ),
+                (6, "@page :left { margin-left:4cm; }".to_owned()),
+                (7, "@keyframes k { from{top:0}to{top:1px} }".to_owned()),
+                (5, "@font-face { font-family:x; }".to_owned()),
+            ]
+        );
+        // A statement the input ends in, after a bracket.
+        assert_eq!(
+            kinds("@import url(\"a.css\")"),
+            vec![(3, "@import url(\"a.css\");".to_owned())]
+        );
+    }
+
+    /// CSSOM §6.4.2 "parse a CSS rule" of a rule's own text gives the rule back:
+    /// what `insertRule(rule.cssText)` relies on.
+    #[test]
+    fn a_rules_text_parses_to_the_same_rule() {
+        let sheet = ".a:not(.b){color:red}a[href=\"x\"]>b{top:0;left:0}@media (min-width:1px){c:is(d){e:f}}\
+                     @import url(\"late.css\");g{h:url(i.png)}j::before{content:\"}{\"}";
+        let rules = parse_rules(sheet);
+        assert_eq!(rules.len(), 5, "the late @import is dropped");
+        for rule in rules {
+            let again = parse_rules(&rule.text());
+            assert_eq!(again.len(), 1, "{}", rule.text());
+            assert_eq!(
+                (again[0].kind, &again[0].prelude),
+                (rule.kind, &rule.prelude),
+                "{}",
+                rule.text()
+            );
+            assert_eq!(again[0].text(), rule.text());
+        }
     }
 
     #[test]

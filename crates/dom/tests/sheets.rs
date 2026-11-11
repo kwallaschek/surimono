@@ -403,3 +403,75 @@ fn a_rule_list_is_read_only() {
         "false,false,false,false,true,false"
     );
 }
+
+const MINIFIED: &str = "<!doctype html><html><head><style id=s>\
+    .a:not(.b){color:red}a[href=\"x\"]{top:0}p:nth-child(2n+1){left:0}\
+    @media (min-width:1px){u:is(i){right:0}}@supports (display:grid){q{bottom:0}}z{}</style>\
+    </head><body></body></html>";
+
+const RULES: &str = "[...document.getElementById('s').sheet.cssRules]\
+    .map((r) => [r.type, r.selectorText === undefined ? '' : r.selectorText, r.cssText].join('|')).join('\\n')";
+
+/// CSSOM §6.4.3: `selectorText` is the rule's selector. Minified CSS has no
+/// space before a rule's block, also after a `)` or a `]`.
+#[test]
+fn a_minified_sheets_selectors_are_whole() {
+    let mut rt = runtime(MINIFIED);
+    let got: String = rt
+        .eval(
+            "[...document.getElementById('s').sheet.cssRules].map((r) => r.selectorText || r.type).join(' ; ')",
+        )
+        .unwrap();
+    assert_eq!(
+        got,
+        ".a:not(.b) ; a[href=\"x\"] ; p:nth-child(2n+1) ; 4 ; 12 ; z"
+    );
+}
+
+/// What the task of this file is for, on the CSS that build tools write: after
+/// one `insertRule` the page is printed from the rules, and the printed sheet
+/// must still be the same rules, each whole and none swallowing the next.
+#[test]
+fn a_minified_sheet_with_an_inserted_rule_prints_the_same_rules() {
+    let mut rt = runtime(MINIFIED);
+    let before: String = rt
+        .eval(&format!(
+            "document.getElementById('s').sheet.insertRule('.css-1:not(.x){{color:blue}}', 6); {RULES}"
+        ))
+        .unwrap();
+    assert_eq!(before.lines().count(), 7, "{before}");
+    let html = rt.take().unwrap().to_html();
+    // Every selector is in the output as it was written.
+    for selector in [
+        ".a:not(.b) {",
+        "a[href=\"x\"] {",
+        "p:nth-child(2n+1) {",
+        "@media (min-width:1px) {",
+        "u:is(i){",
+        "@supports (display:grid) {",
+        "z {",
+        ".css-1:not(.x) {",
+    ] {
+        assert!(html.contains(selector), "{selector} in {html}");
+    }
+    // Read back, the printed sheet is the same seven rules.
+    let mut printed = DomRuntime::new(limits()).unwrap();
+    printed.load(Document::parse(&html).unwrap());
+    let after: String = printed.eval(RULES).unwrap();
+    assert_eq!(after, before);
+}
+
+/// The same through `selectorText`, which reads the rule's text back in.
+#[test]
+fn a_selector_with_brackets_can_be_written() {
+    let mut rt = runtime(MINIFIED);
+    let got: String = rt
+        .eval(
+            "const r = document.getElementById('s').sheet.cssRules[0];
+             r.selectorText = '.c:not(.d)';
+             [r.selectorText, r.cssText.startsWith('.c:not(.d) {'),
+              document.getElementById('s').sheet.cssRules[1].selectorText].join(' ; ')",
+        )
+        .unwrap();
+    assert_eq!(got, ".c:not(.d) ; true ; a[href=\"x\"]");
+}
