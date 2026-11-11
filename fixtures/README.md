@@ -161,6 +161,12 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
   printer). `pixels_identical` says whether two printers put the same pixels on a
   page at 96 dpi, whatever the scores say, and `pdf_identical` whether they wrote
   the same file.
+- **What the tools need.** `pdftoppm` (poppler-utils) rasterises every page;
+  printers.mjs and print-pages.mjs stop at once, saying so, when it isn't there.
+  A comparison that dies later is a failing score whose `error` says why, in
+  `score.json` and in `print-pages.json`. The tools' own tests bring a stand-in
+  for it (`test/fake-pdftoppm.mjs`), as for every other binary, so they run on a
+  machine without poppler.
 - **A printer that dies.** A printer gets 120 s per page. One that exits with an
   error, is killed by a signal or runs out of time leaves a failing score that says
   which, never a missing cell.
