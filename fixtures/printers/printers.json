@@ -1,0 +1,5930 @@
+{
+  "generated_by": "fixtures/tools/printers.mjs",
+  "commit": "90427b9efc452820b2aef94579fb1701219bca7f",
+  "runs": 5,
+  "pass_rule": {
+    "shape": 0.1,
+    "colour": 0.1,
+    "hue": 0.3
+  },
+  "printers": [
+    {
+      "label": "0.40.0",
+      "fulgur": "0.40.0",
+      "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382"
+    },
+    {
+      "label": "0.41.0",
+      "fulgur": "0.41.0",
+      "sha256": "c61416ba33bd83ef7536922ec38e49992b49556755f218518631cc5d394e9843"
+    }
+  ],
+  "surimono_outputs_sha256": {
+    "islands/echarts-bar-simple-ja": "fb652ca1b1428da1ca08deb4b383b8c8514c4c205f7f87de4445be7138c3deb5",
+    "islands/echarts-bar-simple-latin": "3197736c61d52cf052962fb27e066d4db126c0c834834eb408a41adc3786286d",
+    "islands/echarts-line-dense-latin": "514544564bc78d0b066c736bf358eaff0a5f4b96f49ca40ef164010f277c148b",
+    "islands/echarts-mixed-dense-ja": "96c13271ed39460250107f89597c557e7db907cad963473a1600a0bce8a78770",
+    "islands/echarts-pie-ja": "9e5e458fcbc9afd2cf7488e7ce1b83d761d8a8159cd5e3225978300026750968",
+    "islands/echarts-two-charts-latin": "f0fc52d3ede06d52770b1dd8594d0ab99023beec70d03e4a5ec41e752626e7fd",
+    "islands/vega-bar-simple-latin": "43eac6c195413091ccdb609550c55a9f63eca10cd4ff3d34a56b1f9262b06d10",
+    "islands/vegalite-bar-simple-latin": "6b0df9418d7b50a4532d0969e0fd01a2b4a3660d45441880c221f0ab36301044",
+    "islands/vegalite-layered-dense-ja": "2b021b4d7007a7b8cba79b94831877abe26656383987b622bbbf5be3f1151f21",
+    "islands/vegalite-line-ja": "a3fafb50c43fd1b1703f9d0ac953108c9ef3eb4000e4247dc632824eab1a8059",
+    "islands/vegalite-scatter-dense-latin": "739e71efc384a995864a4037fafca933a5142305e98daa1491971386d34195c9",
+    "real-world/alpine-invoice": "2f2b89ee75a98ce7cd1bcadf48b32d745aa95c0e4eb23dd3f8071927ac0c761f",
+    "real-world/d3-charts": "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
+    "real-world/highlightjs-code": "061e8b81627bf12858f1d964de208592d766c6239b61f4308a37525874aa415c",
+    "real-world/katex-autorender": "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
+    "real-world/marked-report": "0445065572a7ed0c89a7d8e22bcc6bc77ffbcb6d70bb8ca3a5e53622b2994acb",
+    "real-world/noscript-message": "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e"
+  },
+  "measurement": {
+    "runs": 5,
+    "sampled_runs": 5,
+    "warmup_rounds": 1,
+    "sample_interval_ms": 1,
+    "order": "the printers take turns on each page; who starts moves on by one every round and every page (rows[].print_order)"
+  },
+  "totals": {
+    "0.40.0": {
+      "prints": 23,
+      "wall_ms_sum": 769.6,
+      "wall_ms_median": 31.9,
+      "peak_pss_mb_median": 44.6,
+      "peak_pss_mb_max": 51.9
+    },
+    "0.41.0": {
+      "prints": 23,
+      "wall_ms_sum": 790.8,
+      "wall_ms_median": 32.6,
+      "peak_pss_mb_median": 44.8,
+      "peak_pss_mb_max": 52
+    }
+  },
+  "against_first": {
+    "0.41.0": {
+      "wall_ms": {
+        "pages": 23,
+        "median_of_first": 31.9,
+        "median_of_this": 32.6,
+        "per_page_difference": {
+          "min": -0.4,
+          "median": 0.6,
+          "max": 4.3,
+          "min_at": "real-world/marked-report/page",
+          "max_at": "islands/echarts-two-charts-latin/page"
+        },
+        "pages_lower": 2,
+        "pages_equal": 2,
+        "pages_higher": 19,
+        "pages_with_every_run_lower": 0,
+        "pages_with_every_run_higher": 0
+      },
+      "peak_pss_mb": {
+        "pages": 23,
+        "median_of_first": 44.6,
+        "median_of_this": 44.8,
+        "per_page_difference": {
+          "min": 0,
+          "median": 0.3,
+          "max": 1.2,
+          "min_at": "real-world/katex-autorender/page",
+          "max_at": "islands/echarts-pie-ja/page"
+        },
+        "pages_lower": 0,
+        "pages_equal": 2,
+        "pages_higher": 21,
+        "pages_with_every_run_lower": 0,
+        "pages_with_every_run_higher": 5
+      }
+    }
+  },
+  "rows": [
+    {
+      "key": "islands/echarts-bar-simple-ja/page",
+      "set": "islands",
+      "fixture": "echarts-bar-simple-ja",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.039665204150759435,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 40535,
+            "sha256": "fa6d4bd78ed74f0744c08de7d3ac7cef399e8bf6f275ecb8e1a42f7365df0907"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 31.6,
+              "p90": 34.1,
+              "min": 30.5,
+              "max": 34.1,
+              "mean": 32,
+              "stdev": 1.4
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 46.4,
+              "p90": 46.5,
+              "min": 46.1,
+              "max": 46.5,
+              "mean": 46.3,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 48.3,
+              "p90": 48.5,
+              "min": 48,
+              "max": 48.5,
+              "mean": 48.3,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 48.4,
+              "p90": 48.6,
+              "min": 48.3,
+              "max": 48.6,
+              "mean": 48.4,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              32.61,
+              34.09,
+              30.46,
+              31.58,
+              31.02
+            ],
+            "peak_pss_mb_runs": [
+              46.4,
+              46.1,
+              46.5,
+              46.3,
+              46.4
+            ],
+            "peak_rss_mb_runs": [
+              48.4,
+              48,
+              48.5,
+              48.3,
+              48.3
+            ],
+            "max_rss_mb_runs": [
+              48.6,
+              48.4,
+              48.3,
+              48.4,
+              48.4
+            ],
+            "memory_complete": true,
+            "samples_min": 22,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.4
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.039665204150759435,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 40613,
+            "sha256": "43aab325bdff4430b00712b78e3ca3666df845c2821869557680abbabbced983"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 31.3,
+              "p90": 33.4,
+              "min": 29.9,
+              "max": 33.4,
+              "mean": 31.4,
+              "stdev": 1.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 46.5,
+              "p90": 47.5,
+              "min": 46.2,
+              "max": 47.5,
+              "mean": 46.8,
+              "stdev": 0.6
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 48.4,
+              "p90": 49.4,
+              "min": 48.2,
+              "max": 49.4,
+              "mean": 48.7,
+              "stdev": 0.6
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 49.5,
+              "p90": 49.6,
+              "min": 48.5,
+              "max": 49.6,
+              "mean": 49.2,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              31.34,
+              31.47,
+              31.02,
+              29.9,
+              33.36
+            ],
+            "peak_pss_mb_runs": [
+              46.5,
+              46.2,
+              46.4,
+              47.4,
+              47.5
+            ],
+            "peak_rss_mb_runs": [
+              48.4,
+              48.2,
+              48.3,
+              49.4,
+              49.4
+            ],
+            "max_rss_mb_runs": [
+              49.5,
+              48.7,
+              49.6,
+              48.5,
+              49.5
+            ],
+            "memory_complete": true,
+            "samples_min": 24,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.3
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-bar-simple-ja/island-0",
+      "set": "islands",
+      "fixture": "echarts-bar-simple-ja",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03184796854521625,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            344
+          ],
+          "chrome_size": [
+            640,
+            344
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 15821,
+            "sha256": "5f60443928d83ad83cee00056fd5cf0752819c4ee788ba0f2593ea5a2ff45c94"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03184796854521625,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            344
+          ],
+          "chrome_size": [
+            640,
+            344
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 15821,
+            "sha256": "5f60443928d83ad83cee00056fd5cf0752819c4ee788ba0f2593ea5a2ff45c94"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-bar-simple-latin/page",
+      "set": "islands",
+      "fixture": "echarts-bar-simple-latin",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03869377782146518,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 45412,
+            "sha256": "e19c7c85400b3811336e2432ccca92113f0143d503dc96ee667e643600298a4a"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 27.6,
+              "p90": 29.7,
+              "min": 26,
+              "max": 29.7,
+              "mean": 27.6,
+              "stdev": 1.4
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.2,
+              "p90": 38.4,
+              "min": 38,
+              "max": 38.4,
+              "mean": 38.2,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.2,
+              "p90": 40.5,
+              "min": 39.8,
+              "max": 40.5,
+              "mean": 40.2,
+              "stdev": 0.3
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40.1,
+              "p90": 40.4,
+              "min": 39.9,
+              "max": 40.4,
+              "mean": 40.1,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              29.67,
+              28.04,
+              27.65,
+              25.98,
+              26.68
+            ],
+            "peak_pss_mb_runs": [
+              38,
+              38.4,
+              38.2,
+              38,
+              38.4
+            ],
+            "peak_rss_mb_runs": [
+              39.8,
+              40.5,
+              40.2,
+              40,
+              40.4
+            ],
+            "max_rss_mb_runs": [
+              39.9,
+              39.9,
+              40.1,
+              40.4,
+              40.3
+            ],
+            "memory_complete": true,
+            "samples_min": 21,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.4
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03869377782146518,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 45490,
+            "sha256": "576e1cb0c74b72c0107ce5402a83b0c481cbf0a6b83b65f1dd77bd52e73111f7"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 27.7,
+              "p90": 40.7,
+              "min": 26.6,
+              "max": 40.7,
+              "mean": 30.3,
+              "stdev": 5.9
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 39.3,
+              "p90": 39.6,
+              "min": 39.3,
+              "max": 39.6,
+              "mean": 39.4,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 41.3,
+              "p90": 41.6,
+              "min": 41.1,
+              "max": 41.6,
+              "mean": 41.4,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 41.5,
+              "p90": 41.6,
+              "min": 41.4,
+              "max": 41.6,
+              "mean": 41.5,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              40.71,
+              29.9,
+              27.66,
+              26.57,
+              26.88
+            ],
+            "peak_pss_mb_runs": [
+              39.3,
+              39.6,
+              39.3,
+              39.3,
+              39.6
+            ],
+            "peak_rss_mb_runs": [
+              41.1,
+              41.6,
+              41.3,
+              41.3,
+              41.5
+            ],
+            "max_rss_mb_runs": [
+              41.5,
+              41.4,
+              41.6,
+              41.4,
+              41.5
+            ],
+            "memory_complete": true,
+            "samples_min": 17,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.5
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-bar-simple-latin/island-0",
+      "set": "islands",
+      "fixture": "echarts-bar-simple-latin",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.02141544614386856,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            320
+          ],
+          "chrome_size": [
+            640,
+            320
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 31925,
+            "sha256": "80d6e7a3e39d63ed82060e00677b0211434e3334fd04ccc8b3c1a21f1e8fea74"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.02141544614386856,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            320
+          ],
+          "chrome_size": [
+            640,
+            320
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 31925,
+            "sha256": "80d6e7a3e39d63ed82060e00677b0211434e3334fd04ccc8b3c1a21f1e8fea74"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-line-dense-latin/page",
+      "set": "islands",
+      "fixture": "echarts-line-dense-latin",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.18949771689497716,
+          "pixelmatch_ink": 0.12469734754024031,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 45018,
+            "sha256": "7a7d7820f3a8b08fd3a1c7d3a8259130cc040ce43974f2063be618b50e578722"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 34.7,
+              "p90": 35.7,
+              "min": 26.9,
+              "max": 35.7,
+              "mean": 33.2,
+              "stdev": 3.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.4,
+              "p90": 38.9,
+              "min": 38.3,
+              "max": 38.9,
+              "mean": 38.5,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.4,
+              "p90": 40.9,
+              "min": 40.3,
+              "max": 40.9,
+              "mean": 40.5,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40.5,
+              "p90": 40.7,
+              "min": 40.4,
+              "max": 40.7,
+              "mean": 40.5,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              34.23,
+              34.66,
+              35.67,
+              34.73,
+              26.89
+            ],
+            "peak_pss_mb_runs": [
+              38.9,
+              38.5,
+              38.3,
+              38.4,
+              38.3
+            ],
+            "peak_rss_mb_runs": [
+              40.9,
+              40.5,
+              40.3,
+              40.4,
+              40.3
+            ],
+            "max_rss_mb_runs": [
+              40.4,
+              40.5,
+              40.6,
+              40.7,
+              40.4
+            ],
+            "memory_complete": true,
+            "samples_min": 16,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.56
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.18949771689497716,
+          "pixelmatch_ink": 0.12469734754024031,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 45096,
+            "sha256": "74787cbe0ee6987b36285c3720a1f93b2e6a4fba9f585f27899a3f1818c2fd41"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 35.2,
+              "p90": 47.6,
+              "min": 26.9,
+              "max": 47.6,
+              "mean": 36.5,
+              "stdev": 7.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.7,
+              "p90": 39.7,
+              "min": 38.6,
+              "max": 39.7,
+              "mean": 39,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.6,
+              "p90": 41.6,
+              "min": 40.6,
+              "max": 41.6,
+              "mean": 41,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 41.6,
+              "p90": 41.8,
+              "min": 40.8,
+              "max": 41.8,
+              "mean": 41.5,
+              "stdev": 0.4
+            },
+            "wall_ms_runs": [
+              39.26,
+              47.59,
+              35.21,
+              33.3,
+              26.94
+            ],
+            "peak_pss_mb_runs": [
+              38.6,
+              38.6,
+              38.7,
+              39.7,
+              39.4
+            ],
+            "peak_rss_mb_runs": [
+              40.6,
+              40.6,
+              40.6,
+              41.6,
+              41.4
+            ],
+            "max_rss_mb_runs": [
+              41.7,
+              40.8,
+              41.8,
+              41.5,
+              41.6
+            ],
+            "memory_complete": true,
+            "samples_min": 21,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.32
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-line-dense-latin/island-0",
+      "set": "islands",
+      "fixture": "echarts-line-dense-latin",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.007692307692307693,
+          "pixelmatch_ink": 0.03564636200619464,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            680,
+            384
+          ],
+          "chrome_size": [
+            680,
+            384
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 30968,
+            "sha256": "51f3fd4fac49daaa5997d3d3113ee45fbad73d5fb1d63c559a8e27b68896c042"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.007692307692307693,
+          "pixelmatch_ink": 0.03564636200619464,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            680,
+            384
+          ],
+          "chrome_size": [
+            680,
+            384
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 30968,
+            "sha256": "51f3fd4fac49daaa5997d3d3113ee45fbad73d5fb1d63c559a8e27b68896c042"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-mixed-dense-ja/page",
+      "set": "islands",
+      "fixture": "echarts-mixed-dense-ja",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.056555269922879174,
+          "pixelmatch_ink": 0.052012776819199455,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 50464,
+            "sha256": "bedbf435bcbdf50c7fc36cff8b58aca7c08a27a52f9a43a18479297a523804a9"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 33.9,
+              "p90": 38.2,
+              "min": 33.2,
+              "max": 38.2,
+              "mean": 35,
+              "stdev": 2.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 47,
+              "p90": 47.4,
+              "min": 46.8,
+              "max": 47.4,
+              "mean": 47.1,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 49,
+              "p90": 49.4,
+              "min": 48.8,
+              "max": 49.4,
+              "mean": 49.1,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 49.3,
+              "p90": 49.5,
+              "min": 49,
+              "max": 49.5,
+              "mean": 49.3,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              38.2,
+              36.53,
+              33.88,
+              33.28,
+              33.18
+            ],
+            "peak_pss_mb_runs": [
+              47,
+              47.4,
+              47,
+              46.8,
+              47.3
+            ],
+            "peak_rss_mb_runs": [
+              49,
+              49.4,
+              48.9,
+              48.8,
+              49.2
+            ],
+            "max_rss_mb_runs": [
+              49.3,
+              49.3,
+              49.5,
+              49,
+              49.2
+            ],
+            "memory_complete": true,
+            "samples_min": 24,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.38
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.056555269922879174,
+          "pixelmatch_ink": 0.052012776819199455,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 50542,
+            "sha256": "16c44d390d1ea535524e04ea64e55ab4a00bbe8b3e804231653d5138f89d9192"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 35.3,
+              "p90": 36.8,
+              "min": 33.4,
+              "max": 36.8,
+              "mean": 35.2,
+              "stdev": 1.3
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 47.6,
+              "p90": 48.4,
+              "min": 47.4,
+              "max": 48.4,
+              "mean": 47.8,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 49.6,
+              "p90": 50.4,
+              "min": 49.4,
+              "max": 50.4,
+              "mean": 49.8,
+              "stdev": 0.4
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 50.5,
+              "p90": 50.7,
+              "min": 49.6,
+              "max": 50.7,
+              "mean": 50.2,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              36.75,
+              36.27,
+              35.31,
+              33.44,
+              34.46
+            ],
+            "peak_pss_mb_runs": [
+              48.4,
+              47.5,
+              47.6,
+              47.4,
+              48.3
+            ],
+            "peak_rss_mb_runs": [
+              50.4,
+              49.5,
+              49.6,
+              49.4,
+              50.2
+            ],
+            "max_rss_mb_runs": [
+              49.6,
+              50.6,
+              50.7,
+              49.8,
+              50.5
+            ],
+            "memory_complete": true,
+            "samples_min": 25,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.44
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-mixed-dense-ja/island-0",
+      "set": "islands",
+      "fixture": "echarts-mixed-dense-ja",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.005517241379310344,
+          "colour": 0,
+          "hue": 0.09289617486338798,
+          "pixelmatch_ink": 0.04014555560789486,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            680,
+            400
+          ],
+          "chrome_size": [
+            680,
+            400
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 26891,
+            "sha256": "b3ced82f046852c5ba0e2d573afa16dfe3cd153127fe040c3ba52b932e723382"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.005517241379310344,
+          "colour": 0,
+          "hue": 0.09289617486338798,
+          "pixelmatch_ink": 0.04014555560789486,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            680,
+            400
+          ],
+          "chrome_size": [
+            680,
+            400
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 26891,
+            "sha256": "b3ced82f046852c5ba0e2d573afa16dfe3cd153127fe040c3ba52b932e723382"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-pie-ja/page",
+      "set": "islands",
+      "fixture": "echarts-pie-ja",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.020833333333333332,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.049109507309633656,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 52003,
+            "sha256": "ebd12104c304970a72e1db9f829bb3f4c8308cfcfc72180deb2ef181075f7412"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 35.7,
+              "p90": 36.1,
+              "min": 35.2,
+              "max": 36.1,
+              "mean": 35.7,
+              "stdev": 0.4
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 46.4,
+              "p90": 46.4,
+              "min": 46.1,
+              "max": 46.4,
+              "mean": 46.3,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 48.3,
+              "p90": 48.4,
+              "min": 48.1,
+              "max": 48.4,
+              "mean": 48.3,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 48.4,
+              "p90": 48.5,
+              "min": 48.3,
+              "max": 48.5,
+              "mean": 48.4,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              35.57,
+              36.06,
+              35.74,
+              36.12,
+              35.25
+            ],
+            "peak_pss_mb_runs": [
+              46.4,
+              46.1,
+              46.4,
+              46.4,
+              46.3
+            ],
+            "peak_rss_mb_runs": [
+              48.4,
+              48.1,
+              48.3,
+              48.4,
+              48.3
+            ],
+            "max_rss_mb_runs": [
+              48.5,
+              48.4,
+              48.4,
+              48.3,
+              48.5
+            ],
+            "memory_complete": true,
+            "samples_min": 26,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.4
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.020833333333333332,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.049109507309633656,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 52081,
+            "sha256": "ba1ade349d139ae4b22909cc939c24bcc39aadb77513f906a8ba0a8b5211f776"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 36.9,
+              "p90": 42.8,
+              "min": 34.3,
+              "max": 42.8,
+              "mean": 37.5,
+              "stdev": 3.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 47.6,
+              "p90": 47.9,
+              "min": 46.9,
+              "max": 47.9,
+              "mean": 47.5,
+              "stdev": 0.4
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 49.6,
+              "p90": 49.9,
+              "min": 48.8,
+              "max": 49.9,
+              "mean": 49.5,
+              "stdev": 0.4
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 48.7,
+              "p90": 50,
+              "min": 48.6,
+              "max": 50,
+              "mean": 49.2,
+              "stdev": 0.7
+            },
+            "wall_ms_runs": [
+              34.31,
+              42.84,
+              36.09,
+              36.89,
+              37.41
+            ],
+            "peak_pss_mb_runs": [
+              47.9,
+              47.6,
+              47.6,
+              46.9,
+              47.6
+            ],
+            "peak_rss_mb_runs": [
+              49.9,
+              49.5,
+              49.6,
+              48.8,
+              49.6
+            ],
+            "max_rss_mb_runs": [
+              48.6,
+              48.6,
+              50,
+              48.7,
+              50
+            ],
+            "memory_complete": true,
+            "samples_min": 27,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.4
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-pie-ja/island-0",
+      "set": "islands",
+      "fixture": "echarts-pie-ja",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.016129032258064516,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.06405979477218023,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            360
+          ],
+          "chrome_size": [
+            640,
+            360
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 24537,
+            "sha256": "9d3ce2a7542fa38ce030ffd3504c6a07e045e2e3fd875ea053652745bfb0cdbc"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.016129032258064516,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.06405979477218023,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            360
+          ],
+          "chrome_size": [
+            640,
+            360
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 24537,
+            "sha256": "9d3ce2a7542fa38ce030ffd3504c6a07e045e2e3fd875ea053652745bfb0cdbc"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-two-charts-latin/page",
+      "set": "islands",
+      "fixture": "echarts-two-charts-latin",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.025967635788839205,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 46344,
+            "sha256": "a119c6e705470535642abe6ffcc255055bc9f76d6f9d68987e66986354887714"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 30.4,
+              "p90": 36.5,
+              "min": 27.7,
+              "max": 36.5,
+              "mean": 31.9,
+              "stdev": 4.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.2,
+              "p90": 38.3,
+              "min": 38.1,
+              "max": 38.3,
+              "mean": 38.2,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.2,
+              "p90": 40.2,
+              "min": 40.1,
+              "max": 40.2,
+              "mean": 40.2,
+              "stdev": 0
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40.2,
+              "p90": 40.3,
+              "min": 39.9,
+              "max": 40.3,
+              "mean": 40.2,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              30.44,
+              28.62,
+              36.22,
+              36.48,
+              27.66
+            ],
+            "peak_pss_mb_runs": [
+              38.2,
+              38.2,
+              38.3,
+              38.2,
+              38.1
+            ],
+            "peak_rss_mb_runs": [
+              40.2,
+              40.2,
+              40.2,
+              40.2,
+              40.1
+            ],
+            "max_rss_mb_runs": [
+              40.2,
+              40.3,
+              40.2,
+              40.2,
+              39.9
+            ],
+            "memory_complete": true,
+            "samples_min": 22,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.34
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.025967635788839205,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 46422,
+            "sha256": "3ebdbf7798d243cf01d425d7f42d3edf935bd92ced3253b8e09ec08594b896a5"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 34.7,
+              "p90": 37.4,
+              "min": 29.5,
+              "max": 37.4,
+              "mean": 34.3,
+              "stdev": 2.9
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 39.4,
+              "p90": 39.4,
+              "min": 38.6,
+              "max": 39.4,
+              "mean": 39.2,
+              "stdev": 0.3
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 41.3,
+              "p90": 41.4,
+              "min": 40.6,
+              "max": 41.4,
+              "mean": 41.2,
+              "stdev": 0.3
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 41.3,
+              "p90": 41.4,
+              "min": 40.2,
+              "max": 41.4,
+              "mean": 41.1,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              29.46,
+              34.7,
+              34.57,
+              37.38,
+              35.59
+            ],
+            "peak_pss_mb_runs": [
+              39.4,
+              38.6,
+              39.4,
+              39.4,
+              39.3
+            ],
+            "peak_rss_mb_runs": [
+              41.4,
+              40.6,
+              41.3,
+              41.3,
+              41.3
+            ],
+            "max_rss_mb_runs": [
+              40.2,
+              41.4,
+              41.4,
+              41.2,
+              41.3
+            ],
+            "memory_complete": true,
+            "samples_min": 19,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.4
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-two-charts-latin/island-0",
+      "set": "islands",
+      "fixture": "echarts-two-charts-latin",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.0136622507406782,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            288
+          ],
+          "chrome_size": [
+            640,
+            288
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 21623,
+            "sha256": "b5e80a8ad60614a4a487b59a8560466ff890f434a577a89c172803144c7e606a"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.0136622507406782,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            288
+          ],
+          "chrome_size": [
+            640,
+            288
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 21623,
+            "sha256": "b5e80a8ad60614a4a487b59a8560466ff890f434a577a89c172803144c7e606a"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/echarts-two-charts-latin/island-1",
+      "set": "islands",
+      "fixture": "echarts-two-charts-latin",
+      "what": "island-1",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.007759159608242115,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            288
+          ],
+          "chrome_size": [
+            640,
+            288
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 14171,
+            "sha256": "62df5123af0dbe84fa5ff35688b86083fbc1c8b285e66ce14a61cb9c240b900e"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.007759159608242115,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            288
+          ],
+          "chrome_size": [
+            640,
+            288
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 14171,
+            "sha256": "62df5123af0dbe84fa5ff35688b86083fbc1c8b285e66ce14a61cb9c240b900e"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vega-bar-simple-latin/page",
+      "set": "islands",
+      "fixture": "vega-bar-simple-latin",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.015151515151515152,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03185167438952418,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 46567,
+            "sha256": "a61da079a367c1e1edcf0cc0d59c41d268dfac09a36f83f85f487e6a6081c9b7"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 35.6,
+              "p90": 40.1,
+              "min": 28.6,
+              "max": 40.1,
+              "mean": 34.1,
+              "stdev": 5.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.2,
+              "p90": 38.4,
+              "min": 38,
+              "max": 38.4,
+              "mean": 38.2,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.1,
+              "p90": 40.4,
+              "min": 39.9,
+              "max": 40.4,
+              "mean": 40.1,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40.1,
+              "p90": 40.4,
+              "min": 39.9,
+              "max": 40.4,
+              "mean": 40.1,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              40.08,
+              37.52,
+              35.59,
+              28.59,
+              28.75
+            ],
+            "peak_pss_mb_runs": [
+              38,
+              38.4,
+              38.1,
+              38.4,
+              38.2
+            ],
+            "peak_rss_mb_runs": [
+              39.9,
+              40.3,
+              40,
+              40.4,
+              40.1
+            ],
+            "max_rss_mb_runs": [
+              40.1,
+              39.9,
+              40.1,
+              40.4,
+              40
+            ],
+            "memory_complete": true,
+            "samples_min": 19,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.34
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.015151515151515152,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03185167438952418,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 46645,
+            "sha256": "88558a7b2dacf92531c2ffcca381ac3b4951bb0efe24822fbb0589f79594a62d"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 37.1,
+              "p90": 39.7,
+              "min": 28.9,
+              "max": 39.7,
+              "mean": 35.8,
+              "stdev": 4.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 39.3,
+              "p90": 39.4,
+              "min": 38.3,
+              "max": 39.4,
+              "mean": 38.9,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 41.2,
+              "p90": 41.3,
+              "min": 40.3,
+              "max": 41.3,
+              "mean": 40.9,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 41.3,
+              "p90": 41.4,
+              "min": 40.4,
+              "max": 41.4,
+              "mean": 41,
+              "stdev": 0.4
+            },
+            "wall_ms_runs": [
+              39.71,
+              37.08,
+              38.27,
+              34.99,
+              28.89
+            ],
+            "peak_pss_mb_runs": [
+              38.3,
+              39.4,
+              39.3,
+              39.3,
+              38.4
+            ],
+            "peak_rss_mb_runs": [
+              40.3,
+              41.3,
+              41.2,
+              41.3,
+              40.4
+            ],
+            "max_rss_mb_runs": [
+              40.4,
+              41.4,
+              40.8,
+              41.3,
+              41.3
+            ],
+            "memory_complete": true,
+            "samples_min": 19,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vega-bar-simple-latin/island-0",
+      "set": "islands",
+      "fixture": "vega-bar-simple-latin",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.01694915254237288,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.031789540012602396,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            304
+          ],
+          "chrome_size": [
+            640,
+            304
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 31357,
+            "sha256": "cabe79cbcc729bc406b4fbc4cbc328bf4917f388690bea5a055aadedef933d56"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.01694915254237288,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.031789540012602396,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            304
+          ],
+          "chrome_size": [
+            640,
+            304
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 31357,
+            "sha256": "cabe79cbcc729bc406b4fbc4cbc328bf4917f388690bea5a055aadedef933d56"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-bar-simple-latin/page",
+      "set": "islands",
+      "fixture": "vegalite-bar-simple-latin",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.013513513513513514,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.044294451453756455,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 72065,
+            "sha256": "713bc27014b5fcc24e954aaffa3d3317a119e08efc33e509ead33dd4f48a381d"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 31.4,
+              "p90": 32.6,
+              "min": 30.1,
+              "max": 32.6,
+              "mean": 31.4,
+              "stdev": 0.9
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.4,
+              "p90": 38.6,
+              "min": 38.2,
+              "max": 38.6,
+              "mean": 38.4,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.3,
+              "p90": 40.6,
+              "min": 40.2,
+              "max": 40.6,
+              "mean": 40.3,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40.5,
+              "p90": 40.7,
+              "min": 40.3,
+              "max": 40.7,
+              "mean": 40.5,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              31.16,
+              30.11,
+              32.57,
+              31.41,
+              31.54
+            ],
+            "peak_pss_mb_runs": [
+              38.6,
+              38.2,
+              38.4,
+              38.4,
+              38.5
+            ],
+            "peak_rss_mb_runs": [
+              40.6,
+              40.2,
+              40.3,
+              40.2,
+              40.4
+            ],
+            "max_rss_mb_runs": [
+              40.5,
+              40.7,
+              40.4,
+              40.6,
+              40.3
+            ],
+            "memory_complete": true,
+            "samples_min": 23,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.013513513513513514,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.044294451453756455,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 72143,
+            "sha256": "2705c7f98568c4c12fdfc9d9dc6cd0e7d895b2a3aea5d1b5bd6f390cfd8d2ff4"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 31.6,
+              "p90": 32.2,
+              "min": 31.2,
+              "max": 32.2,
+              "mean": 31.6,
+              "stdev": 0.4
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.7,
+              "p90": 39.8,
+              "min": 38.4,
+              "max": 39.8,
+              "mean": 39,
+              "stdev": 0.7
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.7,
+              "p90": 41.7,
+              "min": 40.3,
+              "max": 41.7,
+              "mean": 40.9,
+              "stdev": 0.7
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40.5,
+              "p90": 41.8,
+              "min": 40.4,
+              "max": 41.8,
+              "mean": 40.9,
+              "stdev": 0.7
+            },
+            "wall_ms_runs": [
+              31.16,
+              31.71,
+              31.18,
+              32.2,
+              31.59
+            ],
+            "peak_pss_mb_runs": [
+              38.7,
+              39.7,
+              39.8,
+              38.4,
+              38.4
+            ],
+            "peak_rss_mb_runs": [
+              40.7,
+              41.7,
+              41.7,
+              40.3,
+              40.3
+            ],
+            "max_rss_mb_runs": [
+              41.6,
+              41.8,
+              40.4,
+              40.4,
+              40.5
+            ],
+            "memory_complete": true,
+            "samples_min": 24,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.34
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-bar-simple-latin/island-0",
+      "set": "islands",
+      "fixture": "vegalite-bar-simple-latin",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.01282051282051282,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03397856251165861,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            304
+          ],
+          "chrome_size": [
+            640,
+            304
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 57715,
+            "sha256": "560d041a4325f669c0eea1c528d5cb8a6bdb0d51ad64d71e725e5d47afc30222"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.01282051282051282,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03397856251165861,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            304
+          ],
+          "chrome_size": [
+            640,
+            304
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 57715,
+            "sha256": "560d041a4325f669c0eea1c528d5cb8a6bdb0d51ad64d71e725e5d47afc30222"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-layered-dense-ja/page",
+      "set": "islands",
+      "fixture": "vegalite-layered-dense-ja",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.16666666666666666,
+          "pixelmatch_ink": 0.20532547052576877,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 44725,
+            "sha256": "ccc015ea6a805b4368edd5cd2343449600824240428f5e42752a7040c1651f34"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 36.7,
+              "p90": 37.2,
+              "min": 35.4,
+              "max": 37.2,
+              "mean": 36.5,
+              "stdev": 0.7
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 47.3,
+              "p90": 47.3,
+              "min": 47,
+              "max": 47.3,
+              "mean": 47.2,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 49.3,
+              "p90": 49.3,
+              "min": 49,
+              "max": 49.3,
+              "mean": 49.2,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 49.3,
+              "p90": 49.6,
+              "min": 49.3,
+              "max": 49.6,
+              "mean": 49.4,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              36.25,
+              36.71,
+              37.25,
+              36.8,
+              35.43
+            ],
+            "peak_pss_mb_runs": [
+              47.2,
+              47.3,
+              47,
+              47.3,
+              47.3
+            ],
+            "peak_rss_mb_runs": [
+              49.3,
+              49.3,
+              49,
+              49.3,
+              49.3
+            ],
+            "max_rss_mb_runs": [
+              49.6,
+              49.3,
+              49.3,
+              49.4,
+              49.3
+            ],
+            "memory_complete": true,
+            "samples_min": 25,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.42
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.16666666666666666,
+          "pixelmatch_ink": 0.20532547052576877,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 44803,
+            "sha256": "30feacde9831b41ef3b9ac2cc8450249e28815e8de29a6f81a1b0dc35dfd2641"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 37.6,
+              "p90": 38.5,
+              "min": 36.8,
+              "max": 38.5,
+              "mean": 37.6,
+              "stdev": 0.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 47.6,
+              "p90": 48.2,
+              "min": 47.4,
+              "max": 48.2,
+              "mean": 47.6,
+              "stdev": 0.3
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 49.5,
+              "p90": 50.2,
+              "min": 49.4,
+              "max": 50.2,
+              "mean": 49.6,
+              "stdev": 0.3
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 50.7,
+              "p90": 50.9,
+              "min": 49.6,
+              "max": 50.9,
+              "mean": 50.4,
+              "stdev": 0.6
+            },
+            "wall_ms_runs": [
+              36.83,
+              37.37,
+              38.51,
+              37.56,
+              37.8
+            ],
+            "peak_pss_mb_runs": [
+              47.4,
+              47.6,
+              47.6,
+              47.4,
+              48.2
+            ],
+            "peak_rss_mb_runs": [
+              49.4,
+              49.6,
+              49.5,
+              49.4,
+              50.2
+            ],
+            "max_rss_mb_runs": [
+              49.8,
+              50.8,
+              50.7,
+              50.9,
+              49.6
+            ],
+            "memory_complete": true,
+            "samples_min": 25,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.38
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-layered-dense-ja/island-0",
+      "set": "islands",
+      "fixture": "vegalite-layered-dense-ja",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.026845637583892617,
+          "colour": 0,
+          "hue": 0.11940298507462686,
+          "pixelmatch_ink": 0.01577283615720333,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            680,
+            344
+          ],
+          "chrome_size": [
+            680,
+            344
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 23894,
+            "sha256": "618a08b751be3f78f62cfd7348278fcad320d89776c2ed9498d71193226464a5"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.026845637583892617,
+          "colour": 0,
+          "hue": 0.11940298507462686,
+          "pixelmatch_ink": 0.01577283615720333,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            680,
+            344
+          ],
+          "chrome_size": [
+            680,
+            344
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 23894,
+            "sha256": "618a08b751be3f78f62cfd7348278fcad320d89776c2ed9498d71193226464a5"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-line-ja/page",
+      "set": "islands",
+      "fixture": "vegalite-line-ja",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.07317073170731707,
+          "colour": 0,
+          "hue": 0.030303030303030304,
+          "pixelmatch_ink": 0.06935409440731202,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 31655,
+            "sha256": "ba021f39f4885fb4e8e6353a7701142ffd99305161ce96991568b2fb8d6ee3b4"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 30.7,
+              "p90": 32.1,
+              "min": 30.3,
+              "max": 32.1,
+              "mean": 31.1,
+              "stdev": 0.8
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 46.2,
+              "p90": 46.5,
+              "min": 46,
+              "max": 46.5,
+              "mean": 46.2,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 48.2,
+              "p90": 48.4,
+              "min": 48,
+              "max": 48.4,
+              "mean": 48.2,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 48.3,
+              "p90": 48.5,
+              "min": 48,
+              "max": 48.5,
+              "mean": 48.3,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              31.66,
+              32.15,
+              30.57,
+              30.28,
+              30.7
+            ],
+            "peak_pss_mb_runs": [
+              46.1,
+              46,
+              46.5,
+              46.2,
+              46.3
+            ],
+            "peak_rss_mb_runs": [
+              48.1,
+              48,
+              48.4,
+              48.2,
+              48.3
+            ],
+            "max_rss_mb_runs": [
+              48,
+              48.3,
+              48.5,
+              48.3,
+              48.2
+            ],
+            "memory_complete": true,
+            "samples_min": 20,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.44
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.07317073170731707,
+          "colour": 0,
+          "hue": 0.030303030303030304,
+          "pixelmatch_ink": 0.06935409440731202,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 31733,
+            "sha256": "b557c664b6a2ca1566a6b5c339dabff2663299c8e0b82d481afde5b391aea7da"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 30.8,
+              "p90": 33.1,
+              "min": 29.8,
+              "max": 33.1,
+              "mean": 31.2,
+              "stdev": 1.3
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 47.4,
+              "p90": 47.6,
+              "min": 46.4,
+              "max": 47.6,
+              "mean": 47.2,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 49.4,
+              "p90": 49.6,
+              "min": 48.4,
+              "max": 49.6,
+              "mean": 49.2,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 48.6,
+              "p90": 49.7,
+              "min": 48.4,
+              "max": 49.7,
+              "mean": 49,
+              "stdev": 0.6
+            },
+            "wall_ms_runs": [
+              30.78,
+              33.08,
+              31.98,
+              29.79,
+              30.39
+            ],
+            "peak_pss_mb_runs": [
+              47.4,
+              47.1,
+              46.4,
+              47.4,
+              47.6
+            ],
+            "peak_rss_mb_runs": [
+              49.4,
+              49,
+              48.4,
+              49.4,
+              49.6
+            ],
+            "max_rss_mb_runs": [
+              49.7,
+              48.6,
+              48.4,
+              48.6,
+              49.6
+            ],
+            "memory_complete": true,
+            "samples_min": 21,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.44
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-line-ja/island-0",
+      "set": "islands",
+      "fixture": "vegalite-line-ja",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.10204081632653061,
+          "colour": 0,
+          "hue": 0.017241379310344827,
+          "pixelmatch_ink": 0.12442851847275423,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            320
+          ],
+          "chrome_size": [
+            640,
+            320
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 10587,
+            "sha256": "b84e7fa34bc9b86db887ec226d24ab0dab38ff8c3d221e02f3b51378289854e9"
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.10204081632653061,
+          "colour": 0,
+          "hue": 0.017241379310344827,
+          "pixelmatch_ink": 0.12442851847275423,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            320
+          ],
+          "chrome_size": [
+            640,
+            320
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 10587,
+            "sha256": "b84e7fa34bc9b86db887ec226d24ab0dab38ff8c3d221e02f3b51378289854e9"
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-scatter-dense-latin/page",
+      "set": "islands",
+      "fixture": "vegalite-scatter-dense-latin",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.0014367816091954023,
+          "colour": 0,
+          "hue": 0.011363636363636364,
+          "pixelmatch_ink": 0.09129752826004651,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 63116,
+            "sha256": "d244864cf90aedead94baf932f3893eb524317830059eed7be6fcbe57a267da6"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 65.5,
+              "p90": 67.8,
+              "min": 60.7,
+              "max": 67.8,
+              "mean": 64.7,
+              "stdev": 2.8
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 47.9,
+              "p90": 48.3,
+              "min": 47.8,
+              "max": 48.3,
+              "mean": 48,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 49.9,
+              "p90": 50.3,
+              "min": 49.8,
+              "max": 50.3,
+              "mean": 50,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 50,
+              "p90": 50.3,
+              "min": 49.8,
+              "max": 50.3,
+              "mean": 50,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              60.66,
+              63.35,
+              66.25,
+              65.45,
+              67.82
+            ],
+            "peak_pss_mb_runs": [
+              48.3,
+              47.8,
+              47.9,
+              48.2,
+              47.8
+            ],
+            "peak_rss_mb_runs": [
+              50.3,
+              49.8,
+              49.9,
+              50.2,
+              49.9
+            ],
+            "max_rss_mb_runs": [
+              50,
+              50.1,
+              49.9,
+              50.3,
+              49.8
+            ],
+            "memory_complete": true,
+            "samples_min": 45,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.42
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.0014367816091954023,
+          "colour": 0,
+          "hue": 0.011363636363636364,
+          "pixelmatch_ink": 0.09129752826004651,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 63194,
+            "sha256": "3c5e9575cd246cd36b8d52b7aba19d9b1cc08c62511efde430b8148570d52936"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 69.7,
+              "p90": 70.7,
+              "min": 67.7,
+              "max": 70.7,
+              "mean": 69.3,
+              "stdev": 1.4
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 49.1,
+              "p90": 49.3,
+              "min": 48.2,
+              "max": 49.3,
+              "mean": 49,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 51.1,
+              "p90": 51.2,
+              "min": 50.2,
+              "max": 51.2,
+              "mean": 51,
+              "stdev": 0.4
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 51.3,
+              "p90": 51.4,
+              "min": 50,
+              "max": 51.4,
+              "mean": 50.9,
+              "stdev": 0.7
+            },
+            "wall_ms_runs": [
+              69.71,
+              70.33,
+              70.69,
+              67.7,
+              67.95
+            ],
+            "peak_pss_mb_runs": [
+              49.1,
+              49.3,
+              49.1,
+              49.3,
+              48.2
+            ],
+            "peak_rss_mb_runs": [
+              51.1,
+              51.2,
+              51.1,
+              51.2,
+              50.2
+            ],
+            "max_rss_mb_runs": [
+              50,
+              51.4,
+              50.3,
+              51.4,
+              51.3
+            ],
+            "memory_complete": true,
+            "samples_min": 46,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.48
+          }
+        }
+      }
+    },
+    {
+      "key": "islands/vegalite-scatter-dense-latin/island-0",
+      "set": "islands",
+      "fixture": "vegalite-scatter-dense-latin",
+      "what": "island-0",
+      "differs": false,
+      "pixels_identical": true,
+      "pdf_identical": true,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.0035842293906810036,
+          "pixelmatch_ink": 0.12633464881485607,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            400
+          ],
+          "chrome_size": [
+            640,
+            400
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 49916,
+            "sha256": "9b7d17efdbd2ad84d399a06da27dd138020e21a3552531e97afad1b38736b1f8"
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.0035842293906810036,
+          "pixelmatch_ink": 0.12633464881485607,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            640,
+            400
+          ],
+          "chrome_size": [
+            640,
+            400
+          ],
+          "text": true,
+          "font": true,
+          "pdf": {
+            "bytes": 49916,
+            "sha256": "9b7d17efdbd2ad84d399a06da27dd138020e21a3552531e97afad1b38736b1f8"
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/alpine-invoice/page",
+      "set": "real-world",
+      "fixture": "alpine-invoice",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03284103037470794,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18213,
+            "sha256": "925a1ebd4d6dbaf18c29e93028e3422b46df3a58d22592761fa39aeeb0d70751"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 25.2,
+              "p90": 26.5,
+              "min": 25,
+              "max": 26.5,
+              "mean": 25.4,
+              "stdev": 0.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 44.6,
+              "p90": 44.9,
+              "min": 44.3,
+              "max": 44.9,
+              "mean": 44.6,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 46.6,
+              "p90": 46.9,
+              "min": 46.2,
+              "max": 46.9,
+              "mean": 46.6,
+              "stdev": 0.3
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 46.8,
+              "p90": 47,
+              "min": 46.6,
+              "max": 47,
+              "mean": 46.8,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              25.21,
+              25.33,
+              26.49,
+              24.96,
+              25.18
+            ],
+            "peak_pss_mb_runs": [
+              44.9,
+              44.7,
+              44.5,
+              44.6,
+              44.3
+            ],
+            "peak_rss_mb_runs": [
+              46.9,
+              46.7,
+              46.4,
+              46.6,
+              46.2
+            ],
+            "max_rss_mb_runs": [
+              47,
+              46.8,
+              46.8,
+              47,
+              46.6
+            ],
+            "memory_complete": true,
+            "samples_min": 21,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.28
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03284103037470794,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18292,
+            "sha256": "8320428c80977b6b60325138c1edaabafe10bac600f85d2fe863bb61fcb66170"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 25.8,
+              "p90": 26.4,
+              "min": 24.7,
+              "max": 26.4,
+              "mean": 25.6,
+              "stdev": 0.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 45.1,
+              "p90": 46.1,
+              "min": 44.8,
+              "max": 46.1,
+              "mean": 45.4,
+              "stdev": 0.6
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 47,
+              "p90": 48,
+              "min": 46.8,
+              "max": 48,
+              "mean": 47.3,
+              "stdev": 0.6
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 48,
+              "p90": 48.2,
+              "min": 46.9,
+              "max": 48.2,
+              "mean": 47.8,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              26.36,
+              24.74,
+              25.84,
+              25.82,
+              25.13
+            ],
+            "peak_pss_mb_runs": [
+              44.8,
+              45.1,
+              44.9,
+              45.9,
+              46.1
+            ],
+            "peak_rss_mb_runs": [
+              46.8,
+              47,
+              46.8,
+              47.9,
+              48
+            ],
+            "max_rss_mb_runs": [
+              48,
+              46.9,
+              47.9,
+              48,
+              48.2
+            ],
+            "memory_complete": true,
+            "samples_min": 20,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.3
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/alpine-invoice/floor",
+      "set": "real-world",
+      "fixture": "alpine-invoice",
+      "what": "floor",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03284103037470794,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18213,
+            "sha256": "925a1ebd4d6dbaf18c29e93028e3422b46df3a58d22592761fa39aeeb0d70751"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 27.2,
+              "p90": 35.1,
+              "min": 25.8,
+              "max": 35.1,
+              "mean": 28.6,
+              "stdev": 3.8
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 44.7,
+              "p90": 44.9,
+              "min": 44.5,
+              "max": 44.9,
+              "mean": 44.7,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 46.7,
+              "p90": 46.8,
+              "min": 46.4,
+              "max": 46.8,
+              "mean": 46.6,
+              "stdev": 0.2
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 46.9,
+              "p90": 47.1,
+              "min": 46.7,
+              "max": 47.1,
+              "mean": 46.9,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              35.08,
+              26.12,
+              25.78,
+              28.69,
+              27.24
+            ],
+            "peak_pss_mb_runs": [
+              44.6,
+              44.8,
+              44.7,
+              44.9,
+              44.5
+            ],
+            "peak_rss_mb_runs": [
+              46.6,
+              46.7,
+              46.7,
+              46.8,
+              46.4
+            ],
+            "max_rss_mb_runs": [
+              47.1,
+              46.9,
+              46.9,
+              46.7,
+              47
+            ],
+            "memory_complete": true,
+            "samples_min": 18,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.3
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.03284103037470794,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18292,
+            "sha256": "8320428c80977b6b60325138c1edaabafe10bac600f85d2fe863bb61fcb66170"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 27.2,
+              "p90": 30.3,
+              "min": 25.8,
+              "max": 30.3,
+              "mean": 27.4,
+              "stdev": 1.8
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 44.8,
+              "p90": 45.9,
+              "min": 44.7,
+              "max": 45.9,
+              "mean": 45,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 46.8,
+              "p90": 47.9,
+              "min": 46.7,
+              "max": 47.9,
+              "mean": 47,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 47,
+              "p90": 48.1,
+              "min": 46.9,
+              "max": 48.1,
+              "mean": 47.4,
+              "stdev": 0.6
+            },
+            "wall_ms_runs": [
+              27.17,
+              26.16,
+              25.75,
+              30.3,
+              27.43
+            ],
+            "peak_pss_mb_runs": [
+              44.8,
+              45,
+              44.7,
+              44.7,
+              45.9
+            ],
+            "peak_rss_mb_runs": [
+              46.8,
+              47,
+              46.7,
+              46.7,
+              47.9
+            ],
+            "max_rss_mb_runs": [
+              47.9,
+              48.1,
+              46.9,
+              46.9,
+              47
+            ],
+            "memory_complete": true,
+            "samples_min": 19,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.3
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/d3-charts/page",
+      "set": "real-world",
+      "fixture": "d3-charts",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pixelmatch_ink": 0.42998209423307165,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 13592,
+            "sha256": "443dfafb60bad8328eaa608276484c0ca6132cced1338768afa590afaa8c1a39"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 43.1,
+              "p90": 45.3,
+              "min": 32.4,
+              "max": 45.3,
+              "mean": 39.7,
+              "stdev": 6.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 37.9,
+              "p90": 38.1,
+              "min": 37.9,
+              "max": 38.1,
+              "mean": 37.9,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 39.9,
+              "p90": 40.1,
+              "min": 39.9,
+              "max": 40.1,
+              "mean": 40,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40,
+              "p90": 40.1,
+              "min": 39.9,
+              "max": 40.1,
+              "mean": 40,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              43.1,
+              32.39,
+              32.67,
+              45.26,
+              45.29
+            ],
+            "peak_pss_mb_runs": [
+              37.9,
+              37.9,
+              37.9,
+              37.9,
+              38.1
+            ],
+            "peak_rss_mb_runs": [
+              39.9,
+              39.9,
+              40,
+              39.9,
+              40.1
+            ],
+            "max_rss_mb_runs": [
+              40,
+              40,
+              40,
+              39.9,
+              40.1
+            ],
+            "memory_complete": true,
+            "samples_min": 22,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.48
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pixelmatch_ink": 0.42998209423307165,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 13670,
+            "sha256": "b2468630b97b653bd51530ed42fe1aa49e8bd5a1af253fda685943d6838dab82"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 45.4,
+              "p90": 49,
+              "min": 31.5,
+              "max": 49,
+              "mean": 40.9,
+              "stdev": 8.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.2,
+              "p90": 39,
+              "min": 38.1,
+              "max": 39,
+              "mean": 38.5,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.2,
+              "p90": 41,
+              "min": 40.1,
+              "max": 41,
+              "mean": 40.5,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 41.1,
+              "p90": 41.2,
+              "min": 40.1,
+              "max": 41.2,
+              "mean": 40.8,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              45.43,
+              31.53,
+              31.6,
+              48.95,
+              46.81
+            ],
+            "peak_pss_mb_runs": [
+              38.2,
+              38.2,
+              38.1,
+              39,
+              39
+            ],
+            "peak_rss_mb_runs": [
+              40.1,
+              40.2,
+              40.1,
+              41,
+              41
+            ],
+            "max_rss_mb_runs": [
+              40.3,
+              40.1,
+              41.1,
+              41.2,
+              41.1
+            ],
+            "memory_complete": true,
+            "samples_min": 25,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.42
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/d3-charts/floor",
+      "set": "real-world",
+      "fixture": "d3-charts",
+      "what": "floor",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pixelmatch_ink": 0.42998209423307165,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 13592,
+            "sha256": "443dfafb60bad8328eaa608276484c0ca6132cced1338768afa590afaa8c1a39"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 32,
+              "p90": 34.5,
+              "min": 30.5,
+              "max": 34.5,
+              "mean": 32.3,
+              "stdev": 1.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 37.9,
+              "p90": 38,
+              "min": 37.7,
+              "max": 38,
+              "mean": 37.9,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 39.9,
+              "p90": 40,
+              "min": 39.7,
+              "max": 40,
+              "mean": 39.8,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 39.9,
+              "p90": 40.2,
+              "min": 39.8,
+              "max": 40.2,
+              "mean": 40,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              34.54,
+              31.98,
+              33.11,
+              30.53,
+              31.12
+            ],
+            "peak_pss_mb_runs": [
+              38,
+              37.7,
+              37.9,
+              37.8,
+              38
+            ],
+            "peak_rss_mb_runs": [
+              39.9,
+              39.7,
+              39.9,
+              39.7,
+              40
+            ],
+            "max_rss_mb_runs": [
+              40.2,
+              39.8,
+              40.1,
+              39.8,
+              39.9
+            ],
+            "memory_complete": true,
+            "samples_min": 25,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pixelmatch_ink": 0.42998209423307165,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 13670,
+            "sha256": "b2468630b97b653bd51530ed42fe1aa49e8bd5a1af253fda685943d6838dab82"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 32.2,
+              "p90": 33.2,
+              "min": 31,
+              "max": 33.2,
+              "mean": 32.3,
+              "stdev": 0.9
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.2,
+              "p90": 38.2,
+              "min": 38.1,
+              "max": 38.2,
+              "mean": 38.2,
+              "stdev": 0
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.1,
+              "p90": 40.2,
+              "min": 40.1,
+              "max": 40.2,
+              "mean": 40.1,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 40.3,
+              "p90": 41.2,
+              "min": 40.1,
+              "max": 41.2,
+              "mean": 40.5,
+              "stdev": 0.4
+            },
+            "wall_ms_runs": [
+              32.24,
+              31.89,
+              31.04,
+              33.18,
+              33.12
+            ],
+            "peak_pss_mb_runs": [
+              38.2,
+              38.2,
+              38.2,
+              38.2,
+              38.1
+            ],
+            "peak_rss_mb_runs": [
+              40.1,
+              40.1,
+              40.2,
+              40.2,
+              40.1
+            ],
+            "max_rss_mb_runs": [
+              41.2,
+              40.1,
+              40.3,
+              40.5,
+              40.3
+            ],
+            "memory_complete": true,
+            "samples_min": 26,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/highlightjs-code/page",
+      "set": "real-world",
+      "fixture": "highlightjs-code",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.17796644761010655,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18521,
+            "sha256": "9a1e10e185604ed4ede2e6b824d1d8d8c69a46c16fb694955dafabb90aae39c5"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 24.6,
+              "p90": 30.9,
+              "min": 22.9,
+              "max": 30.9,
+              "mean": 25.2,
+              "stdev": 3.3
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 37.1,
+              "p90": 37.3,
+              "min": 36.6,
+              "max": 37.3,
+              "mean": 37,
+              "stdev": 0.3
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 39.1,
+              "p90": 39.2,
+              "min": 38.6,
+              "max": 39.2,
+              "mean": 39,
+              "stdev": 0.3
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 39.3,
+              "p90": 39.4,
+              "min": 39.1,
+              "max": 39.4,
+              "mean": 39.2,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              30.92,
+              24.67,
+              23.06,
+              24.6,
+              22.87
+            ],
+            "peak_pss_mb_runs": [
+              36.8,
+              36.6,
+              37.1,
+              37.3,
+              37.2
+            ],
+            "peak_rss_mb_runs": [
+              38.8,
+              38.6,
+              39.1,
+              39.2,
+              39.2
+            ],
+            "max_rss_mb_runs": [
+              39.3,
+              39.3,
+              39.1,
+              39.4,
+              39.1
+            ],
+            "memory_complete": true,
+            "samples_min": 16,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.17796644761010655,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18600,
+            "sha256": "1f3279b07ef0f82450355dd0449ad949d1af41fff9bf522503e08af57da93b96"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 25.2,
+              "p90": 30.1,
+              "min": 23.9,
+              "max": 30.1,
+              "mean": 25.9,
+              "stdev": 2.5
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 38.3,
+              "p90": 38.5,
+              "min": 37.2,
+              "max": 38.5,
+              "mean": 37.9,
+              "stdev": 0.7
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 40.2,
+              "p90": 40.5,
+              "min": 39.1,
+              "max": 40.5,
+              "mean": 39.9,
+              "stdev": 0.7
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 39.4,
+              "p90": 40.3,
+              "min": 39.2,
+              "max": 40.3,
+              "mean": 39.7,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              30.15,
+              25.2,
+              23.94,
+              26.03,
+              24.42
+            ],
+            "peak_pss_mb_runs": [
+              38.3,
+              37.2,
+              38.5,
+              37.2,
+              38.4
+            ],
+            "peak_rss_mb_runs": [
+              40.2,
+              39.2,
+              40.5,
+              39.1,
+              40.4
+            ],
+            "max_rss_mb_runs": [
+              40.3,
+              40.2,
+              39.2,
+              39.4,
+              39.3
+            ],
+            "memory_complete": true,
+            "samples_min": 18,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.32
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/highlightjs-code/floor",
+      "set": "real-world",
+      "fixture": "highlightjs-code",
+      "what": "floor",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.17796644761010655,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18521,
+            "sha256": "9a1e10e185604ed4ede2e6b824d1d8d8c69a46c16fb694955dafabb90aae39c5"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 23.5,
+              "p90": 24.2,
+              "min": 20.4,
+              "max": 24.2,
+              "mean": 22.4,
+              "stdev": 1.8
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 37.1,
+              "p90": 37.2,
+              "min": 36.9,
+              "max": 37.2,
+              "mean": 37.1,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 39,
+              "p90": 39.1,
+              "min": 38.8,
+              "max": 39.1,
+              "mean": 39,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 39.2,
+              "p90": 39.4,
+              "min": 39,
+              "max": 39.4,
+              "mean": 39.2,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              23.51,
+              24.2,
+              23.62,
+              20.43,
+              20.46
+            ],
+            "peak_pss_mb_runs": [
+              37,
+              36.9,
+              37.1,
+              37.2,
+              37.1
+            ],
+            "peak_rss_mb_runs": [
+              39,
+              38.8,
+              39.1,
+              39.1,
+              39
+            ],
+            "max_rss_mb_runs": [
+              39.2,
+              39,
+              39.2,
+              39.2,
+              39.4
+            ],
+            "memory_complete": true,
+            "samples_min": 18,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.38
+          }
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.17796644761010655,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 18600,
+            "sha256": "1f3279b07ef0f82450355dd0449ad949d1af41fff9bf522503e08af57da93b96"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 24.9,
+              "p90": 27.4,
+              "min": 22.6,
+              "max": 27.4,
+              "mean": 25,
+              "stdev": 2.3
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 37.2,
+              "p90": 38.4,
+              "min": 37.2,
+              "max": 38.4,
+              "mean": 37.5,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 39.2,
+              "p90": 40.4,
+              "min": 39.1,
+              "max": 40.4,
+              "mean": 39.5,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 39.4,
+              "p90": 40.4,
+              "min": 39.4,
+              "max": 40.4,
+              "mean": 39.8,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              27.36,
+              24.89,
+              22.77,
+              22.55,
+              27.34
+            ],
+            "peak_pss_mb_runs": [
+              38.4,
+              37.2,
+              37.4,
+              37.2,
+              37.2
+            ],
+            "peak_rss_mb_runs": [
+              40.4,
+              39.2,
+              39.4,
+              39.1,
+              39.2
+            ],
+            "max_rss_mb_runs": [
+              39.4,
+              39.4,
+              40.4,
+              40.3,
+              39.4
+            ],
+            "memory_complete": true,
+            "samples_min": 18,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/katex-autorender/page",
+      "set": "real-world",
+      "fixture": "katex-autorender",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.8518518518518519,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.30501201510470305,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 65831,
+            "sha256": "d490a798528e93aa06e5a5ebe4086132fbafafefb6e34f7903ba0e8c35950b47"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 49.3,
+              "p90": 59.9,
+              "min": 46.9,
+              "max": 59.9,
+              "mean": 50.8,
+              "stdev": 5.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 50.4,
+              "p90": 50.6,
+              "min": 50.1,
+              "max": 50.6,
+              "mean": 50.3,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 52.2,
+              "p90": 52.4,
+              "min": 51.9,
+              "max": 52.4,
+              "mean": 52.2,
+              "stdev": 0.3
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 52.4,
+              "p90": 52.5,
+              "min": 51.8,
+              "max": 52.5,
+              "mean": 52.3,
+              "stdev": 0.3
+            },
+            "wall_ms_runs": [
+              49.28,
+              48.27,
+              46.94,
+              59.88,
+              49.46
+            ],
+            "peak_pss_mb_runs": [
+              50.5,
+              50.6,
+              50.4,
+              50.1,
+              50.1
+            ],
+            "peak_rss_mb_runs": [
+              52.4,
+              52.4,
+              52.2,
+              51.9,
+              51.9
+            ],
+            "max_rss_mb_runs": [
+              52.4,
+              51.8,
+              52.2,
+              52.4,
+              52.5
+            ],
+            "memory_complete": true,
+            "samples_min": 35,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.46
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.8518518518518519,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.30501201510470305,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 65909,
+            "sha256": "f517b6e4b598ce3ee6940e6ca0ad77989ab4f21d09ea3abb2c256a8ae321ad9e"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 49.3,
+              "p90": 58.5,
+              "min": 49.2,
+              "max": 58.5,
+              "mean": 52.4,
+              "stdev": 4.4
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 50.4,
+              "p90": 50.9,
+              "min": 49.9,
+              "max": 50.9,
+              "mean": 50.4,
+              "stdev": 0.4
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 52.2,
+              "p90": 52.7,
+              "min": 51.7,
+              "max": 52.7,
+              "mean": 52.2,
+              "stdev": 0.4
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 52.2,
+              "p90": 52.5,
+              "min": 51.3,
+              "max": 52.5,
+              "mean": 52,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              49.29,
+              49.28,
+              49.21,
+              55.86,
+              58.5
+            ],
+            "peak_pss_mb_runs": [
+              49.9,
+              50.7,
+              50.9,
+              50.4,
+              50.1
+            ],
+            "peak_rss_mb_runs": [
+              51.7,
+              52.5,
+              52.7,
+              52.2,
+              51.9
+            ],
+            "max_rss_mb_runs": [
+              52.5,
+              51.7,
+              52.5,
+              52.2,
+              51.3
+            ],
+            "memory_complete": true,
+            "samples_min": 35,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.42
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/katex-autorender/floor",
+      "set": "real-world",
+      "fixture": "katex-autorender",
+      "what": "floor",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.8518518518518519,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.30501201510470305,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 65831,
+            "sha256": "d490a798528e93aa06e5a5ebe4086132fbafafefb6e34f7903ba0e8c35950b47"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 48.5,
+              "p90": 50.6,
+              "min": 46.2,
+              "max": 50.6,
+              "mean": 48.7,
+              "stdev": 1.7
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 50.2,
+              "p90": 50.4,
+              "min": 50.1,
+              "max": 50.4,
+              "mean": 50.2,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 52,
+              "p90": 52.2,
+              "min": 52,
+              "max": 52.2,
+              "mean": 52.1,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 52.1,
+              "p90": 52.3,
+              "min": 51.8,
+              "max": 52.3,
+              "mean": 52.1,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              50.06,
+              46.18,
+              50.61,
+              48.16,
+              48.53
+            ],
+            "peak_pss_mb_runs": [
+              50.4,
+              50.1,
+              50.2,
+              50.2,
+              50.3
+            ],
+            "peak_rss_mb_runs": [
+              52.2,
+              52,
+              52,
+              52,
+              52.1
+            ],
+            "max_rss_mb_runs": [
+              52.3,
+              52,
+              51.8,
+              52.1,
+              52.2
+            ],
+            "memory_complete": true,
+            "samples_min": 36,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.38
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.8518518518518519,
+          "colour": 0,
+          "hue": 0,
+          "pixelmatch_ink": 0.30501201510470305,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 65909,
+            "sha256": "f517b6e4b598ce3ee6940e6ca0ad77989ab4f21d09ea3abb2c256a8ae321ad9e"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 49.6,
+              "p90": 50.8,
+              "min": 48,
+              "max": 50.8,
+              "mean": 49.2,
+              "stdev": 1.1
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 50.5,
+              "p90": 50.7,
+              "min": 49.5,
+              "max": 50.7,
+              "mean": 50.3,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 52.3,
+              "p90": 52.5,
+              "min": 51.3,
+              "max": 52.5,
+              "mean": 52.2,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 52.3,
+              "p90": 52.4,
+              "min": 51.4,
+              "max": 52.4,
+              "mean": 52,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              50.79,
+              49.58,
+              48.22,
+              48.02,
+              49.63
+            ],
+            "peak_pss_mb_runs": [
+              50.5,
+              50.6,
+              50.4,
+              50.7,
+              49.5
+            ],
+            "peak_rss_mb_runs": [
+              52.3,
+              52.5,
+              52.3,
+              52.5,
+              51.3
+            ],
+            "max_rss_mb_runs": [
+              51.4,
+              52.4,
+              52.3,
+              52.3,
+              51.4
+            ],
+            "memory_complete": true,
+            "samples_min": 33,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.42
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/marked-report/page",
+      "set": "real-world",
+      "fixture": "marked-report",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 0.675,
+          "colour": 0.8481012658227848,
+          "hue": 1,
+          "pixelmatch_ink": 0.07906198544643331,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 29855,
+            "sha256": "31e62022947a9ba01922fd22feb7047e7581a5dfed07b2adea743c0644d60b68"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 33.3,
+              "p90": 42,
+              "min": 31.5,
+              "max": 42,
+              "mean": 34.6,
+              "stdev": 4.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 51.3,
+              "p90": 52.1,
+              "min": 50.8,
+              "max": 52.1,
+              "mean": 51.4,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 53.1,
+              "p90": 53.9,
+              "min": 52.6,
+              "max": 53.9,
+              "mean": 53.2,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 54.1,
+              "p90": 54.3,
+              "min": 53.7,
+              "max": 54.3,
+              "mean": 54,
+              "stdev": 0.3
+            },
+            "wall_ms_runs": [
+              31.46,
+              33.3,
+              32.68,
+              33.33,
+              42.04
+            ],
+            "peak_pss_mb_runs": [
+              51.6,
+              51.3,
+              51,
+              50.8,
+              52.1
+            ],
+            "peak_rss_mb_runs": [
+              53.4,
+              53.1,
+              52.8,
+              52.6,
+              53.9
+            ],
+            "max_rss_mb_runs": [
+              54.2,
+              53.7,
+              53.8,
+              54.3,
+              54.1
+            ],
+            "memory_complete": true,
+            "samples_min": 23,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 0.675,
+          "colour": 0.8481012658227848,
+          "hue": 1,
+          "pixelmatch_ink": 0.07906198544643331,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 29933,
+            "sha256": "8ee70f16acc880f1d85dc0dea4a0860bc5c2beee4d9e76e68fa33210ef5bda60"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 32.9,
+              "p90": 39,
+              "min": 32.8,
+              "max": 39,
+              "mean": 34.5,
+              "stdev": 2.7
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 52,
+              "p90": 52.2,
+              "min": 50.9,
+              "max": 52.2,
+              "mean": 51.8,
+              "stdev": 0.5
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 53.9,
+              "p90": 54,
+              "min": 52.8,
+              "max": 54,
+              "mean": 53.7,
+              "stdev": 0.5
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 53.9,
+              "p90": 53.9,
+              "min": 53.8,
+              "max": 53.9,
+              "mean": 53.9,
+              "stdev": 0.1
+            },
+            "wall_ms_runs": [
+              32.84,
+              32.94,
+              32.83,
+              34.84,
+              38.98
+            ],
+            "peak_pss_mb_runs": [
+              52.1,
+              50.9,
+              52.2,
+              51.9,
+              52
+            ],
+            "peak_rss_mb_runs": [
+              53.9,
+              52.8,
+              54,
+              53.8,
+              53.9
+            ],
+            "max_rss_mb_runs": [
+              53.8,
+              53.9,
+              53.9,
+              53.9,
+              53.8
+            ],
+            "memory_complete": true,
+            "samples_min": 24,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.36
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/marked-report/floor",
+      "set": "real-world",
+      "fixture": "marked-report",
+      "what": "floor",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 0.675,
+          "colour": 0.8481012658227848,
+          "hue": 1,
+          "pixelmatch_ink": 0.07906198544643331,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 29855,
+            "sha256": "31e62022947a9ba01922fd22feb7047e7581a5dfed07b2adea743c0644d60b68"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 31.9,
+              "p90": 34,
+              "min": 30.8,
+              "max": 34,
+              "mean": 32.2,
+              "stdev": 1.2
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 51.9,
+              "p90": 52.4,
+              "min": 51.3,
+              "max": 52.4,
+              "mean": 51.9,
+              "stdev": 0.4
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 53.8,
+              "p90": 54.2,
+              "min": 53.1,
+              "max": 54.2,
+              "mean": 53.7,
+              "stdev": 0.4
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 54,
+              "p90": 54.3,
+              "min": 53.8,
+              "max": 54.3,
+              "mean": 54,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              33.96,
+              31.94,
+              32.49,
+              30.78,
+              31.6
+            ],
+            "peak_pss_mb_runs": [
+              51.7,
+              52.1,
+              52.4,
+              51.9,
+              51.3
+            ],
+            "peak_rss_mb_runs": [
+              53.6,
+              54,
+              54.2,
+              53.8,
+              53.1
+            ],
+            "max_rss_mb_runs": [
+              54.1,
+              53.9,
+              53.8,
+              54.3,
+              54
+            ],
+            "memory_complete": true,
+            "samples_min": 25,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.32
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 0.675,
+          "colour": 0.8481012658227848,
+          "hue": 1,
+          "pixelmatch_ink": 0.07906198544643331,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 29933,
+            "sha256": "8ee70f16acc880f1d85dc0dea4a0860bc5c2beee4d9e76e68fa33210ef5bda60"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 32.6,
+              "p90": 34.7,
+              "min": 31.2,
+              "max": 34.7,
+              "mean": 33,
+              "stdev": 1.7
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 51.9,
+              "p90": 52.5,
+              "min": 50.7,
+              "max": 52.5,
+              "mean": 51.9,
+              "stdev": 0.7
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 53.7,
+              "p90": 54.4,
+              "min": 52.5,
+              "max": 54.4,
+              "mean": 53.7,
+              "stdev": 0.8
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 54,
+              "p90": 54,
+              "min": 53.9,
+              "max": 54,
+              "mean": 54,
+              "stdev": 0
+            },
+            "wall_ms_runs": [
+              31.61,
+              31.19,
+              34.65,
+              32.65,
+              34.69
+            ],
+            "peak_pss_mb_runs": [
+              52.5,
+              50.7,
+              52.4,
+              51.9,
+              51.9
+            ],
+            "peak_rss_mb_runs": [
+              54.4,
+              52.5,
+              54.3,
+              53.7,
+              53.7
+            ],
+            "max_rss_mb_runs": [
+              54,
+              54,
+              54,
+              53.9,
+              54
+            ],
+            "memory_complete": true,
+            "samples_min": 23,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.4
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/noscript-message/page",
+      "set": "real-world",
+      "fixture": "noscript-message",
+      "what": "page",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ],
+        "sampled_first": [
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 0,
+          "hue": 1,
+          "pixelmatch_ink": 0.33348691485440474,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 11336,
+            "sha256": "638e56af2e1a3222f48361421af1eaa9d61f8942fce8f373a3a42dff91c6508c"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 19.3,
+              "p90": 20.2,
+              "min": 18.4,
+              "max": 20.2,
+              "mean": 19.2,
+              "stdev": 0.8
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 36.6,
+              "p90": 36.8,
+              "min": 36.2,
+              "max": 36.8,
+              "mean": 36.5,
+              "stdev": 0.2
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 38.5,
+              "p90": 38.8,
+              "min": 38.1,
+              "max": 38.8,
+              "mean": 38.5,
+              "stdev": 0.3
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 38.6,
+              "p90": 38.8,
+              "min": 38.4,
+              "max": 38.8,
+              "mean": 38.6,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              20.24,
+              19.78,
+              19.32,
+              18.53,
+              18.35
+            ],
+            "peak_pss_mb_runs": [
+              36.2,
+              36.6,
+              36.6,
+              36.5,
+              36.8
+            ],
+            "peak_rss_mb_runs": [
+              38.1,
+              38.5,
+              38.6,
+              38.4,
+              38.8
+            ],
+            "max_rss_mb_runs": [
+              38.6,
+              38.4,
+              38.8,
+              38.8,
+              38.5
+            ],
+            "memory_complete": true,
+            "samples_min": 13,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.3
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 0,
+          "hue": 1,
+          "pixelmatch_ink": 0.33348691485440474,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 11414,
+            "sha256": "659778170e29fe9f37adbd37d6a29222a34e6c6a3dd4401919801a360bac07e7"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 19.8,
+              "p90": 21.4,
+              "min": 19.2,
+              "max": 21.4,
+              "mean": 19.9,
+              "stdev": 0.9
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 36.7,
+              "p90": 36.8,
+              "min": 36.5,
+              "max": 36.8,
+              "mean": 36.7,
+              "stdev": 0.1
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 38.7,
+              "p90": 38.7,
+              "min": 38.4,
+              "max": 38.7,
+              "mean": 38.6,
+              "stdev": 0.1
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 39.8,
+              "p90": 40,
+              "min": 38.8,
+              "max": 40,
+              "mean": 39.6,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              21.45,
+              19.2,
+              19.83,
+              19.38,
+              19.8
+            ],
+            "peak_pss_mb_runs": [
+              36.8,
+              36.5,
+              36.8,
+              36.6,
+              36.7
+            ],
+            "peak_rss_mb_runs": [
+              38.7,
+              38.4,
+              38.7,
+              38.6,
+              38.7
+            ],
+            "max_rss_mb_runs": [
+              39.8,
+              39.9,
+              38.8,
+              40,
+              39.6
+            ],
+            "memory_complete": true,
+            "samples_min": 12,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.3
+          }
+        }
+      }
+    },
+    {
+      "key": "real-world/noscript-message/floor",
+      "set": "real-world",
+      "fixture": "noscript-message",
+      "what": "floor",
+      "differs": false,
+      "print_order": {
+        "warmup_rounds": 1,
+        "timed_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ],
+        "sampled_first": [
+          "0.40.0",
+          "0.41.0",
+          "0.40.0",
+          "0.41.0",
+          "0.40.0"
+        ]
+      },
+      "pixels_identical": true,
+      "pdf_identical": false,
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 0,
+          "hue": 1,
+          "pixelmatch_ink": 0.33348691485440474,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 11336,
+            "sha256": "638e56af2e1a3222f48361421af1eaa9d61f8942fce8f373a3a42dff91c6508c"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 17.9,
+              "p90": 20.4,
+              "min": 17.8,
+              "max": 20.4,
+              "mean": 18.5,
+              "stdev": 1.1
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 36.5,
+              "p90": 36.9,
+              "min": 36,
+              "max": 36.9,
+              "mean": 36.5,
+              "stdev": 0.4
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 38.4,
+              "p90": 38.8,
+              "min": 37.9,
+              "max": 38.8,
+              "mean": 38.4,
+              "stdev": 0.4
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 38.8,
+              "p90": 38.8,
+              "min": 38.4,
+              "max": 38.8,
+              "mean": 38.7,
+              "stdev": 0.2
+            },
+            "wall_ms_runs": [
+              20.43,
+              17.95,
+              18.5,
+              17.83,
+              17.79
+            ],
+            "peak_pss_mb_runs": [
+              36.2,
+              36,
+              36.9,
+              36.5,
+              36.9
+            ],
+            "peak_rss_mb_runs": [
+              38.2,
+              37.9,
+              38.8,
+              38.4,
+              38.8
+            ],
+            "max_rss_mb_runs": [
+              38.8,
+              38.8,
+              38.5,
+              38.4,
+              38.8
+            ],
+            "memory_complete": true,
+            "samples_min": 14,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.32
+          }
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 0,
+          "hue": 1,
+          "pixelmatch_ink": 0.33348691485440474,
+          "pages": {
+            "chrome": 1,
+            "surimono": 1
+          },
+          "size": [
+            794,
+            1123
+          ],
+          "chrome_size": [
+            794,
+            1123
+          ],
+          "pdf": {
+            "bytes": 11414,
+            "sha256": "659778170e29fe9f37adbd37d6a29222a34e6c6a3dd4401919801a360bac07e7"
+          },
+          "print": {
+            "runs": 5,
+            "wall_ms": {
+              "n": 5,
+              "median": 18,
+              "p90": 19.3,
+              "min": 17.7,
+              "max": 19.3,
+              "mean": 18.3,
+              "stdev": 0.6
+            },
+            "peak_pss_mb": {
+              "n": 5,
+              "median": 36.8,
+              "p90": 38,
+              "min": 36.6,
+              "max": 38,
+              "mean": 37.2,
+              "stdev": 0.7
+            },
+            "peak_rss_mb": {
+              "n": 5,
+              "median": 38.7,
+              "p90": 39.9,
+              "min": 38.6,
+              "max": 39.9,
+              "mean": 39.1,
+              "stdev": 0.7
+            },
+            "max_rss_mb": {
+              "n": 5,
+              "median": 39.8,
+              "p90": 39.9,
+              "min": 38.8,
+              "max": 39.9,
+              "mean": 39.5,
+              "stdev": 0.5
+            },
+            "wall_ms_runs": [
+              19.26,
+              18.59,
+              18.04,
+              17.95,
+              17.72
+            ],
+            "peak_pss_mb_runs": [
+              36.6,
+              36.8,
+              36.7,
+              38,
+              37.9
+            ],
+            "peak_rss_mb_runs": [
+              38.6,
+              38.7,
+              38.6,
+              39.9,
+              39.9
+            ],
+            "max_rss_mb_runs": [
+              39.8,
+              39.8,
+              38.8,
+              39.9,
+              39
+            ],
+            "memory_complete": true,
+            "samples_min": 13,
+            "sample_interval_ms": 1,
+            "mean_sample_interval_ms": 1.38
+          }
+        }
+      }
+    }
+  ]
+}

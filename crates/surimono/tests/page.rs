@@ -253,14 +253,25 @@ fn the_report_says_what_went_wrong() {
     assert!(out.html.contains("id=\"after\""), "{}", out.html);
 }
 
+/// The page after each failure has to succeed under the same limits, so the
+/// time limits scale like every limit a page must stay under. The endless
+/// loops reach theirs whatever it is.
+///
+/// P2-RT-10: at an unscaled 200 ms that page ran out of time in 3 of 11 ASan
+/// runs. What follows a page's scripts has one deadline (two fresh contexts,
+/// the bindings, the clean-up, the output), about 10 ms of work in a plain
+/// debug build and the first thing to pass the limit as it shrinks.
 #[test]
 fn limits_are_typed_and_the_renderer_carries_on() {
+    let quick_time = Duration::from_millis(200) * time_scale();
     let quick = renderer(options().limits(Limits {
-        time: Duration::from_millis(200),
+        time: quick_time,
         ..Limits::default()
     }));
+    let small_time = Limits::default().time * time_scale();
     let small = renderer(options().limits(Limits {
         memory_bytes: 8 << 20,
+        time: small_time,
         ..Limits::default()
     }));
     for (r, html, kind) in [
@@ -294,12 +305,19 @@ fn limits_are_typed_and_the_renderer_carries_on() {
             }
             Ok(out) => panic!("{html}: expected {kind}, got {out:?}"),
         }
-        assert_eq!(
-            page(r, "<script>document.title = 'y';</script>")
-                .report
-                .uncaught,
-            0
-        );
+        // Says after which failure and how long it took: the error alone
+        // doesn't.
+        let started = Instant::now();
+        let next = r
+            .render_page("<script>document.title = 'y';</script>")
+            .unwrap_or_else(|e| {
+                panic!(
+                    "the page after {kind} ({html}) failed after {:?} (time limits: \
+                     {quick_time:?} after a time limit, {small_time:?} after the others): {e}",
+                    started.elapsed()
+                )
+            });
+        assert_eq!(next.report.uncaught, 0);
     }
     assert!(matches!(
         quick.render_page("<script>for (;;) {}</script>"),
@@ -431,8 +449,10 @@ fn one_render_leaves_nothing_for_the_next() {
 
 #[test]
 fn a_cancel_ends_the_call_at_once() {
+    // Pages succeed under this limit, so it scales; a cancel has to end the
+    // loop below well before it either way.
     let r = renderer(options().pool_size(1).limits(Limits {
-        time: Duration::from_millis(600),
+        time: Duration::from_millis(600) * time_scale(),
         ..Limits::default()
     }));
     let cancel = AtomicBool::new(true);

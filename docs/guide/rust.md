@@ -423,17 +423,24 @@ the function runs on your thread, so the flag is looked at when it returns.
 - A script a script inserts doesn't run, so script loaders do nothing.
 - `type="module"` scripts don't run; `nomodule` scripts do.
 - There is no `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
-  `matchMedia`, `ResizeObserver` or `IntersectionObserver`.
-- There is no `navigator`, `URL`, `URLSearchParams`, `TextEncoder`, `atob`,
-  `btoa`, `Intl`, `structuredClone`, `customElements` or shadow DOM.
-- Many element helpers are missing, among them `innerText`, `focus`, a table's
-  `insertRow` and `rows`, a `<select>`'s `options` and a form's `elements`.
-  `textContent`, `createElement` and `append` work. Calling a missing method
-  stops that script, with `TypeError: not a function` in the report.
+  `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `Intl` or shadow DOM.
+  Calling a missing method stops that script, with `TypeError: not a function`
+  in the report.
 - `document.write` doesn't exist, so the script that calls it stops there.
+- `innerText` sees no stylesheet until phase 3: it follows `hidden`, an inline
+  `display: none` and each element's default display, so text a stylesheet
+  hides is still in it.
+- `document.cookie` is empty, and a write does nothing.
+- `focus()` sets `document.activeElement`, but `:focus` doesn't match.
+- `customElements` is a registry only: `define`, `get` and `whenDefined` work,
+  but a defined element is never constructed or upgraded, so its class's code
+  doesn't run.
+- `navigator` is fixed values, the same on every machine: user agent
+  `Mozilla/5.0 (compatible; surimono)`, language `en-US`, an empty `platform`,
+  `onLine` and `cookieEnabled` false, `hardwareConcurrency` 1.
 - A `<canvas>` has no `getContext`; canvas drawing is planned for phase 3.
-- Images aren't loaded for a page: no `load` or `error` event fires for one, and
-  there is no `Image` constructor. `src` stays for the printer.
+- Images aren't loaded for a page: no `load` or `error` event fires for one,
+  `new Image()` included. `src` stays for the printer.
 
 [docs/COMPAT.md](../COMPAT.md) has the full list, with the test behind each row.
 

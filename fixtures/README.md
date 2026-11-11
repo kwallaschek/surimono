@@ -9,6 +9,7 @@ or WPT, never from surimono's own output. Owned by the conformance researcher.
 | `islands/<name>/` | Visual fixtures for phase 1: a page with chart islands, plus its Chrome references. |
 | `real-world/<name>/` | Phase 2 pages whose own scripts run (marked, highlight.js, KaTeX, Alpine.js, D3, and `noscript-message`, with an inline script and no library), plus their Chrome references. Libraries are vendored unmodified in `real-world/lib/` and pinned in `real-world/manifest.toml`. |
 | `tools/` | The Chrome reference pipeline, the comparison tool and the fixture generator (Node, pinned by `package-lock.json`). |
+| `checkpoint-2/`, `checkpoint-3/`, `printers/` | Committed runs: the island fixtures and the real-world pages against Chrome, and the same pages printed by two versions of fulgur. Each has a hand-written `NOTES.md`. |
 
 ## Island fixture format
 
@@ -120,6 +121,50 @@ node fixtures/tools/print-pages.mjs --out DIR --check <target>/release/surimono-
 - **Fonts.** fulgur 0.40.0 doesn't load `@font-face` URLs, so `print_fonts` passes
   a page's own fonts with `--font`, as a user has to.
 
+### The printer matrix
+
+`fixtures/tools/printers.mjs` prints the same pages with several versions of fulgur
+and lays the verdicts side by side: every island fixture (surimono's page, and each
+island's SVG alone) and every real-world page (surimono's output, and the floor). It
+scores nothing itself. For each printer it runs `checkpoint.mjs --no-chrome` and
+`print-pages.mjs` with `--fulgur <binary>`, so the pages, the fonts, the references,
+the metric and the pass rule are the ones above, and the printer is the only thing
+that changes. `fixtures/printers/` holds a run, and its `NOTES.md` says what the
+newer printer closes and opens.
+
+```
+cargo install fulgur-cli --version =0.40.0 --locked --root <A>     # one root per version
+cargo install fulgur-cli --version =0.41.0 --locked --root <B>
+cargo build --release -p surimono-cli --locked
+cargo build --release --manifest-path fixtures/tools/page-check/Cargo.toml --locked
+node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono \
+  --check <target>/release/surimono-page-check --commit SHA \
+  --printer 0.40.0=<A>/bin/fulgur --printer 0.41.0=<B>/bin/fulgur
+```
+
+- **Time and memory.** After the scores, printers.mjs prints every page again with
+  the printers taking turns (`bench/tools/measure.py --commands`): a round prints
+  the page once with each printer, one round isn't measured, then come `--runs`
+  timed rounds (5 by default; wall clock from spawn to exit, not sampled) and as
+  many sampled ones (the peak of summed PSS over the process tree, the Grover
+  benchmark's sampler). Who starts moves on every round and every page. Measured
+  one printer after the other, the order of the run shows up as a difference. The
+  median of each is reported, every single run is in `printers.json`, and
+  `against_first` (the table "Time and memory against …" in `index.md`) sets each
+  printer against the first: the difference per page, and on how many pages every
+  run of one lies outside the other's. A print takes about 30 to 50 ms, so the
+  sampler runs every millisecond here, not every 10 ms as in the benchmark; the
+  kernel's own peak RSS of the process (`max_rss_mb`) is in the JSON beside it.
+  `--measure N` on either pipeline measures its one printer the same way, alone.
+- **What differs.** A cell differs between two printers when its verdict or one of
+  its scores, as printed, differs; only those cells get an image (Chrome, then each
+  printer). `pixels_identical` says whether two printers put the same pixels on a
+  page at 96 dpi, whatever the scores say, and `pdf_identical` whether they wrote
+  the same file.
+- **A printer that dies.** A printer gets 120 s per page. One that exits with an
+  error, is killed by a signal or runs out of time leaves a failing score that says
+  which, never a missing cell.
+
 ### Hostile scripts as pages
 
 `surimono-page-check hostile` runs `hostile/manifest.toml` through `render_page`, each
@@ -142,6 +187,7 @@ automatically the first time.
 | `fixtures/tools/compare.sh <fixture> <pdf> <out>` | Compares a surimono + fulgur PDF with the page references. |
 | `fixtures/tools/compare.sh --island I [--printer chrome\|fulgur] <fixture> <svg> <out>` | Compares one island SVG from surimono with `island-I.png`. With `--printer chrome` (default) Chrome draws both sides, so the score measures surimono's SVG alone. With `--printer fulgur` it also includes fulgur's SVG printing. |
 | `fixtures/tools/fulgur-baseline.sh <out>` | fulgur prints Chrome's own SVGs (`prepass.html` and each island alone). The score is the floor surimono + fulgur can reach. Needs `fulgur` 0.40.0 on PATH or `$FULGUR`. |
+| `node fixtures/tools/printers.mjs --out <out> --surimono <cli> --check <page-check> --printer LABEL=<fulgur> ...` | The printer matrix: every island fixture and real-world page printed by each fulgur named, scored against the Chrome references, with each print's time and peak memory ("The printer matrix"). |
 | `node fixtures/tools/calibrate.mjs --out <out>` | Scores known faults against the island references (how the threshold was chosen). |
 | `node fixtures/tools/gen-islands.mjs [--check]` | Regenerates `input.html` and `meta.toml` from `tools/defs/islands.mjs` (seeded data, byte-identical on every run). |
 

@@ -17,21 +17,21 @@ blitz-traits.workspace = true
 thiserror.workspace = true
 # The parser under blitz-html, driven directly for chunked feeding, comment
 # data and quiet parse errors (src/parse.rs). Same versions as blitz-dom's.
-html5ever = "=0.35.0"
+html5ever.workspace = true
 # element_matches for querySelector and friends; blitz-dom's own query runs in
 # one uninterruptible call. Package name as in blitz-dom; no new features.
 style = { package = "stylo", version = "=0.8.0", default-features = false }
 selectors = "=0.32.0"
 # Tokenizes style attributes (src/style_attr.rs). Same version as stylo's.
-cssparser = "=0.35.0"
+cssparser.workspace = true
 # Serializing reflected URL attributes. Same version as blitz-dom's.
-url = "=2.5.8"
+url.workspace = true
 # TextDecoder's encodings. Same version as stylo's, so it adds nothing to a build.
 encoding_rs = "=0.8.35"
 
 [dev-dependencies]
 # Counts live heap bytes in the leak test, as crates/islands' soak test does.
-stats_alloc = "=0.1.10"
+stats_alloc.workspace = true
 
 [lints]
 workspace = true

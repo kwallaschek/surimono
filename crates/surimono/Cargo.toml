@@ -43,16 +43,16 @@ web_atoms = "=0.1.3"
 
 # Tokenizes the CSS a page hands a printer (src/print.rs). Same version as
 # surimono-dom's and stylo's.
-cssparser = "=0.35.0"
+cssparser.workspace = true
 # Checks URLs resolve as blitz-dom will (src/print.rs). Same version as
 # surimono-dom's.
-url = "=2.5.8"
+url.workspace = true
 # Parses a page as its printer will (src/print/tree.rs): the html5ever and
 # blitz-html settings fulgur uses. Same version as surimono-dom's.
-html5ever = "=0.35.0"
+html5ever.workspace = true
 # Decodes `<style>` text as blitz-dom does before stylo reads it. MIT; already
 # in the tree through blitz-dom. Exact pin; moves to the workspace root.
-html-escape = "=0.2.15"
+html-escape.workspace = true
 
 [dev-dependencies]
 # tests/breakout.rs parses the facade's output with html5ever, through
@@ -62,7 +62,7 @@ blitz-html.workspace = true
 # tests/fork.rs forks (fork, waitpid, waitid, kill, _exit). MIT OR Apache-2.0.
 libc.workspace = true
 # tests/page_soak.rs counts live heap bytes, as crates/islands' soak test does.
-stats_alloc = "=0.1.10"
+stats_alloc.workspace = true
 
 [lints]
 workspace = true

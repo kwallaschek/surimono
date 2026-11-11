@@ -10,7 +10,131 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Wed 11 Nov 2026, 11:10)
+## Now (Thu 12 Nov 2026, 07:40)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+Nothing ran from 21:40 on 11 Nov to 07:25 on 12 Nov: the usage limit stopped the agents and the
+scheduled resume task is paused (not by the fleet). Kay said "continue" at 07:25.
+
+- **Main is red** at d4f30d14 in one job, `linux-extra (nightly-extra)`: two tests of
+  fixtures/tools/test/printers.test.mjs from #177 fail on the GitHub runner. Every other job is
+  green, including arm64, ASan and soak on the merged #178. P2-CF-10 (CF agent) is on it, first.
+- **Standing permissions from Kay (11 Nov 21:22 and 21:27):** merges on green CI at the exact
+  head plus a fresh review; third-party printers on the fleet machine for comparison; history
+  rewrite to his GitHub noreply address at a time the orchestrator picks (Q-ORC-03); merged
+  branches are not deleted.
+- **Open PRs:** #179 E3-00 (blocked by review; fixes pushed at 439a48d8, to be rebased on main
+  and re-reviewed), #180 Q-PKG-02 (blocked by review; fixes in progress in wt/q-pkg-02).
+- Running: CF agent (P2-CF-10, then Q-CF-03 Raikiri and other printers), PKG agent (#180),
+  DOM agent (#179 rebase, then P2-DOM-08: branch p2-dom-08 has one local commit).
+- Kay's queue: report the private findings upstream (three files in the Claude project) and
+  file the docs/upstream drafts; turn the scheduled resume task back on if he wants night work.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`; main must be
+green before any other merge (P2-CF-10's PR is the exception: it is the fix). A new session
+can't resume this session's agents: continue each task from its pushed branch or its worktree
+under /home/claude/wt/. Then fresh reviews of #179, #180, P2-CF-10 and P2-DOM-08; merge as
+local merge commits by the fleet identity. Then by value for the directive: E3-01a (canvas and
+svg sizes), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in CI), P2-PKG-05,
+Q-ORC-01's decision on printer patches after Q-CF-03, Q-GFX-03, Q-CF-02, P2-CF-07, P2-CF-08,
+Q-GFX-02, P2-RT-11, P2-DX-05, P2-ORC-03, and Q-ORC-03 at a moment with no open PR.
+Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 21:35)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+
+- **Kay's answers at 21:22:** merges allowed (green CI at the exact head plus a fresh review);
+  third-party printers may be installed on the fleet machine for comparison; rewrite main's
+  history to replace his work address with his gmail (Q-ORC-03, waits for his confirmation of
+  the address and a moment with no open PR).
+- **Merged 21:30:** #174, #175, #178 (merge commits), #176, #177 (squashes). Read full.yml on
+  the pushed head before the next merge. P2-RT-10 stays on watch for a week of nightlies.
+- **Open PRs, both blocked by review, authors fixing:** #179 E3-00 layout prototype (sheets must
+  be screened before the style engine; one expectation from our own output; wording to make
+  neutral), #180 Q-PKG-02 printer-safe output (26 of 187 pages differ in Chrome: shadow DOM,
+  `-webkit-border-*`, bidi, ruby; one loop without a deadline check). P2-DOM-08 (selector cut
+  in sheet.rs, a print-corrupting bug on main) follows on its own branch from the DOM agent.
+- Running: DOM agent (#179 fixes, then P2-DOM-08), PKG agent (#180 fixes), CF agent (Q-CF-03).
+- Kay's queue: confirm the gmail address for the rewrite; report the private findings upstream
+  (5 Nov file and the two 11 Nov files in the Claude project) and file the docs/upstream drafts.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`; a red main comes
+before everything. Then: fresh reviews of #179 and #180 once their authors push (new sessions
+can't resume this session's agents: continue from the pushed branches). Merge on green plus
+approval, as local merge commits by the fleet identity (squash where a branch's history must
+not reach main). Then by value for the directive: E3-01a (canvas and svg sizes), Q-PKG-03
+(print media), P2-CF-09 (Chrome-equivalence check in CI), Q-ORC-01's decision on printer
+patches after Q-CF-03, Q-GFX-03, Q-CF-02, P2-CF-07, P2-CF-08, Q-GFX-02, P2-RT-11, P2-DX-05,
+P2-ORC-03. Push docs to main once per round. Checkpoint-3 evidence by Sun 15 Nov; digest Sun
+15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 20:45)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+The usage limit has stopped the agents three times today; they are resumed in place each time.
+
+- **Main is green** at 08944100, the second full.yml in a row with every job green.
+- **Merges wait for Kay's explicit OK in this session.** Approved with green CI on the exact head:
+  #174 (d627c628), #175 (0d7494ad), #176 (b1c2ed91, squash), #177 (a139b2c6, squash),
+  #178 (4e3b8b3b). After merging #176: "five of the eight sizes" is seven
+  (docs/upstream/fulgur-layout-gaps-0.40.md:129).
+- Running: Q-PKG-02 printer-safe output (branch q-pkg-02 pushed, 3 commits, PR not open yet);
+  #179 E3-00 cleanup (cost note made private, `<ol start=0>`), then a fresh review.
+- **Blocked on Kay:** merges; installing and running third-party printers on the fleet machine
+  (`fulgur-raikiri` for Q-CF-03, ironpress, rustyprint, forme); his work email as author of 167
+  public merge commits; filing docs/upstream drafts and the private findings (5 Nov and 11 Nov
+  files in the Claude project).
+- Results today: fulgur 0.41.0 prints exactly as 0.40.0 (#177); every print gap root-caused
+  (#176); real layout works behind an internal switch (#179: 1.5 ms per layout at 100 nodes,
+  70 ms at 10,000, 3 to 6 KiB per node held); a real race in the time limit fixed (#178).
+  New print gaps from #179: `@media print` never applies in fulgur, `line-height: normal`
+  is 1.2, replaced elements aren't sized by attributes (Q-PKG-03, Q-GFX-03, E3-01a).
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`. Then: if Kay has
+allowed merges, merge the five approved PRs (heads above; re-check each head and its CI first;
+#176 and #177 by squash), then P2-ORC-03. Review #179 and Q-PKG-02's PR with fresh reviewers.
+Then by value for the directive: E3-01a (canvas and svg sizes), Q-PKG-03 (print media),
+Q-ORC-01's decision on printer patches (needs Q-CF-03 if Kay allows it), Q-GFX-03, Q-CF-02,
+P2-CF-07, P2-CF-08, Q-GFX-02, P2-RT-11, P2-DX-05. A new session can't resume this session's
+agents: continue each task from its pushed branch with a new agent, never from scratch. Push
+docs to main once per round. Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 19:45)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+The usage limit stopped all agents twice (11:40 to 14:10, about 15:10 to 19:10); they were resumed
+in place each time.
+
+- **Main is green** at ef2eaa30 (every full.yml job). The two failures at 3b4303ae (arm64
+  `forks_never_hang`, ASan time limit) did not repeat on the same code; P2-RT-10 is still finding
+  the cause (branch p2-rt-10, 2 commits: a deadline reported before its flag was up; the stress
+  run now says why a child failed).
+- **Merges wait for Kay's explicit OK in this session** (the safety check refuses them). Approved
+  and green: #174 (d627c628), #175 (0d7494ad). Approved, CI to confirm: #176 (b1c2ed91, squash).
+  Blocked by review, author fixing: #177 (q-cf-01).
+- Running: Q-PKG-02 printer-safe output (wt/q-pkg-02, uncommitted work), E3-00 layout spike
+  (wt/e3-00, 3 commits; private Blitz panic notes in .private-tmp/), P2-RT-10, #177 fixes.
+- Findings today: fulgur 0.41.0 prints exactly as 0.40.0; every print gap is root-caused
+  (docs/upstream, #176); workarounds alone pass d3-charts and noscript-message on stock fulgur;
+  fulgur's maintainer is building a replacement layout engine (Raikiri).
+- Kay's queue: allow merges; may the fleet install other printers (ironpress, rustyprint, forme);
+  his work email is the author of 167 public merge commits (GitHub "Keep my email addresses
+  private"; history needs a force-push only he can order); file docs/upstream drafts and the
+  private findings.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`. Then, if the
+agents above are not running (a new session can't resume them): continue each task from its pushed
+branch or worktree under /home/claude/wt/ with a new agent, never from scratch. After their
+reports: fresh reviews, Q-ORC-01's decision (which printer fixes we carry), then Q-CF-03, Q-CF-02,
+P2-CF-07, P2-CF-08, Q-GFX-02, P2-DX-05. Push docs to main once per round: every push restarts
+full.yml. Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 11:10)
 
 **Kay handed the fleet to session cse_011c8hfpYaknCZDyxDjnJSQG at 10:52 with full authority and one
 directive: make it work, print on par with Chrome-based tools in quality, be faster and use less
@@ -33,6 +157,13 @@ memory** (DECISIONS 2026-11-11). Hard stops are unchanged.
   tests), q-pkg-02 (printer-safe output), e3-00 (layout spike), and the review of #176. This session
   resumes them at 14:13; a new session that finds them stopped starts the same task ids again from
   the pushed branches (list remote branches first).
+- 14:20: limit reset; the four agents were resumed in place (same worktrees). **Main is red** in
+  full.yml at 3b4303ae (docs-only commit): `test (ubuntu-24.04-arm)` on core's `forks_never_hang`
+  (1 child of 3000 failed, none hung; the job passed on 90427b9e) and `linux-extra (asan)` on
+  `limits_are_typed_and_the_renderer_carries_on` (time limit). P2-RT-10 (RT) is on both.
+  Every push to main cancels the running full.yml: batch docs pushes, one per merge round.
+- Open PRs: #174 (approved, green), #175 P2-ORC-02 root pins (from the previous session; needs a
+  fresh review), #176 (in review).
 - **Blocked on Kay: merges.** The session's safety check refuses fleet merges until he allows them
   in this session. Waiting: #174 (approved, green), #176 (in review). Kay's queue (no deadline): file the docs/upstream drafts and the private
   findings; confirm the employer open-source check.
