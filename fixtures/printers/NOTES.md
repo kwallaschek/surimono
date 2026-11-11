@@ -17,7 +17,8 @@ poppler 24.02.0), against the committed references of Chromium 153.0.8010.12.
   (`surimono_outputs_sha256`).
 - **Command.** `printers.mjs --runs 5 --printer 0.40.0=… --printer 0.41.0=…`, started
   while holding the fleet's build lock, so no build ran beside the timed prints.
-  Other agents' tests could.
+  Other agents' tests could. The pages are scored first, one printer after the
+  other, and measured afterwards.
 - `de_DE.UTF-8` isn't installed here, as in `fixtures/checkpoint-3`.
 
 **Result.** fulgur 0.41.0 prints all 35 cells pixel for pixel as 0.40.0 does: the
@@ -32,28 +33,35 @@ fixture pages and, printed by hand, on `alpine-invoice` and `marked-report`:
 nothing else differs, and `pdftotext` and `pdffonts` give the same output for both
 versions.
 
-**Time and memory.** One `fulgur render` process per page, 23 pages and floors,
-medians of 5 runs each.
+**Time and memory.** One `fulgur render` process per page, on the 23 pages and
+floors. The two printers take turns on each page: a round prints it once with
+each, one round isn't measured, then come 5 timed rounds and 5 sampled ones. Who
+starts moves on every round and every page: 0.40.0 started 58 of the 115 timed
+rounds and 0.41.0 the other 57 (`print_order` in `printers.json`). Every figure
+here is in `index.md` or follows from the single runs in `printers.json`.
 
 | | fulgur 0.40.0 | fulgur 0.41.0 |
 |---|---|---|
-| Print time, median over the pages | 33.7 ms | 29.7 ms |
-| Print time, sum over the pages | 782 ms | 724 ms |
-| Peak PSS, median over the pages | 43.4 MB | 44.9 MB |
-| Peak PSS, largest (`marked-report`) | 50.9 MB | 51.1 MB |
-| Kernel's peak RSS, median over the pages | 45.9 MB | 47.1 MB |
+| Print time, median over the pages | 31.9 ms | 32.6 ms |
+| Print time, sum of the pages' medians | 770 ms | 791 ms |
+| Peak PSS, median over the pages | 44.6 MB | 44.8 MB |
+| Peak PSS, largest (`marked-report`) | 51.9 MB | 52.0 MB |
 
-Neither version is measurably faster. The matrix was run six times on this machine,
-and the committed run is the first with the right commit in it. Its 4 ms are the
-order of the run, not the printer: 0.40.0's pages are printed first, and with the
-order swapped the medians were 29.2 ms for 0.40.0 and 28.4 ms for 0.41.0. Three
-runs before the machine restarted gave 34 to 36 ms for 0.40.0 and 34 to 38 ms for
-0.41.0. Per page, the committed run has 0.41.0 between 0.75 and 1.06 times 0.40.0.
-
-0.41.0 uses up to 1.5 MB more. In the three runs after the restart its median peak
-PSS was 44.9 MB each time against 43.4 or 43.5 MB, whichever printed first; in the
-three before, 43.9 to 44.1 MB against 43.7 to 43.9 MB. The sampler reads every
-millisecond here and saw each print 14 to 45 times.
+- **Time.** 0.41.0's median is higher on 19 of the 23 pages, lower on 2 and equal
+  on 2. Per page the difference of the medians runs from −0.4 ms to +4.3 ms and
+  is +0.6 ms at the median page, 2% of a print. On no page does every run of one
+  version lie outside the other's runs: on `echarts-two-charts-latin`, the page
+  with the +4.3 ms, 0.40.0's five runs took 27.7 to 36.5 ms and 0.41.0's 29.5 to
+  37.4 ms. So 0.41.0 measures about half a millisecond slower per print, with the
+  two versions' runs overlapping on every page.
+- **Memory.** The median over the pages is 0.2 MB higher with 0.41.0. Per page
+  the difference of the median peaks runs from 0.0 MB to +1.2 MB and is +0.3 MB
+  at the median page; 0.41.0 is higher on 21 pages, equal on 2 and lower on none.
+  On 5 pages every sampled run of 0.41.0 lies above every run of 0.40.0
+  (`echarts-bar-simple-latin`, `echarts-pie-ja`, `echarts-two-charts-latin`,
+  `vegalite-layered-dense-ja` and `d3-charts`'s floor), by 0.1 to 0.9 MB between
+  the nearest runs. So 0.41.0 uses a little more, about 0.3 MB of 45 MB.
+- The sampler reads every millisecond here and saw each print 12 to 46 times.
 
 **The gaps of `checkpoint-3/NOTES.md`.** 0.41.0 closes none and opens none. Each
 failing page is the same pixels as before, on surimono's output and on Chrome's
@@ -85,8 +93,8 @@ own DOM.
 | skrifa under Parley | 0.37.0 | 0.37.0 | 0.37.0 (pinned) |
 | swash under Parley | 0.2.7 | 0.2.7 | **0.2.10** |
 | html5ever | 0.35.0 | 0.35.0 | 0.35.0 |
-| icu_segmenter under stylo, and the ICU4X crates with it | 2.2.0 | **2.3.0** | 2.2.0 |
-| fulgur's own skrifa and read-fonts | 0.44.0, 0.41.0 | 0.47.0, 0.44.0 | not used |
+| icu_segmenter under stylo, and the ICU4X crates with it | 2.2.0 | **2.3.0** (icu_provider 2.3.1) | 2.2.0 |
+| A second skrifa and read-fonts | 0.44.0, 0.41.0 (fulgur's own) | 0.47.0, 0.44.0 (fulgur-blitz's own) | 0.44.0, 0.41.0 (under swash 0.2.10) |
 | wuff (blitz-dom's WOFF decoder) | 0.2.3 | 0.2.9 | not built |
 | krilla, krilla-svg | 0.7.0 | 0.7.0 | not used |
 | usvg, resvg, fontdb | 0.45.1, 0.45.1, 0.23.0 | the same | not used |
