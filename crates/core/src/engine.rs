@@ -85,6 +85,12 @@ pub(crate) struct LimitState {
     /// The message of a panic caught in a host function; see
     /// [`LimitState::note_panic`]. Only this runtime's thread locks it.
     panic: Mutex<Option<String>>,
+    /// For tests: how long a thread raising a flag stays between its two
+    /// steps, in milliseconds, and whether one is there now.
+    #[cfg(test)]
+    pub(crate) raise_stall_ms: AtomicU32,
+    #[cfg(test)]
+    pub(crate) raise_stalled: AtomicBool,
 }
 
 /// [`LimitState::call`] bit: the stop flag is being raised for this call.
@@ -116,6 +122,10 @@ impl LimitState {
             cancel_watched: AtomicBool::new(false),
             leaked_objects: AtomicU32::new(0),
             panic: Mutex::new(None),
+            #[cfg(test)]
+            raise_stall_ms: AtomicU32::new(0),
+            #[cfg(test)]
+            raise_stalled: AtomicBool::new(false),
         })
     }
 
@@ -227,9 +237,23 @@ impl LimitState {
             .compare_exchange(seq, seq | EXPIRING, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
+            #[cfg(test)]
+            self.stall_in_raise();
             self.stop.fetch_or(bit, Ordering::Release);
             // Only this thread changes `call` while EXPIRING is set.
             self.call.store(seq, Ordering::Release);
+        }
+    }
+
+    /// For tests: holds a raise between its two steps, where a scheduler or
+    /// a page fault can hold the watchdog for as long.
+    #[cfg(test)]
+    fn stall_in_raise(&self) {
+        let ms = self.raise_stall_ms.load(Ordering::Acquire);
+        if ms > 0 {
+            self.raise_stalled.store(true, Ordering::Release);
+            std::thread::sleep(Duration::from_millis(u64::from(ms)));
+            self.raise_stalled.store(false, Ordering::Release);
         }
     }
 
@@ -314,7 +338,8 @@ impl LimitState {
     /// Whether the running call is past its deadline; false when no call
     /// runs. Normally the watchdog has raised the stop flag and this is one
     /// load. If the watchdog runs late (a starved machine), the clock is
-    /// checked too, and a passed deadline raises the flag here. Called by
+    /// checked too, and a passed deadline raises the flag here. `true` for a
+    /// call still running means [`timed_out`](Self::timed_out) is true too. Called by
     /// the interrupt handler, between microtasks and through
     /// [`crate::Deadline::passed`].
     pub(crate) fn deadline_passed(&self) -> bool {
@@ -329,10 +354,34 @@ impl LimitState {
         if self.elapsed_nanos() < deadline {
             return false;
         }
-        // Raised only if the call that was checked is still running (and
-        // not if the watchdog is raising it right now, which it will).
-        self.expire(call);
-        true
+        loop {
+            // Raised only if the call that was checked is still running.
+            self.expire(call);
+            if self.timed_out() {
+                return true;
+            }
+            // Not raised. Either the call has ended (on its own thread, with
+            // this one holding a `Deadline`), or the watchdog is between the
+            // two steps of raising a flag for it, and `call` has the
+            // EXPIRING bit. This answer stops the script, and what it fails
+            // with is read from the flags afterwards: with none up yet, a
+            // time limit came out as an exception, "interrupted", and the
+            // sandbox kept the interrupted state. So wait out the raise, as
+            // `disarm` does, and then raise the time flag too if it was
+            // another one. A thread can be held between the two steps for
+            // as long as the scheduler likes; in a forked child the second
+            // step's code may not even be mapped yet (P2-RT-10).
+            let now = self.call.load(Ordering::Acquire);
+            if now & !EXPIRING != call
+                || (now & EXPIRING != 0
+                    && self.armed_gen.load(Ordering::Relaxed) != fork_generation_now())
+            {
+                // Ended, or the bit is a parent's watchdog's, inherited at a
+                // fork in the middle of a raise: nobody will clear that.
+                return true;
+            }
+            std::thread::yield_now();
+        }
     }
 
     /// The interrupt handler's answer: stop on a passed deadline or a
@@ -1273,6 +1322,59 @@ mod tests {
         assert_eq!(state.call.load(Ordering::Acquire), 0);
     }
 
+    /// P2-RT-10: the clock backstop finds the deadline passed while the
+    /// watchdog is between the two steps of raising the flag. Its answer
+    /// stops the script, so it waits for the flag: a script stopped with no
+    /// flag up fails as an exception ("interrupted"), not as `TimeLimit`.
+    #[test]
+    fn a_passed_deadline_is_never_reported_before_its_flag_is_up() {
+        let state = LimitState::new(usize::MAX);
+        // A far deadline, so the real watchdog leaves this call alone.
+        state.arm(Duration::from_secs(3600)).unwrap();
+        let seq = state.call.load(Ordering::Acquire);
+        let armed = state.deadline.swap(0, Ordering::Relaxed);
+        // The watchdog's first step, as if its timer were due.
+        state.call.store(seq | EXPIRING, Ordering::Release);
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                std::thread::sleep(Duration::from_millis(100));
+                // Its second step and the end of the raise.
+                state.stop.fetch_or(STOP_TIME, Ordering::Release);
+                state.call.store(seq, Ordering::Release);
+            });
+            assert!(state.should_interrupt());
+            assert!(state.timed_out(), "stopped with no flag up");
+        });
+        // The same while it raises another flag: the time flag is up too.
+        state.stop.store(0, Ordering::Release);
+        state.call.store(seq | EXPIRING, Ordering::Release);
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                std::thread::sleep(Duration::from_millis(100));
+                state.stop.fetch_or(STOP_CANCEL, Ordering::Release);
+                state.call.store(seq, Ordering::Release);
+            });
+            assert!(state.deadline_passed());
+            assert!(state.timed_out() && state.cancelled());
+        });
+        // A bit a parent's watchdog left set at a fork is never cleared, and
+        // is not waited for.
+        state.stop.store(0, Ordering::Release);
+        state.call.store(seq | EXPIRING, Ordering::Release);
+        state
+            .armed_gen
+            .store(fork_generation_now() - 1, Ordering::Relaxed);
+        assert!(state.deadline_passed());
+        // As armed, so that ending the call takes its timer out.
+        state
+            .armed_gen
+            .store(fork_generation_now(), Ordering::Relaxed);
+        state.call.store(seq, Ordering::Release);
+        state.deadline.store(armed, Ordering::Relaxed);
+        state.disarm();
+        assert_eq!(state.call.load(Ordering::Acquire), 0);
+    }
+
     /// Review of #47: the watchdog's `expire` racing a call's `arm` and
     /// `disarm` on another thread. While it only expires calls that have
     /// ended, no call is ever stopped; while it also expires the running
@@ -1409,6 +1511,10 @@ mod tests {
     /// made before the fork, which only its own fresh watchdog can stop.
     /// SURIMONO_FORKS sets the number of forks (default 3,000: at 0.12% the
     /// old registry lock hangs about 4 of them).
+    ///
+    /// A child that fails says why on stdout, in one `FORK-STRESS-CHILD`
+    /// line, and the summary names each failed child with how it ended
+    /// (P2-RT-10: `failed=[1280]` on arm64 was a wait status and no more).
     #[cfg(target_os = "linux")]
     #[test]
     #[ignore = "helper: run in a child process by forks_never_hang"]
@@ -1426,6 +1532,11 @@ mod tests {
         // test is about hangs, not timing.
         let limits = Limits::default().with_time(Duration::from_millis(200));
         let generous = Limits::default().with_time(Duration::from_secs(120));
+        // For `a_failed_fork_child_says_why`: the child to fail on purpose.
+        // Read here: a forked child stays away from the environment's lock.
+        let fail_at: Option<usize> = std::env::var("SURIMONO_FORK_FAIL_AT")
+            .ok()
+            .and_then(|n| n.parse().ok());
         let mut pre_fork = Sandbox::new(limits).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let busy = {
@@ -1443,36 +1554,66 @@ mod tests {
                 calls
             })
         };
-        let child = |pre_fork: &mut Sandbox, i: usize| -> i32 {
-            let Ok(mut sb) = Sandbox::new(generous) else {
-                return 3;
-            };
-            if sb.eval::<i32>("6 * 7") != Ok(42) {
-                return 4;
+        // The exit code of a child that failed, and what it saw.
+        let child = |pre_fork: &mut Sandbox, i: usize| -> Result<(), (i32, String)> {
+            let mut sb = Sandbox::new(generous).map_err(|e| (3, format!("new sandbox: {e:?}")))?;
+            let got = sb.eval::<i32>("6 * 7");
+            if got != Ok(42) {
+                return Err((4, format!("6 * 7 in a new sandbox: {got:?}")));
+            }
+            if fail_at == Some(i) {
+                let got = sb.eval::<i32>("throw new Error('on purpose')");
+                return Err((9, format!("asked to fail: {got:?}")));
             }
             if i % 25 == 0 {
                 let start = Instant::now();
-                if pre_fork.eval::<()>("for (;;) {}") != Err(SandboxError::TimeLimit) {
-                    return 5;
+                let got = pre_fork.eval::<()>("for (;;) {}");
+                let took = start.elapsed();
+                if got != Err(SandboxError::TimeLimit) {
+                    return Err((5, format!("the loop after {took:?}: {got:?}")));
                 }
-                if start.elapsed() > Duration::from_secs(3) {
-                    return 6;
+                if took > Duration::from_secs(3) {
+                    return Err((6, format!("the loop took {took:?}")));
                 }
-                if pre_fork.eval::<i32>("6 * 7") != Ok(42) {
-                    return 7;
+                let got = pre_fork.eval::<i32>("6 * 7");
+                if got != Ok(42) {
+                    return Err((7, format!("6 * 7 after the loop: {got:?}")));
                 }
             }
-            0
+            Ok(())
         };
+        // One `write`, so lines of children running at once stay whole, and
+        // not `println!`, whose lock the test harness's threads share.
+        let say = |line: String| {
+            let line: String = line.chars().take(600).chain(['\n']).collect();
+            // SAFETY: writes bytes this function owns to the process's own
+            // stdout; a short or failed write only loses the message.
+            unsafe { libc::write(1, line.as_ptr().cast(), line.len()) };
+        };
+        // How a reaped child ended, from its wait status.
+        fn ending(status: libc::c_int) -> String {
+            if libc::WIFEXITED(status) {
+                format!("exit {}", libc::WEXITSTATUS(status))
+            } else if libc::WIFSIGNALED(status) {
+                let core = if libc::WCOREDUMP(status) {
+                    ", core dumped"
+                } else {
+                    ""
+                };
+                format!("signal {}{core}", libc::WTERMSIG(status))
+            } else {
+                format!("wait status {status:#x}")
+            }
+        }
         const HANG: Duration = Duration::from_secs(20);
         const AT_ONCE: usize = 4;
-        let (mut ok, mut hung, mut failed) = (0usize, 0usize, Vec::new());
-        let mut running: Vec<(libc::pid_t, Instant)> = Vec::new();
-        let mut reap = |running: &mut Vec<(libc::pid_t, Instant)>, keep: usize| {
+        let (mut ok, mut hung, mut failed) = (0usize, Vec::new(), Vec::new());
+        let mut running: Vec<(libc::pid_t, usize, Instant)> = Vec::new();
+        let mut reap = |running: &mut Vec<(libc::pid_t, usize, Instant)>, keep: usize| {
             while running.len() > keep {
-                let mut i = 0;
-                while i < running.len() {
-                    let (pid, started) = running[i];
+                let mut at = 0;
+                while at < running.len() {
+                    let (pid, i, started) = running[at];
                     let mut status: libc::c_int = 0;
                     // SAFETY: `pid` is our own child that we haven't reaped,
                     // and `status` is a valid place to write its status.
@@ -1481,19 +1622,19 @@ mod tests {
                         if libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0 {
                             ok += 1;
                         } else {
-                            failed.push(status);
+                            failed.push(format!("#{i}: {}", ending(status)));
                         }
-                        running.swap_remove(i);
+                        running.swap_remove(at);
                     } else if started.elapsed() > HANG {
                         // SAFETY: as above; it is still ours until reaped.
                         unsafe {
                             libc::kill(pid, libc::SIGKILL);
                             libc::waitpid(pid, &mut status, 0);
                         }
-                        hung += 1;
-                        running.swap_remove(i);
+                        hung.push(i);
+                        running.swap_remove(at);
                     } else {
-                        i += 1;
+                        at += 1;
                     }
                 }
                 if running.len() > keep {
@@ -1508,32 +1649,52 @@ mod tests {
             // no destructor or test-harness code of the parent runs twice.
             let pid = unsafe { libc::fork() };
             if pid == 0 {
-                let code = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     child(&mut pre_fork, i)
                 }))
-                .unwrap_or(2);
+                .unwrap_or_else(|panic| {
+                    let message = panic
+                        .downcast_ref::<String>()
+                        .map(String::as_str)
+                        .or_else(|| panic.downcast_ref::<&str>().copied())
+                        .unwrap_or("not a string");
+                    Err((2, format!("panicked: {message}")))
+                });
+                let code = match result {
+                    Ok(()) => 0,
+                    Err((code, why)) => {
+                        say(format!("FORK-STRESS-CHILD #{i} exit {code}: {why}"));
+                        code
+                    }
+                };
                 // SAFETY: ends the child at once; see above.
                 unsafe { libc::_exit(code) };
             }
-            assert!(pid > 0, "fork failed");
-            running.push((pid, Instant::now()));
+            // EAGAIN and ENOMEM are the machine's limits, not a hang; the
+            // message says which, and the run fails either way.
+            assert!(
+                pid > 0,
+                "fork {i} failed: {}",
+                std::io::Error::last_os_error()
+            );
+            running.push((pid, i, Instant::now()));
             reap(&mut running, AT_ONCE - 1);
         }
         reap(&mut running, 0);
         stop.store(true, Ordering::Relaxed);
         let calls = busy.join().unwrap();
-        println!(
-            "FORK-STRESS forks={forks} ok={ok} hung={hung} failed={failed:?} busy_calls={calls}"
-        );
+        say(format!(
+            "FORK-STRESS forks={forks} ok={ok} hung={} failed={failed:?} busy_calls={calls} \
+             hung_children={hung:?}",
+            hung.len()
+        ));
     }
 
-    /// Review of #47, finding 2 (P1-RT-22): a fork while another thread is
-    /// inside the sandbox (here about every call it makes) must never leave
-    /// the child hanging on a lock that thread held. Runs
-    /// `fork_stress_child` in its own process, so a hang fails the test.
+    /// Runs `fork_stress_child` in its own process, so a hang fails the
+    /// test, and returns its `FORK-STRESS` lines: what each failed child
+    /// said, then the summary.
     #[cfg(target_os = "linux")]
-    #[test]
-    fn forks_never_hang() {
+    fn fork_stress(env: &[(&str, &str)]) -> Vec<String> {
         let exe = std::env::current_exe().unwrap();
         // ASan's quarantine has spin locks its fork handling doesn't cover,
         // and the busy thread frees memory, so under ASan the child can hang
@@ -1545,6 +1706,7 @@ mod tests {
                 "ASAN_OPTIONS",
                 format!("{asan}:quarantine_size_mb=0:thread_local_quarantine_size_kb=0"),
             )
+            .envs(env.iter().copied())
             .args([
                 "engine::tests::fork_stress_child",
                 "--exact",
@@ -1554,6 +1716,14 @@ mod tests {
             .stdout(std::process::Stdio::piped())
             .spawn()
             .unwrap();
+        // Read while it runs: failing children write here too, and a full
+        // pipe would hold them until they counted as hung.
+        let mut stdout = child.stdout.take().unwrap();
+        let reader = std::thread::spawn(move || {
+            let mut out = Vec::new();
+            let _ = std::io::Read::read_to_end(&mut stdout, &mut out);
+            String::from_utf8_lossy(&out).into_owned()
+        });
         let started = Instant::now();
         let status = loop {
             if let Some(status) = child.try_wait().unwrap() {
@@ -1565,17 +1735,54 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(20));
         };
-        let mut out = String::new();
-        std::io::Read::read_to_string(&mut child.stdout.take().unwrap(), &mut out).unwrap();
+        let out = reader.join().unwrap();
         assert!(status.success(), "{status:?}: {out}");
-        let line = out
+        // From the marker on: the harness may have a line of its own open.
+        let said: Vec<String> = out
             .lines()
-            .find(|l| l.starts_with("FORK-STRESS "))
-            .unwrap_or_else(|| panic!("no result: {out}"));
+            .filter_map(|l| l.find("FORK-STRESS").map(|at| l[at..].to_owned()))
+            .collect();
+        assert!(
+            said.last().is_some_and(|l| l.starts_with("FORK-STRESS ")),
+            "no result: {out}"
+        );
+        said
+    }
+
+    /// Review of #47, finding 2 (P1-RT-22): a fork while another thread is
+    /// inside the sandbox (here about every call it makes) must never leave
+    /// the child hanging on a lock that thread held. A failure prints what
+    /// each failed child said and how it ended.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn forks_never_hang() {
+        let said = fork_stress(&[]);
+        let line = said.last().unwrap();
         println!("{line}");
         assert!(
-            line.contains(" hung=0 ") && line.contains(" failed=[] "),
-            "{line}"
+            said.len() == 1 && line.contains(" hung=0 ") && line.contains(" failed=[] "),
+            "{}",
+            said.join("\n")
+        );
+    }
+
+    /// P2-RT-10: a failed child of the stress run explains itself. One is
+    /// told to fail; its line gives the result it saw, and the summary its
+    /// number and exit code.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_failed_fork_child_says_why() {
+        let said = fork_stress(&[("SURIMONO_FORKS", "40"), ("SURIMONO_FORK_FAIL_AT", "7")]);
+        let all = said.join("\n");
+        assert_eq!(said.len(), 2, "{all}");
+        assert!(
+            said[0].starts_with("FORK-STRESS-CHILD #7 exit 9: asked to fail: Err(Exception {")
+                && said[0].contains("Error: on purpose"),
+            "{all}"
+        );
+        assert!(
+            said[1].starts_with("FORK-STRESS forks=40 ok=39 hung=0 failed=[\"#7: exit 9\"] "),
+            "{all}"
         );
     }
 
