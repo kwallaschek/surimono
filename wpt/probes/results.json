@@ -1,6 +1,6 @@
 {
  "chromium": "153.0.8010.12",
- "surimono_commit": "e879ec95a46888b907b649b4e1a9cc3cb3411f74",
+ "surimono_commit": "221530524e3c0697a3b324da14e6f61174cd6179",
  "cases": {
   "write": {
    "chrome": {
@@ -158,8 +158,8 @@
      "DOMParser function",
      "XMLSerializer function",
      "Range function",
-     "TreeWalker undefined",
-     "NodeIterator undefined",
+     "TreeWalker function",
+     "NodeIterator function",
      "Document function",
      "XMLDocument function",
      "DOMImplementation function",
@@ -168,11 +168,11 @@
      "HTMLIFrameElement function",
      "SVGElement function",
      "SVGRectElement undefined",
-     "CSSStyleSheet undefined",
+     "CSSStyleSheet function",
      "getComputedStyle function",
      "matchMedia undefined",
      "Location function",
-     "object function function undefined undefined function function function function undefined [object HTMLBodyElement] HTMLBodyElement"
+     "object function function function function function function function function object [object HTMLBodyElement] HTMLBodyElement"
     ],
     "report": {
      "errors": [],

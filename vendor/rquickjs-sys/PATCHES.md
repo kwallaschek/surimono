@@ -25,6 +25,7 @@ per-match polls (patches 19 and 20) are in
   the upstream crate.
 
 Kept: `LICENSE` (rquickjs, MIT) and `quickjs/LICENSE` (QuickJS, MIT).
+Added: `quickjs/core-math/` with its `LICENSE` (CORE-MATH, MIT; patch 38).
 
 ## Cargo.toml and build.rs
 
@@ -2170,4 +2171,85 @@ tracker must not do.
 @@ surimono_quickjs_patch_level
 -    return 8;
 +    return 9;
+```
+
+## A fixed libm: CORE-MATH (P2-RT-07)
+
+`Math.sin`, `Math.pow`, `**` and the other transcendental functions called the
+platform's libm, which rounds differently on glibc, musl and Apple's libm, so
+a script's numbers depended on where it ran (d3's centroids came out an ulp
+apart on macOS, DECISIONS 2026-11-05). They now call CORE-MATH's correctly
+rounded functions: the result is the exact value rounded to nearest, so the
+bits are the same on every platform by definition, and the same as any other
+correctly rounded library's.
+
+38. **CORE-MATH behind `Math` and `**`.** `quickjs/core-math/<name>/` holds
+    the binary64 `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `atan2`, `sinh`,
+    `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `expm1`, `log`, `log1p`,
+    `log2`, `log10`, `cbrt`, `pow` and `hypot` from CORE-MATH
+    (https://gitlab.inria.fr/core-math/core-math, commit `018fa97c`,
+    10 Nov 2026, MIT, `quickjs/core-math/LICENSE`), with only the headers they
+    include. `build.rs` compiles them into the engine library
+    (`SURIMONO_CORE_MATH`); each exports only `cr_<name>`. In `quickjs.c` the
+    `js_math_*` wrappers, `js_math_pow` (Math.pow and `**`, after its own
+    ECMAScript special cases) and `js_math_hypot` call them. `sqrt`, `floor`,
+    `ceil`, `trunc`, `fabs`, `fmod` and `lrint` stay with the platform: IEEE 754
+    defines them exactly. Changes to CORE-MATH, each marked `surimono:`:
+    - `__builtin_roundeven` is never used (8 files): on x86_64 without SSE4.1 it
+      compiles to a call to C23 `roundeven()`, which not every libc has. The
+      files' own fallback (`round` plus a tie fix, or `roundsd`/`frintn`) gives
+      the same exact result.
+    - `cr_pow` and `cr_atan2` printed and called `exit(1)` on a hard-to-round
+      case their proofs say no input reaches. `cr_pow` now returns its 240-bit
+      approximation rounded, and `atan2`'s `tint_tod` carries on rounding;
+      both are within an ulp.
+    - `CORE_MATH_SUPPORT_ERRNO` is left undefined, so nothing sets `errno`.
+    They need `__int128` and a correct `fma` (hardware, or the libc's, which is
+    correctly rounded): GCC or Clang on a 64-bit target, as every surimono
+    target is; MSVC can't build them.
+39. **No fused multiply-add in the engine** (`-ffp-contract=off` in
+    `build.rs`). GCC fuses `a * b + c` by default and Clang within an
+    expression on targets with FMA (aarch64), rounding once where x86_64 rounds
+    twice; ECMAScript rounds every operation, and CORE-MATH's error bounds
+    assume it. No change on x86_64, which has no FMA without `-mfma`.
+40. **`surimono_quickjs_patch_level()` returns 10**, and surimono-core
+    requires it.
+
+Not for upstream as it stands: quickjs-ng could offer a build option for a
+correctly rounded libm, but which one is a choice for the embedder.
+
+Tests: `crates/core/tests/math.rs` (107 correctly rounded results computed
+with mpmath at 300 bits, picked where glibc 2.39 or fdlibm differ, so the
+platform's libm fails them; `**` the same as `Math.pow`; the values ECMA-262
+requires, `Math.pow(1, NaN)` and the rest). Measured on x86_64 Linux on
+14,940 inputs of a fixed sweep: every result correctly rounded (glibc 2.39
+gave 402 others, fdlibm 933); the same bits as Chrome 153 for every
+function but the hyperbolic ones (Chrome isn't correctly rounded there, 282
+inputs), `hypot` (Chrome's own algorithm, 256 inputs) and one `atan` input
+(-1.447478227359921e-8, where Chrome returns its argument); ECharts, Vega and
+real-world fixture output byte-identical to the build on glibc.
+
+### Diff of patches 38 to 40 in `quickjs.c` (on top of patches 1 to 37)
+
+```diff
+@@ #include "dtoa.h"
++/* surimono: a fixed libm for Math and `**` (patch 38). [...] */
++double cr_sin(double x);
++[... one declaration per function ...]
++double cr_hypot(double x, double y);
+@@ js_math_pow
+         JS_X87_FPCW_SAVE_AND_ADJUST(fpcw);
+-        d = pow(a, b);
++        d = cr_pow(a, b); /* surimono: patch 38 */
+@@ js_math_hypot
+-                r = hypot(r, a);
++                r = cr_hypot(r, a); /* surimono: patch 38 */
+@@ surimono_quickjs_patch_level
+-    return 9;
++    return 10;
+@@ the js_math_* wrappers
+-static double js_math_acos(double d) { return acos(d); }
++static double js_math_acos(double d) { return cr_acos(d); }
+ [... the same for asin, atan, atan2, cos, exp, log, sin, tan, cosh, sinh,
+  tanh, acosh, asinh, atanh, expm1, log1p, log2, log10, cbrt ...]
 ```

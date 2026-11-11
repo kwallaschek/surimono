@@ -633,11 +633,11 @@ pub fn release_free_memory() {
     }
 }
 
-/// The lowest engine patch level the sandbox runs on: 9, the mark on the
-/// engine's own limit errors (P2-RT-05) on top of level 8, the duplicate-key
-/// check of a proxy's `ownKeys` in O(n log n) (P2-RT-04) (see
-/// `vendor/rquickjs-sys/PATCHES.md`).
-pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 9;
+/// The lowest engine patch level the sandbox runs on: 10, the fixed libm
+/// behind `Math` and `**` (P2-RT-07), on top of level 9, the mark on the
+/// engine's own limit errors (P2-RT-05) (see `vendor/rquickjs-sys/PATCHES.md`).
+/// Below 10 a script's numbers would depend on the platform's libm.
+pub(crate) const REQUIRED_PATCH_LEVEL: i32 = 10;
 
 /// The level of surimono's QuickJS patches in the linked engine (see
 /// `vendor/rquickjs-sys/PATCHES.md`). Calling it makes the library refuse

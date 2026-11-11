@@ -805,23 +805,80 @@ fn highlight_js_matches_chrome() {
 /// fulgur's parse: blitz-dom with a `file:` base, as `parse_inner` sets it up
 /// (fulgur 0.40.0 `src/blitz_adapter.rs`), then style resolution, on the 8 MiB
 /// of a main thread. Ruby's other threads have 1 MiB: see `render_page`'s docs.
+///
+/// It runs on one long-lived thread (`on_printer_thread`), as
+/// `crates/gfx/tests/fulgur_layout.rs` does: stylo 0.8.0 `Box::leak`s two
+/// buffers into thread-locals of every thread that runs a style traversal
+/// (`bloom.rs` `BLOOM_KEY`, `sharing/mod.rs` `SHARING_CACHE_KEY`), so a thread
+/// per parse lost a pair each time and LeakSanitizer failed this test binary
+/// (P2-PKG-04). On a live thread they stay reachable, and only one pair exists.
 fn printer_parses(html: &str) {
     let html = html.to_owned();
-    let run = move || {
+    on_printer_thread(move || {
         let config = blitz_dom::DocumentConfig {
             base_url: Some("file:///".to_owned()),
             ..blitz_dom::DocumentConfig::default()
         };
         let mut doc = blitz_html::HtmlDocument::from_html(&html, config);
         doc.resolve(0.0);
-    };
-    let thread = std::thread::Builder::new()
-        .stack_size(8 << 20)
-        .spawn(run)
-        .unwrap_or_else(|e| panic!("{e}"));
-    thread
-        .join()
-        .unwrap_or_else(|_| panic!("the printer panicked"));
+    });
+}
+
+type PrinterJob = Box<dyn FnOnce() + Send>;
+
+/// Runs `f` on the one printer thread, with 8 MiB of stack, and returns its
+/// result; a panic in `f` is raised again here. The thread is never joined and
+/// its sender lives in a static, so it waits for work until the process ends.
+fn on_printer_thread<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'static) -> R {
+    use std::panic::{self, AssertUnwindSafe};
+    use std::sync::mpsc;
+    use std::sync::{Mutex, OnceLock};
+
+    static WORKER: OnceLock<Mutex<mpsc::Sender<PrinterJob>>> = OnceLock::new();
+    let worker = WORKER.get_or_init(|| {
+        let (tx, rx) = mpsc::channel::<PrinterJob>();
+        std::thread::Builder::new()
+            .name("printer".into())
+            .stack_size(8 << 20)
+            .spawn(move || {
+                for job in rx {
+                    job();
+                }
+            })
+            .unwrap_or_else(|e| panic!("could not start the printer thread: {e}"));
+        Mutex::new(tx)
+    });
+    let (done_tx, done_rx) = mpsc::channel();
+    let job: PrinterJob = Box::new(move || {
+        // The thread outlives a panicking job. The receiver is gone only if
+        // the calling test has already panicked, so a failed send is ignored.
+        let _ = done_tx.send(panic::catch_unwind(AssertUnwindSafe(f)));
+    });
+    worker
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .send(job)
+        .unwrap_or_else(|_| panic!("the printer thread has stopped"));
+    match done_rx.recv() {
+        Ok(Ok(r)) => r,
+        Ok(Err(p)) => panic::resume_unwind(p),
+        Err(_) => panic!("the printer thread has stopped"),
+    }
+}
+
+/// The printer thread is one thread, kept for the whole run: every parse
+/// reuses it, which is what keeps stylo's per-thread buffers reachable.
+#[test]
+fn printer_parses_share_one_thread() {
+    let first = on_printer_thread(|| std::thread::current().id());
+    printer_parses("<!doctype html><style>p { color: red }</style><p>x</p>");
+    let second = on_printer_thread(|| std::thread::current().id());
+    assert_eq!(first, second);
+    assert_ne!(first, std::thread::current().id());
+    assert_eq!(
+        on_printer_thread(|| std::thread::current().name().map(str::to_owned)),
+        Some("printer".to_owned())
+    );
 }
 
 /// How many `script` and `noscript` elements a printer's tree holds outside an
