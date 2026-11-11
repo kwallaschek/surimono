@@ -232,6 +232,7 @@ const HOST_OPS: &[(&str, &str)] = &[
         "staticRange",
         "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
     ),
+    ("layoutNumber", "h.layout_number(this, a.uint(0)?)"),
 ];
 
 /// A member name for an interface's bare `stringifier;`: its `toString`,

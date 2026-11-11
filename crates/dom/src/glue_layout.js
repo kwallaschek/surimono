@@ -15,7 +15,13 @@
     return n;
   }
 
-  function askElement(s, name) { call(OP_layoutQuery, s.g, s.h, name); }
+  // True when Rust has real numbers (LayoutPolicy::Real, the phase-3 prototype).
+  function askElement(s, name) { return call(OP_layoutQuery, s.g, s.h, name); }
+  // One number of the element's box: 0 to 3 the border box's x, y, width and
+  // height in viewport coordinates, 4 and 5 offsetWidth and offsetHeight.
+  // Natives return primitives only, so a rectangle is four calls; the layout
+  // behind them runs once.
+  function boxNumber(s, which) { return call(OP_layoutNumber, s.g, s.h, which); }
   function askDocument(name) {
     const g = current();
     if (g !== 0) call(OP_layoutQuery, g, root(), name);
@@ -87,8 +93,10 @@
   });
 
   op(I_Element, 'getBoundingClientRect', function getBoundingClientRect() {
-    askElement(self(this, I_Element), 'getBoundingClientRect');
-    return newRect(I_DOMRect, undefined, 0, 0, 0, 0);
+    const s = self(this, I_Element);
+    if (!askElement(s, 'getBoundingClientRect')) return newRect(I_DOMRect, undefined, 0, 0, 0, 0);
+    return newRect(I_DOMRect, undefined,
+      boxNumber(s, 0), boxNumber(s, 1), boxNumber(s, 2), boxNumber(s, 3));
   });
   op(I_Element, 'getClientRects', function getClientRects() {
     askElement(self(this, I_Element), 'getClientRects');
@@ -144,9 +152,17 @@
     attr(I_Element, name, function () { askElement(self(this, I_Element), name); return 0; },
       function (v) { askElement(self(this, I_Element), name); +v; });
   }
-  for (const name of ['offsetTop', 'offsetLeft', 'offsetWidth', 'offsetHeight']) {
+  for (const name of ['offsetTop', 'offsetLeft']) {
     attr(I_HTMLElement, name, function () { askElement(self(this, I_HTMLElement), name); return 0; });
   }
+  attr(I_HTMLElement, 'offsetWidth', function () {
+    const s = self(this, I_HTMLElement);
+    return askElement(s, 'offsetWidth') ? boxNumber(s, 4) : 0;
+  });
+  attr(I_HTMLElement, 'offsetHeight', function () {
+    const s = self(this, I_HTMLElement);
+    return askElement(s, 'offsetHeight') ? boxNumber(s, 5) : 0;
+  });
   attr(I_HTMLElement, 'offsetParent', function () {
     askElement(self(this, I_HTMLElement), 'offsetParent');
     return null;

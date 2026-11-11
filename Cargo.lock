@@ -1840,6 +1840,7 @@ dependencies = [
  "cssparser",
  "encoding_rs",
  "html5ever",
+ "parley",
  "selectors",
  "stats_alloc",
  "stylo",

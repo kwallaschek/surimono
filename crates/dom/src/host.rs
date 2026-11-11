@@ -929,10 +929,13 @@ impl Document {
 
     /// A layout query by `member`: nothing under [`LayoutPolicy::Zeros`],
     /// the call's end under [`LayoutPolicy::Throw`].
-    pub(crate) fn layout_query(&mut self, member: String) -> BindingResult<()> {
+    /// Answers whether real numbers are to be had ([`LayoutPolicy::Real`]),
+    /// so that the glue asks for them only then.
+    pub(crate) fn layout_query(&mut self, member: String) -> BindingResult<bool> {
         match self.layout {
-            LayoutPolicy::Zeros => Ok(()),
+            LayoutPolicy::Zeros => Ok(false),
             LayoutPolicy::Throw => Err(self.fail(DomError::LayoutQuery { member })),
+            LayoutPolicy::Real => Ok(true),
         }
     }
 

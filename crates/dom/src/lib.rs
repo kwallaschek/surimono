@@ -12,11 +12,14 @@ mod document;
 mod error;
 mod host;
 mod html;
+mod layout;
+mod layout_blitz;
 mod parse;
 mod range;
 mod runtime;
 mod select;
 mod sheet;
+mod sheet_screen;
 mod style_attr;
 mod traversal;
 mod tree;
@@ -30,6 +33,8 @@ mod dispatch;
 
 pub use document::{ATTRIBUTE_COST, Document, DomLimits, LayoutPolicy};
 pub use error::DomError;
+#[doc(hidden)]
+pub use layout::LayoutSetup;
 pub use runtime::{DomRuntime, PageReport};
 
 /// Version of this crate, for diagnostics.

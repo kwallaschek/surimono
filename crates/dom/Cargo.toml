@@ -32,6 +32,9 @@ encoding_rs = "=0.8.35"
 [dev-dependencies]
 # Counts live heap bytes in the leak test, as crates/islands' soak test does.
 stats_alloc.workspace = true
+# The layout tests build a font context from the fixture fonts with system
+# fonts off. The exact Parley of blitz-dom 0.2.4, as in crates/gfx.
+parley = { version = "=0.6.0", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
