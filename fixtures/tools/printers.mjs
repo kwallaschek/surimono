@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The printer matrix: the same pages printed by several printers (versions of
-// fulgur), each scored against the committed Chrome references by the one metric
+// fulgur, or anything that takes `fulgur render`'s command line, such as
+// raikiri-print), each scored against the committed Chrome references by the one metric
 // and pass rule of fixtures/README.md, with each print's time and peak memory.
 //
 //   node printers.mjs --out DIR --surimono CLI --check BIN [--commit SHA] [--runs 5]
@@ -104,7 +105,8 @@ for (const p of printers) {
     console.error(`${p.bin} --version failed: ${v.error?.message ?? v.stderr}`);
     process.exit(1);
   }
-  p.version = v.stdout.trim().replace(/^fulgur\s+/, "");
+  // What it calls itself: "fulgur 0.40.0", "fulgur-raikiri 0.41.0".
+  p.version = v.stdout.trim().split("\n")[0];
   p.sha256 = sha256(p.bin);
 }
 
@@ -118,7 +120,7 @@ function pipeline(printer, kind) {
     kind === "islands"
       ? [path.join(TOOLS_DIR, "checkpoint.mjs"), "--surimono", path.resolve(values.surimono), "--no-chrome", ...common]
       : [path.join(TOOLS_DIR, "print-pages.mjs"), "--check", path.resolve(values.check), "--keep-prints", ...common];
-  console.log(`\n==== ${printer.label} (fulgur ${printer.version}): ${kind}`);
+  console.log(`\n==== ${printer.label} (${printer.version}): ${kind}`);
   const r = spawnSync(process.execPath, args, { encoding: "utf8", maxBuffer: 1 << 28 });
   fs.writeFileSync(path.join(dir, "log.txt"), `${r.stdout}${r.stderr}`);
   if (r.status !== 0) {
@@ -142,7 +144,7 @@ function cellOf(dir, printed, input) {
   const raster = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /^surimono-\d+\.png$/.test(f)).sort((a, b) => parseInt(a.slice(9), 10) - parseInt(b.slice(9), 10)).map((f) => path.join(dir, f)) : [];
   return {
     pass: passes(s),
-    failed: failedChecks(s),
+    failed: s.error ? ["no output"] : failedChecks(s),
     shape: s.error ? null : (s.worst_window ?? null),
     colour: s.error ? null : (s.worst_colour_window ?? null),
     hue: s.error ? null : (s.worst_hue_window ?? null),
@@ -152,7 +154,12 @@ function cellOf(dir, printed, input) {
     chrome_size: pages[0]?.expected_size ?? null,
     text: s.text ? s.text.pass === true : undefined,
     font: s.font ? s.font.pass === true : undefined,
+    // A cell without a print says only that: why (the printer's exit, a signal, a
+    // timeout, a PDF nothing can read) is kept in DIR/.private/failures.json, which
+    // isn't for committing, because how a printer dies on an input is its project's
+    // to hear first.
     error: s.error ? String(s.error) : undefined,
+    no_output: s.error ? true : undefined,
     printer_exit: s.printer,
     pdf: printed ?? pdfOf(dir),
     input,
@@ -194,24 +201,30 @@ if (moved.length) {
 const measureDir = path.join(outRoot, ".measure");
 fs.rmSync(measureDir, { recursive: true, force: true });
 let measuredPages = 0;
+const measureFailures = [];
 for (const [key, first] of results[0].cells) {
   const cells = results.map((r) => r.cells.get(key));
   if (!first.input) continue; // an island alone: printed by compare.mjs, not timed
-  if (!cells.every((c) => c.pdf && !c.error)) {
-    for (const c of cells) c.print = { error: "not measured: a printer gave no PDF for this page" };
+  // Only the printers that printed this page take part; the others have nothing to time.
+  const printed = results.filter((r, i) => cells[i].pdf && !cells[i].error).map((r) => r.printer);
+  for (const c of cells) c.print = { not_measured: true };
+  if (!printed.length) continue;
+  console.log(`measuring ${key}`);
+  const m = fulgurMeasureTurns(printed, first.input.html, measureDir, first.input.fonts, runs, measuredPages++);
+  if (m.error) {
+    // A print that worked when it was scored died when it was timed: nobody's numbers for this page.
+    measureFailures.push({ key, printer: m.label ?? null, error: m.error, printer_exit: { status: m.status, signal: m.signal, timed_out: m.timed_out } });
     continue;
   }
-  console.log(`measuring ${key}`);
-  const m = fulgurMeasureTurns(printers, first.input.html, measureDir, first.input.fonts, runs, measuredPages++);
   results.forEach((r, i) => {
-    cells[i].print = m.error ? m : m.prints[r.printer.label];
+    if (m.prints[r.printer.label]) cells[i].print = m.prints[r.printer.label];
   });
-  if (!m.error) first.print_order = { warmup_rounds: m.warmup_rounds, timed: m.timed_order, sampled: m.sampled_order };
+  first.print_order = { warmup_rounds: m.warmup_rounds, timed: m.timed_order, sampled: m.sampled_order };
 }
 fs.rmSync(measureDir, { recursive: true, force: true });
 
 /** The scores a reader sees: two cells with the same signature read the same in the table. */
-const signature = (c) => JSON.stringify([c.pass, c.failed, pct(c.shape), pct(c.colour), pct(c.hue), c.pages, c.size, c.text, c.font, Boolean(c.error)]);
+const signature = (c) => JSON.stringify([c.pass, c.failed, pct(c.shape), pct(c.colour), pct(c.hue), c.pages, c.size, c.text, c.font, Boolean(c.error ?? c.no_output)]);
 
 /** The Chrome reference pages a cell is compared with. */
 function referencesOf(cell) {
@@ -220,6 +233,8 @@ function referencesOf(cell) {
 }
 
 const keys = [...results[0].cells.keys()];
+/** Every print or comparison that died, with its reason: for DIR/.private, never for the results. */
+const failures = [...measureFailures];
 const rows = keys.map((key) => {
   const cells = results.map((r) => r.cells.get(key));
   const first = cells[0];
@@ -244,7 +259,10 @@ const rows = keys.map((key) => {
       row.images.push(rel);
     }
   }
-  row.printers = Object.fromEntries(results.map((r, i) => [r.printer.label, (({ raster, set, fixture, what, input, print_order, ...kept }) => kept)(cells[i])]));
+  cells.forEach((c, i) => {
+    if (c.error) failures.push({ key, printer: results[i].printer.label, error: c.error, printer_exit: c.printer_exit ?? null });
+  });
+  row.printers = Object.fromEntries(results.map((r, i) => [r.printer.label, (({ raster, set, fixture, what, input, print_order, error, printer_exit, ...kept }) => kept)(cells[i])]));
   return row;
 });
 
@@ -255,7 +273,7 @@ const ms = (x) => (typeof x === "number" ? `${x.toFixed(0)} ms` : "—");
 const mb = (x) => (typeof x === "number" ? `${x.toFixed(1)} MB` : "—");
 /** "pass · 0.0%", or "**FAIL** · 67.5% (colour 84.8%; hue 100.0%)": the verdict, the shape score, then what else failed. */
 function cellText(c) {
-  if (c.error) return `**FAIL** (${c.printer_exit ? "the printer gave no PDF" : `error: ${c.error.split("\n")[0].slice(0, 80)}`})`;
+  if (c.no_output) return "**FAIL** (no output)";
   if (c.pass) return `pass · ${pct(c.shape)}`;
   const px = (size) => (Array.isArray(size) ? size.join("×") : String(size));
   const detail = { colour: `colour ${pct(c.colour)}`, hue: `hue ${pct(c.hue)}`, size: `size ${px(c.size)}, Chrome's ${px(c.chrome_size)}`, page: "page count" };
@@ -348,7 +366,7 @@ const islandPages = rows.filter((r) => r.set === "islands" && isPage(r)).length;
 const md = [
   "# Printers against Chrome",
   "",
-  `The same pages printed by ${printers.map((p) => `fulgur ${p.version}`).join(" and ")}, fixture fonts only, each scored against the committed Chrome references (Chromium 153, pinned) by the metric and pass rule of \`fixtures/README.md\`: shape ≤ ${pct(PASS_WORST_WINDOW)}, colour ≤ ${pct(PASS_COLOUR_WINDOW)}, hue ≤ ${pct(PASS_HUE_WINDOW)}, same page size and count. surimono's output is the same bytes for every printer${values.commit ? ` (commit ${values.commit})` : ""}. Generated by \`fixtures/tools/printers.mjs\`.`,
+  `The same pages printed by ${printers.map((p) => p.version).join(printers.length > 2 ? ", " : " and ").replace(/, ([^,]*)$/, " and $1")}, fixture fonts only, each scored against the committed Chrome references (Chromium 153, pinned) by the metric and pass rule of \`fixtures/README.md\`: shape ≤ ${pct(PASS_WORST_WINDOW)}, colour ≤ ${pct(PASS_COLOUR_WINDOW)}, hue ≤ ${pct(PASS_HUE_WINDOW)}, same page size and count. surimono's output is the same bytes for every printer${values.commit ? ` (commit ${values.commit})` : ""}. Generated by \`fixtures/tools/printers.mjs\`.`,
   "",
   "A cell is the verdict and the shape score (the worst 32×32 window of near-mismatched ink), then any other check that failed. Time is the wall clock of one `fulgur render` process, the median of " +
     `${runs} ${runs === 1 ? "run" : "runs"}; peak PSS is the peak of summed PSS over that process, the median of ${runs} more, sampled every ${MEASURE_INTERVAL_MS} ms (\`bench/tools/measure.py\`, the Grover benchmark's sampler).${printers.length > 1 ? " The printers take turns on each page, round by round after one round that isn't measured, and who starts moves on every round and every page." : ""} "Same pixels" says whether the printers' pages are pixel for pixel the same at 96 dpi, "Same PDF" whether the files are byte for byte the same. An image is there only where the verdict or a score differs: Chrome | ${labels.join(" | ")}.`,
@@ -357,7 +375,7 @@ const md = [
   "|---|---|---|---|---|---|---|---|---|",
   ...labels.map(
     (l) =>
-      `| fulgur ${printers.find((p) => p.label === l).version} | ${count(l, (r) => r.set === "real-world" && isPage(r))} of ${realPages} | ${count(l, (r) => r.what === "floor")} of ${realPages} | ${count(l, (r) => r.set === "islands" && isPage(r))} of ${islandPages} | ${count(l, (r) => r.what.startsWith("island-"))} of ${rows.filter((r) => r.what.startsWith("island-")).length} | ${l === labels[0] ? "—" : rows.filter((r) => signature({ ...r.printers[l] }) !== signature({ ...r.printers[labels[0]] })).length} | ${ms(totals[l].wall_ms_median)} | ${mb(totals[l].peak_pss_mb_median)} | ${mb(totals[l].peak_pss_mb_max)} |`,
+      `| ${printers.find((p) => p.label === l).version} | ${count(l, (r) => r.set === "real-world" && isPage(r))} of ${realPages} | ${count(l, (r) => r.what === "floor")} of ${realPages} | ${count(l, (r) => r.set === "islands" && isPage(r))} of ${islandPages} | ${count(l, (r) => r.what.startsWith("island-"))} of ${rows.filter((r) => r.what.startsWith("island-")).length} | ${l === labels[0] ? "—" : rows.filter((r) => signature({ ...r.printers[l] }) !== signature({ ...r.printers[labels[0]] })).length} | ${ms(totals[l].wall_ms_median)} | ${mb(totals[l].peak_pss_mb_median)} | ${mb(totals[l].peak_pss_mb_max)} |`,
   ),
   "",
   `Medians are over the ${measuredRows.length} prints every printer finished (pages and floors). Of the ${rows.length} cells, ${rows.filter((r) => r.differs).length} read differently between printers, ${rows.filter((r) => r.pixels_identical).length} are the same pixels and ${rows.filter((r) => r.pdf_identical).length} the same PDF.`,
@@ -386,7 +404,7 @@ const json = {
   commit: values.commit ?? null,
   runs,
   pass_rule: { shape: PASS_WORST_WINDOW, colour: PASS_COLOUR_WINDOW, hue: PASS_HUE_WINDOW },
-  printers: printers.map(({ label, version, sha256: hash }) => ({ label, fulgur: version, sha256: hash })),
+  printers: printers.map(({ label, version, sha256: hash }) => ({ label, version, sha256: hash })),
   surimono_outputs_sha256: results[0].outputs,
   measurement: { runs, sampled_runs: runs, warmup_rounds: 1, sample_interval_ms: MEASURE_INTERVAL_MS, order: "the printers take turns on each page; who starts moves on by one every round and every page (rows[].print_order)" },
   totals,
@@ -395,6 +413,12 @@ const json = {
 };
 /** No machine path in what gets committed. */
 const relabel = (text) => text.split(`${outRoot}/`).join("printers-out/").split(outRoot).join("printers-out").split(`${REPO}/`).join("").split(REPO).join(".");
+fs.rmSync(path.join(outRoot, ".private"), { recursive: true, force: true });
+if (failures.length) {
+  fs.mkdirSync(path.join(outRoot, ".private"), { recursive: true });
+  fs.writeFileSync(path.join(outRoot, ".private", "failures.json"), `${JSON.stringify(failures, null, 2)}\n`);
+  console.error(`${failures.length} cell(s) without output; the reasons are in ${path.join(outRoot, ".private", "failures.json")}, which isn't for committing`);
+}
 fs.writeFileSync(path.join(outRoot, "printers.json"), relabel(`${JSON.stringify(json, null, 2)}\n`));
 fs.writeFileSync(path.join(outRoot, "index.md"), relabel(md));
 console.log(`\n${relabel(md)}`);

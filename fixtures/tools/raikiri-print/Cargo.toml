@@ -1,0 +1,23 @@
+# Prints an HTML file with fulgur's Raikiri layout backend, for the printer matrix
+# (fixtures/tools/printers.mjs, fixtures/README.md "The printer matrix"). The
+# published fulgur CLI can't select Raikiri, so this is the smallest program on the
+# library crate that takes the command line the matrix gives a printer.
+# A standalone workspace, like page-check, so a test tool's dependencies stay out of
+# the library's Cargo.lock and cargo-deny. Never a dependency of surimono.
+[package]
+name = "surimono-raikiri-print"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[dependencies]
+# MIT OR Apache-2.0, https://github.com/fulgur-rs/fulgur (crates/fulgur-raikiri).
+fulgur-raikiri = "=0.41.0"
+fulgur-core = "=0.41.0"
+
+[profile.release]
+debug = false
