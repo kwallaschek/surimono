@@ -10,7 +10,38 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Wed 11 Nov 2026, 21:35)
+## Now (Thu 12 Nov 2026, 07:40)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+Nothing ran from 21:40 on 11 Nov to 07:25 on 12 Nov: the usage limit stopped the agents and the
+scheduled resume task is paused (not by the fleet). Kay said "continue" at 07:25.
+
+- **Main is red** at d4f30d14 in one job, `linux-extra (nightly-extra)`: two tests of
+  fixtures/tools/test/printers.test.mjs from #177 fail on the GitHub runner. Every other job is
+  green, including arm64, ASan and soak on the merged #178. P2-CF-10 (CF agent) is on it, first.
+- **Standing permissions from Kay (11 Nov 21:22 and 21:27):** merges on green CI at the exact
+  head plus a fresh review; third-party printers on the fleet machine for comparison; history
+  rewrite to his GitHub noreply address at a time the orchestrator picks (Q-ORC-03); merged
+  branches are not deleted.
+- **Open PRs:** #179 E3-00 (blocked by review; fixes pushed at 439a48d8, to be rebased on main
+  and re-reviewed), #180 Q-PKG-02 (blocked by review; fixes in progress in wt/q-pkg-02).
+- Running: CF agent (P2-CF-10, then Q-CF-03 Raikiri and other printers), PKG agent (#180),
+  DOM agent (#179 rebase, then P2-DOM-08: branch p2-dom-08 has one local commit).
+- Kay's queue: report the private findings upstream (three files in the Claude project) and
+  file the docs/upstream drafts; turn the scheduled resume task back on if he wants night work.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`; main must be
+green before any other merge (P2-CF-10's PR is the exception: it is the fix). A new session
+can't resume this session's agents: continue each task from its pushed branch or its worktree
+under /home/claude/wt/. Then fresh reviews of #179, #180, P2-CF-10 and P2-DOM-08; merge as
+local merge commits by the fleet identity. Then by value for the directive: E3-01a (canvas and
+svg sizes), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in CI), P2-PKG-05,
+Q-ORC-01's decision on printer patches after Q-CF-03, Q-GFX-03, Q-CF-02, P2-CF-07, P2-CF-08,
+Q-GFX-02, P2-RT-11, P2-DX-05, P2-ORC-03, and Q-ORC-03 at a moment with no open PR.
+Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Wed 11 Nov 2026, 21:35)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 10:52: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
