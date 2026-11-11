@@ -124,27 +124,31 @@ for boxes with two or more different colours short of nested boxes.
 square are drawn as shapes, not glyphs, with a gap to the text. CSS Lists 3
 §3.5: "CSS does not specify the precise location of the marker box", so
 Chrome's print is the reference. Measured on Chromium 153 prints rasterised at
-960 dpi (Noto Sans, `list-style-position: outside`, one `<li>` per size; the
-content edge is the left edge of the item's content box, the baseline the
-bottom of an "H" in the item):
+960 dpi (`list-style-position: outside`, one `<li>` per size; the content edge
+is the left edge of the item's content box, the baseline the bottom of an "H"
+in the item). The numbers move with the font: Noto Sans JP differs from Noto
+Sans at five of the eight sizes. "Size" is the symbol's width and height,
+"gap" the distance from the symbol's right edge to the content edge; the Noto
+Sans JP columns were measured the same way in the review of this draft.
 
-| `font-size` | Symbol's width and height | From the symbol's right edge to the content edge | Symbol's centre above the baseline |
-|---|---|---|---|
-| 10 px | 4 px | 10 px | 2.9 px |
-| 12 px | 4 px | 11 px | 3.9 px |
-| 14 px | 5 px | 12 px | 5.4 px |
-| 16 px | 6 px | 12 px | 4.9 px |
-| 18 px | 6 px | 13 px | 5.9 px |
-| 20 px | 7 px | 14 px | 7.4 px |
-| 24 px | 9 px | 15 px | 8.4 px |
-| 32 px | 11 px | 18 px | 10.4 px |
+| `font-size` | Noto Sans: size | gap | centre above the baseline | Noto Sans JP: size | gap |
+|---|---|---|---|---|---|
+| 10 px | 4 px | 10 px | 2.9 px | 4 px | 11 px |
+| 12 px | 4 px | 11 px | 3.9 px | 5 px | 11 px |
+| 14 px | 5 px | 12 px | 5.4 px | 5 px | 12 px |
+| 16 px | 6 px | 12 px | 4.9 px | 6 px | 13 px |
+| 18 px | 6 px | 13 px | 5.9 px | 7 px | 14 px |
+| 20 px | 7 px | 14 px | 7.4 px | 8 px | 14 px |
+| 24 px | 9 px | 15 px | 8.4 px | 9 px | 16 px |
+| 32 px | 11 px | 18 px | 10.4 px | 12 px | 19 px |
 
-Disc and square have the same box; the circle is a 1 px outline centred on
-that box's edge (its ink is 1 px wider and 0.5 px closer). All edges are on
-whole pixels. A straight line through the measurements: the symbol is about
-0.35 em, and its right edge about 7 px + 0.35 em from the content edge, both
-within 1 px from 10 to 32 px. Only this one font was measured; the numbers
-are observations, not Chrome's rule.
+Disc and square have the same box, with every edge on a whole pixel. The
+circle is a 1 px outline centred on that box's edge, so its ink is 1 px wider,
+0.5 px closer to the text, and its edges are on half pixels. A straight line
+through the measurements: the symbol is about 0.35 em, and its right edge
+about 7 px + 0.35 em from the content edge, both within 1 px from 10 to 32 px
+for these two fonts. The numbers are observations of two fonts, not Chrome's
+rule; a fix that wants more than 1 px has to measure the font in use.
 
 **fulgur 0.40.0:** the bullet's ink ends 1.6 px before the text; numbers are
 right. The bullet is also not the one Blitz means: with Noto Sans JP it is the
@@ -403,8 +407,9 @@ Chrome:
   0.40.0 this changes no page break for a paragraph shorter than a page,
   because fulgur already moves such a paragraph whole (F10). In Chrome it does
   change one: a six-line paragraph that straddles a page boundary splits
-  3 + 3 without the declaration and moves whole with it (Chromium 153, the
-  reviewer's counter-example on PR #176). So it is right only as a form given
+  3 + 3 without the declaration and moves whole with it (Chromium 153 prints
+  of F10's reproducer, with and without the declaration). So it is right only
+  as a form given
   to fulgur, never as markup that must still print the same in Chrome, and for
   a paragraph taller than a page it stops fulgur from splitting it at all.
 - Wrapping the body's children in one `<div>` changes what `body > x`
@@ -418,7 +423,10 @@ Chrome:
 ```
 
 **Chrome:** the page area is 180 mm = 680.315 px wide and lines break against
-that width (Blink's layout unit is 1/64 px).
+that width. Chrome's used widths come in steps of 1/64 px, cut down, not
+rounded (measured in Chromium 153 with `getBoundingClientRect`: `width:
+100.03px` gives 100.015625, `100.99px` gives 100.984375, `680.315px` and
+`180mm` give 680.3125).
 
 **fulgur 0.40.0:** lines break against 680 px: a filled block is exactly
 510.000 pt wide in the PDF (`42.519688 … 552.5197`), where 180 mm is
@@ -434,7 +442,8 @@ fraction is dropped, not rounded.
 **Smallest fix** inside fulgur while Blitz's viewport is integral (a few
 lines; trivial, but the risk is medium: percentages and `vw` still see the
 integer): give the root element the exact width with a user-agent rule,
-`html { width: 680.315px }`, built from the resolved content width in
+`html { width: 680.3125px }` (180 mm cut down to 1/64 px, as Chrome does),
+built from the resolved content width in
 `engine.rs` (`resolved_content_width_px`, `:263`), per page width where
 `@page` rules differ, and less the root's own horizontal margin, border and
 padding; as a user-agent rule it gives way to any author width on the root.
@@ -446,8 +455,10 @@ ran, the same 510.000 pt).
 
 **Workaround without touching the printer.** Conditional: surimono writes
 `html { width: <page area's width> }` from the page's `@page` rule (or the
-caller's page size). Ran: with `html{width:680.315px}` fulgur 0.40.0 breaks
-`marked-report`'s first paragraph where Chrome does. It prints the same in
+caller's page size); for A4 with 15 mm margins that is `html { width:
+680.3125px }`. Ran with the uncut `html{width:680.315px}`, 0.0025 px more:
+fulgur 0.40.0 breaks `marked-report`'s first paragraph where Chrome does. It
+prints the same in
 Chrome only when all of these hold; otherwise Chrome sees a root that overflows
 the page area and scales the whole document down:
 
@@ -459,7 +470,8 @@ the page area and scales the whole document down:
   page with another size or margin. Counter-example: with `@page :first {
   margin: 15mm 40mm }` page 2's block is 680 px wide in the original and
   492 px with the rule;
-- the value is rounded down, never to nearest;
+- the value is cut down to Chrome's 1/64 px step, never rounded to nearest
+  (680.315 px becomes 680.3125 px, not 680.32 px);
 - the rule sits below every author rule.
 
 Where a condition fails, the rule is not written and the page prints as
@@ -566,7 +578,7 @@ The list this file had before Q-GFX-01, with what is now known:
 4. **Fractional line heights:** not reproduced with plain paragraphs: for
    `font-size: 10pt; line-height: 1.4`, ten lines and a 3 mm margin, fulgur's
    baselines equal Chrome's to 0.01 pt (both snap line boxes to whole pixels;
-   parley's `quantize` mimics Blink). What remains is F6 and that fulgur reads
+   parley's `quantize` says it mimics Chrome). What remains is F6 and that fulgur reads
    taffy's rounded `final_layout` for every box, so a box edge can sit up to
    half a pixel from Chrome's. **Fallback line boxes** (a line that grows for a
    fallback font's taller metrics) was not traced.
@@ -589,11 +601,13 @@ The list this file had before Q-GFX-01, with what is now known:
 are 2 initially, §3.3).
 
 **fulgur 0.40.0:** all six lines on page 2; page 1 ends after "Filler G."
-with the rest empty. Found by the reviewer of this draft (PR #176); every
-multi-page text document gets other page breaks than in Chrome.
+with the rest empty (prints of the reproducer in Chromium 153 and fulgur-cli
+0.40.0). Every multi-page text document gets other page breaks than in
+Chrome.
 
 **Root cause.** In the body-level branch for a multi-line inline root,
-`pagination_layout.rs:746-750` runs before `fragment_inline_root`:
+`pagination_layout.rs:746-753` runs before `fragment_inline_root`; the `if`
+is `:750-753`:
 
 ```rust
 if cursor_y > 0.0 && cursor_y + para_total_h > self.page_height_px {

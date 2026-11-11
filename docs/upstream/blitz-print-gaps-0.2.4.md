@@ -178,8 +178,8 @@ Not in 0.2.4.
 forced break of a block. Two things have to be kept apart: whether fulgur then
 prints what Chrome prints for the original, and whether the rewritten markup
 still prints the same in Chrome (it has to, if the rewritten DOM is ever
-compared with Chrome's). Block heights at 14px/22px, Chromium 153 and fulgur
-0.40.0 (measured by the reviewer of this draft, PR #176):
+compared with Chrome's). Block heights at 14px/22px, measured on prints of
+each block, original and rewritten, by Chromium 153 and by fulgur-cli 0.40.0:
 
 | Block | Chrome, original | Chrome, rewritten | fulgur, original | fulgur, rewritten |
 |---|---|---|---|---|
