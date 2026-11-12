@@ -10,7 +10,42 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Thu 12 Nov 2026, 07:40)
+## Now (Thu 12 Nov 2026, 15:20)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
+The usage limit has stopped the agents six times; the scheduled resume task is paused (by its
+owner), so work restarts only when Kay writes. Agents push early.
+
+- **Main is green** at 4cf95afb (every full.yml job, nightly-extra included, after #182).
+- **Raikiri result (Q-CF-03 part 1, #183):** fulgur's next layout engine passes 5 of 6
+  real-world pages (stock fulgur: 2) and 8 of 13 gap reproducers (2), fails the five Japanese
+  island pages on Japanese-Latin spacing, and costs about 5 ms and 7 MB more per page at the
+  median. It has no Parley. Printer decision in DECISIONS (12 Nov): no Blitz-side patches,
+  Raikiri tracked and spiked as a layout engine (E3-0R).
+- **Open PRs:** #179 E3-00 (re-review running, head 37da987c), #181 P2-DOM-08 (review running,
+  head d8efcdd2), #180 Q-PKG-02 (author fixing the review's five blockers; pushed 93f2d750 so
+  far), #183 Q-CF-03 part 1 (head dc2bc53e, needs a fresh review).
+- Running: reviewers of #179 and #181; PKG agent (#180); CF agent (Q-CF-03 part 2: ironpress,
+  rustyprint, forme-ruby); DOM agent (P2-DOM-09: `el.hidden`, `document.body =`, an audit of
+  setters that silently do nothing).
+- Standing permissions from Kay (11 Nov): merges on green CI at the exact head plus a fresh
+  review; third-party printers on the fleet machine; history rewrite to his GitHub noreply
+  address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
+- Kay's queue: report the private findings upstream (three files in the Claude project) and
+  file the docs/upstream drafts; turn the scheduled resume task back on if he wants night work.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`. A new session
+can't resume this session's agents: continue each task from its pushed branch or its worktree
+under /home/claude/wt/. Then: collect or redo the reviews of #179, #181, #180 (after its
+author's push) and #183; merge on green plus approval as local merge commits by the fleet
+identity; tool-touching PRs also need their tool tests run from a clean checkout. Then by value:
+E3-0R (Raikiri behind the seam), Q-PKG-04 (Japanese spacing for Raikiri), Q-PKG-03 (print
+media), P2-CF-09 (Chrome-equivalence check in CI), P2-PKG-05, E3-01c, Q-GFX-04, Q-GFX-03,
+Q-CF-02, P2-CF-07, P2-CF-08, P2-CF-11, P2-RT-11, P2-DX-05, P2-ORC-03, and Q-ORC-03 at a
+moment with no open PR. Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Thu 12 Nov 2026, 07:40)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
