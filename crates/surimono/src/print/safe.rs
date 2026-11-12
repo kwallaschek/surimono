@@ -38,7 +38,9 @@
 //!    (one that could write declarations into a rule), nothing nested deeper
 //!    than a printer may be given. A [`ResourceLoader`](crate::ResourceLoader)
 //!    brings linked sheets into the page.
-//! 4. **The work is bounded**: [`MAX_STEPS`] steps, counted the same on every
+//! 4. **The page is in standards mode**, for border colours and newlines:
+//!    what they were measured in. (Sizes were measured in quirks mode too.)
+//! 5. **The work is bounded**: [`MAX_STEPS`] steps, counted the same on every
 //!    machine, and the deadline everything after the scripts shares. Past
 //!    either, the page goes out as it was; only a cancel ends the render.
 //!
@@ -50,16 +52,16 @@
 //! declaration there loses to every author declaration, layered or not,
 //! `!important` or not. It assumes:
 //!
-//! 5. **No selector can tell that `<head>` has one more element.** `<head>`
+//! 6. **No selector can tell that `<head>` has one more element.** `<head>`
 //!    and what's in it are never rendered: no rule that may match `<head>`
 //!    declares a `display` other than `none`, or `all`. And nothing rendered
 //!    is matched by what `<head>` holds: every pseudo-class in the page's
 //!    selectors is on the reader's list of those that go by an element's own
 //!    state, its ancestors and its siblings (`:has()` is not on it), and
 //!    `<head>` already has an element, so `head:empty` says what it said.
-//! 6. **A browser decodes the page as before**: it is ASCII, or declares its
+//! 7. **A browser decodes the page as before**: it is ASCII, or declares its
 //!    encoding ahead of the sheet.
-//! 7. **Chrome and the printer read the sheet alike**: it holds no `&`, `<`
+//! 8. **Chrome and the printer read the sheet alike**: it holds no `&`, `<`
 //!    or `\`, which blitz-dom decodes and Chrome doesn't.
 //!
 //! # Size of a block `<svg>`
@@ -69,7 +71,7 @@
 //! hints: declarations just below the author origin. The pass adds a rule per
 //! attribute value, `svg[width="640"] { width: 640px }`. It assumes:
 //!
-//! 8. **Every element the rule matches has that hint, with that value.** Then
+//! 9. **Every element the rule matches has that hint, with that value.** Then
 //!    the rule only repeats, as the lowest thing in the author origin, what
 //!    the hint beneath it says: whatever wins the cascade wins it as before,
 //!    and `revert` and `revert-layer` land on the same value. This doesn't
@@ -78,7 +80,7 @@
 //!    out an `<svg>` inside another, whose attributes are no hints; the value
 //!    is one of SVG's plain lengths (digits, a fraction, an absolute unit or
 //!    none); with assumption 1 the element is in the document's own tree.
-//! 9. **The attribute isn't animated**: no SMIL element in the page.
+//! 10. **The attribute isn't animated**: no SMIL element in the page.
 //!
 //! An inline `style` would outrank author rules the attribute loses to, which
 //! is why this isn't one.
@@ -91,20 +93,20 @@
 //! copy can only take effect where no author declaration sets the top
 //! border's colour. It assumes:
 //!
-//! 10. **Where it takes effect, no top border paints.** Every border style on
+//! 11. **Where it takes effect, no top border paints.** Every border style on
 //!     the page comes from a shorthand that sets the colour too, so a top
 //!     border that paints has an author colour above the layer. Checked: every
 //!     property with `border` in its name is on [`BORDER_PROPERTIES`] (no
 //!     style longhand, no logical property, no `-webkit-border-…` alias), and
 //!     nothing declares `all`.
-//! 11. **The element has no border of the user agent's or of an attribute's.**
+//! 12. **The element has no border of the user agent's or of an attribute's.**
 //!     The selector can only match elements on [`BORDERLESS`] whose attributes
 //!     are all on [`PLAIN_ATTRIBUTES`] (so no `popover`), and no table part
 //!     has an attribute off it (so no `border`, `rules` or `frame`).
-//! 12. **Nothing reads the colour another way**: no border declaration says
+//! 13. **Nothing reads the colour another way**: no border declaration says
 //!     `inherit` or `revert` (the user agent's table rows inherit theirs), and
 //!     nothing says `revert-layer`.
-//! 13. **The colour is the one that prints.** All one-sided borders of the
+//! 14. **The colour is the one that prints.** All one-sided borders of the
 //!     page are plain rules of sheets that always apply, unconditional, with
 //!     a literal colour and no `!important`, so the copies cascade among
 //!     themselves as the originals do. Otherwise none is copied.
@@ -116,13 +118,13 @@
 //! so the newline goes. No selector sees a text node, and the node isn't
 //! emptied. It assumes:
 //!
-//! 14. **The newline ends a line that has content**: it follows a visible
+//! 15. **The newline ends a line that has content**: it follows a visible
 //!     character in the same text node. After an empty line it *is* the line.
-//! 15. **Nothing follows it in the `<pre>`**: the text is the last thing in
+//! 16. **Nothing follows it in the `<pre>`**: the text is the last thing in
 //!     it, through elements on [`PLAIN_INLINE`] only (`<q>` adds a quote),
 //!     and no `::after` (or pseudo-element the reader doesn't know) with
 //!     `content` may match an element on that path.
-//! 16. **The `<pre>` is a block container, and the path is made of inline
+//! 17. **The `<pre>` is a block container, and the path is made of inline
 //!     boxes laid out left to right.** No rule that may match the `<pre>`
 //!     declares a `display` off [`BLOCK_DISPLAYS`], none that may match a
 //!     path element one off [`PATH_DISPLAYS`]. Chrome lays an inline's end
@@ -131,7 +133,7 @@
 //!     ancestor has a `dir` other than `ltr`, the page has no `<bdi>` or
 //!     `<bdo>`, and the `<pre>` holds no right-to-left character or bidi
 //!     control.
-//! 17. **The page's CSS is CSS the newline was measured under.** Every
+//! 18. **The page's CSS is CSS the newline was measured under.** Every
 //!     property declared anywhere in the page (an inherited one reaches the
 //!     `<pre>` from anywhere) is on [`NEWLINE_PROPERTIES`]: each was printed
 //!     by Chromium 153 on the `<pre>`, on its inline elements and on `<body>`,
@@ -476,7 +478,7 @@ const BORDER_PROPERTIES: &[&str] = &[
 ];
 
 /// The properties a `<pre>`'s last newline was measured under (assumption
-/// 17), sorted. Each was printed by Chromium 153 with a sample value on the
+/// 18), sorted. Each was printed by Chromium 153 with a sample value on the
 /// `<pre>`, on the inline elements its last text is in (which had padding, a
 /// border and a margin), on `<body>` and on all of them, with the newline
 /// and without: the same pixels. `display` and `white-space` are here for
@@ -812,7 +814,7 @@ fn right_to_left(c: char) -> bool {
 }
 
 /// The newline ending `pre`, if the tree has nothing against dropping it:
-/// assumptions 14, 15 and 16, as far as they are the tree's.
+/// assumptions 15, 16 and 17, as far as they are the tree's.
 fn pre_newline(tree: &Tree, pre: usize, work: &mut Work<'_>) -> Result<Option<Pre>, Stop> {
     let mut path = vec![pre];
     let mut at = pre;
@@ -1117,11 +1119,11 @@ struct Sheet {
     /// pseudo-element the reader doesn't know.
     after: Vec<usize>,
     /// Every property is on [`NEWLINE_PROPERTIES`], `white-space` with a value
-    /// on [`WHITE_SPACES`]: assumption 17.
+    /// on [`WHITE_SPACES`]: assumption 18.
     measured: bool,
     /// Every property with `border` in its name is on [`BORDER_PROPERTIES`],
     /// none says `inherit` or `revert`, and nothing declares `all`:
-    /// assumptions 10 and 12.
+    /// assumptions 11 and 13.
     borders: bool,
 }
 
@@ -1173,7 +1175,7 @@ fn sheet(rules: &Rules, work: &mut Work<'_>) -> Result<Sheet, Stop> {
 }
 
 /// Where the new `<style>` goes, if the page's CSS can't see one: `<head>` and
-/// the index among its children. Assumptions 5 and 6.
+/// the index among its children. Assumptions 6 and 7.
 fn carrier(
     tree: &Tree,
     facts: &Facts,
@@ -1319,7 +1321,7 @@ fn side_colour(value: &str) -> Side {
 /// Whether a selector can be written into the added sheet as it is: nothing
 /// that means something else there (a namespace prefix, a nesting selector),
 /// or that a printer or a parser would read differently from Chrome
-/// (assumption 7), and no comment.
+/// (assumption 8), and no comment.
 fn copyable(selector: &str) -> bool {
     !selector.is_empty()
         && !selector.contains("/*")
@@ -1354,7 +1356,7 @@ fn applies_everywhere(tree: &Tree, node: usize) -> bool {
 }
 
 /// The rules that give a one-sided border's colour to `border-top-color`, or
-/// none if the page's borders can't all be read: assumptions 10 to 13.
+/// none if the page's borders can't all be read: assumptions 11 to 14.
 fn border_colours(
     tree: &Tree,
     facts: &Facts,
@@ -1467,7 +1469,7 @@ fn visible(c: char) -> bool {
 }
 
 /// The text nodes whose last newline Chrome doesn't render: the end of a
-/// `<pre>`, where the page's CSS has nothing against it. Assumptions 15 to 17,
+/// `<pre>`, where the page's CSS has nothing against it. Assumptions 16 to 18,
 /// as far as they are the CSS's.
 fn trailing_newlines(
     tree: &Tree,
@@ -1587,8 +1589,15 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
         return Ok(false);
     }
     let sheet = sheet(&rules, work)?;
+    // Assumption 4.
+    let standards = !tree.quirks();
     let mut changed = false;
-    for text in trailing_newlines(tree, &facts, &rules, &sheet, work)? {
+    let newlines = if standards {
+        trailing_newlines(tree, &facts, &rules, &sheet, work)?
+    } else {
+        Vec::new()
+    };
+    for text in newlines {
         if let Data::Text(content) = &mut tree.nodes[text].data {
             content.pop();
             changed = true;
@@ -1596,7 +1605,7 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
     }
     if let Some((head, at)) = carrier(tree, &facts, &rules, &sheet, ascii) {
         let sizes = svg_sizes(&facts);
-        let colours = if borders {
+        let colours = if borders && standards {
             border_colours(tree, &facts, &rules, &sheet, work)?
         } else {
             Vec::new()
@@ -2133,7 +2142,6 @@ mod tests {
                 "p { display: inline } pre { display: flex !important }",
                 "<pre>a\n</pre>",
             ),
-            "<pre>a\n</pre>".to_owned(),
             page("", "<pre>売上\n</pre>"),
         ] {
             assert_eq!(cut(&html).as_deref(), Some("\n"), "{html}");
@@ -2657,7 +2665,7 @@ mod tests {
         }
     }
 
-    /// The reviewer's blocker 4, and assumption 17: the newline goes only
+    /// The reviewer's blocker 4, and assumption 18: the newline goes only
     /// under CSS it was measured under.
     #[test]
     fn a_newline_stays_under_css_it_wasnt_measured_under() {
@@ -2709,6 +2717,29 @@ mod tests {
             SVG,
         );
         assert_eq!(rules_of(&html).len(), 2);
+    }
+
+    /// Assumption 4: borders and newlines were measured in standards mode.
+    #[test]
+    fn a_page_in_quirks_mode_gets_only_its_sizes() {
+        let html = page(
+            &format!("svg{{display:block}}{ROW}"),
+            &format!("{SVG}{ROWS}<pre>a\n</pre>"),
+        );
+        let quirks = html.replace("<!doctype html>", "");
+        let standards = safe(&html);
+        assert!(standards.contains(".row{border-top-color:#d9e2ec}}</style>"));
+        assert!(standards.contains("<pre>a</pre>"));
+        assert_eq!(
+            rules_of(&quirks),
+            [
+                size("width", "640", "640px"),
+                size("height", "208", "208px")
+            ]
+        );
+        assert!(safe(&quirks).contains("<pre>a\n</pre>"));
+        let bare = "<pre>a\n</pre>";
+        assert_eq!(safe(bare), plain(bare));
     }
 
     #[test]

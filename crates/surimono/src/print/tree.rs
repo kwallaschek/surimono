@@ -157,6 +157,11 @@ impl Tree {
         self.link(id, new, |c| c.push(new));
     }
 
+    /// Whether the page is in quirks mode: it has no doctype that says otherwise.
+    pub(crate) fn quirks(&self) -> bool {
+        self.quirks
+    }
+
     /// Adds an HTML `<style>` holding `css` as child number `at` of `parent`.
     pub(crate) fn insert_style(&mut self, parent: usize, at: usize, css: String) {
         let name = QualName::new(None, ns!(html), LocalName::from("style"));
