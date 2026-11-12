@@ -4,15 +4,15 @@
     "outputs": {}
   },
   "ruby": {
-    "result": "cancelled",
+    "result": "success",
     "outputs": {}
   },
   "native-gems": {
-    "result": "cancelled",
+    "result": "success",
     "outputs": {}
   },
   "linux-extra": {
-    "result": "cancelled",
+    "result": "success",
     "outputs": {}
   }
 }
