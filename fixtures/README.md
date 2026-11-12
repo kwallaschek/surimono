@@ -171,6 +171,23 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
   error, is killed by a signal or runs out of time leaves a failing score that says
   which, never a missing cell.
 
+- **Other printers.** A printer is anything that takes `fulgur render`'s command
+  line (`render --font F ... --creation-date D -o OUT.pdf IN.html`, and `--version`).
+  `fixtures/tools/raikiri-print` is that for fulgur's Raikiri layout backend, which
+  the published fulgur CLI can't select: its own Cargo workspace on the library
+  crate `fulgur-raikiri`, with an exact version and a committed `Cargo.lock`, built
+  with `cargo build --release` in its folder. It is a test tool and never a
+  dependency of surimono. A cell whose printer gave no PDF says "no output" and
+  nothing else; why is written to `DIR/.private/failures.json`, which isn't for
+  committing.
+- **Reproducers.** `fixtures/printers/reproducers/` has one small page per printing
+  gap, named after the gap as `docs/upstream` numbers it. `fixtures/tools/reproducers.mjs
+  --out DIR --printer LABEL=<binary> ...` has the pinned Chromium print each page on
+  that run, has every printer print it, and scores each printer's page against
+  Chrome's with the metric above. Nothing there is a committed expectation: the
+  images beside the pages (Chrome, then each printer) and `reproducers.md` are a
+  run's results.
+
 ### Hostile scripts as pages
 
 `surimono-page-check hostile` runs `hostile/manifest.toml` through `render_page`, each
@@ -194,6 +211,7 @@ automatically the first time.
 | `fixtures/tools/compare.sh --island I [--printer chrome\|fulgur] <fixture> <svg> <out>` | Compares one island SVG from surimono with `island-I.png`. With `--printer chrome` (default) Chrome draws both sides, so the score measures surimono's SVG alone. With `--printer fulgur` it also includes fulgur's SVG printing. |
 | `fixtures/tools/fulgur-baseline.sh <out>` | fulgur prints Chrome's own SVGs (`prepass.html` and each island alone). The score is the floor surimono + fulgur can reach. Needs `fulgur` 0.40.0 on PATH or `$FULGUR`. |
 | `node fixtures/tools/printers.mjs --out <out> --surimono <cli> --check <page-check> --printer LABEL=<fulgur> ...` | The printer matrix: every island fixture and real-world page printed by each fulgur named, scored against the Chrome references, with each print's time and peak memory ("The printer matrix"). |
+| `node fixtures/tools/reproducers.mjs --out <out> --printer LABEL=<fulgur> ...` | The gap reproducers of `fixtures/printers/reproducers/`, printed by Chrome and by each printer named, each printer's page scored against Chrome's ("The printer matrix"). |
 | `node fixtures/tools/calibrate.mjs --out <out>` | Scores known faults against the island references (how the threshold was chosen). |
 | `node fixtures/tools/gen-islands.mjs [--check]` | Regenerates `input.html` and `meta.toml` from `tools/defs/islands.mjs` (seeded data, byte-identical on every run). |
 
