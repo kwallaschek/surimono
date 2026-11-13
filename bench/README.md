@@ -1,12 +1,14 @@
 # Grover benchmark
 
 Time and peak memory per document: Grover (Chrome through Puppeteer) against
-surimono + fulgur, on one reference report. Every speed or memory claim about
-surimono should cite a `summary.md` from here. Owned by the conformance
-researcher.
+surimono + fulgur, on one reference report through chart islands, and on a page
+set through the page path, where each page's own scripts run before it prints
+("The page set" below). Every speed or memory claim about surimono should cite a
+`summary.md` from here. Owned by the conformance researcher.
 
 ```
 bench/run.sh <outdir> [--runs 20] [--mem-runs 5] [--warmup 2] [--systems a,b,…]
+bench/run.sh <outdir> --pages [--only a,b,…] [--systems a,b,…] [--runs 20] [--mem-runs 5]
 ```
 
 It installs what it needs (pinned npm packages and gems, into `node_modules`
@@ -133,6 +135,79 @@ the same six pages in both engines, but it is not a typical Rails template;
   `bench/.cache/target` locally (or `$BENCH_RUST_TARGET_DIR`), never the
   shared target, and into `$CARGO_TARGET_DIR/bench-rust` in CI.
 
+## The page set
+
+```
+bench/run.sh <outdir> --pages [--only long-report,…] [--systems grover,surimono-ruby,…] [--runs 20] [--mem-runs 5]
+```
+
+The page path, `render_page`: a page's own scripts run, then the page is printed.
+It is what most users will run, and the islands report above doesn't measure it.
+`--pages` measures it with the same harness, runs, sampler, statistics and "not
+measured" and "indicative" rules, page by page (every system and phase of one page
+before the next), into the same two files.
+
+**The pages.**
+
+- The six real-world fixture pages as they are (`fixtures/real-world/*/input.html`:
+  Alpine.js, D3, highlight.js, KaTeX auto-render, marked, a `<noscript>` page),
+  their libraries vendored and pinned in `fixtures/real-world/manifest.toml`.
+- Two long documents written by `pages/gen-pages.mjs`: `long-report`, an annual
+  report with a contents list, 10 chapters of 10 sections of 50 paragraphs (5,000
+  paragraphs, about 400 printed pages) and 6 tables of figures, whose script numbers
+  the chapters, sections and tables, builds the contents list and fills in each
+  table's totals; and `long-table`, a general ledger of 2,000 rows of seven short
+  cells (about 50 printed pages), whose script formats the amounts and fills in the
+  running balance and the totals. An ordinary stylesheet each, the fixture fonts by
+  `@font-face`. The text comes from a seeded PRNG over a fixed word list, so the
+  bytes are the same on every machine: `pages/SHA256SUMS` pins them, `run.sh
+  --pages` checks them (`gen-pages.mjs --check`), and the pages are written to
+  `.cache/pages/` at run time instead of being committed (1.8 MB).
+
+**Systems.**
+
+| System | What runs | Cold | Warm |
+|---|---|---|---|
+| `grover` | Grover 1.2.10 prints the page's file:// URL; its scripts run in Chrome, which prints once they are done by the Chrome references' rule (two animation frames and a task after `load`, `wait_for_function`) | new Ruby process; Grover launches Chrome | one Ruby process, one Chrome kept running |
+| `grover-shell` | as `grover`, on chrome-headless-shell | as `grover` | as `grover` |
+| `surimono-ruby` | `Surimono::Renderer#render_page` (printer-safe output on, the default; the page's `<script src>` and `<link href>` files as `resources:`), then the fulgur gem 0.40.0 prints the HTML | new Ruby process | one Ruby process, renderer and engine reused |
+| `surimono-raikiri` | as `surimono-ruby`, but fulgur's Raikiri backend prints, through the printer matrix's driver `fixtures/tools/raikiri-print` (fulgur-raikiri 0.41.0) in a process of its own for every document | new Ruby process, plus the printer's | one Ruby process, renderer reused; a new printer process per document |
+
+Browserless printers don't load `@font-face` URLs, so both printers get the
+fixture fonts plus the fonts a page's own library brings, as the printer matrix
+gives them: the folder `print_fonts` names in the page's `meta.toml` (KaTeX's
+`.woff2` files on `katex-autorender`). Grover's Chrome loads them itself.
+
+`surimono-raikiri` is **indicative** in every cell: Raikiri has no Ruby binding,
+so a printer process per document is how it runs today, and that isn't the setup
+a gem user would run once one exists. The driver is `$BENCH_RAIKIRI`, or `bench.py`
+builds `fixtures/tools/raikiri-print` (release, `--locked`, within the job's
+budget like bench/rust).
+
+The Rust facade's page path isn't a system of the set yet: `rust/` drives
+`render_islands` only. The gem is what a Grover user moves to.
+
+**Quality.** Each system's cold PDF of a real-world page is scored against the
+page's committed Chrome reference by `fixtures/tools/compare.mjs` and the pass
+rule of `fixtures/README.md` (shape ≤ 10%, colour ≤ 10%, hue ≤ 30%, same page
+size and count). Grover is scored too: it is the same Chromium build as the
+references. The long documents have no Chrome reference; their rows show the page
+counts each system printed.
+
+**What differs from the islands report.**
+
+- Chrome draws text unhinted and in grayscale (`fonts.conf`), as when the Chrome
+  references were rendered. With fontconfig's built-in full hinting, Grover's
+  `alpine-invoice` places glyphs a fraction of a pixel elsewhere and fails the
+  shape check at 40.5% with the same content; unhinted it is pixel for pixel the
+  reference. The islands report keeps its fontconfig as it was.
+- A benchmark process that dies without saying why counts as **no output**; its
+  stderr is kept in `<work>/private/`, never in `results.json` or `summary.md`.
+  How a printer fails on a page is its project's to hear first.
+- No SPEC target is set on the page set. Ratios against Grover are shown per
+  page, and tallied against the SPEC's ratios (2× time, 5× peak PSS) for
+  orientation only.
+
 ## Files
 
 | Path | What |
@@ -143,7 +218,8 @@ the same six pages in both engines, but it is not a typical Rails template;
 | `tools/test_bench.py` | unit tests for both (`python3 -I -m unittest discover -s bench/tools -p 'test_*.py'`) |
 | `tools/measure.py` | time and peak memory of one command with the harness's sampler, or of several commands taking turns (`--commands`); the printer matrix (`fixtures/tools/printers.mjs`) measures each print with it. `tools/test_measure.py` tests it |
 | `tools/pages.mjs` | the Grover page (report plus library `<script>` tags) and the pre-rendered page (Chrome's SVGs inlined) |
-| `ruby/bench.rb` | one Ruby benchmark process (Grover, surimono, fulgur) |
+| `pages/gen-pages.mjs` | the page set's long documents (`--check` against `pages/SHA256SUMS`; written to `.cache/pages/`) |
+| `ruby/bench.rb` | one Ruby benchmark process (Grover, surimono, fulgur; the page set's systems too) |
 | `grover/` | pinned Puppeteer (`package-lock.json`) and the persistent-browser launcher |
 | `rust/` | one Rust benchmark process (facade plus fulgur crate) |
 | `Gemfile`, `Gemfile.lock` | pinned grover 1.2.10 and fulgur 0.40.0 |

@@ -27,7 +27,8 @@
 #                     (two animation frames and a task after load).
 #   surimono-page     Surimono::Renderer#render_page (printer-safe output on, the
 #                     page's <script src> and <link href> files as resources:),
-#                     then the fulgur gem prints the result.
+#                     then the fulgur gem prints the result, with the page's
+#                     print_fonts (meta.toml) added to the fixture fonts.
 #   surimono-page-raikiri
 #                     as surimono-page, then BENCH_RAIKIRI (fixtures/tools/
 #                     raikiri-print, fulgur's Raikiri backend) prints it in a
@@ -77,13 +78,26 @@ def font_files
   files
 end
 
-# A fulgur engine with the fixture fonts registered, as a fulgur user sets it
-# up. Page size and margins come from the document's @page rule.
-def fulgur_engine
+# A fulgur engine with the fixture fonts (and `extra` font files) registered,
+# as a fulgur user sets it up. Page size and margins come from the document's
+# @page rule.
+def fulgur_engine(extra = [])
   require "fulgur"
   bundle = Fulgur::AssetBundle.new
-  font_files.each { |f| bundle.add_font_file(f) }
+  (font_files + extra).each { |f| bundle.add_font_file(f) }
   Fulgur::Engine.new(page_size: :a4, assets: bundle)
+end
+
+# The fonts a real-world page loads by @font-face from its own library, which a
+# browserless printer doesn't load: the folder its meta.toml names in
+# print_fonts (KaTeX's .woff2 files), given to the printer as the printer matrix
+# gives them (fixtures/tools/print-pages.mjs). None for other pages.
+def print_fonts(input)
+  meta = File.join(File.dirname(input), "meta.toml")
+  return [] unless File.exist?(meta)
+
+  dir = File.read(meta)[/^print_fonts = "(.*)"$/, 1]
+  dir ? Dir[File.join(File.expand_path(dir, File.dirname(input)), "*.woff2")].sort : []
 end
 
 # How the Chrome references decide that a page's own scripts are done
@@ -198,13 +212,14 @@ def setup(system_name, input, out_pdf)
     html = File.read(input, encoding: "UTF-8")
     renderer = surimono_renderer(printer_safe: true, resources: page_resources(input, html))
     fail!("the surimono gem on this commit has no render_page (phase 2)", status: 4) unless renderer.respond_to?(:render_page)
+    extra_fonts = print_fonts(input)
     printer = if system_name == "surimono-page"
-      engine = fulgur_engine
+      engine = fulgur_engine(extra_fonts)
       ->(prepared) { engine.render_html(prepared).to_s }
     else
       raikiri = ENV["BENCH_RAIKIRI"].to_s
       fail!("BENCH_RAIKIRI is not set (fixtures/tools/raikiri-print not built)", status: 4) if raikiri.empty?
-      fonts = font_files.flat_map { |f| ["--font", f] }
+      fonts = (font_files + extra_fonts).flat_map { |f| ["--font", f] }
       page_html = "#{out_pdf}.page.html"
       page_pdf = "#{out_pdf}.raikiri.pdf"
       lambda do |prepared|
