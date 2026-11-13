@@ -947,9 +947,10 @@ pub(super) mod tests {
             xmlns:xlink=\"http://www.w3.org/1999/xlink\" xml:lang=\"en\">\
             <use xlink:href=\"#a\"></use></svg>\
             <math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi>x</mi></math>";
+        // A standards-mode page is written with its doctype.
         let page = format!("<!doctype html><html><head></head><body>{svg}</body></html>");
         let out = written(&page);
-        assert_eq!(out, format!("<html><head></head><body>{svg}</body></html>"));
+        assert_eq!(out, page);
         // What is written parses to the same tree, so the printer reads it.
         assert_eq!(written(&out), out);
         assert_same_tree(&out);
