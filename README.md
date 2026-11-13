@@ -241,6 +241,13 @@ let pdf = engine.render(&page.html)?;
 - **The output is serialized**, so it isn't byte-identical to the input:
   `<noscript>` and comments are always gone, and `<script>` too unless you pass
   `keep_scripts`.
+- **The output is printer-safe** by default: a block `<svg>`'s size, the
+  colour of a border on one side and a newline ending a `<pre>` are written in
+  a form fulgur 0.40 prints the way Chrome prints the page, only where Chrome
+  prints the result exactly as before. The HTML then differs from the page's
+  DOM by one `<style>` in `<head>` and by those newlines. `printer_safe: false`
+  (Ruby), `Options::printer_safe(false)` (Rust) or `--no-printer-safe` gives
+  the DOM as it is.
 
 The [Rails guide](docs/guide/rails.md#page-scripts) and the
 [Rust guide](docs/guide/rust.md#page-scripts) cover all of it, including how to
@@ -263,10 +270,13 @@ count `dom/events` is below the target; the other three stay above it.
 COMPAT.md has both tables.
 
 Six real-world pages, built with Alpine.js, highlight.js, D3, KaTeX and marked,
-were printed through `render_page` and fulgur 0.40.0 and compared with Chrome's
-print ([results](fixtures/checkpoint-3/index.md)): 2 of 6 pass, Alpine.js and
-highlight.js. The other 4 print the same as fulgur printing Chrome's own DOM, so
-those failures are fulgur's layout, not the page's scripts.
+were printed through `render_page` and stock fulgur 0.40.0 and compared with
+Chrome's print: 4 of 6 pass with printer-safe output (`alpine-invoice`,
+`d3-charts`, `highlightjs-code`, `noscript-message`), 2 without it. The other
+2, `katex-autorender` and `marked-report`, print the same as fulgur printing
+Chrome's own DOM, so those failures are fulgur's layout, not the page's
+scripts. The [committed results](fixtures/checkpoint-3/index.md) are of the
+output without printer-safe rewrites.
 
 What doesn't work yet:
 
@@ -312,8 +322,8 @@ surimono render page.html -o page.out.html --font fonts/NotoSans-Regular.ttf \
   --scripts --resource /assets/invoice.js=app/assets/invoice.js
 ```
 
-`--keep-scripts`, `--layout-queries` and `--output-mb` go with it. Exit codes
-tell a script what to fix:
+`--keep-scripts`, `--no-printer-safe`, `--layout-queries` and `--output-mb` go
+with it. Exit codes tell a script what to fix:
 
 | Code | Meaning |
 |---|---|
@@ -498,7 +508,7 @@ v0.3 is planned as the first release and will carry all three phases.
 |---|---|---|
 | 1 | Chart islands | On `main`; the `v0.1.0` tag marks it, but it was not released |
 | 2 | The page's own scripts on a real DOM (blitz-dom), on a virtual clock | On `main`, in progress; all four WPT targets met (see [Page scripts](#page-scripts)) |
-| 3 | Layout queries answered from the same layout the PDF is printed from; Canvas2D as vectors | Planned |
+| 3 | Layout queries that measure as Chrome does; Canvas2D as vectors | Planned |
 
 ## Licence
 

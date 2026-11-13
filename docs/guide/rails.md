@@ -377,6 +377,40 @@ so it isn't byte-identical to what you passed in:
 - A page with no doctype or an old one comes out with no doctype;
   a standards-mode page comes out with `<!doctype html>`.
 - The output is screened so the printer's parse matches ours.
+- The output is printer-safe, unless you pass `printer_safe: false` to
+  `Surimono::Renderer.new`. See below.
+
+#### Printer-safe output
+
+fulgur 0.40 prints some ordinary pages wrong although their DOM is right. For
+three of those gaps there is a form of the page that it prints right, and by
+default `page.html` is written in that form:
+
+- A block `<svg>` keeps the size its `width` and `height` give it, and a border
+  on one side prints in its own colour, not the text's. Both come from one
+  `<style>` added in `<head>`, before the page's own style sheets, whose rules
+  rank below all of the page's CSS.
+- A `<pre>` whose text ends in a newline loses that newline, which a browser
+  doesn't print, so the box isn't a line taller.
+
+Each is made only where Chrome prints the result exactly as it prints the page,
+whatever the page's CSS says. Where that can't be told from the page, the page
+is left as it is, among other cases:
+
+- when a script is left in it in any form a browser runs while it prints: a
+  `<script>` (with `keep_scripts: true`), an `on…` attribute, a `srcdoc`, a
+  `javascript:` URL, or an `<iframe>`, `<object>` or `<embed>` that loads a
+  document;
+- when some of its CSS isn't in the page: a `<link rel="stylesheet">` or an
+  `@import`. Sheets loaded through `resources:` or a loader are in the page;
+- when a `<style>` has a child that isn't text, or the page has a declarative
+  shadow root (`<template shadowrootmode>`);
+- when the pass runs out of its steps or of time. The plain page then goes out;
+  the render doesn't fail.
+
+A page that isn't in standards mode (no doctype, or an old one) gets only the
+`<svg>` sizes. With `printer_safe: false`, `page.html` is the serialized DOM and
+nothing else.
 
 The same HTML, options and files give the same bytes. Scripts see the clock in
 [Dates and time zones](#dates-and-time-zones), and `Math.random` follows `seed:`.
@@ -471,6 +505,11 @@ Surimono::Renderer.new(fonts: PDF_FONTS, layout_queries: :throw)
 The first query then raises `Surimono::LayoutQueryError`, even if the page
 catches the exception.
 
+When layout queries give real answers, they will measure as Chrome does, since
+scripts are written against Chrome. fulgur lays pages out with Blitz, which
+prints some of those layouts differently, so a page that sizes things from
+those answers may print differently with stock fulgur.
+
 ### What doesn't work yet
 
 - A script a script inserts doesn't run, so script loaders do nothing. Inline
@@ -478,8 +517,9 @@ catches the exception.
 - `type="module"` scripts don't run; `nomodule` scripts do.
 - There is no `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
   `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `Intl` or shadow DOM.
-  Calling a missing method stops that script, with `TypeError: not a function`
-  in the report.
+  Using one stops that script, with an error in the report: a missing global
+  gives `ReferenceError: fetch is not defined`, and calling a missing method
+  (`element.attachShadow()`) gives `TypeError: not a function`.
 - `document.write` doesn't exist, so the script that calls it stops there.
 - `innerText` sees no stylesheet until phase 3: it follows `hidden`, an inline
   `display: none` and each element's default display, so text a stylesheet

@@ -26,15 +26,19 @@ Keep Grover, for now, for any document that needs one of these:
 - **Page scripts that `render_page` can't run yet.** `render_page` runs a page's
   own scripts on a real DOM ([Rails guide](rails.md#page-scripts)), and
   `Surimono.render` still doesn't. Of six real-world pages printed through
-  fulgur 0.40.0 and compared with Chrome's print, 2 pass, built with Alpine.js
-  and highlight.js. The other 4, among them D3, KaTeX and marked, print the same
-  as fulgur printing Chrome's own DOM, so those failures are fulgur's layout
-  ([results](../../fixtures/checkpoint-3/index.md)). Compare your own before you
-  switch. Modules, scripts a script inserts and `document.write` don't run.
+  stock fulgur 0.40.0 and compared with Chrome's print, 4 pass: those built
+  with Alpine.js, D3 and highlight.js, and one with a `<noscript>` message.
+  That is with the printer-safe output `render_page` writes by default;
+  without it, 2 pass ([results](../../fixtures/checkpoint-3/index.md)). The
+  other 2, built with KaTeX and marked, print the same as fulgur printing
+  Chrome's own DOM, so those failures are fulgur's layout. Compare your own
+  before you switch. Modules, scripts a script inserts and `document.write`
+  don't run.
 - **Scripts that measure layout.** `getBoundingClientRect`, `offsetWidth`,
   `getBBox`, `getComputedTextLength`, sizing a chart to its container, or text
   fitting. Layout queries answer zeros for now; real answers are planned for
-  v0.3.
+  v0.3. They will measure as Chrome does, and fulgur lays pages out with Blitz,
+  which may print some of those layouts differently.
 - **Canvas.** Chart.js and other libraries that draw on `<canvas>`. surimono has
   ECharts and Vega, which draw SVG. Canvas recorded as vectors, in the scope
   Chart.js uses, is planned for v0.3.
