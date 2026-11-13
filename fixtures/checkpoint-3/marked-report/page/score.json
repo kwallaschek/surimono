@@ -15,7 +15,7 @@
   },
   "pass": false,
   "worst_window": 0.675,
-  "worst_diff_ratio_ink": 0.07906198544643331,
+  "worst_diff_ratio_ink": 0.07733610907854191,
   "worst_colour_window": 0.8481012658227848,
   "worst_hue_window": 1,
   "pages": [
@@ -32,22 +32,22 @@
         64,
         240
       ],
-      "near_mismatch_pixels": 2114,
-      "near_ink_share": 0.01871425789203449,
+      "near_mismatch_pixels": 596,
+      "near_ink_share": 0.006142366872442828,
       "colour_worst_window": 0.8481012658227848,
       "colour_worst_window_at": [
         160,
         112
       ],
-      "colour_mismatch_pixels": 10956,
-      "solid_pixels": 66640,
+      "colour_mismatch_pixels": 140,
+      "solid_pixels": 51768,
       "hue_worst_window": 1,
       "hue_worst_window_at": [
         32,
         128
       ],
       "hue_mismatch_pixels": 216,
-      "hue_pixels": 23098,
+      "hue_pixels": 24833,
       "width": 794,
       "height": 1123,
       "size_match": true,
@@ -59,19 +59,19 @@
         794,
         1123
       ],
-      "diff_pixels": 8931,
-      "ink_pixels": 112962,
+      "diff_pixels": 7504,
+      "ink_pixels": 97031,
       "expected_ink_pixels": 94236,
-      "actual_ink_pixels": 107436,
-      "diff_ratio_ink": 0.07906198544643331,
-      "diff_ratio_page": 0.010016127187207709,
+      "actual_ink_pixels": 92476,
+      "diff_ratio_ink": 0.07733610907854191,
+      "diff_ratio_page": 0.008415744979599894,
       "side_by_side": "side-by-side-1.png"
     }
   ],
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "0aeff1749e49e56a6777bb6a5f0b66ec1b4b24e7dd883e6c8bf60e29b3d66428",
-    "commit": "e879ec95a46888b907b649b4e1a9cc3cb3411f74"
+    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
+    "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008"
   }
 }

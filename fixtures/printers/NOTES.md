@@ -42,7 +42,10 @@ poppler 24.02.0), against the committed references of Chromium 153.0.8010.12.
 - **fulgur 0.41.0** prints all 35 cells pixel for pixel as 0.40.0 does, and all 13
   reproducers with the same scores. The 12 island PDFs are byte for byte the same;
   the 23 page PDFs are 78 or 79 bytes longer, because 0.41.0 writes the document's
-  `<html lang>` into the PDF.
+  `<html lang>` into the PDF (`/Lang` in the catalog and `dc:language` in the XMP),
+  as #177 checked by hand on the 11 island fixture pages, `alpine-invoice` and
+  `marked-report`: nothing else differs, and `pdftotext` and `pdffonts` give the
+  same output for both versions.
 - **Raikiri** passes three real-world pages that fulgur fails, `d3-charts`,
   `katex-autorender` and `noscript-message`, each at 0.0%, on surimono's output and
   on Chrome's own DOM alike. `marked-report` fails with it too, at 72.1% (67.5% with
@@ -89,7 +92,11 @@ follows from the single runs in `printers.json`.
 | Print time, median over the pages | 26.7 ms | 27.3 ms | 31.8 ms |
 | Print time, sum of the pages' medians | 673 ms | 678 ms | 1114 ms |
 | Peak PSS, median over the pages | 44.6 MB | 44.9 MB | 51.3 MB |
-| Peak PSS, largest | 51.9 MB (`marked-report`) | 51.5 MB (`marked-report`) | 73.8 MB (`vegalite-scatter-dense-latin`) |
+| Peak PSS, largest median of a page | 51.9 MB (`marked-report`, the page) | 51.5 MB (`marked-report`'s floor) | 73.8 MB (`vegalite-scatter-dense-latin`) |
+| Peak PSS, largest single run | 52.5 MB (`marked-report`'s floor) | 52.3 MB (`marked-report`'s floor) | 74.1 MB (`vegalite-scatter-dense-latin`) |
+
+`index.md`'s "Largest peak PSS" is the largest median of a page, the first of these
+two rows; `printers.mjs` names it so from the next run on (P2-CF-12).
 
 - **Raikiri, time.** Its median is higher than 0.40.0's on 17 of the 23 pages,
   lower on 5 and equal on 1; the difference per page runs from −2.0 ms to +159.6 ms

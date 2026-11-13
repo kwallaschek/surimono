@@ -1,0 +1,73 @@
+{
+  "subject": "noscript-message",
+  "pdf": "print-pages-out/noscript-message/plain/print.pdf",
+  "label": "surimono",
+  "metric": "shape: near-match (1 px radius, per-channel tolerance 128/255), worst 32x32 window's share of mismatched ink, pass <= 10%; colour: solid pixels (flat 5x5) within 16/255 per channel at 1 px, worst window <= 10%; hue: ink direction of strongly inked pixels within 8 degrees at 1 px, worst window <= 30%; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink",
+  "pixel_threshold": 0.1,
+  "pass_worst_window": 0.1,
+  "pass_colour_window": 0.1,
+  "pass_hue_window": 0.3,
+  "poppler": "24.02.0",
+  "dpi": 96,
+  "page_count": {
+    "chrome": 1,
+    "surimono": 1
+  },
+  "pass": false,
+  "worst_window": 1,
+  "worst_diff_ratio_ink": 0.33348691485440474,
+  "worst_colour_window": 0,
+  "worst_hue_window": 1,
+  "pages": [
+    {
+      "page": 1,
+      "pass": false,
+      "failed": [
+        "shape",
+        "hue"
+      ],
+      "worst_window": 1,
+      "worst_window_at": [
+        144,
+        160
+      ],
+      "near_mismatch_pixels": 2050,
+      "near_ink_share": 0.18890527091780318,
+      "colour_worst_window": 0,
+      "colour_worst_window_at": null,
+      "colour_mismatch_pixels": 0,
+      "solid_pixels": 0,
+      "hue_worst_window": 1,
+      "hue_worst_window_at": [
+        144,
+        160
+      ],
+      "hue_mismatch_pixels": 2040,
+      "hue_pixels": 8784,
+      "width": 794,
+      "height": 1123,
+      "size_match": true,
+      "expected_size": [
+        794,
+        1123
+      ],
+      "actual_size": [
+        794,
+        1123
+      ],
+      "diff_pixels": 3619,
+      "ink_pixels": 10852,
+      "expected_ink_pixels": 10002,
+      "actual_ink_pixels": 9989,
+      "diff_ratio_ink": 0.33348691485440474,
+      "diff_ratio_page": 0.0040587128306465905,
+      "side_by_side": "side-by-side-1.png"
+    }
+  ],
+  "producer": {
+    "cli": "fixtures/tools/page-check",
+    "version": "render_page",
+    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
+    "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008"
+  }
+}

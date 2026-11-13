@@ -2,10 +2,10 @@
   "subject": "d3-charts",
   "deterministic": true,
   "sha256": [
-    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
-    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
-    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
-    "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d"
+    "f8bb6332c76b173e22c6ad1d42df9703432dfe01f8bd746ea5bbef8d68eafeac",
+    "f8bb6332c76b173e22c6ad1d42df9703432dfe01f8bd746ea5bbef8d68eafeac",
+    "f8bb6332c76b173e22c6ad1d42df9703432dfe01f8bd746ea5bbef8d68eafeac",
+    "f8bb6332c76b173e22c6ad1d42df9703432dfe01f8bd746ea5bbef8d68eafeac"
   ],
   "runs": [
     {
@@ -26,7 +26,16 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "0aeff1749e49e56a6777bb6a5f0b66ec1b4b24e7dd883e6c8bf60e29b3d66428",
-    "commit": "e879ec95a46888b907b649b4e1a9cc3cb3411f74"
+    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
+    "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008"
+  },
+  "plain": {
+    "deterministic": true,
+    "sha256": [
+      "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
+      "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
+      "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
+      "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d"
+    ]
   }
 }

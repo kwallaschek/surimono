@@ -13,41 +13,28 @@
     "chrome": 1,
     "surimono": 1
   },
-  "pass": false,
-  "worst_window": 1,
-  "worst_diff_ratio_ink": 0.42998209423307165,
-  "worst_colour_window": 1,
-  "worst_hue_window": 1,
+  "pass": true,
+  "worst_window": 0,
+  "worst_diff_ratio_ink": 0.015996063385203464,
+  "worst_colour_window": 0,
+  "worst_hue_window": 0,
   "pages": [
     {
       "page": 1,
-      "pass": false,
-      "failed": [
-        "shape",
-        "colour",
-        "hue"
-      ],
-      "worst_window": 1,
-      "worst_window_at": [
-        336,
-        192
-      ],
-      "near_mismatch_pixels": 52106,
-      "near_ink_share": 0.27603487916256103,
-      "colour_worst_window": 1,
-      "colour_worst_window_at": [
-        336,
-        224
-      ],
-      "colour_mismatch_pixels": 59428,
-      "solid_pixels": 156807,
-      "hue_worst_window": 1,
-      "hue_worst_window_at": [
-        512,
-        240
-      ],
-      "hue_mismatch_pixels": 6717,
-      "hue_pixels": 56592,
+      "pass": true,
+      "failed": [],
+      "worst_window": 0,
+      "worst_window_at": null,
+      "near_mismatch_pixels": 0,
+      "near_ink_share": 0,
+      "colour_worst_window": 0,
+      "colour_worst_window_at": null,
+      "colour_mismatch_pixels": 0,
+      "solid_pixels": 113562,
+      "hue_worst_window": 0,
+      "hue_worst_window_at": null,
+      "hue_mismatch_pixels": 0,
+      "hue_pixels": 72099,
       "width": 794,
       "height": 1123,
       "size_match": true,
@@ -59,19 +46,19 @@
         794,
         1123
       ],
-      "diff_pixels": 81166,
-      "ink_pixels": 188766,
+      "diff_pixels": 2243,
+      "ink_pixels": 140222,
       "expected_ink_pixels": 138517,
-      "actual_ink_pixels": 155406,
-      "diff_ratio_ink": 0.42998209423307165,
-      "diff_ratio_page": 0.09102776612662646,
+      "actual_ink_pixels": 138776,
+      "diff_ratio_ink": 0.015996063385203464,
+      "diff_ratio_page": 0.002515527184067505,
       "side_by_side": "side-by-side-1.png"
     }
   ],
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "0aeff1749e49e56a6777bb6a5f0b66ec1b4b24e7dd883e6c8bf60e29b3d66428",
-    "commit": "e879ec95a46888b907b649b4e1a9cc3cb3411f74"
+    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
+    "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008"
   }
 }
