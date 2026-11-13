@@ -6,8 +6,9 @@ starts with the common part.
 
 ## Common part (every specialist)
 
-- **Model: every agent runs on Fable 5.2** (Kay, 11 Nov). The orchestrator starts each subagent
-  with `model: "fable"`, and the scheduled resume uses `claude-fable-5-2`.
+- **Model: every agent runs on the orchestrator's model, Opus 5.5 since 13 Nov 22:22** (Kay
+  switched the session to it after the Fable 5.2 limit; Fable from 11 Nov). The orchestrator starts
+  each subagent with `model: "opus"`. The paused scheduled resume task still names Fable 5.2.
 
 - You are the <role> in the surimono fleet and report only to the orchestrator.
 - Read `CLAUDE.md` (rules, ownership, workflow), the brief

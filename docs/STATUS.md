@@ -10,7 +10,36 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Thu 12 Nov 2026, 15:20)
+## Now (Fri 13 Nov 2026, 22:35)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). **Agents run on Opus 5.5 from
+13 Nov 22:22** (Kay switched the session after the Fable limit). Nothing ran from 12 Nov ~15:30 to
+13 Nov 22:22: every Fable agent stopped on the limit and the scheduled resume task is paused.
+
+- **Main is green** at c8d13990 (every full.yml job).
+- **Open PRs, all green on CI, all in fresh review (Opus reviewers started 22:30):**
+  #179 E3-00 at 37da987c (second round), #180 Q-PKG-02 at 7e363895 (second round, the
+  187-page Chrome harness again), #181 P2-DOM-08 at d8efcdd2, #183 Q-CF-03 part 1 at dc2bc53e.
+- **Running:** the three reviewers (one covers #181 and #183) and the DOM agent finishing
+  P2-DOM-09 from WIP 5b6f202d (saved by the orchestrator from its worktree).
+- Not restarted yet: Q-CF-03 part 2 (ironpress, rustyprint, forme-ruby).
+- Standing permissions from Kay (11 Nov): merges on green CI at the exact head plus a fresh
+  review; third-party printers on the fleet machine; history rewrite to his GitHub noreply
+  address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
+- Kay's queue: report the private findings upstream (three files in the Claude project) and
+  file the docs/upstream drafts; turn the scheduled resume task back on (and set it to Opus 5.5)
+  if he wants night work.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)`. A new session
+can't resume this session's agents: continue each task from its pushed branch. Then: merge what
+the reviews approve (local merge commits by the fleet identity; squash where a branch's history
+must not reach main); hand blockers to new author agents. Then by value: E3-0R, Q-PKG-04,
+Q-PKG-03, P2-CF-09, P2-PKG-05, Q-CF-03 part 2, E3-01c, Q-GFX-04, Q-GFX-03, Q-CF-02, P2-CF-07,
+P2-CF-08, P2-CF-11, P2-RT-11, P2-DX-05, P2-ORC-03, and Q-ORC-03 when no PR is open.
+Digest Sun 15 Nov 20:00 JST.
+
+## Earlier (Thu 12 Nov 2026, 15:20)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Every agent runs on Fable 5.2.
