@@ -371,10 +371,15 @@ glue_layout.js ── layoutQuery / layoutNumber ──▶ Document (src/layout.
                                                    │ Engine::lay_out(&Document, &LayoutSetup)
                                                    ▼
                                            Box<dyn Laid>  ◀── src/layout_blitz.rs (Blitz, the mirror)
+                                                          ◀── src/layout_raikiri.rs (Raikiri, feature `raikiri`)
 ```
 
 - **`LayoutSetup`** is what comes in from outside the page: the viewport and
-  the fonts.
+  the engine with its fonts, `LayoutEngine::Blitz(FontContext)` or, with the
+  `raikiri` feature, `LayoutEngine::Raikiri(RaikiriSetup)` (E3-R1: font bytes
+  and family names with system fonts off, and optionally the page's size and
+  margins). Phase 3 targets Raikiri (DECISIONS 2026-11-14); how its engine
+  reads the page and answers is in `RAIKIRI.md` section 9.
 - **`Engine::lay_out(page, setup)`** turns the page as it is now into a laid-out
   page, or refuses it (`Ok(None)`, answered as no box). It reads the tree, the
   sheets and the style attributes through `Document`'s own accessors
@@ -382,7 +387,8 @@ glue_layout.js ── layoutQuery / layoutNumber ──▶ Document (src/layout.
   `edited_sheet_text`, `style_attr::parse`) and looks at the page's deadline
   where its work can be cut.
 - **`Laid`** is what queries are answered from, in the page's node ids, never
-  the engine's: `border_box(node)` today. E3-01 and E3-02 add their questions
+  the engine's: `border_box(node)`, and `offset_position(node)` (offsetLeft and
+  offsetTop, Raikiri only). E3-01 and E3-02 add their questions
   here and nowhere else: `client_rects(node)`, `box_edges(node)` (padding,
   border, scrollbar, content size), `offset_parent` inputs,
   `computed_value(node, pseudo, property) -> Option<String>`,
@@ -393,11 +399,9 @@ glue_layout.js ── layoutQuery / layoutNumber ──▶ Document (src/layout.
   (`Laid::update(page, changes) -> bool`, false for "build me again") when
   E3-01 has a change list to give it.
 
-What is not neutral yet, on purpose, because a second engine isn't being built:
-`LayoutSetup::fonts` is a Parley 0.6 `FontContext` (Raikiri also shapes with
-Parley, but only the same Parley version shares the type; otherwise this
-becomes font bytes and a generic-family map); and the tree an engine reads is
-stored in a blitz-dom slab (see "Risks").
+What is not neutral yet: the tree an engine reads is stored in a blitz-dom
+slab (see "Risks"). The fonts are each engine's own: a Parley 0.6
+`FontContext` for Blitz, font bytes for Raikiri, which shapes with shodo.
 
 ### A mirror, not the page's own document
 
@@ -469,7 +473,7 @@ It needs:
   `FontContext::default()` is never an option: with Parley's `system` feature
   on anywhere in the build (blitz-dom's defaults turn it on, and fulgur uses the
   defaults) it loads the machine's fonts. The prototype takes the context in
-  `LayoutSetup::fonts` and clones it per mirror (a `Collection` clone shares the
+  `LayoutEngine::Blitz` and clones it per mirror (a `Collection` clone shares the
   font blobs). **Hand-over from surimono-gfx (E3-01):** a
   `FontSet::font_context()` that returns this context from its own collection,
   with its generic-family mapping applied through
@@ -695,7 +699,8 @@ So the viewport is the page width less the left and right margins, in CSS
 pixels at 96 dpi, **truncated to a whole pixel** (A4 with 20 mm margins:
 642.52, so 642), by the full page height, also truncated (`engine.rs` passes
 `config.page_height()`, not the content height: A4 is 1122), scale 1, light
-scheme, `screen` media. `LayoutSetup { width, height, fonts }` is exactly that. The numbers come
+scheme, `screen` media. `LayoutSetup { width, height, engine }` with Blitz's
+fonts is exactly that. The numbers come
 from the caller's printer settings, which surimono doesn't know today: the
 facade needs a page option (size, margins, orientation; default A4 and
 fulgur's default margins) that it converts as above and that callers set to

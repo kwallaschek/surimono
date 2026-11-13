@@ -1,0 +1,25 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font-family: 'Noto Sans' }
+#a { width: 200px; height: 50px; margin: 10px 0 0 20px; padding: 5px; border: 1px solid black }
+#b { width: 50%; height: 30px }
+#c { display: none; width: 10px; height: 10px }
+#vw { width: 50vw; height: 10vh }
+#rel { position: relative; margin: 30px; height: 40px }
+#p { position: absolute; left: 5px; top: 6px; width: 7px; height: 8px }
+table { border-spacing: 0 }
+td { padding: 0; height: 20px }
+#hm { margin: 7px 0 0 0 }
+</style></head><body><div id=a></div><div id=b></div>
+<div id=c><p id=d>x</p></div><div id=vw></div>
+<div id=rel><div id=p></div></div>
+<table id=tb><tr><td id=c1 style="width:40px"></td><td id=c2 style="width:60px"></td></tr></table>
+<canvas id=cv width=50 height=20 style="display:block"></canvas><canvas id=cw width=50 height=20></canvas><canvas id=cd></canvas>
+<svg id=sv width=120 height=40></svg><div id=after style="height:5px"></div>
+<div id=fl style="width:300px"><div id=f1 style="float:left;width:100px;height:30px"></div><div id=f2 style="float:left;width:100px;height:20px"></div></div>
+<div id=fx style="display:flex;width:300px;gap:10px"><div id=x1 style="flex:1;height:10px"></div><div id=x2 style="flex:2;height:10px"></div></div>
+<div id=gr style="display:grid;grid-template-columns:100px 1fr;width:300px"><div id=g1 style="height:10px"></div><div id=g2 style="height:12px"></div></div>
+</body></html>

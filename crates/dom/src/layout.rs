@@ -3,18 +3,23 @@
 //! This file is the seam between the bindings and whatever lays the page
 //! out. It knows when a layout is needed and when one is stale, and asks an
 //! engine for a [`Laid`] page through [`Engine`]; it names no type of any
-//! layout engine but the font context in [`LayoutSetup`]. The one engine is
-//! Blitz, in `layout_blitz.rs`, the layout fulgur prints with.
+//! layout engine but the font context and the Raikiri setup in
+//! [`LayoutSetup`]. The engines are Blitz, in `layout_blitz.rs`, the layout
+//! fulgur 0.40 prints with, and with the `raikiri` feature Raikiri, in
+//! `layout_raikiri.rs`, fulgur-raikiri's (E3-R1).
 //!
 //! `DESIGN.md`, "Layout queries (phase 3)", has the reasons and the costs.
 
 use std::rc::Rc;
 
 use blitz_dom::FontContext;
-use surimono_webidl::runtime::{BindingResult, ObjectId};
+use surimono_webidl::runtime::{BindingError, BindingResult, ObjectId};
 
+use crate::DomError;
 use crate::document::{Document, LayoutPolicy};
 use crate::layout_blitz::Blitz;
+#[cfg(feature = "raikiri")]
+use crate::layout_raikiri::Raikiri;
 
 /// What a real layout is run against. Internal: the phase-3 public API waits
 /// for checkpoint 3, and the facade doesn't hand this out.
@@ -26,9 +31,52 @@ pub struct LayoutSetup {
     pub width: u32,
     /// The viewport's height in CSS pixels.
     pub height: u32,
-    /// The fonts text is measured with. Build it with `system_fonts: false`
-    /// from the same font bytes the printer gets.
-    pub fonts: FontContext,
+    /// Which engine lays the page out, with its fonts.
+    pub engine: LayoutEngine,
+}
+
+/// The engine behind [`LayoutSetup`], with what it measures text with.
+/// Internal, like the setup.
+#[doc(hidden)]
+#[derive(Clone)]
+pub enum LayoutEngine {
+    /// Blitz, the E3-00 prototype, with the fonts text is measured with:
+    /// build the context with `system_fonts: false` from the same font
+    /// bytes the printer gets.
+    Blitz(Box<FontContext>),
+    /// Raikiri (E3-R1), with its fonts and page.
+    #[cfg(feature = "raikiri")]
+    Raikiri(crate::layout_raikiri::RaikiriSetup),
+}
+
+impl std::fmt::Debug for LayoutEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Blitz(_) => f.write_str("Blitz"),
+            #[cfg(feature = "raikiri")]
+            Self::Raikiri(setup) => f.debug_tuple("Raikiri").field(setup).finish(),
+        }
+    }
+}
+
+impl LayoutSetup {
+    /// Blitz's fonts, if it is the engine.
+    pub(crate) fn blitz_fonts(&self) -> Option<&FontContext> {
+        match &self.engine {
+            LayoutEngine::Blitz(fonts) => Some(fonts.as_ref()),
+            #[cfg(feature = "raikiri")]
+            LayoutEngine::Raikiri(_) => None,
+        }
+    }
+
+    /// The Raikiri engine's setup, if it is the engine.
+    #[cfg(feature = "raikiri")]
+    pub(crate) fn raikiri(&self) -> Option<&crate::layout_raikiri::RaikiriSetup> {
+        match &self.engine {
+            LayoutEngine::Raikiri(setup) => Some(setup),
+            LayoutEngine::Blitz(_) => None,
+        }
+    }
 }
 
 impl std::fmt::Debug for LayoutSetup {
@@ -36,6 +84,7 @@ impl std::fmt::Debug for LayoutSetup {
         f.debug_struct("LayoutSetup")
             .field("width", &self.width)
             .field("height", &self.height)
+            .field("engine", &self.engine)
             .finish_non_exhaustive()
     }
 }
@@ -59,7 +108,25 @@ pub(crate) trait Engine {
     /// much for a call nothing can stop): queries then answer as with no
     /// box. An error ends the script's call; the engine looks at the page's
     /// deadline (`Document::poll`) wherever its own work can be cut.
-    fn lay_out(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Box<dyn Laid>>>;
+    fn lay_out(page: &Document, setup: &LayoutSetup) -> EngineResult;
+}
+
+/// What [`Engine::lay_out`] gives.
+pub(crate) type EngineResult = Result<Option<Box<dyn Laid>>, EngineError>;
+
+/// Why an engine gave no layout and no refusal either.
+#[derive(Debug)]
+pub(crate) enum EngineError {
+    /// Thrown into the script, as a native's error is: the time limit.
+    Binding(BindingError),
+    /// Fatal to the call: the engine failed on this page.
+    Fault(DomError),
+}
+
+impl From<BindingError> for EngineError {
+    fn from(e: BindingError) -> Self {
+        Self::Binding(e)
+    }
 }
 
 /// A page that has been laid out: what queries are answered from until the
@@ -73,6 +140,12 @@ pub(crate) trait Laid {
     /// The border box of page node `node`, as laid out, before any pixel
     /// snapping. `None` for a node with no box of its own.
     fn border_box(&self, node: usize) -> Option<BoxRect>;
+
+    /// `offsetLeft` and `offsetTop` of page node `node` (CSSOM View §7).
+    /// `None` where the engine doesn't answer them: zeros. Blitz doesn't.
+    fn offset_position(&self, _node: usize) -> Option<(f64, f64)> {
+        None
+    }
 }
 
 /// The last layout and what it was made from.
@@ -86,8 +159,9 @@ pub(crate) struct Current {
 impl Document {
     /// One number of an element's box, for the glue: 0 to 3 are
     /// `getBoundingClientRect`'s x, y, width and height, 4 and 5
-    /// `offsetWidth` and `offsetHeight`. Zero under any policy but
-    /// [`LayoutPolicy::Real`], and for an element with no box.
+    /// `offsetWidth` and `offsetHeight`, 6 and 7 `offsetLeft` and
+    /// `offsetTop`. Zero under any policy but [`LayoutPolicy::Real`], and for
+    /// an element with no box.
     pub(crate) fn layout_number(&mut self, this: ObjectId, which: u32) -> BindingResult<f64> {
         let id = self.node_of(this)?;
         if self.layout != LayoutPolicy::Real {
@@ -95,6 +169,11 @@ impl Document {
         }
         self.ensure_layout()?;
         let laid = self.current_layout.as_ref().and_then(|c| c.laid.as_ref());
+        if which == 6 || which == 7 {
+            let at = laid.and_then(|l| l.offset_position(id)).unwrap_or_default();
+            // CSSOM View §7: integers, as offsetWidth is.
+            return Ok(if which == 6 { at.0 } else { at.1 }.round());
+        }
         let Some(b) = laid.and_then(|l| l.border_box(id)) else {
             return Ok(0.0);
         };
@@ -133,7 +212,16 @@ impl Document {
             return Ok(());
         };
         let setup: &Rc<LayoutSetup> = &setup;
-        let laid = Blitz::lay_out(self, setup)?;
+        let outcome = match &setup.engine {
+            LayoutEngine::Blitz(_) => Blitz::lay_out(self, setup),
+            #[cfg(feature = "raikiri")]
+            LayoutEngine::Raikiri(_) => Raikiri::lay_out(self, setup),
+        };
+        let laid = match outcome {
+            Ok(laid) => laid,
+            Err(EngineError::Binding(e)) => return Err(e),
+            Err(EngineError::Fault(e)) => return Err(self.fail(e)),
+        };
         if laid.is_some() {
             self.layouts_run += 1;
         }
