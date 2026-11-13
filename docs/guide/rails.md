@@ -387,25 +387,25 @@ three of those gaps there is a form of the page that it prints right, and by
 default `page.html` is written in that form:
 
 - A block `<svg>` keeps the size its `width` and `height` give it, and a border
-  on one side prints in its own colour, not the text's. Both come from one
-  `<style>` added in `<head>`, before the page's own style sheets, whose rules
-  rank below all of the page's CSS.
+  on one side prints in its own colour, not the text's. Both come from rules
+  in one `<style>` added in `<head>` before the page's own style sheets, and
+  they rank below all of the page's CSS.
 - A `<pre>` whose text ends in a newline loses that newline, which a browser
   doesn't print, so the box isn't a line taller.
 
 Each is made only where Chrome prints the result exactly as it prints the page,
 whatever the page's CSS says. Where that can't be told from the page, the page
-is left as it is, among other cases:
+is left as it is. Among the cases:
 
-- when a script is left in it in any form a browser runs while it prints: a
+- A script is left in it, in any form a browser runs while it prints: a
   `<script>` (with `keep_scripts: true`), an `on…` attribute, a `srcdoc`, a
   `javascript:` URL, or an `<iframe>`, `<object>` or `<embed>` that loads a
-  document;
-- when some of its CSS isn't in the page: a `<link rel="stylesheet">` or an
-  `@import`. Sheets loaded through `resources:` or a loader are in the page;
-- when a `<style>` has a child that isn't text, or the page has a declarative
-  shadow root (`<template shadowrootmode>`);
-- when the pass runs out of its steps or of time. The plain page then goes out;
+  document.
+- Some of its CSS isn't in the page: a `<link rel="stylesheet">` or an
+  `@import`. Sheets loaded through `resources:` or a loader are in the page.
+- A `<style>` has a child that isn't text, or the page has a declarative
+  shadow root (`<template shadowrootmode>`).
+- The pass runs out of its steps or of time. The plain page then goes out, and
   the render doesn't fail.
 
 A page that isn't in standards mode (no doctype, or an old one) gets only the
