@@ -12,7 +12,7 @@ nothing else is touched after the run.
 poppler 24.02.0), against the committed references of Chromium 153.0.8010.12, with
 unchanged references, metric and thresholds.
 
-- `surimono-page-check` in release mode from branch `p2-cf-07` at dd08fa49: main at
+- `surimono-page-check` in release mode from branch `p2-cf-07` at 24d81671: main at
   a68123fb (after #180, #184 and #186) plus this task's changes to
   `fixtures/tools/` only (page-check's `--no-printer-safe` and `--keep-scripts`,
   print-pages.mjs's `--plain` and DOM check), so the library is main's. Default
@@ -42,17 +42,22 @@ unchanged references, metric and thresholds.
   The plain outputs are byte for byte those of the run at e879ec95 (the same
   `sha256` as its `print-pages.json`), so nothing merged since, #184's reflections
   included, changed what these pages' scripts leave.
-- **DOM = Chrome's: 5 of 6.** With its scripts kept, `render_page`'s output equals
-  Chrome's DOM in the form the floor prints (no `<noscript>`, linked sheets inlined)
-  for every page but `katex-autorender`, which differs from byte 26043: each of its
-  12 `<math>` elements comes out as `<math :xmlns="http://www.w3.org/1998/Math/MathML">`
-  where Chrome's DOM has `xmlns`. The DOM itself is right
-  (`crates/dom/tests/real_world.rs` compares `Document::to_html` with Chrome's and
-  passes): the facade's printer screen re-parses its output with html5ever, which
-  gives `xmlns` on a foreign element an empty prefix, and writes that prefix and a
-  colon back (`crates/surimono/src/print/tree.rs`). A parsed `<svg xmlns="…">` comes
-  out the same way. Nothing prints differently for it: the page's plain PDF is its
-  floor's. `docs/COMPAT.md` has the row.
+- **Output = Chrome's DOM: 5 of 6.** `render_page`'s output with the page's scripts
+  kept equals Chrome's DOM in the form the floor prints (no `<noscript>`, linked
+  sheets inlined) for every page but `katex-autorender`. That one differs from byte
+  26043 of the normalized texts, and only in how the output writes an attribute: each
+  of its 12 `<math>` elements comes out as
+  `<math :xmlns="http://www.w3.org/1998/Math/MathML">` where Chrome's DOM has
+  `xmlns`, and with the 12 colons taken out the texts are equal. KaTeX sets `xmlns`
+  with `setAttribute`, so the DOM is right (`crates/dom/tests/real_world.rs` compares
+  `Document::to_html` with Chrome's and passes): the facade's printer screen
+  re-parses its output with html5ever, which gives `xmlns` on a foreign element an
+  empty prefix, and writes that prefix and a colon back
+  (`crates/surimono/src/print/tree.rs`). Nothing prints differently for it: the
+  page's plain PDF is its floor's. An `xmlns` that the parser reads from the markup
+  is another case, wrong in the DOM itself (its name is `:xmlns`, and
+  `getAttribute('xmlns')` is null); none of the six pages has one in its markup.
+  `docs/COMPAT.md` has a row for each.
 
 **What changed since e879ec95: printer-safe output (#180, on by default).** The
 printer-safe outputs differ from the plain ones on three pages, and so do their PDFs
@@ -84,4 +89,4 @@ F3, F4, B2 and F6 fixed, and `katex-autorender` 85.2% / 0.0% / 0.0% with F5 fixe
 `docs/upstream/fulgur-layout-gaps-0.40.md`.
 
 **Hostile scripts.** 79 of 79 cases and steps end as the manifest says, through
-`render_page` at dd08fa49: no `Crash`, no `Hang`.
+`render_page` at 24d81671: no `Crash`, no `Hang`.
