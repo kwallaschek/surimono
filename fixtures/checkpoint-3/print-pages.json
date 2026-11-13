@@ -3,8 +3,8 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "87d64d83ed36c8a438771487f1a5ae1ed0e5fbc3be98cd9ca7b35c0f9afb0fbe",
-    "commit": "de4dbe71479b93e0573e30d10badd7934cb5a11d"
+    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
+    "commit": "dd08fa49fed73585a4dd09b5064ec037ef28c449"
   },
   "plain": true,
   "rows": [
@@ -13,12 +13,12 @@
       "deterministic": true,
       "sha256": "2f2b89ee75a98ce7cd1bcadf48b32d745aa95c0e4eb23dd3f8071927ac0c761f",
       "plain_sha256": "2f2b89ee75a98ce7cd1bcadf48b32d745aa95c0e4eb23dd3f8071927ac0c761f",
-      "render_ms": 115,
+      "render_ms": 92,
       "report": {
         "bytes": 3804,
         "errors": [],
         "failed_count": 0,
-        "ms": 115,
+        "ms": 92,
         "settled": "Idle",
         "uncaught": 0,
         "unhandled_rejections": 0
@@ -59,12 +59,12 @@
       "deterministic": true,
       "sha256": "f8bb6332c76b173e22c6ad1d42df9703432dfe01f8bd746ea5bbef8d68eafeac",
       "plain_sha256": "48514d46ab7cfee8b0137fd81edbb324126f7b2b137a49a42b055dcbcef0a86d",
-      "render_ms": 198,
+      "render_ms": 66,
       "report": {
         "bytes": 11345,
         "errors": [],
         "failed_count": 0,
-        "ms": 198,
+        "ms": 66,
         "settled": "Idle",
         "uncaught": 0,
         "unhandled_rejections": 0
@@ -105,12 +105,12 @@
       "deterministic": true,
       "sha256": "061e8b81627bf12858f1d964de208592d766c6239b61f4308a37525874aa415c",
       "plain_sha256": "061e8b81627bf12858f1d964de208592d766c6239b61f4308a37525874aa415c",
-      "render_ms": 55,
+      "render_ms": 84,
       "report": {
         "bytes": 6256,
         "errors": [],
         "failed_count": 0,
-        "ms": 55,
+        "ms": 84,
         "settled": "Idle",
         "uncaught": 0,
         "unhandled_rejections": 0
@@ -151,12 +151,12 @@
       "deterministic": true,
       "sha256": "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
       "plain_sha256": "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
-      "render_ms": 64,
+      "render_ms": 103,
       "report": {
         "bytes": 51532,
         "errors": [],
         "failed_count": 0,
-        "ms": 64,
+        "ms": 103,
         "settled": "Idle",
         "uncaught": 0,
         "unhandled_rejections": 0
@@ -197,12 +197,12 @@
       "deterministic": true,
       "sha256": "57f08cb4342c840ddd0bd0131cbde30d942f0bd0fe4d0b26d86e6d2d3a4773cf",
       "plain_sha256": "0445065572a7ed0c89a7d8e22bcc6bc77ffbcb6d70bb8ca3a5e53622b2994acb",
-      "render_ms": 36,
+      "render_ms": 26,
       "report": {
         "bytes": 2411,
         "errors": [],
         "failed_count": 0,
-        "ms": 36,
+        "ms": 26,
         "settled": "Idle",
         "uncaught": 0,
         "unhandled_rejections": 0
@@ -243,12 +243,12 @@
       "deterministic": true,
       "sha256": "e337ec46ca9c6e68acb8360c66cce0ec763a05bf06ed91f2a8eb93a7a700795a",
       "plain_sha256": "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e",
-      "render_ms": 13,
+      "render_ms": 16,
       "report": {
         "bytes": 1328,
         "errors": [],
         "failed_count": 0,
-        "ms": 13,
+        "ms": 16,
         "settled": "Idle",
         "uncaught": 0,
         "unhandled_rejections": 0

@@ -6,7 +6,7 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "87d64d83ed36c8a438771487f1a5ae1ed0e5fbc3be98cd9ca7b35c0f9afb0fbe",
-    "commit": "de4dbe71479b93e0573e30d10badd7934cb5a11d"
+    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
+    "commit": "dd08fa49fed73585a4dd09b5064ec037ef28c449"
   }
 }
