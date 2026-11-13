@@ -1,7 +1,7 @@
 //! Runs fixtures through `Renderer::render_page`, the facade's whole road.
 //!
 //! ```text
-//! surimono-page-check pages --root REPO --out DIR --run NAME [fixture ...]
+//! surimono-page-check pages --root REPO --out DIR --run NAME [--no-printer-safe] [--keep-scripts] [fixture ...]
 //! surimono-page-check hostile --root REPO --out FILE --commit SHA
 //! surimono-page-check hostile-one --root REPO ID     # child: one case, JSON on stdout
 //! ```
@@ -9,6 +9,10 @@
 //! `pages` renders each page of `fixtures/real-world` twice with one `Renderer`,
 //! to `DIR/<fixture>/<NAME>-1.html` and `<NAME>-2.html`, with `<NAME>.json` saying
 //! how it went. `fixtures/tools/print-pages.mjs` runs it twice, for a fresh process.
+//! `--no-printer-safe` writes the page's DOM as it is (`Options::printer_safe(false)`),
+//! and `--keep-scripts` keeps its `<script>` elements (`Options::keep_scripts(true)`,
+//! which also leaves the output plain), so the output can be compared with
+//! Chrome's own DOM.
 //!
 //! `hostile` runs `fixtures/hostile/manifest.toml` as pages, each case in its own
 //! child, in the results format of `fixtures/hostile/RESULTS_SCHEMA.md` with
@@ -47,6 +51,10 @@ fn main() -> ExitCode {
             &root,
             flag("--out").as_deref(),
             flag("--run").as_deref(),
+            Mode {
+                printer_safe: !args.iter().any(|a| a == "--no-printer-safe"),
+                keep_scripts: args.iter().any(|a| a == "--keep-scripts"),
+            },
             &names(&args),
         ),
         Some("hostile") => hostile(&root, flag("--out").as_deref(), flag("--commit").as_deref()),
@@ -65,11 +73,24 @@ fn main() -> ExitCode {
     }
 }
 
+/// The flags of `pages` that take no value.
+const SWITCHES: [&str; 2] = ["--no-printer-safe", "--keep-scripts"];
+
+/// How `pages` renders: the facade's two output options.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Mode {
+    printer_safe: bool,
+    keep_scripts: bool,
+}
+
 /// The arguments after the subcommand that aren't a flag or a flag's value.
 fn names(args: &[String]) -> Vec<String> {
     let mut out = Vec::new();
     let mut rest = args.iter().skip(1);
     while let Some(a) = rest.next() {
+        if SWITCHES.contains(&a.as_str()) {
+            continue;
+        }
         if a.starts_with("--") {
             rest.next();
         } else {
@@ -127,7 +148,13 @@ fn page_json(result: &Result<PageOutput, Error>) -> Value {
     }
 }
 
-fn pages(root: &Path, out: Option<&str>, run: Option<&str>, only: &[String]) -> Result<(), String> {
+fn pages(
+    root: &Path,
+    out: Option<&str>,
+    run: Option<&str>,
+    mode: Mode,
+    only: &[String],
+) -> Result<(), String> {
     let (Some(out), Some(run)) = (out, run) else {
         return Err("pages needs --out and --run".to_owned());
     };
@@ -152,6 +179,8 @@ fn pages(root: &Path, out: Option<&str>, run: Option<&str>, only: &[String]) -> 
         let renderer = Renderer::new(
             options(root)?
                 .resource_loader(ResourceLoader::from_map(files))
+                .printer_safe(mode.printer_safe)
+                .keep_scripts(mode.keep_scripts)
                 .pool_size(1),
         )
         .map_err(|e| e.to_string())?;
@@ -433,6 +462,24 @@ mod tests {
         let input = r#"<link rel="stylesheet" href="a.css"><script src="../b.js"></script>
             <a href="no.html"></a><script>var s = "<img src=x>";</script>"#;
         assert_eq!(sources(input), ["a.css", "../b.js"]);
+    }
+
+    #[test]
+    fn switches_take_no_value_and_are_no_page() {
+        let args: Vec<String> = [
+            "pages",
+            "--root",
+            "r",
+            "--no-printer-safe",
+            "d3-charts",
+            "--run",
+            "a",
+            "--keep-scripts",
+            "marked-report",
+        ]
+        .map(str::to_owned)
+        .to_vec();
+        assert_eq!(names(&args), ["d3-charts", "marked-report"]);
     }
 
     #[test]
