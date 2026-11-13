@@ -28,11 +28,22 @@
 //!    `:host` and `::slotted()` rules outrank any document rule, and whose
 //!    content can follow a slotted node), `<noscript>` holds text, `<select>`
 //!    keeps more of its content, and MathML's `annotation-xml` can hold HTML.
+//!    And both keep elements in an `<svg>`'s `<style>`, which Chrome applies
+//!    by its own text children only: a sheet with an element in it reads one
+//!    way to Chrome and another to anything that takes all the text under it,
+//!    as blitz-dom does (a `/*` in the element hides what follows from one).
 //!    Checked: every HTML element is on [`KNOWN_HTML`] or is a custom element,
-//!    no `<template>` has a `shadowroot…` attribute, and no `annotation-xml`.
-//! 2. **Nothing can look.** No script is left in the page (an island marker
-//!    is data): with [`Options::keep_scripts`](crate::Options::keep_scripts)
-//!    nothing is rewritten.
+//!    no `<template>` has a `shadowroot…` attribute, no `annotation-xml`, and
+//!    no `<style>`, in any namespace, has a child that isn't text. The pass
+//!    reads a sheet as Chrome does, from its own text children ([`own_text`]).
+//! 2. **Nothing can look.** No script is left in the page, in any form Chrome
+//!    runs when it prints: no `<script>` (an island marker is data), no event
+//!    handler (an attribute named `on…`, in any case and any namespace), no
+//!    `srcdoc`, no attribute whose value is a `javascript:` URL as the URL
+//!    parser reads one ([`javascript_url`]), and no `<iframe>`, `<object>` or
+//!    `<embed>` that loads a document, whose scripts may reach this one. With
+//!    [`Options::keep_scripts`](crate::Options::keep_scripts) nothing is
+//!    rewritten.
 //! 3. **All of the page's CSS is in the page and was read to the end**: no
 //!    linked style sheet, no `@import`, no at-rule the reader doesn't know
 //!    (one that could write declarations into a rule), nothing nested deeper
@@ -41,8 +52,11 @@
 //! 4. **The page is in standards mode**, for border colours and newlines:
 //!    what they were measured in. (Sizes were measured in quirks mode too.)
 //! 5. **The work is bounded**: [`MAX_STEPS`] steps, counted the same on every
-//!    machine, and the deadline everything after the scripts shares. Past
-//!    either, the page goes out as it was; only a cancel ends the render.
+//!    machine before the work they stand for is done, and the deadline
+//!    everything after the scripts shares. A step is a node, an attribute, a
+//!    token, or up to 64 bytes of text read (16 of a `class` held against a
+//!    selector, which reads it once per class it names). Past either, the page
+//!    goes out as it was; only a cancel ends the render.
 //!
 //! # The sheet two of the rewrites travel in
 //!
@@ -140,6 +154,8 @@
 //!     with the newline and without, pixel for pixel the same. `direction`,
 //!     `unicode-bidi`, `writing-mode`, `white-space-collapse` and the rest
 //!     aren't on it; `white-space` is, with the six values measured.
+
+use std::collections::BTreeSet;
 
 use cssparser::{Parser, ParserInput, Token};
 use html5ever::ns;
@@ -802,6 +818,56 @@ fn plain_attributes(e: &Element, names: &[&str]) -> bool {
         .all(|a| a.name.ns == ns!() && plain_attribute(a.name.local.as_ref(), names))
 }
 
+/// Whether Chrome may run a script for an attribute when it loads the page:
+/// an event handler (a name that starts with `on`, in any case and any
+/// namespace: more than HTML and SVG define, which costs nothing), a
+/// `srcdoc`, whose document may hold scripts, or a `javascript:` URL in any
+/// attribute (which attributes hold URLs differs by element and namespace).
+fn runs_script(a: &html5ever::Attribute) -> bool {
+    let name = a.name.local.as_ref();
+    name.get(..2)
+        .is_some_and(|on| on.eq_ignore_ascii_case("on"))
+        || name.eq_ignore_ascii_case("srcdoc")
+        || javascript_url(&a.value)
+}
+
+/// Whether `value` is a `javascript:` URL as the URL parser reads it: with
+/// the C0 controls and spaces at either end stripped, every tab and newline
+/// removed, and the scheme in any case. So ` JAVASCRIPT:x` and `java\tscript:x`
+/// are, and `javascript` alone isn't.
+fn javascript_url(value: &str) -> bool {
+    let mut rest = value
+        .trim_start_matches(|c: char| c <= ' ')
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'));
+    "javascript:"
+        .chars()
+        .all(|wanted| rest.next().is_some_and(|c| c.eq_ignore_ascii_case(&wanted)))
+}
+
+/// Whether `e` loads a document of its own from a URL, whose scripts may reach
+/// this one when it is served from the same origin: an `<iframe>`, `<object>`
+/// or `<embed>` with a `src` or `data`. (A `srcdoc` is a script already.)
+fn loads_document(e: &Element) -> bool {
+    html_named(e, &["iframe", "object", "embed"])
+        && e.attrs
+            .iter()
+            .any(|a| matches!(a.name.local.as_ref(), "src" | "data"))
+}
+
+/// The text of the `<style>` at `id` as Chrome applies it: its own text
+/// children, together. None of the text in an element under it, which the
+/// pass leaves alone anyway (assumption 1).
+fn own_text(tree: &Tree, id: usize) -> String {
+    let mut text = String::new();
+    for &child in &tree.nodes[id].children {
+        if let Data::Text(t) = &tree.nodes[child].data {
+            text.push_str(t);
+        }
+    }
+    text
+}
+
 /// Whether `c` is laid out right to left, or steers what is: Hebrew, Arabic
 /// and the other right-to-left scripts, and the bidi controls.
 fn right_to_left(c: char) -> bool {
@@ -897,6 +963,8 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
     // `<bdi>` and `<bdo>` set a direction with no attribute.
     let mut bidi = false;
     let mut pres = Vec::new();
+    // The sizes collected so far, to look one up in a few steps.
+    let mut seen = BTreeSet::new();
     let mut stack = vec![(0, Around::default())];
     while let Some((id, around)) = stack.pop() {
         work.step(1)?;
@@ -905,7 +973,8 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
         if let Some(e) = tree.element(id) {
             let local = e.local();
             let html_element = e.name.ns == ns!(html);
-            work.step(e.attrs.len() as u64)?;
+            let values: u64 = e.attrs.iter().map(|a| a.value.len() as u64 / 64).sum();
+            work.step((e.attrs.len() as u64).saturating_add(values))?;
             let known = if html_element {
                 KNOWN_HTML.contains(&local) || local.contains('-')
             } else {
@@ -915,9 +984,18 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
                 && e.attrs
                     .iter()
                     .any(|a| a.name.local.starts_with("shadowroot"));
-            let script = local.eq_ignore_ascii_case("script")
-                && !(e.is_html("script") && e.attr("type").is_some_and(is_island_type));
-            if !known || shadow || script {
+            // Assumption 2: anything Chrome runs when it prints.
+            let script = (local.eq_ignore_ascii_case("script")
+                && !(e.is_html("script") && e.attr("type").is_some_and(is_island_type)))
+                || e.attrs.iter().any(runs_script)
+                || loads_document(e);
+            // Assumption 1: a sheet with more in it than its own text.
+            let split_sheet = local == "style"
+                && node
+                    .children
+                    .iter()
+                    .any(|&c| !matches!(tree.nodes[c].data, Data::Text(_)));
+            if !known || shadow || script || split_sheet {
                 return Ok(None);
             }
             inside.inert |= e.is_html("template");
@@ -950,7 +1028,9 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
             }
             let svg = is_svg(e) && local == "svg";
             // One the added rule can match: in no other `<svg>`, and rendered.
-            if svg && !around.svg && !around.inert {
+            // Past one more size than the sheet may hold, there is no sheet,
+            // and nothing more to collect.
+            if svg && !around.svg && !around.inert && facts.sizes.len() <= MAX_RULES {
                 for name in ["width", "height"] {
                     let value = e
                         .attrs
@@ -958,10 +1038,7 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
                         .find(|a| a.name.ns == ns!() && a.name.local.as_ref() == name);
                     if let Some(a) = value
                         && svg_length(&a.value).is_some()
-                        && !facts
-                            .sizes
-                            .iter()
-                            .any(|(n, v)| *n == name && *v == *a.value)
+                        && seen.insert((name, a.value.to_string()))
                     {
                         facts.sizes.push((name, a.value.to_string()));
                     }
@@ -1093,11 +1170,6 @@ fn words(value: &str) -> Vec<Word> {
     all
 }
 
-/// Whether `value` is the one keyword `none`, important or not.
-fn is_none(value: &str) -> bool {
-    one_ident(value).as_deref() == Some("none")
-}
-
 /// The keyword `value` is, if it is one, `!important` aside.
 fn one_ident(value: &str) -> Option<String> {
     let mut all = words(value);
@@ -1110,11 +1182,25 @@ fn one_ident(value: &str) -> Option<String> {
     }
 }
 
+/// What a rule that declares `display` or `all` says, read once.
+struct Display {
+    /// Its index in [`Rules::rules`].
+    rule: usize,
+    /// It declares no `all`, and every `display` it declares is on
+    /// [`BLOCK_DISPLAYS`].
+    block: bool,
+    /// The same with [`PATH_DISPLAYS`].
+    path: bool,
+    /// It declares `all`, or a `display` other than `none`: one that may
+    /// match `<head>` shows it.
+    shows: bool,
+}
+
 /// What one look at every declaration of the page finds.
 #[derive(Default)]
 struct Sheet {
     /// Rules that declare `display` or `all`.
-    display: Vec<usize>,
+    display: Vec<Display>,
     /// Rules that declare `content` or `all` for an `::after`, or for a
     /// pseudo-element the reader doesn't know.
     after: Vec<usize>,
@@ -1136,26 +1222,45 @@ fn sheet(rules: &Rules, work: &mut Work<'_>) -> Result<Sheet, Stop> {
     for (index, rule) in rules.rules.iter().enumerate() {
         work.step(1 + rule.decls.len() as u64)?;
         let (mut display, mut content) = (false, false);
+        let mut said = Display {
+            rule: index,
+            block: true,
+            path: true,
+            shows: false,
+        };
         for decl in &rule.decls {
             let name = decl.name.as_str();
+            let value = rules.value(rule, decl);
             display |= matches!(name, "display" | "all");
             content |= matches!(name, "content" | "all");
             let custom = name.starts_with("--");
             if !custom && NEWLINE_PROPERTIES.binary_search(&name).is_err() {
                 sheet.measured = false;
             }
+            let read = matches!(name, "white-space" | "display" | "all")
+                || (!custom && name.contains("border"));
+            if read {
+                work.step(value.len() as u64 / 64)?;
+            }
             if name == "white-space"
-                && !one_ident(rules.value(rule, decl))
-                    .is_some_and(|v| WHITE_SPACES.contains(&v.as_str()))
+                && !one_ident(value).is_some_and(|v| WHITE_SPACES.contains(&v.as_str()))
             {
                 sheet.measured = false;
             }
             if name == "all" {
                 sheet.borders = false;
+                (said.block, said.path, said.shows) = (false, false, true);
+            }
+            if name == "display" {
+                let keyword = one_ident(value);
+                let on = |list: &[&str]| keyword.as_deref().is_some_and(|v| list.contains(&v));
+                said.block &= on(BLOCK_DISPLAYS);
+                said.path &= on(PATH_DISPLAYS);
+                said.shows |= keyword.as_deref() != Some("none");
             }
             if !custom && name.contains("border") {
                 let handed_on = || {
-                    words(rules.value(rule, decl)).iter().any(|w| {
+                    words(value).iter().any(|w| {
                         matches!(w, Word::Ident(v) if matches!(v.as_str(), "inherit" | "revert"))
                     })
                 };
@@ -1165,7 +1270,7 @@ fn sheet(rules: &Rules, work: &mut Work<'_>) -> Result<Sheet, Stop> {
             }
         }
         if display {
-            sheet.display.push(index);
+            sheet.display.push(said);
         }
         if content && rule.subjects.iter().any(|s| s.after) {
             sheet.after.push(index);
@@ -1182,15 +1287,22 @@ fn carrier(
     rules: &Rules,
     sheet: &Sheet,
     ascii: bool,
-) -> Option<(usize, usize)> {
-    let head = facts.head?;
-    let element = tree.element(head)?;
+    work: &mut Work<'_>,
+) -> Result<Option<(usize, usize)>, Stop> {
+    let none = Ok(None);
+    let Some(head) = facts.head else {
+        return none;
+    };
+    let Some(element) = tree.element(head) else {
+        return none;
+    };
     if rules.flags.has || rules.flags.unknown_pseudo_class {
-        return None;
+        return none;
     }
     let children = &tree.nodes[head].children;
+    work.step(children.len() as u64)?;
     if !children.iter().any(|&c| tree.element(c).is_some()) {
-        return None;
+        return none;
     }
     let mut declared = false;
     let mut at = children.len();
@@ -1211,17 +1323,16 @@ fn carrier(
         }
     }
     if !ascii && !declared {
-        return None;
+        return none;
     }
-    let shown = sheet.display.iter().any(|&index| {
-        let rule = &rules.rules[index];
-        rule.may_match(head, element)
-            && rule
-                .decls
-                .iter()
-                .any(|d| d.name == "all" || (d.name == "display" && !is_none(rules.value(rule, d))))
-    });
-    (!shown).then_some((head, at))
+    for display in sheet.display.iter().filter(|d| d.shows) {
+        let rule = &rules.rules[display.rule];
+        work.step(rule.cost(element))?;
+        if rule.may_match(head, element) {
+            return none;
+        }
+    }
+    Ok(Some((head, at)))
 }
 
 /// The rules that size outermost `<svg>` elements as their attributes do.
@@ -1373,11 +1484,12 @@ fn border_colours(
     let mut copies = Vec::new();
     let mut bytes = 0;
     for rule in &rules.rules {
-        work.step(1)?;
+        work.step(1 + rule.decls.len() as u64)?;
         let mut colours = Vec::new();
         for decl in &rule.decls {
             let name = decl.name.as_str();
             let value = rules.value(rule, decl);
+            work.step(value.len() as u64 / 64)?;
             let side = if SIDES.contains(&name) {
                 side_shorthand(value)
             } else if SIDES
@@ -1434,6 +1546,7 @@ fn mirrors(
     let Origin::Sheet(node) = rule.origin else {
         return Ok(false);
     };
+    work.step(1 + rules.selector(rule).len() as u64 / 64)?;
     let readable = rule.plain
         && applies_everywhere(tree, node)
         && on_one_line(rules.selector(rule)).is_some_and(|s| copyable(&s))
@@ -1443,11 +1556,11 @@ fn mirrors(
         return Ok(false);
     }
     for &id in &facts.bordered {
-        work.step(1)?;
-        if tree
-            .element(id)
-            .is_some_and(|e| rule.subjects.iter().any(|s| s.may_match(e)))
-        {
+        let Some(element) = tree.element(id) else {
+            continue;
+        };
+        work.step(rule.cost(element))?;
+        if rule.may_match(id, element) {
             return Ok(false);
         }
     }
@@ -1482,29 +1595,28 @@ fn trailing_newlines(
     if !sheet.measured {
         return Ok(found);
     }
+    // The rules that would stop a newline where they match: on the `<pre>`,
+    // those with a `display` off its list, and on the path, off the path's.
+    // A rule whose every `display` is on the list is never held against one.
+    work.step(sheet.display.len() as u64)?;
+    let off = |on: fn(&Display) -> bool| -> Vec<&Rule> {
+        sheet
+            .display
+            .iter()
+            .filter(|d| !on(d))
+            .map(|d| &rules.rules[d.rule])
+            .collect()
+    };
+    let (not_block, not_path) = (off(|d| d.block), off(|d| d.path));
     'pre: for pre in &facts.pres {
-        for &index in &sheet.display {
-            let rule = &rules.rules[index];
-            for (depth, &id) in pre.path.iter().enumerate() {
-                work.step(1)?;
-                let Some(element) = tree.element(id) else {
-                    continue 'pre;
-                };
-                if !rule.may_match(id, element) {
-                    continue;
-                }
-                let allowed = if depth == 0 {
-                    BLOCK_DISPLAYS
-                } else {
-                    PATH_DISPLAYS
-                };
-                let other = rule.decls.iter().any(|d| {
-                    d.name == "all"
-                        || (d.name == "display"
-                            && !one_ident(rules.value(rule, d))
-                                .is_some_and(|v| allowed.contains(&v.as_str())))
-                });
-                if other {
+        for (depth, &id) in pre.path.iter().enumerate() {
+            let Some(element) = tree.element(id) else {
+                continue 'pre;
+            };
+            let against = if depth == 0 { &not_block } else { &not_path };
+            for rule in against {
+                work.step(rule.cost(element))?;
+                if rule.may_match(id, element) {
                     continue 'pre;
                 }
             }
@@ -1515,9 +1627,11 @@ fn trailing_newlines(
                 continue;
             }
             for &id in &pre.path {
-                work.step(1)?;
-                let behind =
-                    |s: &Subject| s.after && tree.element(id).is_some_and(|e| s.may_match(e));
+                let Some(element) = tree.element(id) else {
+                    continue 'pre;
+                };
+                work.step(rule.cost(element))?;
+                let behind = |s: &Subject| s.after && s.may_match(element);
                 if rule.subjects.iter().any(behind) {
                     continue 'pre;
                 }
@@ -1550,7 +1664,7 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
     let mut texts = Vec::with_capacity(facts.styles.len());
     let mut borders = false;
     for &id in &facts.styles {
-        let css = tree.text_of(id);
+        let css = own_text(tree, id);
         work.step(1 + css.len() as u64 / 64)?;
         if !borders {
             let lower = css.to_ascii_lowercase();
@@ -1603,7 +1717,7 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
             changed = true;
         }
     }
-    if let Some((head, at)) = carrier(tree, &facts, &rules, &sheet, ascii) {
+    if let Some((head, at)) = carrier(tree, &facts, &rules, &sheet, ascii, work)? {
         let sizes = svg_sizes(&facts);
         let colours = if borders && standards {
             border_colours(tree, &facts, &rules, &sheet, work)?
@@ -2351,11 +2465,13 @@ mod tests {
 
     /// Where every `<pre>` does have to be held against every rule, the steps
     /// run out, the same on every machine, and the page is the plain one.
+    /// (A rule whose `display` is one a `<pre>` may have is never held
+    /// against one: with `display: block` this page is linear.)
     #[test]
     fn work_past_the_step_budget_is_given_up() {
         let (mut css, mut body) = (String::new(), String::new());
         for i in 0..6_000 {
-            css.push_str(&format!(".c{i}{{display:block}}"));
+            css.push_str(&format!(".c{i}{{display:inline}}"));
             body.push_str("<pre>a\n</pre>");
         }
         let html = page(&css, &body);
@@ -2768,5 +2884,386 @@ mod tests {
             );
             assert_eq!(safe(&html), plain(&html), "{meta}");
         }
+    }
+
+    /// The second review's pages, as it wrote them: its sheet first, then the
+    /// case's own CSS. Its `B`, `ROW`, `PRECSS`, `PAD`, `SVG` and `SHOW`.
+    fn reviewed(css: &str, body: &str) -> String {
+        page(
+            &format!(
+                "@font-face{{font-family:\"Noto Sans\";src:url(\"file:///fonts/NotoSans-Regular.ttf\")}}\
+                 @page{{size:210mm 297mm;margin:15mm}}html,body{{margin:0}}\
+                 body{{font:14px/22px \"Noto Sans\"}}{css}"
+            ),
+            body,
+        )
+    }
+    const B: &str = "svg{display:block}";
+    const ROW_R: &str = ".row{padding:4px 0;border-bottom:4px solid #d33}";
+    const PRECSS: &str = "pre{background:#eef2f6;margin:0 0 10px;font:inherit}hr{margin:0 0 10px}";
+    const PAD: &str = "code,span{padding:2px 6px;background:#fd0}";
+    const SVG_R: &str = "<p>before</p><svg width=\"100\" height=\"50\" viewBox=\"0 0 100 50\">\
+                         <rect width=\"100\" height=\"50\" fill=\"#2f6fb0\"/></svg><p>after</p>";
+    const SHOW: &str = "document.body.insertAdjacentHTML('beforeend','<p>sheets '+document.styleSheets.length+'</p>')";
+
+    /// `html` is left alone, and `control`, the same page without what the
+    /// test is about, isn't: so it is that which stops the pass.
+    fn left_alone_for(html: &str, control: &str) {
+        assert_eq!(safe(html), plain(html), "{html}");
+        assert_ne!(safe(control), plain(control), "{control}");
+    }
+
+    /// The second review's blocker 1: inside `<svg>` a `<style>` keeps the
+    /// elements in it, and Chrome applies the sheet by its own text only. A
+    /// `/*` in one opened a comment that only the pass saw, which hid every
+    /// later rule from every guard. Its seven pages, each with the page it is
+    /// once the element goes: then the pass reads what Chrome reads.
+    #[test]
+    fn a_style_with_an_element_in_it_is_left_alone() {
+        let hidden = "<svg><style>.x{color:red}<g>/*</g>";
+        let shown = "<svg><style>.x{color:red}";
+        let pages = [
+            // svgstyle-f1
+            (
+                ROW_R.to_owned(),
+                format!(
+                    "{hidden}.row{{-webkit-border-before-style:solid;-webkit-border-before-width:4px}}\
+                     </style></svg>{ROWS}"
+                ),
+            ),
+            // svgstyle-b2
+            (
+                PRECSS.to_owned(),
+                format!("{hidden}pre{{display:inline}}</style></svg><pre>one\n</pre>tail<hr>"),
+            ),
+            // svgstyle-head
+            (
+                B.to_owned(),
+                format!("{hidden}head,head *{{display:block}}</style></svg>{SVG_R}"),
+            ),
+            // svgstyle-b2-dir
+            (
+                format!("{PRECSS}{PAD}"),
+                format!(
+                    "{hidden}code{{unicode-bidi:isolate}}</style></svg>\
+                     <pre><code>one\ntwo\n</code></pre><hr>"
+                ),
+            ),
+            // min-svgstyle-f1
+            (
+                ".row{border-bottom:4px solid #d33}".to_owned(),
+                "<svg><style><g>/*</g>.row{border-top-style:solid}</style></svg>\
+                 <div class=\"row\">a</div>"
+                    .to_owned(),
+            ),
+            // min-svgstyle-b2
+            (
+                PRECSS.to_owned(),
+                "<svg><style><g>/*</g>pre{display:inline}</style></svg><pre>one\n</pre>tail<hr>"
+                    .to_owned(),
+            ),
+            // min-svgstyle-head
+            (
+                B.to_owned(),
+                format!("<svg><style><g>/*</g>head,style{{display:block}}</style></svg>{SVG_R}"),
+            ),
+        ];
+        for (css, body) in pages {
+            let html = reviewed(&css, &body);
+            assert_eq!(safe(&html), plain(&html), "{body}");
+            // Without the element, the rule after it is read, and stops the
+            // pass as it would without the `<svg>`.
+            let read = reviewed(&css, &body.replace(hidden, shown).replace("<g>/*</g>", ""));
+            assert_eq!(safe(&read), plain(&read), "{body}");
+        }
+        // Any element, in any `<style>` in any namespace, even one that adds
+        // no text: what's left is still read as Chrome reads it.
+        let svg_rows = format!("{SVG_R}{ROWS}");
+        for style in [
+            "<svg><style>.x{color:red}<g></g></style></svg>",
+            "<svg><style><desc>a</desc>.x{color:red}</style></svg>",
+            "<svg><style>.x{color:red}<style>.y{}</style></style></svg>",
+            "<math><style><mi>x</mi></style></math>",
+            "<svg><foreignObject><math><style><mtext>.x{}</mtext></style></math></foreignObject></svg>",
+        ] {
+            left_alone_for(
+                &reviewed(&format!("{B}{ROW_R}"), &format!("{style}{svg_rows}")),
+                &reviewed(
+                    &format!("{B}{ROW_R}"),
+                    &format!("<svg><style>.x{{color:red}}</style></svg>{svg_rows}"),
+                ),
+            );
+        }
+    }
+
+    /// The second review's blocker 2: Chrome runs event handlers, `srcdoc`
+    /// documents and `javascript:` URLs when it prints, and each can read
+    /// what the pass changed. Its eight pages, each against the page without
+    /// the script.
+    #[test]
+    fn a_script_left_in_an_attribute_leaves_the_page_alone() {
+        let b1 = reviewed(B, SVG_R);
+        let f1 = reviewed(ROW_R, ROWS);
+        let b2 = reviewed(PRECSS, "<pre id=\"p\">one\n</pre><hr>");
+        let length = "document.body.insertAdjacentHTML('beforeend','<p>len '+\
+                      document.getElementById('p').textContent.length+'</p>')";
+        let pages = [
+            // js-body-onload-b1
+            (
+                b1.replace("<body>", &format!("<body onload=\"{SHOW}\">")),
+                &b1,
+            ),
+            // js-svg-onload-b1
+            (
+                reviewed(
+                    B,
+                    &SVG_R.replace("<svg ", &format!("<svg onload=\"{SHOW}\" ")),
+                ),
+                &b1,
+            ),
+            // js-img-onerror-f1
+            (
+                reviewed(
+                    ROW_R,
+                    &format!("{ROWS}<img src=\"data:,\" onerror=\"{SHOW}\">"),
+                ),
+                &f1,
+            ),
+            // js-onload-b2
+            (
+                b2.replace("<body>", &format!("<body onload=\"{length}\">")),
+                &b2,
+            ),
+            // js-srcdoc-b1
+            (
+                reviewed(
+                    B,
+                    &format!(
+                        "{SVG_R}<iframe srcdoc=\"&lt;script&gt;parent.document.body.insertAdjacentHTML(\
+                         'beforeend','&lt;p&gt;sheets '+parent.document.styleSheets.length+\
+                         '&lt;/p&gt;')&lt;/script&gt;\"></iframe>"
+                    ),
+                ),
+                &b1,
+            ),
+            // min-js-onload
+            (
+                b1.replace(
+                    "<body>",
+                    "<body onload=\"document.title=document.styleSheets.length;\
+                     document.body.append(document.title)\">",
+                ),
+                &b1,
+            ),
+            // min-js-srcdoc
+            (
+                reviewed(
+                    B,
+                    &format!(
+                        "{SVG_R}<iframe srcdoc=\"&lt;script&gt;parent.document.body.append(\
+                         parent.document.styleSheets.length)&lt;/script&gt;\"></iframe>"
+                    ),
+                ),
+                &b1,
+            ),
+            // min-js-iframe-js-url
+            (
+                reviewed(
+                    B,
+                    &format!(
+                        "{SVG_R}<iframe src=\"javascript:parent.document.body.append(\
+                         parent.document.styleSheets.length)\"></iframe>"
+                    ),
+                ),
+                &b1,
+            ),
+        ];
+        for (html, control) in pages {
+            left_alone_for(&html, control);
+        }
+        // Every event handler, `srcdoc` and `javascript:` URL, wherever it is.
+        let all = format!("{SVG}{ROWS}<pre>a\n</pre>");
+        let control = page(&format!("{B}{ROW}"), &all);
+        for extra in [
+            "<p onclick=\"x()\">a</p>",
+            "<p ONCLICK=\"x()\">a</p>",
+            "<details ontoggle=\"x()\" open>d</details>",
+            "<my-element onanything=\"x()\"></my-element>",
+            "<math onclick=\"x()\"><mi>x</mi></math>",
+            "<svg><rect onmouseover=\"x()\"/></svg>",
+            "<svg><animate onbegin=\"x()\"/></svg>",
+            "<template><p onclick=\"x()\">a</p></template>",
+            "<iframe srcdoc=\"\"></iframe>",
+            "<div srcdoc=\"x\"></div>",
+            "<a href=\"javascript:x()\">a</a>",
+            "<a href=\" JAVASCRIPT:x()\">a</a>",
+            "<a href=\"java&#9;script:x()\">a</a>",
+            "<a href=\"&#1;&#32;java&#10;scr&#13;ipt:x()\">a</a>",
+            "<form action=\"javascript:x()\"><button formaction=\"javascript:y()\">b</button></form>",
+            "<svg><a href=\"javascript:x()\"><text>a</text></a></svg>",
+            "<svg><a xlink:href=\"javascript:x()\"><text>a</text></a></svg>",
+            "<svg><set attributeName=\"href\" to=\"javascript:x()\"/></svg>",
+            "<iframe src=\"javascript:x()\"></iframe>",
+            "<iframe src=\"page.html\"></iframe>",
+            "<iframe src=\"data:text/html,a\"></iframe>",
+            "<object data=\"chart.svg\" type=\"image/svg+xml\"></object>",
+            "<embed src=\"chart.svg\">",
+            // Any attribute: which hold URLs differs by element and namespace.
+            "<img src=\"data:,\" alt=\"javascript: x\">",
+        ] {
+            let html = page(&format!("{B}{ROW}"), &format!("{all}{extra}"));
+            left_alone_for(&html, &control);
+        }
+        // Names and values that run nothing.
+        for extra in [
+            "<a href=\"https://example.com/javascript:\">a</a>",
+            "<a href=\"#javascript:x\">a</a>",
+            "<p title=\"javascript\">a</p>",
+            "<p data-onclick=\"x()\" x-on:click=\"x()\" @click=\"x()\">a</p>",
+            "<iframe></iframe>",
+            "<img src=\"data:,\" alt=\"about javascript: x\">",
+        ] {
+            let html = page(&format!("{B}{ROW}"), &format!("{all}{extra}"));
+            assert_ne!(safe(&html), plain(&html), "{extra}");
+        }
+    }
+
+    #[test]
+    fn a_javascript_url_is_what_the_url_parser_reads_as_one() {
+        for value in [
+            "javascript:x",
+            "JavaScript:x",
+            " JAVASCRIPT:x",
+            "java\tscript:x",
+            "java\nscr\ript:",
+            "\u{0}\u{1f} \tjavascript:",
+            "javascript:",
+        ] {
+            assert!(javascript_url(value), "{value:?}");
+        }
+        for value in [
+            "",
+            "javascript",
+            "javascript x:",
+            "xjavascript:",
+            "java script:",
+            "\u{a0}javascript:",
+            "java\u{1}script:",
+            "data:,javascript:",
+            "https://a/javascript:",
+        ] {
+            assert!(!javascript_url(value), "{value:?}");
+        }
+    }
+
+    /// The pages of N8: one element with `classes` classes, held against
+    /// `rules` rules that each name a class it doesn't have, so every rule
+    /// reads all of its `class` again. The element is `<head>` (which a rule
+    /// that shows something may not match), one a border colour can't be
+    /// copied onto (from rules that set their top border too, so there are
+    /// no copies to run out of room for), and a `<pre>` (which a rule with
+    /// `display: inline` may not match).
+    fn class_pages(classes: usize, rules: usize) -> [String; 3] {
+        let class: String = (0..classes).map(|i| format!("x{i} ")).collect();
+        let page_of = |rule: &str, body: &str| {
+            let css: String = (0..rules).map(|i| format!(".c{i}{{{rule}}}")).collect();
+            page(&format!("svg{{display:block}}{css}"), body).replace("CLASSES", &class)
+        };
+        [
+            page_of("display:block", SVG).replace("<head>", &format!("<head class=\"{class}\">")),
+            page_of(
+                "border-bottom:1px solid red;border-top:0",
+                &format!("{SVG}<input class=\"CLASSES\">"),
+            ),
+            page_of(
+                "display:inline",
+                &format!("{SVG}<pre class=\"CLASSES\">a\n</pre>"),
+            ),
+        ]
+    }
+
+    /// The reviewer's N8: matching a selector's classes reads the element's
+    /// `class` once per class, and the steps say so.
+    #[test]
+    fn matching_classes_is_counted() {
+        for html in class_pages(1_000, 1_000) {
+            let settled = plain(&html);
+            let stop = AtomicBool::new(false);
+            let gate = Gate::new(&stop, Duration::from_secs(600));
+            let mut tree = Tree::parse(&settled, LIMITS, &gate).unwrap_or_else(|e| panic!("{e}"));
+            let mut work = Work {
+                steps: 0,
+                gate: &gate,
+            };
+            assert!(matches!(
+                rewrite_within(&mut tree, true, &mut work),
+                Ok(true)
+            ));
+            // A thousand rules, each reading the 4,890 bytes of `class`.
+            assert!(work.steps > 1_000 * 4_890 / 16, "{}", work.steps);
+            assert!(work.steps < MAX_STEPS);
+        }
+    }
+
+    /// N8's timing: ten thousand classes against ten thousand rules was
+    /// 600 MB of reading at each place with nothing counted, so neither the
+    /// steps nor the deadline stopped it. Now the deadline is seen within a
+    /// few thousand steps of passing, and the page goes out as it was.
+    #[test]
+    fn many_classes_against_many_rules_keep_the_deadline() {
+        for html in class_pages(10_000, 10_000) {
+            let settled = plain(&html);
+            let stop = AtomicBool::new(false);
+            let wide = Gate::new(&stop, Duration::from_secs(600));
+            let screen = |tree: &mut Tree| tree.to_html(WIDE, &wide);
+            let started = std::time::Instant::now();
+            let gate = Gate::new(&stop, Duration::from_millis(500));
+            let result = super::super::printer_safe(&settled, LIMITS, WIDE, &gate, screen);
+            let took = started.elapsed();
+            assert!(matches!(result, Ok(None)), "the plain page");
+            assert!(took < Duration::from_secs(3), "{took:?}");
+            // With all the time it needs, the steps run out. (Started near the
+            // end of the budget, so as not to spend all of it here.)
+            let mut tree = Tree::parse(&settled, LIMITS, &wide).unwrap_or_else(|e| panic!("{e}"));
+            let mut work = Work {
+                steps: MAX_STEPS - (1 << 20),
+                gate: &wide,
+            };
+            assert!(matches!(
+                rewrite_within(&mut tree, true, &mut work),
+                Err(Stop::Budget)
+            ));
+        }
+    }
+
+    /// N8's other loop: each `<svg>`'s size was held against every size
+    /// collected so far, uncounted, past the most the sheet can hold.
+    #[test]
+    fn many_svg_sizes_are_collected_in_few_steps() {
+        let body: String = (0..50_000)
+            .map(|i| format!("<svg width=\"{i}\"></svg>"))
+            .collect();
+        let html = page("svg{display:block}", &body);
+        let settled = plain(&html);
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::from_secs(600));
+        let tree = Tree::parse(&settled, LIMITS, &gate).unwrap_or_else(|e| panic!("{e}"));
+        let mut work = Work {
+            steps: 0,
+            gate: &gate,
+        };
+        let started = std::time::Instant::now();
+        let facts = facts(&tree, &mut work)
+            .unwrap_or_else(|_| panic!("stopped"))
+            .unwrap_or_else(|| panic!("left alone"));
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            started.elapsed()
+        );
+        // One past what the sheet holds: then there is no sheet.
+        assert_eq!(facts.sizes.len(), MAX_RULES + 1);
+        assert!(work.steps < 4 * 50_000, "{}", work.steps);
+        assert_eq!(safe(&html), settled);
     }
 }

@@ -202,6 +202,29 @@ impl Subject {
                 .any(|c| c.eq_ignore_ascii_case(wanted))
         })
     }
+
+    /// The most [`Subject::may_match`] can cost on `element`, in the printer-safe
+    /// pass's steps: one, one for every 16 attributes each lookup of an
+    /// attribute goes through, one for every 64 bytes of an id it compares, and
+    /// for each class it asks for, one for every 16 bytes of the element's
+    /// `class`, which it reads again for each. Worked out before the match,
+    /// so the work is counted before it is done.
+    pub(super) fn cost(&self, element: &Element) -> u64 {
+        if self.any {
+            return 1;
+        }
+        let lookups = u64::from(self.id.is_some()) + u64::from(!self.classes.is_empty());
+        let class = if self.classes.is_empty() {
+            0
+        } else {
+            element.attr("class").map_or(0, str::len) as u64
+        };
+        let id = self.id.as_ref().map_or(0, String::len) as u64;
+        let attributes = element.attrs.len() as u64;
+        (self.classes.len() as u64)
+            .saturating_mul(1 + class / 16)
+            .saturating_add(1 + lookups * (attributes / 16) + id / 64)
+    }
 }
 
 /// Where a rule is from.
@@ -234,6 +257,18 @@ impl Rule {
         match self.origin {
             Origin::Attribute(node) => node == id,
             Origin::Sheet(_) => self.subjects.iter().any(|s| s.may_match(element)),
+        }
+    }
+
+    /// The most [`Rule::may_match`] can cost on `element`: what each of its
+    /// subjects can, together. See [`Subject::cost`].
+    pub(super) fn cost(&self, element: &Element) -> u64 {
+        match self.origin {
+            Origin::Attribute(_) => 1,
+            Origin::Sheet(_) => self
+                .subjects
+                .iter()
+                .fold(1, |sum, s| sum.saturating_add(s.cost(element))),
         }
     }
 }
