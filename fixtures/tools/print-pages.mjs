@@ -21,11 +21,11 @@
 //   determinism.json   twice in one process, twice in a fresh one with another
 //                      time zone and locale: all four byte-identical (with --plain,
 //                      the plain output's four as well, under `plain`)
-//   dom.json           the DOM the page's scripts left (render_page keeping its
-//                      scripts) against Chrome's, reference/dom.html: equal or not,
-//                      with each run of whitespace taken as one space and `style`
-//                      moved to the end of its tag, as crates/surimono/tests/page.rs
-//                      compares them
+//   dom.json           what render_page gives with the page's scripts kept, against
+//                      Chrome's DOM in the form the floor prints it (below): equal
+//                      or not, with each run of whitespace taken as one space and
+//                      `style` moved to the end of its tag, as
+//                      crates/surimono/tests/page.rs compares them
 //   page/              fulgur prints surimono.html: score.json, side-by-side-1.png
 //   plain/             with --plain: fulgur prints surimono-plain.html, the output
 //                      with printer-safe off
@@ -249,17 +249,18 @@ for (const fixture of fixtures) {
     if (p.complete) fs.copyFileSync(p.files[0], path.join(dir, "surimono-plain.html"));
   }
   if (safe.complete) fs.writeFileSync(path.join(dir, "determinism.json"), `${JSON.stringify(determinism, null, 2)}\n`);
-  const kept = path.join(from, "dom-1.html");
-  row.dom = fs.existsSync(kept)
-    ? domCheck(fs.readFileSync(kept, "utf8"), fs.readFileSync(path.join(fixture.dir, "reference", "dom.html"), "utf8"))
-    : { equal: false, differs_at: null, error: JSON.parse(fs.readFileSync(path.join(from, "dom.json"), "utf8")).find((r) => r.error)?.error ?? "no output" };
-  fs.writeFileSync(path.join(dir, "dom.json"), `${JSON.stringify({ subject: fixture.name, ...row.dom, against: "reference/dom.html", producer }, null, 2)}\n`);
   // A printer's parser has scripting off, so a <noscript> would show: Chrome's DOM without
   // them. fulgur reads nothing above its input's folder, so a stylesheet goes in as text.
+  // render_page does both to its own output, so this is also what it should give.
   const chromeDom = fs
     .readFileSync(path.join(fixture.dir, "reference", "dom.html"), "utf8")
     .replace(/<noscript\b[^]*?<\/noscript>/g, "")
     .replace(/<link rel="stylesheet" href="([^"]+)">/g, (all, href) => `<style>${fs.readFileSync(path.join(fixture.dir, href), "utf8")}</style>`);
+  const kept = path.join(from, "dom-1.html");
+  row.dom = fs.existsSync(kept)
+    ? domCheck(fs.readFileSync(kept, "utf8"), chromeDom)
+    : { equal: false, differs_at: null, error: JSON.parse(fs.readFileSync(path.join(from, "dom.json"), "utf8")).find((r) => r.error)?.error ?? "no output" };
+  fs.writeFileSync(path.join(dir, "dom.json"), `${JSON.stringify({ subject: fixture.name, ...row.dom, against: "reference/dom.html without <noscript>, linked sheets inlined", producer }, null, 2)}\n`);
   row.floor = print(tree, fixture, chromeDom, path.join(dir, "floor"), "floor");
   rows.push(row);
 }
@@ -279,7 +280,7 @@ const md = [
     ? `**${passing("page")} of ${rows.length} pages pass** with printer-safe output (the default), **${passing("plain")} of ${rows.length}** with \`--no-printer-safe\` (the page's DOM as it is); the floor passes on ${passing("floor")} of ${rows.length}. Byte-identical, twice in one process and twice in a fresh one under ${RUNS[1].TZ} and ${RUNS[1].LC_ALL}, both outputs: ${rows.filter((r) => r.deterministic).length} of ${rows.length}. The DOM the scripts leave equals Chrome's: ${rows.filter((r) => r.dom.equal).length} of ${rows.length}.`
     : `**${passing("page")} of ${rows.length} pages pass.** Byte-identical, twice in one process and twice in a fresh one under ${RUNS[1].TZ} and ${RUNS[1].LC_ALL}: ${rows.filter((r) => r.deterministic).length} of ${rows.length}. The DOM the scripts leave equals Chrome's: ${rows.filter((r) => r.dom.equal).length} of ${rows.length}.`,
   "",
-  `The floor is fulgur printing Chrome's own DOM (\`reference/dom.html\`), so a page that fails on both sides is fulgur's. "DOM = Chrome's" is \`render_page\` keeping the page's scripts, against \`reference/dom.html\`, with each run of whitespace taken as one space and \`style\` moved to the end of its tag. Scores are shape / colour / hue. Each image is Chrome | surimono | diff.`,
+  `The floor is fulgur printing Chrome's own DOM (\`reference/dom.html\`), so a page that fails on both sides is fulgur's. "DOM = Chrome's" is \`render_page\` keeping the page's scripts against Chrome's DOM as the floor has it (no \`<noscript>\`, linked sheets inlined, as \`render_page\` writes them), with each run of whitespace taken as one space and \`style\` moved to the end of its tag. Scores are shape / colour / hue. Each image is Chrome | surimono | diff.`,
   "",
   `| Page | ${parts.map(([, title]) => `${title} | Scores | Image`).join(" | ")} | DOM = Chrome's | Render | Byte-identical |`,
   `|---|${parts.map(() => "---|---|---|").join("")}---|---|---|`,

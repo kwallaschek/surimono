@@ -139,7 +139,7 @@ test("without --plain there is no plain output, and every run checks the DOM aga
   assert.doesNotMatch(same.index, /no-printer-safe/);
   assert.deepEqual(same.result.rows[0].dom, { equal: true, differs_at: null });
   assert.equal(same.file.equal, true);
-  assert.equal(same.file.against, "reference/dom.html");
+  assert.match(same.file.against, /^reference\/dom\.html without <noscript>/);
   assert.match(same.index, /The DOM the scripts leave equals Chrome's: 1 of 1\./);
   // How long a run of whitespace is and where `style` sits in a tag don't count, as in crates/surimono/tests/page.rs.
   const styled = dom.replace(/<(\w+)([^>]*?) style="([^"]*)"([^>]*)>/, '<$1 style="$3"$2$4>');
