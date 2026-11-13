@@ -1124,6 +1124,16 @@ pub static INTERFACES: &[InterfaceInfo] = &[
         ],
     },
     InterfaceInfo {
+        name: "HTMLBaseElement",
+        parent: Some("HTMLElement"),
+        files: &["html.idl"],
+        members: &[
+            MemberInfo { idl_name: "constructor", rust_name: "constructor", kind: MemberInfoKind::Constructor { overloads: 1 } },
+            MemberInfo { idl_name: "href", rust_name: "href", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+            MemberInfo { idl_name: "target", rust_name: "target", kind: MemberInfoKind::Attribute { readonly: false, is_static: false } },
+        ],
+    },
+    InterfaceInfo {
         name: "AbstractRange",
         parent: None,
         files: &["dom.idl"],
@@ -9605,6 +9615,38 @@ pub trait HTMLIFrameElement: HTMLElement {
     fn set_margin_width(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let _ = (this, value);
         Err(BindingError::NotImplemented("HTMLIFrameElement.marginWidth"))
+    }
+}
+
+/// IDL `interface HTMLBaseElement : HTMLElement` (html.idl).
+pub trait HTMLBaseElement: HTMLElement {
+    /// `[HTMLConstructor] constructor();` (html.idl)
+    fn constructor(&mut self) -> BindingResult<ObjectId> {
+        Err(BindingError::NotImplemented("new HTMLBaseElement"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute USVString href;` (html.idl)
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLBaseElement.href"))
+    }
+
+    /// `[CEReactions, ReflectSetter] attribute USVString href;` (html.idl)
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLBaseElement.href"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (html.idl)
+    fn target(&mut self, this: ObjectId) -> BindingResult<String> {
+        let _ = this;
+        Err(BindingError::NotImplemented("HTMLBaseElement.target"))
+    }
+
+    /// `[CEReactions, Reflect] attribute DOMString target;` (html.idl)
+    fn set_target(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let _ = (this, value);
+        Err(BindingError::NotImplemented("HTMLBaseElement.target"))
     }
 }
 

@@ -57,6 +57,7 @@ pub const STUB_INTERFACES: &[&str] = &[
     "CDATASection",
     "ProcessingInstruction",
     "HTMLIFrameElement",
+    "HTMLBaseElement",
     "AbstractRange",
     "Range",
 ];
