@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sat 14 Nov 2026, 04:30)
+## Now (Sat 14 Nov 2026, 06:25)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -26,9 +26,10 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Decided 14 Nov (DECISIONS):** phase 3 layout queries target Raikiri behind the seam, reading
   its paged fragments (E3-R1 to E3-R4); no Blitz-specific layout work; the print path is designed
   around fulgur-raikiri; real layout stays internal until one layout is bounded in time (E3-01e).
-- **Running:** Q-CF-02 (page-path benchmark against Grover, branch q-cf-02), P2-CF-07
-  (checkpoint-3 regenerated with printer-safe output, branch p2-cf-07), E3-R1 (the Raikiri layout
-  engine, staged: e3-r1a, e3-r1b). No PR open at 04:35.
+- **Merged 14 Nov:** #187 Q-CF-02 (page-path benchmark: faster on 8 of 8 pages, 3.1 to 4.5x less
+  memory), #188 P2-CF-07 (checkpoint-3 evidence regenerated with printer-safe output, 06:20).
+- **Running:** P2-DOM-13 (the parsed `xmlns` prefix, in the DOM and the output; P2-PKG-08 folded
+  in), E3-R1 stage A (the `raikiri` feature and the ICU 2.4 bump, branch e3-r1a). No PR open at 06:25.
 - Kay's queue: report the private findings (four files in the Claude project; the 13 Nov one has
   the slow fulgur pages and Raikiri's numbers on them); turn the scheduled resume task back on
   (and set it to Opus 5.5) if he wants night work.
@@ -37,7 +38,7 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and wait for a
-complete green full.yml on main. Then: reviews of the Q-CF-02 and P2-CF-07 PRs; merge; then
+complete green full.yml on main. Then: reviews of the P2-DOM-13 and E3-R1 stage A PRs; merge; then
 Q-ORC-03 (history rewrite) in the first moment with no open PR; then by value: E3-R1, Q-PKG-04
 (Japanese spacing for Raikiri), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in
 CI), P2-PKG-05, P2-DOM-11, P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11,
