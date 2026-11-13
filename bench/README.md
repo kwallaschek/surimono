@@ -60,6 +60,7 @@ against the targets of that day.
 | Run | Files | Provenance | Target at the time |
 |---|---|---|---|
 | `15b530e0` | `summary.md`, `results.json` | Copied byte for byte from `origin/ci-results:runs/15b530e0263eb734c2d35ed4f4f704f394162fbf/bench/grover/bench/`: the `bench` workflow, job `grover`, on a push to main, run 41236716079, attempt 1, finished 2026-10-31T20:08:48Z, job status success. sha256 `74c73a59994d7e266ab7215a06408dab5d6e8a931b0f949011d8b81b801afe98` and `45e889a692d086244b377d3d4e06cfd38f2750699f5f9d19c6ca4e43e8ae4a80` | 10× memory, so its table says **not met** where today's 5× (`docs/SPEC.md`, Kay, checkpoint 2) is met: 5.8× Ruby, 8.0× Rust, cold |
+| `f0a51b4b-pages` | `summary.md`, `results.json` | Copied byte for byte from a local run of `bench/run.sh <out> --pages` on the fleet's Linux machine at commit `f0a51b4b` (branch `q-cf-02`, on main `a68123fb`), 14 Nov 2026 04:28 to 05:06 JST, holding the fleet's build lock; the page set doesn't run in CI yet. sha256 `680f750c50fe0dab21001adde97da3aadd1ce582db93f593f99a173b3b77e05c` and `fae52ae698ab676d834ab3136e32bd2ebb55a08637bfc2027af13c0cf0eaaf61` | None: the SPEC's targets are set on the islands report; its ratios (2×, 5×) are tallied for orientation |
 
 ## The reference report
 
@@ -206,6 +207,56 @@ counts each system printed.
 - No SPEC target is set on the page set. Ratios against Grover are shown per
   page, and tallied against the SPEC's ratios (2× time, 5× peak PSS) for
   orientation only.
+
+### Notes on the page-set run `f0a51b4b-pages`
+
+Hand-written. Every number here is in `results/f0a51b4b-pages/summary.md`.
+
+**The run.** `bench/run.sh <out> --pages`, all four systems on all eight pages, 20
+timed runs and 5 memory runs per cell, on the fleet's Linux machine (2 cores of an
+Intel Xeon at 2.10 GHz, 7.8 GB), holding the fleet's build lock so no build ran beside
+it; other agents' processes could. Load average 2.28 at the start and 1.93 at the end.
+The surimono gem was built in release from the same commit. Raikiri is the printer
+matrix's driver binary (sha256 in `results.json`). A local run on two cores is
+indicative; the CI run, once the set runs there, is the reference.
+
+**Faster?** Yes on all 8 pages, cold and warm. Against Grover with Chrome: 1.8× to
+4.4× cold and 1.8× to 17.5× warm; against Grover on chrome-headless-shell: 1.5× to
+3.0× cold and 1.5× to 12.5× warm. On the six real-world pages a cold document takes
+286 to 367 ms (Grover 1,003 to 1,362 ms) and a warm one 24 to 92 ms (Grover 396 to
+732 ms). 7 of 8 pages are at least 2× faster than either Grover, cold and warm; the
+long report isn't: 2,014 ms cold against 3,712 ms (1.8×) and the shell's 2,991 ms
+(1.5×). There the PDF step is most of a document: in the warm process fulgur's step
+takes 1,584 ms and surimono's page step 104 ms (medians), of 1,686 ms.
+
+**Less memory?** Yes on all 8 pages, by less than on the islands report. Peak PSS is
+3.1× to 4.5× lower than Grover with Chrome cold (3.2× to 4.5× warm) and 1.7× to 3.0×
+lower than the headless shell (1.7× to 2.9× warm). surimono + fulgur peaks at 93 to
+110 MB cold on the real-world pages (Grover 417 to 476 MB, the shell 278 to 308 MB),
+240 MB on the long table and 282 MB on the long report (Grover 918 and 874 MB, the
+shell 612 and 480 MB). No page reaches 5×, the SPEC's ratio for the islands report.
+
+**Print on par?** Not yet. Grover prints all 6 real-world pages like their Chrome
+references (0.0% on each, with Chrome and with the headless shell). surimono +
+fulgur passes 4 of 6: `alpine-invoice`, `d3-charts` and `highlightjs-code` at 0.0%,
+`noscript-message` at 9.7%; it fails `katex-autorender` (85.2%) and `marked-report`
+(67.5%), the two pages fulgur 0.40.0 also fails on Chrome's own DOM
+(`fixtures/printers/index.md`). The long documents have no Chrome reference; the page
+counts printed differ: the long report 402 (Grover), 404 (surimono + fulgur) and 400
+(Raikiri), the long table 49, 47 and 49.
+
+**Raikiri (indicative).** It passes 5 of 6 real-world pages (not `marked-report`,
+72.1%), as in the printer matrix. On those pages it takes 299 to 494 ms cold with 98
+to 120 MB. On the long documents it is about as slow as Grover with Chrome and
+heavier than the shell: the long report takes 3,626 ms cold and 3,448 ms warm at
+1,076 MB peak PSS cold (Grover with Chrome 3,712 ms, 3,085 ms and 874 MB; the shell
+2,991 ms, 2,565 ms and 480 MB); the long table 3,068 ms, 2,883 ms and 583 MB (Grover
+3,370 ms, 2,900 ms and 918 MB; the shell 2,432 ms, 2,056 ms and 612 MB). Its printer
+process starts for every document here, warm or cold.
+
+**Not measured.** The Rust facade's page path (`rust/` drives `render_islands` only);
+Ferrum or Puppeteer driven directly (Grover is Puppeteer from Ruby); the page set in
+CI, where `scripts/ci/bench.sh` doesn't call `--pages` yet.
 
 ## Files
 
