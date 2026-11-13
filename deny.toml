@@ -2,7 +2,9 @@
 # Run: cargo deny check
 
 [graph]
-all-features = false
+# Every feature: the optional dependencies too (crates/dom's `raikiri`), so the
+# licences, advisories and sources of what a feature brings in are checked.
+all-features = true
 
 [advisories]
 version = 2
