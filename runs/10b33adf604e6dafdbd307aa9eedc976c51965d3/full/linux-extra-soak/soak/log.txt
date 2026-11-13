@@ -1,0 +1,1041 @@
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m proc-macro2 v1.0.107
+[1m[32m   Compiling[0m unicode-ident v1.0.27
+[1m[32m   Compiling[0m quote v1.0.47
+[1m[32m   Compiling[0m libc v0.2.191
+[1m[32m   Compiling[0m serde_core v1.0.229
+[1m[32m   Compiling[0m version_check v0.9.5
+[1m[32m   Compiling[0m generic-array v0.14.7
+[1m[32m   Compiling[0m stable_deref_trait v1.2.1
+[1m[32m   Compiling[0m thiserror v2.0.21
+[1m[32m   Compiling[0m smallvec v1.16.4
+[1m[32m   Compiling[0m syn v3.0.9
+[1m[32m   Compiling[0m equivalent v1.0.3
+[1m[32m   Compiling[0m allocator-api2 v0.2.21
+[1m[32m   Compiling[0m serde v1.0.229
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m hashbrown v0.17.1
+[1m[32m   Compiling[0m writeable v0.6.4
+[1m[32m   Compiling[0m find-msvc-tools v0.1.15
+[1m[32m   Compiling[0m shlex v2.0.1
+[1m[32m   Compiling[0m cfg-if v1.0.5
+[1m[32m   Compiling[0m cc v1.10.0
+[1m[32m   Compiling[0m typenum v1.20.1
+[1m[32m   Compiling[0m litemap v0.8.3
+[1m[32m   Compiling[0m syn v2.0.119
+[1m[32m   Compiling[0m synstructure v0.14.0
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m crypto-common v0.1.7
+[1m[32m   Compiling[0m block-buffer v0.10.4
+[1m[32m   Compiling[0m thiserror-impl v2.0.21
+[1m[32m   Compiling[0m zerofrom-derive v0.1.8
+[1m[32m   Compiling[0m serde_derive v1.0.229
+[1m[32m   Compiling[0m zerofrom v0.1.8
+[1m[32m   Compiling[0m yoke-derive v0.8.4
+[1m[32m   Compiling[0m zerovec-derive v0.11.7
+[1m[32m   Compiling[0m yoke v0.8.4
+[1m[32m   Compiling[0m displaydoc v0.2.7
+[1m[32m   Compiling[0m zerovec v0.11.9
+[1m[32m   Compiling[0m bytemuck_derive v1.12.1
+[1m[32m   Compiling[0m digest v0.10.7
+[1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m cpufeatures v0.2.17
+[1m[32m   Compiling[0m tinystr v0.8.5
+[1m[32m   Compiling[0m libm v0.2.16
+[1m[32m   Compiling[0m icu_locale_core v2.2.0
+[1m[32m   Compiling[0m siphasher v1.0.4
+[1m[32m   Compiling[0m bytemuck v1.25.2
+[1m[32m   Compiling[0m itoa v1.0.18
+[1m[32m   Compiling[0m rand_core v0.6.4
+[1m[32m   Compiling[0m rand v0.8.8
+[1m[32m   Compiling[0m sha2 v0.10.9
+[1m[32m   Compiling[0m phf_shared v0.11.3
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m phf_generator v0.11.3
+[1m[32m   Compiling[0m font-types v0.10.1
+[1m[32m   Compiling[0m core_maths v0.1.1
+[1m[32m   Compiling[0m read-fonts v0.35.0
+[1m[32m   Compiling[0m font-types v0.12.7
+[1m[32m   Compiling[0m once_cell v1.21.4
+[1m[32m   Compiling[0m read-fonts v0.41.0
+[1m[32m   Compiling[0m foldhash v0.1.5
+[1m[32m   Compiling[0m hashbrown v0.15.5
+[1m[32m   Compiling[0m memmap2 v0.9.12
+[1m[32m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[32m   Compiling[0m parking_lot_core v0.9.12
+[1m[32m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[32m   Compiling[0m scopeguard v1.2.0
+[1m[32m   Compiling[0m lock_api v0.4.14
+[1m[32m   Compiling[0m phf_codegen v0.11.3
+[1m[32m   Compiling[0m parking_lot v0.12.5
+[1m[32m   Compiling[0m phf_macros v0.11.3
+[1m[32m   Compiling[0m precomputed-hash v0.1.1
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m phf v0.11.3
+[1m[32m   Compiling[0m utf_types v1.0.0
+[1m[32m   Compiling[0m utf8_iter v1.1.0
+[1m[32m   Compiling[0m string_cache_codegen v0.5.4
+[1m[32m   Compiling[0m skrifa v0.37.0
+[1m[32m   Compiling[0m skrifa v0.44.0
+[1m[32m   Compiling[0m fontique v0.6.0
+[1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m potential_utf v0.1.6
+[1m[32m   Compiling[0m zerotrie v0.2.5
+[1m[32m   Compiling[0m swash v0.2.10
+[1m[32m   Compiling[0m parley v0.6.0
+[1m[32m   Compiling[0m autocfg v1.5.1
+[1m[32m   Compiling[0m ident_case v1.0.1
+[1m[32m   Compiling[0m fnv v1.0.7
+[1m[32m   Compiling[0m darling_core v0.20.11
+[1m[32m   Compiling[0m num-traits v0.2.19
+[1m[32m   Compiling[0m icu_provider v2.2.0
+[1m[32m   Compiling[0m icu_collections v2.2.0
+[1m[32m   Compiling[0m synstructure v0.13.2
+[1m[32m   Compiling[0m log v0.4.34
+[1m[32m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[32m   Compiling[0m dtoa v1.0.11
+[1m[32m   Compiling[0m icu_properties_data v2.2.0
+[1m[32m   Compiling[0m dtoa-short v0.3.5
+[1m[32m   Compiling[0m cssparser-macros v0.6.1
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m darling_macro v0.20.11
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m darling v0.20.11
+[1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m derive_more-impl v2.1.1
+[1m[32m   Compiling[0m thin-vec v0.2.21
+[1m[32m   Compiling[0m smallbitvec v2.6.1
+[1m[32m   Compiling[0m crossbeam-utils v0.8.23
+[1m[32m   Compiling[0m to_shmem v0.2.0
+[1m[32m   Compiling[0m to_shmem_derive v0.1.0
+[1m[32m   Compiling[0m icu_normalizer v2.2.0
+[1m[32m   Compiling[0m icu_properties v2.2.0
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m derive_more v2.1.1
+[1m[32m   Compiling[0m rustc-hash v2.1.3
+[1m[32m   Compiling[0m crossbeam-epoch v0.9.21
+[1m[32m   Compiling[0m idna_adapter v1.2.2
+[1m[32m   Compiling[0m icu_locale_data v2.2.0
+[1m[32m   Compiling[0m percent-encoding v2.3.2
+[1m[32m   Compiling[0m rayon-core v1.13.0
+[1m[32m   Compiling[0m crossbeam-deque v0.8.8
+[1m[32m   Compiling[0m form_urlencoded v1.2.2
+[1m[32m   Compiling[0m idna v1.1.0
+[1m[32m   Compiling[0m euclid v0.22.14
+[1m[32m   Compiling[0m app_units v0.7.8
+[1m[32m   Compiling[0m stylo_atoms v0.8.0
+[1m[32m   Compiling[0m same-file v1.0.6
+[1m[32m   Compiling[0m icu_segmenter_data v2.2.0
+[1m[32m   Compiling[0m mac v0.1.1
+[1m[32m   Compiling[0m void v1.0.2
+[1m[32m   Compiling[0m futf v0.1.5
+[1m[32m   Compiling[0m walkdir v2.5.0
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m url v2.5.8
+[1m[32m   Compiling[0m utf-8 v0.7.6
+[1m[32m   Compiling[0m lazy_static v1.5.1
+[1m[32m   Compiling[0m arrayvec v0.7.8
+[1m[32m   Compiling[0m either v1.19.0
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m tendril v0.4.3
+[1m[32m   Compiling[0m icu_locale v2.2.0
+[1m[32m   Compiling[0m malloc_size_of_derive v0.1.3
+[1m[32m   Compiling[0m encoding_rs v0.8.35
+[1m[32m   Compiling[0m mime v0.3.17
+[1m[32m   Compiling[0m stylo_traits v0.8.0
+[1m[32m   Compiling[0m icu_segmenter v2.2.0
+[1m[32m   Compiling[0m rayon v1.12.0
+[1m[32m   Compiling[0m markup5ever v0.35.0
+[1m[32m   Compiling[0m itertools v0.14.0
+[1m[32m   Compiling[0m uluru v3.1.0
+[1m[32m   Compiling[0m stylo_dom v0.8.0
+[1m[32m   Compiling[0m stylo_derive v0.8.0
+[1m[32m   Compiling[0m num-integer v0.1.47
+[1m[32m   Compiling[0m num-derive v0.4.2
+[1m[32m   Compiling[0m indexmap v2.14.2
+[1m[32m   Compiling[0m num_cpus v1.17.0
+[1m[32m   Compiling[0m unicode-segmentation v1.13.3
+[1m[32m   Compiling[0m grid v1.0.1
+[1m[32m   Compiling[0m stylo_static_prefs v0.8.0
+[1m[32m   Compiling[0m static_assertions v1.1.0
+[1m[32m   Compiling[0m atomic_refcell v0.1.14
+[1m[32m   Compiling[0m matches v0.1.10
+[1m[32m   Compiling[0m bytes v1.12.1
+[1m[32m   Compiling[0m stylo_config v0.8.0
+[1m[32m   Compiling[0m byteorder v1.5.0
+[1m[32m   Compiling[0m taffy v0.9.2
+[1m[32m   Compiling[0m http v1.5.0
+[1m[32m   Compiling[0m keyboard-types v0.7.0
+[1m[32m   Compiling[0m byteorder-lite v0.1.0
+[1m[32m   Compiling[0m cursor-icon v1.2.0
+[1m[32m   Compiling[0m smol_str v0.2.2
+[1m[32m   Compiling[0m image v0.25.6
+[1m[32m   Compiling[0m blitz-traits v0.2.0
+[1m[32m   Compiling[0m match_token v0.35.0
+[1m[32m   Compiling[0m debug_timer v0.1.3
+[1m[32m   Compiling[0m html-escape v0.2.15
+[1m[32m   Compiling[0m fastrand v2.5.0
+[1m[32m   Compiling[0m slab v0.4.12
+[1m[32m   Compiling[0m color v0.3.3
+[1m[32m   Compiling[0m html5ever v0.35.0
+[1m[32m   Compiling[0m xml5ever v0.35.0
+[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m stats_alloc v0.1.10
+[1m[32m   Compiling[0m memchr v2.8.3
+[1m[32m   Compiling[0m zmij v1.0.23
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m roxmltree v0.21.2
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m hashbrown v0.16.1
+[1m[32m   Compiling[0m lol_html v2.7.0
+[1m[32m   Compiling[0m winnow v1.0.4
+[1m[32m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[32m   Compiling[0m serde_spanned v1.1.2
+[1m[32m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[32m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[32m   Compiling[0m toml v1.1.8+spec-1.1.0
+[1m[32m   Compiling[0m stylo_taffy v0.2.0
+[1m[32m   Compiling[0m blitz-dom v0.2.4
+[1m[32m   Compiling[0m blitz-html v0.2.0
+[1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 16m 21s
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono-08d824b477ddb114)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 151 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/breakout.rs (target/release/deps/breakout-20431b18da6673cd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fixtures.rs (target/release/deps/fixtures-2af7270aa3e15109)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fork.rs (target/release/deps/fork-f9acda3f78db68dd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/page.rs (target/release/deps/page-92bc405f0f1a579f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/page_soak.rs (target/release/deps/page_soak-18fc31603b28df80)
+
+running 1 test
+test soak_pages_10000_renders_flat_memory has been running for over 60 seconds
+soak-pages: 10000 renders in 192.025431522s
+soak-pages: after round   500  live heap    2264580 bytes, quiet    1440872  resident    20216 KiB
+soak-pages: after round  1000  live heap    2264708 bytes, quiet    1441000  resident    19896 KiB
+soak-pages: after round  1500  live heap    2264708 bytes, quiet    1441000  resident    20008 KiB
+soak-pages: after round  2000  live heap    2264708 bytes, quiet    1441000  resident    20668 KiB
+soak-pages: after round  2500  live heap    2265764 bytes, quiet    1442056  resident    19856 KiB
+soak-pages: after round  3000  live heap    2265892 bytes, quiet    1442184  resident    20288 KiB
+soak-pages: after round  3500  live heap    2265892 bytes, quiet    1442184  resident    20244 KiB
+soak-pages: after round  4000  live heap    2265892 bytes, quiet    1442184  resident    20268 KiB
+soak-pages: after round  4500  live heap    2265892 bytes, quiet    1442184  resident    20276 KiB
+soak-pages: after round  5000  live heap    2266148 bytes, quiet    1442440  resident    20268 KiB
+soak-pages: quiet live heap from round 1000: 1441000 -> 1442440 bytes (+1440, highest 1442440), limit +65536
+test soak_pages_10000_renders_flat_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 192.03s
+
+[1m[32m     Running[0m unittests src/main.rs (target/release/deps/surimono-e671757d062719df)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/cli.rs (target/release/deps/cli-14d7e8adb07a1513)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_core-7ca5138b3758e29a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 128 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/cancel.rs (target/release/deps/cancel-290a1fd4e44939c6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/determinism.rs (target/release/deps/determinism-bec6149d4c626b09)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/event_loop.rs (target/release/deps/event_loop-4008bd40a15c5a8f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 57 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fork_guard.rs (target/release/deps/fork_guard-f6002fc947ed6713)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/host_panic.rs (target/release/deps/host_panic-fbfb614764e9c3cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/hostile.rs (target/release/deps/hostile-909ef2e21b4c2f8e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/main_thread_stack.rs (target/release/deps/main_thread_stack-bcffdc91dc6f5217)
+main_thread_stack: ok, depth 5697 (711 at the default limit)
+[1m[32m     Running[0m tests/math.rs (target/release/deps/math-4b3412b9e142ff17)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/rejections.rs (target/release/deps/rejections-943f6d30a38b0510)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 60 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/release_memory.rs (target/release/deps/release_memory-c718b97f0dc6a762)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_dom-d6f3d9019d2b710d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/collections.rs (target/release/deps/collections-5b13ad5c54d8daee)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/documents.rs (target/release/deps/documents-b3d1b4faa5c7580e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 91 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/events.rs (target/release/deps/events-54271eda8f56c562)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 91 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fuzz.rs (target/release/deps/fuzz-55d894b2f5f5169c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/generated.rs (target/release/deps/generated-b613a0195ea718f5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/handles.rs (target/release/deps/handles-6ec1f57413c4621a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/hostile.rs (target/release/deps/hostile-18ab6306bed8e86e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/html_members.rs (target/release/deps/html_members-3061b37c97c7910c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/layout.rs (target/release/deps/layout-749529b46f5d7bb7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/layout_real.rs (target/release/deps/layout_real-19764b06b20938e9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/location.rs (target/release/deps/location-16fcf1b6e73d952d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/mutation.rs (target/release/deps/mutation-04dbf93bd89e4978)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/natives.rs (target/release/deps/natives-5981f1cd1d095708)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/nodes.rs (target/release/deps/nodes-f21d04383b691f77)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/observers.rs (target/release/deps/observers-05a70da6a3abb255)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/platform.rs (target/release/deps/platform-91852f07a24014cf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/pseudo.rs (target/release/deps/pseudo-d945fd55da297c4d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/ranges.rs (target/release/deps/ranges-2e056723b8a273fe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/real_world.rs (target/release/deps/real_world-49feed303fd0d397)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/serialize.rs (target/release/deps/serialize-95a151ae6d1399cb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/sheets.rs (target/release/deps/sheets-f79726894ea16833)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-3ab79111550f0b84)
+
+running 1 test
+soak-dom-handles: 2000 renders in 20.1065202s (10.05326ms per render)
+soak-dom-handles: resident memory before start Some(7348) KiB
+soak-dom-handles: after   250 renders  live heap    3338075 bytes  resident    18412 KiB
+soak-dom-handles: after   500 renders  live heap    3338171 bytes  resident    18412 KiB
+soak-dom-handles: after   750 renders  live heap    3338171 bytes  resident    18412 KiB
+soak-dom-handles: after  1000 renders  live heap    3338171 bytes  resident    18412 KiB
+soak-dom-handles: after  1250 renders  live heap    3338171 bytes  resident    18412 KiB
+soak-dom-handles: after  1500 renders  live heap    3338267 bytes  resident    18412 KiB
+soak-dom-handles: after  1750 renders  live heap    3338267 bytes  resident    18416 KiB
+soak-dom-handles: after  2000 renders  live heap    3338267 bytes  resident    18416 KiB
+soak-dom-handles: live heap from render 500 to 2000: 3338171 -> 3338267 bytes (+96 bytes, highest 3338267), limit +65536
+test soak_dom_handles_2000_renders_flat_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 20.11s
+
+[1m[32m     Running[0m tests/stopping.rs (target/release/deps/stopping-022350004323edeb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/traversal.rs (target/release/deps/traversal-15ced178d2b7f0c2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/bin/page.rs (target/release/deps/page-fd44359dae6d162e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/main.rs (target/release/deps/surimono_example_rust_islands-bbc576e3e9746e92)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/example.rs (target/release/deps/example-f8183f66065a755b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/page.rs (target/release/deps/page-e14d29cf8d1ab16e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_gfx-0459937b31473282)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 70 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fulgur_layout.rs (target/release/deps/fulgur_layout-9999c795c87d0fdd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fulgur_print.rs (target/release/deps/fulgur_print-7e183753666efd40)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/measure_text.rs (target/release/deps/measure_text-4ff1d185d2443e73)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/svg.rs (target/release/deps/svg-f26fb27b96156df5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_islands-6390d2392eb30161)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/bundles.rs (target/release/deps/bundles-b560ff51e00f3cbe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/cancel.rs (target/release/deps/cancel-f08ff7c29d91f6b9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/echarts.rs (target/release/deps/echarts-5faaf7bc69f2cc7d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fixture_timing.rs (target/release/deps/fixture_timing-d79ab32e4fe45535)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fork.rs (target/release/deps/fork-835f806a0ada7b94)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/hostile.rs (target/release/deps/hostile-a2059762a8627841)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/memory_report.rs (target/release/deps/memory_report-d0aa0359c1dbec2c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/pool.rs (target/release/deps/pool-dd2185db4f4ee1f5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/runner.rs (target/release/deps/runner-17205ffab1e1e228)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-fa1c5ac3211cd1ad)
+
+running 4 tests
+soak-idle-release: 3000 renders in 19.047104761s (6.349034ms per render incl. 300 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
+soak-idle-release: resident memory before start Some(16088) KiB
+soak-idle-release: after    10 renders  live heap   10241960 bytes  resident    17336 KiB
+soak-idle-release: after    20 renders  live heap   10241960 bytes  resident    17360 KiB
+soak-idle-release: after    30 renders  live heap   10241960 bytes  resident    17364 KiB
+soak-idle-release: after    40 renders  live heap   10241960 bytes  resident    17364 KiB
+soak-idle-release: after    50 renders  live heap   10241960 bytes  resident    17364 KiB
+soak-idle-release: after    60 renders  live heap   10241960 bytes  resident    17368 KiB
+soak-idle-release: after    70 renders  live heap   10241960 bytes  resident    17368 KiB
+soak-idle-release: after    80 renders  live heap   10241960 bytes  resident    17368 KiB
+soak-idle-release: after    90 renders  live heap   10241960 bytes  resident    17484 KiB
+soak-idle-release: after   100 renders  live heap   10241960 bytes  resident    17368 KiB
+soak-idle-release: after   110 renders  live heap   10241960 bytes  resident    17368 KiB
+soak-idle-release: after   120 renders  live heap   10241960 bytes  resident    17368 KiB
+soak-idle-release: after   130 renders  live heap   10242088 bytes  resident    17368 KiB
+soak-idle-release: after   140 renders  live heap   10242088 bytes  resident    17388 KiB
+soak-idle-release: after   150 renders  live heap   10242088 bytes  resident    17388 KiB
+soak-idle-release: after   160 renders  live heap   10242088 bytes  resident    17388 KiB
+soak-idle-release: after   170 renders  live heap   10242088 bytes  resident    17388 KiB
+soak-idle-release: after   180 renders  live heap   10242088 bytes  resident    17388 KiB
+soak-idle-release: after   190 renders  live heap   10242088 bytes  resident    17392 KiB
+soak-idle-release: after   200 renders  live heap   10242088 bytes  resident    20556 KiB
+soak-idle-release: after   210 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   220 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   230 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   240 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   250 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   260 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   270 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   280 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   290 renders  live heap   10242088 bytes  resident    20560 KiB
+soak-idle-release: after   300 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   310 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   320 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   330 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   340 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   350 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   360 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   370 renders  live heap   10242088 bytes  resident    24756 KiB
+soak-idle-release: after   380 renders  live heap   10242088 bytes  resident    24768 KiB
+soak-idle-release: after   390 renders  live heap   10242088 bytes  resident    24796 KiB
+soak-idle-release: after   400 renders  live heap   10242088 bytes  resident    21680 KiB
+soak-idle-release: after   410 renders  live heap   10242088 bytes  resident    21684 KiB
+soak-idle-release: after   420 renders  live heap   10242088 bytes  resident    21684 KiB
+soak-idle-release: after   430 renders  live heap   10242088 bytes  resident    21684 KiB
+soak-idle-release: after   440 renders  live heap   10242088 bytes  resident    21684 KiB
+soak-idle-release: after   450 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   460 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   470 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   480 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   490 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   500 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   510 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   520 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   530 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   540 renders  live heap   10242088 bytes  resident    21692 KiB
+soak-idle-release: after   550 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   560 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   570 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   580 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   590 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   600 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   610 renders  live heap   10242088 bytes  resident    21844 KiB
+soak-idle-release: after   620 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   630 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   640 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   650 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   660 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   670 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   680 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   690 renders  live heap   10242088 bytes  resident    21688 KiB
+soak-idle-release: after   700 renders  live heap   10242088 bytes  resident    25784 KiB
+soak-idle-release: after   710 renders  live heap   10242088 bytes  resident    25792 KiB
+soak-idle-release: after   720 renders  live heap   10242088 bytes  resident    25792 KiB
+soak-idle-release: after   730 renders  live heap   10242088 bytes  resident    25792 KiB
+soak-idle-release: after   740 renders  live heap   10242088 bytes  resident    25792 KiB
+soak-idle-release: after   750 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after   760 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after   770 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after   780 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after   790 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after   800 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after   810 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after   820 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after   830 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after   840 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after   850 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   860 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   870 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   880 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   890 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   900 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   910 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   920 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   930 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   940 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   950 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   960 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   970 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after   980 renders  live heap   10242088 bytes  resident    21912 KiB
+soak-idle-release: after   990 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1000 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1010 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1020 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1030 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1040 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1050 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1060 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1070 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1080 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1090 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1100 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1110 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1120 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1130 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1140 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1150 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1160 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1170 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1180 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1190 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1200 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1210 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1220 renders  live heap   10242088 bytes  resident    17712 KiB
+soak-idle-release: after  1230 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1240 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1250 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1260 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1270 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1280 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1290 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1300 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1310 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1320 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1330 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1340 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1350 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1360 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1370 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1380 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1390 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1400 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1410 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1420 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1430 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1440 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1450 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1460 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1470 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1480 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1490 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1500 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1510 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1520 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1530 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1540 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1550 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1560 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1570 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1580 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1590 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1600 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1610 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1620 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1630 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1640 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1650 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1660 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1670 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1680 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1690 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  1700 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1710 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1720 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1730 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1740 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  1750 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1760 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1770 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1780 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1790 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1800 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1810 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1820 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1830 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1840 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1850 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1860 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1870 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1880 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1890 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  1900 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1910 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1920 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1930 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1940 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1950 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1960 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1970 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1980 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  1990 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2000 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2010 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2020 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2030 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2040 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2050 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2060 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2070 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2080 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2090 renders  live heap   10242088 bytes  resident    17600 KiB
+soak-idle-release: after  2100 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2110 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2120 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2130 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2140 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2150 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2160 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2170 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2180 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2190 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2200 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2210 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2220 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2230 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2240 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2250 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2260 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2270 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2280 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2290 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2300 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2310 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2320 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2330 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2340 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2350 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2360 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2370 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2380 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2390 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2400 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2410 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2420 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2430 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2440 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2450 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2460 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2470 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2480 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2490 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2500 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2510 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2520 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2530 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2540 renders  live heap   10242088 bytes  resident    21696 KiB
+soak-idle-release: after  2550 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2560 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2570 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2580 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2590 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2600 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2610 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2620 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2630 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2640 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2650 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2660 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2670 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2680 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2690 renders  live heap   10242088 bytes  resident    17604 KiB
+soak-idle-release: after  2700 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2710 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2720 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2730 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2740 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2750 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2760 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2770 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2780 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2790 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2800 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2810 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2820 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2830 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2840 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2850 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2860 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2870 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: after  2880 renders  live heap   10242088 bytes  resident    21928 KiB
+soak-idle-release: after  2890 renders  live heap   10242088 bytes  resident    21704 KiB
+soak-idle-release: after  2900 renders  live heap   10242088 bytes  resident    25800 KiB
+soak-idle-release: after  2910 renders  live heap   10242088 bytes  resident    25800 KiB
+soak-idle-release: after  2920 renders  live heap   10242088 bytes  resident    25800 KiB
+soak-idle-release: after  2930 renders  live heap   10242088 bytes  resident    25800 KiB
+soak-idle-release: after  2940 renders  live heap   10242088 bytes  resident    25800 KiB
+soak-idle-release: after  2950 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after  2960 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after  2970 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after  2980 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after  2990 renders  live heap   10242088 bytes  resident    25796 KiB
+soak-idle-release: after  3000 renders  live heap   10242088 bytes  resident    21700 KiB
+soak-idle-release: RunnerStats { renders: 3000, failed_renders: 75, preloaded_renders: 34, idle_workers: 2, workers: 2, runtimes: 0, memory_trims: 300 }
+soak-idle-release: live heap from render 500 to 3000: 10242088 -> 10242088 bytes (+0 bytes, highest 10242088), limit +65536
+soak-idle-release: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
+soak-idle-release: peak resident 25800 KiB, bound 212696 KiB
+test soak_idle_release_3000_renders_flat_memory ... ok
+soak: 10000 renders in 34.176572125s (3.417657ms per render incl. 20 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
+soak: resident memory before start Some(21980) KiB
+soak: after   500 renders  live heap   10789091 bytes  resident    26952 KiB
+soak: after  1000 renders  live heap   10789091 bytes  resident    27000 KiB
+soak: after  1500 renders  live heap   10789091 bytes  resident    26980 KiB
+soak: after  2000 renders  live heap   10789091 bytes  resident    27020 KiB
+soak: after  2500 renders  live heap   10789091 bytes  resident    27020 KiB
+soak: after  3000 renders  live heap   10789091 bytes  resident    27020 KiB
+soak: after  3500 renders  live heap   10789091 bytes  resident    27028 KiB
+soak: after  4000 renders  live heap   10789091 bytes  resident    27024 KiB
+soak: after  4500 renders  live heap   10789091 bytes  resident    27024 KiB
+soak: after  5000 renders  live heap   10789091 bytes  resident    27024 KiB
+soak: after  5500 renders  live heap   10789091 bytes  resident    27056 KiB
+soak: after  6000 renders  live heap   10789091 bytes  resident    27056 KiB
+soak: after  6500 renders  live heap   10789091 bytes  resident    27056 KiB
+soak: after  7000 renders  live heap   10789091 bytes  resident    27044 KiB
+soak: after  7500 renders  live heap   10789091 bytes  resident    27044 KiB
+soak: after  8000 renders  live heap   10789091 bytes  resident    27044 KiB
+soak: after  8500 renders  live heap   10789091 bytes  resident    27044 KiB
+soak: after  9000 renders  live heap   10789091 bytes  resident    27044 KiB
+soak: after  9500 renders  live heap   10789091 bytes  resident    27044 KiB
+soak: after 10000 renders  live heap   10789091 bytes  resident    27044 KiB
+soak: RunnerStats { renders: 10000, failed_renders: 250, preloaded_renders: 347, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
+soak: live heap from render 2000 to 10000: 10789091 -> 10789091 bytes (+0 bytes, highest 10789091), limit +65536
+soak: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
+soak: peak resident 27056 KiB, bound 218588 KiB
+test soak_10000_renders_flat_memory ... ok
+test soak_echarts_2000_renders_flat_memory has been running for over 60 seconds
+test soak_vega_lite_600_renders_flat_memory has been running for over 60 seconds
+soak-echarts: 2000 renders in 29.432981694s (14.71649ms per render incl. 8 waits for idle workers), 3 callers, 2 workers, first SVG 24997 bytes
+soak-echarts: resident memory before start Some(36868) KiB
+soak-echarts: after   250 renders  live heap   20663528 bytes  resident    46408 KiB
+soak-echarts: after   500 renders  live heap   20663528 bytes  resident    46412 KiB
+soak-echarts: after   750 renders  live heap   20663528 bytes  resident    46416 KiB
+soak-echarts: after  1000 renders  live heap   20663528 bytes  resident    46416 KiB
+soak-echarts: after  1250 renders  live heap   20663528 bytes  resident    46416 KiB
+soak-echarts: after  1500 renders  live heap   20663528 bytes  resident    46416 KiB
+soak-echarts: after  1750 renders  live heap   20663528 bytes  resident    46416 KiB
+soak-echarts: after  2000 renders  live heap   20663528 bytes  resident    46416 KiB
+soak-echarts: RunnerStats { renders: 2000, failed_renders: 20, preloaded_renders: 39, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
+soak-echarts: live heap from render 500 to 2000: 20663528 -> 20663528 bytes (+0 bytes, highest 20663528), limit +65536
+soak-echarts: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
+soak-echarts: peak resident 46416 KiB, bound 364548 KiB
+test soak_echarts_2000_renders_flat_memory ... ok
+soak-vega-lite: 600 renders in 11.643184362s (19.405307ms per render incl. 4 waits for idle workers), 3 callers, 2 workers, first SVG 9870 bytes
+soak-vega-lite: resident memory before start Some(56076) KiB
+soak-vega-lite: after   150 renders  live heap   21599955 bytes  resident    64388 KiB
+soak-vega-lite: after   300 renders  live heap   21599955 bytes  resident    64468 KiB
+soak-vega-lite: after   450 renders  live heap   21599955 bytes  resident    64472 KiB
+soak-vega-lite: after   600 renders  live heap   21599955 bytes  resident    64472 KiB
+soak-vega-lite: RunnerStats { renders: 600, failed_renders: 6, preloaded_renders: 6, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
+soak-vega-lite: live heap from render 300 to 600: 21599955 -> 21599955 bytes (+0 bytes, highest 21599955), limit +65536
+soak-vega-lite: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
+soak-vega-lite: peak resident 64472 KiB, bound 383756 KiB
+test soak_vega_lite_600_renders_flat_memory ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 94.34s
+
+[1m[32m     Running[0m tests/vega.rs (target/release/deps/vega-ae6880b73a7b8f52)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono_webidl-3a11f3f770a1c882)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/codegen.rs (target/release/deps/codegen-bd1584267255958c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/stack.rs (target/release/deps/stack-0196cb1a99c6f669)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/vendored.rs (target/release/deps/vendored-e29e9ee66517bdec)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_dom
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_gfx
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_islands
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+[1m[32m   Doc-tests[0m surimono_webidl
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
