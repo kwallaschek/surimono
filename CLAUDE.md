@@ -106,8 +106,8 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    for your task: another session may already have started it.
 4. **Commits.** Small commits with clear messages (`core: add memory limit to
    sandbox`). End every commit message with the `Co-Authored-By:` trailer your own
-   session's instructions give for the model you run as (it changed from Opus 5.5 on
-   11 Nov, so don't copy an older commit's trailer).
+   session's instructions give for the model you run as (the fleet's model has changed
+   more than once, so don't copy an older commit's trailer).
    Never commit to `main` and never merge; the orchestrator merges.
 5. **Report.** Finish with a short report: branch name, what is done, test
    evidence (commands and results), DECISIONS lines to add, anything you need
