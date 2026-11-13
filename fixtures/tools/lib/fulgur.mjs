@@ -82,9 +82,10 @@ export function printTimeoutMs() {
  * fulgur render <html> -o <pdf> with only the fixture fonts, and `extraFonts` for a page
  * with its own: fulgur 0.40.0 doesn't load @font-face URLs. Throws with fulgur's output on
  * failure; the error's `printer` says how it ended ({ status, signal, timed_out }).
+ * `printer` is the binary when a tool prints with several.
  */
-export function fulgurPrint(htmlPath, pdfPath, workDir, extraFonts = []) {
-  const { bin, args, env } = fulgurCommand(htmlPath, pdfPath, workDir, extraFonts);
+export function fulgurPrint(htmlPath, pdfPath, workDir, extraFonts = [], printer = fulgurBinary()) {
+  const { bin, args, env } = fulgurCommand(htmlPath, pdfPath, workDir, extraFonts, printer);
   const timeout = printTimeoutMs();
   const r = spawnSync(bin, args, { encoding: "utf8", env, timeout, killSignal: "SIGKILL" });
   if (r.status !== 0) {

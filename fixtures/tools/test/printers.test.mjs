@@ -173,6 +173,32 @@ test("a comparison that dies is a failing score with its reason, in the score an
   assert.match(fs.readFileSync(path.join(out, "run", "index.md"), "utf8"), /\*\*FAIL\*\* \(render error: compare\.mjs exited 1: Error: /);
 });
 
+test("a printer that dies is a cell that says \"no output\" and nothing more", () => {
+  const out = tmp();
+  const good = printer(out, "fulgur-a", { FAKE_FULGUR_VERSION: "1.0.0" });
+  const dead = printer(out, "other-b", { FAKE_FULGUR_VERSION: "0.1.0", FAKE_FULGUR_FAIL: "abort" });
+  const dir = path.join(out, "run");
+  const r = node("printers.mjs", ["--out", dir, "--surimono", fakeSurimono, "--check", fakeCheck, "--runs", "1", "--printer", `good=${good}`, "--printer", `dead=${dead}`, PAGE]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const text = fs.readFileSync(path.join(dir, "printers.json"), "utf8");
+  const md = fs.readFileSync(path.join(dir, "index.md"), "utf8");
+  for (const row of JSON.parse(text).rows) {
+    assert.deepEqual({ pass: row.printers.dead.pass, no_output: row.printers.dead.no_output, print: row.printers.dead.print }, { pass: false, no_output: true, print: { not_measured: true } });
+    assert.equal(row.differs, true);
+    // The printer that printed is still scored and timed.
+    assert.equal(typeof row.printers.good.shape, "number");
+    assert.ok(row.printers.good.print.wall_ms.median > 0);
+  }
+  assert.match(md, /\| noscript-message \| surimono's page \| \*\*FAIL\*\* · [\d.]+% .*\| \*\*FAIL\*\* \(no output\) \|/);
+  // How it died is nowhere in what gets committed, and all of it in .private.
+  for (const committed of [text, md]) assert.doesNotMatch(committed, /SIGABRT|killed|signal|exited|error/i);
+  const failures = readJson(path.join(dir, ".private", "failures.json"));
+  assert.equal(failures.length, 2);
+  assert.deepEqual(failures.map((f) => [f.printer, f.printer_exit.signal]), [["dead", "SIGABRT"], ["dead", "SIGABRT"]]);
+  assert.match(failures[0].error, /killed by SIGABRT/);
+  assert.match(r.stderr, /2 cell\(s\) without output/);
+});
+
 test("checkpoint.mjs --no-chrome runs no gate and says it isn't a checkpoint", () => {
   const out = tmp();
   const bin = printer(out, "fulgur-a", { FAKE_FULGUR_VERSION: "9.9.3" });
@@ -225,10 +251,10 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const text = fs.readFileSync(path.join(dir, "printers.json"), "utf8");
   const result = JSON.parse(text);
-  assert.deepEqual(result.printers.map((p) => [p.label, p.fulgur]), [["one", "1.0.0"], ["two", "1.0.1"], ["three", "2.0.0"]]);
+  assert.deepEqual(result.printers.map((p) => [p.label, p.version]), [["one", "fulgur 1.0.0"], ["two", "fulgur 1.0.1"], ["three", "fulgur 2.0.0"]]);
   assert.deepEqual(result.rows.map((row) => row.key), [`real-world/${PAGE}/page`, `real-world/${PAGE}/floor`]);
   for (const row of result.rows) {
-    for (const [label, cell] of Object.entries(row.printers)) assert.equal(cell.error, undefined, `${row.key}, ${label}: the comparison died: ${cell.error}`);
+    for (const [label, cell] of Object.entries(row.printers)) assert.equal(cell.no_output, undefined, `${row.key}, ${label}: no output: ${fs.existsSync(path.join(dir, ".private", "failures.json")) ? fs.readFileSync(path.join(dir, ".private", "failures.json"), "utf8") : "?"}`);
     // Same pixels from one and two; three prints another page size, which fails "size" too.
     assert.equal(row.differs, true);
     assert.equal(row.pixels_identical, false);
@@ -276,7 +302,7 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
     assert.ok(!text.includes(where), `printers.json names ${where}`);
     assert.ok(!md.includes(where), `index.md names ${where}`);
   }
-  assert.match(md, /fulgur 1\.0\.0 and fulgur 1\.0\.1 and fulgur 2\.0\.0/);
+  assert.match(md, /printed by fulgur 1\.0\.0, fulgur 1\.0\.1 and fulgur 2\.0\.0, fixture fonts only/);
   assert.match(md, /The printers take turns on each page/);
   assert.match(md, /## Time and memory against one\n/);
   assert.match(md, /\| two \| Print time \| [\d.]+ ms \| [\d.]+ ms \| [+−]?[\d.]+ ms /);

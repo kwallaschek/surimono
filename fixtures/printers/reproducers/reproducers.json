@@ -1,0 +1,771 @@
+{
+  "generated_by": "fixtures/tools/reproducers.mjs",
+  "chromium": "153.0.8010.12",
+  "playwright": "1.63.0",
+  "poppler": "24.02.0",
+  "pass_rule": {
+    "shape": 0.1,
+    "colour": 0.1,
+    "hue": 0.3
+  },
+  "printers": [
+    {
+      "label": "0.40.0",
+      "version": "fulgur 0.40.0",
+      "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382"
+    },
+    {
+      "label": "0.41.0",
+      "version": "fulgur 0.41.0",
+      "sha256": "c61416ba33bd83ef7536922ec38e49992b49556755f218518631cc5d394e9843"
+    },
+    {
+      "label": "raikiri",
+      "version": "fulgur-raikiri 0.41.0",
+      "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+    }
+  ],
+  "rows": [
+    {
+      "name": "B1-block-svg-size",
+      "gap": "B1",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "3336c0799d32b94ea40359e79949560cacbb4264ddded1ec312b1be2d6f16c04"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "B1-block-svg-size.png"
+      ]
+    },
+    {
+      "name": "B2-extra-line",
+      "gap": "B2",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "4fa563202936582f7f05f45f0a753b4b8e989528d29baded2e0bbce4b5bcbdb2"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour"
+          ],
+          "shape": 0.1690340909090909,
+          "colour": 1,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour"
+          ],
+          "shape": 0.1690340909090909,
+          "colour": 1,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "B2-extra-line.png"
+      ]
+    },
+    {
+      "name": "B4-valign-inline-block",
+      "gap": "B4",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "a1f058cd260ecf7d7791d359711cbb13a428076e59064be20545242837f3e66c"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour"
+          ],
+          "shape": 0.9621212121212122,
+          "colour": 1,
+          "hue": 0.03875968992248062,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour"
+          ],
+          "shape": 0.9621212121212122,
+          "colour": 1,
+          "hue": 0.03875968992248062,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "B4-valign-inline-block.png"
+      ]
+    },
+    {
+      "name": "B4-valign-span",
+      "gap": "B4",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "ee70bbd735a2757b3a92c6191f1c52fd28327091069156d8976d7b5e3cebe03c"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.6622516556291391,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.6622516556291391,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.6222222222222222,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "B4-valign-span.png"
+      ]
+    },
+    {
+      "name": "F1-border-side-colour",
+      "gap": "F1",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "7f583945213dde52e089084256b270a4b74057bd7120533f8c45e61d3f656e5d"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 0,
+          "hue": 1,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 0,
+          "hue": 1,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.07692307692307693,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "F1-border-side-colour.png"
+      ]
+    },
+    {
+      "name": "F2-list-markers",
+      "gap": "F2",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "8fac091f79e5767517734a87a802c61109aff8b1a5f51870c25d51a32e46ade9"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.9111111111111111,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.9111111111111111,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.7142857142857143,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "F2-list-markers.png"
+      ]
+    },
+    {
+      "name": "F3-synthesized-italic",
+      "gap": "F3",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "66ce56766a0e0b5fa3d763531195df2e7955135a9ca25d865928f6a52538ab40"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.56,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.56,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.18811881188118812,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "F3-synthesized-italic.png"
+      ]
+    },
+    {
+      "name": "F4-inline-background",
+      "gap": "F4",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "1c6d834dead641dce00c45a56b0356be8db477a63e116dea43410631ba3054f4"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 0.889967637540453,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 0.889967637540453,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": false,
+          "failed": [
+            "hue"
+          ],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0.5909090909090909,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "F4-inline-background.png"
+      ]
+    },
+    {
+      "name": "F5-inline-block-wrapped",
+      "gap": "F5",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "2a0606bbdc4f7f68889b171c8cef5d7b395c3b4762721c72d87ad162d9c08efb"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 0.32,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 0.32,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.022727272727272728,
+          "colour": 0,
+          "hue": 0.06263982102908278,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "F5-inline-block-wrapped.png"
+      ]
+    },
+    {
+      "name": "F6-content-width",
+      "gap": "F6",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "04eb9fcabd2a7154444290dd9c0ab0d643c45901cf6956c39e2dd6e1dca9a6cb"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pages": 1,
+          "size": [
+            794,
+            1123
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape",
+            "colour",
+            "hue"
+          ],
+          "shape": 1,
+          "colour": 1,
+          "hue": 1,
+          "pages": 1,
+          "size": [
+            794,
+            1123
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            794,
+            1123
+          ]
+        }
+      },
+      "images": [
+        "F6-content-width.png"
+      ]
+    },
+    {
+      "name": "F10-paragraph-split",
+      "gap": "F10",
+      "chrome": {
+        "pages": 2,
+        "sha256": [
+          "cb94854029f15500bf517db3780799c32f60daa56285636d47eda68e564bf729",
+          "94d8c5730314f22438ba1077e151bad1ed6b90217664e7a674e460104209083f"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.6260869565217392,
+          "colour": 0,
+          "hue": 0,
+          "pages": 2,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.6260869565217392,
+          "colour": 0,
+          "hue": 0,
+          "pages": 2,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0,
+          "colour": 0,
+          "hue": 0,
+          "pages": 2,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "F10-paragraph-split-1.png",
+        "F10-paragraph-split-2.png"
+      ]
+    },
+    {
+      "name": "R1-cjk-latin-spacing",
+      "gap": "R1",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "d9cb6b4a1283035d7e445938047ac787d3351bd702a776144fc8fdc0ba006484"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.0037174721189591076,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.0037174721189591076,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": false,
+          "failed": [
+            "shape"
+          ],
+          "shape": 0.49206349206349204,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "R1-cjk-latin-spacing.png"
+      ]
+    },
+    {
+      "name": "R1-cjk-latin-spacing-off",
+      "gap": "R1",
+      "chrome": {
+        "pages": 1,
+        "sha256": [
+          "d9cb6b4a1283035d7e445938047ac787d3351bd702a776144fc8fdc0ba006484"
+        ]
+      },
+      "printers": {
+        "0.40.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.0037174721189591076,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "0.41.0": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.0037174721189591076,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        },
+        "raikiri": {
+          "pass": true,
+          "failed": [],
+          "shape": 0.0037174721189591076,
+          "colour": 0,
+          "hue": 0,
+          "pages": 1,
+          "size": [
+            400,
+            300
+          ]
+        }
+      },
+      "images": [
+        "R1-cjk-latin-spacing-off.png"
+      ]
+    }
+  ]
+}
