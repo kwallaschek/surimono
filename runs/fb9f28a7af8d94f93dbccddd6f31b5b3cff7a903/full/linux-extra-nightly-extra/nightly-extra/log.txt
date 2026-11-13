@@ -1,0 +1,264 @@
+
+==> wpt: run the slices, publish wpt-results.json
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m serde_core v1.0.229
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m indexmap v2.14.2
+[1m[32m   Compiling[0m sha2 v0.10.9
+[1m[32m   Compiling[0m winnow v1.0.4
+[1m[32m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m serde v1.0.229
+[1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m to_shmem v0.2.0
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m euclid v0.22.14
+[1m[32m   Compiling[0m app_units v0.7.8
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m url v2.5.8
+[1m[32m   Compiling[0m stylo_atoms v0.8.0
+[1m[32m   Compiling[0m stylo_dom v0.8.0
+[1m[32m   Compiling[0m stylo_traits v0.8.0
+[1m[32m   Compiling[0m markup5ever v0.35.0
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m keyboard-types v0.7.0
+[1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m blitz-traits v0.2.0
+[1m[32m   Compiling[0m html5ever v0.35.0
+[1m[32m   Compiling[0m parley v0.6.0
+[1m[32m   Compiling[0m xml5ever v0.35.0
+[1m[32m   Compiling[0m serde_spanned v1.1.2
+[1m[32m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[32m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[32m   Compiling[0m toml v1.1.8+spec-1.1.0
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m stylo_taffy v0.2.0
+[1m[32m   Compiling[0m blitz-dom v0.2.4
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m blitz-html v0.2.0
+[1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono-wpt-runner v0.0.0 (/home/runner/work/surimono/surimono/wpt/runner)
+[1m[32m    Finished[0m `dev` profile [optimized + debuginfo] target(s) in 2m 09s
+[2/1101] OK html/webappapis/timers/clearinterval-from-callback.any.html
+[1/1101] OK html/webappapis/timers/arguments.html
+[3/1101] OK html/webappapis/timers/cleartimeout-clearinterval.any.html
+[4/1101] OK html/webappapis/timers/errors.html
+[5/1101] OK html/webappapis/timers/evil-spec-example.any.html
+[6/1101] OK html/webappapis/timers/missing-timeout-setinterval.any.html
+[7/1101] OK html/webappapis/timers/negative-setinterval.any.html
+[8/1101] OK html/webappapis/timers/negative-settimeout.any.html
+[9/1101] TIMEOUT html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html
+[10/1101] OK html/webappapis/timers/setinterval-settimeout-clamping.any.html
+[12/1101] OK html/webappapis/timers/settimeout-detached-iframe.html
+[11/1101] TIMEOUT html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html
+[13/1101] OK html/webappapis/timers/settimeout-setinterval-handles.html
+[14/1101] OK html/webappapis/timers/timer-nesting-not-inherited-in-microtask.html
+[15/1101] OK html/webappapis/timers/type-long-setinterval.any.html
+[16/1101] OK html/webappapis/timers/type-long-settimeout.any.html
+[17/1101] OK html/webappapis/timers/zero-settimeout.any.html
+[18/1101] TIMEOUT html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html
+[19/1101] OK html/webappapis/microtask-queuing/queue-microtask-exceptions.any.html
+[20/1101] OK html/webappapis/microtask-queuing/queue-microtask.any.html
+[21/1101] OK html/webappapis/microtask-queuing/queue-microtask.window.html
+[22/1101] OK dom/nodes/Attr-prefix-xhtml.xhtml
+[23/1101] OK dom/nodes/Attr-prefix.html
+[24/1101] OK dom/nodes/CharacterData-appendChild.html
+[25/1101] OK dom/nodes/CharacterData-appendData.html
+[26/1101] OK dom/nodes/CharacterData-data.html
+[27/1101] OK dom/nodes/CharacterData-deleteData.html
+[28/1101] OK dom/nodes/CharacterData-insertData.html
+[29/1101] OK dom/nodes/CharacterData-remove.html
+[30/1101] OK dom/nodes/CharacterData-replaceData.html
+[31/1101] OK dom/nodes/CharacterData-substringData.html
+[32/1101] OK dom/nodes/CharacterData-surrogates.html
+[33/1101] OK dom/nodes/ChildNode-after.html
+[34/1101] OK dom/nodes/ChildNode-before.html
+[36/1101] OK dom/nodes/Comment-constructor.html
+[35/1101] OK dom/nodes/ChildNode-replaceWith.html
+[37/1101] OK dom/nodes/Comment-in-doctype.xhtml
+[38/1101] OK dom/nodes/DOMImplementation-createDocument-no-browsing-context.html
+[40/1101] OK dom/nodes/DOMImplementation-createDocumentType.html
+[39/1101] OK dom/nodes/DOMImplementation-createDocument.html
+[41/1101] OK dom/nodes/DOMImplementation-createHTMLDocument-with-saved-implementation.html
+[42/1101] OK dom/nodes/DOMImplementation-createHTMLDocument.html
+[43/1101] OK dom/nodes/DOMImplementation-hasFeature.html
+[44/1101] OK dom/nodes/Document-URL.html
+[45/1101] OK dom/nodes/Document-adoptNode-DocumentFragment-with-host.window.html
+[46/1101] OK dom/nodes/Document-adoptNode.html
+[47/1101] OK dom/nodes/Document-base-url-not-live.window.html
+[48/1101] TIMEOUT dom/nodes/Document-characterSet-normalization-1.html
+[49/1101] TIMEOUT dom/nodes/Document-characterSet-normalization-2.html
+[50/1101] OK dom/nodes/Document-cloneNode-about-base-url-relative.window.html
+[51/1101] OK dom/nodes/Document-cloneNode-about-base-url.window.html
+[52/1101] OK dom/nodes/Document-cloneNode-base-url-xml.window.html
+[53/1101] OK dom/nodes/Document-cloneNode-base-url.window.html
+[54/1101] OK dom/nodes/Document-cloneNode-srcdoc-base-url.window.html
+[55/1101] OK dom/nodes/Document-constructor-svg.svg
+[56/1101] OK dom/nodes/Document-constructor-xml.xml
+[57/1101] OK dom/nodes/Document-constructor.html
+[58/1101] OK dom/nodes/Document-contentType/contentType/contenttype_bmp.html
+[59/1101] OK dom/nodes/Document-contentType/contentType/contenttype_css.html
+[60/1101] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_datauri_02.html
+[61/1101] OK dom/nodes/Document-contentType/contentType/contenttype_gif.html
+[62/1101] OK dom/nodes/Document-contentType/contentType/contenttype_html.html
+[63/1101] OK dom/nodes/Document-contentType/contentType/contenttype_javascripturi.html
+[64/1101] OK dom/nodes/Document-contentType/contentType/contenttype_jpg.html
+[65/1101] OK dom/nodes/Document-contentType/contentType/contenttype_mimeheader_01.html
+[66/1101] OK dom/nodes/Document-contentType/contentType/contenttype_mimeheader_02.html
+[67/1101] OK dom/nodes/Document-contentType/contentType/contenttype_mimeheader_03.html
+[68/1101] OK dom/nodes/Document-contentType/contentType/contenttype_png.html
+[69/1101] OK dom/nodes/Document-contentType/contentType/contenttype_txt.html
+[70/1101] OK dom/nodes/Document-contentType/contentType/contenttype_xml.html
+[71/1101] OK dom/nodes/Document-contentType/contentType/createDocument.html
+[72/1101] OK dom/nodes/Document-contentType/contentType/createHTMLDocument.html
+[73/1101] OK dom/nodes/Document-contentType/contentType/xhr_responseType_document.html
+[74/1101] OK dom/nodes/Document-createAttribute.html
+[75/1101] OK dom/nodes/Document-createCDATASection-xhtml.xhtml
+[76/1101] OK dom/nodes/Document-createCDATASection.html
+[77/1101] OK dom/nodes/Document-createComment.html
+[78/1101] OK dom/nodes/Document-createElement-namespace.html
+[79/1101] OK dom/nodes/Document-createElement.html
+[81/1101] OK dom/nodes/Document-createEvent-touchevent.window.html
+[80/1101] OK dom/nodes/Document-createElementNS.html
+[82/1101] OK dom/nodes/Document-createEvent.https.html
+[83/1101] OK dom/nodes/Document-createProcessingInstruction-xhtml.xhtml
+[84/1101] OK dom/nodes/Document-createProcessingInstruction.html
+[85/1101] OK dom/nodes/Document-createTextNode.html
+[86/1101] OK dom/nodes/Document-createTreeWalker.html
+[87/1101] OK dom/nodes/Document-doctype.html
+[88/1101] OK dom/nodes/Document-getElementById.html
+[89/1101] OK dom/nodes/Document-getElementsByClassName.html
+[90/1101] OK dom/nodes/Document-getElementsByTagName-xhtml.xhtml
+[91/1101] OK dom/nodes/Document-getElementsByTagName.html
+[92/1101] OK dom/nodes/Document-getElementsByTagNameNS.html
+[93/1101] OK dom/nodes/Document-implementation.html
+[94/1101] OK dom/nodes/Document-importNode.html
+[95/1101] OK dom/nodes/DocumentFragment-constructor.html
+[96/1101] OK dom/nodes/DocumentFragment-getElementById.html
+[97/1101] OK dom/nodes/DocumentFragment-querySelectorAll-after-modification.html
+[98/1101] OK dom/nodes/DocumentType-literal-xhtml.xhtml
+[99/1101] OK dom/nodes/DocumentType-literal.html
+[100/1101] OK dom/nodes/DocumentType-remove.html
+[101/1101] OK dom/nodes/Element-childElement-null-svg.svg
+[102/1101] OK dom/nodes/Element-childElement-null-xhtml.xhtml
+[103/1101] OK dom/nodes/Element-childElement-null.html
+[104/1101] OK dom/nodes/Element-childElementCount-dynamic-add-svg.svg
+[105/1101] OK dom/nodes/Element-childElementCount-dynamic-add-xhtml.xhtml
+[106/1101] OK dom/nodes/Element-childElementCount-dynamic-add.html
+[107/1101] OK dom/nodes/Element-childElementCount-dynamic-remove-svg.svg
+[108/1101] OK dom/nodes/Element-childElementCount-dynamic-remove-xhtml.xhtml
+[109/1101] OK dom/nodes/Element-childElementCount-dynamic-remove.html
+[110/1101] OK dom/nodes/Element-childElementCount-nochild-svg.svg
+[111/1101] OK dom/nodes/Element-childElementCount-nochild-xhtml.xhtml
+[112/1101] OK dom/nodes/Element-childElementCount-nochild.html
+[113/1101] OK dom/nodes/Element-childElementCount-svg.svg
+[114/1101] OK dom/nodes/Element-childElementCount-xhtml.xhtml
+[115/1101] OK dom/nodes/Element-childElementCount.html
+[116/1101] OK dom/nodes/Element-children.html
+[118/1101] OK dom/nodes/Element-closest-null-selectors.html
+[119/1101] OK dom/nodes/Element-closest.html
+[120/1101] LIMIT dom/nodes/Element-firstElementChild-entity-xhtml.xhtml
+[121/1101] LIMIT dom/nodes/Element-firstElementChild-entity.svg
+[117/1101] OK dom/nodes/Element-classlist.html
+[122/1101] OK dom/nodes/Element-firstElementChild-namespace-svg.svg
+[123/1101] OK dom/nodes/Element-firstElementChild-namespace-xhtml.xhtml
+[124/1101] OK dom/nodes/Element-firstElementChild-namespace.html
+[125/1101] OK dom/nodes/Element-firstElementChild-svg.svg
+[126/1101] OK dom/nodes/Element-firstElementChild-xhtml.xhtml
+[127/1101] OK dom/nodes/Element-firstElementChild.html
+[128/1101] OK dom/nodes/Element-getElementsByClassName.html
+[129/1101] OK dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html
+[130/1101] OK dom/nodes/Element-getElementsByTagName.html
+[131/1101] OK dom/nodes/Element-getElementsByTagNameNS.html
+[132/1101] OK dom/nodes/Element-hasAttribute.html
+[133/1101] OK dom/nodes/Element-hasAttributes.html
+[134/1101] OK dom/nodes/Element-insertAdjacentElement.html
+[135/1101] OK dom/nodes/Element-insertAdjacentText.html
+[136/1101] OK dom/nodes/Element-lastElementChild-svg.svg
+[137/1101] OK dom/nodes/Element-lastElementChild-xhtml.xhtml
+[138/1101] OK dom/nodes/Element-lastElementChild.html
+[139/1101] OK dom/nodes/Element-matches-active-pseudo-class.html
+[140/1101] OK dom/nodes/Element-matches-complex-nth-last-of-type.html
+[141/1101] OK dom/nodes/Element-matches-disabled-pseudo-class.html
+[142/1101] OK dom/nodes/Element-matches-namespaced-elements.html
+[144/1101] OK dom/nodes/Element-nextElementSibling-svg.svg
+[145/1101] OK dom/nodes/Element-nextElementSibling-xhtml.xhtml
+[146/1101] OK dom/nodes/Element-nextElementSibling.html
+[143/1101] OK dom/nodes/Element-matches.html
+[147/1101] OK dom/nodes/Element-previousElementSibling-svg.svg
+[148/1101] OK dom/nodes/Element-previousElementSibling-xhtml.xhtml
+[149/1101] OK dom/nodes/Element-previousElementSibling.html
+[150/1101] OK dom/nodes/Element-querySelectorAll-context-element.html
+[151/1101] OK dom/nodes/Element-remove.html
+[152/1101] OK dom/nodes/Element-removeAttribute.html
+[153/1101] OK dom/nodes/Element-removeAttributeNS.html
+[154/1101] OK dom/nodes/Element-setAttribute-crbug-1138487.html
+[155/1101] OK dom/nodes/Element-setAttribute.html
+[156/1101] OK dom/nodes/Element-setAttributeNodeNS.html
+[157/1101] OK dom/nodes/Element-siblingElement-null-svg.svg
+[158/1101] OK dom/nodes/Element-siblingElement-null-xhtml.xhtml
+[159/1101] OK dom/nodes/Element-siblingElement-null.html
+[160/1101] OK dom/nodes/Element-tagName-adopt.html
+[161/1101] OK dom/nodes/Element-tagName.html
+[163/1101] OK dom/nodes/MutationObserver-attributes.html
+[164/1101] OK dom/nodes/MutationObserver-callback-arguments.html
+[162/1101] OK dom/nodes/Element-webkitMatchesSelector.html
+[165/1101] OK dom/nodes/MutationObserver-callback-order.window.html
+[166/1101] OK dom/nodes/MutationObserver-callback-tricky.html
+[167/1101] OK dom/nodes/MutationObserver-characterData.html
+[169/1101] TIMEOUT dom/nodes/MutationObserver-cross-realm-callback-report-exception.html
+[168/1101] OK dom/nodes/MutationObserver-childList.html
+[170/1101] OK dom/nodes/MutationObserver-disconnect.html
+[171/1101] OK dom/nodes/MutationObserver-document.html
+[172/1101] OK dom/nodes/MutationObserver-inner-outer.html
+[173/1101] OK dom/nodes/MutationObserver-overlapping-registrations.html
+[174/1101] OK dom/nodes/MutationObserver-sanity.html
+[175/1101] OK dom/nodes/MutationObserver-takeRecords.html
+[176/1101] OK dom/nodes/MutationObserver-textContent.html
+[177/1101] OK dom/nodes/MutationObserver-transient-registered-observers.window.html
+[178/1101] OK dom/nodes/MutationObserver-xml-parser.xhtml
+[179/1101] OK dom/nodes/Node-appendChild-cereactions-vs-script.window.html
+[180/1101] OK dom/nodes/Node-appendChild.html
+[181/1101] OK dom/nodes/Node-baseURI.html
+[182/1101] OK dom/nodes/Node-childNodes-cache-2.html
+[183/1101] OK dom/nodes/Node-childNodes-cache.html
+[184/1101] OK dom/nodes/Node-childNodes.html
+[185/1101] OK dom/nodes/Node-cloneNode-XMLDocument.html
+[186/1101] OK dom/nodes/Node-cloneNode-document-allow-declarative-shadow-roots.window.html
+[187/1101] OK dom/nodes/Node-cloneNode-document-with-doctype.html
+[188/1101] OK dom/nodes/Node-cloneNode-external-stylesheet-no-bc.sub.html
+[189/1101] OK dom/nodes/Node-cloneNode-parser-created-names.html
+[190/1101] OK dom/nodes/Node-cloneNode-svg.html
+[191/1101] OK dom/nodes/Node-cloneNode.html
+[193/1101] OK dom/nodes/Node-constants.html
+[194/1101] OK dom/nodes/Node-contains-xml.xml
+[192/1101] OK dom/nodes/Node-compareDocumentPosition.html
+[196/1101] OK dom/nodes/Node-insertBefore.html
+[197/1101] OK dom/nodes/Node-isConnected-shadow-dom.html
+[195/1101] OK dom/nodes/Node-contains.html
+[198/1101] OK dom/nodes/Node-isConnected.html
+[199/1101] OK dom/nodes/Node-isEqualNode-xhtml.xhtml
+[200/1101] OK dom/nodes/Node-isEqualNode.html
+[201/1101] OK dom/nodes/Node-isSameNode.html
+[203/1101] OK dom/nodes/Node-lookupPrefix.xhtml
+[202/1101] OK dom/nodes/Node-lookupNamespaceURI.html
+[204/1101] OK dom/nodes/Node-mutation-adoptNode.html
+[205/1101] OK dom/nodes/Node-nodeName-xhtml.xhtml
+[206/1101] OK dom/nodes/Node-nodeName.html
+[207/1101] OK dom/nodes/Node-nodeValue.html
+[208/1101] OK dom/nodes/Node-normalize-2.html
+[209/1101] OK dom/nodes/Node-normalize.html
+[210/1101] OK dom/nodes/Node-parentElement.html
+[211/1101] OK dom/nodes/Node-parentNode.html
+[213/1101] OK dom/nodes/Node-removeChild.html
+[212/1101] OK dom/nodes/Node-properties.html
+[214/1101] OK dom/nodes/Node-replaceChild.html
+[216/1101] OK dom/nodes/NodeList-Iterable.html
+[215/1101] OK dom/nodes/Node-textContent.html
+[217/1101] OK dom/nodes/NodeList-live-mutations.window.html
