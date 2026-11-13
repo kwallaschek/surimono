@@ -23,3 +23,5 @@ node_modules/
 
 # Private notes on unreported upstream findings (CLAUDE.md, "Security findings in other projects").
 .private-tmp/
+# Printer-matrix runs keep how a printer failed here; never tracked (DECISIONS 2026-11-12).
+.private/

@@ -18,7 +18,9 @@ works, prints on par with Chrome-based tools, faster, less memory). **Agents run
 13 Nov 22:22: every Fable agent stopped on the limit and the scheduled resume task is paused.
 
 - **Main is green** at c8d13990 (every full.yml job).
-- **Open PRs, all green on CI, all in fresh review (Opus reviewers started 22:30):**
+- **Merged 14 Nov ~00:15:** #181 P2-DOM-08 (the selector cut that corrupted printed sheets) and
+  #183 Q-CF-03 part 1 (Raikiri measured). #180 is blocked again on two new classes (author agent fixing).
+- (22:35) Open PRs, all green on CI, all in fresh review (Opus reviewers started 22:30):
   #179 E3-00 at 37da987c (second round), #180 Q-PKG-02 at 7e363895 (second round, the
   187-page Chrome harness again), #181 P2-DOM-08 at d8efcdd2, #183 Q-CF-03 part 1 at dc2bc53e.
 - **Running:** the three reviewers (one covers #181 and #183) and the DOM agent finishing
