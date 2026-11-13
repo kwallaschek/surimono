@@ -2041,7 +2041,7 @@ impl Document {
     }
 
     /// Whether `id` is an HTML element with one of these local names.
-    fn is_html_element(&self, id: usize, locals: &[&str]) -> bool {
+    pub(crate) fn is_html_element(&self, id: usize, locals: &[&str]) -> bool {
         self.node(id)
             .element_data()
             .is_some_and(|e| e.name.ns == ns!(html) && locals.contains(&e.name.local.as_ref()))

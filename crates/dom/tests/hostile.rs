@@ -399,20 +399,6 @@ fn constructors_honour_new_target() {
     assert_eq!(r, "true,true,hi x,3,false");
 }
 
-/// A setter that isn't implemented isn't generated (review of #93).
-#[test]
-fn document_body_has_no_unimplemented_setter() {
-    let mut rt = DomRuntime::new(limits()).unwrap();
-    rt.load(Document::parse(PAGE).unwrap());
-    let r: String = rt
-        .eval(
-            r#"const d = Object.getOwnPropertyDescriptor(Document.prototype, 'body');
-            String(d.set)"#,
-        )
-        .unwrap();
-    assert_eq!(r, "undefined");
-}
-
 /// §4.2.3 allows a comment under a document (review of #93).
 #[test]
 fn comments_go_under_the_document() {

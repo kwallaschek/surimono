@@ -297,6 +297,38 @@ impl Document {
         nodes
     }
 
+    /// HTML §3.1.7, the `body` setter's steps for document `doc`.
+    pub(crate) fn set_document_body(
+        &mut self,
+        doc: usize,
+        new: Option<usize>,
+    ) -> BindingResult<()> {
+        // 1. "If the new value is not a body or frameset element, then throw
+        //    a HierarchyRequestError."
+        let Some(new) = new.filter(|&n| self.is_html_element(n, &["body", "frameset"])) else {
+            return Err(hierarchy());
+        };
+        let old = self.body(doc);
+        // 2. "Otherwise, if the new value is the same as the body element,
+        //    return."
+        if old == Some(new) {
+            return Ok(());
+        }
+        // 3. "Otherwise, if the body element is not null, then replace the
+        //    body element with the new value within the body element's
+        //    parent and return."
+        if let Some(old) = old {
+            let parent = self.parent(old).ok_or_else(hierarchy)?;
+            return self.replace(parent, new, old);
+        }
+        // 4. "Otherwise, if there is no document element, throw a
+        //    HierarchyRequestError."
+        let root = self.document_element_of(doc).ok_or_else(hierarchy)?;
+        // 5. "Otherwise, the body element is null, but there's a document
+        //    element. Append the new value to the document element."
+        self.pre_insert(root, new, None)
+    }
+
     /// §4.2.3 "pre-insert".
     pub(crate) fn pre_insert(
         &mut self,
