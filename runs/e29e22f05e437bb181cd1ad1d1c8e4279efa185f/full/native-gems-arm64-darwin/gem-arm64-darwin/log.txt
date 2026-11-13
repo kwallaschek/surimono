@@ -1,0 +1,1252 @@
+
+==> stage the gem
+staged 6 crates (crates/core, crates/dom, crates/gfx, crates/islands, crates/surimono, crates/webidl) and patched vendor/rquickjs-sys in /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage
+
+==> rb-sys-dock: arm64-darwin, Ruby 3.2,3.3,3.4,4.0
+::info::🐳 Building for Ruby requested versions: 4.0.2:3.4.9:3.3.11:3.2.11
+::info::🐳 Downloading container "rbsys/arm64-darwin:0.9.130", this might take awhile...
+Fetching gem metadata from https://rubygems.org/...
+Resolving dependencies...
+Fetching rake 13.4.2
+Installing rake 13.4.2
+Fetching minitest 5.27.0
+Fetching rake-compiler 1.3.3
+Fetching rake-compiler-dock 1.12.0
+Installing rake-compiler 1.3.3
+Installing minitest 5.27.0
+Installing rake-compiler-dock 1.12.0
+Fetching rb_sys 0.9.130
+Installing rb_sys 0.9.130
+Bundle complete! 5 Gemfile dependencies, 7 gems now installed.
+Bundled gems are installed into `/tmp/rb-sys-dock/bundle`
+Post-install message from minitest:
+NOTE: minitest 5 will be the last in the minitest family to support
+      ruby 1.8 to 2.7. If you need to keep using these versions,
+      you need to pin your dependency to minitest with something
+      like "~> 5.0". See History.rdoc to locate compatible
+      versions.
+
+      Further, minitest 6 will be dropping the following:
+
+      + MiniTest (it's been Minitest for >10 years)
+      + MiniTest::Unit
+      + MiniTest::Unit::TestCase
+      + assert_send (unless you argue for it well)
+      + assert_equal nil, obj
+      + mocks and stubs: moving minitest/mock.rb to its own gem
+mkdir -p lib/surimono/4.0
+mkdir -p tmp/arm64-darwin/surimono/4.0.2
+cd tmp/arm64-darwin/surimono/4.0.2
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+cd -
+cd tmp/arm64-darwin/surimono/4.0.2
+/usr/bin/make
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-4.0.2/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling serde_core v1.0.229
+   Compiling stable_deref_trait v1.2.1
+   Compiling smallvec v1.16.4
+   Compiling rand_core v0.6.4
+   Compiling siphasher v1.0.4
+   Compiling rand v0.8.8
+   Compiling phf_shared v0.11.3
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling serde v1.0.229
+   Compiling phf_generator v0.11.3
+   Compiling cfg-if v1.0.5
+   Compiling writeable v0.6.4
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling litemap v0.8.3
+   Compiling parking_lot_core v0.9.12
+   Compiling synstructure v0.14.0
+   Compiling scopeguard v1.2.0
+   Compiling new_debug_unreachable v1.0.6
+   Compiling lock_api v0.4.14
+   Compiling phf_codegen v0.11.3
+   Compiling allocator-api2 v0.2.21
+   Compiling parking_lot v0.12.5
+   Compiling precomputed-hash v0.1.1
+   Compiling equivalent v1.0.3
+   Compiling serde_derive v1.0.229
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling zerofrom v0.1.8
+   Compiling zerovec-derive v0.11.7
+   Compiling yoke v0.8.4
+   Compiling displaydoc v0.2.7
+   Compiling bytemuck_derive v1.12.1
+   Compiling zerovec v0.11.9
+   Compiling phf_macros v0.11.3
+   Compiling phf v0.11.3
+   Compiling bitflags v2.13.2
+   Compiling shlex v2.0.1
+   Compiling bytemuck v1.25.2
+   Compiling tinystr v0.8.5
+   Compiling libm v0.2.16
+   Compiling icu_locale_core v2.2.0
+   Compiling utf_types v1.0.0
+   Compiling find-msvc-tools v0.1.15
+   Compiling itoa v1.0.18
+   Compiling utf8_iter v1.1.0
+   Compiling cc v1.10.0
+   Compiling potential_utf v0.1.6
+   Compiling string_cache v0.8.9
+   Compiling zerotrie v0.2.5
+   Compiling string_cache_codegen v0.5.4
+   Compiling autocfg v1.5.1
+   Compiling fnv v1.0.7
+   Compiling ident_case v1.0.1
+   Compiling darling_core v0.20.11
+   Compiling num-traits v0.2.19
+   Compiling icu_provider v2.2.0
+   Compiling rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/vendor/rquickjs-sys)
+   Compiling icu_collections v2.2.0
+   Compiling typenum v1.20.1
+   Compiling darling_macro v0.20.11
+   Compiling core_maths v0.1.1
+   Compiling synstructure v0.13.2
+   Compiling icu_properties_data v2.2.0
+   Compiling thiserror v2.0.21
+   Compiling log v0.4.34
+   Compiling foldhash v0.2.0
+   Compiling icu_normalizer_data v2.2.0
+   Compiling lazy_static v1.5.1
+   Compiling dtoa v1.0.11
+   Compiling darling v0.20.11
+   Compiling dtoa-short v0.3.5
+   Compiling cssparser-macros v0.6.1
+   Compiling crypto-common v0.1.7
+   Compiling cssparser v0.35.0
+   Compiling block-buffer v0.10.4
+   Compiling servo_arc v0.4.3
+   Compiling derive_more-impl v2.1.1
+   Compiling thiserror-impl v2.0.21
+   Compiling selectors v0.32.0
+   Compiling memchr v2.8.3
+   Compiling smallbitvec v2.6.1
+   Compiling crossbeam-utils v0.8.23
+   Compiling thin-vec v0.2.21
+   Compiling digest v0.10.7
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling to_shmem v0.2.0
+   Compiling to_shmem_derive v0.1.0
+   Compiling derive_more v2.1.1
+   Compiling hashbrown v0.17.1
+   Compiling web_atoms v0.1.3
+   Compiling font-types v0.10.1
+   Compiling cpufeatures v0.2.17
+   Compiling rustc-hash v2.1.3
+   Compiling crossbeam-epoch v0.9.21
+   Compiling glob v0.3.4
+   Compiling idna_adapter v1.2.2
+   Compiling read-fonts v0.35.0
+   Compiling sha2 v0.10.9
+   Compiling clang-sys v1.9.1
+   Compiling font-types v0.12.7
+   Compiling rayon-core v1.13.0
+   Compiling once_cell v1.21.4
+   Compiling icu_locale_data v2.2.0
+   Compiling percent-encoding v2.3.2
+   Compiling crossbeam-deque v0.8.8
+   Compiling form_urlencoded v1.2.2
+   Compiling read-fonts v0.41.0
+   Compiling surimono-core v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/core)
+   Compiling idna v1.1.0
+   Compiling aho-corasick v1.1.5
+   Compiling app_units v0.7.8
+   Compiling euclid v0.22.14
+   Compiling stylo_atoms v0.8.0
+   Compiling foldhash v0.1.5
+   Compiling icu_segmenter_data v2.2.0
+   Compiling regex-syntax v0.8.11
+   Compiling minimal-lexical v0.2.1
+   Compiling mac v0.1.1
+   Compiling void v1.0.2
+   Compiling same-file v1.0.6
+   Compiling walkdir v2.5.0
+   Compiling stylo_malloc_size_of v0.8.0
+   Compiling futf v0.1.5
+   Compiling nom v7.1.3
+   Compiling regex-automata v0.4.18
+   Compiling hashbrown v0.15.5
+   Compiling url v2.5.8
+   Compiling skrifa v0.44.0
+   Compiling libloading v0.8.9
+   Compiling memmap2 v0.9.12
+   Compiling either v1.19.0
+   Compiling arrayvec v0.7.8
+   Compiling utf-8 v0.7.6
+   Compiling bindgen v0.72.1
+   Compiling linebender_resource_handle v0.1.1
+   Compiling fontique v0.6.0
+   Compiling tendril v0.4.3
+   Compiling itertools v0.13.0
+   Compiling stylo v0.8.0
+   Compiling swash v0.2.10
+   Compiling icu_locale v2.2.0
+   Compiling regex v1.13.1
+   Compiling cexpr v0.6.0
+   Compiling skrifa v0.37.0
+   Compiling harfrust v0.3.2
+   Compiling malloc_size_of_derive v0.1.3
+   Compiling encoding_rs v0.8.35
+   Compiling shlex v1.3.0
+   Compiling mime v0.3.17
+   Compiling parley v0.6.0
+   Compiling stylo_traits v0.8.0
+   Compiling rquickjs-core v0.14.0
+   Compiling icu_segmenter v2.2.0
+   Compiling rayon v1.12.0
+   Compiling markup5ever v0.35.0
+   Compiling uluru v3.1.0
+   Compiling itertools v0.14.0
+   Compiling stylo_dom v0.8.0
+   Compiling indexmap v2.14.2
+   Compiling num-integer v0.1.47
+   Compiling stylo_derive v0.8.0
+   Compiling num-derive v0.4.2
+   Compiling num_cpus v1.17.0
+   Compiling shell-words v1.1.1
+   Compiling objc2 v0.6.5
+   Compiling stylo_config v0.8.0
+   Compiling matches v0.1.10
+   Compiling byteorder v1.5.0
+   Compiling static_assertions v1.1.0
+   Compiling atomic_refcell v0.1.14
+   Compiling stylo_static_prefs v0.8.0
+   Compiling bytes v1.12.1
+   Compiling unicode-segmentation v1.13.3
+   Compiling grid v1.0.1
+   Compiling taffy v0.9.2
+   Compiling http v1.5.0
+   Compiling keyboard-types v0.7.0
+   Compiling rb-sys-build v0.9.130
+   Compiling rquickjs v0.14.0
+   Compiling byteorder-lite v0.1.0
+   Compiling cursor-icon v1.2.0
+   Compiling objc2-encode v4.1.0
+   Compiling smol_str v0.2.2
+   Compiling rb-sys-env v0.2.3
+   Compiling zmij v1.0.23
+   Compiling blitz-traits v0.2.0
+   Compiling image v0.25.6
+   Compiling rb-sys v0.9.130
+   Compiling match_token v0.35.0
+   Compiling serde_json v1.0.154
+   Compiling slab v0.4.12
+   Compiling color v0.3.3
+   Compiling html-escape v0.2.15
+   Compiling debug_timer v0.1.3
+   Compiling fastrand v2.5.0
+   Compiling html5ever v0.35.0
+   Compiling surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/islands)
+   Compiling roxmltree v0.21.2
+   Compiling xml5ever v0.35.0
+   Compiling surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/gfx)
+   Compiling magnus v0.9.3
+   Compiling surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/webidl)
+   Compiling hashbrown v0.16.1
+   Compiling lol_html v2.7.0
+   Compiling magnus-macros v0.9.1
+   Compiling seq-macro v0.3.6
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sin/sin.c:50:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cos/cos.c:47:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tan/tan.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asin/asin.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acos/acos.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan/atan.c:38:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan2/atan2.c:43:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sinh/sinh.c:45:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cosh/cosh.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tanh/tanh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asinh/asinh.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acosh/acosh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atanh/atanh.c:36:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/exp/exp.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/expm1/expm1.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log/log.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log1p/log1p.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log2/log2.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log10/log10.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cbrt/cbrt.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/pow/pow.c:78:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/hypot/hypot.c:42:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+   Compiling stylo_taffy v0.2.0
+   Compiling blitz-dom v0.2.4
+   Compiling blitz-html v0.2.0
+   Compiling surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/dom)
+   Compiling surimono v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/crates/surimono)
+   Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.app_units-1027264dc7181fc1.app_units.3d3585847f17c67c-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.bytemuck-d6586188c78f7543.bytemuck.24f5c42dc29b7733-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)ld: ld: object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.equivalent-d10a42e7baf1b3df.equivalent.711b3c5a3be1657-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.encoding_rs-968c6ced46322a11.encoding_rs.c58dc022a138259a-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.rustc_std_workspace_core-a059234acb3877f4.rustc_std_workspace_core.5745385abae3894d-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.slab-cfa2e0a56b4590de.slab.ddf05aa92b5b52ee-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 2m 56s
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/4.0
+cp Cargo.lock tmp/arm64-darwin/stage/Cargo.lock
+cp Cargo.toml tmp/arm64-darwin/stage/Cargo.toml
+cp LICENSE-APACHE tmp/arm64-darwin/stage/LICENSE-APACHE
+cp LICENSE-MIT tmp/arm64-darwin/stage/LICENSE-MIT
+cp README.md tmp/arm64-darwin/stage/README.md
+cp THIRD_PARTY.md tmp/arm64-darwin/stage/THIRD_PARTY.md
+cp THIRD_PARTY_LICENSES.txt tmp/arm64-darwin/stage/THIRD_PARTY_LICENSES.txt
+mkdir -p tmp/arm64-darwin/stage/crates/core
+cp crates/core/Cargo.toml tmp/arm64-darwin/stage/crates/core/Cargo.toml
+cp crates/core/LICENSE-APACHE tmp/arm64-darwin/stage/crates/core/LICENSE-APACHE
+cp crates/core/LICENSE-MIT tmp/arm64-darwin/stage/crates/core/LICENSE-MIT
+cp crates/core/build.rs tmp/arm64-darwin/stage/crates/core/build.rs
+mkdir -p tmp/arm64-darwin/stage/crates/core/src
+cp crates/core/src/canary.js tmp/arm64-darwin/stage/crates/core/src/canary.js
+cp crates/core/src/embed.rs tmp/arm64-darwin/stage/crates/core/src/embed.rs
+cp crates/core/src/engine.rs tmp/arm64-darwin/stage/crates/core/src/engine.rs
+cp crates/core/src/error.rs tmp/arm64-darwin/stage/crates/core/src/error.rs
+cp crates/core/src/event_loop.rs tmp/arm64-darwin/stage/crates/core/src/event_loop.rs
+cp crates/core/src/fork_guard.rs tmp/arm64-darwin/stage/crates/core/src/fork_guard.rs
+cp crates/core/src/fork_safe.rs tmp/arm64-darwin/stage/crates/core/src/fork_safe.rs
+cp crates/core/src/host_thread.rs tmp/arm64-darwin/stage/crates/core/src/host_thread.rs
+cp crates/core/src/lib.rs tmp/arm64-darwin/stage/crates/core/src/lib.rs
+cp crates/core/src/limits.rs tmp/arm64-darwin/stage/crates/core/src/limits.rs
+cp crates/core/src/prelude.js tmp/arm64-darwin/stage/crates/core/src/prelude.js
+cp crates/core/src/sandbox.rs tmp/arm64-darwin/stage/crates/core/src/sandbox.rs
+cp crates/core/src/watchdog.rs tmp/arm64-darwin/stage/crates/core/src/watchdog.rs
+mkdir -p tmp/arm64-darwin/stage/crates/core/tests
+cp crates/core/tests/cancel.rs tmp/arm64-darwin/stage/crates/core/tests/cancel.rs
+mkdir -p tmp/arm64-darwin/stage/crates/core/tests/common
+cp crates/core/tests/common/mod.rs tmp/arm64-darwin/stage/crates/core/tests/common/mod.rs
+cp crates/core/tests/determinism.rs tmp/arm64-darwin/stage/crates/core/tests/determinism.rs
+cp crates/core/tests/event_loop.rs tmp/arm64-darwin/stage/crates/core/tests/event_loop.rs
+cp crates/core/tests/fork_guard.rs tmp/arm64-darwin/stage/crates/core/tests/fork_guard.rs
+cp crates/core/tests/host_panic.rs tmp/arm64-darwin/stage/crates/core/tests/host_panic.rs
+cp crates/core/tests/hostile.rs tmp/arm64-darwin/stage/crates/core/tests/hostile.rs
+cp crates/core/tests/main_thread_stack.rs tmp/arm64-darwin/stage/crates/core/tests/main_thread_stack.rs
+cp crates/core/tests/math.rs tmp/arm64-darwin/stage/crates/core/tests/math.rs
+cp crates/core/tests/rejections.rs tmp/arm64-darwin/stage/crates/core/tests/rejections.rs
+cp crates/core/tests/release_memory.rs tmp/arm64-darwin/stage/crates/core/tests/release_memory.rs
+mkdir -p tmp/arm64-darwin/stage/crates/dom
+cp crates/dom/Cargo.toml tmp/arm64-darwin/stage/crates/dom/Cargo.toml
+cp crates/dom/DESIGN.md tmp/arm64-darwin/stage/crates/dom/DESIGN.md
+cp crates/dom/RAIKIRI.md tmp/arm64-darwin/stage/crates/dom/RAIKIRI.md
+cp crates/dom/fetch-css-properties.sh tmp/arm64-darwin/stage/crates/dom/fetch-css-properties.sh
+mkdir -p tmp/arm64-darwin/stage/crates/dom/src
+cp crates/dom/src/bindings.rs tmp/arm64-darwin/stage/crates/dom/src/bindings.rs
+cp crates/dom/src/css_properties.rs tmp/arm64-darwin/stage/crates/dom/src/css_properties.rs
+cp crates/dom/src/document.rs tmp/arm64-darwin/stage/crates/dom/src/document.rs
+cp crates/dom/src/error.rs tmp/arm64-darwin/stage/crates/dom/src/error.rs
+mkdir -p tmp/arm64-darwin/stage/crates/dom/src/generated
+cp crates/dom/src/generated/bindings.js tmp/arm64-darwin/stage/crates/dom/src/generated/bindings.js
+cp crates/dom/src/generated/dispatch.rs tmp/arm64-darwin/stage/crates/dom/src/generated/dispatch.rs
+cp crates/dom/src/glue_abort.js tmp/arm64-darwin/stage/crates/dom/src/glue_abort.js
+cp crates/dom/src/glue_activation.js tmp/arm64-darwin/stage/crates/dom/src/glue_activation.js
+cp crates/dom/src/glue_events.js tmp/arm64-darwin/stage/crates/dom/src/glue_events.js
+cp crates/dom/src/glue_head.js tmp/arm64-darwin/stage/crates/dom/src/glue_head.js
+cp crates/dom/src/glue_html.js tmp/arm64-darwin/stage/crates/dom/src/glue_html.js
+cp crates/dom/src/glue_layout.js tmp/arm64-darwin/stage/crates/dom/src/glue_layout.js
+cp crates/dom/src/glue_location.js tmp/arm64-darwin/stage/crates/dom/src/glue_location.js
+cp crates/dom/src/glue_platform.js tmp/arm64-darwin/stage/crates/dom/src/glue_platform.js
+cp crates/dom/src/glue_sheet.js tmp/arm64-darwin/stage/crates/dom/src/glue_sheet.js
+cp crates/dom/src/glue_tail.js tmp/arm64-darwin/stage/crates/dom/src/glue_tail.js
+cp crates/dom/src/glue_traversal.js tmp/arm64-darwin/stage/crates/dom/src/glue_traversal.js
+cp crates/dom/src/host.rs tmp/arm64-darwin/stage/crates/dom/src/host.rs
+cp crates/dom/src/html.rs tmp/arm64-darwin/stage/crates/dom/src/html.rs
+cp crates/dom/src/layout.rs tmp/arm64-darwin/stage/crates/dom/src/layout.rs
+cp crates/dom/src/layout_blitz.rs tmp/arm64-darwin/stage/crates/dom/src/layout_blitz.rs
+cp crates/dom/src/lib.rs tmp/arm64-darwin/stage/crates/dom/src/lib.rs
+cp crates/dom/src/parse.rs tmp/arm64-darwin/stage/crates/dom/src/parse.rs
+cp crates/dom/src/range.rs tmp/arm64-darwin/stage/crates/dom/src/range.rs
+cp crates/dom/src/runtime.rs tmp/arm64-darwin/stage/crates/dom/src/runtime.rs
+cp crates/dom/src/select.rs tmp/arm64-darwin/stage/crates/dom/src/select.rs
+cp crates/dom/src/sheet.rs tmp/arm64-darwin/stage/crates/dom/src/sheet.rs
+cp crates/dom/src/sheet_screen.rs tmp/arm64-darwin/stage/crates/dom/src/sheet_screen.rs
+cp crates/dom/src/style_attr.rs tmp/arm64-darwin/stage/crates/dom/src/style_attr.rs
+cp crates/dom/src/traversal.rs tmp/arm64-darwin/stage/crates/dom/src/traversal.rs
+cp crates/dom/src/tree.rs tmp/arm64-darwin/stage/crates/dom/src/tree.rs
+cp crates/dom/src/web.rs tmp/arm64-darwin/stage/crates/dom/src/web.rs
+cp crates/dom/src/xml.rs tmp/arm64-darwin/stage/crates/dom/src/xml.rs
+mkdir -p tmp/arm64-darwin/stage/crates/dom/tests
+cp crates/dom/tests/collections.rs tmp/arm64-darwin/stage/crates/dom/tests/collections.rs
+mkdir -p tmp/arm64-darwin/stage/crates/dom/tests/common
+cp crates/dom/tests/common/mod.rs tmp/arm64-darwin/stage/crates/dom/tests/common/mod.rs
+cp crates/dom/tests/documents.rs tmp/arm64-darwin/stage/crates/dom/tests/documents.rs
+cp crates/dom/tests/events.rs tmp/arm64-darwin/stage/crates/dom/tests/events.rs
+cp crates/dom/tests/fuzz.rs tmp/arm64-darwin/stage/crates/dom/tests/fuzz.rs
+cp crates/dom/tests/generated.rs tmp/arm64-darwin/stage/crates/dom/tests/generated.rs
+cp crates/dom/tests/handles.rs tmp/arm64-darwin/stage/crates/dom/tests/handles.rs
+cp crates/dom/tests/hostile.rs tmp/arm64-darwin/stage/crates/dom/tests/hostile.rs
+cp crates/dom/tests/html_members.rs tmp/arm64-darwin/stage/crates/dom/tests/html_members.rs
+cp crates/dom/tests/layout.rs tmp/arm64-darwin/stage/crates/dom/tests/layout.rs
+cp crates/dom/tests/layout_real.rs tmp/arm64-darwin/stage/crates/dom/tests/layout_real.rs
+cp crates/dom/tests/location.rs tmp/arm64-darwin/stage/crates/dom/tests/location.rs
+cp crates/dom/tests/mutation.rs tmp/arm64-darwin/stage/crates/dom/tests/mutation.rs
+cp crates/dom/tests/natives.rs tmp/arm64-darwin/stage/crates/dom/tests/natives.rs
+cp crates/dom/tests/nodes.rs tmp/arm64-darwin/stage/crates/dom/tests/nodes.rs
+cp crates/dom/tests/observers.rs tmp/arm64-darwin/stage/crates/dom/tests/observers.rs
+cp crates/dom/tests/platform.rs tmp/arm64-darwin/stage/crates/dom/tests/platform.rs
+cp crates/dom/tests/pseudo.rs tmp/arm64-darwin/stage/crates/dom/tests/pseudo.rs
+cp crates/dom/tests/ranges.rs tmp/arm64-darwin/stage/crates/dom/tests/ranges.rs
+cp crates/dom/tests/real_world.rs tmp/arm64-darwin/stage/crates/dom/tests/real_world.rs
+cp crates/dom/tests/reflection.rs tmp/arm64-darwin/stage/crates/dom/tests/reflection.rs
+cp crates/dom/tests/serialize.rs tmp/arm64-darwin/stage/crates/dom/tests/serialize.rs
+cp crates/dom/tests/sheets.rs tmp/arm64-darwin/stage/crates/dom/tests/sheets.rs
+cp crates/dom/tests/soak.rs tmp/arm64-darwin/stage/crates/dom/tests/soak.rs
+cp crates/dom/tests/stopping.rs tmp/arm64-darwin/stage/crates/dom/tests/stopping.rs
+cp crates/dom/tests/traversal.rs tmp/arm64-darwin/stage/crates/dom/tests/traversal.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx
+cp crates/gfx/Cargo.toml tmp/arm64-darwin/stage/crates/gfx/Cargo.toml
+cp crates/gfx/HANDOFF.md tmp/arm64-darwin/stage/crates/gfx/HANDOFF.md
+cp crates/gfx/LICENSE-APACHE tmp/arm64-darwin/stage/crates/gfx/LICENSE-APACHE
+cp crates/gfx/LICENSE-MIT tmp/arm64-darwin/stage/crates/gfx/LICENSE-MIT
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/src
+cp crates/gfx/src/css_font.rs tmp/arm64-darwin/stage/crates/gfx/src/css_font.rs
+cp crates/gfx/src/error.rs tmp/arm64-darwin/stage/crates/gfx/src/error.rs
+cp crates/gfx/src/fonts.rs tmp/arm64-darwin/stage/crates/gfx/src/fonts.rs
+cp crates/gfx/src/lib.rs tmp/arm64-darwin/stage/crates/gfx/src/lib.rs
+cp crates/gfx/src/measure.rs tmp/arm64-darwin/stage/crates/gfx/src/measure.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/src/svg
+cp crates/gfx/src/svg/css.rs tmp/arm64-darwin/stage/crates/gfx/src/svg/css.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/src/svg/css
+cp crates/gfx/src/svg/css/tokenizer.rs tmp/arm64-darwin/stage/crates/gfx/src/svg/css/tokenizer.rs
+cp crates/gfx/src/svg/mod.rs tmp/arm64-darwin/stage/crates/gfx/src/svg/mod.rs
+cp crates/gfx/src/svg/text.rs tmp/arm64-darwin/stage/crates/gfx/src/svg/text.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/tests/chrome
+cp crates/gfx/tests/chrome/font_shorthand.mjs tmp/arm64-darwin/stage/crates/gfx/tests/chrome/font_shorthand.mjs
+cp crates/gfx/tests/chrome/measure_text.mjs tmp/arm64-darwin/stage/crates/gfx/tests/chrome/measure_text.mjs
+cp crates/gfx/tests/chrome/svg_inline.mjs tmp/arm64-darwin/stage/crates/gfx/tests/chrome/svg_inline.mjs
+cp crates/gfx/tests/chrome/svg_outline.mjs tmp/arm64-darwin/stage/crates/gfx/tests/chrome/svg_outline.mjs
+cp crates/gfx/tests/chrome/svg_text.mjs tmp/arm64-darwin/stage/crates/gfx/tests/chrome/svg_text.mjs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/tests/common
+cp crates/gfx/tests/common/mod.rs tmp/arm64-darwin/stage/crates/gfx/tests/common/mod.rs
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/tests/data
+cp crates/gfx/tests/data/chrome_font_shorthand.json tmp/arm64-darwin/stage/crates/gfx/tests/data/chrome_font_shorthand.json
+cp crates/gfx/tests/data/chrome_measure_text.json tmp/arm64-darwin/stage/crates/gfx/tests/data/chrome_measure_text.json
+cp crates/gfx/tests/data/chrome_svg_text.json tmp/arm64-darwin/stage/crates/gfx/tests/data/chrome_svg_text.json
+mkdir -p tmp/arm64-darwin/stage/crates/gfx/tests/data/svg
+cp crates/gfx/tests/data/svg/echarts-5.6.0-bar-line.svg tmp/arm64-darwin/stage/crates/gfx/tests/data/svg/echarts-5.6.0-bar-line.svg
+cp crates/gfx/tests/data/svg/echarts-6.1.0-rich.svg tmp/arm64-darwin/stage/crates/gfx/tests/data/svg/echarts-6.1.0-rich.svg
+cp crates/gfx/tests/data/svg/generate.js tmp/arm64-darwin/stage/crates/gfx/tests/data/svg/generate.js
+cp crates/gfx/tests/data/svg/vega-lite-5.23.0-bar.svg tmp/arm64-darwin/stage/crates/gfx/tests/data/svg/vega-lite-5.23.0-bar.svg
+cp crates/gfx/tests/fulgur_layout.rs tmp/arm64-darwin/stage/crates/gfx/tests/fulgur_layout.rs
+cp crates/gfx/tests/fulgur_print.rs tmp/arm64-darwin/stage/crates/gfx/tests/fulgur_print.rs
+cp crates/gfx/tests/measure_text.rs tmp/arm64-darwin/stage/crates/gfx/tests/measure_text.rs
+cp crates/gfx/tests/svg.rs tmp/arm64-darwin/stage/crates/gfx/tests/svg.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands
+cp crates/islands/Cargo.toml tmp/arm64-darwin/stage/crates/islands/Cargo.toml
+cp crates/islands/LICENSE-APACHE tmp/arm64-darwin/stage/crates/islands/LICENSE-APACHE
+cp crates/islands/LICENSE-MIT tmp/arm64-darwin/stage/crates/islands/LICENSE-MIT
+cp crates/islands/build.rs tmp/arm64-darwin/stage/crates/islands/build.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/bundles
+cp crates/islands/bundles/SHA256SUMS tmp/arm64-darwin/stage/crates/islands/bundles/SHA256SUMS
+mkdir -p tmp/arm64-darwin/stage/crates/islands/bundles/echarts
+cp crates/islands/bundles/echarts/LICENSE tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE
+cp crates/islands/bundles/echarts/LICENSE-d3 tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-d3
+cp crates/islands/bundles/echarts/LICENSE-tslib tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-tslib
+cp crates/islands/bundles/echarts/LICENSE-zrender tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-zrender
+cp crates/islands/bundles/echarts/NOTICE tmp/arm64-darwin/stage/crates/islands/bundles/echarts/NOTICE
+cp crates/islands/bundles/echarts/echarts.min.js tmp/arm64-darwin/stage/crates/islands/bundles/echarts/echarts.min.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/bundles/vega
+cp crates/islands/bundles/vega/LICENSE tmp/arm64-darwin/stage/crates/islands/bundles/vega/LICENSE
+cp crates/islands/bundles/vega/THIRD_PARTY_LICENSES.txt tmp/arm64-darwin/stage/crates/islands/bundles/vega/THIRD_PARTY_LICENSES.txt
+cp crates/islands/bundles/vega/vega.min.js tmp/arm64-darwin/stage/crates/islands/bundles/vega/vega.min.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/js
+cp crates/islands/js/build.sh tmp/arm64-darwin/stage/crates/islands/js/build.sh
+cp crates/islands/js/chrome-check.js tmp/arm64-darwin/stage/crates/islands/js/chrome-check.js
+cp crates/islands/js/package-lock.json tmp/arm64-darwin/stage/crates/islands/js/package-lock.json
+cp crates/islands/js/package.json tmp/arm64-darwin/stage/crates/islands/js/package.json
+mkdir -p tmp/arm64-darwin/stage/crates/islands/js/src
+cp crates/islands/js/src/echarts.js tmp/arm64-darwin/stage/crates/islands/js/src/echarts.js
+cp crates/islands/js/src/structured-clone.js tmp/arm64-darwin/stage/crates/islands/js/src/structured-clone.js
+cp crates/islands/js/src/timers.js tmp/arm64-darwin/stage/crates/islands/js/src/timers.js
+cp crates/islands/js/src/vega-canvas.js tmp/arm64-darwin/stage/crates/islands/js/src/vega-canvas.js
+cp crates/islands/js/src/vega.js tmp/arm64-darwin/stage/crates/islands/js/src/vega.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/js/tools
+cp crates/islands/js/tools/licenses.js tmp/arm64-darwin/stage/crates/islands/js/tools/licenses.js
+mkdir -p tmp/arm64-darwin/stage/crates/islands/src
+cp crates/islands/src/builtins.rs tmp/arm64-darwin/stage/crates/islands/src/builtins.rs
+cp crates/islands/src/embedded.rs tmp/arm64-darwin/stage/crates/islands/src/embedded.rs
+cp crates/islands/src/error.rs tmp/arm64-darwin/stage/crates/islands/src/error.rs
+cp crates/islands/src/lib.rs tmp/arm64-darwin/stage/crates/islands/src/lib.rs
+cp crates/islands/src/measure.rs tmp/arm64-darwin/stage/crates/islands/src/measure.rs
+cp crates/islands/src/runner.rs tmp/arm64-darwin/stage/crates/islands/src/runner.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests
+cp crates/islands/tests/bundles.rs tmp/arm64-darwin/stage/crates/islands/tests/bundles.rs
+cp crates/islands/tests/cancel.rs tmp/arm64-darwin/stage/crates/islands/tests/cancel.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests/common
+cp crates/islands/tests/common/mod.rs tmp/arm64-darwin/stage/crates/islands/tests/common/mod.rs
+cp crates/islands/tests/echarts.rs tmp/arm64-darwin/stage/crates/islands/tests/echarts.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests/echarts
+cp crates/islands/tests/echarts/bar.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/bar.json
+cp crates/islands/tests/echarts/dense.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/dense.json
+cp crates/islands/tests/echarts/japanese.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/japanese.json
+cp crates/islands/tests/echarts/pie.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/pie.json
+cp crates/islands/tests/echarts/scatter.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/scatter.json
+cp crates/islands/tests/echarts/time.json tmp/arm64-darwin/stage/crates/islands/tests/echarts/time.json
+cp crates/islands/tests/fixture_timing.rs tmp/arm64-darwin/stage/crates/islands/tests/fixture_timing.rs
+cp crates/islands/tests/fork.rs tmp/arm64-darwin/stage/crates/islands/tests/fork.rs
+cp crates/islands/tests/gem_memory.rb tmp/arm64-darwin/stage/crates/islands/tests/gem_memory.rb
+cp crates/islands/tests/hostile.rs tmp/arm64-darwin/stage/crates/islands/tests/hostile.rs
+cp crates/islands/tests/memory_report.rs tmp/arm64-darwin/stage/crates/islands/tests/memory_report.rs
+cp crates/islands/tests/pool.rs tmp/arm64-darwin/stage/crates/islands/tests/pool.rs
+cp crates/islands/tests/runner.rs tmp/arm64-darwin/stage/crates/islands/tests/runner.rs
+cp crates/islands/tests/soak.rs tmp/arm64-darwin/stage/crates/islands/tests/soak.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests/vega-lite
+cp crates/islands/tests/vega-lite/bar.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/bar.json
+cp crates/islands/tests/vega-lite/japanese.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/japanese.json
+cp crates/islands/tests/vega-lite/line-temporal.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/line-temporal.json
+cp crates/islands/tests/vega-lite/scatter-2000.json tmp/arm64-darwin/stage/crates/islands/tests/vega-lite/scatter-2000.json
+cp crates/islands/tests/vega.rs tmp/arm64-darwin/stage/crates/islands/tests/vega.rs
+mkdir -p tmp/arm64-darwin/stage/crates/islands/tests/vega
+cp crates/islands/tests/vega/bar.json tmp/arm64-darwin/stage/crates/islands/tests/vega/bar.json
+cp crates/islands/tests/vega/truncated-labels.json tmp/arm64-darwin/stage/crates/islands/tests/vega/truncated-labels.json
+mkdir -p tmp/arm64-darwin/stage/crates/surimono
+cp crates/surimono/Cargo.toml tmp/arm64-darwin/stage/crates/surimono/Cargo.toml
+cp crates/surimono/LICENSE-APACHE tmp/arm64-darwin/stage/crates/surimono/LICENSE-APACHE
+cp crates/surimono/LICENSE-MIT tmp/arm64-darwin/stage/crates/surimono/LICENSE-MIT
+mkdir -p tmp/arm64-darwin/stage/crates/surimono/src
+cp crates/surimono/src/backend.rs tmp/arm64-darwin/stage/crates/surimono/src/backend.rs
+cp crates/surimono/src/charref.rs tmp/arm64-darwin/stage/crates/surimono/src/charref.rs
+cp crates/surimono/src/cleanup.js tmp/arm64-darwin/stage/crates/surimono/src/cleanup.js
+cp crates/surimono/src/error.rs tmp/arm64-darwin/stage/crates/surimono/src/error.rs
+cp crates/surimono/src/lib.rs tmp/arm64-darwin/stage/crates/surimono/src/lib.rs
+cp crates/surimono/src/options.rs tmp/arm64-darwin/stage/crates/surimono/src/options.rs
+cp crates/surimono/src/page.rs tmp/arm64-darwin/stage/crates/surimono/src/page.rs
+cp crates/surimono/src/prepass.rs tmp/arm64-darwin/stage/crates/surimono/src/prepass.rs
+cp crates/surimono/src/print.rs tmp/arm64-darwin/stage/crates/surimono/src/print.rs
+mkdir -p tmp/arm64-darwin/stage/crates/surimono/src/print
+cp crates/surimono/src/print/chains.rs tmp/arm64-darwin/stage/crates/surimono/src/print/chains.rs
+cp crates/surimono/src/print/rules.rs tmp/arm64-darwin/stage/crates/surimono/src/print/rules.rs
+cp crates/surimono/src/print/safe.rs tmp/arm64-darwin/stage/crates/surimono/src/print/safe.rs
+cp crates/surimono/src/print/tree.rs tmp/arm64-darwin/stage/crates/surimono/src/print/tree.rs
+cp crates/surimono/src/renderer.rs tmp/arm64-darwin/stage/crates/surimono/src/renderer.rs
+cp crates/surimono/src/resources.rs tmp/arm64-darwin/stage/crates/surimono/src/resources.rs
+cp crates/surimono/src/svg.rs tmp/arm64-darwin/stage/crates/surimono/src/svg.rs
+mkdir -p tmp/arm64-darwin/stage/crates/surimono/tests
+cp crates/surimono/tests/breakout.rs tmp/arm64-darwin/stage/crates/surimono/tests/breakout.rs
+cp crates/surimono/tests/fixtures.rs tmp/arm64-darwin/stage/crates/surimono/tests/fixtures.rs
+cp crates/surimono/tests/fork.rs tmp/arm64-darwin/stage/crates/surimono/tests/fork.rs
+cp crates/surimono/tests/page.rs tmp/arm64-darwin/stage/crates/surimono/tests/page.rs
+cp crates/surimono/tests/page_soak.rs tmp/arm64-darwin/stage/crates/surimono/tests/page_soak.rs
+mkdir -p tmp/arm64-darwin/stage/crates/webidl
+cp crates/webidl/Cargo.toml tmp/arm64-darwin/stage/crates/webidl/Cargo.toml
+cp crates/webidl/DESIGN.md tmp/arm64-darwin/stage/crates/webidl/DESIGN.md
+mkdir -p tmp/arm64-darwin/stage/crates/webidl/examples
+cp crates/webidl/examples/regen.rs tmp/arm64-darwin/stage/crates/webidl/examples/regen.rs
+cp crates/webidl/fetch-webref.sh tmp/arm64-darwin/stage/crates/webidl/fetch-webref.sh
+mkdir -p tmp/arm64-darwin/stage/crates/webidl/idl
+cp crates/webidl/idl/LICENSE-W3C-software-and-document-2023 tmp/arm64-darwin/stage/crates/webidl/idl/LICENSE-W3C-software-and-document-2023
+cp crates/webidl/idl/LICENSE-WHATWG-BSD-3-Clause tmp/arm64-darwin/stage/crates/webidl/idl/LICENSE-WHATWG-BSD-3-Clause
+cp crates/webidl/idl/LICENSE-webref-MIT tmp/arm64-darwin/stage/crates/webidl/idl/LICENSE-webref-MIT
+cp crates/webidl/idl/SOURCES.md tmp/arm64-darwin/stage/crates/webidl/idl/SOURCES.md
+cp crates/webidl/idl/SVG.idl tmp/arm64-darwin/stage/crates/webidl/idl/SVG.idl
+cp crates/webidl/idl/console.idl tmp/arm64-darwin/stage/crates/webidl/idl/console.idl
+cp crates/webidl/idl/css-font-loading.idl tmp/arm64-darwin/stage/crates/webidl/idl/css-font-loading.idl
+cp crates/webidl/idl/cssom-view.idl tmp/arm64-darwin/stage/crates/webidl/idl/cssom-view.idl
+cp crates/webidl/idl/cssom.idl tmp/arm64-darwin/stage/crates/webidl/idl/cssom.idl
+cp crates/webidl/idl/dom.idl tmp/arm64-darwin/stage/crates/webidl/idl/dom.idl
+cp crates/webidl/idl/encoding.idl tmp/arm64-darwin/stage/crates/webidl/idl/encoding.idl
+cp crates/webidl/idl/geometry.idl tmp/arm64-darwin/stage/crates/webidl/idl/geometry.idl
+cp crates/webidl/idl/hr-time.idl tmp/arm64-darwin/stage/crates/webidl/idl/hr-time.idl
+cp crates/webidl/idl/html.idl tmp/arm64-darwin/stage/crates/webidl/idl/html.idl
+cp crates/webidl/idl/orientation-event.idl tmp/arm64-darwin/stage/crates/webidl/idl/orientation-event.idl
+cp crates/webidl/idl/pointerevents.idl tmp/arm64-darwin/stage/crates/webidl/idl/pointerevents.idl
+cp crates/webidl/idl/pointerlock.idl tmp/arm64-darwin/stage/crates/webidl/idl/pointerlock.idl
+cp crates/webidl/idl/resize-observer.idl tmp/arm64-darwin/stage/crates/webidl/idl/resize-observer.idl
+cp crates/webidl/idl/touch-events.idl tmp/arm64-darwin/stage/crates/webidl/idl/touch-events.idl
+cp crates/webidl/idl/uievents.idl tmp/arm64-darwin/stage/crates/webidl/idl/uievents.idl
+cp crates/webidl/idl/url.idl tmp/arm64-darwin/stage/crates/webidl/idl/url.idl
+cp crates/webidl/idl/webidl.idl tmp/arm64-darwin/stage/crates/webidl/idl/webidl.idl
+mkdir -p tmp/arm64-darwin/stage/crates/webidl/src
+cp crates/webidl/src/ast.rs tmp/arm64-darwin/stage/crates/webidl/src/ast.rs
+cp crates/webidl/src/bindgen.rs tmp/arm64-darwin/stage/crates/webidl/src/bindgen.rs
+cp crates/webidl/src/codegen.rs tmp/arm64-darwin/stage/crates/webidl/src/codegen.rs
+cp crates/webidl/src/lexer.rs tmp/arm64-darwin/stage/crates/webidl/src/lexer.rs
+cp crates/webidl/src/lib.rs tmp/arm64-darwin/stage/crates/webidl/src/lib.rs
+cp crates/webidl/src/model.rs tmp/arm64-darwin/stage/crates/webidl/src/model.rs
+cp crates/webidl/src/parser.rs tmp/arm64-darwin/stage/crates/webidl/src/parser.rs
+cp crates/webidl/src/runtime.rs tmp/arm64-darwin/stage/crates/webidl/src/runtime.rs
+cp crates/webidl/src/stubs.rs tmp/arm64-darwin/stage/crates/webidl/src/stubs.rs
+cp crates/webidl/src/vendored.rs tmp/arm64-darwin/stage/crates/webidl/src/vendored.rs
+mkdir -p tmp/arm64-darwin/stage/crates/webidl/tests
+cp crates/webidl/tests/codegen.rs tmp/arm64-darwin/stage/crates/webidl/tests/codegen.rs
+mkdir -p tmp/arm64-darwin/stage/crates/webidl/tests/golden
+cp crates/webidl/tests/golden/mini.idl tmp/arm64-darwin/stage/crates/webidl/tests/golden/mini.idl
+cp crates/webidl/tests/golden/mini.rs tmp/arm64-darwin/stage/crates/webidl/tests/golden/mini.rs
+cp crates/webidl/tests/stack.rs tmp/arm64-darwin/stage/crates/webidl/tests/stack.rs
+cp crates/webidl/tests/vendored.rs tmp/arm64-darwin/stage/crates/webidl/tests/vendored.rs
+mkdir -p tmp/arm64-darwin/stage/ext/surimono
+cp ext/surimono/Cargo.toml tmp/arm64-darwin/stage/ext/surimono/Cargo.toml
+cp ext/surimono/extconf.rb tmp/arm64-darwin/stage/ext/surimono/extconf.rb
+mkdir -p tmp/arm64-darwin/stage/ext/surimono/src
+cp ext/surimono/src/ffi.rs tmp/arm64-darwin/stage/ext/surimono/src/ffi.rs
+cp ext/surimono/src/lib.rs tmp/arm64-darwin/stage/ext/surimono/src/lib.rs
+cp lib/surimono.rb tmp/arm64-darwin/stage/lib/surimono.rb
+cp lib/surimono/version.rb tmp/arm64-darwin/stage/lib/surimono/version.rb
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys
+cp vendor/rquickjs-sys/Cargo.toml tmp/arm64-darwin/stage/vendor/rquickjs-sys/Cargo.toml
+cp vendor/rquickjs-sys/LICENSE tmp/arm64-darwin/stage/vendor/rquickjs-sys/LICENSE
+cp vendor/rquickjs-sys/PATCHES.md tmp/arm64-darwin/stage/vendor/rquickjs-sys/PATCHES.md
+cp vendor/rquickjs-sys/README.md tmp/arm64-darwin/stage/vendor/rquickjs-sys/README.md
+cp vendor/rquickjs-sys/build.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/build.rs
+cp vendor/rquickjs-sys/quickjs.bind.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs.bind.h
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs
+cp vendor/rquickjs-sys/quickjs/LICENSE tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/LICENSE
+cp vendor/rquickjs-sys/quickjs/README.md tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/README.md
+cp vendor/rquickjs-sys/quickjs/builtin-array-fromasync.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/builtin-array-fromasync.h
+cp vendor/rquickjs-sys/quickjs/builtin-array-fromasync.js tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/builtin-array-fromasync.js
+cp vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.h
+cp vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.js tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/builtin-iterator-zip-keyed.js
+cp vendor/rquickjs-sys/quickjs/builtin-iterator-zip.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/builtin-iterator-zip.h
+cp vendor/rquickjs-sys/quickjs/builtin-iterator-zip.js tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/builtin-iterator-zip.js
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math
+cp vendor/rquickjs-sys/quickjs/core-math/LICENSE tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/LICENSE
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/acos
+cp vendor/rquickjs-sys/quickjs/core-math/acos/acos.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/acos/acos.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/acosh
+cp vendor/rquickjs-sys/quickjs/core-math/acosh/acosh.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/acosh/acosh.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/asin
+cp vendor/rquickjs-sys/quickjs/core-math/asin/asin.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/asin/asin.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/asinh
+cp vendor/rquickjs-sys/quickjs/core-math/asinh/asinh.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/asinh/asinh.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/atan
+cp vendor/rquickjs-sys/quickjs/core-math/atan/atan.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/atan/atan.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/atan2
+cp vendor/rquickjs-sys/quickjs/core-math/atan2/atan2.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/atan2/atan2.c
+cp vendor/rquickjs-sys/quickjs/core-math/atan2/tint.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/atan2/tint.h
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/atanh
+cp vendor/rquickjs-sys/quickjs/core-math/atanh/atanh.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/atanh/atanh.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/cbrt
+cp vendor/rquickjs-sys/quickjs/core-math/cbrt/cbrt.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/cbrt/cbrt.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/cos
+cp vendor/rquickjs-sys/quickjs/core-math/cos/cos.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/cos/cos.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/cosh
+cp vendor/rquickjs-sys/quickjs/core-math/cosh/cosh.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/cosh/cosh.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/exp
+cp vendor/rquickjs-sys/quickjs/core-math/exp/exp.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/exp/exp.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/expm1
+cp vendor/rquickjs-sys/quickjs/core-math/expm1/expm1.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/expm1/expm1.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/hypot
+cp vendor/rquickjs-sys/quickjs/core-math/hypot/hypot.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/hypot/hypot.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log
+cp vendor/rquickjs-sys/quickjs/core-math/log/dint.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log/dint.h
+cp vendor/rquickjs-sys/quickjs/core-math/log/log.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log/log.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log10
+cp vendor/rquickjs-sys/quickjs/core-math/log10/dint.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log10/dint.h
+cp vendor/rquickjs-sys/quickjs/core-math/log10/log10.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log10/log10.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log1p
+cp vendor/rquickjs-sys/quickjs/core-math/log1p/log1p.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log1p/log1p.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log2
+cp vendor/rquickjs-sys/quickjs/core-math/log2/log2.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/log2/log2.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/pow
+cp vendor/rquickjs-sys/quickjs/core-math/pow/dint.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/pow/dint.h
+cp vendor/rquickjs-sys/quickjs/core-math/pow/pow.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/pow/pow.c
+cp vendor/rquickjs-sys/quickjs/core-math/pow/pow.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/pow/pow.h
+cp vendor/rquickjs-sys/quickjs/core-math/pow/qint.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/pow/qint.h
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/sin
+cp vendor/rquickjs-sys/quickjs/core-math/sin/sin.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/sin/sin.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/sinh
+cp vendor/rquickjs-sys/quickjs/core-math/sinh/sinh.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/sinh/sinh.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/tan
+cp vendor/rquickjs-sys/quickjs/core-math/tan/tan.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/tan/tan.c
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/tanh
+cp vendor/rquickjs-sys/quickjs/core-math/tanh/tanh.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/tanh/tanh.c
+cp vendor/rquickjs-sys/quickjs/cutils.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/cutils.h
+cp vendor/rquickjs-sys/quickjs/dtoa.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/dtoa.c
+cp vendor/rquickjs-sys/quickjs/dtoa.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/dtoa.h
+cp vendor/rquickjs-sys/quickjs/libregexp-opcode.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/libregexp-opcode.h
+cp vendor/rquickjs-sys/quickjs/libregexp.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/libregexp.c
+cp vendor/rquickjs-sys/quickjs/libregexp.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/libregexp.h
+cp vendor/rquickjs-sys/quickjs/libunicode-table.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/libunicode-table.h
+cp vendor/rquickjs-sys/quickjs/libunicode.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/libunicode.c
+cp vendor/rquickjs-sys/quickjs/libunicode.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/libunicode.h
+cp vendor/rquickjs-sys/quickjs/list.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/list.h
+cp vendor/rquickjs-sys/quickjs/quickjs-atom.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/quickjs-atom.h
+cp vendor/rquickjs-sys/quickjs/quickjs-c-atomics.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/quickjs-c-atomics.h
+cp vendor/rquickjs-sys/quickjs/quickjs-opcode.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/quickjs-opcode.h
+cp vendor/rquickjs-sys/quickjs/quickjs.c tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/quickjs.c
+cp vendor/rquickjs-sys/quickjs/quickjs.h tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/quickjs.h
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings
+cp vendor/rquickjs-sys/src/bindings/aarch64-apple-darwin.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/aarch64-apple-darwin.rs
+cp vendor/rquickjs-sys/src/bindings/aarch64-pc-windows-msvc.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/aarch64-pc-windows-msvc.rs
+cp vendor/rquickjs-sys/src/bindings/aarch64-unknown-linux-gnu.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/aarch64-unknown-linux-gnu.rs
+cp vendor/rquickjs-sys/src/bindings/aarch64-unknown-linux-musl.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/aarch64-unknown-linux-musl.rs
+cp vendor/rquickjs-sys/src/bindings/x86_64-apple-darwin.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/x86_64-apple-darwin.rs
+cp vendor/rquickjs-sys/src/bindings/x86_64-pc-windows-gnu.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/x86_64-pc-windows-gnu.rs
+cp vendor/rquickjs-sys/src/bindings/x86_64-pc-windows-msvc.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/x86_64-pc-windows-msvc.rs
+cp vendor/rquickjs-sys/src/bindings/x86_64-unknown-linux-gnu.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/x86_64-unknown-linux-gnu.rs
+cp vendor/rquickjs-sys/src/bindings/x86_64-unknown-linux-musl.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/bindings/x86_64-unknown-linux-musl.rs
+mkdir -p tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/inlines
+cp vendor/rquickjs-sys/src/inlines/common.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/inlines/common.rs
+cp vendor/rquickjs-sys/src/inlines/ptr_32_nan_boxing.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/inlines/ptr_32_nan_boxing.rs
+cp vendor/rquickjs-sys/src/inlines/ptr_64.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/inlines/ptr_64.rs
+cp vendor/rquickjs-sys/src/lib.rs tmp/arm64-darwin/stage/vendor/rquickjs-sys/src/lib.rs
+cp tmp/arm64-darwin/surimono/4.0.2/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/4.0/surimono.bundle
+mkdir -p lib/surimono/3.4
+mkdir -p tmp/arm64-darwin/surimono/3.4.9
+cd tmp/arm64-darwin/surimono/3.4.9
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
+cd -
+cd tmp/arm64-darwin/surimono/3.4.9
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-3.4.9/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sin/sin.c:50:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cos/cos.c:47:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tan/tan.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asin/asin.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acos/acos.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan/atan.c:38:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan2/atan2.c:43:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sinh/sinh.c:45:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cosh/cosh.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tanh/tanh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asinh/asinh.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acosh/acosh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atanh/atanh.c:36:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/exp/exp.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/expm1/expm1.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log/log.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log1p/log1p.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log2/log2.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log10/log10.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cbrt/cbrt.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/pow/pow.c:78:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/hypot/hypot.c:42:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 46.00s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.4
+cp tmp/arm64-darwin/surimono/3.4.9/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.4/surimono.bundle
+mkdir -p lib/surimono/3.3
+mkdir -p tmp/arm64-darwin/surimono/3.3.11
+cd tmp/arm64-darwin/surimono/3.3.11
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
+cd -
+cd tmp/arm64-darwin/surimono/3.3.11
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-3.3.11/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sin/sin.c:50:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cos/cos.c:47:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tan/tan.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asin/asin.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acos/acos.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan/atan.c:38:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan2/atan2.c:43:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sinh/sinh.c:45:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cosh/cosh.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tanh/tanh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asinh/asinh.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acosh/acosh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atanh/atanh.c:36:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/exp/exp.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/expm1/expm1.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log/log.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log1p/log1p.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log2/log2.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log10/log10.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cbrt/cbrt.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/pow/pow.c:78:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/hypot/hypot.c:42:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+         ld: warning:
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.blitz_traits-a769d28f63b4a990.blitz_traits.2645e214bc24d121-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)ld: warning:
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.block_buffer-6f8fac1b0ab58704.block_buffer.84d0dedcae4d5f31-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 45.63s
+/usr/local/rbenv/versions/4.0.2/bin/ruby -I. ../../../../ext/surimono/extconf.rb
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.3
+cp tmp/arm64-darwin/surimono/3.3.11/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.3/surimono.bundle
+mkdir -p lib/surimono/3.2
+mkdir -p tmp/arm64-darwin/surimono/3.2.11
+cd tmp/arm64-darwin/surimono/3.2.11
+checking for aarch64-apple-darwin-clang... yes
+checking for aarch64-apple-darwin-clang++... yes
+checking for aarch64-apple-darwin-ar... yes
+checking for cargo... yes
+checking for install_name_tool... no
+checking for $(CARGO_BUILD_TARGET)-install_name_tool... no
+/usr/bin/make
+cd -
+cd tmp/arm64-darwin/surimono/3.2.11
+generating /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/libsurimono.dylib (release)
+/usr/local/cargo/bin/cargo rustc  --manifest-path /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono/Cargo.toml --target aarch64-apple-darwin --target-dir /home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target --lib --profile release -- -C linker=aarch64-apple-darwin-clang -L native=/usr/local/rake-compiler/ruby/aarch64-apple-darwin/ruby-3.2.11/lib -C link-arg=-pipe -C link-arg=-Wl,-multiply_defined,suppress -C link-arg=-Wl,-undefined,dynamic_lookup -l pthread
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sin/sin.c:50:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cos/cos.c:47:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tan/tan.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asin/asin.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acos/acos.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan/atan.c:38:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atan2/atan2.c:43:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/sinh/sinh.c:45:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cosh/cosh.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/tanh/tanh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/asinh/asinh.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/acosh/acosh.c:44:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/atanh/atanh.c:36:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/exp/exp.c:41:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/expm1/expm1.c:40:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log/log.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log1p/log1p.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log2/log2.c:37:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/log10/log10.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/cbrt/cbrt.c:39:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/pow/pow.c:78:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+warning: rquickjs-sys@0.14.0: quickjs/core-math/hypot/hypot.c:42:14: warning: pragma STDC FENV_ACCESS ON is not supported, ignoring pragma [-Wunknown-pragmas]
+warning: rquickjs-sys@0.14.0: #pragma STDC FENV_ACCESS ON
+warning: rquickjs-sys@0.14.0:              ^
+warning: rquickjs-sys@0.14.0: 1 warning generated.
+   Compiling rb-sys v0.9.130
+   Compiling magnus v0.9.3
+   Compiling surimono-ruby v0.1.0 (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/ext/surimono)
+warning: linker stderr: osxcross: Your clang installation is outdated and can't parse '-mmacosx-version-min=11.0'. Setting it to 10.16.
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.app_units-1027264dc7181fc1.app_units.3d3585847f17c67c-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+         
+         
+         object file (/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/tmp/rb-sys-dock/arm64-darwin/target/aarch64-apple-darwin/release/deps/surimono.core_maths-be295227ca53a678.core_maths.d6beb09db1498527-cgu.0.rcgu.o.rcgu.o) was built for newer macOS version (11.0) than being linked (10.16)
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `surimono-ruby` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 46.32s
+osxcross: debug: dsymutil: executing "/opt/osxcross/target/bin/arm64-apple-darwin20.2-wrapper -version" failed
+Removing unneeded dependencies from native gemspec
+Removing source files from native gemspec
+cd -
+mkdir -p tmp/arm64-darwin/stage/lib/surimono/3.2
+cp tmp/arm64-darwin/surimono/3.2.11/surimono.bundle tmp/arm64-darwin/stage/lib/surimono/3.2/surimono.bundle
+mkdir -p pkg
+mkdir -p pkg/surimono-0.1.0-arm64-darwin
+mkdir -p pkg
+rm -f pkg/surimono-0.1.0-arm64-darwin/LICENSE-APACHE
+ln tmp/arm64-darwin/stage/LICENSE-APACHE pkg/surimono-0.1.0-arm64-darwin/LICENSE-APACHE
+cp tmp/arm64-darwin/stage/LICENSE-APACHE pkg/surimono-0.1.0-arm64-darwin/LICENSE-APACHE
+rm -f pkg/surimono-0.1.0-arm64-darwin/LICENSE-MIT
+cp tmp/arm64-darwin/stage/LICENSE-MIT pkg/surimono-0.1.0-arm64-darwin/LICENSE-MIT
+rm -f pkg/surimono-0.1.0-arm64-darwin/README.md
+cp tmp/arm64-darwin/stage/README.md pkg/surimono-0.1.0-arm64-darwin/README.md
+rm -f pkg/surimono-0.1.0-arm64-darwin/THIRD_PARTY.md
+cp tmp/arm64-darwin/stage/THIRD_PARTY.md pkg/surimono-0.1.0-arm64-darwin/THIRD_PARTY.md
+rm -f pkg/surimono-0.1.0-arm64-darwin/THIRD_PARTY_LICENSES.txt
+cp tmp/arm64-darwin/stage/THIRD_PARTY_LICENSES.txt pkg/surimono-0.1.0-arm64-darwin/THIRD_PARTY_LICENSES.txt
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/core
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/core/LICENSE-APACHE
+cp tmp/arm64-darwin/stage/crates/core/LICENSE-APACHE pkg/surimono-0.1.0-arm64-darwin/crates/core/LICENSE-APACHE
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/core/LICENSE-MIT
+cp tmp/arm64-darwin/stage/crates/core/LICENSE-MIT pkg/surimono-0.1.0-arm64-darwin/crates/core/LICENSE-MIT
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/gfx
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/gfx/LICENSE-APACHE
+cp tmp/arm64-darwin/stage/crates/gfx/LICENSE-APACHE pkg/surimono-0.1.0-arm64-darwin/crates/gfx/LICENSE-APACHE
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/gfx/LICENSE-MIT
+cp tmp/arm64-darwin/stage/crates/gfx/LICENSE-MIT pkg/surimono-0.1.0-arm64-darwin/crates/gfx/LICENSE-MIT
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/islands
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/LICENSE-APACHE
+cp tmp/arm64-darwin/stage/crates/islands/LICENSE-APACHE pkg/surimono-0.1.0-arm64-darwin/crates/islands/LICENSE-APACHE
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/LICENSE-MIT
+cp tmp/arm64-darwin/stage/crates/islands/LICENSE-MIT pkg/surimono-0.1.0-arm64-darwin/crates/islands/LICENSE-MIT
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-d3
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-d3 pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-d3
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-tslib
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-tslib pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-tslib
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-zrender
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/LICENSE-zrender pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/LICENSE-zrender
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/NOTICE
+cp tmp/arm64-darwin/stage/crates/islands/bundles/echarts/NOTICE pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/echarts/NOTICE
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/vega
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/vega/LICENSE
+cp tmp/arm64-darwin/stage/crates/islands/bundles/vega/LICENSE pkg/surimono-0.1.0-arm64-darwin/crates/islands/bundles/vega/LICENSE
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/islands/js/tools
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/islands/js/tools/licenses.js
+cp tmp/arm64-darwin/stage/crates/islands/js/tools/licenses.js pkg/surimono-0.1.0-arm64-darwin/crates/islands/js/tools/licenses.js
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/surimono
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/surimono/LICENSE-APACHE
+cp tmp/arm64-darwin/stage/crates/surimono/LICENSE-APACHE pkg/surimono-0.1.0-arm64-darwin/crates/surimono/LICENSE-APACHE
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/surimono/LICENSE-MIT
+cp tmp/arm64-darwin/stage/crates/surimono/LICENSE-MIT pkg/surimono-0.1.0-arm64-darwin/crates/surimono/LICENSE-MIT
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/crates/webidl/idl
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/webidl/idl/LICENSE-W3C-software-and-document-2023
+cp tmp/arm64-darwin/stage/crates/webidl/idl/LICENSE-W3C-software-and-document-2023 pkg/surimono-0.1.0-arm64-darwin/crates/webidl/idl/LICENSE-W3C-software-and-document-2023
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/webidl/idl/LICENSE-WHATWG-BSD-3-Clause
+cp tmp/arm64-darwin/stage/crates/webidl/idl/LICENSE-WHATWG-BSD-3-Clause pkg/surimono-0.1.0-arm64-darwin/crates/webidl/idl/LICENSE-WHATWG-BSD-3-Clause
+rm -f pkg/surimono-0.1.0-arm64-darwin/crates/webidl/idl/LICENSE-webref-MIT
+cp tmp/arm64-darwin/stage/crates/webidl/idl/LICENSE-webref-MIT pkg/surimono-0.1.0-arm64-darwin/crates/webidl/idl/LICENSE-webref-MIT
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/lib
+rm -f pkg/surimono-0.1.0-arm64-darwin/lib/surimono.rb
+cp tmp/arm64-darwin/stage/lib/surimono.rb pkg/surimono-0.1.0-arm64-darwin/lib/surimono.rb
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.2
+rm -f pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.2/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/3.2/surimono.bundle pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.2/surimono.bundle
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.3
+rm -f pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.3/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/3.3/surimono.bundle pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.3/surimono.bundle
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.4
+rm -f pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.4/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/3.4/surimono.bundle pkg/surimono-0.1.0-arm64-darwin/lib/surimono/3.4/surimono.bundle
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/lib/surimono/4.0
+rm -f pkg/surimono-0.1.0-arm64-darwin/lib/surimono/4.0/surimono.bundle
+cp tmp/arm64-darwin/stage/lib/surimono/4.0/surimono.bundle pkg/surimono-0.1.0-arm64-darwin/lib/surimono/4.0/surimono.bundle
+rm -f pkg/surimono-0.1.0-arm64-darwin/lib/surimono/version.rb
+cp tmp/arm64-darwin/stage/lib/surimono/version.rb pkg/surimono-0.1.0-arm64-darwin/lib/surimono/version.rb
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys
+rm -f pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/LICENSE
+cp tmp/arm64-darwin/stage/vendor/rquickjs-sys/LICENSE pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/LICENSE
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/quickjs
+rm -f pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/quickjs/LICENSE
+cp tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/LICENSE pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/quickjs/LICENSE
+mkdir -p pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/quickjs/core-math
+rm -f pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/quickjs/core-math/LICENSE
+cp tmp/arm64-darwin/stage/vendor/rquickjs-sys/quickjs/core-math/LICENSE pkg/surimono-0.1.0-arm64-darwin/vendor/rquickjs-sys/quickjs/core-math/LICENSE
+cd pkg/surimono-0.1.0-arm64-darwin
+  Successfully built RubyGem
+  Name: surimono
+  Version: 0.1.0
+  File: surimono-0.1.0-arm64-darwin.gem
+cd -
+'/home/runner/work/surimono/surimono/bindings/ruby/tmp/stage/pkg/surimono-0.1.0-arm64-darwin.gem' -> 'pkg/surimono-0.1.0-arm64-darwin.gem'
+total 28388
+drwxr-xr-x  2 runner runner     4096 Nov 13 21:36 .
+drwxr-xr-x 10 runner runner     4096 Nov 13 21:36 ..
+-rw-r--r--  1 runner runner 29058048 Nov 13 21:36 surimono-0.1.0-arm64-darwin.gem
+
+==> check the gem's contents
+LICENSE-APACHE
+LICENSE-MIT
+README.md
+THIRD_PARTY.md
+THIRD_PARTY_LICENSES.txt
+crates/core/LICENSE-APACHE
+crates/core/LICENSE-MIT
+crates/gfx/LICENSE-APACHE
+crates/gfx/LICENSE-MIT
+crates/islands/LICENSE-APACHE
+crates/islands/LICENSE-MIT
+crates/islands/bundles/echarts/LICENSE
+crates/islands/bundles/echarts/LICENSE-d3
+crates/islands/bundles/echarts/LICENSE-tslib
+crates/islands/bundles/echarts/LICENSE-zrender
+crates/islands/bundles/echarts/NOTICE
+crates/islands/bundles/vega/LICENSE
+crates/islands/js/tools/licenses.js
+crates/surimono/LICENSE-APACHE
+crates/surimono/LICENSE-MIT
+crates/webidl/idl/LICENSE-W3C-software-and-document-2023
+crates/webidl/idl/LICENSE-WHATWG-BSD-3-Clause
+crates/webidl/idl/LICENSE-webref-MIT
+lib/surimono.rb
+lib/surimono/3.2/surimono.bundle
+lib/surimono/3.3/surimono.bundle
+lib/surimono/3.4/surimono.bundle
+lib/surimono/4.0/surimono.bundle
+lib/surimono/version.rb
+vendor/rquickjs-sys/LICENSE
+vendor/rquickjs-sys/quickjs/LICENSE
+vendor/rquickjs-sys/quickjs/core-math/LICENSE
+host platform x86_64-linux: arm64-darwin gem not installed, tested or checked for bytecode
