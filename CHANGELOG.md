@@ -120,6 +120,11 @@ The Rust crates and the Ruby gem share one version number.
 - **Proxy `ownKeys` checks** (#126). The check of a proxy's `ownKeys` result is
   no longer quadratic, and `Object.keys`, `Object.entries` and
   `Object.getOwnPropertyDescriptors` now stop at the time limit.
+- **A time limit is always a time-limit error** (#178). Rarely, when the
+  watchdog was slow to stop a script, the limit came out as an ordinary
+  `InternalError: interrupted` exception, and the script's state was kept.
+  It now always ends with the time-limit error, and the state is rebuilt
+  from scratch, as after any limit.
 ## [0.1.0] - 2026-11-04 (not released)
 
 > **Not released.** The `v0.1.0` tag exists, on commit `915d5cbf`, but no gem
