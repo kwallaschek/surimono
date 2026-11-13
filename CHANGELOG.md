@@ -17,8 +17,9 @@ The Rust crates and the Ruby gem share one version number.
   in Rust, returning `PageOutput { html, report }`; `Surimono.render_page`,
   `Renderer#render_page(html, loader:, allow:)` and `render(html, scripts: true)`
   in Ruby, with `Surimono::Page` and `Surimono::PageReport`; `--scripts`,
-  `--keep-scripts`, `--layout-queries`, `--resource` and `--output-mb` on the
-  CLI. `render` and `render_islands` still never run a page's scripts.
+  `--keep-scripts`, `--no-printer-safe`, `--layout-queries`, `--resource` and
+  `--output-mb` on the CLI. `render` and `render_islands` still never run a
+  page's scripts.
 - **Report or raise.** A page's uncaught exceptions, unhandled rejections and
   files it didn't get go in a report, and the page goes on. Limits are errors:
   `PageMemoryLimit`, `PageTimeLimit`, `PageStackOverflow`, `PageDomLimit`,
@@ -34,10 +35,29 @@ The Rust crates and the Ruby gem share one version number.
 - **Layout queries answer zeros, or fail the render** (`LayoutQueries`,
   `layout_queries:`) until layout lands in phase 3.
 - **A page's output is serialized**, so it isn't byte-identical to the input:
-  `<script>` (unless `keep_scripts`), `<noscript>` and comments are gone, and it
-  is screened so the printer's parse matches ours.
-- **Platform globals for page scripts** (#160): `URL` and `URLSearchParams`
-  (input and output capped at 2 MiB, past which they throw a `TypeError`),
+  `<script>` (unless `keep_scripts`), `<noscript>` and comments are gone, it
+  is screened so the printer's parse matches ours, and it is printer-safe
+  (below).
+- **Printer-safe output**, on by default (#180): `Options::printer_safe(bool)`
+  in Rust, `Surimono::Renderer.new(printer_safe:)` in Ruby, `--no-printer-safe`
+  (with `--scripts`) on the CLI. A page's output is written in forms stock
+  fulgur 0.40 prints the way Chrome prints the page: a block `<svg>` keeps the
+  size its `width` and `height` give it and a border on one side prints in its
+  own colour, through one `<style>` added in `<head>` that ranks below all of
+  the page's CSS, and a newline ending a `<pre>` is left out. Each is made
+  only where Chrome prints the result exactly as the page. Where the page
+  can't show that, it is left as it is: among others, with a script that may
+  be left in it in any form (`keep_scripts`, any attribute whose name starts
+  with `on`, `srcdoc`, a `javascript:` URL, a frame that loads a document),
+  CSS that isn't in the page or that the pass can't read to its end, an HTML
+  element it doesn't know (`<select>`), a `<style>` with a child that isn't
+  text, or a declarative shadow root. A page in quirks mode gets only the
+  `<svg>` sizes. Out of steps or time, the plain page goes out: the pass
+  never fails a render. With it, 4 of the 6 real-world pages pass on stock
+  fulgur 0.40.0, against 2 without. `printer_safe(false)` gives the
+  serialized DOM as before.
+- **Platform globals for page scripts** (#160): `URL` (input and output capped
+  at 2 MiB, past which it throws a `TypeError`), `URLSearchParams`,
   `TextEncoder`, `TextDecoder` (every encoding of the Encoding Standard),
   `atob`, `btoa` and `structuredClone`. `navigator` is fixed values: user
   agent `Mozilla/5.0 (compatible; surimono)`, `en-US`, an empty `platform`,
@@ -60,7 +80,9 @@ The Rust crates and the Ruby gem share one version number.
   element's `sheet`, `cssRules`, `insertRule`, `deleteRule`, `addRule` and
   `removeRule`. Rules a script inserts are printed, so CSS-in-JS styles reach
   the PDF. `insertRule` checks a rule's structure, not its selectors or
-  declarations.
+  declarations. Minified sheets work too: a selector that ends in a bracket
+  right before `{` (`.a:not(.b){…}`) keeps its whole `selectorText`, and the
+  rules after it still print once a script edits the sheet (#181).
 - **Docs.** Page scripts in the Rails and Rust guides and the README, a page
   example in Rust and Ruby, and the [checkpoint 3 checklist](docs/guide/checkpoint-3.md).
 - **musl native gems, prepared** (#170): the gem build makes `x86_64-linux-musl`
@@ -100,6 +122,11 @@ The Rust crates and the Ruby gem share one version number.
 - **Proxy `ownKeys` checks** (#126). The check of a proxy's `ownKeys` result is
   no longer quadratic, and `Object.keys`, `Object.entries` and
   `Object.getOwnPropertyDescriptors` now stop at the time limit.
+- **A time limit is always a time-limit error** (#178). Rarely, when the
+  watchdog was slow to stop a script, the limit came out as an ordinary
+  `InternalError: interrupted` exception, and the script's state was kept.
+  It now always ends with the time-limit error, and the state is rebuilt
+  from scratch, as after any limit.
 
 ## [0.1.0] - 2026-11-04 (not released)
 
