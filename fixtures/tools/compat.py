@@ -513,7 +513,7 @@ def pages_section(pages_dir: Path | None) -> tuple[list[str], dict[str, str]]:
     plain, dom = every("plain/score.json"), every("dom.json")
     head = ["Page", "Printed by fulgur" + (" (printer-safe output, the default)" if plain else "")]
     head += ["Without printer-safe output (`--no-printer-safe`)"] if plain else []
-    head += ["Fulgur printing Chrome's DOM"] + (["DOM = Chrome's"] if dom else []) + ["Byte-identical"]
+    head += ["Fulgur printing Chrome's DOM"] + (["Output = Chrome's DOM (scripts kept)"] if dom else []) + ["Byte-identical"]
     lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     status = {}
     passing = passing_plain = 0
@@ -536,7 +536,7 @@ def pages_section(pages_dir: Path | None) -> tuple[list[str], dict[str, str]]:
             if check.get("equal") is True:
                 cells.append("yes")
             elif isinstance(check.get("differs_at"), int) and not isinstance(check.get("differs_at"), bool):
-                cells.append(f"**no** (from byte {check['differs_at']})")
+                cells.append(f"**no** (from byte {check['differs_at']} of the normalized texts)")
             else:
                 cells.append(f"**no** ({str(check.get('error', 'no result')).splitlines()[0][:100]})")
         cells.append("yes" if same else "**no**")

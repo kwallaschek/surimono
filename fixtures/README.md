@@ -123,12 +123,13 @@ node fixtures/tools/print-pages.mjs --out DIR --check <target>/release/surimono-
 - **The floor** is fulgur printing Chrome's own DOM, with `<noscript>` taken out and
   stylesheets inlined as surimono does. A page that fails no worse than its floor
   fails on fulgur, not on surimono.
-- **DOM = Chrome's.** Every run also renders each page keeping its scripts
+- **Output = Chrome's DOM.** Every run also renders each page keeping its scripts
   (`--keep-scripts`, which leaves the output plain) and compares that with the
   floor's input, Chrome's DOM in the form `render_page` writes it, after taking each
   run of whitespace as one space and moving `style` to the end of its tag (as
   `crates/surimono/tests/page.rs` does). `DIR/<page>/dom.json` says whether they are
-  equal and from which byte they differ.
+  equal and from which byte of the normalized texts they differ. It compares the
+  output, so a difference can be in the DOM or only in how the output writes it.
 - **Fonts.** fulgur 0.40.0 doesn't load `@font-face` URLs, so `print_fonts` passes
   a page's own fonts with `--font`, as a user has to.
 

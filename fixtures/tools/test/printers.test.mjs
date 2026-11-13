@@ -117,7 +117,7 @@ test("--plain prints the output with printer-safe off beside the default one", (
   assert.deepEqual(determinism.plain, { deterministic: true, sha256: Array(4).fill(row.plain_sha256) });
   const index = fs.readFileSync(path.join(out, "run", "index.md"), "utf8");
   assert.match(index, /\*\*0 of 1 pages pass\*\* with printer-safe output \(the default\), \*\*0 of 1\*\* with `--no-printer-safe`/);
-  assert.match(index, /\| Page \| Printer-safe \| Scores \| Image \| `--no-printer-safe` \| Scores \| Image \| Floor \| Scores \| Image \| DOM = Chrome's \| Render \| Byte-identical \|/);
+  assert.match(index, /\| Page \| Printer-safe \| Scores \| Image \| `--no-printer-safe` \| Scores \| Image \| Floor \| Scores \| Image \| Output = Chrome's DOM \| Render \| Byte-identical \|/);
   assert.match(index, new RegExp(`\\(${PAGE}/plain/side-by-side-1\\.png\\)`));
 });
 
@@ -140,7 +140,7 @@ test("without --plain there is no plain output, and every run checks the DOM aga
   assert.deepEqual(same.result.rows[0].dom, { equal: true, differs_at: null });
   assert.equal(same.file.equal, true);
   assert.match(same.file.against, /^reference\/dom\.html without <noscript>/);
-  assert.match(same.index, /The DOM the scripts leave equals Chrome's: 1 of 1\./);
+  assert.match(same.index, /`render_page`'s output with the page's scripts kept equals Chrome's DOM: 1 of 1\./);
   // How long a run of whitespace is and where `style` sits in a tag don't count, as in crates/surimono/tests/page.rs.
   const styled = dom.replace(/<(\w+)([^>]*?) style="([^"]*)"([^>]*)>/, '<$1 style="$3"$2$4>');
   assert.notEqual(styled, dom, "the fixture has a style attribute to move");
@@ -152,8 +152,8 @@ test("without --plain there is no plain output, and every run checks the DOM aga
   const { equal, differs_at: from } = other.result.rows[0].dom;
   assert.equal(equal, false);
   assert.equal(typeof from, "number");
-  assert.match(other.index, new RegExp(`\\| \\*\\*no\\*\\* \\(from byte ${from}\\) \\|`));
-  assert.match(other.index, /The DOM the scripts leave equals Chrome's: 0 of 1\./);
+  assert.match(other.index, new RegExp(`\\| \\*\\*no\\*\\* \\(from byte ${from} of the normalized texts\\) \\|`));
+  assert.match(other.index, /`render_page`'s output with the page's scripts kept equals Chrome's DOM: 0 of 1\./);
 });
 
 test("a printer that never finishes is killed and reported as timed out", () => {

@@ -178,9 +178,9 @@ class CompatTest(unittest.TestCase):
         run, _, _ = self.pages_run(names, plain={"a": True, "b": False}, dom={"a": {"equal": True, "differs_at": None}, "b": {"equal": False, "differs_at": 7}})
         lines, status = compat.pages_section(run)
         text = "\n".join(lines)
-        self.assertIn("| Page | Printed by fulgur (printer-safe output, the default) | Without printer-safe output (`--no-printer-safe`) | Fulgur printing Chrome's DOM | DOM = Chrome's | Byte-identical |", text)
+        self.assertIn("| Page | Printed by fulgur (printer-safe output, the default) | Without printer-safe output (`--no-printer-safe`) | Fulgur printing Chrome's DOM | Output = Chrome's DOM (scripts kept) | Byte-identical |", text)
         self.assertIn("| a | pass (shape 0.0%) | pass (shape 0.0%) | **FAIL** (shape 50.0%) | yes | yes |", text)
-        self.assertIn("| b | pass (shape 0.0%) | **FAIL** (shape 50.0%) | **FAIL** (shape 50.0%) | **no** (from byte 7) | yes |", text)
+        self.assertIn("| b | pass (shape 0.0%) | **FAIL** (shape 50.0%) | **FAIL** (shape 50.0%) | **no** (from byte 7 of the normalized texts) | yes |", text)
         self.assertIn("2 of 2 pages pass: `render_page` with printer-safe output (the default), then fulgur, against the Chrome references; 1 of 2 with `--no-printer-safe`.", text)
         self.assertEqual(status, {"a": "print passes", "b": "print passes with printer-safe output only"})
 
