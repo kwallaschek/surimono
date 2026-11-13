@@ -516,9 +516,11 @@ About 8 µs a node, of which an almost empty page pays 1.1 ms whatever its size
 (a new `BaseDocument` and its UA sheet). Other builds were running on the
 machine, so read these to one digit.
 
-Every step of a layout is proportional to the page, and nothing is kept from
-one layout to the next: changing one attribute costs what the first layout
-did. Sheets come on top: `sheet_parse_cost` gives 58 ms for 1 MiB of rules
+These numbers are for this page and are not a bound: a page within every
+bound under "Limits" can make one layout take far longer than its size
+suggests (review of #179), and nothing bounds one layout's time yet. Nothing
+is kept from one layout to the next: changing one attribute costs what the
+first layout did. Sheets come on top: `sheet_parse_cost` gives 58 ms for 1 MiB of rules
 (6,525 of them, a child combinator and a `:not()` each, five declarations),
 about 56 ns a byte.
 
@@ -733,17 +735,23 @@ Layout runs on the host, where the engine can't interrupt. What bounds it:
   - style attributes, by `style_attr::fits` when they were written.
 
   The page's `max_text_bytes` (256 MiB) is no bound for a layout, which is
-  why the engine has its own. The longest a script can run past its deadline
-  is one layout of a page within the bounds; a page at `max_nodes` took about
-  0.85 s in a release build on this machine. E3-01 should make the bounds
-  `DomLimits` and report a refusal instead of answering silently.
+  why the engine has its own. These bounds, and the sheet screen's, bound what
+  a layout is given; they don't bound how long it runs. The screen bounds
+  parsing, not matching or layout, and one layout of a page within every
+  bound can run far past the script's deadline (review of #179). **A layout
+  is not yet bounded in time**, so `LayoutPolicy::Real` stays `doc(hidden)`
+  and unreachable from the facade, the CLI and the gem until E3-01e bounds it
+  (DECISIONS 2026-11-13; "Open points for E3-01"). E3-01 should also make the
+  bounds `DomLimits` and report a refusal instead of answering silently.
 - **Proposed for E3-01**, the cheapest thing that keeps the time limit honest
   without new machinery: a layout is refused (typed, reported, answers as with
   no box) when the page has more than `max_layout_nodes` nodes, default set
   from the measured rate so that one layout stays under the default time
   limit; and a count of layouts per render in the report, with a cap (default
   1,000) that turns further queries into answers from the last layout, so a
-  page in a measure loop degrades instead of timing out. No stop check inside
+  page in a measure loop degrades instead of timing out. A node count bounds
+  the copy's size, not one layout's time, so this comes after E3-01e's time
+  bound, not instead of it. No stop check inside
   Blitz: `resolve` has no hook for one, and a `[patch]` wouldn't reach users of
   the published crates.
 - **Stack.** What nests in a layout is the tree, bounded by `max_depth`, and
@@ -844,6 +852,21 @@ once the query is real.
 
 Known and left, from the review of the prototype (#179):
 
+- **E3-01e, first: a time bound on one layout**, style matching and layout
+  and not only parsing, the precondition for any public layout API
+  (`LayoutPolicy::Real` stays internal until then). The review's two
+  directions: a budgeted dry run of the author rules' selectors on the copy
+  through `select.rs`'s guarded matcher (`Guarded`, which already charges a
+  clock for its work and stops at a deadline), refusing the layout when the
+  budget runs out; or a structural bound computed before the layout from the
+  selectors and the copy's shape. Either way no ordinary sheet may be refused:
+  the review laid out the six real-world pages and the KaTeX, highlight.js,
+  Bootstrap 3, Material for MkDocs, Read the Docs, Font Awesome, Tailwind 4
+  and pdf.js sheets, each in 1 to 11 ms, and every one of them must still be
+  laid out.
+- A `<style>` inside a canvas's fallback content or under an `img` isn't
+  applied in the copy, which leaves out the children of both, though a
+  browser applies it.
 - `set_layout_setup` after a layout keeps the old layout: the setup belongs in
   the stamp, or setting it clears the layout. `disabled`, `media` and `type`
   on a `<style>` need an attribute or the epoch behind them when they become
