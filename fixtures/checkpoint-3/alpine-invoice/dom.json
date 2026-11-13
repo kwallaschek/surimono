@@ -1,0 +1,12 @@
+{
+  "subject": "alpine-invoice",
+  "equal": true,
+  "differs_at": null,
+  "against": "reference/dom.html without <noscript>, linked sheets inlined",
+  "producer": {
+    "cli": "fixtures/tools/page-check",
+    "version": "render_page",
+    "sha256": "87d64d83ed36c8a438771487f1a5ae1ed0e5fbc3be98cd9ca7b35c0f9afb0fbe",
+    "commit": "de4dbe71479b93e0573e30d10badd7934cb5a11d"
+  }
+}

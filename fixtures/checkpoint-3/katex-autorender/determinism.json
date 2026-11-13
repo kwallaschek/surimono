@@ -26,7 +26,16 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "0aeff1749e49e56a6777bb6a5f0b66ec1b4b24e7dd883e6c8bf60e29b3d66428",
-    "commit": "e879ec95a46888b907b649b4e1a9cc3cb3411f74"
+    "sha256": "87d64d83ed36c8a438771487f1a5ae1ed0e5fbc3be98cd9ca7b35c0f9afb0fbe",
+    "commit": "de4dbe71479b93e0573e30d10badd7934cb5a11d"
+  },
+  "plain": {
+    "deterministic": true,
+    "sha256": [
+      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
+      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
+      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
+      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add"
+    ]
   }
 }

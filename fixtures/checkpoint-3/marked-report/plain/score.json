@@ -1,0 +1,77 @@
+{
+  "subject": "marked-report",
+  "pdf": "print-pages-out/marked-report/plain/print.pdf",
+  "label": "surimono",
+  "metric": "shape: near-match (1 px radius, per-channel tolerance 128/255), worst 32x32 window's share of mismatched ink, pass <= 10%; colour: solid pixels (flat 5x5) within 16/255 per channel at 1 px, worst window <= 10%; hue: ink direction of strongly inked pixels within 8 degrees at 1 px, worst window <= 30%; pixelmatch 8.0.0 (threshold 0.1, AA ignored) reported as diff_ratio_ink",
+  "pixel_threshold": 0.1,
+  "pass_worst_window": 0.1,
+  "pass_colour_window": 0.1,
+  "pass_hue_window": 0.3,
+  "poppler": "24.02.0",
+  "dpi": 96,
+  "page_count": {
+    "chrome": 1,
+    "surimono": 1
+  },
+  "pass": false,
+  "worst_window": 0.675,
+  "worst_diff_ratio_ink": 0.07906198544643331,
+  "worst_colour_window": 0.8481012658227848,
+  "worst_hue_window": 1,
+  "pages": [
+    {
+      "page": 1,
+      "pass": false,
+      "failed": [
+        "shape",
+        "colour",
+        "hue"
+      ],
+      "worst_window": 0.675,
+      "worst_window_at": [
+        64,
+        240
+      ],
+      "near_mismatch_pixels": 2114,
+      "near_ink_share": 0.01871425789203449,
+      "colour_worst_window": 0.8481012658227848,
+      "colour_worst_window_at": [
+        160,
+        112
+      ],
+      "colour_mismatch_pixels": 10956,
+      "solid_pixels": 66640,
+      "hue_worst_window": 1,
+      "hue_worst_window_at": [
+        32,
+        128
+      ],
+      "hue_mismatch_pixels": 216,
+      "hue_pixels": 23098,
+      "width": 794,
+      "height": 1123,
+      "size_match": true,
+      "expected_size": [
+        794,
+        1123
+      ],
+      "actual_size": [
+        794,
+        1123
+      ],
+      "diff_pixels": 8931,
+      "ink_pixels": 112962,
+      "expected_ink_pixels": 94236,
+      "actual_ink_pixels": 107436,
+      "diff_ratio_ink": 0.07906198544643331,
+      "diff_ratio_page": 0.010016127187207709,
+      "side_by_side": "side-by-side-1.png"
+    }
+  ],
+  "producer": {
+    "cli": "fixtures/tools/page-check",
+    "version": "render_page",
+    "sha256": "87d64d83ed36c8a438771487f1a5ae1ed0e5fbc3be98cd9ca7b35c0f9afb0fbe",
+    "commit": "de4dbe71479b93e0573e30d10badd7934cb5a11d"
+  }
+}

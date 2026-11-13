@@ -2,10 +2,10 @@
   "subject": "noscript-message",
   "deterministic": true,
   "sha256": [
-    "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e",
-    "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e",
-    "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e",
-    "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e"
+    "e337ec46ca9c6e68acb8360c66cce0ec763a05bf06ed91f2a8eb93a7a700795a",
+    "e337ec46ca9c6e68acb8360c66cce0ec763a05bf06ed91f2a8eb93a7a700795a",
+    "e337ec46ca9c6e68acb8360c66cce0ec763a05bf06ed91f2a8eb93a7a700795a",
+    "e337ec46ca9c6e68acb8360c66cce0ec763a05bf06ed91f2a8eb93a7a700795a"
   ],
   "runs": [
     {
@@ -26,7 +26,16 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "0aeff1749e49e56a6777bb6a5f0b66ec1b4b24e7dd883e6c8bf60e29b3d66428",
-    "commit": "e879ec95a46888b907b649b4e1a9cc3cb3411f74"
+    "sha256": "87d64d83ed36c8a438771487f1a5ae1ed0e5fbc3be98cd9ca7b35c0f9afb0fbe",
+    "commit": "de4dbe71479b93e0573e30d10badd7934cb5a11d"
+  },
+  "plain": {
+    "deterministic": true,
+    "sha256": [
+      "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e",
+      "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e",
+      "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e",
+      "5fef69c4c995a2fc6e6a6af2cf4bb4ab783aab946a42c1db0cf986c3ed821c9e"
+    ]
   }
 }
