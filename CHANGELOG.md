@@ -46,14 +46,16 @@ The Rust crates and the Ruby gem share one version number.
   own colour, through one `<style>` added in `<head>` that ranks below all of
   the page's CSS, and a newline ending a `<pre>` is left out. Each is made
   only where Chrome prints the result exactly as the page. Where the page
-  can't show that, it is left as it is: among others, with a script left in
-  it in any form (`keep_scripts`, an `on…` attribute, `srcdoc`, a
-  `javascript:` URL, a frame that loads a document), CSS that isn't in the
-  page, a `<style>` with a child that isn't text, or a declarative shadow
-  root. A page not in standards mode gets only the `<svg>` sizes. Out of
-  steps or time, the plain page goes out: the pass never fails a render. With
-  it, 4 of the 6 real-world pages pass on stock fulgur 0.40.0, against 2
-  without. `printer_safe(false)` gives the serialized DOM as before.
+  can't show that, it is left as it is: among others, with a script that may
+  be left in it in any form (`keep_scripts`, any attribute whose name starts
+  with `on`, `srcdoc`, a `javascript:` URL, a frame that loads a document),
+  CSS that isn't in the page or that the pass can't read to its end, an HTML
+  element it doesn't know (`<select>`), a `<style>` with a child that isn't
+  text, or a declarative shadow root. A page in quirks mode gets only the
+  `<svg>` sizes. Out of steps or time, the plain page goes out: the pass
+  never fails a render. With it, 4 of the 6 real-world pages pass on stock
+  fulgur 0.40.0, against 2 without. `printer_safe(false)` gives the
+  serialized DOM as before.
 - **Platform globals for page scripts** (#160): `URL` (input and output capped
   at 2 MiB, past which it throws a `TypeError`), `URLSearchParams`,
   `TextEncoder`, `TextDecoder` (every encoding of the Encoding Standard),
@@ -125,6 +127,7 @@ The Rust crates and the Ruby gem share one version number.
   `InternalError: interrupted` exception, and the script's state was kept.
   It now always ends with the time-limit error, and the state is rebuilt
   from scratch, as after any limit.
+
 ## [0.1.0] - 2026-11-04 (not released)
 
 > **Not released.** The `v0.1.0` tag exists, on commit `915d5cbf`, but no gem

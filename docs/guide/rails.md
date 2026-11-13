@@ -374,8 +374,9 @@ so it isn't byte-identical to what you passed in:
 - `<noscript>` is gone, and `<script>` too, except island markers on their way
   to becoming SVG. To keep the scripts, for an engine that would run them, pass
   `keep_scripts: true` to `Surimono::Renderer.new`.
-- A page with no doctype or an old one comes out with no doctype;
-  a standards-mode page comes out with `<!doctype html>`.
+- A page in quirks mode (no doctype, or an old one such as HTML 4.01
+  Transitional without its URL) comes out with no doctype; any other page comes
+  out with `<!doctype html>`.
 - The output is screened so the printer's parse matches ours.
 - The output is printer-safe, unless you pass `printer_safe: false` to
   `Surimono::Renderer.new`. See below.
@@ -397,20 +398,24 @@ Each is made only where Chrome prints the result exactly as it prints the page,
 whatever the page's CSS says. Where that can't be told from the page, the page
 is left as it is. Among the cases:
 
-- A script is left in it, in any form a browser runs while it prints: a
-  `<script>` (with `keep_scripts: true`), an `on…` attribute, a `srcdoc`, a
-  `javascript:` URL, or an `<iframe>`, `<object>` or `<embed>` that loads a
-  document.
+- A script may be left in it, in any form a browser runs while it prints:
+  a `<script>` (with `keep_scripts: true`), any attribute whose name starts with
+  `on` (`onclick`, and also `one`), a `srcdoc`, a `javascript:` URL, or an
+  `<iframe>`, `<object>` or `<embed>` that loads a document.
 - Some of its CSS isn't in the page: a `<link rel="stylesheet">` or an
   `@import`. Sheets loaded through `resources:` or a loader are in the page.
-- A `<style>` has a child that isn't text, or the page has a declarative
-  shadow root (`<template shadowrootmode>`).
+- Chrome's parser may build another tree from it: it has an HTML element the
+  pass doesn't know (among them `<select>`, `<option>`, `<optgroup>`,
+  `<datalist>`, `<slot>` and `<frameset>`; a custom element is known),
+  a MathML `annotation-xml`, a `<style>` with a child that isn't text, or a
+  declarative shadow root (`<template shadowrootmode>`).
+- The pass couldn't read all of its CSS to the end: an at-rule it doesn't know
+  (`@-ms-viewport`, `@-moz-keyframes`), or nesting too deep.
 - The pass runs out of its steps or of time. The plain page then goes out, and
   the render doesn't fail.
 
-A page that isn't in standards mode (no doctype, or an old one) gets only the
-`<svg>` sizes. With `printer_safe: false`, `page.html` is the serialized DOM and
-nothing else.
+A page in quirks mode gets only the `<svg>` sizes. With `printer_safe: false`,
+`page.html` is the serialized DOM and nothing else.
 
 The same HTML, options and files give the same bytes. Scripts see the clock in
 [Dates and time zones](#dates-and-time-zones), and `Math.random` follows `seed:`.
@@ -505,10 +510,10 @@ Surimono::Renderer.new(fonts: PDF_FONTS, layout_queries: :throw)
 The first query then raises `Surimono::LayoutQueryError`, even if the page
 catches the exception.
 
-When layout queries give real answers, they will measure as Chrome does, since
-scripts are written against Chrome. fulgur lays pages out with Blitz, which
-prints some of those layouts differently, so a page that sizes things from
-those answers may print differently with stock fulgur.
+When layout queries give real answers, they are meant to measure as Chrome
+does, since scripts are written against Chrome. fulgur lays pages out with
+Blitz, which prints some of those layouts differently, so a page that sizes
+things from those answers may print differently with stock fulgur.
 
 ### What doesn't work yet
 

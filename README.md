@@ -271,12 +271,10 @@ COMPAT.md has both tables.
 
 Six real-world pages, built with Alpine.js, highlight.js, D3, KaTeX and marked,
 were printed through `render_page` and stock fulgur 0.40.0 and compared with
-Chrome's print: 4 of 6 pass with printer-safe output (`alpine-invoice`,
-`d3-charts`, `highlightjs-code`, `noscript-message`), 2 without it. The other
-2, `katex-autorender` and `marked-report`, print the same as fulgur printing
-Chrome's own DOM, so those failures are fulgur's layout, not the page's
-scripts. The [committed results](fixtures/checkpoint-3/index.md) are of the
-output without printer-safe rewrites.
+Chrome's print: 4 of 6 pass with printer-safe output, 2 without it. Without
+it, the 4 that fail print the same as fulgur printing Chrome's own DOM, so
+those failures are fulgur's layout, not the page's scripts
+([results without printer-safe output](fixtures/checkpoint-3/index.md)).
 
 What doesn't work yet:
 
