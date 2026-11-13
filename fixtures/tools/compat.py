@@ -23,7 +23,9 @@ Inputs (each optional; a missing one makes its section say "not run"):
                   of its own, so the areas' rates and causes stay comparable.
   --pages DIR     print-pages.mjs's results for the real-world pages (a run's
                   folder, fixtures/checkpoint-3): each page's print against
-                  Chrome and fulgur's floor, and its determinism.
+                  Chrome and fulgur's floor, and its determinism; from a run
+                  with --plain also the print with printer-safe output off, and
+                  the DOM check (dom.json) where every page has one.
 
 The real-world section comes from fixtures/real-world/manifest.toml plus the
 fixture results of each library's renderer.
@@ -492,13 +494,29 @@ def hostile_section(results_file: Path | None) -> list[str]:
 
 def pages_section(pages_dir: Path | None) -> tuple[list[str], dict[str, str]]:
     """The real-world pages printed: print-pages.mjs's table, derived from each
-    page's own score files, and what the library table says of each page."""
+    page's own score files, and what the library table says of each page. A run
+    made with --plain (a `plain/score.json` for every page) adds the output with
+    printer-safe off, and one with a `dom.json` for every page adds the DOM check;
+    a run with either for some pages only is an error."""
     lines = ["### Real-world pages printed", ""]
     if pages_dir is None:
         return lines + ["Not run.", ""], {}
     pages = sorted(d.name for d in (ROOT / "fixtures" / "real-world").iterdir() if (d / "input.html").is_file())
-    lines += ["| Page | Printed by fulgur | Fulgur printing Chrome's DOM | Byte-identical |", "|---|---|---|---|"]
+
+    def every(part: str) -> bool:
+        have = [(pages_dir / name / part).exists() for name in pages]
+        if any(have) and not all(have):
+            missing = ", ".join(n for n, h in zip(pages, have) if not h)
+            raise CompatError(f"{pages_dir}: {part} for some pages only (not {missing})")
+        return bool(have) and all(have)
+
+    plain, dom = every("plain/score.json"), every("dom.json")
+    head = ["Page", "Printed by fulgur" + (" (printer-safe output, the default)" if plain else "")]
+    head += ["Without printer-safe output (`--no-printer-safe`)"] if plain else []
+    head += ["Fulgur printing Chrome's DOM"] + (["DOM = Chrome's"] if dom else []) + ["Byte-identical"]
+    lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     status = {}
+    passing = passing_plain = 0
     for name in pages:
         page = pages_dir / name / "page" / "score.json"
         floor = pages_dir / name / "floor" / "score.json"
@@ -507,17 +525,30 @@ def pages_section(pages_dir: Path | None) -> tuple[list[str], dict[str, str]]:
             raise CompatError(f"{pages_dir}: no result for the page {name}")
         score, base = read_json(page), read_json(floor)
         same = read_json(determinism).get("deterministic") is True
-        lines.append(f"| {name} | {cell(score)} | {cell(base)} | {'yes' if same else '**no**'} |")
+        cells = [name, cell(score)]
+        without = read_json(pages_dir / name / "plain" / "score.json") if plain else None
+        if plain:
+            cells.append(cell(without))
+            passing_plain += passed(without)
+        cells.append(cell(base))
+        if dom:
+            check = read_json(pages_dir / name / "dom.json")
+            if check.get("equal") is True:
+                cells.append("yes")
+            elif isinstance(check.get("differs_at"), int) and not isinstance(check.get("differs_at"), bool):
+                cells.append(f"**no** (from byte {check['differs_at']})")
+            else:
+                cells.append(f"**no** ({str(check.get('error', 'no result')).splitlines()[0][:100]})")
+        cells.append("yes" if same else "**no**")
+        lines.append("| " + " | ".join(cells) + " |")
         if passed(score):
-            status[name] = "print passes"
+            passing += 1
+            status[name] = "print passes" + (" with printer-safe output only" if plain and not passed(without) else "")
         else:
             status[name] = "print fails" + (", as fulgur fails on Chrome's own DOM" if not passed(base) else "")
-    passing = sum(1 for s in status.values() if s == "print passes")
-    lines += [
-        "",
-        f"{passing} of {len(pages)} pages pass: `render_page`, then fulgur, against the Chrome references. `{pages_dir.name}/NOTES.md` says what each failure needs.",
-        "",
-    ]
+    summary = f"{passing} of {len(pages)} pages pass: `render_page`" + (" with printer-safe output (the default)" if plain else "") + ", then fulgur, against the Chrome references"
+    summary += f"; {passing_plain} of {len(pages)} with `--no-printer-safe`." if plain else "."
+    lines += ["", f"{summary} `{pages_dir.name}/NOTES.md` says what each failure needs.", ""]
     return lines, status
 
 

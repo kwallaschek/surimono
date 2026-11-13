@@ -153,6 +153,62 @@ class CompatTest(unittest.TestCase):
         with self.assertRaises(compat.CompatError):
             compat.pages_section(run)
 
+    def pages_run(self, names, plain=None, dom=None):
+        """A print-pages.mjs run: each page passes and its floor fails; `plain` maps a
+        page to whether its plain output passes, and `dom` to its dom.json."""
+        failing = {"pass": False, "worst_window": 0.5, "pages": [{"pass": False, "failed": ["shape"]}]}
+        passing = {"pass": True, "worst_window": 0.0, "pages": [{"pass": True, "failed": []}]}
+        run = self.root / "run"
+        for name in names:
+            (self.root / "fixtures" / "real-world" / name).mkdir(parents=True)
+            (self.root / "fixtures" / "real-world" / name / "input.html").write_text("x")
+            parts = [("page", passing), ("floor", failing)]
+            if name in (plain or {}):
+                parts.append(("plain", passing if plain[name] else failing))
+            for part, s in parts:
+                (run / name / part).mkdir(parents=True)
+                (run / name / part / "score.json").write_text(json.dumps({"subject": name, **s}))
+            (run / name / "determinism.json").write_text(json.dumps({"deterministic": True}))
+            if name in (dom or {}):
+                (run / name / "dom.json").write_text(json.dumps(dom[name]))
+        return run, failing, passing
+
+    def test_a_plain_run_puts_both_outputs_beside_the_floor(self):
+        names = ["a", "b"]
+        run, _, _ = self.pages_run(names, plain={"a": True, "b": False}, dom={"a": {"equal": True, "differs_at": None}, "b": {"equal": False, "differs_at": 7}})
+        lines, status = compat.pages_section(run)
+        text = "\n".join(lines)
+        self.assertIn("| Page | Printed by fulgur (printer-safe output, the default) | Without printer-safe output (`--no-printer-safe`) | Fulgur printing Chrome's DOM | DOM = Chrome's | Byte-identical |", text)
+        self.assertIn("| a | pass (shape 0.0%) | pass (shape 0.0%) | **FAIL** (shape 50.0%) | yes | yes |", text)
+        self.assertIn("| b | pass (shape 0.0%) | **FAIL** (shape 50.0%) | **FAIL** (shape 50.0%) | **no** (from byte 7) | yes |", text)
+        self.assertIn("2 of 2 pages pass: `render_page` with printer-safe output (the default), then fulgur, against the Chrome references; 1 of 2 with `--no-printer-safe`.", text)
+        self.assertEqual(status, {"a": "print passes", "b": "print passes with printer-safe output only"})
+
+    def test_a_run_without_plain_results_keeps_its_table(self):
+        run, _, _ = self.pages_run(["a"])
+        text = "\n".join(compat.pages_section(run)[0])
+        self.assertIn("| Page | Printed by fulgur | Fulgur printing Chrome's DOM | Byte-identical |", text)
+        self.assertIn("1 of 1 pages pass: `render_page`, then fulgur, against the Chrome references.", text)
+
+    def test_plain_or_dom_results_for_some_pages_only_are_an_error(self):
+        for kind in ("plain", "dom"):
+            with self.subTest(kind):
+                self.tearDown()
+                self.setUp()
+                one = {"a": True} if kind == "plain" else {"a": {"equal": True}}
+                run, _, _ = self.pages_run(["a", "b"], **{kind: one})
+                with self.assertRaises(compat.CompatError) as e:
+                    compat.pages_section(run)
+                self.assertIn("(not b)", str(e.exception))
+
+    def test_a_dom_check_without_a_comparison_is_no(self):
+        for check, cell in (({"equal": False, "differs_at": None, "error": "page-check exited 1\nmore"}, "**no** (page-check exited 1)"), ({"equal": "yes"}, "**no** (no result)"), ({"equal": False, "differs_at": True}, "**no** (no result)")):
+            with self.subTest(check):
+                self.tearDown()
+                self.setUp()
+                run, _, _ = self.pages_run(["a"], dom={"a": check})
+                self.assertIn(f"| a | pass (shape 0.0%) | **FAIL** (shape 50.0%) | {cell} | yes |", "\n".join(compat.pages_section(run)[0]))
+
     def test_wpt_not_run_says_so(self):
         self.wpt_tree()
         self.assertIn("Not run yet", self.wpt_table(None))
