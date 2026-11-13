@@ -102,6 +102,26 @@ const JS_MEMBERS: &[(&str, &str)] = &[
     ("Document", "createEvent"),
     ("Document", "rootElement"),
     ("HTMLElement", "click"),
+    ("HTMLElement", "hidden"),
+    ("HTMLElement", "outerText"),
+    ("HTMLElement", "popover"),
+    ("HTMLImageElement", "width"),
+    ("HTMLImageElement", "height"),
+    ("HTMLInputElement", "width"),
+    ("HTMLInputElement", "height"),
+    ("HTMLCanvasElement", "width"),
+    ("HTMLCanvasElement", "height"),
+    ("HTMLProgressElement", "value"),
+    ("HTMLMeterElement", "value"),
+    ("HTMLMeterElement", "min"),
+    ("HTMLMeterElement", "max"),
+    ("HTMLMeterElement", "low"),
+    ("HTMLMeterElement", "high"),
+    ("HTMLMeterElement", "optimum"),
+    ("HTMLOutputElement", "value"),
+    ("HTMLOutputElement", "defaultValue"),
+    ("HTMLScriptElement", "text"),
+    ("HTMLTitleElement", "text"),
     ("HTMLInputElement", "form"),
     ("HTMLInputElement", "indeterminate"),
     ("HTMLButtonElement", "form"),
@@ -158,6 +178,11 @@ const JS_MEMBERS: &[(&str, &str)] = &[
     ("HTMLAreaElement", "search"),
     ("HTMLAreaElement", "hash"),
 ];
+
+/// Plain reflections left out, because the attribute's presence is how
+/// pages detect a feature this crate doesn't have: `'noModule' in script`
+/// says module scripts run, and here they don't.
+const NOT_REFLECTED: &[(&str, &str)] = &[("HTMLScriptElement", "noModule")];
 
 /// Attributes of event interfaces whose init dictionary member has no default,
 /// so the glue says what an omitted one reads as: `H.<Interface>_<member>`.
@@ -407,6 +432,16 @@ fn has_ext(attrs: &[ExtAttr], name: &str) -> bool {
 
 fn is_string(n: &str) -> bool {
     matches!(n, "DOMString" | "USVString" | "ByteString" | "CSSOMString")
+}
+
+/// `boolean` and the numeric types (WebIDL §2.13.3).
+fn is_primitive(n: &str) -> bool {
+    let n = n.strip_prefix("unrestricted ").unwrap_or(n);
+    let n = n.strip_prefix("unsigned ").unwrap_or(n);
+    matches!(
+        n,
+        "boolean" | "byte" | "octet" | "short" | "long" | "long long" | "float" | "double"
+    )
 }
 
 /// What a type is at the boundary.
@@ -848,10 +883,15 @@ impl Bound<'_, '_> {
         Ok(())
     }
 
-    /// An attribute that `[Reflect]` ties to a content attribute (HTML
-    /// §2.6.1), for the types that need no more than the attribute's text.
-    /// Written for a listed member with no method on the host, so a new one
-    /// costs a table entry. Returns whether it wrote one.
+    /// An attribute that `[Reflect]` or `[ReflectURL]` ties to a content
+    /// attribute (HTML §2.6.1 "Reflecting content attributes in IDL
+    /// attributes"), for the types whose rule needs no more than the
+    /// attribute's text: strings, nullable strings, booleans, `long`,
+    /// `unsigned long` and URLs, with the rule's variants as the IDL marks
+    /// them (`ReflectDefault`, `ReflectNonNegative`, `ReflectPositive`,
+    /// `ReflectPositiveWithFallback`, `ReflectRange`). Written for a member
+    /// with no method on the host, so a new one costs nothing. Returns
+    /// whether it wrote one.
     fn reflected_attribute(
         &mut self,
         name: &str,
@@ -859,7 +899,16 @@ impl Bound<'_, '_> {
         readonly: bool,
         ext_attrs: &[ExtAttr],
     ) -> bool {
-        let Some(r) = ext_attrs.iter().find(|a| a.name == "Reflect") else {
+        let find = |n: &str| ext_attrs.iter().find(|a| a.name == n);
+        let url = find("ReflectURL");
+        // A variant's marker stands for `Reflect` too (`[ReflectNonNegative]
+        // attribute long maxLength`).
+        let Some(r) = find("Reflect")
+            .or(url)
+            .or(find("ReflectNonNegative"))
+            .or(find("ReflectPositive"))
+            .or(find("ReflectPositiveWithFallback"))
+        else {
             return false;
         };
         if readonly {
@@ -874,17 +923,145 @@ impl Bound<'_, '_> {
         };
         let content = js_string(&content);
         let id = self.id;
+        let number = |n: &str| {
+            find(n).and_then(|a| match &a.value {
+                ExtAttrValue::Number(v) => v.parse::<i64>().ok(),
+                _ => None,
+            })
+        };
+        let default = number("ReflectDefault");
         let (get, set) = match n.as_str() {
-            "boolean" if !ty.nullable => ("reflectBool", "setReflectBool"),
-            s if is_string(s) && !ty.nullable => ("reflectStr", "setReflectStr"),
+            "boolean" if !ty.nullable => (
+                format!("reflectBool(s, {content})"),
+                format!("setReflectBool(s, {content}, v)"),
+            ),
+            s if is_string(s) && url.is_some() && !ty.nullable => (
+                format!("reflectUrl(s, {content})"),
+                format!("setReflectStr(s, {content}, v)"),
+            ),
+            s if is_string(s) && ty.nullable => (
+                format!("reflectNullable(s, {content})"),
+                format!("setReflectNullable(s, {content}, v)"),
+            ),
+            // `[LegacyNullToEmptyString] DOMString bgColor`: null is ''.
+            s if is_string(s) && has_ext(&ty.ext_attrs, "LegacyNullToEmptyString") => (
+                format!("reflectStr(s, {content})"),
+                format!("setReflectStr(s, {content}, v === null ? '' : v)"),
+            ),
+            s if is_string(s) => (
+                format!("reflectStr(s, {content})"),
+                format!("setReflectStr(s, {content}, v)"),
+            ),
+            "long" if !ty.nullable => {
+                let non_negative = find("ReflectNonNegative").is_some();
+                let default = default.unwrap_or(if non_negative { -1 } else { 0 });
+                (
+                    format!("reflectLong(s, {content}, {default}, {non_negative})"),
+                    format!("setReflectLong(s, {content}, v, {non_negative})"),
+                )
+            }
+            "unsigned long" if !ty.nullable => {
+                // §2.6.1: "limited to only positive numbers" (an error to
+                // set to zero), the same "with fallback" (zero becomes the
+                // default), and "clamped to the range".
+                let positive = find("ReflectPositive").is_some();
+                let fallback = find("ReflectPositiveWithFallback").is_some();
+                let minimum = i64::from(positive || fallback);
+                let range = find("ReflectRange").and_then(|a| match &a.value {
+                    ExtAttrValue::List(l) if l.len() == 2 => Some((
+                        l[0].trim().parse::<i64>().ok()?,
+                        l[1].trim().parse::<i64>().ok()?,
+                    )),
+                    _ => None,
+                });
+                let (low, high) = range.unwrap_or((minimum, 2_147_483_647));
+                // What a missing or unusable attribute reads as, and what the
+                // setter writes for a number it can't hold (-1: its minimum).
+                let read = default.unwrap_or(low.max(minimum));
+                let write = default.unwrap_or(-1);
+                (
+                    format!(
+                        "reflectULong(s, {content}, {read}, {minimum}, {low}, {high}, {})",
+                        range.is_some()
+                    ),
+                    format!("setReflectULong(s, {content}, v, {write}, {minimum}, {positive})"),
+                )
+            }
+            // `[ReflectPositive, ReflectDefault=1.0] attribute double max`.
+            "double" if !ty.nullable => {
+                let positive = find("ReflectPositive").is_some();
+                let default = find("ReflectDefault")
+                    .and_then(|a| match &a.value {
+                        ExtAttrValue::Number(v) => v.parse::<f64>().ok(),
+                        _ => None,
+                    })
+                    .unwrap_or(0.0);
+                (
+                    format!("reflectDouble(s, {content}, {default:?}, {positive})"),
+                    format!("setReflectDouble(s, {content}, v, {positive})"),
+                )
+            }
             _ => return false,
         };
         let _ = writeln!(
             self.out.js,
-            "attr({id}, {}, function () {{ return {get}(self(this, {id}), {content}); }}, function (v) {{ {set}(self(this, {id}), {content}, v); }});",
+            "attr({id}, {}, function () {{ const s = self(this, {id}); return {get}; }}, function (v) {{ const s = self(this, {id}); {set}; }});",
             js_string(name)
         );
         true
+    }
+
+    /// Whether this interface is `Element` or inherits from it.
+    fn is_element(&self) -> bool {
+        let mut at = Some(self.iface.name.clone());
+        let mut steps = 0;
+        while let Some(name) = at {
+            if name == "Element" {
+                return true;
+            }
+            steps += 1;
+            if steps > 32 {
+                return false;
+            }
+            at = self.gen_.set.interface(&name).and_then(|i| i.parent);
+        }
+        false
+    }
+
+    /// Plain reflections come with an element's interface, listed or not:
+    /// the IDL says which attributes are their content attribute's text and
+    /// nothing more, and a setter that only made a property on the wrapper
+    /// would change nothing a page prints. `listed` are the members written
+    /// already.
+    fn reflections(&mut self, listed: &BTreeSet<&str>) {
+        if self.event || !self.is_element() {
+            return;
+        }
+        let mut written: BTreeSet<String> = BTreeSet::new();
+        for m in &self.iface.members.clone() {
+            let MemberKind::Attribute {
+                name,
+                ty,
+                readonly,
+                is_static: false,
+                ..
+            } = &m.member.kind
+            else {
+                continue;
+            };
+            let getter_only = format!("{name}{GETTER_ONLY}");
+            if listed.contains(name.as_str())
+                || listed.contains(getter_only.as_str())
+                || written.contains(name)
+                || JS_MEMBERS.contains(&(self.iface.name.as_str(), name.as_str()))
+                || NOT_REFLECTED.contains(&(self.iface.name.as_str(), name.as_str()))
+            {
+                continue;
+            }
+            if self.reflected_attribute(name, ty, *readonly, &m.member.ext_attrs) {
+                written.insert(name.clone());
+            }
+        }
     }
 
     /// `x` converted for a hand-written member: as for a native one, except
@@ -893,9 +1070,15 @@ impl Bound<'_, '_> {
     /// interface, where that means the legacy initializers, it is converted as
     /// a dictionary member would be: an unbound interface can only be null.
     fn js_impl_arg(&mut self, ty: &Type, x: &str) -> Result<String, GenError> {
-        // A union of a sequence and a string: the glue tells them apart.
+        // A union of a sequence and a string, or of a string and a boolean or
+        // number (`hidden`'s `(boolean or unrestricted double or DOMString)?`,
+        // where WebIDL §3.2.24 keeps a boolean or a number as it is): the
+        // glue tells them apart.
         let by_hand = matches!(&ty.kind, TypeKind::Union(ts)
-            if ts.iter().any(|t| matches!(t.kind, TypeKind::Sequence(_))));
+            if ts.iter().any(|t| matches!(t.kind, TypeKind::Sequence(_)))
+                || (ts.iter().any(|t| matches!(&t.kind, TypeKind::Named(n) if is_string(n)))
+                    && ts.iter().all(|t| matches!(&t.kind, TypeKind::Named(n)
+                        if is_string(n) || is_primitive(n)))));
         if by_hand {
             return Ok(x.to_owned());
         }
@@ -1481,6 +1664,7 @@ impl Bound<'_, '_> {
                 None => self.operation(name)?,
             }
         }
+        self.reflections(&seen);
         if members.contains(&"iterable") {
             if !self
                 .iface
@@ -1613,6 +1797,7 @@ pub fn generate_bindings(
         "HTMLAreaElement",
         "HTMLStyleElement",
         "HTMLUnknownElement",
+        "CharacterData",
     ]) {
         if let Some(id) = bound_id(table, name) {
             let _ = writeln!(js, "const I_{name} = {id};");
@@ -1856,6 +2041,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "id",
             "className",
             "classList",
+            "slot",
             "attributes",
             "hasAttributes",
             "getAttributeNames",
@@ -1907,10 +2093,13 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "title",
             "lang",
             "dir",
+            "hidden",
             "dataset",
             "style",
             "click",
             "innerText",
+            "outerText",
+            "popover",
             "focus",
             "blur",
             "tabIndex",
@@ -1918,7 +2107,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "SVGElement",
-        members: &["style", "focus", "blur", "tabIndex"],
+        members: &["dataset", "style", "focus", "blur", "tabIndex"],
     },
     BindInterface {
         name: "Document",
@@ -1939,8 +2128,14 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "createProcessingInstruction",
             "documentElement",
             "head",
-            "body:getter",
+            "body",
             "title",
+            "dir",
+            "fgColor",
+            "linkColor",
+            "vlinkColor",
+            "alinkColor",
+            "bgColor",
             "readyState",
             "compatMode",
             "characterSet",
@@ -2173,7 +2368,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLImageElement",
-        members: &["src", "alt"],
+        members: &["src", "alt", "width", "height"],
     },
     BindInterface {
         name: "HTMLLinkElement",
@@ -2181,7 +2376,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLScriptElement",
-        members: &["src", "type"],
+        members: &["src", "type", "text"],
     },
     BindInterface {
         name: "HTMLInputElement",
@@ -2195,6 +2390,8 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "disabled",
             "form",
             "indeterminate",
+            "width",
+            "height",
         ],
     },
     BindInterface {
@@ -2283,14 +2480,20 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "hash",
         ],
     },
-    element("HTMLBaseElement"),
+    BindInterface {
+        name: "HTMLBaseElement",
+        members: &["href"],
+    },
     element("HTMLBodyElement"),
     element("HTMLBRElement"),
     BindInterface {
         name: "HTMLButtonElement",
         members: &["disabled", "form", "name", "type", "value"],
     },
-    element("HTMLCanvasElement"),
+    BindInterface {
+        name: "HTMLCanvasElement",
+        members: &["width", "height"],
+    },
     element("HTMLDataElement"),
     element("HTMLDataListElement"),
     BindInterface {
@@ -2349,7 +2552,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     element("HTMLVideoElement"),
     element("HTMLMenuElement"),
     element("HTMLMetaElement"),
-    element("HTMLMeterElement"),
+    BindInterface {
+        name: "HTMLMeterElement",
+        members: &["value", "min", "max", "low", "high", "optimum"],
+    },
     element("HTMLModElement"),
     element("HTMLObjectElement"),
     element("HTMLOListElement"),
@@ -2369,13 +2575,16 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLOutputElement",
-        members: &["form", "name"],
+        members: &["form", "name", "defaultValue", "value"],
     },
     element("HTMLParagraphElement"),
     element("HTMLParamElement"),
     element("HTMLPictureElement"),
     element("HTMLPreElement"),
-    element("HTMLProgressElement"),
+    BindInterface {
+        name: "HTMLProgressElement",
+        members: &["value", "max"],
+    },
     element("HTMLQuoteElement"),
     BindInterface {
         name: "HTMLSelectElement",
@@ -2463,7 +2672,10 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
         ],
     },
     element("HTMLTimeElement"),
-    element("HTMLTitleElement"),
+    BindInterface {
+        name: "HTMLTitleElement",
+        members: &["text"],
+    },
     element("HTMLTrackElement"),
     element("HTMLUListElement"),
     element("HTMLUnknownElement"),
@@ -2677,6 +2889,19 @@ mod tests {
         ));
     }
 
+    /// A member listed as `name:getter` has no setter: one that isn't
+    /// implemented isn't generated (review of #93; `document.body` was one
+    /// until P2-DOM-09).
+    #[test]
+    fn a_getter_only_member_has_no_setter() {
+        let s = set("interface A { attribute DOMString x; };");
+        let b = bind(&s, "A", &["x:getter"]).unwrap();
+        let line = b.js.lines().find(|l| l.contains(r#""x""#)).unwrap();
+        assert!(line.starts_with(r#"attr(0, "x", function () {"#), "{line}");
+        assert!(!line.contains("function (v)"), "{line}");
+        assert!(!b.rust.contains("set_x"), "{}", b.rust);
+    }
+
     #[test]
     fn legacy_null_and_put_forwards() {
         let s = set(
@@ -2701,8 +2926,67 @@ mod tests {
         assert!(b.js.contains("this.l.value = v;"), "{}", b.js);
     }
 
+    /// HTML §2.6.1: an element interface's plain reflections are written
+    /// whether listed or not, each with its type's rule; prose ones, readonly
+    /// ones and other interfaces' are not.
+    #[test]
+    fn reflections_come_with_an_element_interface() {
+        let s = set(
+            r#"interface EventTarget {}; interface Node : EventTarget {};
+            interface Element : Node { [Reflect] attribute DOMString id; };
+            interface HTMLElement : Element {};
+            interface X : HTMLElement {
+              [Reflect] attribute boolean b;
+              [ReflectURL] attribute USVString u;
+              [Reflect="for"] attribute DOMString? f;
+              [Reflect] attribute [LegacyNullToEmptyString] DOMString c;
+              [ReflectNonNegative] attribute long n;
+              [Reflect, ReflectDefault=1, ReflectRange=(1, 1000)] attribute unsigned long r;
+              [ReflectPositiveWithFallback, ReflectDefault=20] attribute unsigned long w;
+              [ReflectPositive, ReflectDefault=1.0] attribute double d;
+              [Reflect] readonly attribute DOMString ro;
+              attribute DOMString prose;
+            };
+            interface Other { [Reflect] attribute DOMString z; };"#,
+        );
+        let table = [
+            "EventTarget",
+            "Node",
+            "Element",
+            "HTMLElement",
+            "X",
+            "Other",
+        ]
+        .map(|name| BindInterface { name, members: &[] });
+        let b = generate_bindings(&s, &table, "h").unwrap();
+        for piece in [
+            r#"attr(2, "id", function () { const s = self(this, 2); return reflectStr(s, "id"); }"#,
+            r#"return reflectBool(s, "b"); }, function (v) { const s = self(this, 4); setReflectBool(s, "b", v); }"#,
+            r#"return reflectUrl(s, "u"); }, function (v) { const s = self(this, 4); setReflectStr(s, "u", v); }"#,
+            r#"return reflectNullable(s, "for"); }"#,
+            r#"setReflectStr(s, "c", v === null ? '' : v);"#,
+            r#"return reflectLong(s, "n", -1, true); }, function (v) { const s = self(this, 4); setReflectLong(s, "n", v, true); }"#,
+            r#"return reflectULong(s, "r", 1, 0, 1, 1000, true); }, function (v) { const s = self(this, 4); setReflectULong(s, "r", v, 1, 0, false); }"#,
+            r#"return reflectULong(s, "w", 20, 1, 1, 2147483647, false); }, function (v) { const s = self(this, 4); setReflectULong(s, "w", v, 20, 1, false); }"#,
+            r#"return reflectDouble(s, "d", 1.0, true); }, function (v) { const s = self(this, 4); setReflectDouble(s, "d", v, true); }"#,
+        ] {
+            assert!(b.js.contains(piece), "{piece} not in {}", b.js);
+        }
+        for absent in [r#""ro""#, r#""prose""#, r#""z""#] {
+            assert!(!b.js.contains(absent), "{absent} in {}", b.js);
+        }
+    }
+
     #[test]
     fn vendored_table_generates() {
-        crate::generate_vendored_bindings().unwrap();
+        let b = crate::generate_vendored_bindings().unwrap();
+        // A hand-written member whose type is a union of a string and a
+        // boolean or number gets the value as it came, for the glue to tell
+        // them apart (`hidden`).
+        let line =
+            b.js.lines()
+                .find(|l| l.contains("H.set_HTMLElement_hidden("))
+                .unwrap();
+        assert!(line.ends_with("), v); });"), "{line}");
     }
 }

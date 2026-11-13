@@ -57,8 +57,8 @@ JS wrapper ──#g/#h──▶ [generation, handle] ──native call──▶ 
 `crates/webidl/src/bindgen.rs` turns the `DOM_BINDINGS` table (interface and
 member names, checked against the vendored IDL) into two checked-in files,
 `src/generated/bindings.js` and `src/generated/dispatch.rs`; `tests/generated.rs`
-fails when they are stale. Only listed members exist in JavaScript, so a page's
-feature detection sees the truth, with one caveat: every element's interface
+fails when they are stale. Only listed members exist in JavaScript, and the plain
+reflections (below), so a page's feature detection sees the truth, with one caveat: every element's interface
 exists, members or not, so `typeof HTMLCanvasElement` is `function` though
 `getContext` isn't there, and a page that tests the constructor and then calls the
 method gets a TypeError where it would have taken its fallback (for COMPAT). The hand-written glue is only infrastructure:
@@ -1338,8 +1338,35 @@ CharacterData's.
 A `<template>`'s content is a fragment outside the tree, in `Document::templates`.
 Everything that walks what a node owns goes through `push_owned`, so limits,
 bytes and drops see it. `input.value` and `checked` write the attribute rather
-than a dirty state: what a script fills in has to reach the printed page. URL
-attributes parse without a base, so a relative one reads back as written.
+than a dirty state: what a script fills in has to reach the printed page.
+
+**A write that only made a property would lose what the script meant to print**
+(`el.hidden = true` printed a visible element until P2-DOM-09). So:
+
+- **Plain reflections come with their interface, listed or not.** Every writable
+  attribute of an element interface that the IDL marks `[Reflect]`, `[ReflectURL]`,
+  `[ReflectNonNegative]`, `[ReflectPositive]` or `[ReflectPositiveWithFallback]` is
+  generated with HTML §2.6.1's getter and setter for its type (`DOMString`,
+  `DOMString?`, `USVString` as a URL, `boolean`, `long`, `unsigned long`, `double`),
+  with `[ReflectDefault]` and `[ReflectRange]`; the helpers are `reflect*` in
+  `glue_head.js`. The IDL leaves "limited to only known values" and the like to
+  prose, so a marked attribute needs nothing more. A URL is parsed against the
+  document's base URL, or read back as written if that fails.
+- **Prose reflections are written by hand**, in the glue (`popover`, `outerText`,
+  img, input and canvas `width`/`height`, progress and meter values, output
+  `value`/`defaultValue`, title and script `text`) or in `host.rs` (`dir`,
+  `document.dir`, the document's legacy colours, `slot`, `base.href`), each with its
+  section's steps; `tests/reflection.rs` checks them.
+- **The audit.** `the_audit` in `tests/reflection.rs` writes every writable (or
+  `[PutForwards]`) attribute of the element interfaces, `SVGElement` and `Document`
+  on an element in the page, fails if a plain reflection is wrong, and prints what
+  each other write did: `writes the tree`, `keeps the value` (state the page can't
+  print), `no effect`, `unbound` (an expando: nothing exists) or what it threw.
+  Event handler attributes are left out.
+
+An img's `width` is a layout query only when the element is connected (§4.8.17:
+"being rendered"); under `LayoutPolicy::Zeros` it has no box, so the attribute
+answers, and no image is ever available, so with no attribute it is 0.
 
 ## Errors
 
@@ -1519,3 +1546,21 @@ churn: create, append, `textContent = ''` in a loop) is bounded by
   parses with scripting off, so it builds that content as markup and may
   print it: the hand-off (E2-08) has to drop `<noscript>`. E2-02 adds
   `<template>` contents.
+- **Attributes a write doesn't reach (P2-DOM-09's audit).** Unbound, so a write is
+  an expando: `style.disabled` and `document.adoptedStyleSheets` (a sheet a script
+  turns off still prints), `input.valueAsNumber` and `valueAsDate`, the
+  `DOMTokenList`s other than `classList` (`relList`, `iframe.sandbox`, `link.sizes`,
+  `blocking`, `output.htmlFor`), the enumerated ones limited to known values that
+  don't print (`crossOrigin`, `referrerPolicy`, `loading`, `decoding`,
+  `fetchPriority`, `as`, `formEnctype`, `formMethod`, `popoverTargetAction`,
+  `inputMode`, `enterKeyHint`, `shadowRootMode`, `shadowRootSlotAssignment`,
+  `track.kind`), `translate`, `draggable`, `spellcheck`, `autocorrect`,
+  `writingSuggestions`, `autocapitalize`, `contentEditable`, `nonce`,
+  `autocomplete`, `formAction`, `command`, the `…Element` reflections,
+  `dialog.returnValue` and `closedBy`, `script.async`, `marquee.loop`,
+  `document.domain` and `designMode`. State the printed page can't carry:
+  `input.indeterminate`, and a `select` with no option selected
+  (`selectedIndex = -1`, a `value` no option has), which prints its first option.
+  `scrollTop` and `scrollLeft` are layout (phase 3). And the reverse: `className`
+  on an SVG element is `Element`'s string, where SVG 2 gives an `SVGAnimatedString`
+  that a write doesn't change.

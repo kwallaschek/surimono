@@ -183,12 +183,12 @@ let options = Options::new()
 | `now_ms(i64)` | `DEFAULT_NOW_MS` (2026-01-01T00:00:00Z) | What `Date.now()` and `new Date()` return, in ms since the epoch |
 | `utc_offset_minutes(i32)` | 0 | Local time's offset from UTC for scripts (-720 to 840) |
 | `text_mode(TextMode)` | `Outlines` | `Outlines` draws chart text as paths in your fonts; `Keep` leaves `<text>` |
-
-The host's clock and time zone are never read.
-
 | `layout_queries(LayoutQueries)` | `Zeros` | What a page's layout queries give; see [Layout queries](#layout-queries) |
 | `keep_scripts(bool)` | `false` | Leaves `<script>` elements in a page's output |
+| `printer_safe(bool)` | `true` | Writes a page's output in forms fulgur prints the way Chrome prints the page; see [Printer-safe output](#printer-safe-output) |
 | `resource_loader(ResourceLoader)` | none | What a page may load; see [External files and frames](#external-files-and-frames) |
+
+The host's clock and time zone are never read.
 
 ### Limits
 
@@ -321,9 +321,48 @@ so it isn't byte-identical to what you passed in:
 - `<noscript>` is gone, and `<script>` too, except island markers on their way
   to becoming SVG. `Options::keep_scripts(true)` keeps the scripts, for an engine
   that would run them.
-- A page with no doctype or an old one comes out with no doctype;
-  a standards-mode page comes out with `<!doctype html>`.
+- A page in quirks mode (no doctype, or an old one such as HTML 4.01
+  Transitional without its URL) comes out with no doctype; any other page comes
+  out with `<!doctype html>`.
 - The output is screened so the printer's parse matches ours.
+- The output is printer-safe, unless `Options::printer_safe(false)` says
+  otherwise. See below.
+
+#### Printer-safe output
+
+fulgur 0.40 prints some ordinary pages wrong although their DOM is right. For
+three of those gaps there is a form of the page that it prints right, and by
+default `page.html` is written in that form:
+
+- A block `<svg>` keeps the size its `width` and `height` give it, and a border
+  on one side prints in its own colour, not the text's. Both come from rules
+  in one `<style>` added in `<head>` before the page's own style sheets, and
+  they rank below all of the page's CSS.
+- A `<pre>` whose text ends in a newline loses that newline, which a browser
+  doesn't print, so the box isn't a line taller.
+
+Each is made only where Chrome prints the result exactly as it prints the page,
+whatever the page's CSS says. Where that can't be told from the page, the page
+is left as it is. Among the cases:
+
+- A script may be left in it, in any form a browser runs while it prints:
+  a `<script>` (with `keep_scripts(true)`), any attribute whose name starts with
+  `on` (`onclick`, and also `one`), a `srcdoc`, a `javascript:` URL, or an
+  `<iframe>`, `<object>` or `<embed>` that loads a document.
+- Some of its CSS isn't in the page: a `<link rel="stylesheet">` or an
+  `@import`. Sheets loaded through a `ResourceLoader` are in the page.
+- Chrome's parser may build another tree from it: it has an HTML element the
+  pass doesn't know (among them `<select>`, `<option>`, `<optgroup>`,
+  `<datalist>`, `<slot>` and `<frameset>`; a custom element is known),
+  a MathML `annotation-xml`, a `<style>` with a child that isn't text, or a
+  declarative shadow root (`<template shadowrootmode>`).
+- The pass couldn't read all of its CSS to the end: an at-rule it doesn't know
+  (`@-ms-viewport`, `@-moz-keyframes`), or nesting too deep.
+- The pass runs out of its steps or of time. The plain page then goes out, and
+  the render doesn't fail.
+
+A page in quirks mode gets only the `<svg>` sizes. With `printer_safe(false)`,
+`page.html` is the serialized DOM and nothing else.
 
 The same options, HTML and files give the same bytes. Scripts see `now_ms` and
 `utc_offset_minutes`, and `Math.random` follows `seed`. Timers run on a virtual
@@ -407,6 +446,11 @@ fn main() -> Result<(), Error> {
 
 The render ends at the first query, even if the page catches the exception.
 
+When layout queries give real answers, they are meant to measure as Chrome
+does, since scripts are written against Chrome. fulgur lays pages out with
+Blitz, which prints some of those layouts differently, so a page that sizes
+things from those answers may print differently with stock fulgur.
+
 ### Cancelling a page
 
 `render_page_cancellable` takes an `AtomicBool`, as `render_islands_cancellable`
@@ -424,8 +468,9 @@ the function runs on your thread, so the flag is looked at when it returns.
 - `type="module"` scripts don't run; `nomodule` scripts do.
 - There is no `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
   `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `Intl` or shadow DOM.
-  Calling a missing method stops that script, with `TypeError: not a function`
-  in the report.
+  Using one stops that script, with an error in the report: a missing global
+  gives `ReferenceError: fetch is not defined`, and calling a missing method
+  (`element.attachShadow()`) gives `TypeError: not a function`.
 - `document.write` doesn't exist, so the script that calls it stops there.
 - `innerText` sees no stylesheet until phase 3: it follows `hidden`, an inline
   `display: none` and each element's default display, so text a stylesheet

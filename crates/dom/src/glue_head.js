@@ -265,6 +265,129 @@
     if (v) call(OP_setAttribute, s.g, s.h, name, '');
     else call(OP_removeAttribute, s.g, s.h, name);
   }
+  // A nullable string: null for no attribute, and null removes it.
+  function reflectNullable(s, name) { return call(OP_getAttribute, s.g, s.h, name); }
+  function setReflectNullable(s, name, v) {
+    if (v === null || v === undefined) call(OP_removeAttribute, s.g, s.h, name);
+    else call(OP_setAttribute, s.g, s.h, name, str(v));
+  }
+  // A URL: the attribute's value parsed against the document's base, or as it
+  // is if that fails; the empty string for no attribute.
+  function reflectUrl(s, name) {
+    const v = call(OP_getAttribute, s.g, s.h, name);
+    if (v === null) return '';
+    const url = call(OP_urlJoin, s.g, s.h, v);
+    return url === '' ? v : url;
+  }
+  // HTML §2.3.4.1 "rules for parsing integers": white space, a sign, digits,
+  // and whatever follows them is ignored. NaN for no number.
+  function parseInteger(text) {
+    const length = text.length;
+    let i = 0;
+    for (; i < length; i++) {
+      const c = apply(charCodeAt, text, [i]);
+      if (c !== 0x20 && c !== 0x09 && c !== 0x0A && c !== 0x0C && c !== 0x0D) break;
+    }
+    let sign = 1;
+    const first = i < length ? apply(charCodeAt, text, [i]) : 0;
+    if (first === 0x2D) { sign = -1; i++; } else if (first === 0x2B) i++;
+    let value = 0, digits = 0;
+    for (; i < length; i++) {
+      const c = apply(charCodeAt, text, [i]);
+      if (c < 0x30 || c > 0x39) break;
+      // Past any range a caller accepts, the digits no longer matter.
+      if (value < 1e15) value = value * 10 + (c - 0x30);
+      digits++;
+    }
+    return digits === 0 ? NaN : sign * value;
+  }
+  // `long`: the parsed integer if it is one in range, else the default.
+  function reflectLong(s, name, fallback, nonNegative) {
+    const v = call(OP_getAttribute, s.g, s.h, name);
+    if (v === null) return fallback;
+    const n = parseInteger(v);
+    if (n !== n || n > 2147483647 || n < (nonNegative ? 0 : -2147483648)) return fallback;
+    return n === 0 ? 0 : n;
+  }
+  function setReflectLong(s, name, v, nonNegative) {
+    const n = v | 0;
+    if (nonNegative && n < 0) throwDom('IndexSizeError', `${name} can't be negative`);
+    call(OP_setAttribute, s.g, s.h, name, `${n}`);
+  }
+  // `unsigned long`: the parsed non-negative integer if it is in range (or,
+  // clamped, the nearest end of the range), else the default.
+  function reflectULong(s, name, fallback, minimum, low, high, clamped) {
+    const v = call(OP_getAttribute, s.g, s.h, name);
+    if (v === null) return fallback;
+    const n = parseInteger(v);
+    if (n !== n || n < 0) return fallback;
+    if (clamped) return n < low ? low : n > high ? high : n;
+    if (n < minimum || n > 2147483647) return fallback;
+    return n === 0 ? 0 : n;
+  }
+  function setReflectULong(s, name, v, fallback, minimum, positive) {
+    const n = v >>> 0;
+    if (positive && n === 0) throwDom('IndexSizeError', `${name} can't be zero`);
+    let next = fallback < 0 ? minimum : fallback;
+    if (n >= minimum && n <= 2147483647) next = n;
+    call(OP_setAttribute, s.g, s.h, name, `${next}`);
+  }
+  // HTML §2.3.4.3 "rules for parsing floating-point number values": the
+  // digits the rules read, put back together and converted once, which rounds
+  // to the nearest double as the rules' last step does. NaN for an error.
+  function isDigit(c) { return c >= 0x30 && c <= 0x39; }
+  function parseFloatNumber(text) {
+    const length = text.length;
+    const at = (i) => (i < length ? apply(charCodeAt, text, [i]) : -1);
+    const digits = (from) => { let i = from; while (isDigit(at(i))) i++; return i; };
+    const cut = (a, b) => apply(slice, text, [a, b]);
+    let i = 0;
+    for (; i < length; i++) {
+      const c = at(i);
+      if (c !== 0x20 && c !== 0x09 && c !== 0x0A && c !== 0x0C && c !== 0x0D) break;
+    }
+    let sign = '';
+    if (at(i) === 0x2D) { sign = '-'; i++; } else if (at(i) === 0x2B) i++;
+    let whole = '0', fraction = '0', exponent = '0';
+    if (at(i) === 0x2E && isDigit(at(i + 1))) {
+      // ".5": value zero, straight to the fraction.
+    } else {
+      if (!isDigit(at(i))) return NaN;
+      const end = digits(i);
+      whole = cut(i, end);
+      i = end;
+    }
+    if (at(i) === 0x2E) {
+      i++;
+      const end = digits(i);
+      if (end > i) fraction = cut(i, end);
+      i = end;
+    }
+    if (at(i) === 0x65 || at(i) === 0x45) {
+      let j = i + 1, expSign = '';
+      if (at(j) === 0x2D) { expSign = '-'; j++; } else if (at(j) === 0x2B) j++;
+      const end = digits(j);
+      if (end > j) exponent = expSign + cut(j, end);
+    }
+    const value = +`${sign}${whole}.${fraction}e${exponent}`;
+    // "-0" is zero, and what rounds to 2^1024 is an error.
+    if (value - value !== 0) return NaN;
+    return value === 0 ? 0 : value;
+  }
+  // `double`, optionally limited to only positive numbers.
+  function reflectDouble(s, name, fallback, positive) {
+    const v = call(OP_getAttribute, s.g, s.h, name);
+    if (v !== null) {
+      const n = parseFloatNumber(v);
+      if (n === n && (n > 0 || !positive)) return n;
+    }
+    return fallback;
+  }
+  function setReflectDouble(s, name, v, positive) {
+    const n = dbl(v);
+    if (positive && !(n > 0)) return;
+    call(OP_setAttribute, s.g, s.h, name, `${n}`);
+  }
   function iterable(id) {
     const p = protos[id];
     op(id, 'forEach', arrayForEach);

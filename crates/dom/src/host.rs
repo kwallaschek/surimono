@@ -579,6 +579,37 @@ impl Document {
         Document::set_attribute(self, id, name, value).map_err(|e| self.fail(e))
     }
 
+    /// HTML "the html element" of document `doc`: its document element, if
+    /// that is an HTML `html` element.
+    fn html_element_of(&self, doc: usize) -> Option<usize> {
+        self.document_element_of(doc)
+            .filter(|&e| self.is_html_element(e, &["html"]))
+    }
+
+    /// HTML §16.3.3: `document.fgColor` and the others reflect the body
+    /// element's attribute when it is a `body`; for a `frameset` or none,
+    /// they are empty and a write does nothing.
+    fn body_element_proper(&mut self, this: ObjectId) -> BindingResult<Option<usize>> {
+        let id = self.node_of(this)?;
+        Ok(Document::body(self, id).filter(|&b| self.is_html_element(b, &["body"])))
+    }
+
+    fn body_color(&mut self, this: ObjectId, name: &str) -> BindingResult<String> {
+        Ok(match self.body_element_proper(this)? {
+            Some(body) => self.attribute(body, name).unwrap_or_default(),
+            None => String::new(),
+        })
+    }
+
+    fn set_body_color(&mut self, this: ObjectId, name: &str, value: &str) -> BindingResult<()> {
+        match self.body_element_proper(this)? {
+            Some(body) => {
+                Document::set_attribute(self, body, name, value).map_err(|e| self.fail(e))
+            }
+            None => Ok(()),
+        }
+    }
+
     /// A reflected URL attribute (HTML §2.6.1): the value parsed against the
     /// document's base URL, or as written if that fails.
     fn reflected_url(&mut self, this: ObjectId, name: &str) -> BindingResult<String> {
@@ -810,9 +841,11 @@ impl Document {
         })
     }
 
-    /// `text` resolved against document `this`'s base URL, or empty.
+    /// `text` resolved against the base URL of document `this`, or of node
+    /// `this`'s document, or empty.
     pub(crate) fn url_join(&mut self, this: ObjectId, text: String) -> BindingResult<String> {
-        let doc = self.node_of(this)?;
+        let node = self.node_of(this)?;
+        let doc = self.owner_of_node(node);
         let base = self.base_url(doc);
         let joined = url::Url::parse(&base).and_then(|b| b.join(&text));
         let url = joined.or_else(|_| url::Url::parse(&text));
@@ -1531,6 +1564,15 @@ impl idl::Element for Document {
         self.reflect(this, "class", &value)
     }
 
+    /// DOM §4.9: the `slot` attribute's value, and a write sets it.
+    fn slot(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.reflected(this, "slot")
+    }
+
+    fn set_slot(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "slot", &value)
+    }
+
     fn class_list(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
         let id = self.node_of(this)?;
         self.owned_object(id, Owned::Tokens, move || Object::Tokens(id))
@@ -1963,6 +2005,17 @@ impl idl::HTMLElement for Document {
         self.reflect(this, "lang", &value)
     }
 
+    /// HTML §3.2.6.4: `dir` reflects the attribute, limited to only known
+    /// values.
+    fn dir(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Ok(known_dir(self.attribute(id, "dir")))
+    }
+
+    fn set_dir(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "dir", &value)
+    }
+
     fn dataset(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
         let id = self.node_of(this)?;
         self.owned_object(id, Owned::Dataset, move || Object::Dataset(id))
@@ -2032,6 +2085,15 @@ impl idl::Document for Document {
         self.opt_object(e)
     }
 
+    fn set_body(&mut self, this: ObjectId, value: Option<ObjectId>) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        let new = match value {
+            Some(v) => Some(self.node_of(v)?),
+            None => None,
+        };
+        self.set_document_body(id, new)
+    }
+
     fn title(&mut self, this: ObjectId) -> BindingResult<String> {
         let id = self.node_of(this)?;
         Document::title(self, id)
@@ -2040,6 +2102,66 @@ impl idl::Document for Document {
     fn set_title(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         let id = self.node_of(this)?;
         Document::set_title(self, id, &value)
+    }
+
+    /// HTML §3.2.6.4: the `html` element's `dir`, limited to only known
+    /// values; with no `html` element, empty, and a write does nothing.
+    fn dir(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        Ok(match self.html_element_of(id) {
+            Some(html) => known_dir(self.attribute(html, "dir")),
+            None => String::new(),
+        })
+    }
+
+    fn set_dir(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        match self.html_element_of(id) {
+            Some(html) => {
+                Document::set_attribute(self, html, "dir", &value).map_err(|e| self.fail(e))
+            }
+            None => Ok(()),
+        }
+    }
+
+    fn fg_color(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.body_color(this, "text")
+    }
+
+    fn set_fg_color(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.set_body_color(this, "text", &value)
+    }
+
+    fn link_color(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.body_color(this, "link")
+    }
+
+    fn set_link_color(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.set_body_color(this, "link", &value)
+    }
+
+    fn vlink_color(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.body_color(this, "vlink")
+    }
+
+    fn set_vlink_color(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.set_body_color(this, "vlink", &value)
+    }
+
+    fn alink_color(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.body_color(this, "alink")
+    }
+
+    fn set_alink_color(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.set_body_color(this, "alink", &value)
+    }
+
+    fn bg_color(&mut self, this: ObjectId) -> BindingResult<String> {
+        self.body_color(this, "bgcolor")
+    }
+
+    fn set_bg_color(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.set_body_color(this, "bgcolor", &value)
     }
 
     fn ready_state(&mut self, this: ObjectId) -> BindingResult<String> {
@@ -2972,6 +3094,29 @@ impl idl::SVGElement for Document {
     fn style(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
         idl::HTMLElement::style(self, this)
     }
+
+    /// `HTMLOrSVGOrMathMLElement`'s `dataset`, as for an HTML element.
+    fn dataset(&mut self, this: ObjectId) -> BindingResult<ObjectId> {
+        idl::HTMLElement::dataset(self, this)
+    }
+}
+
+impl idl::HTMLBaseElement for Document {
+    /// HTML §4.2.3: the `href` attribute parsed against the document's
+    /// fallback base URL (so no `base` element affects it), or as written if
+    /// that fails; the empty string parsed for no attribute.
+    fn href(&mut self, this: ObjectId) -> BindingResult<String> {
+        let id = self.node_of(this)?;
+        let value = self.attribute(id, "href").unwrap_or_default();
+        let fallback = self.url(self.owner_of_node(id)).to_owned();
+        let parsed = url::Url::parse(&fallback).and_then(|b| b.join(&value));
+        let parsed = parsed.or_else(|_| url::Url::parse(&value));
+        Ok(parsed.map_or(value, String::from))
+    }
+
+    fn set_href(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
+        self.reflect(this, "href", &value)
+    }
 }
 
 impl idl::CSSStyleDeclaration for Document {
@@ -3280,5 +3425,20 @@ impl idl::HTMLInputElement for Document {
             Document::remove_attribute(self, id, "checked");
             Ok(())
         }
+    }
+}
+
+/// HTML §3.2.6.4, `dir` limited to only known values: the keyword the
+/// attribute's value matches, ASCII case-insensitively, or empty.
+fn known_dir(value: Option<String>) -> String {
+    match value {
+        Some(v)
+            if ["ltr", "rtl", "auto"]
+                .iter()
+                .any(|k| v.eq_ignore_ascii_case(k)) =>
+        {
+            v.to_ascii_lowercase()
+        }
+        _ => String::new(),
     }
 }

@@ -525,6 +525,232 @@
     }
   }
 
+  // ------ hidden (HTML §6.1 "The hidden attribute") ------
+  //
+  // The IDL type is a union, `(boolean or unrestricted double or DOMString)?`,
+  // so this one is written by hand, in the spec's steps.
+  H.HTMLElement_hidden = (s) => {
+    const v = attrOf(s, 'hidden');
+    // 1. "If the hidden attribute is in the Hidden Until Found state, then
+    //    return "until-found"."
+    if (v !== null && asciiLower(v) === 'until-found') return 'until-found';
+    // 2. "If the hidden attribute is set, then return true." 3. "Return false."
+    return v !== null;
+  };
+  H.set_HTMLElement_hidden = (s, given) => {
+    // WebIDL's conversion to a union: null and undefined are null, a boolean
+    // and a number stay, anything else is a string.
+    let v = given === undefined ? null : given;
+    if (v !== null && typeof v !== 'boolean' && typeof v !== 'number') v = str(v);
+    // 1. "If the given value is a string that is an ASCII case-insensitive
+    //    match for "until-found", then set the hidden attribute to
+    //    "until-found"."
+    if (typeof v === 'string' && asciiLower(v) === 'until-found') {
+      call(OP_setAttribute, s.g, s.h, 'hidden', 'until-found');
+    // 2. to 6. false, the empty string, null, 0 and NaN remove it.
+    } else if (v === false || v === '' || v === null || v === 0 || v !== v) {
+      call(OP_removeAttribute, s.g, s.h, 'hidden');
+    // 7. "Otherwise, set the hidden attribute to the empty string."
+    } else {
+      call(OP_setAttribute, s.g, s.h, 'hidden', '');
+    }
+  };
+
+  // ------ Attributes the IDL leaves to prose ------
+  //
+  // Each changes what is printed, so a write that only made a property on the
+  // wrapper would lose it. The plain reflections are generated (§2.6.1).
+
+  // HTML §6.12 "The popover attribute": reflected, limited to only known
+  // values. Missing is "No Popover" (null), empty is Auto, invalid is Manual.
+  H.HTMLElement_popover = (s) => {
+    const v = attrOf(s, 'popover');
+    if (v === null) return null;
+    const k = asciiLower(v);
+    if (k === '' || k === 'auto') return 'auto';
+    if (k === 'hint') return 'hint';
+    return 'manual';
+  };
+  H.set_HTMLElement_popover = (s, v) => { setReflectNullable(s, 'popover', v); };
+
+  // HTML §3.2.7: `outerText` reads as `innerText` does, and a write puts the
+  // rendered text fragment in the element's place, then merges the Text
+  // nodes on either side.
+  const innerText_ = rdescriptor(protos[I_HTMLElement], 'innerText').get;
+  // previousSibling_ is glue_traversal.js's.
+  const createTextNode_ = protos[I_Document].createTextNode;
+  const createDocumentFragment_ = protos[I_Document].createDocumentFragment;
+  const appendData_ = protos[I_CharacterData].appendData;
+  const data_ = rdescriptor(protos[I_CharacterData], 'data').get;
+  const isText = (n) => n !== null && apply(nodeType_, n, []) === 3;
+  H.HTMLElement_outerText = (s) => apply(innerText_, s.w, []);
+  H.set_HTMLElement_outerText = (s, v) => {
+    const el = s.w;
+    // 1. "If this's parent is null, then throw a "NoModificationAllowedError"."
+    const parent = apply(parentNode_, el, []);
+    if (parent === null) throwDom('NoModificationAllowedError', 'outerText: the element has no parent');
+    // 2. and 3.
+    const next = apply(nextSibling_, el, []);
+    const previous = apply(previousSibling_, el, []);
+    // 4. "the rendered text fragment for the given value given this's node
+    //    document": each run of characters other than LF and CR is a Text
+    //    node, and each line break (CR LF counting once) a br.
+    const doc = apply(ownerDocument_, el, []);
+    const fragment = apply(createDocumentFragment_, doc, []);
+    const length = v.length;
+    let i = 0;
+    while (i < length) {
+      let j = i;
+      while (j < length) {
+        const c = apply(charCodeAt, v, [j]);
+        if (c === 0x0A || c === 0x0D) break;
+        j++;
+      }
+      if (j > i) apply(appendChild_, fragment, [apply(createTextNode_, doc, [apply(slice, v, [i, j])])]);
+      i = j;
+      while (i < length) {
+        const c = apply(charCodeAt, v, [i]);
+        if (c !== 0x0A && c !== 0x0D) break;
+        if (c === 0x0D && i + 1 < length && apply(charCodeAt, v, [i + 1]) === 0x0A) i++;
+        i++;
+        apply(appendChild_, fragment, [apply(createElementNS_, doc, [XHTML, 'br'])]);
+      }
+    }
+    // 5. "If fragment has no children, then append a new Text node whose data
+    //    is the empty string".
+    if (apply(firstChild_, fragment, []) === null) {
+      apply(appendChild_, fragment, [apply(createTextNode_, doc, [''])]);
+    }
+    // 6. "Replace this with fragment within this's parent."
+    apply(replaceChild_, parent, [fragment, el]);
+    // 7. and 8. "merge with the next text node".
+    const merge = (node) => {
+      const after = apply(nextSibling_, node, []);
+      if (!isText(after)) return;
+      apply(appendData_, node, [apply(data_, after, [])]);
+      remove(apply(parentNode_, after, []), after);
+    };
+    if (next !== null) {
+      const before = apply(previousSibling_, next, []);
+      if (isText(before)) merge(before);
+    }
+    if (isText(previous)) merge(previous);
+  };
+
+  // HTML §4.8.3 and §4.10.5: an img's, or an image button's, `width` and
+  // `height` are "the dimensions of" the element (§4.8.17): its content box
+  // if it is being rendered, else its natural size if an image is available,
+  // overridden by the attribute parsed as a non-negative integer. A box is a
+  // layout query; no image is ever available here, so its natural size is 0.
+  function dimension(s, name, image) {
+    if (image && call(OP_isConnected, s.g, s.h)) askElement(s, name);
+    if (!image) return 0;
+    const v = attrOf(s, name);
+    if (v === null) return 0;
+    const n = parseInteger(v);
+    // A value past `unsigned long` is an error, as in Chromium's parser.
+    return n === n && n >= 0 && n <= 4294967295 ? n : 0;
+  }
+  const isImageButton = (s) => {
+    const t = attrOf(s, 'type');
+    return t !== null && asciiLower(t) === 'image';
+  };
+  H.HTMLImageElement_width = (s) => dimension(s, 'width', true);
+  H.HTMLImageElement_height = (s) => dimension(s, 'height', true);
+  H.HTMLInputElement_width = (s) => dimension(s, 'width', isImageButton(s));
+  H.HTMLInputElement_height = (s) => dimension(s, 'height', isImageButton(s));
+  // [ReflectSetter]: §2.6.1's `unsigned long` setter, with no default.
+  H.set_HTMLImageElement_width = (s, v) => { setReflectULong(s, 'width', v, -1, 0, false); };
+  H.set_HTMLImageElement_height = (s, v) => { setReflectULong(s, 'height', v, -1, 0, false); };
+  H.set_HTMLInputElement_width = H.set_HTMLImageElement_width;
+  H.set_HTMLInputElement_height = H.set_HTMLImageElement_height;
+
+  // HTML §4.12.5: a canvas's `width` and `height` "reflect the respective
+  // content attributes of the same name, with the same defaults", 300 and 150.
+  H.HTMLCanvasElement_width = (s) => reflectULong(s, 'width', 300, 0, 0, 2147483647, false);
+  H.HTMLCanvasElement_height = (s) => reflectULong(s, 'height', 150, 0, 0, 2147483647, false);
+  H.set_HTMLCanvasElement_width = (s, v) => { setReflectULong(s, 'width', v, 300, 0, false); };
+  H.set_HTMLCanvasElement_height = (s, v) => { setReflectULong(s, 'height', v, 150, 0, false); };
+
+  // HTML §4.10.13: a progress bar's `value` is 0 when it is indeterminate
+  // (no value attribute), else its current value; the setter is [ReflectSetter].
+  const floatAttr = (s, name) => {
+    const v = attrOf(s, name);
+    return v === null ? NaN : parseFloatNumber(v);
+  };
+  H.HTMLProgressElement_value = (s) => {
+    if (attrOf(s, 'value') === null) return 0;
+    const m = floatAttr(s, 'max');
+    const max = m > 0 ? m : 1;
+    const p = floatAttr(s, 'value');
+    const value = p > 0 ? p : 0;
+    return value > max ? max : value;
+  };
+  H.set_HTMLProgressElement_value = (s, v) => { setReflectDouble(s, 'value', v, false); };
+
+  // HTML §4.10.14: a meter's six points, in the spec's order, each clamped by
+  // the ones before it. Each getter returns one; each setter is [ReflectSetter].
+  function meterPoints(s) {
+    const or = (n, fallback) => (n === n ? n : fallback);
+    const clamp = (n, low, high) => (n < low ? low : n > high ? high : n);
+    const p = create(null);
+    p.min = or(floatAttr(s, 'min'), 0);
+    const max = or(floatAttr(s, 'max'), 1);
+    p.max = max >= p.min ? max : p.min;
+    p.value = clamp(or(floatAttr(s, 'value'), 0), p.min, p.max);
+    p.low = clamp(or(floatAttr(s, 'low'), p.min), p.min, p.max);
+    p.high = clamp(or(floatAttr(s, 'high'), p.max), p.low, p.max);
+    // "the midpoint between the minimum value and the maximum value"; halves
+    // first where the sum would overflow.
+    const sum = (p.min + p.max) / 2;
+    const middle = sum - sum === 0 ? sum : p.min / 2 + p.max / 2;
+    p.optimum = clamp(or(floatAttr(s, 'optimum'), middle), p.min, p.max);
+    return p;
+  }
+  H.HTMLMeterElement_value = (s) => meterPoints(s).value;
+  H.HTMLMeterElement_min = (s) => meterPoints(s).min;
+  H.HTMLMeterElement_max = (s) => meterPoints(s).max;
+  H.HTMLMeterElement_low = (s) => meterPoints(s).low;
+  H.HTMLMeterElement_high = (s) => meterPoints(s).high;
+  H.HTMLMeterElement_optimum = (s) => meterPoints(s).optimum;
+  H.set_HTMLMeterElement_value = (s, v) => { setReflectDouble(s, 'value', v, false); };
+  H.set_HTMLMeterElement_min = (s, v) => { setReflectDouble(s, 'min', v, false); };
+  H.set_HTMLMeterElement_max = (s, v) => { setReflectDouble(s, 'max', v, false); };
+  H.set_HTMLMeterElement_low = (s, v) => { setReflectDouble(s, 'low', v, false); };
+  H.set_HTMLMeterElement_high = (s, v) => { setReflectDouble(s, 'high', v, false); };
+  H.set_HTMLMeterElement_optimum = (s, v) => { setReflectDouble(s, 'optimum', v, false); };
+
+  // HTML §4.10.12: an output's value is its text; its default value is the
+  // text too until a script sets `value`, when the old default is kept.
+  H.HTMLOutputElement_value = (s) => apply(textContent_.get, s.w, []);
+  H.HTMLOutputElement_defaultValue = (s) => {
+    const o = s.defaultOverride;
+    return typeof o === 'string' ? o : apply(textContent_.get, s.w, []);
+  };
+  H.set_HTMLOutputElement_value = (s, v) => {
+    s.defaultOverride = H.HTMLOutputElement_defaultValue(s);
+    apply(textContent_.set, s.w, [v]);
+  };
+  H.set_HTMLOutputElement_defaultValue = (s, v) => {
+    if (typeof s.defaultOverride === 'string') s.defaultOverride = v;
+    else apply(textContent_.set, s.w, [v]);
+  };
+
+  // HTML §4.2.2 and §4.12.1: a title's and a script's `text` is their child
+  // text content, and a write replaces their children with it.
+  function childText(w) {
+    let out = '';
+    for (let c = apply(firstChild_, w, []); c !== null; c = apply(nextSibling_, c, [])) {
+      const t = apply(nodeType_, c, []);
+      if (t === 3 || t === 4) out += apply(data_, c, []);
+    }
+    return out;
+  }
+  H.HTMLTitleElement_text = (s) => childText(s.w);
+  H.set_HTMLTitleElement_text = (s, v) => { apply(textContent_.set, s.w, [v]); };
+  H.HTMLScriptElement_text = (s) => childText(s.w);
+  H.set_HTMLScriptElement_text = (s, v) => { apply(textContent_.set, s.w, [v]); };
+
   // ------ Forms ------
 
   H.HTMLFormElement_elements = (s) => htmlList(s, CONTROLS);
