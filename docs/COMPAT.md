@@ -165,7 +165,7 @@ The same passes on the two denominators. Ours is what Chrome passes on a static 
 | dom/events | 566 | 748 | 848 | 100 | 66.7% |
 | domparsing | 566 | 909 | 913 | 4 | 62.0% |
 
-WPT 8b4b06ff53, 726 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 221530524e (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
+WPT 8b4b06ff53, 726 test URLs: Chromium 153.0.8010.12 (`wpt/baseline/chrome.json`) against surimono 7232586717 (`wpt/results/`). 18 tests Chrome didn't finish here are left out (`wpt/README.md`).
 
 The most common causes, in subtests Chrome passes:
 
@@ -426,27 +426,25 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 
 | Area | Passed | Of (Chrome passes) | Rate | Top cause |
 |---|---|---|---|---|
-| url | 6469 | 9492 | 68.2% | 1220: not reported |
+| url | 6716 | 9492 | 70.8% | 1220: not reported |
 | encoding, without streams | 11409 | 11582 | 98.5% | 94: TIMEOUT: Test timed out |
 | html/webappapis/atob | 380 | 380 | 100.0% | none |
 | dom/traversal | 1600 | 1606 | 99.6% | 5: FAIL: nodeFilterGlobalObject is not defined |
-| html/semantics/tabular-data | 152 | 163 | 93.3% | 6: LIMIT: run_page: the document reached its limit of 100000 nodes |
-| form, select and option elements | 239 | 505 | 47.3% | 67: FAIL: assert_equals: expected (string) … but got (undefined) undefined |
+| html/semantics/tabular-data | 153 | 163 | 93.9% | 6: LIMIT: run_page: the document reached its limit of 100000 nodes |
+| form, select and option elements | 240 | 505 | 47.5% | 67: FAIL: assert_equals: expected (string) … but got (undefined) undefined |
 | html/semantics/text-level-semantics/the-a-element | 18 | 26 | 69.2% | 2: FAIL: Illegal invocation |
-| innerText and outerText | 374 | 1277 | 29.3% | 616: FAIL: assert_equals: expected … but got … |
-| css/cssom rule lists | 40 | 162 | 24.7% | 83: FAIL: assert_equals: expected … but got … |
+| innerText and outerText | 424 | 1277 | 33.2% | 578: FAIL: assert_equals: expected … but got … |
+| css/cssom rule lists | 41 | 162 | 25.3% | 82: FAIL: assert_equals: expected … but got … |
 
 <details><summary>Every extra test that doesn't pass in full</summary>
 
 | Test | Passed | Of | Status |
 |---|---|---|---|
-| url/IdnaTestV2.any.html | 1868 | 2627 | OK |
-| url/a-element-origin-xhtml.xhtml | 316 | 409 | OK |
+| url/IdnaTestV2.any.html | 1870 | 2627 | OK |
+| url/a-element-origin-xhtml.xhtml | 401 | 409 | OK |
 | url/a-element-origin.html | 0 | 409 | OK |
-| url/a-element-xhtml.xhtml?exclude=(file|javascript|mailto) | 562 | 702 | OK |
-| url/a-element-xhtml.xhtml?include=file | 42 | 87 | OK |
-| url/a-element-xhtml.xhtml?include=javascript | 12 | 13 | OK |
-| url/a-element-xhtml.xhtml?include=mailto | 12 | 14 | OK |
+| url/a-element-xhtml.xhtml?exclude=(file|javascript|mailto) | 687 | 702 | OK |
+| url/a-element-xhtml.xhtml?include=file | 74 | 87 | OK |
 | url/a-element.html?exclude=(file|javascript|mailto) | 0 | 702 | OK |
 | url/a-element.html?include=file | 0 | 87 | OK |
 | url/a-element.html?include=javascript | 0 | 13 | OK |
@@ -475,7 +473,7 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | encoding/utf-32.html | 3 | 8 | OK |
 | dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html | 0 | 1 | OK |
 | dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html | 0 | 5 | OK |
-| html/semantics/tabular-data/processing-model-1/col-span-limits.html | 2 | 5 | OK |
+| html/semantics/tabular-data/processing-model-1/col-span-limits.html | 3 | 5 | OK |
 | html/semantics/tabular-data/processing-model-1/rowspan-0-quirks.html | 1 | 2 | OK |
 | html/semantics/tabular-data/processing-model-1/rowspan-0.html | 1 | 2 | OK |
 | html/semantics/tabular-data/processing-model-1/span-limits.html | 0 | 6 | LIMIT |
@@ -497,7 +495,7 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | html/semantics/forms/the-select-element/customizable-select/option-color-inheritance.html | 0 | 1 | OK |
 | html/semantics/forms/the-select-element/customizable-select/option-disabled-invalid-nesting.html | 0 | 1 | OK |
 | html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup-wrapper.html | 0 | 3 | OK |
-| html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup.html | 2 | 6 | OK |
+| html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup.html | 3 | 6 | OK |
 | html/semantics/forms/the-select-element/customizable-select/option-form-ancestor-select.html | 1 | 2 | OK |
 | html/semantics/forms/the-select-element/customizable-select/option-list-wrapped-optgroup.html | 1 | 2 | OK |
 | html/semantics/forms/the-select-element/customizable-select/option-list.html | 0 | 1 | OK |
@@ -550,8 +548,7 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | html/semantics/text-level-semantics/the-a-element/a-download-click.html | 0 | 1 | OK |
 | html/semantics/text-level-semantics/the-a-element/a-stringifier.html | 7 | 11 | OK |
 | html/semantics/text-level-semantics/the-a-element/a-type.historical.html | 0 | 1 | OK |
-| html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html | 0 | 9 | OK |
-| html/dom/elements/the-innertext-and-outertext-properties/getter-first-letter-marker-multicol.html | 0 | 1 | OK |
+| html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html | 7 | 9 | OK |
 | html/dom/elements/the-innertext-and-outertext-properties/getter.html | 0 | 273 | ERROR |
 | html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre | 0 | 79 | OK |
 | html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre&contenteditable=plaintext-only | 0 | 79 | OK |
@@ -562,8 +559,6 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap | 0 | 79 | OK |
 | html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=plaintext-only | 0 | 79 | OK |
 | html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=true | 0 | 79 | OK |
-| html/dom/elements/the-innertext-and-outertext-properties/multiple-text-nodes.window.html | 0 | 1 | OK |
-| html/dom/elements/the-innertext-and-outertext-properties/outertext-setter.html | 2 | 43 | OK |
 | css/cssom/CSSStyleSheet.html | 15 | 17 | OK |
 | css/cssom/CSSRule-type.html | 1 | 14 | OK |
 | css/cssom/CSSStyleRule-selectorText-setter.html | 6 | 7 | OK |
@@ -576,7 +571,6 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | css/cssom/insertRule-across-context.html | 1 | 2 | OK |
 | css/cssom/insertRule-charset-no-index.html | 0 | 2 | OK |
 | css/cssom/insertRule-font-face.html | 0 | 1 | OK |
-| css/cssom/insertRule-import-no-index.html | 1 | 2 | OK |
 | css/cssom/insertRule-namespace-after-import.html | 0 | 2 | OK |
 | css/cssom/insertRule-namespace-no-index.html | 0 | 3 | OK |
 | css/cssom/insertRule-syntax-error-01.html | 0 | 1 | OK |
@@ -663,7 +657,7 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 | Session history is per document and lives as long as the render: `history.length` doesn't join frames' entries, a state object is one object for its entry (`history.state.m = 1` survives going away and back), nothing survives a reload, and `<base target>` is ignored | `crates/dom/DESIGN.md`, "Location and history"; #153 | Only pages that navigate their own history |
 | `customElements` is a registry only: `define`, `get` and `whenDefined` work, but nothing is constructed or upgraded and no reaction runs, so `<x-a>` with a `connectedCallback` that fills it stays empty, where Chromium 153.0.8010.12 fills it | `wpt/probes`, `ceregistry`. `crates/dom/DESIGN.md`, "What the window has" | A page built from custom elements prints them empty |
 | `Intl`, `Blob`, `File`, `URL.createObjectURL`, streams (`ReadableStream`, `TextDecoderStream`), `FormData` and `Request` aren't there | `wpt/probes`, `intlblob`. `crates/dom/DESIGN.md`, "What the window has" | A script that formats with `Intl` or builds a `Blob` stops with an exception |
-| `URL` is the `url` crate, which differs from Chromium 153.0.8010.12 in a few places: `file:///w|/m` keeps its `|` (Chrome `%7C`), `new URL('/x', 'file:///C:/a')` keeps the drive letter (Chrome drops it), and removing the query of `data:space ?q` drops the space (Chrome keeps it). IDNA is older than the tests | `wpt/probes`, `urlcrate`; the `url` area below; `crates/dom/DESIGN.md`, "What the window has" | URLs a template builds from such strings serialize differently |
+| `URL` is the `url` crate, which differs from Chromium 153.0.8010.12 in a few places: `file:///w|/m` keeps its `|` (Chrome `%7C`), `new URL('/x', 'file:///C:/a')` keeps the drive letter (Chrome drops it), and removing the query of `data:space ?q` drops the space (Chrome keeps it). IDNA (the `idna` crate, on ICU 2.4.0's data since E3-R1): 757 of the 2,627 `url/IdnaTestV2` hosts Chromium 153 accepts are an `Invalid URL` here | `wpt/probes`, `urlcrate`; the `url` area below; `crates/dom/DESIGN.md`, "What the window has" | URLs a template builds from such strings serialize differently |
 | `structuredClone` refuses a `DOMRect` and the like, and a `SharedArrayBuffer`, and clones a generator as a plain object. A fatal decoding error mid-stream drops a byte pushed back before it. `frames[0].atob` and the rest need a `this` of the page | `wpt/probes`, `clonemisc`. `crates/dom/DESIGN.md`, "What the window has"; WPT `encoding/textdecoder-mistakes.any.js` | Rare in a template |
 | Forms: `form[0]`, `form.name` and `select[0]` don't exist, `form.elements.namedItem` gives the first element where HTML gives a `RadioNodeList`, and `checkValidity` and its family and `relList` aren't bound. A `select` inside another's options isn't looked for | `wpt/probes`, `formidx`. `crates/dom/DESIGN.md`, "Tables, forms and links" | A script that indexes a form or validates it stops with an exception |
 | `innerText` has no layout: it reads the rendering section's default display, `hidden` and inline `display: none`, and no stylesheet. `:focus` doesn't match, connected counts as rendered for `focus()`, and there's no sequential navigation and no `autofocus` | `crates/dom/DESIGN.md`, "Tables, forms and links"; the innerText area below | `innerText` on an element a stylesheet hides gives its text, where Chrome gives none |
@@ -688,6 +682,7 @@ Every row is a conflict the fleet rule settles: the spec wins for DOM behaviour,
 | A function timer that throws: when the report comes | The same text: `T,m,E1,em,E2`. A string timer is a classic script, reported inside its run: `T,E1,E2,m,em`, as in Chromium | `T,E1,E2,m,em` for both | `wpt/probes`, `throwtimer`. #155 and its review |
 | When `<svg onload>` fires | SVG 2 §15.2: once all the document's resources have loaded, so every `svg` in one step just before the window's `load`, in end-tag order | A nested `svg` fires as it closes, before `DOMContentLoaded`; an outermost one just before the window's `load`, in an order that isn't tree order | `wpt/probes`, `svgh`. `crates/dom/DESIGN.md`, "Events and the page's life"; review of #155 |
 | `history.state` after a same-URL navigation | HTML: the new entry has no state, so `popstate`'s state and `history.state` are null | Keeps `history.state` | `crates/dom/DESIGN.md`, "Location and history"; #153 |
+| A host with the plane-3 code point U+3E8AC or U+3F8CD (7 subtests of `url/IdnaTestV2`, such as `ToASCII("ⴍ𿣍ꡨ֮.ⴞ")`) | UTS 46 as the test's data has it, and ICU 2.4.0's IDNA data through `url`'s `idna`: valid, so `new URL('https://ⴍ𿣍ꡨ֮.ⴞ/x').host` is `xn--5cb172r175fug38a.xn--mlj` | `TypeError: Invalid URL` | `url/IdnaTestV2.any.html` in `wpt/results/wpt-results.json`; E3-R1 stage A, which moved ICU from 2.2.0 to 2.4.0 and made them pass |
 | `XMLSerializer` on an attribute whose prefix an ancestor binds to another namespace | DOM Parsing keeps the prefix when "local prefixes map does not contain prefix", and that map holds only this element's declarations: `<child xmlns:p="uri2" p:foobar="v"/>`. **surimono doesn't follow it here**: it gives `ns1`, as WPT and Chromium do | `<child xmlns:ns1="uri2" ns1:foobar="v"/>`, which `domparsing/XMLSerializer-serializeToString.html` expects | `wpt/probes`, `xmlprefix`. `crates/dom/src/xml.rs` |
 | A handler that returns `false` on a non-cancelable event | HTML §8.1.7.1 sets the canceled flag, whether or not the event can be canceled, so `dispatchEvent` returns `false` | `dispatchEvent` returns `true` | Review of #104; `crates/dom/src/glue_events.js`. Probed on main 89343c8f: `false`, `defaultPrevented` true |
 
