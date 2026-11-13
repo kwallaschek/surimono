@@ -197,10 +197,9 @@ counts each system printed.
 **What differs from the islands report.**
 
 - Chrome draws text unhinted and in grayscale (`fonts.conf`), as when the Chrome
-  references were rendered. With fontconfig's built-in full hinting, Grover's
-  `alpine-invoice` places glyphs a fraction of a pixel elsewhere and fails the
-  shape check at 40.5% with the same content; unhinted it is pixel for pixel the
-  reference. The islands report keeps its fontconfig as it was.
+  references were rendered. With fontconfig's built-in full hinting, Chrome places
+  glyphs a fraction of a pixel elsewhere, which can fail the shape check on a page
+  whose content is the same. The islands report keeps its fontconfig as it was.
 - A benchmark process that dies without saying why counts as **no output**; its
   stderr is kept in `<work>/private/`, never in `results.json` or `summary.md`.
   How a printer fails on a page is its project's to hear first.
