@@ -1,0 +1,1 @@
+{"workflow":"full","job":"linux-extra","matrix":"soak","status":"cancelled","reported":"cancelled","needs_result":"cancelled","reported_job":"linux-extra","sha":"1cd7cae428574cbfe82b46283cfa33a80352cb29","ref":"main","event":"push","run_id":"43455696398","attempt":"1","finished_at":"2026-11-13T15:50:40Z"}
