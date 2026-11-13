@@ -110,14 +110,25 @@ holds a run, and its `NOTES.md` says which machine and what each failure needs.
 
 ```
 cargo build --release --manifest-path fixtures/tools/page-check/Cargo.toml --locked
-node fixtures/tools/print-pages.mjs --out DIR --check <target>/release/surimono-page-check --commit SHA
+node fixtures/tools/print-pages.mjs --out DIR --check <target>/release/surimono-page-check --commit SHA --plain
 ```
 
 - **Determinism.** Each page renders twice on one `Renderer`, then twice in a fresh
   process under another time zone and locale. All four must be byte-identical.
+- **Printer-safe and plain.** `render_page`'s output is printer-safe by default
+  (`Options::printer_safe`). With `--plain` each page is also rendered with it off
+  (`surimono-page-check pages --no-printer-safe`, the page's DOM as it is) and
+  printed, and the index has both side by side; the plain renders are held to the
+  same four-way determinism.
 - **The floor** is fulgur printing Chrome's own DOM, with `<noscript>` taken out and
   stylesheets inlined as surimono does. A page that fails no worse than its floor
   fails on fulgur, not on surimono.
+- **DOM = Chrome's.** Every run also renders each page keeping its scripts
+  (`--keep-scripts`, which leaves the output plain) and compares that with the
+  floor's input, Chrome's DOM in the form `render_page` writes it, after taking each
+  run of whitespace as one space and moving `style` to the end of its tag (as
+  `crates/surimono/tests/page.rs` does). `DIR/<page>/dom.json` says whether they are
+  equal and from which byte they differ.
 - **Fonts.** fulgur 0.40.0 doesn't load `@font-face` URLs, so `print_fonts` passes
   a page's own fonts with `--font`, as a user has to.
 
@@ -176,7 +187,7 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
   `fixtures/tools/raikiri-print` is that for fulgur's Raikiri layout backend, which
   the published fulgur CLI can't select: its own Cargo workspace on the library
   crate `fulgur-raikiri`, with an exact version and a committed `Cargo.lock`, built
-  with `cargo build --release` in its folder. It is a test tool and never a
+  with `cargo build --release --locked` in its folder. It is a test tool and never a
   dependency of surimono. A cell whose printer gave no PDF says "no output" and
   nothing else; why is written to `DIR/.private/failures.json`, which isn't for
   committing.
