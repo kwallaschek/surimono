@@ -21,13 +21,14 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   4 of 6 real-world pages pass on stock fulgur, 2 without), #185 (Raikiri spike), #184 (setters
   that silently did nothing), #186 (docs). The merged trees of #179 and #180 were tested locally
   (clippy and the crate's tests) before pushing.
-- **Main's full.yml has not completed on the code merged since 10b33adf:** frequent docs pushes
-  cancelled it. The run on 554b1ee2 must finish green before the next push to main; read it first.
+- **Main is green** at a68123fb on every full.yml job (arm64, macOS, ASan, soak, native gems,
+  nightly-extra), so everything merged on 13 and 14 Nov is verified on main.
 - **Decided 14 Nov (DECISIONS):** phase 3 layout queries target Raikiri behind the seam, reading
   its paged fragments (E3-R1 to E3-R4); no Blitz-specific layout work; the print path is designed
   around fulgur-raikiri; real layout stays internal until one layout is bounded in time (E3-01e).
 - **Running:** Q-CF-02 (page-path benchmark against Grover, branch q-cf-02), P2-CF-07
-  (checkpoint-3 regenerated with printer-safe output, branch p2-cf-07). No PR open.
+  (checkpoint-3 regenerated with printer-safe output, branch p2-cf-07), E3-R1 (the Raikiri layout
+  engine, staged: e3-r1a, e3-r1b). No PR open at 04:35.
 - Kay's queue: report the private findings (four files in the Claude project; the 13 Nov one has
   the slow fulgur pages and Raikiri's numbers on them); turn the scheduled resume task back on
   (and set it to Opus 5.5) if he wants night work.
