@@ -3,7 +3,7 @@
 # fulgur, on bench/report/report.html.
 #
 #   bench/run.sh <outdir> [bench.py options, e.g. --runs 5 --systems grover,fulgur-prerendered]
-#   bench/run.sh <outdir> --pages [bench.py options, e.g. --pages long-report --systems grover,surimono-ruby]
+#   bench/run.sh <outdir> --pages [bench.py options, e.g. --only long-report --systems grover,surimono-ruby]
 #
 # Writes <outdir>/summary.md (the table) and <outdir>/results.json (every run).
 # --pages measures the page set instead of the islands report: the real-world

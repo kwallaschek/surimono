@@ -3,7 +3,7 @@
 
     python3 bench/tools/bench.py --out <dir> [--runs 20] [--mem-runs 5] [--warmup 2]
                                  [--systems grover,surimono-ruby,fulgur-prerendered]
-    python3 bench/tools/bench.py --out <dir> --set pages [--pages long-report,…] [--systems …]
+    python3 bench/tools/bench.py --out <dir> --set pages [--only long-report,…] [--systems …]
 
 bench/run.sh installs the dependencies and calls this. Every number it writes is
 measured by it; a system that can't run is reported as not measured, with the
@@ -918,7 +918,7 @@ def main() -> int:
     ap.add_argument("--mem-runs", type=int, default=5)
     ap.add_argument("--warmup", type=int, default=2)
     ap.add_argument("--systems", help=f"islands default: {','.join(DEFAULT_SYSTEMS)}; pages default: {','.join(DEFAULT_PAGE_SYSTEMS)}")
-    ap.add_argument("--pages", help="the page set only: these page ids, comma-separated (default: all)")
+    ap.add_argument("--only", help="the page set only: these page ids, comma-separated (default: all)")
     ap.add_argument(
         "--time-budget-min",
         type=float,
@@ -1116,7 +1116,7 @@ def published_pages(pages: list[dict]) -> list[dict]:
 
 
 def main_pages(args: argparse.Namespace, out: Path, work: Path, systems: list[str], env: dict, chrome: str, shell: str | None, subreaper: bool, clock: Clock) -> int:
-    pages = page_set(args.pages.split(",") if args.pages else None)
+    pages = page_set(args.only.split(",") if args.only else None)
     info = base_info(args, chrome, env, subreaper)
     info["method"].update(
         {
