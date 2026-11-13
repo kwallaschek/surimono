@@ -827,6 +827,27 @@ class SurimonoTest < Minitest::Test
     refute_includes out, "noscript"
   end
 
+  def test_page_output_is_printer_safe_unless_turned_off
+    html = "<!doctype html><title>t</title><style>svg { display: block } .row { border-bottom: 1px solid #ccc }</style>" \
+           "<div class=row>a</div><pre>one\n</pre><svg width=640 height=208></svg><script>document.title = 'ran';</script>"
+    sheet = %(<style>@namespace s url(http://www.w3.org/2000/svg);@layer{s|svg[width="640"]:not(s|svg *){width:640px}) +
+            %(s|svg[height="208"]:not(s|svg *){height:208px}.row{border-top-color:#ccc}}</style>)
+    plain = page_renderer(printer_safe: false).render(html, scripts: true)
+    refute_includes plain, "@layer"
+    assert_includes plain, "<pre>one\n</pre>"
+    [page_renderer, page_renderer(printer_safe: true)].each do |r|
+      safe = r.render(html, scripts: true)
+      assert_includes safe, "<title>ran</title>#{sheet}<style>svg { display: block }"
+      assert_equal plain, safe.sub(sheet, "").sub("<pre>one</pre>", "<pre>one\n</pre>")
+      assert_equal safe, r.render_page(html).html
+    end
+    assert_equal plain, Surimono.render(html, scripts: true, fonts: FONTS, printer_safe: false)
+    # A page that keeps its scripts is its DOM: a script could tell.
+    kept = page_renderer(keep_scripts: true)
+    assert_equal page_renderer(keep_scripts: true, printer_safe: false).render(html, scripts: true),
+                 kept.render(html, scripts: true)
+  end
+
   def test_page_layout_queries
     html = "<div id=a></div><script>document.body.dataset.w = document.getElementById('a').offsetWidth;</script>"
     assert_includes page_renderer.render(html, scripts: true), %(data-w="0")

@@ -401,6 +401,13 @@ impl Renderer {
     /// by it: Blitz, and so fulgur, lays every page out as no-quirks. Comments
     /// go.
     ///
+    /// The output is printer-safe unless [`Options::printer_safe`] is off:
+    /// where Chrome renders the result the same whatever the page's CSS says,
+    /// the size of a block `<svg>`, the colour of a one-sided border and a
+    /// newline ending a `<pre>` are written in a form fulgur 0.40 prints right
+    /// too. The HTML then differs from the page's DOM by one `<style>` at the
+    /// start of `<head>` and by those newlines, and by nothing else.
+    ///
     /// The output is what blitz-html's parser reads and writes it as, scripting
     /// off, and comes out of checks on that reading, because a printer's parser
     /// and CSS engine have no limits of their own and fulgur runs in your

@@ -91,6 +91,7 @@ struct Setup {
     /// A script that clears the settled page out for printing.
     cleanup: String,
     keep_scripts: bool,
+    printer_safe: bool,
     loader: Option<ResourceLoader>,
 }
 
@@ -227,6 +228,7 @@ impl PagePool {
                     },
                     cleanup: cleanup(options.keep_scripts),
                     keep_scripts: options.keep_scripts,
+                    printer_safe: !options.plain_output,
                     loader: options.resource_loader.clone(),
                 },
                 state: Mutex::new(State::default()),
@@ -510,6 +512,7 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
     let finish = Finish {
         keep_scripts: setup.keep_scripts,
         max_bytes: setup.output_bytes,
+        printer_safe: setup.printer_safe,
     };
     let loads = fetcher.has_loader().then_some(&mut fetcher);
     let html = print::finish_page(&html, finish, loads, &gate)?;

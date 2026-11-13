@@ -131,6 +131,8 @@ pub struct Options {
     pub(crate) max_islands: Option<usize>,
     pub(crate) layout_queries: LayoutQueries,
     pub(crate) keep_scripts: bool,
+    /// [`printer_safe`](Self::printer_safe) is off.
+    pub(crate) plain_output: bool,
     pub(crate) resource_loader: Option<ResourceLoader>,
 }
 
@@ -190,7 +192,8 @@ impl Options {
     /// every built-in renderer, a pool sized to the machine, the clock at
     /// [`DEFAULT_NOW_MS`] in UTC, text as outlines, at most 1,000 islands per
     /// document, zeros for a page's layout queries, its scripts removed from
-    /// the output, no resource loader, and no fonts yet: add at least one with
+    /// the output, that output printer-safe, no resource loader, and no fonts
+    /// yet: add at least one with
     /// [`font`](Self::font), or [`Renderer::new`](crate::Renderer::new) fails
     /// with [`Error::InvalidOptions`](crate::Error::InvalidOptions).
     pub fn new() -> Self {
@@ -336,6 +339,38 @@ impl Options {
         self
     }
 
+    /// Sets whether [`Renderer::render_page`](crate::Renderer::render_page)
+    /// writes its output in forms a browserless printer prints the way Chrome
+    /// prints the page. Default: on.
+    ///
+    /// fulgur 0.40 and 0.41 print some ordinary pages wrong although their DOM
+    /// is right. For three of those gaps the page has an equivalent form that
+    /// prints right, and `render_page` writes it:
+    ///
+    /// - a block-level `<svg>` keeps the size its `width` and `height`
+    ///   attributes give it (fulgur ignores them), through a rule in a new
+    ///   `<style>` at the start of `<head>` that ranks below all of the
+    ///   page's CSS;
+    /// - a border on one side (`border-bottom: 1px solid #ccc`) prints in its
+    ///   colour, not the text's, through `border-top-color` in the same sheet;
+    /// - a `<pre>` whose text ends in a newline isn't a line taller: the
+    ///   newline, which a browser doesn't render, is left out.
+    ///
+    /// Each is made only where Chrome renders the rewritten page exactly as
+    /// it renders the original, whatever the page's CSS: where that can't be
+    /// told from the page, nothing is rewritten. So nothing is in a page with
+    /// CSS that isn't in the page itself (a linked style sheet, an `@import`:
+    /// load them with a [`ResourceLoader`] and they are), and nothing in one
+    /// that keeps a script a browser would run while it prints: its
+    /// `<script>` elements ([`keep_scripts`](Self::keep_scripts)), an event
+    /// handler attribute (`onload`, `onerror`), an `<iframe srcdoc>`, a
+    /// `javascript:` URL, or a frame or object that loads a document. Turn
+    /// this off for output that is the page's DOM and nothing else.
+    pub fn printer_safe(mut self, on: bool) -> Self {
+        self.plain_output = !on;
+        self
+    }
+
     /// Lets a page's external scripts, frames and stylesheets load, through
     /// `loader` only. Default: none, so network and files are off. See
     /// [`ResourceLoader`].
@@ -370,6 +405,7 @@ impl fmt::Debug for Options {
             .field("max_islands", &self.max_islands)
             .field("layout_queries", &self.layout_queries)
             .field("keep_scripts", &self.keep_scripts)
+            .field("printer_safe", &!self.plain_output)
             .field("resource_loader", &self.resource_loader)
             .finish()
     }
@@ -393,6 +429,14 @@ mod tests {
         assert_eq!(o.text_mode, TextMode::Outlines);
         assert_eq!(o.layout_queries, LayoutQueries::Zeros);
         assert!(!o.keep_scripts);
+        assert!(!o.plain_output);
+        assert!(o.clone().printer_safe(false).plain_output);
+        assert!(
+            !o.clone()
+                .printer_safe(false)
+                .printer_safe(true)
+                .plain_output
+        );
         assert!(o.resource_loader.is_none());
         assert_eq!(Limits::default().memory_bytes, 64 * 1024 * 1024);
         assert_eq!(Limits::default().time, Duration::from_secs(2));

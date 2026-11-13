@@ -376,6 +376,49 @@ fn scripts_run_only_with_the_flag() {
 }
 
 #[test]
+fn page_output_is_printer_safe_unless_turned_off() {
+    let page = "<!doctype html><title>t</title><style>svg { display: block }</style>\
+        <pre>one\n</pre><svg width=640 height=208></svg><script>document.title = 'ran';</script>";
+    let f = font();
+    let plain = run(
+        &[
+            "render",
+            "-",
+            "--font",
+            &f,
+            "--scripts",
+            "--no-printer-safe",
+        ],
+        page,
+    );
+    assert_eq!(code(&plain), 0, "{}", text(&plain.stderr));
+    let plain = text(&plain.stdout);
+    assert!(plain.contains("<pre>one\n</pre>"), "{plain}");
+    assert!(!plain.contains("@layer"), "{plain}");
+    let safe = run(&["render", "-", "--font", &f, "--scripts"], page);
+    assert_eq!(code(&safe), 0, "{}", text(&safe.stderr));
+    let safe = text(&safe.stdout);
+    let sheet = "<style>@namespace s url(http://www.w3.org/2000/svg);@layer{\
+        s|svg[width=\"640\"]:not(s|svg *){width:640px}\
+        s|svg[height=\"208\"]:not(s|svg *){height:208px}}</style>";
+    assert!(
+        safe.contains(&format!(
+            "<title>ran</title>{sheet}<style>svg {{ display: block }}"
+        )),
+        "{safe}"
+    );
+    assert_eq!(
+        safe.replace(sheet, "")
+            .replace("<pre>one</pre>", "<pre>one\n</pre>"),
+        plain
+    );
+    // It is the page's output that is rewritten: without --scripts there is none.
+    let o = run(&["render", "-", "--font", &f, "--no-printer-safe"], page);
+    assert_eq!(code(&o), 2, "{}", text(&o.stderr));
+    assert!(text(&o.stderr).contains("--no-printer-safe"));
+}
+
+#[test]
 fn a_page_warns_and_still_renders() {
     let f = font();
     let o = run(

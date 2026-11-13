@@ -157,6 +157,24 @@ impl Tree {
         self.link(id, new, |c| c.push(new));
     }
 
+    /// Whether the page is in quirks mode: it has no doctype that says otherwise.
+    pub(crate) fn quirks(&self) -> bool {
+        self.quirks
+    }
+
+    /// Adds an HTML `<style>` holding `css` as child number `at` of `parent`.
+    pub(crate) fn insert_style(&mut self, parent: usize, at: usize, css: String) {
+        let name = QualName::new(None, ns!(html), LocalName::from("style"));
+        let style = self.add(Data::Element(Element {
+            name,
+            attrs: Vec::new(),
+        }));
+        let at = at.min(self.nodes[parent].children.len());
+        self.link(parent, style, |c| c.insert(at, style));
+        let text = self.add(Data::Text(css));
+        self.link(style, text, |c| c.push(text));
+    }
+
     /// The text under `id`, at any depth, as blitz-dom's `text_content`.
     pub(crate) fn text_of(&self, id: usize) -> String {
         let mut out = String::new();

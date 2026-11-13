@@ -725,6 +725,11 @@ fn sources(input: &str) -> Vec<String> {
 
 /// Renders a real-world fixture page; `None` if the fixtures aren't here.
 fn real_world(name: &str, keep: bool) -> Option<(String, PageOutput)> {
+    real_world_with(name, keep, true)
+}
+
+/// [`real_world`], printer-safe or not.
+fn real_world_with(name: &str, keep: bool, safe: bool) -> Option<(String, PageOutput)> {
     let dir = repo().join("fixtures/real-world").join(name);
     let input = std::fs::read_to_string(dir.join("input.html")).ok()?;
     let expected = std::fs::read_to_string(dir.join("reference/dom.html")).ok()?;
@@ -741,6 +746,7 @@ fn real_world(name: &str, keep: bool) -> Option<(String, PageOutput)> {
         options()
             .resource_loader(ResourceLoader::from_map(files))
             .keep_scripts(keep)
+            .printer_safe(safe)
             .limits(Limits {
                 time: Duration::from_secs(time),
                 memory_bytes: 512 << 20,
@@ -884,6 +890,252 @@ fn on_printer_thread<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'static) 
         Ok(Err(p)) => panic::resume_unwind(p),
         Err(_) => panic!("the printer thread has stopped"),
     }
+}
+
+/// A fixture page printer-safe and not: the two differ by the sheet the pass
+/// adds and by nothing else. Returns the plain page, the safe one, and the
+/// sheet's rules. `None` if the fixtures aren't here.
+fn safe_and_plain(name: &str) -> Option<(String, String, Vec<String>)> {
+    let (_, plain) = real_world_with(name, false, false)?;
+    let (_, safe) = real_world_with(name, false, true)?;
+    assert_eq!(safe.report, plain.report, "{name}");
+    // Twice the same, and the same from a new renderer.
+    assert_eq!(
+        real_world_with(name, false, true).map(|r| r.1.html),
+        Some(safe.html.clone()),
+        "{name}"
+    );
+    let (plain, safe) = (plain.html, safe.html);
+    let Some(from) = safe.find("<style>@") else {
+        return Some((plain, safe, Vec::new()));
+    };
+    let to = from + safe[from..].find("</style>").unwrap_or(0) + "</style>".len();
+    let sheet = &safe[from + "<style>".len()..to - "</style>".len()];
+    let rules = sheet
+        .strip_prefix("@namespace s url(http://www.w3.org/2000/svg);")
+        .unwrap_or(sheet)
+        .strip_prefix("@layer{")
+        .and_then(|s| s.strip_suffix('}'))
+        .unwrap_or_else(|| panic!("{name}: {sheet}"))
+        .split_inclusive('}')
+        .map(str::to_owned)
+        .collect();
+    let without = format!("{}{}", &safe[..from], &safe[to..]);
+    assert_eq!(without, plain, "{name}: only a sheet is added");
+    Some((plain, safe, rules))
+}
+
+/// `html` laid out by the printer: Blitz 0.2.4 as fulgur 0.40 sets it up, on
+/// a viewport as wide and high as an A4 page at 96 dpi.
+fn printer_document(html: &str) -> blitz_html::HtmlDocument {
+    let config = blitz_dom::DocumentConfig {
+        base_url: Some("file:///".to_owned()),
+        ..blitz_dom::DocumentConfig::default()
+    };
+    let mut doc = blitz_html::HtmlDocument::from_html(html, config);
+    let mut viewport = doc.viewport().clone();
+    viewport.window_size = (794, 1123);
+    doc.set_viewport(viewport);
+    doc.resolve(0.0);
+    doc
+}
+
+/// The elements named `name` in a printer's tree, in tree order.
+fn printer_nodes<'d>(doc: &'d blitz_html::HtmlDocument, name: &str) -> Vec<&'d blitz_dom::Node> {
+    let (mut found, mut stack) = (Vec::new(), vec![0]);
+    while let Some(id) = stack.pop() {
+        let node = doc.get_node(id).unwrap_or_else(|| panic!("node {id}"));
+        if let blitz_dom::NodeData::Element(e) = &node.data
+            && e.name.local.as_ref() == name
+        {
+            found.push(node);
+        }
+        stack.extend(node.children.iter().rev().copied());
+    }
+    found
+}
+
+/// How big the printer lays out each `<svg>` of `html`.
+fn printed_svg_sizes(html: &str) -> Vec<(f32, f32)> {
+    let html = html.to_owned();
+    on_printer_thread(move || {
+        let doc = printer_document(&html);
+        printer_nodes(&doc, "svg")
+            .iter()
+            .map(|n| (n.final_layout.size.width, n.final_layout.size.height))
+            .collect()
+    })
+}
+
+/// The top and bottom border colours the printer computes for each `<div>`
+/// of `html` with a class.
+fn printed_border_colours(html: &str) -> Vec<(String, String)> {
+    let html = html.to_owned();
+    on_printer_thread(move || {
+        let doc = printer_document(&html);
+        printer_nodes(&doc, "div")
+            .iter()
+            .filter(|n| n.attr(blitz_dom::local_name!("class")).is_some())
+            .filter_map(|n| n.primary_styles())
+            .map(|s| {
+                (
+                    format!("{:?}", s.clone_border_top_color()),
+                    format!("{:?}", s.clone_border_bottom_color()),
+                )
+            })
+            .collect()
+    })
+}
+
+/// `d3-charts` fails in fulgur 0.40 for one thing: its charts are block-level
+/// `<svg>`s, which Blitz stretches to the page. Printer-safe, they are the
+/// size their attributes say, which is what Chrome prints.
+#[test]
+fn d3_charts_keep_their_size_in_the_printer() {
+    let Some((plain, safe, rules)) = safe_and_plain("d3-charts") else {
+        eprintln!("d3-charts: no fixture here, skipped");
+        return;
+    };
+    assert_eq!(
+        rules,
+        [
+            "s|svg[width=\"640\"]:not(s|svg *){width:640px}",
+            "s|svg[height=\"208\"]:not(s|svg *){height:208px}"
+        ]
+    );
+    assert_eq!(printed_svg_sizes(&safe), [(640.0, 208.0); 3]);
+    // The gap this closes: without the sheet they are as wide as the page.
+    for (width, _) in printed_svg_sizes(&plain) {
+        assert_eq!(width, 794.0);
+    }
+}
+
+/// `noscript-message` fails in fulgur 0.40 for one thing: its rows have a
+/// bottom border only, which fulgur paints in `border-top-color`.
+#[test]
+fn a_reports_rows_print_their_border_colour() {
+    let Some((plain, safe, rules)) = safe_and_plain("noscript-message") else {
+        eprintln!("noscript-message: no fixture here, skipped");
+        return;
+    };
+    assert_eq!(rules, [".row{border-top-color:#d9e2ec}"]);
+    let colours = printed_border_colours(&safe);
+    assert_eq!(colours.len(), 3, "{colours:?}");
+    for (top, bottom) in &colours {
+        assert_eq!(top, bottom, "the colour fulgur paints with is the border's");
+    }
+    for (top, bottom) in printed_border_colours(&plain) {
+        assert_ne!(top, bottom, "the gap: {top}");
+    }
+}
+
+/// A Markdown renderer ends every code block with a newline. Chrome doesn't
+/// render it, and it is all that goes.
+#[test]
+fn a_code_blocks_last_newline_is_left_out() {
+    let Some((_, plain)) = real_world_with("marked-report", false, false) else {
+        eprintln!("marked-report: no fixture here, skipped");
+        return;
+    };
+    let safe = real_world_with("marked-report", false, true).map(|r| r.1.html);
+    assert!(plain.html.contains("\n</code></pre>"), "{}", plain.html);
+    assert_eq!(
+        safe,
+        Some(plain.html.replace("\n</code></pre>", "</code></pre>"))
+    );
+}
+
+/// What the page's own CSS says still wins in the printer, as it does in
+/// Chrome over the attributes: the sheet ranks below every author rule.
+#[test]
+fn author_rules_outrank_the_added_sheet_in_the_printer() {
+    let safe = renderer(options());
+    let plain = renderer(options().printer_safe(false));
+    let svg = "<svg width=\"640\" height=\"208\" viewBox=\"0 0 640 208\"><rect/></svg>";
+    // The sizes with the sheet, and without it.
+    let sizes = |css: &str| {
+        let html = format!(
+            "<!doctype html><html><head><title>t</title><style>body {{ margin: 0 }} \
+             svg {{ display: block }} {css}</style></head>\
+             <body><div class=\"box\">{svg}</div><script>document.title = 'ran';</script></body></html>"
+        );
+        let out = page(&safe, &html).html;
+        assert!(out.contains("<style>@namespace s"), "{out}");
+        assert!(!out.contains("style=\""), "{out}");
+        let without = page(&plain, &html).html;
+        (printed_svg_sizes(&out)[0], printed_svg_sizes(&without)[0])
+    };
+    let (with, without) = sizes("");
+    assert_eq!(with, (640.0, 208.0));
+    assert_eq!(without.0, 794.0, "the gap: as wide as the page");
+    // The reviewer's counter-example to an inline style: with the common
+    // reset in a 200 px box, `height: auto` wins in Chrome (200 by 65). An
+    // inline style would make it 208 high; the sheet leaves it as it was.
+    let (with, without) = sizes("svg { max-width: 100%; height: auto } .box { width: 200px }");
+    assert_eq!(with, without);
+    assert_eq!(with.0, 200.0);
+    assert_ne!(with.1, 208.0);
+    // Whatever an author rule says, in a layer or not, however weak.
+    for (css, size) in [
+        ("svg { width: 300px }", (300.0, 208.0)),
+        (":where(svg) { height: 100px }", (640.0, 100.0)),
+        (
+            "@layer base { svg { width: 320px; height: 104px } }",
+            (320.0, 104.0),
+        ),
+        ("* { width: 50px; height: 60px }", (50.0, 60.0)),
+        (
+            "@media print { svg { width: 10px } } @media screen { svg { height: 20px } }",
+            (640.0, 20.0),
+        ),
+    ] {
+        assert_eq!(sizes(css).0, size, "{css}");
+    }
+}
+
+/// The option, and what it does to a page with nothing to rewrite: nothing.
+#[test]
+fn printer_safe_output_can_be_turned_off() {
+    let html = "<!doctype html><html><head><title>t</title><style>svg { display: block }</style>\
+        </head><body><pre><code>a\n</code></pre><svg width=\"10\" height=\"20\"></svg>\
+        <script>document.title = 'ran';</script></body></html>";
+    let safe = page(&renderer(options()), html).html;
+    let plain = page(&renderer(options().printer_safe(false)), html).html;
+    assert_eq!(
+        plain,
+        "<!doctype html><html><head><title>ran</title><style>svg { display: block }</style>\
+         </head><body><pre><code>a\n</code></pre><svg width=\"10\" height=\"20\"></svg>\
+         </body></html>"
+    );
+    assert_eq!(
+        safe,
+        "<!doctype html><html><head><title>ran</title><style>@namespace s \
+         url(http://www.w3.org/2000/svg);@layer{s|svg[width=\"10\"]:not(s|svg *){width:10px}\
+         s|svg[height=\"20\"]:not(s|svg *){height:20px}}</style>\
+         <style>svg { display: block }</style>\
+         </head><body><pre><code>a</code></pre><svg width=\"10\" height=\"20\"></svg>\
+         </body></html>"
+    );
+    assert_eq!(
+        page(&renderer(options().printer_safe(true)), html).html,
+        safe
+    );
+    for same in [
+        PAGE,
+        "<p>x",
+        "<!doctype html><title>t</title><table><tr><td>a</table>",
+    ] {
+        let safe = page(&renderer(options()), same);
+        assert_eq!(page(&renderer(options().printer_safe(false)), same), safe);
+    }
+    // With its scripts kept, a page is its DOM: a script can see everything.
+    let kept = |safe| {
+        page(
+            &renderer(options().keep_scripts(true).printer_safe(safe)),
+            html,
+        )
+    };
+    assert_eq!(kept(true), kept(false));
 }
 
 /// The printer thread is one thread, kept for the whole run: every parse

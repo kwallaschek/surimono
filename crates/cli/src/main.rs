@@ -69,6 +69,11 @@ Options:
                            standard error and don't fail the render
   --keep-scripts           With --scripts: leave <script> elements in the output
                            (default: remove all but island markers)
+  --no-printer-safe        With --scripts: write the page's DOM as it is. By
+                           default the output is printer-safe: where a browser
+                           renders it the same, it is written in a form fulgur
+                           prints right too (the size of a block <svg>, the
+                           colour of a one-sided border, a newline ending a <pre>)
   --layout-queries <p>     With --scripts, what getBoundingClientRect, offsetWidth
                            and the like give, as nothing is laid out: zeros
                            (default), or throw: the first one fails the render
@@ -183,6 +188,7 @@ struct RenderArgs {
     pool_size: Option<usize>,
     scripts: bool,
     keep_scripts: bool,
+    no_printer_safe: bool,
     layout_queries: Option<LayoutQueries>,
     resources: Vec<ResourceArg>,
 }
@@ -299,14 +305,14 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
             }
             "--max-islands" => r.max_islands = Some(number(&flag, &value()?)?),
             "--pool-size" => r.pool_size = Some(number(&flag, &value()?)?),
-            "--scripts" | "--keep-scripts" => {
+            "--scripts" | "--keep-scripts" | "--no-printer-safe" => {
                 if inline.is_some() {
                     return Err(Failure::usage(format!("{flag} takes no value")));
                 }
-                if flag == "--scripts" {
-                    r.scripts = true;
-                } else {
-                    r.keep_scripts = true;
+                match flag.as_str() {
+                    "--scripts" => r.scripts = true,
+                    "--keep-scripts" => r.keep_scripts = true,
+                    _ => r.no_printer_safe = true,
                 }
             }
             "--layout-queries" => {
@@ -329,9 +335,13 @@ fn parse(args: Vec<OsString>) -> Result<Command, Failure> {
             "render needs an input file (or - for stdin)",
         ));
     }
-    if !r.scripts && (r.keep_scripts || r.layout_queries.is_some() || !r.resources.is_empty()) {
+    let page_only = r.keep_scripts
+        || r.no_printer_safe
+        || r.layout_queries.is_some()
+        || !r.resources.is_empty();
+    if !r.scripts && page_only {
         return Err(Failure::usage(
-            "--keep-scripts, --layout-queries and --resource need --scripts",
+            "--keep-scripts, --no-printer-safe, --layout-queries and --resource need --scripts",
         ));
     }
     Ok(Command::Render(Box::new(r)))
@@ -419,7 +429,9 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
                 fs::read(&r.path).map_err(|e| Failure::io(&r.path.display().to_string(), &e))?;
             files.push((r.url.clone(), bytes));
         }
-        options = options.keep_scripts(args.keep_scripts);
+        options = options
+            .keep_scripts(args.keep_scripts)
+            .printer_safe(!args.no_printer_safe);
         if !files.is_empty() {
             options = options.resource_loader(ResourceLoader::from_map(files));
         }
@@ -648,6 +660,7 @@ mod tests {
             "--pool-size=2",
             "--scripts",
             "--keep-scripts",
+            "--no-printer-safe",
             "--layout-queries=throw",
             "--resource",
             "js/a.js?v=1=lib/a.js",
@@ -685,7 +698,7 @@ mod tests {
             Some(vec!["echarts".to_owned(), "mine".to_owned()])
         );
         assert_eq!((r.max_islands, r.pool_size), (Some(20), Some(2)));
-        assert!(r.scripts && r.keep_scripts);
+        assert!(r.scripts && r.keep_scripts && r.no_printer_safe);
         assert_eq!(r.layout_queries, Some(LayoutQueries::Throw));
         assert_eq!(
             r.resources,
@@ -703,7 +716,7 @@ mod tests {
         assert_eq!(r.output, None);
         assert_eq!(r.limits, Limits::default());
         assert_eq!(r.policy, ErrorPolicy::Fail);
-        assert!(!r.scripts);
+        assert!(!r.scripts && !r.no_printer_safe);
         let r = render_args(&["render", "--", "-o"]);
         assert_eq!(r.input.as_deref(), Some("-o"));
     }
@@ -731,6 +744,8 @@ mod tests {
             &["render", "a", "--pool-size", "-2"],
             &["render", "a", "--scripts=yes"],
             &["render", "a", "--keep-scripts"],
+            &["render", "a", "--no-printer-safe"],
+            &["render", "a", "--scripts", "--no-printer-safe=1"],
             &["render", "a", "--layout-queries", "zeros"],
             &["render", "a", "--resource", "a.js=b.js"],
             &["render", "a", "--scripts", "--layout-queries", "guess"],

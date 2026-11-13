@@ -171,6 +171,18 @@ module Surimono
     #                LayoutQueryError, even if the page catches the exception.
     # keep_scripts:: with page scripts, leave <script> elements in the result.
     #                Default false: all but island markers are removed.
+    # printer_safe:: with page scripts, write the result in forms a browserless
+    #                printer prints the way Chrome prints the page (default
+    #                true): a block <svg> keeps the size its width and height
+    #                give it, a border on one side prints in its colour, and a
+    #                <pre> ending in a newline isn't a line taller (fulgur 0.40
+    #                gets these wrong). Each only where a browser renders the
+    #                result exactly as before, whatever the page's CSS; nothing
+    #                is rewritten in a page whose CSS isn't all in the page
+    #                (pass linked sheets in resources:), with keep_scripts, or
+    #                with a script left in an attribute (onload, srcdoc, a
+    #                javascript: URL) or a frame that loads a document.
+    #                false gives the page's DOM as it is.
     # resources::    with page scripts, what <script src>, <iframe src> and a
     #                stylesheet's <link href> may load, as
     #                { "url as written in the page" => source }. Only these load:
@@ -200,7 +212,7 @@ module Surimono
     # bundle that can't be used) raise ConfigurationError.
     def self.new(fonts: [], limits: {}, seed: 0, error_policy: :fail, renderers: nil, bundles: {}, pool_size: nil,
                  now: nil, utc_offset_minutes: 0, text: :outlines, max_islands: nil,
-                 layout_queries: :zeros, keep_scripts: false, resources: {})
+                 layout_queries: :zeros, keep_scripts: false, printer_safe: true, resources: {})
       lim = normalize_limits(limits)
       _native_new(
         Array(fonts).map { |f| font_data(f) },
@@ -217,7 +229,7 @@ module Surimono
         normalize_text(text),
         max_islands && positive_integer(max_islands, "max_islands"),
         [keep_scripts ? true : false, normalize_layout_queries(layout_queries), normalize_resources(resources),
-         lim[:output_mb] * 1024 * 1024]
+         lim[:output_mb] * 1024 * 1024, printer_safe ? true : false]
       )
     end
 
