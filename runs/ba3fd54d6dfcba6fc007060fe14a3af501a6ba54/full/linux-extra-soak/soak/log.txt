@@ -1,0 +1,46 @@
+[1m[32m    Updating[0m crates.io index
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[32m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
+[1m[32m   Compiling[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 21m 39s
+[1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono-08d824b477ddb114)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 151 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/breakout.rs (target/release/deps/breakout-20431b18da6673cd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fixtures.rs (target/release/deps/fixtures-2af7270aa3e15109)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/fork.rs (target/release/deps/fork-f9acda3f78db68dd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/page.rs (target/release/deps/page-92bc405f0f1a579f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.00s
+
+[1m[32m     Running[0m tests/page_soak.rs (target/release/deps/page_soak-18fc31603b28df80)
+
+running 1 test

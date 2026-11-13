@@ -1,0 +1,800 @@
+info: syncing channel updates for nightly-x86_64-unknown-linux-gnu
+info: latest update on 2026-11-13 for version 1.102.0-nightly (8eb778d04 2026-11-12)
+info: downloading 4 components
+
+  nightly-x86_64-unknown-linux-gnu installed - rustc 1.102.0-nightly (8eb778d04 2026-11-12)
+
+rustc 1.102.0-nightly (8eb778d04 2026-11-12)
+binary: rustc
+commit-hash: 8eb778d04094d3af4b26580cab327e0413eb1e02
+commit-date: 2026-11-12
+host: x86_64-unknown-linux-gnu
+release: 1.102.0-nightly
+LLVM version: 23.1.5
+ASan symbolizer: /usr/lib/llvm-18/bin/llvm-symbolizer (Ubuntu LLVM version 18.1.3)
+[1m[33mwarning[0m[1m: unused field `description` in `workspace.package`[0m
+  [1m[94m--> [0mCargo.toml:34:1
+   [1m[94m|[0m
+[1m[94m34[0m [1m[94m|[0m description = "Run a document's JavaScript without a browser, so browserless HTML-to-PDF engines can print it."
+   [1m[94m|[0m [1m[33m^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::unused_workspace_package_fields` is set to `warn` by default
+[1m[96mhelp[0m: consider removing the field `workspace.package.description`
+[1m[33mwarning[0m: workspace (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/core/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-core` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/gfx/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-gfx` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/surimono/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/islands/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-islands` (manifest) generated 1 warning
+[1m[33mwarning[0m[1m: `package.homepage` is redundant with `package.repository`[0m
+  [1m[94m--> [0mcrates/cli/Cargo.toml:10:1
+   [1m[94m|[0m
+[1m[94m 9[0m [1m[94m|[0m repository.workspace = true
+   [1m[94m|[0m [1m[94m----------[0m
+[1m[94m10[0m [1m[94m|[0m homepage.workspace = true
+   [1m[94m|[0m [1m[33m^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `cargo::redundant_homepage` is set to `warn` by default
+[1m[96mhelp[0m: consider removing `package.homepage`
+[1m[33mwarning[0m: `surimono-cli` (manifest) generated 1 warning
+[1m[92m    Updating[0m crates.io index
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m getopts v0.2.24
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m addr2line v0.27.1
+[1m[92m  Downloaded[0m rustc-literal-escaper v0.0.8
+[1m[92m  Downloaded[0m rustc-demangle v0.1.28
+[1m[92m  Downloaded[0m miniz_oxide v0.9.1
+[1m[92m  Downloaded[0m object v0.39.1
+[1m[92m  Downloaded[0m gimli v0.34.0
+[1m[92m   Compiling[0m compiler_builtins v0.1.160 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
+[1m[92m   Compiling[0m core v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
+[1m[92m   Compiling[0m object v0.39.1
+[1m[92m   Compiling[0m std v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std)
+[1m[92m   Compiling[0m test v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/test)
+[1m[92m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[92m   Compiling[0m libc v0.2.191
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m libm v0.2.16
+[1m[92m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[92m   Compiling[0m parking_lot_core v0.9.12
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m icu_properties_data v2.2.0
+[1m[92m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[92m   Compiling[0m crossbeam-utils v0.8.23
+[1m[92m   Compiling[0m selectors v0.32.0
+[1m[92m   Compiling[0m crossbeam-epoch v0.9.21
+[1m[92m   Compiling[0m web_atoms v0.1.3
+[1m[92m   Compiling[0m icu_locale_data v2.2.0
+[1m[92m   Compiling[0m crossbeam-deque v0.8.8
+[1m[92m   Compiling[0m rayon-core v1.13.0
+[1m[92m   Compiling[0m icu_segmenter_data v2.2.0
+[1m[92m   Compiling[0m stylo_atoms v0.8.0
+[1m[92m   Compiling[0m stylo v0.8.0
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m rustc-std-workspace-core v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-core)
+[1m[92m   Compiling[0m alloc v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc)
+[1m[92m   Compiling[0m unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/unwind)
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m rustc-std-workspace-alloc v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-alloc)
+[1m[92m   Compiling[0m gimli v0.34.0
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m miniz_oxide v0.9.1
+[1m[92m   Compiling[0m addr2line v0.27.1
+[1m[92m   Compiling[0m std_detect v0.1.5 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std_detect)
+[1m[92m   Compiling[0m hashbrown v0.17.1
+[1m[92m   Compiling[0m panic_unwind v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_unwind)
+[1m[92m   Compiling[0m panic_abort v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/panic_abort)
+[1m[92m   Compiling[0m rustc-demangle v0.1.28
+[1m[92m   Compiling[0m cfg-if v1.0.4
+[1m[92m   Compiling[0m rustc-literal-escaper v0.0.8
+[1m[92m   Compiling[0m rustc-std-workspace-std v1.99.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/rustc-std-workspace-std)
+[1m[92m   Compiling[0m getopts v0.2.24
+[1m[92m   Compiling[0m proc_macro v0.0.0 (/home/runner/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/proc_macro)
+[1m[92m   Compiling[0m stable_deref_trait v1.2.1
+[1m[92m   Compiling[0m smallvec v1.16.4
+[1m[92m   Compiling[0m equivalent v1.0.3
+[1m[92m   Compiling[0m allocator-api2 v0.2.21
+[1m[92m   Compiling[0m zerofrom v0.1.8
+[1m[92m   Compiling[0m yoke v0.8.4
+[1m[92m   Compiling[0m foldhash v0.2.0
+[1m[92m   Compiling[0m zerovec v0.11.9
+[1m[92m   Compiling[0m writeable v0.6.4
+[1m[92m   Compiling[0m cfg-if v1.0.5
+[1m[92m   Compiling[0m tinystr v0.8.5
+[1m[92m   Compiling[0m litemap v0.8.3
+[1m[92m   Compiling[0m icu_locale_core v2.2.0
+[1m[92m   Compiling[0m bitflags v2.13.2
+[1m[92m   Compiling[0m bytemuck v1.25.2
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m font-types v0.10.1
+[1m[92m   Compiling[0m rquickjs-core v0.14.0
+[1m[92m   Compiling[0m font-types v0.12.7
+[1m[92m   Compiling[0m core_maths v0.1.1
+[1m[92m   Compiling[0m read-fonts v0.35.0
+[1m[92m   Compiling[0m rquickjs v0.14.0
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m read-fonts v0.41.0
+[1m[33mwarning[0m[1m: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency[0m
+  [1m[94m--> [0mcrates/core/src/fork_guard.rs:64:20
+   [1m[94m|[0m
+[1m[94m64[0m [1m[94m|[0m     let _ = ACTIVE.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1));
+   [1m[94m|[0m                    [1m[33m^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `#[warn(deprecated)]` on by default
+[1m[96mhelp[0m: replace the use of the deprecated method
+   [1m[94m|[0m
+[1m[94m64[0m [91m- [0m    let _ = ACTIVE.[91mfetch_update[0m(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1));
+[1m[94m64[0m [92m+ [0m    let _ = ACTIVE.[92mtry_update[0m(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1));
+   [1m[94m|[0m
+
+[1m[33mwarning[0m[1m: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency[0m
+   [1m[94m--> [0mcrates/core/src/fork_guard.rs:116:19
+    [1m[94m|[0m
+[1m[94m116[0m [1m[94m|[0m     let _ = FORKS.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1));
+    [1m[94m|[0m                   [1m[33m^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: replace the use of the deprecated method
+    [1m[94m|[0m
+[1m[94m116[0m [91m- [0m    let _ = FORKS.[91mfetch_update[0m(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1));
+[1m[94m116[0m [92m+ [0m    let _ = FORKS.[92mtry_update[0m(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1));
+    [1m[94m|[0m
+
+[1m[92m   Compiling[0m siphasher v1.0.4
+[1m[92m   Compiling[0m foldhash v0.1.5
+[1m[92m   Compiling[0m hashbrown v0.15.5
+[1m[92m   Compiling[0m phf_shared v0.11.3
+[1m[92m   Compiling[0m memmap2 v0.9.12
+[1m[33mwarning[0m: `surimono-core` (lib) generated 2 warnings (run `cargo fix --lib -p surimono-core` to apply 2 suggestions)
+[1m[92m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[92m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[92m   Compiling[0m scopeguard v1.2.0
+[1m[92m   Compiling[0m lock_api v0.4.14
+[1m[92m   Compiling[0m fontique v0.6.0
+[1m[92m   Compiling[0m skrifa v0.44.0
+[1m[92m   Compiling[0m swash v0.2.10
+[1m[92m   Compiling[0m harfrust v0.3.2
+[1m[92m   Compiling[0m skrifa v0.37.0
+[1m[92m   Compiling[0m parking_lot v0.12.5
+[1m[92m   Compiling[0m parley v0.6.0
+[1m[92m   Compiling[0m precomputed-hash v0.1.1
+[1m[92m   Compiling[0m string_cache v0.8.9
+[1m[92m   Compiling[0m phf v0.11.3
+[1m[92m   Compiling[0m utf_types v1.0.0
+[1m[92m   Compiling[0m utf8_iter v1.1.0
+[1m[92m   Compiling[0m potential_utf v0.1.6
+[1m[92m   Compiling[0m zerotrie v0.2.5
+[1m[92m   Compiling[0m icu_provider v2.2.0
+[1m[92m   Compiling[0m icu_collections v2.2.0
+[1m[92m   Compiling[0m log v0.4.34
+[1m[92m   Compiling[0m dtoa v1.0.11
+[1m[92m   Compiling[0m dtoa-short v0.3.5
+[1m[92m   Compiling[0m cssparser v0.35.0
+[1m[92m   Compiling[0m servo_arc v0.4.3
+[1m[92m   Compiling[0m thin-vec v0.2.21
+[1m[92m   Compiling[0m smallbitvec v2.6.1
+[1m[92m   Compiling[0m icu_normalizer v2.2.0
+[1m[92m   Compiling[0m to_shmem v0.2.0
+[1m[92m   Compiling[0m icu_properties v2.2.0
+[1m[92m   Compiling[0m derive_more v2.1.1
+[1m[92m   Compiling[0m rustc-hash v2.1.3
+[1m[92m   Compiling[0m idna_adapter v1.2.2
+[1m[92m   Compiling[0m percent-encoding v2.3.2
+[1m[92m   Compiling[0m form_urlencoded v1.2.2
+[1m[92m   Compiling[0m idna v1.1.0
+[1m[92m   Compiling[0m euclid v0.22.14
+[1m[92m   Compiling[0m app_units v0.7.8
+[1m[92m   Compiling[0m mac v0.1.1
+[1m[92m   Compiling[0m void v1.0.2
+[1m[92m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[92m   Compiling[0m futf v0.1.5
+[1m[92m   Compiling[0m url v2.5.8
+[1m[92m   Compiling[0m utf-8 v0.7.6
+[1m[92m   Compiling[0m arrayvec v0.7.8
+[1m[92m   Compiling[0m either v1.19.0
+[1m[92m   Compiling[0m icu_locale v2.2.0
+[1m[92m   Compiling[0m tendril v0.4.3
+[1m[92m   Compiling[0m encoding_rs v0.8.35
+[1m[92m   Compiling[0m mime v0.3.17
+[1m[92m   Compiling[0m icu_segmenter v2.2.0
+[1m[92m   Compiling[0m stylo_traits v0.8.0
+[1m[92m   Compiling[0m rayon v1.12.0
+[1m[92m   Compiling[0m markup5ever v0.35.0
+[1m[92m   Compiling[0m itertools v0.14.0
+[1m[92m   Compiling[0m uluru v3.1.0
+[1m[92m   Compiling[0m stylo_dom v0.8.0
+[1m[92m   Compiling[0m num-integer v0.1.47
+[1m[92m   Compiling[0m indexmap v2.14.2
+[1m[92m   Compiling[0m num_cpus v1.17.0
+[1m[92m   Compiling[0m static_assertions v1.1.0
+[1m[92m   Compiling[0m atomic_refcell v0.1.14
+[1m[92m   Compiling[0m unicode-segmentation v1.13.3
+[1m[92m   Compiling[0m lazy_static v1.5.1
+[1m[92m   Compiling[0m matches v0.1.10
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m grid v1.0.1
+[1m[92m   Compiling[0m stylo_config v0.8.0
+[1m[92m   Compiling[0m byteorder v1.5.0
+[1m[92m   Compiling[0m stylo_static_prefs v0.8.0
+[1m[92m   Compiling[0m taffy v0.9.2
+[1m[92m   Compiling[0m http v1.5.0
+[1m[92m   Compiling[0m keyboard-types v0.7.0
+[1m[92m   Compiling[0m byteorder-lite v0.1.0
+[1m[92m   Compiling[0m smol_str v0.2.2
+[1m[92m   Compiling[0m cursor-icon v1.2.0
+[1m[92m   Compiling[0m image v0.25.6
+[1m[92m   Compiling[0m blitz-traits v0.2.0
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m fastrand v2.5.0
+[1m[92m   Compiling[0m html-escape v0.2.15
+[1m[92m   Compiling[0m debug_timer v0.1.3
+[1m[92m   Compiling[0m color v0.3.3
+[1m[92m   Compiling[0m xml5ever v0.35.0
+[1m[92m   Compiling[0m html5ever v0.35.0
+[1m[92m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[92m   Compiling[0m stats_alloc v0.1.10
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m roxmltree v0.21.2
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
+[1m[92m   Compiling[0m hashbrown v0.16.1
+[1m[92m   Compiling[0m lol_html v2.7.0
+[1m[33mwarning[0m: `surimono-core` (lib) generated 2 warnings (2 duplicates)
+[1m[92m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
+[1m[92m   Compiling[0m winnow v1.0.4
+[1m[92m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[92m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[92m   Compiling[0m serde_spanned v1.1.2
+[1m[92m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m   Compiling[0m toml v1.1.8+spec-1.1.0
+[1m[92m   Compiling[0m stylo_taffy v0.2.0
+[1m[92m   Compiling[0m blitz-dom v0.2.4
+[1m[33mwarning[0m: `surimono-core` (lib test) generated 2 warnings (2 duplicates)
+[1m[92m   Compiling[0m blitz-html v0.2.0
+[1m[92m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
+[1m[92m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
+[1m[92m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
+[1m[92m   Compiling[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 5m 38s
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/ea2d0c0b3d4bbfaf/out/surimono-ea2d0c0b3d4bbfaf)
+
+running 151 tests
+test backend::tests::bundle_names_and_entries_are_checked ... ok
+test backend::tests::builtin_names_match_the_islands_crate ... ok
+test backend::tests::fonts_must_be_fonts ... ok
+test charref::tests::named_references ... ok
+test backend::tests::every_island_error_maps_to_a_public_error ... ok
+test charref::tests::plain_text_is_borrowed ... ok
+test charref::tests::numeric_references ... ok
+test error::tests::document_errors_have_no_island ... ok
+test error::tests::error_is_send_sync_static ... ok
+test error::tests::island_errors_name_the_island ... ok
+test error::tests::unknown_renderer_lists_the_enabled_ones ... ok
+test options::tests::builder_sets_everything ... ok
+test options::tests::debug_does_not_dump_font_or_bundle_bytes ... ok
+test options::tests::defaults ... ok
+test page::tests::every_dom_limit_is_a_page_dom_limit ... ok
+test prepass::tests::a_render_that_was_cancelled_ends_the_document_whatever_the_policy ... ok
+test prepass::tests::attribute_values_are_read_decoded_and_written_raw ... ok
+test prepass::tests::cancel_skips_the_remaining_islands_whatever_the_policy ... ok
+test prepass::tests::attributes_in_any_order_and_quoting ... ok
+test prepass::tests::comment_text_never_closes_the_comment ... ok
+test prepass::tests::crlf_and_bom_are_kept ... ok
+test prepass::tests::cdata_and_comment_like_text_is_just_json ... ok
+test prepass::tests::default_size_is_600_by_400 ... ok
+test prepass::tests::document_without_islands_is_unchanged ... ok
+test prepass::tests::documents_without_the_island_type_are_not_parsed ... ok
+test prepass::tests::html_escaped_json_gets_a_hint ... ok
+test prepass::tests::fail_policy_stops_at_the_first_error_and_names_the_island ... ok
+test prepass::tests::input_containing_the_sentinel_text_is_safe ... ok
+test prepass::tests::island_text_is_raw_not_entity_decoded ... ok
+test prepass::tests::keeps_id_and_class ... ok
+test prepass::tests::malformed_markers_are_invalid_islands ... ok
+test prepass::tests::markers_in_comments_textarea_and_svg_are_not_islands ... ok
+test prepass::tests::other_scripts_are_left_alone ... ok
+test prepass::tests::many_islands_in_order_inside_nested_markup ... ok
+test prepass::tests::placeholder_policy_renders_the_rest ... ok
+test prepass::tests::placeholders_keep_the_island_size_and_style ... ok
+test prepass::tests::replaces_one_island_and_keeps_everything_else ... ok
+test prepass::tests::rendering_twice_gives_the_same_bytes ... ok
+test prepass::tests::script_end_tag_inside_json_string_must_be_escaped ... ok
+test prepass::tests::single_quoted_values_with_double_quotes_are_escaped ... ok
+test prepass::tests::type_must_be_written_without_character_references ... ok
+test prepass::tests::utf8_text_around_and_inside_islands ... ok
+test prepass::tests::wrapper_keeps_accessibility_and_style_attributes_only ... ok
+test prepass::tests::too_many_islands_fail_before_any_island_runs ... ok
+test print::rules::tests::a_declaration_knows_whether_it_is_conditional ... ok
+test print::rules::tests::a_descriptor_is_no_elements_property ... ok
+test print::rules::tests::a_selectors_last_compound_says_what_it_can_match ... ok
+test print::rules::tests::an_attribute_is_one_rule_of_its_element ... ok
+test print::rules::tests::css_nested_too_deeply_is_left_unread ... ok
+test print::rules::tests::what_an_at_rule_holds_in_a_style_rule_is_that_rules ... ok
+test print::rules::tests::rules_and_declarations_are_told_apart_as_css_syntax_does ... ok
+test print::rules::tests::what_isnt_understood_matches_everything ... ok
+test print::rules::tests::words_are_found_wherever_they_are ... ok
+test print::rules::tests::what_the_reader_doesnt_know_is_flagged ... ok
+test print::safe::tests::a_border_is_copied_only_onto_elements_with_plain_attributes ... ok
+test print::safe::tests::a_border_property_the_pass_doesnt_know_stops_the_copies ... ok
+test print::safe::tests::a_cancel_or_the_deadline_ends_the_pass ... ok
+test print::safe::tests::a_colour_is_copied_from_its_own_tokens ... ok
+test print::safe::tests::a_javascript_url_is_what_the_url_parser_reads_as_one ... ok
+test print::safe::tests::a_linked_sheet_could_say_anything ... ok
+test print::safe::tests::a_break_that_chrome_renders_stays ... ok
+test print::safe::tests::a_newline_ending_a_pre_goes ... ok
+test print::safe::tests::a_newline_stays_under_css_it_wasnt_measured_under ... ok
+test print::safe::tests::a_newline_stays_where_bidi_may_be_involved ... ok
+test print::safe::tests::a_one_sided_border_gives_its_colour_to_the_top ... ok
+test print::safe::tests::a_page_in_quirks_mode_gets_only_its_sizes ... ok
+test print::safe::tests::a_page_that_keeps_its_scripts_is_left_alone ... ok
+test print::safe::tests::a_pass_that_doesnt_fit_gives_the_page_as_it_was ... ok
+test print::safe::tests::a_reset_still_wins_over_the_attributes ... ok
+test print::safe::tests::a_rule_that_sets_the_top_itself_is_not_copied ... ok
+test print::safe::tests::a_page_with_a_declarative_shadow_root_is_left_alone ... ok
+test print::safe::tests::a_selector_is_copied_only_if_it_means_the_same_in_the_sheet ... ok
+
+thread '<unnamed>' (7091) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread '<unnamed>' (7103) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+test print::safe::tests::a_style_with_an_element_in_it_is_left_alone ... ok
+test print::safe::tests::a_tree_chrome_may_build_differently_is_left_alone ... ok
+test print::safe::tests::an_animated_size_isnt_the_attributes ... ok
+test print::safe::tests::an_svgs_size_is_written_below_every_author_rule ... ok
+test print::safe::tests::a_script_left_in_an_attribute_leaves_the_page_alone ... ok
+test print::safe::tests::each_size_is_written_once_and_only_for_an_outermost_svg ... ok
+test print::safe::tests::borders_are_copied_only_where_chrome_cant_show_it ... ok
+test print::safe::tests::head_keeps_what_selectors_and_decoders_go_by ... ok
+
+thread '<unnamed>' (7162) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+test print::safe::tests::lengths_are_svgs ... ok
+
+thread '<unnamed>' (7164) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7173) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7175) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7176) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7177) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+test page::tests::queued_jobs_outlive_a_worker_that_dies ... ok
+
+thread '<unnamed>' (7178) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7180) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7181) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7182) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7183) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7186) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7187) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7188) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7189) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+test print::safe::tests::many_pres_and_many_rules_are_linear ... ok
+
+thread '<unnamed>' (7190) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7192) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7193) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7194) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+test print::safe::tests::matching_classes_is_counted ... ok
+test print::safe::tests::only_a_charset_declares_the_encoding ... ok
+test print::safe::tests::sizes_are_written_only_for_svgs_the_rule_can_match ... ok
+test print::safe::tests::the_rewritten_page_is_settled_and_within_the_limits ... ok
+
+thread '<unnamed>' (7195) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+test print::safe::tests::the_sheet_is_added_only_where_no_css_can_see_it ... ok
+test print::safe::tests::too_many_rules_are_none ... ok
+test print::safe::tests::what_ends_a_line_with_content ... ok
+test print::safe::tests::many_classes_against_many_rules_keep_the_deadline ... ok
+test print::tests::a_media_list_holds_no_rule ... ok
+
+thread '<unnamed>' (7200) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+
+thread '<unnamed>' (7206) panicked at crates/surimono/src/page.rs:429:13:
+a worker dying on purpose
+test page::tests::a_worker_that_dies_is_replaced ... ok
+test print::tests::a_page_cant_outspend_the_budget ... ok
+test print::tests::comments_go ... ok
+test print::tests::decoded_style_text_cant_end_its_element ... ok
+test print::tests::a_style_element_over_several_chunks_is_read_whole ... ok
+test print::tests::nested_rules_are_read_once ... ok
+test print::tests::no_doctype_stays_no_doctype ... ok
+test print::tests::no_literal_feff_stays_in_the_output ... ok
+test print::tests::ordinary_css_goes_through_untouched ... ok
+test print::tests::references_chain_only_so_far ... ok
+test print::tests::limits_hold_on_the_printers_parse ... ok
+test print::tests::scripts_and_noscript_go_however_they_got_here ... ok
+test print::tests::selectors_have_only_so_many_combinators ... ok
+test print::tests::strings_elsewhere_arent_cells ... ok
+test print::tests::text_in_a_foreign_style_is_normalized ... ok
+test print::tests::the_budget_reads_the_printers_css ... ok
+test print::tests::the_gate_stops_every_step ... ok
+test print::tests::the_output_is_a_fixed_point ... ok
+test print::tests::the_output_limit_is_a_typed_error ... ok
+test print::tests::urls_a_printer_cant_resolve_go ... ok
+test print::tests::scrambled_markup_settles_and_stays_clean ... ok
+test print::tree::tests::the_tree_is_blitz_htmls ... ok
+test print::tree::tests::the_tree_is_blitz_htmls_wherever_a_read_ends ... ok
+test renderer::tests::a_cancel_stops_the_island_that_is_running ... ok
+test renderer::tests::a_cancelled_render_skips_the_remaining_islands ... ok
+test renderer::tests::a_forked_child_starts_its_own_runner_and_measurer ... ok
+test renderer::tests::a_reused_pid_of_an_ancestor_is_not_this_process ... ok
+test renderer::tests::an_island_is_clipped_to_its_declared_box ... ok
+test renderer::tests::builtins_come_first_then_bundles_in_order ... ok
+test renderer::tests::clock_options_reach_the_scripts ... ok
+test renderer::tests::dropping_a_renderer_from_another_process_does_not_join_its_threads ... ok
+test renderer::tests::hostile_svg_cannot_break_out_of_the_wrapper ... ok
+test renderer::tests::invalid_options ... ok
+test renderer::tests::many_threads_after_a_fork_share_one_new_slot ... ok
+test print::safe::tests::many_svg_sizes_are_collected_in_few_steps ... ok
+test renderer::tests::many_threads_share_one_renderer ... ok
+test renderer::tests::placeholder_policy ... ok
+test renderer::tests::renderer_is_send_and_sync ... ok
+test renderer::tests::renders_islands_and_keeps_the_rest ... ok
+test renderer::tests::script_failures_become_typed_errors ... ok
+test renderer::tests::text_is_measured_with_the_given_fonts ... ok
+test renderer::tests::too_many_fork_generations_is_an_error_not_a_hang ... ok
+test renderer::tests::unknown_and_disabled_renderers ... ok
+test resources::tests::a_refused_url_never_reaches_the_function ... ok
+test resources::tests::a_repeat_that_cant_fit_costs_nothing ... ok
+test resources::tests::caps_stop_loading_and_the_page_goes_on ... ok
+test resources::tests::failures_and_bad_bytes_are_typed ... ok
+test resources::tests::from_map_serves_its_urls_and_no_others ... ok
+test resources::tests::reports_stay_small ... ok
+test resources::tests::the_allowlist_matches_exactly_or_under_a_slash ... ok
+test resources::tests::without_a_loader_nothing_loads ... ok
+test svg::tests::markup_that_would_break_out_of_the_wrapper_is_an_error ... ok
+test svg::tests::outlining_text_without_fonts_says_what_to_do ... ok
+test svg::tests::scripts_and_handlers_are_removed_and_ids_prefixed ... ok
+test tests::every_builtin_is_precompiled ... ok
+test tests::version_is_set ... ok
+test renderer::tests::max_islands_caps_a_document ... ok
+test print::tree::tests::scrambled_markup_makes_the_same_tree ... ok
+test print::safe::tests::work_past_the_step_budget_is_given_up ... ok
+
+test result: ok. 151 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 42.71s
+
+[1m[92m     Running[0m tests/breakout.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/2666156cee0c49c8/out/breakout-2666156cee0c49c8)
+
+running 3 tests
+test the_check_catches_raw_breakouts ... ok
+test echarts_emphasis_colour_cannot_style_the_page ... ok
+test custom_bundle_svg_stays_in_its_box ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+[1m[92m     Running[0m tests/fixtures.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/72de160b0d3cf1d5/out/fixtures-72de160b0d3cf1d5)
+
+running 4 tests
+test keep_mode_keeps_text_in_the_registered_font ... ok
+test echarts_bar_simple_latin_becomes_sanitised_svg ... ok
+test two_echarts_islands_share_no_ids ... ok
+test every_checkpoint_fixture_renders ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.16s
+
+[1m[92m     Running[0m tests/fork.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/64d8d1b3de72f128/out/fork-64d8d1b3de72f128)
+
+running 3 tests
+test fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test a_fork_waits_for_a_page_but_not_for_its_load ... ok
+test forks_never_hang has been running for over 60 seconds
+test forks_never_hang ... ok
+
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 263.88s
+
+[1m[92m     Running[0m tests/page.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/9664ae2c8a6176b0/out/page-9664ae2c8a6176b0)
+
+running 49 tests
+test a_cancel_ends_a_page_at_its_next_load ... ok
+test a_cancel_reaches_the_islands_after_a_page ... ok
+test a_cancel_stops_a_running_script_and_goes_no_further ... ok
+test a_failed_script_fires_error_and_the_page_goes_on ... ok
+test a_cancel_ends_the_call_at_once ... ok
+test a_code_blocks_last_newline_is_left_out ... ok
+test a_load_function_runs_on_the_calling_thread ... ok
+test a_layout_query_can_end_the_render ... ok
+test a_page_can_remove_everything ... ok
+test a_noscript_message_never_prints ... ok
+test a_page_cannot_get_in_the_way_of_the_cleanup ... ok
+test a_page_of_ranges_is_limited ... ok
+
+thread '<unnamed>' (11858) panicked at crates/surimono/tests/page.rs:697:9:
+bug in the caller's loader
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test a_panicking_loader_is_a_report_entry ... ok
+test a_reports_rows_print_their_border_colour ... ok
+test a_stylesheet_comes_out_as_a_style_element ... ok
+test a_stylesheet_is_found_in_any_case ... ok
+test a_page_settles_on_the_virtual_clock ... ok
+test author_rules_outrank_the_added_sheet_in_the_printer ... ok
+test d3_charts_keep_their_size_in_the_printer ... ok
+test frames_load_through_the_allowlist ... ok
+test islands_render_after_the_scripts ... ok
+test layout_queries_answer_zeros_by_default ... ok
+test highlight_js_matches_chrome ... ok
+test limits_are_typed_and_the_renderer_carries_on ... ok
+test marked_matches_chrome ... ok
+test a_page_of_scripts_is_cleared_in_time ... ok
+test links_to_one_big_file_are_charged_and_end_on_time ... ok
+test more_css_than_a_printer_can_take_is_a_typed_error ... ok
+test printer_parses_share_one_thread ... ok
+test one_render_leaves_nothing_for_the_next ... ok
+test same_input_same_output ... ok
+test scripts_load_in_document_order_through_the_loader_only ... ok
+test scripts_run_only_when_asked ... ok
+test printer_safe_output_can_be_turned_off ... ok
+test style_attributes_print_as_the_page_left_them ... ok
+test text_cant_outgrow_the_documents_limits ... ok
+test the_doctype_keeps_its_mode ... ok
+test the_markup_itself_is_limited ... ok
+test text_cant_put_scripts_back ... ok
+test markup_only_a_printer_reads_is_limited_too ... ok
+test the_static_parse_has_a_limit ... ok
+test the_report_says_what_went_wrong ... ok
+test what_a_script_writes_cant_crash_the_printer ... ok
+test what_comes_out_can_be_printed ... ok
+test the_output_stops_at_its_limit ... ok
+test what_counts_is_what_the_printers_parser_makes_of_it ... ok
+test what_follows_the_scripts_has_a_deadline ... ok
+test what_only_a_printer_reads_as_css_is_screened ... ok
+test a_cancel_stops_the_static_parse ... ok
+
+test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.07s
+
+[1m[92m     Running[0m tests/page_soak.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono/cdd63270e6a98c5f/out/page_soak-cdd63270e6a98c5f)
+
+running 2 tests
+test soak_pages_10000_renders_flat_memory ... ignored, soak: 10,000 page renders; run in release with `--ignored soak`
+test pages_300_renders_flat_memory has been running for over 60 seconds
+test pages_300_renders_flat_memory ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 76.74s
+
+[1m[92m     Running[0m unittests src/main.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-cli/f77893b565304849/out/surimono-f77893b565304849)
+
+running 6 tests
+test tests::dash_and_defaults ... ok
+test tests::parses_every_option ... ok
+test tests::usage_errors ... ok
+test tests::atomic_write_replaces_or_leaves_alone ... ok
+test tests::atomic_write_keeps_permissions_and_follows_links ... ok
+test tests::errors_map_to_exit_codes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+[1m[92m     Running[0m tests/cli.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-cli/c1a6885c7639f2c8/out/cli-c1a6885c7639f2c8)
+
+running 13 tests
+test a_failed_render_writes_no_output_file ... ok
+test a_failed_render_leaves_an_existing_output_alone ... ok
+test help_and_version ... ok
+test page_limits_exit_with_the_limit_code ... ok
+test bundles_renderers_and_island_cap ... ok
+test exit_codes_are_typed ... ok
+test a_page_warns_and_still_renders ... ok
+test resources_are_files_named_on_the_command_line ... ok
+test page_output_is_printer_safe_unless_turned_off ... ok
+test stdin_to_stdout_leaves_a_document_without_islands_alone ... ok
+test renders_an_echarts_island_from_file_to_file ... ok
+test same_input_same_output ... ok
+test scripts_run_only_with_the_flag ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.05s
+
+[1m[92m     Running[0m unittests src/lib.rs (target/x86_64-unknown-linux-gnu/debug/build/surimono-core/db26e126698e8a15/out/surimono_core-db26e126698e8a15)
+
+running 128 tests
+test embed::tests::compiling_for_embedding_is_deterministic ... ok
+test embed::tests::embedded_bytecode_is_stripped_and_smaller ... ok
+test embed::tests::a_different_fingerprint_is_refused ... ok
+test embed::tests::embedded_bytecode_runs_like_compiled_bytecode ... ok
+test embed::tests::syntax_errors_are_reported ... ok
+test embed::tests::the_fingerprint_includes_the_engine_sources ... ok
+test embed::tests::the_canary_compiles_and_the_fingerprint_is_stable ... ok
+test embed::tests::the_version_is_readable ... ok
+test embed::tests::stripping_hides_native_classes_from_to_string ... ok
+test engine::tests::a_clean_teardown_leaks_nothing ... ok
+test embed::tests::the_fingerprint_includes_the_patch_level ... ok
+test engine::tests::a_forked_child_has_a_newer_generation ... ok
+test embed::tests::the_fingerprint_covers_the_format ... ok
+test engine::tests::a_refused_allocation_raises_the_flag ... ok
+test engine::tests::a_stale_cancel_never_stops_the_next_call ... ok
+test engine::tests::a_stale_expiry_never_stops_the_next_call ... ok
+test engine::tests::a_watched_cancel_flag_raises_the_stop_flag_and_the_watch_ends_with_the_call ... ok
+test engine::tests::allocator_tracks_and_limits ... ok
+test engine::tests::an_address_tells_objects_apart ... ok
+test engine::tests::bytecode_round_trip_across_runtimes ... ok
+test engine::tests::compile_does_not_run_the_script ... ok
+test engine::tests::compile_reports_syntax_errors ... ok
+test engine::tests::deadline_arms_and_disarms ... ok
+test engine::tests::eval_bytecode_reports_exceptions ... ok
+test engine::tests::a_refused_allocation_makes_a_limit_error ... ok
+test engine::tests::a_passed_deadline_is_never_reported_before_its_flag_is_up ... ok
+test engine::tests::fork_stress_child ... ignored, helper: run in a child process by forks_never_hang
+test engine::tests::one_watchdog_serves_every_sandbox ... ok
+test engine::tests::only_the_engine_can_make_a_limit_error ... ok
+test engine::tests::pending_jobs_run_and_report_errors ... ok
+test engine::tests::a_failed_fork_child_says_why ... ok
+test engine::tests::stack_available_is_plausible ... ok
+test engine::tests::teardown_counts_leaked_objects ... ok
+test engine::tests::the_engine_is_patched ... ok
+test engine::tests::update_stack_top_is_harmless ... ok
+test engine::tests::reclaiming_a_clean_teardown_frees_nothing ... ok
+test error::tests::limit_errors_are_flagged ... ok
+test event_loop::tests::a_cleared_running_interval_is_not_set_again ... ok
+test event_loop::tests::a_limit_stops_the_notifications_between_entries ... ok
+test event_loop::tests::budgets_above_a_safe_integer_are_refused ... ok
+test event_loop::tests::cancelling_a_queued_timer_frees_both_entries ... ok
+test event_loop::tests::tasks_run_by_due_time_then_by_sequence ... ok
+test event_loop::tests::the_id_space_ends_in_a_refusal ... ok
+test event_loop::tests::timers_and_frames_clear_only_their_own_kind ... ok
+test engine::tests::watchdog_raises_the_flag_at_the_deadline ... ok
+test fork_guard::tests::paused_work_keeps_nothing_waiting ... ok
+test fork_guard::tests::new_work_waits_for_the_last_of_two_forks ... ok
+test fork_safe::tests::a_child_holds_its_own_election ... ok
+test fork_safe::tests::a_failed_init_is_retried ... ok
+test fork_safe::tests::failures_take_no_slot ... ok
+test fork_safe::tests::a_panicking_init_is_retried ... ok
+test fork_safe::tests::out_of_slots_fails_without_running_init ... ok
+
+thread '<unnamed>' (12792) panicked at crates/core/src/host_thread.rs:258:61:
+on purpose
+test host_thread::tests::a_panic_ends_only_the_thread ... ok
+test host_thread::tests::a_stack_too_large_for_the_address_space_is_an_error ... ok
+test host_thread::tests::dropping_the_handle_detaches ... ok
+test host_thread::tests::it_reports_when_it_has_finished ... ok
+test host_thread::tests::it_runs_and_joins ... ok
+test host_thread::tests::the_stack_is_at_least_what_was_asked_for ... ok
+test fork_safe::tests::many_threads_init_once ... ok
+test host_thread::tests::the_system_sees_its_name ... ok
+test limits::tests::defaults_match_the_spec ... ok
+test limits::tests::out_of_range_limits_are_rejected ... ok
+test limits::tests::setters_and_new_build_the_same_limits ... ok
+test sandbox::tests::a_stale_deadline_fails_safe ... ok
+test sandbox::tests::a_watchdog_held_while_it_raises_the_flag_is_still_a_time_limit ... ok
+test sandbox::tests::array_builtins_behave_normally ... ok
+test sandbox::tests::allocation_bomb_hits_memory_limit ... ok
+test sandbox::tests::bound_functions_behave_normally ... ok
+test sandbox::tests::bytecode_compiles_once_and_runs_anywhere ... ok
+test sandbox::tests::call_json_parses_arguments ... ok
+test sandbox::tests::calls_global_functions ... ok
+test sandbox::tests::async_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::caught_infinite_loop_hits_time_limit ... ok
+test sandbox::tests::caught_out_of_memory_that_returns_normally_still_fails ... ok
+test sandbox::tests::caught_stack_overflow_is_ordinary_js ... ok
+test sandbox::tests::class_strings_are_unchanged ... ok
+test sandbox::tests::compile_errors_are_unchanged ... ok
+test sandbox::tests::compile_reports_syntax_errors ... ok
+test sandbox::tests::debug_of_a_deadline_records_nothing ... ok
+test sandbox::tests::caught_out_of_memory_still_reports_memory_limit ... ok
+test sandbox::tests::deep_recursion_hits_stack_limit ... ok
+test sandbox::tests::doubling_string_ends_with_a_typed_error ... ok
+test sandbox::tests::eval_and_function_constructor_stay_inside ... ok
+test sandbox::tests::evaluates_scripts ... ok
+test sandbox::tests::exceptions_carry_message_and_stack ... ok
+test engine::tests::expire_races_arm_and_disarm ... ok
+test sandbox::tests::exponential_microtask_flood_hits_a_limit ... ok
+test sandbox::tests::deep_recursion_in_native_code_hits_stack_limit ... ok
+test sandbox::tests::huge_messages_are_truncated ... ok
+test sandbox::tests::host_functions_stop_at_the_deadline ... ok
+test sandbox::tests::huge_typed_array_hits_memory_limit ... ok
+test sandbox::tests::huge_string_hits_memory_limit ... ok
+test sandbox::tests::infinite_loop_hits_time_limit ... ok
+test sandbox::tests::interrupt_skips_finally ... ok
+test sandbox::tests::heap_returns_to_baseline_after_reset ... ok
+test sandbox::tests::interrupted_natives_leak_nothing ... ok
+test sandbox::tests::json_strings_are_unchanged_around_a_batch ... ok
+test sandbox::tests::limit_error_times_the_stop_apart_from_the_rebuild ... ok
+test sandbox::tests::limit_errors_discard_state ... ok
+test sandbox::tests::limits_out_of_range_are_rejected ... ok
+test sandbox::tests::microtask_flood_hits_a_limit ... ok
+test sandbox::tests::microtasks_run_before_the_call_returns ... ok
+test sandbox::tests::no_host_access ... ok
+test sandbox::tests::oom_sweep_child ... ignored, helper: run in a child process by the out-of-memory sweeps
+test sandbox::tests::out_of_memory_full_sweep ... ignored, slow: every allocation of the compile-heavy script
+test engine::tests::forks_never_hang ... ok
+test sandbox::tests::proxy_own_keys_are_unchanged ... ok
+test sandbox::tests::rebuild_after_a_limit_frees_the_old_context_first ... ok
+test sandbox::tests::regex_backtracking_hits_time_limit ... ok
+test sandbox::tests::regexp_replace_results_are_unchanged ... ok
+test sandbox::tests::reset_discards_globals ... ok
+test sandbox::tests::reset_frees_contexts_that_used_rust_functions ... ok
+test sandbox::tests::reset_with_queued_microtasks_replaces_the_runtime ... ok
+test sandbox::tests::run_await_settles_promises ... ok
+test sandbox::tests::run_gives_direct_context_access ... ok
+test sandbox::tests::sandboxes_are_independent ... ok
+test sandbox::tests::scripts_are_sloppy_like_classic_scripts ... ok
+test sandbox::tests::syntax_errors_are_exceptions ... ok
+test sandbox::tests::thrown_primitives_are_described ... ok
+test sandbox::tests::interrupted_compiles_leak_nothing ... ok
+test sandbox::tests::too_little_thread_stack_is_refused ... ok
+test sandbox::tests::too_many_destructured_parameters_is_a_syntax_error ... ok
+test sandbox::tests::type_errors_on_conversion ... ok
+test sandbox::tests::works_from_a_deep_rust_stack ... ok
+test tests::version_is_set ... ok
+test sandbox::tests::time_limit_is_per_call ... ok
+test sandbox::tests::interrupted_class_strings_leak_nothing has been running for over 60 seconds
+test sandbox::tests::interrupted_class_strings_leak_nothing ... ok
+test sandbox::tests::out_of_memory_never_aborts has been running for over 60 seconds
