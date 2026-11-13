@@ -5,8 +5,12 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import time
@@ -351,6 +355,169 @@ other = { git = "https://example.invalid/x" }
         self.assertEqual(status, "error")
         self.assertIn("exit 101", why)
         self.assertIn("E0425", why)
+
+
+# ---------------------------------------------------------------- the page set
+
+
+def pages_info(pages: list[dict], runs: int = 20, mem_runs: int = 5) -> dict:
+    info = info_with({}, runs, mem_runs)
+    del info["results"]
+    info["set"] = "pages"
+    info["method"]["spec_targets"] = {"speed": 2.0, "memory": 5.0}
+    info["pages"] = pages
+    return info
+
+
+def page(pid: str, results: dict, reference: bool = True) -> dict:
+    for r in results.values():
+        bench.finalize({"x": r}, final=True, why_unfinished="budget", table={"x": {"cold": "c", "warm": "w"}})
+    return {"id": pid, "kind": "real-world" if reference else "generated", "title": pid, "bytes": 10, "sha256": "ab" * 32, "reference": reference, "results": results}
+
+
+def page_line(md: str, pid: str, comparison: str) -> str:
+    return next(line for line in md.splitlines() if line.startswith(f"| {pid} | {comparison} |"))
+
+
+class PageSet(unittest.TestCase):
+    def test_slower_pages_say_so_and_are_tallied(self) -> None:
+        res = {
+            "grover": measured_system("Grover (Chrome)", 2000, 800, 450, 460),
+            "surimono-ruby": measured_system("surimono + fulgur (Ruby)", 4000, 400, 90, 100),
+        }
+        md = summary.write_pages_summary(pages_info([page("long", res)]))
+        line = page_line(md, "long", "Grover (Chrome) ÷ surimono + fulgur (Ruby)")
+        self.assertIn("0.5× (slower)", line)
+        self.assertIn("2.0×", line)
+        self.assertNotIn("indicative", line)
+        tally = next(x for x in md.splitlines() if "÷ surimono + fulgur (Ruby) | cold time |" in x)
+        self.assertIn("| 1 | 0 of 1 |", tally)
+
+    def test_raikiri_is_always_indicative(self) -> None:
+        res = {
+            "grover": measured_system("Grover (Chrome)", 2000, 800, 450, 460),
+            "surimono-raikiri": measured_system("surimono + Raikiri (indicative)", 400, 100, 90, 100),
+        }
+        md = summary.write_pages_summary(pages_info([page("p", res)]))
+        line = page_line(md, "p", "Grover (Chrome) ÷ surimono + Raikiri (indicative)")
+        for cell in line.split(" | ")[2:]:
+            self.assertIn("indicative", cell)
+
+    def test_no_ratio_without_both_sides(self) -> None:
+        sur = measured_system("surimono + fulgur (Ruby)", 600, 150, 60, 70)
+        sur.update({"status": "error", "reason": "no output from the printer", "failed_in": "cold"})
+        res = {"grover": measured_system("Grover (Chrome)", 2000, 800, 450, 460), "surimono-ruby": sur}
+        md = summary.write_pages_summary(pages_info([page("p", res)]))
+        line = page_line(md, "p", "Grover (Chrome) ÷ surimono + fulgur (Ruby)")
+        self.assertIn("not measured", line)
+        self.assertNotIn("×", line)
+        self.assertIn("no output from the printer", md)
+
+    def test_fewer_runs_are_indicative_and_not_tallied(self) -> None:
+        res = {
+            "grover": measured_system("Grover (Chrome)", 2000, 800, 450, 460, n=5),
+            "surimono-ruby": measured_system("surimono + fulgur (Ruby)", 400, 100, 90, 100, n=5),
+        }
+        md = summary.write_pages_summary(pages_info([page("p", res)], runs=5))
+        self.assertIn("5.0× indicative", page_line(md, "p", "Grover (Chrome) ÷ surimono + fulgur (Ruby)"))
+        tally = next(x for x in md.splitlines() if "÷ surimono + fulgur (Ruby) | cold time |" in x)
+        self.assertIn("| 0 | — |", tally)
+
+    def test_quality_cells(self) -> None:
+        g = measured_system("Grover (Chrome)", 2000, 800, 450, 460)
+        g["quality"] = {"status": "scored", "pass": True, "shape": 0.0, "colour": 0, "hue": 0, "page_count": {"chrome": 1, "printed": 1}}
+        sur = measured_system("surimono + fulgur (Ruby)", 400, 100, 90, 100)
+        sur["quality"] = {"status": "scored", "pass": False, "shape": 0.852, "colour": 0, "hue": 0, "page_count": {"chrome": 1, "printed": 2}}
+        md = summary.write_pages_summary(pages_info([page("p", {"grover": g, "surimono-ruby": sur})]))
+        self.assertIn("| pass · 0.0% |", md)
+        self.assertIn("**FAIL** · 85.2%; 2 pages, Chrome 1", md)
+        self.assertIn("| surimono + fulgur (Ruby) | 0 of 1 | 0 |", md)
+        self.assertIn("| Grover (Chrome) | 1 of 1 | 0 |", md)
+
+    def test_printer_failure_details_stay_private(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            private = Path(d) / "private" / "p" / "surimono-ruby-cold.txt"
+            res = {"surimono-ruby": {"label": "x", "about": "x", "done": []}}
+            e = bench.RunError("thread 'main' panicked at src/lib.rs:1", 134, public=None, stderr="thread 'main' panicked at src/lib.rs:1")
+            bench.fail(res, "surimono-ruby", "cold", e, private=private)
+            self.assertNotIn("panicked", res["surimono-ruby"]["reason"])
+            self.assertIn("no output", res["surimono-ruby"]["reason"])
+            self.assertIn("panicked", private.read_text())
+            e = bench.RunError("no output from the printer", 3, public="no output from the printer", stderr="the printer's own words")
+            bench.fail(res, "surimono-ruby", "cold", e, private=private)
+            self.assertEqual(res["surimono-ruby"]["reason"], "no output from the printer")
+            # The islands report keeps its full reason, as before.
+            bench.fail(res, "surimono-ruby", "cold", bench.RunError("exit 3: details", 3))
+            self.assertEqual(res["surimono-ruby"]["reason"], "exit 3: details")
+
+    def test_only_the_page_set_draws_text_unhinted(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            self.assertNotIn("hintnone", bench.fonts_conf(Path(d)).read_text())
+            self.assertIn("<const>hintnone</const>", bench.fonts_conf(Path(d), unhinted=True).read_text())
+
+    def test_real_world_pages_and_no_local_paths_published(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            rw = Path(d) / "real-world"
+            for name in ("b-page", "a-page"):
+                (rw / name / "reference").mkdir(parents=True)
+                (rw / name / "input.html").write_text(f"<!doctype html><title>{name} title</title><p>x")
+            (rw / "a-page" / "reference" / "reference.toml").write_text("pages = 1\n")
+            (rw / "lib").mkdir()
+            real_root = bench.ROOT
+            bench.ROOT = Path(d)
+            try:
+                pages = bench.page_set(["a-page", "b-page"], real_world=rw)
+            finally:
+                bench.ROOT = real_root
+            self.assertEqual([p["id"] for p in pages], ["a-page", "b-page"])
+            self.assertEqual(pages[0]["title"], "a-page title")
+            self.assertTrue(pages[0]["reference"])
+            self.assertFalse(pages[1]["reference"])
+            self.assertEqual(pages[0]["source"], "real-world/a-page/input.html")
+            published = bench.published_pages(pages)
+            self.assertNotIn("path", published[0])
+            self.assertNotIn(d, json.dumps(published))
+
+    def test_page_systems_have_both_modes(self) -> None:
+        for name, cfg in bench.PAGE_SYSTEMS.items():
+            self.assertTrue(cfg["cold"] and cfg["warm"], name)
+            self.assertIn(cfg["input"], ("url", "path"))
+            self.assertEqual(summary.PAGE_LABELS[name], cfg["label"])
+        self.assertTrue(set(bench.DEFAULT_PAGE_SYSTEMS) <= set(bench.PAGE_SYSTEMS))
+
+
+@unittest.skipUnless(shutil.which("node"), "node not installed")
+class GeneratedPages(unittest.TestCase):
+    GEN = bench.BENCH / "pages" / "gen-pages.mjs"
+
+    def run_gen(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["node", str(self.GEN), *args], capture_output=True, text=True, timeout=120)
+
+    def test_same_bytes_every_time_and_as_committed(self) -> None:
+        with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
+            first = json.loads(self.run_gen("--out", a).stdout)
+            second = json.loads(self.run_gen("--out", b).stdout)
+            self.assertEqual({k: v["sha256"] for k, v in first.items()}, {k: v["sha256"] for k, v in second.items()})
+            sums = (bench.BENCH / "pages" / "SHA256SUMS").read_text()
+            for name, v in first.items():
+                self.assertIn(f"{v['sha256']}  {name}", sums)
+        self.assertEqual(self.run_gen("--check").returncode, 0)
+
+    def test_the_pages_are_what_the_readme_says(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            out = json.loads(self.run_gen("--out", d).stdout)
+            report = Path(out["long-report.html"]["path"]).read_text()
+            table = Path(out["long-table.html"]["path"]).read_text()
+        self.assertEqual(report.count("<p>"), 5000)
+        self.assertEqual(report.count('<table class="figures">'), 6)
+        self.assertEqual(table.count("<tr><td class=\"num\">"), 2000)
+        # Short cells: no table cell of the ledger holds more than a few words.
+        cells = re.findall(r"<td[^>]*>([^<]*)</td>", table)
+        self.assertLess(max(len(c) for c in cells), 40)
+        for html in (report, table):
+            self.assertIn("<script>", html)
+            self.assertNotIn("Math.random", html)
+            self.assertNotIn("Date", html)
 
 
 if __name__ == "__main__":

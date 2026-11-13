@@ -3,6 +3,7 @@
 
     python3 bench/tools/bench.py --out <dir> [--runs 20] [--mem-runs 5] [--warmup 2]
                                  [--systems grover,surimono-ruby,fulgur-prerendered]
+    python3 bench/tools/bench.py --out <dir> --set pages [--pages long-report,…] [--systems …]
 
 bench/run.sh installs the dependencies and calls this. Every number it writes is
 measured by it; a system that can't run is reported as not measured, with the
@@ -41,6 +42,17 @@ separate from timed runs, so sampling never slows a timed run. The Node process
 that only keeps warm Grover's Chrome open (bench/grover/browser.cjs) is left out
 of the sum and reported on its own; its Chrome is counted. A process that can't
 be read marks the run's memory incomplete; it is never counted as zero.
+
+The page set (--set pages, PAGE_SYSTEMS): the real-world fixture pages and the
+long documents of bench/pages/gen-pages.mjs, each page's own scripts run before
+it prints, measured page by page with the same runs, sampler and rules: Grover
+(and grover-shell) in Chrome; surimono-ruby, the gem's render_page then the
+fulgur gem; surimono-raikiri (indicative), render_page then fulgur's Raikiri
+backend in a process of its own per document (fixtures/tools/raikiri-print,
+$BENCH_RAIKIRI or built here). Each system's PDF of a real-world page is also
+scored against the page's committed Chrome reference (fixtures/tools/compare.mjs).
+A process that dies without saying why is "no output" in the results; its
+stderr stays in <work>/private/.
 
 Results: results.json and summary.md are rewritten after every phase, so a run
 cut short (a slow build, the CI job's time limit) still publishes what it
@@ -128,6 +140,44 @@ SYSTEMS = {
 # SPEC targets need come first, so a run cut short still has them.
 DEFAULT_SYSTEMS = ["grover", "surimono-ruby", "surimono-rust", "fulgur-prerendered", "grover-shell", "grover-launch"]
 BASELINES = ("grover", "grover-shell")
+
+# The page set (--set pages): each page's own scripts run, then it is printed.
+# Six real-world fixture pages as they are, and two long documents written by
+# bench/pages/gen-pages.mjs. Same runs, sampler and rules as the islands report.
+PAGE_SYSTEMS = {
+    "grover": {
+        "label": "Grover (Chrome)",
+        "cold": "grover-page",
+        "warm": "grover-page-browser",
+        "input": "url",
+        "about": "Grover 1.2.10, Puppeteer, Chrome; the page's own scripts run in Chrome, which prints once they are done by the Chrome references' rule (two animation frames and a task after load). Warm: Ruby process and Chrome reused (browser_ws_endpoint); the Node process that only keeps Chrome open is left out of the memory sum (reported separately).",
+    },
+    "grover-shell": {
+        "label": "Grover (chrome-headless-shell)",
+        "cold": "grover-shell-page",
+        "warm": "grover-shell-page-browser",
+        "input": "url",
+        "about": "As Grover (Chrome), on chrome-headless-shell of the same build (Puppeteer's headless: \"shell\"), the leanest Chrome a Grover user can run.",
+    },
+    "surimono-ruby": {
+        "label": "surimono + fulgur (Ruby)",
+        "cold": "surimono-page",
+        "warm": "surimono-page",
+        "input": "path",
+        "about": "Surimono::Renderer#render_page (the page's own scripts in QuickJS on the virtual clock, printer-safe output on, the page's <script src> and <link href> files given as resources:), then the fulgur gem 0.40.0 prints the HTML, in one Ruby process.",
+    },
+    "surimono-raikiri": {
+        "label": "surimono + Raikiri (indicative)",
+        "cold": "surimono-page-raikiri",
+        "warm": "surimono-page-raikiri",
+        "input": "path",
+        "indicative": True,
+        "about": "As surimono + fulgur (Ruby), but fulgur's Raikiri backend (fulgur-raikiri 0.41.0 through fixtures/tools/raikiri-print, the printer matrix's driver) prints the HTML in a process of its own, started by the Ruby process for every document: Raikiri has no Ruby binding, so its warm row reuses the renderer but never a warm printer. Indicative: not the setup a user of a gem would run.",
+    },
+}
+DEFAULT_PAGE_SYSTEMS = ["grover", "surimono-ruby", "surimono-raikiri", "grover-shell"]
+REAL_WORLD = ROOT / "fixtures" / "real-world"
+GENERATED_PAGES = BENCH / ".cache" / "pages"
 
 
 # ---------------------------------------------------------------- process tree
@@ -353,10 +403,16 @@ def _reap_zombies() -> None:
 
 
 class RunError(Exception):
-    def __init__(self, message: str, status: int, unavailable: bool = False):
+    """A run that failed. `public` is the message the benchmark process itself
+    reported (an "error" event), or a timeout; None when the process died
+    without saying why, whose stderr is then only in `message`."""
+
+    def __init__(self, message: str, status: int, unavailable: bool = False, public: str | None = None, stderr: str = ""):
         super().__init__(message)
         self.status = status
         self.unavailable = unavailable
+        self.public = public
+        self.stderr = stderr
 
 
 RUST_BINARY: Path | None = None
@@ -401,20 +457,33 @@ def build_rust(env: dict, work: Path, budget_s: float, min_budget_s: float = 120
     lib = (ROOT / "crates" / "surimono" / "src" / "lib.rs").read_text()
     if "Renderer" not in lib:
         return None, "the facade on this commit has no surimono::Renderer yet (P1-PKG-02), so bench/rust can't build", "unavailable", None
-    if budget_s < min_budget_s:
-        return None, f"no time left in the job's budget to build bench/rust ({max(budget_s, 0) / 60:.1f} min after keeping {MEASURE_RESERVE_S // 60} min for measuring)", "unavailable", None
     target = Path(env.get("BENCH_RUST_TARGET_DIR", str(BENCH / ".cache" / "target")))
+    # cwd bench/rust so rustup uses bench/rust/rust-toolchain.toml (fulgur's krilla needs rustc 1.89).
+    cmd = ["cargo", "build", "--release", *root_patch_args((ROOT / "Cargo.toml").read_text())]
+    return cargo_release("bench/rust", BENCH / "rust", cmd, target, "surimono-bench", env, work / "rust-build.log", budget_s, min_budget_s)
+
+
+def build_raikiri(env: dict, work: Path, budget_s: float, min_budget_s: float = 120) -> tuple[Path | None, str, str, float | None]:
+    """Builds fixtures/tools/raikiri-print (the printer matrix's Raikiri driver,
+    its own workspace and committed Cargo.lock) in release, as build_rust does.
+    BENCH_RAIKIRI_TARGET_DIR sets where; the default is bench/.cache/target."""
+    target = Path(env.get("BENCH_RAIKIRI_TARGET_DIR", str(BENCH / ".cache" / "target")))
+    cmd = ["cargo", "build", "--release", "--locked"]
+    return cargo_release("fixtures/tools/raikiri-print", TOOLS / "raikiri-print", cmd, target, "surimono-raikiri-print", env, work / "raikiri-build.log", budget_s, min_budget_s)
+
+
+def cargo_release(what: str, cwd: Path, cmd: list[str], target: Path, binary: str, env: dict, log: Path, budget_s: float, min_budget_s: float) -> tuple[Path | None, str, str, float | None]:
+    """One release build within budget_s seconds, in its own session so a
+    timeout kills cargo and every rustc it started."""
+    if budget_s < min_budget_s:
+        return None, f"no time left in the job's budget to build {what} ({max(budget_s, 0) / 60:.1f} min after keeping {MEASURE_RESERVE_S // 60} min for measuring)", "unavailable", None
     benv = dict(env)
     benv["CARGO_TARGET_DIR"] = str(target)
-    log = work / "rust-build.log"
-    print(f"==> building bench/rust (release, target {target}, budget {budget_s / 60:.0f} min; log {log})", flush=True)
+    print(f"==> building {what} (release, target {target}, budget {budget_s / 60:.0f} min; log {log})", flush=True)
     t0 = time.monotonic()
     with log.open("w") as f:
-        # cwd bench/rust so rustup uses bench/rust/rust-toolchain.toml (fulgur's krilla needs rustc 1.89).
-        # Its own session, so a timeout kills cargo and every rustc it started.
-        cmd = ["cargo", "build", "--release", *root_patch_args((ROOT / "Cargo.toml").read_text())]
         print(f"    {' '.join(cmd)}", flush=True)
-        proc = subprocess.Popen(cmd, cwd=BENCH / "rust", env=benv, stdout=f, stderr=subprocess.STDOUT, start_new_session=True)
+        proc = subprocess.Popen(cmd, cwd=cwd, env=benv, stdout=f, stderr=subprocess.STDOUT, start_new_session=True)
         try:
             code = proc.wait(timeout=budget_s)
         except subprocess.TimeoutExpired:
@@ -426,14 +495,14 @@ def build_rust(env: dict, work: Path, budget_s: float, min_budget_s: float = 120
             reap_stragglers()
             took = time.monotonic() - t0
             return None, (
-                f"the bench/rust release build didn't finish within its {budget_s / 60:.0f}-minute budget "
+                f"the {what} release build didn't finish within its {budget_s / 60:.0f}-minute budget "
                 "(BENCH_RUST_BUILD_TIMEOUT, or what the job had left); what it compiled stays in the cache for the next run"
             ), "unavailable", round(took, 1)
     took = time.monotonic() - t0
     if code != 0:
         tail = "\n".join(log.read_text(errors="replace").splitlines()[-25:])
-        return None, f"bench/rust did not build (exit {code}):\n{tail}", "error", round(took, 1)
-    return target / "release" / "surimono-bench", "", "ok", round(took, 1)
+        return None, f"{what} did not build (exit {code}):\n{tail}", "error", round(took, 1)
+    return target / "release" / binary, "", "ok", round(took, 1)
 
 
 def run_process(cmd: list[str], env: dict, sample: bool, timeout: float) -> dict:
@@ -452,7 +521,7 @@ def run_process(cmd: list[str], env: dict, sample: bool, timeout: float) -> dict
             sampler.stop_event.set()
             sampler.join()
         reap_stragglers()
-        raise RunError(f"timed out after {timeout:.0f} s: {' '.join(cmd)}\n{err[-2000:]}", -1)
+        raise RunError(f"timed out after {timeout:.0f} s: {' '.join(cmd)}\n{err[-2000:]}", -1, public=f"timed out after {timeout:.0f} s", stderr=err)
     wall_ms = (time.perf_counter() - t0) * 1000
     if sampler:
         sampler.stop_event.set()
@@ -468,8 +537,9 @@ def run_process(cmd: list[str], env: dict, sample: bool, timeout: float) -> dict
             except json.JSONDecodeError:
                 pass
     if proc.returncode != 0:
-        message = next((e["message"] for e in events if e.get("event") == "error"), None) or err.strip()[-3000:] or f"exit {proc.returncode}"
-        raise RunError(message, proc.returncode, unavailable=proc.returncode == 4)
+        said = next((e["message"] for e in events if e.get("event") == "error"), None)
+        message = said or err.strip()[-3000:] or f"exit {proc.returncode}"
+        raise RunError(message, proc.returncode, unavailable=proc.returncode == 4, public=said, stderr=err)
     result = {
         "wall_ms": round(wall_ms, 2),
         "cpu_ms": round(((cpu1.children_user - cpu0.children_user) + (cpu1.children_system - cpu0.children_system)) * 1000, 1),
@@ -607,9 +677,27 @@ def machine() -> dict:
     }
 
 
-def fonts_conf(work: Path) -> Path:
+# How Chrome draws text when the Chrome references are rendered: unhinted and in
+# grayscale (the fleet machine's fontconfig, and crates/gfx's svg_outline.mjs,
+# DECISIONS 2026-11-11). fontconfig's built-in default is full hinting, with which
+# Chrome places glyphs a fraction of a pixel elsewhere: the same page then fails
+# the shape check against its reference although its content is the same.
+UNHINTED = """  <match target="pattern">
+    <edit name="antialias" mode="assign"><bool>true</bool></edit>
+    <edit name="hinting" mode="assign"><bool>false</bool></edit>
+    <edit name="hintstyle" mode="assign"><const>hintnone</const></edit>
+    <edit name="autohint" mode="assign"><bool>false</bool></edit>
+    <edit name="rgba" mode="assign"><const>none</const></edit>
+    <edit name="lcdfilter" mode="assign"><const>lcdnone</const></edit>
+  </match>
+"""
+
+
+def fonts_conf(work: Path, unhinted: bool = False) -> Path:
     """Only fixtures/fonts reach fontconfig, for both engines (fulgur resolves
-    SVG text through fontconfig; Chrome falls back through it)."""
+    SVG text through fontconfig; Chrome falls back through it). `unhinted` (the
+    page set, whose prints are scored against the Chrome references) also
+    draws text as the references were drawn."""
     conf = work / "fonts.conf"
     conf.write_text(
         f"""<?xml version="1.0"?>
@@ -617,7 +705,7 @@ def fonts_conf(work: Path) -> Path:
 <fontconfig>
   <dir>{FONTS}</dir>
   <cachedir>{work / "fontconfig-cache"}</cachedir>
-</fontconfig>
+{UNHINTED if unhinted else ""}</fontconfig>
 """
     )
     return conf
@@ -626,8 +714,8 @@ def fonts_conf(work: Path) -> Path:
 # ---------------------------------------------------------------- statistics
 
 
-def phases_of(system: str) -> list[str]:
-    cfg = SYSTEMS[system]
+def phases_of(system: str, table: dict | None = None) -> list[str]:
+    cfg = (table or SYSTEMS)[system]
     return (["cold", "cold-memory"] if cfg["cold"] else []) + (["warm", "warm-memory"] if cfg["warm"] else [])
 
 
@@ -654,20 +742,20 @@ def summarize(r: dict) -> dict:
     return summary
 
 
-def finalize(results: dict, final: bool, why_unfinished: str) -> None:
+def finalize(results: dict, final: bool, why_unfinished: str, table: dict | None = None) -> None:
     """Sets each system's status and statistics. Only a system whose every phase
     finished is "measured" and gets `summary`; anything else keeps its numbers
     as `partial_summary`, which no ratio or verdict uses."""
     for s, r in results.items():
         if r.get("status") in ("error", "unavailable"):
             pass
-        elif all(p in r.get("done", []) for p in phases_of(s)):
+        elif all(p in r.get("done", []) for p in phases_of(s, table)):
             r["status"] = "measured"
             r.pop("reason", None)
             r.pop("failed_in", None)
         else:
             r["status"] = "incomplete"
-            missing = [p for p in phases_of(s) if p not in r.get("done", [])]
+            missing = [p for p in phases_of(s, table) if p not in r.get("done", [])]
             r["reason"] = (why_unfinished if final else "still running") + f" (not finished: {', '.join(missing)})"
             r["failed_in"] = missing[0]
         stats_ = summarize(r)
@@ -683,14 +771,154 @@ def finalize(results: dict, final: bool, why_unfinished: str) -> None:
 # ---------------------------------------------------------------- main
 
 
+class Clock:
+    """The job's time budget: no new work starts once too little of it is left."""
+
+    def __init__(self, deadline: float | None) -> None:
+        self.deadline = deadline
+        self.out_of_time = False
+
+    def remaining(self) -> float:
+        return self.deadline - time.time() if self.deadline else math.inf
+
+    def left(self, need_s: float) -> bool:
+        if self.remaining() < need_s:
+            if not self.out_of_time:
+                print(f"==> stopping: {self.remaining() / 60:.1f} min left of the job's time budget", flush=True)
+            self.out_of_time = True
+        return not self.out_of_time
+
+
+def live(results: dict, system: str) -> bool:
+    return results[system].get("status") not in ("error", "unavailable")
+
+
+def fail(results: dict, system: str, phase: str, e: RunError, where: str = "", private: Path | None = None) -> None:
+    """Marks a system failed. With `private` (the page set), a process that died
+    without saying why gets "no output" and its stderr goes to that local file
+    only: how a printer dies on a page stays out of the published results."""
+    r = results[system]
+    r["status"] = "unavailable" if e.unavailable else "error"
+    if private is None:
+        r["reason"] = str(e).strip()
+    else:
+        r["reason"] = e.public or f"no output (the process ended with status {e.status} and said nothing)"
+        private.parent.mkdir(parents=True, exist_ok=True)
+        private.write_text(f"{e}\n\n--- stderr ---\n{e.stderr}")
+    r["failed_in"] = phase
+    print(f"    {where}{system}: {r['status']} in {phase}: {r['reason'][:400]}", flush=True)
+
+
+def measure(table: dict, systems: list[str], results: dict, inputs: dict, pdf_dir: Path, args: argparse.Namespace, env: dict, clock: Clock, save, where: str = "", private: Path | None = None) -> None:
+    """Every phase of `systems` on one input: the cold timed runs interleaved
+    across systems, then the cold memory runs, then for each system one warm
+    timed process and one warm sampled process."""
+    cold = [s for s in systems if table[s]["cold"]]
+    for phase, n, sample in (("cold", args.runs, False), ("cold-memory", args.mem_runs, True)):
+        print(f"==> {where}{phase}: {n} runs each of {', '.join(s for s in cold if live(results, s))}", flush=True)
+        for i in range(n):
+            if not clock.left(60):
+                break
+            for s in cold:
+                if not live(results, s):
+                    continue
+                cfg = table[s]
+                cmd = ruby_cmd(cfg["cold"], "cold", inputs[cfg["input"]], pdf_dir / f"{s}-cold.pdf", 1, 0)
+                try:
+                    r = run_process(cmd, env, sample, timeout=min(180, max(clock.remaining(), 1)))
+                except RunError as e:
+                    fail(results, s, phase, e, where, private and private / f"{s}-{phase}.txt")
+                    continue
+                ev = next((e for e in r["events"] if e.get("event") == "cold"), {})
+                rec = {"wall_ms": r["wall_ms"], "cpu_ms": r["cpu_ms"], "setup_ms": ev.get("setup_ms"), "render_ms": ev.get("render_ms"), "phases": ev.get("phases"), "pdf_bytes": ev.get("bytes"), "stragglers_killed": r["stragglers_killed"]}
+                if ev.get("page"):
+                    rec["page"] = ev["page"]
+                if sample:
+                    rec["memory"] = r["memory"]
+                results[s].setdefault(phase, []).append(rec)
+            print(f"    run {i + 1}/{n}", flush=True)
+        for s in cold:
+            if live(results, s) and len(results[s].get(phase, [])) == n:
+                results[s]["done"].append(phase)
+        save()
+
+    # Warm: one timed process and one sampled process per system. A render gets
+    # 30 s on average (Grover with a new Chrome per document takes about 3).
+    warm_timeout = 30 * (args.runs + args.warmup) + 120
+    for s in systems:
+        cfg = table[s]
+        if not cfg["warm"] or not live(results, s):
+            continue
+        for phase, sample in (("warm", False), ("warm-memory", True)):
+            if not clock.left(120):
+                break
+            print(f"==> {where}{phase}: {s}", flush=True)
+            cmd = ruby_cmd(cfg["warm"], "warm", inputs[cfg["input"]], pdf_dir / f"{s}-warm.pdf", args.runs, args.warmup)
+            try:
+                r = run_process(cmd, env, sample, timeout=min(warm_timeout, max(clock.remaining(), 1)))
+            except RunError as e:
+                fail(results, s, phase, e, where, private and private / f"{s}-{phase}.txt")
+                break
+            setup = next((e for e in r["events"] if e.get("event") == "setup"), {})
+            its = [e for e in r["events"] if e.get("event") == "iteration"]
+            iterations = []
+            for e in its:
+                it = {"ms": round(e["ms"], 2), "phases": e.get("phases"), "pdf_bytes": e.get("bytes")}
+                if e.get("page"):
+                    it["page"] = e["page"]
+                iterations.append(it)
+            rec = {"process_wall_ms": r["wall_ms"], "process_cpu_ms": r["cpu_ms"], "setup_ms": setup.get("setup_ms"), "iterations": iterations}
+            if sample:
+                rec["memory"] = r["memory"]
+            results[s][phase] = rec
+            if len(its) == args.runs:
+                results[s]["done"].append(phase)
+            save()
+
+
+def count_pages(results: dict, systems: list[str], pdf_dir: Path) -> None:
+    """Page counts of the PDFs each system printed (a sanity check that both sides did the same work)."""
+    for s in systems:
+        for mode in ("cold", "warm"):
+            pdf = pdf_dir / f"{s}-{mode}.pdf"
+            if pdf.exists() and shutil.which("pdfinfo"):
+                m = re.search(r"^Pages:\s+(\d+)", sh(["pdfinfo", str(pdf)]), re.M)
+                if m:
+                    results[s].setdefault("pdf_pages", {})[mode] = int(m.group(1))
+
+
+def environment(work: Path, unhinted: bool = False) -> tuple[dict, str, str | None, bool]:
+    """The benchmark processes' environment, the Chrome executable, the
+    headless shell (None if absent), and whether this process is a subreaper."""
+    subreaper = become_subreaper()
+    chrome = chrome_executable()
+    shell = shell_executable(chrome)
+    env = dict(os.environ)
+    env.update(
+        {
+            "BUNDLE_GEMFILE": str(BENCH / "Gemfile"),
+            "BUNDLE_PATH": env.get("BUNDLE_PATH", str(BENCH / ".cache" / "bundle")),
+            "BENCH_CHROME": chrome,
+            "BENCH_FONTS_DIR": str(FONTS),
+            "FONTCONFIG_FILE": str(fonts_conf(work, unhinted)),
+            "SURIMONO_RUBY_LIB": env.get("SURIMONO_RUBY_LIB", str(ROOT / "bindings" / "ruby" / "lib")),
+        }
+    )
+    if shell:
+        env["BENCH_CHROME_SHELL"] = shell
+    return env, chrome, shell, subreaper
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--work", type=Path, help="scratch dir for pages and PDFs (default <out>/work)")
+    ap.add_argument("--set", choices=("islands", "pages"), default="islands", help="islands: the reference report (default); pages: the page set")
     ap.add_argument("--runs", type=int, default=SPEC_RUNS)
     ap.add_argument("--mem-runs", type=int, default=5)
     ap.add_argument("--warmup", type=int, default=2)
-    ap.add_argument("--systems", default=",".join(DEFAULT_SYSTEMS))
+    ap.add_argument("--systems", help=f"islands default: {','.join(DEFAULT_SYSTEMS)}; pages default: {','.join(DEFAULT_PAGE_SYSTEMS)}")
+    ap.add_argument("--pages", help="the page set only: these page ids, comma-separated (default: all)")
     ap.add_argument(
         "--time-budget-min",
         type=float,
@@ -704,36 +932,22 @@ def main() -> int:
     work = (args.work or out / "work").resolve()
     out.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
-    systems = [s for s in args.systems.split(",") if s]
-    unknown = [s for s in systems if s not in SYSTEMS]
+    table = SYSTEMS if args.set == "islands" else PAGE_SYSTEMS
+    systems = [s for s in (args.systems or ",".join(DEFAULT_SYSTEMS if args.set == "islands" else DEFAULT_PAGE_SYSTEMS)).split(",") if s]
+    unknown = [s for s in systems if s not in table]
     if unknown:
-        sys.exit(f"unknown systems: {', '.join(unknown)} (known: {', '.join(SYSTEMS)})")
+        sys.exit(f"unknown systems for --set {args.set}: {', '.join(unknown)} (known: {', '.join(table)})")
     start_epoch = float(os.environ.get("BENCH_START_EPOCH") or time.time())
-    deadline = start_epoch + args.time_budget_min * 60 if args.time_budget_min else None
+    clock = Clock(start_epoch + args.time_budget_min * 60 if args.time_budget_min else None)
+    env, chrome, shell, subreaper = environment(work, unhinted=args.set == "pages")
+    run = main_islands if args.set == "islands" else main_pages
+    return run(args, out, work, systems, env, chrome, shell, subreaper, clock)
 
-    def remaining() -> float:
-        return deadline - time.time() if deadline else math.inf
 
-    subreaper = become_subreaper()
-    chrome = chrome_executable()
-    shell = shell_executable(chrome)
-    env = dict(os.environ)
-    env.update(
-        {
-            "BUNDLE_GEMFILE": str(BENCH / "Gemfile"),
-            "BUNDLE_PATH": env.get("BUNDLE_PATH", str(BENCH / ".cache" / "bundle")),
-            "BENCH_CHROME": chrome,
-            "BENCH_FONTS_DIR": str(FONTS),
-            "FONTCONFIG_FILE": str(fonts_conf(work)),
-            "SURIMONO_RUBY_LIB": env.get("SURIMONO_RUBY_LIB", str(ROOT / "bindings" / "ruby" / "lib")),
-        }
-    )
-    if shell:
-        env["BENCH_CHROME_SHELL"] = shell
-
-    results: dict[str, dict] = {s: {"label": SYSTEMS[s]["label"], "about": SYSTEMS[s]["about"], "done": []} for s in systems}
-    info = {
+def base_info(args: argparse.Namespace, chrome: str, env: dict, subreaper: bool) -> dict:
+    return {
         "schema": 2,
+        "set": args.set,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "versions": versions(chrome, env),
         "machine": machine(),
@@ -744,13 +958,18 @@ def main() -> int:
             "spec_runs": SPEC_RUNS,
             "sample_interval_ms": SAMPLE_INTERVAL_S * 1000,
             "subreaper": subreaper,
-            "report": "bench/report/report.html",
             "spec_targets": {"speed": SPEC_SPEED, "memory": SPEC_MEMORY},
             "time_budget_min": args.time_budget_min,
             "surimono_pool_size": pool_size_note(env),
         },
-        "results": results,
     }
+
+
+def main_islands(args: argparse.Namespace, out: Path, work: Path, systems: list[str], env: dict, chrome: str, shell: str | None, subreaper: bool, clock: Clock) -> int:
+    results: dict[str, dict] = {s: {"label": SYSTEMS[s]["label"], "about": SYSTEMS[s]["about"], "done": []} for s in systems}
+    info = base_info(args, chrome, env, subreaper)
+    info["method"]["report"] = "bench/report/report.html"
+    info["results"] = results
     why_unfinished = "the job's time budget ran out"
 
     def save(final: bool = False) -> None:
@@ -762,16 +981,6 @@ def main() -> int:
 
         (out / "summary.md").write_text(write_summary(info, final=final))
 
-    def fail(system: str, phase: str, e: RunError) -> None:
-        r = results[system]
-        r["status"] = "unavailable" if e.unavailable else "error"
-        r["reason"] = str(e).strip()
-        r["failed_in"] = phase
-        print(f"    {system}: {r['status']} in {phase}: {r['reason'][:400]}", flush=True)
-
-    def live(system: str) -> bool:
-        return results[system].get("status") not in ("error", "unavailable")
-
     if "surimono-ruby" in results and env.get("BENCH_GEM_BUILD_FAILED"):
         # run.sh tried to build the gem (the checkout has a Surimono::Renderer)
         # and the build failed: a bug, not a system that can't run yet.
@@ -781,7 +990,7 @@ def main() -> int:
 
     if "surimono-rust" in systems:
         global RUST_BINARY
-        RUST_BINARY, why, status, took = build_rust(env, work, rust_build_budget(env, remaining()))
+        RUST_BINARY, why, status, took = build_rust(env, work, rust_build_budget(env, clock.remaining()))
         info["method"]["rust_build_s"] = took
         if RUST_BINARY is None:
             print(f"    surimono-rust: {status}: {why.splitlines()[0]}", flush=True)
@@ -801,79 +1010,8 @@ def main() -> int:
     pdf_dir.mkdir(exist_ok=True)
     save()
 
-    out_of_time = False
-
-    def time_left(need_s: float) -> bool:
-        nonlocal out_of_time
-        if remaining() < need_s:
-            if not out_of_time:
-                print(f"==> stopping: {remaining() / 60:.1f} min left of the job's time budget", flush=True)
-            out_of_time = True
-        return not out_of_time
-
-    # Cold: timed runs interleaved across systems, then memory runs.
-    cold = [s for s in systems if SYSTEMS[s]["cold"]]
-    for phase, n, sample in (("cold", args.runs, False), ("cold-memory", args.mem_runs, True)):
-        print(f"==> {phase}: {n} runs each of {', '.join(s for s in cold if live(s))}", flush=True)
-        for i in range(n):
-            if not time_left(60):
-                break
-            for s in cold:
-                if not live(s):
-                    continue
-                cfg = SYSTEMS[s]
-                cmd = ruby_cmd(cfg["cold"], "cold", inputs[cfg["input"]], pdf_dir / f"{s}-cold.pdf", 1, 0)
-                try:
-                    r = run_process(cmd, env, sample, timeout=min(180, max(remaining(), 1)))
-                except RunError as e:
-                    fail(s, phase, e)
-                    continue
-                ev = next((e for e in r["events"] if e.get("event") == "cold"), {})
-                rec = {"wall_ms": r["wall_ms"], "cpu_ms": r["cpu_ms"], "setup_ms": ev.get("setup_ms"), "render_ms": ev.get("render_ms"), "phases": ev.get("phases"), "pdf_bytes": ev.get("bytes"), "stragglers_killed": r["stragglers_killed"]}
-                if sample:
-                    rec["memory"] = r["memory"]
-                results[s].setdefault(phase, []).append(rec)
-            print(f"    run {i + 1}/{n}", flush=True)
-        for s in cold:
-            if live(s) and len(results[s].get(phase, [])) == n:
-                results[s]["done"].append(phase)
-        save()
-
-    # Warm: one timed process and one sampled process per system. A render gets
-    # 30 s on average (Grover with a new Chrome per document takes about 3).
-    warm_timeout = 30 * (args.runs + args.warmup) + 120
-    for s in systems:
-        cfg = SYSTEMS[s]
-        if not cfg["warm"] or not live(s):
-            continue
-        for phase, sample in (("warm", False), ("warm-memory", True)):
-            if not time_left(120):
-                break
-            print(f"==> {phase}: {s}", flush=True)
-            cmd = ruby_cmd(cfg["warm"], "warm", inputs[cfg["input"]], pdf_dir / f"{s}-warm.pdf", args.runs, args.warmup)
-            try:
-                r = run_process(cmd, env, sample, timeout=min(warm_timeout, max(remaining(), 1)))
-            except RunError as e:
-                fail(s, phase, e)
-                break
-            setup = next((e for e in r["events"] if e.get("event") == "setup"), {})
-            its = [e for e in r["events"] if e.get("event") == "iteration"]
-            rec = {"process_wall_ms": r["wall_ms"], "process_cpu_ms": r["cpu_ms"], "setup_ms": setup.get("setup_ms"), "iterations": [{"ms": round(e["ms"], 2), "phases": e.get("phases"), "pdf_bytes": e.get("bytes")} for e in its]}
-            if sample:
-                rec["memory"] = r["memory"]
-            results[s][phase] = rec
-            if len(its) == args.runs:
-                results[s]["done"].append(phase)
-            save()
-
-    # Page counts of the PDFs each system printed (a sanity check that both sides did the same work).
-    for s in systems:
-        for mode in ("cold", "warm"):
-            pdf = pdf_dir / f"{s}-{mode}.pdf"
-            if pdf.exists() and shutil.which("pdfinfo"):
-                m = re.search(r"^Pages:\s+(\d+)", sh(["pdfinfo", str(pdf)]), re.M)
-                if m:
-                    results[s].setdefault("pdf_pages", {})[mode] = int(m.group(1))
+    measure(SYSTEMS, systems, results, inputs, pdf_dir, args, env, clock, save)
+    count_pages(results, systems, pdf_dir)
 
     save(final=True)
     print(f"==> wrote {out / 'summary.md'} and {out / 'results.json'}", flush=True)
@@ -881,6 +1019,174 @@ def main() -> int:
         if r["status"] != "measured":
             print(f"    {s}: {r['status']}: {r.get('reason', '').splitlines()[0][:300] if r.get('reason') else ''}", flush=True)
     errors = [s for s, r in results.items() if r["status"] == "error"]
+    if errors:
+        print(f"errors in: {', '.join(errors)}", file=sys.stderr)
+        return 1
+    return 0
+
+
+# ---------------------------------------------------------------- the page set
+
+
+def sha256_file(path: Path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def page_title(html: str) -> str:
+    m = re.search(r"<title>([^<]*)</title>", html)
+    return m.group(1).strip() if m else ""
+
+
+def page_set(only: list[str] | None = None, generated_dir: Path = GENERATED_PAGES, real_world: Path = REAL_WORLD) -> list[dict]:
+    """The pages: every fixtures/real-world page as it is, then the long
+    documents bench/pages/gen-pages.mjs writes (it checks them against
+    bench/pages/SHA256SUMS first). Each entry: id, kind, source (relative to
+    the repository), title, bytes, sha256, and its local `path`, which save()
+    leaves out of results.json."""
+    pages: list[dict] = []
+    for d in sorted(p for p in real_world.iterdir() if (p / "input.html").is_file()):
+        pages.append({"id": d.name, "kind": "real-world", "path": d / "input.html", "reference": (d / "reference" / "reference.toml").is_file()})
+    if only is None or any(not (real_world / p / "input.html").is_file() for p in only):
+        subprocess.run(["node", str(BENCH / "pages" / "gen-pages.mjs"), "--check"], cwd=ROOT, check=True)
+        subprocess.run(["node", str(BENCH / "pages" / "gen-pages.mjs"), "--out", str(generated_dir)], cwd=ROOT, check=True, capture_output=True)
+        for name in sorted(p.name for p in generated_dir.glob("*.html")):
+            pages.append({"id": name[: -len(".html")], "kind": "generated", "path": generated_dir / name, "reference": False})
+    if only is not None:
+        unknown = [p for p in only if p not in {x["id"] for x in pages}]
+        if unknown:
+            sys.exit(f"unknown pages: {', '.join(unknown)} (known: {', '.join(x['id'] for x in pages)})")
+        pages = [p for p in pages if p["id"] in only]
+    for p in pages:
+        html = p["path"].read_text(encoding="utf-8")
+        p["title"] = page_title(html)
+        p["bytes"] = p["path"].stat().st_size
+        p["sha256"] = sha256_file(p["path"])
+        p["source"] = p["path"].relative_to(ROOT).as_posix() if p["kind"] == "real-world" else f"bench/pages/gen-pages.mjs → {p['path'].name}"
+    return pages
+
+
+def score_quality(page: dict, systems: list[str], results: dict, pdf_dir: Path, work: Path) -> None:
+    """Each system's cold PDF of a real-world page against the page's committed
+    Chrome reference, by fixtures/tools/compare.mjs and the pass rule of
+    fixtures/README.md. Never changes a reference."""
+    fixture = page["path"].parent
+    for s in systems:
+        r = results[s]
+        pdf = pdf_dir / f"{s}-cold.pdf"
+        if not pdf.exists():
+            r["quality"] = {"status": "no output"}
+            continue
+        outdir = work / "quality" / page["id"] / s
+        proc = subprocess.run(
+            ["node", str(TOOLS / "compare.mjs"), "--label", s, "--report-only", str(fixture), str(pdf), str(outdir)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        try:
+            score = json.loads((outdir / "score.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            r["quality"] = {"status": "not scored", "reason": f"compare.mjs exit {proc.returncode}: {proc.stderr.strip()[-300:]}"}
+            continue
+        r["quality"] = {
+            "status": "scored",
+            "pass": bool(score["pass"]),
+            "shape": score["worst_window"],
+            "colour": score["worst_colour_window"],
+            "hue": score["worst_hue_window"],
+            "page_count": {"chrome": score["page_count"].get("chrome"), "printed": score["page_count"].get(s)},
+            "scored_pdf": "cold",
+        }
+
+
+def page_results(systems: list[str]) -> dict:
+    return {s: {"label": PAGE_SYSTEMS[s]["label"], "about": PAGE_SYSTEMS[s]["about"], "done": []} for s in systems}
+
+
+def published_pages(pages: list[dict]) -> list[dict]:
+    """The pages as results.json keeps them: no local paths."""
+    return [{k: v for k, v in p.items() if k != "path"} for p in pages]
+
+
+def main_pages(args: argparse.Namespace, out: Path, work: Path, systems: list[str], env: dict, chrome: str, shell: str | None, subreaper: bool, clock: Clock) -> int:
+    pages = page_set(args.pages.split(",") if args.pages else None)
+    info = base_info(args, chrome, env, subreaper)
+    info["method"].update(
+        {
+            "page_set": "fixtures/real-world/*/input.html as they are, and bench/pages/gen-pages.mjs's long documents",
+            "systems": systems,
+            "quality": "each system's cold PDF of a real-world page against its committed Chrome reference (fixtures/tools/compare.mjs, the pass rule of fixtures/README.md)",
+            "fontconfig": "fixtures/fonts only; text unhinted and in grayscale, as when the Chrome references were rendered",
+        }
+    )
+    why_unfinished = "the job's time budget ran out"
+    blocked: dict[str, dict] = {}
+    if env.get("BENCH_GEM_BUILD_FAILED"):
+        for s in ("surimono-ruby", "surimono-raikiri"):
+            blocked[s] = {"status": "error", "reason": "the surimono gem did not build (bundle exec rake compile in bindings/ruby; see the job log)", "failed_in": "build"}
+    if "grover-shell" in systems and not shell:
+        blocked["grover-shell"] = {"status": "unavailable", "reason": "chrome-headless-shell is not installed next to Playwright's Chromium (or set BENCH_CHROME_SHELL)", "failed_in": "setup"}
+    if "surimono-raikiri" in systems and "surimono-raikiri" not in blocked:
+        raikiri = env.get("BENCH_RAIKIRI")
+        if raikiri:
+            if not os.access(raikiri, os.X_OK):
+                blocked["surimono-raikiri"] = {"status": "unavailable", "reason": "BENCH_RAIKIRI is not an executable file", "failed_in": "setup"}
+        else:
+            binary, why, status, took = build_raikiri(env, work, rust_build_budget(env, clock.remaining()))
+            info["method"]["raikiri_build_s"] = took
+            if binary is None:
+                print(f"    surimono-raikiri: {status}: {why.splitlines()[0]}", flush=True)
+                blocked["surimono-raikiri"] = {"status": status, "reason": why, "failed_in": "build"}
+            else:
+                raikiri = str(binary)
+                env["BENCH_RAIKIRI"] = raikiri
+        if "surimono-raikiri" not in blocked:
+            info["versions"]["raikiri_print"] = f"{sh([raikiri, '--version'])} (fixtures/tools/raikiri-print, sha256 {sha256_file(Path(raikiri))})"
+    for p in pages:
+        p["results"] = page_results(systems)
+        for s, b in blocked.items():
+            if s in p["results"]:
+                p["results"][s].update(b)
+    info["pages"] = published_pages(pages)
+
+    def save(final: bool = False) -> None:
+        for p in pages:
+            finalize(p["results"], final, why_unfinished, PAGE_SYSTEMS)
+        info["pages"] = published_pages(pages)
+        info["machine"]["loadavg_end"] = os.getloadavg()
+        info["finished_at" if final else "saved_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        (out / "results.json").write_text(json.dumps(info, indent=2, ensure_ascii=False) + "\n")
+        from summary import write_pages_summary  # noqa: E402 (same folder)
+
+        (out / "summary.md").write_text(write_pages_summary(info, final=final))
+
+    save()
+    for p in pages:
+        pdf_dir = work / "pdf" / p["id"]
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        inputs = {"url": p["path"].as_uri(), "path": str(p["path"])}
+        measure(PAGE_SYSTEMS, systems, p["results"], inputs, pdf_dir, args, env, clock, save, where=f"{p['id']}: ", private=work / "private" / p["id"])
+        count_pages(p["results"], systems, pdf_dir)
+        if p["reference"] and not clock.out_of_time:
+            score_quality(p, systems, p["results"], pdf_dir, work)
+        save()
+
+    save(final=True)
+    print(f"==> wrote {out / 'summary.md'} and {out / 'results.json'}", flush=True)
+    errors = []
+    for p in pages:
+        for s, r in p["results"].items():
+            if r["status"] != "measured":
+                print(f"    {p['id']}: {s}: {r['status']}: {r.get('reason', '').splitlines()[0][:300] if r.get('reason') else ''}", flush=True)
+            if r["status"] == "error":
+                errors.append(f"{p['id']}/{s}")
     if errors:
         print(f"errors in: {', '.join(errors)}", file=sys.stderr)
         return 1

@@ -3,8 +3,13 @@
 # fulgur, on bench/report/report.html.
 #
 #   bench/run.sh <outdir> [bench.py options, e.g. --runs 5 --systems grover,fulgur-prerendered]
+#   bench/run.sh <outdir> --pages [bench.py options, e.g. --pages long-report --systems grover,surimono-ruby]
 #
 # Writes <outdir>/summary.md (the table) and <outdir>/results.json (every run).
+# --pages measures the page set instead of the islands report: the real-world
+# fixture pages and bench/pages/gen-pages.mjs's long documents, each page's own
+# scripts run before it prints (bench/README.md, "The page set"). Its Raikiri
+# system uses $BENCH_RAIKIRI, or builds fixtures/tools/raikiri-print.
 # Installs what it needs first: the pinned npm packages (fixtures/tools for the
 # chart libraries and Playwright's Chromium, bench/grover for Puppeteer) and the
 # pinned gems (bench/Gemfile.lock: grover, fulgur) into bench/.cache.
@@ -27,7 +32,12 @@ set -euo pipefail
 export BENCH_START_EPOCH="${BENCH_START_EPOCH:-$(date +%s)}"
 cd "$(dirname "$0")/.."
 root="$(pwd)"
-out="${1:?usage: bench/run.sh <outdir> [bench.py options]}"; shift
+out="${1:?usage: bench/run.sh <outdir> [--pages] [bench.py options]}"; shift
+set_args=(--set islands)
+args=()
+for a in "$@"; do
+  if [ "$a" = "--pages" ]; then set_args=(--set pages); else args+=("$a"); fi
+done
 mkdir -p "$out"
 out="$(cd "$out" && pwd)"
 
@@ -47,12 +57,18 @@ if [ -n "${CI:-}" ]; then
   ci_target="${CARGO_TARGET_DIR:-target}"
   case "$ci_target" in /*) ;; *) ci_target="$root/$ci_target" ;; esac
   export BENCH_RUST_TARGET_DIR="${BENCH_RUST_TARGET_DIR:-$ci_target/bench-rust}"
+  export BENCH_RAIKIRI_TARGET_DIR="${BENCH_RAIKIRI_TARGET_DIR:-$ci_target/raikiri-print}"
   step "bench/rust toolchain (bench/rust/rust-toolchain.toml)"
   (cd bench/rust && rustup toolchain install)
 fi
 
-step "reference report is what its generator writes"
-node bench/report/gen-report.mjs --check
+if [ "${set_args[1]}" = "pages" ]; then
+  step "generated pages are what bench/pages/SHA256SUMS says"
+  node bench/pages/gen-pages.mjs --check
+else
+  step "reference report is what its generator writes"
+  node bench/report/gen-report.mjs --check
+fi
 
 step "puppeteer for Grover (no browser download: Grover uses Playwright's Chromium)"
 if [ -n "${CI:-}" ] || [ ! -d bench/grover/node_modules ]; then
@@ -79,4 +95,4 @@ work_args=()
 if [ -n "${CI:-}" ]; then work_args=(--work "${RUNNER_TEMP:-/tmp}/surimono-bench-work"); fi
 
 step "benchmark"
-python3 bench/tools/bench.py --out "$out" "${work_args[@]}" "$@"
+python3 bench/tools/bench.py --out "$out" "${set_args[@]}" "${work_args[@]}" "${args[@]}"
