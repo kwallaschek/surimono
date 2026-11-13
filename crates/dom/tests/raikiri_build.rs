@@ -40,5 +40,10 @@ fn the_fixture_fonts_alone_make_a_font_set_for_a_raikiri_document() {
 #[test]
 fn no_font_set_is_made_from_no_fonts() {
     // Raikiri refuses an empty bundle instead of falling back to anything.
-    assert!(FontCollectionBuilder::new().system_fonts(false).build().is_err());
+    assert!(
+        FontCollectionBuilder::new()
+            .system_fonts(false)
+            .build()
+            .is_err()
+    );
 }
