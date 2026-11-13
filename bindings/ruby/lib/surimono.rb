@@ -179,7 +179,9 @@ module Surimono
     #                gets these wrong). Each only where a browser renders the
     #                result exactly as before, whatever the page's CSS; nothing
     #                is rewritten in a page whose CSS isn't all in the page
-    #                (pass linked sheets in resources:), or with keep_scripts.
+    #                (pass linked sheets in resources:), with keep_scripts, or
+    #                with a script left in an attribute (onload, srcdoc, a
+    #                javascript: URL) or a frame that loads a document.
     #                false gives the page's DOM as it is.
     # resources::    with page scripts, what <script src>, <iframe src> and a
     #                stylesheet's <link href> may load, as

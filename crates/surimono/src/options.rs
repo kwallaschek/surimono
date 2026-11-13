@@ -361,7 +361,10 @@ impl Options {
     /// told from the page, nothing is rewritten. So nothing is in a page with
     /// CSS that isn't in the page itself (a linked style sheet, an `@import`:
     /// load them with a [`ResourceLoader`] and they are), and nothing in one
-    /// that keeps its scripts ([`keep_scripts`](Self::keep_scripts)). Turn
+    /// that keeps a script a browser would run while it prints: its
+    /// `<script>` elements ([`keep_scripts`](Self::keep_scripts)), an event
+    /// handler attribute (`onload`, `onerror`), an `<iframe srcdoc>`, a
+    /// `javascript:` URL, or a frame or object that loads a document. Turn
     /// this off for output that is the page's DOM and nothing else.
     pub fn printer_safe(mut self, on: bool) -> Self {
         self.plain_output = !on;
