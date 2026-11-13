@@ -8,9 +8,9 @@
 [1m[32m   Compiling[0m surimono-islands v0.1.0 (/home/runner/work/surimono/surimono/crates/islands)
 [1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
 [1m[32m   Compiling[0m surimono v0.1.0 (/home/runner/work/surimono/surimono/crates/surimono)
-[1m[32m   Compiling[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
 [1m[32m   Compiling[0m surimono-example-rust-islands v0.0.0 (/home/runner/work/surimono/surimono/examples/rust-islands)
-[1m[32m    Finished[0m `release` profile [optimized] target(s) in 21m 42s
+[1m[32m   Compiling[0m surimono-cli v0.1.0 (/home/runner/work/surimono/surimono/crates/cli)
+[1m[32m    Finished[0m `release` profile [optimized] target(s) in 16m 48s
 [1m[32m     Running[0m unittests src/lib.rs (target/release/deps/surimono-08d824b477ddb114)
 
 running 0 tests
@@ -45,21 +45,21 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; fin
 
 running 1 test
 test soak_pages_10000_renders_flat_memory has been running for over 60 seconds
-soak-pages: 10000 renders in 233.205278104s
-soak-pages: after round   500  live heap    2443020 bytes, quiet    1619312  resident    19532 KiB
-soak-pages: after round  1000  live heap    2443148 bytes, quiet    1619440  resident    19564 KiB
-soak-pages: after round  1500  live heap    2443276 bytes, quiet    1619568  resident    19568 KiB
-soak-pages: after round  2000  live heap    2443276 bytes, quiet    1619568  resident    19632 KiB
-soak-pages: after round  2500  live heap    2443276 bytes, quiet    1619568  resident    19560 KiB
-soak-pages: after round  3000  live heap    2443404 bytes, quiet    1619696  resident    19584 KiB
-soak-pages: after round  3500  live heap    2443404 bytes, quiet    1619696  resident    19600 KiB
-soak-pages: after round  4000  live heap    2444460 bytes, quiet    1620752  resident    19580 KiB
-soak-pages: after round  4500  live heap    2444460 bytes, quiet    1620752  resident    19576 KiB
-soak-pages: after round  5000  live heap    2444716 bytes, quiet    1621008  resident    19584 KiB
-soak-pages: quiet live heap from round 1000: 1619440 -> 1621008 bytes (+1568, highest 1621008), limit +65536
+soak-pages: 10000 renders in 211.592842775s
+soak-pages: after round   500  live heap    2443148 bytes, quiet    1619440  resident    19820 KiB
+soak-pages: after round  1000  live heap    2443276 bytes, quiet    1619568  resident    19888 KiB
+soak-pages: after round  1500  live heap    2443276 bytes, quiet    1619568  resident    19884 KiB
+soak-pages: after round  2000  live heap    2443276 bytes, quiet    1619568  resident    19856 KiB
+soak-pages: after round  2500  live heap    2443276 bytes, quiet    1619568  resident    19864 KiB
+soak-pages: after round  3000  live heap    2443404 bytes, quiet    1619696  resident    19884 KiB
+soak-pages: after round  3500  live heap    2443404 bytes, quiet    1619696  resident    19828 KiB
+soak-pages: after round  4000  live heap    2443404 bytes, quiet    1619696  resident    19868 KiB
+soak-pages: after round  4500  live heap    2443404 bytes, quiet    1619696  resident    19856 KiB
+soak-pages: after round  5000  live heap    2443660 bytes, quiet    1619952  resident    19848 KiB
+soak-pages: quiet live heap from round 1000: 1619568 -> 1619952 bytes (+384, highest 1619952), limit +65536
 test soak_pages_10000_renders_flat_memory ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 233.21s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 211.60s
 
 [1m[32m     Running[0m unittests src/main.rs (target/release/deps/surimono-e671757d062719df)
 
@@ -276,20 +276,20 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; fin
 [1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-3ab79111550f0b84)
 
 running 1 test
-soak-dom-handles: 2000 renders in 30.395775771s (15.197887ms per render)
-soak-dom-handles: resident memory before start Some(7276) KiB
-soak-dom-handles: after   250 renders  live heap    3857907 bytes  resident    18784 KiB
-soak-dom-handles: after   500 renders  live heap    3858003 bytes  resident    18788 KiB
-soak-dom-handles: after   750 renders  live heap    3858003 bytes  resident    18788 KiB
-soak-dom-handles: after  1000 renders  live heap    3858003 bytes  resident    18792 KiB
-soak-dom-handles: after  1250 renders  live heap    3858003 bytes  resident    18792 KiB
-soak-dom-handles: after  1500 renders  live heap    3858099 bytes  resident    18792 KiB
-soak-dom-handles: after  1750 renders  live heap    3858099 bytes  resident    18792 KiB
-soak-dom-handles: after  2000 renders  live heap    3858099 bytes  resident    18792 KiB
+soak-dom-handles: 2000 renders in 25.55343193s (12.776715ms per render)
+soak-dom-handles: resident memory before start Some(7216) KiB
+soak-dom-handles: after   250 renders  live heap    3857907 bytes  resident    18964 KiB
+soak-dom-handles: after   500 renders  live heap    3858003 bytes  resident    18964 KiB
+soak-dom-handles: after   750 renders  live heap    3858003 bytes  resident    18964 KiB
+soak-dom-handles: after  1000 renders  live heap    3858003 bytes  resident    18964 KiB
+soak-dom-handles: after  1250 renders  live heap    3858003 bytes  resident    18964 KiB
+soak-dom-handles: after  1500 renders  live heap    3858099 bytes  resident    18964 KiB
+soak-dom-handles: after  1750 renders  live heap    3858099 bytes  resident    18968 KiB
+soak-dom-handles: after  2000 renders  live heap    3858099 bytes  resident    18968 KiB
 soak-dom-handles: live heap from render 500 to 2000: 3858003 -> 3858099 bytes (+96 bytes, highest 3858099), limit +65536
 test soak_dom_handles_2000_renders_flat_memory ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 30.40s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 25.56s
 
 [1m[32m     Running[0m tests/stopping.rs (target/release/deps/stopping-022350004323edeb)
 
@@ -420,371 +420,370 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; fin
 [1m[32m     Running[0m tests/soak.rs (target/release/deps/soak-fa1c5ac3211cd1ad)
 
 running 4 tests
-soak: 10000 renders in 36.527195328s (3.652719ms per render incl. 20 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
-soak: resident memory before start Some(16068) KiB
-soak: after   500 renders  live heap   10779304 bytes  resident    21864 KiB
-soak: after  1000 renders  live heap   10779304 bytes  resident    21896 KiB
-soak: after  1500 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  2000 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  2500 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  3000 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  3500 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  4000 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  4500 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  5000 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  5500 renders  live heap   10779304 bytes  resident    21904 KiB
-soak: after  6000 renders  live heap   10779304 bytes  resident    21908 KiB
-soak: after  6500 renders  live heap   10779304 bytes  resident    21908 KiB
-soak: after  7000 renders  live heap   10779304 bytes  resident    21908 KiB
-soak: after  7500 renders  live heap   10779304 bytes  resident    21908 KiB
-soak: after  8000 renders  live heap   10779304 bytes  resident    21908 KiB
-soak: after  8500 renders  live heap   10779304 bytes  resident    21908 KiB
-soak: after  9000 renders  live heap   10779304 bytes  resident    21912 KiB
-soak: after  9500 renders  live heap   10779304 bytes  resident    21912 KiB
-soak: after 10000 renders  live heap   10779304 bytes  resident    21912 KiB
-soak: RunnerStats { renders: 10000, failed_renders: 250, preloaded_renders: 320, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
-soak: live heap from render 2000 to 10000: 10779304 -> 10779304 bytes (+0 bytes, highest 10779304), limit +65536
+soak: 10000 renders in 35.609031361s (3.560903ms per render incl. 20 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
+soak: resident memory before start Some(16104) KiB
+soak: after   500 renders  live heap   10779304 bytes  resident    21784 KiB
+soak: after  1000 renders  live heap   10779304 bytes  resident    21824 KiB
+soak: after  1500 renders  live heap   10779304 bytes  resident    21828 KiB
+soak: after  2000 renders  live heap   10779304 bytes  resident    21828 KiB
+soak: after  2500 renders  live heap   10779304 bytes  resident    21828 KiB
+soak: after  3000 renders  live heap   10779304 bytes  resident    21828 KiB
+soak: after  3500 renders  live heap   10779304 bytes  resident    21828 KiB
+soak: after  4000 renders  live heap   10779304 bytes  resident    21828 KiB
+soak: after  4500 renders  live heap   10779304 bytes  resident    21828 KiB
+soak: after  5000 renders  live heap   10779304 bytes  resident    21820 KiB
+soak: after  5500 renders  live heap   10779304 bytes  resident    21820 KiB
+soak: after  6000 renders  live heap   10779304 bytes  resident    21820 KiB
+soak: after  6500 renders  live heap   10779304 bytes  resident    21820 KiB
+soak: after  7000 renders  live heap   10779304 bytes  resident    21820 KiB
+soak: after  7500 renders  live heap   10779304 bytes  resident    21820 KiB
+soak: after  8000 renders  live heap   10779304 bytes  resident    21820 KiB
+soak: after  8500 renders  live heap   10779304 bytes  resident    21824 KiB
+soak: after  9000 renders  live heap   10779304 bytes  resident    21824 KiB
+soak: after  9500 renders  live heap   10779304 bytes  resident    21824 KiB
+soak: after 10000 renders  live heap   10779432 bytes  resident    21828 KiB
+soak: RunnerStats { renders: 10000, failed_renders: 250, preloaded_renders: 332, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
+soak: live heap from render 2000 to 10000: 10779304 -> 10779432 bytes (+128 bytes, highest 10779432), limit +65536
 soak: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
-soak: peak resident 21912 KiB, bound 212676 KiB
+soak: peak resident 21828 KiB, bound 212712 KiB
 test soak_10000_renders_flat_memory ... ok
+soak-vega-lite: 600 renders in 13.10257429s (21.837623ms per render incl. 4 waits for idle workers), 3 callers, 2 workers, first SVG 9870 bytes
+soak-vega-lite: resident memory before start Some(21816) KiB
+soak-vega-lite: after   150 renders  live heap   21601203 bytes  resident    38284 KiB
+soak-vega-lite: after   300 renders  live heap   21601203 bytes  resident    38292 KiB
+soak-vega-lite: after   450 renders  live heap   21601203 bytes  resident    38292 KiB
+soak-vega-lite: after   600 renders  live heap   21601203 bytes  resident    38360 KiB
+soak-vega-lite: RunnerStats { renders: 600, failed_renders: 6, preloaded_renders: 7, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
+soak-vega-lite: live heap from render 300 to 600: 21601203 -> 21601203 bytes (+0 bytes, highest 21601203), limit +65536
+soak-vega-lite: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
+soak-vega-lite: peak resident 38360 KiB, bound 349496 KiB
+test soak_vega_lite_600_renders_flat_memory ... ok
 test soak_echarts_2000_renders_flat_memory has been running for over 60 seconds
 test soak_idle_release_3000_renders_flat_memory has been running for over 60 seconds
-test soak_vega_lite_600_renders_flat_memory has been running for over 60 seconds
-soak-echarts: 2000 renders in 41.716317339s (20.858158ms per render incl. 8 waits for idle workers), 3 callers, 2 workers, first SVG 24997 bytes
-soak-echarts: resident memory before start Some(21920) KiB
-soak-echarts: after   250 renders  live heap   20664029 bytes  resident    38352 KiB
-soak-echarts: after   500 renders  live heap   20664029 bytes  resident    38352 KiB
-soak-echarts: after   750 renders  live heap   20664029 bytes  resident    38352 KiB
-soak-echarts: after  1000 renders  live heap   20664029 bytes  resident    38356 KiB
-soak-echarts: after  1250 renders  live heap   20664029 bytes  resident    38356 KiB
-soak-echarts: after  1500 renders  live heap   20664029 bytes  resident    38356 KiB
-soak-echarts: after  1750 renders  live heap   20664029 bytes  resident    38356 KiB
-soak-echarts: after  2000 renders  live heap   20664029 bytes  resident    38356 KiB
-soak-echarts: RunnerStats { renders: 2000, failed_renders: 20, preloaded_renders: 31, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
-soak-echarts: live heap from render 500 to 2000: 20664029 -> 20664029 bytes (+0 bytes, highest 20664029), limit +65536
-soak-echarts: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
-soak-echarts: peak resident 38356 KiB, bound 349600 KiB
-test soak_echarts_2000_renders_flat_memory ... ok
-soak-vega-lite: 600 renders in 16.441197432s (27.401995ms per render incl. 4 waits for idle workers), 3 callers, 2 workers, first SVG 9870 bytes
-soak-vega-lite: resident memory before start Some(48016) KiB
-soak-vega-lite: after   150 renders  live heap   21600616 bytes  resident    56400 KiB
-soak-vega-lite: after   300 renders  live heap   21600616 bytes  resident    56404 KiB
-soak-vega-lite: after   450 renders  live heap   21600616 bytes  resident    56404 KiB
-soak-vega-lite: after   600 renders  live heap   21600616 bytes  resident    56404 KiB
-soak-vega-lite: RunnerStats { renders: 600, failed_renders: 6, preloaded_renders: 6, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
-soak-vega-lite: live heap from render 300 to 600: 21600616 -> 21600616 bytes (+0 bytes, highest 21600616), limit +65536
-soak-vega-lite: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
-soak-vega-lite: peak resident 56404 KiB, bound 375696 KiB
-test soak_vega_lite_600_renders_flat_memory ... ok
-soak-idle-release: 3000 renders in 20.174565125s (6.724855ms per render incl. 300 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
-soak-idle-release: resident memory before start Some(66040) KiB
-soak-idle-release: after    10 renders  live heap   10260509 bytes  resident    65300 KiB
-soak-idle-release: after    20 renders  live heap   10260509 bytes  resident    65348 KiB
-soak-idle-release: after    30 renders  live heap   10260509 bytes  resident    65356 KiB
-soak-idle-release: after    40 renders  live heap   10260509 bytes  resident    65356 KiB
-soak-idle-release: after    50 renders  live heap   10260509 bytes  resident    65356 KiB
-soak-idle-release: after    60 renders  live heap   10260509 bytes  resident    65368 KiB
-soak-idle-release: after    70 renders  live heap   10260509 bytes  resident    65368 KiB
-soak-idle-release: after    80 renders  live heap   10260509 bytes  resident    65368 KiB
-soak-idle-release: after    90 renders  live heap   10260509 bytes  resident    65368 KiB
-soak-idle-release: after   100 renders  live heap   10260509 bytes  resident    60212 KiB
-soak-idle-release: after   110 renders  live heap   10260509 bytes  resident    60188 KiB
-soak-idle-release: after   120 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   130 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   140 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   150 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   160 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   170 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   180 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   190 renders  live heap   10260509 bytes  resident    60192 KiB
-soak-idle-release: after   200 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   210 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   220 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   230 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   240 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   250 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   260 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   270 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   280 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   290 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   300 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   310 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   320 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   330 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   340 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   350 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   360 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   370 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   380 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   390 renders  live heap   10260509 bytes  resident    62100 KiB
-soak-idle-release: after   400 renders  live heap   10260509 bytes  resident    58004 KiB
-soak-idle-release: after   410 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   420 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   430 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   440 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   450 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   460 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   470 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   480 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   490 renders  live heap   10260509 bytes  resident    58008 KiB
-soak-idle-release: after   500 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   510 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   520 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   530 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   540 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   550 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   560 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   570 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   580 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   590 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   600 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   610 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   620 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   630 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   640 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   650 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   660 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   670 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   680 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   690 renders  live heap   10260509 bytes  resident    49812 KiB
-soak-idle-release: after   700 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   710 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   720 renders  live heap   10260509 bytes  resident    53908 KiB
-soak-idle-release: after   730 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   740 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   750 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   760 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   770 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   780 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   790 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   800 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   810 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   820 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   830 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   840 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   850 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   860 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   870 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   880 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   890 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after   900 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   910 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   920 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   930 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   940 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   950 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   960 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   970 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   980 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after   990 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1000 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1010 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1020 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1030 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1040 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1050 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1060 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1070 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1080 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1090 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1100 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1110 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1120 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1130 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1140 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1150 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1160 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1170 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1180 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1190 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1200 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1210 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1220 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1230 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1240 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1250 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1260 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1270 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1280 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1290 renders  live heap   10260637 bytes  resident    49812 KiB
-soak-idle-release: after  1300 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1310 renders  live heap   10260637 bytes  resident    53968 KiB
-soak-idle-release: after  1320 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1330 renders  live heap   10260637 bytes  resident    53908 KiB
-soak-idle-release: after  1340 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1350 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1360 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1370 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1380 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1390 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1400 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1410 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1420 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1430 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1440 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1450 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1460 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1470 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1480 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1490 renders  live heap   10260637 bytes  resident    53912 KiB
-soak-idle-release: after  1500 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1510 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1520 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1530 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1540 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1550 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1560 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1570 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1580 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1590 renders  live heap   10260637 bytes  resident    58008 KiB
-soak-idle-release: after  1600 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1610 renders  live heap   10260637 bytes  resident    53960 KiB
-soak-idle-release: after  1620 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1630 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1640 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1650 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1660 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1670 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1680 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1690 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1700 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1710 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1720 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1730 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1740 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1750 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1760 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1770 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1780 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1790 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1800 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1810 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1820 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1830 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1840 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1850 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1860 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1870 renders  live heap   10260637 bytes  resident    53952 KiB
-soak-idle-release: after  1880 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1890 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  1900 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1910 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1920 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1930 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1940 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1950 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1960 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1970 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1980 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  1990 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2000 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2010 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2020 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2030 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2040 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2050 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2060 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2070 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2080 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2090 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2100 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2110 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2120 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2130 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2140 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2150 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2160 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2170 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2180 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2190 renders  live heap   10260637 bytes  resident    58044 KiB
-soak-idle-release: after  2200 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2210 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2220 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2230 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2240 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2250 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2260 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2270 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2280 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2290 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2300 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2310 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2320 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2330 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2340 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2350 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2360 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2370 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2380 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2390 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2400 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2410 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2420 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2430 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2440 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2450 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2460 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2470 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2480 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2490 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2500 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2510 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2520 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2530 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2540 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2550 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2560 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2570 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2580 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2590 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2600 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2610 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2620 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2630 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2640 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2650 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2660 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2670 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2680 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2690 renders  live heap   10260637 bytes  resident    49852 KiB
-soak-idle-release: after  2700 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2710 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2720 renders  live heap   10260637 bytes  resident    54156 KiB
-soak-idle-release: after  2730 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2740 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2750 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2760 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2770 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2780 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2790 renders  live heap   10260637 bytes  resident    54052 KiB
-soak-idle-release: after  2800 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2810 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2820 renders  live heap   10260637 bytes  resident    54148 KiB
-soak-idle-release: after  2830 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2840 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2850 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2860 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2870 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2880 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2890 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2900 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2910 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2920 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2930 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2940 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2950 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2960 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2970 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2980 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  2990 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: after  3000 renders  live heap   10260637 bytes  resident    53948 KiB
-soak-idle-release: RunnerStats { renders: 3000, failed_renders: 75, preloaded_renders: 35, idle_workers: 2, workers: 2, runtimes: 0, memory_trims: 300 }
-soak-idle-release: live heap from render 500 to 3000: 10260509 -> 10260637 bytes (+128 bytes, highest 10260637), limit +65536
+soak-idle-release: 3000 renders in 19.54298022s (6.514326ms per render incl. 300 waits for idle workers), 3 callers, 2 workers, first SVG 16495 bytes
+soak-idle-release: resident memory before start Some(47996) KiB
+soak-idle-release: after    10 renders  live heap   10261256 bytes  resident    47668 KiB
+soak-idle-release: after    20 renders  live heap   10261256 bytes  resident    47700 KiB
+soak-idle-release: after    30 renders  live heap   10261256 bytes  resident    47728 KiB
+soak-idle-release: after    40 renders  live heap   10261256 bytes  resident    47736 KiB
+soak-idle-release: after    50 renders  live heap   10261256 bytes  resident    47740 KiB
+soak-idle-release: after    60 renders  live heap   10261256 bytes  resident    47740 KiB
+soak-idle-release: after    70 renders  live heap   10261256 bytes  resident    47740 KiB
+soak-idle-release: after    80 renders  live heap   10261256 bytes  resident    47740 KiB
+soak-idle-release: after    90 renders  live heap   10261256 bytes  resident    47740 KiB
+soak-idle-release: after   100 renders  live heap   10261256 bytes  resident    51836 KiB
+soak-idle-release: after   110 renders  live heap   10261256 bytes  resident    51836 KiB
+soak-idle-release: after   120 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   130 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   140 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   150 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   160 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   170 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   180 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   190 renders  live heap   10261256 bytes  resident    51840 KiB
+soak-idle-release: after   200 renders  live heap   10261256 bytes  resident    47744 KiB
+soak-idle-release: after   210 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   220 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   230 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   240 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   250 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   260 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   270 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   280 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   290 renders  live heap   10261256 bytes  resident    47760 KiB
+soak-idle-release: after   300 renders  live heap   10261256 bytes  resident    42604 KiB
+soak-idle-release: after   310 renders  live heap   10261256 bytes  resident    42616 KiB
+soak-idle-release: after   320 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   330 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   340 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   350 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   360 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   370 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   380 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   390 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   400 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   410 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   420 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   430 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   440 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   450 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   460 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   470 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   480 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   490 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after   500 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   510 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   520 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   530 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   540 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   550 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   560 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   570 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   580 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   590 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   600 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   610 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   620 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   630 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   640 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   650 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   660 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   670 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   680 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   690 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   700 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   710 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   720 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   730 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   740 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   750 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   760 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   770 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   780 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   790 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   800 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   810 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   820 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   830 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   840 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   850 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   860 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   870 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   880 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   890 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after   900 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   910 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   920 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   930 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   940 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   950 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   960 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   970 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   980 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after   990 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1000 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1010 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1020 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1030 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1040 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1050 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1060 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1070 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1080 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1090 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1100 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1110 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1120 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1130 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1140 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1150 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1160 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1170 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1180 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1190 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1200 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1210 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1220 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1230 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1240 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1250 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1260 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1270 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1280 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1290 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1300 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1310 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1320 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1330 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1340 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1350 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1360 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1370 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1380 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1390 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1400 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1410 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1420 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1430 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1440 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1450 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1460 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1470 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1480 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1490 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1500 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1510 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1520 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1530 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1540 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1550 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1560 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1570 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1580 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1590 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1600 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1610 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1620 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1630 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1640 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1650 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1660 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1670 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1680 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1690 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1700 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1710 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1720 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1730 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1740 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1750 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1760 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1770 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1780 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1790 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  1800 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1810 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1820 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1830 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1840 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1850 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1860 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1870 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1880 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1890 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1900 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1910 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1920 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1930 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1940 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1950 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1960 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1970 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1980 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  1990 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2000 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2010 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2020 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2030 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2040 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2050 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2060 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2070 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2080 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2090 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2100 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2110 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2120 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2130 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2140 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2150 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2160 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2170 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2180 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2190 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2200 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2210 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2220 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2230 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2240 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2250 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2260 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2270 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2280 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2290 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2300 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2310 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2320 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2330 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2340 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2350 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2360 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2370 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2380 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2390 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2400 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2410 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2420 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2430 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2440 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2450 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2460 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2470 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2480 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2490 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2500 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2510 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2520 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2530 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2540 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2550 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2560 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2570 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2580 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2590 renders  live heap   10261256 bytes  resident    46716 KiB
+soak-idle-release: after  2600 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2610 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2620 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2630 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2640 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2650 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2660 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2670 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2680 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2690 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2700 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2710 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2720 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2730 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2740 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2750 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2760 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2770 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2780 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2790 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2800 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2810 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2820 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2830 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2840 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2850 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2860 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2870 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2880 renders  live heap   10261256 bytes  resident    38524 KiB
+soak-idle-release: after  2890 renders  live heap   10261256 bytes  resident    38584 KiB
+soak-idle-release: after  2900 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2910 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2920 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2930 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2940 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2950 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2960 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2970 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2980 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  2990 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: after  3000 renders  live heap   10261256 bytes  resident    42620 KiB
+soak-idle-release: RunnerStats { renders: 3000, failed_renders: 75, preloaded_renders: 24, idle_workers: 2, workers: 2, runtimes: 0, memory_trims: 300 }
+soak-idle-release: live heap from render 500 to 3000: 10261256 -> 10261256 bytes (+0 bytes, highest 10261256), limit +65536
 soak-idle-release: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
-soak-idle-release: peak resident 65368 KiB, bound 262648 KiB
+soak-idle-release: peak resident 51840 KiB, bound 244604 KiB
 test soak_idle_release_3000_renders_flat_memory ... ok
+soak-echarts: 2000 renders in 34.01623585s (17.008117ms per render incl. 8 waits for idle workers), 3 callers, 2 workers, first SVG 24997 bytes
+soak-echarts: resident memory before start Some(52444) KiB
+soak-echarts: after   250 renders  live heap   20663627 bytes  resident    54860 KiB
+soak-echarts: after   500 renders  live heap   20663627 bytes  resident    54872 KiB
+soak-echarts: after   750 renders  live heap   20663627 bytes  resident    54872 KiB
+soak-echarts: after  1000 renders  live heap   20663627 bytes  resident    54872 KiB
+soak-echarts: after  1250 renders  live heap   20663627 bytes  resident    54872 KiB
+soak-echarts: after  1500 renders  live heap   20663627 bytes  resident    54872 KiB
+soak-echarts: after  1750 renders  live heap   20663627 bytes  resident    54872 KiB
+soak-echarts: after  2000 renders  live heap   20663627 bytes  resident    54872 KiB
+soak-echarts: RunnerStats { renders: 2000, failed_renders: 20, preloaded_renders: 36, idle_workers: 2, workers: 2, runtimes: 2, memory_trims: 0 }
+soak-echarts: live heap from render 500 to 2000: 20663627 -> 20663627 bytes (+0 bytes, highest 20663627), limit +65536
+soak-echarts: teardown leaks TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 } (before the soak TeardownLeaks { runtimes: 0, objects: 0, bytes: 0 })
+soak-echarts: peak resident 54872 KiB, bound 380124 KiB
+test soak_echarts_2000_renders_flat_memory ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 114.90s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 102.31s
 
 [1m[32m     Running[0m tests/vega.rs (target/release/deps/vega-ae6880b73a7b8f52)
 
