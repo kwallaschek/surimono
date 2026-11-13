@@ -10,7 +10,40 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Fri 13 Nov 2026, 22:35)
+## Now (Sat 14 Nov 2026, 04:30)
+
+Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
+works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
+13 Nov 22:22 (Kay switched the session after the Fable limit).
+
+- **Merged 13 Nov 22:35 to 14 Nov 04:20:** #181 (selector cut that corrupted printed sheets),
+  #183 (Raikiri measured as a printer), #179 (layout prototype, hidden), #180 (printer-safe output:
+  4 of 6 real-world pages pass on stock fulgur, 2 without), #185 (Raikiri spike), #184 (setters
+  that silently did nothing), #186 (docs). The merged trees of #179 and #180 were tested locally
+  (clippy and the crate's tests) before pushing.
+- **Main's full.yml has not completed on the code merged since 10b33adf:** frequent docs pushes
+  cancelled it. The run on 554b1ee2 must finish green before the next push to main; read it first.
+- **Decided 14 Nov (DECISIONS):** phase 3 layout queries target Raikiri behind the seam, reading
+  its paged fragments (E3-R1 to E3-R4); no Blitz-specific layout work; the print path is designed
+  around fulgur-raikiri; real layout stays internal until one layout is bounded in time (E3-01e).
+- **Running:** Q-CF-02 (page-path benchmark against Grover, branch q-cf-02), P2-CF-07
+  (checkpoint-3 regenerated with printer-safe output, branch p2-cf-07). No PR open.
+- Kay's queue: report the private findings (four files in the Claude project; the 13 Nov one has
+  the slow fulgur pages and Raikiri's numbers on them); turn the scheduled resume task back on
+  (and set it to Opus 5.5) if he wants night work.
+- Standing permissions from Kay (11 Nov): merges on green CI at the exact head plus a fresh
+  review; third-party printers on the fleet machine; history rewrite to his GitHub noreply
+  address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
+
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and wait for a
+complete green full.yml on main. Then: reviews of the Q-CF-02 and P2-CF-07 PRs; merge; then
+Q-ORC-03 (history rewrite) in the first moment with no open PR; then by value: E3-R1, Q-PKG-04
+(Japanese spacing for Raikiri), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in
+CI), P2-PKG-05, P2-DOM-11, P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11,
+P2-CF-12, P2-RT-11, P2-PKG-06, P2-PKG-07, P2-ORC-03. Push docs to main once per round, not per
+merge. Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST; checkpoint 3 Sun 22 Nov.
+
+## Earlier (Fri 13 Nov 2026, 22:35)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). **Agents run on Opus 5.5 from
