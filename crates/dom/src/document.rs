@@ -186,6 +186,14 @@ pub enum LayoutPolicy {
     /// End the call with [`DomError::LayoutQuery`], for callers who would
     /// rather have no page than one built on made-up measurements.
     Throw,
+    /// Answer from Blitz's layout of the page, run when a script first asks
+    /// and again after the page changes; needs
+    /// [`DomRuntime::set_layout_setup`](crate::DomRuntime::set_layout_setup),
+    /// and answers as `Zeros` without it. The E3-00 prototype: only
+    /// `getBoundingClientRect`, `offsetWidth` and `offsetHeight` are real,
+    /// the other queries still answer as `Zeros`. Internal until checkpoint 3.
+    #[doc(hidden)]
+    Real,
 }
 
 /// What kind of node a handle names, as the DOM's `nodeType` numbers.
@@ -437,7 +445,7 @@ pub struct Document {
     /// can't reach any output.
     owned: HashMap<(usize, Owned), Handle>,
     /// Bumped by every change a live list can see.
-    version: u64,
+    pub(crate) version: u64,
     /// The last computed live list: (handle, version, nodes), so a loop
     /// over `list[i]` isn't quadratic. One entry bounds what it holds.
     list_cache: Option<(Handle, u64, Vec<usize>)>,
@@ -525,6 +533,16 @@ pub struct Document {
     pub(crate) deadline: Option<Deadline>,
     /// What layout queries do, set for each native call.
     pub(crate) layout: LayoutPolicy,
+    /// The viewport and fonts of [`LayoutPolicy::Real`], set with the policy.
+    pub(crate) layout_setup: Option<std::rc::Rc<crate::layout::LayoutSetup>>,
+    /// The page as last laid out (`src/layout.rs`); stale once `version` or
+    /// `layout_epoch` has moved on.
+    pub(crate) current_layout: Option<crate::layout::Current>,
+    /// Bumped by the changes layout sees and `version` doesn't count: text
+    /// and style-sheet rules.
+    pub(crate) layout_epoch: u64,
+    /// Layouts run so far.
+    pub(crate) layouts_run: u64,
     /// The body or frameset element whose `on*` attribute was written last:
     /// its attributes are the window's. A handle, so its node stays.
     pub(crate) handler_source: Option<Handle>,
@@ -690,6 +708,10 @@ impl Document {
             fault: None,
             deadline: None,
             layout: LayoutPolicy::default(),
+            layout_setup: None,
+            current_layout: None,
+            layout_epoch: 0,
+            layouts_run: 0,
             handler_source: None,
             ticks: Cell::new(0),
             list_steps: 0,
@@ -2191,6 +2213,15 @@ impl Document {
         self.info(self.making).quirks
     }
 
+    /// The page's own quirks mode, whichever document the running member is in.
+    pub(crate) fn page_quirks(&self) -> style::context::QuirksMode {
+        if self.info(self.root()).quirks {
+            style::context::QuirksMode::Quirks
+        } else {
+            style::context::QuirksMode::NoQuirks
+        }
+    }
+
     pub(crate) fn quirks_mode(&self) -> style::context::QuirksMode {
         if self.is_quirks() {
             style::context::QuirksMode::Quirks
@@ -2605,6 +2636,7 @@ impl Document {
     fn set_side_data(&mut self, id: usize, data: &str) -> Result<(), DomError> {
         self.recharge(self.char_data(id).len(), data.len())?;
         self.note_character_data(id);
+        self.layout_epoch += 1;
         self.side_data.insert(id, data.to_owned());
         if let Some(parent) = self.parent(id) {
             self.style_changed(parent);
@@ -2714,6 +2746,7 @@ impl Document {
         }
         self.recharge(self.char_data(id).len(), text.len())?;
         self.note_character_data(id);
+        self.layout_epoch += 1;
         self.inner.mutate().set_node_text(id, text);
         Ok(())
     }

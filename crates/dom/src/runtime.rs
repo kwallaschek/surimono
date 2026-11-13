@@ -20,7 +20,7 @@ use surimono_webidl::runtime::{BindingError, ObjectId};
 use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
-use crate::{Document, DomError, LayoutPolicy, sheet, web};
+use crate::{Document, DomError, LayoutPolicy, LayoutSetup, sheet, web};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
@@ -70,6 +70,9 @@ struct Host {
     fault: Option<DomError>,
     /// What layout queries do; survives resets and documents.
     layout: LayoutPolicy,
+    /// What [`LayoutPolicy::Real`] lays out against; survives resets and
+    /// documents.
+    layout_setup: Option<Rc<LayoutSetup>>,
     /// The sandbox's cancel flag, raised by `limit`: a limit reported by the
     /// glue must stop the script like one the engine stops it for. Natives
     /// refuse to work while it is up, because the sandbox's watchdog sees it
@@ -238,6 +241,23 @@ impl DomRuntime {
     /// default is [`LayoutPolicy::Zeros`].
     pub fn set_layout_policy(&mut self, policy: LayoutPolicy) {
         self.host.borrow_mut().layout = policy;
+    }
+
+    /// Gives [`LayoutPolicy::Real`] its viewport and fonts, from the next
+    /// call on. Internal: the E3-00 prototype, not reachable from the facade.
+    #[doc(hidden)]
+    pub fn set_layout_setup(&mut self, setup: LayoutSetup) {
+        self.host.borrow_mut().layout_setup = Some(Rc::new(setup));
+    }
+
+    /// Layouts the loaded document has run, for tests of when layout runs.
+    #[doc(hidden)]
+    pub fn layouts_run(&self) -> u64 {
+        self.host
+            .borrow()
+            .doc
+            .as_ref()
+            .map_or(0, Document::layouts_run)
     }
 
     /// Takes the loaded document back. Wrappers still held by scripts fail
@@ -1054,6 +1074,9 @@ fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<
                 }
                 doc.deadline.clone_from(&host.deadline);
                 doc.layout = host.layout;
+                if host.layout == LayoutPolicy::Real {
+                    doc.layout_setup.clone_from(&host.layout_setup);
+                }
                 doc.enter(h);
                 let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
                 if let Some(e) = doc.fault.take() {

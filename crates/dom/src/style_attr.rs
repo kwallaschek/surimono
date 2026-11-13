@@ -65,7 +65,7 @@ const MAX_NESTING: usize = 32;
 /// can't be interrupted and costs up to about 300 ns a byte in a release
 /// build (`stylo_cost_by_property_and_shape`): 20 ms here, but past the time
 /// limit at [`MAX_BYTES`].
-const MAX_CHECKED_VALUE: usize = 64 << 10;
+pub(crate) const MAX_CHECKED_VALUE: usize = 64 << 10;
 /// What a `style` attribute is called while blitz-dom builds its element. No
 /// parser or script can give an attribute this name: html5ever turns NUL into
 /// U+FFFD, and the DOM refuses it.
@@ -78,6 +78,11 @@ static BASE: LazyLock<UrlExtraData> = LazyLock::new(|| {
         .expect("about:blank is a URL")
         .into()
 });
+
+/// The base that [`BASE`] is, for layout's parse of the same declarations.
+pub(crate) fn base() -> &'static UrlExtraData {
+    &BASE
+}
 
 /// One `name: value` of a style attribute.
 #[derive(Debug, Clone, PartialEq, Eq)]

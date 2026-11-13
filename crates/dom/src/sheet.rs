@@ -441,6 +441,7 @@ impl Document {
         let sheet = self.sheets.get_mut(&id).ok_or_else(no_element)?;
         let at = (index as usize).min(sheet.rules.len());
         sheet.rules.insert(at, text);
+        self.layout_epoch += 1;
         sheet.cost += cost;
         Ok(())
     }
@@ -449,6 +450,7 @@ impl Document {
     pub(crate) fn sheet_delete(&mut self, this: ObjectId, index: u32) -> BindingResult<()> {
         let id = self.node_of(this)?;
         self.edited(id)?;
+        self.layout_epoch += 1;
         let sheet = self.sheets.get_mut(&id).ok_or_else(no_element)?;
         if (index as usize) < sheet.rules.len() {
             let gone = sheet.rules.remove(index as usize);

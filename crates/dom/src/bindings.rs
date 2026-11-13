@@ -179,6 +179,12 @@ impl From<u32> for Ret {
     }
 }
 
+impl From<f64> for Ret {
+    fn from(n: f64) -> Self {
+        Ret::Number(n)
+    }
+}
+
 impl From<String> for Ret {
     fn from(s: String) -> Self {
         Ret::Str(s)

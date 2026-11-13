@@ -116,9 +116,9 @@ reaches the printing engine's blitz-dom, where the panic lives: the fulgur hand-
 - `style` attributes stay away from stylo (see Sandbox and limits); the tree has
   the text, and elements have no `style_attribute` block.
 
-Phase 3 needs all three back, for layout: flags set over the tree, screened CSS
-given to blitz-dom and `flush_style_attribute` per element, all done once before
-layout, not while scripts mutate.
+Layout needs none of the three back in this document: phase 3 lays out a copy
+(see "Layout queries (phase 3)"), which gets the sheets and the style attributes
+as stylo's own objects, parsed here, and never runs a hook.
 
 ## Several documents
 
@@ -324,6 +324,9 @@ ordinary expandos. `getComputedStyle` is phase 3; see Layout queries.
 
 ## Layout queries
 
+Phase 3's design and its prototype (`LayoutPolicy::Real`, hidden) are in the next
+section; this one is what ships until checkpoint 3.
+
 Nothing lays out in phase 2, so the brief's policy stands in: `LayoutPolicy`, set
 with `DomRuntime::set_layout_policy` (internal; PKG exposes it). `Zeros`, the
 default, answers as a browser does for an element with no box, which is an answer
@@ -331,7 +334,8 @@ pages already handle: zeros, an empty `DOMRectList`, a null `offsetParent` and
 `elementFromPoint`, a read-only computed style with no properties. `Throw` ends
 the call with `DomError::LayoutQuery`, fatal so that a `try` can't go on without
 the answer. `src/glue_layout.js` holds the members, each asking Rust first through
-one operation, so phase 3 replaces one file. They aren't in the generator's table
+one operation (`layoutQuery`, which also says whether real numbers are to be had,
+so the default path pays nothing for the prototype), so phase 3 replaces one file. They aren't in the generator's table
 because `DOMRect` lives in the glue and a native can't return one.
 
 Bound as far as the policy goes: `getBoundingClientRect`, `getClientRects`,
@@ -343,6 +347,593 @@ the window too) move nothing, `elementsFromPoint` hits nothing, and `getBBox` is
 `DOMRect`, on every SVG element where SVG 2 has it on graphics elements only. `Throw`
 applies to all of them. `pseudoElt` is converted and ignored.
 `DOMRectList` has `item` but no indexed properties, since it is always empty.
+
+## Layout queries (phase 3)
+
+The E3-00 spike: how scripts get real numbers from Blitz's layout, what it costs,
+and what blitz-dom 0.2.4 can and can't answer. Source references are to
+blitz-dom 0.2.4 unless they name another crate. A prototype is in
+`src/layout.rs` and `src/layout_blitz.rs` behind `LayoutPolicy::Real` (hidden,
+not reachable from the facade, the CLI or the gem): `getBoundingClientRect`,
+`offsetWidth` and `offsetHeight`, tested in `tests/layout_real.rs`. Nothing here
+is public API before checkpoint 3.
+
+### The seam: bindings on one side, an engine on the other
+
+fulgur's maintainer is building a second layout engine (Raikiri, an opt-in
+backend in fulgur 0.41; Blitz stays the default and there is no date for that
+to change). So everything a layout query needs goes through one boundary, and
+only one file knows which engine answers:
+
+```
+glue_layout.js ── layoutQuery / layoutNumber ──▶ Document (src/layout.rs)
+                                                   │ stale? (version, layout_epoch)
+                                                   │ Engine::lay_out(&Document, &LayoutSetup)
+                                                   ▼
+                                           Box<dyn Laid>  ◀── src/layout_blitz.rs (Blitz, the mirror)
+```
+
+- **`LayoutSetup`** is what comes in from outside the page: the viewport and
+  the fonts.
+- **`Engine::lay_out(page, setup)`** turns the page as it is now into a laid-out
+  page, or refuses it (`Ok(None)`, answered as no box). It reads the tree, the
+  sheets and the style attributes through `Document`'s own accessors
+  (`children`, `kind`, `element_name`, attributes, `char_data`, `style_text`,
+  `edited_sheet_text`, `style_attr::parse`) and looks at the page's deadline
+  where its work can be cut.
+- **`Laid`** is what queries are answered from, in the page's node ids, never
+  the engine's: `border_box(node)` today. E3-01 and E3-02 add their questions
+  here and nowhere else: `client_rects(node)`, `box_edges(node)` (padding,
+  border, scrollbar, content size), `offset_parent` inputs,
+  `computed_value(node, pseudo, property) -> Option<String>`,
+  `matches_media(query)`, `hit(x, y)`. Answers are numbers and strings, so no
+  engine's types reach the bindings.
+- **Staleness** (`Document::ensure_layout`) and the policy are on the bindings'
+  side. An engine that can update in place gets a second, optional entry
+  (`Laid::update(page, changes) -> bool`, false for "build me again") when
+  E3-01 has a change list to give it.
+
+What is not neutral yet, on purpose, because a second engine isn't being built:
+`LayoutSetup::fonts` is a Parley 0.6 `FontContext` (Raikiri also shapes with
+Parley, but only the same Parley version shares the type; otherwise this
+becomes font bytes and a generic-family map); and the tree an engine reads is
+stored in a blitz-dom slab (see "Risks").
+
+### A mirror, not the page's own document
+
+Layout runs on a second `BaseDocument`, the *mirror*, built from the page's
+tree when a script first asks and thrown away when the page changes. The
+page's own document stays the tree store it is. Laying out in place was the
+plan in "Staying out of blitz-dom's document behaviour"; the source says no:
+
+- **Blitz makes nodes while it lays out, in the document's slab.**
+  `collect_complex_layout_children` (`layout/construct.rs`) calls `create_node`
+  for every anonymous block, and `flush_pseudo_elements` for `::before` and
+  `::after` (with a text child). In place they would count against `max_nodes`, take slab ids our handle table
+  indexes by, and need telling apart on every walk.
+- **Nothing is kept between two `resolve`s in the build that prints.** Without
+  the `incremental` feature `resolve_layout_children` (`document.rs`) collects
+  the layout tree anew every time (`NON_INCREMENTAL` in `lib.rs`), and fulgur
+  0.40.0 depends on `blitz-dom = "0.2"` with default features, which don't
+  include it. So keeping one document laid out saves no work, and a fresh
+  copy always starts from a known state.
+- **Style sheets are ordered by node id.** `add_stylesheet_for_node` keeps
+  `nodes_to_stylesheet` in a `BTreeMap` by node id and inserts before the next
+  id (its own TODO says ids get reused). The page's ids are in creation order,
+  so a `<style>` a script inserts above an older one would cascade in the wrong
+  order. A mirror is built in document order, so its ids are too.
+- **The hooks that are off must stay off.** Layout in place needs the
+  `IS_IN_DOCUMENT` flags back, and with them everything "Staying out of
+  blitz-dom's document behaviour" keeps off (loads, form-control children,
+  the mutator's own parse of `<style>` text), for every later mutation. The
+  mirror is built with `create_node` and plain links
+  (`Node::parent`, `Node::children` are public fields), so no hook runs, and its
+  sheets are made here with `Stylesheet::from_str(.., None, None, ..,
+  AllowImportRules::No)` and given to `add_stylesheet_for_node`, not through
+  `make_stylesheet`, which always passes a loader and `AllowImportRules::Yes`.
+- **A fault during layout leaves the page's tree whole.** It still ends the
+  call with a typed error, as any native's does.
+
+What the mirror costs is one copy of the tree per layout (the text that can
+render, and attributes: short values whole, of a long one its first 2 KiB,
+`class` and `id` always whole, `style` as its parsed block) and a second set of nodes while it is alive; both are in "Cost" below.
+The same builder is what a live hand-off to the printer needs (a prepared Blitz
+document, `docs/upstream/`), so it isn't thrown-away work.
+
+### Running style and layout
+
+`BaseDocument::resolve(now)` (`document.rs`) is the whole of it:
+`resolve_stylist` (stylo's sequential traversal: `style::driver::traverse_dom`
+with no thread pool), `resolve_layout_children` (box construction),
+`resolve_deferred_tasks` (Parley shaping of every inline root,
+`build_inline_layout_into`), `flush_styles_to_layout` (stylo to Taffy styles,
+`stylo_taffy::to_taffy_style`) and `resolve_layout` (`taffy::compute_root_layout`
+against `stylist.device().au_viewport_size()`, then `taffy::round_layout`).
+Each node ends with `unrounded_layout` and `final_layout` (public fields,
+`taffy::Layout`: location relative to the layout parent's border box, border-box
+size, border, padding, content and scrollbar sizes) and `layout_parent`.
+
+It needs:
+
+- **A root element.** Without one `resolve` prints `No DOM - not resolving` on
+  stdout, which is where the CLI writes the page, so the mirror checks
+  `try_root_element` first.
+- **A viewport**: `DocumentConfig::viewport`, a `blitz_traits::shell::Viewport`
+  of whole pixels (`window_size: (u32, u32)`) and a scale; see "Page geometry".
+- **Fonts**: `DocumentConfig::font_ctx`, a `parley::FontContext` the document
+  moves into an `Arc<Mutex<_>>`. `BlitzFontMetricsProvider` (`font_metrics.rs`)
+  reads it for `ex` and `ch`, and `resolve_deferred_tasks` shapes with it. It
+  must be built with `CollectionOptions { system_fonts: false, .. }` from the
+  bytes the printer gets, exactly as fulgur 0.40.0's `parse_inner`
+  (`blitz_adapter.rs`) does: `register_fonts(blob, None)` per file, in order.
+  `FontContext::default()` is never an option: with Parley's `system` feature
+  on anywhere in the build (blitz-dom's defaults turn it on, and fulgur uses the
+  defaults) it loads the machine's fonts. The prototype takes the context in
+  `LayoutSetup::fonts` and clones it per mirror (a `Collection` clone shares the
+  font blobs). **Hand-over from surimono-gfx (E3-01):** a
+  `FontSet::font_context()` that returns this context from its own collection,
+  with its generic-family mapping applied through
+  `Collection::set_generic_families`, so that `sans-serif` measures as
+  `TextMeasurer` measures it. Blitz maps stylo's generics to Parley's
+  (`stylo_to_parley::generic_font_family`), and a generic with no mapping finds
+  no font: the text then has no glyphs and no width.
+- **The UA sheet**: `BaseDocument::new` parses `assets/default.css` (21 KiB)
+  for every document. It is the fixed cost of an empty layout, below.
+- **The time**: `resolve(0.0)`. Animations and transitions take it from this
+  argument, never from a clock, so nothing moves.
+
+**Deterministic?** In one process: `the_same_page_gives_the_same_numbers_twice`
+lays a page with blocks, flex, a table and wrapped text out in two runtimes and
+again after a change, and compares every number. Across processes the inputs
+are the tree, the sheets, the font bytes and the viewport; the traversal is
+sequential, the hash maps in `BaseDocument` (`nodes_to_id`, `changed_nodes`,
+`ua_stylesheets`) are only looked up on this path, and fontique's family order
+was the one place hash order showed (`FontSet::add_font_bytes` sorts it, which
+is one more reason the context comes from surimono-gfx). Two runs of the test
+binary print the same numbers for that page (compared by hand, 11 Nov); a test that compares across
+processes belongs to the fixture suite once the facade can reach layout (E3-06).
+
+**Threads.** The style engine keeps a little state per thread for as long as
+the thread lives (DECISIONS 2026-11-11, #169). Layout runs on the thread that
+owns the document, which in the facade is the long-lived `surimono-page`
+thread (`crates/surimono/src/page.rs`); the tests run every layout on one
+long-lived thread too.
+
+### Cost
+
+Release build, this machine (2 cores), `tests/layout_real.rs` `layout_cost`,
+a report page of flex rows (label and figure, five nodes a row, one style
+attribute a row), fixture fonts:
+
+| Page | First layout | A query after it | Layout again after one attribute changes |
+|---|---|---|---|
+| 20 rows, 107 nodes | 1.6 ms | 0.04 ms | 1.4 ms |
+| 2,000 rows, 10,007 nodes | 60 to 81 ms | 0.05 ms | 54 to 75 ms |
+| 9,500 rows, 47,507 nodes | 377 ms | 0.06 ms | 367 to 378 ms |
+| 19,000 rows, 95,007 nodes (measured before the text bound below, which this page is over) | 801 ms | 0.07 ms | 824 to 853 ms |
+
+About 8 µs a node, of which an almost empty page pays 1.1 ms whatever its size
+(a new `BaseDocument` and its UA sheet). Other builds were running on the
+machine, so read these to one digit.
+
+These numbers are for this page and are not a bound: a page within every
+bound under "Limits" can make one layout take far longer than its size
+suggests (review of #179), and nothing bounds one layout's time yet. Nothing
+is kept from one layout to the next: changing one attribute costs what the
+first layout did. Sheets come on top: `sheet_parse_cost` gives 58 ms for 1 MiB of rules
+(6,525 of them, a child combinator and a `:not()` each, five declarations),
+about 56 ns a byte.
+
+**Memory.** Resident memory grew by 1.2 MiB (107 nodes), 56 MiB (10,007),
+150 MiB (47,507) and 297 MiB (95,007) over the measurement's three layouts, one mirror alive at the
+end: 3 to 6 KiB a node with the allocator's slack, several times the page's own
+tree. That is the number that matters against the memory target, and the
+reason for `max_layout_nodes` below and for dropping the mirror when the
+scripts settle, before `to_html`.
+
+### Laziness and invalidation
+
+Layout runs inside the first query that needs it (`Document::ensure_layout`),
+never at load and never for a page that doesn't ask. Under `Zeros` and `Throw`
+nothing changes and the default path pays nothing: the glue's `layoutQuery` now
+answers whether real numbers exist and only then asks for them.
+
+**The first rule: one stale flag for the document.** A layout is stamped with
+`(version, layout_epoch)`. `version` already counts every change a live list can
+see (tree changes in `place_quietly`, `detach_quietly`, `replace_child_list`,
+`remove_children_quietly`, adoption, and every attribute write and removal, so
+`class`, `id`, `style`, `hidden`, `width`). `layout_epoch` is new and counts what
+`version` doesn't: text (`set_text_data`, `set_side_data`, so a `<style>`'s text
+too) and CSSOM rule edits (`sheet_insert`, `sheet_delete`). A query with a
+different stamp drops the mirror and builds another. Correct by construction,
+and coarse in two ways that E3-01 should fix first because frameworks do both:
+
+1. Changes to nodes outside the page's tree (a fragment being built, a detached
+   subtree) make the layout stale though it can't have changed. Counting only
+   changes under the page's root is an ancestor walk per mutation, or free where
+   the funnel already knows the parent is detached.
+2. Attributes no selector or presentational hint reads (`data-*`, `aria-*`
+   without a rule) also count. Stylo's invalidation knows; ours doesn't yet.
+
+**What Blitz offers beyond that.** Three levels, in order of cost to adopt:
+
+- *Keep the mirror and replay changes through `DocumentMutator`.*
+  `set_attribute` and `clear_attribute` call `snapshot_node`, which fills the
+  `SnapshotMap` stylo's invalidation reads, so `resolve_stylist` restyles only
+  what a change can reach. Box construction and layout still run in full
+  (`NON_INCREMENTAL`), so this saves the copy and most of the style pass, and
+  a replayed mirror is still built afresh every so often to start from a
+  known state. How much of a layout that is, this spike didn't measure
+  (blitz-dom's `log_phase_times` feature prints the split, on stdout); E3-01
+  measures before choosing.
+- *The `incremental` feature*: damage propagation (`layout/damage.rs`,
+  `propagate_damage_flags`), construction only where damage says, Taffy caches
+  kept. Off in fulgur's build, so turning it on is a different layout from the
+  one that prints unless fulgur does too, and feature unification would turn it
+  on for the printer in any build that has both. Not before fulgur.
+- *Style without layout*: `resolve_stylist` alone is public. `getComputedStyle`
+  of a property that doesn't depend on boxes, and the SVG text queries of
+  E3-03, need the cascade and not the boxes, so the mirror should style first
+  and lay out only when a box is asked for.
+
+### The style attribute
+
+DECISIONS 2026-11-05: a style attribute never reaches stylo through blitz-dom;
+the tree has the text and no element has a `style_attribute` block. The flush is
+part of building the mirror, per element, and never
+`Node::flush_style_attribute`, which is one `parse_style_attribute` over the
+whole attribute that nothing can stop:
+
+1. `style_attr::parse(text, quirks, deadline)`, the parse a `style` read already
+   does: declarations one at a time, each validated by stylo, the deadline
+   looked at in between.
+2. Each kept declaration is parsed by stylo on its own
+   (`parse_style_attribute("name: value")`) and its declarations pushed into one
+   `PropertyDeclarationBlock`, which goes into `ElementData::style_attribute` (a
+   public field) under the mirror's lock. The attribute itself stays in the
+   mirror's attribute list, so `[style]` selectors match.
+
+**Bound.** Unchanged caps, all enforced where the attribute is written
+(`style_attr::fits`): 4,096 declarations, 65,536 tokens, 8 MiB, 32 brackets,
+2^26 push steps, 4,096 grid cells; values over 64 KiB are skipped, as they skip
+validation (in practice `data:` images, which move no box). The longest stretch
+without a look at the deadline is one declaration of at most 64 KiB, in either
+pass, the unit the 2026-11-04 decision already accepts. An attribute over the
+caps can't be in the tree; if one were, the page is not laid out.
+
+**Cost.** Every layout parses every style attribute again, twice over
+(validation, then the block); the page in "Cost" has one a row, and their
+share wasn't split out. E3-01 should keep the parsed block
+by node, dropped when that attribute is written, and clone it into each mirror
+(`PropertyDeclarationBlock` is `Clone`; only the lock wrapper belongs to one
+document).
+
+### Style sheets
+
+Per `<style>` element, in document order: its edited rules
+(`edited_sheet_text`) or its text (`style_text`), parsed by stylo with no
+loader and `@import` off, so nothing is fetched. `@font-face` rules parse and load nothing (blitz-dom fetches them only
+in `CssHandler`); fonts are the caller's.
+
+A sheet's parse can't be stopped once started (DECISIONS 2026-11-06) and
+`<style>` text is bounded only by `max_text_bytes` (256 MiB), so every sheet
+is screened before the style engine sees any of them, and a page over a bound
+is not laid out (it answers as with no box):
+
+- `MAX_SHEET_BYTES`, 1 MiB of sheet text in all (about 60 ms of parsing).
+- Its shape, in `src/sheet_screen.rs`, one pass over cssparser's tokens that
+  nests no deeper than its own bound and looks at the deadline every 4,096
+  tokens: 32 levels of nesting (`{}`, `()`, `[]` and functions, so nested
+  rules and selector functions alike), 4,096 declarations in a block, 2^26
+  steps over the page's blocks (each charged its declarations squared, an
+  `all` as 512 more), 4,096 words in the strings of a grid or custom-property
+  declaration and 65,536 in the page, 64 combinators in a selector, and 64
+  links in a chain of custom properties naming each other through `var()`,
+  the style attributes' declarations included.
+
+These are the printer screen's numbers (`crates/surimono/src/print.rs`), which
+has the same job for the page that is printed, and the two must agree: a
+page the printer takes should be one layout takes. This crate can't depend on
+the facade, so the pass is written twice; one shared screen is a follow-up
+for the orchestrator. The combinator count here is on tokens, not on parsed
+selectors, so it can refuse a prelude the printer screen would pass (an
+at-rule's with more than 64 spaces in it).
+
+Not there yet, for E3-01 and E3-02: the `media` attribute of `<style>` (blitz-dom
+gives every sheet `MediaList::empty()`), `disabled`, and **linked sheets**.
+`link.sheet` is null and linked sheets "arrive after settle" today, so a page
+whose CSS is in a `<link>` would be measured without it. With real layout the
+facade has to give linked sheets to the document before the page's scripts
+run, as a browser blocks scripts on them (request to PKG below).
+
+### Which queries, and from what
+
+All positions are sums of `unrounded_layout.location` up the `layout_parent`
+chain to the root element (iteratively; `Node::absolute_position` recurses and
+uses the pixel-snapped layout), in CSS pixels at scale 1. Nothing scrolls, so
+viewport and document coordinates are the same.
+
+| Query | From | Notes |
+|---|---|---|
+| `getBoundingClientRect` | border box: position as above, `unrounded_layout.size` | prototype. Zeros with no box (CSSOM View §6.1) |
+| `getClientRects` | one rectangle for a block-level or atomic box; for an inline element the glyph runs whose `brush.id` is the element, per line, from the inline root's `inline_layout_data.layout` (`lines()`, `items()`, `PositionedLayoutItem::GlyphRun`: `offset`, `advance`, the line's metrics) | `TextBrush::id` is the styled node's id (`node/element.rs`), so runs map back to spans |
+| `offsetWidth`, `offsetHeight` | border-box size, rounded | prototype |
+| `offsetTop`, `offsetLeft`, `offsetParent` | position relative to the nearest positioned ancestor's padding edge; the ancestor from computed `position` up the tree (CSSOM View §7), not from `layout_parent`, which can be an anonymous block | |
+| `clientWidth`, `clientHeight`, `clientTop`, `clientLeft` | `size` less `border` less `scrollbar_size`; `border.top`, `border.left`. The root element answers the viewport (§6) | |
+| `scrollWidth`, `scrollHeight` | `max(client size, content_size)`; `Layout::scroll_width()` is the overflow only | `scrollTop` and `scrollLeft` stay 0: nothing scrolls in print |
+| `innerWidth`, `innerHeight`, `document.documentElement.clientWidth` | the setup's viewport | `outerWidth` the same; `scrollX`, `scrollY` 0 |
+| `getComputedStyle` | `Node::primary_styles()` gives stylo's `ComputedValues`; `computed_value_to_string(PropertyDeclarationId)` (stylo `properties.mako.rs`) serialises any longhand as a resolved value, which is Servo's `getComputedStyle` serialisation: colours as `rgb()`/`rgba()`, lengths in `px`, keywords lower case. Custom properties from `custom_properties()`. Shorthands are put together from longhands by `PropertyDeclarationBlock`'s serialisation or by hand for the few pages read (`font`, `margin`, `padding`, `border-*`) | Properties: stylo's Servo set of longhands. Not there: `fill`, `stroke` and the other SVG presentation properties, `break-inside` (see "Inline style"), so E3-03's text needs them from attributes and the cascade it does itself. Used values (CSSOM §9: `width`, `height`, margins, paddings, `top`/`left`... when the element has a box) come from the box, not from the style. `::before`/`::after`: `stylo_element_data.styles.pseudos` |
+| `matchMedia` | stylo: `MediaList::parse` and `evaluate(doc.stylist_device(), quirks)` | The device is `MediaType::screen()` (`make_device`, `document.rs`), and fulgur prints with it, so `matchMedia('print')` is false and `(max-width: ..)` answers for the page's content width. That is what a script sees in Chrome-based tools too (they run scripts under `screen` and print afterwards). A `print` device needs `set_stylist_device` with a `Device::new` of our own, whose `FontMetricsProvider` blitz-dom doesn't export (`BlitzFontMetricsProvider` is `pub(crate)`): possible, but only worth it if the printer does the same. No `change` events |
+| `document.fonts.ready` | a resolved promise; `document.fonts.check()` from the font set | fonts are all there before the first script; `@font-face` loads nothing |
+| `elementFromPoint` | `BaseDocument::hit(x, y)`, mapped back through the mirror | not needed for print; last |
+| `Range` rectangles | as `getClientRects` for inline content | after elements |
+
+**For SVG (E3-03, Graphics).** blitz-dom lays out the `<svg>` element as a
+replaced box (`compute_child_layout`: `width`/`height` attributes or the
+style's size; with the `svg` feature it serialises the subtree and parses it
+with usvg, with the feature off, as here, the children are just not boxes).
+Nothing inside it has a box. So crates/dom hands over, per query, and
+surimono-gfx computes: (1) the outer `<svg>`'s border box and content box from
+the mirror, for `getBoundingClientRect` of inner elements and for percentage
+lengths against the viewport; (2) for any element in the subtree, stylo's
+computed `font-family`, `font-size`, `font-weight`, `font-style`,
+`font-stretch`, `letter-spacing`, `word-spacing`, `text-anchor`-like properties
+as attributes (stylo has no SVG ones), `display` and `visibility`, so
+`getComputedTextLength` and a `<text>` `getBBox` measure with the cascade's
+font, and `display: none` gives no box; (3) the subtree itself (names,
+attributes, text) by node id, which gfx's own SVG geometry walks for
+`getBBox` of shapes, groups and paths, with `transform` attributes. A style-only
+resolve is enough for (2), which matters: D3's label loops call `getBBox` once
+per label after appending it.
+
+### Page geometry
+
+The pre-pass lays out against the width the printer will: fulgur 0.40.0
+(`engine.rs`) passes `config.content_width().as_pt().in_px()` to `parse_inner`,
+which builds `Viewport::new(width as u32, height_px, 1.0, ColorScheme::Light)`.
+So the viewport is the page width less the left and right margins, in CSS
+pixels at 96 dpi, **truncated to a whole pixel** (A4 with 20 mm margins:
+642.52, so 642), by the full page height, also truncated (`engine.rs` passes
+`config.page_height()`, not the content height: A4 is 1122), scale 1, light
+scheme, `screen` media. `LayoutSetup { width, height, fonts }` is exactly that. The numbers come
+from the caller's printer settings, which surimono doesn't know today: the
+facade needs a page option (size, margins, orientation; default A4 and
+fulgur's default margins) that it converts as above and that callers set to
+what they give fulgur. That option is phase-3 public API and waits for
+checkpoint 3 (request to PKG below). A caller who prints with another engine
+gives that engine's content box.
+
+Chrome-based tools differ here on purpose: they run scripts against the
+browser window (800 by 600 in Puppeteer) and lay out again for paper, so a
+chart sized by script keeps its window size. Measuring at the paper's width is
+what makes a script-sized chart fill the printed column.
+
+### Limits
+
+Layout runs on the host, where the engine can't interrupt. What bounds it:
+
+- **Before it starts**: every native looks at the deadline first, and the copy
+  looks again per node (`Document::poll`), per style-attribute declaration
+  (in both passes over it), every 4,096 tokens of a sheet's screen and per
+  sheet. A script that thrashes (write, read, write, read) is stopped by its
+  own time limit between layouts.
+- **One layout** (style, construction, shaping, Taffy) is one call that can't
+  be stopped once started, so everything that goes into it is bounded before
+  it starts, and a page over a bound is not laid out and answers as with no
+  box (`a_page_over_the_layout_bounds_is_not_laid_out`):
+  - nodes and depth, by the page's own `max_nodes` (100,000) and `max_depth`
+    (512);
+  - text, `MAX_TEXT_BYTES`: 256 KiB in all, about 80 printed pages. Only text
+    that can render counts and is copied: not a script's source, a title,
+    `noscript` or `template` content, a sheet's text, or the children of
+    `img` and `canvas` (`unrendered_text_and_long_attributes_dont_stop_a_layout`).
+    Text under `display: none` still counts, since that isn't known before
+    style;
+  - attributes, `MAX_ATTRIBUTE_BYTES`: 8 MiB copied in all, a value over
+    2 KiB counting and copied as its first 2 KiB (`class` and `id` whole);
+  - sheets, `MAX_SHEET_BYTES` and the shape bounds under "Style sheets";
+  - style attributes, by `style_attr::fits` when they were written.
+
+  The page's `max_text_bytes` (256 MiB) is no bound for a layout, which is
+  why the engine has its own. These bounds, and the sheet screen's, bound what
+  a layout is given; they don't bound how long it runs. The screen bounds
+  parsing, not matching or layout, and one layout of a page within every
+  bound can run far past the script's deadline (review of #179). **A layout
+  is not yet bounded in time**, so `LayoutPolicy::Real` stays `doc(hidden)`
+  and unreachable from the facade, the CLI and the gem until E3-01e bounds it
+  (DECISIONS 2026-11-13; "Open points for E3-01"). E3-01 should also make the
+  bounds `DomLimits` and report a refusal instead of answering silently.
+- **Proposed for E3-01**, the cheapest thing that keeps the time limit honest
+  without new machinery: a layout is refused (typed, reported, answers as with
+  no box) when the page has more than `max_layout_nodes` nodes, default set
+  from the measured rate so that one layout stays under the default time
+  limit; and a count of layouts per render in the report, with a cap (default
+  1,000) that turns further queries into answers from the last layout, so a
+  page in a measure loop degrades instead of timing out. A node count bounds
+  the copy's size, not one layout's time, so this comes after E3-01e's time
+  bound, not instead of it. No stop check inside
+  Blitz: `resolve` has no hook for one, and a `[patch]` wouldn't reach users of
+  the published crates.
+- **Stack.** What nests in a layout is the tree, bounded by `max_depth`, and
+  the sheets, bounded at 32 levels by the screen (which itself nests no
+  deeper). `the_deepest_tree_the_default_limits_allow_lays_out` lays out a
+  tree 508 deep on a thread of the page thread's size (8 MiB over the
+  script's stack); measured once on a debug build, the same tree fitted a
+  768 KiB thread.
+- **Memory.** The mirror is outside the JavaScript heap limit and outside
+  `max_text_bytes`; it is bounded by the node limit and the two bounds above,
+  and there is one at a time. At `max_nodes` that was about 300 MiB resident
+  ("Cost"), which is too much to leave to the node limit alone.
+
+### What blitz-dom 0.2.4 can't answer
+
+Found reading the source and probing the prototype; each needs a COMPAT row
+once the query is real.
+
+- **Generic font families need a mapping.** With system fonts off and no
+  generic mapped, text in `sans-serif`, or in the UA default `serif` of a page
+  that names no family, has no glyphs: a paragraph is 0 high and an inline-block
+  0 by 0. It prints blank the same way (DECISIONS 2026-10-31, #3), so measuring
+  agrees with printing, and both want the mapping from surimono-gfx above.
+- **Replaced elements aren't sized by their attributes.** `<canvas width=50
+  height=20 style="display:block">` is 800 by 0 in an 800px viewport:
+  `replaced_measure_function` (`layout/replaced.rs`) lets the stretched width
+  win over `attr_size`, and the height comes from a 0/0 aspect ratio. An inline
+  canvas is no box at all (`find_inline_layout_embedded_boxes` knows `img`,
+  `svg`, `input`, `textarea` and `button`), and in this build, without
+  blitz-dom's `svg` feature, an inline `<svg width=120 height=40>` is 0 by 0.
+  Presentational `width`/`height` reach stylo only for tables and `hr`
+  (`synthesize_presentational_hints_for_legacy_attributes`, `stylo.rs`). This
+  is the first thing E3-01 has to fix, since a chart is a canvas or an svg: the
+  mirror adds one UA-origin sheet (`add_user_agent_stylesheet` is public) with
+  a rule per distinct size it copied,
+  `canvas[width="50"][height="20"] { width: 50px; height: 20px }`, plus
+  `canvas { display: inline-block; width: 300px; height: 150px }` and the same
+  for `svg`, `img`, `video` and `iframe`. UA origin loses to every author rule,
+  as a presentational hint should, and the text is made here from numbers.
+  `a_canvas_has_the_size_of_its_attributes` is the ignored test that waits for
+  it. The mirror already leaves out the children of `img` and `canvas`, which
+  HTML never renders.
+- **The root element's margin is ignored**: with `html { margin: 7px }` a box
+  at the top of the body is at 0,0, where CSS puts it at 7,7
+  (`taffy::compute_root_layout` places the root at the origin). `body`'s margin
+  is honoured.
+
+- **Inline elements have no box.** A `<span>` in running text is not a layout
+  child (`find_inline_layout_embedded_boxes` takes only inline-blocks and
+  replaced elements), so the prototype answers zeros for it. Its rectangles can
+  be had from the Parley layout (table above); until then
+  `span.getBoundingClientRect()` and `span.offsetWidth` are wrong where
+  `inline-block` and block elements are right. The most common measuring idiom
+  (an absolutely positioned or `inline-block` element, then `offsetWidth`) has a
+  box.
+- **Shrink-to-fit text widths are whole pixels.** `compute_inline_layout`
+  (`layout/inline.rs`) takes `calculate_content_widths()` and applies `.ceil()`,
+  so an inline-block around text Chrome measures at 67.57 is 68 wide. The text
+  inside is laid out exactly as surimono-gfx measures it
+  (`crates/gfx/tests/fulgur_layout.rs`). Never narrower than Chrome, at most a
+  pixel wider.
+- **`line-height: normal` is `font-size * 1.2`** in `compute_child_layout`
+  (`layout/mod.rs`) for form controls and `resolve_line_height`
+  (`layout/construct.rs`), where Chrome takes the font's ascent, descent and
+  line gap (Noto Sans: 1.36), and so does
+  `stylo_to_parley::style` for every line of text
+  (`LineHeight::Normal => FontSizeRelative(1.2)`). An inline-block of 12px Noto
+  Sans is 14.4 high here, where Chrome's font box is 17 (13 + 4,
+  `chrome_measure_text.json`), and it sits 0.4px above its line. Text set in the
+  fixture fonts without a `line-height` is about 12% shorter than Chrome's, in
+  print too, so pages should set one, and this goes to Q-GFX-01 as a print gap.
+- **Quirks mode is never on**: `Stylist::new(device, QuirksMode::NoQuirks)` and
+  `TDocument::quirks_mode` (`stylo.rs`) are fixed, and the stylist is private.
+  A page with no doctype is laid out in standards mode (and printed so).
+- **Media is always `screen`**, as above.
+- **`position: absolute` inside an inline formatting context** is placed by a
+  stand-in (`layout/inline.rs`, "TODO: Implement absolute positioning").
+- **Display types**: Taffy lays out block, flex, grid and (as grid) tables;
+  `display: inline` content through Parley. No floats (`float` is parsed and
+  ignored: two `float: left` blocks stack), no multi-column in Blitz itself (fulgur has its own), `::before`
+  and `::after` only with a single string for `content`, no `::marker` box
+  styling, no shadow trees.
+- **Form controls** get sizes from constants (`input`: 300 px wide,
+  `textarea`: `cols * font-size * 0.6`).
+- **`<style>` text and character references**: `process_style_element` decodes
+  HTML entities in the sheet's text (`html_escape::decode_html_entities`), which
+  a browser doesn't do. The mirror doesn't use it; the printer's own parse of
+  our output does, so `a::before { content: "&amp;" }` prints differently from
+  Chrome. For Q-GFX-01.
+- **Things it prints on stdout**: `No DOM - not resolving` (`resolve`, `hit`),
+  `ERROR: Tried to lay out text node individually` with a `dbg!`
+  (`compute_child_layout`), SVG parse failures with the whole source
+  (`collect_layout_children`, `svg` feature only). The first is avoided; the
+  second hasn't shown in any test page, and would corrupt the CLI's stdout if
+  it did.
+
+### Open points for E3-01
+
+Known and left, from the review of the prototype (#179):
+
+- **E3-01e, first: a time bound on one layout**, style matching and layout
+  and not only parsing, the precondition for any public layout API
+  (`LayoutPolicy::Real` stays internal until then). The review's two
+  directions: a budgeted dry run of the author rules' selectors on the copy
+  through `select.rs`'s guarded matcher (`Guarded`, which already charges a
+  clock for its work and stops at a deadline), refusing the layout when the
+  budget runs out; or a structural bound computed before the layout from the
+  selectors and the copy's shape. Either way no ordinary sheet may be refused:
+  the review laid out the six real-world pages and the KaTeX, highlight.js,
+  Bootstrap 3, Material for MkDocs, Read the Docs, Font Awesome, Tailwind 4
+  and pdf.js sheets, each in 1 to 11 ms, and every one of them must still be
+  laid out.
+- A `<style>` inside a canvas's fallback content or under an `img` isn't
+  applied in the copy, which leaves out the children of both, though a
+  browser applies it.
+- `set_layout_setup` after a layout keeps the old layout: the setup belongs in
+  the stamp, or setting it clears the layout. `disabled`, `media` and `type`
+  on a `<style>` need an attribute or the epoch behind them when they become
+  real; today a `<style type="text/plain">` is applied.
+- The mirror's nodes are made without the form-control data the printer's own
+  parse creates, so `:checked` never matches although `checked` is in the
+  tree, and a `display: block` text input is as wide as its container where
+  the printer's has the 300 px constant.
+- `[style*="…"]` and other value selectors on `style` don't match in the copy
+  (the attribute is there, empty), and a value selector on an attribute over
+  2 KiB sees its first 2 KiB.
+- Tests to come with the next queries: an inline-block that isn't at the
+  line's start, and `offsetWidth` at a fractional position (Chrome snaps by
+  position; `layout.rs` rounds the size).
+- One screen for style text, shared by this crate and the facade.
+- `parley` pinned once, in the workspace.
+
+### Risks and unknowns
+
+| Risk | How to settle it |
+|---|---|
+| The printer's layout engine stops being Blitz (Raikiri becomes fulgur's default, or a caller prints with `--engine raikiri` today) | See "If the printer's engine changes" below. The seam means a second `Engine`; nothing else is settled until someone reads Raikiri's API for boxes by node, which this spike didn't |
+| Numbers differ from Chrome's by more than pages tolerate (line heights, whole-pixel text boxes, no floats) | Probe pages in `wpt/probes` run in the pinned Chromium and in the runner with real layout on: fixed boxes, flex, a table, wrapped text, the measuring idioms of Chart.js and D3. Asked of the Conformance researcher; the runner needs the hidden switch |
+| Measured and printed layouts differ because fulgur changes the document before it lays out (its DOM passes, pagination, `set_viewport_size_px`) | One fixture printed by fulgur with boxes drawn at the rectangles a script read; E3-06 |
+| Measure loops on large pages are slow under the whole-document flag | The two refinements under "Laziness" first; then the replayed mirror; measured on the real-world suite's Chart.js and D3 pages (E3-06) before choosing |
+| A fault inside the engine on some tree or style | It ends the call with a typed error; the fuzz test (`tests/fuzz.rs`) gets a mode that lays out each generated page, so one is found here and not by users |
+| Deep trees and the stack on a caller's thread | Measured above for the page thread; `Document`'s direct users (tests, the runner) must lay out on a thread of that size |
+| Linked style sheets missing when scripts measure | PKG: load them before scripts when layout is real |
+| `getComputedStyle` serialisation differs from Chrome's in places pages compare strings (`rgb(0, 0, 0)` matches; shorthand forms and `calc()` may not) | The css/cssom-view and cssom WPT slices of E3-06, plus probes for the properties Chart.js reads (`width`, `height`, `padding-*`, `border-*-width`, `box-sizing`, `display`, `position`, `max-width`, `max-height`) |
+| Memory with the mirror alive on the soak | `tests/soak.rs` gains a layout per render in E3-01; the mirror drops with the document |
+
+### If the printer's engine changes
+
+Measuring agrees with printing only when both use the same layout. If fulgur
+prints with Raikiri, what has to change, from least to most:
+
+1. **A second `Engine`** in a file of its own: the walk `layout_blitz.rs` does,
+   into Raikiri's DOM, and `Laid` answered from its boxes. The glue, the host
+   operations, staleness, the policy and the tests' expectations (which are the
+   spec's and Chrome's) stay as they are. Whether Raikiri gives boxes by node
+   to an embedder at all is the first thing to find out.
+2. **Choosing the engine** becomes part of the setup, because a caller can pick
+   the printer's backend per call: the facade's page option (see "Page
+   geometry") grows an engine field, default Blitz while fulgur's is.
+3. **`LayoutSetup::fonts`**: one Parley version in the build or font bytes
+   instead of a context (above).
+4. **Computed values.** `getComputedStyle` is stylo's serialisation here. An
+   engine with its own style system either serialises resolved values itself
+   behind `Laid::computed_value`, or computed style keeps coming from stylo
+   while boxes come from the other engine, which can disagree with what is
+   printed (a property one cascade supports and the other drops).
+5. **Style-attribute validation** (`style_attr.rs`) asks stylo because stylo is
+   "the parser the printer uses" (DECISIONS 2026-11-04). Under another parser
+   that reason is gone: what stylo refuses the printer might use. The caps stay.
+6. **The tree store.** Our DOM lives in a blitz-dom slab: `BaseDocument` is the
+   node storage (`document.rs`, `tree.rs`), html5ever builds into it through
+   blitz-html's sink (`parse.rs`), and selectors match through blitz-dom's
+   `selectors::Element` for `Node` (`select.rs`'s `Guarded`). None of that is
+   layout, and none of it has to move for a second engine: blitz-dom would stay
+   as the tree, at the price of building stylo, Taffy and Parley for it and of
+   the MPL exception. Moving the tree to a slab of our own is a large, contained
+   change to those four files and the `selectors::Element` implementation, and
+   only worth it if Blitz itself goes unmaintained.
+7. **Pins and drafts.** DECISIONS 2026-10-31 pins Blitz to what fulgur prints
+   with; the pin's reason would become Raikiri's Parley and Taffy. The live
+   hand-off draft in `docs/upstream/` (a prepared Blitz document) would have no
+   taker; serialized HTML is the hand-off any engine takes.
 
 ## Events and the page's life
 
