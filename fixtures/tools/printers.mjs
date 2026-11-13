@@ -371,7 +371,7 @@ const md = [
   "A cell is the verdict and the shape score (the worst 32×32 window of near-mismatched ink), then any other check that failed. Time is the wall clock of one `fulgur render` process, the median of " +
     `${runs} ${runs === 1 ? "run" : "runs"}; peak PSS is the peak of summed PSS over that process, the median of ${runs} more, sampled every ${MEASURE_INTERVAL_MS} ms (\`bench/tools/measure.py\`, the Grover benchmark's sampler).${printers.length > 1 ? " The printers take turns on each page, round by round after one round that isn't measured, and who starts moves on every round and every page." : ""} "Same pixels" says whether the printers' pages are pixel for pixel the same at 96 dpi, "Same PDF" whether the files are byte for byte the same. An image is there only where the verdict or a score differs: Chrome | ${labels.join(" | ")}.`,
   "",
-  "| Printer | Real-world pages that pass | Their floors that pass | Island fixture pages that pass | Islands alone that pass | Cells that read differently from " + `${labels[0]} | Median print time | Median peak PSS | Largest peak PSS |`,
+  "| Printer | Real-world pages that pass | Their floors that pass | Island fixture pages that pass | Islands alone that pass | Cells that read differently from " + `${labels[0]} | Median print time | Median peak PSS | Largest median peak PSS of a page |`,
   "|---|---|---|---|---|---|---|---|---|",
   ...labels.map(
     (l) =>
