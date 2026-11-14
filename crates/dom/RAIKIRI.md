@@ -519,3 +519,117 @@ and COMPAT rows for an engine that is leaving. Neither is cheaper.
    with exact pins (root `Cargo.toml`, orchestrator), and fontique's
    `fontconfig-dlopen` feature turned on, so that the gem has no load-time
    dependency on `libfontconfig` (to be checked on a built gem).
+
+## 9. The engine as built (E3-R1, stage B)
+
+`src/layout_raikiri.rs`, with the `raikiri` feature, behind
+`LayoutEngine::Raikiri(RaikiriSetup)` and `LayoutPolicy::Real`, both hidden. It is
+the only file that names a Raikiri type. Its expectations are Chromium
+153.0.8010.12's measurements of the pages in `tests/data/chrome-layout/`
+(`measure.py` there writes them; `tests/layout_chrome.rs` compares).
+
+**The tree** is path B of section 1: every element and text node copied into a
+`raikiri_dom::Document`, with a table from arena index back to the page's node
+id. Fonts go in first (`set_font_collection`, then `set_ifc_parallel_build(false)`),
+from `RaikiriSetup::new`'s bytes with system fonts off. `<style>` text in
+document order becomes the author sheets, with each element's `media`; the
+style attribute the element's inline style. The mirror is dropped when the
+layout has been read: a laid-out page keeps three small records a node, not
+Raikiri's 10 KiB.
+
+**Media: `screen`**, with the page area as the viewport (`MediaContext` and
+`CascadeOptions::viewport`). The cascade runs twice, since the page area is
+known only from the first one's `@page`. It is what Chrome's scripts see, and
+what `matchMedia` answers while scripts run. The `media` probe has it:
+`@media print` and `<style media=print>` don't apply, `@media screen`,
+`(min-width)`, `screen and (min-height)`, `vw` and `vh` do. A page whose print
+styles change sizes prints with sizes its scripts didn't measure, as it does
+from Chrome.
+
+**Coordinates: one continuous layout.** Raikiri's layout is one flow in which
+pagination pushes what would cross a page's end to the next page, so positions
+after a break are lower than a browser's (6 px a break on the report page, 444 px
+at row 2,000). The ways back that were weighed:
+
+- *Stack the pages* (the positions as Raikiri has them): wrong by the space
+  left at the foot of every page before.
+- *Take that space off again*, page by page: it can't be told from the
+  fragments. Margins cut at a break and forced breaks leave nothing to measure.
+- *Positions from the unfragmented layout, sizes from the fragments*: the
+  unfragmented layout has section 2's gaps (rows, columns), and it is a second
+  layout.
+- **Chosen: don't break.** The layout pass runs against the real page box, so
+  the initial containing block, percentages, `bottom` and fixed boxes see the
+  page's height; the cut into pages gets one step of 16,777,216 px
+  (`PageLayoutOptions::page_steps`), and the fragments are projected onto a page
+  that long. Forced page breaks and named pages are taken off the measuring
+  cascade (`break-before` and `break-after`: `page` becomes `auto`, `always`
+  becomes `column`; `page` becomes `auto`), since a page break does nothing on
+  a screen; a forced column break stays. The answers are still the paged
+  fragments, of a page nothing is cut on, so nothing is mapped back.
+
+The probes: `breaks` (60 rows, then a 700 px box, in a 600 px viewport; 185
+elements, all Chrome's), `report(2000)` (last row at 43,978), `forced-breaks`
+(every forced page break ignored, the column break kept) and `viewport-height`
+(`height: 100%`, `100vh`, `bottom: 0`, a fixed box, content to 1,805 px). A page
+longer than 16,777,216 px comes out as more pages, stacked as Raikiri has them;
+past 10,000 more it is refused.
+
+**Answers**, by page node id:
+
+- `getBoundingClientRect`: the union of the node's box and replaced fragments,
+  each moved by the inline relative offsets of the node and its ancestors
+  (`Node::ifc_relative_offsets`) and by the painter's transform
+  (`page_paint_transforms`), of which the bounding box is taken.
+- `offsetWidth`, `offsetHeight`: the same union before transforms.
+- `offsetLeft`, `offsetTop`: where the first fragment begins, before
+  transforms; for an inline element on several lines, which has one fragment
+  around all of them, where its first line's piece begins
+  (`Node::ifc_inline_boxes`). They are measured from the offset parent's padding
+  edge, and where the offset parent is `body` as Chromium does it: from `body`'s
+  border edge if `body` is positioned, else from the root element's border edge,
+  else, for an absolute box no element contains, from the initial containing
+  block (`root-offsets`, `body-positioned`, `root-positioned`). A fixed box's
+  offset parent is an ancestor with a transform or a filter, or none.
+  `offsetParent` itself still answers null (E3-01c).
+
+**Hidden API used**, all in that one file: `set_ifc_parallel_build`,
+`layout_pages_with_options` with `PageLayoutOptions`, `PageLayoutControl` and
+`PageSlice`, `resolve_page_geometry`, `project_pages_with_control`,
+`page_fragments`, `page_paint_transforms`, `Node::ifc_relative_offsets`,
+`Node::ifc_inline_boxes`; and the public fields `CascadeResult::computed` and
+`page_values`, which it changes for the breaks. Not used: `layout_single_page`,
+`layout_origin_of`, `scene_geometry`.
+
+**Bounds and failures.** A page is refused (answers as with no box) over
+20,000 nodes (`MAX_LAYOUT_NODES`: about half a second and 200 MiB at section 5's
+rates), over the byte and shape bounds the Blitz engine has, and where Raikiri
+reports a bound of its own (cascade limits, pages, fragments, a paragraph's
+size, 256 levels). Any other error of Raikiri's, and a panic inside it, ends
+the call with `DomError::LayoutFailed`; the page's tree is untouched, since the
+layout read a copy. The deadline is looked at per copied node, before each
+cascade and after the layout. **Nothing stops a layout that runs**: Raikiri
+looks at its abort check between pages, and there is one page. A time bound
+(E3-01e) needs either a check inside Raikiri's layout pass (upstream), or the
+node bound set from a measured rate with the layout's time counted against the
+script's; until then the engine stays hidden.
+
+**What still differs from Chrome** on the probes, each kept in a test with
+Chrome's value as the expectation:
+
+| Difference | Probes | Whose |
+|---|---|---|
+| Inline boxes half a pixel low where a line's leading is odd: on the probes Chromium gives the upper half of the leading rounded down, so its baselines are on whole pixels; Raikiri halves it. Boxes are within the half pixel allowed, `offsetTop` comes out one more | 11 elements: spans and an inline-block in 16 px and 20 px lines of 12px Noto Sans | Raikiri |
+| `(orientation: ...)` media queries never match | `media` #o | Raikiri |
+| No box for `<br>` (Chrome: the place and height of the break) | `forced-breaks` | Raikiri |
+| A `display: block` canvas with `width` and `height` attributes is the container's width (section 6) | `boxes` #cv | Raikiri |
+| Japanese spaced against Latin letters and digits (R1) | `text` #jas | Raikiri |
+
+Not probed, known from reading: a singular transform (`scale(0)`) gives no box
+where Chrome gives an empty rectangle at its place; transforms and relative
+offsets of boxes inside columns are not in `page_paint_transforms`; the painter
+turns a box about its transform origin snapped to whole pixels.
+
+**Same input, same output**: every number of every probe page is the same
+twice in one process and in a second process
+(`the_same_pages_give_the_same_numbers_twice_and_in_another_process`).

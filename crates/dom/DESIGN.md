@@ -387,8 +387,9 @@ glue_layout.js ── layoutQuery / layoutNumber ──▶ Document (src/layout.
   `edited_sheet_text`, `style_attr::parse`) and looks at the page's deadline
   where its work can be cut.
 - **`Laid`** is what queries are answered from, in the page's node ids, never
-  the engine's: `border_box(node)`, and `offset_position(node)` (offsetLeft and
-  offsetTop, Raikiri only). E3-01 and E3-02 add their questions
+  the engine's: `border_box(node)`, and from Raikiri only `offset_position(node)`
+  (offsetLeft and offsetTop) and `offset_size(node)` (offsetWidth and
+  offsetHeight, which no transform changes). E3-01 and E3-02 add their questions
   here and nowhere else: `client_rects(node)`, `box_edges(node)` (padding,
   border, scrollbar, content size), `offset_parent` inputs,
   `computed_value(node, pseudo, property) -> Option<String>`,
