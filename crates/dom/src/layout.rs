@@ -119,7 +119,9 @@ pub(crate) type EngineResult = Result<Option<Box<dyn Laid>>, EngineError>;
 pub(crate) enum EngineError {
     /// Thrown into the script, as a native's error is: the time limit.
     Binding(BindingError),
-    /// Fatal to the call: the engine failed on this page.
+    /// Fatal to the call: the engine failed on this page. Only the Raikiri
+    /// engine reports one.
+    #[cfg_attr(not(feature = "raikiri"), allow(dead_code))]
     Fault(DomError),
 }
 
