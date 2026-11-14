@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sat 14 Nov 2026, 20:40)
+## Now (Sat 14 Nov 2026, 21:25)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Fable 5.2 since
@@ -29,10 +29,11 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Main is green** at e29e22f0 on every full.yml job (with #187 and #188).
 - **Nothing ran from about 07:00 to 20:28 on 14 Nov:** the Opus limit stopped every agent. Kay
   switched the session to Fable 5.2 at 20:28; agents restarted on Fable from the pushed branches.
-- **Open PRs, both green on CI, both in fresh review (Fable reviewers started 20:40):** #189 E3-R1
-  stage A at 4199e8d8 (the `raikiri` feature, ICU 2.2 to 2.4, cargo-deny reads every feature) and
-  #190 P2-DOM-13 at 24f64d65 (the parsed `xmlns` prefix). The DECISIONS lines for both are in an
-  orchestrator comment on each PR; add them on merge.
+- **Merged 14 Nov 21:25:** #189 E3-R1 stage A (the `raikiri` feature, ICU 2.2 to 2.4, cargo-deny
+  reads every feature). The full.yml run on this merge is the first for ICU 2.4 on macOS, arm64,
+  the native gems, soak and ASan: read it before the next merge if it has finished.
+- **Open PR, green on CI, in fresh review (Fable, since 20:40):** #190 P2-DOM-13 at 24f64d65 (the
+  parsed `xmlns` prefix). Its DECISIONS line is in an orchestrator comment on the PR.
 - **Running:** E3-R1 stage B (the Raikiri engine, branch e3-r1b at 16bfa552, no PR; 5 of 12
   Chromium-probe tests passed at the last run).
 - Finished worktrees were removed on 14 Nov (disk was full: 240 MB free, now about 6 GB); the
