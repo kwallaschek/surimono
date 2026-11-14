@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sat 14 Nov 2026, 21:25)
+## Now (Sat 14 Nov 2026, 22:10)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Fable 5.2 since
@@ -29,13 +29,16 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Main is green** at e29e22f0 on every full.yml job (with #187 and #188).
 - **Nothing ran from about 07:00 to 20:28 on 14 Nov:** the Opus limit stopped every agent. Kay
   switched the session to Fable 5.2 at 20:28; agents restarted on Fable from the pushed branches.
-- **Merged 14 Nov 21:25:** #189 E3-R1 stage A (the `raikiri` feature, ICU 2.2 to 2.4, cargo-deny
-  reads every feature). The full.yml run on this merge is the first for ICU 2.4 on macOS, arm64,
-  the native gems, soak and ASan: read it before the next merge if it has finished.
-- **Open PR, green on CI, in fresh review (Fable, since 20:40):** #190 P2-DOM-13 at 24f64d65 (the
-  parsed `xmlns` prefix). Its DECISIONS line is in an orchestrator comment on the PR.
-- **Running:** E3-R1 stage B (the Raikiri engine, branch e3-r1b at 16bfa552, no PR; 5 of 12
-  Chromium-probe tests passed at the last run).
+- **Merged 14 Nov evening:** #189 E3-R1 stage A (21:25: the `raikiri` feature, ICU 2.2 to 2.4,
+  cargo-deny reads every feature; full.yml on that merge was green on every job, ASan included) and #190 P2-DOM-13 (22:10: the parsed `xmlns` prefix; katex's output now equals
+  Chrome's DOM). No PR open in review.
+- **Stopped by the Fable limit at about 21:55, resume after 00:30 on 15 Nov** (a scheduled message
+  to this session at 00:35 does it; otherwise SendMessage to the same agents): E3-R1 stage B (the
+  Raikiri engine, branch e3-r1b at 9cc548c3, pushed, no PR yet) and P2-PKG-09 (PR #191 at 4eeec1b8,
+  green on CI: CI lints and tests the `raikiri` feature; needs a fresh reviewer; must merge before
+  stage B).
+- **Next for conformance:** P2-CF-14 and P2-CF-15 (COMPAT corrections, checkpoint-3 regenerated:
+  6 of 6 outputs equal Chrome's DOM), then the WPT rerun for the checkpoint-3 package (P2-ORC-04).
 - Finished worktrees were removed on 14 Nov (disk was full: 240 MB free, now about 6 GB); the
   branches stay on GitHub.
 - Kay's queue: report the private findings (four files in the Claude project; the 13 Nov one has
@@ -46,7 +49,7 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and wait for a
-complete green full.yml on main. Then: reviews of the P2-DOM-13 and E3-R1 stage A PRs; merge; then
+complete green full.yml on main. Then: reviews of the E3-R1 stage B and P2-PKG-09 PRs; merge; then
 Q-ORC-03 (history rewrite) in the first moment with no open PR; then by value: E3-R1, Q-PKG-04
 (Japanese spacing for Raikiri), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in
 CI), P2-PKG-05, P2-DOM-11, P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11,
