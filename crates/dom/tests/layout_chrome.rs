@@ -5,11 +5,10 @@
 //! of crates/dom/RAIKIRI.md section 6, measured again from this folder): the
 //! expectations, never our output. Run with `--features raikiri`.
 //!
-//! Every element from `<body>` down is compared, in document order: its
-//! `getBoundingClientRect` within half a pixel (Chrome snaps text baselines to
-//! whole pixels and lays out in 1/64 px; RAIKIRI.md section 6), and for HTML
-//! elements `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight`
-//! exactly. What doesn't match is a gap, listed by page with its reason; a
+//! The root element and every element from `<body>` down are compared, in
+//! document order: `getBoundingClientRect` within a twentieth of a pixel
+//! (Chrome lays out in 1/64 px, Raikiri in `f32`), and for HTML elements
+//! `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight` exactly. What doesn't match is a gap, listed by page with its reason; a
 //! gap that closes fails the test until it is taken off the list.
 #![cfg(feature = "raikiri")]
 
@@ -118,7 +117,7 @@ var compare = (chrome, root) => {
         if (e.localName !== c[0]) { out.push(name + ' tag ' + e.localName); return; }
         const r = e.getBoundingClientRect();
         const box = [r.x, r.y, r.width, r.height];
-        if (box.some((v, k) => !(Math.abs(v - c[2 + k]) <= 0.5)))
+        if (box.some((v, k) => !(Math.abs(v - c[2 + k]) <= 0.05)))
             out.push(name + ' box ours ' + box.join(',') + ' chrome ' + c.slice(2, 6).join(','));
         if (c.length > 6) {
             const off = [e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight];
@@ -137,10 +136,9 @@ var compare = (chrome, root) => {
 /// leading it gives the upper half rounded down. Raikiri halves it exactly,
 /// so where the leading is odd (12px Noto Sans is 17 px high; in a 16 px or a
 /// 20 px line the leading is -1 or 3) its text and its inline boxes sit half
-/// a pixel lower than Chromium's. That is within `getBoundingClientRect`'s
-/// half pixel, but `offsetTop` is a whole number and comes out one more. The
-/// lists pin such an element's line with our numbers, so its box and its
-/// other offsets still have to be Chrome's.
+/// a pixel lower than Chromium's, and `offsetTop`, a whole number, comes out
+/// one more. The lists pin such an element's lines with our numbers, the box
+/// to a twentieth of a pixel like every other.
 ///
 /// What of page `name` differs from Chrome, one line per number off.
 fn differences(name: &'static str) -> Vec<String> {
@@ -171,6 +169,22 @@ fn check(name: &'static str, gaps: &[&str]) {
             got.iter().any(|line| line.starts_with(gap)),
             "{name}: `{gap}` isn't how it differs from Chrome now: {got:#?}"
         );
+    }
+}
+
+/// A tool: prints how the pages named in `SURIMONO_PROBES` (separated by
+/// commas) differ from Chrome, the lines the lists in this file pin. Run
+/// with `-- --ignored print_differences --nocapture`.
+#[test]
+#[ignore = "a tool, for writing a page's list of gaps"]
+fn print_differences() {
+    let pages = std::env::var("SURIMONO_PROBES").unwrap_or_default();
+    for name in pages.split(',').filter(|name| !name.is_empty()) {
+        let name: &'static str = name.to_owned().leak();
+        println!("{name}:");
+        for line in differences(name) {
+            println!("    {line:?},");
+        }
     }
 }
 
@@ -206,13 +220,20 @@ fn text_matches_chrome_but_for_japanese_autospace() {
     // Raikiri spaces Japanese against Latin letters and digits where
     // Chromium 153 does not, so the span after them starts further right
     // and the paragraph wraps elsewhere; with `no-autospace` (#jns) it
-    // matches. And the half pixel of the span in a 20 px line (#s).
+    // matches. And the half pixel: the spans in 20 px and 18 px lines (#s,
+    // #bs), and the inline-block on a line with a 16px strut (#t, and the
+    // line's box around it).
     check(
         "text",
         &[
-            "jas17 box ours 0,321,289.671875,42",
-            "jas17 offset ours ",
+            "div1 box ours 0,0,67.578125,22.5",
+            "t2 box ours 0,2.5,67.578125,20",
+            "s9 box ours 9.859375,141.5,27.28125,17",
             "s9 offset ours 10,2,27,17",
+            "bs14 box ours 145.84375,259.5,44.40625,19",
+            "bs14 offset ours 146,0,44,19",
+            "jas17 box ours 0,321,289.671875,42",
+            "jas17 offset ours 276,1,290,42",
         ],
     );
 }
@@ -224,7 +245,13 @@ fn text_matches_chrome_but_for_japanese_autospace() {
 #[test]
 fn gaps_of_blitz_match_chrome() {
     // The half pixel of an inline-block alone on a 16 px line (#mm).
-    check("gaps", &["mm16 offset ours 0,262,120,5"]);
+    check(
+        "gaps",
+        &[
+            "mm16 box ours 7,268.5,120,5",
+            "mm16 offset ours 0,262,120,5",
+        ],
+    );
 }
 
 /// A relatively positioned block, translated and scaled blocks, and a
@@ -233,7 +260,13 @@ fn gaps_of_blitz_match_chrome() {
 #[test]
 fn transforms_and_relative_offsets_match_chrome() {
     // The half pixel of the span (#rs).
-    check("offsets", &["rs5 offset ours 10,54,15,17"]);
+    check(
+        "offsets",
+        &[
+            "rs5 box ours 9.859375,53.5,14.578125,17",
+            "rs5 offset ours 10,54,15,17",
+        ],
+    );
 }
 
 /// e3-00's report page, 20 flex rows: every row, label and figure.
@@ -242,9 +275,11 @@ fn the_report_page_matches_chrome() {
     check("report20", &[]);
 }
 
-/// Media `screen` with the page area as the viewport: what Chrome's scripts
-/// see. `@media print` rules and `<style media=print>` don't apply, screen
-/// rules and width, height and orientation queries do (DECISIONS, E3-R1).
+/// Media `screen`, the media type Chrome's scripts see, with the page area as
+/// the viewport (here Chrome's window; `an_author_page_size_is_the_viewport_
+/// unlike_in_chrome` has where they part). `@media print` rules and `<style
+/// media=print>` don't apply; screen rules and width and height queries do
+/// (DECISIONS, E3-R1).
 #[test]
 fn the_measuring_cascade_is_screen_media_as_in_chrome() {
     // Raikiri's media queries know widths, heights and aspect ratios, not
@@ -260,13 +295,17 @@ fn the_measuring_cascade_is_screen_media_as_in_chrome() {
 /// static element; transforms ignored; a fixed element from the viewport.
 #[test]
 fn offsets_match_chrome() {
-    // The half pixel of the spans (#sp, #b, #rs).
+    // The half pixel of the spans (#sp, #b, #rs, #it).
     check(
         "offset-parents",
         &[
+            "sp4 box ours 25,51.5,50.890625,17",
             "sp4 offset ours 2,22,51,17",
+            "b5 box ours 49.65625,51.5,26.234375,17",
             "b5 offset ours 27,22,26,17",
+            "rs17 box ours 24,104.5,25.125,17",
             "rs17 offset ours 24,105,25,17",
+            "it18 box ours 41.703125,104.5,7.421875,17",
         ],
     );
 }
@@ -306,10 +345,17 @@ fn the_page_height_is_the_viewport_height() {
 /// and `offsetWidth` and `offsetHeight` the untransformed size.
 #[test]
 fn inline_elements_on_several_lines_and_nested_transforms_match_chrome() {
-    // The half pixel of the spans in 16 px lines (#s, #b).
+    // The half pixel of the spans in 16 px lines (#s, #b, #r).
     check(
         "inline-lines",
-        &["s2 offset ours 93,10,118,49", "b3 offset ours 49,42,56,17"],
+        &[
+            "s2 box ours 20,9.5,118.3125,49",
+            "s2 offset ours 93,10,118,49",
+            "b3 box ours 49.25,41.5,56.21875,17",
+            "b3 offset ours 49,42,56,17",
+            "r5 box ours 8,57.5,115.921875,33",
+            "r5 offset ours 49,0,116,33",
+        ],
     );
 }
 
@@ -325,12 +371,208 @@ fn offsets_from_body_follow_the_containing_blocks_as_in_chrome() {
     check(
         "root-offsets",
         &[
+            "sp11 box ours 42.859375,50.5,56.640625,17",
             "sp11 offset ours 34,44,57,17",
+            "b12 box ours 73.265625,50.5,26.234375,17",
             "b12 offset ours 64,44,26,17",
         ],
     );
-    check("body-positioned", &["sp9 offset ours 17,27,27,17"]);
+    check(
+        "body-positioned",
+        &[
+            "sp9 box ours 35.859375,41.5,27.28125,17",
+            "sp9 offset ours 17,27,27,17",
+        ],
+    );
     check("root-positioned", &[]);
+}
+
+/// Forced page breaks on `::before` and `::after`, the page values `left`,
+/// `right`, `recto` and `all`, a named page on a pseudo-element, `orphans`
+/// and `widows` no paragraph can meet: none of them moves anything, as on
+/// Chrome's screen.
+#[test]
+fn page_breaks_on_pseudo_elements_do_nothing_either() {
+    check("pseudo-breaks", &[]);
+}
+
+/// What only a paged medium has (CSS GCPM 3), and Raikiri knows where no
+/// browser does: `position: running()`, `float: footnote`, and `content`
+/// with `string()`, `element()`, `leader()`, `target-counter()` or
+/// `target-text()`. Chromium drops each declaration, so an earlier one
+/// still holds (`position: absolute; position: running(x)` is absolute); the
+/// measuring copy gets the text without them (`src/sheet_unpaged.rs`).
+/// `string-set`, `bookmark-*` and `@page` margin boxes move nothing.
+#[test]
+fn paged_media_declarations_are_dropped_as_a_browser_drops_them() {
+    // The half pixel of the inline elements (#f, #t, #t2, #t3).
+    check(
+        "paged-only",
+        &[
+            "f4 box ours 24.65625,24.5,25.78125,17",
+            "f4 offset ours 25,25,26,17",
+            "t10 box ours 0,82.5,20.015625,17",
+            "t10 offset ours 0,83,20,17",
+            "t212 box ours 0,98.5,20.015625,17",
+            "t212 offset ours 0,99,20,17",
+            "t314 box ours 0,114.5,20.015625,17",
+            "t314 offset ours 0,115,20,17",
+        ],
+    );
+}
+
+/// Boxes above the page area's top edge, where a script measures text off
+/// screen: `position: absolute` at -9999px and at -99999px, a box half above
+/// the edge, a fixed box, `translate`, `position: relative`, the clip
+/// pattern for hidden text, a first line's span (1 px above the edge), and
+/// a first block with a negative margin, which takes `body` with it.
+/// Raikiri's fragments begin at their page's top, so the engine's one page
+/// begins 131,072 px above the flow's start.
+#[test]
+fn boxes_above_the_page_top_are_where_chrome_has_them() {
+    // The half pixel of the inline elements (#fs, #k, #k2, #k3, #wm, #ps).
+    check(
+        "above-top",
+        &[
+            "fs2 box ours 9.859375,-0.5,27.28125,17",
+            "fs2 offset ours 10,0,27,17",
+            "k6 box ours 0,-9999.5,6.9375,17",
+            "k6 offset ours 0,0,7,17",
+            "k28 box ours 100,-10.5,6.9375,17",
+            "k28 offset ours 0,0,7,17",
+            "k313 box ours 5000,9.5,6.9375,17",
+            "k313 offset ours 0,0,7,17",
+            "wm21 box ours 0,75.5,70.15625,17",
+            "wm21 offset ours 0,76,70,17",
+            "ps24 box ours 9.859375,-64.5,27.28125,17",
+            "ps24 offset ours 10,0,27,17",
+        ],
+    );
+    check("margin-above", &[]);
+}
+
+/// A kept gap: Raikiri keeps every length and position within 10,000,000 px
+/// and says nothing, so a page with a box that reaches it would get wrong
+/// numbers (the box after a 17,000,000 px one at 10,000,000). The engine
+/// doesn't lay such a page out, and every element answers as with no box,
+/// where Chrome has these numbers.
+#[test]
+fn a_page_longer_than_raikiri_lays_out_answers_as_with_no_box() {
+    check(
+        "too-long",
+        &[
+            "html box ours 0,0,0,0",
+            "html offset ours 0,0,0,0",
+            "body0 box ours 0,0,0,0",
+            "body0 offset ours 0,0,0,0",
+            "big1 box ours 0,0,0,0",
+            "big1 offset ours 0,0,0,0",
+            "a2 box ours 0,0,0,0",
+            "a2 offset ours 0,0,0,0",
+        ],
+    );
+}
+
+/// `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight` of boxes at
+/// and of fractions of a pixel, negative and positive: the nearest whole
+/// number, and of two equally near the greater (-2.5 is -2, 2.5 is 3).
+#[test]
+fn offsets_and_sizes_round_as_chrome_rounds_them() {
+    check("fractions", &[]);
+}
+
+/// What contains a fixed or an absolute box and so is its offset parent:
+/// `will-change: transform`, `contain: paint` and `contain: layout`, as in
+/// Chrome. Gaps, all Raikiri's: `translate`, `scale` and `rotate` as
+/// properties of their own do nothing (#m, the fixed box in it, #ro), and
+/// `perspective` contains no fixed box (#fx3).
+#[test]
+fn containers_of_fixed_boxes_match_chrome_but_for_what_raikiri_lacks() {
+    check(
+        "fixed-containers",
+        &[
+            "m1 box ours 0,0,40,30",
+            "fx2 box ours 2,1,3,3",
+            "fx36 box ours 2,1,3,3",
+            "ro11 box ours 50,49,40,10",
+        ],
+    );
+}
+
+/// A deliberate deviation, not a gap: the viewport a script measures in is
+/// the page area the page prints on (DECISIONS, E3-R1). With an author
+/// `@page { size: 400px 300px; margin: 50px }` that is 300 by 200 px, where
+/// Chrome's scripts keep seeing its 800 by 600 window: widths, `vw`, `vh`
+/// and a fixed box's corner follow the page.
+#[test]
+fn an_author_page_size_is_the_viewport_unlike_in_chrome() {
+    check(
+        "at-page",
+        &[
+            "html box ours 0,0,300,110",
+            "html offset ours 0,0,300,110",
+            "body0 box ours 0,0,300,110",
+            "body0 offset ours 0,0,300,110",
+            "a1 box ours 0,0,300,10",
+            "a1 offset ours 0,0,300,10",
+            "v2 box ours 0,10,150,100",
+            "v2 offset ours 0,10,150,100",
+            "fx3 box ours 295,195,5,5",
+            "fx3 offset ours 295,195,5,5",
+        ],
+    );
+}
+
+/// A table with a caption, a header group and a column: the table's box is
+/// its wrapper's, around the caption (Raikiri's fragment is the grid's), and
+/// its parts are measured from there. A gap, Raikiri's: `col` and `colgroup`
+/// have no box.
+#[test]
+fn a_table_with_a_caption_and_a_header_matches_chrome_but_for_columns() {
+    check(
+        "table-parts",
+        &[
+            "cg3 box ours 0,0,0,0",
+            "cg3 offset ours 0,0,0,0",
+            "co4 box ours 0,0,0,0",
+            "co4 offset ours 0,0,0,0",
+        ],
+    );
+}
+
+/// More of what Raikiri lays out differently, each on its own so that one
+/// doesn't move the next: `zoom` does nothing (#z, its span and the box
+/// around it), a span in vertical text is 4 px to the right (#vs), a
+/// singular transform leaves no box where Chrome has an empty rectangle at
+/// its place (#z0, #zx), and `position: sticky; bottom: 0` isn't stuck to
+/// the viewport's bottom (#s2). The half pixel of empty inline elements and
+/// of a right-to-left span (#es, #et, #eu, #rs). `display: contents`, a
+/// list's items and `position: sticky; top: 0` are Chrome's.
+#[test]
+fn more_of_what_raikiri_lays_out_differently() {
+    check(
+        "more-gaps",
+        &[
+            "div1 box ours 0,1400,400,40",
+            "div1 offset ours 0,1400,400,40",
+            "z2 box ours 5,1405,40,30",
+            "s3 box ours 5,1404.5,6.34375,17",
+            "vs6 box ours 20,1500,17,41.265625",
+            "vs6 offset ours 20,0,17,41",
+            "z09 box ours 0,0,0,0",
+            "zx10 box ours 0,0,0,0",
+            "es16 box ours 6.734375,1899.5,0,17",
+            "es16 offset ours 7,0,0,17",
+            "et17 box ours 17.234375,1899.5,6,17",
+            "et17 offset ours 17,0,6,17",
+            "eu18 box ours 29,1899.5,0,17",
+            "eu18 offset ours 29,0,0,17",
+            "rs21 box ours 25.765625,1999.5,174.234375,33",
+            "rs21 offset ours 26,0,174,33",
+            "s228 box ours 0,1010,800,10",
+            "s228 offset ours 0,1010,800,10",
+        ],
+    );
 }
 
 /// `report(2000)` as `layout_real.rs` writes it: 2,000 rows of 22 px, over
@@ -398,6 +640,16 @@ fn all_numbers() -> String {
             "forced-breaks",
             "viewport-height",
             "inline-lines",
+            "pseudo-breaks",
+            "paged-only",
+            "above-top",
+            "margin-above",
+            "too-long",
+            "fractions",
+            "fixed-containers",
+            "at-page",
+            "table-parts",
+            "more-gaps",
         ] {
             let mut rt = runtime(&probe(&format!("{name}.html")));
             let numbers: String = rt
@@ -612,6 +864,15 @@ fn the_engine_agrees_with_chrome_at_least_as_often_as_raikiris_own_route() {
         "forced-breaks",
         "viewport-height",
         "inline-lines",
+        "pseudo-breaks",
+        "paged-only",
+        "above-top",
+        "margin-above",
+        "fractions",
+        "fixed-containers",
+        "at-page",
+        "table-parts",
+        "more-gaps",
     ] {
         let chrome = chrome_boxes(name);
         let (a, b) = (documented_route(name), engine_route(name));

@@ -788,9 +788,9 @@ fn raikiri_refuses_a_page_of_more_nodes_than_one_layout_takes() {
 
 /// Pages a layout engine might trip on. Each is laid out or refused and the
 /// queries answer with finite numbers; none ends the script's call with a
-/// fault. Among them the two ways a page is longer than the one unbroken
-/// page the engine lays out on (16,777,216 px): into more of Raikiri's pages,
-/// and into more than it makes (10,000), which is refused.
+/// fault. Among them pages with lengths past the 10,000,000 px Raikiri lays
+/// out to, which are refused
+/// (`raikiri_refuses_a_page_with_a_box_past_what_it_lays_out`).
 #[cfg(feature = "raikiri")]
 #[test]
 fn raikiri_answers_for_odd_pages_without_a_fault() {
@@ -824,6 +824,43 @@ fn raikiri_answers_for_odd_pages_without_a_fault() {
         // An SVG element has no offsets: `undefined`.
         let finite = |v: &str| v == "undefined" || v.parse::<f64>().is_ok_and(f64::is_finite);
         assert!(got.split(',').all(finite), "{body}: {got}");
+    }
+}
+
+/// Raikiri keeps every length and position within 10,000,000 px of zero
+/// without saying so: a box of 17,000,000 px ends at 10,000,000 and the next
+/// one begins there (Chromium 153 has it at 17,000,000:
+/// tests/data/chrome-layout/too-long). Numbers past that can't be the
+/// page's, so a page with a box that reaches it, down, right, up or left, is
+/// not laid out, and answers as with no box.
+#[cfg(feature = "raikiri")]
+#[test]
+fn raikiri_refuses_a_page_with_a_box_past_what_it_lays_out() {
+    let after = |style: &str| format!("<div style=\"{style}\"></div>");
+    for fits in [
+        "height:9000000px",
+        "width:9999990px",
+        "position:absolute;top:-100000px;height:5px",
+    ] {
+        assert_eq!(
+            outcome(&small_box(Which::Raikiri, String::new(), after(fits))),
+            LAID_OUT,
+            "{fits}"
+        );
+    }
+    for reaches in [
+        "height:10000000px",
+        "height:17000000px",
+        "height:1e12px",
+        "width:1e9px",
+        "height:6000000px;margin-bottom:5000000px",
+        "position:absolute;left:-10000000px;width:5px;height:5px",
+    ] {
+        assert_eq!(
+            outcome(&small_box(Which::Raikiri, String::new(), after(reaches))),
+            NOT_LAID_OUT,
+            "{reaches}"
+        );
     }
 }
 

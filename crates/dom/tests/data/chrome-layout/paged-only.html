@@ -1,0 +1,15 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+h1 { string-set: title content() }
+#s::before { content: string(title); display: block }
+#t::after { content: leader('.') target-counter(attr(href), page); display: block }
+#t2::after { content: target-counter(attr(href), page); display: block }
+#t3::after { content: target-text(attr(href)); display: block }
+#q::before { content: 'q' element(header); display: block }
+.bm { bookmark-level: 1; bookmark-label: content(); bookmark-state: open }
+@page { @top-center { content: element(header) } @bottom-right { content: counter(page) } }
+</style></head><body><div id=h style='position:running(header);height:20px'>H</div><div id=b style='height:5px'></div><p id=p style='margin:0'>text <span id=f style='float:footnote'>note</span> more</p><div id=ab style='position:absolute;position:running(other);top:300px;left:10px;width:5px;height:5px'></div><span id=fl style='float:left;float:footnote;width:30px;height:10px'></span><h1 id=h1 class=bm style='margin:0;font-size:12px;clear:both'>Title</h1><p id=s style='margin:0'>s</p><p style='margin:0'><a id=t href='#h1'>link</a></p><p style='margin:0'><a id=t2 href='#h1'>link</a></p><p style='margin:0'><a id=t3 href='#h1'>link</a></p><p id=q style='margin:0'>q</p><div id=e style='height:5px'></div></body></html>

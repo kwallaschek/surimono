@@ -22,6 +22,8 @@ mod runtime;
 mod select;
 mod sheet;
 mod sheet_screen;
+#[cfg(feature = "raikiri")]
+mod sheet_unpaged;
 mod style_attr;
 mod traversal;
 mod tree;

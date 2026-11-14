@@ -157,6 +157,14 @@ pub(crate) trait Laid {
     }
 }
 
+/// A length as the whole number of pixels `offsetLeft` and its like answer:
+/// the nearest, and of two equally near the greater, as Chromium 153 rounds
+/// them (tests/data/chrome-layout/fractions: -2.5 is -2, 2.5 is 3). CSSOM
+/// View §7 doesn't say how.
+fn whole(v: f64) -> f64 {
+    (v + 0.5).floor()
+}
+
 /// The last layout and what it was made from.
 pub(crate) struct Current {
     /// The page's `(version, layout_epoch)` then.
@@ -180,8 +188,8 @@ impl Document {
         let laid = self.current_layout.as_ref().and_then(|c| c.laid.as_ref());
         if which == 6 || which == 7 {
             let at = laid.and_then(|l| l.offset_position(id)).unwrap_or_default();
-            // CSSOM View §7: integers, as offsetWidth is.
-            return Ok(if which == 6 { at.0 } else { at.1 }.round());
+            // Integers, as offsetWidth is.
+            return Ok(whole(if which == 6 { at.0 } else { at.1 }));
         }
         if which == 4 || which == 5 {
             // CSSOM View §7: the border edge size as an integer, which no
@@ -192,7 +200,7 @@ impl Document {
                         .or_else(|| l.border_box(id).map(|b| (b.width, b.height)))
                 })
                 .unwrap_or_default();
-            return Ok(if which == 4 { size.0 } else { size.1 }.round());
+            return Ok(whole(if which == 4 { size.0 } else { size.1 }));
         }
         let Some(b) = laid.and_then(|l| l.border_box(id)) else {
             return Ok(0.0);
