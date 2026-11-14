@@ -28,6 +28,36 @@ cssparser.workspace = true
 url.workspace = true
 # TextDecoder's encodings. Same version as stylo's, so it adds nothing to a build.
 encoding_rs = "=0.8.35"
+# Raikiri, the layout behind the seam for phase 3 (E3-R1, DECISIONS 2026-11-14,
+# crates/dom/RAIKIRI.md): only with the `raikiri` feature, which is off by
+# default. Exact pins, moved deliberately and together: 0.0.x makes no API
+# promise. The four raikiri crates are named because layout_raikiri.rs uses
+# each (the cascade's options are in raikiri-style, the page box in
+# raikiri-traits); shodo is the version raikiri-dom 0.0.6 pins, named so a
+# raikiri bump that moves it fails here instead of passing quietly.
+raikiri-html = { version = "=0.0.6", optional = true }
+raikiri-dom = { version = "=0.0.6", optional = true }
+raikiri-style = { version = "=0.0.6", optional = true }
+raikiri-traits = { version = "=0.0.6", optional = true }
+shodo = { version = "=0.0.38", optional = true, default-features = false }
+# Not used directly: shodo turns on fontique's `system`, which links
+# libfontconfig at load time on Linux; `fontconfig-dlopen` loads it only when
+# system fonts are asked for, which surimono never does. The version shodo
+# 0.0.38 resolves to.
+fontique = { version = "=0.11.1", optional = true, default-features = false, features = ["fontconfig-dlopen"] }
+
+[features]
+# The Raikiri layout engine (E3-R1). Off by default: without it nothing of
+# Raikiri is built or linked. Internal until checkpoint 3, like the Blitz
+# engine of the prototype.
+raikiri = [
+    "dep:raikiri-html",
+    "dep:raikiri-dom",
+    "dep:raikiri-style",
+    "dep:raikiri-traits",
+    "dep:shodo",
+    "dep:fontique",
+]
 
 [dev-dependencies]
 # Counts live heap bytes in the leak test, as crates/islands' soak test does.
