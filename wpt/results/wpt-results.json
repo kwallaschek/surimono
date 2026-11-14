@@ -1,4 +1,4 @@
-{"surimono_commit":"72325867176a9b01fcb73a3e56c5360156c9d562","tests":[{"message":null,"slice":"timers","status":"OK","subtests":[{"message":null,"name":"setTimeout","status":"PASS"},
+{"surimono_commit":"0508496fc329c7ad995e602de233aa3d860bc413","tests":[{"message":null,"slice":"timers","status":"OK","subtests":[{"message":null,"name":"setTimeout","status":"PASS"},
 {"message":null,"name":"setInterval","status":"PASS"}],"test":"html/webappapis/timers/arguments.html"},
 {"message":null,"slice":"timers","status":"OK","subtests":[{"message":null,"name":"Clearing an interval from the callback should still clear it.","status":"PASS"}],"test":"html/webappapis/timers/clearinterval-from-callback.any.html"},
 {"message":null,"slice":"timers","status":"OK","subtests":[{"message":null,"name":"Clear timeout with clearInterval","status":"PASS"},
