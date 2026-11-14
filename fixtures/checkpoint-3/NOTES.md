@@ -8,15 +8,14 @@ committed. The PNGs are reduced to 256 colours (`convert -strip -dither None -co
 which leaves out ImageMagick's date chunks, so the same run gives the same bytes);
 nothing else is touched after the run.
 
-**This run.** 14 Nov 2026, on the fleet's Linux machine (Ubuntu 24.04.5, 2 cores,
+**This run.** 15 Nov 2026, on the fleet's Linux machine (Ubuntu 24.04.5, 2 cores,
 poppler 24.02.0), against the committed references of Chromium 153.0.8010.12, with
 unchanged references, metric and thresholds.
 
-- `surimono-page-check` in release mode from branch `p2-cf-07` at 24d81671: main at
-  a68123fb (after #180, #184 and #186) plus this task's changes to
-  `fixtures/tools/` only (page-check's `--no-printer-safe` and `--keep-scripts`,
-  print-pages.mjs's `--plain` and DOM check), so the library is main's. Default
-  limits, fixture fonts only. Its sha256 is in every `score.json`.
+- `surimono-page-check` in release mode from main at 0508496f (after #189, ICU
+  2.4.0; #190, a parsed `xmlns` has no colon; and #191), with nothing changed in
+  the checkout. Default limits, fixture fonts only. Its sha256 is in every
+  `score.json`.
 - fulgur-cli 0.40.0 from crates.io (`cargo install --locked`), sha256 `002a6c4d…`.
 - `de_DE.UTF-8` isn't installed here, so the second process sets the variables and
   doesn't change libc's locale, as in `fixtures/checkpoint-2`; `Asia/Tokyo` is in
@@ -24,7 +23,14 @@ unchanged references, metric and thresholds.
 - The render times in `index.md` are one wall-clock run on the shared 2-core
   machine, not a measurement; `bench/` has those.
 - Run twice into two directories: the same scores, the same output and PDF hashes,
-  and the same committed images byte for byte; only paths and render times differ.
+  and the same images byte for byte; only paths and render times differ.
+- **Against the run before it** (14 Nov, page-check at 24d81671, main a68123fb):
+  five pages' outputs are byte for byte that run's, printer-safe and plain.
+  `katex-autorender`'s differs, in both, in its 12 `<math>` tags and nowhere else:
+  ` :xmlns="` is now ` xmlns="` (51,532 bytes then, 51,520 now; that run's output
+  with the 12 colons taken out is this one's). All 18 PDFs (six pages; printer-safe,
+  plain and floor) are byte for byte that run's, so every score and every
+  committed image is as it was. ICU 2.4.0 changed nothing here.
 
 **Result.**
 
@@ -39,27 +45,19 @@ unchanged references, metric and thresholds.
 - **The plain output is what Chrome's scripts left, and prints as Chrome's DOM
   does.** Each page's plain PDF is byte for byte its floor's PDF (`printed.sha256`
   in `print-pages.json`), so with printer-safe output off every failure is fulgur's.
-  The plain outputs are byte for byte those of the run at e879ec95 (the same
-  `sha256` as its `print-pages.json`), so nothing merged since, #184's reflections
-  included, changed what these pages' scripts leave.
-- **Output = Chrome's DOM: 5 of 6.** `render_page`'s output with the page's scripts
+- **Output = Chrome's DOM: 6 of 6.** `render_page`'s output with the page's scripts
   kept equals Chrome's DOM in the form the floor prints (no `<noscript>`, linked
-  sheets inlined) for every page but `katex-autorender`. That one differs from byte
-  26043 of the normalized texts, and only in how the output writes an attribute: each
-  of its 12 `<math>` elements comes out as
+  sheets inlined) for every page. Until #190 `katex-autorender` differed from byte
+  26043 of the normalized texts: each of its 12 `<math>` elements came out as
   `<math :xmlns="http://www.w3.org/1998/Math/MathML">` where Chrome's DOM has
-  `xmlns`, and with the 12 colons taken out the texts are equal. KaTeX sets `xmlns`
-  with `setAttribute`, so the DOM is right (`crates/dom/tests/real_world.rs` compares
-  `Document::to_html` with Chrome's and passes): the facade's printer screen
-  re-parses its output with html5ever, which gives `xmlns` on a foreign element an
-  empty prefix, and writes that prefix and a colon back
-  (`crates/surimono/src/print/tree.rs`). Nothing prints differently for it: the
-  page's plain PDF is its floor's. An `xmlns` that the parser reads from the markup
-  is another case, wrong in the DOM itself (its name is `:xmlns`, and
-  `getAttribute('xmlns')` is null); none of the six pages has one in its markup.
-  `docs/COMPAT.md` has a row for each.
+  `xmlns`, because html5ever gives a parsed `xmlns` on a foreign element an empty
+  prefix and the output wrote that prefix and a colon. The DOM was right for this
+  page (KaTeX sets the attribute with `setAttribute`) and nothing printed
+  differently; an `xmlns` read from markup was wrong in the DOM as well, on none of
+  the six pages. #190 fixed both, and `docs/COMPAT.md` has no row for either any
+  more.
 
-**What changed since e879ec95: printer-safe output (#180, on by default).** The
+**What printer-safe output changes (#180, on by default).** The
 printer-safe outputs differ from the plain ones on three pages, and so do their PDFs
 from the floor's:
 
@@ -89,4 +87,4 @@ F3, F4, B2 and F6 fixed, and `katex-autorender` 85.2% / 0.0% / 0.0% with F5 fixe
 `docs/upstream/fulgur-layout-gaps-0.40.md`.
 
 **Hostile scripts.** 79 of 79 cases and steps end as the manifest says, through
-`render_page` at 24d81671: no `Crash`, no `Hang`.
+`render_page` at 0508496f: no `Crash`, no `Hang`.

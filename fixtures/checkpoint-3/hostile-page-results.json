@@ -7,7 +7,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2046.0081410000005
+      "wall_ms": 2040.290933
     },
     {
       "as_expected": true,
@@ -16,7 +16,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2103.642573
+      "wall_ms": 2061.584312
     },
     {
       "as_expected": true,
@@ -25,7 +25,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2080.495091
+      "wall_ms": 2050.369448
     },
     {
       "as_expected": true,
@@ -34,7 +34,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2048.7279
+      "wall_ms": 2051.9143409999997
     },
     {
       "as_expected": true,
@@ -43,7 +43,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 388.295892
+      "wall_ms": 272.225046
     },
     {
       "as_expected": true,
@@ -52,7 +52,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2050.377495
+      "wall_ms": 2046.123463
     },
     {
       "as_expected": true,
@@ -61,7 +61,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2049.665341
+      "wall_ms": 2040.701297
     },
     {
       "as_expected": true,
@@ -70,7 +70,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2083.254298
+      "wall_ms": 2052.78047
     },
     {
       "as_expected": true,
@@ -79,7 +79,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 103.870334
+      "wall_ms": 47.321807
     },
     {
       "as_expected": true,
@@ -88,7 +88,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2091.7267979999997
+      "wall_ms": 2075.140095
     },
     {
       "as_expected": true,
@@ -97,7 +97,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2101.4562699999997
+      "wall_ms": 2063.945822
     },
     {
       "as_expected": true,
@@ -106,7 +106,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2092.0816649999997
+      "wall_ms": 2047.2932570000005
     },
     {
       "as_expected": true,
@@ -115,7 +115,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2152.808343
+      "wall_ms": 2078.028169
     },
     {
       "as_expected": true,
@@ -124,7 +124,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2089.432156
+      "wall_ms": 2039.493387
     },
     {
       "as_expected": true,
@@ -133,7 +133,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2077.341953
+      "wall_ms": 2065.309997
     },
     {
       "as_expected": true,
@@ -142,7 +142,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 231.899127
+      "wall_ms": 202.895703
     },
     {
       "as_expected": true,
@@ -151,7 +151,7 @@
       "outcome": "Ok",
       "output": "finished",
       "step": null,
-      "wall_ms": 48.549130000000005
+      "wall_ms": 43.780013
     },
     {
       "as_expected": true,
@@ -160,7 +160,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2049.647089
+      "wall_ms": 2038.426227
     },
     {
       "as_expected": true,
@@ -169,7 +169,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2047.924751
+      "wall_ms": 2039.359953
     },
     {
       "as_expected": true,
@@ -178,7 +178,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2106.489526
+      "wall_ms": 2038.934615
     },
     {
       "as_expected": true,
@@ -187,7 +187,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 237.351825
+      "wall_ms": 178.40422
     },
     {
       "as_expected": true,
@@ -196,7 +196,7 @@
       "outcome": "Ok",
       "output": "sorted",
       "step": null,
-      "wall_ms": 991.726106
+      "wall_ms": 1028.640628
     },
     {
       "as_expected": true,
@@ -205,7 +205,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2046.531813
+      "wall_ms": 2078.835353
     },
     {
       "as_expected": true,
@@ -214,7 +214,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2108.7367769999996
+      "wall_ms": 2079.868441
     },
     {
       "as_expected": true,
@@ -223,7 +223,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2087.183069
+      "wall_ms": 2076.500968
     },
     {
       "as_expected": true,
@@ -232,7 +232,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2057.0412450000003
+      "wall_ms": 2094.793966
     },
     {
       "as_expected": true,
@@ -241,7 +241,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2052.301875
+      "wall_ms": 2077.90966
     },
     {
       "as_expected": true,
@@ -250,7 +250,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 235.987657
+      "wall_ms": 264.475791
     },
     {
       "as_expected": true,
@@ -259,7 +259,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 87.564164
+      "wall_ms": 93.914194
     },
     {
       "as_expected": true,
@@ -268,7 +268,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 39.622429
+      "wall_ms": 87.199818
     },
     {
       "as_expected": true,
@@ -277,7 +277,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 38.849809
+      "wall_ms": 57.948245
     },
     {
       "as_expected": true,
@@ -286,7 +286,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 99.731286
+      "wall_ms": 90.192202
     },
     {
       "as_expected": true,
@@ -295,7 +295,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 497.111373
+      "wall_ms": 228.625171
     },
     {
       "as_expected": true,
@@ -304,7 +304,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 202.323603
+      "wall_ms": 137.832068
     },
     {
       "as_expected": true,
@@ -313,7 +313,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 234.326844
+      "wall_ms": 118.731451
     },
     {
       "as_expected": true,
@@ -322,7 +322,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 80.094868
+      "wall_ms": 51.559850999999995
     },
     {
       "as_expected": true,
@@ -331,7 +331,7 @@
       "outcome": "Ok",
       "output": "caught:2,4,6",
       "step": null,
-      "wall_ms": 99.12494
+      "wall_ms": 52.284338
     },
     {
       "as_expected": true,
@@ -340,7 +340,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 52.486007
+      "wall_ms": 49.727436
     },
     {
       "as_expected": true,
@@ -349,7 +349,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 44.919749
+      "wall_ms": 62.967471
     },
     {
       "as_expected": true,
@@ -358,7 +358,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 47.127056
+      "wall_ms": 39.957359999999994
     },
     {
       "as_expected": true,
@@ -367,7 +367,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 115.915255
+      "wall_ms": 58.637202
     },
     {
       "as_expected": true,
@@ -376,7 +376,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 135.403807
+      "wall_ms": 55.296116999999995
     },
     {
       "as_expected": true,
@@ -385,7 +385,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 64.454966
+      "wall_ms": 38.840678
     },
     {
       "as_expected": true,
@@ -394,7 +394,7 @@
       "outcome": "StackOverflow",
       "output": null,
       "step": null,
-      "wall_ms": 76.894715
+      "wall_ms": 39.213887
     },
     {
       "as_expected": true,
@@ -403,7 +403,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 85.19357099999999
+      "wall_ms": 69.678999
     },
     {
       "as_expected": true,
@@ -412,7 +412,7 @@
       "outcome": "Ok",
       "output": "freed",
       "step": null,
-      "wall_ms": 117.890915
+      "wall_ms": 153.870271
     },
     {
       "as_expected": true,
@@ -421,7 +421,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 60.287507
+      "wall_ms": 90.398906
     },
     {
       "as_expected": true,
@@ -430,7 +430,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2047.284845
+      "wall_ms": 2082.761364
     },
     {
       "as_expected": true,
@@ -439,7 +439,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 70.28557500000001
+      "wall_ms": 83.75136599999999
     },
     {
       "as_expected": true,
@@ -448,7 +448,7 @@
       "outcome": "Ok",
       "output": "ok",
       "step": null,
-      "wall_ms": 137.92418
+      "wall_ms": 93.271245
     },
     {
       "as_expected": true,
@@ -457,7 +457,7 @@
       "outcome": "Ok",
       "output": "surimono:2:object",
       "step": null,
-      "wall_ms": 108.90037
+      "wall_ms": 88.339699
     },
     {
       "as_expected": true,
@@ -466,7 +466,7 @@
       "outcome": "Ok",
       "output": "async:ok",
       "step": null,
-      "wall_ms": 106.722978
+      "wall_ms": 89.75651900000001
     },
     {
       "as_expected": true,
@@ -475,7 +475,7 @@
       "outcome": "Ok",
       "output": "none",
       "step": null,
-      "wall_ms": 106.471401
+      "wall_ms": 90.722675
     },
     {
       "as_expected": true,
@@ -484,7 +484,7 @@
       "outcome": "Exception",
       "output": null,
       "step": null,
-      "wall_ms": 107.161306
+      "wall_ms": 87.57677799999999
     },
     {
       "as_expected": true,
@@ -493,7 +493,7 @@
       "outcome": "Ok",
       "output": "denied",
       "step": null,
-      "wall_ms": 165.904672
+      "wall_ms": 86.83658
     },
     {
       "as_expected": true,
@@ -502,7 +502,7 @@
       "outcome": "Ok",
       "output": "denied",
       "step": null,
-      "wall_ms": 109.202503
+      "wall_ms": 87.223163
     },
     {
       "as_expected": true,
@@ -511,7 +511,7 @@
       "outcome": "Ok",
       "output": "clean",
       "step": null,
-      "wall_ms": 133.796114
+      "wall_ms": 104.548983
     },
     {
       "as_expected": true,
@@ -520,7 +520,7 @@
       "outcome": "Ok",
       "output": "undefined,undefined,undefined,undefined,undefined",
       "step": null,
-      "wall_ms": 58.619530000000005
+      "wall_ms": 109.389441
     },
     {
       "as_expected": true,
@@ -529,7 +529,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 374.210005
+      "wall_ms": 441.862394
     },
     {
       "as_expected": true,
@@ -538,7 +538,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2107.215729
+      "wall_ms": 2078.8154950000003
     },
     {
       "as_expected": true,
@@ -547,7 +547,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2055.3971199999996
+      "wall_ms": 2093.355001
     },
     {
       "as_expected": true,
@@ -556,7 +556,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2096.8970480000003
+      "wall_ms": 2047.678435
     },
     {
       "as_expected": true,
@@ -565,7 +565,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2079.3299580000003
+      "wall_ms": 2107.270073
     },
     {
       "as_expected": true,
@@ -574,7 +574,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2061.637747
+      "wall_ms": 2066.788325
     },
     {
       "as_expected": true,
@@ -583,7 +583,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2054.954393
+      "wall_ms": 2042.524208
     },
     {
       "as_expected": true,
@@ -592,7 +592,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2048.515973
+      "wall_ms": 2082.477375
     },
     {
       "as_expected": true,
@@ -601,7 +601,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2045.6975059999995
+      "wall_ms": 2092.957066
     },
     {
       "as_expected": true,
@@ -610,7 +610,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2099.719528
+      "wall_ms": 2100.328148
     },
     {
       "as_expected": true,
@@ -619,7 +619,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 1021.209154
+      "wall_ms": 1206.1598760000002
     },
     {
       "as_expected": true,
@@ -628,7 +628,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 206.92647
+      "wall_ms": 504.8361019999999
     },
     {
       "as_expected": true,
@@ -637,7 +637,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 292.293278
+      "wall_ms": 323.499492
     },
     {
       "as_expected": true,
@@ -646,7 +646,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2139.739947
+      "wall_ms": 2181.8192249999997
     },
     {
       "as_expected": true,
@@ -655,7 +655,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2059.048039
+      "wall_ms": 2161.4050119999997
     },
     {
       "as_expected": true,
@@ -664,7 +664,7 @@
       "outcome": "MemoryLimit",
       "output": null,
       "step": null,
-      "wall_ms": 576.984853
+      "wall_ms": 500.260769
     },
     {
       "as_expected": true,
@@ -673,7 +673,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2157.208311
+      "wall_ms": 2106.1009099999997
     },
     {
       "as_expected": true,
@@ -682,7 +682,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2153.592481
+      "wall_ms": 2172.635792
     },
     {
       "as_expected": true,
@@ -691,7 +691,7 @@
       "outcome": "TimeLimit",
       "output": null,
       "step": null,
-      "wall_ms": 2129.146639
+      "wall_ms": 2124.0351849999997
     },
     {
       "as_expected": true,
@@ -700,7 +700,7 @@
       "outcome": "Ok",
       "output": "polluted",
       "step": 1,
-      "wall_ms": 115.121723
+      "wall_ms": 59.995332999999995
     },
     {
       "as_expected": true,
@@ -709,10 +709,10 @@
       "outcome": "Ok",
       "output": "undefined,2,object,x,undefined,undefined,false,undefined",
       "step": 2,
-      "wall_ms": 42.504986
+      "wall_ms": 23.387581
     }
   ],
-  "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008",
+  "commit": "0508496fc329c7ad995e602de233aa3d860bc413",
   "harness": "fixtures/tools/page-check",
   "schema": 1
 }

@@ -67,7 +67,7 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
-    "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008"
+    "sha256": "5eb2dad92a713712394155469c647fc685f5f13863312861429ca009640c19a9",
+    "commit": "0508496fc329c7ad995e602de233aa3d860bc413"
   }
 }
