@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs exactly what .github/workflows/ci.yml runs on Linux: fmt, the offline
-# fixture verifiers, clippy (warnings are errors), tests, the WPT runner's own fmt,
+# fixture verifiers, clippy (warnings are errors), tests, clippy and the tests of
+# surimono-dom again with its `raikiri` feature, the WPT runner's own fmt,
 # clippy and tests, page-check's, the Ruby gem's tests, the examples
 # (examples/run.sh, skipped while it doesn't exist) and cargo-deny.
 # Usage: scripts/ci.sh [--no-deny] [--no-ruby]
@@ -51,6 +52,19 @@ else
   step "test (default members)";   cargo test --locked --no-fail-fast
   run_examples --no-ruby
 fi
+# surimono-dom's `raikiri` feature (the Raikiri layout engine, E3-R1) is off by
+# default, so nothing above builds it: clippy never reads the code behind it and
+# crates/dom/tests/raikiri_build.rs compiles to 0 tests. Lint and test that one
+# crate again with the feature on (P2-PKG-09). Two more cargo runs for one
+# package, not `--workspace --all-features`: that would rebuild every crate and
+# turn on the other crates' test-only features (surimono-core's test-hooks,
+# surimono-islands' test-estimate). Cargo resolves features per run, so the
+# default-feature binaries above link nothing of Raikiri. No option skips this:
+# it is the only check the feature gets.
+step "clippy (surimono-dom, raikiri feature)"
+cargo clippy -p surimono-dom --all-targets --features raikiri --locked -- -D warnings
+step "test (surimono-dom, raikiri feature)"
+cargo test -p surimono-dom --features raikiri --locked --no-fail-fast
 scripts/ci/wpt-runner.sh
 scripts/ci/page-check.sh
 if [ "$run_deny" = 1 ]; then
