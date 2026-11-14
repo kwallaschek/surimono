@@ -90,6 +90,14 @@ pub enum DomError {
         /// The member it used, such as `getBoundingClientRect`.
         member: String,
     },
+    /// The layout engine failed on the page (with the `raikiri` feature: a
+    /// panic or an error inside Raikiri). Fatal to the call; the page's tree
+    /// is whole, since layout only reads it.
+    #[error("the layout engine failed on this page: {message}")]
+    LayoutFailed {
+        /// What the engine said.
+        message: String,
+    },
     /// An element would have more attributes than
     /// [`DomLimits::max_attributes`](crate::DomLimits::max_attributes).
     #[error("an element reached the limit of {limit} attributes")]
