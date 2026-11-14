@@ -19,12 +19,17 @@
 //!
 //! Two choices this file makes (DECISIONS, E3-R1):
 //!
-//! - **Coordinates.** A script sees one continuous layout, as in a browser.
-//!   A page's fragments are moved to where that page's content begins in the
-//!   flow (`PageSlice::content_origin_y`), so a box after a page break is
-//!   where the unbroken flow has it, not lower by the space left at the foot
-//!   of every page before it. x and y are from the page area's corner, the
-//!   initial containing block.
+//! - **Coordinates.** A script sees one continuous layout, as in a browser:
+//!   the page's width and height are the viewport (the initial containing
+//!   block, `vw` and `vh`, media queries), but nothing is cut at the page's
+//!   end. Raikiri still paginates, into one page [`UNBROKEN`] px long, so
+//!   that the answers are its paged fragments, and forced page breaks and
+//!   named pages are taken off the measuring cascade ([`unbroken`]): a page
+//!   break does nothing on a screen. So the paged positions *are* the
+//!   continuous ones, and nothing is mapped back. Only a page longer than
+//!   that comes out as more than one page, each then moved to where it
+//!   begins in Raikiri's flow. x and y are from the page area's corner, the
+//!   initial containing block's.
 //! - **Media.** The measuring cascade runs as `screen`, with the page area as
 //!   the viewport: what a Chrome-based tool's scripts measure, and what
 //!   `matchMedia` answers while scripts run (DECISIONS 2026-11-11). Print
@@ -43,7 +48,7 @@ use raikiri_html::{
     RenderFonts, StylesheetSource, UncascadedDocument, build_cascaded_with_options,
 };
 use raikiri_style::CascadeOptions;
-use raikiri_style::property::PositionValue;
+use raikiri_style::property::{BreakBetween, PageValue, PositionValue};
 use raikiri_traits::{LayoutError, NodeId, PageBox, PaintRect, PaintTransform, StylesheetKind};
 use surimono_webidl::runtime::{BindingError, BindingResult};
 
@@ -61,6 +66,18 @@ const NONE: usize = usize::MAX;
 /// `lib.rs`, private there): a page that names no family is set in
 /// `sans-serif`, which Raikiri maps to the whole bundle in order.
 const FONT_SHEET: &str = "@layer { :where(html) { font-family: sans-serif } }";
+
+/// The length of the one page the measuring copy is paginated into, in CSS
+/// px: longer than any page within the layout's bounds unless a style says
+/// so, and where an `f32` still tells neighbouring pixels apart.
+const UNBROKEN: f32 = 16_777_216.0;
+
+/// Most nodes (elements and text) one layout takes. Raikiri takes about
+/// 25 µs and 10 KiB a node (RAIKIRI.md section 5), and nothing stops a layout
+/// once it runs, so this keeps one near half a second and 200 MiB; the page's
+/// own `max_nodes` (100,000) would be 2.5 s and 1 GiB. E3-R4 measures it
+/// again and makes it a limit the caller sets.
+pub(crate) const MAX_LAYOUT_NODES: usize = 20_000;
 
 /// What the Raikiri engine needs beyond [`LayoutSetup`]'s viewport: the
 /// fonts as Raikiri holds them, and the page. Internal, like the setup.
@@ -178,10 +195,11 @@ struct Mirror {
 
 /// Copies the page's tree into a new Raikiri document. The copy looks at the
 /// deadline per node and per style-attribute declaration; what goes into the
-/// layout, which Raikiri can stop only between pages, is bounded first as
-/// for Blitz: the page's node limit, [`MAX_TEXT_BYTES`],
-/// [`MAX_ATTRIBUTE_BYTES`], [`MAX_SHEET_BYTES`] and the sheets' shape
-/// (`sheet_screen.rs`). `None` for a page over any of them.
+/// layout, which Raikiri can stop only between pages (and the measuring copy
+/// is one page), is bounded first: [`MAX_LAYOUT_NODES`], and as for Blitz
+/// [`MAX_TEXT_BYTES`], [`MAX_ATTRIBUTE_BYTES`], [`MAX_SHEET_BYTES`] and the
+/// sheets' shape (`sheet_screen.rs`). `None` for a page over any of them, and
+/// for a document with no root element.
 fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<Mirror>> {
     let mut dom = raikiri_dom::Document::new();
     // Fonts before anything that can measure text (the cascade measures
@@ -205,8 +223,17 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
         .rev()
         .map(|&c| (c, 0))
         .collect();
+    let mut copied_nodes = 0usize;
+    let mut has_root_element = false;
     while let Some((live, parent)) = stack.pop() {
         page.poll()?;
+        if matches!(page.kind(live), Some(Kind::Element | Kind::Text)) {
+            copied_nodes += 1;
+            if copied_nodes > MAX_LAYOUT_NODES {
+                return Ok(None);
+            }
+        }
+        has_root_element |= parent == 0 && page.kind(live) == Some(Kind::Element);
         let id = match page.kind(live) {
             Some(Kind::Element) => {
                 let Some(e) = page.node(live).element_data() else {
@@ -302,6 +329,12 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
             back.resize(id + 1, NONE);
         }
         back[id] = live;
+    }
+
+    // A document a script left without a root element has no boxes, and
+    // Raikiri lays out only a document that has one.
+    if !has_root_element {
+        return Ok(None);
     }
 
     let mut sheet_bytes = 0usize;
@@ -446,29 +479,45 @@ fn lay_out_mirror(
     if passed() {
         return Err(Stop::TimeLimit);
     }
-    let cascade = cascade(&options, &media)?;
+    let mut cascade = cascade(&options, &media)?;
     drop(provisional);
+    unbroken(&mut cascade);
     let UncascadedDocument { mut dom, .. } = doc;
 
     let abort = || passed();
     let control =
         PageLayoutControl::new(raikiri_traits::RenderLimits::default().max_document_pages)
             .with_abort_check(&abort);
+    // One page, UNBROKEN long, of the page area's width: the layout itself
+    // runs against `page_box`, so percentages, `bottom` and fixed boxes see
+    // the page's height, and only the cut into pages sees the long one.
     let slices = layout_pages_with_options(
         &mut dom,
         &cascade,
         page_box,
         PageLayoutOptions {
+            page_steps: &[UNBROKEN],
             control: Some(&control),
             ..Default::default()
         },
     )
     .map_err(stop)?;
-    // Every page has the first page's geometry: the measuring copy doesn't
-    // follow `@page :left`, `:right` or named pages (RAIKIRI.md section 8).
+    // The first page's fragments are projected onto a page as long as its
+    // step. A later page (only past UNBROKEN px) has the first page's
+    // geometry: the measuring copy doesn't follow `@page :left`, `:right` or
+    // named pages (RAIKIRI.md section 8).
+    let mut long = geometry.page_box;
+    long.height = long.height - area.height + UNBROKEN;
     let geometries: Vec<(PageBox, PageMargins, PageContentInsets)> = slices
         .iter()
-        .map(|_| (geometry.page_box, geometry.margins, geometry.content_insets))
+        .map(|slice| {
+            let page = if slice.page_index == 0 {
+                long
+            } else {
+                geometry.page_box
+            };
+            (page, geometry.margins, geometry.content_insets)
+        })
         .collect();
     dom.project_pages_with_control(&cascade, page_box, &slices, &geometries, &control)
         .map_err(stop)?;
@@ -476,6 +525,26 @@ fn lay_out_mirror(
         return Err(Stop::TimeLimit);
     }
     Ok(read_boxes(&dom, &cascade, &slices, area, &back, page_nodes))
+}
+
+/// Takes what only a paged medium has off the measuring cascade: forced page
+/// breaks and named pages, which do nothing in the continuous layout a script
+/// measures (CSS Fragmentation 3 §3.1: the page values apply to paged
+/// media). A forced column break stays one: `always` forces a break in the
+/// nearest fragmentation context, which without pages is a column or nothing.
+fn unbroken(cascade: &mut raikiri_html::CascadeResult) {
+    let continuous = |value: &mut BreakBetween| match *value {
+        BreakBetween::Page => *value = BreakBetween::Auto,
+        BreakBetween::Always => *value = BreakBetween::Column,
+        _ => {}
+    };
+    for computed in &mut cascade.computed {
+        continuous(&mut computed.break_before);
+        continuous(&mut computed.break_after);
+    }
+    for page in &mut cascade.page_values {
+        *page = PageValue::Auto;
+    }
 }
 
 fn screen(page: PageBox) -> MediaContext {
@@ -509,9 +578,11 @@ struct RaikiriLaid {
     /// coordinates.
     boxes: Vec<Option<BoxRect>>,
     /// `offsetLeft` and `offsetTop` (CSSOM View §7): the first fragment's
-    /// border edge, transforms ignored, less the offset parent's padding
-    /// edge.
+    /// border edge, transforms ignored, less the offset parent's edge.
     offsets: Vec<Option<(f64, f64)>>,
+    /// `offsetWidth` and `offsetHeight`: the size of the union of the node's
+    /// fragments, transforms ignored.
+    sizes: Vec<Option<(f64, f64)>>,
 }
 
 impl Laid for RaikiriLaid {
@@ -521,6 +592,10 @@ impl Laid for RaikiriLaid {
 
     fn offset_position(&self, node: usize) -> Option<(f64, f64)> {
         self.offsets.get(node).copied().flatten()
+    }
+
+    fn offset_size(&self, node: usize) -> Option<(f64, f64)> {
+        self.sizes.get(node).copied().flatten()
     }
 }
 
@@ -557,28 +632,57 @@ fn union(a: Option<BoxRect>, b: BoxRect) -> BoxRect {
     }
 }
 
-/// Reads every element's boxes out of the paged layout, then the offsets.
-fn read_boxes(
+/// What the fragments say of each mirror node, in continuous coordinates.
+struct Placed {
+    /// The union of the node's fragments as the page shows them: moved by
+    /// relative offsets and by transforms.
+    shown: Vec<Option<BoxRect>>,
+    /// The same union before any transform.
+    laid: Vec<Option<BoxRect>>,
+    /// Where the node's first box begins, before any transform: its first
+    /// fragment's corner, or for an inline element on several lines its
+    /// first line's.
+    first: Vec<Option<(f64, f64)>>,
+}
+
+/// Reads every node's fragments out of the paged layout.
+fn place(
     dom: &raikiri_dom::Document,
     cascade: &raikiri_html::CascadeResult,
     slices: &[PageSlice],
     area: PaintRect,
-    back: &[usize],
-    page_nodes: usize,
-) -> RaikiriLaid {
+) -> Placed {
     let n = dom.node_count();
     // Relative offsets of inline elements, which no fragment includes: each
     // node moves with its own and every ancestor's (`Node::ifc_relative_offsets`
     // of each paragraph root, by node). Parents come before children in the
     // arena, so one pass in index order adds them up.
     let mut moved = vec![(0.0f32, 0.0f32); n];
+    // An inline element on several lines has one fragment, around all of its
+    // lines; where its first line's piece begins inside that, from the
+    // paragraph's pieces (`Node::ifc_inline_boxes`): (line, x, y) of the
+    // first piece, and the corner of the pieces' union.
+    let mut first_piece: Vec<Option<(usize, f32, f32)>> = vec![None; n];
+    let mut pieces_corner = vec![(f32::MAX, f32::MAX); n];
     for i in 0..n {
-        if let Some(node) = dom.get_node(i) {
-            for &(id, (dx, dy)) in node.ifc_relative_offsets() {
-                if let Some(m) = moved.get_mut(id) {
-                    m.0 += dx;
-                    m.1 += dy;
-                }
+        let Some(node) = dom.get_node(i) else {
+            continue;
+        };
+        for &(id, (dx, dy)) in node.ifc_relative_offsets() {
+            if let Some(m) = moved.get_mut(id) {
+                m.0 += dx;
+                m.1 += dy;
+            }
+        }
+        for piece in node.ifc_inline_boxes().unwrap_or_default() {
+            let (id, b) = (piece.node, piece.border_box);
+            if id >= n {
+                continue;
+            }
+            let corner = &mut pieces_corner[id];
+            *corner = (corner.0.min(b.x), corner.1.min(b.y));
+            if first_piece[id].is_none_or(|(line, x, _)| (piece.line, b.x) < (line, x)) {
+                first_piece[id] = Some((piece.line, b.x, b.y));
             }
         }
     }
@@ -592,11 +696,17 @@ fn read_boxes(
         }
     }
 
-    let mut boxes: Vec<Option<BoxRect>> = vec![None; n];
-    let mut firsts: Vec<Option<BoxRect>> = vec![None; n];
+    let mut placed = Placed {
+        shown: vec![None; n],
+        laid: vec![None; n],
+        first: vec![None; n],
+    };
+    // The lowest fragment index seen of each node: its first fragment.
+    let mut first_index = vec![u32::MAX; n];
     for slice in slices {
         // Page coordinates to the continuous flow's: from the page area's
-        // corner, and down by where this page's content begins in the flow.
+        // corner, and down by where this page begins in the flow (zero for
+        // the one page there is, short of UNBROKEN px).
         let dx = -f64::from(area.x);
         let dy = f64::from(slice.content_origin_y) - f64::from(area.y);
         let fragments: Vec<_> = dom
@@ -613,7 +723,7 @@ fn read_boxes(
             let Ok(i) = usize::try_from(node.0) else {
                 continue;
             };
-            if i >= n || (repeat && boxes[i].is_some()) {
+            if i >= n || (repeat && placed.laid[i].is_some()) {
                 continue;
             }
             let (mx, my) = moved[i];
@@ -624,9 +734,16 @@ fn read_boxes(
                 width: f64::from(r.width),
                 height: f64::from(r.height),
             };
-            if index == 0 && firsts[i].is_none() {
-                firsts[i] = Some(to_flow(rect));
+            let plain = to_flow(rect);
+            if index < first_index[i] {
+                first_index[i] = index;
+                // The first line's piece, where the fragment is around more.
+                let (lx, ly) = first_piece[i].map_or((0.0, 0.0), |(_, x, y)| {
+                    (x - pieces_corner[i].0, y - pieces_corner[i].1)
+                });
+                placed.first[i] = Some((plain.x + f64::from(lx), plain.y + f64::from(ly)));
             }
+            placed.laid[i] = Some(union(placed.laid[i], plain));
             let at = nodes.binary_search(&node).ok();
             let shown = match at.and_then(|k| transforms.get(k)) {
                 // A singular transform: drawn nowhere, so no box from this.
@@ -634,76 +751,108 @@ fn read_boxes(
                 Some(Some(t)) => transformed(rect, *t),
                 None => rect,
             };
-            boxes[i] = Some(union(boxes[i], to_flow(shown)));
+            placed.shown[i] = Some(union(placed.shown[i], to_flow(shown)));
         }
     }
+    placed
+}
 
-    // CSSOM View §7, offsetParent and offsetTop, as Chromium 153 answers
-    // them (tests/data/chrome-layout/offset-parents.chrome.json): the
-    // nearest ancestor that is positioned, or a containing block for
-    // positioned descendants (a transform or a filter), or `body`, or for a
-    // static element a `td`, `th` or `table`; none for the root, `body`, a
-    // fixed element or an element with no box. Offsets are from the offset
-    // parent's padding edge, transforms ignored, except from `body`, whose
-    // own position Chrome never takes off: from the initial containing
+/// Reads every element's boxes out of the paged layout, then the offsets.
+fn read_boxes(
+    dom: &raikiri_dom::Document,
+    cascade: &raikiri_html::CascadeResult,
+    slices: &[PageSlice],
+    area: PaintRect,
+    back: &[usize],
+    page_nodes: usize,
+) -> RaikiriLaid {
+    let n = dom.node_count();
+    let placed = place(dom, cascade, slices, area);
+
+    // CSSOM View §7, offsetParent, offsetLeft and offsetTop, as Chromium 153
+    // answers them (tests/data/chrome-layout/: offset-parents, root-offsets,
+    // body-positioned, root-positioned). The offset parent is the nearest
+    // ancestor that is positioned, or a containing block for positioned
+    // descendants (a transform or a filter), or `body`, or for a static
+    // element a `td`, `th` or `table`; for a fixed element only an ancestor
+    // with a transform or a filter; none for the root, `body` or an element
+    // with no box. Offsets are from the offset parent's padding edge,
+    // transforms ignored. Where the spec says the same of `body`, Chromium
+    // measures from the border edge of the box the element's containing
+    // blocks lead to: `body`'s if it is positioned, else the root element's,
+    // else (an absolute element no box contains) the initial containing
     // block, as with no offset parent.
     let mut out = RaikiriLaid {
         boxes: vec![None; page_nodes],
         offsets: vec![None; page_nodes],
+        sizes: vec![None; page_nodes],
     };
     let computed = |i: usize| cascade.computed.get(i);
     let position_is =
         |i: usize, want: fn(&PositionValue) -> bool| computed(i).is_some_and(|c| want(&c.position));
-    let contains_positioned = |i: usize| {
-        computed(i).is_some_and(|c| {
-            !matches!(c.position, PositionValue::Static)
-                || !c.transform.is_empty()
-                || !c.filter.is_empty()
-        })
-    };
+    let contains_fixed =
+        |i: usize| computed(i).is_some_and(|c| !c.transform.is_empty() || !c.filter.is_empty());
+    let contains_positioned =
+        |i: usize| position_is(i, |p| !matches!(p, PositionValue::Static)) || contains_fixed(i);
     let html = |i: usize, names: &[&str]| {
         dom.get_node(i).is_some_and(|node| {
             node.namespace_uri().is_none() && node.tag_name().is_some_and(|t| names.contains(&t))
         })
     };
     let parent_of = |i: usize| dom.parent_of(i).filter(|&p| p != 0);
+    // The root element, and the body element: the root's first `body` child.
+    let root = (1..n).find(|&i| {
+        dom.parent_of(i) == Some(0) && dom.get_node(i).is_some_and(|x| x.tag_name().is_some())
+    });
+    let body = (1..n).find(|&i| root.is_some() && dom.parent_of(i) == root && html(i, &["body"]));
+    let corner = |i: Option<usize>| i.and_then(|i| placed.first[i]).unwrap_or((0.0, 0.0));
     for i in 1..n {
         let Some(&live) = back.get(i) else { continue };
         if live == NONE || live >= page_nodes {
             continue;
         }
-        out.boxes[live] = boxes[i];
-        let Some(first) = firsts[i] else { continue };
-        if html(i, &["body"]) {
+        out.boxes[live] = placed.shown[i];
+        out.sizes[live] = placed.laid[i].map(|b| (b.width, b.height));
+        let Some(first) = placed.first[i] else {
+            continue;
+        };
+        if Some(i) == body {
             // §7 offsetTop step 1.
             out.offsets[live] = Some((0.0, 0.0));
             continue;
         }
         let fixed = position_is(i, |p| matches!(p, PositionValue::Fixed));
+        let absolute = position_is(i, |p| matches!(p, PositionValue::Absolute));
         let static_self = position_is(i, |p| matches!(p, PositionValue::Static));
         let mut found = None;
-        if !fixed {
-            let mut parent = parent_of(i);
-            while let Some(p) = parent {
-                if contains_positioned(p)
-                    || html(p, &["body"])
+        let mut parent = parent_of(i);
+        while let Some(p) = parent {
+            let is = if fixed {
+                contains_fixed(p)
+            } else {
+                contains_positioned(p)
+                    || Some(p) == body
                     || (static_self && html(p, &["td", "th", "table"]))
-                {
-                    found = Some(p);
-                    break;
-                }
-                parent = parent_of(p);
+            };
+            if is {
+                found = Some(p);
+                break;
             }
+            parent = parent_of(p);
         }
-        out.offsets[live] = Some(match found.filter(|&p| !html(p, &["body"])) {
-            Some(p) => {
-                let edge = firsts[p].unwrap_or(first);
+        let from = match found {
+            Some(p) if Some(p) != body => {
+                let edge = placed.first[p].unwrap_or(first);
                 let border = dom.get_node(p).map(|node| node.layout().border);
                 let (bl, bt) = border.map_or((0.0, 0.0), |b| (f64::from(b.left), f64::from(b.top)));
-                (first.x - (edge.x + bl), first.y - (edge.y + bt))
+                (edge.0 + bl, edge.1 + bt)
             }
-            None => (first.x, first.y),
-        });
+            Some(_) if contains_positioned(body.unwrap_or(0)) => corner(body),
+            Some(_) if absolute && !root.is_some_and(contains_positioned) => (0.0, 0.0),
+            Some(_) => corner(root),
+            None => (0.0, 0.0),
+        };
+        out.offsets[live] = Some((first.0 - from.0, first.1 - from.1));
     }
     out
 }

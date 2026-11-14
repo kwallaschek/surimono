@@ -146,6 +146,13 @@ pub(crate) trait Laid {
     fn offset_position(&self, _node: usize) -> Option<(f64, f64)> {
         None
     }
+
+    /// The size `offsetWidth` and `offsetHeight` round (CSSOM View §7): the
+    /// border box as laid out, before any transform. `None` where the engine
+    /// has no size apart from [`Laid::border_box`]'s. Blitz has none.
+    fn offset_size(&self, _node: usize) -> Option<(f64, f64)> {
+        None
+    }
 }
 
 /// The last layout and what it was made from.
@@ -174,6 +181,17 @@ impl Document {
             // CSSOM View §7: integers, as offsetWidth is.
             return Ok(if which == 6 { at.0 } else { at.1 }.round());
         }
+        if which == 4 || which == 5 {
+            // CSSOM View §7: the border edge size as an integer, which no
+            // transform changes.
+            let size = laid
+                .and_then(|l| {
+                    l.offset_size(id)
+                        .or_else(|| l.border_box(id).map(|b| (b.width, b.height)))
+                })
+                .unwrap_or_default();
+            return Ok(if which == 4 { size.0 } else { size.1 }.round());
+        }
         let Some(b) = laid.and_then(|l| l.border_box(id)) else {
             return Ok(0.0);
         };
@@ -182,9 +200,6 @@ impl Document {
             1 => b.y,
             2 => b.width,
             3 => b.height,
-            // CSSOM View §7: the border edge size as an integer.
-            4 => b.width.round(),
-            5 => b.height.round(),
             _ => 0.0,
         })
     }
