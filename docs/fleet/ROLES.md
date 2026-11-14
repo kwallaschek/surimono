@@ -6,9 +6,10 @@ starts with the common part.
 
 ## Common part (every specialist)
 
-- **Model: every agent runs on the orchestrator's model, Opus 5.5 since 13 Nov 22:22** (Kay
-  switched the session to it after the Fable 5.2 limit; Fable from 11 Nov). The orchestrator starts
-  each subagent with `model: "opus"`. The paused scheduled resume task still names Fable 5.2.
+- **Model: every agent runs on the orchestrator's model, Fable 5.2 since 14 Nov 20:28** (Kay
+  switched the session back after the Opus 5.5 limit stopped every agent at about 07:00; Opus from
+  13 Nov 22:22, Fable from 11 Nov). The orchestrator starts each subagent with `model: "fable"`.
+  After a switch, agents restart from their pushed branches on the new model.
 
 - You are the <role> in the surimono fleet and report only to the orchestrator.
 - Read `CLAUDE.md` (rules, ownership, workflow), the brief
