@@ -768,10 +768,10 @@ fn raikiri_lays_out_as_deep_as_it_can_and_refuses_deeper() {
     assert_eq!(deep_box(Which::Raikiri, depth), "0,0,0,0");
 }
 
-/// Raikiri takes four times Blitz's time and twice its memory a node, and
-/// nothing stops a layout that runs, so its engine lays out at most 20,000
-/// nodes (`MAX_LAYOUT_NODES` in `src/layout_raikiri.rs`): a page of more is
-/// not laid out, and answers as with no box.
+/// Raikiri takes twice Blitz's memory a node, so its engine lays out at most
+/// 20,000 nodes (`MAX_LAYOUT_NODES` in `src/layout_raikiri.rs`): a page of
+/// more is not laid out, and answers as with no box. (The bound is on memory;
+/// it doesn't bound a layout's time.)
 #[cfg(feature = "raikiri")]
 #[test]
 fn raikiri_refuses_a_page_of_more_nodes_than_one_layout_takes() {

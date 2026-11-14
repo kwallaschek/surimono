@@ -143,7 +143,9 @@ pub(crate) trait Laid {
     /// snapping. `None` for a node with no box of its own.
     fn border_box(&self, node: usize) -> Option<BoxRect>;
 
-    /// `offsetLeft` and `offsetTop` of page node `node` (CSSOM View §7).
+    /// `offsetLeft` and `offsetTop` of page node `node`, before rounding
+    /// (CSSOM View §7, but from the edge Chromium measures from where the
+    /// offset parent is `body`: `layout_raikiri.rs`).
     /// `None` where the engine doesn't answer them: zeros. Blitz doesn't.
     fn offset_position(&self, _node: usize) -> Option<(f64, f64)> {
         None

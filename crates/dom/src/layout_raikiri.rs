@@ -23,25 +23,27 @@
 //!   the page's width and height are the viewport (the initial containing
 //!   block, `vw` and `vh`, media queries), but nothing is cut at the page's
 //!   end. Raikiri still paginates, into one page [`UNBROKEN`] px long, so
-//!   that the answers are its paged fragments, and forced page breaks and
-//!   named pages are taken off the measuring cascade ([`unpaged`]): a page
-//!   break does nothing on a screen. So the paged positions *are* the
-//!   continuous ones, and nothing is mapped back. Only a page longer than
-//!   that comes out as more than one page, each then moved to where it
-//!   begins in Raikiri's flow. x and y are from the page area's corner, the
-//!   initial containing block's.
-//! - **Media.** The measuring cascade runs as `screen`, with the page area as
-//!   the viewport: what a Chrome-based tool's scripts measure, and what
-//!   `matchMedia` answers while scripts run (DECISIONS 2026-11-11). Print
-//!   rules apply only when the page is printed.
+//!   that the answers are its paged fragments, and what only a paged medium
+//!   has is taken off the measuring copy (`sheet_unpaged.rs` for the style
+//!   text, [`unpaged`] for the cascade): a page break does nothing on a
+//!   screen. So the paged positions *are* the continuous ones, and nothing
+//!   is mapped back. The page begins [`ABOVE`] px over the flow's start,
+//!   since a script measures there too. x and y are from the page area's
+//!   corner, the initial containing block's. A page with a box as far out as
+//!   Raikiri lays out ([`FARTHEST`]) is not laid out.
+//! - **Media.** The measuring cascade runs as `screen`: the media type a
+//!   Chrome-based tool's scripts see, and what `matchMedia` answers while
+//!   scripts run (DECISIONS 2026-11-11). Print rules apply only when the
+//!   page is printed. The viewport is the page area, which is ours: with an
+//!   author `@page` size it isn't the window a Chrome-based tool has.
 
 use std::panic::{self, AssertUnwindSafe};
 use std::sync::Arc;
 
 use blitz_dom::ns;
 use raikiri_dom::{
-    PageContentInsets, PageLayoutControl, PageLayoutOptions, PageMargins, PageSlice,
-    layout_pages_with_options, resolve_page_geometry,
+    PageLayoutControl, PageLayoutOptions, PageSlice, layout_pages_with_options,
+    resolve_page_geometry,
 };
 use raikiri_html::{
     FontCollectionBuilder, FragmentKind, MINIMAL_UA_CSS, MediaContext, MediaType, PageContextQuery,
@@ -89,10 +91,11 @@ const ABOVE: f32 = 131_072.0;
 const FARTHEST: f64 = 1e7;
 
 /// Most nodes (elements and text) one layout takes. Raikiri takes about
-/// 25 µs and 10 KiB a node (RAIKIRI.md section 5), and nothing stops a layout
-/// once it runs, so this keeps one near half a second and 200 MiB; the page's
-/// own `max_nodes` (100,000) would be 2.5 s and 1 GiB. E3-R4 measures it
-/// again and makes it a limit the caller sets.
+/// 10 KiB a node (RAIKIRI.md section 5), so this keeps one layout near
+/// 200 MiB; the page's own `max_nodes` (100,000) would be 1 GiB. It does not
+/// bound a layout's time, which isn't a matter of the node count alone and
+/// which nothing stops once it runs (E3-01e). E3-R4 measures it again and
+/// makes it a limit the caller sets.
 pub(crate) const MAX_LAYOUT_NODES: usize = 20_000;
 
 /// What the Raikiri engine needs beyond [`LayoutSetup`]'s viewport: the
@@ -678,8 +681,9 @@ struct RaikiriLaid {
     /// moved by its relative offsets and transforms, in continuous
     /// coordinates.
     boxes: Vec<Option<BoxRect>>,
-    /// `offsetLeft` and `offsetTop` (CSSOM View §7): the first fragment's
-    /// border edge, transforms ignored, less the offset parent's edge.
+    /// `offsetLeft` and `offsetTop`: the first fragment's border edge,
+    /// transforms ignored, less the edge Chromium measures from
+    /// ([`read_boxes`]), which for `body` is not CSSOM View §7's.
     offsets: Vec<Option<(f64, f64)>>,
     /// `offsetWidth` and `offsetHeight`: the size of the union of the node's
     /// fragments, transforms ignored.
@@ -919,19 +923,21 @@ fn read_boxes(
 ) -> RaikiriLaid {
     let n = dom.node_count();
 
-    // CSSOM View §7, offsetParent, offsetLeft and offsetTop, as Chromium 153
-    // answers them (tests/data/chrome-layout/: offset-parents, root-offsets,
-    // body-positioned, root-positioned). The offset parent is the nearest
-    // ancestor that is positioned, or a containing block for positioned
-    // descendants (a transform or a filter), or `body`, or for a static
-    // element a `td`, `th` or `table`; for a fixed element only an ancestor
-    // with a transform or a filter; none for the root, `body` or an element
-    // with no box. Offsets are from the offset parent's padding edge,
-    // transforms ignored. Where the spec says the same of `body`, Chromium
-    // measures from the border edge of the box the element's containing
-    // blocks lead to: `body`'s if it is positioned, else the root element's,
-    // else (an absolute element no box contains) the initial containing
-    // block, as with no offset parent.
+    // offsetParent, offsetLeft and offsetTop as Chromium 153 answers them
+    // (tests/data/chrome-layout/: offset-parents, root-offsets,
+    // body-positioned, root-positioned, fixed-containers). The offset parent
+    // is CSSOM View §7's: the nearest ancestor that is positioned, or a
+    // containing block for positioned descendants, or `body`, or for a
+    // static element a `td`, `th` or `table`; for a fixed element only an
+    // ancestor that contains fixed boxes; none for the root, `body` or an
+    // element with no box. Offsets are from the offset parent's padding
+    // edge, transforms ignored, as in §7. **Where the offset parent is
+    // `body` Chromium and §7 part, and this follows Chromium** (DECISIONS,
+    // E3-R1): §7 says `body`'s padding edge, Chromium measures from the
+    // border edge of the box the element's containing blocks lead to:
+    // `body`'s if it is positioned, else the root element's, else (an
+    // absolute element no box contains) the initial containing block, as
+    // with no offset parent.
     let mut out = RaikiriLaid {
         boxes: vec![None; page_nodes],
         offsets: vec![None; page_nodes],

@@ -402,7 +402,8 @@ fn page_breaks_on_pseudo_elements_do_nothing_either() {
 /// `target-text()`. Chromium drops each declaration, so an earlier one
 /// still holds (`position: absolute; position: running(x)` is absolute); the
 /// measuring copy gets the text without them (`src/sheet_unpaged.rs`).
-/// `string-set`, `bookmark-*` and `@page` margin boxes move nothing.
+/// `string-set`, `bookmark-*`, a page float and `@page` margin boxes move
+/// nothing.
 #[test]
 fn paged_media_declarations_are_dropped_as_a_browser_drops_them() {
     // The half pixel of the inline elements (#f, #t, #t2, #t3).

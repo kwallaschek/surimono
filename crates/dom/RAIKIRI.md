@@ -309,7 +309,8 @@ copies the tree and lays it out (its "first layout" column).
 - **Bounds.** At 25 µs and 10 KiB a node, a layout of a page at `max_nodes`
   (100,000) would take about 2.5 s and 1 GiB. `max_layout_nodes` (proposed in
   `DESIGN.md` "Limits") would have to be about 20,000 with Raikiri to keep one
-  layout near half a second and 200 MiB.
+  layout near half a second and 200 MiB. (Section 9: the bound as built keeps
+  the memory; it doesn't bound a layout's time.)
 
 ## 6. Agreement with Chrome
 
@@ -537,14 +538,33 @@ style attribute the element's inline style. The mirror is dropped when the
 layout has been read: a laid-out page keeps three small records a node, not
 Raikiri's 10 KiB.
 
-**Media: `screen`**, with the page area as the viewport (`MediaContext` and
-`CascadeOptions::viewport`). The cascade runs twice, since the page area is
-known only from the first one's `@page`. It is what Chrome's scripts see, and
-what `matchMedia` answers while scripts run. The `media` probe has it:
-`@media print` and `<style media=print>` don't apply, `@media screen`,
-`(min-width)`, `screen and (min-height)`, `vw` and `vh` do. A page whose print
-styles change sizes prints with sizes its scripts didn't measure, as it does
-from Chrome.
+**The style text** is what a browser would keep of the page's. Raikiri is a
+printer's layout and knows CSS Generated Content for Paged Media, which no
+browser does: Chromium drops `float: footnote`, `position: running()` and a
+`content` with `string()`, `element()`, `leader()`, `target-counter()`,
+`target-counters()` or `target-text()` as unknown declarations, so an earlier
+declaration still holds and the element is laid out in its line or in the flow.
+`src/sheet_unpaged.rs` takes those declarations out of every sheet and style
+attribute before Raikiri reads them, token by token (a string or a comment that
+spells one is left alone). The `paged-only` probe has each of them, with
+`string-set`, `bookmark-*` and `@page` margin boxes, which move nothing. One
+that reaches the cascade another way (`float: var(--x)`) is taken off the
+cascade afterwards, with the breaks; what it overrode is then lost.
+
+**Media: `screen`**, the media type Chrome's scripts see and what `matchMedia`
+answers while scripts run. The `media` probe has it: `@media print` and
+`<style media=print>` don't apply, `@media screen`, `(min-width)` and `screen
+and (min-height)` do. A page whose print styles change sizes prints with sizes
+its scripts didn't measure, as it does from Chrome. The cascade runs twice,
+since the page area is known only from the first one's `@page`.
+
+**The viewport is the page area**, a deliberate deviation from a Chrome-based
+tool, whose scripts see a window whatever the page will be: the setup's page,
+or the author's `@page` size and margins where the sheet has them
+(`MediaContext::with_viewport` and `CascadeOptions::viewport` for `vw`, `vh`
+and the width and height queries). The `at-page` probe pins it: with `@page {
+size: 400px 300px; margin: 50px }` a block is 300 px wide and `50vw` is 150,
+where Chrome in its 800 px window has 800 and 400.
 
 **Coordinates: one continuous layout.** Raikiri's layout is one flow in which
 pagination pushes what would cross a page's end to the next page, so positions
@@ -563,72 +583,119 @@ at row 2,000). The ways back that were weighed:
   page's height; the cut into pages gets one step of 16,777,216 px
   (`PageLayoutOptions::page_steps`), and the fragments are projected onto a page
   that long. Forced page breaks and named pages are taken off the measuring
-  cascade (`break-before` and `break-after`: `page` becomes `auto`, `always`
-  becomes `column`; `page` becomes `auto`), since a page break does nothing on
-  a screen; a forced column break stays. The answers are still the paged
-  fragments, of a page nothing is cut on, so nothing is mapped back.
+  cascade, on elements and on pseudo-elements (`break-before` and
+  `break-after`: `page` becomes `auto`, `always` becomes `column`; `page`
+  becomes `auto`), since a page break does nothing on a screen; a forced column
+  break stays. The answers are still the paged fragments, of a page nothing is
+  cut on, so nothing is mapped back.
 
 The probes: `breaks` (60 rows, then a 700 px box, in a 600 px viewport; 185
 elements, all Chrome's), `report(2000)` (last row at 43,978), `forced-breaks`
-(every forced page break ignored, the column break kept) and `viewport-height`
-(`height: 100%`, `100vh`, `bottom: 0`, a fixed box, content to 1,805 px). A page
-longer than 16,777,216 px comes out as more pages, stacked as Raikiri has them;
-past 10,000 more it is refused.
+and `pseudo-breaks` (every forced page break ignored, on pseudo-elements too,
+the column break kept) and `viewport-height` (`height: 100%`, `100vh`,
+`bottom: 0`, a fixed box, content to 1,805 px).
+
+**Above the page's top.** Raikiri's fragments begin at their page's top: a box
+above the page area's top edge is cut there or has no fragment, and scripts
+measure text there (`position: absolute; top: -9999px`). The page slice the
+fragments are projected from is therefore made to begin 131,072 px above the
+flow's start (`PageSlice::content_origin_y`), on a page that much longer, and
+that much is taken off every answer again; a fixed box, which Raikiri places in
+the page area and not in the flow, is left where it is. 131,072 is a power of
+two, so the 1/64 px Chromium lays out in survives the `f32` for the first
+131,072 px of a page, and it covers `-9999px` and `-99999px`. A box further up
+still has no box. One thing is placed by the flow position its page begins at
+and is on no page that begins elsewhere: a table's header and footer groups.
+A page with one is projected a second time from the flow's start, and what has
+no box yet takes it from there. Probes: `above-top` (26 elements) and
+`margin-above`, all Chrome's but for the half pixel of inline boxes.
+
+**As far as Raikiri lays out.** Raikiri keeps every length and position within
+10,000,000 px of zero (`MAX_TAFFY_MAGNITUDE`) and says so only on standard
+error: a box of 17,000,000 px ends at 10,000,000 and the next one begins there,
+where Chromium has it at 17,000,000 (the review of #192 measured Chromium's
+own bound at 33,554,432). So
+the layout is always one page, and a number at that distance isn't the page's.
+A page with a box that reaches 10,000,000 px in any direction is not laid out:
+every query answers as with no box, as for a page over any other bound
+(`too-long`; `raikiri_refuses_a_page_with_a_box_past_what_it_lays_out`).
 
 **Answers**, by page node id:
 
 - `getBoundingClientRect`: the union of the node's box and replaced fragments,
   each moved by the inline relative offsets of the node and its ancestors
   (`Node::ifc_relative_offsets`) and by the painter's transform
-  (`page_paint_transforms`), of which the bounding box is taken.
+  (`page_paint_transforms`), of which the bounding box is taken. A table's
+  fragment is its grid's box; the element's is the wrapper around the grid and
+  the captions (`Node::table_grid_box`). `display: contents` has no box.
 - `offsetWidth`, `offsetHeight`: the same union before transforms.
 - `offsetLeft`, `offsetTop`: where the first fragment begins, before
   transforms; for an inline element on several lines, which has one fragment
   around all of them, where its first line's piece begins
   (`Node::ifc_inline_boxes`). They are measured from the offset parent's padding
-  edge, and where the offset parent is `body` as Chromium does it: from `body`'s
-  border edge if `body` is positioned, else from the root element's border edge,
-  else, for an absolute box no element contains, from the initial containing
-  block (`root-offsets`, `body-positioned`, `root-positioned`). A fixed box's
-  offset parent is an ancestor with a transform or a filter, or none.
+  edge. **Where the offset parent is `body`, Chromium and CSSOM View §7 part,
+  and the engine follows Chromium**, since these are numbers scripts compute
+  with: §7 says `body`'s padding edge; Chromium measures from `body`'s border
+  edge if `body` is positioned, else from the root element's border edge, else,
+  for an absolute box no element contains, from the initial containing block
+  (`root-offsets`, `body-positioned`, `root-positioned`). A fixed box's offset
+  parent is an ancestor that contains fixed boxes (a transform, a filter,
+  `contain: layout` or `paint`, `will-change` naming one of them), or none.
   `offsetParent` itself still answers null (E3-01c).
+- All four are whole numbers: the nearest, and of two equally near the greater,
+  as Chromium rounds them (`fractions`: -2.5 is -2, 2.5 is 3).
 
 **Hidden API used**, all in that one file: `set_ifc_parallel_build`,
 `layout_pages_with_options` with `PageLayoutOptions`, `PageLayoutControl` and
 `PageSlice`, `resolve_page_geometry`, `project_pages_with_control`,
 `page_fragments`, `page_paint_transforms`, `Node::ifc_relative_offsets`,
-`Node::ifc_inline_boxes`; and the public fields `CascadeResult::computed` and
-`page_values`, which it changes for the breaks. Not used: `layout_single_page`,
+`Node::ifc_inline_boxes`, `Node::generates_no_box`; and the public fields
+`CascadeResult::computed`, `pseudo` and `page_values`, which it changes for
+what only a paged medium has. Not used: `layout_single_page`,
 `layout_origin_of`, `scene_geometry`.
 
 **Bounds and failures.** A page is refused (answers as with no box) over
-20,000 nodes (`MAX_LAYOUT_NODES`: about half a second and 200 MiB at section 5's
-rates), over the byte and shape bounds the Blitz engine has, and where Raikiri
-reports a bound of its own (cascade limits, pages, fragments, a paragraph's
-size, 256 levels). Any other error of Raikiri's, and a panic inside it, ends
-the call with `DomError::LayoutFailed`; the page's tree is untouched, since the
-layout read a copy. The deadline is looked at per copied node, before each
-cascade and after the layout. **Nothing stops a layout that runs**: Raikiri
-looks at its abort check between pages, and there is one page. A time bound
-(E3-01e) needs either a check inside Raikiri's layout pass (upstream), or the
-node bound set from a measured rate with the layout's time counted against the
-script's; until then the engine stays hidden.
+20,000 nodes (`MAX_LAYOUT_NODES`, about 200 MiB at section 5's rate), over the
+byte and shape bounds the Blitz engine has, with a box as far out as Raikiri
+lays out (above), and where Raikiri reports a bound of its own (cascade limits,
+pages, fragments, a paragraph's size, 256 levels). Any other error of
+Raikiri's, and a panic inside it, ends the call with `DomError::LayoutFailed`;
+the page's tree is untouched, since the layout read a copy. The deadline is
+looked at per copied node, before each cascade and after each projection.
+**Nothing stops a layout that runs, and the node bound doesn't bound its
+time**: a layout's time is not a matter of how many nodes there are alone
+(review of #192), Raikiri looks at its abort check between pages, and there is
+one page. A time bound (E3-01e) needs a check inside Raikiri's layout pass
+(upstream) or a layout that can be abandoned; until then the engine stays
+hidden.
 
 **What still differs from Chrome** on the probes, each kept in a test with
-Chrome's value as the expectation:
+Chrome's value as the expectation and our numbers pinned beside it (boxes are
+compared to a twentieth of a pixel):
 
 | Difference | Probes | Whose |
 |---|---|---|
-| Inline boxes half a pixel low where a line's leading is odd: on the probes Chromium gives the upper half of the leading rounded down, so its baselines are on whole pixels; Raikiri halves it. Boxes are within the half pixel allowed, `offsetTop` comes out one more | 11 elements: spans and an inline-block in 16 px and 20 px lines of 12px Noto Sans | Raikiri |
+| Inline boxes half a pixel low where a line's leading is odd: on the probes Chromium gives the upper half of the leading rounded down, so its baselines are on whole pixels; Raikiri halves it. `offsetTop` comes out one more | 30 elements on 10 pages: spans and inline-blocks in 16, 18 and 20 px lines | Raikiri |
 | `(orientation: ...)` media queries never match | `media` #o | Raikiri |
 | No box for `<br>` (Chrome: the place and height of the break) | `forced-breaks` | Raikiri |
 | A `display: block` canvas with `width` and `height` attributes is the container's width (section 6) | `boxes` #cv | Raikiri |
 | Japanese spaced against Latin letters and digits (R1) | `text` #jas | Raikiri |
+| `translate`, `scale` and `rotate` as properties of their own do nothing | `fixed-containers` #m, #fx, #ro | Raikiri |
+| `perspective` contains no fixed box | `fixed-containers` #fx3 | Raikiri |
+| `col` and `colgroup` have no box | `table-parts` | Raikiri |
+| `zoom` does nothing | `more-gaps` #z | Raikiri |
+| A span in `writing-mode: vertical-rl` is 4 px to the right | `more-gaps` #vs | Raikiri |
+| A singular transform (`scale(0)`) leaves no box (Chrome: an empty rectangle at its place) | `more-gaps` #z0, #zx | Raikiri gives no transform for it |
+| `position: sticky; bottom: 0` is where the flow has it, not at the viewport's bottom | `more-gaps` #s2 | Raikiri |
+| A page with a box that reaches 10,000,000 px is not laid out | `too-long` | ours, for Raikiri's bound |
+| The viewport is the author's `@page` area | `at-page` | ours, deliberate |
+| A box more than 131,072 px above the page's top has no box | not probed | ours, for Raikiri's fragments |
 
-Not probed, known from reading: a singular transform (`scale(0)`) gives no box
-where Chrome gives an empty rectangle at its place; transforms and relative
-offsets of boxes inside columns are not in `page_paint_transforms`; the painter
-turns a box about its transform origin snapped to whole pixels.
+Not probed, known from reading: transforms and relative offsets of boxes
+inside columns are not in `page_paint_transforms`; the painter turns a box
+about its transform origin snapped to whole pixels; a table header group above
+the page's top is cut there; `counter(page)` in an element's `content` counts
+Raikiri's pages.
 
 **Same input, same output**: every number of every probe page is the same
 twice in one process and in a second process
