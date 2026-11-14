@@ -11,6 +11,17 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+# Not read by Cargo. CI's rust-cache step keys its cache on Cargo.lock and every
+# workspace manifest (parsed, so a comment changes nothing), and saves nothing
+# when that key already has a cache. When scripts/ci.sh starts building
+# something new while the lock and the manifests stay as they are, raise this
+# number in the same pull request; otherwise every CI run builds the new part
+# from scratch until a manifest next changes. The fleet can't change the cache
+# key in the workflow YAML.
+# 1: surimono-dom's `raikiri` feature (P2-PKG-09).
+[package.metadata.surimono]
+ci-cache-epoch = 1
+
 [dependencies]
 surimono.workspace = true
 
