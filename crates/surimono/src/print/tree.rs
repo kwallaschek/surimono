@@ -310,7 +310,7 @@ impl Tree {
                     out.push_str(&without_mark(e.local()));
                     for a in &e.attrs {
                         out.push(' ');
-                        if let Some(prefix) = &a.name.prefix {
+                        if let Some(prefix) = attribute_prefix(&a.name) {
                             out.push_str(prefix);
                             out.push(':');
                         }
@@ -373,6 +373,25 @@ fn without_mark(text: &str) -> Cow<'_, str> {
         Cow::Owned(text.replace('\u{feff}', ""))
     } else {
         Cow::Borrowed(text)
+    }
+}
+
+/// The prefix of an attribute's serialized name (HTML §13.3, "serializing HTML
+/// fragments"): by its namespace, none for no namespace and for `xmlns`
+/// itself, `xml`, `xmlns` or `xlink` for those, and its own otherwise. Never
+/// an empty one: html5ever 0.35 gives `xmlns` on a foreign element the prefix
+/// `Some("")`, which written as it is would print `:xmlns`.
+fn attribute_prefix(name: &QualName) -> Option<&str> {
+    if name.ns == ns!() {
+        None
+    } else if name.ns == ns!(xml) {
+        Some("xml")
+    } else if name.ns == ns!(xmlns) {
+        (name.local != *"xmlns").then_some("xmlns")
+    } else if name.ns == ns!(xlink) {
+        Some("xlink")
+    } else {
+        name.prefix.as_deref().filter(|p| !p.is_empty())
     }
 }
 
@@ -909,5 +928,60 @@ pub(super) mod tests {
         for _ in 0..1_500 {
             assert_same_tree(&scrambled(&mut seed));
         }
+    }
+
+    fn written(html: &str) -> String {
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::from_secs(60));
+        ours(html)
+            .to_html(usize::MAX, &gate)
+            .unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    /// HTML §13.3, an attribute's serialized name: by its namespace, so the
+    /// `xmlns` html5ever gives the prefix `Some("")` is written with no colon,
+    /// and `xmlns:xlink`, `xlink:href` and `xml:lang` keep theirs (P2-DOM-13).
+    #[test]
+    fn foreign_attributes_are_written_by_namespace() {
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" \
+            xmlns:xlink=\"http://www.w3.org/1999/xlink\" xml:lang=\"en\">\
+            <use xlink:href=\"#a\"></use></svg>\
+            <math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi>x</mi></math>";
+        // A standards-mode page is written with its doctype.
+        let page = format!("<!doctype html><html><head></head><body>{svg}</body></html>");
+        let out = written(&page);
+        assert_eq!(out, page);
+        // What is written parses to the same tree, so the printer reads it.
+        assert_eq!(written(&out), out);
+        assert_same_tree(&out);
+    }
+
+    /// The page a printer gets: an `xmlns` from the markup and one a script
+    /// set (KaTeX's `setAttribute`) are both written `xmlns="…"`.
+    #[test]
+    fn a_printed_page_writes_xmlns_with_no_colon() {
+        let font = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/fonts/NotoSans-Regular.ttf");
+        let bytes = std::fs::read(&font).unwrap_or_else(|e| panic!("{}: {e}", font.display()));
+        let renderer = crate::Renderer::new(crate::Options::new().font(bytes))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let page = "<!doctype html><html><head></head><body>\
+            <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1 1\"><rect width=\"1\" height=\"1\"></rect></svg>\
+            <script>const m = document.createElementNS('http://www.w3.org/1998/Math/MathML', 'math');\
+            m.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML'); m.textContent = 'x';\
+            document.body.append(m);</script></body></html>";
+        let out = renderer
+            .render_page(page)
+            .unwrap_or_else(|e| panic!("{e}"))
+            .html;
+        assert!(
+            out.contains("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1 1\">"),
+            "{out}"
+        );
+        assert!(
+            out.contains("<math xmlns=\"http://www.w3.org/1998/Math/MathML\">x</math>"),
+            "{out}"
+        );
+        assert!(!out.contains(":xmlns"), "{out}");
     }
 }
