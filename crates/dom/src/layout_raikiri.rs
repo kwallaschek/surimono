@@ -632,6 +632,10 @@ fn union(a: Option<BoxRect>, b: BoxRect) -> BoxRect {
     }
 }
 
+fn is_finite(r: BoxRect) -> bool {
+    r.x.is_finite() && r.y.is_finite() && r.width.is_finite() && r.height.is_finite()
+}
+
 /// What the fragments say of each mirror node, in continuous coordinates.
 struct Placed {
     /// The union of the node's fragments as the page shows them: moved by
@@ -735,6 +739,10 @@ fn place(
                 height: f64::from(r.height),
             };
             let plain = to_flow(rect);
+            // A box Raikiri puts nowhere a number can say has no box.
+            if !is_finite(plain) {
+                continue;
+            }
             if index < first_index[i] {
                 first_index[i] = index;
                 // The first line's piece, where the fragment is around more.
@@ -751,7 +759,10 @@ fn place(
                 Some(Some(t)) => transformed(rect, *t),
                 None => rect,
             };
-            placed.shown[i] = Some(union(placed.shown[i], to_flow(shown)));
+            let shown = to_flow(shown);
+            if is_finite(shown) {
+                placed.shown[i] = Some(union(placed.shown[i], shown));
+            }
         }
     }
     placed
@@ -891,6 +902,25 @@ mod tests {
         assert_eq!((t.x, t.y, t.width, t.height), (0.0, 40.0, 100.0, 20.0));
         let t = transformed(r, PaintTransform::new(0.0, 1.0, -1.0, 0.0, 0.0, 0.0));
         assert_eq!((t.x, t.y, t.width, t.height), (-30.0, 0.0, 10.0, 50.0));
+    }
+
+    #[test]
+    fn a_rectangle_no_number_can_say_is_not_finite() {
+        let r = |x: f64, width: f64| BoxRect {
+            x,
+            y: 0.0,
+            width,
+            height: 1.0,
+        };
+        assert!(is_finite(r(-1e30, 1e300)));
+        assert!(!is_finite(r(f64::NAN, 1.0)));
+        assert!(!is_finite(r(0.0, f64::INFINITY)));
+        // What a transform of an `f32`'s largest numbers gives.
+        let t = transformed(
+            PaintRect::new(0.0, 0.0, 1e30, 1.0),
+            PaintTransform::new(1e30, 0.0, 0.0, 1.0, 0.0, 0.0),
+        );
+        assert!(!t.width.is_finite());
     }
 
     #[test]

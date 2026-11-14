@@ -817,11 +817,13 @@ fn raikiri_answers_for_odd_pages_without_a_fault() {
                  const all = [r.x, r.y, r.width, r.height, e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight];
                  document.documentElement.remove();
                  all.push(e.getBoundingClientRect().width, e.offsetTop);
-                 String(all.every(Number.isFinite))",
+                 all.map(String).join()",
             )
             .unwrap_or_else(|e| format!("{e:?}"))
         });
-        assert_eq!(got, "true", "{body}");
+        // An SVG element has no offsets: `undefined`.
+        let finite = |v: &str| v == "undefined" || v.parse::<f64>().is_ok_and(f64::is_finite);
+        assert!(got.split(',').all(finite), "{body}: {got}");
     }
 }
 
