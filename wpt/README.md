@@ -81,21 +81,33 @@ of 848 (scrolling and input tests that need a real driver), domparsing 909 of 91
 timers and microtasks 34 of 34. Per URL, the baseline's count equals wpt.fyi's or is
 lower, never higher. dom/events is the one that matters: it is 11.8% short, so 524
 passes would meet 70% of 748 and be 61.8% of 848. Those wpt.fyi counts are in
-`slices.toml` (`[wpt_fyi]`), and `compat.py` prints every rate on both denominators;
-where the two fall on either side of a target, report both.
+`slices.toml` (`[wpt_fyi]`), and `compat.py` prints every rate on both denominators,
+each with the target and its own status. Where the two fall on either side of a
+target, both tables say so, the first in its status cell, and a sentence under the
+second gives both rates; neither is the verdict, so report both. Today that is
+dom/events: 75.7% on our baseline, 66.7% on wpt.fyi's count, against 70%.
 
 **dom/events's 100**, URL by URL against that run's summary (`results_url` of
 `https://wpt.fyi/api/runs/5143154416943104`, where each URL has `c`, its passed and
 total subtests). 99 are in 67 test URLs whose pages load `/resources/testdriver.js`,
 WPT's way to have WebDriver send real input (wheel, touch, clicks, keys). Here
 `testdriver-vendor.js` is the empty file of the checkout, where wptrunner serves its
-own, so no input arrives and Chromium doesn't pass them: 40 in `non-cancelable-when-passive/`
+own, so no input arrives. The 99 are: 40 in `non-cancelable-when-passive/`
 (wheel, mousewheel, touchstart and touchmove listeners, passive and not, on five
 targets), 35 in `scrolling/`, 9 in `Event-dispatch-on-disabled-elements.html`, 6 in
 `handler-count.html`'s three variants, 4 in `Event-dispatch-redispatch.html`, 2 in
 `no-focus-events-at-clicking-editable-content-in-link.html`, and 1 each in
 `click-on-absolute-pseudo.html`, `focus-event-document-move.html` and
-`pointer-event-document-move.html`. The last one needs no driver:
+`pointer-event-document-move.html`. 87 of the 99 don't pass in Chromium here. The
+other 12 do pass in `baseline/chrome.json`: 8 of the 9 subtests of
+`Event-dispatch-on-disabled-elements.html`, 2 of the 4 of
+`Event-dispatch-redispatch.html` and 2 of the 5 of
+`scrolling/scrollend-event-for-user-scroll.html`. Each of those three tests ends
+`TIMEOUT`, as another of its subtests waits for the driver, and the scoring above
+leaves a test Chromium didn't finish out whole, so its passes go with it. surimono
+reports `PASS` for 9 of the 100, in neither rate: 8 of those 12, and "Redispatching
+event which is being dispatched", which Chromium times out on here. The last of the
+100 needs no driver:
 `scrolling/scrollend-event-fired-after-layout-clamping.html` passes in wpt.fyi's
 Chrome 156 and fails in the pinned 153, which fires no `scrollend` after a layout
 clamp. The other areas: dom/nodes's 33 are in 12 URLs (12 in
