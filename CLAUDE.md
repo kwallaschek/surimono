@@ -130,6 +130,13 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   test; GitHub's check runs (and `needs_result`, once the publish-job YAML is live) are
   the authoritative result.
 
+- CI's build cache is keyed on `Cargo.lock` and the manifests and saves nothing on an exact
+  hit. When `scripts/ci.sh` starts building something new while both stay as they are, raise
+  `ci-cache-epoch` in `crates/cli/Cargo.toml` (`[package.metadata.surimono]`) in the same pull
+  request, or every later run builds the new part from scratch.
+- `scripts/ci.sh` lints and tests `surimono-dom` a second time with `--features raikiri`; there
+  is no option to skip it. The macOS and arm64 jobs test default features only.
+
 ## Security findings in other projects
 
 Follow the upstream project's own security policy. Where it asks for a private

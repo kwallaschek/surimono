@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sat 14 Nov 2026, 22:10)
+## Now (Sun 15 Nov 2026, 02:10)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Fable 5.2 since
@@ -32,11 +32,16 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Merged 14 Nov evening:** #189 E3-R1 stage A (21:25: the `raikiri` feature, ICU 2.2 to 2.4,
   cargo-deny reads every feature; full.yml on that merge was green on every job, ASan included) and #190 P2-DOM-13 (22:10: the parsed `xmlns` prefix; katex's output now equals
   Chrome's DOM). No PR open in review.
-- **Stopped by the Fable limit at about 21:55, resume after 00:30 on 15 Nov** (a scheduled message
-  to this session at 00:35 does it; otherwise SendMessage to the same agents): E3-R1 stage B (the
-  Raikiri engine, branch e3-r1b at 9cc548c3, pushed, no PR yet) and P2-PKG-09 (PR #191 at 4eeec1b8,
-  green on CI: CI lints and tests the `raikiri` feature; needs a fresh reviewer; must merge before
-  stage B).
+- **Merged 15 Nov 02:10:** #191 P2-PKG-09 (CI lints and tests the `raikiri` feature). Main's first
+  linux job after it is cold once (about 20 min), then about 12.
+- **Open PR, in fresh review (Fable, since 01:25):** #192 E3-R1 stage B (the Raikiri engine behind
+  the seam, hidden; 16 of 16 Chromium comparison tests pass, five Raikiri differences pinned). Main
+  was merged into e3-r1b after #191 so CI runs the feature steps on it; merge only when that run
+  is green at the exact head and the reviewer approves that head. Its DECISIONS lines and
+  follow-ups are in an orchestrator comment on the PR.
+- The agents stopped once more on the Fable limit (14 Nov 21:55 to 15 Nov 00:35) and were resumed.
+- Clean /home/claude/target only while holding the build lock (`flock` on
+  `/home/claude/target/.fleet-build-lock`): a cleanup at 00:35 broke a running gate.
 - **Next for conformance:** P2-CF-14 and P2-CF-15 (COMPAT corrections, checkpoint-3 regenerated:
   6 of 6 outputs equal Chrome's DOM), then the WPT rerun for the checkpoint-3 package (P2-ORC-04).
 - Finished worktrees were removed on 14 Nov (disk was full: 240 MB free, now about 6 GB); the
@@ -49,7 +54,7 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and wait for a
-complete green full.yml on main. Then: reviews of the E3-R1 stage B and P2-PKG-09 PRs; merge; then
+complete green full.yml on main. Then: the review of #192 (E3-R1 stage B); merge; then
 Q-ORC-03 (history rewrite) in the first moment with no open PR; then by value: E3-R1, Q-PKG-04
 (Japanese spacing for Raikiri), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in
 CI), P2-PKG-05, P2-DOM-11, P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11,
