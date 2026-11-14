@@ -84,6 +84,24 @@ passes would meet 70% of 748 and be 61.8% of 848. Those wpt.fyi counts are in
 `slices.toml` (`[wpt_fyi]`), and `compat.py` prints every rate on both denominators;
 where the two fall on either side of a target, report both.
 
+**dom/events's 100**, URL by URL against that run's summary (`results_url` of
+`https://wpt.fyi/api/runs/5143154416943104`, where each URL has `c`, its passed and
+total subtests). 99 are in 67 test URLs whose pages load `/resources/testdriver.js`,
+WPT's way to have WebDriver send real input (wheel, touch, clicks, keys). Here
+`testdriver-vendor.js` is the empty file of the checkout, where wptrunner serves its
+own, so no input arrives and Chromium doesn't pass them: 40 in `non-cancelable-when-passive/`
+(wheel, mousewheel, touchstart and touchmove listeners, passive and not, on five
+targets), 35 in `scrolling/`, 9 in `Event-dispatch-on-disabled-elements.html`, 6 in
+`handler-count.html`'s three variants, 4 in `Event-dispatch-redispatch.html`, 2 in
+`no-focus-events-at-clicking-editable-content-in-link.html`, and 1 each in
+`click-on-absolute-pseudo.html`, `focus-event-document-move.html` and
+`pointer-event-document-move.html`. The last one needs no driver:
+`scrolling/scrollend-event-fired-after-layout-clamping.html` passes in wpt.fyi's
+Chrome 156 and fails in the pinned 153, which fires no `scrollend` after a layout
+clamp. The other areas: dom/nodes's 33 are in 12 URLs (12 in
+`Document-characterSet-normalization-1.html`, 12 in seven `moveBefore/` tests, 6 in
+`Document-createEvent.https.html`, 3 in three others) and domparsing's 4 in three.
+
 ```json
 {
   "schema": 1,
@@ -260,7 +278,9 @@ The runner writes `wpt-results.json`, which `compat.py --wpt` reads:
 
 `compat.py` scores each area against `baseline/chrome.json` and prints a table
 with the target, the commonest causes and every test that doesn't pass in full, and
-refuses results from another WPT commit.
+refuses results from another WPT commit. `--wpt` is one of its five inputs: the whole
+command that regenerates or checks `docs/COMPAT.md` is in `fixtures/README.md`,
+"Regenerating docs/COMPAT.md".
 
 `scripts/ci/wpt.sh` runs the suite nightly and publishes `wpt-results.json` to the
 `ci-results` branch, with no verdict: the runner exits 0 whatever the tests
