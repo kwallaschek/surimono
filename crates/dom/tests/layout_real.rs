@@ -328,7 +328,18 @@ fn text_is_measured_with_the_fonts_given() {
         let chrome = 67.572_494_506_835_94;
         assert!(n[2] >= chrome && n[2] < chrome + 1.0, "width {}", n[2]);
         // One line box of `line-height: 20px` (CSS 2.1 §10.8.1).
-        assert_eq!((n[0], n[1], n[3]), (0.0, 0.0, 20.0), "{got}");
+        assert_eq!((n[0], n[3]), (0.0, 20.0), "{got}");
+        // The line also holds the strut of `body`'s own font (16px Noto Sans
+        // here), below whose baseline the box's baseline can't sit, so the
+        // box is 3 px down in Chromium 153: tests/data/chrome-layout/
+        // text.chrome.json, #t, this span in a parent of that font.
+        match which {
+            // A gap Blitz keeps (DECISIONS 2026-11-14): the box at the top.
+            Which::Blitz => assert_eq!(n[1], 0.0, "{got}"),
+            // Within the half pixel of an inline box (RAIKIRI.md section 9).
+            #[cfg(feature = "raikiri")]
+            Which::Raikiri => assert!((n[1] - 3.0).abs() <= 0.5, "{got}"),
+        }
     }
 }
 
@@ -757,6 +768,63 @@ fn raikiri_lays_out_as_deep_as_it_can_and_refuses_deeper() {
     assert_eq!(deep_box(Which::Raikiri, depth), "0,0,0,0");
 }
 
+/// Raikiri takes four times Blitz's time and twice its memory a node, and
+/// nothing stops a layout that runs, so its engine lays out at most 20,000
+/// nodes (`MAX_LAYOUT_NODES` in `src/layout_raikiri.rs`): a page of more is
+/// not laid out, and answers as with no box.
+#[cfg(feature = "raikiri")]
+#[test]
+fn raikiri_refuses_a_page_of_more_nodes_than_one_layout_takes() {
+    let boxes = |n: usize| "<p></p>".repeat(n);
+    assert_eq!(
+        outcome(&small_box(Which::Raikiri, String::new(), boxes(19_900))),
+        LAID_OUT
+    );
+    assert_eq!(
+        outcome(&small_box(Which::Raikiri, String::new(), boxes(20_000))),
+        NOT_LAID_OUT
+    );
+}
+
+/// Pages a layout engine might trip on. Each is laid out or refused and the
+/// queries answer with finite numbers; none ends the script's call with a
+/// fault. Among them the two ways a page is longer than the one unbroken
+/// page the engine lays out on (16,777,216 px): into more of Raikiri's pages,
+/// and into more than it makes (10,000), which is refused.
+#[cfg(feature = "raikiri")]
+#[test]
+fn raikiri_answers_for_odd_pages_without_a_fault() {
+    for body in [
+        "",
+        "<div id=a style=\"transform:scale(0);width:5px;height:5px\"></div>",
+        "<div id=a style=\"transform:matrix(1e30,1e30,1e30,1e30,1e30,1e30);height:5px\"></div>",
+        "<div style=\"height:17000000px\"></div><div id=a style=\"height:5px\"></div>",
+        "<div style=\"height:1e12px\"></div><div id=a style=\"height:5px\"></div>",
+        "<div style=\"columns:2\"><div id=a style=\"position:relative;top:3px;transform:rotate(45deg)\">x</div></div>",
+        "<table><caption id=a>c</caption><tr style=\"break-before:page\"><td>x</td></tr></table>",
+        "<svg id=a width=1e9 height=-5></svg>",
+        "<div id=a style=\"display:contents\"><span style=\"position:fixed\">x</span></div>",
+        "<p id=a style=\"font-size:0\">x</p>",
+        "<p id=a style=\"margin:-1e7px;padding:1e7px\">x</p>",
+        "<style>html { display: none }</style><p id=a>x</p>",
+        "<style>body { display: contents } html { columns: 3; position: fixed }</style><p id=a>x</p>",
+    ] {
+        let html = format!("<!doctype html><html><body style=\"margin:0\">{body}</body></html>");
+        let got: String = on_layout_thread(move || {
+            let mut rt = runtime(Which::Raikiri, &html);
+            rt.eval(
+                "const e = document.getElementById('a') || document.body, r = e.getBoundingClientRect();
+                 const all = [r.x, r.y, r.width, r.height, e.offsetLeft, e.offsetTop, e.offsetWidth, e.offsetHeight];
+                 document.documentElement.remove();
+                 all.push(e.getBoundingClientRect().width, e.offsetTop);
+                 String(all.every(Number.isFinite))",
+            )
+            .unwrap_or_else(|e| format!("{e:?}"))
+        });
+        assert_eq!(got, "true", "{body}");
+    }
+}
+
 fn resident_kib() -> u64 {
     std::fs::read_to_string("/proc/self/statm")
         .ok()
@@ -784,14 +852,16 @@ fn report(rows: usize) -> String {
 }
 
 /// The numbers in DESIGN.md, "Layout queries (phase 3)". Run with
-/// `--release -- --ignored --nocapture layout_cost`.
+/// `--release -- --ignored --nocapture layout_cost`. 3,990 rows are the most
+/// Raikiri's engine lays out (19,955 nodes of its 20,000); it refuses the
+/// 9,500, which print a bottom of 0.
 #[test]
 #[ignore = "a measurement, printed; run on a release build"]
 fn layout_cost() {
     on_layout_thread(|| {
         for (which, rows) in ENGINES
             .iter()
-            .flat_map(|&w| [20usize, 2_000, 9_500].map(|r| (w, r)))
+            .flat_map(|&w| [20usize, 2_000, 3_990, 9_500].map(|r| (w, r)))
         {
             let html = report(rows);
             let mut rt =

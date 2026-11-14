@@ -5,10 +5,10 @@
 #
 # Playwright's Chromium in an 800 by 600 window (the probes' page in the tests
 # is 800 by 600 with no margins), media `screen`, after the page's fonts load.
-# For every element from <body> down, in document order: its tag, its id, its
-# getBoundingClientRect (x, y, width, height), and for an HTML element
-# offsetLeft, offsetTop, offsetWidth, offsetHeight and the id (or tag) of its
-# offsetParent. `report2000.chrome.json` is layout_real.rs's `report(2000)`,
+# For every element from <body> down, in document order ("elements"), and for
+# the root element ("root"): its tag, its id, its getBoundingClientRect (x, y,
+# width, height), and for an HTML element offsetLeft, offsetTop, offsetWidth,
+# offsetHeight and the id (or tag) of its offsetParent. `report2000.chrome.json` is layout_real.rs's `report(2000)`,
 # written here the same way, with only its last row.
 import json
 import os
@@ -17,9 +17,10 @@ import sys
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PAGES = ["boxes", "boxes-nocv", "text", "gaps", "offsets", "report20", "breaks", "media", "offset-parents"]
+PAGES = ["boxes", "boxes-nocv", "text", "gaps", "offsets", "report20", "breaks", "media", "offset-parents",
+         "root-offsets", "body-positioned", "root-positioned", "forced-breaks", "viewport-height", "inline-lines"]
 
-SCRIPT = """() => [document.body, ...document.body.querySelectorAll('*')].map(e => {
+SCRIPT = """() => [document.documentElement, document.body, ...document.body.querySelectorAll('*')].map(e => {
     const r = e.getBoundingClientRect();
     const row = [e.localName, e.id, r.x, r.y, r.width, r.height];
     if (e instanceof HTMLElement) {
@@ -52,9 +53,11 @@ def main():
             page.goto("file://" + os.path.join(HERE, name + ".html"))
             page.evaluate("document.fonts.ready.then(() => 0)")
             rows = page.evaluate(SCRIPT)
-            out = {"chromium": version, "window": [800, 600], "page": name + ".html", "elements": rows}
+            out = {"chromium": version, "window": [800, 600], "page": name + ".html", "elements": rows[1:],
+                   "root": rows[0]}
             with open(os.path.join(HERE, name + ".chrome.json"), "w") as f:
-                f.write(json.dumps(out, indent=None, separators=(",", ":")).replace("],[", "],\n["))
+                f.write(json.dumps(out, indent=None, separators=(",", ":")).replace("],[", "],\n[")
+                        .replace(',"root":', ',\n"root":'))
                 f.write("\n")
         # The fixture fonts by @font-face, as the probes load them, before the
         # generated page's own styles.
