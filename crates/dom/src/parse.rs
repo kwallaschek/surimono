@@ -165,11 +165,12 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
 
     fn create_element(
         &self,
-        name: QualName,
+        mut name: QualName,
         mut attrs: Vec<Attribute>,
         flags: ElementFlags,
     ) -> usize {
         self.note_created();
+        no_empty_prefixes(&mut name, &mut attrs);
         let hidden = self.screen_style(&mut attrs);
         let is_style = name.local.as_ref() == "style";
         let id = self.inner.create_element(name, attrs, flags);
@@ -259,6 +260,9 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
     }
 
     fn add_attrs_if_missing(&self, target: &usize, mut attrs: Vec<Attribute>) {
+        for a in &mut attrs {
+            no_empty_prefix(&mut a.name);
+        }
         self.merged
             .set(self.merged.get().saturating_add(attrs.len()));
         if self.merged.get() > self.max_attributes {
@@ -278,6 +282,25 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
 
     fn reparent_children(&self, node: &usize, new_parent: &usize) {
         self.inner.reparent_children(node, new_parent);
+    }
+}
+
+/// html5ever 0.35's "adjust foreign attributes" gives `xmlns` on an SVG or
+/// MathML element the prefix `Some("")`. HTML §13.2.6.1 gives it the XMLNS
+/// namespace and no prefix (`xmlns:xlink` has the prefix `xmlns`), and in DOM
+/// terms a prefix is null or a non-empty string (§4.9.2), so an empty one is
+/// none: otherwise `getAttribute('xmlns')` misses it, `attr.name` is `:xmlns`
+/// and the XML serializer takes it for a declared prefix.
+fn no_empty_prefix(name: &mut QualName) {
+    if name.prefix.as_ref().is_some_and(|p| p.is_empty()) {
+        name.prefix = None;
+    }
+}
+
+fn no_empty_prefixes(name: &mut QualName, attrs: &mut [Attribute]) {
+    no_empty_prefix(name);
+    for a in attrs {
+        no_empty_prefix(&mut a.name);
     }
 }
 

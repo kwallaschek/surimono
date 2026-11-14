@@ -3421,19 +3421,26 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// An element's or attribute's qualified name (`prefix:local`).
+/// An element's or attribute's qualified name (`prefix:local`; DOM §4.9.2).
+/// An empty prefix is none: the parser drops the one html5ever gives
+/// `xmlns`, and one is never written as a lone colon.
 pub(crate) fn qualified_name(name: &QualName) -> String {
-    match &name.prefix {
+    match prefix_of(name) {
         Some(p) => format!("{p}:{}", name.local),
         None => name.local.to_string(),
     }
 }
 
+/// `name`'s prefix, or none if it has none or an empty one.
+pub(crate) fn prefix_of(name: &QualName) -> Option<&str> {
+    name.prefix.as_deref().filter(|p| !p.is_empty())
+}
+
 /// Whether `name`'s qualified name is `wanted`, without building it.
 fn qualified_is(name: &QualName, wanted: &str) -> bool {
-    match &name.prefix {
+    match prefix_of(name) {
         Some(p) => wanted
-            .strip_prefix(p.as_ref())
+            .strip_prefix(p)
             .and_then(|r| r.strip_prefix(':'))
             .is_some_and(|r| r == name.local.as_ref()),
         None => wanted == name.local.as_ref(),
@@ -3475,7 +3482,7 @@ fn attribute_prefix(name: &QualName) -> Option<&str> {
     } else if name.ns == ns!(xlink) {
         Some("xlink")
     } else {
-        name.prefix.as_ref().map(|p| p.as_ref())
+        prefix_of(name)
     }
 }
 
