@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sun 15 Nov 2026, 05:20)
+## Now (Sun 15 Nov 2026, 04:15)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Fable 5.2 since
@@ -29,13 +29,13 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Main is green** at e29e22f0 on every full.yml job (with #187 and #188).
 - **Nothing ran from about 07:00 to 20:28 on 14 Nov:** the Opus limit stopped every agent. Kay
   switched the session to Fable 5.2 at 20:28; agents restarted on Fable from the pushed branches.
-- **Merged 14 Nov evening:** #189 E3-R1 stage A (21:25: the `raikiri` feature, ICU 2.2 to 2.4,
-  cargo-deny reads every feature; full.yml on that merge was green on every job, ASan included) and #190 P2-DOM-13 (22:10: the parsed `xmlns` prefix; katex's output now equals
+- **Merged 14 Nov evening:** #189 E3-R1 stage A (21:10: the `raikiri` feature, ICU 2.2 to 2.4,
+  cargo-deny reads every feature; full.yml on that merge was green on every job, ASan included) and #190 P2-DOM-13 (21:45, pushed 22:10: the parsed `xmlns` prefix; katex's output now equals
   Chrome's DOM). No PR open in review.
-- **Merged 15 Nov:** #191 P2-PKG-09 (02:10: CI lints and tests the `raikiri` feature) and #193
-  (05:20: checkpoint-3 evidence regenerated on main; COMPAT gives each WPT target a status on both
+- **Merged 15 Nov:** #191 P2-PKG-09 (01:30: CI lints and tests the `raikiri` feature) and #193
+  (04:15: checkpoint-3 evidence regenerated on main; COMPAT gives each WPT target a status on both
   counts).
-- **Open PR, blocked in review, author fixing (since 04:10):** #192 E3-R1 stage B (the Raikiri
+- **Open PR, blocked in review, author fixing (since 03:55):** #192 E3-R1 stage B (the Raikiri
   engine, hidden). Five blocking findings, all wrong numbers given silently: forced breaks on
   pseudo-elements, `float: footnote` and `position: running()` in the measuring cascade, boxes
   above the page top cut or lost (off-screen text measuring), no refusal past 10,000,000 px, and
