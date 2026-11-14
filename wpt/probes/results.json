@@ -1,6 +1,6 @@
 {
  "chromium": "153.0.8010.12",
- "surimono_commit": "221530524e3c0697a3b324da14e6f61174cd6179",
+ "surimono_commit": "0508496fc329c7ad995e602de233aa3d860bc413",
  "cases": {
   "write": {
    "chrome": {
@@ -265,7 +265,7 @@
    "surimono": {
     "log": [
      "function",
-     "IMG undefined"
+     "IMG 2"
     ],
     "report": {
      "errors": [],
@@ -998,7 +998,7 @@
    },
    "surimono": {
     "log": [
-     "<noscript><b>q</b></noscript> 1 3",
+     "<noscript>&lt;b&gt;q&lt;/b&gt;</noscript> 1 3",
      "<i>z</i> 1"
     ],
     "report": {
@@ -1766,7 +1766,7 @@
    },
    "surimono": {
     "log": [
-     "<noscript><b>q</b></noscript>",
+     "<noscript>&lt;b&gt;q&lt;/b&gt;</noscript>",
      "1 #text"
     ],
     "report": {
@@ -2005,6 +2005,75 @@
    "surimono": {
     "log": [
      "[\"childList\",\"characterData\"]"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "annotxml": {
+   "chrome": {
+    "log": [
+     "p true annotation-xml http://www.w3.org/1999/xhtml",
+     "b true annotation-xml http://www.w3.org/1999/xhtml",
+     "i false BODY http://www.w3.org/1999/xhtml",
+     "<math id=\"m\"><annotation-xml encoding=\"text/html\"><p id=\"p\">x</p></annotation-xml></math>"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "p false BODY http://www.w3.org/1999/xhtml",
+     "b false BODY http://www.w3.org/1999/xhtml",
+     "i false BODY http://www.w3.org/1999/xhtml",
+     "<math id=\"m\"><annotation-xml encoding=\"text/html\"></annotation-xml></math>"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "xmlfragns": {
+   "chrome": {
+    "log": [
+     "parsed b http://www.w3.org/2000/svg",
+     "set b http://www.w3.org/2000/svg",
+     "plain b http://www.w3.org/2000/svg",
+     "unbound q:b null"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "parsed b urn:wrong",
+     "set b urn:wrong",
+     "plain b http://www.w3.org/2000/svg",
+     "unbound SyntaxError"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "htmlunsafe": {
+   "chrome": {
+    "log": [
+     "function function function function"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined undefined undefined undefined"
     ],
     "report": {
      "errors": [],

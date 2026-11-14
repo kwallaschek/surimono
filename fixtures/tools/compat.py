@@ -648,30 +648,55 @@ def wpt_failures(baseline_tests: list[dict], ours: dict[str, dict]) -> tuple[lis
     return sorted(causes.items(), key=lambda kv: (-kv[1], kv[0])), rows
 
 
-def wpt_fyi_note(slices: dict, shown: dict[str, tuple[int, int]]) -> list[str]:
-    """Each rate on wpt.fyi's count as well, for the areas slices.toml gives one
-    for. Our baseline can only be shorter (wpt/README.md, "Baseline"), so a
-    target reported on the shorter count alone can flatter the rate."""
+def wpt_status(meets: bool) -> str:
+    return "meets the target" if meets else "**below the target**"
+
+
+def wpt_fyi_rates(slices: dict, shown: dict[str, tuple[int, int, int]]) -> dict[str, float]:
+    """Each area's rate on wpt.fyi's count, for the areas slices.toml gives one for."""
     fyi = slices.get("wpt_fyi")
     if not fyi:
-        return []
+        return {}
     counts = fyi["chrome_passes"]
     stray = [a for a in counts if a not in shown]
     if stray:
         raise SystemExit(f"wpt/slices.toml: wpt_fyi.chrome_passes names {stray[0]!r}, which is no area")
+    return {area: (100 * got / counts[area] if counts[area] else 0.0) for area, (got, _, _) in shown.items() if area in counts}
+
+
+def wpt_fyi_note(slices: dict, shown: dict[str, tuple[int, int, int]]) -> list[str]:
+    """Each rate on wpt.fyi's count as well, with its target and status, for the
+    areas slices.toml gives one for. Our baseline can only be shorter
+    (wpt/README.md, "Baseline"), so a target reported on the shorter count alone
+    can flatter the rate. An area that meets its target on one count and not on
+    the other gets a sentence that says so: which count decides isn't this
+    tool's call, so neither status is given as the verdict."""
+    rates = wpt_fyi_rates(slices, shown)
+    if not rates:
+        return []
+    fyi = slices["wpt_fyi"]
+    counts = fyi["chrome_passes"]
     rows = []
-    for area, (got, total) in shown.items():
-        if area in counts:
-            rate = 100 * got / counts[area] if counts[area] else 0.0
-            rows.append(f"| {area} | {got} | {total} | {counts[area]} | {counts[area] - total} | {rate:.1f}% |")
+    split = []
+    for area, (got, total, target) in shown.items():
+        if area not in rates:
+            continue
+        ours = 100 * got / total if total else 0.0
+        meets_ours, meets_fyi = bool(total) and ours >= target, bool(counts[area]) and rates[area] >= target
+        rows.append(f"| {area} | {got} | {total} | {counts[area]} | {counts[area] - total} | {rates[area]:.1f}% | {target}% | {wpt_status(meets_fyi)} |")
+        if meets_ours != meets_fyi:
+            above, below = ("our baseline", "wpt.fyi's count") if meets_ours else ("wpt.fyi's count", "our baseline")
+            hi, lo = (ours, rates[area]) if meets_ours else (rates[area], ours)
+            split.append(f"**{area} is on both sides of its {target}% target**: {hi:.1f}% on {above}, which meets it, and {lo:.1f}% on {below}, which is below it.")
     return [
         f"The same passes on the two denominators. Ours is what Chrome passes on a static server; wpt.fyi's is Chrome {fyi['chrome']} "
-        f"at the same commit (run {fyi['run']}) on the same URLs. A target is met on ours; where the two rates fall on either side of it, both are reported.",
+        f"at the same commit (run {fyi['run']}) on the same URLs. Each area has a status on each count; where the two differ, both tables say so and neither is the verdict.",
         "",
-        "| Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count |",
-        "|---|---|---|---|---|---|",
+        "| Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count | Target | Status on wpt.fyi's count |",
+        "|---|---|---|---|---|---|---|---|",
         *rows,
         "",
+        *[line for sentence in split for line in (sentence, "")],
     ]
 
 
@@ -718,15 +743,21 @@ def wpt_section(results_file: Path | None) -> list[str]:
     extra_ids = set().union(*extra.values()) if extra else set()
     measured = [t for t in baseline["tests"] if t.get("slice") not in extra_ids]
     lines += ["| Area | Phase | Passed | Of (Chrome passes) | Rate | Target | Status |", "|---|---|---|---|---|---|---|"]
-    shown: dict[str, tuple[int, int]] = {}
+    shown: dict[str, tuple[int, int, int]] = {}
     for name, area in areas.items():
         scores = [wpt_passed(t, ours.get(t["test"])) for t in baseline["tests"] if t.get("slice") in area["ids"]]
-        got = sum(g for g, _ in scores)
-        total = sum(n for _, n in scores)
-        shown[name] = (got, total)
+        shown[name] = (sum(g for g, _ in scores), sum(n for _, n in scores), area["target"])
+    fyi_rates = wpt_fyi_rates(slices, shown)
+    for name, area in areas.items():
+        got, total, target = shown[name]
         rate = 100 * got / total if total else 0.0
-        status = "meets the target" if total and rate >= area["target"] else "**below the target**"
-        lines.append(f"| {name} | {area['phase']} | {got} | {total} | {rate:.1f}% | {area['target']}% | {status} |")
+        meets = bool(total) and rate >= target
+        status = wpt_status(meets)
+        # The status on this count alone would read as the verdict where the
+        # other count says the opposite, so the cell names both.
+        if name in fyi_rates and (fyi_rates[name] >= target) != meets:
+            status += " on this count; " + ("**below it on wpt.fyi's**" if meets else "meets it on wpt.fyi's")
+        lines.append(f"| {name} | {area['phase']} | {got} | {total} | {rate:.1f}% | {target}% | {status} |")
     lines.append("")
     lines += wpt_fyi_note(slices, shown)
     left_out = sum(1 for t in measured if t.get("status") != "OK")

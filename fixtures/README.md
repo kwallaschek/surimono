@@ -423,6 +423,47 @@ SVGs, to check the pipeline itself (every gate passes, fulgur's scores equal
 the baseline); `test/checkpoint.test.mjs` uses it for the failure paths. It
 never produces a result.
 
+## Regenerating docs/COMPAT.md
+
+`docs/COMPAT.md` is `fixtures/tools/compat.py`'s output from five committed
+inputs, plus the hand-written block it carries over from the file it replaces
+(between `<!-- hand-written: begin -->` and `<!-- hand-written: end -->`). The whole
+command, from the repository root:
+
+```
+python3 -I fixtures/tools/compat.py \
+  --fixtures fixtures/checkpoint-2 \
+  --hostile fixtures/hostile/results.json \
+  --bench bench/results/15b530e0/results.json \
+  --wpt wpt/results/wpt-results.json \
+  --pages fixtures/checkpoint-3 \
+  --commit 99c363cd359c281c34bf99e6de0337f3bf569ac8
+```
+
+With `--check` added it writes nothing, and exits 1 unless `docs/COMPAT.md` is
+byte for byte what these inputs give. This is the command the committed file was
+last generated with, so a reviewer can run it as it stands. Leaving an input out is
+not a shorter check: its section becomes "not run" and the check fails.
+
+| Input | What it is | Names its own commit in |
+|---|---|---|
+| `--fixtures fixtures/checkpoint-2` | The island fixtures' scores and determinism ("The checkpoint run") | every `score.json`'s `producer.commit`; `--commit` repeats it for the "Results:" line |
+| `--hostile fixtures/hostile/results.json` | The hostile-script suite through the islands path, from `crates/islands/tests/hostile.rs` with `SURIMONO_HOSTILE_RESULTS` set (`fixtures/hostile/RESULTS_SCHEMA.md`) | `commit` |
+| `--bench bench/results/15b530e0/results.json` | The Grover benchmark's report run (`bench/README.md`, "Committed results") | the folder's name |
+| `--wpt wpt/results/wpt-results.json` | The WPT runner's results (`wpt/README.md`, "Results") | `surimono_commit` |
+| `--pages fixtures/checkpoint-3` | The real-world pages printed ("Printed pages"), from `print-pages.mjs --plain` | `print-pages.json`'s `producer.commit` |
+
+compat.py also reads, with no option: `fixtures/islands/*/meta.toml`,
+`fixtures/hostile/manifest.toml`, `fixtures/real-world/manifest.toml` and
+`*/meta.toml`, and for `--wpt` `wpt/slices.toml`, `wpt/manifest.toml` and
+`wpt/baseline/chrome.json`. `fixtures/checkpoint-3/hostile-page-results.json` (the
+hostile cases as pages) and `wpt/probes/results.json` are evidence the hand-written
+rows cite; compat.py doesn't read them.
+
+When an input is replaced by a newer run, change its path here in the same commit
+if the path changes (a new `bench/results/<commit>` folder, for one), run the
+command, and commit `docs/COMPAT.md` with the input.
+
 ## Which comparison gates what
 
 | Comparison | Measures | Gate |

@@ -280,7 +280,42 @@ class CompatTest(unittest.TestCase):
         self.wpt_tree()
         path = self.root / "wpt" / "slices.toml"
         path.write_text(path.read_text() + '[wpt_fyi]\nrun = "1"\nchrome = "156"\n[wpt_fyi.chrome_passes]\n"dom/nodes" = 8\n')
-        self.assertIn("| dom/nodes | 2 | 4 | 8 | 4 | 25.0% |", self.wpt_table(self.wpt_results(["one", "two"])))
+        self.assertIn("| dom/nodes | 2 | 4 | 8 | 4 | 25.0% | 70% | **below the target** |", self.wpt_table(self.wpt_results(["one", "two"])))
+
+    def wpt_fyi_tree(self, count):
+        self.wpt_tree()
+        path = self.root / "wpt" / "slices.toml"
+        path.write_text(path.read_text() + f'[wpt_fyi]\nrun = "1"\nchrome = "156"\n[wpt_fyi.chrome_passes]\n"dom/nodes" = {count}\n')
+
+    def test_wpt_a_target_met_on_our_count_and_missed_on_wpt_fyis_says_both(self):
+        # 3 of 4 is 75% of ours and 50% of wpt.fyi's 6, with a target of 70%:
+        # neither table may read as the verdict alone.
+        self.wpt_fyi_tree(6)
+        text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
+        self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target on this count; **below it on wpt.fyi's** |", text)
+        self.assertIn("| dom/nodes | 3 | 4 | 6 | 2 | 50.0% | 70% | **below the target** |", text)
+        self.assertIn("**dom/nodes is on both sides of its 70% target**: 75.0% on our baseline, which meets it, and 50.0% on wpt.fyi's count, which is below it.", text)
+        self.assertNotIn("| meets the target |", text)
+
+    def test_wpt_a_target_met_on_both_counts_is_plainly_met(self):
+        self.wpt_fyi_tree(4)
+        text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
+        self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target |", text)
+        self.assertIn("| dom/nodes | 3 | 4 | 4 | 0 | 75.0% | 70% | meets the target |", text)
+        self.assertNotIn("both sides", text)
+
+    def test_wpt_a_target_missed_on_both_counts_is_plainly_missed(self):
+        self.wpt_fyi_tree(8)
+        text = self.wpt_table(self.wpt_results(["one", "two"]))
+        self.assertIn("| dom/nodes | 2 | 2 | 4 | 50.0% | 70% | **below the target** |", text)
+        self.assertIn("| dom/nodes | 2 | 4 | 8 | 4 | 25.0% | 70% | **below the target** |", text)
+        self.assertNotIn("both sides", text)
+
+    def test_wpt_without_a_wpt_fyi_count_has_one_status(self):
+        self.wpt_tree()
+        text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
+        self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target |", text)
+        self.assertNotIn("wpt.fyi", text.split("WPT abc")[0])
 
     def test_wpt_fyi_count_for_an_unknown_area_is_an_error(self):
         self.wpt_tree()

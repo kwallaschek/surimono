@@ -2,10 +2,10 @@
   "subject": "katex-autorender",
   "deterministic": true,
   "sha256": [
-    "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
-    "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
-    "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
-    "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add"
+    "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405",
+    "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405",
+    "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405",
+    "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405"
   ],
   "runs": [
     {
@@ -26,16 +26,16 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
-    "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008"
+    "sha256": "5eb2dad92a713712394155469c647fc685f5f13863312861429ca009640c19a9",
+    "commit": "0508496fc329c7ad995e602de233aa3d860bc413"
   },
   "plain": {
     "deterministic": true,
     "sha256": [
-      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
-      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
-      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add",
-      "11e274bd9b879dc6014f548df72a156081a62fcda385372cdfb1da1e12e23add"
+      "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405",
+      "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405",
+      "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405",
+      "a8a80aa8a828edac147709dfd52a5b2a87ef88121aa1a65807d9f7114ecad405"
     ]
   }
 }
