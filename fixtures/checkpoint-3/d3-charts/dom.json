@@ -1,0 +1,13 @@
+{
+  "subject": "d3-charts",
+  "equal": true,
+  "differs_at": null,
+  "against": "reference/dom.html without <noscript>, linked sheets inlined",
+  "differs_at_in": "the normalized texts: each run of whitespace one space, style at the end of its tag",
+  "producer": {
+    "cli": "fixtures/tools/page-check",
+    "version": "render_page",
+    "sha256": "239c42b0230e717372349a3c6ee8529c40117e25247a7f78480603915a8cee20",
+    "commit": "24d81671ac1fa4276b8c1970201c07b2c5244008"
+  }
+}

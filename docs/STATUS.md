@@ -10,25 +10,34 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sat 14 Nov 2026, 04:30)
+## Now (Sat 14 Nov 2026, 21:25)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
-works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
-13 Nov 22:22 (Kay switched the session after the Fable limit).
+works, prints on par with Chrome-based tools, faster, less memory). Agents run on Fable 5.2 since
+14 Nov 20:28 (Opus 5.5 from 13 Nov 22:22).
 
 - **Merged 13 Nov 22:35 to 14 Nov 04:20:** #181 (selector cut that corrupted printed sheets),
   #183 (Raikiri measured as a printer), #179 (layout prototype, hidden), #180 (printer-safe output:
   4 of 6 real-world pages pass on stock fulgur, 2 without), #185 (Raikiri spike), #184 (setters
   that silently did nothing), #186 (docs). The merged trees of #179 and #180 were tested locally
   (clippy and the crate's tests) before pushing.
-- **Main is green** at a68123fb on every full.yml job (arm64, macOS, ASan, soak, native gems,
-  nightly-extra), so everything merged on 13 and 14 Nov is verified on main.
 - **Decided 14 Nov (DECISIONS):** phase 3 layout queries target Raikiri behind the seam, reading
   its paged fragments (E3-R1 to E3-R4); no Blitz-specific layout work; the print path is designed
   around fulgur-raikiri; real layout stays internal until one layout is bounded in time (E3-01e).
-- **Running:** Q-CF-02 (page-path benchmark against Grover, branch q-cf-02), P2-CF-07
-  (checkpoint-3 regenerated with printer-safe output, branch p2-cf-07), E3-R1 (the Raikiri layout
-  engine, staged: e3-r1a, e3-r1b). No PR open at 04:35.
+- **Merged 14 Nov:** #187 Q-CF-02 (page-path benchmark: faster on 8 of 8 pages, 3.1 to 4.5x less
+  memory), #188 P2-CF-07 (checkpoint-3 evidence regenerated with printer-safe output, 06:20).
+- **Main is green** at e29e22f0 on every full.yml job (with #187 and #188).
+- **Nothing ran from about 07:00 to 20:28 on 14 Nov:** the Opus limit stopped every agent. Kay
+  switched the session to Fable 5.2 at 20:28; agents restarted on Fable from the pushed branches.
+- **Merged 14 Nov 21:25:** #189 E3-R1 stage A (the `raikiri` feature, ICU 2.2 to 2.4, cargo-deny
+  reads every feature). The full.yml run on this merge is the first for ICU 2.4 on macOS, arm64,
+  the native gems, soak and ASan: read it before the next merge if it has finished.
+- **Open PR, green on CI, in fresh review (Fable, since 20:40):** #190 P2-DOM-13 at 24f64d65 (the
+  parsed `xmlns` prefix). Its DECISIONS line is in an orchestrator comment on the PR.
+- **Running:** E3-R1 stage B (the Raikiri engine, branch e3-r1b at 16bfa552, no PR; 5 of 12
+  Chromium-probe tests passed at the last run).
+- Finished worktrees were removed on 14 Nov (disk was full: 240 MB free, now about 6 GB); the
+  branches stay on GitHub.
 - Kay's queue: report the private findings (four files in the Claude project; the 13 Nov one has
   the slow fulgur pages and Raikiri's numbers on them); turn the scheduled resume task back on
   (and set it to Opus 5.5) if he wants night work.
@@ -37,7 +46,7 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and wait for a
-complete green full.yml on main. Then: reviews of the Q-CF-02 and P2-CF-07 PRs; merge; then
+complete green full.yml on main. Then: reviews of the P2-DOM-13 and E3-R1 stage A PRs; merge; then
 Q-ORC-03 (history rewrite) in the first moment with no open PR; then by value: E3-R1, Q-PKG-04
 (Japanese spacing for Raikiri), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in
 CI), P2-PKG-05, P2-DOM-11, P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11,

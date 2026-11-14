@@ -37,7 +37,7 @@ const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
 const standIns = tmp();
 fs.writeFileSync(path.join(standIns, "pdftoppm"), `#!/bin/sh\nexec '${process.execPath}' '${path.join(here, "fake-pdftoppm.mjs")}' "$@"\n`, { mode: 0o755 });
 const node = (script, args, env = {}) =>
-  spawnSync(process.execPath, [path.join(tools, script), ...args], { encoding: "utf8", maxBuffer: 1 << 26, env: { ...process.env, PATH: `${standIns}${path.delimiter}${process.env.PATH}`, FULGUR: "", FULGUR_TIMEOUT_MS: "", FAKE_SURIMONO_FROM: "", FAKE_SURIMONO_FAIL: "", FAKE_SURIMONO_LEAK: "", FAKE_FULGUR_FAIL: "", ...env } });
+  spawnSync(process.execPath, [path.join(tools, script), ...args], { encoding: "utf8", maxBuffer: 1 << 26, env: { ...process.env, PATH: `${standIns}${path.delimiter}${process.env.PATH}`, FULGUR: "", FULGUR_TIMEOUT_MS: "", FAKE_SURIMONO_FROM: "", FAKE_SURIMONO_FAIL: "", FAKE_SURIMONO_LEAK: "", FAKE_FULGUR_FAIL: "", FAKE_PAGE_CHECK_PLAIN: "", FAKE_PAGE_CHECK_DOM: "", ...env } });
 
 /** A fake fulgur as its own executable, with its version and page size fixed. */
 function printer(dir, name, env) {
@@ -92,6 +92,68 @@ test("--keep-prints leaves what the printer was given and names it", () => {
   assert.equal(fs.readFileSync(row.page.input.html, "utf8"), dom);
   assert.doesNotMatch(fs.readFileSync(row.floor.input.html, "utf8"), /<noscript/);
   assert.match(dom, /<noscript/);
+});
+
+test("--plain prints the output with printer-safe off beside the default one", () => {
+  const out = tmp();
+  const bin = printer(out, "fulgur-a", {});
+  const plainHtml = "<!doctype html><html><head></head><body><p>plain</p></body></html>";
+  const r = node("print-pages.mjs", ["--out", path.join(out, "run"), "--check", fakeCheck, "--fulgur", bin, "--keep-prints", "--plain", PAGE], { FAKE_PAGE_CHECK_PLAIN: plainHtml });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const result = readJson(path.join(out, "run", "print-pages.json"));
+  assert.equal(result.plain, true);
+  const [row] = result.rows;
+  // Each output is printed from its own renders: the plain one is page-check's --no-printer-safe output.
+  assert.equal(fs.readFileSync(row.plain.input.html, "utf8"), plainHtml);
+  assert.equal(fs.readFileSync(path.join(out, "run", PAGE, "surimono-plain.html"), "utf8"), plainHtml);
+  assert.notEqual(row.plain_sha256, row.sha256);
+  assert.equal(row.plain.pass, false);
+  assert.equal(row.plain.error, undefined, `the comparison died: ${row.plain.error}`);
+  assert.equal(readJson(path.join(out, "run", PAGE, "plain", "score.json")).subject, PAGE);
+  // Four renders of each, all byte-identical.
+  const determinism = readJson(path.join(out, "run", PAGE, "determinism.json"));
+  assert.equal(determinism.deterministic, true);
+  assert.equal(determinism.sha256.length, 4);
+  assert.deepEqual(determinism.plain, { deterministic: true, sha256: Array(4).fill(row.plain_sha256) });
+  const index = fs.readFileSync(path.join(out, "run", "index.md"), "utf8");
+  assert.match(index, /\*\*0 of 1 pages pass\*\* with printer-safe output \(the default\), \*\*0 of 1\*\* with `--no-printer-safe`/);
+  assert.match(index, /\| Page \| Printer-safe \| Scores \| Image \| `--no-printer-safe` \| Scores \| Image \| Floor \| Scores \| Image \| Output = Chrome's DOM \| Render \| Byte-identical \|/);
+  assert.match(index, new RegExp(`\\(${PAGE}/plain/side-by-side-1\\.png\\)`));
+});
+
+test("without --plain there is no plain output, and every run checks the DOM against Chrome's", () => {
+  const out = tmp();
+  const bin = printer(out, "fulgur-a", {});
+  // A page whose DOM has a `style` attribute.
+  const page = "alpine-invoice";
+  const dom = fs.readFileSync(path.join(repo, "fixtures", "real-world", page, "reference", "dom.html"), "utf8");
+  const run = (name, env) => {
+    const r = node("print-pages.mjs", ["--out", path.join(out, name), "--check", fakeCheck, "--fulgur", bin, page], env);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    return { result: readJson(path.join(out, name, "print-pages.json")), index: fs.readFileSync(path.join(out, name, "index.md"), "utf8"), file: readJson(path.join(out, name, page, "dom.json")) };
+  };
+  const same = run("same", {});
+  assert.equal(same.result.plain, false);
+  assert.equal(same.result.rows[0].plain, undefined);
+  assert.equal(fs.existsSync(path.join(out, "same", page, "plain")), false);
+  assert.doesNotMatch(same.index, /no-printer-safe/);
+  assert.deepEqual(same.result.rows[0].dom, { equal: true, differs_at: null });
+  assert.equal(same.file.equal, true);
+  assert.match(same.file.against, /^reference\/dom\.html without <noscript>/);
+  assert.match(same.index, /`render_page`'s output with the page's scripts kept equals Chrome's DOM: 1 of 1\./);
+  // How long a run of whitespace is and where `style` sits in a tag don't count, as in crates/surimono/tests/page.rs.
+  const styled = dom.replace(/<(\w+)([^>]*?) style="([^"]*)"([^>]*)>/, '<$1 style="$3"$2$4>');
+  assert.notEqual(styled, dom, "the fixture has a style attribute to move");
+  const loose = run("loose", { FAKE_PAGE_CHECK_DOM: styled.replace(/ /g, " \n\t ") });
+  assert.deepEqual(loose.result.rows[0].dom, { equal: true, differs_at: null });
+  // Anything else does, and the cell says from where.
+  const at = dom.indexOf("<body") + 2;
+  const other = run("other", { FAKE_PAGE_CHECK_DOM: `${dom.slice(0, at)}X${dom.slice(at + 1)}` });
+  const { equal, differs_at: from } = other.result.rows[0].dom;
+  assert.equal(equal, false);
+  assert.equal(typeof from, "number");
+  assert.match(other.index, new RegExp(`\\| \\*\\*no\\*\\* \\(from byte ${from} of the normalized texts\\) \\|`));
+  assert.match(other.index, /`render_page`'s output with the page's scripts kept equals Chrome's DOM: 0 of 1\./);
 });
 
 test("a printer that never finishes is killed and reported as timed out", () => {
