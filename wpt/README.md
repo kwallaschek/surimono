@@ -14,7 +14,7 @@ their targets in `slices.toml`. Owned by the conformance researcher.
 | `runner/` | The runner, a standalone crate ("Runner") |
 | `tools/chrome_baseline.mjs` | Writes the baseline in the pinned Chromium |
 | `tools/substitute.mjs`, `tools/sub-vectors.json` | wptserve's substitution for the baseline, and the cases it and the runner must both give ("Substitution") |
-| `probes/` | Small pages behind `docs/COMPAT.md`'s rows that WPT's slices don't pin, with what Chromium and surimono log for each; `run.mjs` regenerates `results.json` |
+| `probes/` | Small pages behind `docs/COMPAT.md`'s rows that WPT's slices don't pin, with what Chromium and surimono log for each; `run.mjs` regenerates `results.json`. `first-load.mjs` prints which of Chromium's answers about input depend on how `run.mjs` opens a page (a mouse move Chromium synthesizes at 0,0) or on Playwright's `--blink-settings` flag |
 | `tools/vendor.py` | Copies the slices, and `support` in `slices.toml`, from a local WPT checkout at the pinned commit; `--check` verifies them offline |
 | `tools/api_needs.py` | Ranks DOM interfaces by how many subtests they unblock, for the DOM engineer |
 
@@ -67,6 +67,19 @@ manifest in the pinned Playwright Chromium's headless shell, on one
 timeouts (10 s, 60 s for `timeout=long`). wpt.fyi's numbers are not used: they come
 from another Chrome build.
 
+No WebDriver drives it, so `testdriver.js` sends no input, but Chromium isn't left
+without any. Playwright starts it with
+`--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4`,
+so `matchMedia('(hover: hover)')` and `(pointer: fine)` are true, and the script
+opens each test with `newPage()` and `goto()`, so Chromium synthesizes one trusted
+mouse move at the viewport's origin after `load` (684 of the 726 phase-2 tests see
+it before they report). Neither moves a subtest of the four phase-2 areas: with `--no-pointer`, where
+each test replaces its tab's first page, no mouse event arrives and the flag is
+left out, and every
+dom/events and timers status is what it is with both. dom/nodes's and domparsing's
+differ from `baseline/chrome.json` only where reruns with both differ too
+(`docs/COMPAT.md`, "What a page sees when it asks").
+
 Nothing from the checkout runs on the host. A small static server in the script
 hands its files to Chromium as data, so it does what WPT's server does statically
 (`.any` and `.window` wrappers, `.headers` files, the common `.sub` substitutions),
@@ -82,17 +95,36 @@ timers and microtasks 34 of 34. Per URL, the baseline's count equals wpt.fyi's o
 lower, never higher. dom/events is the one that matters: it is 11.8% short, so 524
 passes would meet 70% of 748 and be 61.8% of 848. Those wpt.fyi counts are in
 `slices.toml` (`[wpt_fyi]`), and `compat.py` prints every rate on both denominators,
-each with the target and its own status. Where the two fall on either side of a
-target, both tables say so, the first in its status cell, and a sentence under the
-second gives both rates; neither is the verdict, so report both. Today that is
-dom/events: 75.7% on our baseline, 66.7% on wpt.fyi's count, against 70%.
+each with the target and its own status, whatever the verdict.
+
+**Which count a target is judged on** is data, not `compat.py`'s call: `[[judged]]`
+in `slices.toml` names the area, the count (`baseline` or `wpt.fyi`), who decided
+and why. `compat.py` takes the verdict from that count, prints the decision under
+the second table, and keeps wpt.fyi's status in that table.
+
+| Area | Judged on | Why |
+|---|---|---|
+| dom/events | The baseline: 566 of 748, 75.7%, which meets 70% | Kay, 15 Nov 2026 (`docs/DECISIONS.md`): surimono serves no interactive capabilities. A document exported to PDF has no user who clicks, types, scrolls or touches, so subtests that need real input through WebDriver are out of scope, and the baseline is Chromium with no WebDriver, so testdriver sends no input. 99 of the 100 subtests wpt.fyi counts on top are in tests that drive input (below). On wpt.fyi's 848 the rate is 66.7%, below the target, and `docs/COMPAT.md` still prints it |
+| timers and microtasks, dom/nodes, domparsing | No entry: the status is the same on both counts | Nothing hangs on the choice. Of dom/nodes's 33, 10 are in five `moveBefore/` tests that load `testdriver.js` and the other 23, like domparsing's 4, are in tests that don't (below), so dom/events's reason covers only part of them |
+
+Where a judged area's two statuses differ, the first table's status cell gives the
+verdict, the count by name and the entry's note: "meets the target on our baseline;
+input-driven tests are out of scope, see below". An area with no entry whose two
+rates fall on either side of its target gets no verdict: the cell names both
+statuses and a sentence under the second table says no count has been decided. That
+takes a new `[[judged]]` entry with its own reason, not an edit to `compat.py`. An
+entry for an area with no wpt.fyi count is an error, as there is nothing to judge
+between. Events a page's script dispatches itself
+(`dispatchEvent`, `el.click()`, load and timer callbacks) are in scope and in the
+baseline: only what needs input from outside the page is out
+(`docs/COMPAT.md`, "Out of scope: user input").
 
 **dom/events's 100**, URL by URL against that run's summary (`results_url` of
 `https://wpt.fyi/api/runs/5143154416943104`, where each URL has `c`, its passed and
 total subtests). 99 are in 67 test URLs whose pages load `/resources/testdriver.js`,
 WPT's way to have WebDriver send real input (wheel, touch, clicks, keys). Here
 `testdriver-vendor.js` is the empty file of the checkout, where wptrunner serves its
-own, so no input arrives. The 99 are: 40 in `non-cancelable-when-passive/`
+own, so the driver sends no input. The 99 are: 40 in `non-cancelable-when-passive/`
 (wheel, mousewheel, touchstart and touchmove listeners, passive and not, on five
 targets), 35 in `scrolling/`, 9 in `Event-dispatch-on-disabled-elements.html`, 6 in
 `handler-count.html`'s three variants, 4 in `Event-dispatch-redispatch.html`, 2 in
@@ -113,6 +145,10 @@ Chrome 156 and fails in the pinned 153, which fires no `scrollend` after a layou
 clamp. The other areas: dom/nodes's 33 are in 12 URLs (12 in
 `Document-characterSet-normalization-1.html`, 12 in seven `moveBefore/` tests, 6 in
 `Document-createEvent.https.html`, 3 in three others) and domparsing's 4 in three.
+Five of the seven `moveBefore/` tests load `testdriver.js`, with 10 of the 12
+(`selection-preserve` 5, `hover-style-update` 2, and 1 each in `pointer-events`,
+`fullscreen-preserve` and `role-updates-after-move`, which asks the driver for a
+computed role, not for input); no other test behind the 33 or the 4 loads it.
 
 ```json
 {
@@ -311,6 +347,10 @@ runner's resolver from `wpt/tests/`, and a script in it doesn't run. That is why
 path and hash of any other vendored file. A frame that needs a `.py` handler, or its
 own script, gets nothing useful. Idlharness tests fetch `/interfaces/*.idl`. `api_needs.py` sets
 aside what needs a new window, a worker, the network, testdriver or wptserve, so the
-ranking isn't misled, but those stay in the denominator: a target is met on all of
-the slice, or the gap goes in `COMPAT.md` for Kay's OK.
+ranking isn't misled, but those stay in the denominator wherever Chromium passes
+them here: a target is met on all of the baseline, or the gap goes in `COMPAT.md`
+for Kay's OK. A subtest that needs input through testdriver can't pass in Chromium
+here, where no WebDriver sends it, so it isn't in the baseline, the count dom/events's target is
+judged on ("Baseline"). It is in wpt.fyi's count, and so in the rate on that count
+that `docs/COMPAT.md` prints beside ours.
 `COMPAT.md`'s cause table shows how much each of these weighs.

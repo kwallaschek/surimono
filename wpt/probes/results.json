@@ -1,6 +1,6 @@
 {
  "chromium": "153.0.8010.12",
- "surimono_commit": "0508496fc329c7ad995e602de233aa3d860bc413",
+ "surimono_commit": "09c91bf68f9177ad2370d8229525e36237f28d4b",
  "cases": {
   "write": {
    "chrome": {
@@ -2074,6 +2074,166 @@
    "surimono": {
     "log": [
      "undefined undefined undefined undefined"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "focus": {
+   "chrome": {
+    "log": [
+     "start BODY function 0",
+     "input.focus() ok INPUT#i true true true 1",
+     "div.focus() ok INPUT#i",
+     "div tabindex ok DIV#d true",
+     "blur() ok BODY false",
+     "events focus:i:true focusin:i:true blur:i:true focusout:i:true focus:d:true focusin:d:true blur:d:true focusout:d:true"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "start BODY function 0",
+     "input.focus() ok INPUT#i false false false 0",
+     "div.focus() ok INPUT#i",
+     "div tabindex ok DIV#d false",
+     "blur() ok BODY false",
+     "events focus:i:true focusin:i:true blur:i:true focusout:i:true focus:d:true focusin:d:true blur:d:true focusout:d:true"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "autofocus": {
+   "chrome": {
+    "log": [
+     "a 1"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "BODY 0"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "hover": {
+   "chrome": {
+    "log": [
+     "start 0 0 false",
+     "dispatched mouseover:h:false mousemove:h:false mousedown:b:false click:b:false",
+     "after 0 0 false trusted 0",
+     "later 4 1 HTML",
+     "trusted pointerover@0,0:HTML pointerenter@0,0:#document pointerenter@0,0:HTML mouseover@0,0:HTML mouseenter@0,0:#document mouseenter@0,0:HTML pointermove@0,0:HTML mousemove@0,0:HTML"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "start 0 0 false",
+     "dispatched mouseover:h:false mousemove:h:false mousedown:b:false click:b:false",
+     "after 0 0 false trusted 0",
+     "later 4 0 ",
+     "trusted none"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "scroll": {
+   "chrome": {
+    "log": [
+     "start 0 0 0 0 HTML",
+     "scrollTo(0,100) ok 100 100",
+     "scrollBy(0,10) ok 110",
+     "div.scrollTop=40 40 30",
+     "div.scrollTo(0,60) ok 60",
+     "scrollIntoView() ok true",
+     "root.scrollTop=7 7 7",
+     "event document scroll",
+     "event window scroll",
+     "event document scrollend",
+     "event window scrollend",
+     "event div scroll",
+     "event div scrollend"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "start 0 0 0 0 undefined",
+     "scrollTo(0,100) ok 0 0",
+     "scrollBy(0,10) ok 0",
+     "div.scrollTop=40 0 0",
+     "div.scrollTo(0,60) ok 0",
+     "scrollIntoView() ok false",
+     "root.scrollTop=7 0 0"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "mqhover": {
+   "chrome": {
+    "log": [
+     "function",
+     "(hover: hover) true",
+     "(hover: none) false",
+     "(any-hover: hover) true",
+     "(pointer: fine) true",
+     "(pointer: none) false",
+     "(any-pointer: fine) true",
+     "screen true",
+     "print false",
+     "object 0 false"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "undefined",
+     "object 0 true"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "inputev": {
+   "chrome": {
+    "log": [
+     "click:PointerEvent:false click:MouseEvent:false keydown:KeyboardEvent:false wheel:WheelEvent:false pointerdown:PointerEvent:false touchstart:TouchEvent:false input:InputEvent:false focus:FocusEvent:false"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "click:PointerEvent:false click:MouseEvent:false keydown:KeyboardEvent:false wheel:WheelEvent:false pointerdown:PointerEvent:false touchstart:TouchEvent:false input:InputEvent:false focus:FocusEvent:false"
     ],
     "report": {
      "errors": [],
