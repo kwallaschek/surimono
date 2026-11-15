@@ -1,5 +1,9 @@
 
-  // DOM §4.5: here because the interface numbers are in bindings.js.
+  // DOM §4.5: here because the interface numbers are in bindings.js. No
+  // `touchevent`: with "expose legacy touch event APIs" false (no touch screen,
+  // as `ontouchstart` is absent) `createEvent('TouchEvent')` throws
+  // NotSupportedError, as WPT's Document-createEvent-touchevent.window.js wants
+  // and Chromium 153 does. `new TouchEvent(...)` stays.
   for (const [name, id] of [
     ['beforeunloadevent', I_BeforeUnloadEvent], ['compositionevent', I_CompositionEvent],
     ['customevent', I_CustomEvent], ['devicemotionevent', I_DeviceMotionEvent],
@@ -8,7 +12,7 @@
     ['hashchangeevent', I_HashChangeEvent], ['htmlevents', I_Event],
     ['keyboardevent', I_KeyboardEvent], ['messageevent', I_MessageEvent],
     ['mouseevent', I_MouseEvent], ['mouseevents', I_MouseEvent], ['storageevent', I_StorageEvent],
-    ['svgevents', I_Event], ['textevent', I_TextEvent], ['touchevent', I_TouchEvent],
+    ['svgevents', I_Event], ['textevent', I_TextEvent],
     ['uievent', I_UIEvent], ['uievents', I_UIEvent],
   ]) eventNames[name] = id;
 

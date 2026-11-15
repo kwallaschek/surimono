@@ -317,6 +317,15 @@ const EVENT_HANDLER_TYPES: &[&str] = &[
     "OnBeforeUnloadEventHandler",
 ];
 
+/// Event handler IDL attributes in the IDL that are left out. Touch Events
+/// gives `GlobalEventHandlers` these four only when the user agent's "expose
+/// legacy touch event APIs" is true, and pages read their presence
+/// (`'ontouchstart' in window`) as "this is a touch device". surimono has no
+/// touch screen, and Chromium 153 headless without one answers false on window,
+/// document and every element (`wpt/probes`, `mqhover`), as does WPT's
+/// `dom/nodes/Document-createEvent-touchevent.window.js` precondition.
+const UNEXPOSED_HANDLERS: &[&str] = &["ontouchstart", "ontouchend", "ontouchmove", "ontouchcancel"];
+
 /// Everything for one member's two halves.
 struct Out {
     js: String,
@@ -645,7 +654,8 @@ impl Bound<'_, '_> {
             .filter_map(|m| match &m.member.kind {
                 MemberKind::Attribute { name, ty, .. }
                     if matches!(&ty.kind, TypeKind::Named(n)
-                        if EVENT_HANDLER_TYPES.contains(&n.as_str())) =>
+                        if EVENT_HANDLER_TYPES.contains(&n.as_str()))
+                        && !UNEXPOSED_HANDLERS.contains(&name.as_str()) =>
                 {
                     Some(js_string(name))
                 }
@@ -2164,6 +2174,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "anchors",
             "activeElement",
             "hasFocus",
+            "scrollingElement",
             "importNode",
             "adoptNode",
             "children",
