@@ -45,6 +45,9 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   an author `@page` sets a size or margin.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
+- **Kay, 15 Nov 04:27: no interactive capabilities** (DECISIONS). The dom/events target is judged
+  without input-driven tests, so all four phase-2 WPT targets are met; P2-CF-17 puts that into
+  COMPAT and the README.
 - At most two agents at a time (DECISIONS 15 Nov): the usage limit stopped the fleet three times
   in a day.
 - Clean /home/claude/target only while holding the build lock (`flock` on

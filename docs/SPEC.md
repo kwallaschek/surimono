@@ -45,6 +45,8 @@ Answers to the brief's open questions (defaults, overturn any):
 | svg scripted geometry (getBBox and related) | 3 | 60% |
 | css/cssom-view | 3 | 50% |
 
+Pass rates count the subtests Chromium passes when it loads the test from a plain server. Subtests that need real user input through a WebDriver robot (wheel, touch, clicks, keys) are out of scope: a document exported to PDF has no user (Kay, 15 Nov). COMPAT also reports each area on wpt.fyi's count.
+
 - **Memory:** at least 5× lower peak memory (summed PSS) than Grover on the reference report (Kay, checkpoint 2, 4 Nov: lowered from 10×, because fulgur alone sits at about 8.7×; measured 5.8× Ruby, 8.0× Rust); flat memory over 10,000 renders in one process: live heap (Rust and QuickJS) grows less than 64 KiB after warm-up, and resident memory plateaus (reported, with a bound derived from the limits).
 - **Speed (new, the brief gave no number):** surimono + fulgur at least 2× faster than Grover per document on the reference report, both cold (new process) and warm (reused process), median of 20 runs. If QuickJS misses this on heavy charts, the number is reported as measured, not hidden.
 - **Determinism:** every fixture byte-identical across two renders in one process and one in a fresh process.
