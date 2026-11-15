@@ -20,7 +20,7 @@ use surimono_webidl::runtime::{BindingError, ObjectId};
 use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
-use crate::{Document, DomError, LayoutPolicy, LayoutSetup, sheet, web};
+use crate::{Document, DomError, LayoutPolicy, LayoutRefusals, LayoutSetup, sheet, web};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
@@ -177,6 +177,10 @@ pub struct PageReport {
     pub rejections: Vec<String>,
     /// `src` values of external scripts the resolver had no source for.
     pub missing_scripts: Vec<String>,
+    /// Layouts the page's scripts asked for that were refused, by reason
+    /// (internal, with real layout).
+    #[doc(hidden)]
+    pub layout_refusals: LayoutRefusals,
 }
 
 type Shared = Rc<RefCell<Host>>;
@@ -258,6 +262,19 @@ impl DomRuntime {
             .doc
             .as_ref()
             .map_or(0, Document::layouts_run)
+    }
+
+    /// Layouts of the loaded document that were refused, by reason: a
+    /// refused page answers every layout query as with no box, so this is
+    /// how a caller tells it from boxes that are really empty.
+    #[doc(hidden)]
+    pub fn layout_refusals(&self) -> LayoutRefusals {
+        self.host
+            .borrow()
+            .doc
+            .as_ref()
+            .map(|d| d.layout_refusals().clone())
+            .unwrap_or_default()
     }
 
     /// Takes the loaded document back. Wrappers still held by scripts fail
@@ -537,6 +554,11 @@ impl DomRuntime {
             rejections,
             settle,
             missing_scripts,
+            layout_refusals: host
+                .doc
+                .as_ref()
+                .map(|d| d.layout_refusals().clone())
+                .unwrap_or_default(),
         })
     }
 

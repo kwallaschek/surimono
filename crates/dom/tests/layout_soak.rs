@@ -1,11 +1,14 @@
 //! E3-R1 stage C: memory over many renders that each lay out with Raikiri,
-//! as `soak.rs` does for the DOM. Each render parses a report page, runs a
-//! script that measures every row through `getBoundingClientRect` and
-//! `offsetTop`, changes the page and measures again (two layouts), and drops
-//! the document. The pass/fail signal is live heap bytes from a counting
-//! allocator, after warm-up; resident memory is printed. Run with
-//! `--features raikiri`; the 10,000-render soak in release with
-//! `--ignored soak`.
+//! as `soak.rs` does for the DOM. Each render parses a report page of 10 to
+//! 40 rows (a new shape and new text each time), runs a script that
+//! measures every row through `getBoundingClientRect` and `offsetTop`,
+//! changes the page and measures again (two layouts, each on a layout thread
+//! of its own), and drops the document. The pass/fail signals are live heap
+//! bytes from a counting allocator, which must not grow after warm-up, and
+//! resident memory, which must stay on a plateau ([`MAX_RESIDENT_GROWTH`]).
+//! Run with `--features raikiri`; the 10,000-render soak in release with
+//! `--ignored soak` (163 s on the fleet's 2-core machine, RAIKIRI.md section
+//! 10).
 #![cfg(feature = "raikiri")]
 
 mod common;
@@ -22,6 +25,11 @@ static GLOBAL: &StatsAlloc<System> = &INSTRUMENTED_SYSTEM;
 /// end, as in the DOM and islands soaks.
 const MAX_LIVE_GROWTH: i64 = 64 * 1024;
 
+/// Largest growth of resident memory allowed from the end of warm-up to the
+/// end: the allocator's free lists and the thread stacks it reuses, not a
+/// leak, which would be a render's worth (hundreds of KiB) times thousands.
+const MAX_RESIDENT_GROWTH_KIB: u64 = 8 * 1024;
+
 /// The page thread's stack in the facade, as in `layout_real.rs`.
 const STACK: usize = 8 * 1024 * 1024 + 512 * 1024;
 
@@ -30,15 +38,15 @@ fn font(name: &str) -> Vec<u8> {
     std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"))
 }
 
-/// A report page of 20 flex rows (e3-00's 107-node page), different each
-/// render so names and text are new.
+/// A report page of flex rows (at 20 rows e3-00's 107-node page), different
+/// each render so the shape, names and text are new.
 fn page(i: usize) -> String {
     let mut html = String::from(
         "<!doctype html><html><head><style>body { margin: 0; font: 12px 'Noto Sans' }\
          .row { display: flex; padding: 2px 4px; border-bottom: 1px solid #ccc }\
          .l { flex: 1 } .v { width: 80px; text-align: right; font-weight: bold }</style></head><body>",
     );
-    for r in 0..20 {
+    for r in 0..rows(i) {
         html.push_str(&format!(
             "<div class=row id=r{r}><span class=l>Item {i}-{r}</span>\
              <span class=v style=\"color:#333\">{},{:03}</span></div>",
@@ -49,11 +57,16 @@ fn page(i: usize) -> String {
     html
 }
 
+/// Rows of render `i`'s page.
+fn rows(i: usize) -> usize {
+    10 + i % 31
+}
+
 /// Every row's box, a change that makes the layout stale, every row again.
-const SCRIPT: &str = "(function (i) {
+const SCRIPT: &str = "(function (i, rows) {
   let sum = 0;
   for (let pass = 0; pass < 2; pass++) {
-    for (let r = 0; r < 20; r++) {
+    for (let r = 0; r < rows; r++) {
       const row = document.getElementById('r' + r);
       sum += row.getBoundingClientRect().bottom + row.offsetTop + row.offsetWidth;
     }
@@ -109,7 +122,7 @@ fn soak_on_this_thread(name: &str, renders: usize, sample_every: usize, warm_up:
         rt.reset().unwrap();
         rt.load(Document::parse(&page(i)).unwrap());
         let sum: f64 = rt
-            .eval(&format!("({SCRIPT})({i})"))
+            .eval(&format!("({SCRIPT})({i}, {})", rows(i)))
             .unwrap_or_else(|e| panic!("render {i}: {e:?}"));
         assert!(sum > 0.0, "render {i}: nothing measured");
         layouts += rt.layouts_run();
@@ -129,8 +142,15 @@ fn soak_on_this_thread(name: &str, renders: usize, sample_every: usize, warm_up:
         );
     }
     assert_eq!(layouts, 2 * renders as u64, "two layouts a render");
-    let at = |n: usize| samples.iter().find(|s| s.0 == n).unwrap().1;
-    let (warm, end) = (at(warm_up), at(renders));
+    let sample = |n: usize| *samples.iter().find(|s| s.0 == n).unwrap();
+    let (warm, end) = (sample(warm_up).1, sample(renders).1);
+    let (warm_rss, end_rss) = (sample(warm_up).2, sample(renders).2);
+    let highest_rss = samples
+        .iter()
+        .filter(|s| s.0 >= warm_up)
+        .map(|s| s.2)
+        .max()
+        .unwrap();
     let highest = samples
         .iter()
         .filter(|s| s.0 >= warm_up)
@@ -144,6 +164,13 @@ fn soak_on_this_thread(name: &str, renders: usize, sample_every: usize, warm_up:
     assert!(
         end - warm < MAX_LIVE_GROWTH && highest - warm < MAX_LIVE_GROWTH,
         "{name}: live heap grew from {warm} to {end} bytes (highest {highest}) after warm-up"
+    );
+    eprintln!(
+        "{name}: resident from render {warm_up} to {renders}: {warm_rss} -> {end_rss} KiB (highest {highest_rss}), limit +{MAX_RESIDENT_GROWTH_KIB}"
+    );
+    assert!(
+        highest_rss.saturating_sub(warm_rss) < MAX_RESIDENT_GROWTH_KIB,
+        "{name}: resident memory grew from {warm_rss} to {highest_rss} KiB after warm-up"
     );
 }
 
