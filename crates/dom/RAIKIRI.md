@@ -540,16 +540,46 @@ Raikiri's 10 KiB.
 
 **The style text** is what a browser would keep of the page's. Raikiri is a
 printer's layout and knows CSS Generated Content for Paged Media, which no
-browser does: Chromium drops `float: footnote`, `position: running()` and a
-`content` with `string()`, `element()`, `leader()`, `target-counter()`,
-`target-counters()` or `target-text()` as unknown declarations, so an earlier
-declaration still holds and the element is laid out in its line or in the flow.
-`src/sheet_unpaged.rs` takes those declarations out of every sheet and style
-attribute before Raikiri reads them, token by token (a string or a comment that
-spells one is left alone). The `paged-only` probe has each of them, with
-`string-set`, `bookmark-*` and `@page` margin boxes, which move nothing. One
-that reaches the cascade another way (`float: var(--x)`) is taken off the
-cascade afterwards, with the breaks; what it overrode is then lost.
+browser does. `src/sheet_unpaged.rs` gives Raikiri every sheet and style
+attribute as Chromium 153 keeps it, token by token (a string or a comment that
+spells one is left alone, an escape such as `f\6fotnote` is read as the
+tokenizer reads it), in two cases that Chromium tells apart:
+
+- A literal `float: footnote`, `position: running()`, or `content` with
+  `string()`, `element()`, `leader()`, `target-counter()`, `target-counters()`
+  or `target-text()`, is an unknown value: Chromium drops the declaration as it
+  parses it, so an earlier one still holds. It is cut out.
+- The same values where `var()` brings them in (`--f: footnote; float:
+  var(--f)`, `position: running(var(--n))`, `content: var(--k, string(t))`), or
+  a `content` with `attr()` and a paged function (`target-counter(attr(href),
+  page)`, the table-of-contents form): Chromium keeps the declaration, and it
+  is invalid once substituted, so the property has its initial value (`float:
+  none` with the element's own display, `position: static`, `content:
+  normal`). The paged value is renamed (`-surimono-footnote`), which Raikiri
+  doesn't know either and so treats the same way once it substitutes; the
+  `attr()` form becomes `content: normal`.
+
+`@supports` conditions on them, on `string-set` or on `bookmark-*` are false,
+as in Chromium (they are renamed in the condition). Declarations are read only
+inside declaration blocks: at the top level and in the block of `@media`,
+`@supports`, `@layer` and their like, Chromium reads `float: footnote; a { }`
+as one rule with an invalid selector, and the text there is left as it is.
+Probes: `paged-only` (with `string-set`, `bookmark-*` and `@page` margin
+boxes, which move nothing), `paged-float`, `paged-var`, `paged-content`,
+`paged-attr`, `paged-supports`, `paged-supports-not` and `paged-rules`. The
+cascade pass that takes the breaks off still sets a `float: footnote` or a
+running element that reaches it some other way back to the flow.
+
+**Line heights** are Chromium's: it lays lines out in 1/64 px, a number times
+the font size rounded down to one (`13px/1.4` is 18.1875 px a line) and a
+length rounded to the nearest (`1.3em` at 14px is 18.203125). Raikiri keeps
+the exact 18.2, so before this a page drifted a pixel from Chromium every 30
+to 60 lines (`offsetTop` one more after about 30 lines at `13px/1.4`). The
+measuring cascade hands Raikiri the line height as Chromium has it
+(`snapped_line_height`); `normal` is whole pixels in both. Probes: `article`
+(an ordinary page at `15px/1.5`), `line-height-13`, `line-height-wrap` and
+`line-heights` (16px/1.2, `normal`, 18.3px, 1.3em, integer and fractional
+products): no block, paragraph or line box differs.
 
 **Media: `screen`**, the media type Chrome's scripts see and what `matchMedia`
 answers while scripts run. The `media` probe has it: `@media print` and
@@ -603,8 +633,10 @@ flow's start (`PageSlice::content_origin_y`), on a page that much longer, and
 that much is taken off every answer again; a fixed box, which Raikiri places in
 the page area and not in the flow, is left where it is. 131,072 is a power of
 two, so the 1/64 px Chromium lays out in survives the `f32` for the first
-131,072 px of a page, and it covers `-9999px` and `-99999px`. A box further up
-still has no box. One thing is placed by the flow position its page begins at
+131,072 px of a page, and it covers `-9999px` and `-99999px`. A box that
+begins at or above that line was cut there, so a page with one is not laid out
+(`above-cut`, `above-cut-more`); a box wholly above it, placed from nothing
+further up, has no fragment and so no box, while the page is laid out. One thing is placed by the flow position its page begins at
 and is on no page that begins elsewhere: a table's header and footer groups.
 A page with one is projected a second time from the flow's start, and what has
 no box yet takes it from there. Probes: `above-top` (26 elements) and
@@ -616,9 +648,17 @@ error: a box of 17,000,000 px ends at 10,000,000 and the next one begins there,
 where Chromium has it at 17,000,000 (the review of #192 measured Chromium's
 own bound at 33,554,432). So
 the layout is always one page, and a number at that distance isn't the page's.
-A page with a box that reaches 10,000,000 px in any direction is not laid out:
-every query answers as with no box, as for a page over any other bound
-(`too-long`; `raikiri_refuses_a_page_with_a_box_past_what_it_lays_out`).
+A page with a box that reaches 10,000,000 px down, right or left is not laid
+out, nor one with a box length or offset Raikiri clamps (`margin`, `padding`,
+the sizes and the insets, 10,000,000 px or more), whose box is often above the
+page's top and has nothing to show it while what is placed from it is placed
+wrong (`above-far`, `above-far-child`, `above-far-abs`). Every query then
+answers as with no box, as for a page over any other bound (`too-long`;
+`raikiri_refuses_a_page_with_a_box_past_what_it_lays_out`). Far down a page
+the `f32` loses the 1/64 px: from about 1,000,000 px down a box is
+1/64 px to 1 px off and `offsetTop` can be one off, and from 8,257,536 px on,
+the 131,072 px the page begins above costs a half pixel too (review of #192:
+`rv-long1m` to `rv-long9m`, not committed).
 
 **Answers**, by page node id:
 
@@ -642,8 +682,11 @@ every query answers as with no box, as for a page over any other bound
   parent is an ancestor that contains fixed boxes (a transform, a filter,
   `contain: layout` or `paint`, `will-change` naming one of them), or none.
   `offsetParent` itself still answers null (E3-01c).
-- All four are whole numbers: the nearest, and of two equally near the greater,
-  as Chromium rounds them (`fractions`: -2.5 is -2, 2.5 is 3).
+- All four are whole numbers as Chromium makes them: the length first cut to
+  1/64 px toward zero (`left: -0.51px` is -0.5), then the nearest, and of two
+  equally near the greater (`fractions`: -2.5 is -2, 2.5 is 3; `round-trunc`).
+  Sizes are taken bottom less top in the page's coordinates, which are in
+  whole 1/64 px there, so that an `f32` sum's 22.4999 is the 22.5 it is.
 
 **Hidden API used**, all in that one file: `set_ifc_parallel_build`,
 `layout_pages_with_options` with `PageLayoutOptions`, `PageLayoutControl` and
@@ -665,7 +708,11 @@ looked at per copied node, before each cascade and after each projection.
 **Nothing stops a layout that runs, and the node bound doesn't bound its
 time**: a layout's time is not a matter of how many nodes there are alone
 (review of #192), Raikiri looks at its abort check between pages, and there is
-one page. A time bound (E3-01e) needs a check inside Raikiri's layout pass
+one page. The style-text rewrite is linear in the text and bounded by the
+sheet and attribute bounds above (about 0.6 s for 8 MiB in a debug build); it
+looks at the deadline every 4,096 tokens, and checks the nesting bound of 32
+the sheet screen and `style_attr` apply first, reading nothing deeper. A time
+bound (E3-01e) needs a check inside Raikiri's layout pass
 (upstream) or a layout that can be abandoned; until then the engine stays
 hidden.
 
@@ -675,7 +722,8 @@ compared to a twentieth of a pixel):
 
 | Difference | Probes | Whose |
 |---|---|---|
-| Inline boxes half a pixel low where a line's leading is odd: on the probes Chromium gives the upper half of the leading rounded down, so its baselines are on whole pixels; Raikiri halves it. `offsetTop` comes out one more | 30 elements on 10 pages: spans and inline-blocks in 16, 18 and 20 px lines | Raikiri |
+| Inline boxes up to a pixel low where half a line's leading isn't a whole pixel: Chromium gives the upper half of the leading rounded down, so its baselines are on whole pixels; Raikiri halves it exactly. The same amount on every line of a page (0.5 px in a 16 px line of 12px Noto Sans, 0.265625 at `15px/1.5`, 0.09375 at `13px/1.4`, at most just under 1 px); it doesn't add up down the page. `offsetTop` comes out one more where the amount crosses a half | spans, inline-blocks and links in 16, 18, 20 and fractional lines on 19 pages (`article`: 22 of 40 spans) | Raikiri |
+| Text advances 1/64 to 1/16 px narrower in places, which turns an `offsetWidth` at a half into one less | `line-heights` #as (49 against 50), `article` #s | Raikiri |
 | `(orientation: ...)` media queries never match | `media` #o | Raikiri |
 | No box for `<br>` (Chrome: the place and height of the break) | `forced-breaks` | Raikiri |
 | A `display: block` canvas with `width` and `height` attributes is the container's width (section 6) | `boxes` #cv | Raikiri |
@@ -689,9 +737,17 @@ compared to a twentieth of a pixel):
 | `position: sticky; bottom: 0` is where the flow has it, not at the viewport's bottom | `more-gaps` #s2 | Raikiri |
 | A page with a box that reaches 10,000,000 px is not laid out | `too-long` | ours, for Raikiri's bound |
 | The viewport is the author's `@page` area | `at-page` | ours, deliberate |
-| A box more than 131,072 px above the page's top has no box | not probed | ours, for Raikiri's fragments |
+| A page with a box that begins at or above 131,072 px over the page's top is not laid out; a box wholly above it has no box | `above-cut`, `above-cut-more` | ours, for Raikiri's fragments |
+| A page with a length Raikiri clamps (10,000,000 px) is not laid out | `above-far`, `above-far-child`, `above-far-abs` | ours, for Raikiri's bound |
+| `offsetTop` of a length finer than 1/64 px: the page's `f32` rounds y to the nearest 1/64 px where Chromium cuts toward zero (`top: -0.51px` is -1, Chromium 0; `2.4999px` is 3, Chromium 2). `offsetLeft` is Chromium's | `round-trunc` | ours, for the 131,072 px offset |
+| An inline element whose only content is an absolutely positioned box is the container's width by 0 (Chromium: 0 by 0), as a `label` around the visually-hidden pattern | `label-abs`, `sr-only` | Raikiri |
+| A `table-footer-group`'s `height` does nothing (16 px against 20; what follows is 4 px higher) | `table-footer` | Raikiri |
 
-Not probed, known from reading: transforms and relative offsets of boxes
+Not probed, known from reading: a `footnote` in a custom property is renamed
+only where it is the property's whole value (the way `float: var(--f)` takes
+it), so `--f: var(--x, footnote)` brings a footnote in, which the cascade
+pass then floats back to `none` with the display Raikiri blockified; `float`
+and `position` with `attr()` are as Raikiri reads `attr()`; transforms and relative offsets of boxes
 inside columns are not in `page_paint_transforms`; the painter turns a box
 about its transform origin snapped to whole pixels; a table header group above
 the page's top is cut there; `counter(page)` in an element's `content` counts
