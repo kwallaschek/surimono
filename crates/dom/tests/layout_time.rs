@@ -126,7 +126,10 @@ fn threads() -> usize {
 }
 
 /// Threads of the process named as the engine names its layout threads, as
-/// the kernel lists them: whatever the engine counts.
+/// the kernel lists them: whatever the engine counts. "surimono-layout" is 15
+/// bytes, exactly the most a Linux thread name keeps (`comm`), so it isn't
+/// cut. Linux only, as `/proc` is.
+#[cfg(target_os = "linux")]
 fn named_layout_threads() -> usize {
     std::fs::read_dir("/proc/self/task").map_or(0, |tasks| {
         tasks
@@ -257,6 +260,7 @@ fn hostile_pages_again_and_again_hold_a_bounded_number_of_layouts() {
 /// layout threads, counted by the kernel's thread names, whatever the engine
 /// counts; every call ends within its limit (with the time limit, or with the
 /// answer if it got a slot and its layout ended in time).
+#[cfg(target_os = "linux")]
 #[test]
 fn several_runtimes_at_once_share_the_bounded_layout_threads() {
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());

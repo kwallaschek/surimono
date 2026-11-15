@@ -888,6 +888,11 @@ and the packaging engineer), which builds the Raikiri crates in release there.
   threads at once; never more than four layout threads, every call within its
   limit plus 100 ms, the threads gone and the live heap where it was once they
   end). A call that finds every slot taken waits for one, up to its deadline.
+  *A parallelism ceiling:* so at most four Raikiri layouts run at once in the
+  process; a fifth ordinary caller waits even when nothing was given up on,
+  the wait counts against its deadline, and waiters are not served first come,
+  first served. For a gem with more than four render threads that is a
+  ceiling; it becomes a `DomLimits` field with E3-R4.
   *The cost of the cap:* while layouts given up on hold every slot, every later
   Raikiri layout in the process ends with the time limit, whatever its size and
   whoever's page it is (tested with an ordinary page): one page's answer can

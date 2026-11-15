@@ -1257,6 +1257,12 @@ fn read_boxes(
 /// a panic, a thread that couldn't start). A call that finds every slot taken
 /// waits for one, up to its deadline.
 ///
+/// **A parallelism ceiling.** So at most four Raikiri layouts run at once in
+/// the process: a fifth caller waits even when nothing was given up on, the
+/// wait counts against its deadline, and waiters are not served first come,
+/// first served. For a gem with more than four render threads that is a
+/// ceiling; it becomes a `DomLimits` field with E3-R4.
+///
 /// **What the cap costs.** While layouts given up on hold every slot, every
 /// later Raikiri layout in the process ends with the time limit, whatever its
 /// size and whoever's page it is: one page's answer can depend on pages that
@@ -1310,7 +1316,8 @@ mod bounded {
     }
 
     /// One of the [`MAX_LAYOUT_THREADS`] slots, given back when dropped.
-    struct Slot;
+    /// Counted when [`take_slot`] returns it, not when a thread starts.
+    pub(super) struct Slot;
 
     impl Drop for Slot {
         fn drop(&mut self) {
@@ -1324,7 +1331,7 @@ mod bounded {
     /// Takes a slot, waiting for one up to `deadline`. With no deadline (a
     /// `Document` driven directly, never from the bindings) the wait has no
     /// bound.
-    fn take_slot(deadline: Option<&Deadline>) -> Result<Slot, EngineError> {
+    pub(super) fn take_slot(deadline: Option<&Deadline>) -> Result<Slot, EngineError> {
         let mut n = live_lock();
         while *n >= MAX_LAYOUT_THREADS {
             if deadline.is_some_and(Deadline::passed) {
@@ -1408,6 +1415,10 @@ mod bounded {
 mod tests {
     use super::*;
 
+    /// The tests that take layout slots share the process-wide count; one at
+    /// a time.
+    static SLOTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn a_panic_in_the_engine_is_a_typed_fault() {
         let got = guarded(|| panic!("inside the engine"));
@@ -1433,6 +1444,7 @@ mod tests {
 
     #[test]
     fn a_layout_thread_gives_its_answer_or_a_typed_fault() {
+        let _alone = SLOTS.lock().unwrap_or_else(|e| e.into_inner());
         let got = bounded::run(None, || 6 * 7);
         assert!(matches!(got, Ok(42)), "{got:?}");
         // A panic the work didn't catch ends the call with a fault, and the
@@ -1450,6 +1462,37 @@ mod tests {
         let got = bounded::run(None, move || Arc::strong_count(&theirs));
         assert!(matches!(got, Ok(2)), "{got:?}");
         assert_eq!(Arc::strong_count(&owned), 1);
+    }
+
+    /// A slot is counted when `take_slot` returns it, under the lock its
+    /// check holds: four takers hold four, a fifth waits until one is given
+    /// back, and dropping them gives every one back.
+    #[test]
+    fn a_slot_is_counted_when_taken_and_a_fifth_taker_waits() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        let _alone = SLOTS.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(bounded::MAX_LAYOUT_THREADS, 4);
+        let mut held: Vec<_> = (0..bounded::MAX_LAYOUT_THREADS)
+            .map(|_| bounded::take_slot(None).expect("a free slot"))
+            .collect();
+        assert_eq!(bounded::live(), 4);
+        let (tx, rx) = mpsc::channel();
+        let fifth = std::thread::spawn(move || {
+            let slot = bounded::take_slot(None);
+            let _ = tx.send(slot.is_ok());
+            // Held until this thread ends.
+            drop(slot);
+        });
+        assert!(
+            rx.recv_timeout(Duration::from_millis(50)).is_err(),
+            "a fifth slot while four are held"
+        );
+        drop(held.pop());
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)), Ok(true));
+        fifth.join().unwrap();
+        drop(held);
+        assert_eq!(bounded::live(), 0);
     }
 
     #[test]
