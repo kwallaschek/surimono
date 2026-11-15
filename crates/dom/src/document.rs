@@ -551,6 +551,8 @@ pub struct Document {
     pub(crate) layout_epoch: u64,
     /// Layouts run so far.
     pub(crate) layouts_run: u64,
+    /// Layouts refused so far, by reason.
+    pub(crate) layout_refusals: crate::layout::LayoutRefusals,
     /// The body or frameset element whose `on*` attribute was written last:
     /// its attributes are the window's. A handle, so its node stays.
     pub(crate) handler_source: Option<Handle>,
@@ -721,6 +723,7 @@ impl Document {
             current_layout: None,
             layout_epoch: 0,
             layouts_run: 0,
+            layout_refusals: Default::default(),
             handler_source: None,
             ticks: Cell::new(0),
             list_steps: 0,

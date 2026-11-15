@@ -39,10 +39,10 @@ mod dispatch;
 pub use document::{ATTRIBUTE_COST, Document, DomLimits, LayoutPolicy};
 pub use error::DomError;
 #[doc(hidden)]
-pub use layout::{LayoutEngine, LayoutSetup};
+pub use layout::{LayoutEngine, LayoutRefusal, LayoutRefusals, LayoutSetup};
 #[cfg(feature = "raikiri")]
 #[doc(hidden)]
-pub use layout_raikiri::RaikiriSetup;
+pub use layout_raikiri::{RaikiriSetup, layout_threads};
 pub use runtime::{DomRuntime, PageReport};
 
 /// Version of this crate, for diagnostics.

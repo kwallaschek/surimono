@@ -27,7 +27,10 @@ use std::thread;
 use blitz_dom::FontContext;
 use common::limits;
 use parley::fontique::{Blob, Collection, CollectionOptions, SourceCache};
-use surimono_dom::{Document, DomLimits, DomRuntime, LayoutEngine, LayoutPolicy, LayoutSetup};
+use surimono_dom::{
+    Document, DomLimits, DomRuntime, LayoutEngine, LayoutPolicy, LayoutRefusal, LayoutRefusals,
+    LayoutSetup,
+};
 
 type Job = Box<dyn FnOnce() + Send>;
 
@@ -550,8 +553,9 @@ fn a_list_is_laid_out_whatever_its_start() {
 const SMALL: &str = "<div id=a style=\"width:5px;height:5px\"></div>";
 
 /// `x,y,width,height` of the 5 by 5 box in a page with `head` in its head and
-/// `body` after the box, and how many layouts ran.
-fn small_box(which: Which, head: String, body: String) -> (String, u64) {
+/// `body` after the box, how many layouts ran, and how many were refused and
+/// why.
+fn small_box(which: Which, head: String, body: String) -> (String, u64, LayoutRefusals) {
     on_layout_thread(move || {
         let mut rt = runtime(
             which,
@@ -560,16 +564,34 @@ fn small_box(which: Which, head: String, body: String) -> (String, u64) {
             ),
         );
         let rect: String = rt.eval(&format!("{RECT} rect('a')")).unwrap();
-        (rect, rt.layouts_run())
+        (rect, rt.layouts_run(), rt.layout_refusals())
     })
 }
 
-const NOT_LAID_OUT: (&str, u64) = ("0,0,0,0", 0);
-const LAID_OUT: (&str, u64) = ("0,0,5,5", 1);
+/// No box, no layout, and one refusal the caller can see.
+const NOT_LAID_OUT: (&str, u64, u64) = ("0,0,0,0", 0, 1);
+const LAID_OUT: (&str, u64, u64) = ("0,0,5,5", 1, 0);
 
-fn outcome(got: &(String, u64)) -> (&str, u64) {
-    (got.0.as_str(), got.1)
+fn outcome(got: &(String, u64, LayoutRefusals)) -> (&str, u64, u64) {
+    (got.0.as_str(), got.1, got.2.total())
 }
+
+/// The one reason a page was refused for.
+fn refused_for(got: &(String, u64, LayoutRefusals)) -> Option<LayoutRefusal> {
+    assert!(got.2.total() <= 1, "{got:?}");
+    REASONS.iter().copied().find(|&r| got.2.count(r) == 1)
+}
+
+const REASONS: [LayoutRefusal; 8] = [
+    LayoutRefusal::Nodes,
+    LayoutRefusal::Text,
+    LayoutRefusal::Attributes,
+    LayoutRefusal::Sheets,
+    LayoutRefusal::TooFar,
+    LayoutRefusal::AboveTop,
+    LayoutRefusal::EngineBound,
+    LayoutRefusal::Cost,
+];
 
 /// A layout can't be stopped once started, so a page with more than one
 /// layout may take is not laid out and answers as with no box. The bounds
@@ -666,6 +688,111 @@ fn a_page_over_the_layout_bounds_is_not_laid_out() {
             outcome(&small_box(which, String::new(), attribute)),
             NOT_LAID_OUT
         );
+    }
+}
+
+/// A refused page answers as with no box, as a browser's element with no box
+/// does, and says why to the caller: a refusal is counted by reason
+/// (`DomRuntime::layout_refusals`, `PageReport::layout_refusals`), so that it
+/// can't be mistaken for boxes that are really empty. A refused layout is
+/// counted once, however many queries it answers.
+#[test]
+fn a_refused_page_says_why() {
+    for &which in ENGINES {
+        eprintln!("engine: {which:?}");
+        let style = |css: String| format!("<style>{css}</style>");
+        let words = format!("<p>{}</p>", "word ".repeat((256 << 10) / 5 + 1));
+        let got = small_box(which, String::new(), words);
+        assert_eq!(refused_for(&got), Some(LayoutRefusal::Text), "{got:?}");
+        let rules = "b { color: red }\n".repeat((1 << 20) / 17 + 1);
+        let got = small_box(which, style(rules), String::new());
+        assert_eq!(refused_for(&got), Some(LayoutRefusal::Sheets), "{got:?}");
+        let nested = style(format!("{}b{}{{}}", "(".repeat(33), ")".repeat(33)));
+        let got = small_box(which, nested, String::new());
+        assert_eq!(refused_for(&got), Some(LayoutRefusal::Sheets), "{got:?}");
+        // The style shape bounds are one screen, for sheets and style
+        // attributes alike.
+        let chain = format!(
+            "<i style=\"{}\"></i>",
+            (0..65)
+                .map(|i| format!("--p{i}: var(--p{});", i + 1))
+                .collect::<String>()
+        );
+        let got = small_box(which, String::new(), chain);
+        assert_eq!(refused_for(&got), Some(LayoutRefusal::Sheets), "{got:?}");
+        let attributes = format!(
+            "<i {}></i>",
+            (0..4_000)
+                .map(|i| format!("a{i}=\"{}\" ", "x".repeat(2_000)))
+                .collect::<String>()
+        )
+        .repeat(2);
+        let got = small_box(which, String::new(), attributes);
+        assert_eq!(
+            refused_for(&got),
+            Some(LayoutRefusal::Attributes),
+            "{got:?}"
+        );
+        let got = small_box(which, String::new(), String::new());
+        assert_eq!(refused_for(&got), None, "{got:?}");
+    }
+    #[cfg(feature = "raikiri")]
+    {
+        let raikiri = |body: &str| small_box(Which::Raikiri, String::new(), body.to_owned());
+        for (body, why) in [
+            ("<p></p>".repeat(20_000), LayoutRefusal::Nodes),
+            (
+                "<div style=\"height:17000000px\"></div>".to_owned(),
+                LayoutRefusal::TooFar,
+            ),
+            (
+                "<div style=\"margin-top:-20000000px;height:5px\"></div>".to_owned(),
+                LayoutRefusal::TooFar,
+            ),
+            (
+                "<div style=\"position:absolute;top:-131073px;height:30px\"></div>".to_owned(),
+                LayoutRefusal::AboveTop,
+            ),
+            // Deeper than Raikiri's 256 levels of boxes.
+            (
+                format!("{}x{}", "<div>".repeat(300), "</div>".repeat(300)),
+                LayoutRefusal::EngineBound,
+            ),
+        ] {
+            let got = raikiri(&body);
+            assert_eq!(refused_for(&got), Some(why), "{why:?}: {got:?}");
+        }
+        // The cost estimate: every box costs 3 to the power of the boxes
+        // sized by their content above it, and a page over 2,097,152 is not
+        // laid out. 1,000 paragraphs under 6 such boxes (729,000) are; under 7
+        // (2,187,000) not; in a `display: none` subtree they cost nothing.
+        let nested = |levels: usize, hidden: bool| {
+            format!(
+                "<div style=\"display:{}\">{}{}{}</div>",
+                if hidden { "none" } else { "block" },
+                "<div style=\"display:inline-block;width:max-content\">".repeat(levels),
+                "<p>x</p>".repeat(500),
+                "</div>".repeat(levels)
+            )
+        };
+        assert_eq!(outcome(&raikiri(&nested(6, false))), LAID_OUT);
+        let got = raikiri(&nested(7, false));
+        assert_eq!(refused_for(&got), Some(LayoutRefusal::Cost), "{got:?}");
+        assert_eq!(outcome(&raikiri(&nested(12, true))), LAID_OUT);
+        // Counted once a layout, and in the page's report.
+        let html = format!(
+            "<!doctype html><html><body>{}<script>\
+             for (let i = 0; i < 5; i++) document.body.firstChild.getBoundingClientRect();\
+             </script></body></html>",
+            "<p></p>".repeat(20_000)
+        );
+        let report = on_layout_thread(move || {
+            let mut rt = runtime(Which::Raikiri, &html);
+            rt.run_page(&surimono_core::SettleOptions::default(), |_| None)
+                .unwrap()
+        });
+        assert_eq!(report.layout_refusals.count(LayoutRefusal::Nodes), 1);
+        assert_eq!(report.layout_refusals.total(), 1);
     }
 }
 
@@ -857,6 +984,32 @@ fn raikiri_refuses_a_page_with_a_box_past_what_it_lays_out() {
             "{fits}"
         );
     }
+    // A pseudo-element of an element with no box has none either, however
+    // long (CSS Display 3 §2.5: `display: none` generates no boxes for the
+    // element or its descendants, its pseudo-elements among them).
+    for hidden in ["#h::before", "#h::after", "#h > i::before"] {
+        let head = format!(
+            "<style>{hidden} {{ content: 'x'; display: block; height: 99999999px; margin-top: -20000000px }}</style>"
+        );
+        assert_eq!(
+            outcome(&small_box(
+                Which::Raikiri,
+                head,
+                "<div id=h style=\"display:none\"><i></i></div>".to_owned()
+            )),
+            LAID_OUT,
+            "{hidden}"
+        );
+    }
+    let head = "<style>#h::before { content: 'x'; display: block; height: 99999999px }</style>";
+    assert_eq!(
+        outcome(&small_box(
+            Which::Raikiri,
+            head.to_owned(),
+            "<div id=h></div>".to_owned()
+        )),
+        NOT_LAID_OUT
+    );
     for reaches in [
         "height:10000000px",
         "height:17000000px",

@@ -727,6 +727,218 @@ fn check_heights(name: &'static str, pinned: &[(&str, f64)]) {
     assert_eq!(ours, pinned, "{name}: {got:#?}");
 }
 
+/// Every span of page `name` whose top, from the top of the nearest ancestor
+/// with an id (its paragraph), isn't Chrome's to a twentieth of a pixel, as
+/// `(that ancestor's id and the span's place in it, our offset, Chrome's)`.
+/// The paragraphs' heights (`paragraph_heights`) don't say where on its line a
+/// span of another font size sits, and the spans' tops on the page add up
+/// every paragraph height above them.
+fn span_tops(name: &'static str) -> Vec<(String, f64, f64)> {
+    on_layout_thread(move || {
+        let chrome = probe(&format!("{name}.chrome.json"));
+        runtime(&probe(&format!("{name}.html")))
+            .eval::<String>(&format!(
+                "const all = ({chrome}).elements, chrome = all.filter((r) => r[0] === 'span');
+                 const top = (id) => all.find((r) => r[1] === id)[3];
+                 [...document.querySelectorAll('span')].map((s, i) => {{
+                     const p = s.closest('[id]'), at = [...p.querySelectorAll('span')].indexOf(s);
+                     const ours = s.getBoundingClientRect().y - p.getBoundingClientRect().y;
+                     const theirs = chrome[i][3] - top(p.id);
+                     return Math.abs(ours - theirs) <= 0.05 ? '' : p.id + '/' + at + ' ' + ours + ' ' + theirs;
+                 }}).filter((l) => l).join('\\n')"
+            ))
+            .unwrap()
+            .lines()
+            .map(|l| {
+                let mut w = l.split(' ');
+                let id = w.next().unwrap_or_default().to_owned();
+                let mut n = || w.next().and_then(|v| v.parse().ok()).unwrap_or(f64::NAN);
+                (id, n(), n())
+            })
+            .collect()
+    })
+}
+
+/// Asserts that the spans of page `name` sit where Chrome's do on their
+/// lines but for `pinned`, each `(paragraph id and span index, our offset
+/// less Chrome's in 1/64 px)`.
+fn check_span_tops(name: &'static str, pinned: &[(&str, i64)]) {
+    let got = span_tops(name);
+    let ours: Vec<(&str, i64)> = got
+        .iter()
+        .map(|(id, ours, theirs)| (id.as_str(), ((ours - theirs) * 64.0).round() as i64))
+        .collect();
+    assert_eq!(ours, pinned, "{name}: {got:#?}");
+}
+
+/// Where a span sits on its line, from its paragraph's top, against Chrome's
+/// (E3-R5; `check_heights` above reads the paragraphs' heights only). The
+/// same two gaps as there, seen from the spans, in 1/64 px: a constant
+/// offset where half the leading isn't a whole pixel (Chromium rounds its
+/// upper half down: "Inline boxes up to a pixel low" in RAIKIRI.md section
+/// 9; alone in `q12`, `q14`, `q15`, `q17`, `q21`, `q25`, `q28` to `q31`,
+/// `q33` and `m0` to `m2`), and an offset that grows by the line's difference
+/// from Chromium's line box, 0.5 px a line, where a span of another font size
+/// sits on a line whose line height is a length (the other paragraphs listed,
+/// on top of a constant one in `q16` to `q27` and `m4`). Every other span is
+/// Chrome's.
+#[test]
+fn spans_in_lines_of_mixed_sizes_are_pinned_where_they_differ() {
+    check_span_tops(
+        "line-height-shapes",
+        &[
+            ("q0/1", -32),
+            ("q0/2", -64),
+            ("q0/3", -96),
+            ("q2/0", 32),
+            ("q2/1", 64),
+            ("q2/2", 96),
+            ("q2/3", 128),
+            ("q3/0", 32),
+            ("q3/1", 64),
+            ("q3/2", 96),
+            ("q3/3", 128),
+            ("q4/1", -32),
+            ("q4/2", -64),
+            ("q4/3", -96),
+            ("q6/0", 32),
+            ("q6/1", 64),
+            ("q6/2", 96),
+            ("q6/3", 128),
+            ("q7/0", 32),
+            ("q7/1", 64),
+            ("q7/2", 96),
+            ("q7/3", 128),
+            ("q8/1", -32),
+            ("q8/2", -64),
+            ("q8/3", -96),
+            ("q10/0", 32),
+            ("q10/1", 64),
+            ("q10/2", 96),
+            ("q10/3", 128),
+            ("q11/0", 32),
+            ("q11/1", 64),
+            ("q11/2", 96),
+            ("q11/3", 128),
+            ("q12/0", 48),
+            ("q12/1", 48),
+            ("q12/2", 48),
+            ("q12/3", 48),
+            ("q14/0", 32),
+            ("q14/1", 32),
+            ("q14/2", 32),
+            ("q14/3", 32),
+            ("q15/0", 32),
+            ("q15/1", 32),
+            ("q15/2", 32),
+            ("q15/3", 32),
+            ("q16/0", 48),
+            ("q16/1", 80),
+            ("q16/2", 112),
+            ("q16/3", 144),
+            ("q17/0", 48),
+            ("q17/1", 48),
+            ("q17/2", 48),
+            ("q17/3", 48),
+            ("q18/0", 16),
+            ("q18/1", -16),
+            ("q18/2", -48),
+            ("q18/3", -80),
+            ("q19/0", 16),
+            ("q19/1", -16),
+            ("q19/2", -48),
+            ("q19/3", -80),
+            ("q20/0", 7),
+            ("q20/1", -25),
+            ("q20/2", -57),
+            ("q20/3", -89),
+            ("q21/0", 7),
+            ("q21/1", 7),
+            ("q21/2", 7),
+            ("q21/3", 7),
+            ("q22/0", 39),
+            ("q22/1", 71),
+            ("q22/2", 103),
+            ("q22/3", 135),
+            ("q23/0", 39),
+            ("q23/1", 71),
+            ("q23/2", 103),
+            ("q23/3", 135),
+            ("q24/0", 7),
+            ("q24/1", -25),
+            ("q24/2", -57),
+            ("q24/3", -89),
+            ("q25/0", 7),
+            ("q25/1", 7),
+            ("q25/2", 7),
+            ("q25/3", 7),
+            ("q26/0", 39),
+            ("q26/1", 71),
+            ("q26/2", 103),
+            ("q26/3", 135),
+            ("q27/0", 39),
+            ("q27/1", 71),
+            ("q27/2", 103),
+            ("q27/3", 135),
+            ("q28/0", 6),
+            ("q28/1", 6),
+            ("q28/2", 6),
+            ("q28/3", 6),
+            ("q29/0", 13),
+            ("q29/1", 13),
+            ("q29/2", 13),
+            ("q29/3", 13),
+            ("q30/0", 32),
+            ("q30/1", 32),
+            ("q30/2", 32),
+            ("q30/3", 32),
+            ("q31/0", 19),
+            ("q31/1", 19),
+            ("q31/2", 19),
+            ("q31/3", 19),
+            ("q32/0", 32),
+            ("q32/1", 64),
+            ("q32/2", 96),
+            ("q32/3", 128),
+            ("q33/0", 32),
+            ("q33/1", 32),
+            ("q33/2", 32),
+            ("q33/3", 32),
+            ("q34/1", -32),
+            ("q34/2", -64),
+            ("q34/3", -96),
+            ("q35/1", -32),
+            ("q35/2", -64),
+            ("q35/3", -96),
+        ],
+    );
+    check_span_tops(
+        "line-height-grid",
+        &[
+            ("m0/0", 61),
+            ("m0/1", 61),
+            ("m0/2", 61),
+            ("m0/3", 61),
+            ("m0/4", 61),
+            ("m1/0", 32),
+            ("m1/1", 32),
+            ("m1/2", 32),
+            ("m1/3", 32),
+            ("m1/4", 32),
+            ("m2/0", 6),
+            ("m2/1", 6),
+            ("m2/2", 6),
+            ("m2/3", 6),
+            ("m2/4", 6),
+            ("m4/0", 39),
+            ("m4/1", 71),
+            ("m4/2", 103),
+            ("m4/3", 135),
+            ("m4/4", 167),
+        ],
+    );
+}
+
 /// Where Chromium's lines still differ from the snapped line height, each
 /// paragraph's height pinned with ours, Chrome's from its file. Ten lines of
 /// `x` each, or five of text with a span (`line-height-shapes` q0 to q35).
