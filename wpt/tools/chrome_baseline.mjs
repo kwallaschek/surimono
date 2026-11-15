@@ -17,12 +17,13 @@
 // picks, in manifest order. It refuses a FILE from another Chromium or commit,
 // so a baseline never mixes two browsers.
 //
-// --no-pointer is a check of the baseline, never the baseline itself (it needs
-// --out): Chromium opened with newPage() and goto() synthesizes one trusted mouse
-// move at 0,0 after load, and Playwright launches it with a --blink-settings flag
-// that makes matchMedia report a fine, hovering pointer. With --no-pointer each test
-// replaces its tab's first page, which takes that move, and the flag is left out
-// (docs/COMPAT.md, "What a page sees when it asks"). --slices A,B runs those slices.
+// --no-pointer is a check of the baseline, never the baseline itself (it needs an
+// --out, and refuses wpt/baseline/chrome.json): Chromium opened with newPage()
+// and goto() synthesizes one trusted mouse move at 0,0 after load, and Playwright
+// launches it with a --blink-settings flag that makes matchMedia report a fine,
+// hovering pointer. With --no-pointer each test replaces its tab's first page,
+// which takes that move, and the flag is left out (docs/COMPAT.md, "What a page
+// sees when it asks"). --slices A,B runs those slices.
 
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
@@ -48,8 +49,8 @@ const slices = flag('--slices')?.split(',');
 const noPointer = args.includes('--no-pointer');
 const BLINK = '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4';
 const FIRST = '/__surimono_first_page.html';
-if (noPointer && !flag('--out')) {
-  console.error('--no-pointer checks the baseline and needs --out: it never writes wpt/baseline/chrome.json');
+if (noPointer && (!flag('--out') || path.resolve(out) === path.resolve(wpt, 'baseline/chrome.json'))) {
+  console.error('--no-pointer checks the baseline and needs an --out other than wpt/baseline/chrome.json, which it refuses to write');
   process.exit(1);
 }
 if (!flag('--from') || !fs.existsSync(path.join(checkout, 'resources/testharness.js'))) {

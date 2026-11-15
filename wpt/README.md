@@ -73,7 +73,7 @@ without any. Playwright starts it with
 so `matchMedia('(hover: hover)')` and `(pointer: fine)` are true, and the script
 opens each test with `newPage()` and `goto()`, so Chromium synthesizes one trusted
 mouse move at the viewport's origin after `load` (684 of the 726 phase-2 tests see
-it). Neither moves a subtest of the four phase-2 areas: with `--no-pointer`, where
+it before they report). Neither moves a subtest of the four phase-2 areas: with `--no-pointer`, where
 each test replaces its tab's first page, no mouse event arrives and the flag is
 left out, and every
 dom/events and timers status is what it is with both. dom/nodes's and domparsing's
