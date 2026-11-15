@@ -796,8 +796,16 @@ fn autofocus_yields_to_focus_and_to_a_target() {
             "http://probe.test/p",
             "b",
         ),
-        ("<p id=t>t</p><input id=a autofocus>", "http://probe.test/p#t", "BODY"),
-        ("<p id=t>t</p><input id=a autofocus>", "http://probe.test/p#nothere", "a"),
+        (
+            "<p id=t>t</p><input id=a autofocus>",
+            "http://probe.test/p#t",
+            "BODY",
+        ),
+        (
+            "<p id=t>t</p><input id=a autofocus>",
+            "http://probe.test/p#nothere",
+            "a",
+        ),
         (
             "<input id=r autofocus><script>document.getElementById('r').remove()</script><input id=z>",
             "http://probe.test/p",

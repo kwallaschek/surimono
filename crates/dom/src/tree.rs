@@ -469,7 +469,8 @@ impl Document {
         // the pseudo-class's name is ASCII case-insensitive and may be escaped.
         let wanted = selectors.contains('\\') || selectors.to_ascii_lowercase().contains(":target");
         let target = wanted.then(|| self.target_element()).flatten();
-        let focus = if selectors.contains('\\') || selectors.to_ascii_lowercase().contains(":focus") {
+        let focus = if selectors.contains('\\') || selectors.to_ascii_lowercase().contains(":focus")
+        {
             self.focus_for_query(self.making())
         } else {
             Focus::default()

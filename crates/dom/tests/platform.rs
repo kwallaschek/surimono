@@ -422,7 +422,9 @@ fn a_query_with_no_equals_is_linear() {
         let mut rt = runtime_with(common::cost_limits());
         let began = std::time::Instant::now();
         let size: String = rt
-            .eval(&format!("String(new URLSearchParams('a&'.repeat({n})).size)"))
+            .eval(&format!(
+                "String(new URLSearchParams('a&'.repeat({n})).size)"
+            ))
             .unwrap();
         let took = began.elapsed();
         assert_eq!(size, n.to_string());

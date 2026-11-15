@@ -628,9 +628,12 @@ impl Element for Guarded<'_> {
             NonTSPseudoClass::Focus | NonTSPseudoClass::FocusVisible => {
                 self.budget.focus.element == Some(self.node.id)
             }
-            NonTSPseudoClass::FocusWithin => {
-                self.budget.focus.within.binary_search(&self.node.id).is_ok()
-            }
+            NonTSPseudoClass::FocusWithin => self
+                .budget
+                .focus
+                .within
+                .binary_search(&self.node.id)
+                .is_ok(),
             NonTSPseudoClass::Defined => self
                 .node
                 .element_data()
@@ -847,7 +850,16 @@ mod tests {
                     let found = matcher.matches(doc.node(last), None, &list);
                     (found, matcher.stopped())
                 };
-                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector, true, None, Focus::default());
+                let new = || {
+                    Matcher::new(
+                        QuirksMode::NoQuirks,
+                        None,
+                        &selector,
+                        true,
+                        None,
+                        Focus::default(),
+                    )
+                };
                 assert_eq!(run(&mut new()), (true, false));
                 let (mut stopped, mut lowest) = (false, usize::MAX);
                 with_stack_left(MIN_STACK_BYTES + 4 * 1024, &mut || {
