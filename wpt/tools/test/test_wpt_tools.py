@@ -218,6 +218,194 @@ for (const v of JSON.parse(readFileSync('sub-vectors.json', 'utf8'))) {
         self.assertTrue(any("&amp;" in (v["want"] or "") for v in vectors))
 
 
+def sub(name: str, status: str) -> dict:
+    return {"name": name, "status": status}
+
+
+def entry(name: str, status: str, subtests: list[dict]) -> dict:
+    return {"slice": "s", "test": name, "file": name, "status": status, "subtests": subtests}
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
+class RunsTests(unittest.TestCase):
+    """runs.mjs: what chrome_baseline.mjs --runs and --merge write (wpt/README.md, "Flaky subtests")."""
+
+    TOOLS = pathlib.Path(__file__).resolve().parents[1]
+
+    def intersect(self, runs: list[list[dict]]) -> list[dict]:
+        script = "import { intersectRuns } from './runs.mjs';\nlet s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.stringify(intersectRuns(JSON.parse(s)))));"
+        r = subprocess.run(["node", "--input-type=module", "-e", script], cwd=self.TOOLS, input=json.dumps(runs), capture_output=True, text=True)
+        self.assertEqual((r.returncode, r.stderr), (0, ""))
+        return json.loads(r.stdout)
+
+    def test_one_run_is_written_as_it_was(self):
+        run = [entry("a.html", "OK", [sub("x", "PASS"), sub("y", "FAIL")])]
+        self.assertEqual(self.intersect([run]), run)
+
+    def test_the_same_result_every_time_has_no_runs_field(self):
+        run = [entry("a.html", "OK", [sub("x", "PASS"), sub("y", "FAIL")])]
+        self.assertEqual(self.intersect([run] * 5), run)
+
+    def test_a_subtest_counts_only_if_it_passes_in_every_run(self):
+        runs = [[entry("a.html", "OK", [sub("x", "PASS"), sub("y", s)])] for s in ("PASS", "PASS", "FAIL", "PASS", "TIMEOUT")]
+        [t] = self.intersect(runs)
+        self.assertEqual(t["status"], "OK")
+        self.assertEqual(t["subtests"], [sub("x", "PASS"), {"name": "y", "status": "FAIL", "runs": ["PASS", "PASS", "FAIL", "PASS", "TIMEOUT"]}])
+
+    def test_a_subtest_missing_from_a_run_is_notrun_there(self):
+        runs = [[entry("a.html", "OK", [sub("x", "PASS")])], [entry("a.html", "OK", [sub("x", "PASS"), sub("z", "PASS")])]]
+        [t] = self.intersect(runs)
+        self.assertEqual(t["subtests"], [sub("x", "PASS"), {"name": "z", "status": "NOTRUN", "runs": ["NOTRUN", "PASS"]}])
+
+    def test_a_test_that_does_not_finish_every_time_is_left_out_whole(self):
+        runs = [[entry("a.html", s, [sub("x", "PASS")])] for s in ("OK", "TIMEOUT", "OK")]
+        [t] = self.intersect(runs)
+        self.assertEqual((t["status"], t["runs"]), ("TIMEOUT", ["OK", "TIMEOUT", "OK"]))
+        self.assertEqual(t["subtests"], [sub("x", "PASS")])
+
+    def test_a_test_missing_from_a_run_is_not_ok(self):
+        runs = [[entry("a.html", "OK", []), entry("b.html", "OK", [])], [entry("a.html", "OK", [])]]
+        merged = self.intersect(runs)
+        self.assertEqual([(t["test"], t["status"]) for t in merged], [("a.html", "OK"), ("b.html", "NOTRUN")])
+
+    def test_compat_scores_a_flaky_subtest_as_left_out(self):
+        sys.path.insert(0, str(self.TOOLS.parents[1] / "fixtures" / "tools"))
+        import compat  # noqa: PLC0415
+
+        runs = [[entry("a.html", "OK", [sub("x", "PASS"), sub("y", s)])] for s in ("PASS", "FAIL")]
+        [t] = self.intersect(runs)
+        ours = {"status": "OK", "subtests": [sub("x", "PASS"), sub("y", "PASS")]}
+        self.assertEqual(compat.wpt_passed(t, ours), (1, 1))
+        [left_out] = self.intersect([[entry("b.html", s, [sub("x", "PASS")])] for s in ("OK", "TIMEOUT")])
+        self.assertEqual(compat.wpt_passed(left_out, ours)[1], 0)
+
+
+class BaselineRuleTests(unittest.TestCase):
+    """The committed baseline is the intersection of five runs."""
+
+    WPT = pathlib.Path(__file__).resolve().parents[2]
+
+    def test_the_committed_baseline_says_how_many_runs(self):
+        baseline = json.loads((self.WPT / "baseline" / "chrome.json").read_text(encoding="utf-8"))
+        self.assertGreaterEqual(baseline.get("runs", 1), 5)
+
+    @unittest.skipUnless(shutil.which("node"), "needs node")
+    def test_the_tool_refuses_to_write_the_baseline_from_fewer_runs(self):
+        tool = self.WPT / "tools" / "chrome_baseline.mjs"
+        for extra in (["--runs", "1"], ["--merge", "a.json", "b.json"]):
+            r = subprocess.run(["node", str(tool), "--from", "/nonexistent", *extra], capture_output=True, text=True, cwd=self.WPT)
+            self.assertEqual(r.returncode, 1, r.stderr)
+            self.assertIn("every one of 5 runs", r.stderr)
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
+class MergeGuardTests(unittest.TestCase):
+    """chrome_baseline.mjs --merge and --update refuse what would miscount runs.
+    None of these starts a browser: --merge reads files only."""
+
+    WPT = pathlib.Path(__file__).resolve().parents[2]
+    TOOL = WPT / "tools" / "chrome_baseline.mjs"
+    URL = "dom/nodes/Node-cloneNode-XMLDocument.html"
+    COMMIT = "8b4b06ff53a47f1041e0e59f894d9e929963904c"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = pathlib.Path(self.tmp.name)
+        self.made = 0
+
+    def run_file(self, **header) -> pathlib.Path:
+        self.made += 1
+        data = {"schema": 1, "wpt_commit": self.COMMIT, "chromium": "153.0.8010.12", "runs": 1, "mode": "default",
+                "run_ids": [f"2026-11-16T00:00:0{self.made}.000Z#0000000{self.made}"]}
+        data |= header
+        data = {k: v for k, v in data.items() if v is not None}
+        data.setdefault("tests", [entry(self.URL, "OK", [sub("x", "PASS")]) | {"slice": "dom-nodes", "file": self.URL}])
+        path = self.dir / f"run{self.made}.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        return path
+
+    def tool(self, *extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["node", str(self.TOOL), "--filter", "Node-cloneNode-XMLDocument", *extra], capture_output=True, text=True, cwd=self.WPT)
+
+    def merge(self, files, out=None, *extra: str) -> subprocess.CompletedProcess:
+        return self.tool("--merge", *map(str, files), "--out", str(out or self.dir / "out.json"), *extra)
+
+    def refused(self, r: subprocess.CompletedProcess, text: str):
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn(text, r.stderr)
+
+    def test_two_distinct_runs_merge_and_say_which(self):
+        a, b = self.run_file(), self.run_file()
+        r = self.merge([a, b])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        out = json.loads((self.dir / "out.json").read_text())
+        self.assertEqual((out["runs"], out["mode"]), (2, "default"))
+        self.assertEqual(out["run_ids"], [json.loads(a.read_text())["run_ids"][0], json.loads(b.read_text())["run_ids"][0]])
+
+    def test_the_same_file_twice_is_refused(self):
+        a = self.run_file()
+        self.refused(self.merge([a, self.run_file(), a]), "again; each run counts once")
+        link = self.dir / "link.json"
+        link.symlink_to(a)
+        self.refused(self.merge([a, link]), "again; each run counts once")
+
+    def test_a_copy_of_a_run_is_refused(self):
+        a = self.run_file()
+        copy = self.dir / "copy.json"
+        shutil.copy(a, copy)
+        self.refused(self.merge([a, copy]), "are the same run")
+
+    def test_two_runs_with_the_same_results_are_two_runs(self):
+        # Two of the five runs of 16 Nov are byte-identical but for their ids.
+        self.assertEqual(self.merge([self.run_file(), self.run_file()]).returncode, 0)
+
+    def test_a_run_without_an_id_is_refused(self):
+        self.refused(self.merge([self.run_file(), self.run_file(run_ids=None)]), "has no run id")
+
+    def test_runs_of_two_modes_are_refused(self):
+        self.refused(self.merge([self.run_file(), self.run_file(mode="no-pointer")]), "runs of two modes never combine")
+        self.refused(self.merge([self.run_file(), self.run_file(mode=None)]), "runs of two modes never combine")
+
+    def test_another_chromium_or_commit_is_refused(self):
+        self.refused(self.merge([self.run_file(), self.run_file(chromium="154.0.0.0")]), "is from Chromium 154.0.0.0")
+        self.refused(self.merge([self.run_file(), self.run_file(wpt_commit="0" * 40)]), "is from Chromium")
+
+    def test_a_merged_file_is_refused_as_input(self):
+        self.refused(self.merge([self.run_file(), self.run_file(runs=2)]), "already 2 runs combined")
+
+    def test_a_run_missing_a_test_is_refused(self):
+        self.refused(self.merge([self.run_file(), self.run_file(tests=[])]), "doesn't hold the tests")
+
+    def test_duplicate_subtest_names_are_refused(self):
+        dup = [entry(self.URL, "OK", [sub("x", "PASS"), sub("x", "FAIL")]) | {"slice": "dom-nodes", "file": self.URL}]
+        self.refused(self.merge([self.run_file(), self.run_file(tests=dup)]), "twice")
+
+    def test_update_never_mixes_rules_or_modes(self):
+        prior = self.run_file(runs=5, run_ids=["p1", "p2", "p3", "p4", "p5"])
+        self.refused(self.merge([self.run_file(), self.run_file()], prior, "--update"), "never mixes two rules")
+        prior = self.run_file(runs=2, mode="no-pointer", run_ids=["p1", "p2"])
+        self.refused(self.merge([self.run_file(), self.run_file()], prior, "--update"), "never mixes two modes")
+        prior = self.run_file(runs=2, run_ids=["p1", "p2"])
+        r = self.merge([self.run_file(), self.run_file()], prior, "--update")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(prior.read_text())["earlier_run_ids"], ["p1", "p2"])
+
+    def test_the_baseline_through_a_symlink_is_still_the_baseline(self):
+        baseline = self.WPT / "baseline" / "chrome.json"
+        before = baseline.read_bytes()
+        link = self.dir / "chrome.json"
+        link.symlink_to(baseline)
+        try:
+            self.refused(self.merge([self.run_file(), self.run_file()], link), "every one of 5 runs")
+            five = [self.run_file(mode="no-pointer") for _ in range(5)]
+            self.refused(self.merge(five, link), "made in the default mode")
+        finally:
+            if baseline.read_bytes() != before:  # a broken guard must not leave the real file changed
+                baseline.write_bytes(before)
+                self.fail("the guard let a merge write wpt/baseline/chrome.json")
+
+
 class ApiNeedsTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

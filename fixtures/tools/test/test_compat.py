@@ -303,6 +303,22 @@ class CompatTest(unittest.TestCase):
         self.assertNotIn("| meets the target |", text)
         self.assertNotIn("**dom/nodes's 70% target is judged on", text)
 
+    def test_wpt_a_target_missed_on_our_count_and_met_on_wpt_fyis_says_both(self):
+        # The reverse split: 2 of 4 is 50% of ours and 100% of a wpt.fyi count of 2.
+        # wpt/README.md says ours is never the larger, but the tool doesn't rely on
+        # it: neither table may read as the verdict, and the sentence names the
+        # count that meets the target first.
+        self.wpt_fyi_tree(2)
+        text = self.wpt_table(self.wpt_results(["one", "two"]))
+        self.assertIn("| dom/nodes | 2 | 2 | 4 | 50.0% | 70% | **below the target** on this count; meets it on wpt.fyi's |", text)
+        self.assertIn("| dom/nodes | 2 | 4 | 2 | -2 | 100.0% | 70% | meets the target |", text)
+        self.assertIn(
+            "**dom/nodes is on both sides of its 70% target**: 100.0% on wpt.fyi's count, which meets it, and 50.0% on our baseline, which is below it. "
+            "No count has been decided for this target, so neither is the verdict.",
+            text,
+        )
+        self.assertNotIn("| **below the target** |", text.split("The same passes on the two denominators")[0])
+
     def test_wpt_a_target_met_on_both_counts_is_plainly_met(self):
         self.wpt_fyi_tree(4)
         text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
