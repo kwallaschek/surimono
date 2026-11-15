@@ -540,26 +540,33 @@ fn a_new_body_goes_right_after_the_last() {
     );
 }
 
-/// Each list is rebuilt per change of the tree, not per read.
+/// Each list is rebuilt per change of the tree, not per read: four times the
+/// rows cost about four times as much, where a rebuild per read would cost
+/// sixteen. A ratio in one run, under a time limit no build reaches
+/// (P2-DOM-17).
 #[test]
 fn a_read_loop_over_a_big_table_is_linear() {
-    let mut rows = String::new();
-    for i in 0..2000 {
-        rows.push_str(&format!("<tr><td>{i}</td></tr>"));
-    }
-    let page = format!("<!doctype html><table id=t>{rows}</table>");
-    let began = std::time::Instant::now();
-    assert_eq!(
-        run(
-            &page,
-            r#"const t = document.getElementById('t');
-            let n = 0;
-            for (let i = 0; i < t.rows.length; i++) n += t.rows[i].cells.length;
-            String(n)"#
-        ),
-        "2000"
-    );
-    assert!(began.elapsed() < common::scaled(std::time::Duration::from_secs(30)));
+    let ratio = common::cost_ratio(500, 2000, |n| {
+        let mut rows = String::new();
+        for i in 0..n {
+            rows.push_str(&format!("<tr><td>{i}</td></tr>"));
+        }
+        let mut rt = DomRuntime::new(common::cost_limits()).unwrap();
+        rt.load(Document::parse(&format!("<!doctype html><table id=t>{rows}</table>")).unwrap());
+        let began = std::time::Instant::now();
+        let cells: String = rt
+            .eval(
+                r#"const t = document.getElementById('t');
+                let n = 0;
+                for (let i = 0; i < t.rows.length; i++) n += t.rows[i].cells.length;
+                String(n)"#,
+            )
+            .unwrap();
+        let took = began.elapsed();
+        assert_eq!(cells, n.to_string());
+        took
+    });
+    assert!(ratio < 8.0, "4x the rows took {ratio:.1}x as long");
 }
 
 #[test]

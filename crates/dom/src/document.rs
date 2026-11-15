@@ -247,6 +247,10 @@ pub(crate) const TEXT_HTML: &str = "text/html";
 pub(crate) const APPLICATION_XML: &str = "application/xml";
 const APPLICATION_XHTML: &str = "application/xhtml+xml";
 
+/// Live lists [`Document::live_nodes`] keeps computed: a loop that reads one
+/// list per item of another needs two.
+const LIST_CACHE_ENTRIES: usize = 4;
+
 /// What differs between the documents of a render (DOM §4.5).
 #[derive(Debug, Clone)]
 pub(crate) struct DocInfo {
@@ -446,9 +450,11 @@ pub struct Document {
     owned: HashMap<(usize, Owned), Handle>,
     /// Bumped by every change a live list can see.
     pub(crate) version: u64,
-    /// The last computed live list: (handle, version, nodes), so a loop
-    /// over `list[i]` isn't quadratic. One entry bounds what it holds.
-    list_cache: Option<(Handle, u64, Vec<usize>)>,
+    /// The last computed live lists, most recently used last: (handle,
+    /// version, nodes), so a loop over `list[i]` isn't quadratic, also when
+    /// it reads another list per item (`rows[i].cells`). At most
+    /// [`LIST_CACHE_ENTRIES`] bounds what it holds.
+    list_cache: Vec<(Handle, u64, Vec<usize>)>,
     /// Entries in static lists so far, bounded by [`Self::static_limit`].
     static_entries: usize,
     /// Bytes held in `objects` and `owned` rather than in nodes: list names
@@ -674,7 +680,7 @@ impl Document {
             objects: Vec::new(),
             owned: HashMap::new(),
             version: 0,
-            list_cache: None,
+            list_cache: Vec::new(),
             static_entries: 0,
             retained_bytes: 0,
             registrations: HashMap::new(),
@@ -1883,18 +1889,23 @@ impl Document {
         owner: usize,
         kind: &ListKind,
     ) -> BindingResult<&[usize]> {
-        let fresh = self
+        let version = self.version;
+        let hit = self
             .list_cache
-            .as_ref()
-            .is_some_and(|(h, v, _)| *h == handle && *v == self.version);
-        if !fresh {
-            let nodes = self.compute_list(owner, kind)?;
-            self.list_cache = Some((handle, self.version, nodes));
-        }
-        Ok(self
-            .list_cache
-            .as_ref()
-            .map_or(&[], |(_, _, n)| n.as_slice()))
+            .iter()
+            .position(|(h, v, _)| *h == handle && *v == version);
+        let entry = match hit {
+            Some(at) => self.list_cache.remove(at),
+            None => {
+                let nodes = self.compute_list(owner, kind)?;
+                if self.list_cache.len() == LIST_CACHE_ENTRIES {
+                    self.list_cache.remove(0);
+                }
+                (handle, version, nodes)
+            }
+        };
+        self.list_cache.push(entry);
+        Ok(self.list_cache.last().map_or(&[], |(_, _, n)| n.as_slice()))
     }
 
     /// Descendant elements of `top` in tree order that satisfy `keep`.
