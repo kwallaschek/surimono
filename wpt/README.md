@@ -43,7 +43,9 @@ subtest in the baseline that surimono never reports counts as failed. A subtest
 Chrome fails is left out, and listed in `COMPAT.md` if the spec says Chrome is wrong
 (the spec wins for DOM behaviour).
 
-Scoring one test, in `compat.py`:
+### Scoring one test
+
+What `compat.py` counts for each test of the baseline:
 
 | Chrome's status | surimono's status | Counts |
 |---|---|---|
