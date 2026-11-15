@@ -177,11 +177,13 @@ fn check(name: &'static str, gaps: &[&str]) {
 /// [`check`] for a page whose inline boxes sit low by the half pixel
 /// (above): a line of an element whose name begins with one of `low`'s
 /// prefixes is that gap if its box is lower than Chrome's by exactly that
-/// prefix's amount, and otherwise within a sixteenth of a pixel (a 1/32 px
-/// text advance is Raikiri's too, the `text` probe), and its offsets are one
-/// more or the same, within one pixel across. There must be `lines` such
+/// prefix's amount and otherwise within `across` across (a twentieth of a
+/// pixel, or a sixteenth where Raikiri's narrower text advances add up
+/// before the element) and a twentieth in height, and its offsets are the
+/// same but for `offsetTop` one more or the same and `offsetWidth` one less
+/// or the same (the narrower text advance). There must be `lines` such
 /// lines; every other line is one of `gaps`.
-fn check_low(name: &'static str, low: &[(&str, f64)], lines: usize, gaps: &[&str]) {
+fn check_low(across: f64, name: &'static str, low: &[(&str, f64)], lines: usize, gaps: &[&str]) {
     let got = differences(name);
     let numbers = |s: &str| -> Vec<f64> { s.split(',').filter_map(|v| v.parse().ok()).collect() };
     let is_low = |line: &String| {
@@ -205,13 +207,13 @@ fn check_low(name: &'static str, low: &[(&str, f64)], lines: usize, gaps: &[&str
             who.starts_with(prefix)
                 && if what == "box" {
                     (d[1] - by).abs() < 1e-9
-                        && d[0].abs() <= 0.0625
-                        && d[2].abs() <= 0.0625
+                        && d[0].abs() <= across
+                        && d[2].abs() <= across
                         && d[3].abs() <= 0.05
                 } else {
-                    (d[1] == 0.0 || d[1] == 1.0)
-                        && d[0].abs() <= 1.0
-                        && d[2].abs() <= 1.0
+                    d[0] == 0.0
+                        && (d[1] == 0.0 || d[1] == 1.0)
+                        && (d[2] == 0.0 || d[2] == -1.0)
                         && d[3] == 0.0
                 }
         })
@@ -230,6 +232,11 @@ fn check_low(name: &'static str, low: &[(&str, f64)], lines: usize, gaps: &[&str
         );
     }
 }
+
+/// Box positions across, compared as everywhere in this file.
+const ACROSS: f64 = 0.05;
+/// Across, where Raikiri's narrower text advances add up before an element.
+const ADVANCES: f64 = 0.0625;
 
 /// Asserts that page `name` is refused: every element answers as with no
 /// box, all eight numbers zero, where Chrome has its numbers.
@@ -666,12 +673,13 @@ fn more_of_what_raikiri_lays_out_differently() {
 /// No block, paragraph or line box differs.
 #[test]
 fn line_heights_in_fractions_of_a_pixel_match_chrome_but_for_the_half_pixel() {
-    check_low("article", &[("s", 0.265625)], 60, &[]);
-    check_low("line-height-13", &[("s", 0.09375)], 63, &[]);
-    check_low("line-height-wrap", &[("last", 0.09375)], 1, &[]);
+    check_low(ADVANCES, "article", &[("s", 0.265625)], 60, &[]);
+    check_low(ACROSS, "line-height-13", &[("s", 0.09375)], 63, &[]);
+    check_low(ACROSS, "line-height-wrap", &[("last", 0.09375)], 1, &[]);
     // 16px/1.2, `normal` at 15px (whole pixels in both), 18.3px at 13px,
     // 1.3em at 14px, and lines of integer and fractional products.
     check_low(
+        ACROSS,
         "line-heights",
         &[
             ("as", 0.59375),
@@ -684,6 +692,112 @@ fn line_heights_in_fractions_of_a_pixel_match_chrome_but_for_the_half_pixel() {
         148,
         &[],
     );
+}
+
+/// The height of every `p` of page `name` that differs from Chrome's by
+/// more than a twentieth of a pixel, as `(id, ours, Chrome's)`.
+fn paragraph_heights(name: &'static str) -> Vec<(String, f64, f64)> {
+    on_layout_thread(move || {
+        let chrome = probe(&format!("{name}.chrome.json"));
+        runtime(&probe(&format!("{name}.html")))
+            .eval::<String>(&format!(
+                "const chrome = ({chrome}).elements.filter((r) => r[0] === 'p');
+                 [...document.querySelectorAll('p')].map((p, i) => {{
+                     const h = p.getBoundingClientRect().height;
+                     return Math.abs(h - chrome[i][5]) <= 0.05 ? '' : p.id + ' ' + h + ' ' + chrome[i][5];
+                 }}).filter((l) => l).join('\\n')"
+            ))
+            .unwrap()
+            .lines()
+            .map(|l| {
+                let mut w = l.split(' ');
+                let id = w.next().unwrap_or_default().to_owned();
+                let mut n = || w.next().and_then(|v| v.parse().ok()).unwrap_or(f64::NAN);
+                (id, n(), n())
+            })
+            .collect()
+    })
+}
+
+/// Asserts that the paragraphs of page `name` are Chrome's height but for
+/// `pinned`, each `(id, our height)`, whose Chrome height differs.
+fn check_heights(name: &'static str, pinned: &[(&str, f64)]) {
+    let got = paragraph_heights(name);
+    let ours: Vec<(&str, f64)> = got.iter().map(|(id, h, _)| (id.as_str(), *h)).collect();
+    assert_eq!(ours, pinned, "{name}: {got:#?}");
+}
+
+/// Where Chromium's lines still differ from the snapped line height, each
+/// paragraph's height pinned with ours, Chrome's from its file. Ten lines of
+/// `x` each, or five of text with a span (`line-height-shapes` q0 to q35).
+/// Gaps, Raikiri's line box against Chromium's, not modelled here:
+///
+/// - **A span of another font size on a line whose line height is a
+///   length** (`px`, `%`, `em`): 0.5 px a line, taller or shorter (a
+///   `<small>`, `<code>` or `<sup>` in text): over five lines 2 px (q0 to
+///   q35; `line-height-grid` #m4, 2.5 px). With a number line height it is
+///   Chrome's.
+/// - **Percentages** whose lines Chromium makes shorter than the length:
+///   `133.33%` and `162.5%` at 13, 14.3 and 16 px, 1/32 to 5/64 px a line
+///   (q74 to q88, `line-height-grid` #c110).
+///
+/// Fractional font sizes (`14.3px`, `10.8px`, `0.9em`) and the 108 number
+/// line heights at whole sizes are Chrome's: the snapping takes the font
+/// size in 1/64 px first.
+#[test]
+fn mixed_font_sizes_and_percentages_are_pinned_where_lines_differ() {
+    check_heights(
+        "line-height-grid",
+        &[("c110", 173.28125), ("m4", 103.515625)],
+    );
+    check_heights(
+        "line-height-shapes",
+        &[
+            ("q0", 96.0),
+            ("q2", 100.0),
+            ("q3", 108.0),
+            ("q4", 106.0),
+            ("q6", 110.0),
+            ("q7", 118.0),
+            ("q8", 126.0),
+            ("q10", 130.0),
+            ("q11", 138.0),
+            ("q16", 103.5),
+            ("q18", 107.5),
+            ("q19", 115.5),
+            ("q20", 97.015625),
+            ("q22", 101.015625),
+            ("q23", 109.015625),
+            ("q24", 97.015625),
+            ("q26", 101.015625),
+            ("q27", 109.015625),
+            ("q32", 91.0),
+            ("q34", 95.0),
+            ("q35", 103.0),
+            ("q74", 173.28125),
+            ("q76", 211.25),
+            ("q80", 190.625),
+            ("q82", 232.34375),
+            ("q86", 213.28125),
+            ("q88", 260.0),
+        ],
+    );
+}
+
+/// Lengths of 10,000,000 px and more that Raikiri's clamp changes nothing
+/// of: `max-width` and `max-height` at 99,999,999 px (the "no limit"
+/// idiom), and lengths in a `display: none` subtree. These pages are laid
+/// out, as Chromium lays them out.
+#[test]
+fn a_huge_maximum_or_a_hidden_huge_box_doesnt_refuse_the_page() {
+    for name in [
+        "far-max-width",
+        "far-max-height",
+        "far-hidden",
+        "far-hidden-child",
+    ] {
+        check(name, &[]);
+    }
 }
 
 /// What a browser does with the values only a paged medium has when they
@@ -699,6 +813,7 @@ fn line_heights_in_fractions_of_a_pixel_match_chrome_but_for_the_half_pixel() {
 #[test]
 fn paged_values_through_var_attr_and_escapes_are_what_chrome_makes_of_them() {
     check_low(
+        ACROSS,
         "paged-float",
         &[
             ("fn", 0.5),
@@ -712,11 +827,11 @@ fn paged_values_through_var_attr_and_escapes_are_what_chrome_makes_of_them() {
         36,
         &[],
     );
-    check_low("paged-var", &[("f", 0.5)], 4, &[]);
-    check_low("paged-content", &[("c", 0.5)], 36, &[]);
-    check_low("paged-attr", &[("c", 0.5)], 20, &[]);
+    check_low(ACROSS, "paged-var", &[("f", 0.5)], 4, &[]);
+    check_low(ADVANCES, "paged-content", &[("c", 0.5)], 36, &[]);
+    check_low(ACROSS, "paged-attr", &[("c", 0.5)], 20, &[]);
     check("paged-supports", &[]);
-    check_low("paged-supports-not", &[("n", 0.5)], 2, &[]);
+    check_low(ACROSS, "paged-supports-not", &[("n", 0.5)], 2, &[]);
     check("paged-rules", &[]);
 }
 
@@ -770,6 +885,7 @@ fn fractions_of_a_64th_round_as_chrome_rounds_them_across_not_down() {
 #[test]
 fn an_inline_around_an_absolute_box_and_a_footer_group_height_are_raikiris_gaps() {
     check_low(
+        ACROSS,
         "label-abs",
         &[("i", 0.5)],
         2,

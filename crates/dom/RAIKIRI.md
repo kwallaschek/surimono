@@ -570,16 +570,24 @@ boxes, which move nothing), `paged-float`, `paged-var`, `paged-content`,
 cascade pass that takes the breaks off still sets a `float: footnote` or a
 running element that reaches it some other way back to the flow.
 
-**Line heights** are Chromium's: it lays lines out in 1/64 px, a number times
-the font size rounded down to one (`13px/1.4` is 18.1875 px a line) and a
-length rounded to the nearest (`1.3em` at 14px is 18.203125). Raikiri keeps
-the exact 18.2, so before this a page drifted a pixel from Chromium every 30
-to 60 lines (`offsetTop` one more after about 30 lines at `13px/1.4`). The
-measuring cascade hands Raikiri the line height as Chromium has it
-(`snapped_line_height`); `normal` is whole pixels in both. Probes: `article`
-(an ordinary page at `15px/1.5`), `line-height-13`, `line-height-wrap` and
-`line-heights` (16px/1.2, `normal`, 18.3px, 1.3em, integer and fractional
-products): no block, paragraph or line box differs.
+**Line heights** are snapped to what Chromium uses where a rule fitted to the
+probes holds: Chromium lays lines out in 1/64 px, a number line height being
+the number times the font size (itself first rounded to the nearest 1/64 px)
+rounded down to one (`13px/1.4` is 18.1875 px a line, `14.3px/1.25`
+17.859375), and a length line height rounded to the nearest (`1.3em` at 14px
+is 18.203125). Raikiri keeps the exact 18.2, so before this a page drifted a
+pixel from Chromium every 30 to 60 lines. The measuring cascade hands Raikiri
+the snapped line height (`snapped_line_height`); `normal` is whole pixels in
+both. The rule is fitted to lines of one font size: it matches every number
+line height on the probes (the 108 combinations of 12 whole font sizes and
+9 numbers, and fractional sizes such as `14.3px`, `10.8px`, `0.9em` and
+`1.1em`) and length line heights in `px`, `em`, `rem` and `calc()`. It does
+not model Chromium's line box (its rounded ascent, descent and leading), and
+where that differs from the line height the lines still differ (table below):
+a span of another font size on a line with a length line height, and some
+percentages. Probes: `article` (an ordinary page at `15px/1.5`),
+`line-height-13`, `line-height-wrap`, `line-heights`, `line-height-grid` and
+`line-height-shapes`.
 
 **Media: `screen`**, the media type Chrome's scripts see and what `matchMedia`
 answers while scripts run. The `media` probe has it: `@media print` and
@@ -650,10 +658,15 @@ own bound at 33,554,432). So
 the layout is always one page, and a number at that distance isn't the page's.
 A page with a box that reaches 10,000,000 px down, right or left is not laid
 out, nor one with a box length or offset Raikiri clamps (`margin`, `padding`,
-the sizes and the insets, 10,000,000 px or more), whose box is often above the
+`width`, `height`, their minimums and the insets, 10,000,000 px or more) on an
+element that isn't in a `display: none` subtree, whose box is often above the
 page's top and has nothing to show it while what is placed from it is placed
 wrong (`above-far`, `above-far-child`, `above-far-abs`). Every query then
-answers as with no box, as for a page over any other bound (`too-long`;
+answers as with no box, as for a page over any other bound. A `max-width` or
+`max-height` of that size (the "no limit" idiom, `max-height: 99999999px`) and
+a length in a `display: none` subtree change nothing the clamp could, and are
+laid out as in Chromium (`far-max-width`, `far-max-height`, `far-hidden`,
+`far-hidden-child`) (`too-long`;
 `raikiri_refuses_a_page_with_a_box_past_what_it_lays_out`). Far down a page
 the `f32` loses the 1/64 px: from about 1,000,000 px down a box is
 1/64 px to 1 px off and `offsetTop` can be one off, and from 8,257,536 px on,
@@ -723,6 +736,8 @@ compared to a twentieth of a pixel):
 | Difference | Probes | Whose |
 |---|---|---|
 | Inline boxes up to a pixel low where half a line's leading isn't a whole pixel: Chromium gives the upper half of the leading rounded down, so its baselines are on whole pixels; Raikiri halves it exactly. The same amount on every line of a page (0.5 px in a 16 px line of 12px Noto Sans, 0.265625 at `15px/1.5`, 0.09375 at `13px/1.4`, at most just under 1 px); it doesn't add up down the page. `offsetTop` comes out one more where the amount crosses a half | spans, inline-blocks and links in 16, 18, 20 and fractional lines on 19 pages (`article`: 22 of 40 spans) | Raikiri |
+| A span of another font size on a line whose line height is a length (`px`, `%`, `em`, `rem`): the line is 0.5 px taller or shorter than Chromium's, which models its line box from rounded metrics, so a paragraph is off by 0.5 px a line (2 px over five lines) and what follows moves with it. A `<small>`, `<code>`, `<sup>` or a badge in such text. With a number line height it is Chromium's | `line-height-shapes` q0 to q35, `line-height-grid` #m4 | Raikiri, for the line box |
+| Some percentage line heights: Chromium's lines are 1/32 to 5/64 px shorter than the percentage of the font size (`162.5%` at 13px, exactly 21.125, is 21.0625 a line), so 1 px over 13 to 32 lines | `line-height-shapes` q74 to q88, `line-height-grid` #c110 | Raikiri, for the line box |
 | Text advances 1/64 to 1/16 px narrower in places, which turns an `offsetWidth` at a half into one less | `line-heights` #as (49 against 50), `article` #s | Raikiri |
 | `(orientation: ...)` media queries never match | `media` #o | Raikiri |
 | No box for `<br>` (Chrome: the place and height of the break) | `forced-breaks` | Raikiri |
@@ -742,6 +757,17 @@ compared to a twentieth of a pixel):
 | `offsetTop` of a length finer than 1/64 px: the page's `f32` rounds y to the nearest 1/64 px where Chromium cuts toward zero (`top: -0.51px` is -1, Chromium 0; `2.4999px` is 3, Chromium 2). `offsetLeft` is Chromium's | `round-trunc` | ours, for the 131,072 px offset |
 | An inline element whose only content is an absolutely positioned box is the container's width by 0 (Chromium: 0 by 0), as a `label` around the visually-hidden pattern | `label-abs`, `sr-only` | Raikiri |
 | A `table-footer-group`'s `height` does nothing (16 px against 20; what follows is 4 px higher) | `table-footer` | Raikiri |
+
+Follow-ups, known and not in this stage: model Chromium's line box (rounded
+ascent, descent and leading) instead of snapping `line-height` alone, for the
+two line rows above. A custom property whose whole value is `footnote` is
+renamed, which changes it wherever else it is used: `grid-area: var(--a)`
+into a `footnote` area is auto-placed, a counter named through `var()` is
+another counter, a `font-family: var(--f)` another family (review of #192,
+`rv3-css`, not committed); handling a `float` that resolves to `footnote` in
+the cascade pass instead would narrow it. The renaming makes a sheet grow by
+10 bytes a rename, up to about 1.3 times for a 1 MiB sheet, while the sheet
+bound applies to the text before it; Raikiri's own bounds apply after.
 
 Not probed, known from reading: a `footnote` in a custom property is renamed
 only where it is the property's whole value (the way `float: var(--f)` takes

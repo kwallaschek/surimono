@@ -845,6 +845,9 @@ fn raikiri_refuses_a_page_with_a_box_past_what_it_lays_out() {
         "width:9999990px",
         "position:absolute;top:-100000px;height:5px",
         "position:absolute;top:-131071px;height:30px",
+        // A maximum the clamp changes nothing of, and a hidden huge box.
+        "max-width:99999999px;max-height:99999999px;height:5px",
+        "display:none;height:99999999px",
         // Wholly above the line: laid out, and the box has none.
         "position:relative;top:-200000px;height:5px",
     ] {

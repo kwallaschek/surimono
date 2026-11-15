@@ -517,10 +517,10 @@ fn lay_out_mirror(
     let mut cascade = cascade(&options, &media)?;
     drop(provisional);
     unpaged(&mut cascade);
-    if cascade.computed.iter().any(too_far) || cascade.pseudo.values().any(|c| too_far(c)) {
+    let UncascadedDocument { mut dom, .. } = doc;
+    if lays_out_too_far(&dom, &cascade) {
         return Err(Stop::Refused);
     }
-    let UncascadedDocument { mut dom, .. } = doc;
 
     let abort = || passed();
     let control =
@@ -629,21 +629,26 @@ fn unpaged(cascade: &mut raikiri_html::CascadeResult) {
 }
 
 /// The line height as Chromium 153 lays lines out, which is in whole 1/64 px:
-/// a number times the font size rounded down to one, a length (`em`, `%` and
-/// `calc()` included) rounded to the nearest (the `line-heights`,
-/// `line-height-13` and `article` probes: `13px/1.4` is 18.1875 px a line,
-/// `line-height: 1.3em` at 14px 18.203125). Raikiri keeps the exact
-/// length, so without this every line of a page whose line height isn't a
-/// whole 1/64 px is off by a fraction of one, and the page drifts from
-/// Chromium's by a pixel every 30 to 60 lines. `normal` is left alone; it is
-/// whole pixels in both. `None` where nothing changes.
+/// a number times the font size (in 1/64 px, the nearest) rounded down to
+/// one, a length (`em`, `%` and `calc()` included) rounded to the nearest
+/// (the `line-height*` and `article` probes: `13px/1.4` is 18.1875 px a line,
+/// `line-height: 1.3em` at 14px 18.203125). Raikiri keeps the exact length,
+/// so without this the page drifts from Chromium's by a pixel every 30 to 60
+/// lines. A rule fitted to the probes' lines of one font size: Chromium's
+/// line box, which this doesn't model, differs from it for a span of another
+/// size on a line with a length line height and for some percentages
+/// (RAIKIRI.md section 9). `normal` is left alone; it is whole pixels in
+/// both. `None` where nothing changes.
 fn snapped_line_height(computed: &ComputedValues) -> Option<ComputedLineHeight> {
     let snapped = match computed.line_height {
         ComputedLineHeight::Normal => return None,
         ComputedLineHeight::Number(n) => {
-            // In f32, as Raikiri multiplies, and a hair over: `20px/1.4` is
-            // 28 px, not the 27.99999952 the f32 for 1.4 times 20 is.
-            let px = n * computed.font_size.px();
+            // Of the font size in 1/64 px, the nearest (`14.3px/1.25` is
+            // 14.296875 times 1.25, rounded down: 17.859375). In f32, as
+            // Raikiri multiplies, and a hair over: `20px/1.4` is 28 px, not
+            // the 27.99999952 the f32 for 1.4 times 20 is.
+            let size = (computed.font_size.px() * 64.0).round() / 64.0;
+            let px = n * size;
             (f64::from(px) * 64.0 + 1e-4).floor() / 64.0
         }
         ComputedLineHeight::Length(l) => {
@@ -971,12 +976,34 @@ fn place(
     Some(placed)
 }
 
-/// Whether a box length or offset of `c` is one Raikiri clamps to
+/// Whether a box of the page has a length or offset Raikiri clamps to
 /// [`FARTHEST`] as it lays out. The clamped box is then often above the
 /// page's top, where it has no fragment to show it, while what is placed
 /// from it is placed wrong (`position: relative; top: -20000000px` and an
 /// absolute child `top: 20000050px` puts the child at 0, where Chromium has
-/// it at 50): such a page is not laid out.
+/// it at 50): such a page is not laid out. An element in a `display: none`
+/// subtree has no box to place wrong, and a `max-width` or `max-height`
+/// clamped to 10,000,000 px limits nothing the clamp changes (the "no limit"
+/// idiom, `max-height: 99999999px`: the `far-*` probes, Chromium's).
+fn lays_out_too_far(dom: &raikiri_dom::Document, cascade: &raikiri_html::CascadeResult) -> bool {
+    // Parents come before children in the arena.
+    let mut hidden = vec![false; cascade.computed.len()];
+    for (i, c) in cascade.computed.iter().enumerate() {
+        let parent_hidden = dom
+            .parent_of(i)
+            .filter(|&p| p < i)
+            .is_some_and(|p| hidden[p]);
+        hidden[i] = parent_hidden || matches!(c.display, DisplayValue::None);
+        if !hidden[i] && too_far(c) {
+            return true;
+        }
+    }
+    cascade
+        .pseudo
+        .values()
+        .any(|c| !matches!(c.display, DisplayValue::None) && too_far(c))
+}
+
 fn too_far(c: &ComputedValues) -> bool {
     use raikiri_style::{
         ComputedLengthPercentageOrAuto as Auto, ComputedLengthPercentageOrCalc as Calc,
@@ -1000,8 +1027,6 @@ fn too_far(c: &ComputedValues) -> bool {
         &c.height,
         &c.min_width,
         &c.min_height,
-        &c.max_width,
-        &c.max_height,
         &c.top,
         &c.right,
         &c.bottom,
