@@ -762,6 +762,23 @@ fn a_refused_page_says_why() {
             let got = raikiri(&body);
             assert_eq!(refused_for(&got), Some(why), "{why:?}: {got:?}");
         }
+        // The cost estimate: every box costs 3 to the power of the boxes
+        // sized by their content above it, and a page over 2,097,152 is not
+        // laid out. 1,000 paragraphs under 6 such boxes (729,000) are; under 7
+        // (2,187,000) not; in a `display: none` subtree they cost nothing.
+        let nested = |levels: usize, hidden: bool| {
+            format!(
+                "<div style=\"display:{}\">{}{}{}</div>",
+                if hidden { "none" } else { "block" },
+                "<div style=\"display:inline-block;width:max-content\">".repeat(levels),
+                "<p>x</p>".repeat(500),
+                "</div>".repeat(levels)
+            )
+        };
+        assert_eq!(outcome(&raikiri(&nested(6, false))), LAID_OUT);
+        let got = raikiri(&nested(7, false));
+        assert_eq!(refused_for(&got), Some(LayoutRefusal::Cost), "{got:?}");
+        assert_eq!(outcome(&raikiri(&nested(12, true))), LAID_OUT);
         // Counted once a layout, and in the page's report.
         let html = format!(
             "<!doctype html><html><body>{}<script>\
