@@ -57,7 +57,7 @@ chrome = "156.0.8078.80"
 area = "dom/events"
 on = "baseline"
 by = "Kay, 15 Nov 2026"
-why = "surimono serves no interactive capabilities. A document exported to PDF has no user who clicks, types, scrolls or touches, so subtests that need real input through WebDriver are out of scope, and our baseline is Chrome on a static server with no driver."
+why = "surimono serves no interactive capabilities. A document exported to PDF has no user who clicks, types, scrolls or touches, so subtests that need real input through WebDriver are out of scope, and our baseline is Chrome on a static server with no WebDriver, so testdriver sends no input."
 note = "input-driven tests are out of scope"
 see = "Out of scope: user input"
 

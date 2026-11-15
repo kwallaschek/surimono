@@ -67,6 +67,19 @@ manifest in the pinned Playwright Chromium's headless shell, on one
 timeouts (10 s, 60 s for `timeout=long`). wpt.fyi's numbers are not used: they come
 from another Chrome build.
 
+No WebDriver drives it, so `testdriver.js` sends no input, but Chromium isn't left
+without any. Playwright starts it with
+`--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4`,
+so `matchMedia('(hover: hover)')` and `(pointer: fine)` are true, and the script
+opens each test with `newPage()` and `goto()`, so Chromium synthesizes one trusted
+mouse move at the viewport's origin after `load` (684 of the 726 phase-2 tests see
+it). Neither moves a subtest of the four phase-2 areas: with `--no-pointer`, where
+each test replaces its tab's first page, no mouse event arrives and the flag is
+left out, and every
+dom/events and timers status is what it is with both. dom/nodes's and domparsing's
+differ from `baseline/chrome.json` only where reruns with both differ too
+(`docs/COMPAT.md`, "What a page sees when it asks").
+
 Nothing from the checkout runs on the host. A small static server in the script
 hands its files to Chromium as data, so it does what WPT's server does statically
 (`.any` and `.window` wrappers, `.headers` files, the common `.sub` substitutions),
@@ -91,7 +104,7 @@ the second table, and keeps wpt.fyi's status in that table.
 
 | Area | Judged on | Why |
 |---|---|---|
-| dom/events | The baseline: 566 of 748, 75.7%, which meets 70% | Kay, 15 Nov 2026 (`docs/DECISIONS.md`): surimono serves no interactive capabilities. A document exported to PDF has no user who clicks, types, scrolls or touches, so subtests that need real input through WebDriver are out of scope, and the baseline is Chromium with no driver. 99 of the 100 subtests wpt.fyi counts on top are in tests that drive input (below). On wpt.fyi's 848 the rate is 66.7%, below the target, and `docs/COMPAT.md` still prints it |
+| dom/events | The baseline: 566 of 748, 75.7%, which meets 70% | Kay, 15 Nov 2026 (`docs/DECISIONS.md`): surimono serves no interactive capabilities. A document exported to PDF has no user who clicks, types, scrolls or touches, so subtests that need real input through WebDriver are out of scope, and the baseline is Chromium with no WebDriver, so testdriver sends no input. 99 of the 100 subtests wpt.fyi counts on top are in tests that drive input (below). On wpt.fyi's 848 the rate is 66.7%, below the target, and `docs/COMPAT.md` still prints it |
 | timers and microtasks, dom/nodes, domparsing | No entry: the status is the same on both counts | Nothing hangs on the choice. Of dom/nodes's 33, 10 are in five `moveBefore/` tests that load `testdriver.js` and the other 23, like domparsing's 4, are in tests that don't (below), so dom/events's reason covers only part of them |
 
 Where a judged area's two statuses differ, the first table's status cell gives the
@@ -111,7 +124,7 @@ baseline: only what needs input from outside the page is out
 total subtests). 99 are in 67 test URLs whose pages load `/resources/testdriver.js`,
 WPT's way to have WebDriver send real input (wheel, touch, clicks, keys). Here
 `testdriver-vendor.js` is the empty file of the checkout, where wptrunner serves its
-own, so no input arrives. The 99 are: 40 in `non-cancelable-when-passive/`
+own, so the driver sends no input. The 99 are: 40 in `non-cancelable-when-passive/`
 (wheel, mousewheel, touchstart and touchmove listeners, passive and not, on five
 targets), 35 in `scrolling/`, 9 in `Event-dispatch-on-disabled-elements.html`, 6 in
 `handler-count.html`'s three variants, 4 in `Event-dispatch-redispatch.html`, 2 in
@@ -337,7 +350,7 @@ aside what needs a new window, a worker, the network, testdriver or wptserve, so
 ranking isn't misled, but those stay in the denominator wherever Chromium passes
 them here: a target is met on all of the baseline, or the gap goes in `COMPAT.md`
 for Kay's OK. A subtest that needs input through testdriver can't pass in Chromium
-on a static server, so it isn't in the baseline, the count dom/events's target is
+here, where no WebDriver sends it, so it isn't in the baseline, the count dom/events's target is
 judged on ("Baseline"). It is in wpt.fyi's count, and so in the rate on that count
 that `docs/COMPAT.md` prints beside ours.
 `COMPAT.md`'s cause table shows how much each of these weighs.
