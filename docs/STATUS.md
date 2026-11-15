@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 02:40)
+## Now (Mon 16 Nov 2026, 04:10)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -53,11 +53,28 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   nothing else moved, all four phase-2 targets are met on the judged counts. COMPAT has a short
   paragraph on the hidden layout engine. The run files are in /home/claude/evidence/p2-cf-18/
   (gzipped) until P2-CF-19 commits them.
-- **In progress:** E3-R1 stage C on branch `e3-r1c` (started 15 Nov 23:40, Opus): release cost and
-  memory per layout, a release soak with a layout per render, a time bound on one layout.
+- **Merged 16 Nov 04:05:** #196 P2-CF-19 (the baseline's five run files in the repo; a gate test
+  rebuilds `wpt/baseline/chrome.json` from them byte for byte). Leftovers: P2-CF-20.
+- **Blocked on Kay: E3-R1 stage C is finished but only local.** Branch `e3-r1c`, head 4e1a97b2,
+  worktree /home/claude/wt/e3-r1c (don't remove it), six commits on 04972058. The session's
+  permission check refused the engineer's `git push` of it; the orchestrator does not push it in
+  the agent's place (DECISIONS 16 Nov) and asked Kay once (16 Nov 03:20): may it be pushed? Other
+  branches push normally (#196 did, afterwards). The PR body is ready in the session scratchpad
+  (`e3-r1c-pr.md`); if the scratchpad is gone, write it again from the engineer's report in
+  RAIKIRI.md section 10 on the branch. A fresh reviewer reviews the branch locally
+  (`.private-tmp/review-e3-r1c.md`). Once Kay allows the push: push, open the PR, wait for CI,
+  have the review confirmed at the pushed head, merge; then ask the packaging engineer for the
+  soak line in `scripts/ci/soak.sh` (with `ci-cache-epoch` raised).
+- **What stage C found** (engineer's report, RAIKIRI.md section 10 on the branch): a Raikiri
+  layout costs 21 to 38 µs and 10 to 13 KiB a node in release, 5 to 9 times Blitz's time; the
+  time bound holds for the caller (layout on its own thread), but a layout the call gave up on
+  can run on for about 80 s, so real layout stays unreachable until Raikiri can abort inside its
+  layout pass (public upstream request drafted there; E3-R6 files it under docs/upstream/).
+- **Private, for Kay:** a second Raikiri cost finding from stage C, in the Claude project
+  (`claude/private-upstream-findings-2026-11-16.md`) and `.private-tmp/e3-r1c.md`.
 - **Next, at most two agents:** P2-DOM-16 with P2-DOM-17 (the cheap no-user gaps; the ASan
-  flake) once stage C has reported (both are DOM work in crates/dom), P2-CF-19 (small), then the
-  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov.
+  flake), branched from main, not from `e3-r1c` (they touch other files of crates/dom); P2-CF-20
+  (small); then the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -75,8 +92,8 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #195 merge; look for an open `e3-r1c` PR or branch (stage C) and review it with a
-fresh reviewer. Then start the next two tasks from the list above; then
+run on the #196 merge; read Kay's answer on pushing `e3-r1c` (above) and the local review of it.
+Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
 Q-PKG-04, Q-PKG-03, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
